@@ -809,6 +809,9 @@ a { color: var(--lavender); }
   border-radius: 999px;
   transition: width 0.3s ease;
 }
+.progress-track__fill--low {
+  background: linear-gradient(90deg, var(--gold2), var(--red));
+}
 
 /* ── Session bar extras ───────────────────────────────────── */
 
