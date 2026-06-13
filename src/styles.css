@@ -1225,6 +1225,147 @@ a { color: var(--lavender); }
 }
 .reduce-motion .drop-pop-wrap { display: none; }
 
+/* ── Deck Budget ──────────────────────────────────────────── */
+
+.budget { width: 100%; }
+
+.budget-hud {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.budget-hud__target,
+.budget-hud__avg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  border: 1.5px solid rgba(215, 200, 255, 0.16);
+  min-width: 120px;
+}
+.budget-hud__target { background: rgba(245, 200, 76, 0.1); border-color: rgba(245, 200, 76, 0.3); }
+.budget-hud__avg--ready { border-color: var(--green); background: rgba(34, 197, 94, 0.12); }
+
+.budget-hud__t-label,
+.budget-hud__a-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.budget-hud__t-val { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; color: var(--gold); }
+.budget-hud__a-val { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; color: var(--ink); }
+
+.budget__score { min-width: 220px; }
+
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.budget-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid rgba(215, 200, 255, 0.14);
+  background: rgba(59, 29, 122, 0.45);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.budget-cell:hover { border-color: var(--purple); }
+.budget-cell:active { transform: scale(0.95); }
+
+.budget-cell--selected {
+  border-color: var(--gold);
+  background: rgba(245, 200, 76, 0.16);
+}
+.budget-cell--selected::after {
+  content: '✓';
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.budget-cell__cost {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--lavender);
+}
+
+.budget-cell__img { width: 46px; height: 46px; object-fit: contain; }
+
+.budget-cell__chip {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.55rem;
+  line-height: 1.1;
+  color: var(--lavender);
+  background: rgba(109, 40, 217, 0.25);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+
+.budget-cell__name {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.budget-result {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.budget-result__grade { font-family: var(--font-display); font-weight: 700; font-size: clamp(2rem, 9vw, 3rem); }
+.budget-grade--perfect { color: var(--gold); filter: drop-shadow(0 0 24px rgba(245, 200, 76, 0.5)); }
+.budget-grade--great { color: #4ade80; }
+.budget-grade--close { color: var(--lavender); }
+.budget-grade--ok { color: var(--muted); }
+.budget-grade--off { color: var(--red); }
+
+.budget-result__nums { display: flex; align-items: center; gap: 18px; }
+.budget-result__big { font-family: var(--font-display); font-weight: 700; font-size: 2rem; }
+.budget-result__cap { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.budget-result__vs { color: var(--muted); font-weight: 700; }
+.budget-result__diff { font-size: 0.9rem; color: var(--lavender); }
+
+.budget-result__deck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
 /* ── Home foot note ───────────────────────────────────────── */
 
 .home__foot-note { font-size: 0.8rem; color: var(--muted); margin: 0; }
