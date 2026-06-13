@@ -4,6 +4,7 @@ import { getSettings, saveSettings } from '../../lib/storage'
 import { setSoundEnabled, playCorrect } from '../../lib/sound'
 import { applyReducedMotion } from '../../lib/motion'
 import { navigate } from '../../lib/router'
+import { buildMeta } from '../../lib/build'
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
@@ -88,6 +89,21 @@ export default function Settings() {
           </div>
           <Toggle on={reducedMotion.value} onToggle={toggleMotion} label="Reduce motion" />
         </div>
+
+        <dl class="settings-meta" aria-label="Build information">
+          <div class="settings-meta__row">
+            <dt>Build ID</dt>
+            <dd>
+              <code>{buildMeta.id}</code>
+            </dd>
+          </div>
+          <div class="settings-meta__row">
+            <dt>Build date</dt>
+            <dd>
+              <time dateTime={buildMeta.dateIso}>{buildMeta.dateLabel}</time>
+            </dd>
+          </div>
+        </dl>
 
         <button class="btn btn--ghost btn--sm settings__back" onClick={() => navigate('/')}>
           Done

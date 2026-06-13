@@ -1201,6 +1201,40 @@ a { color: var(--lavender); }
 
 .setting-row__desc { font-size: 0.84rem; color: var(--muted); line-height: 1.4; }
 
+.settings-meta {
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(215, 200, 255, 0.08);
+}
+
+.settings-meta__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.settings-meta__row dt {
+  margin: 0;
+  font-weight: 700;
+}
+
+.settings-meta__row dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.settings-meta__row code,
+.settings-meta__row time {
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+}
+
 .settings__back { align-self: flex-start; margin-top: 20px; }
 
 /* Switch toggle */

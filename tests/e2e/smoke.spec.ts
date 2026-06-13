@@ -105,4 +105,6 @@ test('settings persist input and motion preferences across reload', async ({ pag
 
   await expect(page.getByRole('button', { name: '4 choices' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
+  await expect(page.getByLabel('Build information')).toContainText('Build ID')
+  await expect(page.getByLabel('Build information')).toContainText('Build date')
 })
