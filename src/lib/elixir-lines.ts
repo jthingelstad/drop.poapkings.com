@@ -24,6 +24,11 @@ const TABLE: Record<string, string[]> = {
     'Wide. Learn the cost, own the card.'
   ],
   surge_done: ['{time}s. {insight}', '{time}s — {insight}'],
+  session_end: [
+    '{accuracy}% that round. {insight}.',
+    '{accuracy}% — {insight}.',
+    'Round done: {accuracy}%. {insight}.'
+  ],
   record: [
     'New best: {time}s. People who read elixir like this win wars →',
     "PB: {time}s. That's clan-ready awareness →"

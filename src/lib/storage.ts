@@ -38,6 +38,11 @@ export function saveProfile(p: Partial<Profile>): void {
   save(K.profile, { ...getProfile(), ...p })
 }
 
+// Count a completed session (Practice round, Surge sprint, Higher/Lower run).
+export function recordSession(): void {
+  saveProfile({ totalSessions: getProfile().totalSessions + 1 })
+}
+
 // ── Card stats ────────────────────────────────────────────────────────────────
 
 export function getCardStats(): CardStats {
