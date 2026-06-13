@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { sampleCard } from '../../src/lib/sampling'
+import { sampleCard, sampleUnseenCard } from '../../src/lib/sampling'
 import {
   getCardStats,
   getFunnel,
@@ -47,5 +47,23 @@ describe('weighted sampler', () => {
 
     vi.spyOn(Math, 'random').mockReturnValue(0.99)
     expect(sampleCard(cards, [])).toBe(cards[1])
+  })
+
+  it('penalizes recently seen cards instead of making them more likely', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.2)
+
+    expect(sampleCard(cards, [cards[0].id])).toBe(cards[1])
+  })
+
+  it('samples unseen cards until the pool is exhausted', () => {
+    const seen = new Set<number>()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const first = sampleUnseenCard(cards, seen, [])
+    const second = sampleUnseenCard(cards, seen, [])
+    const third = sampleUnseenCard(cards, seen, [])
+
+    expect(new Set([first.id, second.id])).toEqual(new Set([1, 2]))
+    expect(third.id).toBe(1)
   })
 })

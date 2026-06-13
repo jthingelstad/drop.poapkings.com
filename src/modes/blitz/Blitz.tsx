@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import rawCards from '../../data/cards.json'
-import { sampleCard } from '../../lib/sampling'
+import { sampleUnseenCard } from '../../lib/sampling'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
@@ -31,8 +31,8 @@ const COUNTDOWN_STEP_MS = 650
 
 type Stage = 'ready' | 'countdown' | 'running' | 'summary'
 
-function nextSample(recent: number[]): Card {
-  const c = sampleCard(ALL_CARDS, recent)
+function nextSample(recent: number[], seen: Set<number>): Card {
+  const c = sampleUnseenCard(ALL_CARDS, seen, recent)
   recent.push(c.id)
   if (recent.length > 6) recent.shift()
   return c
@@ -40,6 +40,7 @@ function nextSample(recent: number[]): Card {
 
 export default function Blitz() {
   const recent = useRef<number[]>([])
+  const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
   const startTime = useRef(0)
   const cardStart = useRef(0)
@@ -67,7 +68,8 @@ export default function Blitz() {
     track('mode.blitz')
     const batch: Card[] = []
     const seed: number[] = []
-    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed))
+    const seedSeen = new Set<number>()
+    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
     preloadImages(batch, () => (imagesReady.value = true))
     return () => timers.current.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,20 +114,21 @@ export default function Blitz() {
   function begin() {
     finished.current = false
     recent.current = []
+    seen.current.clear()
     answers.current = []
     cleared.value = 0
     startTime.current = performance.now()
     cardStart.current = startTime.current
     recorded.current = false
     remainingMs.value = BLITZ.WINDOW_MS
-    current.value = nextSample(recent.current)
+    current.value = nextSample(recent.current, seen.current)
     cardPhase.value = 'playing'
     stage.value = 'running'
   }
 
   function nextCard() {
     if (stage.value !== 'running') return
-    const c = nextSample(recent.current)
+    const c = nextSample(recent.current, seen.current)
     current.value = c
     cardStart.current = performance.now()
     recorded.current = false
@@ -200,7 +203,8 @@ export default function Blitz() {
     stage.value = 'ready'
     const batch: Card[] = []
     const seed: number[] = []
-    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed))
+    const seedSeen = new Set<number>()
+    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
     preloadImages(batch, () => (imagesReady.value = true))
   }
 

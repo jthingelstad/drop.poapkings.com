@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import rawCards from '../../data/cards.json'
-import { sampleCard } from '../../lib/sampling'
+import { sampleUnseenCard } from '../../lib/sampling'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
@@ -40,14 +40,11 @@ function pickSprint(n: number): Card[] {
   const chosen: Card[] = []
   const seen = new Set<number>()
   const recent: number[] = []
-  let guard = 0
-  while (chosen.length < n && guard < n * 50) {
-    guard++
-    const c = sampleCard(ALL_CARDS, recent)
-    if (seen.has(c.id)) continue
-    seen.add(c.id)
+  while (chosen.length < n) {
+    const c = sampleUnseenCard(ALL_CARDS, seen, recent)
     chosen.push(c)
     recent.push(c.id)
+    if (recent.length > 6) recent.shift()
   }
   return chosen
 }

@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useRef } from 'preact/hooks'
 import type { Card, ElixirMood, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { sampleCard } from '../../lib/sampling'
+import { sampleUnseenCard } from '../../lib/sampling'
 import { makeChoices } from '../../lib/choices'
 import { saveResult, getSettings, saveSettings, recordSession, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
@@ -31,12 +31,15 @@ interface Props {
 export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   const exit = onExit ?? (() => navigate('/'))
   const lastSeen = useRef<number[]>([])
+  const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
   const view = useSignal<'play' | 'summary'>('play')
-  const currentCard = useSignal<Card>(sampleCard(pool, lastSeen.current))
+  const initialCard = useRef<Card | null>(null)
+  if (!initialCard.current) initialCard.current = drawCard()
+  const currentCard = useSignal<Card>(initialCard.current!)
   const choices = useSignal<number[]>(makeChoices(currentCard.value.elixir))
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const elixirLine = useSignal<string>(pickLine('idle'))
@@ -48,9 +51,14 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   const insights = useSignal<Insights | null>(null)
   const strongSession = useSignal(false)
 
-  function nextCard() {
-    const next = sampleCard(pool, lastSeen.current)
+  function drawCard(): Card {
+    const next = sampleUnseenCard(pool, seen.current, lastSeen.current)
     lastSeen.current = [...lastSeen.current.slice(-5), next.id]
+    return next
+  }
+
+  function nextCard() {
+    const next = drawCard()
     currentCard.value = next
     choices.value = makeChoices(next.elixir)
     phase.value = 'playing'
@@ -117,6 +125,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   function replay() {
     answers.current = []
     lastSeen.current = []
+    seen.current.clear()
     answered.value = 0
     correct.value = 0
     streak.value = 0

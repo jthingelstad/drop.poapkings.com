@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData, ElixirMood } from '../../types'
 import rawCards from '../../data/cards.json'
-import { sampleCard } from '../../lib/sampling'
+import { sampleUnseenCard } from '../../lib/sampling'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
@@ -17,16 +17,16 @@ const ALL_CARDS = cardsData.cards
 const ADVANCE_DELAY = 1400
 type Choice = 'higher' | 'equal' | 'lower'
 
-function pickPair(): [Card, Card] {
-  const recent: number[] = []
-  const left = sampleCard(ALL_CARDS, recent)
-  recent.push(left.id)
-  let right = sampleCard(ALL_CARDS, recent)
-  let guard = 0
-  while (right.id === left.id && guard < 30) {
-    right = sampleCard(ALL_CARDS, recent)
-    guard += 1
-  }
+function rememberRecent(recent: number[], id: number) {
+  recent.push(id)
+  if (recent.length > 6) recent.shift()
+}
+
+function pickPair(seen: Set<number>, recent: number[]): [Card, Card] {
+  const left = sampleUnseenCard(ALL_CARDS, seen, recent)
+  rememberRecent(recent, left.id)
+  const right = sampleUnseenCard(ALL_CARDS, seen, recent, [left.id])
+  rememberRecent(recent, right.id)
   return [left, right]
 }
 
@@ -38,8 +38,12 @@ function relation(left: Card, right: Card): Choice {
 
 export default function HigherLower() {
   const advanceTimer = useRef<number | undefined>(undefined)
+  const seen = useRef<Set<number>>(new Set())
+  const recent = useRef<number[]>([])
+  const initialPair = useRef<[Card, Card] | null>(null)
+  if (!initialPair.current) initialPair.current = pickPair(seen.current, recent.current)
 
-  const pair = useSignal<[Card, Card]>(pickPair())
+  const pair = useSignal<[Card, Card]>(initialPair.current!)
   const picked = useSignal<Choice | null>(null)
   const revealed = useSignal(false)
   const streak = useSignal(0)
@@ -53,7 +57,7 @@ export default function HigherLower() {
   }, [])
 
   function next() {
-    pair.value = pickPair()
+    pair.value = pickPair(seen.current, recent.current)
     picked.value = null
     revealed.value = false
     elixirLine.value = ''

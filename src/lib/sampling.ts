@@ -24,11 +24,11 @@ function cardWeight(id: number, lastSeen: number[]): number {
     w -= Math.min(s.correct, CFG.MASTERY_CAP) * CFG.MASTERY_DECAY
   }
 
-  // Recency penalty: avoid repeating a card that just appeared
+  // Recency penalty: avoid repeating a card that just appeared.
   const recentIdx = lastSeen.lastIndexOf(id)
   if (recentIdx >= 0) {
     const cardsAgo = lastSeen.length - recentIdx
-    w += Math.max(0, CFG.RECENCY_PENALTY - cardsAgo * CFG.RECENCY_DECAY)
+    w -= Math.max(0, CFG.RECENCY_PENALTY - cardsAgo * CFG.RECENCY_DECAY)
   }
 
   return Math.max(CFG.MIN_WEIGHT, w)
@@ -44,4 +44,23 @@ export function sampleCard(cards: Card[], lastSeen: number[]): Card {
     if (r <= 0) return cards[i]
   }
   return cards[cards.length - 1]
+}
+
+export function sampleUnseenCard(
+  cards: Card[],
+  seen: Set<number>,
+  lastSeen: number[],
+  alsoExclude: number[] = []
+): Card {
+  const hardExclude = new Set(alsoExclude)
+  let pool = cards.filter((c) => !seen.has(c.id) && !hardExclude.has(c.id))
+
+  if (pool.length === 0) {
+    seen.clear()
+    pool = cards.filter((c) => !hardExclude.has(c.id))
+  }
+
+  const card = sampleCard(pool.length > 0 ? pool : cards, lastSeen)
+  seen.add(card.id)
+  return card
 }
