@@ -7,7 +7,7 @@ interface Props {
 export default function MultipleChoice({ choices, onPick, disabled }: Props) {
   return (
     <div class="mc-choices" role="group" aria-label="Elixir cost choices">
-      {choices.map(n => (
+      {choices.map((n) => (
         <button
           key={n}
           class="btn btn--purple mc-choices__btn"

@@ -4,11 +4,11 @@
 import type { CardStats, CardStat, Records, Profile, FunnelData, Settings } from '../types'
 
 const K = {
-  profile:   'elixirdrop:profile',
+  profile: 'elixirdrop:profile',
   cardStats: 'elixirdrop:cardStats',
-  records:   'elixirdrop:records',
-  funnel:    'elixirdrop:funnel',
-  settings:  'elixirdrop:settings',
+  records: 'elixirdrop:records',
+  funnel: 'elixirdrop:funnel',
+  settings: 'elixirdrop:settings'
 } as const
 
 function load<T>(key: string, fallback: T): T {
@@ -61,7 +61,7 @@ export function saveResult(cardId: number, correct: boolean, ms?: number): void 
     correct: prev.correct + (correct ? 1 : 0),
     missStreak: correct ? 0 : prev.missStreak + 1,
     lastSeen: Date.now(),
-    ...(avgMs !== undefined ? { avgMs } : {}),
+    ...(avgMs !== undefined ? { avgMs } : {})
   }
 
   save(K.cardStats, stats)
@@ -83,7 +83,7 @@ const DEFAULT_SETTINGS: Settings = {
   mode: 'practice',
   inputStyle: 'keypad',
   surgeMode: 'sprint',
-  sound: true,
+  sound: true
 }
 
 export function getSettings(): Settings {

@@ -6,7 +6,7 @@ interface Props {
 export default function PipKeypad({ onPick, disabled }: Props) {
   return (
     <div class="pip-keypad" role="group" aria-label="Elixir cost keypad">
-      {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
           class={`pip-keypad__pip${disabled ? ' pip-keypad__pip--disabled' : ''}`}

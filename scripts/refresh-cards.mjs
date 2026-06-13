@@ -18,15 +18,15 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
-const ROOT  = join(__dir, '..')
+const ROOT = join(__dir, '..')
 const DATA_PATH = join(ROOT, 'src/data/cards.json')
-const CR_API    = 'https://api.clashroyale.com/v1'
+const CR_API = 'https://api.clashroyale.com/v1'
 
 // ── Args ──────────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2)
 const WRITE_ONLY = args.includes('--write')
-const DRY_RUN   = args.includes('--dry-run')
+const DRY_RUN = args.includes('--dry-run')
 
 // ── Load .env ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ if (!TOKEN) {
 
 console.log('Fetching /cards from CR API…')
 const res = await fetch(`${CR_API}/cards`, {
-  headers: { Authorization: `Bearer ${TOKEN}` },
+  headers: { Authorization: `Bearer ${TOKEN}` }
 })
 
 if (!res.ok) {
@@ -86,16 +86,16 @@ for (const card of data.items ?? []) {
   else if (idStr.startsWith('28')) type = 'spell'
 
   const mel = card.maxEvolutionLevel ?? 0
-  const evo  = mel === 1 || mel === 3
+  const evo = mel === 1 || mel === 3
   const hero = mel === 2 || mel === 3
 
-  let icon     = card.iconUrls?.medium ?? ''
-  let iconEvo  = card.iconUrls?.evolutionMedium ?? ''
+  let icon = card.iconUrls?.medium ?? ''
+  let iconEvo = card.iconUrls?.evolutionMedium ?? ''
   let iconHero = card.iconUrls?.heroMedium ?? ''
 
   if (MIRROR && icon) {
     const localPath = `/cards/${card.id}.png`
-    const fullPath  = join(ROOT, 'public/cards', `${card.id}.png`)
+    const fullPath = join(ROOT, 'public/cards', `${card.id}.png`)
     try {
       const imgRes = await fetch(icon)
       if (imgRes.ok) {
@@ -111,28 +111,40 @@ for (const card of data.items ?? []) {
     if (iconEvo) {
       const evoPath = join(ROOT, 'public/cards', `${card.id}_evo.png`)
       try {
-        const r = await fetch(iconEvo); if (r.ok) { await writeFile(evoPath, Buffer.from(await r.arrayBuffer())); iconEvo = `/cards/${card.id}_evo.png` }
-      } catch { /* non-fatal */ }
+        const r = await fetch(iconEvo)
+        if (r.ok) {
+          await writeFile(evoPath, Buffer.from(await r.arrayBuffer()))
+          iconEvo = `/cards/${card.id}_evo.png`
+        }
+      } catch {
+        /* non-fatal */
+      }
     }
     if (iconHero) {
       const heroPath = join(ROOT, 'public/cards', `${card.id}_hero.png`)
       try {
-        const r = await fetch(iconHero); if (r.ok) { await writeFile(heroPath, Buffer.from(await r.arrayBuffer())); iconHero = `/cards/${card.id}_hero.png` }
-      } catch { /* non-fatal */ }
+        const r = await fetch(iconHero)
+        if (r.ok) {
+          await writeFile(heroPath, Buffer.from(await r.arrayBuffer()))
+          iconHero = `/cards/${card.id}_hero.png`
+        }
+      } catch {
+        /* non-fatal */
+      }
     }
   }
 
   const entry = {
-    id:     card.id,
-    name:   card.name,
+    id: card.id,
+    name: card.name,
     elixir: card.elixirCost,
     rarity: (card.rarity ?? '').toLowerCase(),
     type,
     evo,
     hero,
     icon,
-    ...(iconEvo  ? { iconEvo }  : {}),
-    ...(iconHero ? { iconHero } : {}),
+    ...(iconEvo ? { iconEvo } : {}),
+    ...(iconHero ? { iconHero } : {})
   }
 
   cards.push(entry)
@@ -149,18 +161,18 @@ const candidate = { version: today, count: cards.length, cards }
 
 let existing = null
 try {
-  existing = JSON.parse(await readFile(DATA_PATH, 'utf8'))
+  const raw = JSON.parse(await readFile(DATA_PATH, 'utf8'))
   // Don't diff against the dev seed marker
-  if (existing.version === 'seed') existing = null
+  if (raw.version !== 'seed') existing = raw
 } catch {
-  existing = null
+  // existing stays null
 }
 
 const changelog = []
 
 if (existing) {
-  const existingMap  = new Map(existing.cards.map(c => [c.id, c]))
-  const candidateMap = new Map(candidate.cards.map(c => [c.id, c]))
+  const existingMap = new Map(existing.cards.map((c) => [c.id, c]))
+  const candidateMap = new Map(candidate.cards.map((c) => [c.id, c]))
 
   for (const [id, card] of candidateMap) {
     if (!existingMap.has(id)) {
@@ -191,7 +203,7 @@ if (existing && changelog.length === 0) {
 
 if (changelog.length > 0) {
   console.log('\nChangelog:')
-  changelog.forEach(l => console.log(' ', l))
+  changelog.forEach((l) => console.log(' ', l))
 } else {
   console.log(`\nInitial snapshot: ${candidate.count} cards (${today}).`)
 }
@@ -213,9 +225,10 @@ if (WRITE_ONLY) {
 
 // ── Commit + push ─────────────────────────────────────────────────────────────
 
-const summary = changelog.length > 0
-  ? changelog.slice(0, 3).join('; ') + (changelog.length > 3 ? ` (+${changelog.length - 3} more)` : '')
-  : `initial snapshot: ${candidate.count} cards`
+const summary =
+  changelog.length > 0
+    ? changelog.slice(0, 3).join('; ') + (changelog.length > 3 ? ` (+${changelog.length - 3} more)` : '')
+    : `initial snapshot: ${candidate.count} cards`
 
 const commitMsg = `data: refresh cards.json — ${summary}`
 

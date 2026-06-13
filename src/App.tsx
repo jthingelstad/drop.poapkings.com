@@ -65,13 +65,9 @@ function Home() {
           rel="noopener noreferrer"
         >
           POAP KINGS
-        </a>
-        {' '}·{' '}
-        <a
-          href="https://discord.gg/kBD62fYHWx"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        </a>{' '}
+        ·{' '}
+        <a href="https://discord.gg/kBD62fYHWx" target="_blank" rel="noopener noreferrer">
           Discord
         </a>
       </p>
@@ -84,30 +80,37 @@ function Home() {
 function Header() {
   const onPractice = route.value.startsWith('/practice')
   return (
-    <header style={{
-      padding: '16px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      borderBottom: '1px solid rgba(215,200,255,0.08)',
-    }}>
+    <header
+      style={{
+        padding: '16px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        borderBottom: '1px solid rgba(215,200,255,0.08)'
+      }}
+    >
       <button
         onClick={() => navigate('/')}
         style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 10, padding: 0,
-          color: 'var(--ink)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: 0,
+          color: 'var(--ink)'
         }}
         aria-label="Elixir Drop home"
       >
         <span class="pl-elixir__drop" style={{ width: 14, height: 18 }} />
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.05rem' }}>
-          Elixir Drop
-        </span>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.05rem' }}>Elixir Drop</span>
       </button>
 
       {onPractice && (
-        <span class="pill pill--purple" style={{ marginLeft: 4 }}>Practice</span>
+        <span class="pill pill--purple" style={{ marginLeft: 4 }}>
+          Practice
+        </span>
       )}
     </header>
   )
@@ -119,16 +122,12 @@ function Footer() {
   return (
     <footer class="site-foot">
       <div>
-        This content is not affiliated with, endorsed, sponsored, or specifically
-        approved by Supercell and Supercell is not responsible for it. For more
-        information see Supercell's{' '}
-        <a
-          href="https://supercell.com/en/fan-content-policy/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        This content is not affiliated with, endorsed, sponsored, or specifically approved by Supercell and Supercell is
+        not responsible for it. For more information see Supercell's{' '}
+        <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">
           Fan Content Policy
-        </a>.
+        </a>
+        .
       </div>
       <div style={{ marginTop: 6 }}>
         Run by{' '}

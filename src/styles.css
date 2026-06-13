@@ -692,7 +692,7 @@ a { color: var(--lavender); }
 
 /* ── Responsive ───────────────────────────────────────────── */
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .main-content { padding: 24px 16px 48px; gap: 24px; }
   .pcard { padding: 20px 16px 18px; }
   .home { padding: 32px 16px 48px; gap: 32px; }

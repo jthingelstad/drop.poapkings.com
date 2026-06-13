@@ -16,22 +16,22 @@ const cardsData = rawCards as CardsData
 const ALL_CARDS = cardsData.cards
 
 const ADVANCE_DELAY_CORRECT = 1300
-const ADVANCE_DELAY_WRONG   = 1600
+const ADVANCE_DELAY_WRONG = 1600
 
 export default function Practice() {
   const lastSeen = useRef<number[]>([])
 
-  const settings   = getSettings()
+  const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
   const currentCard = useSignal<Card>(sampleCard(ALL_CARDS, lastSeen.current))
-  const choices    = useSignal<number[]>(makeChoices(currentCard.value.elixir))
-  const phase      = useSignal<'playing' | 'correct' | 'wrong'>('playing')
+  const choices = useSignal<number[]>(makeChoices(currentCard.value.elixir))
+  const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const elixirLine = useSignal<string>(pickLine('idle'))
   const elixirMood = useSignal<ElixirMood>('neutral')
-  const dropKey    = useSignal(0)
-  const streak     = useSignal(0)
-  const answered   = useSignal(0)
-  const correct    = useSignal(0)
+  const dropKey = useSignal(0)
+  const streak = useSignal(0)
+  const answered = useSignal(0)
+  const correct = useSignal(0)
 
   function advanceCard() {
     const next = sampleCard(ALL_CARDS, lastSeen.current)
@@ -83,9 +83,7 @@ export default function Practice() {
     saveSettings({ inputStyle: style })
   }
 
-  const accuracy = answered.value > 0
-    ? Math.round((correct.value / answered.value) * 100)
-    : null
+  const accuracy = answered.value > 0 ? Math.round((correct.value / answered.value) * 100) : null
 
   return (
     <div class="main-content" style={{ alignItems: 'center', gap: 24 }}>
@@ -110,11 +108,7 @@ export default function Practice() {
       </div>
 
       {/* Card */}
-      <CardDisplay
-        card={currentCard.value}
-        phase={phase.value}
-        dropAnimKey={dropKey.value}
-      />
+      <CardDisplay card={currentCard.value} phase={phase.value} dropAnimKey={dropKey.value} />
 
       {/* Question prompt */}
       <div style={{ textAlign: 'center' }}>
@@ -143,11 +137,7 @@ export default function Practice() {
       {inputStyle.value === 'keypad' ? (
         <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing'} />
       ) : (
-        <MultipleChoice
-          choices={choices.value}
-          onPick={handleAnswer}
-          disabled={phase.value !== 'playing'}
-        />
+        <MultipleChoice choices={choices.value} onPick={handleAnswer} disabled={phase.value !== 'playing'} />
       )}
 
       {/* Elixir host */}
