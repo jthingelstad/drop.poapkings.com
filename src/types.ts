@@ -18,14 +18,10 @@ export interface CardsData {
 }
 
 export type InputStyle = 'keypad' | 'choice'
-export type GameMode = 'practice' | 'surge' | 'higherlower'
-export type SurgeMode = 'sprint' | 'blitz'
 export type ElixirMood = 'neutral' | 'hype' | 'unimpressed'
 
 export interface Settings {
-  mode: GameMode
   inputStyle: InputStyle
-  surgeMode: SurgeMode
   sound: boolean
   reducedMotion?: boolean
 }

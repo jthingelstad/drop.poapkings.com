@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "npm run test:unit && npm run test:e2e -- --project=chromium",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "og": "node scripts/render-og.mjs",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
     "lint": "eslint . --max-warnings 0",
     "lint:css": "stylelint \"src/styles.css\"",
     "knip": "knip --no-config-hints --include files,dependencies,unlisted"
@@ -19,18 +23,23 @@
     "preact": "^10.25.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@preact/preset-vite": "^2.9.5",
     "eslint": "^10.5.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
     "knip": "^6.16.1",
+    "preact-render-to-string": "^6.7.0",
     "prettier": "^3.8.4",
     "stylelint": "^17.13.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.61.0",
-    "vite": "^6.3.5"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,

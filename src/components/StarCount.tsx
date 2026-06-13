@@ -33,7 +33,7 @@ export default function StarCount() {
   return (
     <span ref={ref} class="starcount" title="Drop Stars — total plays counted by Tinylytics">
       <span class="pl-elixir__drop pl-elixir__drop--gold starcount__drop" aria-hidden="true" />
-      <span class="tinylytics_hits starcount__num" aria-label="total plays" />
+      <span class="tinylytics_hits starcount__num" />
       <span class="starcount__spark" aria-hidden="true">
         +1
       </span>

@@ -5,14 +5,10 @@ interface Props {
   mood: ElixirMood
 }
 
-// ── Elixir avatar art slot ─────────────────────────────────────────────────────
-// Drop the real Elixir art here. Supply per-expression files (e.g.
-// /assets/elixir-hype.svg) and map them below; until then every mood reuses the
-// bundled placeholder, with a CSS filter giving each a distinct read.
 const AVATARS: Record<ElixirMood, string> = {
-  neutral: '/assets/elixir-avatar.svg',
-  hype: '/assets/elixir-avatar.svg',
-  unimpressed: '/assets/elixir-avatar.svg'
+  neutral: '/assets/elixir-neutral.png',
+  hype: '/assets/elixir-hype.png',
+  unimpressed: '/assets/elixir-unimpressed.png'
 }
 
 export default function ElixirHost({ line, mood }: Props) {

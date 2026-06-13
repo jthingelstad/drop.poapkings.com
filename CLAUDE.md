@@ -96,7 +96,7 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 ## Key values
 
 - Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). Embed in `<head>`:
-  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?hits&kudos=%F0%9F%91%8F&countries&events&beacon`
+  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?spa&hits&kudos=%F0%9F%91%8F&countries&events&beacon`
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/kBD62fYHWx` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).

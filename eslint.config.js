@@ -17,10 +17,10 @@ export default tseslint.config(
 
   // TypeScript source
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', '*.config.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: { 'react-hooks': reactHooks },
-    languageOptions: { globals: globals.browser },
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
       ...commonRules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
@@ -33,7 +33,7 @@ export default tseslint.config(
 
   // Scripts (Node ESM)
   {
-    files: ['scripts/**/*.mjs', 'vite.config.ts'],
+    files: ['scripts/**/*.mjs'],
     extends: [js.configs.recommended],
     languageOptions: { globals: { ...globals.node }, ecmaVersion: 'latest', sourceType: 'module' },
     rules: {

@@ -139,12 +139,11 @@ function Footer() {
   return (
     <footer class="site-foot">
       <div>
-        This content is not affiliated with, endorsed, sponsored, or specifically approved by Supercell and Supercell is
-        not responsible for it. For more information see Supercell's{' '}
-        <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">
-          Fan Content Policy
+        This fan community is not affiliated with{' '}
+        <a href="https://supercell.com" target="_blank" rel="noopener noreferrer">
+          Supercell
         </a>
-        .
+        . Clash Royale is a trademark of its respective owner.
       </div>
       <div style={{ marginTop: 6 }}>
         Run by{' '}

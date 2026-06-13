@@ -85,9 +85,7 @@ export function saveRecords(r: Partial<Records>): void {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: Settings = {
-  mode: 'practice',
   inputStyle: 'keypad',
-  surgeMode: 'sprint',
   sound: false,
   reducedMotion: false
 }
