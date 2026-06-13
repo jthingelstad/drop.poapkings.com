@@ -7,6 +7,7 @@ import Surge from './modes/surge/Surge'
 import HigherLower from './modes/higher-lower/HigherLower'
 import Blitz from './modes/blitz/Blitz'
 import Survival from './modes/survival/Survival'
+import Focus from './modes/focus/Focus'
 import SettingsScreen from './modes/settings/Settings'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
@@ -28,7 +29,7 @@ const MODES: Mode[] = [
 const STRETCH_MODES: Mode[] = [
   { path: '/blitz', name: 'Blitz', desc: '60 seconds — how many can you clear?', ready: true },
   { path: '/survival', name: 'Survival', desc: 'Sudden death — one miss ends the run', ready: true },
-  { path: '/focus', name: 'Focus', desc: 'Drill a subset: spells, buildings, a band', ready: false },
+  { path: '/focus', name: 'Focus', desc: 'Drill a subset: spells, buildings, a band', ready: true },
   { path: '/deck-budget', name: 'Deck Budget', desc: 'Build 8 cards to a target average', ready: false }
 ]
 
@@ -162,6 +163,7 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/higher-lower')) return <HigherLower />
   if (r.startsWith('/blitz')) return <Blitz />
   if (r.startsWith('/survival')) return <Survival />
+  if (r.startsWith('/focus')) return <Focus />
   if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
 }
