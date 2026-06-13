@@ -1136,6 +1136,82 @@ a { color: var(--lavender); }
 }
 .recruit__alt:hover { color: var(--lavender); text-decoration: underline; }
 
+/* ── Settings ─────────────────────────────────────────────── */
+
+.settings__card {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(215, 200, 255, 0.08);
+}
+
+.setting-row__text { flex: 1; min-width: 0; }
+
+.setting-row__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.02rem;
+  margin-bottom: 3px;
+}
+
+.setting-row__desc { font-size: 0.84rem; color: var(--muted); line-height: 1.4; }
+
+.settings__back { align-self: flex-start; margin-top: 20px; }
+
+/* Switch toggle */
+.switch {
+  flex-shrink: 0;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(215, 200, 255, 0.2);
+  background: rgba(11, 9, 32, 0.7);
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  transition: background 0.18s, border-color 0.18s;
+  -webkit-tap-highlight-color: transparent;
+}
+.switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.18s, background 0.18s;
+}
+.switch--on {
+  background: var(--purple);
+  border-color: var(--purple);
+}
+.switch--on .switch__knob {
+  transform: translateX(22px);
+  background: var(--ink);
+}
+
+/* ── Reduced motion (settings override; OS preference handled above) ───────── */
+
+.reduce-motion .drop-celebrate,
+.reduce-motion .wrong-flash,
+.reduce-motion .surge-countdown,
+.reduce-motion .starcount--pop .starcount__drop,
+.reduce-motion .starcount--pop .starcount__spark {
+  animation: none;
+}
+.reduce-motion .drop-pop-wrap { display: none; }
+
 /* ── Home foot note ───────────────────────────────────────── */
 
 .home__foot-note { font-size: 0.8rem; color: var(--muted); margin: 0; }

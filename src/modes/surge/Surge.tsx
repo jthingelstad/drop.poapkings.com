@@ -8,6 +8,7 @@ import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
+import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import CardDisplay from '../../components/CardDisplay'
@@ -201,6 +202,7 @@ export default function Surge() {
     }
 
     if (correct) {
+      playCorrect()
       const ms = performance.now() - cardStart.current
       answers.current.push({ card, guess: firstGuess.current, correct: firstCorrect.current, ms })
       saveResult(card.id, firstCorrect.current, ms)
@@ -208,6 +210,7 @@ export default function Surge() {
       dropKey.value += 1
       later(showNext, CORRECT_BEAT_MS)
     } else {
+      playWrong()
       penaltyMs.current += SURGE.PENALTY_MS
       cardPhase.value = 'wrong'
       later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)

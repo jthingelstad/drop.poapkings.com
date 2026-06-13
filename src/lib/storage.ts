@@ -88,7 +88,8 @@ const DEFAULT_SETTINGS: Settings = {
   mode: 'practice',
   inputStyle: 'keypad',
   surgeMode: 'sprint',
-  sound: true
+  sound: false,
+  reducedMotion: false
 }
 
 export function getSettings(): Settings {

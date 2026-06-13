@@ -10,6 +10,7 @@ import { saveResult, getSettings, saveSettings, recordSession, getRecords, saveR
 import { computeInsights, insightPhrase } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
+import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
@@ -96,6 +97,7 @@ export default function Practice() {
     answered.value++
 
     if (isCorrect) {
+      playCorrect()
       correct.value++
       streak.value++
       dropKey.value++
@@ -104,6 +106,7 @@ export default function Practice() {
       elixirLine.value = pickLine(event, { n: streak.value })
       elixirMood.value = 'hype'
     } else {
+      playWrong()
       streak.value = 0
       phase.value = 'wrong'
       const diff = Math.abs(picked - card.elixir)

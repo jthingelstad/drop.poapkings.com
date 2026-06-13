@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Elixir Drop OG / share image — PLACEHOLDER. Swap for final art (1200×630). -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="-10%" r="90%">
+      <stop offset="0%" stop-color="#6D28D9" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#0B0920" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F7F4FF"/>
+      <stop offset="100%" stop-color="#D7C8FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#070610"/>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Signature elixir drop -->
+  <g transform="translate(250 315)">
+    <path d="M0 -150 C -70 -40 -110 10 -110 60 C -110 116 -56 150 0 150 C 56 150 110 116 110 60 C 110 10 70 -40 0 -150Z"
+      fill="#6D28D9" filter="drop-shadow(0 0 40px rgba(109,40,217,0.8))"/>
+    <ellipse cx="-30" cy="-30" rx="22" ry="34" fill="#ffffff" opacity="0.12" transform="rotate(-12)"/>
+  </g>
+
+  <text x="430" y="290" font-family="'Clash Display', system-ui, sans-serif" font-size="118" font-weight="700"
+    fill="url(#title)">Elixir Drop</text>
+  <text x="436" y="360" font-family="Inter, system-ui, sans-serif" font-size="40" fill="#C8C1E6">
+    Train your Clash Royale elixir intuition.</text>
+  <text x="436" y="430" font-family="'Clash Display', system-ui, sans-serif" font-size="30" font-weight="700"
+    fill="#F5C84C">drop.poapkings.com</text>
+</svg>

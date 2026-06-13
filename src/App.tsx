@@ -5,6 +5,7 @@ import StarCount from './components/StarCount'
 import Practice from './modes/practice/Practice'
 import Surge from './modes/surge/Surge'
 import HigherLower from './modes/higher-lower/HigherLower'
+import SettingsScreen from './modes/settings/Settings'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
 const DISCORD = 'https://discord.gg/kBD62fYHWx'
@@ -94,6 +95,9 @@ function Header() {
       <div class="site-head__spacer" />
 
       <StarCount />
+      <button class="site-head__settings" onClick={() => navigate('/settings')} aria-label="Settings" title="Settings">
+        ⚙
+      </button>
     </header>
   )
 }
@@ -127,6 +131,7 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
   if (r.startsWith('/higher-lower')) return <HigherLower />
+  if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
 }
 

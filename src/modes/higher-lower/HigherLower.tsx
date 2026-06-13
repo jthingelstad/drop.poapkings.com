@@ -6,6 +6,7 @@ import { sampleCard } from '../../lib/sampling'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
+import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
@@ -69,6 +70,7 @@ export default function HigherLower() {
     revealed.value = true
 
     if (correct) {
+      playCorrect()
       const s = streak.value + 1
       streak.value = s
       if (s > best.value) {
@@ -78,6 +80,7 @@ export default function HigherLower() {
       elixirLine.value = s >= 3 ? pickLine('hl_streak', { n: s }) : pickLine('hl_right')
       elixirMood.value = 'hype'
     } else {
+      playWrong()
       streak.value = 0
       elixirLine.value = pickLine('hl_wrong')
       elixirMood.value = 'unimpressed'
