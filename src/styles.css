@@ -940,6 +940,87 @@ a { color: var(--lavender); }
   margin-top: 4px;
 }
 
+/* ── Share line ───────────────────────────────────────────── */
+
+.shareline { display: flex; flex-direction: column; gap: 8px; }
+
+.shareline__row { display: flex; gap: 8px; }
+
+.shareline__text {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(215, 200, 255, 0.18);
+  background: rgba(11, 9, 32, 0.7);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+}
+.shareline__text:focus { outline: none; border-color: var(--purple); }
+
+.shareline__btn { flex-shrink: 0; }
+
+/* ── Surge ────────────────────────────────────────────────── */
+
+.surge-ready {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  max-width: 440px;
+}
+.surge-ready .lede { font-size: 0.98rem; }
+.surge-ready__go { min-width: 200px; margin-top: 8px; }
+
+.surge-countdown {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(5rem, 28vw, 11rem);
+  line-height: 1;
+  color: var(--gold);
+  filter: drop-shadow(0 0 40px rgba(245, 200, 76, 0.5));
+  animation: count-pulse 0.65s ease-out;
+}
+
+@keyframes count-pulse {
+  0% { transform: scale(1.5); opacity: 0; }
+  40% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surge-countdown { animation: none; }
+}
+
+.surge-hud {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.surge-hud__timer {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 11vw, 3.4rem);
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.surge-hud__unit { font-size: 0.5em; color: var(--muted); margin-left: 2px; }
+
+.surge-hud__count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 /* ── Home foot note ───────────────────────────────────────── */
 
 .home__foot-note { font-size: 0.8rem; color: var(--muted); margin: 0; }
