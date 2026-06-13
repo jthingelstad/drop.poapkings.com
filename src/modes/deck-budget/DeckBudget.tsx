@@ -31,9 +31,8 @@ function BudgetCell({ card, selected, onToggle }: { card: Card; selected: boolea
       class={`budget-cell${selected ? ' budget-cell--selected' : ''}`}
       onClick={onToggle}
       aria-pressed={selected}
-      aria-label={`${card.name}, ${card.elixir} elixir`}
+      aria-label={card.name}
     >
-      <span class="budget-cell__cost">{card.elixir}</span>
       <span class="budget-cell__art">
         {card.icon && !failed ? (
           <img class="budget-cell__img" src={card.icon} alt="" loading="lazy" onError={() => setFailed(true)} />
@@ -121,10 +120,6 @@ export default function DeckBudget() {
             {deck.map((c) => (
               <span class="summary-chip" key={c.id}>
                 <span class="summary-chip__name">{c.name}</span>
-                <span class="summary-chip__cost">
-                  <span class="pl-elixir__drop" aria-hidden="true" />
-                  {c.elixir}
-                </span>
               </span>
             ))}
           </div>

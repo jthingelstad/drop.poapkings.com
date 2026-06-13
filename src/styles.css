@@ -1321,17 +1321,6 @@ a { color: var(--lavender); }
   color: var(--gold);
 }
 
-.budget-cell__cost {
-  position: absolute;
-  top: 3px;
-  right: 5px;
-  z-index: 3;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--lavender);
-}
-
 .budget-cell__art {
   position: relative;
   display: grid;
