@@ -19,6 +19,8 @@ export default defineConfig({
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
     { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
-    { name: 'iphone-14', use: { ...devices['iPhone 14'] } }
+    { name: 'iphone-14', use: { ...devices['iPhone 14'] } },
+    { name: 'ipad-portrait', use: { ...devices['iPad (gen 7)'] } },
+    { name: 'ipad-landscape', use: { ...devices['iPad (gen 7) landscape'] } }
   ]
 })

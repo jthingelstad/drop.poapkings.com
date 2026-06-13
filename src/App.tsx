@@ -169,15 +169,25 @@ function Screen({ r }: { r: string }) {
   return <Home />
 }
 
+function screenTitle(r: string): string | null {
+  if (r === '/') return null
+  return ROUTE_LABELS.find((x) => r.startsWith(x.match))?.label ?? 'Elixir Drop'
+}
+
 export default function App() {
   useEffect(() => {
     track('game.start')
   }, [])
 
+  const title = screenTitle(route.value)
+
   return (
     <>
       <Header />
-      <Screen r={route.value} />
+      <main>
+        {title && <h1 class="sr-only">{title}</h1>}
+        <Screen r={route.value} />
+      </main>
       <Footer />
     </>
   )
