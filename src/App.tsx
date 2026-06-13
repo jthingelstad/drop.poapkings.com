@@ -5,6 +5,7 @@ import StarCount from './components/StarCount'
 import Practice from './modes/practice/Practice'
 import Surge from './modes/surge/Surge'
 import HigherLower from './modes/higher-lower/HigherLower'
+import Blitz from './modes/blitz/Blitz'
 import SettingsScreen from './modes/settings/Settings'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
@@ -23,7 +24,38 @@ const MODES: Mode[] = [
   { path: '/higher-lower', name: 'Higher / Lower', desc: 'Which card costs more?', ready: true }
 ]
 
+const STRETCH_MODES: Mode[] = [
+  { path: '/blitz', name: 'Blitz', desc: '60 seconds — how many can you clear?', ready: true },
+  { path: '/survival', name: 'Survival', desc: 'Sudden death — one miss ends the run', ready: false },
+  { path: '/focus', name: 'Focus', desc: 'Drill a subset: spells, buildings, a band', ready: false },
+  { path: '/deck-budget', name: 'Deck Budget', desc: 'Build 8 cards to a target average', ready: false }
+]
+
 // ── Home ──────────────────────────────────────────────────────────────────────
+
+function ModeCard({ m }: { m: Mode }) {
+  if (!m.ready) {
+    return (
+      <div class="mode-card mode-card--disabled">
+        <div class="mode-card__info">
+          <div class="mode-card__name">{m.name}</div>
+          <div class="mode-card__desc">{m.desc}</div>
+        </div>
+        <span class="pill pill--muted">Soon</span>
+      </div>
+    )
+  }
+  return (
+    <button class="mode-card" onClick={() => navigate(m.path)}>
+      <div class="mode-card__info">
+        <div class="mode-card__name">{m.name}</div>
+        <div class="mode-card__desc">{m.desc}</div>
+      </div>
+      <span class="pill pill--live">Ready</span>
+      <span class="mode-card__arrow">→</span>
+    </button>
+  )
+}
 
 function Home() {
   return (
@@ -35,26 +67,18 @@ function Home() {
       </div>
 
       <div class="mode-grid">
-        {MODES.map((m) =>
-          m.ready ? (
-            <button class="mode-card" key={m.path} onClick={() => navigate(m.path)}>
-              <div class="mode-card__info">
-                <div class="mode-card__name">{m.name}</div>
-                <div class="mode-card__desc">{m.desc}</div>
-              </div>
-              <span class="pill pill--live">Ready</span>
-              <span class="mode-card__arrow">→</span>
-            </button>
-          ) : (
-            <div class="mode-card mode-card--disabled" key={m.path}>
-              <div class="mode-card__info">
-                <div class="mode-card__name">{m.name}</div>
-                <div class="mode-card__desc">{m.desc}</div>
-              </div>
-              <span class="pill pill--muted">Soon</span>
-            </div>
-          )
-        )}
+        {MODES.map((m) => (
+          <ModeCard m={m} key={m.path} />
+        ))}
+      </div>
+
+      <div class="mode-section">
+        <div class="eyebrow mode-section__label">More ways to play</div>
+        <div class="mode-grid">
+          {STRETCH_MODES.map((m) => (
+            <ModeCard m={m} key={m.path} />
+          ))}
+        </div>
       </div>
 
       <p class="home__foot-note">
@@ -77,6 +101,10 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/practice', label: 'Practice' },
   { match: '/surge', label: 'Surge' },
   { match: '/higher-lower', label: 'Higher / Lower' },
+  { match: '/blitz', label: 'Blitz' },
+  { match: '/survival', label: 'Survival' },
+  { match: '/deck-budget', label: 'Deck Budget' },
+  { match: '/focus', label: 'Focus' },
   { match: '/settings', label: 'Settings' }
 ]
 
@@ -131,6 +159,7 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
   if (r.startsWith('/higher-lower')) return <HigherLower />
+  if (r.startsWith('/blitz')) return <Blitz />
   if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
 }

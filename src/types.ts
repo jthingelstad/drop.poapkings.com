@@ -41,9 +41,12 @@ export interface CardStat {
 export type CardStats = Record<string, CardStat>
 
 export interface Records {
-  surgeBest?: number
-  longestStreak?: number
-  bestAccuracy?: number
+  surgeBest?: number // Surge: lowest time (ms) — lower is better
+  longestStreak?: number // Higher/Lower: longest streak
+  bestAccuracy?: number // Practice: best round accuracy (%)
+  blitzBest?: number // Blitz: most cleared in 60s — higher is better
+  survivalBest?: number // Survival: longest sudden-death streak
+  deckBudgetBest?: number // Deck Budget: closest to target (smallest diff ×100) — lower is better
 }
 
 export interface Profile {
