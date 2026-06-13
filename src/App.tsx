@@ -4,6 +4,7 @@ import { track } from './lib/analytics'
 import StarCount from './components/StarCount'
 import Practice from './modes/practice/Practice'
 import Surge from './modes/surge/Surge'
+import HigherLower from './modes/higher-lower/HigherLower'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
 const DISCORD = 'https://discord.gg/kBD62fYHWx'
@@ -18,7 +19,7 @@ interface Mode {
 const MODES: Mode[] = [
   { path: '/practice', name: 'Practice', desc: 'Learn elixir costs at your own pace', ready: true },
   { path: '/surge', name: 'Surge', desc: 'Speed mode — 15 cards, one honest time', ready: true },
-  { path: '/higher-lower', name: 'Higher / Lower', desc: 'Which card costs more?', ready: false }
+  { path: '/higher-lower', name: 'Higher / Lower', desc: 'Which card costs more?', ready: true }
 ]
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ function Footer() {
 function Screen({ r }: { r: string }) {
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
+  if (r.startsWith('/higher-lower')) return <HigherLower />
   return <Home />
 }
 

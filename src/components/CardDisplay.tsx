@@ -7,9 +7,11 @@ interface Props {
   dropAnimKey: number
   // Surge keeps the cost hidden on a wrong answer — the card stays until correct.
   revealCost?: boolean
+  // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
+  forceReveal?: boolean
 }
 
-export default function CardDisplay({ card, phase, dropAnimKey, revealCost = true }: Props) {
+export default function CardDisplay({ card, phase, dropAnimKey, revealCost = true, forceReveal = false }: Props) {
   const [imgFailed, setImgFailed] = useState(false)
   const [prevId, setPrevId] = useState(card.id)
 
@@ -44,7 +46,7 @@ export default function CardDisplay({ card, phase, dropAnimKey, revealCost = tru
           fontWeight: 700,
           fontSize: '1rem',
           color: 'var(--ink)',
-          visibility: phase !== 'playing' && revealCost ? 'visible' : 'hidden'
+          visibility: forceReveal || (phase !== 'playing' && revealCost) ? 'visible' : 'hidden'
         }}
       >
         <span class="pl-elixir__drop" style={{ width: 10, height: 13 }} />
