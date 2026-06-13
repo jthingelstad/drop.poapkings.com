@@ -53,14 +53,15 @@ export default function CardDisplay({ card, phase, dropAnimKey, revealCost = tru
         <span style={{ marginTop: 1 }}>{card.elixir}</span>
       </div>
 
-      {/* Card image */}
-      {showImg ? (
-        <img key={card.id} class="pcard__img" src={card.icon} alt={card.name} onError={() => setImgFailed(true)} />
-      ) : (
-        <div class="pcard__fallback">{card.name}</div>
-      )}
+      <div class="pcard__art">
+        {showImg ? (
+          <img key={card.id} class="pcard__img" src={card.icon} alt={card.name} onError={() => setImgFailed(true)} />
+        ) : (
+          <div class="pcard__fallback" aria-hidden="true" />
+        )}
 
-      <div class="pcard__name">{card.name}</div>
+        <div class="pcard__name">{card.name}</div>
+      </div>
 
       <div class="pcard__meta">
         <span class="pill pill--purple">{card.type}</span>

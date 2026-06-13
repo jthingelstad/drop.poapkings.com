@@ -34,12 +34,14 @@ function BudgetCell({ card, selected, onToggle }: { card: Card; selected: boolea
       aria-label={`${card.name}, ${card.elixir} elixir`}
     >
       <span class="budget-cell__cost">{card.elixir}</span>
-      {card.icon && !failed ? (
-        <img class="budget-cell__img" src={card.icon} alt="" loading="lazy" onError={() => setFailed(true)} />
-      ) : (
-        <span class="budget-cell__chip">{card.name}</span>
-      )}
-      <span class="budget-cell__name">{card.name}</span>
+      <span class="budget-cell__art">
+        {card.icon && !failed ? (
+          <img class="budget-cell__img" src={card.icon} alt="" loading="lazy" onError={() => setFailed(true)} />
+        ) : (
+          <span class="budget-cell__chip" aria-hidden="true" />
+        )}
+        <span class="budget-cell__name">{card.name}</span>
+      </span>
     </button>
   )
 }
