@@ -1104,6 +1104,38 @@ a { color: var(--lavender); }
   .hl__vs { font-size: 0.9rem; }
 }
 
+/* ── Recruit moment ───────────────────────────────────────── */
+
+.recruit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 20px 18px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(245, 200, 76, 0.3);
+  background: radial-gradient(ellipse 90% 80% at 50% 0%, rgba(245, 200, 76, 0.12) 0%, transparent 70%),
+    rgba(59, 29, 122, 0.4);
+}
+
+.recruit__line {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.recruit__cta { min-width: 240px; }
+
+.recruit__alt {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.recruit__alt:hover { color: var(--lavender); text-decoration: underline; }
+
 /* ── Home foot note ───────────────────────────────────────── */
 
 .home__foot-note { font-size: 0.8rem; color: var(--muted); margin: 0; }

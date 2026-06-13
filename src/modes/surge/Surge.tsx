@@ -14,6 +14,7 @@ import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
+import Recruit from '../../components/Recruit'
 
 const cardsData = rawCards as CardsData
 const ALL_CARDS = cardsData.cards
@@ -256,6 +257,7 @@ export default function Surge() {
           <ShareLine
             text={`Surge: ${SURGE.SPRINT_LEN} cards in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
+          {isPB.value && <Recruit />}
         </Summary>
       </div>
     )

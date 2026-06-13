@@ -16,6 +16,9 @@ import PipKeypad from '../../components/PipKeypad'
 import MultipleChoice from '../../components/MultipleChoice'
 import ElixirHost from '../../components/ElixirHost'
 import Summary from '../../components/Summary'
+import Recruit from '../../components/Recruit'
+
+const STRONG_SESSION_PCT = 85
 
 const cardsData = rawCards as CardsData
 const ALL_CARDS = cardsData.cards
@@ -41,6 +44,7 @@ export default function Practice() {
   const answered = useSignal(0)
   const correct = useSignal(0)
   const insights = useSignal<Insights | null>(null)
+  const strongSession = useSignal(false)
 
   useEffect(() => {
     track('mode.practice')
@@ -71,6 +75,9 @@ export default function Practice() {
       const prev = getRecords().bestAccuracy ?? 0
       if (ins.accuracyPct > prev) saveRecords({ bestAccuracy: ins.accuracyPct })
     }
+
+    // Earned moment: a full round read cleanly enough to be worth an ask.
+    strongSession.value = complete && ins.total >= 10 && ins.accuracyPct >= STRONG_SESSION_PCT
 
     const good = ins.accuracyPct >= 80
     elixirLine.value = pickLine('session_end', { accuracy: ins.accuracyPct, insight: insightPhrase(ins) })
@@ -140,7 +147,9 @@ export default function Practice() {
           insights={ins}
           onReplay={replay}
           onHome={() => navigate('/')}
-        />
+        >
+          {strongSession.value && <Recruit />}
+        </Summary>
       </div>
     )
   }
