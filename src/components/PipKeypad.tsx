@@ -14,7 +14,7 @@ export default function PipKeypad({ onPick, disabled }: Props) {
           aria-label={`${n} elixir`}
           disabled={disabled}
         >
-          <span class="pl-elixir__drop" aria-hidden="true" />
+          <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
           <span>{n}</span>
         </button>
       ))}

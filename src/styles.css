@@ -170,6 +170,16 @@ a { color: var(--lavender); }
   border-bottom: 12px solid var(--purple);
 }
 
+/* Real elixir-drop image pip — replaces CSS teardrop in game UI */
+.elixir-pip {
+  display: inline-block;
+  flex-shrink: 0;
+  object-fit: contain;
+  width: 13px;
+  height: 13px;
+  vertical-align: middle;
+}
+
 /* Gold variant */
 .pl-elixir__drop--gold {
   background: var(--gold);
@@ -414,16 +424,7 @@ a { color: var(--lavender); }
   pointer-events: none;
 }
 
-.pip-keypad__pip .pl-elixir__drop {
-  width: 10px;
-  height: 14px;
-}
-.pip-keypad__pip .pl-elixir__drop::before {
-  top: -6px;
-  border-left-width: 5px;
-  border-right-width: 5px;
-  border-bottom-width: 7px;
-}
+.pip-keypad__pip .elixir-pip { width: 12px; height: 12px; }
 
 /* ── Multiple choice ──────────────────────────────────────── */
 
@@ -441,16 +442,7 @@ a { color: var(--lavender); }
   gap: 10px;
 }
 
-.mc-choices__btn .pl-elixir__drop {
-  width: 14px;
-  height: 18px;
-}
-.mc-choices__btn .pl-elixir__drop::before {
-  top: -7px;
-  border-left-width: 7px;
-  border-right-width: 7px;
-  border-bottom-width: 9px;
-}
+.mc-choices__btn .elixir-pip { width: 16px; height: 16px; }
 
 /* ── Elixir host ──────────────────────────────────────────── */
 
@@ -1036,13 +1028,7 @@ a { color: var(--lavender); }
   font-weight: 700;
   color: var(--lavender);
 }
-.summary-chip__cost .pl-elixir__drop { width: 9px; height: 12px; }
-.summary-chip__cost .pl-elixir__drop::before {
-  top: -5px;
-  border-left-width: 4.5px;
-  border-right-width: 4.5px;
-  border-bottom-width: 6px;
-}
+.summary-chip__cost .elixir-pip { width: 10px; height: 10px; }
 
 .summary-chip__sub { color: var(--muted); font-size: 0.78rem; }
 

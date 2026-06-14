@@ -49,7 +49,7 @@ export default function CardDisplay({ card, phase, dropAnimKey, revealCost = tru
           visibility: forceReveal || (phase !== 'playing' && revealCost) ? 'visible' : 'hidden'
         }}
       >
-        <span class="pl-elixir__drop" style={{ width: 10, height: 13 }} />
+        <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
         <span style={{ marginTop: 1 }}>{card.elixir}</span>
       </div>
 

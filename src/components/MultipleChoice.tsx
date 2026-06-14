@@ -15,7 +15,7 @@ export default function MultipleChoice({ choices, onPick, disabled }: Props) {
           disabled={disabled}
           aria-label={`${n} elixir`}
         >
-          <span class="pl-elixir__drop" aria-hidden="true" />
+          <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
           <span>{n}</span>
         </button>
       ))}

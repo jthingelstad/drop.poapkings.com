@@ -21,7 +21,7 @@ function CardChip({ card, sub }: { card: Card; sub?: string }) {
     <span class="summary-chip">
       <span class="summary-chip__name">{card.name}</span>
       <span class="summary-chip__cost">
-        <span class="pl-elixir__drop" aria-hidden="true" />
+        <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
         {card.elixir}
       </span>
       {sub && <span class="summary-chip__sub">{sub}</span>}
