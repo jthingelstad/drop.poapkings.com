@@ -471,12 +471,20 @@ a { color: var(--lavender); }
   transition: transform 0.3s ease, filter 0.3s ease;
 }
 
-.elixir-host__avatar--hype {
+.elixir-host__avatar--hype,
+.elixir-host__avatar--celebrate {
   transform: scale(1.08) rotate(-4deg);
 }
 
-.elixir-host__avatar--unimpressed {
+.elixir-host__avatar--unimpressed,
+.elixir-host__avatar--facepalm,
+.elixir-host__avatar--angry {
   transform: scale(0.95);
+}
+
+.elixir-host__avatar--trophy,
+.elixir-host__avatar--gg {
+  transform: scale(1.05);
 }
 
 .elixir-host__bubble {
@@ -598,24 +606,12 @@ a { color: var(--lavender); }
   gap: 16px;
 }
 
-.home__drop {
-  width: 64px;
-  height: 82px;
-  background: linear-gradient(160deg, #8B5CF6, var(--purple));
-  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
-  position: relative;
+.home__elixir {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
   filter: drop-shadow(0 0 30px rgba(109, 40, 217, 0.8));
   margin-bottom: 8px;
-}
-.home__drop::before {
-  content: '';
-  position: absolute;
-  top: -34px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 32px solid transparent;
-  border-right: 32px solid transparent;
-  border-bottom: 42px solid #8B5CF6;
 }
 
 .home__title {
@@ -748,6 +744,12 @@ a { color: var(--lavender); }
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
+}
+
+.site-head__logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .site-head__crumb { margin-left: 2px; }

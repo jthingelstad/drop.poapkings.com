@@ -224,7 +224,7 @@ export default function Blitz() {
           headline={`${cleared.value} cleared`}
           pbCallout={pbCallout}
           elixirLine={elixirLine.value}
-          elixirMood={isPB.value ? 'hype' : 'neutral'}
+          elixirMood={isPB.value ? 'celebrate' : 'gg'}
           insights={insights.value}
           onReplay={replay}
           replayLabel="Blitz again"

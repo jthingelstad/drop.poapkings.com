@@ -82,12 +82,12 @@ export default function HigherLower() {
         saveRecords({ longestStreak: s })
       }
       elixirLine.value = s >= 3 ? pickLine('hl_streak', { n: s }) : pickLine('hl_right')
-      elixirMood.value = 'hype'
+      elixirMood.value = s >= 3 ? 'celebrate' : 'happy'
     } else {
       playWrong()
       streak.value = 0
       elixirLine.value = pickLine('hl_wrong')
-      elixirMood.value = 'unimpressed'
+      elixirMood.value = 'angry'
     }
 
     advanceTimer.current = window.setTimeout(next, ADVANCE_DELAY)

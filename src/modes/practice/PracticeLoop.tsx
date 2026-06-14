@@ -63,7 +63,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
     choices.value = makeChoices(next.elixir)
     phase.value = 'playing'
     elixirLine.value = ''
-    elixirMood.value = 'neutral'
+    elixirMood.value = 'thinking'
   }
 
   function finishRound(complete: boolean) {
@@ -85,7 +85,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
 
     const good = ins.accuracyPct >= 80
     elixirLine.value = pickLine('session_end', { accuracy: ins.accuracyPct, insight: insightPhrase(ins) })
-    elixirMood.value = good ? 'hype' : 'neutral'
+    elixirMood.value = good ? 'trophy' : 'neutral'
     view.value = 'summary'
   }
 
@@ -107,14 +107,14 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
       phase.value = 'correct'
       const event = streak.value >= 3 ? 'correct_streak' : 'correct_fast'
       elixirLine.value = pickLine(event, { n: streak.value })
-      elixirMood.value = 'hype'
+      elixirMood.value = streak.value >= 3 ? 'celebrate' : 'happy'
     } else {
       playWrong()
       streak.value = 0
       phase.value = 'wrong'
       const diff = Math.abs(picked - card.elixir)
       elixirLine.value = pickLine(diff <= 1 ? 'wrong_close' : 'wrong_far')
-      elixirMood.value = 'unimpressed'
+      elixirMood.value = diff <= 1 ? 'angry' : 'facepalm'
     }
 
     const isLast = answered.value >= ROUND_LEN
@@ -131,7 +131,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
     streak.value = 0
     insights.value = null
     elixirLine.value = pickLine('idle')
-    elixirMood.value = 'neutral'
+    elixirMood.value = 'thinking'
     phase.value = 'playing'
     nextCard()
     view.value = 'play'

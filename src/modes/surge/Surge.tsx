@@ -221,7 +221,7 @@ export default function Surge() {
           headline={`${SURGE.SPRINT_LEN} cards · ${formatSeconds(totalMs.value)}s`}
           pbCallout={pbCallout}
           elixirLine={elixirLine.value}
-          elixirMood={isPB.value ? 'hype' : 'neutral'}
+          elixirMood={isPB.value ? 'celebrate' : 'gg'}
           insights={ins}
           onReplay={replay}
           replayLabel="Run again"

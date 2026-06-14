@@ -64,7 +64,7 @@ function Home() {
   return (
     <div class="home">
       <div class="home__hero">
-        <div class="home__drop" aria-hidden="true" />
+        <img src="/assets/emoji/elixir.png" alt="Elixir" class="home__elixir" />
         <h1 class="home__title">Elixir Drop</h1>
         <p class="home__sub">Train your Clash Royale elixir intuition.</p>
       </div>
@@ -117,7 +117,7 @@ function Header() {
   return (
     <header class="site-head">
       <button class="site-head__brand" onClick={() => navigate('/')} aria-label="Elixir Drop home">
-        <span class="pl-elixir__drop" style={{ width: 14, height: 18 }} />
+        <img src="/assets/emoji/elixir.png" alt="" class="site-head__logo" aria-hidden="true" />
         <span class="site-head__name">Elixir Drop</span>
       </button>
 
