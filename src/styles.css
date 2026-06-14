@@ -908,6 +908,7 @@ a { color: var(--lavender); }
 
 .site-foot a { color: var(--gold); text-decoration: none; }
 .site-foot a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.site-foot__disc a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ── Site header ──────────────────────────────────────────── */
 
