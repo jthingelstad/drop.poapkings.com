@@ -21,7 +21,9 @@ function spawnSparks(badge: HTMLElement) {
     s.style.setProperty('--dy', dy + 'px')
     s.style.setProperty('--rot', Math.random() * 540 - 270 + 'deg')
     document.body.appendChild(s)
-    setTimeout(() => { if (s.parentNode) s.parentNode.removeChild(s) }, 800)
+    setTimeout(() => {
+      if (s.parentNode) s.parentNode.removeChild(s)
+    }, 800)
   }
 }
 
@@ -83,9 +85,7 @@ export default function StarCount() {
         <img src="/assets/emoji/elixir_trophy.png" alt="" class="starcount__icon" aria-hidden="true" />
         <span ref={hitsRef} class="tinylytics_hits starcount__n" />
       </button>
-      {modalOpen.value && (
-        <TrophyModal hits={hits.value} onClose={() => (modalOpen.value = false)} />
-      )}
+      {modalOpen.value && <TrophyModal hits={hits.value} onClose={() => (modalOpen.value = false)} />}
     </>
   )
 }

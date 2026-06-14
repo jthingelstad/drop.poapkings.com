@@ -18,7 +18,7 @@ export default function TrophyModal({ hits, onClose }: Props) {
   const artClass = [
     'rank-card__art',
     zone === 'just-passed' ? 'is-just-passed' : '',
-    zone === 'close' ? 'is-close' : '',
+    zone === 'close' ? 'is-close' : ''
   ]
     .filter(Boolean)
     .join(' ')
@@ -37,7 +37,9 @@ export default function TrophyModal({ hits, onClose }: Props) {
 
   useEffect(() => {
     document.body.classList.add('modal-open')
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
     document.addEventListener('keydown', onKey)
     panelRef.current?.focus()
     return () => {
@@ -50,18 +52,15 @@ export default function TrophyModal({ hits, onClose }: Props) {
     <div class="trophy-modal" role="dialog" aria-modal="true" aria-label="Trophy Road">
       <button class="trophy-modal__scrim" onClick={onClose} aria-label="Close" tabIndex={-1} />
       <div class="trophy-modal__panel" ref={panelRef} tabIndex={-1}>
-        <button class="trophy-modal__close" onClick={onClose} aria-label="Close">×</button>
+        <button class="trophy-modal__close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
         <div class="trophy-modal__title">Trophy Road</div>
         <p class="trophy-modal__hint">Total visits to this site — ranked on Clash Royale arenas.</p>
 
         <div class="rank-card">
           <div class={artClass}>
-            <img
-              class="rank-card__img"
-              src={current.image}
-              alt={current.name + ' arena'}
-              loading="lazy"
-            />
+            <img class="rank-card__img" src={current.image} alt={current.name + ' arena'} loading="lazy" />
           </div>
           <div class="rank-card__meta">
             <div class="rank-card__eyebrow">Current rank</div>

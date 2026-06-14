@@ -18,7 +18,18 @@ export interface CardsData {
 }
 
 export type InputStyle = 'keypad' | 'choice'
-export type ElixirMood = 'neutral' | 'hype' | 'unimpressed' | 'celebrate' | 'thinking' | 'happy' | 'angry' | 'facepalm' | 'trophy' | 'gg' | 'time'
+export type ElixirMood =
+  | 'neutral'
+  | 'hype'
+  | 'unimpressed'
+  | 'celebrate'
+  | 'thinking'
+  | 'happy'
+  | 'angry'
+  | 'facepalm'
+  | 'trophy'
+  | 'gg'
+  | 'time'
 
 export interface Settings {
   inputStyle: InputStyle
