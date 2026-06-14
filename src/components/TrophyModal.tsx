@@ -23,7 +23,7 @@ export default function TrophyModal({ hits, onClose }: Props) {
     .filter(Boolean)
     .join(' ')
 
-  let fillPct = 0
+  let fillPct: number
   let progressLabel = 'Top rank reached.'
   if (next) {
     const span = next.threshold - current.threshold

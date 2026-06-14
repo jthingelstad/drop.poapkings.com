@@ -71,7 +71,7 @@ export default function StarCount() {
     }, 200)
 
     return () => clearInterval(poll)
-  }, [])
+  }, [hits])
 
   return (
     <>
