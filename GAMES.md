@@ -49,8 +49,9 @@ revealing the missed card's cost.
 
 **Speed Ladder** — `/ladder` · `src/modes/ladder/`
 Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards
-or use the explicit move controls; equal-cost cards are valid in either relative
-order. A wrong lock adds +2.0s and leaves the ladder live.
+or use the explicit move controls; touch players can tap a card, then tap its
+destination. Equal-cost cards are valid in either relative order. A wrong lock
+adds +2.0s, reveals one persistent card-cost hint, and leaves the ladder live.
 - Record: `ladderBest` (lowest time).
 
 **Focus** — `/focus` · `src/modes/focus/`

@@ -10,7 +10,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { preloadImages } from '../../lib/preload'
-import { isAscendingByElixir, reorderCards } from '../../lib/ladder'
+import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -75,7 +75,10 @@ function LadderCard({
   total,
   disabled,
   isDragging,
+  isRevealed,
+  isSelected,
   onMove,
+  onTap,
   onDragStart,
   onDragOver,
   onDrop,
@@ -86,7 +89,10 @@ function LadderCard({
   total: number
   disabled: boolean
   isDragging: boolean
+  isRevealed: boolean
+  isSelected: boolean
   onMove: (fromIndex: number, toIndex: number) => void
+  onTap: (cardId: number, index: number) => void
   onDragStart: (cardId: number, event: JSX.TargetedDragEvent<HTMLLIElement>) => void
   onDragOver: (event: JSX.TargetedDragEvent<HTMLLIElement>) => void
   onDrop: (toIndex: number, event: JSX.TargetedDragEvent<HTMLLIElement>) => void
@@ -97,10 +103,12 @@ function LadderCard({
 
   return (
     <li
-      class={`ladder-card${isDragging ? ' ladder-card--dragging' : ''}`}
+      class={`ladder-card${isDragging ? ' ladder-card--dragging' : ''}${isSelected ? ' ladder-card--selected' : ''}${isRevealed ? ' ladder-card--revealed' : ''}`}
       data-card-id={card.id}
+      data-revealed={isRevealed ? 'true' : 'false'}
       data-testid="ladder-card"
       draggable={!disabled}
+      onClick={() => onTap(card.id, index)}
       onDragStart={(event) => onDragStart(card.id, event)}
       onDragOver={onDragOver}
       onDrop={(event) => onDrop(index, event)}
@@ -122,6 +130,12 @@ function LadderCard({
         ) : (
           <span class="ladder-card__fallback" aria-hidden="true" />
         )}
+        {isRevealed && (
+          <span class="ladder-card__cost" aria-label={`${card.elixir} elixir`}>
+            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" />
+            {card.elixir}
+          </span>
+        )}
         <span class="ladder-card__name">{card.name}</span>
       </span>
 
@@ -136,7 +150,10 @@ function LadderCard({
         <button
           type="button"
           class="ladder-card__move"
-          onClick={() => onMove(index, index - 1)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onMove(index, index - 1)
+          }}
           disabled={disabled || index === 0}
           aria-label={`Move ${card.name} earlier`}
           title="Move earlier"
@@ -146,7 +163,10 @@ function LadderCard({
         <button
           type="button"
           class="ladder-card__move"
-          onClick={() => onMove(index, index + 1)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onMove(index, index + 1)
+          }}
           disabled={disabled || index === total - 1}
           aria-label={`Move ${card.name} later`}
           title="Move later"
@@ -163,19 +183,23 @@ export default function SpeedLadder() {
   const startTime = useRef(0)
   const penaltyMs = useRef(0)
   const draggedId = useRef<number | null>(null)
+  const suppressTapUntil = useRef(0)
 
   const stage = useSignal<Stage>('ready')
   const imagesReady = useSignal(false)
   const count = useSignal(3)
   const order = useSignal<Card[]>(pickLadderCards())
+  const revealedIds = useSignal<Set<number>>(new Set())
   const elapsedMs = useSignal(0)
   const wrongLocks = useSignal(0)
   const feedback = useSignal<Feedback>('idle')
+  const hintedOnLastLock = useSignal(false)
   const totalMs = useSignal(0)
   const isPB = useSignal(false)
   const prevBest = useSignal<number | undefined>(undefined)
   const elixirLine = useSignal('')
   const draggingCard = useSignal<number | null>(null)
+  const selectedCard = useSignal<number | null>(null)
 
   useEffect(() => {
     track('mode.ladder')
@@ -221,6 +245,9 @@ export default function SpeedLadder() {
     elapsedMs.value = 0
     wrongLocks.value = 0
     feedback.value = 'idle'
+    hintedOnLastLock.value = false
+    revealedIds.value = new Set()
+    selectedCard.value = null
     stage.value = 'running'
   }
 
@@ -229,9 +256,29 @@ export default function SpeedLadder() {
     order.value = reorderCards(order.value, fromIndex, toIndex)
   }
 
+  function tapCard(cardId: number, index: number) {
+    if (stage.value !== 'running' || feedback.value === 'wrong') return
+    if (performance.now() < suppressTapUntil.current) return
+
+    if (selectedCard.value === null) {
+      selectedCard.value = cardId
+      return
+    }
+
+    if (selectedCard.value === cardId) {
+      selectedCard.value = null
+      return
+    }
+
+    const fromIndex = order.value.findIndex((card) => card.id === selectedCard.value)
+    moveCard(fromIndex, index)
+    selectedCard.value = null
+  }
+
   function handleDragStart(cardId: number, event: JSX.TargetedDragEvent<HTMLLIElement>) {
     draggedId.current = cardId
     draggingCard.value = cardId
+    selectedCard.value = null
     event.dataTransfer?.setData('text/plain', String(cardId))
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
   }
@@ -249,11 +296,13 @@ export default function SpeedLadder() {
     moveCard(fromIndex, toIndex)
     draggedId.current = null
     draggingCard.value = null
+    selectedCard.value = null
   }
 
   function handleDragEnd() {
     draggedId.current = null
     draggingCard.value = null
+    suppressTapUntil.current = performance.now() + 160
   }
 
   function lockOrder() {
@@ -261,14 +310,23 @@ export default function SpeedLadder() {
 
     if (!isAscendingByElixir(order.value)) {
       playWrong()
+      const hintedCardId = pickLadderHintCard(order.value, revealedIds.value)
+      if (hintedCardId !== undefined) {
+        const next = new Set(revealedIds.value)
+        next.add(hintedCardId)
+        revealedIds.value = next
+      }
+      hintedOnLastLock.value = hintedCardId !== undefined
       wrongLocks.value += 1
       penaltyMs.current += LADDER.PENALTY_MS
       feedback.value = 'wrong'
+      selectedCard.value = null
       later(() => (feedback.value = 'idle'), WRONG_BEAT_MS)
       return
     }
 
     playCorrect()
+    selectedCard.value = null
     const total = performance.now() - startTime.current + penaltyMs.current
     const best = getRecords().ladderBest
     const pb = best === undefined || total < best
@@ -292,14 +350,17 @@ export default function SpeedLadder() {
     timers.current = []
     draggedId.current = null
     draggingCard.value = null
+    selectedCard.value = null
     const next = pickLadderCards()
     order.value = next
+    revealedIds.value = new Set()
     imagesReady.value = false
     count.value = 3
     elapsedMs.value = 0
     wrongLocks.value = 0
     penaltyMs.current = 0
     feedback.value = 'idle'
+    hintedOnLastLock.value = false
     isPB.value = false
     prevBest.value = undefined
     totalMs.value = 0
@@ -415,7 +476,10 @@ export default function SpeedLadder() {
             total={order.value.length}
             disabled={feedback.value === 'wrong'}
             isDragging={draggingCard.value === card.id}
+            isRevealed={revealedIds.value.has(card.id)}
+            isSelected={selectedCard.value === card.id}
             onMove={moveCard}
+            onTap={tapCard}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
@@ -429,7 +493,9 @@ export default function SpeedLadder() {
           Lock order
         </button>
         <div class="ladder-actions__feedback" aria-live="polite">
-          {feedback.value === 'wrong' ? `Not sorted. +${(LADDER.PENALTY_MS / 1000).toFixed(0)}s` : ' '}
+          {feedback.value === 'wrong'
+            ? `${hintedOnLastLock.value ? 'Cost revealed' : 'Not sorted'}. +${(LADDER.PENALTY_MS / 1000).toFixed(0)}s`
+            : ' '}
         </div>
       </div>
     </div>

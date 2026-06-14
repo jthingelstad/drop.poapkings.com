@@ -16,3 +16,17 @@ export function reorderCards<T>(cards: T[], fromIndex: number, toIndex: number):
   next.splice(toIndex, 0, moved)
   return next
 }
+
+export function pickLadderHintCard(
+  cards: Pick<Card, 'id' | 'elixir'>[],
+  revealedIds: ReadonlySet<number>
+): number | undefined {
+  for (let i = 1; i < cards.length; i += 1) {
+    if (cards[i - 1].elixir <= cards[i].elixir) continue
+
+    if (!revealedIds.has(cards[i].id)) return cards[i].id
+    if (!revealedIds.has(cards[i - 1].id)) return cards[i - 1].id
+  }
+
+  return cards.find((card) => !revealedIds.has(card.id))?.id
+}

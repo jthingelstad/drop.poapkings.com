@@ -141,6 +141,65 @@ test('speed ladder can be sorted and completed with move controls', async ({ pag
   await expect(page.locator('.ladder-result')).toContainText('Speed Ladder complete')
 })
 
+test('speed ladder reveals one persistent cost hint per wrong lock', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/#/ladder')
+  await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
+  await page.getByRole('button', { name: 'Start Speed Ladder' }).click()
+  await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
+
+  await expect(page.locator('.ladder-card__cost')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Lock order' }).click()
+  await expect(page.locator('.ladder-actions__feedback')).toContainText('Cost revealed')
+  await expect(page.locator('.ladder-card__cost')).toHaveCount(1)
+
+  await expect(page.getByRole('button', { name: 'Lock order' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Lock order' }).click()
+  await expect(page.locator('.ladder-card__cost')).toHaveCount(2)
+})
+
+test.describe('mobile Speed Ladder interactions', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+
+  test('speed ladder can be sorted and completed with tap-to-place', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.goto('/#/ladder')
+    await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
+    await page.getByRole('button', { name: 'Start Speed Ladder' }).tap()
+    await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
+
+    const ladderCards = page.locator('[data-testid="ladder-card"]')
+    const readIds = async () =>
+      ladderCards.evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
+    const isSorted = (ids: number[]) =>
+      ids.every(
+        (id, index) => index === 0 || (cardsById.get(ids[index - 1])?.elixir ?? 0) <= (cardsById.get(id)?.elixir ?? 0)
+      )
+
+    for (let step = 0; step < 30; step += 1) {
+      const ids = await readIds()
+      if (isSorted(ids)) break
+
+      const inversion = ids.findIndex(
+        (id, index) => index > 0 && (cardsById.get(ids[index - 1])?.elixir ?? 0) > (cardsById.get(id)?.elixir ?? 0)
+      )
+      expect(inversion).toBeGreaterThan(0)
+
+      const movingId = ids[inversion - 1]
+      const targetId = ids[inversion]
+      await page.locator(`[data-card-id="${movingId}"]`).tap()
+      await expect(page.locator(`[data-card-id="${movingId}"]`)).toHaveClass(/ladder-card--selected/)
+      await page.locator(`[data-card-id="${targetId}"]`).tap()
+    }
+
+    expect(isSorted(await readIds())).toBe(true)
+    await page.getByRole('button', { name: 'Lock order' }).tap()
+    await expect(page.locator('.ladder-result')).toBeVisible()
+  })
+})
+
 test('settings persist input and motion preferences across reload', async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())

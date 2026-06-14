@@ -3,7 +3,7 @@ import { makeChoices } from '../../src/lib/choices'
 import { formatSeconds } from '../../src/lib/format'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
-import { isAscendingByElixir, reorderCards } from '../../src/lib/ladder'
+import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
 import type { Card } from '../../src/types'
 
 function card(id: number, name: string, elixir: number, type: Card['type'] = 'troop'): Card {
@@ -74,5 +74,18 @@ describe('learning helpers', () => {
     expect(isAscendingByElixir([knight, fireball, rocket])).toBe(true)
     expect(isAscendingByElixir([fireball, knight, rocket])).toBe(false)
     expect(reorderCards([fireball, knight, rocket], 1, 0)).toEqual([knight, fireball, rocket])
+  })
+
+  it('reveals Speed Ladder hint cards from the first ordering problem', () => {
+    const knight = card(1, 'Knight', 3)
+    const fireball = card(2, 'Fireball', 4, 'spell')
+    const rocket = card(3, 'Rocket', 6, 'spell')
+    const goblins = card(4, 'Goblins', 2)
+    const order = [rocket, knight, fireball, goblins]
+
+    expect(pickLadderHintCard(order, new Set())).toBe(knight.id)
+    expect(pickLadderHintCard(order, new Set([knight.id]))).toBe(rocket.id)
+    expect(pickLadderHintCard(order, new Set([knight.id, rocket.id]))).toBe(goblins.id)
+    expect(pickLadderHintCard(order, new Set(order.map((c) => c.id)))).toBeUndefined()
   })
 })
