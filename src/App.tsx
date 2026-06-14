@@ -26,7 +26,7 @@ const GRID_MODES: Mode[] = [
   { path: '/blitz', name: 'Blitz', icon: '⏱️', desc: '60 seconds — how many can you clear?' },
   { path: '/survival', name: 'Survival', icon: '💀', desc: 'Sudden death — one miss ends the run.' },
   { path: '/focus', name: 'Focus', icon: '🔍', desc: 'Drill a subset: spells, buildings, a cost band.' },
-  { path: '/deck-budget', name: 'Deck Budget', icon: '🎴', desc: 'Build 8 cards to a target average elixir.' },
+  { path: '/deck-budget', name: 'Deck Budget', icon: '🎴', desc: 'Build 8 cards to a target average elixir.' }
 ]
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -57,8 +57,12 @@ function Home() {
           </h1>
           <p class="hero__sub">Train your Clash Royale elixir instinct. Read the board faster. Win more trades.</p>
           <div class="hero__cta">
-            <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>▶ Play Surge</button>
-            <a class="btn btn--ghost btn--lg" href="#games">Browse games</a>
+            <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>
+              ▶ Play Surge
+            </button>
+            <a class="btn btn--ghost btn--lg" href="#games">
+              Browse games
+            </a>
           </div>
         </div>
       </div>
@@ -74,7 +78,9 @@ function Home() {
             <div class="statstrip__l">Ways to play</div>
           </div>
           <div class="statstrip__cell">
-            <div class="statstrip__n">28.6<span class="statstrip__u">s</span></div>
+            <div class="statstrip__n">
+              28.6<span class="statstrip__u">s</span>
+            </div>
             <div class="statstrip__l">Surge to beat</div>
           </div>
         </div>
@@ -190,8 +196,8 @@ function Footer() {
         <a href="https://supercell.com" target="_blank" rel="noopener noreferrer">
           Supercell
         </a>
-        . Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell's Fan
-        Content Policy.
+        . Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell's
+        Fan Content Policy.
       </div>
     </footer>
   )
