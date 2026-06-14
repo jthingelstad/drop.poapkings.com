@@ -153,7 +153,6 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/survival', label: 'Survival' },
   { match: '/deck-budget', label: 'Deck Budget' },
   { match: '/focus', label: 'Focus' },
-  { match: '/settings', label: 'Settings' }
 ]
 
 function Header() {
