@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
+import { createPortal } from 'preact/compat'
 import TrophyModal from './TrophyModal'
 
 function spawnSparks(badge: HTMLElement) {
@@ -85,7 +86,8 @@ export default function StarCount() {
         <img src="/assets/emoji/elixir_trophy.png" alt="" class="starcount__icon" aria-hidden="true" />
         <span ref={hitsRef} class="tinylytics_hits starcount__n" />
       </button>
-      {modalOpen.value && <TrophyModal hits={hits.value} onClose={() => (modalOpen.value = false)} />}
+      {modalOpen.value &&
+        createPortal(<TrophyModal hits={hits.value} onClose={() => (modalOpen.value = false)} />, document.body)}
     </>
   )
 }

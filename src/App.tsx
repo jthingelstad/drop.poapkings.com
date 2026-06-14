@@ -36,9 +36,7 @@ function GameCard({ m }: { m: Mode }) {
     <button class="game-card" onClick={() => navigate(m.path)}>
       <span class="game-card__icon">{m.icon}</span>
       <span class="game-card__info">
-        <span class="game-card__name">
-          {m.name} <span class="pill pill--live">Ready</span>
-        </span>
+        <span class="game-card__name">{m.name}</span>
         <span class="game-card__desc">{m.desc}</span>
       </span>
       <span class="game-card__arrow">→</span>
