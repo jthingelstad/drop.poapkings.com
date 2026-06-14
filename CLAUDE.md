@@ -5,7 +5,9 @@ POAP KINGS clan. Preact + Signals + Vite, deployed to GitHub Pages at
 `drop.poapkings.com`.
 
 **`SPEC.md` is the full specification — read it before building.** This file is
-the rules and the map; `SPEC.md` is the detail.
+the rules and the map; `SPEC.md` is the detail. **`GAMES.md` is the games
+catalog** — the shipped modes and the backlog of game ideas; read it before
+adding or reworking a game.
 
 ---
 
@@ -57,7 +59,9 @@ the rules and the map; `SPEC.md` is the detail.
 - **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
-- **Modes** in `src/modes/`: `practice`, `surge`, `higher-lower`.
+- **Modes** in `src/modes/`: core `practice`, `surge`, `higher-lower`; stretch
+  `blitz`, `survival`, `focus`, `deck-budget`. See `GAMES.md` for each game's
+  mechanic, scoring, route, and records key, plus the idea backlog.
 - **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
   Preload the sprint's card images before the clock starts.
 

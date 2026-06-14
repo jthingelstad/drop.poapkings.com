@@ -10,15 +10,18 @@ self-contained static single-page app.
 
 ## What it is
 
-Three ways to play, one engine:
+Several ways to play, one engine. The three core modes:
 
 - **Practice** — untimed. A card appears, you pick its elixir cost. No pressure;
   good for learning the loop and grinding your weak cards.
-- **Surge** — the speed game. A 15-card sprint against the clock; wrong answers
-  add a time penalty. Your score is your time — lower is better. One clean,
-  shareable number.
+- **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
+  answers add a time penalty. Your score is your time — lower is better. One
+  clean, shareable number.
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative
   read that actually wins elixir trades.
+
+Plus stretch modes — **Blitz**, **Survival**, **Focus**, and **Deck Budget**.
+See [`GAMES.md`](GAMES.md) for the full catalog and the backlog of game ideas.
 
 A weighted sampler surfaces the cards you miss more often, and a short
 end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
@@ -105,7 +108,7 @@ elixir-drop/
 ├─ src/
 │  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
 │  ├─ lib/                   # storage seam, sampler, distractors, line table
-│  ├─ modes/                 # practice, surge, higher-lower
+│  ├─ modes/                 # practice, surge, higher-lower, + stretch (see GAMES.md)
 │  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, …
 │  ├─ styles.css             # vendored POAP KINGS tokens + components
 │  └─ main.tsx
@@ -113,6 +116,7 @@ elixir-drop/
 ├─ .github/workflows/deploy.yml
 ├─ .env.example              # CR_API_TOKEN, MIRROR_IMAGES
 ├─ SPEC.md                   # full specification
+├─ GAMES.md                  # games catalog + idea backlog
 └─ CLAUDE.md                 # build guide for Claude Code
 ```
 
