@@ -3,6 +3,7 @@ import { makeChoices } from '../../src/lib/choices'
 import { formatSeconds } from '../../src/lib/format'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
+import { isAscendingByElixir, reorderCards } from '../../src/lib/ladder'
 import type { Card } from '../../src/types'
 
 function card(id: number, name: string, elixir: number, type: Card['type'] = 'troop'): Card {
@@ -63,5 +64,15 @@ describe('learning helpers', () => {
     expect(pickLine('correct_streak', { n: 4 })).toContain('4')
     expect(pickLine('surge_done', { time: '28.6', insight: 'clean read' })).toContain('28.6')
     expect(pickLine('missing' as never)).toBe('')
+  })
+
+  it('validates and reorders Speed Ladder cards', () => {
+    const knight = card(1, 'Knight', 3)
+    const fireball = card(2, 'Fireball', 4, 'spell')
+    const rocket = card(3, 'Rocket', 6, 'spell')
+
+    expect(isAscendingByElixir([knight, fireball, rocket])).toBe(true)
+    expect(isAscendingByElixir([fireball, knight, rocket])).toBe(false)
+    expect(reorderCards([fireball, knight, rocket], 1, 0)).toEqual([knight, fireball, rocket])
   })
 })

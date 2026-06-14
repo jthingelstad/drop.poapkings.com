@@ -1,6 +1,11 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import type { CardsData } from '../../src/types'
+
+const cardsData = JSON.parse(readFileSync(new URL('../../src/data/cards.json', import.meta.url), 'utf8')) as CardsData
+const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
 
 const routes = [
   { hash: '#/', label: 'Elixir Drop', ready: '.home' },
@@ -9,6 +14,7 @@ const routes = [
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.hl' },
   { hash: '#/blitz', label: 'Blitz', ready: '.surge-ready' },
   { hash: '#/survival', label: 'Survival', ready: '.surge-ready' },
+  { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
   { hash: '#/focus', label: 'Focus', ready: '.home' },
   { hash: '#/deck-budget', label: 'Deck Budget', ready: '.budget' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
@@ -93,6 +99,46 @@ test('deck budget does not reveal per-card elixir costs', async ({ page }) => {
   await page.getByRole('button', { name: 'Score this deck' }).click()
   await expect(page.locator('.budget-result')).toBeVisible()
   await expect(page.locator('.budget-result__deck .summary-chip__cost')).toHaveCount(0)
+})
+
+test('speed ladder can be sorted and completed with move controls', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/#/ladder')
+  await expect(page.locator('.ladder-ready')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
+  await page.getByRole('button', { name: 'Start Speed Ladder' }).click()
+  await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
+
+  const ladderCards = page.locator('[data-testid="ladder-card"]')
+  const readIds = async () =>
+    ladderCards.evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
+  const isSorted = (ids: number[]) =>
+    ids.every(
+      (id, index) => index === 0 || (cardsById.get(ids[index - 1])?.elixir ?? 0) <= (cardsById.get(id)?.elixir ?? 0)
+    )
+
+  for (let step = 0; step < 30; step += 1) {
+    const ids = await readIds()
+    if (isSorted(ids)) break
+
+    const inversion = ids.findIndex(
+      (id, index) => index > 0 && (cardsById.get(ids[index - 1])?.elixir ?? 0) > (cardsById.get(id)?.elixir ?? 0)
+    )
+    expect(inversion).toBeGreaterThan(0)
+    const movingId = ids[inversion - 1]
+    const movingCard = cardsById.get(movingId)
+    expect(movingCard).toBeTruthy()
+    await page
+      .locator(`[data-card-id="${movingId}"]`)
+      .getByRole('button', { name: `Move ${movingCard!.name} later` })
+      .click()
+  }
+
+  expect(isSorted(await readIds())).toBe(true)
+  await page.getByRole('button', { name: 'Lock order' }).click()
+  await expect(page.locator('.ladder-result')).toBeVisible()
+  await expect(page.locator('.ladder-result')).toContainText('Speed Ladder complete')
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {

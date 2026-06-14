@@ -20,8 +20,9 @@ Several ways to play, one engine. The three core modes:
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative
   read that actually wins elixir trades.
 
-Plus stretch modes — **Blitz**, **Survival**, **Focus**, and **Deck Budget**.
-See [`GAMES.md`](GAMES.md) for the full catalog and the backlog of game ideas.
+Plus stretch modes — **Blitz**, **Survival**, **Speed Ladder**, **Focus**, and
+**Deck Budget**. See [`GAMES.md`](GAMES.md) for the full catalog and the backlog
+of game ideas.
 
 A weighted sampler surfaces the cards you miss more often, and a short
 end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
@@ -108,7 +109,7 @@ elixir-drop/
 ├─ src/
 │  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
 │  ├─ lib/                   # storage seam, sampler, distractors, line table
-│  ├─ modes/                 # practice, surge, higher-lower, + stretch (see GAMES.md)
+│  ├─ modes/                 # practice, surge, higher-lower, ladder, + stretch
 │  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, …
 │  ├─ styles.css             # vendored POAP KINGS tokens + components
 │  └─ main.tsx

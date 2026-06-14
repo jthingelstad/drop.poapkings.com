@@ -10,6 +10,7 @@ const CASES = [
   ['/higher-lower', 'Higher'],
   ['/blitz', 'Blitz'],
   ['/survival', 'Survival'],
+  ['/ladder', 'Sort five cards by elixir.'],
   ['/focus', 'Focus'],
   ['/deck-budget', 'Deck Budget'],
   ['/settings', 'Settings']

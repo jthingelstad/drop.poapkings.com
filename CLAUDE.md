@@ -63,8 +63,8 @@ adding or reworking a game.
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
 - **Modes** in `src/modes/`: core `practice`, `surge`, `higher-lower`; stretch
-  `blitz`, `survival`, `focus`, `deck-budget`. See `GAMES.md` for each game's
-  mechanic, scoring, route, and records key, plus the idea backlog.
+  `blitz`, `survival`, `ladder`, `focus`, `deck-budget`. See `GAMES.md` for each
+  game's mechanic, scoring, route, and records key, plus the idea backlog.
 - **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
   Preload the sprint's card images before the clock starts.
 
@@ -117,8 +117,8 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 Follow `SPEC.md` §10. In short: scaffold + Pages plumbing → `refresh-cards.mjs` +
 seed data → **Practice loop (make it fun first)** → storage + sampling → pip keypad
 → **Surge** → Elixir host → summary + insights → Higher/Lower → Tinylytics →
-recruit funnel → polish (sound + reduced-motion toggles, responsive). Honor
-`prefers-reduced-motion` on all celebratory FX.
+recruit funnel → stretch modes → polish (sound + reduced-motion toggles,
+responsive). Honor `prefers-reduced-motion` on all celebratory FX.
 
 When a decision is genuinely ambiguous and not covered above or in `SPEC.md`,
 stop and ask rather than guessing.

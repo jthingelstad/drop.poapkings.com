@@ -47,6 +47,12 @@ Sudden death. A per-card 5s clock; one wrong answer *or* a timeout ends the run,
 revealing the missed card's cost.
 - Record: `survivalBest`.
 
+**Speed Ladder** — `/ladder` · `src/modes/ladder/`
+Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards
+or use the explicit move controls; equal-cost cards are valid in either relative
+order. A wrong lock adds +2.0s and leaves the ladder live.
+- Record: `ladderBest` (lowest time).
+
 **Focus** — `/focus` · `src/modes/focus/`
 A subset drill (spells / buildings / troops, a cost band, or your weak cards) that
 feeds the shared `PracticeLoop`. "Weak cards" with no history falls back to the
@@ -66,9 +72,9 @@ Pick 8 cards to hit a target average elixir; scored on closeness.
 ## Ideas & backlog
 
 From the June 2026 brainstorm. The goal is *variety of mechanic* — today's lineup
-is speed (Surge/Blitz/Survival), comparison (Higher/Lower), drill (Practice/Focus),
-and one weak open puzzle (Deck Budget). The whitespace is **spatial**,
-**arithmetic**, **estimation**, and **deduction**.
+is speed (Surge/Blitz/Survival), spatial ordering (Speed Ladder), comparison
+(Higher/Lower), drill (Practice/Focus), and one weak open puzzle (Deck Budget).
+The remaining whitespace is **arithmetic**, **estimation**, and **deduction**.
 
 ### Design constraints learned
 
@@ -96,13 +102,12 @@ Static, committed, golden-rule-clean (no API, no coupling). Classic archetypes a
 stable enough that this rarely needs touching. **Build this before any deck-based
 game** — it's the shared source that makes every one of them look legit.
 
-### Ladder — *recommended next; new mechanic: spatial ordering*
+### Ladder extensions — *spatial ordering*
 
-Drag cards into ascending elixir order. No current mode uses this, it's tactile and
-mobile-first. Equal-cost cards group/snap so a 3/3/4 isn't a gotcha. Three shapes:
+Drag cards into ascending elixir order. Speed Ladder ships the first version;
+equal-cost cards are accepted in either relative order so a 3/3/4 isn't a gotcha.
+Two extensions remain:
 
-- **Speed Ladder** — sort 5 cards as fast as you can, golf time. Reuses the Surge
-  engine/HUD. *Ship this first — cheapest, leans on built infra.*
 - **Insert / Endless** — cards arrive one at a time; drop each into its slot in a
   growing sorted row; a misplace ends the run → streak score. The addictive hook.
 - **Daily Ladder** — 8 cards from a real deck (`decks.json`), one shareable puzzle
@@ -141,6 +146,6 @@ looks off *because* the rest is a real deck. Only works because of `decks.json`.
 
 ### Recommended slate
 
-Curated `decks.json` → **Speed Ladder** (reuses Surge) → **Make Ten** → then one of
-**Price Is Right** / **Spot the Splash** for variety. That adds a brand-new spatial
-mechanic, rehabilitates the puzzle category, and retires/folds **Focus**.
+Curated `decks.json` → **Make Ten** → then one of **Price Is Right** / **Spot the
+Splash** for variety. Speed Ladder has added the spatial mechanic; the next push
+should make deck-based games look legit and rehabilitate the puzzle category.

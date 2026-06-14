@@ -178,9 +178,8 @@ claim of ownership. Carry a Supercell disclaimer in the footer (mirror the site'
 
 ## 4. Game Modes
 
-A small set of games share one engine. v1 ships **three**: a gentle practice
-mode, the flagship speed mode, and a relative-intuition mode. Two more are
-specced as v1.5 stretch.
+A small set of games share one engine. The app ships core drills plus stretch
+modes that exercise speed, comparison, spatial ordering, and deck-cost intuition.
 
 ### 4.1 Practice (untimed — build first as the loop)
 A card appears; player picks its cost. No clock, no pressure. Used to learn the
@@ -226,12 +225,19 @@ correct can you clear?" Gives a higher-is-better number too. One flag
 Two cards side by side; pick which costs **more**, or "Equal." Trains relative
 intuition — the skill that actually wins elixir trades. Cheap, high pedagogical value.
 
-### 4.4 v1.5 stretch (spec now, build later)
-- **Survival** — endless timed Quick answers; one wrong ends the run. A
-  sudden-death cousin of Surge for the streak-chasers.
+### 4.4 Shipped stretch modes
+- **Blitz** — 60s count-up: how many cards can you clear? Reuses Surge's timed
+  keypad flow. Record: `blitzBest`.
+- **Survival** — endless timed Quick answers; one wrong or timeout ends the run.
+  A sudden-death cousin of Surge for the streak-chasers. Record: `survivalBest`.
+- **Speed Ladder** — sort 5 sampled cards from lowest to highest elixir as fast
+  as possible. Wrong locks add +2.0s; equal-cost cards are accepted in either
+  relative order. Record: `ladderBest`.
 - **Deck Budget** — given a target average elixir (e.g. "build a 3.2 deck"), pick
-  8 cards; scored on closeness. Teaches deck construction directly.
+  8 cards; scored on closeness. Teaches deck construction directly. Record:
+  `deckBudgetBest`.
 - **Focus** — drill a subset: spells only, buildings only, or a weak cost band.
+  Delegates to Practice and records through `bestAccuracy`.
 
 ---
 
@@ -330,8 +336,9 @@ so metrics and the star count stay this game's own (no intermingling).
   the clan's stars.
 - **Custom events** via `data-tinylytics-event="…"`:
   `game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`,
-  `surge.complete`, `record.new`, `recruit.shown`, `recruit.join`,
-  `recruit.discord`, `result.share`.
+  `mode.blitz`, `mode.survival`, `mode.ladder`, `mode.deckbudget`, `mode.focus`,
+  `surge.complete`, `ladder.complete`, `record.new`, `recruit.shown`,
+  `recruit.join`, `recruit.discord`, `result.share`.
 - **Kudos** as a lightweight "this was fun" signal on the summary screen.
 - Local funnel mirror in localStorage so v2 analytics has history.
 - **v2:** a real cross-player Surge leaderboard is the obvious API upgrade.
@@ -394,9 +401,10 @@ card art, the drop animation, the Surge timer, and Elixir's reactions — not cl
 ```
 elixirdrop:profile    → { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats  → { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
-elixirdrop:records    → { surgeBest, longestStreak, bestAccuracy }
+elixirdrop:records    → { surgeBest, longestStreak, bestAccuracy, blitzBest,
+                           survivalBest, ladderBest, deckBudgetBest }
 elixirdrop:funnel     → { recruitShown, recruitJoin, recruitDiscord, shares }
-elixirdrop:settings   → { mode, inputStyle, surgeMode, sound, reducedMotion? }
+elixirdrop:settings   → { inputStyle, sound, reducedMotion? }
 ```
 Versioned prefix makes a future schema migration detectable. All access via
 `storage.js`. `avgMs` on cardStats supports the Surge "slowest cards" insight.
@@ -444,8 +452,8 @@ SURGE_BLITZ_MS   = 60000       // Blitz window (if used)
 10. **Higher / Lower** mode.
 11. Tinylytics wiring (own ID): star counter, custom events, kudos, share line (§7).
 12. Recruitment funnel (PB trigger, CTA, full-clan JOIN/WAIT mirror, footer).
-13. Supercell disclaimer, polish, sound + reduced-motion toggles, responsive.
-    (Blitz variant + stretch modes optional.)
+13. Stretch modes: Blitz, Survival, Focus, Deck Budget, Speed Ladder.
+14. Supercell disclaimer, polish, sound + reduced-motion toggles, responsive.
 
 ---
 
