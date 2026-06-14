@@ -11,6 +11,7 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
     "og": "node scripts/render-og.mjs",
+    "verify": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run knip && npm run test:unit && npm run test:e2e -- --project=chromium && npm run build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",

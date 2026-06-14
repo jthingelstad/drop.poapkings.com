@@ -40,6 +40,9 @@ adding or reworking a game.
 
 - **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
 - `npm run dev` · `npm run build` (→ `dist/`) · `npm run preview`.
+- Before pushing code, run `npm run verify`. It mirrors the GitHub Pages deploy
+  gates: format, lint, CSS lint, typecheck, Knip, unit tests, Chromium e2e, and
+  production build.
 - `node scripts/refresh-cards.mjs` — card refresh; **runs only on the managed
   host**, not here. For local dev, work against the committed `cards.json` seed.
 
