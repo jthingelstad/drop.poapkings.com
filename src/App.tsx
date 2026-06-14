@@ -11,51 +11,37 @@ import Focus from './modes/focus/Focus'
 import DeckBudget from './modes/deck-budget/DeckBudget'
 import SettingsScreen from './modes/settings/Settings'
 
-const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
-const DISCORD = 'https://discord.gg/kBD62fYHWx'
+const POAP_KINGS = 'https://poapkings.com'
 
 interface Mode {
   path: string
   name: string
+  icon: string
   desc: string
-  ready: boolean
 }
 
-const MODES: Mode[] = [
-  { path: '/practice', name: 'Practice', desc: 'Learn elixir costs at your own pace', ready: true },
-  { path: '/surge', name: 'Surge', desc: 'Speed mode — 15 cards, one honest time', ready: true },
-  { path: '/higher-lower', name: 'Higher / Lower', desc: 'Which card costs more?', ready: true }
-]
-
-const STRETCH_MODES: Mode[] = [
-  { path: '/blitz', name: 'Blitz', desc: '60 seconds — how many can you clear?', ready: true },
-  { path: '/survival', name: 'Survival', desc: 'Sudden death — one miss ends the run', ready: true },
-  { path: '/focus', name: 'Focus', desc: 'Drill a subset: spells, buildings, a band', ready: true },
-  { path: '/deck-budget', name: 'Deck Budget', desc: 'Build 8 cards to a target average', ready: true }
+const GRID_MODES: Mode[] = [
+  { path: '/practice', name: 'Practice', icon: '🎯', desc: 'Learn elixir costs at your own pace — no clock.' },
+  { path: '/higher-lower', name: 'Higher / Lower', icon: '⚖️', desc: 'Two cards — which one costs more?' },
+  { path: '/blitz', name: 'Blitz', icon: '⏱️', desc: '60 seconds — how many can you clear?' },
+  { path: '/survival', name: 'Survival', icon: '💀', desc: 'Sudden death — one miss ends the run.' },
+  { path: '/focus', name: 'Focus', icon: '🔍', desc: 'Drill a subset: spells, buildings, a cost band.' },
+  { path: '/deck-budget', name: 'Deck Budget', icon: '🎴', desc: 'Build 8 cards to a target average elixir.' },
 ]
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 
-function ModeCard({ m }: { m: Mode }) {
-  if (!m.ready) {
-    return (
-      <div class="mode-card mode-card--disabled">
-        <div class="mode-card__info">
-          <div class="mode-card__name">{m.name}</div>
-          <div class="mode-card__desc">{m.desc}</div>
-        </div>
-        <span class="pill pill--muted">Soon</span>
-      </div>
-    )
-  }
+function GameCard({ m }: { m: Mode }) {
   return (
-    <button class="mode-card" onClick={() => navigate(m.path)}>
-      <div class="mode-card__info">
-        <div class="mode-card__name">{m.name}</div>
-        <div class="mode-card__desc">{m.desc}</div>
-      </div>
-      <span class="pill pill--live">Ready</span>
-      <span class="mode-card__arrow">→</span>
+    <button class="game-card" onClick={() => navigate(m.path)}>
+      <span class="game-card__icon">{m.icon}</span>
+      <span class="game-card__info">
+        <span class="game-card__name">
+          {m.name} <span class="pill pill--live">Ready</span>
+        </span>
+        <span class="game-card__desc">{m.desc}</span>
+      </span>
+      <span class="game-card__arrow">→</span>
     </button>
   )
 }
@@ -63,37 +49,92 @@ function ModeCard({ m }: { m: Mode }) {
 function Home() {
   return (
     <div class="home">
-      <div class="home__hero">
-        <img src="/assets/emoji/elixir.png" alt="Elixir" class="home__elixir" />
-        <h1 class="home__title">Elixir Drop</h1>
-        <p class="home__sub">Train your Clash Royale elixir intuition.</p>
-      </div>
-
-      <div class="mode-grid">
-        {MODES.map((m) => (
-          <ModeCard m={m} key={m.path} />
-        ))}
-      </div>
-
-      <div class="mode-section">
-        <div class="eyebrow mode-section__label">More ways to play</div>
-        <div class="mode-grid">
-          {STRETCH_MODES.map((m) => (
-            <ModeCard m={m} key={m.path} />
-          ))}
+      <div class="hero">
+        <div class="hero__inner">
+          <h1 class="hero__title">
+            <span class="t-elixir">ELIXIR</span>
+            <span class="t-drop">DROP</span>
+          </h1>
+          <p class="hero__sub">Train your Clash Royale elixir instinct. Read the board faster. Win more trades.</p>
+          <div class="hero__cta">
+            <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>▶ Play Surge</button>
+            <a class="btn btn--ghost btn--lg" href="#games">Browse games</a>
+          </div>
         </div>
       </div>
 
-      <p class="home__foot-note">
-        Run by{' '}
-        <a href={CLAN_INVITE} target="_blank" rel="noopener noreferrer">
-          POAP KINGS
-        </a>{' '}
-        ·{' '}
-        <a href={DISCORD} target="_blank" rel="noopener noreferrer">
-          Discord
-        </a>
-      </p>
+      <div class="home__wrap">
+        <div class="statstrip">
+          <div class="statstrip__cell">
+            <div class="statstrip__n">120</div>
+            <div class="statstrip__l">Cards in the deck</div>
+          </div>
+          <div class="statstrip__cell">
+            <div class="statstrip__n">7</div>
+            <div class="statstrip__l">Ways to play</div>
+          </div>
+          <div class="statstrip__cell">
+            <div class="statstrip__n">28.6<span class="statstrip__u">s</span></div>
+            <div class="statstrip__l">Surge to beat</div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec__head">
+            <h2 class="sec__title">Start here</h2>
+            <span class="sec__hint">The flagship</span>
+          </div>
+          <div class="spotlight">
+            <div
+              class="spotlight__bg"
+              style={{ backgroundImage: "url('/assets/arenas/24-legendary-arena.png')" }}
+              aria-hidden="true"
+            />
+            <div class="spotlight__glow" aria-hidden="true" />
+            <div class="spotlight__body">
+              <span class="pill pill--gold">⚡ Flagship mode</span>
+              <h3 class="spotlight__title">Surge</h3>
+              <p class="spotlight__desc">
+                15 cards. Tap each elixir cost as fast as you can. Miss and the clock bites. One honest, shareable time.
+              </p>
+              <div class="spotlight__meta">
+                <div class="spot-stat">
+                  <span class="spot-stat__n">15</span>
+                  <span class="spot-stat__l">Cards</span>
+                </div>
+                <div class="spot-stat">
+                  <span class="spot-stat__n">+2.0s</span>
+                  <span class="spot-stat__l">Per miss</span>
+                </div>
+                <div class="spot-stat">
+                  <span class="spot-stat__n">~40s</span>
+                  <span class="spot-stat__l">A run</span>
+                </div>
+              </div>
+              <div class="spotlight__cta">
+                <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>
+                  ▶ Play Surge
+                </button>
+              </div>
+            </div>
+            <div class="spotlight__art">
+              <img src="/assets/elixir-hype.png" alt="" />
+            </div>
+          </div>
+        </div>
+
+        <div class="sec" id="games">
+          <div class="sec__head">
+            <h2 class="sec__title">More ways to play</h2>
+            <span class="sec__hint">Same cards, different pressure</span>
+          </div>
+          <div class="games">
+            {GRID_MODES.map((m) => (
+              <GameCard m={m} key={m.path} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -138,18 +179,19 @@ function Header() {
 function Footer() {
   return (
     <footer class="site-foot">
-      <div>
+      <div class="site-foot__run">
+        Run by{' '}
+        <a href={POAP_KINGS} target="_blank" rel="noopener noreferrer">
+          POAP KINGS
+        </a>
+      </div>
+      <div class="site-foot__disc">
         This fan community is not affiliated with{' '}
         <a href="https://supercell.com" target="_blank" rel="noopener noreferrer">
           Supercell
         </a>
-        . Clash Royale is a trademark of its respective owner.
-      </div>
-      <div style={{ marginTop: 6 }}>
-        Run by{' '}
-        <a href={CLAN_INVITE} target="_blank" rel="noopener noreferrer">
-          POAP KINGS
-        </a>
+        . Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell's Fan
+        Content Policy.
       </div>
     </footer>
   )
