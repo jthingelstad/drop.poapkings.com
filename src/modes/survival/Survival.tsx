@@ -234,7 +234,7 @@ export default function Survival() {
   const card = current.value
   const low = remainingFrac.value <= 0.35
   return (
-    <div class="main-content surge" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run surge" style={{ alignItems: 'center', gap: 20 }}>
       <div class="surge-hud">
         <div class="surge-hud__timer">{streak.value}</div>
         <div class="surge-hud__count">streak · best {best.value}</div>

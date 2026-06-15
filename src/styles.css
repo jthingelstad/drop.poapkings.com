@@ -910,6 +910,13 @@ a { color: var(--lavender); }
 .site-foot a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .site-foot__disc a { text-decoration: underline; text-underline-offset: 2px; }
 
+/* Active play states get a lower-chrome shell so the card surface owns the frame. */
+body:has(.game-run) .site-foot { display: none; }
+
+.main-content.game-run {
+  padding-bottom: 32px;
+}
+
 /* ── Site header ──────────────────────────────────────────── */
 
 .site-head {
@@ -968,11 +975,25 @@ a { color: var(--lavender); }
 }
 .site-head__settings:hover { color: var(--ink); transform: rotate(60deg); }
 
+body:has(.game-run) .site-head {
+  padding-block: 8px;
+  background: rgba(7, 6, 16, 0.88);
+}
+
+body:has(.game-run) .site-head__name {
+  font-size: 0.96rem;
+}
+
+body:has(.game-run) .starcount {
+  display: none;
+}
+
 /* ── Drop Stars counter ───────────────────────────────────── */
 
 .starcount {
   position: relative;
   display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px;
   padding: 6px 12px 6px 10px;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(245,200,76,.18), rgba(201,140,16,.14));
@@ -1601,28 +1622,6 @@ a { color: var(--lavender); }
   height: 15px;
 }
 
-.ladder-card__name {
-  position: absolute;
-  z-index: 2;
-  right: -4px;
-  bottom: 9px;
-  left: -4px;
-  font-family: var(--font-display);
-  font-size: clamp(0.64rem, 2.8vw, 0.82rem);
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 0.95;
-  text-align: center;
-  overflow-wrap: anywhere;
-  text-shadow:
-    0 2px 0 #05030b,
-    1.5px 1.5px 0 #05030b,
-    -1.5px 1.5px 0 #05030b,
-    1.5px -1.5px 0 #05030b,
-    -1.5px -1.5px 0 #05030b,
-    0 4px 7px rgba(0, 0, 0, 0.72);
-}
-
 .ladder-card__details {
   min-width: 0;
   display: flex;
@@ -1636,7 +1635,10 @@ a { color: var(--lavender); }
   font-size: clamp(0.92rem, 3vw, 1.12rem);
   line-height: 1.22;
   color: var(--ink);
-  overflow-wrap: anywhere;
+  hyphens: none;
+  overflow-wrap: normal;
+  text-wrap: balance;
+  word-break: normal;
 }
 
 .ladder-card__sub {
@@ -2362,8 +2364,10 @@ a { color: var(--lavender); }
 
 @media (width <= 480px) {
   .main-content { padding: 24px 16px 48px; gap: 24px; }
+  .main-content.game-run { padding-bottom: 24px; }
   .pcard { padding: 20px 16px 18px; }
   .site-head { padding: 12px 16px; gap: 8px; }
+  body:has(.game-run) .site-head__name { display: none; }
   .starcount { padding: 5px 9px 5px 8px; gap: 5px; font-size: 12px; }
   .starcount__icon { width: 18px; height: 18px; flex-basis: 18px; }
 }

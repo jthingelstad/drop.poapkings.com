@@ -403,7 +403,7 @@ export default function Trade() {
 
   if (stage.value === 'countdown') {
     return (
-      <div class="main-content trade">
+      <div class="main-content game-run trade">
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
@@ -413,7 +413,7 @@ export default function Trade() {
   }
 
   return (
-    <div class="main-content trade" style={{ alignItems: 'center', gap: 18 }}>
+    <div class="main-content game-run trade" style={{ alignItems: 'center', gap: 18 }}>
       <div class="surge-hud trade-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}

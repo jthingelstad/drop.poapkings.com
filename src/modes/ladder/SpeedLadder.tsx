@@ -136,7 +136,6 @@ function LadderCard({
             {card.elixir}
           </span>
         )}
-        <span class="ladder-card__name">{card.name}</span>
       </span>
 
       <span class="ladder-card__details">
@@ -443,7 +442,7 @@ export default function SpeedLadder() {
 
   if (stage.value === 'countdown') {
     return (
-      <div class="main-content ladder">
+      <div class="main-content game-run ladder">
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
@@ -453,7 +452,7 @@ export default function SpeedLadder() {
   }
 
   return (
-    <div class="main-content ladder" style={{ alignItems: 'center', gap: 18 }}>
+    <div class="main-content game-run ladder" style={{ alignItems: 'center', gap: 18 }}>
       <div class="surge-hud ladder-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}

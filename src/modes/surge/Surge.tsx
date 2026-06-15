@@ -262,7 +262,7 @@ export default function Surge() {
   // ── Countdown ────────────────────────────────────────────────────────────
   if (stage.value === 'countdown') {
     return (
-      <div class="main-content surge">
+      <div class="main-content game-run surge">
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
@@ -274,7 +274,7 @@ export default function Surge() {
   // ── Running ──────────────────────────────────────────────────────────────
   const card = sprint.current[index.value]
   return (
-    <div class="main-content surge" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run surge" style={{ alignItems: 'center', gap: 20 }}>
       <div class="surge-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}

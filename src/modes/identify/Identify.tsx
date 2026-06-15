@@ -305,7 +305,7 @@ export default function Identify() {
 
   if (stage.value === 'countdown') {
     return (
-      <div class="main-content identify">
+      <div class="main-content game-run identify">
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
@@ -317,7 +317,7 @@ export default function Identify() {
   const card = sprint.current[index.value]
 
   return (
-    <div class="main-content identify identify-run" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run identify identify-run" style={{ alignItems: 'center', gap: 20 }}>
       <div class="surge-hud identify-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}

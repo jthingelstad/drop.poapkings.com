@@ -164,7 +164,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   const accuracy = answered.value > 0 ? Math.round((correct.value / answered.value) * 100) : null
 
   return (
-    <div class="main-content" style={{ alignItems: 'center', gap: 24 }}>
+    <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
       <div class="session-bar">
         <div class="session-bar__stat">
           <span class="session-bar__val">

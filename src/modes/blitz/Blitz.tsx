@@ -262,7 +262,7 @@ export default function Blitz() {
   // ── Countdown ────────────────────────────────────────────────────────────
   if (stage.value === 'countdown') {
     return (
-      <div class="main-content surge">
+      <div class="main-content game-run surge">
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
@@ -275,7 +275,7 @@ export default function Blitz() {
   const card = current.value
   const seconds = Math.ceil(remainingMs.value / 1000)
   return (
-    <div class="main-content surge" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run surge" style={{ alignItems: 'center', gap: 20 }}>
       <div class="surge-hud">
         <div class={`surge-hud__timer${seconds <= 10 ? ' surge-hud__timer--low' : ''}`} aria-label="time remaining">
           {seconds}

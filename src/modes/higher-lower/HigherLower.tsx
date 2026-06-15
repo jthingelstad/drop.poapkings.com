@@ -111,7 +111,7 @@ export default function HigherLower() {
   }
 
   return (
-    <div class="main-content hl" style={{ alignItems: 'center', gap: 22 }}>
+    <div class="main-content game-run hl" style={{ alignItems: 'center', gap: 22 }}>
       <div class="session-bar">
         <div class="session-bar__stat">
           <span class="session-bar__val">{streak.value}</span>
