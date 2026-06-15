@@ -42,6 +42,14 @@ Two cards; pick Higher, Equal, or Lower relative to the left card. Endless strea
 Trains the relative read that wins elixir trades.
 - Record: `longestStreak`.
 
+**Trade** — `/trade` · `src/modes/trade/`
+You are always Blue King; Red is the opponent. Blue plays 1–3 sampled cards and
+Red answers with 1–3 sampled cards. Guess your elixir trade from `-4` through
+`+4`, where positive means Red spent more elixir than you. A wrong guess adds
++2.0s, reveals one persistent card-cost hint, and leaves the exchange live.
+- Input: signed trade keypad (`-4 … Even … +4`).
+- Record: `tradeBest` (lowest time).
+
 ### Stretch
 
 **Blitz** — `/blitz` · `src/modes/blitz/`
@@ -81,9 +89,10 @@ are avoiding.
 ## Ideas & backlog
 
 From the June 2026 refresh. The active lineup already covers speed
-(Surge/Blitz/Survival), comparison (Higher/Lower), recall (Practice), and spatial
-ordering (Speed Ladder). The remaining useful whitespace is **ordering depth**,
-**small arithmetic**, and **single-card estimation** — all without deck data.
+(Surge/Blitz/Survival), comparison (Higher/Lower), recall (Practice), trade math
+(Trade), and spatial ordering (Speed Ladder). The remaining useful whitespace is
+**ordering depth**, **small arithmetic**, and **single-card estimation** — all
+without deck data.
 
 ### Recommended next build
 

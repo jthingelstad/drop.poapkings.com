@@ -179,9 +179,9 @@ claim of ownership. Carry a Supercell disclaimer in the footer (mirror the site'
 ## 4. Game Modes
 
 A small set of games share one engine. The app ships core drills plus stretch
-modes that exercise speed, comparison, and spatial ordering. New game ideas must
-work from `cards.json` alone; do not add curated deck definitions or archetype
-data.
+modes that exercise speed, comparison, trade arithmetic, and spatial ordering.
+New game ideas must work from `cards.json` alone; do not add curated deck
+definitions or archetype data.
 
 ### 4.1 Practice (untimed — build first as the loop)
 A card appears; player picks its cost. No clock, no pressure. Used to learn the
@@ -227,7 +227,19 @@ correct can you clear?" Gives a higher-is-better number too. One flag
 Two cards side by side; pick which costs **more**, or "Equal." Trains relative
 intuition — the skill that actually wins elixir trades. Cheap, high pedagogical value.
 
-### 4.4 Shipped stretch modes
+### 4.4 Trade
+You are always **Blue King**; Red is the opponent. Blue plays 1–3 sampled cards,
+Red answers with 1–3 sampled cards, and the player guesses the elixir trade from
+Blue's perspective.
+
+- **Formula:** `trade = redTotal - blueTotal`. Positive means Red spent more
+  elixir than you, so Blue got a positive trade.
+- **Input:** signed trade keypad from `-4` through `+4`, with `Even` for zero.
+- **Flow:** a wrong guess adds +2.0s, reveals one card's elixir cost, and leaves
+  the exchange live until answered correctly.
+- **Record:** store `tradeBest` (lowest time).
+
+### 4.5 Shipped stretch modes
 - **Blitz** — 60s count-up: how many cards can you clear? Reuses Surge's timed
   keypad flow. Record: `blitzBest`.
 - **Survival** — endless timed Quick answers; one wrong or timeout ends the run.
@@ -237,7 +249,7 @@ intuition — the skill that actually wins elixir trades. Cheap, high pedagogica
   the ladder live; equal-cost cards are accepted in either relative order. Touch
   players can tap a card, then tap a destination. Record: `ladderBest`.
 
-### 4.5 Retired modes
+### 4.6 Retired modes
 - **Focus** — removed from the active app. It overlapped too heavily with
   Practice; future subset drills should be Practice filters, not a separate tile.
 - **Deck Budget** — removed from the active app. The target-average puzzle was
@@ -343,9 +355,9 @@ so metrics and the star count stay this game's own (no intermingling).
   the clan's stars.
 - **Custom events** via `data-tinylytics-event="…"`:
   `game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`,
-  `mode.blitz`, `mode.survival`, `mode.ladder`, `surge.complete`,
-  `ladder.complete`, `record.new`, `recruit.shown`, `recruit.join`,
-  `recruit.discord`, `result.share`.
+  `mode.trade`, `mode.blitz`, `mode.survival`, `mode.ladder`, `surge.complete`,
+  `ladder.complete`, `trade.complete`, `record.new`, `recruit.shown`,
+  `recruit.join`, `recruit.discord`, `result.share`.
 - **Kudos** as a lightweight "this was fun" signal on the summary screen.
 - Local funnel mirror in localStorage so v2 analytics has history.
 - **v2:** a real cross-player Surge leaderboard is the obvious API upgrade.
@@ -409,7 +421,7 @@ card art, the drop animation, the Surge timer, and Elixir's reactions — not cl
 elixirdrop:profile    → { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats  → { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
 elixirdrop:records    → { surgeBest, longestStreak, bestAccuracy, blitzBest,
-                           survivalBest, ladderBest }
+                           survivalBest, ladderBest, tradeBest }
 elixirdrop:funnel     → { recruitShown, recruitJoin, recruitDiscord, shares }
 elixirdrop:settings   → { inputStyle, sound, reducedMotion? }
 ```
@@ -457,10 +469,11 @@ SURGE_BLITZ_MS   = 60000       // Blitz window (if used)
 8. Elixir host: bundled avatar states + line table + event selection (quiet during Surge).
 9. Session/Surge summary + insight layer (incl. slowest-card insight).
 10. **Higher / Lower** mode.
-11. Tinylytics wiring (own ID): star counter, custom events, kudos, share line (§7).
-12. Recruitment funnel (PB trigger, CTA, full-clan JOIN/WAIT mirror, footer).
-13. Stretch modes: Blitz, Survival, Speed Ladder.
-14. Supercell disclaimer, polish, sound + reduced-motion toggles, responsive.
+11. **Trade** mode: Blue perspective, signed trade keypad, cost hints.
+12. Tinylytics wiring (own ID): star counter, custom events, kudos, share line (§7).
+13. Recruitment funnel (PB trigger, CTA, full-clan JOIN/WAIT mirror, footer).
+14. Stretch modes: Blitz, Survival, Speed Ladder.
+15. Supercell disclaimer, polish, sound + reduced-motion toggles, responsive.
 
 ---
 
@@ -512,7 +525,7 @@ property `JjqvUeyEnrPM1f_iXrbU` created.)*
 - [ ] Favicon + OG / share image for `drop.poapkings.com`
 - [ ] Supercell disclaimer string in footer
 
-**The game (build order §10, 4–13)**
+**The game (build order §10, 4–14)**
 - [ ] Practice loop + elixir-drop animation
 - [ ] `storage.js` + weighted sampling
 - [ ] Pip keypad
@@ -520,7 +533,9 @@ property `JjqvUeyEnrPM1f_iXrbU` created.)*
 - [ ] Elixir host (avatar + line table)
 - [ ] Summary + insight layer
 - [ ] Higher / Lower
+- [ ] Trade
 - [ ] Recruitment funnel + footer
+- [ ] Blitz / Survival / Speed Ladder
 - [ ] Polish, sound + reduced-motion toggles, responsive
 
 **Decisions to confirm (§11)**

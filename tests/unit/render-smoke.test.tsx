@@ -8,6 +8,7 @@ const CASES = [
   ['/practice', 'How much elixir does this cost?'],
   ['/surge', '15 cards. One honest time.'],
   ['/higher-lower', 'Higher'],
+  ['/trade', 'Read the elixir trade.'],
   ['/blitz', 'Blitz'],
   ['/survival', 'Survival'],
   ['/ladder', 'Sort five cards by elixir.'],

@@ -4,6 +4,7 @@ import { formatSeconds } from '../../src/lib/format'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
+import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
 
 function card(id: number, name: string, elixir: number, type: Card['type'] = 'troop'): Card {
@@ -87,5 +88,31 @@ describe('learning helpers', () => {
     expect(pickLadderHintCard(order, new Set([knight.id]))).toBe(rocket.id)
     expect(pickLadderHintCard(order, new Set([knight.id, rocket.id]))).toBe(goblins.id)
     expect(pickLadderHintCard(order, new Set(order.map((c) => c.id)))).toBeUndefined()
+  })
+
+  it('scores Trade from the Blue King perspective', () => {
+    const knight = card(1, 'Knight', 3)
+    const fireball = card(2, 'Fireball', 4, 'spell')
+    const rocket = card(3, 'Rocket', 6, 'spell')
+    const round: TradeRound = { blue: [knight, fireball], red: [rocket] }
+
+    expect(sideTotal(round.blue)).toBe(7)
+    expect(sideTotal(round.red)).toBe(6)
+    expect(tradeValue(round)).toBe(-1)
+    expect(formatTrade(tradeValue(round))).toBe('-1')
+    expect(formatTrade(0)).toBe('Even')
+    expect(formatTrade(2)).toBe('+2')
+  })
+
+  it('reveals Trade hint cards by highest hidden elixir value', () => {
+    const knight = card(1, 'Knight', 3)
+    const fireball = card(2, 'Fireball', 4, 'spell')
+    const rocket = card(3, 'Rocket', 6, 'spell')
+    const round: TradeRound = { blue: [knight, rocket], red: [fireball] }
+
+    expect(pickTradeHintCard(round, new Set())).toBe(rocket.id)
+    expect(pickTradeHintCard(round, new Set([rocket.id]))).toBe(fireball.id)
+    expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id]))).toBe(knight.id)
+    expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id, knight.id]))).toBeUndefined()
   })
 })

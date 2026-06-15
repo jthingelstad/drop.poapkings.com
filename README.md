@@ -10,7 +10,7 @@ self-contained static single-page app.
 
 ## What it is
 
-Several ways to play, one engine. The three core modes:
+Several ways to play, one engine. The four core modes:
 
 - **Practice** — untimed. A card appears, you pick its elixir cost. No pressure;
   good for learning the loop and grinding your weak cards.
@@ -19,6 +19,8 @@ Several ways to play, one engine. The three core modes:
   clean, shareable number.
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative
   read that actually wins elixir trades.
+- **Trade** — you are Blue King; Red answers your cards. Guess whether you won
+  or lost the elixir trade.
 
 Plus stretch modes — **Blitz**, **Survival**, and **Speed Ladder**. See
 [`GAMES.md`](GAMES.md) for the full catalog, retired modes, and backlog of game
@@ -113,7 +115,7 @@ elixir-drop/
 ├─ src/
 │  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
 │  ├─ lib/                   # storage seam, sampler, distractors, line table
-│  ├─ modes/                 # practice, surge, higher-lower, blitz, survival, ladder
+│  ├─ modes/                 # practice, surge, higher-lower, trade, blitz, survival, ladder
 │  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, …
 │  ├─ styles.css             # vendored POAP KINGS tokens + components
 │  └─ main.tsx

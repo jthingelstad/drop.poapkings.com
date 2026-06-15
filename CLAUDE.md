@@ -62,9 +62,10 @@ adding or reworking a game.
 - **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
-- **Modes** in `src/modes/`: core `practice`, `surge`, `higher-lower`; stretch
-  `blitz`, `survival`, `ladder`. See `GAMES.md` for each game's mechanic,
-  scoring, route, and records key, plus the idea backlog and retired modes.
+- **Modes** in `src/modes/`: core `practice`, `surge`, `higher-lower`, `trade`;
+  stretch `blitz`, `survival`, `ladder`. See `GAMES.md` for each game's
+  mechanic, scoring, route, and records key, plus the idea backlog and retired
+  modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
@@ -119,9 +120,10 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 
 Follow `SPEC.md` §10. In short: scaffold + Pages plumbing → `refresh-cards.mjs` +
 seed data → **Practice loop (make it fun first)** → storage + sampling → pip keypad
-→ **Surge** → Elixir host → summary + insights → Higher/Lower → Tinylytics →
-recruit funnel → Blitz/Survival/Speed Ladder → polish (sound + reduced-motion toggles,
-responsive). Honor `prefers-reduced-motion` on all celebratory FX.
+→ **Surge** → Elixir host → summary + insights → Higher/Lower → Trade →
+Tinylytics → recruit funnel → Blitz/Survival/Speed Ladder → polish (sound +
+reduced-motion toggles, responsive). Honor `prefers-reduced-motion` on all
+celebratory FX.
 
 When a decision is genuinely ambiguous and not covered above or in `SPEC.md`,
 stop and ask rather than guessing.
