@@ -5,6 +5,7 @@ import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
 import { makeNameChoices } from '../../src/lib/name-choices'
+import { identifySummaryLine, ladderSummaryLine, tradeSummaryLine } from '../../src/lib/mode-insights'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
@@ -78,6 +79,35 @@ describe('learning helpers', () => {
     expect(insights.biasLine).toBe('you overestimate spells by ~2')
     expect(insights.slowestBandLabel).toBe('5+')
     expect(insightPhrase(insights)).toContain('cost cards')
+  })
+
+  it('writes mode-specific summary coaching', () => {
+    const tesla = card(1, 'Tesla', 4, 'building')
+
+    expect(
+      identifySummaryLine({
+        isPB: false,
+        totalMs: 12_300,
+        totalCards: 15,
+        firstTry: 13,
+        misses: 2,
+        missedCards: [tesla]
+      })
+    ).toContain('Re-drill Tesla')
+
+    expect(
+      tradeSummaryLine({
+        isPB: false,
+        totalMs: 9_100,
+        sequenceLen: 8,
+        cleanTrades: 6,
+        wrongGuesses: 2,
+        lastTrade: -1
+      })
+    ).toContain('Blue spends more')
+
+    expect(ladderSummaryLine({ isPB: false, totalMs: 6_700, wrongLocks: 2 })).toContain('2 lock misses')
+    expect(ladderSummaryLine({ isPB: true, totalMs: 5_200, wrongLocks: 0 })).toContain('New Ladder best')
   })
 
   it('interpolates Elixir lines and returns empty for unknown events', () => {

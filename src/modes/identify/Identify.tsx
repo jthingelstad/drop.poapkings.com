@@ -8,6 +8,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
+import { identifySummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
 import { makeNameChoices, NAME_CHOICE_COUNT } from '../../lib/name-choices'
@@ -161,9 +162,14 @@ export default function Identify() {
     }
     track('identify.complete')
 
-    elixirLine.value = pb
-      ? `New Identify best: ${formatSeconds(total)}s. Sharp card read.`
-      : `${firstTry}/${IDENTIFY.SPRINT_LEN} first try. ${pluralize(misses, 'miss', 'misses')}.`
+    elixirLine.value = identifySummaryLine({
+      isPB: pb,
+      totalMs: total,
+      totalCards: IDENTIFY.SPRINT_LEN,
+      firstTry,
+      misses,
+      missedCards: missed
+    })
     stage.value = 'summary'
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }

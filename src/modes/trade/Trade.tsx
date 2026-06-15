@@ -8,6 +8,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
+import { tradeSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
 import {
@@ -253,9 +254,14 @@ export default function Trade() {
       track('record.new')
     }
     track('trade.complete')
-    elixirLine.value = pb
-      ? `New Trade best: ${formatSeconds(total)}s across ${TRADE.SEQUENCE_LEN} exchanges.`
-      : `${cleanTrades.value}/${TRADE.SEQUENCE_LEN} clean. ${pluralizeMisses(wrongGuesses.value)}.`
+    elixirLine.value = tradeSummaryLine({
+      isPB: pb,
+      totalMs: total,
+      sequenceLen: TRADE.SEQUENCE_LEN,
+      cleanTrades: cleanTrades.value,
+      wrongGuesses: wrongGuesses.value,
+      lastTrade: lastTrade.value
+    })
     stage.value = 'summary'
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }

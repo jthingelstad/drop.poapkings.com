@@ -9,6 +9,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
+import { ladderSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
@@ -330,9 +331,11 @@ export default function SpeedLadder() {
       track('record.new')
     }
     track('ladder.complete')
-    elixirLine.value = pb
-      ? `New Ladder best: ${formatSeconds(total)}s. Sorted hands win trades.`
-      : `${formatSeconds(total)}s. Clean order. Now do it faster.`
+    elixirLine.value = ladderSummaryLine({
+      isPB: pb,
+      totalMs: total,
+      wrongLocks: wrongLocks.value
+    })
     stage.value = 'summary'
   }
 
