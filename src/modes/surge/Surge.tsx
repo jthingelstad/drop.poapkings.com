@@ -12,6 +12,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { preloadImages } from '../../lib/preload'
+import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -76,8 +77,9 @@ export default function Surge() {
 
   // Preload the sprint art once on mount.
   useEffect(() => {
+    const timerList = timers.current
     preloadImages(sprint.current, () => (imagesReady.value = true))
-    return () => timers.current.forEach(clearTimeout)
+    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -86,7 +88,7 @@ export default function Surge() {
     if (stage.value !== 'running') return
     let raf = 0
     const loop = () => {
-      elapsedMs.value = performance.now() - startTime.current + penaltyMs.current
+      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -95,22 +97,12 @@ export default function Surge() {
   }, [stage.value])
 
   function later(fn: () => void, ms: number) {
-    const id = window.setTimeout(fn, ms)
-    timers.current.push(id)
+    schedule(timers.current, fn, ms)
   }
 
   function start() {
     stage.value = 'countdown'
-    count.value = 3
-    const step = () => {
-      if (count.value <= 1) {
-        begin()
-        return
-      }
-      count.value -= 1
-      later(step, COUNTDOWN_STEP_MS)
-    }
-    later(step, COUNTDOWN_STEP_MS)
+    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
   }
 
   function begin() {
@@ -137,7 +129,7 @@ export default function Surge() {
   }
 
   function finish() {
-    const total = performance.now() - startTime.current + penaltyMs.current
+    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
     const ins = computeInsights(answers.current)
     const best = getRecords().surgeBest
     const pb = best === undefined || total < best
@@ -188,8 +180,7 @@ export default function Surge() {
   }
 
   function replay() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+    clearTimers(timers.current)
     sprint.current = pickSprint(SURGE.SPRINT_LEN)
     answers.current = []
     penaltyMs.current = 0

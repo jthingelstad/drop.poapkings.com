@@ -10,6 +10,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
+import { clearTimers, schedule } from '../../lib/run-loop'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -58,13 +59,14 @@ export default function Survival() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
+    const timerList = timers.current
     track('mode.survival')
     const batch: Card[] = []
     const seed: number[] = []
     const seedSeen = new Set<number>()
     for (let i = 0; i < SURVIVAL.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
     preloadImages(batch, () => (imagesReady.value = true))
-    return () => timers.current.forEach(clearTimeout)
+    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -90,8 +92,7 @@ export default function Survival() {
   }, [stage.value])
 
   function later(fn: () => void, ms: number) {
-    const id = window.setTimeout(fn, ms)
-    timers.current.push(id)
+    schedule(timers.current, fn, ms)
   }
 
   function begin() {
@@ -169,8 +170,7 @@ export default function Survival() {
   }
 
   function replay() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+    clearTimers(timers.current)
     dead.current = false
     imagesReady.value = false
     insights.value = null

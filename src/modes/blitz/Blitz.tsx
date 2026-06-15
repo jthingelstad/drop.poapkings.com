@@ -11,6 +11,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
+import { clearTimers, schedule, startCountdown } from '../../lib/run-loop'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -65,13 +66,14 @@ export default function Blitz() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
+    const timerList = timers.current
     track('mode.blitz')
     const batch: Card[] = []
     const seed: number[] = []
     const seedSeen = new Set<number>()
     for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
     preloadImages(batch, () => (imagesReady.value = true))
-    return () => timers.current.forEach(clearTimeout)
+    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -93,22 +95,12 @@ export default function Blitz() {
   }, [stage.value])
 
   function later(fn: () => void, ms: number) {
-    const id = window.setTimeout(fn, ms)
-    timers.current.push(id)
+    schedule(timers.current, fn, ms)
   }
 
   function start() {
     stage.value = 'countdown'
-    count.value = 3
-    const step = () => {
-      if (count.value <= 1) {
-        begin()
-        return
-      }
-      count.value -= 1
-      later(step, COUNTDOWN_STEP_MS)
-    }
-    later(step, COUNTDOWN_STEP_MS)
+    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
   }
 
   function begin() {
@@ -140,8 +132,7 @@ export default function Blitz() {
   function finish() {
     if (finished.current) return
     finished.current = true
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+    clearTimers(timers.current)
 
     const ins = computeInsights(answers.current)
     const best = getRecords().blitzBest
@@ -191,8 +182,7 @@ export default function Blitz() {
   }
 
   function replay() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+    clearTimers(timers.current)
     finished.current = false
     imagesReady.value = false
     insights.value = null

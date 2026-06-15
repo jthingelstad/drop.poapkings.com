@@ -9,6 +9,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { preloadImages } from '../../lib/preload'
+import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
 import {
   formatTrade,
   isTradeInRange,
@@ -185,9 +186,10 @@ export default function Trade() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
+    const timerList = timers.current
     track('mode.trade')
     preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
-    return () => timers.current.forEach(clearTimeout)
+    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -195,7 +197,7 @@ export default function Trade() {
     if (stage.value !== 'running') return
     let raf = 0
     const loop = () => {
-      elapsedMs.value = performance.now() - startTime.current + penaltyMs.current
+      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -204,22 +206,12 @@ export default function Trade() {
   }, [stage.value])
 
   function later(fn: () => void, ms: number) {
-    const id = window.setTimeout(fn, ms)
-    timers.current.push(id)
+    schedule(timers.current, fn, ms)
   }
 
   function start() {
     stage.value = 'countdown'
-    count.value = 3
-    const step = () => {
-      if (count.value <= 1) {
-        begin()
-        return
-      }
-      count.value -= 1
-      later(step, COUNTDOWN_STEP_MS)
-    }
-    later(step, COUNTDOWN_STEP_MS)
+    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
   }
 
   function begin() {
@@ -248,7 +240,7 @@ export default function Trade() {
   }
 
   function finish() {
-    const total = performance.now() - startTime.current + penaltyMs.current
+    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
     const best = getRecords().tradeBest
     const pb = best === undefined || total < best
     totalMs.value = total
@@ -309,8 +301,7 @@ export default function Trade() {
   }
 
   function replay() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+    clearTimers(timers.current)
     rounds.current = pickTradeSequence(TRADE.SEQUENCE_LEN)
     imagesReady.value = false
     count.value = 3

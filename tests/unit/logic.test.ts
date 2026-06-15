@@ -5,6 +5,7 @@ import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
 import { makeNameChoices } from '../../src/lib/name-choices'
+import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
 
@@ -24,6 +25,7 @@ function card(id: number, name: string, elixir: number, type: Card['type'] = 'tr
 describe('learning helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('builds adjacent elixir choices around the truth', () => {
@@ -121,6 +123,34 @@ describe('learning helpers', () => {
     expect(formatTrade(tradeValue(round))).toBe('-1')
     expect(formatTrade(0)).toBe('Even')
     expect(formatTrade(2)).toBe('+2')
+  })
+
+  it('runs countdowns, clears scheduled timers, and computes penalized elapsed time', () => {
+    vi.useFakeTimers()
+    vi.spyOn(performance, 'now').mockReturnValue(2450)
+
+    const timers: number[] = []
+    const count = { value: 9 }
+    const begin = vi.fn()
+
+    startCountdown(count, begin, timers, 100)
+    expect(count.value).toBe(3)
+    expect(begin).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(100)
+    expect(count.value).toBe(2)
+    vi.advanceTimersByTime(100)
+    expect(count.value).toBe(1)
+    vi.advanceTimersByTime(100)
+    expect(begin).toHaveBeenCalledTimes(1)
+
+    const scheduled = vi.fn()
+    schedule(timers, scheduled, 100)
+    clearTimers(timers)
+    vi.advanceTimersByTime(100)
+    expect(scheduled).not.toHaveBeenCalled()
+    expect(timers).toHaveLength(0)
+    expect(elapsedWithPenalty(1000, 2000)).toBe(3450)
   })
 
   it('reveals Trade hint cards by highest hidden elixir value', () => {
