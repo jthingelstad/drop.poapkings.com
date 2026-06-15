@@ -19,8 +19,6 @@ export type TinyEvent =
   | 'mode.blitz'
   | 'mode.survival'
   | 'mode.ladder'
-  | 'mode.deckbudget'
-  | 'mode.focus'
   | 'surge.complete'
   | 'ladder.complete'
   | 'record.new'

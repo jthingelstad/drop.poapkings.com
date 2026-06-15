@@ -15,8 +15,6 @@ const routes = [
   { hash: '#/blitz', label: 'Blitz', ready: '.surge-ready' },
   { hash: '#/survival', label: 'Survival', ready: '.surge-ready' },
   { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
-  { hash: '#/focus', label: 'Focus', ready: '.home' },
-  { hash: '#/deck-budget', label: 'Deck Budget', ready: '.budget' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
 ]
 
@@ -78,27 +76,6 @@ test('card art fallback renders when the Clash Royale CDN is blocked', async ({ 
   await page.evaluate(() => localStorage.clear())
   await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible()
-})
-
-test('deck budget does not reveal per-card elixir costs', async ({ page }) => {
-  await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
-  await page.goto('/#/deck-budget')
-  await expect(page.locator('.budget')).toBeVisible()
-  await expect(page.locator('.budget-cell__cost')).toHaveCount(0)
-
-  const labels = await page
-    .locator('.budget-cell')
-    .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('aria-label') ?? ''))
-  expect(labels.every((label) => !/\b(?:1|2|3|4|5|6|7|8|9|10)\s+elixir\b/i.test(label))).toBe(true)
-
-  const cells = page.locator('.budget-cell')
-  for (let i = 0; i < 8; i += 1) {
-    await cells.nth(i).click()
-  }
-  await page.getByRole('button', { name: 'Score this deck' }).click()
-  await expect(page.locator('.budget-result')).toBeVisible()
-  await expect(page.locator('.budget-result__deck .summary-chip__cost')).toHaveCount(0)
 })
 
 test('speed ladder can be sorted and completed with move controls', async ({ page }) => {

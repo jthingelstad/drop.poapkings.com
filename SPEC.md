@@ -179,7 +179,9 @@ claim of ownership. Carry a Supercell disclaimer in the footer (mirror the site'
 ## 4. Game Modes
 
 A small set of games share one engine. The app ships core drills plus stretch
-modes that exercise speed, comparison, spatial ordering, and deck-cost intuition.
+modes that exercise speed, comparison, and spatial ordering. New game ideas must
+work from `cards.json` alone; do not add curated deck definitions or archetype
+data.
 
 ### 4.1 Practice (untimed — build first as the loop)
 A card appears; player picks its cost. No clock, no pressure. Used to learn the
@@ -231,13 +233,18 @@ intuition — the skill that actually wins elixir trades. Cheap, high pedagogica
 - **Survival** — endless timed Quick answers; one wrong or timeout ends the run.
   A sudden-death cousin of Surge for the streak-chasers. Record: `survivalBest`.
 - **Speed Ladder** — sort 5 sampled cards from lowest to highest elixir as fast
-  as possible. Wrong locks add +2.0s; equal-cost cards are accepted in either
-  relative order. Record: `ladderBest`.
-- **Deck Budget** — given a target average elixir (e.g. "build a 3.2 deck"), pick
-  8 cards; scored on closeness. Teaches deck construction directly. Record:
-  `deckBudgetBest`.
-- **Focus** — drill a subset: spells only, buildings only, or a weak cost band.
-  Delegates to Practice and records through `bestAccuracy`.
+  as possible. Wrong locks add +2.0s, reveal one persistent cost hint, and leave
+  the ladder live; equal-cost cards are accepted in either relative order. Touch
+  players can tap a card, then tap a destination. Record: `ladderBest`.
+
+### 4.5 Retired modes
+- **Focus** — removed from the active app. It overlapped too heavily with
+  Practice; future subset drills should be Practice filters, not a separate tile.
+- **Deck Budget** — removed from the active app. The target-average puzzle was
+  flat, and fixing it well would require curated real-deck data. That data path is
+  intentionally out of scope.
+- **No curated decks** — do not add `src/data/decks.json`, archetype definitions,
+  or games that require authentic deck construction/coherence.
 
 ---
 
@@ -336,9 +343,9 @@ so metrics and the star count stay this game's own (no intermingling).
   the clan's stars.
 - **Custom events** via `data-tinylytics-event="…"`:
   `game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`,
-  `mode.blitz`, `mode.survival`, `mode.ladder`, `mode.deckbudget`, `mode.focus`,
-  `surge.complete`, `ladder.complete`, `record.new`, `recruit.shown`,
-  `recruit.join`, `recruit.discord`, `result.share`.
+  `mode.blitz`, `mode.survival`, `mode.ladder`, `surge.complete`,
+  `ladder.complete`, `record.new`, `recruit.shown`, `recruit.join`,
+  `recruit.discord`, `result.share`.
 - **Kudos** as a lightweight "this was fun" signal on the summary screen.
 - Local funnel mirror in localStorage so v2 analytics has history.
 - **v2:** a real cross-player Surge leaderboard is the obvious API upgrade.
@@ -402,7 +409,7 @@ card art, the drop animation, the Surge timer, and Elixir's reactions — not cl
 elixirdrop:profile    → { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats  → { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
 elixirdrop:records    → { surgeBest, longestStreak, bestAccuracy, blitzBest,
-                           survivalBest, ladderBest, deckBudgetBest }
+                           survivalBest, ladderBest }
 elixirdrop:funnel     → { recruitShown, recruitJoin, recruitDiscord, shares }
 elixirdrop:settings   → { inputStyle, sound, reducedMotion? }
 ```
@@ -452,7 +459,7 @@ SURGE_BLITZ_MS   = 60000       // Blitz window (if used)
 10. **Higher / Lower** mode.
 11. Tinylytics wiring (own ID): star counter, custom events, kudos, share line (§7).
 12. Recruitment funnel (PB trigger, CTA, full-clan JOIN/WAIT mirror, footer).
-13. Stretch modes: Blitz, Survival, Focus, Deck Budget, Speed Ladder.
+13. Stretch modes: Blitz, Survival, Speed Ladder.
 14. Supercell disclaimer, polish, sound + reduced-motion toggles, responsive.
 
 ---

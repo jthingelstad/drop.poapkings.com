@@ -27,7 +27,7 @@ interface Props {
   onExit?: () => void
 }
 
-// The untimed quiz loop, shared by Practice (full catalog) and Focus (a subset).
+// The untimed quiz loop used by Practice.
 export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   const exit = onExit ?? (() => navigate('/'))
   const lastSeen = useRef<number[]>([])

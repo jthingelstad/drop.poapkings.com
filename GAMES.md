@@ -10,6 +10,12 @@ Every game shares one engine and the same seams: cards come from
 goes through `src/lib/sampling.ts`, and multiple-choice distractors through
 `src/lib/choices.ts`.
 
+**Current product constraint:** do not add curated deck definitions. No
+`decks.json`, archetype list, synergy model, or "real deck" dependency. That path
+is a maintenance rabbit hole and makes small games expensive. New games should use
+only the committed card facts already in `cards.json`: name, elixir, rarity, type,
+and art.
+
 ---
 
 ## Shipped games
@@ -36,7 +42,7 @@ Two cards; pick Higher, Equal, or Lower relative to the left card. Endless strea
 Trains the relative read that wins elixir trades.
 - Record: `longestStreak`.
 
-### Stretch (v1.5)
+### Stretch
 
 **Blitz** — `/blitz` · `src/modes/blitz/`
 A 60s count-up variant of Surge — "how many cleared." Reuses the Surge HUD.
@@ -54,99 +60,67 @@ destination. Equal-cost cards are valid in either relative order. A wrong lock
 adds +2.0s, reveals one persistent card-cost hint, and leaves the ladder live.
 - Record: `ladderBest` (lowest time).
 
-**Focus** — `/focus` · `src/modes/focus/`
-A subset drill (spells / buildings / troops, a cost band, or your weak cards) that
-feeds the shared `PracticeLoop`. "Weak cards" with no history falls back to the
-full catalog.
-- No own record (delegates to Practice).
-- *Note:* overlaps Practice heavily — flagged to fold into Practice as a filter
-  rather than stay a separate tile.
+---
 
-**Deck Budget** — `/deck-budget` · `src/modes/deck-budget/`
-Pick 8 cards to hit a target average elixir; scored on closeness.
-- Record: `deckBudgetBest` (closest).
-- *Note:* functional but flat as a puzzle — too open-ended, no tension. See the
-  **Average 3.4** rework below.
+## Retired games
+
+These are intentionally out of the active app surface. Do not reintroduce them as
+separate tiles without a fresh product decision.
+
+**Focus** — removed.
+It overlapped too heavily with Practice. If subset drills come back, they should
+be a Practice filter or setting, not a separate mode.
+
+**Deck Budget** — removed.
+The open-ended target-average puzzle was flat, and making it feel authentically
+Clash Royale would require curated deck/archetype data. That is the rabbit hole we
+are avoiding.
 
 ---
 
 ## Ideas & backlog
 
-From the June 2026 brainstorm. The goal is *variety of mechanic* — today's lineup
-is speed (Surge/Blitz/Survival), spatial ordering (Speed Ladder), comparison
-(Higher/Lower), drill (Practice/Focus), and one weak open puzzle (Deck Budget).
-The remaining whitespace is **arithmetic**, **estimation**, and **deduction**.
+From the June 2026 refresh. The active lineup already covers speed
+(Surge/Blitz/Survival), comparison (Higher/Lower), recall (Practice), and spatial
+ordering (Speed Ladder). The remaining useful whitespace is **ordering depth**,
+**small arithmetic**, and **single-card estimation** — all without deck data.
 
-### Design constraints learned
+### Recommended next build
 
-- **Decks must look real.** We have no deck or synergy data — `cards.json` is only
-  costs/rarity/type/art. Any procedurally-assembled or random deck reads as
-  nonsense to a real CR player (three win conditions, no spell, five legendaries).
-  Heuristics get closer but still produce decks a clan player spots instantly.
-  **Any deck-based game must draw from authentic, recognizable archetypes.**
+**Insert / Endless Ladder** — *spatial ordering*
+Cards arrive one at a time; insert each into a growing low-to-high row. A misplace
+ends the run or adds a penalty, depending on how punishing the first prototype
+feels. This builds directly on Speed Ladder, needs no new data, and has the best
+shot at an addictive loop.
 
-### Foundation: curated `src/data/decks.json`
+### Strong non-deck candidates
 
-The clean fix for the constraint above, and the linchpin for several ideas below.
-A second committed data file of ~30–50 real archetypes (Hog 2.6, LavaLoon,
-X-Bow 2.9, Log Bait, Royal Hogs, Golem Beatdown, Mortar Cycle, Giant Double
-Prince, …), each just a name + 8 card IDs + an archetype tag:
+**Daily Ladder** — *shareable spatial puzzle*
+A daily seeded set of 5–6 sampled cards. Same sorting rules as Speed Ladder, but
+one puzzle per day with a share line. It must be framed as a daily card-cost puzzle,
+not a "deck."
 
-```json
-{ "version": "YYYY-MM-DD", "decks": [
-  { "id": "hog-2.6", "name": "Hog 2.6", "archetype": "cycle",
-    "cards": [26000021, 26000000, 28000001, "..."] }
-]}
-```
+**Exact Ten** — *arithmetic / set-building*
+Show a random pool of visible cards and ask the player to pick a subset totaling
+exactly 10 elixir. This should be framed as "fill the bar" or "make 10," not deck
+construction. Random pools are acceptable because the mechanic is arithmetic, not
+authentic archetype recognition.
 
-Static, committed, golden-rule-clean (no API, no coupling). Classic archetypes are
-stable enough that this rarely needs touching. **Build this before any deck-based
-game** — it's the shared source that makes every one of them look legit.
+**Cost Sweep** — *scan and recall*
+Show a compact grid and a target cost, then tap every card with that cost before
+time runs out. Good mobile ergonomics, no deck data, and a different feel from
+single-card recall.
 
-### Ladder extensions — *spatial ordering*
+**Mystery Cost** — *deduction*
+Show a card with the elixir badge hidden and reveal type/rarity/name clues over
+time or after wrong guesses. This can borrow from Cardle without becoming a daily
+Wordle clone.
 
-Drag cards into ascending elixir order. Speed Ladder ships the first version;
-equal-cost cards are accepted in either relative order so a 3/3/4 isn't a gotcha.
-Two extensions remain:
+### Set aside
 
-- **Insert / Endless** — cards arrive one at a time; drop each into its slot in a
-  growing sorted row; a misplace ends the run → streak score. The addictive hook.
-- **Daily Ladder** — 8 cards from a real deck (`decks.json`), one shareable puzzle
-  a day.
-
-### Make Ten — *new mechanic: arithmetic / set-building*
-
-Show a real 8-card deck; you're at a full bar — pick the subset of cards summing to
-**exactly 10 elixir** with no waste. Usually several valid answers → replayable, and
-it drills the cost-addition that actually matters in a match. Score on fewest moves
-or fastest exact-10. Needs `decks.json` so the hand always looks legit.
-
-### Average 3.4 — *Deck Budget rework*
-
-Give Deck Budget the tension it lacks: an **exact** target (e.g. 3.4 = 27 pips) plus
-constraints ("must include a win condition / ≥1 spell"). Score on nailing the target
-exactly, or fewest cards changed from a given starting deck. Daily + shareable.
-
-### Price Is Right — *new mechanic: estimation*
-
-Show a real deck's 8 cards; guess its average elixir; score by closeness. Deck-
-*altitude* cost sense rather than single-card recall, so it doesn't overlap
-Higher/Lower. Quick, daily-able. Needs `decks.json`.
-
-### Spot the Splash — *new mechanic: deduction*
-
-Take a real deck and swap exactly one card for an imposter from another archetype;
-the player finds the odd card out. Teaches what coheres — and the imposter genuinely
-looks off *because* the rest is a real deck. Only works because of `decks.json`.
-
-### Considered and set aside
-
-- **Cardle** (Wordle-style daily mystery card: guess cards, get an
-  elixir/rarity/type attribute-feedback grid, share the emoji result). Shareable in
-  theory, but judged unlikely to play well in practice — set aside.
-
-### Recommended slate
-
-Curated `decks.json` → **Make Ten** → then one of **Price Is Right** / **Spot the
-Splash** for variety. Speed Ladder has added the spatial mechanic; the next push
-should make deck-based games look legit and rehabilitate the puzzle category.
+- **Curated deck definitions / `decks.json`** — rejected. Too much maintenance and
+  too easy to get wrong for real players.
+- **Deck-based Make Ten, Price Is Right, Spot the Splash, Daily Deck Ladder** —
+  set aside because each depends on authentic decks or archetype coherence.
+- **Standalone Focus** — fold into Practice if the need returns.
+- **Deck Budget / Average 3.4** — removed with no planned rework.

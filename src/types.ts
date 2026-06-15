@@ -54,7 +54,6 @@ export interface Records {
   blitzBest?: number // Blitz: most cleared in 60s — higher is better
   survivalBest?: number // Survival: longest sudden-death streak
   ladderBest?: number // Speed Ladder: lowest sort time (ms) — lower is better
-  deckBudgetBest?: number // Deck Budget: closest to target (smallest diff ×100) — lower is better
 }
 
 export interface Profile {

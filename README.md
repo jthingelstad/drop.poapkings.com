@@ -20,9 +20,9 @@ Several ways to play, one engine. The three core modes:
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative
   read that actually wins elixir trades.
 
-Plus stretch modes — **Blitz**, **Survival**, **Speed Ladder**, **Focus**, and
-**Deck Budget**. See [`GAMES.md`](GAMES.md) for the full catalog and the backlog
-of game ideas.
+Plus stretch modes — **Blitz**, **Survival**, and **Speed Ladder**. See
+[`GAMES.md`](GAMES.md) for the full catalog, retired modes, and backlog of game
+ideas.
 
 A weighted sampler surfaces the cards you miss more often, and a short
 end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
@@ -57,6 +57,10 @@ npm run preview  # serve the build locally
 
 The repo ships with a committed `src/data/cards.json` snapshot, so the game runs
 fully offline in dev — no API key required to develop.
+
+Elixir Drop intentionally does **not** maintain curated deck definitions or
+archetype data. New modes should work from the committed card facts in
+`cards.json` instead of requiring a separate `decks.json` dataset.
 
 ---
 
@@ -109,7 +113,7 @@ elixir-drop/
 ├─ src/
 │  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
 │  ├─ lib/                   # storage seam, sampler, distractors, line table
-│  ├─ modes/                 # practice, surge, higher-lower, ladder, + stretch
+│  ├─ modes/                 # practice, surge, higher-lower, blitz, survival, ladder
 │  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, …
 │  ├─ styles.css             # vendored POAP KINGS tokens + components
 │  └─ main.tsx

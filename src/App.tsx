@@ -7,8 +7,6 @@ import Surge from './modes/surge/Surge'
 import HigherLower from './modes/higher-lower/HigherLower'
 import Blitz from './modes/blitz/Blitz'
 import Survival from './modes/survival/Survival'
-import Focus from './modes/focus/Focus'
-import DeckBudget from './modes/deck-budget/DeckBudget'
 import SpeedLadder from './modes/ladder/SpeedLadder'
 import SettingsScreen from './modes/settings/Settings'
 
@@ -26,9 +24,7 @@ const GRID_MODES: Mode[] = [
   { path: '/higher-lower', name: 'Higher / Lower', icon: '⚖️', desc: 'Two cards — which one costs more?' },
   { path: '/ladder', name: 'Speed Ladder', icon: '↕️', desc: 'Sort five cards from cheap to expensive.' },
   { path: '/blitz', name: 'Blitz', icon: '⏱️', desc: '60 seconds — how many can you clear?' },
-  { path: '/survival', name: 'Survival', icon: '💀', desc: 'Sudden death — one miss ends the run.' },
-  { path: '/focus', name: 'Focus', icon: '🔍', desc: 'Drill a subset: spells, buildings, a cost band.' },
-  { path: '/deck-budget', name: 'Deck Budget', icon: '🎴', desc: 'Build 8 cards to a target average elixir.' }
+  { path: '/survival', name: 'Survival', icon: '💀', desc: 'Sudden death — one miss ends the run.' }
 ]
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -71,10 +67,10 @@ function Home() {
         <div class="statstrip">
           <div class="statstrip__cell">
             <div class="statstrip__n">120</div>
-            <div class="statstrip__l">Cards in the deck</div>
+            <div class="statstrip__l">Cards in catalog</div>
           </div>
           <div class="statstrip__cell">
-            <div class="statstrip__n">8</div>
+            <div class="statstrip__n">6</div>
             <div class="statstrip__l">Ways to play</div>
           </div>
           <div class="statstrip__cell">
@@ -153,9 +149,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/higher-lower', label: 'Higher / Lower' },
   { match: '/blitz', label: 'Blitz' },
   { match: '/survival', label: 'Survival' },
-  { match: '/ladder', label: 'Speed Ladder' },
-  { match: '/deck-budget', label: 'Deck Budget' },
-  { match: '/focus', label: 'Focus' }
+  { match: '/ladder', label: 'Speed Ladder' }
 ]
 
 function Header() {
@@ -212,8 +206,6 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/blitz')) return <Blitz />
   if (r.startsWith('/survival')) return <Survival />
   if (r.startsWith('/ladder')) return <SpeedLadder />
-  if (r.startsWith('/focus')) return <Focus />
-  if (r.startsWith('/deck-budget')) return <DeckBudget />
   if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
 }
