@@ -71,6 +71,42 @@ for (const route of routes) {
   })
 }
 
+test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
+  const activeModes = [
+    { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
+    { hash: '#/identify', ready: '.identify-ready', start: 'Start Identify', control: '.identify-choices' },
+    { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' },
+    { hash: '#/ladder', ready: '.ladder-ready', start: 'Start Speed Ladder', control: '.ladder-board' }
+  ]
+
+  for (const mode of activeModes) {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.goto(`/${mode.hash}`)
+    await expect(page.locator(mode.ready)).toBeVisible()
+    await expect(page.locator('.site-foot')).toBeVisible()
+
+    await page.getByRole('button', { name: mode.start }).click()
+    await expect(page.locator('.game-run')).toBeVisible()
+    await page.waitForTimeout(2_300)
+
+    await expect(page.locator('.site-foot')).toBeHidden()
+    await expect(page.locator('.starcount')).toBeHidden()
+    await expect(page.locator(mode.control)).toBeVisible()
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 1
+    )
+    expect(hasHorizontalOverflow).toBe(false)
+
+    const screenshot = await page.screenshot({ fullPage: false })
+    await testInfo.attach(`${mode.hash.slice(2).replaceAll('/', '-')}-running.png`, {
+      body: screenshot,
+      contentType: 'image/png'
+    })
+  }
+})
+
 test('card art fallback renders when the Clash Royale CDN is blocked', async ({ page }) => {
   allowBlockedAssets.add(page)
   await page.route('https://api-assets.clashroyale.com/**', (route) => route.abort())
