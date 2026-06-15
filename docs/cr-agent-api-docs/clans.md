@@ -9,31 +9,33 @@ Tag encoding: `#2ABC` → `%232ABC` in path
 ## Endpoints
 
 ### GET /clans/{clanTag}
+
 Get full clan info including member list, scores, description, badge.
 
 **Path:** `clanTag` (required) — URL-encoded clan tag
 
 **Returns:** `Clan` object with fields:
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `tag` | string | e.g. `#J2RGCRVG` |
-| `name` | string | |
-| `description` | string | Clan description text |
-| `type` | string | `open`, `inviteOnly`, or `closed` |
-| `badgeId` | integer | Badge identifier (no `badgeUrls` in response) |
-| `clanScore` | integer | Combined trophy score |
-| `clanWarTrophies` | integer | War trophy count |
-| `requiredTrophies` | integer | Min trophies to join |
-| `donationsPerWeek` | integer | |
-| `clanChestStatus` | string | e.g. `inactive` (legacy field) |
-| `clanChestLevel` | integer | Legacy field |
-| `clanChestMaxLevel` | integer | Legacy field |
-| `members` | integer | Member count |
-| `memberList` | array | Full member list (see ClanMember below) |
-| `location` | Location | `{ id, name, isCountry, countryCode? }` — `countryCode` is a 2-letter ISO code, present only when `isCountry=true`; absent (not null) on meta-locations like `International` (id `57000006`). |
+| Field               | Type     | Notes                                                                                                                                                                                         |
+| ------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tag`               | string   | e.g. `#J2RGCRVG`                                                                                                                                                                              |
+| `name`              | string   |                                                                                                                                                                                               |
+| `description`       | string   | Clan description text                                                                                                                                                                         |
+| `type`              | string   | `open`, `inviteOnly`, or `closed`                                                                                                                                                             |
+| `badgeId`           | integer  | Badge identifier (no `badgeUrls` in response)                                                                                                                                                 |
+| `clanScore`         | integer  | Combined trophy score                                                                                                                                                                         |
+| `clanWarTrophies`   | integer  | War trophy count                                                                                                                                                                              |
+| `requiredTrophies`  | integer  | Min trophies to join                                                                                                                                                                          |
+| `donationsPerWeek`  | integer  |                                                                                                                                                                                               |
+| `clanChestStatus`   | string   | e.g. `inactive` (legacy field)                                                                                                                                                                |
+| `clanChestLevel`    | integer  | Legacy field                                                                                                                                                                                  |
+| `clanChestMaxLevel` | integer  | Legacy field                                                                                                                                                                                  |
+| `members`           | integer  | Member count                                                                                                                                                                                  |
+| `memberList`        | array    | Full member list (see ClanMember below)                                                                                                                                                       |
+| `location`          | Location | `{ id, name, isCountry, countryCode? }` — `countryCode` is a 2-letter ISO code, present only when `isCountry=true`; absent (not null) on meta-locations like `International` (id `57000006`). |
 
 **ClanMember shape:**
+
 ```json
 {
   "tag": "#UL2V9QRG0",
@@ -58,6 +60,7 @@ Get full clan info including member list, scores, description, badge.
 ---
 
 ### GET /clans/{clanTag}/members
+
 List clan members (paginated).
 
 **Path:** `clanTag` (required)
@@ -70,25 +73,27 @@ Same ClanMember shape as above.
 ---
 
 ### GET /clans/{clanTag}/currentriverrace
+
 Get the clan's active river race state.
 
 **Path:** `clanTag` (required)
 
 **Returns:** `CurrentRiverRace` with fields:
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `state` | string | Observed `full` across all period types (training/warDay/colosseum) — `state` does not flip per day; `periodType` is the field that tracks the war's daily phase. |
-| `sectionIndex` | integer | Current section (week) |
-| `periodIndex` | integer | Current period within section |
-| `periodType` | string | Observed: `training`, `warDay`, `colosseum` (see notes) |
-| `clan` | RiverRaceClan | This clan's data (see below) |
-| `clans` | array | All 5 clans in the race |
-| `periodLogs` | array | Historical period data for current race |
+| Field          | Type          | Notes                                                                                                                                                             |
+| -------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state`        | string        | Observed `full` across all period types (training/warDay/colosseum) — `state` does not flip per day; `periodType` is the field that tracks the war's daily phase. |
+| `sectionIndex` | integer       | Current section (week)                                                                                                                                            |
+| `periodIndex`  | integer       | Current period within section                                                                                                                                     |
+| `periodType`   | string        | Observed: `training`, `warDay`, `colosseum` (see notes)                                                                                                           |
+| `clan`         | RiverRaceClan | This clan's data (see below)                                                                                                                                      |
+| `clans`        | array         | All 5 clans in the race                                                                                                                                           |
+| `periodLogs`   | array         | Historical period data for current race                                                                                                                           |
 
 Note: `collectionEndTime` and `warEndTime` may not always be present (not observed in testing — may only appear during active war periods).
 
 **RiverRaceClan shape:**
+
 ```json
 {
   "tag": "#J2RGCRVG",
@@ -96,23 +101,36 @@ Note: `collectionEndTime` and `warEndTime` may not always be present (not observ
   "badgeId": 16000146,
   "fame": 0,
   "repairPoints": 0,
-  "participants": [ /* RiverRaceParticipant array */ ],
+  "participants": [
+    /* RiverRaceParticipant array */
+  ],
   "periodPoints": 0,
   "clanScore": 160
 }
 ```
 
 Observed in live payloads after a clan finishes:
+
 - `clan.finishTime` can appear on `GET /clans/{clanTag}/currentriverrace` and is usable as a live "race already finished" signal
 - the sentinel value `19691231T235959.000Z` should not be treated as a usable live completion timestamp
 - `trophyChange` is **not** present in the live `currentriverrace` payload; it appears in `/riverracelog` standings
 
 **RiverRaceParticipant shape:**
+
 ```json
-{ "tag": "#RCCY80VG2", "name": "Ram", "fame": 0, "repairPoints": 0, "boatAttacks": 0, "decksUsed": 0, "decksUsedToday": 0 }
+{
+  "tag": "#RCCY80VG2",
+  "name": "Ram",
+  "fame": 0,
+  "repairPoints": 0,
+  "boatAttacks": 0,
+  "decksUsed": 0,
+  "decksUsedToday": 0
+}
 ```
 
 **PeriodLog shape:**
+
 ```json
 {
   "periodIndex": 3,
@@ -136,6 +154,7 @@ Observed in live payloads after a clan finishes:
 ---
 
 ### GET /clans/{clanTag}/riverracelog
+
 Historical river race results (paginated).
 
 **Path:** `clanTag` (required)
@@ -144,6 +163,7 @@ Historical river race results (paginated).
 **Returns:** `{ items: [...], paging: { cursors: { ... } } }`
 
 **RiverRaceLogEntry shape:**
+
 ```json
 {
   "seasonId": 130,
@@ -162,7 +182,9 @@ Historical river race results (paginated).
         "finishTime": "20260309T095604.000Z",
         "periodPoints": 0,
         "clanScore": 340,
-        "participants": [ /* RiverRaceParticipant array */ ]
+        "participants": [
+          /* RiverRaceParticipant array */
+        ]
       }
     }
   ]
@@ -181,29 +203,38 @@ The embedded clan object is the full `RiverRaceClan` shape (see `models.md`): `p
 ---
 
 ### ~~GET /clans/{clanTag}/currentwar~~ REMOVED
+
 ~~Get current classic clan war status.~~
 
 **Status: Permanently removed.** Returns:
+
 ```json
-{"reason":"gone","message":"This API endpoint has been permanently removed."}
+{ "reason": "gone", "message": "This API endpoint has been permanently removed." }
 ```
 
 ---
 
 ### ~~GET /clans/{clanTag}/warlog~~ DISABLED
+
 ~~Historical classic clan war log.~~
 
 **Status: Temporarily disabled.** Returns:
+
 ```json
-{"reason":"notFound","message":"This API endpoint has been temporarily disabled, possibilities to bring it back are being investigated."}
+{
+  "reason": "notFound",
+  "message": "This API endpoint has been temporarily disabled, possibilities to bring it back are being investigated."
+}
 ```
 
 ---
 
 ### GET /clans
+
 Search clans by filters. At least one filter required. If using `name`, it must be 3+ chars.
 
 **Query:**
+
 - `name` — wildcard match anywhere in name (case-insensitive). **Not required** — can search by other filters alone.
 - `locationId` — filter by location (e.g. `57000249` for US)
 - `minMembers`, `maxMembers` — member count range
@@ -213,6 +244,7 @@ Search clans by filters. At least one filter required. If using `name`, it must 
 **Returns:** `{ items: [...], paging: { cursors: { ... } } }`
 
 Clan search results include a subset of clan fields:
+
 ```json
 {
   "tag": "#J2RGCRVG",
@@ -236,20 +268,21 @@ Note: search results do not include `memberList` or `description` — fetch the 
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 404 | Clan not found |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 404  | Clan not found                          |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - **Classic war endpoints are dead:** `currentwar` is permanently removed; `warlog` is disabled. Only river race endpoints are functional.
 - Pagination: use `paging.cursors` from response to get `after`/`before` values. Empty `cursors: {}` means no more pages.
 - `clanChestStatus`, `clanChestLevel`, `clanChestMaxLevel` are legacy fields — clan chests no longer exist in-game

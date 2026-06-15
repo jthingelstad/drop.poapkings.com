@@ -9,15 +9,18 @@ Tag encoding: `#2ABC` → `%232ABC` in path
 ## Endpoints
 
 ### GET /tournaments
+
 Search tournaments by name.
 
 **Query:**
+
 - `name` — wildcard match. At least one filtering parameter is required; in live March 2026 tests, two-character values like `ab` still returned results.
 - `limit`, `after`, `before` (pagination cursors — mutually exclusive)
 
 **Returns:** `{ items: [...], paging: { ... } }` — array of `TournamentHeader` objects (summary data, not full detail)
 
 **TournamentHeader shape:**
+
 ```json
 {
   "tag": "#2GP0RGGU",
@@ -41,33 +44,35 @@ Note: `TournamentHeader` does NOT include `membersList`, `description`, `started
 ---
 
 ### GET /tournaments/{tournamentTag}
+
 Get full tournament details.
 
 **Path:** `tournamentTag` (required) — URL-encoded tournament tag
 
 **Returns:** `Tournament` object with all fields:
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `tag` | string | |
-| `name` | string | |
-| `description` | string | Optional — not always present |
-| `type` | string | `open`, `passwordProtected` |
-| `status` | string | `inPreparation`, `inProgress` (see note) |
-| `creatorTag` | string | Tag of the player who created it |
-| `capacity` | integer | Current number of participants |
-| `maxCapacity` | integer | Maximum allowed participants |
-| `levelCap` | integer | Max card level allowed (observed: always 11) |
-| `firstPlaceCardPrize` | integer | Card prize for 1st place (observed: 0) |
-| `preparationDuration` | integer | Seconds before tournament starts |
-| `duration` | integer | Tournament duration in seconds |
-| `createdTime` | string | When tournament was created |
-| `startedTime` | string | Optional — when tournament started (absent during `inPreparation`) |
-| `endedTime` | string | Optional — when tournament ended (absent if not yet ended) |
-| `gameMode` | GameMode | `{ id }` — note: `name` may be absent in tournament context |
-| `membersList` | array | TournamentMember objects (see below) |
+| Field                 | Type     | Notes                                                              |
+| --------------------- | -------- | ------------------------------------------------------------------ |
+| `tag`                 | string   |                                                                    |
+| `name`                | string   |                                                                    |
+| `description`         | string   | Optional — not always present                                      |
+| `type`                | string   | `open`, `passwordProtected`                                        |
+| `status`              | string   | `inPreparation`, `inProgress` (see note)                           |
+| `creatorTag`          | string   | Tag of the player who created it                                   |
+| `capacity`            | integer  | Current number of participants                                     |
+| `maxCapacity`         | integer  | Maximum allowed participants                                       |
+| `levelCap`            | integer  | Max card level allowed (observed: always 11)                       |
+| `firstPlaceCardPrize` | integer  | Card prize for 1st place (observed: 0)                             |
+| `preparationDuration` | integer  | Seconds before tournament starts                                   |
+| `duration`            | integer  | Tournament duration in seconds                                     |
+| `createdTime`         | string   | When tournament was created                                        |
+| `startedTime`         | string   | Optional — when tournament started (absent during `inPreparation`) |
+| `endedTime`           | string   | Optional — when tournament ended (absent if not yet ended)         |
+| `gameMode`            | GameMode | `{ id }` — note: `name` may be absent in tournament context        |
+| `membersList`         | array    | TournamentMember objects (see below)                               |
 
 **TournamentMember shape:**
+
 ```json
 {
   "tag": "#2RG0GRJ0U",
@@ -83,13 +88,15 @@ Get full tournament details.
 - `rank` = position on leaderboard
 
 **Status enum (observed):**
+
 - `inPreparation` — tournament created, waiting for start
 - `inProgress` — tournament is active
 - `ended` — tournament has finished (confirmed April 2026 via direct tag fetch; `startedTime` and `endedTime` are both present)
 
-Note: Search may only return active tournaments (not ended ones). Tournaments in preparation may become unfindable by tag after they start. Ended tournaments *are* accessible via direct tag fetch.
+Note: Search may only return active tournaments (not ended ones). Tournaments in preparation may become unfindable by tag after they start. Ended tournaments _are_ accessible via direct tag fetch.
 
 **Type enum (observed):**
+
 - `open` — anyone can join
 - `passwordProtected` — requires password to join (this is what the in-game UI calls a "private" tournament)
 
@@ -101,28 +108,28 @@ Note: No separate `private` type was observed — in-game "private" tournaments 
 
 In-game UI exposes 16 tournament game modes. The API returns only
 `gameMode.id` (an integer) in tournament context — `name` is typically
-absent in the `Tournament` payload (it *is* present in
+absent in the `Tournament` payload (it _is_ present in
 `/players/{tag}/battlelog` battle entries, but as an internal CR code
 like `CW_Duel_1v1`, not the player-facing name below).
 
-| Player-facing name | API id (when known) | Notes |
-|---|---|---|
-| Normal Battle | 72000009 | Confirmed April 2026 — POAP KINGS hosted tournament `#2JCCR0QG` (2026-04-04). Battle-log payloads carry `gameMode.name: "Tournament"`. |
-| Double Elixir Battle | — | |
-| Triple Elixir Battle | — | |
-| Sudden Death Battle | — | |
-| Draft Battle | — | |
-| Double Elixir Draft | — | |
-| Triple Draft | 72000194 | Confirmed April 2026 — POAP KINGS Clan Tourney. Battle-log payloads carry `gameMode.name: "Draft_Competitive"`. |
-| Heist Draft | — | |
-| Hog Race | — | |
-| Lumberjack Rush | — | |
-| Wall Breaker Party | — | |
-| Ghost Parade | — | |
-| Elixir Capture | — | |
-| Dragon Hunt | — | |
-| Duel | — | |
-| Mega Draft Challenge | — | |
+| Player-facing name   | API id (when known) | Notes                                                                                                                                  |
+| -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Normal Battle        | 72000009            | Confirmed April 2026 — POAP KINGS hosted tournament `#2JCCR0QG` (2026-04-04). Battle-log payloads carry `gameMode.name: "Tournament"`. |
+| Double Elixir Battle | —                   |                                                                                                                                        |
+| Triple Elixir Battle | —                   |                                                                                                                                        |
+| Sudden Death Battle  | —                   |                                                                                                                                        |
+| Draft Battle         | —                   |                                                                                                                                        |
+| Double Elixir Draft  | —                   |                                                                                                                                        |
+| Triple Draft         | 72000194            | Confirmed April 2026 — POAP KINGS Clan Tourney. Battle-log payloads carry `gameMode.name: "Draft_Competitive"`.                        |
+| Heist Draft          | —                   |                                                                                                                                        |
+| Hog Race             | —                   |                                                                                                                                        |
+| Lumberjack Rush      | —                   |                                                                                                                                        |
+| Wall Breaker Party   | —                   |                                                                                                                                        |
+| Ghost Parade         | —                   |                                                                                                                                        |
+| Elixir Capture       | —                   |                                                                                                                                        |
+| Dragon Hunt          | —                   |                                                                                                                                        |
+| Duel                 | —                   |                                                                                                                                        |
+| Mega Draft Challenge | —                   |                                                                                                                                        |
 
 Mapping is empirical: observed ids carry over but the API does not
 publish a stable public mapping. Build the table opportunistically as we
@@ -141,20 +148,21 @@ ever sees the raw id.
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 404 | Tournament not found |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 404  | Tournament not found                    |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. `GET /tournaments` with no filters returns `400 badRequest` with `At least one filtering parameter must exist`. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - Search returns `TournamentHeader` (summary) — fetch by tag to get `membersList` and full detail
 - `GET /tournaments` requires at least one filter, but the older "3+ chars required" assumption for `name` was not reproduced in March 2026 testing
 - `description` field is optional and may not be present on tournaments without one

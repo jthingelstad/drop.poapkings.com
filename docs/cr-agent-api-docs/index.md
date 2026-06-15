@@ -33,6 +33,7 @@ Endpoints that return lists support cursor-based pagination:
 Paginated responses always wrap data in `{ items: [...], paging: { cursors: { after?, before? } } }`.
 
 **Exceptions** — these endpoints return bare arrays (no wrapper, no pagination):
+
 - `GET /players/{playerTag}/battlelog`
 - `GET /events`
 
@@ -40,11 +41,11 @@ Paginated responses always wrap data in `{ items: [...], paging: { cursors: { af
 
 The API uses three distinct collection response patterns:
 
-| Shape | Meaning | Examples |
-|------|---------|----------|
-| bare array | Non-paginated list response | `/events`, `/players/{playerTag}/battlelog` |
-| `{ items: [...] }` | Non-paginated object wrapper | `/leaderboards`, `/globaltournaments`, `/players/{playerTag}/upcomingchests` |
-| `{ items: [...], paging: { cursors: ... } }` | Paginated list response | `/locations`, `/clans/{tag}/members`, `/tournaments`, `/leaderboard/{id}` |
+| Shape                                        | Meaning                      | Examples                                                                     |
+| -------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| bare array                                   | Non-paginated list response  | `/events`, `/players/{playerTag}/battlelog`                                  |
+| `{ items: [...] }`                           | Non-paginated object wrapper | `/leaderboards`, `/globaltournaments`, `/players/{playerTag}/upcomingchests` |
+| `{ items: [...], paging: { cursors: ... } }` | Paginated list response      | `/locations`, `/clans/{tag}/members`, `/tournaments`, `/leaderboard/{id}`    |
 
 Do not assume that every response with `items` is paginated. Presence of `paging` is the reliable signal.
 
@@ -58,22 +59,24 @@ Example: `20260309T135844.000Z`
 
 Error bodies are not fully consistent. `reason` is always present in observed responses, `message` is present on many `400` responses but often absent on `404`/`500` responses, and `type`/`detail` were not observed:
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope / IP mismatch |
-| 404 | Resource not found |
-| 410 | Endpoint permanently removed |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                               |
+| ---- | ----------------------------------------------------- |
+| 400  | Bad parameters                                        |
+| 403  | Auth failure / insufficient token scope / IP mismatch |
+| 404  | Resource not found                                    |
+| 410  | Endpoint permanently removed                          |
+| 429  | Rate limit exceeded                                   |
+| 500  | Server error                                          |
+| 503  | Maintenance                                           |
 
 Observed error shapes:
+
 - `{ "reason": "badRequest", "message": "..." }`
 - `{ "reason": "notFound" }`
 - `{ "reason": "unknownException" }`
 
 Notable `reason` values:
+
 - `accessDenied` — IP doesn't match token or invalid token
 - `notFound` — resource or endpoint not found
 - `badRequest` — invalid parameter combinations or values
@@ -89,11 +92,13 @@ The API frequently omits optional fields entirely instead of returning `null`.
 - Most optional fields are absent rather than null, but there are notable exceptions
 
 Examples of absent-when-not-applicable:
+
 - Player `clan`, `role`, `leagueStatistics`
 - Tournament `description`, `startedTime`, `endedTime`
 - Ranking entry `clan`
 
 Examples of null-when-not-applicable (always present):
+
 - Player `currentPathOfLegendSeasonResult`, `lastPathOfLegendSeasonResult`, `bestPathOfLegendSeasonResult` — null for players without Path of Legend history
 - Player `legacyTrophyRoadHighScore` — null for players without pre-rework trophy history
 - Event `description` — can be null
@@ -101,6 +106,7 @@ Examples of null-when-not-applicable (always present):
 ### Rate Limiting
 
 The API has aggressive rate limiting. Observed behavior:
+
 - No per-quota rate limit headers (no `X-RateLimit-*` style counters)
 - Exceeding limits results in 403 `accessDenied` (not always 429)
 - Adding ~2 second delays between requests helps avoid rate limit issues
@@ -111,15 +117,15 @@ The API has aggressive rate limiting. Observed behavior:
 
 The API returns `cache-control: max-age=N` headers indicating server-side cache duration. Observed max-age values:
 
-| Endpoint Category | Cache Duration |
-|-------------------|---------------|
-| `/events` | ~600s (10 min) |
-| `/locations` | ~600s (10 min) |
-| `/clans/{tag}`, `/currentriverrace` | ~120s (2 min) |
-| `/players/{tag}`, `/battlelog`, `/upcomingchests` | ~60s (1 min) |
-| `/leaderboards`, `/leaderboard/{id}` | ~60s (1 min) |
-| `/cards` | ~30s |
-| `/rankings/*`, `/pathoflegend/*` | ~60s (1 min) |
+| Endpoint Category                                 | Cache Duration |
+| ------------------------------------------------- | -------------- |
+| `/events`                                         | ~600s (10 min) |
+| `/locations`                                      | ~600s (10 min) |
+| `/clans/{tag}`, `/currentriverrace`               | ~120s (2 min)  |
+| `/players/{tag}`, `/battlelog`, `/upcomingchests` | ~60s (1 min)   |
+| `/leaderboards`, `/leaderboard/{id}`              | ~60s (1 min)   |
+| `/cards`                                          | ~30s           |
+| `/rankings/*`, `/pathoflegend/*`                  | ~60s (1 min)   |
 
 These are countdown timers — the actual value returned decreases as the cache ages. Responses are JSON with `Content-Type: application/json; charset=utf-8`.
 
@@ -141,87 +147,96 @@ These are countdown timers — the actual value returned decreases as the cache 
 ## Endpoint Reference
 
 ### Players — [players.md](players.md)
+
 Player profiles, battle logs, and upcoming chests.
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /players/{playerTag}` | Full player profile |
-| `GET /players/{playerTag}/battlelog` | Recent battle history (bare array, ~30-40 battles) |
-| `GET /players/{playerTag}/upcomingchests` | Upcoming chest sequence |
+| Endpoint                                  | Description                                        |
+| ----------------------------------------- | -------------------------------------------------- |
+| `GET /players/{playerTag}`                | Full player profile                                |
+| `GET /players/{playerTag}/battlelog`      | Recent battle history (bare array, ~30-40 battles) |
+| `GET /players/{playerTag}/upcomingchests` | Upcoming chest sequence                            |
 
 ### Clans — [clans.md](clans.md)
+
 Clan info, members, river race, and search.
 
-| Endpoint | Description | Status |
-|----------|-------------|--------|
-| `GET /clans/{clanTag}` | Full clan info | Active |
-| `GET /clans/{clanTag}/members` | Clan member list (paginated) | Active |
-| `GET /clans/{clanTag}/currentriverrace` | Active river race state | Active |
-| `GET /clans/{clanTag}/riverracelog` | Historical river race results | Active |
-| ~~`GET /clans/{clanTag}/currentwar`~~ | ~~Classic clan war status~~ | **Removed** |
-| ~~`GET /clans/{clanTag}/warlog`~~ | ~~Classic war log~~ | **Disabled** |
-| `GET /clans` | Search clans by name/criteria | Active |
+| Endpoint                                | Description                   | Status       |
+| --------------------------------------- | ----------------------------- | ------------ |
+| `GET /clans/{clanTag}`                  | Full clan info                | Active       |
+| `GET /clans/{clanTag}/members`          | Clan member list (paginated)  | Active       |
+| `GET /clans/{clanTag}/currentriverrace` | Active river race state       | Active       |
+| `GET /clans/{clanTag}/riverracelog`     | Historical river race results | Active       |
+| ~~`GET /clans/{clanTag}/currentwar`~~   | ~~Classic clan war status~~   | **Removed**  |
+| ~~`GET /clans/{clanTag}/warlog`~~       | ~~Classic war log~~           | **Disabled** |
+| `GET /clans`                            | Search clans by name/criteria | Active       |
 
 ### Tournaments — [tournaments.md](tournaments.md)
+
 Player-created tournaments.
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /tournaments` | Search tournaments by name |
-| `GET /tournaments/{tournamentTag}` | Full tournament details |
+| Endpoint                           | Description                |
+| ---------------------------------- | -------------------------- |
+| `GET /tournaments`                 | Search tournaments by name |
+| `GET /tournaments/{tournamentTag}` | Full tournament details    |
 
 ### Global Tournaments — [globaltournaments.md](globaltournaments.md)
+
 Supercell-run global tournaments.
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint                 | Description                                       |
+| ------------------------ | ------------------------------------------------- |
 | `GET /globaltournaments` | List active global tournaments (may return empty) |
 
 ### Locations & Rankings — [locations.md](locations.md)
+
 Location lookups, regional rankings, global tournament rankings, and league seasons.
 
-| Endpoint | Description | Status |
-|----------|-------------|--------|
-| `GET /locations` | List all locations | Active |
-| `GET /locations/{locationId}` | Single location by ID | Active |
-| `GET /locations/{locationId}/rankings/players` | Player trophy rankings by location | Active (may be empty) |
-| `GET /locations/{locationId}/rankings/clans` | Clan trophy rankings by location | Active |
-| `GET /locations/{locationId}/rankings/clanwars` | Clan war rankings by location | Active |
-| `GET /locations/{locationId}/pathoflegend/players` | Path of Legend rankings by location | Active |
-| `GET /locations/global/rankings/tournaments/{tournamentTag}` | Global tournament player rankings | Active |
-| `GET /locations/global/seasons` | List league seasons (YYYY-MM IDs) | Active |
-| `GET /locations/global/seasonsV2` | List league seasons (extended) | **Broken** (null data) |
-| `GET /locations/global/seasons/{seasonId}` | Single league season | Active |
-| `GET /locations/global/seasons/{seasonId}/rankings/players` | Season trophy rankings | **May return notFound** |
-| `GET /locations/global/pathoflegend/{seasonId}/rankings/players` | Season Path of Legend rankings | Active |
+| Endpoint                                                         | Description                         | Status                  |
+| ---------------------------------------------------------------- | ----------------------------------- | ----------------------- |
+| `GET /locations`                                                 | List all locations                  | Active                  |
+| `GET /locations/{locationId}`                                    | Single location by ID               | Active                  |
+| `GET /locations/{locationId}/rankings/players`                   | Player trophy rankings by location  | Active (may be empty)   |
+| `GET /locations/{locationId}/rankings/clans`                     | Clan trophy rankings by location    | Active                  |
+| `GET /locations/{locationId}/rankings/clanwars`                  | Clan war rankings by location       | Active                  |
+| `GET /locations/{locationId}/pathoflegend/players`               | Path of Legend rankings by location | Active                  |
+| `GET /locations/global/rankings/tournaments/{tournamentTag}`     | Global tournament player rankings   | Active                  |
+| `GET /locations/global/seasons`                                  | List league seasons (YYYY-MM IDs)   | Active                  |
+| `GET /locations/global/seasonsV2`                                | List league seasons (extended)      | **Broken** (null data)  |
+| `GET /locations/global/seasons/{seasonId}`                       | Single league season                | Active                  |
+| `GET /locations/global/seasons/{seasonId}/rankings/players`      | Season trophy rankings              | **May return notFound** |
+| `GET /locations/global/pathoflegend/{seasonId}/rankings/players` | Season Path of Legend rankings      | Active                  |
 
 ### Leaderboards — [leaderboards.md](leaderboards.md)
+
 Game-mode-specific leaderboards (Merge Tactics, Touchdown, etc.).
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /leaderboards` | List available leaderboards |
+| Endpoint                           | Description                       |
+| ---------------------------------- | --------------------------------- |
+| `GET /leaderboards`                | List available leaderboards       |
 | `GET /leaderboard/{leaderboardId}` | Player rankings for a leaderboard |
 
 ### Cards — [cards.md](cards.md)
+
 Game card catalog (121 standard + 4 Tower Troops).
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint     | Description                              |
+| ------------ | ---------------------------------------- |
 | `GET /cards` | Full card list (standard + Tower Troops) |
 
 ### Challenges — [challenges.md](challenges.md)
+
 Active and upcoming in-game challenges.
 
-| Endpoint | Description | Status |
-|----------|-------------|--------|
+| Endpoint          | Description                     | Status                 |
+| ----------------- | ------------------------------- | ---------------------- |
 | `GET /challenges` | Current and upcoming challenges | **Returning notFound** |
 
 ### Events — [events.md](events.md)
+
 Current in-game events (bare array response).
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint      | Description       |
+| ------------- | ----------------- |
 | `GET /events` | All active events |
 
 ---
@@ -229,9 +244,11 @@ Current in-game events (bare array response).
 ## Supporting Reference
 
 ### Data Models — [models.md](models.md)
+
 Complete reference of all API response types with verified field shapes and example data from live responses.
 
 ### Fan Content Policy — [fan-content-policy.md](fan-content-policy.md)
+
 Supercell's rules for using their assets in fan-created content. Includes required disclaimer text, permitted/prohibited activities, and monetization guidelines.
 
 ---

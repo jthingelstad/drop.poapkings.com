@@ -8,6 +8,7 @@ Auth: Bearer token in `Authorization` header
 ## Endpoints
 
 ### GET /leaderboards
+
 List all available leaderboards (game modes / trophy roads).
 
 **No parameters**
@@ -15,11 +16,13 @@ List all available leaderboards (game modes / trophy roads).
 **Returns:** `{ items: [...] }` — array of leaderboard metadata objects
 
 **Leaderboard metadata shape:**
+
 ```json
 { "id": 170000019, "name": "Merge Tactics" }
 ```
 
 **Example response (subset, observed):**
+
 ```json
 {
   "items": [
@@ -40,6 +43,7 @@ Note: Multiple leaderboards can share the same `name` (e.g. "Merge Tactics" appe
 ---
 
 ### GET /leaderboard/{leaderboardId}
+
 Get players ranked on a specific leaderboard.
 
 **Path:** `leaderboardId` (required, integer) — obtain from `GET /leaderboards`
@@ -48,6 +52,7 @@ Get players ranked on a specific leaderboard.
 **Returns:** `{ items: [...], paging: { cursors: { ... } } }`
 
 **Ranking entry shape:**
+
 ```json
 {
   "tag": "#PU9RCVYUG",
@@ -58,31 +63,32 @@ Get players ranked on a specific leaderboard.
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `tag` | string | Player tag |
-| `name` | string | Player name |
-| `rank` | integer | Position on leaderboard |
-| `score` | integer | Leaderboard score (mode-specific trophies/points) |
-| `clan` | object | Optional — `{ tag, name, badgeId }` — absent if player has no clan |
+| Field   | Type    | Notes                                                              |
+| ------- | ------- | ------------------------------------------------------------------ |
+| `tag`   | string  | Player tag                                                         |
+| `name`  | string  | Player name                                                        |
+| `rank`  | integer | Position on leaderboard                                            |
+| `score` | integer | Leaderboard score (mode-specific trophies/points)                  |
+| `clan`  | object  | Optional — `{ tag, name, badgeId }` — absent if player has no clan |
 
 ---
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. Invalid `leaderboardId` values currently return `500 {"reason":"unknownException"}` rather than a clean `404`. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - Two-step pattern: fetch `/leaderboards` first to get valid `leaderboardId` values, then fetch `/leaderboard/{id}` for player rankings
 - `leaderboardId` is an integer (unlike most CR API identifiers which are string tags)
 - Distinct from `/locations/{locationId}/rankings` — these leaderboards cover specific game modes (Merge Tactics, Touchdown, etc.), not geographic trophy rankings

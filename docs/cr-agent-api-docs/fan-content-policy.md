@@ -13,6 +13,7 @@ Governs use of Supercell copyrights, trademarks, and fan kit assets ("Supercell 
 ## Core Rules
 
 ### ✅ Permitted
+
 - Non-commercial fan guides, guide apps, fan pages, fan meetups, gameplay videos
 - Ad monetization (must comply with all applicable laws and developer policies)
 - Donation-based monetization (donations must be purely voluntary — not tied to features or benefits)
@@ -20,6 +21,7 @@ Governs use of Supercell copyrights, trademarks, and fan kit assets ("Supercell 
 - Displaying and discussing Supercell products
 
 ### ❌ Not Permitted
+
 - Charging fees of any kind (except ads, donations, coaching)
 - Creating new products or games based on Supercell Assets
 - Implying Supercell sponsors, created, or endorses your content
@@ -32,6 +34,7 @@ Governs use of Supercell copyrights, trademarks, and fan kit assets ("Supercell 
 - Account trading, selling, or boosting
 
 ### ❌ Prohibited Content Themes
+
 - Cheats, hacks, bots, exploits, mods, or automation software
 - Defamatory or dishonest statements about Supercell
 - Sexually explicit/suggestive material, violence, discrimination, illegal activities
@@ -61,8 +64,8 @@ Must appear in legible font on all Fan Content using Supercell Assets:
 ---
 
 ## Agent Notes
+
 - The Elixir clan assistant (POAP KINGS website) is Fan Content — must include the disclaimer on any public-facing pages using Supercell Assets
 - Blockchain/NFT/cryptocurrency usage is explicitly prohibited — POAP integration with Supercell Assets is not permitted
 - Ad monetization on the clan site is allowed; charging for clan membership or features is not
 - Coaching (e.g. selling base layouts, strategy guides) is permitted as a commercial activity
-

@@ -9,6 +9,7 @@ Tag encoding: `#2ABC` → `%232ABC` in path
 ## Endpoints
 
 ### GET /locations
+
 List all available locations (regions + countries).
 
 **Query:** `limit`, `after`, `before` (pagination cursors — mutually exclusive)
@@ -16,11 +17,13 @@ List all available locations (regions + countries).
 **Returns:** `{ items: [...], paging: { cursors: { ... } } }`
 
 **Location shape:**
+
 ```json
 { "id": 57000249, "name": "United States", "isCountry": true, "countryCode": "US" }
 ```
 
 Locations include both regions (continents) and countries:
+
 - Regions: `{ id: 57000000, name: "Europe", isCountry: false }` — no `countryCode`
 - Countries: `{ id: 57000249, name: "United States", isCountry: true, countryCode: "US" }`
 - Special: `{ id: 57000006, name: "International", isCountry: false }`
@@ -61,6 +64,7 @@ Locations include both regions (continents) and countries:
 ---
 
 ### GET /locations/{locationId}
+
 Get a single location by ID.
 
 **Path:** `locationId` (required, integer)
@@ -78,6 +82,7 @@ Note: No `localizedName` field was observed in responses. `countryCode` is absen
 ## Location Rankings
 
 ### GET /locations/{locationId}/rankings/players
+
 Get trophy leaderboard for players in a location.
 
 **Path:** `locationId` (required)
@@ -90,6 +95,7 @@ Note: May return empty `items` array if no ranking data is available for the cur
 ---
 
 ### GET /locations/{locationId}/rankings/clans
+
 Get trophy leaderboard for clans in a location.
 
 **Path:** `locationId` (required)
@@ -98,6 +104,7 @@ Get trophy leaderboard for clans in a location.
 **Returns:** `{ items: [...], paging: { ... } }`
 
 **ClanRanking shape:**
+
 ```json
 {
   "tag": "#9LGR9PYY",
@@ -111,20 +118,21 @@ Get trophy leaderboard for clans in a location.
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `tag` | string | Clan tag |
-| `name` | string | |
-| `rank` | integer | Current rank |
-| `previousRank` | integer | Previous rank (-1 if new/unranked) |
-| `location` | Location | Full location object |
-| `clanScore` | integer | |
-| `members` | integer | Member count |
-| `badgeId` | integer | |
+| Field          | Type     | Notes                              |
+| -------------- | -------- | ---------------------------------- |
+| `tag`          | string   | Clan tag                           |
+| `name`         | string   |                                    |
+| `rank`         | integer  | Current rank                       |
+| `previousRank` | integer  | Previous rank (-1 if new/unranked) |
+| `location`     | Location | Full location object               |
+| `clanScore`    | integer  |                                    |
+| `members`      | integer  | Member count                       |
+| `badgeId`      | integer  |                                    |
 
 ---
 
 ### GET /locations/{locationId}/rankings/clanwars
+
 Get clan war (river race) leaderboard for a location.
 
 **Path:** `locationId` (required)
@@ -135,6 +143,7 @@ Get clan war (river race) leaderboard for a location.
 ---
 
 ### GET /locations/{locationId}/pathoflegend/players
+
 Get Path of Legend player rankings for a location (current season).
 
 **Path:** `locationId` (required)
@@ -143,6 +152,7 @@ Get Path of Legend player rankings for a location (current season).
 **Returns:** `{ items: [...], paging: { ... } }`
 
 **PlayerPathOfLegendRanking shape:**
+
 ```json
 {
   "tag": "#99GU92P0",
@@ -154,20 +164,21 @@ Get Path of Legend player rankings for a location (current season).
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `tag` | string | Player tag |
-| `name` | string | |
-| `expLevel` | integer | King level |
-| `eloRating` | integer | Path of Legend ELO rating |
-| `rank` | integer | |
-| `clan` | object | Optional — absent if not in a clan |
+| Field       | Type    | Notes                              |
+| ----------- | ------- | ---------------------------------- |
+| `tag`       | string  | Player tag                         |
+| `name`      | string  |                                    |
+| `expLevel`  | integer | King level                         |
+| `eloRating` | integer | Path of Legend ELO rating          |
+| `rank`      | integer |                                    |
+| `clan`      | object  | Optional — absent if not in a clan |
 
 ---
 
 ## Global Tournament Rankings
 
 ### GET /locations/global/rankings/tournaments/{tournamentTag}
+
 Get global player rankings for a specific tournament.
 
 **Path:** `tournamentTag` (required, URL-encoded)
@@ -176,6 +187,7 @@ Get global player rankings for a specific tournament.
 **Returns:** `LadderTournamentRankingList`
 
 Status note:
+
 - Endpoint is documented and appears active
 - Success shape was not re-verified in the March 2026 pass because `/globaltournaments` returned no active tournaments
 - For agentic use, treat this endpoint as requiring fresh live validation before depending on exact field-level schema
@@ -185,6 +197,7 @@ Status note:
 ## League Seasons (Global)
 
 ### GET /locations/global/seasons
+
 List all historical league seasons.
 
 **No parameters**
@@ -196,6 +209,7 @@ Items are `{ id: "YYYY-MM" }` objects. Note: early seasons (2016-2017) have dupl
 ---
 
 ### GET /locations/global/seasonsV2
+
 List league seasons with extended detail.
 
 **No parameters**
@@ -207,6 +221,7 @@ List league seasons with extended detail.
 ---
 
 ### GET /locations/global/seasons/{seasonId}
+
 Get a single league season by ID.
 
 **Path:** `seasonId` (required) — format `YYYY-MM`
@@ -216,6 +231,7 @@ Get a single league season by ID.
 ---
 
 ### GET /locations/global/seasons/{seasonId}/rankings/players
+
 Get top trophy player rankings for a completed league season.
 
 **Path:** `seasonId` (required)
@@ -228,6 +244,7 @@ Get top trophy player rankings for a completed league season.
 ---
 
 ### GET /locations/global/pathoflegend/{seasonId}/rankings/players
+
 Get top Path of Legend player rankings for a specific season.
 
 **Path:** `seasonId` (required) — format `YYYY-MM`
@@ -236,6 +253,7 @@ Get top Path of Legend player rankings for a specific season.
 **Returns:** `{ items: [...], paging: { ... } }` — same shape as location PoL rankings
 
 **Example:** `/locations/global/pathoflegend/2025-01/rankings/players?limit=2` returns:
+
 ```json
 {
   "items": [
@@ -249,20 +267,21 @@ Get top Path of Legend player rankings for a specific season.
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 404 | Resource not found |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 404  | Resource not found                      |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. Invalid `locationId` values return `400 badRequest` with a message such as `Unknown value for parameter locationId`. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - `locationId` for global endpoints is the literal string `global` — e.g. `/locations/global/seasons`
 - `/seasonsV2` is broken (all null fields) — use `/seasons` (V1) to get season IDs
 - `seasonId` format is `YYYY-MM` (e.g. `2025-01`). Seasons go back to `2016-02`. Early seasons (2016-2017) have duplicate entries.

@@ -8,15 +8,18 @@ Auth: Bearer token in `Authorization` header
 ## Endpoints
 
 ### GET /cards
+
 Get the full list of available cards in the game.
 
 **Query:** None documented. In live March 2026 tests, `limit`, `after`, and `before` were ignored rather than applied.
 
 **Returns:** `Items` object with two arrays:
+
 - `items` — 121 standard cards (troops, spells, buildings)
 - `supportItems` — 4 Tower Troops
 
 **Standard card shape (`items`):**
+
 ```json
 {
   "name": "Knight",
@@ -34,6 +37,7 @@ Get the full list of available cards in the game.
 ```
 
 **Support card shape (`supportItems`):**
+
 ```json
 {
   "name": "Tower Princess",
@@ -43,19 +47,20 @@ Get the full list of available cards in the game.
   "rarity": "common"
 }
 ```
+
 Support items lack `elixirCost` and `maxEvolutionLevel`.
 
 **Rarity → maxLevel mapping (observed):**
 
 This is the API's rarity-relative upgrade scale, not a universal cross-rarity power scale. Higher-rarity cards have fewer API level steps, but all rarities still top out at the same effective end-state when normalized.
 
-| Rarity | maxLevel |
-|--------|----------|
-| common | 16 |
-| rare | 14 |
-| epic | 11 |
-| legendary | 8 |
-| champion | 6 |
+| Rarity    | maxLevel |
+| --------- | -------- |
+| common    | 16       |
+| rare      | 14       |
+| epic      | 11       |
+| legendary | 8        |
+| champion  | 6        |
 
 **Normalized interpretation:**
 
@@ -74,11 +79,13 @@ Equivalent conversion from API `level` to normalized level:
 - `champion`: `normalized = level + 10`
 
 **iconUrls variants:**
+
 - `medium` — always present on all cards
 - `heroMedium` — present on Hero-capable cards in live March 2026 sampling
 - `evolutionMedium` — present on Evo-capable cards in live March 2026 sampling
 
 **Observed interpretation for Elixir UX:**
+
 - `maxEvolutionLevel=1` has only been observed on cards with `evolutionMedium` and no `heroMedium`
 - `maxEvolutionLevel=2` has only been observed on cards with `heroMedium` and no `evolutionMedium`
 - `maxEvolutionLevel=3` has only been observed on cards with both `heroMedium` and `evolutionMedium`
@@ -90,6 +97,7 @@ Equivalent conversion from API `level` to normalized level:
 - Player-facing output should prefer `Evo`, `Hero`, and `Evo + Hero` instead of raw numeric `evolutionLevel` wording.
 
 **ID ranges (observed):**
+
 - `26000xxx` — troops
 - `27000xxx` — buildings
 - `28000xxx` — spells
@@ -99,20 +107,21 @@ Equivalent conversion from API `level` to normalized level:
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 404 | Not found |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 404  | Not found                               |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. This endpoint ignored `limit=0` in March 2026 testing and still returned the full catalog. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - Global catalog endpoint — not player-specific. Use `/players/{playerTag}` for a player's collected cards with levels.
 - `items` vs `supportItems`: Tower Troops (cards that replace/augment crown towers) are in `supportItems`; everything else is in `items`
 - Pagination parameters appear to be ignored — `/cards?limit=1`, `/cards?after=...`, and `/cards?before=...` still returned the full catalog in March 2026 testing
@@ -133,13 +142,13 @@ Source: https://clashroyale.fandom.com/wiki/Cards (Cards Required Per Level tabl
 
 The list index is the count required to go from API level `N+1` to `N+2`, where `N` is the 0-indexed position. So `common[0]` is the cost of the first upgrade (level 1 → 2).
 
-| Rarity | API levels (start → max) | Cards required, per upgrade step |
-|---|---|---|
-| common | 1 → 16 | 2, 4, 10, 20, 50, 100, 200, 400, 800, 1000, 2000, 5000, 5000, 5000, 5000 |
-| rare | 1 → 14 | 2, 4, 10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000, 2000 |
-| epic | 1 → 11 | 4, 10, 20, 50, 100, 200, 400, 800, 1000, 1250, 1500 |
-| legendary | 1 → 8 | 2, 4, 10, 20, 40, 80, 100, 100 |
-| champion | 1 → 6 | 5, 10, 20, 50, 100 |
+| Rarity    | API levels (start → max) | Cards required, per upgrade step                                         |
+| --------- | ------------------------ | ------------------------------------------------------------------------ |
+| common    | 1 → 16                   | 2, 4, 10, 20, 50, 100, 200, 400, 800, 1000, 2000, 5000, 5000, 5000, 5000 |
+| rare      | 1 → 14                   | 2, 4, 10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000, 2000             |
+| epic      | 1 → 11                   | 4, 10, 20, 50, 100, 200, 400, 800, 1000, 1250, 1500                      |
+| legendary | 1 → 8                    | 2, 4, 10, 20, 40, 80, 100, 100                                           |
+| champion  | 1 → 6                    | 5, 10, 20, 50, 100                                                       |
 
 (API levels are rarity-relative — see the normalization table earlier in this doc. A "common" maxes at API level 16, a "rare" at 14, etc., and they all reach normalized level 16.)
 

@@ -8,6 +8,7 @@ Auth: Bearer token in `Authorization` header
 ## Endpoints
 
 ### GET /events
+
 Get all current in-game events.
 
 **No parameters**
@@ -15,17 +16,19 @@ Get all current in-game events.
 **Returns:** bare JSON array of `TrailEvent` objects (NOT wrapped in `{ items: [...] }`)
 
 **TrailEvent shape:**
+
 ```json
 { "eventTag": "#R8U2RCJ", "title": "C.H.A.O.S", "description": "Choose different modifiers during battle..." }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `eventTag` | string | Unique identifier, e.g. `#R8U2RCJ` |
-| `title` | string | Localized event name |
+| Field         | Type             | Notes                                              |
+| ------------- | ---------------- | -------------------------------------------------- |
+| `eventTag`    | string           | Unique identifier, e.g. `#R8U2RCJ`                 |
+| `title`       | string           | Localized event name                               |
 | `description` | string, nullable | Localized event description — null for some events |
 
 **Example response (observed):**
+
 ```json
 [
   { "eventTag": "#R8U2RCJ", "title": "C.H.A.O.S", "description": "Choose different modifiers during battle..." },
@@ -42,20 +45,21 @@ Get all current in-game events.
 
 ## Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad parameters |
-| 403 | Auth failure / insufficient token scope |
-| 404 | Not found |
-| 429 | Rate limit exceeded |
-| 500 | Server error |
-| 503 | Maintenance |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 400  | Bad parameters                          |
+| 403  | Auth failure / insufficient token scope |
+| 404  | Not found                               |
+| 429  | Rate limit exceeded                     |
+| 500  | Server error                            |
+| 503  | Maintenance                             |
 
 Observed error bodies are usually `{ reason, message? }`. `type`/`detail` were not observed.
 
 ---
 
 ## Agent Notes
+
 - Returns a **bare array**, not `{ items: [...] }` — this is one of two endpoints that do this (the other is `/players/{tag}/battlelog`)
 - `title` and `description` are localized — locale is determined by the API token's configured region
 - `description` can be null for some events (observed for "Merge Tactics")
