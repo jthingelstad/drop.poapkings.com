@@ -243,15 +243,16 @@ intuition — the skill that actually wins elixir trades. Cheap, high pedagogica
 
 ### 4.5 Trade
 You are always **Blue King**; Red is the opponent. Blue plays 1–3 sampled cards,
-Red answers with 1–3 sampled cards, and the player guesses the elixir trade from
-Blue's perspective.
+Red answers with 1–3 sampled cards, and the player solves an 8-exchange sprint
+of elixir trades from Blue's perspective.
 
 - **Formula:** `trade = redTotal - blueTotal`. Positive means Red spent more
   elixir than you, so Blue got a positive trade.
 - **Input:** signed trade keypad from `-4` through `+4`, with `Even` for zero.
-- **Flow:** a wrong guess adds +2.0s, reveals one card's elixir cost, and leaves
-  the exchange live until answered correctly.
-- **Record:** store `tradeBest` (lowest time).
+- **Flow:** each correct answer advances to the next exchange. A wrong guess adds
+  +2.0s, reveals one card's elixir cost for that exchange, and leaves the
+  exchange live until answered correctly.
+- **Record:** store `tradeBest` (lowest 8-exchange time).
 
 ### 4.6 Shipped stretch modes
 - **Blitz** — 60s count-up: how many cards can you clear? Reuses Surge's timed

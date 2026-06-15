@@ -51,11 +51,12 @@ Trains the relative read that wins elixir trades.
 
 **Trade** — `/trade` · `src/modes/trade/`
 You are always Blue King; Red is the opponent. Blue plays 1–3 sampled cards and
-Red answers with 1–3 sampled cards. Guess your elixir trade from `-4` through
-`+4`, where positive means Red spent more elixir than you. A wrong guess adds
-+2.0s, reveals one persistent card-cost hint, and leaves the exchange live.
+Red answers with 1–3 sampled cards across an 8-exchange sprint. Guess your
+elixir trade from `-4` through `+4`, where positive means Red spent more elixir
+than you. A wrong guess adds +2.0s, reveals one persistent card-cost hint for
+that exchange, and leaves the exchange live.
 - Input: signed trade keypad (`-4 … Even … +4`).
-- Record: `tradeBest` (lowest time).
+- Record: `tradeBest` (lowest 8-exchange time).
 
 ### Stretch
 

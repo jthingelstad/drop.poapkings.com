@@ -21,8 +21,8 @@ Several ways to play, one engine. The five core modes:
   clean, shareable number.
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative
   read that actually wins elixir trades.
-- **Trade** — you are Blue King; Red answers your cards. Guess whether you won
-  or lost the elixir trade.
+- **Trade** — you are Blue King; Red answers your cards across eight exchanges.
+  Guess whether you won or lost each elixir trade.
 
 Plus stretch modes — **Blitz**, **Survival**, and **Speed Ladder**. See
 [`GAMES.md`](GAMES.md) for the full catalog, retired modes, and backlog of game

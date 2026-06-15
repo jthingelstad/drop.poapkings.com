@@ -166,7 +166,7 @@ test('speed ladder can be sorted and completed with move controls', async ({ pag
   await expect(page.locator('.ladder-result')).toContainText('Speed Ladder complete')
 })
 
-test('trade reveals one cost hint per wrong guess and completes from Blue perspective', async ({ page }) => {
+test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.goto('/#/trade')
@@ -179,31 +179,46 @@ test('trade reveals one cost hint per wrong guess and completes from Blue perspe
     page
       .locator(`${selector} [data-card-id]`)
       .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
-  const blueIds = await readSideIds('.trade-side--blue')
-  const redIds = await readSideIds('.trade-side--red')
-  expect(new Set([...blueIds, ...redIds]).size).toBe(blueIds.length + redIds.length)
-
   const total = (ids: number[]) => ids.reduce((sum, id) => sum + (cardsById.get(id)?.elixir ?? 0), 0)
-  const answer = total(redIds) - total(blueIds)
-  expect(answer).toBeGreaterThanOrEqual(-4)
-  expect(answer).toBeLessThanOrEqual(4)
-
   const answers = [-4, -3, -2, -1, 0, 1, 2, 3, 4]
   const format = (value: number) => (value === 0 ? 'Even trade' : `${value > 0 ? `+${value}` : value} trade`)
-  const wrong = answers.find((value) => value !== answer)
-  expect(wrong).toBeDefined()
+  const seenIds: number[] = []
 
-  await expect(page.locator('.trade-card__cost')).toHaveCount(0)
-  await page.getByRole('button', { name: format(wrong!) }).click()
-  await expect(page.locator('.trade-prompt')).toContainText('Cost revealed')
-  await expect(page.locator('.trade-card__cost')).toHaveCount(1)
+  for (let trade = 1; trade <= 8; trade += 1) {
+    await expect(page.locator('.trade-board')).toHaveAttribute('data-trade-index', String(trade))
+    const blueIds = await readSideIds('.trade-side--blue')
+    const redIds = await readSideIds('.trade-side--red')
+    const roundIds = [...blueIds, ...redIds]
+    expect(new Set(roundIds).size).toBe(roundIds.length)
+    seenIds.push(...roundIds)
 
-  await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
-  await page.getByRole('button', { name: format(answer) }).click()
+    const answer = total(redIds) - total(blueIds)
+    expect(answer).toBeGreaterThanOrEqual(-4)
+    expect(answer).toBeLessThanOrEqual(4)
+
+    if (trade === 1) {
+      const wrong = answers.find((value) => value !== answer)
+      expect(wrong).toBeDefined()
+      await expect(page.locator('.trade-card__cost')).toHaveCount(0)
+      await page.getByRole('button', { name: format(wrong!) }).click()
+      await expect(page.locator('.trade-prompt')).toContainText('Cost revealed')
+      await expect(page.locator('.trade-card__cost')).toHaveCount(1)
+    }
+
+    await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
+    await page.getByRole('button', { name: format(answer) }).click()
+
+    if (trade < 8) {
+      await page.waitForFunction(
+        (expected) => document.querySelector('.trade-board')?.getAttribute('data-trade-index') === String(expected),
+        trade + 1
+      )
+    }
+  }
+
   await expect(page.locator('.trade-result')).toBeVisible()
-  await expect(page.locator('.trade-result__value')).toContainText(
-    answer === 0 ? 'Even' : answer > 0 ? `+${answer}` : String(answer)
-  )
+  await expect(page.locator('.trade-result__value')).toContainText('8 trades')
+  expect(new Set(seenIds).size).toBe(seenIds.length)
 })
 
 test('speed ladder reveals one persistent cost hint per wrong lock', async ({ page }) => {

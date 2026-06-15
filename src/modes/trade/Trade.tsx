@@ -13,7 +13,6 @@ import {
   formatTrade,
   isTradeInRange,
   pickTradeHintCard,
-  sideTotal,
   tradeValue,
   TRADE_ANSWERS,
   type TradeRound
@@ -26,16 +25,18 @@ const cardsData = rawCards as CardsData
 const ALL_CARDS = cardsData.cards
 
 const TRADE = {
+  SEQUENCE_LEN: 8,
   PENALTY_MS: 2000,
   MIN_SIDE_CARDS: 1,
   MAX_SIDE_CARDS: 3
 }
 
+const CORRECT_BEAT_MS = 240
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
 type Stage = 'ready' | 'countdown' | 'running' | 'summary'
-type Feedback = 'idle' | 'wrong'
+type Feedback = 'idle' | 'wrong' | 'correct'
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -52,22 +53,46 @@ function pickSide(count: number, seen: Set<number>, recent: number[]): Card[] {
   return cards
 }
 
-function pickTradeRound(): TradeRound {
+function roundCards(round: TradeRound): Card[] {
+  return [...round.blue, ...round.red]
+}
+
+function pickTradeRound(
+  excluded: ReadonlySet<number>,
+  recent: readonly number[]
+): { round: TradeRound; recent: number[] } {
   for (let tries = 0; tries < 160; tries += 1) {
-    const seen = new Set<number>()
-    const recent: number[] = []
-    const blue = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, recent)
-    const red = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, recent)
+    const seen = new Set<number>(excluded)
+    const nextRecent = [...recent]
+    const blue = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, nextRecent)
+    const red = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, nextRecent)
     const round = { blue, red }
-    if (isTradeInRange(tradeValue(round))) return round
+    if (isTradeInRange(tradeValue(round))) return { round, recent: nextRecent }
   }
 
-  const blue = [...ALL_CARDS].sort((a, b) => a.elixir - b.elixir)[0]
+  const available = ALL_CARDS.filter((card) => !excluded.has(card.id))
+  const pool = available.length > 1 ? available : ALL_CARDS
+  const blue = [...pool].sort((a, b) => a.elixir - b.elixir)[0]
   const red =
-    ALL_CARDS.find((card) => card.id !== blue.id && isTradeInRange(card.elixir - blue.elixir)) ??
-    ALL_CARDS.find((card) => card.id !== blue.id) ??
+    pool.find((card) => card.id !== blue.id && isTradeInRange(card.elixir - blue.elixir)) ??
+    pool.find((card) => card.id !== blue.id) ??
     blue
-  return { blue: [blue], red: [red] }
+  return { round: { blue: [blue], red: [red] }, recent: [...recent, blue.id, red.id].slice(-6) }
+}
+
+function pickTradeSequence(length: number): TradeRound[] {
+  const excluded = new Set<number>()
+  let recent: number[] = []
+  const sequence: TradeRound[] = []
+
+  while (sequence.length < length) {
+    const next = pickTradeRound(excluded, recent)
+    sequence.push(next.round)
+    recent = next.recent
+    for (const card of roundCards(next.round)) excluded.add(card.id)
+  }
+
+  return sequence
 }
 
 function pluralizeMisses(count: number): string {
@@ -136,17 +161,21 @@ function TradeSide({
 }
 
 export default function Trade() {
+  const rounds = useRef<TradeRound[]>(pickTradeSequence(TRADE.SEQUENCE_LEN))
   const timers = useRef<number[]>([])
   const startTime = useRef(0)
   const penaltyMs = useRef(0)
+  const roundMisses = useRef(0)
 
   const stage = useSignal<Stage>('ready')
   const imagesReady = useSignal(false)
   const count = useSignal(3)
-  const round = useSignal<TradeRound>(pickTradeRound())
+  const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
   const elapsedMs = useSignal(0)
   const wrongGuesses = useSignal(0)
+  const cleanTrades = useSignal(0)
+  const lastTrade = useSignal(0)
   const feedback = useSignal<Feedback>('idle')
   const hintedOnLastGuess = useSignal(false)
   const picked = useSignal<number | null>(null)
@@ -157,7 +186,7 @@ export default function Trade() {
 
   useEffect(() => {
     track('mode.trade')
-    preloadImages([...round.value.blue, ...round.value.red], () => (imagesReady.value = true))
+    preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
     return () => timers.current.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -196,8 +225,12 @@ export default function Trade() {
   function begin() {
     startTime.current = performance.now()
     penaltyMs.current = 0
+    roundMisses.current = 0
+    index.value = 0
     elapsedMs.value = 0
     wrongGuesses.value = 0
+    cleanTrades.value = 0
+    lastTrade.value = 0
     feedback.value = 'idle'
     hintedOnLastGuess.value = false
     picked.value = null
@@ -205,20 +238,52 @@ export default function Trade() {
     stage.value = 'running'
   }
 
-  function guess(value: number) {
-    if (stage.value !== 'running' || feedback.value === 'wrong') return
+  function nextRound() {
+    roundMisses.current = 0
+    index.value += 1
+    feedback.value = 'idle'
+    hintedOnLastGuess.value = false
+    picked.value = null
+    revealedIds.value = new Set()
+  }
 
+  function finish() {
+    const total = performance.now() - startTime.current + penaltyMs.current
+    const best = getRecords().tradeBest
+    const pb = best === undefined || total < best
+    totalMs.value = total
+    elapsedMs.value = total
+    prevBest.value = best
+    isPB.value = pb
+
+    if (pb) {
+      saveRecords({ tradeBest: total })
+      track('record.new')
+    }
+    track('trade.complete')
+    elixirLine.value = pb
+      ? `New Trade best: ${formatSeconds(total)}s across ${TRADE.SEQUENCE_LEN} exchanges.`
+      : `${cleanTrades.value}/${TRADE.SEQUENCE_LEN} clean. ${pluralizeMisses(wrongGuesses.value)}.`
+    stage.value = 'summary'
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
+  }
+
+  function guess(value: number) {
+    if (stage.value !== 'running' || feedback.value !== 'idle') return
+
+    const round = rounds.current[index.value]
     picked.value = value
-    const answer = tradeValue(round.value)
+    const answer = tradeValue(round)
     if (value !== answer) {
       playWrong()
-      const hintId = pickTradeHintCard(round.value, revealedIds.value)
+      const hintId = pickTradeHintCard(round, revealedIds.value)
       if (hintId !== undefined) {
         const next = new Set(revealedIds.value)
         next.add(hintId)
         revealedIds.value = next
       }
       hintedOnLastGuess.value = hintId !== undefined
+      roundMisses.current += 1
       wrongGuesses.value += 1
       penaltyMs.current += TRADE.PENALTY_MS
       feedback.value = 'wrong'
@@ -231,33 +296,30 @@ export default function Trade() {
     }
 
     playCorrect()
-    const total = performance.now() - startTime.current + penaltyMs.current
-    const best = getRecords().tradeBest
-    const pb = best === undefined || total < best
-    totalMs.value = total
-    prevBest.value = best
-    isPB.value = pb
-
-    if (pb) {
-      saveRecords({ tradeBest: total })
-      track('record.new')
-    }
-    track('trade.complete')
-    elixirLine.value = pb
-      ? `New Trade best: ${formatSeconds(total)}s. That's real elixir math.`
-      : `${formatSeconds(total)}s. ${tradeLine(answer)}`
-    stage.value = 'summary'
+    lastTrade.value = answer
+    if (roundMisses.current === 0) cleanTrades.value += 1
+    feedback.value = 'correct'
+    later(() => {
+      if (index.value + 1 >= TRADE.SEQUENCE_LEN) {
+        finish()
+        return
+      }
+      nextRound()
+    }, CORRECT_BEAT_MS)
   }
 
   function replay() {
     timers.current.forEach(clearTimeout)
     timers.current = []
-    const next = pickTradeRound()
-    round.value = next
+    rounds.current = pickTradeSequence(TRADE.SEQUENCE_LEN)
     imagesReady.value = false
     count.value = 3
+    index.value = 0
     elapsedMs.value = 0
     wrongGuesses.value = 0
+    cleanTrades.value = 0
+    lastTrade.value = 0
+    roundMisses.current = 0
     penaltyMs.current = 0
     feedback.value = 'idle'
     hintedOnLastGuess.value = false
@@ -267,10 +329,10 @@ export default function Trade() {
     prevBest.value = undefined
     totalMs.value = 0
     stage.value = 'ready'
-    preloadImages([...next.blue, ...next.red], () => (imagesReady.value = true))
+    preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
   }
 
-  const answer = tradeValue(round.value)
+  const round = rounds.current[index.value]
 
   if (stage.value === 'summary') {
     const pbCallout = isPB.value
@@ -285,25 +347,29 @@ export default function Trade() {
       <div class="main-content trade">
         <div class="trade-result">
           <div class="eyebrow">Trade complete</div>
-          <div class="trade-result__value">{formatTrade(answer)}</div>
+          <div class="trade-result__value">
+            {TRADE.SEQUENCE_LEN} trades · {formatSeconds(totalMs.value)}s
+          </div>
           {pbCallout && <div class="summary__pb">{pbCallout}</div>}
           <div class="trade-result__sub">
-            {tradeLine(answer)} · {pluralizeMisses(wrongGuesses.value)}
+            {cleanTrades.value} clean · {pluralizeMisses(wrongGuesses.value)}
           </div>
 
           <ElixirHost line={elixirLine.value} mood={isPB.value ? 'celebrate' : 'gg'} />
 
           <div class="trade-result__math" aria-label="Trade math">
-            <span>You spent {sideTotal(round.value.blue)}</span>
-            <span>Opponent spent {sideTotal(round.value.red)}</span>
+            <span>Last trade {formatTrade(lastTrade.value)}</span>
+            <span>{tradeLine(lastTrade.value)}</span>
           </div>
 
-          <ShareLine text={`Trade: ${formatTrade(answer)} in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`} />
+          <ShareLine
+            text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
+          />
           {isPB.value && <Recruit />}
 
           <div class="summary__actions">
             <button class="btn btn--gold" onClick={replay}>
-              New trade
+              Run Trade again
             </button>
             <button class="btn btn--ghost" onClick={() => navigate('/')}>
               Home
@@ -321,7 +387,8 @@ export default function Trade() {
           <div class="eyebrow">Trade · Blue perspective</div>
           <h1 class="h1">Read the elixir trade.</h1>
           <p class="lede">
-            You are <strong>Blue King</strong>. Red is the opponent. Positive means Red spent more than you.
+            You are <strong>Blue King</strong>. Solve {TRADE.SEQUENCE_LEN} exchanges. Positive means Red spent more than
+            you.
           </p>
           <button class="btn btn--gold surge-ready__go" onClick={start} disabled={!imagesReady.value}>
             {imagesReady.value ? 'Start Trade' : 'Loading exchange…'}
@@ -340,7 +407,7 @@ export default function Trade() {
         <div class="surge-countdown" aria-live="assertive">
           {count.value}
         </div>
-        <p class="lede">Count the exchange…</p>
+        <p class="lede">Count the exchanges…</p>
       </div>
     )
   }
@@ -353,18 +420,16 @@ export default function Trade() {
           <span class="surge-hud__unit">s</span>
         </div>
         <div class="surge-hud__count">
-          {wrongGuesses.value ? `+${wrongGuesses.value} ${wrongGuesses.value === 1 ? 'hint' : 'hints'}` : 'your trade'}
+          trade {index.value + 1} / {TRADE.SEQUENCE_LEN}
         </div>
       </div>
 
-      <div class="trade-board">
-        <TradeSide
-          side="blue"
-          label="You played"
-          sub="Blue King"
-          cards={round.value.blue}
-          revealedIds={revealedIds.value}
-        />
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-track__fill" style={{ width: `${(index.value / TRADE.SEQUENCE_LEN) * 100}%` }} />
+      </div>
+
+      <div class="trade-board" data-trade-index={index.value + 1}>
+        <TradeSide side="blue" label="You played" sub="Blue King" cards={round.blue} revealedIds={revealedIds.value} />
         <div class="trade-versus" aria-hidden="true">
           vs
         </div>
@@ -372,7 +437,7 @@ export default function Trade() {
           side="red"
           label="Opponent played"
           sub="Red King"
-          cards={round.value.red}
+          cards={round.red}
           revealedIds={revealedIds.value}
         />
       </div>
@@ -391,12 +456,13 @@ export default function Trade() {
           const isPicked = picked.value === value
           const classes = ['trade-answer']
           if (feedback.value === 'wrong' && isPicked) classes.push('trade-answer--wrong')
+          if (feedback.value === 'correct' && isPicked) classes.push('trade-answer--correct')
           return (
             <button
               key={value}
               class={classes.join(' ')}
               onClick={() => guess(value)}
-              disabled={feedback.value === 'wrong'}
+              disabled={feedback.value !== 'idle'}
               aria-label={value === 0 ? 'Even trade' : `${formatTrade(value)} trade`}
             >
               {formatTrade(value)}
