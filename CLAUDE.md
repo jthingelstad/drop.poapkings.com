@@ -59,13 +59,15 @@ adding or reworking a game.
   mastered ones, avoid immediate repeats. Tunables in one config object.
 - **`src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
   (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
+- **`src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the
+  target plus similar card-name distractors for identification modes.
 - **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
-- **Modes** in `src/modes/`: core `practice`, `surge`, `higher-lower`, `trade`;
-  stretch `blitz`, `survival`, `ladder`. See `GAMES.md` for each game's
-  mechanic, scoring, route, and records key, plus the idea backlog and retired
-  modes.
+- **Modes** in `src/modes/`: core `practice`, `identify`, `surge`,
+  `higher-lower`, `trade`; stretch `blitz`, `survival`, `ladder`. See `GAMES.md`
+  for each game's mechanic, scoring, route, and records key, plus the idea
+  backlog and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
@@ -120,10 +122,10 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 
 Follow `SPEC.md` §10. In short: scaffold + Pages plumbing → `refresh-cards.mjs` +
 seed data → **Practice loop (make it fun first)** → storage + sampling → pip keypad
-→ **Surge** → Elixir host → summary + insights → Higher/Lower → Trade →
-Tinylytics → recruit funnel → Blitz/Survival/Speed Ladder → polish (sound +
-reduced-motion toggles, responsive). Honor `prefers-reduced-motion` on all
-celebratory FX.
+→ Identify → **Surge** → Elixir host → summary + insights → Higher/Lower →
+Trade → Tinylytics → recruit funnel → Blitz/Survival/Speed Ladder → polish
+(sound + reduced-motion toggles, responsive). Honor `prefers-reduced-motion` on
+all celebratory FX.
 
 When a decision is genuinely ambiguous and not covered above or in `SPEC.md`,
 stop and ask rather than guessing.

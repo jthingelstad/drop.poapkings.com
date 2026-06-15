@@ -7,8 +7,8 @@ reworking a game.
 
 Every game shares one engine and the same seams: cards come from
 `src/data/cards.json`, progress goes through `src/lib/storage.ts`, card selection
-goes through `src/lib/sampling.ts`, and multiple-choice distractors through
-`src/lib/choices.ts`.
+goes through `src/lib/sampling.ts`, elixir multiple-choice distractors through
+`src/lib/choices.ts`, and card-name distractors through `src/lib/name-choices.ts`.
 
 **Current product constraint:** do not add curated deck definitions. No
 `decks.json`, archetype list, synergy model, or "real deck" dependency. That path
@@ -27,6 +27,13 @@ Untimed. A card appears; name its cost. The weighted sampler surfaces your weak
 cards; a round of 15 (with end-early) closes in the shared summary + insights.
 - Input: pip keypad (default) or 4-button multiple choice, remembered in settings.
 - Record: `bestAccuracy`.
+
+**Identify** — `/identify` · `src/modes/identify/`
+Card art appears with the name hidden; pick the correct card name from six
+choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
+The 15-card sprint is scored as golf time.
+- Input: six card-name buttons.
+- Record: `identifyBest` (lowest time).
 
 **Surge** — `/surge` · `src/modes/surge/` · *flagship*
 A 15-card speed sprint, scored as golf time (elapsed + penalties; lower wins). A
@@ -89,10 +96,10 @@ are avoiding.
 ## Ideas & backlog
 
 From the June 2026 refresh. The active lineup already covers speed
-(Surge/Blitz/Survival), comparison (Higher/Lower), recall (Practice), trade math
-(Trade), and spatial ordering (Speed Ladder). The remaining useful whitespace is
-**ordering depth**, **small arithmetic**, and **single-card estimation** — all
-without deck data.
+(Surge/Blitz/Survival), comparison (Higher/Lower), card-name recognition
+(Identify), cost recall (Practice), trade math (Trade), and spatial ordering
+(Speed Ladder). The remaining useful whitespace is **ordering depth**, **small
+arithmetic**, and **single-card estimation** — all without deck data.
 
 ### Recommended next build
 

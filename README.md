@@ -1,8 +1,8 @@
 # Elixir Drop
 
-A fast little game for learning **Clash Royale elixir costs**, run by the
-**POAP KINGS** clan. See a card, name its cost, get quicker. Built as a
-self-contained static single-page app.
+A fast little game for learning **Clash Royale cards and elixir costs**, run by
+the **POAP KINGS** clan. See a card, name it or price it, get quicker. Built as
+a self-contained static single-page app.
 
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
@@ -10,10 +10,12 @@ self-contained static single-page app.
 
 ## What it is
 
-Several ways to play, one engine. The four core modes:
+Several ways to play, one engine. The five core modes:
 
 - **Practice** — untimed. A card appears, you pick its elixir cost. No pressure;
   good for learning the loop and grinding your weak cards.
+- **Identify** — card art appears with the name hidden. Pick the right name from
+  six choices.
 - **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
   answers add a time penalty. Your score is your time — lower is better. One
   clean, shareable number.
@@ -115,7 +117,7 @@ elixir-drop/
 ├─ src/
 │  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
 │  ├─ lib/                   # storage seam, sampler, distractors, line table
-│  ├─ modes/                 # practice, surge, higher-lower, trade, blitz, survival, ladder
+│  ├─ modes/                 # practice, identify, surge, higher-lower, trade, blitz, survival, ladder
 │  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, …
 │  ├─ styles.css             # vendored POAP KINGS tokens + components
 │  └─ main.tsx

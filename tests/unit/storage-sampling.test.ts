@@ -22,10 +22,17 @@ describe('storage seam', () => {
     saveSettings({ inputStyle: 'choice', sound: true, reducedMotion: true })
     expect(getSettings()).toMatchObject({ inputStyle: 'choice', sound: true, reducedMotion: true })
 
-    saveRecords({ surgeBest: 28_600, longestStreak: 9, ladderBest: 12_300, tradeBest: 8_900 })
+    saveRecords({
+      surgeBest: 28_600,
+      longestStreak: 9,
+      identifyBest: 21_400,
+      ladderBest: 12_300,
+      tradeBest: 8_900
+    })
     expect(getRecords()).toMatchObject({
       surgeBest: 28_600,
       longestStreak: 9,
+      identifyBest: 21_400,
       ladderBest: 12_300,
       tradeBest: 8_900
     })

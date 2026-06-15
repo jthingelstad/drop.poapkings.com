@@ -9,9 +9,19 @@ interface Props {
   revealCost?: boolean
   // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
   forceReveal?: boolean
+  hideName?: boolean
+  showMeta?: boolean
 }
 
-export default function CardDisplay({ card, phase, dropAnimKey, revealCost = true, forceReveal = false }: Props) {
+export default function CardDisplay({
+  card,
+  phase,
+  dropAnimKey,
+  revealCost = true,
+  forceReveal = false,
+  hideName = false,
+  showMeta = true
+}: Props) {
   const [imgFailed, setImgFailed] = useState(false)
   const [prevId, setPrevId] = useState(card.id)
 
@@ -55,20 +65,28 @@ export default function CardDisplay({ card, phase, dropAnimKey, revealCost = tru
 
       <div class="pcard__art">
         {showImg ? (
-          <img key={card.id} class="pcard__img" src={card.icon} alt={card.name} onError={() => setImgFailed(true)} />
+          <img
+            key={card.id}
+            class="pcard__img"
+            src={card.icon}
+            alt={hideName ? '' : card.name}
+            onError={() => setImgFailed(true)}
+          />
         ) : (
           <div class="pcard__fallback" aria-hidden="true" />
         )}
 
-        <div class="pcard__name">{card.name}</div>
+        {!hideName && <div class="pcard__name">{card.name}</div>}
       </div>
 
-      <div class="pcard__meta">
-        <span class="pill pill--purple">{card.type}</span>
-        <span class="pill pill--muted">{card.rarity}</span>
-        {card.evo && <span class="pill pill--gold">Evo</span>}
-        {card.hero && <span class="pill pill--gold">Hero</span>}
-      </div>
+      {showMeta && (
+        <div class="pcard__meta">
+          <span class="pill pill--purple">{card.type}</span>
+          <span class="pill pill--muted">{card.rarity}</span>
+          {card.evo && <span class="pill pill--gold">Evo</span>}
+          {card.hero && <span class="pill pill--gold">Hero</span>}
+        </div>
+      )}
 
       {/* Drop pop on correct */}
       {phase === 'correct' && (

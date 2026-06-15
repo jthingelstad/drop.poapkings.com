@@ -4,6 +4,7 @@ import { formatSeconds } from '../../src/lib/format'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
+import { makeNameChoices } from '../../src/lib/name-choices'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
 
@@ -35,6 +36,24 @@ describe('learning helpers', () => {
 
   it('formats timed scores as one decimal second', () => {
     expect(formatSeconds(28_600)).toBe('28.6')
+  })
+
+  it('builds card-name choices with the target and nearby distractors', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const fireball = card(1, 'Fireball', 4, 'spell')
+    const arrows = card(2, 'Arrows', 3, 'spell')
+    const zap = card(3, 'Zap', 2, 'spell')
+    const rocket = card(4, 'Rocket', 6, 'spell')
+    const knight = card(5, 'Knight', 3)
+    const cannon = card(6, 'Cannon', 3, 'building')
+
+    const choices = makeNameChoices(fireball, [fireball, arrows, zap, rocket, knight, cannon], 4)
+
+    expect(choices).toHaveLength(4)
+    expect(new Set(choices.map((choice) => choice.id)).size).toBe(4)
+    expect(choices.map((choice) => choice.name)).toContain('Fireball')
+    expect(choices.map((choice) => choice.name)).toContain('Arrows')
   })
 
   it('computes accuracy, weak cards, bias, and timing insight', () => {

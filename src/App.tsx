@@ -3,6 +3,7 @@ import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import StarCount from './components/StarCount'
 import Practice from './modes/practice/Practice'
+import Identify from './modes/identify/Identify'
 import Surge from './modes/surge/Surge'
 import HigherLower from './modes/higher-lower/HigherLower'
 import Blitz from './modes/blitz/Blitz'
@@ -22,6 +23,7 @@ interface Mode {
 
 const GRID_MODES: Mode[] = [
   { path: '/practice', name: 'Practice', icon: '🎯', desc: 'Learn elixir costs at your own pace — no clock.' },
+  { path: '/identify', name: 'Identify', icon: '🔎', desc: 'See the card art. Pick the right name.' },
   { path: '/higher-lower', name: 'Higher / Lower', icon: '⚖️', desc: 'Two cards — which one costs more?' },
   { path: '/trade', name: 'Trade', icon: '👑', desc: 'Read your elixir trade from Blue King side.' },
   { path: '/ladder', name: 'Speed Ladder', icon: '↕️', desc: 'Sort five cards from cheap to expensive.' },
@@ -72,7 +74,7 @@ function Home() {
             <div class="statstrip__l">Cards in catalog</div>
           </div>
           <div class="statstrip__cell">
-            <div class="statstrip__n">7</div>
+            <div class="statstrip__n">8</div>
             <div class="statstrip__l">Ways to play</div>
           </div>
           <div class="statstrip__cell">
@@ -147,6 +149,7 @@ function Home() {
 
 const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/practice', label: 'Practice' },
+  { match: '/identify', label: 'Identify' },
   { match: '/surge', label: 'Surge' },
   { match: '/higher-lower', label: 'Higher / Lower' },
   { match: '/trade', label: 'Trade' },
@@ -204,6 +207,7 @@ function Footer() {
 
 function Screen({ r }: { r: string }) {
   if (r.startsWith('/practice')) return <Practice />
+  if (r.startsWith('/identify')) return <Identify />
   if (r.startsWith('/surge')) return <Surge />
   if (r.startsWith('/higher-lower')) return <HigherLower />
   if (r.startsWith('/trade')) return <Trade />

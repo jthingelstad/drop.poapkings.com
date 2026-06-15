@@ -10,6 +10,7 @@ const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
 const routes = [
   { hash: '#/', label: 'Elixir Drop', ready: '.home' },
   { hash: '#/practice', label: 'Practice', ready: '.pcard' },
+  { hash: '#/identify', label: 'Identify', ready: '.identify-ready' },
   { hash: '#/surge', label: 'Surge', ready: '.surge-ready' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.hl' },
   { hash: '#/trade', label: 'Trade', ready: '.trade-ready' },
@@ -77,6 +78,52 @@ test('card art fallback renders when the Clash Royale CDN is blocked', async ({ 
   await page.evaluate(() => localStorage.clear())
   await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible()
+})
+
+test('identify eliminates wrong names and completes without repeated cards', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/#/identify')
+  await expect(page.locator('.identify-ready')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start Identify' })).toBeEnabled({ timeout: 8_000 })
+  await page.getByRole('button', { name: 'Start Identify' }).click()
+  await expect(page.locator('.identify-run')).toBeVisible({ timeout: 5_000 })
+
+  const currentCard = page.locator('[data-testid="identify-card"]')
+  await expect(currentCard.locator('.pcard__name')).toHaveCount(0)
+  await expect(page.locator('.identify-choice')).toHaveCount(6)
+
+  const readId = async () => Number(await currentCard.getAttribute('data-card-id'))
+  const seenIds: number[] = []
+  let id = await readId()
+  seenIds.push(id)
+  const correctName = cardsById.get(id)?.name
+  expect(correctName).toBeTruthy()
+  const choiceNames = (await page.locator('.identify-choice').allTextContents()).map((name) => name.trim())
+  const wrongName = choiceNames.find((name) => name !== correctName)
+  expect(wrongName).toBeTruthy()
+
+  await page.getByRole('button', { name: wrongName! }).click()
+  await expect(page.locator('.identify-prompt')).toContainText('Not that one')
+  await expect(page.getByRole('button', { name: wrongName! })).toBeDisabled()
+  await expect(page.getByRole('button', { name: correctName! })).toBeEnabled()
+  await page.getByRole('button', { name: correctName! }).click()
+
+  for (let answered = 1; answered < 15; answered += 1) {
+    const previousId = id
+    await page.waitForFunction(
+      (prev) => document.querySelector('[data-testid="identify-card"]')?.getAttribute('data-card-id') !== String(prev),
+      previousId
+    )
+    id = await readId()
+    seenIds.push(id)
+    const name = cardsById.get(id)?.name
+    expect(name).toBeTruthy()
+    await page.getByRole('button', { name: name! }).click()
+  }
+
+  await expect(page.locator('.identify-result')).toBeVisible()
+  expect(new Set(seenIds).size).toBe(seenIds.length)
 })
 
 test('speed ladder can be sorted and completed with move controls', async ({ page }) => {

@@ -51,6 +51,7 @@ export interface Records {
   surgeBest?: number // Surge: lowest time (ms) — lower is better
   longestStreak?: number // Higher/Lower: longest streak
   bestAccuracy?: number // Practice: best round accuracy (%)
+  identifyBest?: number // Identify: lowest card-name sprint time (ms) — lower is better
   blitzBest?: number // Blitz: most cleared in 60s — higher is better
   survivalBest?: number // Survival: longest sudden-death streak
   ladderBest?: number // Speed Ladder: lowest sort time (ms) — lower is better

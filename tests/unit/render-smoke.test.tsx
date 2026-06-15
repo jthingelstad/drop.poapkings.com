@@ -6,6 +6,7 @@ import { route } from '../../src/lib/router'
 const CASES = [
   ['/', 'Elixir Drop'],
   ['/practice', 'How much elixir does this cost?'],
+  ['/identify', 'Name the card.'],
   ['/surge', '15 cards. One honest time.'],
   ['/higher-lower', 'Higher'],
   ['/trade', 'Read the elixir trade.'],
