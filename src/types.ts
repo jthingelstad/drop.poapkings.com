@@ -56,6 +56,8 @@ export interface Records {
   survivalBest?: number // Survival: longest sudden-death streak
   ladderBest?: number // Speed Ladder: lowest sort time (ms) — lower is better
   tradeBest?: number // Trade: lowest 8-exchange read time (ms) — lower is better
+  endlessLadderBest?: number // Endless Ladder: most successful inserts
+  costSweepBest?: number // Cost Sweep: most target cards found in 45s
 }
 
 export interface Profile {

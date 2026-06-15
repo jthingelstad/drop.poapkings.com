@@ -9,6 +9,8 @@ import HigherLower from './modes/higher-lower/HigherLower'
 import Blitz from './modes/blitz/Blitz'
 import Survival from './modes/survival/Survival'
 import SpeedLadder from './modes/ladder/SpeedLadder'
+import EndlessLadder from './modes/endless-ladder/EndlessLadder'
+import CostSweep from './modes/cost-sweep/CostSweep'
 import Trade from './modes/trade/Trade'
 import SettingsScreen from './modes/settings/Settings'
 
@@ -27,6 +29,13 @@ const GRID_MODES: Mode[] = [
   { path: '/higher-lower', name: 'Higher / Lower', icon: '⚖️', desc: 'Two cards — which one costs more?' },
   { path: '/trade', name: 'Trade', icon: '👑', desc: 'Read your elixir trade from Blue King side.' },
   { path: '/ladder', name: 'Speed Ladder', icon: '↕️', desc: 'Sort five cards from cheap to expensive.' },
+  {
+    path: '/endless-ladder',
+    name: 'Endless Ladder',
+    icon: '➕',
+    desc: 'Insert each new card into the growing ladder.'
+  },
+  { path: '/cost-sweep', name: 'Cost Sweep', icon: '🧹', desc: 'Tap every card matching the target elixir cost.' },
   { path: '/blitz', name: 'Blitz', icon: '⏱️', desc: '60 seconds — how many can you clear?' },
   { path: '/survival', name: 'Survival', icon: '💀', desc: 'Sudden death — one miss ends the run.' }
 ]
@@ -74,7 +83,7 @@ function Home() {
             <div class="statstrip__l">Cards in catalog</div>
           </div>
           <div class="statstrip__cell">
-            <div class="statstrip__n">8</div>
+            <div class="statstrip__n">10</div>
             <div class="statstrip__l">Ways to play</div>
           </div>
           <div class="statstrip__cell">
@@ -155,7 +164,9 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/trade', label: 'Trade' },
   { match: '/blitz', label: 'Blitz' },
   { match: '/survival', label: 'Survival' },
-  { match: '/ladder', label: 'Speed Ladder' }
+  { match: '/ladder', label: 'Speed Ladder' },
+  { match: '/endless-ladder', label: 'Endless Ladder' },
+  { match: '/cost-sweep', label: 'Cost Sweep' }
 ]
 
 function Header() {
@@ -214,6 +225,8 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/blitz')) return <Blitz />
   if (r.startsWith('/survival')) return <Survival />
   if (r.startsWith('/ladder')) return <SpeedLadder />
+  if (r.startsWith('/endless-ladder')) return <EndlessLadder />
+  if (r.startsWith('/cost-sweep')) return <CostSweep />
   if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
 }

@@ -1,13 +1,16 @@
-# CLAUDE.md — Elixir Drop
+# CLAUDE.md - Elixir Drop
 
 A static, single-page game for learning **Clash Royale elixir costs**, run by the
 POAP KINGS clan. Preact + Signals + Vite, deployed to GitHub Pages at
 `drop.poapkings.com`.
 
-**`SPEC.md` is the full specification — read it before building.** This file is
-the rules and the map; `SPEC.md` is the detail. **`GAMES.md` is the games
-catalog** — the shipped modes and the backlog of game ideas; read it before
-adding or reworking a game.
+Doc map:
+
+- **`README.md`** is the public overview and local-development entry point.
+- **`SPEC.md`** is the current implementation spec and product constraints.
+- **`GAMES.md`** is the canonical games catalog: shipped modes, retired modes,
+  and backlog ideas.
+- **`CLAUDE.md`** is the agent working guide.
 
 ---
 
@@ -39,7 +42,7 @@ adding or reworking a game.
 ## Stack & commands
 
 - **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
-- `npm run dev` · `npm run build` (→ `dist/`) · `npm run preview`.
+- `npm run dev` · `npm run build` (to `dist/`) · `npm run preview`.
 - Before pushing code, run `npm run verify`. It mirrors the GitHub Pages deploy
   gates: format, lint, CSS lint, typecheck, Knip, unit tests, Chromium e2e, and
   production build.
@@ -50,9 +53,10 @@ adding or reworking a game.
 
 ## Architecture
 
-- **`src/lib/storage.ts` is a hard seam.** All progress reads/writes go through it
-  (`getProfile`, `getRecords`, `getCardStats`, `saveResult`, …). v2 swaps the
-  localStorage body for `fetch` without touching game logic. Keep it isolated.
+- **`src/lib/storage.ts` is the hard persistence boundary.** All progress
+  reads/writes go through it (`getProfile`, `getRecords`, `getCardStats`,
+  `saveResult`, …). v2 swaps the localStorage body for `fetch` without touching
+  game logic. Keep it isolated.
 - **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
   `records`, `funnel`, `settings`.
 - **`src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
@@ -64,10 +68,17 @@ adding or reworking a game.
 - **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
-- **Modes** in `src/modes/`: core `practice`, `identify`, `surge`,
-  `higher-lower`, `trade`; stretch `blitz`, `survival`, `ladder`. See `GAMES.md`
-  for each game's mechanic, scoring, route, and records key, plus the idea
-  backlog and retired modes.
+- **`src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
+  helpers for timed modes.
+- **`src/lib/endless-ladder.ts`** — pure Endless Ladder insertion-slot logic.
+- **`src/lib/cost-sweep.ts`** — pure Cost Sweep target tracking.
+- **`src/lib/insights.ts`** — Practice and Surge coaching insights.
+- **`src/lib/mode-insights.ts`** — mode-specific summary lines for Identify,
+  Trade, and Speed Ladder.
+- **Modes** in `src/modes/`: `surge`, `practice`, `identify`, `higher-lower`,
+  `trade`, `blitz`, `survival`, `ladder`, `endless-ladder`, `cost-sweep`. See
+  `GAMES.md` for each game's mechanic, scoring, route, and records key, plus the
+  idea backlog and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
@@ -79,14 +90,26 @@ adding or reworking a game.
 ## Card data shape (`src/data/cards.json`)
 
 ```json
-{ "version": "YYYY-MM-DD", "count": 121, "cards": [
-  { "id": 26000000, "name": "Knight", "elixir": 3, "rarity": "common",
-    "type": "troop", "evo": false, "hero": false,
-    "icon": "https://api-assets.clashroyale.com/cards/300/....png" }
-]}
+{
+  "version": "YYYY-MM-DD",
+  "count": 120,
+  "cards": [
+    {
+      "id": 26000000,
+      "name": "Knight",
+      "elixir": 3,
+      "rarity": "common",
+      "type": "troop",
+      "evo": false,
+      "hero": false,
+      "icon": "https://api-assets.clashroyale.com/cards/300/....png"
+    }
+  ]
+}
 ```
 
-From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`);
+The committed snapshot is authoritative for the running app. From `/cards`, use
+the `items` array (standard cards with `elixirCost`);
 **exclude `supportItems`** (4 Tower Troops — no cost). `type` from id range
 (26→troop, 27→building, 28→spell). `evo`/`hero` from `maxEvolutionLevel`
 (1→evo, 2→hero, 3→both). `icon` = `iconUrls.medium` (CDN), or local path if
@@ -94,15 +117,17 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 
 ---
 
-## Working defaults (open decisions — use these unless told otherwise)
+## Current product decisions
 
 - **Surge scoring:** golf time (elapsed + penalties; lower wins). Sprint of 15;
-  +2.0s per wrong answer; the card stays until correct. Blitz variant is optional.
+  +2.0s per wrong answer; the card stays until correct.
 - **Practice input:** offer both 4-button multiple choice and the 1–10 pip keypad;
   remember the choice in settings. Default to the keypad.
 - **Evolutions:** quiz on **base elixir only**; show Evo/Hero as flavor, not as
   part of the answer.
 - **Elixir voice:** dry, a little cocky, never mean. Short lines.
+- **Daily Ladder:** deferred. Do not build it unless the user explicitly
+  re-approves that mode.
 
 ---
 
@@ -118,14 +143,21 @@ From `/cards`: use the `items` array (121 standard cards, each has `elixirCost`)
 
 ---
 
-## Build order
+## Working workflow
 
-Follow `SPEC.md` §10. In short: scaffold + Pages plumbing → `refresh-cards.mjs` +
-seed data → **Practice loop (make it fun first)** → storage + sampling → pip keypad
-→ Identify → **Surge** → Elixir host → summary + insights → Higher/Lower →
-Trade → Tinylytics → recruit funnel → Blitz/Survival/Speed Ladder → polish
-(sound + reduced-motion toggles, responsive). Honor `prefers-reduced-motion` on
-all celebratory FX.
+Before changing a game, read `GAMES.md` and keep it updated with any product
+decision. Before changing shared architecture, read `SPEC.md` and keep that
+current too.
 
-When a decision is genuinely ambiguous and not covered above or in `SPEC.md`,
-stop and ask rather than guessing.
+For UI/gameplay changes:
+
+- Preserve the active-play `game-run` behavior for timed modes: compact header,
+  hidden footer/star counter, visible controls, no horizontal overflow.
+- Honor `prefers-reduced-motion` and the in-app reduced-motion setting for
+  celebratory effects.
+- Add or update focused unit/e2e coverage when changing shared logic, scoring,
+  storage, or mobile gameplay controls.
+- Run `npm run verify` before pushing.
+
+When a decision is genuinely ambiguous and not covered above, in `SPEC.md`, or in
+`GAMES.md`, stop and ask rather than guessing.

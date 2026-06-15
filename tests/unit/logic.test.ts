@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeChoices } from '../../src/lib/choices'
+import { countTargetCards, isSweepComplete, remainingTargetIds, targetIds } from '../../src/lib/cost-sweep'
+import { canInsertAt, insertAtSlot, validInsertSlots } from '../../src/lib/endless-ladder'
 import { formatSeconds } from '../../src/lib/format'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
@@ -126,6 +128,34 @@ describe('learning helpers', () => {
     expect(isAscendingByElixir([knight, fireball, rocket])).toBe(true)
     expect(isAscendingByElixir([fireball, knight, rocket])).toBe(false)
     expect(reorderCards([fireball, knight, rocket], 1, 0)).toEqual([knight, fireball, rocket])
+  })
+
+  it('validates Endless Ladder insertion slots', () => {
+    const skeletons = card(1, 'Skeletons', 1)
+    const knight = card(2, 'Knight', 3)
+    const fireball = card(3, 'Fireball', 4, 'spell')
+    const rocket = card(4, 'Rocket', 6, 'spell')
+    const row = [skeletons, fireball, rocket]
+
+    expect(canInsertAt(row, knight, 0)).toBe(false)
+    expect(canInsertAt(row, knight, 1)).toBe(true)
+    expect(canInsertAt(row, knight, 2)).toBe(false)
+    expect(validInsertSlots(row, knight)).toEqual([1])
+    expect(insertAtSlot(row, knight, 1)).toEqual([skeletons, knight, fireball, rocket])
+  })
+
+  it('tracks Cost Sweep targets and completion', () => {
+    const skeletons = card(1, 'Skeletons', 1)
+    const knight = card(2, 'Knight', 3)
+    const archers = card(3, 'Archers', 3)
+    const fireball = card(4, 'Fireball', 4, 'spell')
+    const board = [skeletons, knight, archers, fireball]
+
+    expect(targetIds(board, 3)).toEqual(new Set([knight.id, archers.id]))
+    expect(countTargetCards(board, 3)).toBe(2)
+    expect(remainingTargetIds(board, 3, new Set([knight.id]))).toEqual([archers.id])
+    expect(isSweepComplete(board, 3, new Set([knight.id]))).toBe(false)
+    expect(isSweepComplete(board, 3, new Set([knight.id, archers.id]))).toBe(true)
   })
 
   it('reveals Speed Ladder hint cards from the first ordering problem', () => {

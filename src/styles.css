@@ -1733,6 +1733,281 @@ body:has(.game-run) .starcount {
   justify-content: center;
 }
 
+/* ── Endless Ladder ──────────────────────────────────────── */
+
+.endless { width: 100%; }
+
+.endless-ready { max-width: 520px; }
+
+.endless-current {
+  width: min(100%, 340px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.endless-current .pcard {
+  max-width: 300px;
+  padding-bottom: 22px;
+}
+
+.endless-current .pcard__art {
+  width: min(100%, 220px);
+  margin-bottom: 0;
+}
+
+.endless-rail { width: min(100%, 640px); }
+
+.endless-track {
+  width: min(100%, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.endless-step {
+  display: contents;
+}
+
+.endless-slot {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed rgba(245, 200, 76, 0.42);
+  border-radius: var(--r-sm);
+  background: rgba(45, 31, 12, 0.34);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, transform 0.12s;
+}
+
+.endless-slot:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(73, 52, 18, 0.72);
+  transform: translateY(-1px);
+}
+
+.endless-slot:active:not(:disabled) { transform: scale(0.99); }
+
+.endless-slot:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.endless-slot--wrong {
+  border-color: rgba(239, 68, 68, 0.8);
+  color: #ff9a9a;
+  background: rgba(95, 18, 38, 0.58);
+}
+
+.endless-card {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1.5px solid rgba(215, 200, 255, 0.16);
+  border-radius: var(--r-md);
+  background:
+    linear-gradient(160deg, rgba(11, 9, 32, 0.94), rgba(38, 22, 78, 0.88)),
+    radial-gradient(circle at 10% 50%, rgba(109, 40, 217, 0.2), transparent 38%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.endless-card__art {
+  position: relative;
+  width: 70px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+}
+
+.endless-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.38));
+}
+
+.endless-card__fallback {
+  width: 58px;
+  height: 68px;
+  border-radius: var(--r-sm);
+  border: 1.5px dashed rgba(215, 200, 255, 0.25);
+  background: rgba(109, 40, 217, 0.2);
+}
+
+.endless-card__name {
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(0.92rem, 3vw, 1.08rem);
+  line-height: 1.2;
+  hyphens: none;
+  overflow-wrap: normal;
+  text-wrap: balance;
+  word-break: normal;
+}
+
+.endless-result__failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--lavender);
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+/* ── Cost Sweep ──────────────────────────────────────────── */
+
+.sweep { width: 100%; }
+
+.sweep-ready { max-width: 540px; }
+
+.sweep-hud { max-width: 420px; }
+
+.sweep-target {
+  width: min(100%, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.sweep-target strong {
+  min-width: 72px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 20%, rgba(255, 148, 250, 0.8), transparent 38%),
+    linear-gradient(150deg, #d236ff, #8517d8 58%, #4a087d);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.42rem;
+  line-height: 1;
+  text-shadow: 0 2px 0 #3b075b;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.32);
+}
+
+.sweep-target .elixir-pip {
+  width: 18px;
+  height: 18px;
+}
+
+.sweep-progress { max-width: 520px; }
+
+.sweep-grid {
+  width: min(100%, 760px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sweep-card {
+  min-width: 0;
+  min-height: 148px;
+  display: grid;
+  grid-template-rows: minmax(86px, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1.5px solid rgba(215, 200, 255, 0.16);
+  border-radius: var(--r-md);
+  background:
+    linear-gradient(160deg, rgba(11, 9, 32, 0.96), rgba(38, 22, 78, 0.9)),
+    radial-gradient(circle at 50% 12%, rgba(245, 200, 76, 0.12), transparent 36%);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.14s, background 0.14s, transform 0.12s, opacity 0.14s;
+}
+
+.sweep-card:hover:not(:disabled) {
+  border-color: rgba(245, 200, 76, 0.68);
+  transform: translateY(-2px);
+}
+
+.sweep-card:active:not(:disabled) { transform: scale(0.98); }
+
+.sweep-card:disabled {
+  cursor: default;
+}
+
+.sweep-card--found {
+  border-color: rgba(34, 197, 94, 0.78);
+  background:
+    linear-gradient(160deg, rgba(6, 58, 30, 0.94), rgba(27, 91, 55, 0.84)),
+    radial-gradient(circle at 50% 12%, rgba(187, 247, 208, 0.18), transparent 36%);
+}
+
+.sweep-card--wrong {
+  border-color: rgba(239, 68, 68, 0.78);
+  background:
+    linear-gradient(160deg, rgba(95, 18, 38, 0.94), rgba(57, 18, 38, 0.88)),
+    radial-gradient(circle at 50% 12%, rgba(255, 120, 120, 0.18), transparent 36%);
+}
+
+.sweep-card__art {
+  position: relative;
+  width: min(100%, 90px);
+  height: 94px;
+  display: grid;
+  place-items: center;
+}
+
+.sweep-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.38));
+}
+
+.sweep-card__fallback {
+  width: 72px;
+  height: 84px;
+  border-radius: var(--r-sm);
+  border: 1.5px dashed rgba(215, 200, 255, 0.25);
+  background: rgba(109, 40, 217, 0.2);
+}
+
+.sweep-card__name {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.72rem, 2.2vw, 0.94rem);
+  line-height: 1.15;
+  text-align: center;
+  hyphens: none;
+  overflow-wrap: normal;
+  text-wrap: balance;
+  word-break: normal;
+}
+
+.sweep-summary-line {
+  color: var(--lavender);
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
 /* ── Trade ───────────────────────────────────────────────── */
 
 .trade { width: 100%; }
@@ -2294,6 +2569,12 @@ body:has(.game-run) .starcount {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: min(100%, 520px);
   }
+  .sweep-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(100%, 560px);
+  }
+  .sweep-card { min-height: 138px; }
+  .endless-track { width: min(100%, 560px); }
 }
 
 @media (width <= 560px) {
@@ -2351,6 +2632,45 @@ body:has(.game-run) .starcount {
     min-height: 54px;
     padding-inline: 9px;
     font-size: 0.76rem;
+  }
+  .sweep-target {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sweep-target strong {
+    min-width: 62px;
+    height: 42px;
+    font-size: 1.18rem;
+  }
+  .sweep-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .sweep-card {
+    min-height: 126px;
+    padding: 8px;
+  }
+  .sweep-card__art {
+    width: 76px;
+    height: 82px;
+  }
+  .sweep-card__name { font-size: 0.78rem; }
+  .endless-current .pcard { max-width: 250px; }
+  .endless-current .pcard__art { width: min(100%, 184px); }
+  .endless-card {
+    min-height: 82px;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 10px;
+  }
+  .endless-card__art {
+    width: 56px;
+    height: 64px;
+  }
+  .endless-card__name { font-size: 0.84rem; }
+  .endless-slot {
+    min-height: 40px;
+    font-size: 0.68rem;
   }
   .recruit__cta {
     width: 100%;

@@ -17,6 +17,8 @@ const routes = [
   { hash: '#/blitz', label: 'Blitz', ready: '.surge-ready' },
   { hash: '#/survival', label: 'Survival', ready: '.surge-ready' },
   { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
+  { hash: '#/endless-ladder', label: 'Endless Ladder', ready: '.endless-ready' },
+  { hash: '#/cost-sweep', label: 'Cost Sweep', ready: '.sweep-ready' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
 ]
 
@@ -76,7 +78,14 @@ test('active play states use low chrome and keep controls visible', async ({ pag
     { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
     { hash: '#/identify', ready: '.identify-ready', start: 'Start Identify', control: '.identify-choices' },
     { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' },
-    { hash: '#/ladder', ready: '.ladder-ready', start: 'Start Speed Ladder', control: '.ladder-board' }
+    { hash: '#/ladder', ready: '.ladder-ready', start: 'Start Speed Ladder', control: '.ladder-board' },
+    {
+      hash: '#/endless-ladder',
+      ready: '.endless-ready',
+      start: 'Start Endless Ladder',
+      control: '.endless-track'
+    },
+    { hash: '#/cost-sweep', ready: '.sweep-ready', start: 'Start Cost Sweep', control: '.sweep-grid' }
   ]
 
   for (const mode of activeModes) {
@@ -200,6 +209,79 @@ test('speed ladder can be sorted and completed with move controls', async ({ pag
   await page.getByRole('button', { name: 'Lock order' }).click()
   await expect(page.locator('.ladder-result')).toBeVisible()
   await expect(page.locator('.ladder-result')).toContainText('Speed Ladder complete')
+})
+
+test('endless ladder accepts valid inserts and ends on a wrong slot', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/#/endless-ladder')
+  await expect(page.locator('.endless-ready')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start Endless Ladder' })).toBeEnabled({ timeout: 8_000 })
+  await page.getByRole('button', { name: 'Start Endless Ladder' }).click()
+  await expect(page.locator('.endless-track')).toBeVisible({ timeout: 5_000 })
+
+  const readRowIds = async () =>
+    page
+      .locator('.endless-card')
+      .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
+  const readCurrentId = async () =>
+    Number(await page.locator('[data-testid="endless-current-card"]').getAttribute('data-card-id'))
+  const validSlots = (ids: number[], currentId: number) => {
+    const current = cardsById.get(currentId)
+    expect(current).toBeTruthy()
+    const slots: number[] = []
+    for (let slot = 0; slot <= ids.length; slot += 1) {
+      const left = slot > 0 ? cardsById.get(ids[slot - 1]) : undefined
+      const right = slot < ids.length ? cardsById.get(ids[slot]) : undefined
+      if ((!left || left.elixir <= current!.elixir) && (!right || current!.elixir <= right.elixir)) slots.push(slot)
+    }
+    return slots
+  }
+
+  for (let insert = 0; insert < 3; insert += 1) {
+    const ids = await readRowIds()
+    const currentId = await readCurrentId()
+    const [slot] = validSlots(ids, currentId)
+    expect(slot).toBeDefined()
+    await page.locator(`[data-testid="endless-slot"][data-slot-index="${slot}"]`).click()
+    await page.waitForFunction(
+      (prev) =>
+        document.querySelector('[data-testid="endless-current-card"]')?.getAttribute('data-card-id') !== String(prev),
+      currentId
+    )
+  }
+
+  const ids = await readRowIds()
+  const currentId = await readCurrentId()
+  const valid = new Set(validSlots(ids, currentId))
+  const wrongSlot = Array.from({ length: ids.length + 1 }, (_, index) => index).find((slot) => !valid.has(slot))
+  expect(wrongSlot).toBeDefined()
+  await page.locator(`[data-testid="endless-slot"][data-slot-index="${wrongSlot}"]`).click()
+  await expect(page.locator('.ladder-result')).toBeVisible()
+  await expect(page.locator('.ladder-result')).toContainText('Endless Ladder complete')
+})
+
+test('cost sweep clears a target board and penalizes wrong taps', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/#/cost-sweep')
+  await expect(page.locator('.sweep-ready')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start Cost Sweep' })).toBeEnabled({ timeout: 8_000 })
+  await page.getByRole('button', { name: 'Start Cost Sweep' }).click()
+  await expect(page.locator('.sweep-grid')).toBeVisible({ timeout: 5_000 })
+
+  const nonTarget = page.locator('.sweep-card[data-target="false"]').first()
+  await nonTarget.click()
+  await expect(nonTarget).toHaveClass(/sweep-card--wrong/)
+
+  const targetIds = await page
+    .locator('.sweep-card[data-target="true"]')
+    .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
+  expect(targetIds.length).toBeGreaterThanOrEqual(2)
+
+  for (const id of targetIds) await page.locator(`.sweep-card[data-card-id="${id}"]`).click()
+
+  await expect(page.locator('.surge-hud__count')).toContainText('1 boards')
 })
 
 test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {

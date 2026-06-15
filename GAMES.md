@@ -1,11 +1,21 @@
-# GAMES.md — Elixir Drop
+# GAMES.md - Elixir Drop
 
-The games catalog. **`SPEC.md`** is the product spec and **`CLAUDE.md`** the rules
-and map; this file is the living record of what we ship to play and what's on the
-backlog. Mechanic-level game decisions live here. Read it before adding or
-reworking a game.
+This is the canonical games catalog: what ships, what is retired, and what is
+only an idea. Mechanic-level game decisions live here. Read it before adding or
+reworking a mode.
 
-Every game shares one engine and the same seams: cards come from
+Doc map:
+
+- **`README.md`** is the public overview and local-development entry point.
+- **`SPEC.md`** is the current implementation spec and product constraints.
+- **`CLAUDE.md`** is the agent working guide.
+
+Shipped state as of June 15, 2026: **ten playable modes**. The home screen
+spotlights **Surge** and lists nine more: Practice, Identify, Higher / Lower,
+Trade, Speed Ladder, Endless Ladder, Cost Sweep, Blitz, and Survival. **Daily
+Ladder is not shipped and should not be built without a fresh product decision.**
+
+Every game shares one engine and the same shared paths: cards come from
 `src/data/cards.json`, progress goes through `src/lib/storage.ts`, card selection
 goes through `src/lib/sampling.ts`, elixir multiple-choice distractors through
 `src/lib/choices.ts`, and card-name distractors through `src/lib/name-choices.ts`.
@@ -20,33 +30,38 @@ and art.
 
 ## Shipped games
 
-### Core
+### Flagship
 
-**Practice** — `/practice` · `src/modes/practice/`
-Untimed. A card appears; name its cost. The weighted sampler surfaces your weak
-cards; a round of 15 (with end-early) closes in the shared summary + insights.
-- Input: pip keypad (default) or 4-button multiple choice, remembered in settings.
-- Record: `bestAccuracy`.
+**Surge** — `/surge` · `src/modes/surge/`
+A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
+wins. A wrong answer adds +2.0s and the card stays until correct. The sprint's
+images preload before the timer starts; Elixir stays silent during the run and
+reacts on the summary. Produces one clean, shareable number.
+
+- Input: pip keypad.
+- Record: `surgeBest` (lowest time).
+
+### Core drills
 
 **Identify** — `/identify` · `src/modes/identify/`
 Card art appears with the name hidden; pick the correct card name from six
 choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
 The 15-card sprint is scored as golf time.
+
 - Input: six card-name buttons.
 - Record: `identifyBest` (lowest time).
 
-**Surge** — `/surge` · `src/modes/surge/` · *flagship*
-A 15-card speed sprint, scored as golf time (elapsed + penalties; lower wins). A
-wrong answer adds +2.0s and the card stays until correct. Honest clock
-(`performance.now()`); sprint images preload before the timer starts; Elixir stays
-silent during the run and reacts on the summary. Produces one clean, shareable
-number.
-- Input: pip keypad.
-- Record: `surgeBest`.
+**Practice** — `/practice` · `src/modes/practice/`
+Untimed. A card appears; name its cost. The weighted sampler surfaces weak cards;
+a round of 15, with end-early, closes in the shared summary + insights.
+
+- Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
+- Record: `bestAccuracy`.
 
 **Higher / Lower** — `/higher-lower` · `src/modes/higher-lower/`
 Two cards; pick Higher, Equal, or Lower relative to the left card. Endless streak.
 Trains the relative read that wins elixir trades.
+
 - Record: `longestStreak`.
 
 **Trade** — `/trade` · `src/modes/trade/`
@@ -55,18 +70,22 @@ Red answers with 1–3 sampled cards across an 8-exchange sprint. Guess your
 elixir trade from `-4` through `+4`, where positive means Red spent more elixir
 than you. A wrong guess adds +2.0s, reveals one persistent card-cost hint for
 that exchange, and leaves the exchange live.
+
 - Input: signed trade keypad (`-4 … Even … +4`).
 - Record: `tradeBest` (lowest 8-exchange time).
 
 ### Stretch
 
 **Blitz** — `/blitz` · `src/modes/blitz/`
-A 60s count-up variant of Surge — "how many cleared." Reuses the Surge HUD.
+A 60s count-up variant of Surge: how many cards can you clear? Reuses the timed
+cost-recall loop.
+
 - Record: `blitzBest`.
 
 **Survival** — `/survival` · `src/modes/survival/`
-Sudden death. A per-card 5s clock; one wrong answer *or* a timeout ends the run,
+Sudden death. A per-card 5s clock; one wrong answer _or_ a timeout ends the run,
 revealing the missed card's cost.
+
 - Record: `survivalBest`.
 
 **Speed Ladder** — `/ladder` · `src/modes/ladder/`
@@ -74,7 +93,30 @@ Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag car
 or use the explicit move controls; touch players can tap a card, then tap its
 destination. Equal-cost cards are valid in either relative order. A wrong lock
 adds +2.0s, reveals one persistent card-cost hint, and leaves the ladder live.
+
 - Record: `ladderBest` (lowest time).
+
+**Endless Ladder** — `/endless-ladder` · `src/modes/endless-ladder/`
+Starts with a small sorted row, then deals one hidden-cost card at a time. Insert
+the new card into the correct low-to-high slot. A correct insert extends the row;
+one wrong slot ends the climb.
+
+- Input: insertion-slot buttons between ordered cards.
+- Record: `endlessLadderBest` (most successful inserts).
+
+**Cost Sweep** — `/cost-sweep` · `src/modes/cost-sweep/`
+Shows a compact grid and a target elixir value. Tap every card matching that cost
+before the 45s clock runs out. Correct taps mark cards as found and clearing a
+board deals a fresh grid; wrong taps cost 2s.
+
+- Input: card-grid taps.
+- Record: `costSweepBest` (most target cards found in 45s).
+
+### Shared active-play chrome
+
+Timed active states use the `game-run` layout: compact header, no footer, and no
+star counter while the player is actively timed. Keep controls visible on mobile
+and guard against horizontal overflow in e2e tests when adding or changing modes.
 
 ---
 
@@ -99,39 +141,29 @@ are avoiding.
 From the June 2026 refresh. The active lineup already covers speed
 (Surge/Blitz/Survival), comparison (Higher/Lower), card-name recognition
 (Identify), cost recall (Practice), trade math (Trade), and spatial ordering
-(Speed Ladder). The remaining useful whitespace is **ordering depth**, **small
-arithmetic**, and **single-card estimation** — all without deck data.
-
-### Recommended next build
-
-**Insert / Endless Ladder** — *spatial ordering*
-Cards arrive one at a time; insert each into a growing low-to-high row. A misplace
-ends the run or adds a penalty, depending on how punishing the first prototype
-feels. This builds directly on Speed Ladder, needs no new data, and has the best
-shot at an addictive loop.
+(Speed Ladder/Endless Ladder), scan-and-recall (Cost Sweep), and small target
+search. The remaining useful whitespace is **small arithmetic** and
+**single-card estimation** — still without deck data.
 
 ### Strong non-deck candidates
 
-**Daily Ladder** — *shareable spatial puzzle*
-A daily seeded set of 5–6 sampled cards. Same sorting rules as Speed Ladder, but
-one puzzle per day with a share line. It must be framed as a daily card-cost puzzle,
-not a "deck."
-
-**Exact Ten** — *arithmetic / set-building*
+**Exact Ten** — _arithmetic / set-building_
 Show a random pool of visible cards and ask the player to pick a subset totaling
 exactly 10 elixir. This should be framed as "fill the bar" or "make 10," not deck
 construction. Random pools are acceptable because the mechanic is arithmetic, not
 authentic archetype recognition.
 
-**Cost Sweep** — *scan and recall*
-Show a compact grid and a target cost, then tap every card with that cost before
-time runs out. Good mobile ergonomics, no deck data, and a different feel from
-single-card recall.
-
-**Mystery Cost** — *deduction*
+**Mystery Cost** — _deduction_
 Show a card with the elixir badge hidden and reveal type/rarity/name clues over
 time or after wrong guesses. This can borrow from Cardle without becoming a daily
 Wordle clone.
+
+### Explicitly deferred
+
+**Daily Ladder** — _shareable spatial puzzle_
+A daily seeded set of 5–6 sampled cards using the same sorting rules as Speed
+Ladder. It remains a valid idea, but it is **not the next build**. Do not
+implement it unless it is re-approved.
 
 ### Set aside
 
