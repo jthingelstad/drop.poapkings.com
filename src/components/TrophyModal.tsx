@@ -25,12 +25,19 @@ export default function TrophyModal({ hits, onClose }: Props) {
 
   let fillPct: number
   let progressLabel = 'Top rank reached.'
+  let rankMoment = `${current.name} is the top of Trophy Road.`
   if (next) {
     const span = next.threshold - current.threshold
     const into = Math.max(0, hits - current.threshold)
     fillPct = Math.min(100, Math.round((into / span) * 100))
     const togo = Math.max(0, next.threshold - hits)
     progressLabel = `${fmt(togo)} to ${next.name}`
+    rankMoment =
+      zone === 'close'
+        ? `${fmt(togo)} visits from ${next.name}.`
+        : zone === 'just-passed'
+          ? `${current.name} unlocked. Next arena: ${next.name}.`
+          : `${fmt(togo)} visits until ${next.name}.`
   } else {
     fillPct = 100
   }
@@ -57,6 +64,7 @@ export default function TrophyModal({ hits, onClose }: Props) {
         </button>
         <div class="trophy-modal__title">Trophy Road</div>
         <p class="trophy-modal__hint">Total visits to this site — ranked on Clash Royale arenas.</p>
+        <div class={`rank-moment rank-moment--${zone}`}>{rankMoment}</div>
 
         <div class="rank-card">
           <div class={artClass}>

@@ -92,6 +92,25 @@ body {
   gap: 32px;
 }
 
+.route-loading {
+  min-height: 50vh;
+  justify-content: center;
+  gap: 14px;
+}
+
+.route-loading__img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.5));
+}
+
+.route-loading__text {
+  color: var(--lavender);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1191,6 +1210,58 @@ body:has(.game-run) .starcount {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+.summary-moments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summary-moment {
+  min-width: 0;
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(215, 200, 255, 0.16);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(215, 200, 255, 0.14), transparent 54%),
+    rgba(11, 9, 32, 0.7);
+  text-align: center;
+}
+
+.summary-moment--gold {
+  border-color: rgba(245, 200, 76, 0.5);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245, 200, 76, 0.24), transparent 54%),
+    rgba(45, 31, 12, 0.5);
+}
+
+.summary-moment--green {
+  border-color: rgba(34, 197, 94, 0.38);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.2), transparent 54%),
+    rgba(6, 58, 30, 0.46);
+}
+
+.summary-moment__label {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.summary-moment__value {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(0.76rem, 2.8vw, 0.92rem);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
 }
 
 .summary__section { display: flex; flex-direction: column; gap: 10px; }
@@ -2679,6 +2750,8 @@ body:has(.game-run) .starcount {
   }
   .summary__actions { flex-direction: column; }
   .summary__actions .btn { width: 100%; }
+  .summary-moments { grid-template-columns: 1fr; }
+  .summary-moment { min-height: 62px; }
   .statstrip__l { font-size: 0.6rem; }
 }
 
@@ -2762,6 +2835,27 @@ body.modal-open { overflow: hidden; }
   font-size: 13px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.rank-moment {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 200, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--lavender);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.rank-moment--close,
+.rank-moment--just-passed {
+  border-color: rgba(245, 200, 76, 0.44);
+  background: rgba(245, 200, 76, 0.14);
+  color: #ffe9b3;
 }
 
 /* ── Rank card ────────────────────────────────────────────── */

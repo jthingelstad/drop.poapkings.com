@@ -1,20 +1,57 @@
 import { useEffect } from 'preact/hooks'
+import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import StarCount from './components/StarCount'
-import Practice from './modes/practice/Practice'
-import Identify from './modes/identify/Identify'
-import Surge from './modes/surge/Surge'
-import HigherLower from './modes/higher-lower/HigherLower'
-import Blitz from './modes/blitz/Blitz'
-import Survival from './modes/survival/Survival'
-import SpeedLadder from './modes/ladder/SpeedLadder'
-import EndlessLadder from './modes/endless-ladder/EndlessLadder'
-import CostSweep from './modes/cost-sweep/CostSweep'
-import Trade from './modes/trade/Trade'
-import SettingsScreen from './modes/settings/Settings'
 
 const POAP_KINGS = 'https://poapkings.com'
+
+const loadPractice = () => import('./modes/practice/Practice')
+const loadIdentify = () => import('./modes/identify/Identify')
+const loadSurge = () => import('./modes/surge/Surge')
+const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
+const loadTrade = () => import('./modes/trade/Trade')
+const loadSpeedLadder = () => import('./modes/ladder/SpeedLadder')
+const loadEndlessLadder = () => import('./modes/endless-ladder/EndlessLadder')
+const loadCostSweep = () => import('./modes/cost-sweep/CostSweep')
+const loadBlitz = () => import('./modes/blitz/Blitz')
+const loadSurvival = () => import('./modes/survival/Survival')
+const loadSettings = () => import('./modes/settings/Settings')
+
+const Practice = lazy(loadPractice)
+const Identify = lazy(loadIdentify)
+const Surge = lazy(loadSurge)
+const HigherLower = lazy(loadHigherLower)
+const Trade = lazy(loadTrade)
+const SpeedLadder = lazy(loadSpeedLadder)
+const EndlessLadder = lazy(loadEndlessLadder)
+const CostSweep = lazy(loadCostSweep)
+const Blitz = lazy(loadBlitz)
+const Survival = lazy(loadSurvival)
+const SettingsScreen = lazy(loadSettings)
+
+const ROUTE_PREFETCHERS: Record<string, () => Promise<unknown>> = {
+  '/practice': loadPractice,
+  '/identify': loadIdentify,
+  '/surge': loadSurge,
+  '/higher-lower': loadHigherLower,
+  '/trade': loadTrade,
+  '/ladder': loadSpeedLadder,
+  '/endless-ladder': loadEndlessLadder,
+  '/cost-sweep': loadCostSweep,
+  '/blitz': loadBlitz,
+  '/survival': loadSurvival,
+  '/settings': loadSettings
+}
+
+const prefetchedRoutes = new Set<string>()
+
+function prefetchRoute(path: string): void {
+  const load = ROUTE_PREFETCHERS[path]
+  if (!load || prefetchedRoutes.has(path)) return
+  prefetchedRoutes.add(path)
+  void load()
+}
 
 interface Mode {
   path: string
@@ -44,7 +81,12 @@ const GRID_MODES: Mode[] = [
 
 function GameCard({ m }: { m: Mode }) {
   return (
-    <button class="game-card" onClick={() => navigate(m.path)}>
+    <button
+      class="game-card"
+      onPointerEnter={() => prefetchRoute(m.path)}
+      onFocus={() => prefetchRoute(m.path)}
+      onClick={() => navigate(m.path)}
+    >
       <span class="game-card__icon">{m.icon}</span>
       <span class="game-card__info">
         <span class="game-card__name">{m.name}</span>
@@ -66,7 +108,12 @@ function Home() {
           </h1>
           <p class="hero__sub">Train your Clash Royale elixir instinct. Read the board faster. Win more trades.</p>
           <div class="hero__cta">
-            <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>
+            <button
+              class="btn btn--gold btn--lg"
+              onPointerEnter={() => prefetchRoute('/surge')}
+              onFocus={() => prefetchRoute('/surge')}
+              onClick={() => navigate('/surge')}
+            >
               ▶ Play Surge
             </button>
             <a class="btn btn--ghost btn--lg" href="#games">
@@ -127,7 +174,12 @@ function Home() {
                 </div>
               </div>
               <div class="spotlight__cta">
-                <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>
+                <button
+                  class="btn btn--gold btn--lg"
+                  onPointerEnter={() => prefetchRoute('/surge')}
+                  onFocus={() => prefetchRoute('/surge')}
+                  onClick={() => navigate('/surge')}
+                >
                   ▶ Play Surge
                 </button>
               </div>
@@ -216,7 +268,16 @@ function Footer() {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-function Screen({ r }: { r: string }) {
+function RouteFallback() {
+  return (
+    <div class="main-content route-loading" aria-live="polite">
+      <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+      <div class="route-loading__text">Loading game…</div>
+    </div>
+  )
+}
+
+function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/identify')) return <Identify />
   if (r.startsWith('/surge')) return <Surge />
@@ -229,6 +290,14 @@ function Screen({ r }: { r: string }) {
   if (r.startsWith('/cost-sweep')) return <CostSweep />
   if (r.startsWith('/settings')) return <SettingsScreen />
   return <Home />
+}
+
+function Screen({ r }: { r: string }) {
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <ScreenContent r={r} />
+    </Suspense>
+  )
 }
 
 function screenTitle(r: string): string | null {

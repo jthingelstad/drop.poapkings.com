@@ -10,7 +10,7 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { identifySummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import { makeNameChoices, NAME_CHOICE_COUNT } from '../../lib/name-choices'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
@@ -30,7 +30,6 @@ const CORRECT_BEAT_MS = 280
 const WRONG_BEAT_MS = 430
 const COUNTDOWN_STEP_MS = 650
 
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
 type Phase = 'playing' | 'correct' | 'wrong'
 
 interface IdentifyAnswer {
@@ -60,20 +59,16 @@ function pluralize(count: number, one: string, many: string): string {
 export default function Identify() {
   const sprint = useRef<Card[]>(pickSprint(IDENTIFY.SPRINT_LEN))
   const answers = useRef<IdentifyAnswer[]>([])
-  const startTime = useRef(0)
   const cardStart = useRef(0)
-  const penaltyMs = useRef(0)
-  const timers = useRef<number[]>([])
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const index = useSignal(0)
   const choices = useSignal<Card[]>(makeNameChoices(sprint.current[0], ALL_CARDS, IDENTIFY.CHOICE_COUNT))
   const wrongIds = useSignal<Set<number>>(new Set())
   const selectedId = useSignal<number | null>(null)
   const phase = useSignal<Phase>('playing')
-  const elapsedMs = useSignal(0)
   const dropKey = useSignal(0)
 
   const totalMs = useSignal(0)
@@ -85,28 +80,10 @@ export default function Identify() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.identify')
     preloadImages(sprint.current, () => (imagesReady.value = true))
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
 
   function setCard(nextIndex: number) {
     index.value = nextIndex
@@ -118,17 +95,10 @@ export default function Identify() {
   }
 
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    startTime.current = performance.now()
-    penaltyMs.current = 0
-    answers.current = []
-    elapsedMs.value = 0
-    setCard(0)
-    stage.value = 'running'
+    timed.start(() => {
+      answers.current = []
+      setCard(0)
+    })
   }
 
   function showNext() {
@@ -141,7 +111,7 @@ export default function Identify() {
   }
 
   function finish() {
-    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
+    const total = timed.currentElapsed()
     const best = getRecords().identifyBest
     const pb = best === undefined || total < best
     const firstTry = answers.current.filter((answer) => answer.firstTry).length
@@ -170,7 +140,7 @@ export default function Identify() {
       misses,
       missedCards: missed
     })
-    stage.value = 'summary'
+    timed.setStage('summary')
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }
 
@@ -182,7 +152,7 @@ export default function Identify() {
 
     if (choice.id !== card.id) {
       playWrong()
-      penaltyMs.current += IDENTIFY.PENALTY_MS
+      timed.addPenalty(IDENTIFY.PENALTY_MS)
       const nextWrong = new Set(wrongIds.value)
       nextWrong.add(choice.id)
       wrongIds.value = nextWrong
@@ -203,25 +173,21 @@ export default function Identify() {
   }
 
   function replay() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     sprint.current = pickSprint(IDENTIFY.SPRINT_LEN)
     answers.current = []
-    penaltyMs.current = 0
     imagesReady.value = false
-    count.value = 3
     index.value = 0
     choices.value = makeNameChoices(sprint.current[0], ALL_CARDS, IDENTIFY.CHOICE_COUNT)
     wrongIds.value = new Set()
     selectedId.value = null
     phase.value = 'playing'
-    elapsedMs.value = 0
     totalMs.value = 0
     isPB.value = false
     prevBest.value = undefined
     firstTryCount.value = 0
     missCount.value = 0
     missedCards.value = []
-    stage.value = 'ready'
     preloadImages(sprint.current, () => (imagesReady.value = true))
   }
 

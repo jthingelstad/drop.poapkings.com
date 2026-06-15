@@ -10,7 +10,7 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import {
   formatTrade,
   isTradeInRange,
@@ -37,7 +37,6 @@ const CORRECT_BEAT_MS = 240
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
 type Feedback = 'idle' | 'wrong' | 'correct'
 
 function randomInt(min: number, max: number): number {
@@ -164,17 +163,13 @@ function TradeSide({
 
 export default function Trade() {
   const rounds = useRef<TradeRound[]>(pickTradeSequence(TRADE.SEQUENCE_LEN))
-  const timers = useRef<number[]>([])
-  const startTime = useRef(0)
-  const penaltyMs = useRef(0)
   const roundMisses = useRef(0)
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
-  const elapsedMs = useSignal(0)
   const wrongGuesses = useSignal(0)
   const cleanTrades = useSignal(0)
   const lastTrade = useSignal(0)
@@ -187,48 +182,23 @@ export default function Trade() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.trade')
     preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
-
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    startTime.current = performance.now()
-    penaltyMs.current = 0
-    roundMisses.current = 0
-    index.value = 0
-    elapsedMs.value = 0
-    wrongGuesses.value = 0
-    cleanTrades.value = 0
-    lastTrade.value = 0
-    feedback.value = 'idle'
-    hintedOnLastGuess.value = false
-    picked.value = null
-    revealedIds.value = new Set()
-    stage.value = 'running'
+    timed.start(() => {
+      roundMisses.current = 0
+      index.value = 0
+      wrongGuesses.value = 0
+      cleanTrades.value = 0
+      lastTrade.value = 0
+      feedback.value = 'idle'
+      hintedOnLastGuess.value = false
+      picked.value = null
+      revealedIds.value = new Set()
+    })
   }
 
   function nextRound() {
@@ -241,7 +211,7 @@ export default function Trade() {
   }
 
   function finish() {
-    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
+    const total = timed.currentElapsed()
     const best = getRecords().tradeBest
     const pb = best === undefined || total < best
     totalMs.value = total
@@ -262,7 +232,7 @@ export default function Trade() {
       wrongGuesses: wrongGuesses.value,
       lastTrade: lastTrade.value
     })
-    stage.value = 'summary'
+    timed.setStage('summary')
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }
 
@@ -283,7 +253,7 @@ export default function Trade() {
       hintedOnLastGuess.value = hintId !== undefined
       roundMisses.current += 1
       wrongGuesses.value += 1
-      penaltyMs.current += TRADE.PENALTY_MS
+      timed.addPenalty(TRADE.PENALTY_MS)
       feedback.value = 'wrong'
       later(() => {
         feedback.value = 'idle'
@@ -307,17 +277,14 @@ export default function Trade() {
   }
 
   function replay() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     rounds.current = pickTradeSequence(TRADE.SEQUENCE_LEN)
     imagesReady.value = false
-    count.value = 3
     index.value = 0
-    elapsedMs.value = 0
     wrongGuesses.value = 0
     cleanTrades.value = 0
     lastTrade.value = 0
     roundMisses.current = 0
-    penaltyMs.current = 0
     feedback.value = 'idle'
     hintedOnLastGuess.value = false
     picked.value = null
@@ -325,7 +292,6 @@ export default function Trade() {
     isPB.value = false
     prevBest.value = undefined
     totalMs.value = 0
-    stage.value = 'ready'
     preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
   }
 

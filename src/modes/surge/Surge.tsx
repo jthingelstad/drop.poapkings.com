@@ -12,7 +12,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -34,8 +34,6 @@ const CORRECT_BEAT_MS = 280
 const WRONG_BEAT_MS = 430
 const COUNTDOWN_STEP_MS = 650
 
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
-
 // A distinct sprint of N cards, biased toward weak cards by the sampler.
 function pickSprint(n: number): Card[] {
   const chosen: Card[] = []
@@ -53,20 +51,16 @@ function pickSprint(n: number): Card[] {
 export default function Surge() {
   const sprint = useRef<Card[]>(pickSprint(SURGE.SPRINT_LEN))
   const answers = useRef<Answer[]>([])
-  const startTime = useRef(0)
   const cardStart = useRef(0)
-  const penaltyMs = useRef(0)
   const firstGuess = useRef(0)
   const firstCorrect = useRef(false)
   const recorded = useRef(false)
-  const timers = useRef<number[]>([])
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const index = useSignal(0)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
-  const elapsedMs = useSignal(0)
   const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
@@ -77,43 +71,17 @@ export default function Surge() {
 
   // Preload the sprint art once on mount.
   useEffect(() => {
-    const timerList = timers.current
     preloadImages(sprint.current, () => (imagesReady.value = true))
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Honest monotonic clock — runs only while the sprint is live.
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
-
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    startTime.current = performance.now()
-    cardStart.current = startTime.current
-    penaltyMs.current = 0
-    recorded.current = false
-    index.value = 0
-    elapsedMs.value = 0
-    cardPhase.value = 'playing'
-    stage.value = 'running'
+    timed.start((startedAt) => {
+      cardStart.current = startedAt
+      recorded.current = false
+      index.value = 0
+      cardPhase.value = 'playing'
+    })
   }
 
   function showNext() {
@@ -129,7 +97,7 @@ export default function Surge() {
   }
 
   function finish() {
-    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
+    const total = timed.currentElapsed()
     const ins = computeInsights(answers.current)
     const best = getRecords().surgeBest
     const pb = best === undefined || total < best
@@ -149,7 +117,7 @@ export default function Surge() {
     } else {
       elixirLine.value = pickLine('surge_done', { time: formatSeconds(total), insight: insightPhrase(ins) })
     }
-    stage.value = 'summary'
+    timed.setStage('summary')
   }
 
   function answer(picked: number) {
@@ -173,24 +141,21 @@ export default function Surge() {
       later(showNext, CORRECT_BEAT_MS)
     } else {
       playWrong()
-      penaltyMs.current += SURGE.PENALTY_MS
+      timed.addPenalty(SURGE.PENALTY_MS)
       cardPhase.value = 'wrong'
       later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)
     }
   }
 
   function replay() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     sprint.current = pickSprint(SURGE.SPRINT_LEN)
     answers.current = []
-    penaltyMs.current = 0
     recorded.current = false
     imagesReady.value = false
     insights.value = null
     cardPhase.value = 'playing'
     index.value = 0
-    elapsedMs.value = 0
-    stage.value = 'ready'
     preloadImages(sprint.current, () => (imagesReady.value = true))
   }
 

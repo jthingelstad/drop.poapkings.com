@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { createPortal } from 'preact/compat'
+import { rankFor } from '../data/starRanks'
 import TrophyModal from './TrophyModal'
 
 function spawnSparks(badge: HTMLElement) {
@@ -74,14 +75,16 @@ export default function StarCount() {
     return () => clearInterval(poll)
   }, [hits])
 
+  const rank = rankFor(hits.value).current
+
   return (
     <>
       <button
         ref={ref}
         class="starcount"
         onClick={() => (modalOpen.value = true)}
-        title="Trophy Road — total visits"
-        aria-label="Trophy Road"
+        title={`Trophy Road — ${rank.name}`}
+        aria-label={`Trophy Road, ${rank.name}`}
       >
         <img src="/assets/emoji/elixir_trophy.png" alt="" class="starcount__icon" aria-hidden="true" />
         <span ref={hitsRef} class="tinylytics_hits starcount__n" />

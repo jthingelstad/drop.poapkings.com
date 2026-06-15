@@ -11,7 +11,7 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { ladderSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
@@ -28,7 +28,6 @@ const LADDER = {
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
 type Feedback = 'idle' | 'wrong'
 
 function shuffle(cards: Card[]): Card[] {
@@ -180,18 +179,14 @@ function LadderCard({
 }
 
 export default function SpeedLadder() {
-  const timers = useRef<number[]>([])
-  const startTime = useRef(0)
-  const penaltyMs = useRef(0)
   const draggedId = useRef<number | null>(null)
   const suppressTapUntil = useRef(0)
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const order = useSignal<Card[]>(pickLadderCards())
   const revealedIds = useSignal<Set<number>>(new Set())
-  const elapsedMs = useSignal(0)
   const wrongLocks = useSignal(0)
   const feedback = useSignal<Feedback>('idle')
   const hintedOnLastLock = useSignal(false)
@@ -203,44 +198,19 @@ export default function SpeedLadder() {
   const selectedCard = useSignal<number | null>(null)
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.ladder')
     preloadImages(order.value, () => (imagesReady.value = true))
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      elapsedMs.value = elapsedWithPenalty(startTime.current, penaltyMs.current)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
-
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    startTime.current = performance.now()
-    penaltyMs.current = 0
-    elapsedMs.value = 0
-    wrongLocks.value = 0
-    feedback.value = 'idle'
-    hintedOnLastLock.value = false
-    revealedIds.value = new Set()
-    selectedCard.value = null
-    stage.value = 'running'
+    timed.start(() => {
+      wrongLocks.value = 0
+      feedback.value = 'idle'
+      hintedOnLastLock.value = false
+      revealedIds.value = new Set()
+      selectedCard.value = null
+    })
   }
 
   function moveCard(fromIndex: number, toIndex: number) {
@@ -310,7 +280,7 @@ export default function SpeedLadder() {
       }
       hintedOnLastLock.value = hintedCardId !== undefined
       wrongLocks.value += 1
-      penaltyMs.current += LADDER.PENALTY_MS
+      timed.addPenalty(LADDER.PENALTY_MS)
       feedback.value = 'wrong'
       selectedCard.value = null
       later(() => (feedback.value = 'idle'), WRONG_BEAT_MS)
@@ -319,7 +289,7 @@ export default function SpeedLadder() {
 
     playCorrect()
     selectedCard.value = null
-    const total = elapsedWithPenalty(startTime.current, penaltyMs.current)
+    const total = timed.currentElapsed()
     const best = getRecords().ladderBest
     const pb = best === undefined || total < best
     totalMs.value = total
@@ -336,11 +306,11 @@ export default function SpeedLadder() {
       totalMs: total,
       wrongLocks: wrongLocks.value
     })
-    stage.value = 'summary'
+    timed.setStage('summary')
   }
 
   function replay() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     draggedId.current = null
     draggingCard.value = null
     selectedCard.value = null
@@ -348,16 +318,12 @@ export default function SpeedLadder() {
     order.value = next
     revealedIds.value = new Set()
     imagesReady.value = false
-    count.value = 3
-    elapsedMs.value = 0
     wrongLocks.value = 0
-    penaltyMs.current = 0
     feedback.value = 'idle'
     hintedOnLastLock.value = false
     isPB.value = false
     prevBest.value = undefined
     totalMs.value = 0
-    stage.value = 'ready'
     preloadImages(next, () => (imagesReady.value = true))
   }
 

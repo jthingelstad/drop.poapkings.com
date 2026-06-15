@@ -11,7 +11,7 @@ import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
 import { computeInsights } from '../../lib/insights'
 import { isSweepComplete, remainingTargetIds } from '../../lib/cost-sweep'
-import { clearTimers, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -28,8 +28,6 @@ const SWEEP = {
 }
 
 const COUNTDOWN_STEP_MS = 650
-
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
 
 interface SweepBoard {
   cards: Card[]
@@ -102,24 +100,24 @@ function SweepCard({
 }
 
 export default function CostSweep() {
-  const timers = useRef<number[]>([])
   const recent = useRef<number[]>([])
   const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
-  const startTime = useRef(0)
-  const penaltyMs = useRef(0)
   const finished = useRef(false)
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({
+    countdownStepMs: COUNTDOWN_STEP_MS,
+    durationMs: SWEEP.WINDOW_MS,
+    onDurationEnd: finish
+  })
+  const { stage, count, elapsedMs: remainingMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const board = useSignal<SweepBoard | null>(null)
   const selectedIds = useSignal<Set<number>>(new Set())
   const wrongIds = useSignal<Set<number>>(new Set())
   const found = useSignal(0)
   const boardsCleared = useSignal(0)
   const wrongTaps = useSignal(0)
-  const remainingMs = useSignal(SWEEP.WINDOW_MS)
   const boardLocked = useSignal(false)
   const insights = useSignal<Insights | null>(null)
   const isPB = useSignal(false)
@@ -127,33 +125,10 @@ export default function CostSweep() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.costsweep')
     dealRun()
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      const left = SWEEP.WINDOW_MS - (performance.now() - startTime.current + penaltyMs.current)
-      remainingMs.value = Math.max(0, left)
-      if (left <= 0) {
-        finish()
-        return
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
 
   function drawFrom(pool: Card[], usedIds: Set<number>): Card {
     const card = sampleUnseenCard(pool, seen.current, recent.current, [...usedIds])
@@ -178,20 +153,17 @@ export default function CostSweep() {
   }
 
   function dealRun() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     recent.current = []
     seen.current = new Set()
     answers.current = []
     finished.current = false
-    penaltyMs.current = 0
     imagesReady.value = false
-    count.value = 3
     selectedIds.value = new Set()
     wrongIds.value = new Set()
     found.value = 0
     boardsCleared.value = 0
     wrongTaps.value = 0
-    remainingMs.value = SWEEP.WINDOW_MS
     boardLocked.value = false
     insights.value = null
     isPB.value = false
@@ -199,24 +171,16 @@ export default function CostSweep() {
 
     const next = makeBoard()
     board.value = next
-    stage.value = 'ready'
     preloadImages(next.cards, () => (imagesReady.value = true))
   }
 
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    finished.current = false
-    startTime.current = performance.now()
-    penaltyMs.current = 0
-    remainingMs.value = SWEEP.WINDOW_MS
-    selectedIds.value = new Set()
-    wrongIds.value = new Set()
-    boardLocked.value = false
-    stage.value = 'running'
+    timed.start(() => {
+      finished.current = false
+      selectedIds.value = new Set()
+      wrongIds.value = new Set()
+      boardLocked.value = false
+    })
   }
 
   function nextBoard() {
@@ -232,7 +196,7 @@ export default function CostSweep() {
   function finish() {
     if (finished.current) return
     finished.current = true
-    clearTimers(timers.current)
+    timed.clearScheduled()
 
     const best = getRecords().costSweepBest
     const pb = best === undefined || found.value > best
@@ -252,7 +216,7 @@ export default function CostSweep() {
     elixirLine.value = pb
       ? `${found.value} found. New Cost Sweep best.`
       : `${found.value} found. Scan the target cost first, then trust the taps.`
-    stage.value = 'summary'
+    timed.setStage('summary')
   }
 
   function pick(card: Card) {
@@ -278,7 +242,7 @@ export default function CostSweep() {
 
     playWrong()
     wrongTaps.value += 1
-    penaltyMs.current += SWEEP.WRONG_PENALTY_MS
+    timed.addPenalty(SWEEP.WRONG_PENALTY_MS)
     answers.current.push({ card, guess: currentBoard.targetElixir, correct: false })
     saveResult(card.id, false)
 

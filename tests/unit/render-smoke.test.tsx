@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import renderToString from 'preact-render-to-string'
+import { renderToStringAsync } from 'preact-render-to-string'
 import App from '../../src/App'
 import { route } from '../../src/lib/router'
 
@@ -13,21 +13,23 @@ const CASES = [
   ['/blitz', 'Blitz'],
   ['/survival', 'Survival'],
   ['/ladder', 'Sort five cards by elixir.'],
+  ['/endless-ladder', 'Grow the ladder one card at a time.'],
+  ['/cost-sweep', 'Tap every card with the target cost.'],
   ['/settings', 'Settings']
 ] as const
 
 describe('SSR render smoke', () => {
-  it.each(CASES)('renders %s', (path, expectedText) => {
+  it.each(CASES)('renders %s', async (path, expectedText) => {
     route.value = path
-    const html = renderToString(<App />)
+    const html = await renderToStringAsync(<App />)
 
     expect(html).toContain(expectedText)
     expect(html).toContain('site-foot')
   })
 
-  it('renders build metadata on settings', () => {
+  it('renders build metadata on settings', async () => {
     route.value = '/settings'
-    const html = renderToString(<App />)
+    const html = await renderToStringAsync(<App />)
 
     expect(html).toContain('Build ID')
     expect(html).toContain('Build date')

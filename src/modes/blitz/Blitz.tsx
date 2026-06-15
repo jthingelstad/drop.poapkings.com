@@ -11,7 +11,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, schedule, startCountdown } from '../../lib/run-loop'
+import { useTimedRun } from '../../lib/use-timed-run'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -30,8 +30,6 @@ const CORRECT_BEAT_MS = 230
 const WRONG_BEAT_MS = 380
 const COUNTDOWN_STEP_MS = 650
 
-type Stage = 'ready' | 'countdown' | 'running' | 'summary'
-
 function nextSample(recent: number[], seen: Set<number>): Card {
   const c = sampleUnseenCard(ALL_CARDS, seen, recent)
   recent.push(c.id)
@@ -43,19 +41,20 @@ export default function Blitz() {
   const recent = useRef<number[]>([])
   const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
-  const startTime = useRef(0)
   const cardStart = useRef(0)
   const recorded = useRef(false)
   const firstGuess = useRef(0)
   const firstCorrect = useRef(false)
-  const timers = useRef<number[]>([])
   const finished = useRef(false)
 
-  const stage = useSignal<Stage>('ready')
+  const timed = useTimedRun({
+    countdownStepMs: COUNTDOWN_STEP_MS,
+    durationMs: BLITZ.WINDOW_MS,
+    onDurationEnd: finish
+  })
+  const { stage, count, elapsedMs: remainingMs, later } = timed
   const imagesReady = useSignal(false)
-  const count = useSignal(3)
   const cleared = useSignal(0)
-  const remainingMs = useSignal(BLITZ.WINDOW_MS)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const dropKey = useSignal(0)
@@ -66,56 +65,27 @@ export default function Blitz() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.blitz')
     const batch: Card[] = []
     const seed: number[] = []
     const seedSeen = new Set<number>()
     for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
     preloadImages(batch, () => (imagesReady.value = true))
-    return () => clearTimers(timerList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      const left = BLITZ.WINDOW_MS - (performance.now() - startTime.current)
-      remainingMs.value = Math.max(0, left)
-      if (left <= 0) {
-        finish()
-        return
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
-
   function start() {
-    stage.value = 'countdown'
-    startCountdown(count, begin, timers.current, COUNTDOWN_STEP_MS)
-  }
-
-  function begin() {
-    finished.current = false
-    recent.current = []
-    seen.current.clear()
-    answers.current = []
-    cleared.value = 0
-    startTime.current = performance.now()
-    cardStart.current = startTime.current
-    recorded.current = false
-    remainingMs.value = BLITZ.WINDOW_MS
-    current.value = nextSample(recent.current, seen.current)
-    cardPhase.value = 'playing'
-    stage.value = 'running'
+    timed.start((startedAt) => {
+      finished.current = false
+      recent.current = []
+      seen.current.clear()
+      answers.current = []
+      cleared.value = 0
+      cardStart.current = startedAt
+      recorded.current = false
+      current.value = nextSample(recent.current, seen.current)
+      cardPhase.value = 'playing'
+    })
   }
 
   function nextCard() {
@@ -132,7 +102,7 @@ export default function Blitz() {
   function finish() {
     if (finished.current) return
     finished.current = true
-    clearTimers(timers.current)
+    timed.clearScheduled()
 
     const ins = computeInsights(answers.current)
     const best = getRecords().blitzBest
@@ -150,7 +120,7 @@ export default function Blitz() {
     elixirLine.value = pb
       ? `${cleared.value} cleared. New Blitz best.`
       : pickLine('surge_done', { time: '60.0', insight: `${cleared.value} cleared` })
-    stage.value = 'summary'
+    timed.setStage('summary')
   }
 
   function answer(picked: number) {
@@ -182,15 +152,13 @@ export default function Blitz() {
   }
 
   function replay() {
-    clearTimers(timers.current)
+    timed.reset('ready')
     finished.current = false
     imagesReady.value = false
     insights.value = null
     current.value = null
     cardPhase.value = 'playing'
     cleared.value = 0
-    remainingMs.value = BLITZ.WINDOW_MS
-    stage.value = 'ready'
     const batch: Card[] = []
     const seed: number[] = []
     const seedSeen = new Set<number>()

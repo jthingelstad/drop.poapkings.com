@@ -3,6 +3,12 @@ import type { Insights } from '../lib/insights'
 import type { Card, ElixirMood } from '../types'
 import ElixirHost from './ElixirHost'
 
+export interface SummaryMoment {
+  label: string
+  value: string
+  tone?: 'gold' | 'purple' | 'green'
+}
+
 interface Props {
   eyebrow: string // e.g. "Surge complete" / "Practice round"
   headline: string // e.g. "15 cards · 28.6s" or "12 / 15 · 80%"
@@ -10,6 +16,7 @@ interface Props {
   elixirLine: string
   elixirMood?: ElixirMood
   insights: Insights
+  moments?: SummaryMoment[]
   children?: ComponentChildren // share line + recruit CTA slot
   onReplay: () => void
   replayLabel?: string
@@ -29,6 +36,48 @@ function CardChip({ card, sub }: { card: Card; sub?: string }) {
   )
 }
 
+function strongestBand(insights: Insights): string | null {
+  const band = [...insights.bands]
+    .filter((b) => b.total > 0)
+    .sort((a, b) => b.correct / b.total - a.correct / a.total)[0]
+
+  if (!band) return null
+  return `${band.label} cost`
+}
+
+function weakestBand(insights: Insights): string | null {
+  const band = [...insights.bands]
+    .filter((b) => b.total >= 2)
+    .sort((a, b) => a.correct / a.total - b.correct / b.total)[0]
+
+  if (!band || band.correct === band.total) return null
+  return `${band.label} cost`
+}
+
+function defaultMoments(insights: Insights, pbCallout?: string): SummaryMoment[] {
+  const moments: SummaryMoment[] = []
+
+  if (pbCallout) {
+    moments.push({ label: 'Moment', value: pbCallout, tone: 'gold' })
+  } else if (insights.accuracyPct >= 90) {
+    moments.push({ label: 'Moment', value: 'Clean read', tone: 'green' })
+  } else {
+    moments.push({ label: 'Moment', value: `${insights.correct}/${insights.total} first try`, tone: 'purple' })
+  }
+
+  const strength = strongestBand(insights)
+  if (strength) moments.push({ label: 'Best lane', value: strength, tone: 'green' })
+
+  const focus =
+    weakestBand(insights) ??
+    (insights.hasTiming && insights.slowestBandLabel ? `${insights.slowestBandLabel} cost pace` : null) ??
+    (insights.weakest[0] ? insights.weakest[0].name : null)
+
+  if (focus) moments.push({ label: 'Next drill', value: focus })
+
+  return moments.slice(0, 3)
+}
+
 export default function Summary({
   eyebrow,
   headline,
@@ -36,12 +85,14 @@ export default function Summary({
   elixirLine,
   elixirMood = 'neutral',
   insights,
+  moments,
   children,
   onReplay,
   replayLabel = 'Play again',
   onHome
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
+  const runMoments = moments ?? defaultMoments(insights, pbCallout)
 
   return (
     <div class="summary">
@@ -52,6 +103,17 @@ export default function Summary({
       </div>
 
       <ElixirHost line={elixirLine} mood={elixirMood} />
+
+      {runMoments.length > 0 && (
+        <div class="summary-moments" aria-label="Run highlights">
+          {runMoments.map((moment) => (
+            <div class={`summary-moment summary-moment--${moment.tone ?? 'purple'}`} key={moment.label}>
+              <div class="summary-moment__label">{moment.label}</div>
+              <div class="summary-moment__value">{moment.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Accuracy by cost band */}
       <div class="summary__section">
