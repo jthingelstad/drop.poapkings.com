@@ -32,7 +32,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
-    "knip": "^6.16.1",
+    "knip": "^6.17.1",
     "preact-render-to-string": "^6.7.0",
     "prettier": "^3.8.4",
     "stylelint": "^17.13.0",
