@@ -35,7 +35,7 @@
     "knip": "^6.17.1",
     "preact-render-to-string": "^6.7.0",
     "prettier": "^3.8.4",
-    "stylelint": "^17.13.0",
+    "stylelint": "^17.14.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
