@@ -13,6 +13,7 @@ import { preloadImages } from '../../lib/preload'
 import { useTimedRun } from '../../lib/use-timed-run'
 import { makeNameChoices, NAME_CHOICE_COUNT } from '../../lib/name-choices'
 import CardDisplay from '../../components/CardDisplay'
+import { CardName } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -220,7 +221,7 @@ export default function Identify() {
               <div class="summary__chips">
                 {missedCards.value.slice(0, 5).map((card) => (
                   <span class="summary-chip" key={card.id}>
-                    <span class="summary-chip__name">{card.name}</span>
+                    <CardName card={card} className="summary-chip__name" />
                   </span>
                 ))}
               </div>

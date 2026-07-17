@@ -12,6 +12,7 @@ import { preloadImages } from '../../lib/preload'
 import { computeInsights } from '../../lib/insights'
 import { isSweepComplete, remainingTargetIds } from '../../lib/cost-sweep'
 import { useTimedRun } from '../../lib/use-timed-run'
+import { CardArt } from '../../components/CardChrome'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -24,7 +25,7 @@ const SWEEP = {
   WINDOW_MS: 45000,
   WRONG_PENALTY_MS: 2000,
   BOARD_CLEAR_BEAT_MS: 360,
-  WRONG_BEAT_MS: 520
+  WRONG_BEAT_MS: 900
 }
 
 const COUNTDOWN_STEP_MS = 650
@@ -68,8 +69,7 @@ function SweepCard({
   disabled: boolean
   onPick: (card: Card) => void
 }) {
-  const imageFailed = useSignal(false)
-  const showImage = card.icon && !imageFailed.value
+  const revealCost = isFound || isWrong
 
   return (
     <button
@@ -81,20 +81,17 @@ function SweepCard({
       data-elixir={card.elixir}
       data-target={isTarget ? 'true' : 'false'}
     >
-      <span class="sweep-card__art">
-        {showImage ? (
-          <img src={card.icon} alt="" class="sweep-card__img" onError={() => (imageFailed.value = true)} />
-        ) : (
-          <span class="sweep-card__fallback" aria-hidden="true" />
-        )}
-        {isFound && (
-          <span class="ladder-card__cost" aria-label={`${card.elixir} elixir`}>
-            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" />
-            {card.elixir}
-          </span>
-        )}
-      </span>
-      <span class="sweep-card__name">{card.name}</span>
+      <CardArt
+        card={card}
+        className="sweep-card__art"
+        imgClassName="sweep-card__img"
+        fallbackClassName="sweep-card__fallback"
+        showCost={revealCost}
+        costClassName={`sweep-card__cost${isWrong ? ' sweep-card__cost--wrong' : ''}`}
+        costTone={isWrong ? 'wrong' : 'default'}
+        showName
+        nameClassName="sweep-card__name"
+      />
     </button>
   )
 }

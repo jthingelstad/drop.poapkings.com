@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import rawCards from '../../data/cards.json'
 import { sampleUnseenCard } from '../../lib/sampling'
@@ -19,6 +19,7 @@ import {
   TRADE_ANSWERS,
   type TradeRound
 } from '../../lib/trade'
+import { CardArt } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -107,25 +108,18 @@ function tradeLine(value: number): string {
 }
 
 function TradeCard({ card, revealed }: { card: Card; revealed: boolean }) {
-  const [failed, setFailed] = useState(false)
-  const showImage = card.icon && !failed
-
   return (
     <li class={`trade-card${revealed ? ' trade-card--revealed' : ''}`} data-card-id={card.id}>
-      <span class="trade-card__art">
-        {showImage ? (
-          <img class="trade-card__img" src={card.icon} alt="" loading="lazy" onError={() => setFailed(true)} />
-        ) : (
-          <span class="trade-card__fallback" aria-hidden="true" />
-        )}
-        {revealed && (
-          <span class="trade-card__cost" aria-label={`${card.elixir} elixir`}>
-            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" />
-            {card.elixir}
-          </span>
-        )}
-        <span class="trade-card__name">{card.name}</span>
-      </span>
+      <CardArt
+        card={card}
+        className="trade-card__art"
+        imgClassName="trade-card__img"
+        fallbackClassName="trade-card__fallback"
+        showCost={revealed}
+        costClassName="trade-card__cost"
+        showName
+        nameClassName="trade-card__name"
+      />
     </li>
   )
 }

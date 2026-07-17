@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cardNameToneClass, cardRarityLabel, cardRarityModifier } from '../../src/lib/card-rendering'
 import { makeChoices } from '../../src/lib/choices'
 import { countTargetCards, isSweepComplete, remainingTargetIds, targetIds } from '../../src/lib/cost-sweep'
 import { canInsertAt, insertAtSlot, validInsertSlots } from '../../src/lib/endless-ladder'
@@ -12,13 +13,19 @@ import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../..
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
 
-function card(id: number, name: string, elixir: number, type: Card['type'] = 'troop'): Card {
+function card(
+  id: number,
+  name: string,
+  elixir: number,
+  type: Card['type'] = 'troop',
+  rarity: Card['rarity'] = 'common'
+): Card {
   return {
     id,
     name,
     elixir,
     type,
-    rarity: 'common',
+    rarity,
     evo: false,
     hero: false,
     icon: `https://example.com/${id}.png`
@@ -37,6 +44,14 @@ describe('learning helpers', () => {
     expect(new Set(makeChoices(1))).toEqual(new Set([1, 2, 3, 4]))
     expect(new Set(makeChoices(4))).toEqual(new Set([3, 4, 5, 6]))
     expect(new Set(makeChoices(10))).toEqual(new Set([7, 8, 9, 10]))
+  })
+
+  it('maps card rarity into shared Clash-style render classes', () => {
+    const hunter = card(1, 'Hunter', 4, 'troop', 'epic')
+
+    expect(cardRarityLabel(hunter)).toBe('Epic')
+    expect(cardNameToneClass(hunter)).toBe('cr-card-name--epic')
+    expect(cardRarityModifier(hunter, 'cr-card-art')).toBe('cr-card-art--epic')
   })
 
   it('formats timed scores as one decimal second', () => {

@@ -271,8 +271,13 @@ test('cost sweep clears a target board and penalizes wrong taps', async ({ page 
   await expect(page.locator('.sweep-grid')).toBeVisible({ timeout: 5_000 })
 
   const nonTarget = page.locator('.sweep-card[data-target="false"]').first()
+  const nonTargetId = Number(await nonTarget.getAttribute('data-card-id'))
+  const nonTargetCard = cardsById.get(nonTargetId)
+  expect(nonTargetCard).toBeTruthy()
   await nonTarget.click()
   await expect(nonTarget).toHaveClass(/sweep-card--wrong/)
+  await expect(nonTarget.locator('.sweep-card__cost')).toContainText(String(nonTargetCard!.elixir))
+  await expect(nonTarget.locator('.sweep-card__cost')).toHaveClass(/sweep-card__cost--wrong/)
 
   const targetIds = await page
     .locator('.sweep-card[data-target="true"]')

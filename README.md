@@ -27,7 +27,8 @@ Ten ways to play, one card-cost engine:
 - **Cost Sweep** — tap every card in a grid that matches the target elixir cost.
 
 See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
-of game ideas.
+of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the
+shared Clash-style card-rendering rules used by the modes.
 
 A weighted sampler surfaces the cards you miss more often, and a short
 end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
@@ -129,12 +130,14 @@ elixir-drop/
 ├─ .env.example              # CR_API_TOKEN, MIRROR_IMAGES
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
+├─ docs/card-rendering.md    # shared card rendering reference
 └─ CLAUDE.md                 # agent guide for future code work
 ```
 
 The Clash Royale API reference under `docs/cr-agent-api-docs/` is source
 material for the card refresh script and API assumptions; it is not the product
-spec.
+spec. The Clash Royale screenshots under `docs/clash-royale-screenshots/` are
+visual reference for the shared card chrome, not runtime assets.
 
 ---
 

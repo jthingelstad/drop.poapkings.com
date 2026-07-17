@@ -18,7 +18,13 @@ Ladder is not shipped and should not be built without a fresh product decision.*
 Every game shares one engine and the same shared paths: cards come from
 `src/data/cards.json`, progress goes through `src/lib/storage.ts`, card selection
 goes through `src/lib/sampling.ts`, elixir multiple-choice distractors through
-`src/lib/choices.ts`, and card-name distractors through `src/lib/name-choices.ts`.
+`src/lib/choices.ts`, card-name distractors through `src/lib/name-choices.ts`,
+and card presentation through `src/lib/card-rendering.ts` plus
+`src/components/CardChrome.tsx`.
+
+Card art and names should follow the shared rendering reference in
+`docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
+`ElixirCostBadge` instead of inventing another card frame.
 
 **Current product constraint:** do not add curated deck definitions. No
 `decks.json`, archetype list, synergy model, or "real deck" dependency. That path

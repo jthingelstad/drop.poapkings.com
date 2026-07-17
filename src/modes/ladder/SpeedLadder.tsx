@@ -13,6 +13,7 @@ import { ladderSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
 import { useTimedRun } from '../../lib/use-timed-run'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
+import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -99,9 +100,6 @@ function LadderCard({
   onDrop: (toIndex: number, event: JSX.TargetedDragEvent<HTMLLIElement>) => void
   onDragEnd: () => void
 }) {
-  const imageFailed = useSignal(false)
-  const showImage = card.icon && !imageFailed.value
-
   return (
     <li
       class={`ladder-card${isDragging ? ' ladder-card--dragging' : ''}${isSelected ? ' ladder-card--selected' : ''}${isRevealed ? ' ladder-card--revealed' : ''}`}
@@ -119,28 +117,17 @@ function LadderCard({
         {index + 1}
       </span>
 
-      <span class="ladder-card__art">
-        {showImage ? (
-          <img
-            class="ladder-card__img"
-            src={card.icon}
-            alt=""
-            loading="lazy"
-            onError={() => (imageFailed.value = true)}
-          />
-        ) : (
-          <span class="ladder-card__fallback" aria-hidden="true" />
-        )}
-        {isRevealed && (
-          <span class="ladder-card__cost" aria-label={`${card.elixir} elixir`}>
-            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" />
-            {card.elixir}
-          </span>
-        )}
-      </span>
+      <CardArt
+        card={card}
+        className="ladder-card__art"
+        imgClassName="ladder-card__img"
+        fallbackClassName="ladder-card__fallback"
+        showCost={isRevealed}
+        costClassName="ladder-card__cost"
+      />
 
       <span class="ladder-card__details">
-        <span class="ladder-card__title">{card.name}</span>
+        <CardName card={card} className="ladder-card__title" />
         <span class="ladder-card__sub">
           {card.rarity} {card.type}
         </span>
@@ -352,11 +339,8 @@ export default function SpeedLadder() {
           <div class="ladder-result__order" aria-label="Final sorted order">
             {order.value.map((card) => (
               <span class="summary-chip" key={card.id}>
-                <span class="summary-chip__name">{card.name}</span>
-                <span class="summary-chip__cost">
-                  <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
-                  {card.elixir}
-                </span>
+                <CardName card={card} className="summary-chip__name" />
+                <ElixirCostBadge elixir={card.elixir} className="summary-chip__cost" />
               </span>
             ))}
           </div>

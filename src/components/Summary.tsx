@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { Insights } from '../lib/insights'
 import type { Card, ElixirMood } from '../types'
+import { CardName, ElixirCostBadge } from './CardChrome'
 import ElixirHost from './ElixirHost'
 
 export interface SummaryMoment {
@@ -26,11 +27,8 @@ interface Props {
 function CardChip({ card, sub }: { card: Card; sub?: string }) {
   return (
     <span class="summary-chip">
-      <span class="summary-chip__name">{card.name}</span>
-      <span class="summary-chip__cost">
-        <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
-        {card.elixir}
-      </span>
+      <CardName card={card} className="summary-chip__name" />
+      <ElixirCostBadge elixir={card.elixir} className="summary-chip__cost" />
       {sub && <span class="summary-chip__sub">{sub}</span>}
     </span>
   )

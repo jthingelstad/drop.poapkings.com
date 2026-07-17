@@ -144,6 +144,8 @@ Important shared modules:
 - `src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
 - `src/lib/endless-ladder.ts` - insertion-slot validation for Endless Ladder.
 - `src/lib/cost-sweep.ts` - target tracking for Cost Sweep boards.
+- `src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
+  Clash-style name tone mapping.
 - `src/lib/insights.ts` - Practice and Surge coaching insights.
 - `src/lib/mode-insights.ts` - mode-specific Identify, Trade, and Ladder summary
   lines.
@@ -218,6 +220,20 @@ Elixir Drop vendors its own visual layer:
   image, favicon, and star asset.
 - Card art hotlinks the Supercell CDN unless `MIRROR_IMAGES` is enabled during a
   data refresh.
+- `docs/clash-royale-screenshots/` contains local visual references for card
+  frames, elixir badges, and rarity-colored text treatment.
+- `docs/card-rendering.md` documents the current card-rendering findings and the
+  shared helper surface: `src/components/CardChrome.tsx`,
+  `src/lib/card-rendering.ts`, and the `cr-*` CSS classes.
+
+Card rendering rules:
+
+- Do not render fake card levels. Elixir Drop has card facts, not player-owned
+  level data.
+- Use rarity color where Clash Royale uses level/color treatment: common blue,
+  rare orange, epic purple/pink, legendary teal/mint, champion gold.
+- Prefer the shared `CardArt`, `CardName`, and `ElixirCostBadge` helpers for new
+  or changed card surfaces.
 
 Keep the footer Supercell disclaimer. This is an unofficial, non-commercial fan
 project and is not endorsed by Supercell.

@@ -12,6 +12,7 @@ import { computeInsights, type Answer, type Insights } from '../../lib/insights'
 import { canInsertAt, insertAtSlot } from '../../lib/endless-ladder'
 import { clearTimers, schedule } from '../../lib/run-loop'
 import CardDisplay from '../../components/CardDisplay'
+import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -33,25 +34,17 @@ function sortByElixir(cards: Card[]): Card[] {
 }
 
 function EndlessRowCard({ card, revealCost }: { card: Card; revealCost: boolean }) {
-  const imageFailed = useSignal(false)
-  const showImage = card.icon && !imageFailed.value
-
   return (
     <div class="endless-card" data-card-id={card.id}>
-      <span class="endless-card__art">
-        {showImage ? (
-          <img src={card.icon} alt="" class="endless-card__img" onError={() => (imageFailed.value = true)} />
-        ) : (
-          <span class="endless-card__fallback" aria-hidden="true" />
-        )}
-        {revealCost && (
-          <span class="ladder-card__cost" aria-label={`${card.elixir} elixir`}>
-            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" />
-            {card.elixir}
-          </span>
-        )}
-      </span>
-      <span class="endless-card__name">{card.name}</span>
+      <CardArt
+        card={card}
+        className="endless-card__art"
+        imgClassName="endless-card__img"
+        fallbackClassName="endless-card__fallback"
+        showCost={revealCost}
+        costClassName="ladder-card__cost"
+      />
+      <CardName card={card} className="endless-card__name" />
     </div>
   )
 }
@@ -204,11 +197,8 @@ export default function EndlessLadder() {
             <div class="endless-result__failed">
               <span>Missed slot {failedSlot.value !== null ? failedSlot.value + 1 : '—'} for</span>
               <span class="summary-chip">
-                <span class="summary-chip__name">{failed.name}</span>
-                <span class="summary-chip__cost">
-                  <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
-                  {failed.elixir}
-                </span>
+                <CardName card={failed} className="summary-chip__name" />
+                <ElixirCostBadge elixir={failed.elixir} className="summary-chip__cost" />
               </span>
             </div>
           )}
@@ -218,11 +208,8 @@ export default function EndlessLadder() {
           <div class="ladder-result__order" aria-label="Final ladder order">
             {row.value.map((card) => (
               <span class="summary-chip" key={card.id}>
-                <span class="summary-chip__name">{card.name}</span>
-                <span class="summary-chip__cost">
-                  <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
-                  {card.elixir}
-                </span>
+                <CardName card={card} className="summary-chip__name" />
+                <ElixirCostBadge elixir={card.elixir} className="summary-chip__cost" />
               </span>
             ))}
           </div>

@@ -10,6 +10,8 @@ Doc map:
 - **`SPEC.md`** is the current implementation spec and product constraints.
 - **`GAMES.md`** is the canonical games catalog: shipped modes, retired modes,
   and backlog ideas.
+- **`docs/card-rendering.md`** is the Clash-style card rendering reference and
+  helper guide.
 - **`CLAUDE.md`** is the agent working guide.
 
 ---
@@ -65,6 +67,9 @@ Doc map:
   (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
 - **`src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the
   target plus similar card-name distractors for identification modes.
+- **`src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
+  Clash-style card-name tone mapping. Pair it with `src/components/CardChrome.tsx`
+  instead of hand-rolling card art/name/cost UI in a mode.
 - **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
