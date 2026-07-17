@@ -251,7 +251,7 @@ npm run verify
 `verify` runs:
 
 - Prettier format check
-- ESLint
+- Oxlint
 - Stylelint
 - TypeScript typecheck
 - Knip
