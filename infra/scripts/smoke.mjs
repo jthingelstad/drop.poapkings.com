@@ -5,7 +5,7 @@ import { loadEnv } from "./env.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
-const env = await loadEnv(resolve(repoRoot, ".env"));
+const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
 for (const [key, value] of Object.entries(env)) {
   if (!process.env[key]) process.env[key] = value;
 }
