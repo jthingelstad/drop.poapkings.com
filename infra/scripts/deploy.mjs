@@ -32,6 +32,7 @@ const requiredNames = [
   "FASTMAIL_JMAP_TOKEN",
   "SESSION_SECRET",
   "APP_URL",
+  "ELIXIR_DROP_DISCORD_WEBHOOK_URL",
 ];
 for (const name of requiredNames) {
   if (!process.env[name])
@@ -72,6 +73,7 @@ try {
     ["SessionSecret", process.env.SESSION_SECRET],
     ["FastmailJmapToken", process.env.FASTMAIL_JMAP_TOKEN],
     ["AppUrl", process.env.APP_URL],
+    ["DiscordWebhookUrl", process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL],
     ["EmailFrom", process.env.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com"],
     ["NameModelId", process.env.NAME_MODEL_ID || "amazon.nova-micro-v1:0"],
   ].map(([ParameterKey, ParameterValue]) => ({ ParameterKey, ParameterValue }));

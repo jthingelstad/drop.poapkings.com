@@ -162,24 +162,31 @@ export class Repository {
     }
   }
 
-  async ensureProfile(sub: string, email: string): Promise<void> {
+  async ensureProfile(
+    sub: string,
+    email: string,
+  ): Promise<{ profile: PlayerProfile; created: boolean }> {
     const now = new Date().toISOString();
+    const profile: PlayerProfile = {
+      sub,
+      playerId: randomUUID(),
+      email,
+      totalGames: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
     try {
       await client.send(
         new PutCommand({
           TableName: this.tableName,
           Item: {
             ...profileKey(sub),
-            sub,
-            playerId: randomUUID(),
-            email,
-            totalGames: 0,
-            createdAt: now,
-            updatedAt: now,
+            ...profile,
           } satisfies ProfileItem,
           ConditionExpression: "attribute_not_exists(pk)",
         }),
       );
+      return { profile, created: true };
     } catch (error) {
       if (!(
         error instanceof Error &&
@@ -187,6 +194,9 @@ export class Repository {
       ))
         throw error;
     }
+    const existing = await this.getProfile(sub);
+    if (!existing) throw new Error("Player profile disappeared during login");
+    return { profile: existing, created: false };
   }
 
   async getProfile(sub: string): Promise<PlayerProfile | undefined> {
@@ -292,7 +302,11 @@ export class Repository {
     run: RunItem,
     score: number,
     seasonId: string,
-  ): Promise<{ totalGames?: number; completedAt: string }> {
+  ): Promise<{
+    totalGames?: number;
+    completedAt: string;
+    profile?: PlayerProfile;
+  }> {
     const completedAt = new Date().toISOString();
     const historyItem = {
       pk: `PLAYER#${run.owner}`,
@@ -380,7 +394,7 @@ export class Repository {
     if (!authenticated) return { completedAt };
 
     const profile = await this.getProfile(run.owner);
-    return { totalGames: profile?.totalGames, completedAt };
+    return { totalGames: profile?.totalGames, completedAt, profile };
   }
 
   async listRecentRuns(sub: string, limit = 20): Promise<RunRecord[]> {

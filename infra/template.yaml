@@ -12,6 +12,9 @@ Parameters:
   FastmailJmapToken:
     Type: String
     NoEcho: true
+  DiscordWebhookUrl:
+    Type: String
+    NoEcho: true
   AppUrl:
     Type: String
     Default: https://drop.poapkings.com
@@ -126,6 +129,7 @@ Resources:
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
           NAME_MODEL_ID: !Ref NameModelId
+          ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
 
   HttpApi:
     Type: AWS::ApiGatewayV2::Api

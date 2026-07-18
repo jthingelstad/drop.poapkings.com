@@ -44,7 +44,8 @@ a banner.
 - `apps/web` — the current **Preact** + **@preact/signals** website, built with
   **Vite** and TypeScript and deployed to GitHub Pages.
 - `services/api` — the TypeScript Lambda backend for email authentication,
-  player profiles, signed game runs, progression, and seasonal leaderboards.
+  player profiles, signed game runs, progression, seasonal leaderboards, and
+  notable Discord events.
 - `services/cr-api-bridge` — the future worker that will run on the fixed,
   Clash Royale API-allowlisted host.
 - `packages/contracts` and `packages/game-data` — shared TypeScript API contracts

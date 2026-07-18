@@ -6,6 +6,7 @@ export interface Config {
   emailFrom: string;
   emailFromName: string;
   nameModelId: string;
+  discordWebhookUrl?: string;
 }
 
 function required(name: string): string {
@@ -25,5 +26,7 @@ export function getConfig(): Config {
     emailFromName:
       process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop",
     nameModelId: process.env.NAME_MODEL_ID?.trim() || "amazon.nova-micro-v1:0",
+    discordWebhookUrl:
+      process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
   };
 }

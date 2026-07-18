@@ -5,6 +5,11 @@ import type {
 } from "aws-lambda";
 import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
+import {
+  completedGameWebhookPayload,
+  loginWebhookPayload,
+  publishDiscordEvent,
+} from "./discord.js";
 import { badRequest, HttpError } from "./errors.js";
 import { isGameMode } from "./games.js";
 import { bearerToken, json } from "./http.js";
@@ -170,9 +175,20 @@ async function route(event: APIGatewayProxyEventV2) {
       nowSeconds,
     );
     const sub = emailSubject(email);
-    await repository.ensureProfile(sub, email);
+    const login = await repository.ensureProfile(sub, email);
+    const session = issueSession(sub, config.sessionSecret, nowSeconds);
+    await publishDiscordEvent(
+      config.discordWebhookUrl,
+      loginWebhookPayload({
+        profile: login.profile,
+        newPlayer: login.created,
+        occurredAt: new Date(nowSeconds * 1_000).toISOString(),
+        requestId: event.requestContext.requestId,
+        userAgent: event.requestContext.http.userAgent,
+      }),
+    );
     return json(200, {
-      session: issueSession(sub, config.sessionSecret, nowSeconds),
+      session,
     });
   }
 
@@ -387,9 +403,22 @@ async function route(event: APIGatewayProxyEventV2) {
 
     const season = seasonForDate();
     const result = await repository.completeRun(run, score, season.id);
+    const authenticated = !run.owner.startsWith("ANON#");
+    await publishDiscordEvent(
+      config.discordWebhookUrl,
+      completedGameWebhookPayload({
+        authenticated,
+        runId: run.runId,
+        mode: run.mode,
+        score,
+        seasonId: season.id,
+        completedAt: result.completedAt,
+        profile: result.profile,
+      }),
+    );
     return json(201, {
       accepted: true,
-      authenticated: !run.owner.startsWith("ANON#"),
+      authenticated,
       runId: run.runId,
       mode: run.mode,
       score,

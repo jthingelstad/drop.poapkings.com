@@ -13,7 +13,9 @@ Responsibilities in this release:
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
 - global completed-game Trophy Road totals, including anonymous games; and
-- per-mode best-score leaderboards in Clan Wars-aligned UTC seasons.
+- per-mode best-score leaderboards in Clan Wars-aligned UTC seasons; and
+- best-effort Discord notifications for successful magic-link logins and every
+  server-validated completed game.
 
 The API never calls the Clash Royale API. A future bridge may cache a tagged
 player's card collection; challenge generation already accepts an optional
@@ -38,6 +40,16 @@ card's canonical artwork is the profile image in the web app.
 
 Changing a favorite card uses the same complete flow and replaces both card and
 name. `playerTag` remains an independent, unverified profile field.
+
+## Discord events
+
+`ELIXIR_DROP_DISCORD_WEBHOOK_URL` is a server-only deployment secret. Successful
+magic-link redemption posts account and profile metadata plus request
+correlation, but never a session token, magic link, or IP address. Completed
+games post their mode, server-computed score, authentication state, player
+progress when available, season, and run ID. Delivery is best effort with a
+three-second timeout; Discord failure never changes an otherwise successful API
+response.
 
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.
