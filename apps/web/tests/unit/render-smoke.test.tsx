@@ -34,4 +34,12 @@ describe('SSR render smoke', () => {
     expect(html).toContain('Build ID')
     expect(html).toContain('Build date')
   })
+
+  it('links to the Elixir Drop Discord from the footer', async () => {
+    route.value = '/'
+    const html = await renderToStringAsync(<App />)
+
+    expect(html).toContain('Join the Elixir Drop Discord')
+    expect(html).toContain('https://discord.gg/SdvKfJW5kA')
+  })
 })

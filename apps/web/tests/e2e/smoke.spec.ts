@@ -110,6 +110,24 @@ test('active play states use low chrome and keep controls visible', async ({ pag
     await expect(page.locator('.starcount')).toBeHidden()
     await expect(page.locator(mode.control)).toBeVisible()
 
+    if (mode.hash === '#/surge') {
+      const artChrome = await page.locator('.cr-card-art').evaluate((element) => ({
+        before: getComputedStyle(element, '::before').content,
+        after: getComputedStyle(element, '::after').content
+      }))
+      const cardPanel = await page.locator('.pcard').evaluate((element) => {
+        const style = getComputedStyle(element)
+        return {
+          backgroundImage: style.backgroundImage,
+          borderStyle: style.borderStyle,
+          borderWidth: style.borderWidth
+        }
+      })
+
+      expect(artChrome).toEqual({ before: 'none', after: 'none' })
+      expect(cardPanel).toEqual({ backgroundImage: 'none', borderStyle: 'none', borderWidth: '0px' })
+    }
+
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1
     )
@@ -130,6 +148,16 @@ test('card art fallback renders when the Clash Royale CDN is blocked', async ({ 
   await page.evaluate(() => localStorage.clear())
   await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible()
+})
+
+test('footer links to the Elixir Drop Discord', async ({ page }) => {
+  await page.goto('/')
+
+  const discord = page.getByRole('link', { name: 'Join the Elixir Drop Discord' })
+  await expect(discord).toBeVisible()
+  await expect(discord).toHaveAttribute('href', 'https://discord.gg/SdvKfJW5kA')
+  await expect(discord).toHaveAttribute('target', '_blank')
+  await expect(discord).toHaveAttribute('rel', 'noopener noreferrer')
 })
 
 test('identify eliminates wrong names and completes without repeated cards', async ({ page }) => {

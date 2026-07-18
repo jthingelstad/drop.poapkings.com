@@ -23,12 +23,7 @@ export default function CardDisplay({
   hideName = false,
   showMeta = true
 }: Props) {
-  const cardClass = classNames(
-    'pcard',
-    cardRarityModifier(card, 'pcard'),
-    phase === 'correct' && 'pcard--correct',
-    phase === 'wrong' && 'pcard--wrong'
-  )
+  const cardClass = classNames('pcard', phase === 'correct' && 'pcard--correct', phase === 'wrong' && 'pcard--wrong')
   const showCost = forceReveal || (phase !== 'playing' && revealCost)
 
   return (

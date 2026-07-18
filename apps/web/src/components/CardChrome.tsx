@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks'
 import type { Card } from '../types'
-import { cardNameToneClass, cardRarityModifier, classNames, type ElixirBadgeTone } from '../lib/card-rendering'
+import { cardNameToneClass, classNames, type ElixirBadgeTone } from '../lib/card-rendering'
 
 interface ElixirCostBadgeProps {
   elixir: number
@@ -61,7 +61,7 @@ export function CardArt({
   const showImage = card.icon && !imgFailed
 
   return (
-    <span class={classNames('cr-card-art', cardRarityModifier(card, 'cr-card-art'), className)}>
+    <span class={classNames('cr-card-art', className)}>
       {showImage ? (
         <img
           key={card.id}

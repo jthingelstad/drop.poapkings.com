@@ -569,96 +569,31 @@ a { color: var(--lavender); }
 .pill--live    { background: rgba(6, 58, 30, 0.96);  color: #bbf7d0; }
 .pill--muted   { background: rgba(11, 9, 32, 0.94); color: #ede7ff; }
 
-/* ── Clash Royale inspired card chrome ───────────────────── */
+/* ── Card presentation ───────────────────────────────────── */
 
 .cr-card-art {
-  --cr-rarity-edge: #86d7ff;
-  --cr-rarity-top: #9adfff;
-  --cr-rarity-bottom: #3076a8;
-  --cr-name-color: #bde9ff;
-  --cr-name-band: rgba(28, 109, 172, 0.78);
-
   position: relative;
-  isolation: isolate;
   overflow: visible;
 }
 
-.cr-card-art--common,
 .cr-card-name--common {
-  --cr-rarity-edge: #86d7ff;
-  --cr-rarity-top: #9adfff;
-  --cr-rarity-bottom: #3076a8;
   --cr-name-color: #bde9ff;
-  --cr-name-band: rgba(28, 109, 172, 0.78);
 }
 
-.cr-card-art--rare,
 .cr-card-name--rare {
-  --cr-rarity-edge: #ffc94f;
-  --cr-rarity-top: #ffd96f;
-  --cr-rarity-bottom: #d87716;
   --cr-name-color: #ffd569;
-  --cr-name-band: rgba(217, 112, 20, 0.82);
 }
 
-.cr-card-art--epic,
 .cr-card-name--epic {
-  --cr-rarity-edge: #fa84ff;
-  --cr-rarity-top: #ff9cff;
-  --cr-rarity-bottom: #8d39d5;
   --cr-name-color: #ff9dff;
-  --cr-name-band: rgba(151, 58, 206, 0.84);
 }
 
-.cr-card-art--legendary,
 .cr-card-name--legendary {
-  --cr-rarity-edge: #98fff3;
-  --cr-rarity-top: #c4fff9;
-  --cr-rarity-bottom: #2faeab;
   --cr-name-color: #a9fff3;
-  --cr-name-band: rgba(35, 162, 164, 0.82);
 }
 
-.cr-card-art--champion,
 .cr-card-name--champion {
-  --cr-rarity-edge: #ffe66a;
-  --cr-rarity-top: #fff19a;
-  --cr-rarity-bottom: #d18b13;
   --cr-name-color: #ffe978;
-  --cr-name-band: rgba(205, 139, 18, 0.84);
-}
-
-.cr-card-art::before {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  inset: 6% 6% 5%;
-  border: 2px solid rgba(255, 255, 255, 0.62);
-  border-radius: 12px;
-  box-shadow:
-    0 0 0 2px rgba(5, 3, 11, 0.68),
-    0 0 0 4px color-mix(in srgb, var(--cr-rarity-edge), transparent 32%),
-    inset 0 -18px 28px rgba(5, 3, 11, 0.28);
-  pointer-events: none;
-}
-
-.cr-card-art::after {
-  content: '';
-  position: absolute;
-  z-index: 2;
-  top: -1%;
-  left: 50%;
-  width: 48%;
-  height: 18%;
-  min-height: 18px;
-  transform: translateX(-50%);
-  clip-path: polygon(12% 0, 88% 0, 100% 72%, 50% 100%, 0 72%);
-  background: linear-gradient(180deg, var(--cr-rarity-top), var(--cr-rarity-bottom));
-  border: 2px solid rgba(255, 255, 255, 0.42);
-  box-shadow:
-    0 4px 0 rgba(5, 3, 11, 0.38),
-    inset 0 3px 4px rgba(255, 255, 255, 0.36);
-  pointer-events: none;
 }
 
 .cr-card-art__img,
@@ -678,14 +613,6 @@ a { color: var(--lavender); }
     1.5px -1.5px 0 #05030b,
     -1.5px -1.5px 0 #05030b,
     0 5px 8px rgba(0, 0, 0, 0.72);
-}
-
-.cr-card-art .cr-card-name {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--cr-name-band), #fff 12%), var(--cr-name-band)),
-    rgba(5, 3, 11, 0.74);
-  border-top: 1.5px solid rgba(255, 255, 255, 0.3);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 -3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .cr-elixir-badge {
@@ -737,47 +664,23 @@ a { color: var(--lavender); }
 .cr-rarity-pill--legendary { color: #a9fff3; }
 .cr-rarity-pill--champion { color: #ffe978; }
 
-/* ── Player card frame ────────────────────────────────────── */
+/* ── Player card ──────────────────────────────────────────── */
 
 .pcard {
-  --pcard-rarity-border: var(--gold);
-
-  background: linear-gradient(160deg, rgba(59, 29, 122, 0.9) 0%, rgba(11, 9, 32, 0.95) 100%);
-  border: 2px solid var(--pcard-rarity-border);
-  border-radius: var(--r-lg);
-  padding: 28px 24px 24px;
-  box-shadow: var(--shadow), inset 0 0 40px rgba(109, 40, 217, 0.25);
+  padding: 8px 24px 16px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   text-align: center;
   width: 100%;
   max-width: 340px;
-  transition: border-color 0.25s, box-shadow 0.25s;
 }
 
-.pcard--common { --pcard-rarity-border: #86d7ff; }
-.pcard--rare { --pcard-rarity-border: #ffc94f; }
-.pcard--epic { --pcard-rarity-border: #fa84ff; }
-.pcard--legendary { --pcard-rarity-border: #98fff3; }
-.pcard--champion { --pcard-rarity-border: #ffe66a; }
-
-.pcard::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(245, 200, 76, 0.08) 0%, transparent 70%);
-  pointer-events: none;
+.pcard--correct .pcard__img {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.38)) drop-shadow(0 0 22px rgba(34, 197, 94, 0.55));
 }
 
-.pcard--correct {
-  border-color: var(--green);
-  box-shadow: var(--shadow), 0 0 48px rgba(34, 197, 94, 0.35);
-}
-
-.pcard--wrong {
-  border-color: var(--red);
-  box-shadow: var(--shadow), 0 0 48px rgba(239, 68, 68, 0.35);
+.pcard--wrong .pcard__img {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.38)) drop-shadow(0 0 22px rgba(239, 68, 68, 0.55));
 }
 
 .pcard__art {
@@ -810,6 +713,7 @@ a { color: var(--lavender); }
   display: block;
   image-rendering: crisp-edges;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.38));
+  transition: filter 0.2s ease;
 }
 
 .pcard__img--hidden { display: none; }
@@ -1362,6 +1266,18 @@ a { color: var(--lavender); }
   border-top: 1px solid rgba(215, 200, 255, 0.08);
   background: rgba(7, 6, 16, 0.6);
 }
+
+.site-foot__community {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.site-foot__community a { font-weight: 700; }
 
 .site-foot__run {
   font-size: 0.92rem;
@@ -2164,9 +2080,11 @@ body:has(.game-run) .starcount {
 }
 
 .ladder-card__title {
+  width: 100%;
   font-family: var(--font-display);
-  font-size: clamp(0.92rem, 3vw, 1.12rem);
-  line-height: 1.22;
+  font-size: 0.92rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   hyphens: none;
   overflow-wrap: normal;
   text-wrap: balance;

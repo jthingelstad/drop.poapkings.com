@@ -2,9 +2,9 @@ import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { pickLine } from '../lib/elixir-lines'
 import { track } from '../lib/analytics'
+import { ELIXIR_DROP_DISCORD_URL } from '../lib/links'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
-const DISCORD = 'https://discord.gg/kBD62fYHWx'
 
 // The clan is usually full, so we mirror the site's JOIN/WAIT pattern and lead
 // with Discord when full. Flip this if the clan opens up.
@@ -23,12 +23,12 @@ export default function Recruit() {
     <>
       <a
         class="btn btn--gold recruit__cta"
-        href={DISCORD}
+        href={ELIXIR_DROP_DISCORD_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => track('recruit.discord')}
       >
-        Join the POAP KINGS Discord →
+        Join the Elixir Drop Discord →
       </a>
       <a
         class="recruit__alt"
@@ -55,12 +55,12 @@ export default function Recruit() {
       </a>
       <a
         class="recruit__alt"
-        href={DISCORD}
+        href={ELIXIR_DROP_DISCORD_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => track('recruit.discord')}
       >
-        or hop in the Discord first
+        or join the Elixir Drop Discord first
       </a>
     </>
   )

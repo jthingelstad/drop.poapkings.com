@@ -4,6 +4,7 @@ import rawCards from '@elixir-drop/game-data/cards.json'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import { accountStatus, initializeAccount, player } from './lib/account'
+import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
 import PlayerAvatar from './components/PlayerAvatar'
 import Login from './screens/Login'
@@ -281,6 +282,12 @@ function Header() {
 function Footer() {
   return (
     <footer class="site-foot">
+      <div class="site-foot__community">
+        <span>Feedback, ideas, and game talk:</span>{' '}
+        <a href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+          Join the Elixir Drop Discord →
+        </a>
+      </div>
       <div class="site-foot__run">
         Run by{' '}
         <a href={POAP_KINGS} target="_blank" rel="noopener noreferrer">
