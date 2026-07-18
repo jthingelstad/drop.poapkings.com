@@ -16,6 +16,7 @@
     "verify": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.1090.0",
     "@aws-sdk/client-sqs": "^3.1090.0",
     "@elixir-drop/contracts": "*"
   },

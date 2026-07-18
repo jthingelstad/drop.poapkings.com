@@ -1,8 +1,10 @@
 import { useSignal } from '@preact/signals'
 import { requestLogin } from '../lib/api'
-import { navigate } from '../lib/router'
+import { gameReturnPathFromRoute } from '../lib/game-routes'
+import { navigate, route } from '../lib/router'
 
 export default function Login() {
+  const returnTo = gameReturnPathFromRoute(route.value)
   const email = useSignal('')
   const status = useSignal<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const message = useSignal('')
@@ -11,7 +13,7 @@ export default function Login() {
     event.preventDefault()
     status.value = 'sending'
     try {
-      const response = await requestLogin(email.value)
+      const response = await requestLogin(email.value, returnTo)
       message.value = response.message
       status.value = 'sent'
     } catch (error) {
@@ -23,9 +25,13 @@ export default function Login() {
   return (
     <div class="main-content account-screen">
       <div class="account-card">
-        <div class="eyebrow">Save your grind</div>
+        <div class="eyebrow">Player account required</div>
         <h1>Sign in with email</h1>
         <p class="lede">We’ll send a private link. No password, no Clash Royale account access.</p>
+        <p class="account-privacy">
+          Your email is used only for sign-in and stays private. Your chosen player name, favorite card, scores, and
+          optional public Clash Royale tag appear in Drop.
+        </p>
         {status.value === 'sent' ? (
           <div class="account-message account-message--success" role="status">
             {message.value}
@@ -48,7 +54,7 @@ export default function Login() {
         )}
         {status.value === 'error' && <div class="account-message account-message--error">{message.value}</div>}
         <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-          Keep playing anonymously
+          Back to home
         </button>
       </div>
     </div>

@@ -1,13 +1,134 @@
 import AxeBuilder from '@axe-core/playwright'
-import type { Page } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import type { GameMode, RunChallenge } from '@elixir-drop/contracts'
 import type { CardsData } from '../../src/types'
 
 const cardsData = JSON.parse(
   readFileSync(new URL('../../../../packages/game-data/cards.json', import.meta.url), 'utf8')
 ) as CardsData
 const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
+const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
+const testPlayer = {
+  id: 'player-1',
+  email: 'player@example.com',
+  publicName: 'Knight Main',
+  favoriteCardId: 26000000,
+  totalGames: 12,
+  level: 2,
+  levelStartGames: 10,
+  nextLevelGames: 25,
+  createdAt: '2026-07-18T00:00:00.000Z',
+  updatedAt: '2026-07-18T00:00:00.000Z'
+}
+
+function testChallenge(mode: GameMode): RunChallenge {
+  const cards = [...cardsData.cards]
+  const ids = cards.map((card) => card.id)
+  const sequence = (count: number) => Array.from({ length: count }, (_, index) => ids[index % ids.length]!)
+
+  switch (mode) {
+    case 'surge':
+    case 'practice':
+    case 'identify':
+      return { mode, cardIds: sequence(15) }
+    case 'blitz':
+      return { mode, cardIds: sequence(240) }
+    case 'survival':
+      return { mode, cardIds: sequence(250) }
+    case 'higher-lower': {
+      const pairIds = sequence(500)
+      return {
+        mode,
+        pairs: Array.from({ length: 250 }, (_, index) => [pairIds[index * 2]!, pairIds[index * 2 + 1]!])
+      }
+    }
+    case 'trade': {
+      const byCost = cards.toSorted((left, right) => left.elixir - right.elixir)
+      return {
+        mode,
+        rounds: Array.from({ length: 8 }, (_, index) => ({
+          blueIds: [byCost[index * 2]!.id],
+          redIds: [byCost[index * 2 + 1]!.id]
+        }))
+      }
+    }
+    case 'ladder': {
+      const seenCosts = new Set<number>()
+      const descending = cards
+        .toSorted((left, right) => right.elixir - left.elixir)
+        .filter((card) => {
+          if (seenCosts.has(card.elixir)) return false
+          seenCosts.add(card.elixir)
+          return true
+        })
+        .slice(0, 5)
+      return {
+        mode,
+        cardIds: descending.map((card) => card.id)
+      }
+    }
+    case 'endless-ladder': {
+      const starting = cards.toSorted((left, right) => left.elixir - right.elixir).slice(0, 2)
+      return { mode, startingIds: starting.map((card) => card.id), cardIds: sequence(250) }
+    }
+    case 'cost-sweep': {
+      const targetElixir = 4
+      const targets = cards.filter((card) => card.elixir === targetElixir).slice(0, 3)
+      const fillers = cards.filter((card) => card.elixir !== targetElixir).slice(0, 9)
+      const board = { targetElixir, cardIds: [...targets, ...fillers].map((card) => card.id) }
+      return { mode, boards: Array.from({ length: 50 }, () => board) }
+    }
+  }
+}
+
+async function fulfillTestRun(route: Route): Promise<boolean> {
+  const path = new URL(route.request().url()).pathname
+  if (path === '/runs/start') {
+    const { mode } = route.request().postDataJSON() as { mode: GameMode }
+    const challenge = testChallenge(mode)
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        runId: `run-${mode}`,
+        runToken: `run-${mode}`,
+        mode,
+        challenge,
+        expiresAt: '2099-01-01T00:00:00.000Z'
+      })
+    })
+    return true
+  }
+  if (path === '/runs/complete') {
+    const { runToken } = route.request().postDataJSON() as { runToken: string }
+    const mode = runToken.replace(/^run-/, '') as GameMode
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        accepted: true,
+        runId: runToken,
+        mode,
+        score: 1,
+        season: {
+          id: '2026-07',
+          startsAt: '2026-07-06T08:00:00.000Z',
+          endsAt: '2026-08-03T08:00:00.000Z',
+          durationWeeks: 4
+        },
+        completedAt: '2026-07-18T00:00:00.000Z',
+        totalGames: 13,
+        level: 2,
+        levelStartGames: 10,
+        nextLevelGames: 25
+      })
+    })
+    return true
+  }
+  return false
+}
 
 const routes = [
   { hash: '#/', label: 'Elixir Drop', ready: '.home' },
@@ -26,13 +147,18 @@ const routes = [
 
 const pageErrors = new WeakMap<Page, string[]>()
 const allowBlockedAssets = new WeakSet<Page>()
+const allowExpectedApiErrors = new WeakSet<Page>()
 
 test.beforeEach(async ({ page }) => {
   const errors: string[] = []
   pageErrors.set(page, errors)
   page.on('console', (msg) => {
     const text = msg.text()
-    if (msg.type() === 'error' && !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED'))) {
+    if (
+      msg.type() === 'error' &&
+      !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED')) &&
+      !(allowExpectedApiErrors.has(page) && text.includes('status of 503'))
+    ) {
       errors.push(text)
     }
   })
@@ -44,14 +170,54 @@ test.beforeEach(async ({ page }) => {
       body: 'window.tinylytics = { triggerUpdate() {} };'
     })
   )
-  // Browser gameplay tests stay deterministic and never create production run
+  // Browser gameplay tests use a signed-in player but never create production
   // records. The deployed API has a separate live smoke in infra/scripts.
   await page.route('**/api-config.json', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":""}' })
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":"https://api.example"}' })
   )
-  await page.addInitScript(() => {
-    Math.random = () => 0.42
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh' || path === '/auth/redeem') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/auth/request') {
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ totalGames: 100, authenticatedGames: 100 })
+      })
+      return
+    }
+    if (await fulfillTestRun(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
+  await page.addInitScript((session) => {
+    Math.random = () => 0.42
+    if (new URLSearchParams(location.search).get('signedOut') !== '1') {
+      localStorage.setItem('elixirdrop:session:v1', JSON.stringify(session))
+    }
+  }, testSession)
 })
 
 test.afterEach(async ({ page }) => {
@@ -60,10 +226,232 @@ test.afterEach(async ({ page }) => {
   expect(errors).toEqual([])
 })
 
+async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
+  await page.goto(`/?signedOut=1#${hash}`)
+}
+
+test('requires email authentication before entering a game and returns after login', async ({ page }) => {
+  await useSignedOutState(page, '/surge')
+
+  await expect(page.getByRole('heading', { name: 'Sign in to play' })).toBeVisible()
+  await expect(page.locator('.surge-ready')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sign in with email' }).click()
+  await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurge$/)
+
+  let loginBody: Record<string, unknown> | undefined
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/request') {
+      loginBody = route.request().postDataJSON() as Record<string, unknown>
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
+      })
+      return
+    }
+    if (path === '/auth/redeem') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (await fulfillTestRun(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.getByLabel('Email address').fill('player@example.com')
+  await page.getByRole('button', { name: 'Email me a login link' }).click()
+  await expect(page.getByRole('status')).toContainText('Check your email')
+  expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
+
+  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
+  await expect(page.locator('.surge-ready')).toBeVisible()
+  await expect(page).toHaveURL(/#\/surge$/)
+})
+
+test('new players choose a favorite card and generated name before returning to a game', async ({ page }) => {
+  const newPlayer = { ...testPlayer, publicName: undefined, favoriteCardId: undefined, totalGames: 0 }
+  const configuredPlayer = { ...newPlayer, publicName: 'Knight Main', favoriteCardId: 26000000 }
+  let savedIdentity: Record<string, unknown> | undefined
+
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/auth/redeem') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me' && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: savedIdentity ? configuredPlayer : newPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/me/name-options') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ favoriteCardId: 26000000, names: ['Knight Main'], nameToken: 'name-token' })
+      })
+      return
+    }
+    if (path === '/me' && request.method() === 'PATCH') {
+      savedIdentity = request.postDataJSON() as Record<string, unknown>
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: configuredPlayer })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ totalGames: 0, authenticatedGames: 0 })
+      })
+      return
+    }
+    if (await fulfillTestRun(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
+  await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
+  await expect(page.getByText('Choose a favorite card and generated name to continue')).toBeVisible()
+
+  const favoriteCards = page.locator('.favorite-card-grid')
+  await favoriteCards.getByRole('button', { name: 'Knight', exact: true }).click()
+  await page.getByRole('button', { name: 'Get name choices' }).click()
+  await page.getByRole('button', { name: 'Knight Main', exact: true }).click()
+
+  expect(savedIdentity).toEqual({ favoriteCardId: 26000000, publicName: 'Knight Main', nameToken: 'name-token' })
+  await expect(page).toHaveURL(/#\/surge$/)
+  await expect(page.locator('.surge-ready')).toBeVisible()
+})
+
+test('a signed run must be prepared before game controls become available', async ({ page }) => {
+  allowExpectedApiErrors.add(page)
+  let attempts = 0
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"totalGames":100}' })
+      return
+    }
+    if (path === '/runs/start' && attempts++ === 0) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'temporarily_unavailable', message: 'Player services are reconnecting.' }
+        })
+      })
+      return
+    }
+    if (await fulfillTestRun(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/surge')
+  await expect(page.getByRole('heading', { name: 'This game could not start' })).toBeVisible()
+  await expect(page.locator('.surge-ready')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.locator('.surge-ready')).toBeVisible()
+})
+
+test('a failed completion blocks replay until the recorded run retry succeeds', async ({ page }) => {
+  allowExpectedApiErrors.add(page)
+  let completionAttempts = 0
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"totalGames":100}' })
+      return
+    }
+    if (path === '/runs/complete' && completionAttempts++ === 0) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Try again.' } })
+      })
+      return
+    }
+    if (await fulfillTestRun(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/survival')
+  await page.getByRole('button', { name: 'Start run' }).click()
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  const wrongCost = card?.elixir === 1 ? 2 : 1
+  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+
+  await expect(page.getByRole('button', { name: 'Retry recording' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retry recording' }).click()
+  await expect(page.getByText('Game recorded', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry recording' })).toHaveCount(0)
+  expect(completionAttempts).toBe(2)
+})
+
 for (const route of routes) {
   test(`renders ${route.label} without serious accessibility issues`, async ({ page }, testInfo) => {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready)).toBeVisible()
     await expect(page.locator('.site-head__name')).toHaveText('Elixir Drop')
@@ -83,6 +471,8 @@ for (const route of routes) {
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   const activeModes = [
     { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
+    { hash: '#/blitz', ready: '.surge-ready', start: 'Start Blitz', control: '.pip-keypad' },
+    { hash: '#/survival', ready: '.surge-ready', start: 'Start run', control: '.pip-keypad' },
     { hash: '#/identify', ready: '.identify-ready', start: 'Start Identify', control: '.identify-choices' },
     { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' },
     { hash: '#/ladder', ready: '.ladder-ready', start: 'Start Speed Ladder', control: '.ladder-board' },
@@ -97,7 +487,6 @@ test('active play states use low chrome and keep controls visible', async ({ pag
 
   for (const mode of activeModes) {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
     await page.goto(`/${mode.hash}`)
     await expect(page.locator(mode.ready)).toBeVisible()
     await expect(page.locator('.site-foot')).toBeVisible()
@@ -141,11 +530,28 @@ test('active play states use low chrome and keep controls visible', async ({ pag
   }
 })
 
+test('continuous play modes expose working controls with low chrome', async ({ page }) => {
+  const modes = [
+    { hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' },
+    { hash: '#/higher-lower', control: '.hl-controls', answer: 'Equal' }
+  ]
+
+  for (const mode of modes) {
+    await page.goto('/')
+    await page.goto(`/${mode.hash}`)
+
+    await expect(page.locator('.game-run')).toBeVisible()
+    await expect(page.locator(mode.control)).toBeVisible()
+    await expect(page.locator('.site-foot')).toBeHidden()
+    await expect(page.getByRole('button', { name: mode.answer, exact: true })).toBeEnabled()
+    await page.getByRole('button', { name: mode.answer, exact: true }).click()
+  }
+})
+
 test('card art fallback renders when the Clash Royale CDN is blocked', async ({ page }) => {
   allowBlockedAssets.add(page)
   await page.route('https://api-assets.clashroyale.com/**', (route) => route.abort())
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible()
 })
@@ -162,7 +568,6 @@ test('footer links to the Elixir Drop Discord', async ({ page }) => {
 
 test('identify eliminates wrong names and completes without repeated cards', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/identify')
   await expect(page.locator('.identify-ready')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start Identify' })).toBeEnabled({ timeout: 8_000 })
@@ -183,11 +588,12 @@ test('identify eliminates wrong names and completes without repeated cards', asy
   const wrongName = choiceNames.find((name) => name !== correctName)
   expect(wrongName).toBeTruthy()
 
-  await page.getByRole('button', { name: wrongName! }).click()
+  const choices = page.locator('.identify-choices')
+  await choices.getByRole('button', { name: wrongName!, exact: true }).click()
   await expect(page.locator('.identify-prompt')).toContainText('Not that one')
-  await expect(page.getByRole('button', { name: wrongName! })).toBeDisabled()
-  await expect(page.getByRole('button', { name: correctName! })).toBeEnabled()
-  await page.getByRole('button', { name: correctName! }).click()
+  await expect(choices.getByRole('button', { name: wrongName!, exact: true })).toBeDisabled()
+  await expect(choices.getByRole('button', { name: correctName!, exact: true })).toBeEnabled()
+  await choices.getByRole('button', { name: correctName!, exact: true }).click()
 
   for (let answered = 1; answered < 15; answered += 1) {
     const previousId = id
@@ -199,7 +605,7 @@ test('identify eliminates wrong names and completes without repeated cards', asy
     seenIds.push(id)
     const name = cardsById.get(id)?.name
     expect(name).toBeTruthy()
-    await page.getByRole('button', { name: name! }).click()
+    await choices.getByRole('button', { name: name!, exact: true }).click()
   }
 
   await expect(page.locator('.identify-result')).toBeVisible()
@@ -208,7 +614,6 @@ test('identify eliminates wrong names and completes without repeated cards', asy
 
 test('speed ladder can be sorted and completed with move controls', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/ladder')
   await expect(page.locator('.ladder-ready')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
@@ -248,7 +653,6 @@ test('speed ladder can be sorted and completed with move controls', async ({ pag
 
 test('endless ladder accepts valid inserts and ends on a wrong slot', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/endless-ladder')
   await expect(page.locator('.endless-ready')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start Endless Ladder' })).toBeEnabled({ timeout: 8_000 })
@@ -298,7 +702,6 @@ test('endless ladder accepts valid inserts and ends on a wrong slot', async ({ p
 
 test('cost sweep clears a target board and penalizes wrong taps', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/cost-sweep')
   await expect(page.locator('.sweep-ready')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start Cost Sweep' })).toBeEnabled({ timeout: 8_000 })
@@ -326,7 +729,6 @@ test('cost sweep clears a target board and penalizes wrong taps', async ({ page 
 
 test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/trade')
   await expect(page.locator('.trade-ready')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start Trade' })).toBeEnabled({ timeout: 8_000 })
@@ -381,22 +783,22 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
 
 test('speed ladder reveals one persistent cost hint per wrong lock', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/ladder')
   await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
   await page.getByRole('button', { name: 'Start Speed Ladder' }).click()
   await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
 
-  const narrowestCardContentGap = await page.locator('[data-testid="ladder-card"]').evaluateAll((cards) =>
-    Math.min(
-      ...cards.map((card) => {
-        const art = card.querySelector('.ladder-card__art')?.getBoundingClientRect()
-        const details = card.querySelector('.ladder-card__details')?.getBoundingClientRect()
-        return art && details ? details.top - art.bottom : 0
-      })
-    )
-  )
-  expect(narrowestCardContentGap).toBeGreaterThanOrEqual(18)
+  const hasCardContentOverlap = await page.locator('[data-testid="ladder-card"]').evaluateAll((cards) => {
+    const overlaps = (left: DOMRect, right: DOMRect) =>
+      left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top
+    return cards.some((card) => {
+      const art = card.querySelector('.ladder-card__art')?.getBoundingClientRect()
+      const details = card.querySelector('.ladder-card__details')?.getBoundingClientRect()
+      const controls = card.querySelector('.ladder-card__controls')?.getBoundingClientRect()
+      return Boolean(art && details && controls && (overlaps(art, details) || overlaps(details, controls)))
+    })
+  })
+  expect(hasCardContentOverlap).toBe(false)
 
   await expect(page.locator('.ladder-card__cost')).toHaveCount(0)
   await page.getByRole('button', { name: 'Lock order' }).click()
@@ -413,7 +815,6 @@ test.describe('mobile Speed Ladder interactions', () => {
 
   test('speed ladder can be sorted and completed with tap-to-place', async ({ page }) => {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
     await page.goto('/#/ladder')
     await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
     await page.getByRole('button', { name: 'Start Speed Ladder' }).tap()
@@ -438,9 +839,9 @@ test.describe('mobile Speed Ladder interactions', () => {
 
       const movingId = ids[inversion - 1]
       const targetId = ids[inversion]
-      await page.locator(`[data-card-id="${movingId}"]`).tap()
+      await page.locator(`[data-card-id="${movingId}"] .ladder-card__details`).tap()
       await expect(page.locator(`[data-card-id="${movingId}"]`)).toHaveClass(/ladder-card--selected/)
-      await page.locator(`[data-card-id="${targetId}"]`).tap()
+      await page.locator(`[data-card-id="${targetId}"] .ladder-card__details`).tap()
     }
 
     expect(isSorted(await readIds())).toBe(true)
@@ -453,9 +854,7 @@ test.describe('mobile site header', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
   test('keeps account and navigation controls readable without overflow', async ({ page }) => {
-    await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
-    await page.reload()
+    await useSignedOutState(page)
 
     const account = page.locator('.site-head__account')
     await expect(account).toHaveText('Sign in')
@@ -471,9 +870,35 @@ test.describe('mobile site header', () => {
   })
 })
 
+test.describe('mobile timed-mode controls', () => {
+  test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
+
+  test('keeps every timed keypad in the first viewport', async ({ page }) => {
+    const modes = [
+      { hash: '#/surge', start: 'Start sprint' },
+      { hash: '#/blitz', start: 'Start Blitz' },
+      { hash: '#/survival', start: 'Start run' }
+    ]
+
+    for (const mode of modes) {
+      await page.goto(`/${mode.hash}`)
+      const start = page.getByRole('button', { name: mode.start })
+      await expect(start).toBeEnabled({ timeout: 8_000 })
+      await start.tap()
+      const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
+      await expect(keypad).toBeVisible({ timeout: 5_000 })
+
+      const controlsFit = await keypad.evaluate((element) => {
+        const buttons = [...element.querySelectorAll('button')]
+        return buttons.every((button) => button.getBoundingClientRect().bottom <= window.innerHeight + 1)
+      })
+      expect(controlsFit).toBe(true)
+    }
+  })
+})
+
 test('settings persist input and motion preferences across reload', async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
   await page.goto('/#/settings')
   await page.getByRole('button', { name: '4 choices' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
@@ -486,6 +911,7 @@ test('settings persist input and motion preferences across reload', async ({ pag
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
+  await page.unroute('https://api.example/**')
   await page.unroute('**/api-config.json')
   await page.route('**/api-config.json', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":"https://api.example"}' })

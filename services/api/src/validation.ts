@@ -2,6 +2,18 @@ import { createHash } from "node:crypto";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PLAYER_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
+const GAME_RETURN_PATHS = new Set([
+  "/practice",
+  "/identify",
+  "/surge",
+  "/higher-lower",
+  "/trade",
+  "/blitz",
+  "/survival",
+  "/ladder",
+  "/endless-ladder",
+  "/cost-sweep",
+]);
 
 export function normalizeEmail(value: unknown): string {
   if (typeof value !== "string") throw new Error("Email is required");
@@ -22,6 +34,13 @@ export function normalizePlayerTag(value: unknown): string | undefined {
   if (!PLAYER_TAG_PATTERN.test(tag))
     throw new Error("Enter a valid Clash Royale player tag");
   return tag;
+}
+
+export function normalizeGameReturnPath(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  return typeof value === "string" && GAME_RETURN_PATHS.has(value)
+    ? value
+    : undefined;
 }
 
 export function requireObject(value: unknown): Record<string, unknown> {

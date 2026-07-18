@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { favoriteCard } from "../src/cards.js";
 import { fallbackNamesForCard, isSafeFavoriteCardName } from "../src/names.js";
-import { normalizeEmail, normalizePlayerTag } from "../src/validation.js";
+import {
+  normalizeEmail,
+  normalizeGameReturnPath,
+  normalizePlayerTag,
+} from "../src/validation.js";
 
 describe("player input validation", () => {
   it("normalizes identity fields", () => {
     expect(normalizeEmail(" Player@Example.COM ")).toBe("player@example.com");
     expect(normalizePlayerTag(" 2pyq0 ")).toBe("#2PYQ0");
+  });
+
+  it("only carries game routes through magic-link authentication", () => {
+    expect(normalizeGameReturnPath("/surge")).toBe("/surge");
+    expect(normalizeGameReturnPath("/leaderboards")).toBeUndefined();
+    expect(normalizeGameReturnPath("https://example.com")).toBeUndefined();
   });
 
   it("only permits names bound to the selected card", () => {

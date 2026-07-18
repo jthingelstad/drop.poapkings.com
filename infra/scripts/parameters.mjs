@@ -38,6 +38,13 @@ export function deploymentParameters({
         environment.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com",
     },
     {
+      ParameterKey: "AlarmEmail",
+      ParameterValue:
+        environment.ELIXIR_DROP_ALARM_EMAIL ||
+        environment.ELIXIR_DROP_EMAIL_FROM ||
+        "elixir@poapkings.com",
+    },
+    {
       ParameterKey: "NameModelId",
       ParameterValue: environment.NAME_MODEL_ID || "amazon.nova-micro-v1:0",
     },

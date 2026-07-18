@@ -29,6 +29,12 @@ interface SendMagicLinkInput {
   expiresMinutes: number;
 }
 
+interface MagicLinkEmailInput {
+  magicLink: string;
+  expiresMinutes: number;
+  imageUrl?: string;
+}
+
 async function jmapFetch<T>(
   url: string,
   token: string,
@@ -128,20 +134,98 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
+function defaultImageUrl(magicLink: string): string {
+  try {
+    return new URL("/assets/elixir-hype.png", magicLink).toString();
+  } catch {
+    return "https://drop.poapkings.com/assets/elixir-hype.png";
+  }
+}
+
+export function magicLinkEmailSubject(): string {
+  return "Your Elixir Drop sign-in link";
+}
+
+export function magicLinkEmailText({
+  magicLink,
+  expiresMinutes,
+}: MagicLinkEmailInput): string {
+  return [
+    "Elixir Drop is ready.",
+    "",
+    "Use this private link to sign in and start your next game:",
+    "",
+    magicLink,
+    "",
+    `This link expires in ${expiresMinutes} minutes and can only be used once.`,
+    "Every game counts toward your player profile and the seasonal leaderboards.",
+    "",
+    "If you did not request this, you can ignore this email.",
+  ].join("\n");
+}
+
+export function magicLinkEmailHtml({
+  magicLink,
+  expiresMinutes,
+  imageUrl = defaultImageUrl(magicLink),
+}: MagicLinkEmailInput): string {
+  const safeLink = escapeHtml(magicLink);
+  const safeImageUrl = escapeHtml(imageUrl);
+  const safeMinutes = escapeHtml(String(expiresMinutes));
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${magicLinkEmailSubject()}</title>
+  </head>
+  <body style="margin:0;background:#f4f0fa;color:#21172f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;">Your private, one-time link to play Elixir Drop.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:#f4f0fa;margin:0;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:520px;background:#ffffff;border:1px solid #ded4ed;border-radius:22px;overflow:hidden;box-shadow:0 18px 50px rgba(53,31,83,0.12);">
+            <tr>
+              <td align="center" style="padding:34px 28px 10px;">
+                <img src="${safeImageUrl}" width="128" height="128" alt="Elixir Drop" style="display:block;width:128px;height:128px;border:0;margin:0 auto 14px;">
+                <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#76569c;font-weight:800;">Elixir Drop</div>
+                <h1 style="font-size:30px;line-height:1.15;margin:10px 0 0;color:#21172f;font-weight:800;">Ready to Drop?</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 34px 8px;text-align:center;">
+                <p style="font-size:16px;line-height:1.55;margin:0;color:#51435f;">Your next game is waiting. Use this private link to sign in to Elixir Drop.</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:24px 34px 14px;">
+                <a href="${safeLink}" style="display:inline-block;background:#f4c542;color:#21172f;text-decoration:none;border:1px solid #d8a91f;border-radius:999px;padding:15px 24px;font-size:16px;line-height:1;font-weight:800;box-shadow:0 8px 20px rgba(216,169,31,0.25);">Sign in to Elixir Drop</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:4px 34px 30px;text-align:center;">
+                <p style="font-size:13px;line-height:1.55;margin:0;color:#786986;">This link expires in ${safeMinutes} minutes and can only be used once.<br>Every game counts toward your profile and the seasonal leaderboards.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#f8f5fc;border-top:1px solid #e8e0f1;padding:18px 24px;text-align:center;">
+                <p style="font-size:12px;line-height:1.55;margin:0;color:#756781;">If the button does not work, paste this link into your browser:<br><a href="${safeLink}" style="color:#654292;word-break:break-all;">${safeLink}</a></p>
+              </td>
+            </tr>
+          </table>
+          <p style="font-size:12px;line-height:1.5;margin:16px 0 0;color:#81758b;">If you did not request this, you can safely ignore this email.</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
   const sendContext = await context(input.token, input.fromEmail);
-  const safeLink = escapeHtml(input.magicLink);
-  const subject = "Your Elixir Drop login link";
-  const text = [
-    "Ready to Drop?",
-    "",
-    "Use this private link to sign in:",
-    input.magicLink,
-    "",
-    `This link expires in ${input.expiresMinutes} minutes and can only be used once.`,
-    "If you did not request it, you can ignore this email.",
-  ].join("\n");
-  const html = `<!doctype html><html><body style="margin:0;background:#171126;color:#fff;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#24183b;border:1px solid #6d4f92;border-radius:20px"><tr><td align="center" style="padding:36px 30px"><div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#d5b7ff">Elixir Drop</div><h1 style="font-size:30px;margin:12px 0 14px">Ready to Drop?</h1><p style="font-size:16px;line-height:1.5;color:#e8dcf6">Sign in to save every game, climb the seasonal leaderboards, and keep grinding your player level.</p><a href="${safeLink}" style="display:inline-block;margin:14px 0;background:#f4c542;color:#21172f;text-decoration:none;border-radius:999px;padding:14px 24px;font-weight:700">Sign in to Elixir Drop</a><p style="font-size:13px;line-height:1.5;color:#bba9ce">This link expires in ${input.expiresMinutes} minutes and works once.</p></td></tr></table></td></tr></table></body></html>`;
+  const subject = magicLinkEmailSubject();
+  const text = magicLinkEmailText(input);
+  const html = magicLinkEmailHtml(input);
 
   const responses = await call(sendContext.apiUrl, input.token, [
     [

@@ -89,7 +89,14 @@ async function ensureRole(accountId, bucketName) {
         Statement: [
           {
             Effect: "Allow",
-            Action: ["dynamodb:*", "lambda:*", "apigateway:*", "sqs:*"],
+            Action: [
+              "apigateway:*",
+              "cloudwatch:*",
+              "dynamodb:*",
+              "lambda:*",
+              "sns:*",
+              "sqs:*",
+            ],
             Resource: "*",
           },
           {
@@ -110,6 +117,15 @@ async function ensureRole(accountId, bucketName) {
               "iam:UntagRole",
             ],
             Resource: `arn:aws:iam::${accountId}:role/elixir-drop-*`,
+          },
+          {
+            Effect: "Allow",
+            Action: [
+              "iam:DeleteUserPolicy",
+              "iam:GetUserPolicy",
+              "iam:PutUserPolicy",
+            ],
+            Resource: `arn:aws:iam::${accountId}:user/${bridgeUserName}`,
           },
         ],
       }),
@@ -269,6 +285,16 @@ await iam.send(
           ],
           Resource: `${queueArnPrefix}:elixir-drop-cr-results`,
         },
+        {
+          Effect: "Allow",
+          Action: "cloudwatch:PutMetricData",
+          Resource: "*",
+          Condition: {
+            StringEquals: {
+              "cloudwatch:namespace": "ElixirDrop/CRBridge",
+            },
+          },
+        },
       ],
     }),
   }),
@@ -297,6 +323,10 @@ const values = {
   ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY: bridgeKey.SecretAccessKey,
   ELIXIR_DROP_CR_REQUEST_QUEUE_NAME: "elixir-drop-cr-requests",
   ELIXIR_DROP_CR_RESULT_QUEUE_NAME: "elixir-drop-cr-results",
+  ELIXIR_DROP_ALARM_EMAIL:
+    existingEnv.ELIXIR_DROP_ALARM_EMAIL ||
+    existingEnv.ELIXIR_DROP_EMAIL_FROM ||
+    "elixir@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
   ELIXIR_DROP_CODE_BUCKET: bucketName,
   ELIXIR_DROP_EMAIL_FROM:

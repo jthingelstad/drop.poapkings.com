@@ -67,8 +67,8 @@ export async function apiRequest<T>(path: string, options: RequestInit & { sessi
   return payload as T
 }
 
-export function requestLogin(email: string): Promise<{ ok: true; message: string }> {
-  return apiRequest('/auth/request', { method: 'POST', body: JSON.stringify({ email }) })
+export function requestLogin(email: string, returnTo?: string): Promise<{ ok: true; message: string }> {
+  return apiRequest('/auth/request', { method: 'POST', body: JSON.stringify({ email, returnTo }) })
 }
 
 export function redeemLogin(token: string): Promise<{ session: { token: string; expiresAt: string } }> {
@@ -106,14 +106,14 @@ export function patchMe(
   return apiRequest('/me', { method: 'PATCH', sessionToken, body: JSON.stringify(updates) })
 }
 
-export function startRun(mode: GameMode, sessionToken?: string): Promise<StartedRun> {
+export function startRun(mode: GameMode, sessionToken: string): Promise<StartedRun> {
   return apiRequest('/runs/start', { method: 'POST', sessionToken, body: JSON.stringify({ mode }) })
 }
 
 export function completeRun(
   runToken: string,
   transcript: Record<string, unknown>,
-  sessionToken?: string
+  sessionToken: string
 ): Promise<CompletedRun> {
   return apiRequest('/runs/complete', {
     method: 'POST',

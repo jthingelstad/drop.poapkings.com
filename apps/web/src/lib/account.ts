@@ -33,6 +33,11 @@ export function sessionToken(): string | undefined {
   return session?.token
 }
 
+export function requiredSessionToken(): string {
+  if (!session?.token) throw new ApiError(401, 'authentication_required', 'Sign in to play.')
+  return session.token
+}
+
 export async function initializeAccount(): Promise<void> {
   session = loadSession()
   if (!session) {
@@ -51,12 +56,13 @@ export async function initializeAccount(): Promise<void> {
   }
 }
 
-export async function redeemAccount(token: string): Promise<void> {
+export async function redeemAccount(token: string): Promise<Player> {
   const response = await redeemLogin(token)
   saveSession(response.session)
   const me = await getMe(response.session.token)
   player.value = me.player
   accountStatus.value = 'authenticated'
+  return me.player
 }
 
 export async function updateAccount(updates: {

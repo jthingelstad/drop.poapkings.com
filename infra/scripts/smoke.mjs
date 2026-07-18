@@ -61,31 +61,39 @@ const started = await fetch(`${apiBaseUrl}/runs/start`, {
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ mode: "practice" }),
 });
-const run = await started.json();
+const unauthenticatedStart = await started.json();
 if (
-  !started.ok ||
-  run.challenge?.mode !== "practice" ||
-  run.challenge.cardIds?.length !== 15
+  started.status !== 401 ||
+  unauthenticatedStart.error?.code !== "authentication_required"
 ) {
-  throw new Error("Signed Practice challenge check failed");
+  throw new Error("Unauthenticated run start was not rejected");
 }
 
-const rejected = await fetch(`${apiBaseUrl}/runs/complete`, {
+const rejectedCompletion = await fetch(`${apiBaseUrl}/runs/complete`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ runToken: run.runToken, transcript: {} }),
+  body: JSON.stringify({ runToken: "unsigned", transcript: {} }),
 });
-if (rejected.status !== 400)
-  throw new Error("Invalid transcript was not rejected");
+const unauthenticatedCompletion = await rejectedCompletion.json();
+if (
+  rejectedCompletion.status !== 401 ||
+  unauthenticatedCompletion.error?.code !== "authentication_required"
+) {
+  throw new Error("Unauthenticated run completion was not rejected");
+}
 
-const jmap = await fetch("https://api.fastmail.com/jmap/session", {
-  headers: { authorization: `Bearer ${process.env.FASTMAIL_JMAP_TOKEN}` },
-});
-if (!jmap.ok)
-  throw new Error(`Fastmail JMAP token check failed with ${jmap.status}`);
-const jmapSession = await jmap.json();
-if (!jmapSession.primaryAccounts?.["urn:ietf:params:jmap:mail"]) {
-  throw new Error("Fastmail JMAP session has no mail account");
+let fastmailJmap = "not checked";
+if (process.env.FASTMAIL_JMAP_TOKEN) {
+  const jmap = await fetch("https://api.fastmail.com/jmap/session", {
+    headers: { authorization: `Bearer ${process.env.FASTMAIL_JMAP_TOKEN}` },
+  });
+  if (!jmap.ok)
+    throw new Error(`Fastmail JMAP token check failed with ${jmap.status}`);
+  const jmapSession = await jmap.json();
+  if (!jmapSession.primaryAccounts?.["urn:ietf:params:jmap:mail"]) {
+    throw new Error("Fastmail JMAP session has no mail account");
+  }
+  fastmailJmap = "verified";
 }
 
 console.log(
@@ -93,9 +101,8 @@ console.log(
     api: "healthy",
     cors: "verified",
     deploymentIdentity: identity.Arn,
-    fastmailJmap: "verified",
-    invalidTranscript: "rejected",
-    signedChallenge: "verified",
+    fastmailJmap,
+    anonymousPlay: "rejected",
     totalGames: statsBody.totalGames,
   }),
 );

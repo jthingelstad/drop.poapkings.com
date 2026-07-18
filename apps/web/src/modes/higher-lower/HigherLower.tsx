@@ -10,6 +10,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
+import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCard } from '../../lib/challenge-cards'
 
@@ -122,16 +123,28 @@ export default function HigherLower() {
       elixirMood.value = s >= 3 ? 'celebrate' : 'happy'
     } else {
       playWrong()
-      void gameRun.complete({ answers: serverAnswers.current })
       streak.value = 0
       elixirLine.value = pickLine('hl_wrong')
       elixirMood.value = 'angry'
     }
 
     advanceTimer.current = window.setTimeout(() => {
-      if (correct) next()
-      else void restartAfterMiss()
+      if (correct) {
+        next()
+      } else {
+        void gameRun.complete({ answers: serverAnswers.current }, () => void restartAfterMiss())
+      }
     }, ADVANCE_DELAY)
+  }
+
+  if (!gameRun.challenge.value) {
+    return (
+      <GameRunGate
+        preparing={gameRun.preparing.value}
+        error={gameRun.startError.value}
+        onRetry={() => void gameRun.prepare()}
+      />
+    )
   }
 
   const [left, right] = pair.value

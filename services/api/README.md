@@ -12,7 +12,7 @@ Responsibilities in this release:
 - short-lived, single-use signed runs for all ten game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
-- global completed-game Trophy Road totals, including anonymous games; and
+- global completed-game Trophy Road totals from signed-in players; and
 - per-mode best-score leaderboards in Clan Wars-aligned UTC seasons; and
 - best-effort Discord notifications for successful magic-link logins and every
   server-validated completed game.
@@ -33,6 +33,10 @@ canonical cards are available; other modes keep using the complete catalog.
 - `GET /me`, `PATCH /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`
 - `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /health`
+
+Starting and completing a run both require a valid player session. The public
+site and leaderboards remain browsable without an account, but games do not
+have an anonymous path.
 
 ## Player identity
 

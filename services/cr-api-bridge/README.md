@@ -29,6 +29,9 @@ npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
 The launchd installer builds the worker, writes
 `~/Library/LaunchAgents/com.poapkings.elixir-drop-cr-bridge.plist`, and keeps the
 process alive. Logs go to `~/Library/Logs/elixir-drop-cr-bridge.log`.
+The worker also publishes a one-minute CloudWatch heartbeat. Production alarms
+notify `ELIXIR_DROP_ALARM_EMAIL` if the heartbeat stops, requests back up, or a
+request/result reaches a dead-letter queue.
 
 The existing static card-snapshot refresher remains in
 `apps/web/scripts/refresh-cards.mjs`. Moving or replacing that maintenance path is

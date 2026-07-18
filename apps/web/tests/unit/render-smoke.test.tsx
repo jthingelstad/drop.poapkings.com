@@ -1,24 +1,41 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStringAsync } from 'preact-render-to-string'
 import App from '../../src/App'
+import { accountStatus, player } from '../../src/lib/account'
 import { route } from '../../src/lib/router'
 
 const CASES = [
   ['/', 'Elixir Drop'],
-  ['/practice', 'How much elixir does this cost?'],
-  ['/identify', 'Name the card.'],
-  ['/surge', '15 cards. One honest time.'],
-  ['/higher-lower', 'Higher'],
-  ['/trade', 'Read the elixir trade.'],
-  ['/blitz', 'Blitz'],
-  ['/survival', 'Survival'],
-  ['/ladder', 'Sort five cards by elixir.'],
-  ['/endless-ladder', 'Grow the ladder one card at a time.'],
-  ['/cost-sweep', 'Tap every card with the target cost.'],
+  ['/practice', 'Preparing your game…'],
+  ['/identify', 'Preparing your game…'],
+  ['/surge', 'Preparing your game…'],
+  ['/higher-lower', 'Preparing your game…'],
+  ['/trade', 'Preparing your game…'],
+  ['/blitz', 'Preparing your game…'],
+  ['/survival', 'Preparing your game…'],
+  ['/ladder', 'Preparing your game…'],
+  ['/endless-ladder', 'Preparing your game…'],
+  ['/cost-sweep', 'Preparing your game…'],
   ['/settings', 'Settings']
 ] as const
 
 describe('SSR render smoke', () => {
+  beforeEach(() => {
+    accountStatus.value = 'authenticated'
+    player.value = {
+      id: 'player-1',
+      email: 'player@example.com',
+      publicName: 'Knight Main',
+      favoriteCardId: 26000000,
+      totalGames: 1,
+      level: 1,
+      levelStartGames: 0,
+      nextLevelGames: 10,
+      createdAt: '2026-07-18T00:00:00.000Z',
+      updatedAt: '2026-07-18T00:00:00.000Z'
+    }
+  })
+
   it.each(CASES)('renders %s', async (path, expectedText) => {
     route.value = path
     const html = await renderToStringAsync(<App />)

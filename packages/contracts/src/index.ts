@@ -123,20 +123,18 @@ export interface StartedRun {
   runToken: string;
   mode: GameMode;
   challenge: RunChallenge;
-  authenticated: boolean;
   expiresAt: string;
 }
 
 export interface CompletedRun {
   accepted: true;
-  authenticated: boolean;
   runId: string;
   mode: GameMode;
   score: number;
   season: Season;
   completedAt: string;
-  totalGames?: number;
-  level?: number;
-  levelStartGames?: number;
-  nextLevelGames?: number;
+  totalGames: number;
+  level: number;
+  levelStartGames: number;
+  nextLevelGames: number;
 }

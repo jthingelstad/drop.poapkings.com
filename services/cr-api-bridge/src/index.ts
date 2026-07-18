@@ -1,10 +1,19 @@
+import { CloudWatchClient } from "@aws-sdk/client-cloudwatch";
 import { GetQueueUrlCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { getBridgeConfig } from "./config.js";
 import { pollOnce, runWorker } from "./worker.js";
+import { publishBridgeHeartbeat } from "./heartbeat.js";
 
 async function main(): Promise<void> {
   const config = getBridgeConfig();
   const sqs = new SQSClient({
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
+  const cloudWatch = new CloudWatchClient({
     region: config.region,
     credentials: {
       accessKeyId: config.accessKeyId,
@@ -27,6 +36,7 @@ async function main(): Promise<void> {
     discordWebhookUrl: config.discordWebhookUrl,
     requestQueueUrl,
     resultQueueUrl,
+    publishHeartbeat: () => publishBridgeHeartbeat(cloudWatch),
   };
 
   if (process.argv.includes("--once")) {

@@ -21,6 +21,9 @@ Parameters:
   EmailFrom:
     Type: String
     Default: elixir@poapkings.com
+  AlarmEmail:
+    Type: String
+    Default: elixir@poapkings.com
   NameModelId:
     Type: String
     Default: amazon.nova-micro-v1:0
@@ -29,6 +32,36 @@ Parameters:
     Default: https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173
 
 Resources:
+  MonitoringProvisioningPermissions:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: elixir-drop-monitoring-provisioning
+      Roles:
+        - elixir-drop-cloudformation-execution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudwatch:DeleteAlarms
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:PutMetricAlarm
+              - sns:CreateTopic
+              - sns:DeleteTopic
+              - sns:GetTopicAttributes
+              - sns:ListSubscriptionsByTopic
+              - sns:SetTopicAttributes
+              - sns:Subscribe
+              - sns:TagResource
+              - sns:Unsubscribe
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - iam:DeleteUserPolicy
+              - iam:GetUserPolicy
+              - iam:PutUserPolicy
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop-cr-bridge
+
   DataTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -102,6 +135,33 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt CrResultDeadLetterQueue.Arn
         maxReceiveCount: 5
+
+  CrBridgeHeartbeatPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: MonitoringProvisioningPermissions
+    Properties:
+      PolicyName: elixir-drop-cr-bridge-heartbeat
+      Users:
+        - elixir-drop-cr-bridge
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: cloudwatch:PutMetricData
+            Resource: "*"
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: ElixirDrop/CRBridge
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    DependsOn: MonitoringProvisioningPermissions
+    Properties:
+      TopicName: elixir-drop-alarms
+      DisplayName: Elixir Drop Alerts
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlarmEmail
 
   ApiRole:
     Type: AWS::IAM::Role
@@ -213,6 +273,126 @@ Resources:
       FunctionResponseTypes:
         - ReportBatchItemFailures
 
+  ApiFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-api-errors
+      AlarmDescription: Elixir Drop API Lambda returned one or more errors.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrResultFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-cr-result-errors
+      AlarmDescription: The Clash Royale result consumer returned one or more errors.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CrResultFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrRequestDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-cr-request-dlq
+      AlarmDescription: A Clash Royale player refresh request reached the dead-letter queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CrRequestDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrResultDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-cr-result-dlq
+      AlarmDescription: A Clash Royale player result reached the dead-letter queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CrResultDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrBridgeBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-cr-bridge-backlog
+      AlarmDescription: The fixed-IP bridge has not processed its oldest request within five minutes.
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CrRequestQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 300
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrBridgeHeartbeatAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - AlarmTopic
+      - CrBridgeHeartbeatPolicy
+    Properties:
+      AlarmName: elixir-drop-cr-bridge-heartbeat
+      AlarmDescription: The fixed-IP bridge has stopped reporting its heartbeat.
+      Namespace: ElixirDrop/CRBridge
+      MetricName: Heartbeat
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -271,3 +451,5 @@ Outputs:
     Value: !Ref CrRequestQueue
   CrResultQueueUrl:
     Value: !Ref CrResultQueue
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic

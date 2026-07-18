@@ -7,7 +7,9 @@ const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
 ).cards.slice(0, SURGE_CARD_COUNT);
 const cardIds = cards.map((card) => card.id);
-const allCards = (rawCards as { cards: Array<{ id: number; name: string; elixir: number }> }).cards;
+const allCards = (
+  rawCards as { cards: Array<{ id: number; name: string; elixir: number }> }
+).cards;
 const byId = new Map(allCards.map((card) => [card.id, card]));
 
 function cost(id: number): number {
@@ -61,7 +63,9 @@ describe("server-side game scoring", () => {
       guesses: [id],
       atMs: 1_000 + index * 100,
     }));
-    expect(scoreRun(identify, { answers: identifyAnswers }, 10_000)).toBe(2_400);
+    expect(scoreRun(identify, { answers: identifyAnswers }, 10_000)).toBe(
+      2_400,
+    );
 
     const trade = createChallenge("trade", randomInt);
     const tradeAnswers = trade.rounds.map((round, index) => ({
@@ -77,30 +81,46 @@ describe("server-side game scoring", () => {
   it("validates Ladder and Endless Ladder decisions", () => {
     const ladder = createChallenge("ladder", randomInt);
     const sorted = [...ladder.cardIds].sort(
-      (left, right) => cost(left) - cost(right) || byId.get(left)!.name.localeCompare(byId.get(right)!.name),
+      (left, right) =>
+        cost(left) - cost(right) ||
+        byId.get(left)!.name.localeCompare(byId.get(right)!.name),
     );
-    expect(scoreRun(ladder, { attempts: [{ order: sorted, atMs: 2_000 }] }, 3_000)).toBe(2_000);
+    expect(
+      scoreRun(ladder, { attempts: [{ order: sorted, atMs: 2_000 }] }, 3_000),
+    ).toBe(2_000);
 
     const endless = createChallenge("endless-ladder", randomInt);
     const row = [...endless.startingIds];
     const attempts: Array<{ cardId: number; slotIndex: number }> = [];
     for (const id of endless.cardIds) {
-      const validSlot = Array.from({ length: row.length + 1 }, (_, slot) => slot).find((slot) => {
+      const validSlot = Array.from(
+        { length: row.length + 1 },
+        (_, slot) => slot,
+      ).find((slot) => {
         const left = row[slot - 1];
         const right = row[slot];
-        return (!left || cost(left) <= cost(id)) && (!right || cost(id) <= cost(right));
+        return (
+          (!left || cost(left) <= cost(id)) &&
+          (!right || cost(id) <= cost(right))
+        );
       });
-      const invalidSlot = Array.from({ length: row.length + 1 }, (_, slot) => slot).find(
-        (slot) => slot !== validSlot && !(
-          (!row[slot - 1] || cost(row[slot - 1]!) <= cost(id)) &&
-          (!row[slot] || cost(id) <= cost(row[slot]!))
-        ),
+      const invalidSlot = Array.from(
+        { length: row.length + 1 },
+        (_, slot) => slot,
+      ).find(
+        (slot) =>
+          slot !== validSlot &&
+          !(
+            (!row[slot - 1] || cost(row[slot - 1]!) <= cost(id)) &&
+            (!row[slot] || cost(id) <= cost(row[slot]!))
+          ),
       );
       if (invalidSlot !== undefined) {
         attempts.push({ cardId: id, slotIndex: invalidSlot });
         break;
       }
-      if (validSlot === undefined) throw new Error("Generated Endless challenge has no valid slot");
+      if (validSlot === undefined)
+        throw new Error("Generated Endless challenge has no valid slot");
       attempts.push({ cardId: id, slotIndex: validSlot });
       row.splice(validSlot, 0, id);
     }
@@ -125,7 +145,11 @@ describe("server-side game scoring", () => {
         {
           answers: [
             { cardId: first, guess: cost(first), elapsedMs: 500 },
-            { cardId: second, guess: cost(second) === 1 ? 2 : 1, elapsedMs: 500 },
+            {
+              cardId: second,
+              guess: cost(second) === 1 ? 2 : 1,
+              elapsedMs: 500,
+            },
           ],
         },
         2_000,
@@ -133,8 +157,14 @@ describe("server-side game scoring", () => {
     ).toBe(1);
 
     const sweep = createChallenge("cost-sweep", randomInt);
-    const targetIds = sweep.boards[0]!.cardIds.filter((id) => cost(id) === sweep.boards[0]!.targetElixir);
-    const picks = targetIds.map((id, index) => ({ boardIndex: 0, cardId: id, atMs: 1_000 + index * 100 }));
+    const targetIds = sweep.boards[0]!.cardIds.filter(
+      (id) => cost(id) === sweep.boards[0]!.targetElixir,
+    );
+    const picks = targetIds.map((id, index) => ({
+      boardIndex: 0,
+      cardId: id,
+      atMs: 1_000 + index * 100,
+    }));
     expect(scoreRun(sweep, { picks }, 45_000)).toBe(targetIds.length);
   });
 

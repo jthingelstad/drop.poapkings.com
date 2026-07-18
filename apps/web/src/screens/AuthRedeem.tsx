@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { redeemAccount } from '../lib/account'
+import { gameReturnPathFromRoute, profileRouteForGame } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 
 export default function AuthRedeem() {
@@ -9,12 +10,19 @@ export default function AuthRedeem() {
   useEffect(() => {
     const query = route.value.split('?')[1] || ''
     const token = new URLSearchParams(query).get('token')
+    const returnTo = gameReturnPathFromRoute(route.value)
     if (!token) {
       error.value = 'This login link is missing its token.'
       return
     }
     void redeemAccount(token)
-      .then(() => navigate('/profile'))
+      .then((authenticatedPlayer) => {
+        if (!authenticatedPlayer.favoriteCardId || !authenticatedPlayer.publicName) {
+          navigate(returnTo ? profileRouteForGame(returnTo) : '/profile')
+          return
+        }
+        navigate(returnTo || '/profile')
+      })
       .catch((reason: unknown) => {
         error.value = reason instanceof Error ? reason.message : 'This login link could not be used.'
       })

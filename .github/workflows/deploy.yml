@@ -28,7 +28,7 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
 
       # Build reads only packages/game-data/cards.json — no API or mail tokens needed.
       - run: npm run verify
@@ -43,6 +43,14 @@ jobs:
           ELIXIR_DROP_CODE_BUCKET: ${{ vars.ELIXIR_DROP_CODE_BUCKET }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
           APP_URL: https://drop.poapkings.com
+
+      - name: Verify deployed API
+        run: npm run smoke:api
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
+          FASTMAIL_JMAP_TOKEN: ${{ secrets.ELIXIR_DROP_FASTMAIL_JMAP_TOKEN }}
 
       # The API deploy writes api-config.json; rebuild so Pages contains the
       # endpoint emitted by the stack that was just promoted.
@@ -66,3 +74,8 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Verify deployed website
+        run: |
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/ | grep -q "Elixir Drop"
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/api-config.json | grep -q "apiBaseUrl"

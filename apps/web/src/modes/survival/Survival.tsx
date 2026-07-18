@@ -16,6 +16,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
+import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
@@ -219,6 +220,16 @@ export default function Survival() {
   }
 
   // ── Game over ──────────────────────────────────────────────────────────────
+  if (!gameRun.challenge.value) {
+    return (
+      <GameRunGate
+        preparing={gameRun.preparing.value}
+        error={gameRun.startError.value}
+        onRetry={() => void gameRun.prepare()}
+      />
+    )
+  }
+
   if (stage.value === 'over' && insights.value) {
     const pbCallout = isPB.value ? 'New personal best!' : best.value > 0 ? `Best: ${best.value}` : undefined
     return (
@@ -270,7 +281,7 @@ export default function Survival() {
   const card = current.value
   const low = remainingFrac.value <= 0.35
   return (
-    <div class="main-content game-run surge" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run surge">
       <div class="surge-hud">
         <div class="surge-hud__timer">{streak.value}</div>
         <div class="surge-hud__count">streak · best {best.value}</div>

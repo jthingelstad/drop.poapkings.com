@@ -4,9 +4,11 @@ import rawCards from '@elixir-drop/game-data/cards.json'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import { accountStatus, initializeAccount, player } from './lib/account'
+import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
 import PlayerAvatar from './components/PlayerAvatar'
+import RunRecordingNotice from './components/RunRecordingNotice'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
@@ -66,7 +68,7 @@ function prefetchRoute(path: string): void {
 }
 
 interface Mode {
-  path: string
+  path: GamePath
   name: string
   icon: string
   desc: string
@@ -134,7 +136,7 @@ function Home() {
           </div>
           {accountStatus.value === 'anonymous' && (
             <button class="auth-nudge" onClick={() => navigate('/login')}>
-              Playing anonymously · <strong>Sign in to save games and join leaderboards</strong>
+              <strong>Sign in required to play</strong> · Every game counts toward your profile and the leaderboards
             </button>
           )}
         </div>
@@ -317,7 +319,48 @@ function RouteFallback() {
   )
 }
 
+function AuthRequired({ returnTo }: { returnTo: GamePath }) {
+  return (
+    <div class="main-content account-screen">
+      <div class="account-card">
+        <div class="eyebrow">Player account required</div>
+        <h1>Sign in to play</h1>
+        <p class="lede">
+          Every Elixir Drop game is recorded to your player profile and can count toward its seasonal leaderboard.
+        </p>
+        <button class="btn btn--gold" onClick={() => navigate(loginRouteForGame(returnTo))}>
+          Sign in with email
+        </button>
+        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
+          Browse games
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
+  return (
+    <div class="main-content account-screen">
+      <div class="account-card">
+        <div class="eyebrow">One quick setup</div>
+        <h1>Choose your player identity</h1>
+        <p class="lede">Pick a favorite card and one of its generated names before your first recorded game.</p>
+        <button class="btn btn--gold" onClick={() => navigate(profileRouteForGame(returnTo))}>
+          Choose favorite card
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ScreenContent({ r }: { r: string }) {
+  const gamePath = gamePathForRoute(r)
+  if (gamePath && accountStatus.value === 'loading') return <RouteFallback />
+  if (gamePath && accountStatus.value !== 'authenticated') return <AuthRequired returnTo={gamePath} />
+  if (gamePath && (!player.value?.favoriteCardId || !player.value.publicName)) {
+    return <ProfileRequired returnTo={gamePath} />
+  }
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/identify')) return <Identify />
@@ -365,6 +408,7 @@ export default function App() {
         {title && <h1 class="sr-only">{title}</h1>}
         <Screen r={route.value} />
       </main>
+      <RunRecordingNotice />
       <Footer />
     </>
   )

@@ -21,9 +21,9 @@ remains the canonical source for shipped modes and game ideas.
 
 The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
-global game totals, and seasonal leaderboards. It remains playable when that API
-is unavailable. Dynamic Clash Royale player enrichment runs asynchronously
-through the fixed-IP bridge.
+global game totals, and seasonal leaderboards. The site and leaderboards remain
+public, while every game requires an email-authenticated player session. Dynamic
+Clash Royale player enrichment runs asynchronously through the fixed-IP bridge.
 
 The only outbound ties are ordinary links:
 
@@ -213,7 +213,8 @@ Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
 owns the challenge, validates the submitted transcript, and recomputes the
 score. Authenticated completions become immutable run history and leaderboard
-input; anonymous completions increment only the global game total.
+input. Both run creation and completion reject requests without a valid player
+session; there is no anonymous play path.
 
 Authenticated public identity is centered on one favorite card:
 

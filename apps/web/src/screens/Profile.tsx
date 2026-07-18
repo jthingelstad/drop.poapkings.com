@@ -5,7 +5,8 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import { accountStatus, player, refreshAccount, sessionToken, signOut, updateAccount } from '../lib/account'
 import { getNameOptions } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
-import { navigate } from '../lib/router'
+import { gameReturnPathFromRoute } from '../lib/game-routes'
+import { navigate, route } from '../lib/router'
 import type { CardsData } from '../types'
 
 const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
@@ -41,6 +42,7 @@ function fetchedText(value: string | undefined): string | undefined {
 }
 
 export default function Profile() {
+  const returnTo = gameReturnPathFromRoute(route.value)
   const tag = useSignal(player.value?.playerTag || '')
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
@@ -135,7 +137,11 @@ export default function Profile() {
       })
       names.value = []
       editingIdentity.value = false
-      message.value = `${selectedCard.name} is now your favorite card.`
+      if (returnTo) {
+        navigate(returnTo)
+      } else {
+        message.value = `${selectedCard.name} is now your favorite card.`
+      }
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'Your player identity could not be saved.'
     } finally {
@@ -159,7 +165,7 @@ export default function Profile() {
   return (
     <div class="main-content account-screen">
       <div class="account-card account-card--wide">
-        <div class="eyebrow">Your Drop player</div>
+        <div class="eyebrow">{returnTo && !current.favoriteCardId ? 'Finish player setup' : 'Your Drop player'}</div>
         <div class="profile-identity">
           <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
           <div>
@@ -195,6 +201,10 @@ export default function Profile() {
             )}
           </div>
 
+          {returnTo && editingIdentity.value && (
+            <p class="profile-onboarding-note">Choose a favorite card and generated name to continue to your game.</p>
+          )}
+
           {editingIdentity.value && (
             <div class="identity-editor">
               <label class="card-search">
@@ -212,6 +222,7 @@ export default function Profile() {
                   <button
                     key={card.id}
                     class={`favorite-card${selectedCardId.value === card.id ? ' favorite-card--selected' : ''}`}
+                    aria-label={card.name}
                     aria-pressed={selectedCardId.value === card.id}
                     onClick={() => selectCard(card.id)}
                     disabled={busy.value}

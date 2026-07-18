@@ -16,6 +16,7 @@ import { CardArt } from '../../components/CardChrome'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
+import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
@@ -291,6 +292,16 @@ export default function CostSweep() {
   function replay() {
     dealRun()
     void gameRun.prepare()
+  }
+
+  if (!gameRun.challenge.value) {
+    return (
+      <GameRunGate
+        preparing={gameRun.preparing.value}
+        error={gameRun.startError.value}
+        onRetry={() => void gameRun.prepare()}
+      />
+    )
   }
 
   if (stage.value === 'summary' && insights.value) {

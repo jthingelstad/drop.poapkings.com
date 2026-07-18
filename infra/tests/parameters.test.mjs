@@ -50,4 +50,17 @@ describe("deployment parameters", () => {
       { ParameterKey: "SessionSecret", ParameterValue: "session-secret" },
     );
   });
+
+  it("routes operational alarms to the configured address", () => {
+    const parameters = deploymentParameters({
+      ...base,
+      environment: { ELIXIR_DROP_ALARM_EMAIL: "alerts@example.com" },
+      stackExists: true,
+    });
+
+    assert.deepEqual(
+      parameters.find((parameter) => parameter.ParameterKey === "AlarmEmail"),
+      { ParameterKey: "AlarmEmail", ParameterValue: "alerts@example.com" },
+    );
+  });
 });

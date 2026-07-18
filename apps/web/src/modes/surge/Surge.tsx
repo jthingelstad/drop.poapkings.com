@@ -18,6 +18,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
+import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
@@ -192,6 +193,16 @@ export default function Surge() {
     void gameRun.prepare()
   }
 
+  if (!gameRun.challenge.value) {
+    return (
+      <GameRunGate
+        preparing={gameRun.preparing.value}
+        error={gameRun.startError.value}
+        onRetry={() => void gameRun.prepare()}
+      />
+    )
+  }
+
   // ── Summary ──────────────────────────────────────────────────────────────
   if (stage.value === 'summary' && insights.value) {
     const ins = insights.value
@@ -267,7 +278,7 @@ export default function Surge() {
   // ── Running ──────────────────────────────────────────────────────────────
   const card = sprint.current[index.value]
   return (
-    <div class="main-content game-run surge" style={{ alignItems: 'center', gap: 20 }}>
+    <div class="main-content game-run surge">
       <div class="surge-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}

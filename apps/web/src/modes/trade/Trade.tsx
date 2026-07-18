@@ -23,6 +23,7 @@ import { CardArt } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
+import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
@@ -322,6 +323,16 @@ export default function Trade() {
   }
 
   const round = rounds.current[index.value]
+
+  if (!gameRun.challenge.value) {
+    return (
+      <GameRunGate
+        preparing={gameRun.preparing.value}
+        error={gameRun.startError.value}
+        onRetry={() => void gameRun.prepare()}
+      />
+    )
+  }
 
   if (stage.value === 'summary') {
     const pbCallout = isPB.value

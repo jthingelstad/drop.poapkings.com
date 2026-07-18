@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyHandlerV2,
@@ -34,6 +34,7 @@ import type {
 import {
   emailSubject,
   normalizeEmail,
+  normalizeGameReturnPath,
   normalizePlayerTag,
   requireObject,
 } from "./validation.js";
@@ -169,6 +170,7 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/auth/request") {
     const body = bodyOf(event);
     const email = normalizeEmail(body.email);
+    const returnTo = normalizeGameReturnPath(body.returnTo);
     const ip = event.requestContext.http.sourceIp || "unknown";
     await Promise.all([
       repository.useRateLimit("magic-email", emailSubject(email), 5, 60 * 60),
@@ -185,7 +187,7 @@ async function route(event: APIGatewayProxyEventV2) {
         fromEmail: config.emailFrom,
         fromName: config.emailFromName,
         to: email,
-        magicLink: `${config.appUrl}/#/auth?token=${encodeURIComponent(token)}`,
+        magicLink: `${config.appUrl}/#/auth?token=${encodeURIComponent(token)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`,
         expiresMinutes: MAGIC_LINK_SECONDS / 60,
       });
     } catch (error) {
@@ -359,18 +361,24 @@ async function route(event: APIGatewayProxyEventV2) {
     const body = bodyOf(event);
     if (!isGameMode(body.mode))
       throw new HttpError(400, "Choose a valid game mode.");
-    const session = sessionFor(event, config.sessionSecret);
+    const session = sessionFor(event, config.sessionSecret, true);
     await repository.useRateLimit(
       "run-start",
       sha256(event.requestContext.http.sourceIp || "unknown"),
       300,
       60 * 60,
     );
-    const owner = session?.sub ?? `ANON#${randomUUID()}`;
+    const owner = session.sub;
+    const profile = await repository.getProfile(session.sub);
+    if (!profile?.favoriteCardId || !profile.publicName)
+      throw new HttpError(
+        409,
+        "Choose a favorite card and player name before starting a game.",
+        "profile_setup_required",
+      );
     let playerCardIds: number[] | undefined;
-    if (session && usesPlayerCollection(body.mode)) {
-      const profile = await repository.getProfile(session.sub);
-      if (profile?.playerTag) {
+    if (usesPlayerCollection(body.mode)) {
+      if (profile.playerTag) {
         const crProfile = await repository.getCrProfile(profile.playerTag);
         if (crProfile?.status === "ready")
           playerCardIds = crProfile.cards?.map((card) => card.id);
@@ -400,13 +408,13 @@ async function route(event: APIGatewayProxyEventV2) {
       runToken,
       mode: run.mode,
       challenge: run.challenge,
-      authenticated: Boolean(session),
       expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
     });
   }
 
   if (method === "POST" && path === "/runs/complete") {
     const body = bodyOf(event);
+    const session = sessionFor(event, config.sessionSecret, true);
     if (typeof body.runToken !== "string")
       throw new HttpError(400, "A signed run token is required.");
     let claims;
@@ -420,17 +428,45 @@ async function route(event: APIGatewayProxyEventV2) {
       );
     }
     const run = await repository.getRun(claims.runId);
-    if (
-      !run ||
-      run.owner !== claims.owner ||
-      run.mode !== claims.mode ||
-      run.state !== "started"
-    ) {
+    if (!run || run.owner !== claims.owner || run.mode !== claims.mode) {
       throw new HttpError(
         409,
         "This run was already recorded or is no longer valid.",
         "run_conflict",
       );
+    }
+    if (session.sub !== run.owner)
+      throw new HttpError(
+        403,
+        "This run belongs to another player.",
+        "run_owner_mismatch",
+      );
+    if (run.state === "completed") {
+      if (!run.completedAt || typeof run.score !== "number" || !run.seasonId)
+        throw new HttpError(
+          409,
+          "This run was already recorded but its result is unavailable.",
+          "run_conflict",
+        );
+      const profile = await repository.getProfile(run.owner);
+      if (!profile)
+        throw new HttpError(
+          404,
+          "Player profile was not found.",
+          "profile_not_found",
+        );
+      const season = seasonForDate(new Date(run.completedAt));
+      const progress = levelForGames(profile.totalGames);
+      return json(200, {
+        accepted: true,
+        runId: run.runId,
+        mode: run.mode,
+        score: run.score,
+        season: { ...season, id: run.seasonId },
+        completedAt: run.completedAt,
+        totalGames: profile.totalGames,
+        ...progress,
+      });
     }
     const nowSeconds = Math.floor(Date.now() / 1_000);
     if (run.expiresAt <= nowSeconds)
@@ -439,16 +475,6 @@ async function route(event: APIGatewayProxyEventV2) {
         "This run expired before it was completed.",
         "run_expired",
       );
-    if (!run.owner.startsWith("ANON#")) {
-      const session = sessionFor(event, config.sessionSecret, true);
-      if (session.sub !== run.owner)
-        throw new HttpError(
-          403,
-          "This run belongs to another player.",
-          "run_owner_mismatch",
-        );
-    }
-
     let score: number;
     try {
       const transcript = requireObject(body.transcript ?? {}) as RunTranscript;
@@ -460,18 +486,15 @@ async function route(event: APIGatewayProxyEventV2) {
 
     const season = seasonForDate();
     const result = await repository.completeRun(run, score, season.id);
-    const authenticated = !run.owner.startsWith("ANON#");
     console.info("Game completed", {
       runId: run.runId,
       mode: run.mode,
       score,
-      authenticated,
       seasonId: season.id,
     });
     await publishDiscordEvent(
       config.discordWebhookUrl,
       completedGameWebhookPayload({
-        authenticated,
         runId: run.runId,
         mode: run.mode,
         score,
@@ -482,18 +505,13 @@ async function route(event: APIGatewayProxyEventV2) {
     );
     return json(201, {
       accepted: true,
-      authenticated,
       runId: run.runId,
       mode: run.mode,
       score,
       season,
       completedAt: result.completedAt,
-      ...(result.totalGames === undefined
-        ? {}
-        : {
-            totalGames: result.totalGames,
-            ...levelForGames(result.totalGames),
-          }),
+      totalGames: result.totalGames,
+      ...levelForGames(result.totalGames),
     });
   }
 

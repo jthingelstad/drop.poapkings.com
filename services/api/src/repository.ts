@@ -45,6 +45,9 @@ export interface RunItem {
   state: "started" | "completed";
   startedAt: string;
   expiresAt: number;
+  completedAt?: string;
+  score?: number;
+  seasonId?: string;
 }
 
 interface ProfileItem extends PlayerProfile {
@@ -426,9 +429,9 @@ export class Repository {
     score: number,
     seasonId: string,
   ): Promise<{
-    totalGames?: number;
+    totalGames: number;
     completedAt: string;
-    profile?: PlayerProfile;
+    profile: PlayerProfile;
   }> {
     const completedAt = new Date().toISOString();
     const historyItem = {
@@ -443,7 +446,6 @@ export class Repository {
       GSI1PK: `LEADERBOARD#${seasonId}#${run.mode}`,
       GSI1SK: leaderboardSortKey(run.mode, score, completedAt, run.owner),
     };
-    const authenticated = !run.owner.startsWith("ANON#");
     const transactionItems: NonNullable<
       TransactWriteCommandInput["TransactItems"]
     > = [
@@ -469,32 +471,28 @@ export class Repository {
         Update: {
           TableName: this.tableName,
           Key: { pk: "GLOBAL", sk: "STATS" },
-          UpdateExpression: `SET updatedAt = :updatedAt ADD totalGames :one${authenticated ? ", authenticatedGames :one" : ""}`,
+          UpdateExpression:
+            "SET updatedAt = :updatedAt ADD totalGames :one, authenticatedGames :one",
+          ExpressionAttributeValues: { ":one": 1, ":updatedAt": completedAt },
+        },
+      },
+      {
+        Put: {
+          TableName: this.tableName,
+          Item: historyItem,
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      },
+      {
+        Update: {
+          TableName: this.tableName,
+          Key: profileKey(run.owner),
+          UpdateExpression: "SET updatedAt = :updatedAt ADD totalGames :one",
+          ConditionExpression: "attribute_exists(pk)",
           ExpressionAttributeValues: { ":one": 1, ":updatedAt": completedAt },
         },
       },
     ];
-
-    if (authenticated) {
-      transactionItems.push(
-        {
-          Put: {
-            TableName: this.tableName,
-            Item: historyItem,
-            ConditionExpression: "attribute_not_exists(pk)",
-          },
-        },
-        {
-          Update: {
-            TableName: this.tableName,
-            Key: profileKey(run.owner),
-            UpdateExpression: "SET updatedAt = :updatedAt ADD totalGames :one",
-            ConditionExpression: "attribute_exists(pk)",
-            ExpressionAttributeValues: { ":one": 1, ":updatedAt": completedAt },
-          },
-        },
-      );
-    }
 
     try {
       await client.send(
@@ -514,10 +512,9 @@ export class Repository {
       throw error;
     }
 
-    if (!authenticated) return { completedAt };
-
     const profile = await this.getProfile(run.owner);
-    return { totalGames: profile?.totalGames, completedAt, profile };
+    if (!profile) throw new Error("Completed run profile could not be loaded");
+    return { totalGames: profile.totalGames, completedAt, profile };
   }
 
   async listRecentRuns(sub: string, limit = 20): Promise<RunRecord[]> {
@@ -591,7 +588,7 @@ export class Repository {
     return items.map((item, index) => ({
       rank: index + 1,
       score: item.score,
-      achievedAt: item.achievedAt,
+      achievedAt: item.completedAt,
       player: profiles.get(String(item.playerSub)) ?? {
         id: `player-${index + 1}`,
         publicName: "Elixir Player",

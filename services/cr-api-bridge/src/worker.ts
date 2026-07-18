@@ -13,7 +13,10 @@ export interface WorkerConfig {
   discordWebhookUrl?: string;
   requestQueueUrl: string;
   resultQueueUrl: string;
+  publishHeartbeat?: () => Promise<void>;
 }
+
+const HEARTBEAT_INTERVAL_MS = 60_000;
 
 function retryDelay(signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -77,7 +80,18 @@ export async function runWorker(
   config: WorkerConfig,
   signal: AbortSignal,
 ): Promise<void> {
+  let nextHeartbeatAt = 0;
   while (!signal.aborted) {
+    if (config.publishHeartbeat && Date.now() >= nextHeartbeatAt) {
+      nextHeartbeatAt = Date.now() + HEARTBEAT_INTERVAL_MS;
+      try {
+        await config.publishHeartbeat();
+      } catch (error) {
+        console.warn("CR bridge heartbeat failed", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
     try {
       await pollOnce(sqs, config);
     } catch (error) {
