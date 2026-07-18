@@ -111,6 +111,7 @@ async function ensureRole(accountId, bucketName) {
               "iam:DeleteRole",
               "iam:DeleteRolePolicy",
               "iam:GetRole",
+              "iam:GetRolePolicy",
               "iam:PassRole",
               "iam:PutRolePolicy",
               "iam:TagRole",
