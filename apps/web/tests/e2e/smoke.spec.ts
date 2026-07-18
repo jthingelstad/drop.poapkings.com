@@ -585,6 +585,7 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 5_000 })
   await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
   await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
+  await expect(page.locator('.cr-profile')).toContainText('Years Played badge not returned by Clash Royale')
   await expect(page.getByLabel('Clash Royale card collection')).toContainText('Knight')
   await expect(page.getByLabel('Clash Royale card collection')).toContainText('Archers')
   await expect(page.locator('.cr-profile')).not.toContainText(/troph|arena|card level/i)

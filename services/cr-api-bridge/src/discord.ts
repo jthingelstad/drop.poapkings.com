@@ -13,6 +13,16 @@ type DiscordFetch = (
 
 function accountAge(result: CrPlayerRefreshResult): string {
   if (result.outcome !== "success") return "";
+  const days = result.player.accountAge?.days;
+  if (days !== undefined) {
+    const years = Math.floor(days / 365);
+    const remainingDays = days % 365;
+    const value = [
+      ...(years ? [`${years}y`] : []),
+      ...(remainingDays || !years ? [`${remainingDays}d`] : []),
+    ].join(" ");
+    return `${value} account`;
+  }
   const years = result.player.accountAge?.years;
   if (years === undefined) return "age unavailable";
   return `${years}y account`;

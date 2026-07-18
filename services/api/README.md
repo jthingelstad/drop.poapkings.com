@@ -19,7 +19,9 @@ Responsibilities in this release:
 
 The API never calls the Clash Royale API. Saving or reading a stale player tag
 queues a refresh for the fixed-IP bridge. The result consumer stores only CR
-name, clan, the gameplay-derived `YearsPlayed` badge, and card identity/art.
+name, clan, the gameplay-derived `YearsPlayed` badge day count, and card
+identity/art. Account age is calculated from the badge's `progress` days rather
+than trusting its display tier.
 Experience, arenas, trophies, wins, and card levels are excluded from the
 message contract and persistence model. Surge, Practice, Identify,
 Higher/Lower, Blitz, and Survival use an attached collection when at least 12

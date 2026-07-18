@@ -57,9 +57,13 @@ function parseClan(value: unknown): ClashRoyaleClan | undefined {
 function parseAccountAge(value: unknown): ClashRoyaleAccountAge | undefined {
   if (value === undefined) return undefined;
   const source = object(value, "Account age");
+  const days = nonnegativeInteger(source.days, "Account age days");
   const age = {
-    days: nonnegativeInteger(source.days, "Account age days"),
-    years: nonnegativeInteger(source.years, "Account age years"),
+    days,
+    years:
+      days === undefined
+        ? nonnegativeInteger(source.years, "Account age years")
+        : Math.floor(days / 365),
   };
   return age.days === undefined && age.years === undefined ? undefined : age;
 }

@@ -11,9 +11,16 @@ import type { CardsData } from '../types'
 const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
 
 function accountAgeText(years: number | undefined, days: number | undefined): string {
+  if (days !== undefined) {
+    const fullYears = Math.floor(days / 365)
+    const remainingDays = days % 365
+    const parts = [
+      ...(fullYears ? [`${fullYears} ${fullYears === 1 ? 'year' : 'years'}`] : []),
+      ...(remainingDays || !fullYears ? [`${remainingDays} ${remainingDays === 1 ? 'day' : 'days'}`] : [])
+    ]
+    return `${parts.join(', ')} in Clash Royale`
+  }
   if (years !== undefined) return years === 1 ? 'About 1 year in Clash Royale' : `About ${years} years in Clash Royale`
-  if (days !== undefined)
-    return days < 365 ? 'Less than a year in Clash Royale' : `About ${Math.floor(days / 365)} years in Clash Royale`
   return 'Account age unavailable'
 }
 
@@ -329,7 +336,11 @@ export default function Profile() {
                     <strong>
                       {accountAgeText(current.clashRoyale.accountAge?.years, current.clashRoyale.accountAge?.days)}
                     </strong>
-                    <small>From the Years Played badge</small>
+                    <small>
+                      {current.clashRoyale.accountAge
+                        ? 'Calculated from the Years Played badge’s day count'
+                        : 'Years Played badge not returned by Clash Royale'}
+                    </small>
                   </div>
                   <div>
                     <span>Collection</span>

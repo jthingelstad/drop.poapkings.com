@@ -20,7 +20,7 @@ describe("CR bridge results", () => {
             badgeId: 16000000,
             role: "coLeader",
           },
-          accountAge: { days: 2_930, years: 8 },
+          accountAge: { days: 2_930, years: 7 },
           cards: [
             {
               id: 26000000,

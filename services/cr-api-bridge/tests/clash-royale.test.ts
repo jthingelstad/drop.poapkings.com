@@ -12,7 +12,7 @@ describe("Clash Royale player normalization", () => {
       clan: { tag: "#P0QY", name: "POAP KINGS", badgeId: 16000000 },
       role: "coLeader",
       badges: [
-        { name: "YearsPlayed", level: 8, progress: 2_930 },
+        { name: "YearsPlayed", level: 7, progress: 2_930 },
         { name: "BattleWins", level: 10, progress: 10_000 },
       ],
       cards: [
@@ -58,5 +58,15 @@ describe("Clash Royale player normalization", () => {
     expect(player).not.toHaveProperty("trophies");
     expect(player).not.toHaveProperty("arena");
     expect(player.cards[0]).not.toHaveProperty("level");
+  });
+
+  it("falls back to the badge tier when its day count is unavailable", () => {
+    const player = normalizePlayer({
+      name: "CR Player",
+      badges: [{ name: "YearsPlayed", level: 3 }],
+      cards: [{ id: 26000000, name: "Knight" }],
+    });
+
+    expect(player.accountAge).toEqual({ days: undefined, years: 3 });
   });
 });

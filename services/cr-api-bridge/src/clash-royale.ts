@@ -49,9 +49,13 @@ function normalizeAccountAge(
     .map(record)
     .find((candidate) => candidate?.name === "YearsPlayed");
   if (!badge) return undefined;
+  const days = nonnegativeInteger(badge.progress);
   const result = {
-    days: nonnegativeInteger(badge.progress),
-    years: nonnegativeInteger(badge.level),
+    days,
+    years:
+      days === undefined
+        ? nonnegativeInteger(badge.level)
+        : Math.floor(days / 365),
   };
   return result.days === undefined && result.years === undefined
     ? undefined

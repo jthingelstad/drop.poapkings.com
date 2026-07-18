@@ -111,8 +111,9 @@ download art locally instead, with no game-code change.
 The application backend does not call the Clash Royale API directly. It writes
 tag refresh work to SQS. `services/cr-api-bridge` long-polls that queue from this
 allowlisted host, calls `/players/{tag}`, and puts a narrow result on a second
-queue. A result Lambda stores the player's CR name, clan, Years Played badge,
-and card collection without competitive fields or card levels. The profile
+queue. A result Lambda stores the player's CR name, clan, Years Played badge
+day count (used to calculate account age), and card collection without
+competitive fields or card levels. The profile
 serves cached data while snapshots older than six hours refresh in the
 background.
 

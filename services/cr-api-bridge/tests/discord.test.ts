@@ -31,7 +31,7 @@ describe("CR bridge Discord event", () => {
     const serialized = JSON.stringify(payload);
 
     expect(payload.content).toBe(
-      "🔄 CR loaded · CR Player (#2PYQ0) · POAP KINGS · 1 card · 8y account · 321ms",
+      "🔄 CR loaded · CR Player (#2PYQ0) · POAP KINGS · 1 card · 8y 10d account · 321ms",
     );
     expect(payload).not.toHaveProperty("embeds");
     expect(serialized).not.toContain("troph");
