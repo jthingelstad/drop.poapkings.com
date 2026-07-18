@@ -94,6 +94,7 @@ async function ensureRole(accountId, bucketName) {
               "cloudwatch:*",
               "dynamodb:*",
               "lambda:*",
+              "logs:*",
               "sns:*",
               "sqs:*",
             ],

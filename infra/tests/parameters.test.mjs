@@ -12,6 +12,10 @@ const template = readFileSync(
   new URL("../template.yaml", import.meta.url),
   "utf8",
 );
+const bootstrap = readFileSync(
+  new URL("../scripts/bootstrap.mjs", import.meta.url),
+  "utf8",
+);
 
 void describe("deployment parameters", () => {
   void it("uses Claude Haiku for creative player names by default", () => {
@@ -120,5 +124,9 @@ void describe("deployment parameters", () => {
     assert.match(template, /AlarmName: elixir-drop-mail-canary-missing/);
     assert.match(template, /dynamodb:BatchWriteItem/);
     assert.match(template, /- DELETE/);
+  });
+
+  void it("allows CloudFormation to manage structured log groups", () => {
+    assert.match(bootstrap, /"logs:\*"/);
   });
 });
