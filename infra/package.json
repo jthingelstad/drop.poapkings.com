@@ -1,0 +1,20 @@
+{
+  "name": "@elixir-drop/infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1090.0",
+    "@aws-sdk/client-iam": "^3.1090.0",
+    "@aws-sdk/client-s3": "^3.1090.0",
+    "@aws-sdk/client-sts": "^3.1090.0"
+  }
+}

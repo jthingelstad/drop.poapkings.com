@@ -2,10 +2,10 @@
 
 **A Clash Royale elixir-cost learning game, run by POAP KINGS.**
 
-`SPEC.md` is still useful, but no longer as a pre-build checklist. Keep it as the
-current implementation reference: product boundaries, architecture, data flow,
-storage, analytics, deployment, and maintenance rules. `GAMES.md` remains the
-canonical source for shipped modes and game ideas.
+`SPEC.md` is the current implementation reference: product boundaries,
+architecture, data flow, storage, analytics, deployment, and maintenance rules.
+It records the monorepo boundaries and the implemented player API. `GAMES.md`
+remains the canonical source for shipped modes and game ideas.
 
 ---
 
@@ -19,9 +19,10 @@ canonical source for shipped modes and game ideas.
 - **Secondary goal:** create earned recruiting moments for POAP KINGS.
 - **Host / mascot:** Elixir, bundled as local assets in this repo.
 
-Elixir Drop is a self-contained static app. It has no backend, no accounts, no
-server leaderboard, and no runtime dependency on `poapkings.com` or the Elixir
-Discord bot's stores.
+The public website remains a static GitHub Pages app, but it now uses a separate
+Lambda API for email magic-link accounts, profiles, signed runs, progression,
+global game totals, and seasonal leaderboards. It remains playable when that API
+is unavailable. The Clash Royale bridge is still deferred.
 
 The only outbound ties are ordinary links:
 
@@ -33,31 +34,50 @@ The only outbound ties are ordinary links:
 
 Hard product constraints:
 
-- Do not call the Clash Royale API from the browser or CI.
-- Do not put the CR API token in client code, CI, or committed files.
+- Do not call the Clash Royale API from the browser, CI, or Lambda.
+- Only the fixed-IP bridge may call the Clash Royale API at runtime.
+- Do not put the CR API token in client code, Lambda, CI, or committed files.
 - Do not add curated deck definitions, archetype lists, or game modes that depend
   on authentic deck construction.
-- New game modes should work from the committed facts in `src/data/cards.json`.
+- New game modes should work from the committed facts in
+  `packages/game-data/cards.json`.
 
 ---
 
-## 2. Runtime Stack
+## 2. Repository And Runtime Stack
 
-| Layer       | Current choice                                                         |
-| ----------- | ---------------------------------------------------------------------- |
-| UI          | Preact                                                                 |
-| State       | `@preact/signals`                                                      |
-| Build       | Vite + TypeScript                                                      |
-| Routing     | Hash routing through `src/lib/router.ts`                               |
-| Styling     | Vendored POAP KINGS-inspired tokens and components in `src/styles.css` |
-| Persistence | `localStorage` through `src/lib/storage.ts`                            |
-| Analytics   | Tinylytics, Elixir Drop's own property                                 |
-| Hosting     | GitHub Pages, custom domain `drop.poapkings.com`                       |
-| Deployment  | `.github/workflows/deploy.yml` on push to `main`                       |
+The repository uses npm workspaces:
 
-The app builds to static files in `dist/`. GitHub Pages serves the custom domain
-from root, so Vite `base` stays `/` and routes stay hash-based to avoid Pages
-404s.
+| Workspace / directory    | Responsibility                                      | Status      |
+| ------------------------ | --------------------------------------------------- | ----------- |
+| `apps/web`               | Public Preact game                                  | Implemented |
+| `services/api`           | TypeScript Lambda player and game API               | Implemented |
+| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker                    | Scaffolded  |
+| `packages/contracts`     | Shared browser/server TypeScript contracts          | Implemented |
+| `packages/game-data`     | Canonical card facts                                | Implemented |
+| `infra`                  | CloudFormation and SDK deployment automation        | Implemented |
+
+The future bridge queue and response contract remain undecided. The current API
+uses API Gateway HTTP API, Lambda, DynamoDB, Fastmail JMAP, Bedrock, and
+CloudFormation.
+
+Current public website stack:
+
+| Layer       | Current choice                                              |
+| ----------- | ----------------------------------------------------------- |
+| UI          | Preact                                                      |
+| State       | `@preact/signals`                                           |
+| Build       | Vite + TypeScript                                           |
+| Routing     | Hash routing through `apps/web/src/lib/router.ts`           |
+| Styling     | Vendored tokens and components in `apps/web/src/styles.css` |
+| Persistence | `localStorage` through `apps/web/src/lib/storage.ts`        |
+| Analytics   | Tinylytics, Elixir Drop's own property                      |
+| Hosting     | GitHub Pages, custom domain `drop.poapkings.com`            |
+| Deployment  | `.github/workflows/deploy.yml` on push to `main`            |
+
+The app builds to static files in `apps/web/dist/`. GitHub Pages serves the
+custom domain from root, so Vite `base` stays `/` and routes stay hash-based to
+avoid Pages 404s.
 
 ---
 
@@ -67,7 +87,7 @@ All card facts originate from the official Clash Royale API `/cards` endpoint,
 but the running app reads only the committed snapshot:
 
 ```text
-src/data/cards.json
+packages/game-data/cards.json
 ```
 
 Current snapshot:
@@ -84,12 +104,17 @@ The API is refreshed out-of-band because:
 Refresh model:
 
 - A checkout on a managed host has an allowlisted IP.
-- The token lives in `.env` as `CR_API_TOKEN`; `.env` is gitignored.
-- `scripts/refresh-cards.mjs` fetches `/cards`, normalizes the response, diffs it
-  against `src/data/cards.json`, and commits only when the snapshot changes.
+- The token lives only on the fixed-IP managed host; `.env` is gitignored.
+- `apps/web/scripts/refresh-cards.mjs` fetches `/cards`, normalizes the response,
+  diffs it against `packages/game-data/cards.json`, and commits only when the
+  snapshot changes.
 - A push from that host triggers the normal GitHub Pages build.
 - `MIRROR_IMAGES=false` hotlinks Supercell CDN card art; `true` can mirror art
-  into `public/cards/` without changing game code.
+  into `apps/web/public/cards/` without changing game code.
+
+This static snapshot refresh is the only implemented Clash Royale API consumer.
+Future dynamic backend work must be queued for `services/cr-api-bridge`; its
+request and response contracts are not part of this spec yet.
 
 Normalization rules:
 
@@ -136,21 +161,21 @@ Product decisions currently in force:
 
 Important shared modules:
 
-- `src/lib/storage.ts` - all localStorage reads/writes.
-- `src/lib/sampling.ts` - weighted card sampling.
-- `src/lib/choices.ts` - adjacent elixir distractors.
-- `src/lib/name-choices.ts` - card-name distractors.
-- `src/lib/preload.ts` - image preloading for timed runs.
-- `src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
-- `src/lib/endless-ladder.ts` - insertion-slot validation for Endless Ladder.
-- `src/lib/cost-sweep.ts` - target tracking for Cost Sweep boards.
-- `src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
+- `apps/web/src/lib/storage.ts` - all current localStorage reads/writes.
+- `apps/web/src/lib/sampling.ts` - weighted card sampling.
+- `apps/web/src/lib/choices.ts` - adjacent elixir distractors.
+- `apps/web/src/lib/name-choices.ts` - card-name distractors.
+- `apps/web/src/lib/preload.ts` - image preloading for timed runs.
+- `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
+- `apps/web/src/lib/endless-ladder.ts` - insertion-slot validation for Endless Ladder.
+- `apps/web/src/lib/cost-sweep.ts` - target tracking for Cost Sweep boards.
+- `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
   Clash-style name tone mapping.
-- `src/lib/insights.ts` - Practice and Surge coaching insights.
-- `src/lib/mode-insights.ts` - mode-specific Identify, Trade, and Ladder summary
+- `apps/web/src/lib/insights.ts` - Practice and Surge coaching insights.
+- `apps/web/src/lib/mode-insights.ts` - mode-specific Identify, Trade, and Ladder summary
   lines.
-- `src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
-- `src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
+- `apps/web/src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
+- `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
 
 Timing rules:
 
@@ -168,9 +193,10 @@ Active-play layout:
 
 ---
 
-## 6. Storage
+## 6. Current Browser Storage
 
-All persistence goes through `src/lib/storage.ts`.
+All currently implemented persistence goes through
+`apps/web/src/lib/storage.ts`.
 
 ```text
 elixirdrop:profile    -> { createdAt, nickname?, totalSessions }
@@ -182,8 +208,11 @@ elixirdrop:funnel     -> { recruitShown, recruitJoin, recruitDiscord, shares }
 elixirdrop:settings   -> { inputStyle, sound, reducedMotion? }
 ```
 
-This is the v2 API boundary: if accounts or server records arrive later, replace
-the storage function bodies without rewriting game modes.
+Local card-learning signals and personal browser records remain local. Every
+mode also obtains a short-lived, single-use signed run from the API. The server
+owns the challenge, validates the submitted transcript, and recomputes the
+score. Authenticated completions become immutable run history and leaderboard
+input; anonymous completions increment only the global game total.
 
 ---
 
@@ -215,16 +244,16 @@ Recruitment remains moment-based:
 
 Elixir Drop vendors its own visual layer:
 
-- `src/styles.css` contains the local tokens and components.
-- `public/assets/` contains Elixir art, emoji states, arena images, fonts, OG
+- `apps/web/src/styles.css` contains the local tokens and components.
+- `apps/web/public/assets/` contains Elixir art, emoji states, arena images, fonts, OG
   image, favicon, and star asset.
 - Card art hotlinks the Supercell CDN unless `MIRROR_IMAGES` is enabled during a
   data refresh.
 - `docs/clash-royale-screenshots/` contains local visual references for card
   frames, elixir badges, and rarity-colored text treatment.
 - `docs/card-rendering.md` documents the current card-rendering findings and the
-  shared helper surface: `src/components/CardChrome.tsx`,
-  `src/lib/card-rendering.ts`, and the `cr-*` CSS classes.
+  shared helper surface: `apps/web/src/components/CardChrome.tsx`,
+  `apps/web/src/lib/card-rendering.ts`, and the `cr-*` CSS classes.
 
 Card rendering rules:
 
@@ -260,8 +289,8 @@ npm run verify
 - Production build
 
 GitHub Actions runs the same verification path on push to `main`, after
-installing Chromium with Playwright. The Pages artifact is uploaded from `dist/`
-only after verification passes.
+installing Chromium with Playwright. The Pages artifact is uploaded from
+`apps/web/dist/` only after verification passes.
 
 Current e2e coverage includes:
 
@@ -277,17 +306,20 @@ Current e2e coverage includes:
 
 ---
 
-## 10. Open Operations
+## 10. Open Operations And Architecture
 
 The remaining non-code operation is the card refresh host:
 
 - Confirm or maintain the managed host that owns the allowlisted CR API token.
-- Keep `.env` local to that host.
+- Keep `apps/web/.env` local to that host.
 - Keep push credentials scoped to the repo.
-- Run `scripts/refresh-cards.mjs` manually after known Supercell updates or on a
-  conservative cron.
+- Run `apps/web/scripts/refresh-cards.mjs` manually after known Supercell updates
+  or on a conservative cron.
 
-Everything else needed for v1 is in-repo and deployed through GitHub Pages.
+The implemented API and deployment model are documented in
+`services/api/README.md` and `infra/README.md`. The remaining architecture work
+is the bridge queue, response cache, and per-mode policy for when a tagged
+player's card collection should influence server challenge generation.
 
 ---
 

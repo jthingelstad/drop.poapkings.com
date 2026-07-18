@@ -1,8 +1,9 @@
-# CLAUDE.md - Elixir Drop
+# CLAUDE.md - Elixir Drop Monorepo
 
-A static, single-page game for learning **Clash Royale elixir costs**, run by the
-POAP KINGS clan. Preact + Signals + Vite, deployed to GitHub Pages at
-`drop.poapkings.com`.
+Elixir Drop is a game for learning **Clash Royale elixir costs**, run by the POAP
+KINGS clan. The public Preact application is deployed to GitHub Pages at
+`drop.poapkings.com`; this monorepo includes a Lambda player API and reserves a
+boundary for a fixed-IP Clash Royale API bridge.
 
 Doc map:
 
@@ -18,23 +19,25 @@ Doc map:
 
 ## Golden rules (do not violate)
 
-1. **Standalone.** Elixir Drop has **no shared dataset, analytics property, or
-   runtime dependency** with the `poapkings.com` site or the Elixir Discord bot
-   (its Discord/SQLite stores). Do **not** import from, fetch from, or couple to
-   them. The only outbound ties are plain hyperlinks (clan invite, Discord) in the
-   recruit funnel.
-2. **Never call the Clash Royale API at runtime or in CI.** The browser can't
-   (CORS) and CI can't (IP-allowlisted token). Card data comes only from the
-   committed `src/data/cards.json` snapshot.
-3. **The CR token lives only in `.env` on a managed host.** It is gitignored.
-   Never commit it, never read it in client or CI code, never put it in the
-   deploy workflow. Only `scripts/refresh-cards.mjs` reads it.
-4. **GitHub Pages + hash routing.** Custom domain via `public/CNAME`; Vite
-   `base: '/'`; hash routing only (no history API — it 404s on Pages). The deploy
-   build reads the committed JSON; it needs no secrets.
+1. **Keep workspace boundaries explicit.** `apps/web` owns the browser product,
+   `services/api` owns the TypeScript Lambda backend, `services/cr-api-bridge` owns
+   fixed-IP Clash Royale access, and `infra` owns cloud definitions. Do
+   not import service implementation files directly across those boundaries.
+2. **Only the bridge may call the Clash Royale API at runtime.** The browser and
+   Lambda backend must never call it directly. The current website reads the
+   committed `packages/game-data/cards.json` snapshot; future dynamic backend
+   requests must go through the asynchronous bridge boundary.
+3. **The CR token lives only on the managed, allowlisted host.** It is
+   gitignored. Never commit it, expose it to the browser, place it in CI, or put
+   it in Lambda configuration. The current static refresher at
+   `apps/web/scripts/refresh-cards.mjs` is the only implemented consumer.
+4. **The public website remains GitHub Pages + hash routing.** Its custom domain
+   is in `apps/web/public/CNAME`; Vite uses `base: '/'`; history routing will 404
+   on Pages. The deploy build needs no secrets.
 5. **Vendor the look; don't link it.** Copy POAP KINGS design tokens, fonts, and
-   reused component CSS into this repo's own `styles.css`/assets. Bundle a copy of
-   the Elixir avatar in `public/assets`. No runtime link to the clan site.
+   reused component CSS into `apps/web/src/styles.css` and its assets. Bundle a
+   copy of the Elixir avatar in `apps/web/public/assets`. No runtime asset link to
+   the clan site.
 6. **Fan-content & copyright.** Card art is used under Supercell's Fan Content
    Policy: non-commercial, attributed, keep the footer disclaimer. Don't reproduce
    other copyrighted text.
@@ -43,44 +46,49 @@ Doc map:
 
 ## Stack & commands
 
-- **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
-- `npm run dev` · `npm run build` (to `dist/`) · `npm run preview`.
-- Before pushing code, run `npm run verify`. It mirrors the GitHub Pages deploy
-  gates: format, lint, CSS lint, typecheck, Knip, unit tests, Chromium e2e, and
-  production build.
-- `node scripts/refresh-cards.mjs` — card refresh; **runs only on the managed
-  host**, not here. For local dev, work against the committed `cards.json` seed.
+- npm workspaces at the repository root; Node 24 is authoritative.
+- `apps/web`: **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
+- `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
+- Before pushing code, run root `npm run verify`. It runs each implemented
+  workspace's verification script; today the web gates are format, lint, CSS
+  lint, typecheck, Knip, unit tests, Chromium e2e, and production build.
+- `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
+  the managed host**. For local development, use the committed snapshot.
+
+The current player API and infrastructure are implemented and documented in
+`services/api/README.md` and `infra/README.md`. The bridge queue contract remains
+deferred; do not invent it as part of unrelated work.
 
 ---
 
 ## Architecture
 
-- **`src/lib/storage.ts` is the hard persistence boundary.** All progress
-  reads/writes go through it (`getProfile`, `getRecords`, `getCardStats`,
-  `saveResult`, …). v2 swaps the localStorage body for `fetch` without touching
-  game logic. Keep it isolated.
+- **`apps/web/src/lib/storage.ts` is the local learning-data boundary.**
+  All progress reads/writes go through it (`getProfile`, `getRecords`,
+  `getCardStats`, `saveResult`, …). Authenticated identity and signed runs use
+  `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
   `records`, `funnel`, `settings`.
-- **`src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
+- **`apps/web/src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
   mastered ones, avoid immediate repeats. Tunables in one config object.
-- **`src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
+- **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
   (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
-- **`src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the
+- **`apps/web/src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the
   target plus similar card-name distractors for identification modes.
-- **`src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
-  Clash-style card-name tone mapping. Pair it with `src/components/CardChrome.tsx`
+- **`apps/web/src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
+  Clash-style card-name tone mapping. Pair it with `apps/web/src/components/CardChrome.tsx`
   instead of hand-rolling card art/name/cost UI in a mode.
-- **`src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
+- **`apps/web/src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
-- **`src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
+- **`apps/web/src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
   helpers for timed modes.
-- **`src/lib/endless-ladder.ts`** — pure Endless Ladder insertion-slot logic.
-- **`src/lib/cost-sweep.ts`** — pure Cost Sweep target tracking.
-- **`src/lib/insights.ts`** — Practice and Surge coaching insights.
-- **`src/lib/mode-insights.ts`** — mode-specific summary lines for Identify,
+- **`apps/web/src/lib/endless-ladder.ts`** — pure Endless Ladder insertion-slot logic.
+- **`apps/web/src/lib/cost-sweep.ts`** — pure Cost Sweep target tracking.
+- **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
+- **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines for Identify,
   Trade, and Speed Ladder.
-- **Modes** in `src/modes/`: `surge`, `practice`, `identify`, `higher-lower`,
+- **Modes** in `apps/web/src/modes/`: `surge`, `practice`, `identify`, `higher-lower`,
   `trade`, `blitz`, `survival`, `ladder`, `endless-ladder`, `cost-sweep`. See
   `GAMES.md` for each game's mechanic, scoring, route, and records key, plus the
   idea backlog and retired modes.
@@ -92,7 +100,7 @@ Doc map:
 
 ---
 
-## Card data shape (`src/data/cards.json`)
+## Card data shape (`packages/game-data/cards.json`)
 
 ```json
 {

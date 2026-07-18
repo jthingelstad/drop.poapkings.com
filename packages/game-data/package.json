@@ -1,0 +1,9 @@
+{
+  "name": "@elixir-drop/game-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./cards.json": "./cards.json"
+  }
+}

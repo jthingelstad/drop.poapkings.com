@@ -1,48 +1,38 @@
 {
-  "name": "elixir-drop",
+  "name": "elixir-drop-monorepo",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*",
+    "infra"
+  ],
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "npm run test:unit && npm run test:e2e -- --project=chromium",
-    "test:unit": "vitest run --config vitest.config.ts",
-    "test:e2e": "playwright test",
-    "og": "node scripts/render-og.mjs",
-    "verify": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run knip && npm run test:unit && npm run test:e2e -- --project=chromium && npm run build",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
-    "lint": "oxlint . --deny-warnings",
-    "lint:css": "stylelint \"src/styles.css\"",
-    "knip": "knip --no-config-hints --include files,dependencies,unlisted"
-  },
-  "dependencies": {
-    "@preact/signals": "^2.9.4",
-    "preact": "^10.29.7"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.61.1",
-    "@preact/preset-vite": "^2.9.5",
-    "jsdom": "^29.1.1",
-    "knip": "^6.27.0",
-    "oxlint": "^1.74.0",
-    "preact-render-to-string": "^6.7.0",
-    "prettier": "^3.9.5",
-    "stylelint": "^17.14.0",
-    "stylelint-config-standard": "^40.0.0",
-    "typescript": "^7.0.2",
-    "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "dev": "npm run dev --workspace=@elixir-drop/web",
+    "build": "npm run build --workspaces --if-present",
+    "preview": "npm run preview --workspace=@elixir-drop/web",
+    "test": "npm run test --workspaces --if-present",
+    "test:unit": "npm run test:unit --workspace=@elixir-drop/web",
+    "test:e2e": "npm run test:e2e --workspace=@elixir-drop/web --",
+    "verify": "npm run verify --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "npm run format --workspaces --if-present",
+    "format:check": "npm run format:check --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:css": "npm run lint:css --workspaces --if-present",
+    "knip": "npm run knip --workspaces --if-present",
+    "og": "npm run og --workspace=@elixir-drop/web",
+    "bootstrap:aws": "npm run bootstrap --workspace=@elixir-drop/infra",
+    "deploy:api": "npm run deploy --workspace=@elixir-drop/infra",
+    "smoke:api": "npm run smoke --workspace=@elixir-drop/infra"
   },
   "allowScripts": {
-    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.2": true,
     "fsevents@2.3.3": true
   }
 }

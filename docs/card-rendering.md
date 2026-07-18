@@ -34,11 +34,11 @@ rarity signal.
 
 Shared card rendering lives in:
 
-- `src/lib/card-rendering.ts` for rarity labels, rarity modifier classes, and
+- `apps/web/src/lib/card-rendering.ts` for rarity labels, rarity modifier classes, and
   name-tone mapping.
-- `src/components/CardChrome.tsx` for reusable `CardArt`, `CardName`, and
+- `apps/web/src/components/CardChrome.tsx` for reusable `CardArt`, `CardName`, and
   `ElixirCostBadge` helpers.
-- `src/styles.css` for the shared `cr-card-art`, `cr-card-name`, and
+- `apps/web/src/styles.css` for the shared `cr-card-art`, `cr-card-name`, and
   `cr-elixir-badge` classes.
 
 The current rarity-to-name-tone mapping is:

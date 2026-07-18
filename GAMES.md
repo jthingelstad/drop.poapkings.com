@@ -16,11 +16,15 @@ Trade, Speed Ladder, Endless Ladder, Cost Sweep, Blitz, and Survival. **Daily
 Ladder is not shipped and should not be built without a fresh product decision.**
 
 Every game shares one engine and the same shared paths: cards come from
-`src/data/cards.json`, progress goes through `src/lib/storage.ts`, card selection
-goes through `src/lib/sampling.ts`, elixir multiple-choice distractors through
-`src/lib/choices.ts`, card-name distractors through `src/lib/name-choices.ts`,
-and card presentation through `src/lib/card-rendering.ts` plus
-`src/components/CardChrome.tsx`.
+`packages/game-data/cards.json`, local learning progress goes through
+`apps/web/src/lib/storage.ts`, card selection goes through
+`apps/web/src/lib/sampling.ts`, elixir multiple-choice distractors through
+`apps/web/src/lib/choices.ts`, card-name distractors through
+`apps/web/src/lib/name-choices.ts`, and card presentation through
+`apps/web/src/lib/card-rendering.ts` plus
+`apps/web/src/components/CardChrome.tsx`. Completed games also use a
+server-issued signed challenge and a mode-specific transcript through
+`apps/web/src/lib/use-game-run.ts`.
 
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
@@ -38,7 +42,7 @@ and art.
 
 ### Flagship
 
-**Surge** — `/surge` · `src/modes/surge/`
+**Surge** — `/surge` · `apps/web/src/modes/surge/`
 A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
 wins. A wrong answer adds +2.0s and the card stays until correct. The sprint's
 images preload before the timer starts; Elixir stays silent during the run and
@@ -49,7 +53,7 @@ reacts on the summary. Produces one clean, shareable number.
 
 ### Core drills
 
-**Identify** — `/identify` · `src/modes/identify/`
+**Identify** — `/identify` · `apps/web/src/modes/identify/`
 Card art appears with the name hidden; pick the correct card name from six
 choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
 The 15-card sprint is scored as golf time.
@@ -57,20 +61,20 @@ The 15-card sprint is scored as golf time.
 - Input: six card-name buttons.
 - Record: `identifyBest` (lowest time).
 
-**Practice** — `/practice` · `src/modes/practice/`
+**Practice** — `/practice` · `apps/web/src/modes/practice/`
 Untimed. A card appears; name its cost. The weighted sampler surfaces weak cards;
 a round of 15, with end-early, closes in the shared summary + insights.
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
 - Record: `bestAccuracy`.
 
-**Higher / Lower** — `/higher-lower` · `src/modes/higher-lower/`
+**Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
 Two cards; pick Higher, Equal, or Lower relative to the left card. Endless streak.
 Trains the relative read that wins elixir trades.
 
 - Record: `longestStreak`.
 
-**Trade** — `/trade` · `src/modes/trade/`
+**Trade** — `/trade` · `apps/web/src/modes/trade/`
 You are always Blue King; Red is the opponent. Blue plays 1–3 sampled cards and
 Red answers with 1–3 sampled cards across an 8-exchange sprint. Guess your
 elixir trade from `-4` through `+4`, where positive means Red spent more elixir
@@ -82,19 +86,19 @@ that exchange, and leaves the exchange live.
 
 ### Stretch
 
-**Blitz** — `/blitz` · `src/modes/blitz/`
+**Blitz** — `/blitz` · `apps/web/src/modes/blitz/`
 A 60s count-up variant of Surge: how many cards can you clear? Reuses the timed
 cost-recall loop.
 
 - Record: `blitzBest`.
 
-**Survival** — `/survival` · `src/modes/survival/`
+**Survival** — `/survival` · `apps/web/src/modes/survival/`
 Sudden death. A per-card 5s clock; one wrong answer _or_ a timeout ends the run,
 revealing the missed card's cost.
 
 - Record: `survivalBest`.
 
-**Speed Ladder** — `/ladder` · `src/modes/ladder/`
+**Speed Ladder** — `/ladder` · `apps/web/src/modes/ladder/`
 Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards
 or use the explicit move controls; touch players can tap a card, then tap its
 destination. Equal-cost cards are valid in either relative order. A wrong lock
@@ -102,7 +106,7 @@ adds +2.0s, reveals one persistent card-cost hint, and leaves the ladder live.
 
 - Record: `ladderBest` (lowest time).
 
-**Endless Ladder** — `/endless-ladder` · `src/modes/endless-ladder/`
+**Endless Ladder** — `/endless-ladder` · `apps/web/src/modes/endless-ladder/`
 Starts with a small sorted row, then deals one hidden-cost card at a time. Insert
 the new card into the correct low-to-high slot. A correct insert extends the row;
 one wrong slot ends the climb.
@@ -110,7 +114,7 @@ one wrong slot ends the climb.
 - Input: insertion-slot buttons between ordered cards.
 - Record: `endlessLadderBest` (most successful inserts).
 
-**Cost Sweep** — `/cost-sweep` · `src/modes/cost-sweep/`
+**Cost Sweep** — `/cost-sweep` · `apps/web/src/modes/cost-sweep/`
 Shows a compact grid and a target elixir value. Tap every card matching that cost
 before the 45s clock runs out. Correct taps mark cards as found and clearing a
 board deals a fresh grid; wrong taps cost 2s.

@@ -2,7 +2,7 @@
 
 A fast little game for learning **Clash Royale cards and elixir costs**, run by
 the **POAP KINGS** clan. See a card, name it or price it, get quicker. Built as
-a self-contained static single-page app.
+as a static single-page app in the Elixir Drop monorepo.
 
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
@@ -41,14 +41,19 @@ a banner.
 
 ## Tech
 
-- **Preact** + **@preact/signals**, built with **Vite** (TypeScript)
-- Hash-based routing — no server, no SPA 404s on static hosting
-- **localStorage** for all personalization (records, weak-card stats), behind a
-  single swappable `storage` module
-- **Tinylytics** for lightweight, privacy-friendly analytics
-- **GitHub Pages** hosting, deployed by GitHub Actions on push
+- `apps/web` — the current **Preact** + **@preact/signals** website, built with
+  **Vite** and TypeScript and deployed to GitHub Pages.
+- `services/api` — the TypeScript Lambda backend for email authentication,
+  player profiles, signed game runs, progression, and seasonal leaderboards.
+- `services/cr-api-bridge` — the future worker that will run on the fixed,
+  Clash Royale API-allowlisted host.
+- `packages/contracts` and `packages/game-data` — shared TypeScript API contracts
+  and the canonical Clash Royale card snapshot.
+- `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-No backend, no accounts, no tracking beyond Tinylytics.
+The website remains playable if the backend is unavailable. Local card-learning
+statistics stay in **localStorage**; authenticated game history, player levels,
+profiles, global Trophy Road totals, and leaderboards live in DynamoDB.
 
 ---
 
@@ -57,13 +62,14 @@ No backend, no accounts, no tracking beyond Tinylytics.
 ```bash
 npm install
 npm run dev       # Vite dev server
-npm run verify    # format, lint, typecheck, unit, e2e, build
-npm run build     # static build to dist/
+npm run verify    # verify every implemented workspace
+npm run build     # build every implemented workspace
 npm run preview   # serve the build locally
 ```
 
-The repo ships with a committed `src/data/cards.json` snapshot, so the game runs
-fully offline in dev — no API key required to develop.
+The root commands use npm workspaces. The repo ships with a committed
+`packages/game-data/cards.json` snapshot, so the game
+runs fully offline in dev — no API key required to develop.
 
 Elixir Drop intentionally does **not** maintain curated deck definitions,
 archetype data, or "real deck" dependencies. New modes should work from the
@@ -88,9 +94,10 @@ So card data is refreshed out-of-band and **committed to the repo**:
 
 - A checkout lives on a host whose IP is registered with the token.
 - The token sits in `.env` there (`CR_API_TOKEN`) — **gitignored**, never committed.
-- A cron job (or manual run) executes `scripts/refresh-cards.mjs`, which fetches
-  `/cards`, normalizes it, **diffs** against the committed snapshot, and **commits
-  only when something changed** (printing a changelog of new/changed/removed cards).
+- A cron job (or manual run) executes
+  `node apps/web/scripts/refresh-cards.mjs`, which fetches `/cards`, normalizes
+  it, **diffs** against the committed snapshot, and **commits only when something
+  changed** (printing a changelog of new/changed/removed cards).
 - That push triggers the GitHub Actions build + deploy. The Pages build only ever
   reads the committed `cards.json` — so the token stays off CI entirely.
 
@@ -98,16 +105,33 @@ Card art is hotlinked from Supercell's CDN (`api-assets.clashroyale.com`) and
 preloaded before timed runs. A `MIRROR_IMAGES` flag in the refresh script can
 download art locally instead, with no game-code change.
 
+The application backend does not call the Clash Royale API directly.
+Dynamic requests will be queued for `services/cr-api-bridge`, which will run on
+the allowlisted host. The queue and response contracts remain intentionally
+deferred until the bridge release.
+
 ---
 
 ## Deploy
 
 GitHub Pages, custom domain `drop.poapkings.com`:
 
-- `public/CNAME` contains the domain; Vite `base` is `/` (custom domain serves
-  from root).
+- `apps/web/public/CNAME` contains the domain; Vite `base` is `/` (custom domain
+  serves from root).
 - `.github/workflows/deploy.yml` builds and deploys on push to `main`.
 - "Enforce HTTPS" is on once the certificate provisions.
+
+The API is a separate production CloudFormation stack:
+
+```bash
+npm run bootstrap:aws  # one time: IAM deploy user, role, bucket, root .env
+npm run deploy:api     # SDK-based build, upload, stack update, web API config
+```
+
+Bootstrap copies the existing Fastmail JMAP token into the gitignored root
+`.env`, generates a Drop-specific signing secret, and creates access credentials
+for the limited `elixir-drop` IAM deploy user. Routine deployment uses the AWS
+SDK and does not invoke the AWS CLI.
 
 ---
 
@@ -115,29 +139,31 @@ GitHub Pages, custom domain `drop.poapkings.com`:
 
 ```
 elixir-drop/
-├─ public/
-│  ├─ CNAME                  # drop.poapkings.com
-│  └─ assets/                # Elixir avatar, favicon, OG image
-├─ src/
-│  ├─ data/cards.json        # committed snapshot (refreshed out-of-band)
-│  ├─ lib/                   # storage, sampling, choices, timers, insights, analytics
-│  ├─ modes/                 # ten playable modes, each in its own folder
-│  ├─ components/            # Card, PipKeypad, ElixirHost, StarCount, ...
-│  ├─ styles.css             # vendored POAP KINGS tokens + components
-│  └─ main.tsx
-├─ scripts/refresh-cards.mjs # manual/cron card refresh (runs on the managed host)
+├─ apps/
+│  └─ web/                   # current public Preact/Vite application
+│     ├─ public/             # CNAME and static assets
+│     ├─ src/                # modes, components, screens, and browser libraries
+│     ├─ scripts/            # card refresh and OG image maintenance
+│     └─ tests/              # unit and browser coverage
+├─ services/
+│  ├─ api/                   # TypeScript Lambda API backend
+│  └─ cr-api-bridge/         # future fixed-IP Clash Royale API worker
+├─ packages/
+│  ├─ contracts/             # browser/server TypeScript contracts
+│  └─ game-data/             # canonical cards.json snapshot
+├─ infra/                    # CloudFormation and SDK deployment scripts
+├─ package.json              # npm workspace commands
 ├─ .github/workflows/deploy.yml
-├─ .env.example              # CR_API_TOKEN, MIRROR_IMAGES
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
 ├─ docs/card-rendering.md    # shared card rendering reference
 └─ CLAUDE.md                 # agent guide for future code work
 ```
 
-The Clash Royale API reference under `docs/cr-agent-api-docs/` is source
-material for the card refresh script and API assumptions; it is not the product
-spec. The Clash Royale screenshots under `docs/clash-royale-screenshots/` are
-visual reference for the shared card chrome, not runtime assets.
+The Clash Royale API reference under `docs/cr-agent-api-docs/` is source material
+for the static card refresher and future bridge work; it is not an API design.
+The Clash Royale screenshots under `docs/clash-royale-screenshots/` are visual
+reference for the shared card chrome, not runtime assets.
 
 ---
 

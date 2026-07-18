@@ -30,12 +30,12 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Build reads only the committed src/data/cards.json — no API token needed.
+      # Build reads only packages/game-data/cards.json — no API or mail tokens needed.
       - run: npm run verify
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: dist/
+          path: apps/web/dist/
 
   deploy:
     needs: build
