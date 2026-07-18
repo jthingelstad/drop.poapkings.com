@@ -54,6 +54,8 @@ a banner.
 The website remains playable if the backend is unavailable. Local card-learning
 statistics stay in **localStorage**; authenticated game history, player levels,
 profiles, global Trophy Road totals, and leaderboards live in DynamoDB.
+Each signed-in player chooses a favorite Clash Royale card as their profile
+image and selects a safe public name generated from that card's title.
 
 ---
 

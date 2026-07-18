@@ -69,6 +69,10 @@ deferred; do not invent it as part of unrelated work.
   `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
   `records`, `funnel`, `settings`.
+- **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
+  canonical card snapshot. Name-option tokens bind the player, card ID, and
+  exact choices; the API saves favorite card and public name together. Keep
+  player tags separate and explicitly unverified.
 - **`apps/web/src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
   mastered ones, avoid immediate repeats. Tunables in one config object.
 - **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
@@ -78,6 +82,10 @@ deferred; do not invent it as part of unrelated work.
 - **`apps/web/src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
   Clash-style card-name tone mapping. Pair it with `apps/web/src/components/CardChrome.tsx`
   instead of hand-rolling card art/name/cost UI in a mode.
+- **Player avatars are CSS crops, not derivative assets.** Shared defaults and
+  exceptional per-card focal adjustments live in
+  `apps/web/src/data/avatar-crops.ts`. Review the complete catalog at the
+  development-only `#/avatar-audit` route before adding an override.
 - **`apps/web/src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
   (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
   runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
@@ -105,7 +113,7 @@ deferred; do not invent it as part of unrelated work.
 ```json
 {
   "version": "YYYY-MM-DD",
-  "count": 120,
+  "count": 121,
   "cards": [
     {
       "id": 26000000,

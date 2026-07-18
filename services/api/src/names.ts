@@ -2,63 +2,57 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import rawCards from "@elixir-drop/game-data/cards.json";
-import { randomInt } from "node:crypto";
 
-interface CardData {
-  cards: Array<{ name: string }>;
-}
-
-const cardNames = (rawCards as CardData).cards.map((card) => card.name);
-const allowedWords = new Set(
-  cardNames.flatMap((name) =>
-    name
-      .split(/[^A-Za-z0-9]+/)
-      .filter((word) => word.length > 1)
-      .map((word) => word.toLowerCase()),
-  ),
-);
+const NAME_MODIFIERS = [
+  "Ace",
+  "Captain",
+  "Champ",
+  "Crew",
+  "Fan",
+  "Friend",
+  "Hero",
+  "Legend",
+  "Main",
+  "Master",
+  "Pro",
+  "Squad",
+  "Star",
+  "Team",
+] as const;
 
 const client = new BedrockRuntimeClient({});
 
-function normalizedWords(name: string): string[] {
-  return name
-    .split(/[^A-Za-z0-9]+/)
-    .filter(Boolean)
-    .map((word) => word.toLowerCase());
-}
-
-export function isSafeCardName(value: unknown): value is string {
-  if (typeof value !== "string" || value.length < 3 || value.length > 32)
-    return false;
-  const words = normalizedWords(value);
-  return (
-    words.length >= 1 &&
-    words.length <= 3 &&
-    words.every((word) => allowedWords.has(word))
+export function isSafeFavoriteCardName(
+  value: unknown,
+  cardName: string,
+): value is string {
+  if (typeof value !== "string" || value.length > 64) return false;
+  if (value === cardName) return true;
+  return NAME_MODIFIERS.some(
+    (modifier) =>
+      value === `${cardName} ${modifier}` ||
+      value === `${modifier} ${cardName}`,
   );
 }
 
-function fallbackNames(count: number): string[] {
-  const choices = new Set<string>();
-  while (choices.size < count) {
-    const first = cardNames[randomInt(cardNames.length)]!;
-    const second = cardNames[randomInt(cardNames.length)]!;
-    const firstWord = first.split(" ")[0]!;
-    const secondWord = second.split(" ").at(-1)!;
-    const choice = `${firstWord} ${secondWord}`;
-    if (isSafeCardName(choice)) choices.add(choice);
-  }
-  return [...choices];
+export function fallbackNamesForCard(cardName: string): string[] {
+  return [
+    cardName,
+    `${cardName} Main`,
+    `${cardName} Ace`,
+    `Team ${cardName}`,
+    `${cardName} Legend`,
+    `${cardName} Fan`,
+  ];
 }
 
-function parseModelNames(text: string): string[] {
+function parseModelNames(text: string, cardName: string): string[] {
   const match = /\{[\s\S]*\}/.exec(text);
   if (!match) return [];
   try {
     const parsed = JSON.parse(match[0]) as { names?: unknown };
     return Array.isArray(parsed.names)
-      ? parsed.names.filter(isSafeCardName)
+      ? parsed.names.filter((name) => isSafeFavoriteCardName(name, cardName))
       : [];
   } catch {
     return [];
@@ -67,9 +61,10 @@ function parseModelNames(text: string): string[] {
 
 export async function generateNameOptions(
   modelId: string,
+  cardName: string,
   count = 5,
 ): Promise<string[]> {
-  const allowed = [...allowedWords].sort().join(", ");
+  const modifiers = NAME_MODIFIERS.join(", ");
   let generated: string[] = [];
   try {
     const response = await client.send(
@@ -81,7 +76,7 @@ export async function generateNameOptions(
             role: "user",
             content: [
               {
-                text: `Create ${count} playful public player names for a Clash Royale game site. Each name must be 1 to 3 words and every word must come from this exact allowlist: ${allowed}. Do not use punctuation or any other words. Return only JSON shaped {"names":["Name One"]}.`,
+                text: `Create ${count} playful public player names based only on the Clash Royale card title "${cardName}". Every name must contain that complete card title exactly as written, either alone or with exactly one modifier before or after it. The only allowed modifiers are: ${modifiers}. Do not add any other words or punctuation. Return only JSON shaped {"names":["${cardName} Main"]}.`,
               },
             ],
           },
@@ -92,18 +87,15 @@ export async function generateNameOptions(
       response.output?.message?.content
         ?.map((item) => ("text" in item ? item.text : ""))
         .join("") ?? "";
-    generated = parseModelNames(text);
+    generated = parseModelNames(text, cardName);
   } catch (error) {
-    console.warn(
-      "Name generation model failed; using validated card-title fallback",
-      {
-        error: error instanceof Error ? error.name : "unknown",
-      },
-    );
+    console.warn("Name generation model failed; using favorite-card fallback", {
+      error: error instanceof Error ? error.name : "unknown",
+    });
   }
 
   const names = new Set(generated);
-  for (const fallback of fallbackNames(count * 2)) {
+  for (const fallback of fallbackNamesForCard(cardName)) {
     if (names.size >= count) break;
     names.add(fallback);
   }

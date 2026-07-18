@@ -93,7 +93,7 @@ packages/game-data/cards.json
 Current snapshot:
 
 - `version`: `2026-06-13`
-- `count`: `120`
+- `count`: `121`
 
 The API is refreshed out-of-band because:
 
@@ -214,6 +214,20 @@ owns the challenge, validates the submitted transcript, and recomputes the
 score. Authenticated completions become immutable run history and leaderboard
 input; anonymous completions increment only the global game total.
 
+Authenticated public identity is centered on one favorite card:
+
+- The player chooses a card from the canonical committed snapshot; its ID is
+  stored as `favoriteCardId` and its artwork becomes the profile image.
+- `POST /me/name-options` accepts that card ID and returns public names derived
+  only from its exact title, plus a short-lived signed choice token.
+- The token binds the player, favorite card, and exact name choices. `PATCH /me`
+  accepts the card and selected name together and persists them atomically.
+- Changing a favorite card requires choosing a new card-derived name in the
+  same flow. Existing profiles without a favorite card remain readable and use
+  the Elixir avatar until the player chooses one.
+- Clash Royale player tags are separate and unverified. A future bridge may use
+  a tag's collection to shape game challenges, but it does not control identity.
+
 ---
 
 ## 7. Analytics And Recruiting
@@ -249,6 +263,12 @@ Elixir Drop vendors its own visual layer:
   image, favicon, and star asset.
 - Card art hotlinks the Supercell CDN unless `MIRROR_IMAGES` is enabled during a
   data refresh.
+- Player avatars use the canonical card art through a circular CSS crop. Default
+  focal coordinates and rare per-card adjustments live in
+  `apps/web/src/data/avatar-crops.ts`; no derivative avatar images are shipped.
+- In development, `#/avatar-audit` renders all canonical cards at the real
+  header, leaderboard, and profile sizes for crop review. The route is excluded
+  from production builds.
 - `docs/clash-royale-screenshots/` contains local visual references for card
   frames, elixir badges, and rarity-colored text treatment.
 - `docs/card-rendering.md` documents the current card-rendering findings and the

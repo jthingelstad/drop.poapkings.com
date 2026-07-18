@@ -1,15 +1,19 @@
 import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
+import rawCards from '@elixir-drop/game-data/cards.json'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import { accountStatus, initializeAccount, player } from './lib/account'
 import StarCount from './components/StarCount'
+import PlayerAvatar from './components/PlayerAvatar'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
 import Leaderboards from './screens/Leaderboards'
+import type { CardsData } from './types'
 
 const POAP_KINGS = 'https://poapkings.com'
+const CARD_COUNT = (rawCards as CardsData).cards.length
 
 const loadPractice = () => import('./modes/practice/Practice')
 const loadIdentify = () => import('./modes/identify/Identify')
@@ -22,6 +26,7 @@ const loadCostSweep = () => import('./modes/cost-sweep/CostSweep')
 const loadBlitz = () => import('./modes/blitz/Blitz')
 const loadSurvival = () => import('./modes/survival/Survival')
 const loadSettings = () => import('./modes/settings/Settings')
+const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
 const Practice = lazy(loadPractice)
 const Identify = lazy(loadIdentify)
@@ -34,6 +39,7 @@ const CostSweep = lazy(loadCostSweep)
 const Blitz = lazy(loadBlitz)
 const Survival = lazy(loadSurvival)
 const SettingsScreen = lazy(loadSettings)
+const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
 const ROUTE_PREFETCHERS: Record<string, () => Promise<unknown>> = {
   '/practice': loadPractice,
@@ -136,7 +142,7 @@ function Home() {
       <div class="home__wrap">
         <div class="statstrip">
           <div class="statstrip__cell">
-            <div class="statstrip__n">120</div>
+            <div class="statstrip__n">{CARD_COUNT}</div>
             <div class="statstrip__l">Cards in catalog</div>
           </div>
           <div class="statstrip__cell">
@@ -250,7 +256,10 @@ function Header() {
         class="site-head__account"
         onClick={() => navigate(accountStatus.value === 'authenticated' ? '/profile' : '/login')}
       >
-        {player.value?.publicName || (accountStatus.value === 'authenticated' ? 'Player' : 'Sign in')}
+        {accountStatus.value === 'authenticated' && (
+          <PlayerAvatar favoriteCardId={player.value?.favoriteCardId} size="small" />
+        )}
+        <span>{player.value?.publicName || (accountStatus.value === 'authenticated' ? 'Player' : 'Sign in')}</span>
       </button>
       <button
         class="site-head__settings"
@@ -302,6 +311,7 @@ function RouteFallback() {
 }
 
 function ScreenContent({ r }: { r: string }) {
+  if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/identify')) return <Identify />
   if (r.startsWith('/surge')) return <Surge />

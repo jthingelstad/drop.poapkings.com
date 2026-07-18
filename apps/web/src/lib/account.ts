@@ -60,7 +60,8 @@ export async function redeemAccount(token: string): Promise<void> {
 }
 
 export async function updateAccount(updates: {
-  publicName?: string | null
+  publicName?: string
+  favoriteCardId?: number
   nameToken?: string
   playerTag?: string | null
 }): Promise<void> {

@@ -1,6 +1,6 @@
 {
-  "version": "2026-06-13",
-  "count": 120,
+  "version": "2026-07-18",
+  "count": 121,
   "cards": [
     {
       "id": 26000000,
@@ -895,6 +895,16 @@
       "evo": false,
       "hero": false,
       "icon": "https://api-assets.clashroyale.com/cards/300/nuceG9o7rAyvyc7D3sp2QSiRYtSOEgraq0NJkDf729s.png"
+    },
+    {
+      "id": 26000106,
+      "name": "Ronin",
+      "elixir": 5,
+      "rarity": "legendary",
+      "type": "troop",
+      "evo": false,
+      "hero": false,
+      "icon": "https://clashroyale.inbox.supercell.com/9jtsgmsiuthj/2vhkjOKDPu5mgAFjM2uLJ0/b1c8a89dfc8bc5deeb290c6921efe77e/ronin.png"
     },
     {
       "id": 27000000,

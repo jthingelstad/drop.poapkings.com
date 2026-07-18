@@ -60,6 +60,7 @@ function publicProfile(profile: PlayerProfile): PublicProfile {
   return {
     id: profile.playerId,
     publicName: profile.publicName || "Elixir Player",
+    favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
     totalGames: profile.totalGames,
     ...progress,
@@ -203,7 +204,7 @@ export class Repository {
     sub: string,
     updates: {
       publicName?: string;
-      clearPublicName?: boolean;
+      favoriteCardId?: number;
       playerTag?: string;
       clearPlayerTag?: boolean;
     },
@@ -219,9 +220,11 @@ export class Repository {
       names["#publicName"] = "publicName";
       values[":publicName"] = updates.publicName;
       sets.push("#publicName = :publicName");
-    } else if (updates.clearPublicName) {
-      names["#publicName"] = "publicName";
-      removes.push("#publicName");
+    }
+    if (updates.favoriteCardId !== undefined) {
+      names["#favoriteCardId"] = "favoriteCardId";
+      values[":favoriteCardId"] = updates.favoriteCardId;
+      sets.push("#favoriteCardId = :favoriteCardId");
     }
     if (updates.playerTag !== undefined) {
       names["#playerTag"] = "playerTag";
@@ -438,7 +441,7 @@ export class Repository {
             [this.tableName]: {
               Keys: subs.map((sub) => profileKey(sub)),
               ProjectionExpression:
-                "sub, playerId, publicName, playerTag, totalGames",
+                "sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
             },
           },
         }),

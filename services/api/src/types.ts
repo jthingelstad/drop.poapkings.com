@@ -32,6 +32,7 @@ export interface RunClaims {
 export interface NameClaims {
   type: "names";
   sub: string;
+  favoriteCardId: number;
   names: string[];
   iat: number;
   exp: number;
@@ -52,6 +53,7 @@ export interface PlayerProfile {
   playerId: string;
   email: string;
   publicName?: string;
+  favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
   createdAt: string;
@@ -61,6 +63,7 @@ export interface PlayerProfile {
 export interface PublicProfile {
   id: string;
   publicName: string;
+  favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
   level: number;

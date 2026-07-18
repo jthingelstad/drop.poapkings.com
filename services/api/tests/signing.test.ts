@@ -23,4 +23,21 @@ describe("signed tokens", () => {
     );
     expect(() => verifyToken(token, "run", "secret", 150)).toThrow("Expired");
   });
+
+  it("binds generated name choices to a favorite card", () => {
+    const token = signToken(
+      {
+        type: "names",
+        sub: "player",
+        favoriteCardId: 26000000,
+        names: ["Knight Main"],
+        iat: 100,
+        exp: 200,
+      },
+      "secret",
+    );
+    const claims = verifyToken(token, "names", "secret", 150);
+    expect(claims.favoriteCardId).toBe(26000000);
+    expect(claims.names).toEqual(["Knight Main"]);
+  });
 });

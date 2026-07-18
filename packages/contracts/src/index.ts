@@ -39,6 +39,7 @@ export interface Player {
   id: string;
   email: string;
   publicName?: string;
+  favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
   level: number;

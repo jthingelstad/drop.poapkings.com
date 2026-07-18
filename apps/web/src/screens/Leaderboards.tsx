@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { GAME_MODES, type GameMode, type Season } from '@elixir-drop/contracts'
+import PlayerAvatar from '../components/PlayerAvatar'
 import { getLeaderboard, type LeaderboardEntry } from '../lib/api'
 
 const LABELS: Record<GameMode, string> = {
@@ -79,6 +80,7 @@ export default function Leaderboards() {
           {entries.value.map((entry) => (
             <li class="leaderboard-row" key={entry.player.id}>
               <span class="leaderboard-rank">#{entry.rank}</span>
+              <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
               <span class="leaderboard-player">
                 <strong>{entry.player.publicName}</strong>
                 <small>

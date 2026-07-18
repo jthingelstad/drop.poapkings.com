@@ -23,6 +23,16 @@ const REPO_ROOT = join(WEB_ROOT, '..', '..')
 const DATA_PATH = join(REPO_ROOT, 'packages/game-data/cards.json')
 const CR_API = 'https://api.clashroyale.com/v1'
 
+// Occasionally a new card is published by the API before its api-assets URL is
+// available. Keep official Supercell fallbacks narrowly scoped and only use
+// them while the API-provided image returns an error.
+const OFFICIAL_ICON_FALLBACKS = new Map([
+  [
+    26000106,
+    'https://clashroyale.inbox.supercell.com/9jtsgmsiuthj/2vhkjOKDPu5mgAFjM2uLJ0/b1c8a89dfc8bc5deeb290c6921efe77e/ronin.png'
+  ]
+])
+
 // ── Args ──────────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2)
@@ -72,6 +82,17 @@ console.log(`Got ${data.items?.length ?? 0} standard cards, ${data.supportItems?
 
 const today = new Date().toISOString().slice(0, 10)
 
+async function imageIsAvailable(url) {
+  if (!url) return false
+
+  try {
+    const response = await fetch(url, { method: 'HEAD' })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 if (MIRROR) {
   await mkdir(join(WEB_ROOT, 'public/cards'), { recursive: true })
 }
@@ -93,6 +114,12 @@ for (const card of data.items ?? []) {
   let icon = card.iconUrls?.medium ?? ''
   let iconEvo = card.iconUrls?.evolutionMedium ?? ''
   let iconHero = card.iconUrls?.heroMedium ?? ''
+
+  const officialFallback = OFFICIAL_ICON_FALLBACKS.get(card.id)
+  if (officialFallback && !(await imageIsAvailable(icon))) {
+    console.warn(`Using official Supercell image fallback for ${card.name}; API asset is unavailable.`)
+    icon = officialFallback
+  }
 
   if (MIRROR && icon) {
     const localPath = `/cards/${card.id}.png`
@@ -186,6 +213,9 @@ if (existing) {
       if (old.rarity !== card.rarity) {
         changelog.push(`~ Changed: ${card.name} rarity ${old.rarity} → ${card.rarity}`)
       }
+      if (old.icon !== card.icon || old.iconEvo !== card.iconEvo || old.iconHero !== card.iconHero) {
+        changelog.push(`~ Changed: ${card.name} artwork`)
+      }
     }
   }
   for (const [id, card] of existingMap) {
@@ -205,7 +235,7 @@ if (existing && changelog.length === 0) {
 if (changelog.length > 0) {
   console.log('\nChangelog:')
   changelog.forEach((l) => console.log(' ', l))
-} else {
+} else if (!existing) {
   console.log(`\nInitial snapshot: ${candidate.count} cards (${today}).`)
 }
 

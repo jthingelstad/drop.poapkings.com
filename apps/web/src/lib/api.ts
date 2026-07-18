@@ -19,6 +19,7 @@ export interface LeaderboardEntry {
   player: {
     id: string
     publicName: string
+    favoriteCardId?: number
     playerTag?: string
     totalGames: number
     level: number
@@ -82,13 +83,25 @@ export function getMe(sessionToken: string): Promise<{ player: Player; recentRun
   return apiRequest('/me', { sessionToken })
 }
 
-export function getNameOptions(sessionToken: string): Promise<{ names: string[]; nameToken: string }> {
-  return apiRequest('/me/name-options', { method: 'POST', sessionToken })
+export function getNameOptions(
+  sessionToken: string,
+  favoriteCardId: number
+): Promise<{ favoriteCardId: number; names: string[]; nameToken: string }> {
+  return apiRequest('/me/name-options', {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify({ favoriteCardId })
+  })
 }
 
 export function patchMe(
   sessionToken: string,
-  updates: { publicName?: string | null; nameToken?: string; playerTag?: string | null }
+  updates: {
+    publicName?: string
+    favoriteCardId?: number
+    nameToken?: string
+    playerTag?: string | null
+  }
 ): Promise<{ player: Player }> {
   return apiRequest('/me', { method: 'PATCH', sessionToken, body: JSON.stringify(updates) })
 }

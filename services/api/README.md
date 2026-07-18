@@ -7,7 +7,8 @@ Responsibilities in this release:
 
 - 15-minute, single-use email magic links sent through Fastmail JMAP;
 - renewable 10-day HMAC bearer sessions;
-- player profiles, safe generated public names, and unverified CR player tags;
+- player profiles with favorite-card avatars, card-scoped generated public names,
+  and unverified CR player tags;
 - short-lived, single-use signed runs for all ten game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
@@ -24,6 +25,19 @@ canonical card pool so each mode can choose whether to use that context.
 - `GET /me`, `PATCH /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`
 - `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /health`
+
+## Player identity
+
+The canonical card snapshot is the allowlist for profile identity. A player
+posts `{ "favoriteCardId": 26000000 }` to `/me/name-options`; the API returns
+safe names derived only from that card plus a signed, 15-minute choice token.
+The player then patches `/me` with `favoriteCardId`, one returned `publicName`,
+and `nameToken`. The signed token binds the exact choices to both the player and
+the card, and DynamoDB stores the card and name in one update. The favorite
+card's canonical artwork is the profile image in the web app.
+
+Changing a favorite card uses the same complete flow and replaces both card and
+name. `playerTag` remains an independent, unverified profile field.
 
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.

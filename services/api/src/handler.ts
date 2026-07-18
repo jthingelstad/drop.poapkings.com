@@ -3,12 +3,13 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyHandlerV2,
 } from "aws-lambda";
+import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
 import { badRequest, HttpError } from "./errors.js";
 import { isGameMode } from "./games.js";
 import { bearerToken, json } from "./http.js";
 import { sendMagicLink } from "./jmap.js";
-import { generateNameOptions, isSafeCardName } from "./names.js";
+import { generateNameOptions, isSafeFavoriteCardName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
 import { createChallenge, scoreRun } from "./scoring.js";
@@ -98,6 +99,7 @@ function profileResponse(profile: {
   playerId: string;
   email: string;
   publicName?: string;
+  favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
   createdAt: string;
@@ -107,6 +109,7 @@ function profileResponse(profile: {
     id: profile.playerId,
     email: profile.email,
     publicName: profile.publicName,
+    favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
     totalGames: profile.totalGames,
     createdAt: profile.createdAt,
@@ -201,17 +204,27 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "POST" && path === "/me/name-options") {
     const session = sessionFor(event, config.sessionSecret, true);
+    const body = bodyOf(event);
+    const card = favoriteCard(body.favoriteCardId);
+    if (!card)
+      throw new HttpError(
+        400,
+        "Choose a valid favorite card.",
+        "invalid_favorite_card",
+      );
     await repository.useRateLimit("names", session.sub, 10, 60 * 60);
-    const names = await generateNameOptions(config.nameModelId);
+    const names = await generateNameOptions(config.nameModelId, card.name);
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const claims: NameClaims = {
       type: "names",
       sub: session.sub,
+      favoriteCardId: card.id,
       names,
       iat: nowSeconds,
       exp: nowSeconds + NAME_OPTIONS_SECONDS,
     };
     return json(200, {
+      favoriteCardId: card.id,
       names,
       nameToken: signToken(claims, config.sessionSecret),
     });
@@ -222,7 +235,7 @@ async function route(event: APIGatewayProxyEventV2) {
     const body = bodyOf(event);
     const updates: {
       publicName?: string;
-      clearPublicName?: boolean;
+      favoriteCardId?: number;
       playerTag?: string;
       clearPlayerTag?: boolean;
     } = {};
@@ -232,46 +245,45 @@ async function route(event: APIGatewayProxyEventV2) {
       if (tag) updates.playerTag = tag;
       else updates.clearPlayerTag = true;
     }
-    if (Object.hasOwn(body, "publicName")) {
-      if (body.publicName === null || body.publicName === "") {
-        updates.clearPublicName = true;
-      } else {
-        if (
-          !isSafeCardName(body.publicName) ||
-          typeof body.nameToken !== "string"
-        ) {
-          throw new HttpError(
-            400,
-            "Choose one of the generated player names.",
-            "invalid_public_name",
-          );
-        }
-        let nameClaims: NameClaims;
-        try {
-          nameClaims = verifyToken(
-            body.nameToken,
-            "names",
-            config.sessionSecret,
-          );
-        } catch {
-          throw new HttpError(
-            400,
-            "Those name choices have expired. Ask for new choices.",
-            "expired_name_options",
-          );
-        }
-        if (
-          nameClaims.sub !== session.sub ||
-          !nameClaims.names.includes(body.publicName)
-        ) {
-          throw new HttpError(
-            400,
-            "Choose one of the generated player names.",
-            "invalid_public_name",
-          );
-        }
-        updates.publicName = body.publicName;
+    const changesIdentity =
+      Object.hasOwn(body, "publicName") ||
+      Object.hasOwn(body, "favoriteCardId");
+    if (changesIdentity) {
+      const card = favoriteCard(body.favoriteCardId);
+      if (
+        !card ||
+        !isSafeFavoriteCardName(body.publicName, card.name) ||
+        typeof body.nameToken !== "string"
+      ) {
+        throw new HttpError(
+          400,
+          "Choose a favorite card and one of its generated player names.",
+          "invalid_player_identity",
+        );
       }
+      let nameClaims: NameClaims;
+      try {
+        nameClaims = verifyToken(body.nameToken, "names", config.sessionSecret);
+      } catch {
+        throw new HttpError(
+          400,
+          "Those name choices have expired. Choose your card again.",
+          "expired_name_options",
+        );
+      }
+      if (
+        nameClaims.sub !== session.sub ||
+        nameClaims.favoriteCardId !== card.id ||
+        !nameClaims.names.includes(body.publicName)
+      ) {
+        throw new HttpError(
+          400,
+          "Choose a favorite card and one of its generated player names.",
+          "invalid_player_identity",
+        );
+      }
+      updates.publicName = body.publicName;
+      updates.favoriteCardId = card.id;
     }
     if (!Object.keys(updates).length)
       throw new HttpError(400, "No profile changes were provided.");
