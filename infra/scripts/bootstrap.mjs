@@ -320,6 +320,7 @@ const values = {
   AWS_REGION: region,
   AWS_SECRET_ACCESS_KEY: key.SecretAccessKey,
   CR_API_KEY: crApiKey,
+  CR_WAR_CLOCK_CLAN_TAG: existingEnv.CR_WAR_CLOCK_CLAN_TAG || "#J2RGCRVG",
   ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID: bridgeKey.AccessKeyId,
   ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY: bridgeKey.SecretAccessKey,
   ELIXIR_DROP_CR_REQUEST_QUEUE_NAME: "elixir-drop-cr-requests",
@@ -335,8 +336,7 @@ const values = {
   ELIXIR_DROP_STACK_NAME: stackName,
   FASTMAIL_JMAP_TOKEN: jmapToken,
   NAME_MODEL_ID:
-    existingEnv.NAME_MODEL_ID ||
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    existingEnv.NAME_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0",
   SESSION_SECRET:
     existingEnv.SESSION_SECRET || randomBytes(48).toString("base64url"),
 };

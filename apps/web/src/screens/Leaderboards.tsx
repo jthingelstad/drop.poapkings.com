@@ -25,6 +25,19 @@ function scoreLabel(mode: GameMode, score: number): string {
   return String(score)
 }
 
+function warPhaseLabel(periodType: Season['periodType']): string | undefined {
+  if (periodType === 'training') return 'Training days'
+  if (periodType === 'warDay') return 'Battle days'
+  if (periodType === 'colosseum') return 'Colosseum'
+  return undefined
+}
+
+function daysLeftLabel(days: number | undefined): string | undefined {
+  if (days === undefined) return undefined
+  if (days <= 0) return 'week ending soon'
+  return `${days} ${days === 1 ? 'day' : 'days'} left in week`
+}
+
 export default function Leaderboards() {
   const mode = useSignal<GameMode>('surge')
   const entries = useSignal<LeaderboardEntry[]>([])
@@ -53,7 +66,19 @@ export default function Leaderboards() {
         <h1>Drop leaderboards</h1>
         {season.value && (
           <p class="lede">
-            {season.value.durationWeeks}-week season · resets{' '}
+            {season.value.crSeasonId !== undefined && season.value.currentWeek !== undefined ? (
+              <>
+                CR Season {season.value.crSeasonId} · Week {season.value.currentWeek}
+                {warPhaseLabel(season.value.periodType) ? ` · ${warPhaseLabel(season.value.periodType)}` : ''}
+                {daysLeftLabel(season.value.daysRemainingInWeek)
+                  ? ` · ${daysLeftLabel(season.value.daysRemainingInWeek)}`
+                  : ''}
+                <br />
+              </>
+            ) : (
+              <>{season.value.durationWeeks}-week season · </>
+            )}
+            Leaderboard resets{' '}
             {new Date(season.value.endsAt).toLocaleDateString(undefined, {
               timeZone: 'UTC',
               month: 'short',

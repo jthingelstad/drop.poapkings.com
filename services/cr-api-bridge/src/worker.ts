@@ -14,9 +14,11 @@ export interface WorkerConfig {
   requestQueueUrl: string;
   resultQueueUrl: string;
   publishHeartbeat?: () => Promise<void>;
+  publishWarClock?: () => Promise<void>;
 }
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
+const WAR_CLOCK_INTERVAL_MS = 5 * 60_000;
 
 function retryDelay(signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -81,6 +83,7 @@ export async function runWorker(
   signal: AbortSignal,
 ): Promise<void> {
   let nextHeartbeatAt = 0;
+  let nextWarClockAt = 0;
   while (!signal.aborted) {
     if (config.publishHeartbeat && Date.now() >= nextHeartbeatAt) {
       nextHeartbeatAt = Date.now() + HEARTBEAT_INTERVAL_MS;
@@ -92,6 +95,17 @@ export async function runWorker(
         });
       }
     }
+    if (config.publishWarClock && Date.now() >= nextWarClockAt) {
+      nextWarClockAt = Date.now() + WAR_CLOCK_INTERVAL_MS;
+      try {
+        await config.publishWarClock();
+      } catch (error) {
+        console.warn("CR bridge war clock refresh failed", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+    if (signal.aborted) break;
     try {
       await pollOnce(sqs, config);
     } catch (error) {

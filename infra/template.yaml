@@ -209,7 +209,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: elixir-drop-cr-results
-      Description: Stores normalized Clash Royale player results from the fixed-IP bridge
+      Description: Stores normalized Clash Royale player and Clan Wars clock results from the fixed-IP bridge
       Architectures:
         - arm64
       Runtime: nodejs24.x
@@ -306,7 +306,7 @@ Resources:
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-cr-result-dlq
-      AlarmDescription: A Clash Royale player result reached the dead-letter queue.
+      AlarmDescription: A Clash Royale player or Clan Wars clock result reached the dead-letter queue.
       Namespace: AWS/SQS
       MetricName: ApproximateNumberOfMessagesVisible
       Dimensions:
@@ -355,6 +355,26 @@ Resources:
       Period: 300
       EvaluationPeriods: 2
       DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  CrWarClockHeartbeatAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - AlarmTopic
+      - CrBridgeHeartbeatPolicy
+    Properties:
+      AlarmName: elixir-drop-cr-war-clock-heartbeat
+      AlarmDescription: The fixed-IP bridge has not successfully relayed the Clan Wars clock for fifteen minutes.
+      Namespace: ElixirDrop/CRBridge
+      MetricName: WarClockHeartbeat
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
       Threshold: 1
       ComparisonOperator: LessThanThreshold
       TreatMissingData: breaching

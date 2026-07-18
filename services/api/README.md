@@ -13,8 +13,9 @@ Responsibilities in this release:
 - short-lived, single-use signed runs for all ten game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
-- global completed-game Trophy Road totals from signed-in players; and
-- per-mode best-score leaderboards in Clan Wars-aligned UTC seasons; and
+- global completed-game Trophy Road totals from signed-in players;
+- per-mode best-score leaderboards driven by the live Clan Wars season clock;
+  and
 - best-effort Discord notifications for successful magic-link logins and every
   server-validated completed game.
 
@@ -29,6 +30,16 @@ Experience, arenas, trophies, wins, and card levels are excluded from the
 message contract and persistence model. Surge, Practice, Identify,
 Higher/Lower, Blitz, and Survival use an attached collection when at least 12
 canonical cards are available; other modes keep using the complete catalog.
+
+The bridge also publishes a five-minute Clan Wars clock snapshot from
+`/currentriverrace` plus `/riverracelog`. The API stores the latest CR season
+ID, current section/week, period/day, and phase in a singleton DynamoDB item.
+A CR season-ID change creates the next leaderboard partition; the first live
+snapshot deliberately retains the existing `YYYY-MM` partition so deployment
+does not split an in-progress leaderboard. The API derives week countdown copy
+from CR's period index and the agreed 10:00 UTC cutoff. If the clock is more
+than two hours old, season reads and run completion fall back to the UTC
+first-Monday calendar instead of failing.
 
 ## Routes
 

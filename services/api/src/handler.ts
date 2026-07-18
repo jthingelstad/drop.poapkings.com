@@ -30,6 +30,7 @@ import type {
   NameClaims,
   RunTranscript,
   SessionClaims,
+  StoredCrWarClock,
 } from "./types.js";
 import {
   emailSubject,
@@ -154,6 +155,19 @@ async function refreshedCrProfile(
       error: error instanceof Error ? error.name : "unknown",
     });
     return repository.getCrProfile(tag);
+  }
+}
+
+async function currentWarClock(
+  repository: Repository,
+): Promise<StoredCrWarClock | undefined> {
+  try {
+    return await repository.getCrWarClock();
+  } catch (error) {
+    console.warn("CR war clock lookup failed; using calendar fallback", {
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return undefined;
   }
 }
 
@@ -498,7 +512,7 @@ async function route(event: APIGatewayProxyEventV2) {
       throw badRequest(error);
     }
 
-    const season = seasonForDate();
+    const season = seasonForDate(new Date(), await currentWarClock(repository));
     const result = await repository.completeRun(run, score, season.id);
     let crProfile: CrProfileSnapshot | undefined;
     if (result.profile.playerTag) {
@@ -545,22 +559,33 @@ async function route(event: APIGatewayProxyEventV2) {
     const mode = event.queryStringParameters?.mode;
     if (!isGameMode(mode))
       throw new HttpError(400, "Choose a valid game mode.");
-    const currentSeason = seasonForDate();
+    const currentSeason = seasonForDate(
+      new Date(),
+      await currentWarClock(repository),
+    );
     const seasonId = event.queryStringParameters?.season || currentSeason.id;
-    if (!/^\d{4}-\d{2}$/.test(seasonId))
-      throw new HttpError(400, "Season must use YYYY-MM format.");
+    if (!/^\d{4}-\d{2}(?:-\d+)?$/.test(seasonId))
+      throw new HttpError(400, "Season ID is invalid.");
     const entries = await repository.leaderboard(mode, seasonId);
     return json(200, { mode, seasonId, currentSeason, entries });
   }
 
   if (method === "GET" && path === "/seasons") {
-    const current = seasonForDate();
-    return json(200, { current, upcoming: upcomingSeasons(new Date(), 3) });
+    const now = new Date();
+    const clock = await currentWarClock(repository);
+    const current = seasonForDate(now, clock);
+    return json(200, { current, upcoming: upcomingSeasons(now, 3, clock) });
   }
 
   if (method === "GET" && path === "/stats") {
     const stats = await repository.globalStats();
-    return json(200, { ...stats, currentSeason: seasonForDate() });
+    return json(200, {
+      ...stats,
+      currentSeason: seasonForDate(
+        new Date(),
+        await currentWarClock(repository),
+      ),
+    });
   }
 
   throw new HttpError(404, "Route not found.", "not_found");

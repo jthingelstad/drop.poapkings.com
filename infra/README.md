@@ -8,13 +8,15 @@ stack:
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
   seasonal leaderboard index;
 - encrypted CR request/result queues with dead-letter queues and an SQS-triggered
-  result Lambda; and
+  result Lambda for both player snapshots and the Clan Wars clock; and
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
 The gitignored root `.env` also supplies
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL`. CloudFormation treats it as a `NoEcho`
 parameter and exposes it only to the Lambda runtime for notable event delivery.
+CloudWatch separately alarms on the bridge process heartbeat and on successful
+five-minute Clan Wars clock relays.
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, the

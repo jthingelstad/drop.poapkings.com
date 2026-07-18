@@ -73,7 +73,15 @@ export interface Season {
   startsAt: string;
   endsAt: string;
   durationWeeks: number;
+  source?: "clash-royale" | "calendar-fallback";
+  crSeasonId?: number;
+  currentWeek?: number;
+  daysRemainingInWeek?: number;
+  periodType?: ClanWarPeriodType;
+  clockUpdatedAt?: string;
 }
+
+export type ClanWarPeriodType = "training" | "warDay" | "colosseum";
 
 export type ClashRoyaleProfileStatus =
   "pending" | "ready" | "not_found" | "unavailable";
@@ -142,6 +150,22 @@ export interface CrPlayerRefreshNotFound extends CrPlayerRefreshResultBase {
 
 export type CrPlayerRefreshResult =
   CrPlayerRefreshSuccess | CrPlayerRefreshNotFound;
+
+export interface CrWarClock {
+  crSeasonId: number;
+  sectionIndex: number;
+  periodIndex: number;
+  periodType: ClanWarPeriodType;
+  seasonStartsAt: string;
+  observedAt: string;
+  sourceClanTag: string;
+}
+
+export interface CrWarClockResult {
+  version: 1;
+  type: "war-clock-result";
+  clock: CrWarClock;
+}
 
 export interface Player {
   id: string;

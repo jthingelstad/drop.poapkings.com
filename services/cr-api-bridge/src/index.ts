@@ -3,7 +3,11 @@ import { GetQueueUrlCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { getBridgeConfig } from "./config.js";
 import { publishBridgeStartedEvent } from "./discord.js";
 import { pollOnce, runWorker } from "./worker.js";
-import { publishBridgeHeartbeat } from "./heartbeat.js";
+import {
+  publishBridgeHeartbeat,
+  publishWarClockHeartbeat,
+} from "./heartbeat.js";
+import { relayWarClock } from "./war-clock.js";
 
 async function main(): Promise<void> {
   const config = getBridgeConfig();
@@ -38,6 +42,21 @@ async function main(): Promise<void> {
     requestQueueUrl,
     resultQueueUrl,
     publishHeartbeat: () => publishBridgeHeartbeat(cloudWatch),
+    publishWarClock: async () => {
+      const result = await relayWarClock(
+        sqs,
+        resultQueueUrl,
+        config.warClockClanTag,
+        config.crApiKey,
+      );
+      await publishWarClockHeartbeat(cloudWatch);
+      console.info("CR war clock relayed", {
+        crSeasonId: result.clock.crSeasonId,
+        sectionIndex: result.clock.sectionIndex,
+        periodIndex: result.clock.periodIndex,
+        periodType: result.clock.periodType,
+      });
+    },
   };
 
   if (process.argv.includes("--once")) {

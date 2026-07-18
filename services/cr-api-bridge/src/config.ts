@@ -7,6 +7,7 @@ export interface BridgeConfig {
   accessKeyId: string;
   secretAccessKey: string;
   crApiKey: string;
+  warClockClanTag: string;
   discordWebhookUrl?: string;
   requestQueueName: string;
   resultQueueName: string;
@@ -34,6 +35,8 @@ export function getBridgeConfig(): BridgeConfig {
     accessKeyId: required("ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID"),
     secretAccessKey: required("ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY"),
     crApiKey: required("CR_API_KEY"),
+    warClockClanTag:
+      process.env.CR_WAR_CLOCK_CLAN_TAG?.trim().toUpperCase() || "#J2RGCRVG",
     discordWebhookUrl:
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
     requestQueueName:

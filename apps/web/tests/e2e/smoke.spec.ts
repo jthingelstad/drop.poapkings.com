@@ -142,6 +142,7 @@ const routes = [
   { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
   { hash: '#/endless-ladder', label: 'Endless Ladder', ready: '.endless-ready' },
   { hash: '#/cost-sweep', label: 'Cost Sweep', ready: '.sweep-ready' },
+  { hash: '#/leaderboards', label: 'Drop leaderboards', ready: '.leaderboard-screen' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
 ]
 
@@ -206,6 +207,30 @@ test.beforeEach(async ({ page }) => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ totalGames: 100, authenticatedGames: 100 })
+      })
+      return
+    }
+    if (path === '/leaderboards') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          mode: 'surge',
+          seasonId: '2026-07',
+          currentSeason: {
+            id: '2026-07',
+            startsAt: '2026-07-06T10:00:00.000Z',
+            endsAt: '2026-08-03T10:00:00.000Z',
+            durationWeeks: 4,
+            source: 'clash-royale',
+            crSeasonId: 134,
+            currentWeek: 2,
+            daysRemainingInWeek: 2,
+            periodType: 'warDay',
+            clockUpdatedAt: '2026-07-18T19:00:00.000Z'
+          },
+          entries: []
+        })
       })
       return
     }
@@ -990,6 +1015,16 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
   await expect(page.getByLabel('Build information')).toContainText('Build ID')
   await expect(page.getByLabel('Build information')).toContainText('Build date')
+})
+
+test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
+  await page.goto('/#/leaderboards')
+
+  await expect(page.getByRole('heading', { name: 'Drop leaderboards' })).toBeVisible()
+  await expect(page.locator('.leaderboard-head')).toContainText(
+    'CR Season 134 · Week 2 · Battle days · 2 days left in week'
+  )
+  await expect(page.locator('.leaderboard-head')).toContainText('Leaderboard resets Aug 3 at 10:00 UTC')
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {

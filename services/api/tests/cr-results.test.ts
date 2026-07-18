@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseCrPlayerResult } from "../src/cr-results.js";
+import {
+  parseCrPlayerResult,
+  parseCrWarClockResult,
+} from "../src/cr-results.js";
 
 describe("CR bridge results", () => {
   it("accepts the narrow player profile contract", () => {
@@ -64,5 +67,35 @@ describe("CR bridge results", () => {
     expect(result).not.toHaveProperty("player.arena");
     expect(result).not.toHaveProperty("player.expLevel");
     expect(result).not.toHaveProperty("player.cards.0.level");
+  });
+
+  it("accepts the normalized Clan Wars clock contract", () => {
+    expect(
+      parseCrWarClockResult({
+        version: 1,
+        type: "war-clock-result",
+        clock: {
+          crSeasonId: 134,
+          sectionIndex: 1,
+          periodIndex: 12,
+          periodType: "warDay",
+          seasonStartsAt: "2026-07-06T10:00:00.000Z",
+          observedAt: "2026-07-18T19:00:00.000Z",
+          sourceClanTag: "#J2RGCRVG",
+        },
+      }),
+    ).toEqual({
+      version: 1,
+      type: "war-clock-result",
+      clock: {
+        crSeasonId: 134,
+        sectionIndex: 1,
+        periodIndex: 12,
+        periodType: "warDay",
+        seasonStartsAt: "2026-07-06T10:00:00.000Z",
+        observedAt: "2026-07-18T19:00:00.000Z",
+        sourceClanTag: "#J2RGCRVG",
+      },
+    });
   });
 });

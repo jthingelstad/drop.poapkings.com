@@ -47,7 +47,8 @@ a banner.
   player profiles, signed game runs, progression, seasonal leaderboards, and
   notable Discord events.
 - `services/cr-api-bridge` — the TypeScript queue worker running on this fixed,
-  Clash Royale API-allowlisted host.
+  Clash Royale API-allowlisted host. It relays player snapshots and the live
+  Clan Wars season clock.
 - `packages/contracts` and `packages/game-data` — shared TypeScript API contracts
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
@@ -118,6 +119,13 @@ competitive fields or card levels. Saving a tag fetches its first snapshot.
 Later snapshots refresh only when the player completes a new magic-link login;
 routine session restoration, profile reads, and games use cached data without
 creating bridge work.
+
+The bridge also reads POAP KINGS' `/currentriverrace` and `/riverracelog` every
+five minutes. It sends CR's sequential season ID, section/week, period/day, and
+phase through the existing result queue. The API stores one current clock and
+uses it to partition completed runs, reset leaderboards, and show the current
+war week. The existing first-Monday 10:00 UTC calculation remains only as a
+fallback when the bridge clock is stale.
 
 ---
 

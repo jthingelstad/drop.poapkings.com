@@ -23,7 +23,8 @@ The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
 global game totals, and seasonal leaderboards. The site and leaderboards remain
 public, while every game requires an email-authenticated player session. Dynamic
-Clash Royale player enrichment runs asynchronously through the fixed-IP bridge.
+Clash Royale player enrichment and the global Clan Wars clock run
+asynchronously through the fixed-IP bridge.
 
 The only outbound ties are ordinary links:
 
@@ -60,7 +61,8 @@ The repository uses npm workspaces:
 
 The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Fastmail JMAP, Bedrock,
 and CloudFormation. The local bridge long-polls SQS with its own queue-only IAM
-credentials and returns normalized results through a second queue.
+credentials, refreshes the Clan Wars clock every five minutes, and returns
+normalized player or clock results through a second queue.
 
 Current public website stack:
 
@@ -116,6 +118,14 @@ Refresh model:
 The static refresher and local bridge are the only implemented Clash Royale API
 consumers. Dynamic backend work must be queued for
 `services/cr-api-bridge`; Lambda and browsers never call CR directly.
+
+The runtime clock combines POAP KINGS' `/currentriverrace` section, period, and
+phase with the sequential season ID in `/riverracelog`. The result Lambda stores
+one current clock in DynamoDB. Completed runs and leaderboard reads use its
+stable leaderboard-season mapping; a changed CR season ID is the authoritative
+reset signal. The UI shows the CR season, current week, phase, and days left in
+the war week. A clock older than two hours is ignored in favor of the existing
+first-Monday 10:00 UTC calendar fallback.
 
 Normalization rules:
 

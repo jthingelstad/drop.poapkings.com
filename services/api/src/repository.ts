@@ -21,6 +21,7 @@ import type {
   PublicProfile,
   RunChallenge,
   RunRecord,
+  StoredCrWarClock,
 } from "./types.js";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -60,12 +61,28 @@ interface CrProfileItem extends CrProfileSnapshot {
   sk: "PROFILE";
 }
 
+interface CrWarClockItem extends StoredCrWarClock {
+  pk: "CR_WAR_CLOCK";
+  sk: "CURRENT";
+}
+
 function profileKey(sub: string) {
   return { pk: `PLAYER#${sub}`, sk: "PROFILE" as const };
 }
 
 function crProfileKey(tag: string) {
   return { pk: `CR_PLAYER#${tag}`, sk: "PROFILE" as const };
+}
+
+function crWarClockKey() {
+  return { pk: "CR_WAR_CLOCK" as const, sk: "CURRENT" as const };
+}
+
+function calendarSeasonId(startsAt: string): string {
+  const date = new Date(startsAt);
+  if (!Number.isFinite(date.getTime()))
+    throw new Error("CR war clock has an invalid season start");
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function publicProfile(profile: PlayerProfile): PublicProfile {
@@ -372,6 +389,54 @@ export class Repository {
           ExpressionAttributeValues: {
             ":refreshRequestedAt": snapshot.refreshRequestedAt,
           },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  async getCrWarClock(): Promise<StoredCrWarClock | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: crWarClockKey(),
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as CrWarClockItem | undefined;
+  }
+
+  async saveCrWarClock(
+    clock: Omit<StoredCrWarClock, "leaderboardSeasonId" | "updatedAt">,
+  ): Promise<boolean> {
+    const existing = await this.getCrWarClock();
+    const calendarId = calendarSeasonId(clock.seasonStartsAt);
+    const leaderboardSeasonId =
+      existing?.crSeasonId === clock.crSeasonId
+        ? existing.leaderboardSeasonId
+        : existing?.leaderboardSeasonId === calendarId
+          ? `${calendarId}-${clock.crSeasonId}`
+          : calendarId;
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            ...crWarClockKey(),
+            ...clock,
+            leaderboardSeasonId,
+            updatedAt: clock.observedAt,
+          } satisfies CrWarClockItem,
+          ConditionExpression:
+            "attribute_not_exists(observedAt) OR observedAt <= :observedAt",
+          ExpressionAttributeValues: { ":observedAt": clock.observedAt },
         }),
       );
       return true;

@@ -11,6 +11,7 @@ const repository = vi.hoisted(() => ({
   consumeMagicLink: vi.fn(),
   ensureProfile: vi.fn(),
   getCrProfile: vi.fn(),
+  getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
   getRun: vi.fn(),
   listRecentRuns: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("../src/repository.js", () => ({
     consumeMagicLink = repository.consumeMagicLink;
     ensureProfile = repository.ensureProfile;
     getCrProfile = repository.getCrProfile;
+    getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
     getRun = repository.getRun;
     listRecentRuns = repository.listRecentRuns;
@@ -128,6 +130,7 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
+    repository.getCrWarClock.mockResolvedValue(undefined);
     requestCrProfileRefresh.mockResolvedValue(snapshot);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
@@ -212,6 +215,17 @@ describe("Clash Royale refresh scheduling", () => {
   });
 
   it("reads cached CR identity after a game without requesting a refresh", async () => {
+    repository.getCrWarClock.mockResolvedValue({
+      crSeasonId: 134,
+      sectionIndex: 1,
+      periodIndex: 12,
+      periodType: "warDay",
+      seasonStartsAt: "2026-07-06T10:00:00.000Z",
+      observedAt: new Date().toISOString(),
+      sourceClanTag: "#J2RGCRVG",
+      leaderboardSeasonId: "2026-07",
+      updatedAt: new Date().toISOString(),
+    });
     const runToken = signToken(
       {
         type: "run",
@@ -253,6 +267,16 @@ describe("Clash Royale refresh scheduling", () => {
     );
 
     expect(response.statusCode).toBe(201);
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Number),
+      "2026-07",
+    );
+    expect(JSON.parse(response.body || "{}").season).toMatchObject({
+      source: "clash-royale",
+      crSeasonId: 134,
+      currentWeek: 2,
+    });
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });

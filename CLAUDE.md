@@ -31,6 +31,8 @@ Doc map:
    gitignored. Never commit it, expose it to the browser, place it in CI, or put
    it in Lambda configuration. The static refresher and local bridge are the
    only implemented consumers on the allowlisted host.
+   The bridge owns both queued player enrichment and the periodic Clan Wars
+   clock relay; Lambda consumes normalized results only.
 4. **The public website remains GitHub Pages + hash routing.** Its custom domain
    is in `apps/web/public/CNAME`; Vite uses `base: '/'`; history routing will 404
    on Pages. The deploy build needs no secrets.

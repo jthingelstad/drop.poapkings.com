@@ -3,6 +3,7 @@ import type { PutMetricDataCommand } from "@aws-sdk/client-cloudwatch";
 import {
   BRIDGE_HEARTBEAT_NAMESPACE,
   publishBridgeHeartbeat,
+  publishWarClockHeartbeat,
 } from "../src/heartbeat.js";
 
 describe("bridge heartbeat", () => {
@@ -28,6 +29,23 @@ describe("bridge heartbeat", () => {
           Value: 1,
         },
       ],
+    });
+  });
+
+  it("publishes a separate successful war-clock metric", async () => {
+    const commands: PutMetricDataCommand[] = [];
+    const send = vi.fn(async (command: PutMetricDataCommand) => {
+      commands.push(command);
+      return {};
+    });
+    const timestamp = new Date("2026-07-18T12:00:00.000Z");
+
+    await publishWarClockHeartbeat({ send } as never, timestamp);
+
+    expect(commands[0]?.input.MetricData?.[0]).toMatchObject({
+      MetricName: "WarClockHeartbeat",
+      Timestamp: timestamp,
+      Value: 1,
     });
   });
 });

@@ -4,6 +4,7 @@ import type {
   ClashRoyaleClan,
   CrPlayerRefreshResult,
   CrPlayerSnapshot,
+  CrWarClockResult,
 } from "@elixir-drop/contracts";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { getConfig } from "./config.js";
@@ -120,6 +121,55 @@ export function parseCrPlayerResult(value: unknown): CrPlayerRefreshResult {
   return { ...base, outcome: "success", player: parsePlayer(source.player) };
 }
 
+export function parseCrWarClockResult(value: unknown): CrWarClockResult {
+  const source = object(value, "Result");
+  if (source.version !== 1 || source.type !== "war-clock-result")
+    throw new Error("Unsupported CR result message");
+  const clock = object(source.clock, "War clock");
+  const crSeasonId = nonnegativeInteger(clock.crSeasonId, "CR season ID");
+  const sectionIndex = nonnegativeInteger(
+    clock.sectionIndex,
+    "War clock section index",
+  );
+  const periodIndex = nonnegativeInteger(
+    clock.periodIndex,
+    "War clock period index",
+  );
+  if (crSeasonId === undefined || crSeasonId === 0)
+    throw new Error("CR season ID is required");
+  if (sectionIndex === undefined || periodIndex === undefined)
+    throw new Error("War clock indexes are required");
+  if (
+    clock.periodType !== "training" &&
+    clock.periodType !== "warDay" &&
+    clock.periodType !== "colosseum"
+  )
+    throw new Error("War clock period type is invalid");
+  const seasonStartsAt = isoDate(
+    clock.seasonStartsAt,
+    "War clock season start",
+  );
+  const observedAt = isoDate(clock.observedAt, "War clock observation");
+  if (Date.parse(seasonStartsAt) > Date.parse(observedAt))
+    throw new Error("War clock season start is after its observation");
+  const sourceClanTag = text(clock.sourceClanTag, "War clock clan tag", 20);
+  if (!TAG_PATTERN.test(sourceClanTag))
+    throw new Error("War clock clan tag is invalid");
+  return {
+    version: 1,
+    type: "war-clock-result",
+    clock: {
+      crSeasonId,
+      sectionIndex,
+      periodIndex,
+      periodType: clock.periodType,
+      seasonStartsAt,
+      observedAt,
+      sourceClanTag,
+    },
+  };
+}
+
 export async function saveCrPlayerResult(
   repository: Repository,
   result: CrPlayerRefreshResult,
@@ -134,6 +184,13 @@ export async function saveCrPlayerResult(
   });
 }
 
+export async function saveCrWarClockResult(
+  repository: Repository,
+  result: CrWarClockResult,
+): Promise<boolean> {
+  return repository.saveCrWarClock(result.clock);
+}
+
 export async function crResultHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
@@ -141,16 +198,29 @@ export async function crResultHandler(
   const batchItemFailures: SQSBatchResponse["batchItemFailures"] = [];
   for (const record of event.Records) {
     try {
-      const result = parseCrPlayerResult(JSON.parse(record.body) as unknown);
-      const saved = await saveCrPlayerResult(repository, result);
-      console.info("CR player result processed", {
-        jobId: result.jobId,
-        playerTag: result.playerTag,
-        outcome: result.outcome,
-        saved,
-      });
+      const value = JSON.parse(record.body) as unknown;
+      const type = object(value, "Result").type;
+      if (type === "war-clock-result") {
+        const result = parseCrWarClockResult(value);
+        const saved = await saveCrWarClockResult(repository, result);
+        console.info("CR war clock processed", {
+          crSeasonId: result.clock.crSeasonId,
+          sectionIndex: result.clock.sectionIndex,
+          periodIndex: result.clock.periodIndex,
+          saved,
+        });
+      } else {
+        const result = parseCrPlayerResult(value);
+        const saved = await saveCrPlayerResult(repository, result);
+        console.info("CR player result processed", {
+          jobId: result.jobId,
+          playerTag: result.playerTag,
+          outcome: result.outcome,
+          saved,
+        });
+      }
     } catch (error) {
-      console.error("CR player result failed", {
+      console.error("CR bridge result failed", {
         messageId: record.messageId,
         error: error instanceof Error ? error.message : "Unknown error",
       });

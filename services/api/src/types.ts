@@ -7,6 +7,7 @@ import type {
   ClashRoyaleAccountAge,
   ClashRoyaleCard,
   ClashRoyaleClan,
+  CrWarClock,
   GameMode,
 } from "@elixir-drop/contracts";
 export type ScoreDirection = "lower" | "higher";
@@ -94,5 +95,10 @@ export interface CrProfileSnapshot {
   cards?: ClashRoyaleCard[];
   fetchedAt?: string;
   refreshRequestedAt?: string;
+  updatedAt: string;
+}
+
+export interface StoredCrWarClock extends CrWarClock {
+  leaderboardSeasonId: string;
   updatedAt: string;
 }
