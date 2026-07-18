@@ -126,7 +126,8 @@ void describe("deployment parameters", () => {
     assert.match(template, /- DELETE/);
   });
 
-  void it("allows CloudFormation to manage structured log groups", () => {
+  void it("allows CloudFormation to manage scheduled structured logs", () => {
+    assert.match(bootstrap, /"events:\*"/);
     assert.match(bootstrap, /"logs:\*"/);
   });
 });

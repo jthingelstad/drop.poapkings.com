@@ -93,6 +93,7 @@ async function ensureRole(accountId, bucketName) {
               "apigateway:*",
               "cloudwatch:*",
               "dynamodb:*",
+              "events:*",
               "lambda:*",
               "logs:*",
               "sns:*",
