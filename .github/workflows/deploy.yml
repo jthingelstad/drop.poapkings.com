@@ -50,6 +50,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
+          ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
           FASTMAIL_JMAP_TOKEN: ${{ secrets.ELIXIR_DROP_FASTMAIL_JMAP_TOKEN }}
 
       # The API deploy writes api-config.json; rebuild so Pages contains the
