@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card, ElixirMood } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
@@ -9,8 +9,8 @@ import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCard } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 const ADVANCE_DELAY = 1400
 type Choice = 'higher' | 'equal' | 'lower'
@@ -22,11 +22,9 @@ function relation(left: Card, right: Card): Choice {
 }
 
 export default function HigherLower() {
-  const gameRun = useGameRun('higher-lower')
+  const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
   const advanceTimer = useRef<number | undefined>(undefined)
-  const pair = useSignal<[Card, Card] | null>(null)
-  const challengePairs = useRef<Array<[Card, Card]>>([])
-  const pairIndex = useRef(0)
+  const pairIndex = useSignal(0)
   const serverAnswers = useRef<Array<{ leftId: number; rightId: number; choice: Choice }>>([])
   const picked = useSignal<Choice | null>(null)
   const revealed = useSignal(false)
@@ -40,32 +38,14 @@ export default function HigherLower() {
     return () => clearTimeout(advanceTimer.current)
   }, [])
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge) return
-    const resolved = challenge.pairs
-      .map(([leftId, rightId]) => {
-        const left = challengeCard(leftId)
-        const right = challengeCard(rightId)
-        return left && right ? ([left, right] as [Card, Card]) : undefined
-      })
-      .filter((value): value is [Card, Card] => Boolean(value))
-    if (!resolved.length) return
-    challengePairs.current = resolved
-    pairIndex.current = 0
-    serverAnswers.current = []
-    pair.value = resolved[0]!
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
   function next() {
-    pairIndex.current += 1
-    const nextPair = challengePairs.current[pairIndex.current]
+    const nextIndex = pairIndex.value + 1
+    const nextPair = gameRun.content?.[nextIndex]
     if (!nextPair) {
       void gameRun.complete({ answers: serverAnswers.current }, () => void restartAfterMiss())
       return
     }
-    pair.value = nextPair
+    pairIndex.value = nextIndex
     picked.value = null
     revealed.value = false
     elixirLine.value = ''
@@ -73,10 +53,9 @@ export default function HigherLower() {
   }
 
   async function restartAfterMiss() {
-    pair.value = null
-    await gameRun.prepare()
-    pairIndex.current = 0
+    pairIndex.value = 0
     serverAnswers.current = []
+    await gameRun.prepare()
     picked.value = null
     revealed.value = false
     elixirLine.value = ''
@@ -84,7 +63,7 @@ export default function HigherLower() {
   }
 
   function choose(choice: Choice) {
-    const activePair = pair.value
+    const activePair = gameRun.content?.[pairIndex.value]
     if (revealed.value || !activePair) return
     const [left, right] = activePair
     const answer = relation(left, right)
@@ -120,17 +99,14 @@ export default function HigherLower() {
     }, ADVANCE_DELAY)
   }
 
-  if (!gameRun.challenge.value || !pair.value) {
+  const pair = gameRun.content?.[pairIndex.value]
+  if (!pair) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value || 'Drop received an invalid signed Higher or Lower challenge.'}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
-  const [left, right] = pair.value
+  const [left, right] = pair
   const answer = relation(left, right)
   const controls: { choice: Choice; label: string }[] = [
     { choice: 'higher', label: 'Higher' },

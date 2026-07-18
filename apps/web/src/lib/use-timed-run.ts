@@ -17,6 +17,8 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
   const startTime = useRef(0)
   const penaltyMs = useRef(0)
   const timers = useRef<TimerList>([])
+  const onDurationEndRef = useRef(onDurationEnd)
+  onDurationEndRef.current = onDurationEnd
 
   useEffect(() => {
     const timerList = timers.current
@@ -33,7 +35,7 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
         const left = durationMs - elapsed
         elapsedMs.value = Math.max(0, left)
         if (left <= 0) {
-          onDurationEnd?.()
+          onDurationEndRef.current?.()
           return
         }
       } else {
@@ -45,8 +47,7 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value, durationMs])
+  }, [durationMs, elapsedMs, stage.value])
 
   function later(fn: () => void, ms: number): void {
     schedule(timers.current, fn, ms)

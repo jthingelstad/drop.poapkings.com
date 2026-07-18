@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { JSX } from 'preact'
 import type { Card } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
@@ -8,7 +8,6 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { ladderSummaryLine } from '../../lib/mode-insights'
-import { preloadImages } from '../../lib/preload'
 import { useTimedRun } from '../../lib/use-timed-run'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
 import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
@@ -16,8 +15,8 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 const LADDER = {
   SIZE: 5,
@@ -128,7 +127,7 @@ function LadderCard({
 }
 
 export default function SpeedLadder() {
-  const gameRun = useGameRun('ladder')
+  const gameRun = useGameSession('ladder', challengePreparers.ladder)
   const draggedId = useRef<number | null>(null)
   const suppressTapUntil = useRef(0)
   const runStartedAt = useRef(0)
@@ -136,7 +135,6 @@ export default function SpeedLadder() {
 
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
-  const imagesReady = useSignal(false)
   const order = useSignal<Card[]>([])
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongLocks = useSignal(0)
@@ -153,18 +151,9 @@ export default function SpeedLadder() {
     track('mode.ladder')
   }, [])
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value !== 'ready') return
-    const resolved = challengeCards(challenge.cardIds)
-    if (resolved.length !== LADDER.SIZE) return
-    order.value = resolved
-    imagesReady.value = false
-    preloadImages(resolved, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
   function start() {
+    if (!gameRun.content) return
+    order.value = [...gameRun.content]
     timed.start((startedAt) => {
       runStartedAt.current = startedAt
       serverAttempts.current = []
@@ -284,7 +273,6 @@ export default function SpeedLadder() {
     serverAttempts.current = []
     order.value = []
     revealedIds.value = new Set()
-    imagesReady.value = false
     wrongLocks.value = 0
     feedback.value = 'idle'
     hintedOnLastLock.value = false
@@ -294,13 +282,9 @@ export default function SpeedLadder() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value || order.value.length !== LADDER.SIZE) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value || 'Drop received an invalid signed Ladder challenge.'}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -366,9 +350,9 @@ export default function SpeedLadder() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start Speed Ladder' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start Speed Ladder' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back

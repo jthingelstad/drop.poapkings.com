@@ -1,6 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card } from '../../types'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
@@ -9,7 +8,6 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
-import { preloadImages } from '../../lib/preload'
 import { useTimedRun } from '../../lib/use-timed-run'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
@@ -17,8 +15,8 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 // Surge tunables — one config object (SPEC §9).
 const SURGE = {
@@ -33,8 +31,7 @@ const WRONG_BEAT_MS = 430
 const COUNTDOWN_STEP_MS = 650
 
 export default function Surge() {
-  const gameRun = useGameRun('surge')
-  const sprint = useRef<Card[]>([])
+  const gameRun = useGameSession('surge', challengePreparers.surge)
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const firstGuess = useRef(0)
@@ -46,7 +43,6 @@ export default function Surge() {
 
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
-  const imagesReady = useSignal(false)
   const index = useSignal(0)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const dropKey = useSignal(0)
@@ -60,17 +56,6 @@ export default function Surge() {
   useEffect(() => {
     track('mode.surge')
   }, [])
-
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value !== 'ready') return
-    const resolved = challengeCards(challenge.cardIds)
-    if (resolved.length !== SURGE.SPRINT_LEN) return
-    sprint.current = resolved
-    imagesReady.value = false
-    preloadImages(resolved, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
 
   function start() {
     timed.start((startedAt) => {
@@ -124,7 +109,8 @@ export default function Surge() {
 
   function answer(picked: number) {
     if (stage.value !== 'running' || cardPhase.value !== 'playing') return
-    const card = sprint.current[index.value]
+    const card = gameRun.content?.[index.value]
+    if (!card) return
     const correct = picked === card.elixir
     currentGuesses.current.push(picked)
 
@@ -159,25 +145,19 @@ export default function Surge() {
 
   function replay() {
     timed.reset('ready')
-    sprint.current = []
     answers.current = []
     serverAnswers.current = []
     currentGuesses.current = []
     recorded.current = false
-    imagesReady.value = false
     insights.value = null
     cardPhase.value = 'playing'
     index.value = 0
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -229,9 +209,9 @@ export default function Surge() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start sprint' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start sprint' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back
@@ -254,7 +234,7 @@ export default function Surge() {
   }
 
   // ── Running ──────────────────────────────────────────────────────────────
-  const card = sprint.current[index.value]
+  const card = gameRun.content[index.value]!
   return (
     <div class="main-content game-run surge">
       <div class="surge-hud">

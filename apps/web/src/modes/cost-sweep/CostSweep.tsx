@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { getRecords, saveRecords, saveResult } from '../../lib/storage'
@@ -15,11 +15,10 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers, type SweepBoard } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 const SWEEP = {
-  BOARD_SIZE: 12,
   WINDOW_MS: 45000,
   WRONG_PENALTY_MS: 2000,
   BOARD_CLEAR_BEAT_MS: 360,
@@ -27,11 +26,6 @@ const SWEEP = {
 }
 
 const COUNTDOWN_STEP_MS = 650
-
-interface SweepBoard {
-  cards: Card[]
-  targetElixir: number
-}
 
 function SweepCard({
   card,
@@ -76,11 +70,10 @@ function SweepCard({
 }
 
 export default function CostSweep() {
-  const gameRun = useGameRun('cost-sweep')
+  const gameRun = useGameSession('cost-sweep', challengePreparers['cost-sweep'])
   const answers = useRef<Answer[]>([])
   const finished = useRef(false)
   const runStartedAt = useRef(0)
-  const serverBoards = useRef<SweepBoard[]>([])
   const serverBoardIndex = useRef(0)
   const serverPicks = useRef<Array<{ boardIndex: number; cardId: number; atMs: number }>>([])
 
@@ -90,7 +83,6 @@ export default function CostSweep() {
     onDurationEnd: finish
   })
   const { stage, count, elapsedMs: remainingMs, later } = timed
-  const imagesReady = useSignal(false)
   const board = useSignal<SweepBoard | null>(null)
   const selectedIds = useSignal<Set<number>>(new Set())
   const wrongIds = useSignal<Set<number>>(new Set())
@@ -107,30 +99,12 @@ export default function CostSweep() {
     track('mode.costsweep')
   }, [])
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value !== 'ready') return
-    const resolved = challenge.boards.map((item) => ({
-      targetElixir: item.targetElixir,
-      cards: challengeCards(item.cardIds)
-    }))
-    if (!resolved.length || resolved.some((item) => item.cards.length !== SWEEP.BOARD_SIZE)) return
-    serverBoards.current = resolved
-    serverBoardIndex.current = 0
-    board.value = resolved[0]!
-    imagesReady.value = false
-    preloadImages(resolved[0]!.cards, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
   function resetRun() {
     timed.reset('ready')
     answers.current = []
     finished.current = false
-    serverBoards.current = []
     serverBoardIndex.current = 0
     serverPicks.current = []
-    imagesReady.value = false
     selectedIds.value = new Set()
     wrongIds.value = new Set()
     found.value = 0
@@ -145,6 +119,10 @@ export default function CostSweep() {
   }
 
   function start() {
+    const firstBoard = gameRun.content?.[0]
+    if (!firstBoard) return
+    board.value = firstBoard
+    serverBoardIndex.current = 0
     timed.start((startedAt) => {
       runStartedAt.current = startedAt
       serverPicks.current = []
@@ -158,7 +136,7 @@ export default function CostSweep() {
   function nextBoard() {
     if (stage.value !== 'running' || finished.current) return
     serverBoardIndex.current += 1
-    const next = serverBoards.current[serverBoardIndex.current]
+    const next = gameRun.content?.[serverBoardIndex.current]
     if (!next) {
       finish()
       return
@@ -244,13 +222,9 @@ export default function CostSweep() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value || !board.value) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value || 'Drop received an invalid signed Cost Sweep challenge.'}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -299,9 +273,9 @@ export default function CostSweep() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start Cost Sweep' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start Cost Sweep' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back

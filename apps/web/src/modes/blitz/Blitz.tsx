@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
@@ -16,20 +16,19 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 // Blitz = a 60s count-up variant of Surge: clear as many as you can, higher wins.
 const BLITZ = {
-  WINDOW_MS: 60000,
-  PRELOAD_BATCH: 18
+  WINDOW_MS: 60000
 }
 const CORRECT_BEAT_MS = 230
 const WRONG_BEAT_MS = 380
 const COUNTDOWN_STEP_MS = 650
 
 export default function Blitz() {
-  const gameRun = useGameRun('blitz')
+  const gameRun = useGameSession('blitz', challengePreparers.blitz)
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const recorded = useRef(false)
@@ -37,7 +36,6 @@ export default function Blitz() {
   const firstCorrect = useRef(false)
   const finished = useRef(false)
   const runStartedAt = useRef(0)
-  const serverCards = useRef<Card[]>([])
   const serverCardIndex = useRef(0)
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
@@ -48,7 +46,6 @@ export default function Blitz() {
     onDurationEnd: finish
   })
   const { stage, count, elapsedMs: remainingMs, later } = timed
-  const imagesReady = useSignal(false)
   const cleared = useSignal(0)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
@@ -63,18 +60,6 @@ export default function Blitz() {
     track('mode.blitz')
   }, [])
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value !== 'ready') return
-    const resolved = challengeCards(challenge.cardIds)
-    if (!resolved.length) return
-    serverCards.current = resolved
-    serverCardIndex.current = 0
-    imagesReady.value = false
-    preloadImages(resolved.slice(0, BLITZ.PRELOAD_BATCH), () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
   function start() {
     timed.start((startedAt) => {
       finished.current = false
@@ -85,7 +70,7 @@ export default function Blitz() {
       recorded.current = false
       currentGuesses.current = []
       serverAnswers.current = []
-      current.value = serverCards.current[0] ?? null
+      current.value = gameRun.content?.[0] ?? null
       serverCardIndex.current = current.value ? 1 : 0
       cardPhase.value = 'playing'
     })
@@ -93,7 +78,7 @@ export default function Blitz() {
 
   function nextCard() {
     if (stage.value !== 'running') return
-    const c = serverCards.current[serverCardIndex.current]
+    const c = gameRun.content?.[serverCardIndex.current]
     if (!c) {
       finish()
       return
@@ -167,10 +152,8 @@ export default function Blitz() {
   function replay() {
     timed.reset('ready')
     finished.current = false
-    imagesReady.value = false
     insights.value = null
     current.value = null
-    serverCards.current = []
     serverCardIndex.current = 0
     serverAnswers.current = []
     currentGuesses.current = []
@@ -179,13 +162,9 @@ export default function Blitz() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -232,9 +211,9 @@ export default function Blitz() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start Blitz' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start Blitz' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back

@@ -1,5 +1,5 @@
 import { signal, useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
 import { applyRunProgress, requiredSessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
@@ -39,7 +39,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
   const preparing = useSignal(true)
   const startError = useSignal('')
 
-  async function prepare(): Promise<void> {
+  const prepare = useCallback(async (): Promise<void> => {
     preparing.value = true
     run.current = null
     challenge.value = null
@@ -65,12 +65,11 @@ export function useGameRun<T extends GameMode>(mode: T) {
     } finally {
       preparing.value = false
     }
-  }
+  }, [challenge, mode, preparing, startError])
 
   useEffect(() => {
     void prepare()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
+  }, [prepare])
 
   async function submitCompletion(
     active: StartedRun,

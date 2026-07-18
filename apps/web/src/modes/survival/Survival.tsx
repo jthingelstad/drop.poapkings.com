@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
@@ -15,31 +15,28 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 // Survival = sudden death. Each card has a short clock; a miss OR a timeout ends
 // the run. Score is how many you clear in a row.
 const SURVIVAL = {
-  CARD_MS: 5000,
-  PRELOAD_BATCH: 14
+  CARD_MS: 5000
 }
 const DEATH_BEAT_MS = 1100
 
 type Stage = 'ready' | 'running' | 'over'
 
 export default function Survival() {
-  const gameRun = useGameRun('survival')
+  const gameRun = useGameSession('survival', challengePreparers.survival)
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const timers = useRef<number[]>([])
   const dead = useRef(false)
-  const serverCards = useRef<Card[]>([])
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
 
   const stage = useSignal<Stage>('ready')
-  const imagesReady = useSignal(false)
   const streak = useSignal(0)
   const best = useSignal(getRecords().survivalBest ?? 0)
   const remainingFrac = useSignal(1)
@@ -50,24 +47,14 @@ export default function Survival() {
   const insights = useSignal<Insights | null>(null)
   const isPB = useSignal(false)
   const elixirLine = useSignal('')
+  const dieRef = useRef<(card: Card | null, picked: number | undefined) => void>(() => {})
+  dieRef.current = die
 
   useEffect(() => {
     const timerList = timers.current
     track('mode.survival')
     return () => clearTimers(timerList)
   }, [])
-
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value !== 'ready') return
-    const resolved = challengeCards(challenge.cardIds)
-    if (!resolved.length) return
-    serverCards.current = resolved
-    serverCardIndex.current = 0
-    imagesReady.value = false
-    preloadImages(resolved.slice(0, SURVIVAL.PRELOAD_BATCH), () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
 
   // Per-card clock — drives the depleting bar and times you out.
   useEffect(() => {
@@ -79,7 +66,7 @@ export default function Survival() {
         const frac = 1 - elapsed / SURVIVAL.CARD_MS
         remainingFrac.value = Math.max(0, frac)
         if (frac <= 0) {
-          die(current.value, undefined)
+          dieRef.current(current.value, undefined)
           return
         }
       }
@@ -87,8 +74,7 @@ export default function Survival() {
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage.value])
+  }, [cardPhase, current, remainingFrac, stage.value])
 
   function later(fn: () => void, ms: number) {
     schedule(timers.current, fn, ms)
@@ -99,7 +85,7 @@ export default function Survival() {
     answers.current = []
     serverAnswers.current = []
     streak.value = 0
-    current.value = serverCards.current[0] ?? null
+    current.value = gameRun.content?.[0] ?? null
     serverCardIndex.current = current.value ? 1 : 0
     cardStart.current = performance.now()
     remainingFrac.value = 1
@@ -109,7 +95,7 @@ export default function Survival() {
 
   function nextCard() {
     if (stage.value !== 'running' || dead.current) return
-    const c = serverCards.current[serverCardIndex.current]
+    const c = gameRun.content?.[serverCardIndex.current]
     if (!c) {
       finish()
       return
@@ -183,10 +169,8 @@ export default function Survival() {
   function replay() {
     clearTimers(timers.current)
     dead.current = false
-    imagesReady.value = false
     insights.value = null
     current.value = null
-    serverCards.current = []
     serverCardIndex.current = 0
     serverAnswers.current = []
     cardPhase.value = 'playing'
@@ -197,13 +181,9 @@ export default function Survival() {
   }
 
   // ── Game over ──────────────────────────────────────────────────────────────
-  if (!gameRun.challenge.value) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -242,9 +222,9 @@ export default function Survival() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={begin}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start run' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start run' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back

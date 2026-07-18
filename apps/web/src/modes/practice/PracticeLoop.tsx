@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
-import { useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, ElixirMood, InputStyle } from '../../types'
+import { useMemo, useRef } from 'preact/hooks'
+import type { ElixirMood, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { makeChoices } from '../../lib/choices'
 import { saveResult, getSettings, saveSettings, recordSession, getRecords, saveRecords } from '../../lib/storage'
@@ -15,8 +15,8 @@ import ElixirHost from '../../components/ElixirHost'
 import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 const STRONG_SESSION_PCT = 85
 const ROUND_LEN = 15
@@ -30,18 +30,17 @@ interface Props {
 
 // The untimed quiz loop used by Practice.
 export default function PracticeLoop({ eyebrow, onExit }: Props) {
-  const gameRun = useGameRun('practice')
+  const gameRun = useGameSession('practice', challengePreparers.practice)
   const exit = onExit ?? (() => navigate('/'))
   const answers = useRef<Answer[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
-  const serverCards = useRef<Card[]>([])
-  const serverIndex = useRef(0)
+  const cards = gameRun.content
+  const choiceSets = useMemo(() => cards?.map((card) => makeChoices(card.elixir)) ?? [], [cards])
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
   const view = useSignal<'play' | 'summary'>('play')
-  const currentCard = useSignal<Card | null>(null)
-  const choices = useSignal<number[]>([])
+  const cardIndex = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const elixirLine = useSignal<string>(pickLine('idle'))
   const elixirMood = useSignal<ElixirMood>('neutral')
@@ -52,32 +51,10 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const insights = useSignal<Insights | null>(null)
   const strongSession = useSignal(false)
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || answers.current.length) return
-    const resolved = challengeCards(challenge.cardIds)
-    if (resolved.length !== ROUND_LEN) return
-    serverCards.current = resolved
-    serverIndex.current = 1
-    currentCard.value = resolved[0]!
-    choices.value = makeChoices(resolved[0]!.elixir)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
-  function drawCard(): Card | undefined {
-    const serverCard = serverCards.current[serverIndex.current]
-    if (serverCard) {
-      serverIndex.current += 1
-      return serverCard
-    }
-    return undefined
-  }
-
   function nextCard() {
-    const next = drawCard()
-    if (!next) return
-    currentCard.value = next
-    choices.value = makeChoices(next.elixir)
+    const nextIndex = cardIndex.value + 1
+    if (!cards?.[nextIndex]) return
+    cardIndex.value = nextIndex
     phase.value = 'playing'
     elixirLine.value = ''
     elixirMood.value = 'thinking'
@@ -110,7 +87,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   function handleAnswer(picked: number) {
     if (phase.value !== 'playing') return
 
-    const card = currentCard.value
+    const card = cards?.[cardIndex.value]
     if (!card) return
     const isCorrect = picked === card.elixir
 
@@ -145,10 +122,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   function replay() {
     answers.current = []
     serverAnswers.current = []
-    serverCards.current = []
-    serverIndex.current = 0
-    currentCard.value = null
-    choices.value = []
+    cardIndex.value = 0
     void gameRun.prepare()
     answered.value = 0
     correct.value = 0
@@ -165,13 +139,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     saveSettings({ inputStyle: style })
   }
 
-  if (!gameRun.challenge.value || !currentCard.value) {
+  if (!cards) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value || 'Drop received an invalid signed Practice challenge.'}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -195,7 +165,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   }
 
   const accuracy = answered.value > 0 ? Math.round((correct.value / answered.value) * 100) : null
-  const card = currentCard.value
+  const card = cards[cardIndex.value]!
 
   return (
     <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
@@ -256,7 +226,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing' || gameRun.preparing.value} />
       ) : (
         <MultipleChoice
-          choices={choices.value}
+          choices={choiceSets[cardIndex.value] ?? []}
           onPick={handleAnswer}
           disabled={phase.value !== 'playing' || gameRun.preparing.value}
         />

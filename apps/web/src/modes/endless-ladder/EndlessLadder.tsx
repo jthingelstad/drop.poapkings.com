@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import { getRecords, saveRecords, saveResult } from '../../lib/storage'
 import { track } from '../../lib/analytics'
@@ -15,8 +15,8 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import { useGameRun } from '../../lib/use-game-run'
-import { challengeCards } from '../../lib/challenge-cards'
+import { challengePreparers } from '../../lib/game-challenge-content'
+import { useGameSession } from '../../lib/use-game-session'
 
 const ENDLESS = {
   STARTING_CARDS: 2,
@@ -48,18 +48,15 @@ function EndlessRowCard({ card, revealCost }: { card: Card; revealCost: boolean 
 }
 
 export default function EndlessLadder() {
-  const gameRun = useGameRun('endless-ladder')
+  const gameRun = useGameSession('endless-ladder', challengePreparers['endless-ladder'])
   const timers = useRef<number[]>([])
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const best = useSignal(getRecords().endlessLadderBest ?? 0)
-  const serverCards = useRef<Card[]>([])
   const serverCardIndex = useRef(0)
   const serverAttempts = useRef<Array<{ cardId: number; slotIndex: number }>>([])
 
   const stage = useSignal<Stage>('ready')
-  const challengeReady = useSignal(false)
-  const imagesReady = useSignal(false)
   const row = useSignal<Card[]>([])
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<CardPhase>('playing')
@@ -73,30 +70,11 @@ export default function EndlessLadder() {
   useEffect(() => {
     const timerList = timers.current
     track('mode.endless')
-    dealRun()
     return () => clearTimers(timerList)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useLayoutEffect(() => {
-    const challenge = gameRun.challenge.value
-    if (!challenge || stage.value === 'running') return
-    const starting = challengeCards(challenge.startingIds)
-    const incoming = challengeCards(challenge.cardIds)
-    if (starting.length !== challenge.startingIds.length || !incoming.length) return
-    serverCards.current = incoming
-    serverCardIndex.current = 1
-    serverAttempts.current = []
-    row.value = sortByElixir(starting)
-    current.value = incoming[0]!
-    challengeReady.value = true
-    imagesReady.value = false
-    preloadImages([...row.value, incoming[0]!], () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameRun.challenge.value])
-
   function drawCard(): Card | undefined {
-    const serverCard = serverCards.current[serverCardIndex.current]
+    const serverCard = gameRun.content?.incoming[serverCardIndex.current]
     if (serverCard) {
       serverCardIndex.current += 1
       return serverCard
@@ -107,11 +85,8 @@ export default function EndlessLadder() {
   function dealRun() {
     clearTimers(timers.current)
     answers.current = []
-    serverCards.current = []
     serverCardIndex.current = 0
     serverAttempts.current = []
-    challengeReady.value = false
-    imagesReady.value = false
     insights.value = null
     failedSlot.value = null
     isPB.value = false
@@ -128,6 +103,11 @@ export default function EndlessLadder() {
   }
 
   function start() {
+    const challenge = gameRun.content
+    if (!challenge) return
+    row.value = sortByElixir(challenge.starting)
+    current.value = challenge.incoming[0] ?? null
+    serverCardIndex.current = current.value ? 1 : 0
     if (!current.value) return
     cardStart.current = performance.now()
     cardPhase.value = 'playing'
@@ -207,13 +187,9 @@ export default function EndlessLadder() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value || !challengeReady.value) {
+  if (!gameRun.content) {
     return (
-      <GameRunGate
-        preparing={gameRun.preparing.value}
-        error={gameRun.startError.value || 'Drop received an invalid signed Endless Ladder challenge.'}
-        onRetry={() => void gameRun.prepare()}
-      />
+      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
     )
   }
 
@@ -279,9 +255,9 @@ export default function EndlessLadder() {
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
-            disabled={!imagesReady.value || gameRun.preparing.value}
+            disabled={!gameRun.assetsReady || gameRun.preparing.value}
           >
-            {imagesReady.value ? 'Start Endless Ladder' : 'Loading cards…'}
+            {gameRun.assetsReady ? 'Start Endless Ladder' : 'Loading cards…'}
           </button>
           <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
             Back
