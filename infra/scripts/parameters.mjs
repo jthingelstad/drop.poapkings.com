@@ -46,7 +46,9 @@ export function deploymentParameters({
     },
     {
       ParameterKey: "NameModelId",
-      ParameterValue: environment.NAME_MODEL_ID || "amazon.nova-micro-v1:0",
+      ParameterValue:
+        environment.NAME_MODEL_ID ||
+        "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     },
   ];
 

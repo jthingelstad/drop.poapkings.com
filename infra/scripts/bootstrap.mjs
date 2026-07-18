@@ -334,7 +334,9 @@ const values = {
     existingEnv.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com",
   ELIXIR_DROP_STACK_NAME: stackName,
   FASTMAIL_JMAP_TOKEN: jmapToken,
-  NAME_MODEL_ID: existingEnv.NAME_MODEL_ID || "amazon.nova-micro-v1:0",
+  NAME_MODEL_ID:
+    existingEnv.NAME_MODEL_ID ||
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
   SESSION_SECRET:
     existingEnv.SESSION_SECRET || randomBytes(48).toString("base64url"),
 };

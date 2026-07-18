@@ -26,7 +26,9 @@ export function getConfig(): Config {
       process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com",
     emailFromName:
       process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop",
-    nameModelId: process.env.NAME_MODEL_ID?.trim() || "amazon.nova-micro-v1:0",
+    nameModelId:
+      process.env.NAME_MODEL_ID?.trim() ||
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     discordWebhookUrl:
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),

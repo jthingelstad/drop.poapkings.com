@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { favoriteCard } from "../src/cards.js";
-import { fallbackNamesForCard, isSafeFavoriteCardName } from "../src/names.js";
+import {
+  fallbackNamesForCard,
+  isSafeGeneratedName,
+  parseModelNames,
+} from "../src/names.js";
 import {
   normalizeEmail,
   normalizeGameReturnPath,
@@ -30,30 +34,42 @@ describe("player input validation", () => {
     expect(normalizeGameReturnPath("https://example.com")).toBeUndefined();
   });
 
-  it("only permits names bound to the selected card", () => {
-    expect(isSafeFavoriteCardName("Royal Ghost", "Royal Ghost")).toBe(true);
-    expect(isSafeFavoriteCardName("Royal Ghost Main", "Royal Ghost")).toBe(
-      true,
-    );
-    expect(isSafeFavoriteCardName("Team Royal Ghost", "Royal Ghost")).toBe(
-      true,
-    );
-    expect(isSafeFavoriteCardName("Royal Giant Main", "Royal Ghost")).toBe(
-      false,
-    );
-    expect(
-      isSafeFavoriteCardName("Royal Ghost definitelybadword", "Royal Ghost"),
-    ).toBe(false);
+  it("allows creative card-inspired names without requiring the exact title", () => {
+    expect(isSafeGeneratedName("Skarmy Picnic")).toBe(true);
+    expect(isSafeGeneratedName("Mini P Pancakes")).toBe(true);
+    expect(isSafeGeneratedName("Pancake Patrol")).toBe(true);
+    expect(isSafeGeneratedName("Bone Parade")).toBe(true);
   });
 
-  it("builds deterministic fallback choices around one card", () => {
-    expect(fallbackNamesForCard("P.E.K.K.A")).toEqual([
-      "P.E.K.K.A",
-      "P.E.K.K.A Main",
-      "P.E.K.K.A Ace",
-      "Team P.E.K.K.A",
-      "P.E.K.K.A Legend",
-      "P.E.K.K.A Fan",
+  it("rejects unsafe, identifying, or impersonating generated names", () => {
+    for (const name of [
+      "Supercell Support",
+      "Goblin Admin",
+      "Skarmy@home",
+      "https Pekka",
+      "Mini P   Party",
+      "DefinitelyShitty",
+    ]) {
+      expect(isSafeGeneratedName(name)).toBe(false);
+    }
+  });
+
+  it("filters and deduplicates model output", () => {
+    expect(
+      parseModelNames(
+        '```json\n{"names":["Skarmy Picnic","skarmy picnic","Bone Parade","Supercell Support"]}\n```',
+      ),
+    ).toEqual(["Skarmy Picnic", "Bone Parade"]);
+  });
+
+  it("builds playful deterministic fallback choices with card nicknames", () => {
+    expect(fallbackNamesForCard("Skeleton Army")).toEqual([
+      "Skarmy",
+      "Skarmy Energy",
+      "Pocket Skarmy",
+      "Skarmy Parade",
+      "Skarmy Quest",
+      "Skarmy Snack Club",
     ]);
   });
 

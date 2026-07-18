@@ -201,7 +201,7 @@ export default function Profile() {
           <div class="profile-section__head">
             <div>
               <h2>Favorite card and player name</h2>
-              <p>Your favorite card is your profile image. Your public name is generated from that card.</p>
+              <p>Your favorite card is your profile image. Your public name is playfully inspired by that card.</p>
             </div>
             {!editingIdentity.value && (
               <button class="btn btn--ghost" onClick={beginIdentityEdit}>
@@ -249,7 +249,7 @@ export default function Profile() {
                   <div class="selected-card-panel__body">
                     <div class="eyebrow">Selected favorite</div>
                     <h3>{selectedCard.name}</h3>
-                    <p>Choose a generated name to save this card and identity together.</p>
+                    <p>Choose a card-inspired name—nicknames and wordplay included.</p>
                     <button class="btn btn--gold" onClick={() => void loadNames()} disabled={busy.value}>
                       {names.value.length ? 'More name choices' : 'Get name choices'}
                     </button>

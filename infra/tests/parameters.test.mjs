@@ -9,6 +9,20 @@ const base = {
 };
 
 describe("deployment parameters", () => {
+  it("uses Claude Haiku for creative player names by default", () => {
+    const parameters = deploymentParameters({ ...base, stackExists: true });
+
+    assert.deepEqual(
+      parameters.find(
+        (parameter) => parameter.ParameterKey === "NameModelId",
+      ),
+      {
+        ParameterKey: "NameModelId",
+        ParameterValue: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      },
+    );
+  });
+
   it("reuses runtime secrets when updating an existing stack from CI", () => {
     const parameters = deploymentParameters({ ...base, stackExists: true });
 

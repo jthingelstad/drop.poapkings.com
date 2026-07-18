@@ -71,9 +71,11 @@ rank-oriented fields as part of unrelated work.
 - **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
   `records`, `funnel`, `settings`.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
-  canonical card snapshot. Name-option tokens bind the player, card ID, and
-  exact choices; the API saves favorite card and public name together. Keep
-  player tags separate and explicitly unverified.
+  canonical card snapshot. Claude Haiku may use community nicknames and playful
+  card associations; the public name does not need the exact card title.
+  Name-option tokens bind the player, card ID, and exact safe choices; the API
+  saves favorite card and public name together. Keep player tags separate and
+  explicitly unverified.
 - **`apps/web/src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
   mastered ones, avoid immediate repeats. Tunables in one config object.
 - **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only

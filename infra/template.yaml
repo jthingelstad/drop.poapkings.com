@@ -26,7 +26,7 @@ Parameters:
     Default: elixir@poapkings.com
   NameModelId:
     Type: String
-    Default: amazon.nova-micro-v1:0
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
   AllowedOrigins:
     Type: CommaDelimitedList
     Default: https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173

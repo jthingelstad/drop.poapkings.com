@@ -220,8 +220,10 @@ Authenticated public identity is centered on one favorite card:
 
 - The player chooses a card from the canonical committed snapshot; its ID is
   stored as `favoriteCardId` and its artwork becomes the profile image.
-- `POST /me/name-options` accepts that card ID and returns public names derived
-  only from its exact title, plus a short-lived signed choice token.
+- `POST /me/name-options` accepts that card ID and uses Claude Haiku to return
+  playful public names inspired by its title, community nicknames, mechanics,
+  artwork, and character, plus a short-lived signed choice token. Names do not
+  need to contain the exact card title.
 - The token binds the player, favorite card, and exact name choices. `PATCH /me`
   accepts the card and selected name together and persists them atomically.
 - Changing a favorite card requires choosing a new card-derived name in the

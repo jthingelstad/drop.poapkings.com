@@ -177,6 +177,40 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
+  it("accepts a safe signed card-inspired name without the exact card title", async () => {
+    const favoriteCardId = 26000018;
+    const publicName = "Pancake Patrol";
+    const nameToken = signToken(
+      {
+        type: "names",
+        sub: profile.sub,
+        favoriteCardId,
+        names: [publicName, "Mini P Griddle"],
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 900,
+      },
+      secret,
+    );
+    repository.updateProfile.mockResolvedValue({
+      ...profile,
+      favoriteCardId,
+      publicName,
+    });
+
+    const response = await invoke(
+      "PATCH",
+      "/me",
+      { favoriteCardId, publicName, nameToken },
+      true,
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
+      favoriteCardId,
+      publicName,
+    });
+  });
+
   it("reads cached CR identity after a game without requesting a refresh", async () => {
     const runToken = signToken(
       {

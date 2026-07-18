@@ -19,7 +19,7 @@ import { badRequest, HttpError } from "./errors.js";
 import { isGameMode } from "./games.js";
 import { bearerToken, json } from "./http.js";
 import { sendMagicLink } from "./jmap.js";
-import { generateNameOptions, isSafeFavoriteCardName } from "./names.js";
+import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
 import { createChallenge, scoreRun } from "./scoring.js";
@@ -323,7 +323,7 @@ async function route(event: APIGatewayProxyEventV2) {
       const card = favoriteCard(body.favoriteCardId);
       if (
         !card ||
-        !isSafeFavoriteCardName(body.publicName, card.name) ||
+        !isSafeGeneratedName(body.publicName) ||
         typeof body.nameToken !== "string"
       ) {
         throw new HttpError(
