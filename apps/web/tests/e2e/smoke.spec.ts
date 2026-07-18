@@ -206,7 +206,7 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ totalGames: 100, authenticatedGames: 100 })
+        body: JSON.stringify({ trophyRoadGames: 592 })
       })
       return
     }
@@ -360,7 +360,7 @@ test('new players choose a favorite card and generated name before returning to 
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ totalGames: 0, authenticatedGames: 0 })
+        body: JSON.stringify({ trophyRoadGames: 592 })
       })
       return
     }
@@ -407,7 +407,7 @@ test('a signed run must be prepared before game controls become available', asyn
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"totalGames":100}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
       return
     }
     if (path === '/runs/start' && attempts++ === 0) {
@@ -454,7 +454,7 @@ test('a failed completion blocks replay until the recorded run retry succeeds', 
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"totalGames":100}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
       return
     }
     if (path === '/runs/complete' && completionAttempts++ === 0) {
@@ -506,7 +506,7 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"totalGames":100}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
       return
     }
     if (path === '/runs/complete') {
@@ -534,6 +534,19 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
   await page.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByText('This game could not be verified and was not recorded.')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
+})
+
+test('Trophy Road explains and displays the site-wide game counter', async ({ page }) => {
+  await page.goto('/')
+
+  const trophyRoad = page.getByRole('button', { name: 'Trophy Road, Electro Valley, 592 Drop games' })
+  await expect(trophyRoad).toBeVisible()
+  await trophyRoad.click()
+
+  const dialog = page.getByRole('dialog', { name: 'Trophy Road' })
+  await expect(dialog).toContainText('Every completed, recorded Drop game adds one to the whole site’s road.')
+  await expect(dialog).toContainText('592 Drop games')
+  await expect(dialog).not.toContainText('visits')
 })
 
 for (const route of routes) {
@@ -1058,7 +1071,7 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ totalGames: 100, authenticatedGames: 80 })
+        body: JSON.stringify({ trophyRoadGames: 592 })
       })
       return
     }

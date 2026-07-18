@@ -3,6 +3,7 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyHandlerV2,
 } from "aws-lambda";
+import type { SiteStats } from "@elixir-drop/contracts";
 import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
 import {
@@ -579,13 +580,14 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "GET" && path === "/stats") {
     const stats = await repository.globalStats();
-    return json(200, {
+    const response: SiteStats = {
       ...stats,
       currentSeason: seasonForDate(
         new Date(),
         await currentWarClock(repository),
       ),
-    });
+    };
+    return json(200, response);
   }
 
   throw new HttpError(404, "Route not found.", "not_found");

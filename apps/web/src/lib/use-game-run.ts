@@ -5,6 +5,7 @@ import { applyRunProgress, requiredSessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
+import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
 
 type RecordingNotice =
   | { state: 'idle' }
@@ -83,6 +84,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       run.current = null
       pendingCompletion.current = null
       setRecordingNotice({ state: 'saved', message: 'Game recorded' })
+      window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {

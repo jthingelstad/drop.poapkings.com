@@ -111,6 +111,11 @@ rank-oriented fields as part of unrelated work.
 - **CR profile snapshots are practice context, not rank context.** Store CR name,
   clan, Years Played account age, and cards. Do not add experience, arenas,
   trophies, wins, or card levels. Player tags remain unverified ownership.
+- **The site-wide Trophy Road advances on completed games, never traffic.**
+  `GET /stats.trophyRoadGames` has the stable one-time launch seed of 592, then
+  increments atomically with every server-accepted run. Keep the real tracked
+  total separate. Tinylytics is analytics only; seasonal leaderboard resets do
+  not reset Trophy Road.
 - **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
   Preload the sprint's card images before the clock starts.
 

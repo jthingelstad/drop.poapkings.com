@@ -188,6 +188,20 @@ Important shared modules:
 - `apps/web/src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
 
+Site-wide Trophy Road:
+
+- `GET /stats` returns `trophyRoadGames`. It starts at the one-time random launch
+  seed of 592 and then advances once for each server-accepted completed run.
+- The API keeps the real tracked-game count separate and increments both values
+  in the same DynamoDB transaction as the player count, immutable run history,
+  and leaderboard entry. Failed, rejected, and duplicate submissions do not
+  advance the road.
+- Tinylytics page views and events are analytics only and never affect Trophy
+  Road. Clan Wars seasons reset leaderboards, not the lifetime Trophy Road.
+- The 28 arena milestones in `apps/web/src/data/starRanks.ts` are scaled for
+  Trophy Road game volume, from Goblin Stadium at 0 through Summit of Heroes at
+  17,250.
+
 Timing rules:
 
 - Use `performance.now()` for elapsed-time math.

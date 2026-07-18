@@ -13,7 +13,7 @@ Responsibilities in this release:
 - short-lived, single-use signed runs for all ten game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
-- global completed-game Trophy Road totals from signed-in players;
+- a site-wide Trophy Road advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock;
   and
 - best-effort Discord notifications for successful magic-link logins and every
@@ -51,6 +51,14 @@ first-Monday calendar instead of failing.
 Starting and completing a run both require a valid player session. The public
 site and leaderboards remain browsable without an account, but games do not
 have an anonymous path.
+
+`GET /stats` exposes `trophyRoadGames` as the site-wide Trophy Road counter. It
+has one stable launch seed of 592, then advances exactly once for each
+server-validated run—not for visits or analytics events. The Trophy Road
+counter, real tracked-game count, player count, immutable run history, and
+leaderboard entry are written in the same DynamoDB transaction, so a rejected
+or duplicate run cannot move Trophy Road. Seasonal leaderboard resets do not
+reset this counter.
 
 ## Player identity
 

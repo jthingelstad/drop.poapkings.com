@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import { leaderboardSortKey } from "./games.js";
 import { levelForGames } from "./progression.js";
+import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
   GameMode,
   CrProfileSnapshot,
@@ -537,8 +538,12 @@ export class Repository {
           TableName: this.tableName,
           Key: { pk: "GLOBAL", sk: "STATS" },
           UpdateExpression:
-            "SET updatedAt = :updatedAt ADD totalGames :one, authenticatedGames :one",
-          ExpressionAttributeValues: { ":one": 1, ":updatedAt": completedAt },
+            "SET updatedAt = :updatedAt, trophyRoadGames = if_not_exists(trophyRoadGames, :trophyRoadStart) + :one ADD totalGames :one",
+          ExpressionAttributeValues: {
+            ":one": 1,
+            ":trophyRoadStart": TROPHY_ROAD_STARTING_GAMES,
+            ":updatedAt": completedAt,
+          },
         },
       },
       {
@@ -667,8 +672,7 @@ export class Repository {
   }
 
   async globalStats(): Promise<{
-    totalGames: number;
-    authenticatedGames: number;
+    trophyRoadGames: number;
   }> {
     const result = await client.send(
       new GetCommand({
@@ -677,8 +681,9 @@ export class Repository {
       }),
     );
     return {
-      totalGames: Number(result.Item?.totalGames ?? 0),
-      authenticatedGames: Number(result.Item?.authenticatedGames ?? 0),
+      trophyRoadGames: Number(
+        result.Item?.trophyRoadGames ?? TROPHY_ROAD_STARTING_GAMES,
+      ),
     };
   }
 }

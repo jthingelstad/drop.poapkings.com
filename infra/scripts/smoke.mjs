@@ -55,6 +55,16 @@ for (const origin of allowedOrigins) {
 const stats = await fetch(`${apiBaseUrl}/stats`);
 if (!stats.ok) throw new Error("Stats check failed");
 const statsBody = await stats.json();
+if (
+  !Number.isSafeInteger(statsBody.trophyRoadGames) ||
+  statsBody.trophyRoadGames < 592 ||
+  !statsBody.currentSeason?.id ||
+  "totalGames" in statsBody ||
+  "completedGames" in statsBody ||
+  "authenticatedGames" in statsBody
+) {
+  throw new Error("Stats response does not match the Trophy Road contract");
+}
 
 const leaderboard = await fetch(`${apiBaseUrl}/leaderboards?mode=surge`);
 if (!leaderboard.ok) throw new Error("Leaderboard check failed");
@@ -128,6 +138,6 @@ console.log(
     anonymousPlay: "rejected",
     maskedEmail: "rejected",
     leaderboard: "verified",
-    totalGames: statsBody.totalGames,
+    trophyRoadGames: statsBody.trophyRoadGames,
   }),
 );

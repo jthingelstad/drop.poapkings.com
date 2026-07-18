@@ -12,7 +12,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
   };
 });
 
-import { Repository } from "../src/repository.js";
+import { Repository, type RunItem } from "../src/repository.js";
 
 describe("repository DynamoDB requests", () => {
   beforeEach(() => {
@@ -116,5 +116,65 @@ describe("repository DynamoDB requests", () => {
     const put = send.mock.calls[1]?.[0];
 
     expect(put.input.Item.leaderboardSeasonId).toBe("2026-07-135");
+  });
+
+  it("increments the site-wide completed-game total atomically with an accepted run", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 5,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:01:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-1",
+      sk: "RUN",
+      runId: "run-1",
+      owner: "player-sub",
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+    };
+
+    await new Repository("test-table").completeRun(run, 12.3, "2026-07");
+
+    const transaction = send.mock.calls[0]?.[0];
+    const globalUpdate = transaction.input.TransactItems[1]?.Update;
+    expect(globalUpdate?.Key).toEqual({ pk: "GLOBAL", sk: "STATS" });
+    expect(globalUpdate?.UpdateExpression).toContain(
+      "trophyRoadGames = if_not_exists(trophyRoadGames, :trophyRoadStart) + :one",
+    );
+    expect(globalUpdate?.UpdateExpression).toContain("ADD totalGames :one");
+    expect(globalUpdate?.ExpressionAttributeValues[":trophyRoadStart"]).toBe(
+      592,
+    );
+    expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
+  });
+
+  it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        totalGames: 3,
+        trophyRoadGames: 617,
+        authenticatedGames: 999,
+      },
+    });
+
+    await expect(new Repository("test-table").globalStats()).resolves.toEqual({
+      trophyRoadGames: 617,
+    });
+  });
+
+  it("uses the stable launch seed before the first post-launch game", async () => {
+    send.mockResolvedValueOnce({ Item: { totalGames: 3 } });
+
+    await expect(new Repository("test-table").globalStats()).resolves.toEqual({
+      trophyRoadGames: 592,
+    });
   });
 });

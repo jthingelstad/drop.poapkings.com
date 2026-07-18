@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import { rankFor, zoneFor } from '../data/starRanks'
 
 interface Props {
-  hits: number
+  trophyRoadGames: number
   onClose: () => void
 }
 
@@ -10,10 +10,14 @@ function fmt(n: number) {
   return n.toLocaleString('en-US')
 }
 
-export default function TrophyModal({ hits, onClose }: Props) {
+function games(n: number) {
+  return `${fmt(n)} ${n === 1 ? 'game' : 'games'}`
+}
+
+export default function TrophyModal({ trophyRoadGames, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const { current, next } = rankFor(hits)
-  const zone = zoneFor(hits, current, next)
+  const { current, next } = rankFor(trophyRoadGames)
+  const zone = zoneFor(trophyRoadGames, current, next)
 
   const artClass = [
     'rank-card__art',
@@ -28,16 +32,16 @@ export default function TrophyModal({ hits, onClose }: Props) {
   let rankMoment = `${current.name} is the top of Trophy Road.`
   if (next) {
     const span = next.threshold - current.threshold
-    const into = Math.max(0, hits - current.threshold)
+    const into = Math.max(0, trophyRoadGames - current.threshold)
     fillPct = Math.min(100, Math.round((into / span) * 100))
-    const togo = Math.max(0, next.threshold - hits)
-    progressLabel = `${fmt(togo)} to ${next.name}`
+    const togo = Math.max(0, next.threshold - trophyRoadGames)
+    progressLabel = `${games(togo)} to ${next.name}`
     rankMoment =
       zone === 'close'
-        ? `${fmt(togo)} visits from ${next.name}.`
+        ? `${games(togo)} away from ${next.name}.`
         : zone === 'just-passed'
           ? `${current.name} unlocked. Next arena: ${next.name}.`
-          : `${fmt(togo)} visits until ${next.name}.`
+          : `${games(togo)} until ${next.name}.`
   } else {
     fillPct = 100
   }
@@ -63,7 +67,7 @@ export default function TrophyModal({ hits, onClose }: Props) {
           ×
         </button>
         <div class="trophy-modal__title">Trophy Road</div>
-        <p class="trophy-modal__hint">Total visits to this site — ranked on Clash Royale arenas.</p>
+        <p class="trophy-modal__hint">Every completed, recorded Drop game adds one to the whole site’s road.</p>
         <div class={`rank-moment rank-moment--${zone}`}>{rankMoment}</div>
 
         <div class="rank-card">
@@ -73,7 +77,7 @@ export default function TrophyModal({ hits, onClose }: Props) {
           <div class="rank-card__meta">
             <div class="rank-card__eyebrow">Current rank</div>
             <div class="rank-card__name">{current.name}</div>
-            <div class="rank-card__count">{fmt(hits)} visits</div>
+            <div class="rank-card__count">{fmt(trophyRoadGames)} Drop games</div>
             <div class="rank-progress">
               <div class="rank-progress__fill" style={{ width: fillPct + '%' }} />
             </div>

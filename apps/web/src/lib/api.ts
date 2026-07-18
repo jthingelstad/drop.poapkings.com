@@ -1,4 +1,4 @@
-import type { CompletedRun, GameMode, Player, Season, StartedRun } from '@elixir-drop/contracts'
+import type { CompletedRun, GameMode, Player, Season, SiteStats, StartedRun } from '@elixir-drop/contracts'
 
 interface ApiConfig {
   apiBaseUrl: string
@@ -122,7 +122,7 @@ export function completeRun(
   })
 }
 
-export function getStats(): Promise<{ totalGames: number; authenticatedGames: number; currentSeason: Season }> {
+export function getStats(): Promise<SiteStats> {
   return apiRequest('/stats')
 }
 

@@ -81,6 +81,11 @@ export interface Season {
   clockUpdatedAt?: string;
 }
 
+export interface SiteStats {
+  trophyRoadGames: number;
+  currentSeason: Season;
+}
+
 export type ClanWarPeriodType = "training" | "warDay" | "colosseum";
 
 export type ClashRoyaleProfileStatus =
