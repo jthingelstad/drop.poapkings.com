@@ -15,7 +15,8 @@ function games(n: number) {
 }
 
 export default function TrophyModal({ trophyRoadGames, onClose }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   const { current, next } = rankFor(trophyRoadGames)
   const zone = zoneFor(trophyRoadGames, current, next)
 
@@ -47,26 +48,40 @@ export default function TrophyModal({ trophyRoadGames, onClose }: Props) {
   }
 
   useEffect(() => {
+    const dialog = dialogRef.current
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     document.body.classList.add('modal-open')
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    const onCancel = (event: Event) => {
+      event.preventDefault()
+      onClose()
     }
-    document.addEventListener('keydown', onKey)
-    panelRef.current?.focus()
+    dialog?.addEventListener('cancel', onCancel)
+    if (dialog && !dialog.open) dialog.showModal()
+    closeRef.current?.focus()
     return () => {
       document.body.classList.remove('modal-open')
-      document.removeEventListener('keydown', onKey)
+      dialog?.removeEventListener('cancel', onCancel)
+      if (dialog?.open) dialog.close()
+      window.setTimeout(() => previouslyFocused?.focus(), 0)
     }
   }, [onClose])
 
   return (
-    <div class="trophy-modal" role="dialog" aria-modal="true" aria-label="Trophy Road">
-      <button class="trophy-modal__scrim" onClick={onClose} aria-label="Close" tabIndex={-1} />
-      <div class="trophy-modal__panel" ref={panelRef} tabIndex={-1}>
-        <button class="trophy-modal__close" onClick={onClose} aria-label="Close">
+    <dialog
+      class="trophy-modal"
+      ref={dialogRef}
+      aria-labelledby="trophy-modal-title"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div class="trophy-modal__panel">
+        <button class="trophy-modal__close" ref={closeRef} onClick={onClose} aria-label="Close Trophy Road">
           ×
         </button>
-        <div class="trophy-modal__title">Trophy Road</div>
+        <div class="trophy-modal__title" id="trophy-modal-title">
+          Trophy Road
+        </div>
         <p class="trophy-modal__hint">Every completed, recorded Drop game adds one to the whole site’s road.</p>
         <div class={`rank-moment rank-moment--${zone}`}>{rankMoment}</div>
 
@@ -85,6 +100,6 @@ export default function TrophyModal({ trophyRoadGames, onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   )
 }

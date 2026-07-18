@@ -2,7 +2,15 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import PlayerAvatar from '../components/PlayerAvatar'
-import { accountStatus, player, refreshAccount, sessionToken, signOut, updateAccount } from '../lib/account'
+import {
+  accountStatus,
+  deleteAccount,
+  player,
+  refreshAccount,
+  sessionToken,
+  signOut,
+  updateAccount
+} from '../lib/account'
 import { getNameOptions } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
@@ -53,6 +61,10 @@ export default function Profile() {
   const nameToken = useSignal('')
   const busy = useSignal(false)
   const message = useSignal('')
+  const deletionOpen = useSignal(false)
+  const deletionConfirmation = useSignal('')
+  const deletingAccount = useSignal(false)
+  const deletionError = useSignal('')
   const syncedPlayerId = useRef<string | undefined>(undefined)
   const pollingCrStatus = player.value?.clashRoyale?.status
 
@@ -168,6 +180,20 @@ export default function Profile() {
       message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
     } finally {
       busy.value = false
+    }
+  }
+
+  async function removeAccount(event: Event) {
+    event.preventDefault()
+    if (deletionConfirmation.value !== 'DELETE') return
+    deletingAccount.value = true
+    deletionError.value = ''
+    try {
+      await deleteAccount(deletionConfirmation.value)
+      navigate('/')
+    } catch (error) {
+      deletionError.value = error instanceof Error ? error.message : 'Your account could not be deleted.'
+      deletingAccount.value = false
     }
   }
 
@@ -393,6 +419,67 @@ export default function Profile() {
             )}
           </section>
         )}
+
+        <section class="profile-section danger-zone">
+          <div class="profile-section__head">
+            <div>
+              <h2>Delete player account</h2>
+              <p>Remove your email, Drop identity, saved tag association, game history, and leaderboard entries.</p>
+            </div>
+            {!deletionOpen.value && (
+              <button
+                class="btn btn--danger"
+                onClick={() => {
+                  deletionOpen.value = true
+                  deletionError.value = ''
+                }}
+              >
+                Delete account
+              </button>
+            )}
+          </div>
+          {deletionOpen.value && (
+            <form class="danger-zone__confirm" onSubmit={removeAccount}>
+              <p>
+                This cannot be undone. The anonymous site-wide Trophy Road total remains because it contains no player
+                identity.
+              </p>
+              <label for="delete-confirmation">Type DELETE to confirm</label>
+              <input
+                id="delete-confirmation"
+                autocomplete="off"
+                spellcheck={false}
+                value={deletionConfirmation.value}
+                onInput={(event) => (deletionConfirmation.value = event.currentTarget.value)}
+              />
+              {deletionError.value && (
+                <div class="account-message account-message--error" role="alert">
+                  {deletionError.value}
+                </div>
+              )}
+              <div class="danger-zone__actions">
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  disabled={deletingAccount.value}
+                  onClick={() => {
+                    deletionOpen.value = false
+                    deletionConfirmation.value = ''
+                    deletionError.value = ''
+                  }}
+                >
+                  Keep my account
+                </button>
+                <button
+                  class="btn btn--danger"
+                  disabled={deletionConfirmation.value !== 'DELETE' || deletingAccount.value}
+                >
+                  {deletingAccount.value ? 'Deleting…' : 'Permanently delete account'}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
 
         {message.value && (
           <div class="account-message" role="status">

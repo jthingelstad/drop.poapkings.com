@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks'
+import { useCallback, useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { createPortal } from 'preact/compat'
 import { rankFor } from '../data/starRanks'
@@ -9,6 +9,9 @@ import { TROPHY_ROAD_UPDATED_EVENT } from '../lib/trophy-road'
 export default function StarCount() {
   const modalOpen = useSignal(false)
   const trophyRoadGames = useSignal(0)
+  const closeModal = useCallback(() => {
+    modalOpen.value = false
+  }, [modalOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -40,7 +43,10 @@ export default function StarCount() {
     <>
       <button
         class="starcount"
-        onClick={() => (modalOpen.value = true)}
+        onClick={(event) => {
+          event.currentTarget.focus()
+          modalOpen.value = true
+        }}
         title={`Trophy Road — ${rank.name} · ${formattedGames} Drop games`}
         aria-label={`Trophy Road, ${rank.name}, ${formattedGames} Drop games`}
       >
@@ -48,10 +54,7 @@ export default function StarCount() {
         <span class="starcount__n">{formattedGames}</span>
       </button>
       {modalOpen.value &&
-        createPortal(
-          <TrophyModal trophyRoadGames={trophyRoadGames.value} onClose={() => (modalOpen.value = false)} />,
-          document.body
-        )}
+        createPortal(<TrophyModal trophyRoadGames={trophyRoadGames.value} onClose={closeModal} />, document.body)}
     </>
   )
 }

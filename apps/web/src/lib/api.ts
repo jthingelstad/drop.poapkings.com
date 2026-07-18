@@ -1,5 +1,6 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import {
+  accountDeletionResponseSchema,
   apiConfigSchema,
   apiErrorSchema,
   completedRunSchema,
@@ -207,6 +208,14 @@ export function patchMe(
     method: 'PATCH',
     sessionToken,
     body: JSON.stringify(updates)
+  })
+}
+
+export function deleteMe(sessionToken: string, confirmation: string) {
+  return apiRequest('/me', accountDeletionResponseSchema, {
+    method: 'DELETE',
+    sessionToken,
+    body: JSON.stringify({ confirmation })
   })
 }
 

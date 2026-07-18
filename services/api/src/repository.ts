@@ -1,6 +1,8 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchGetCommand,
+  BatchWriteCommand,
+  type BatchWriteCommandInput,
   DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
@@ -25,6 +27,10 @@ import type {
   RunRecord,
   StoredCrWarClock,
 } from "./types.js";
+
+type DocumentWriteRequest = NonNullable<
+  BatchWriteCommandInput["RequestItems"]
+>[string][number];
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -298,6 +304,65 @@ export class Repository {
       }),
     );
     return result.Attributes as ProfileItem;
+  }
+
+  async deleteAccount(sub: string): Promise<{ deletedGames: number }> {
+    const deletedProfile = await client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        ReturnValues: "ALL_OLD",
+      }),
+    );
+    const profile = deletedProfile.Attributes as ProfileItem | undefined;
+    const keys = new Map<string, { pk: string; sk: string }>();
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk",
+          ExpressionAttributeValues: { ":pk": `PLAYER#${sub}` },
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+      for (const item of result.Items ?? []) {
+        const key = { pk: String(item.pk), sk: String(item.sk) };
+        keys.set(`${key.pk}\0${key.sk}`, key);
+        if (typeof item.runId === "string") {
+          const runKey = { pk: `RUN#${item.runId}`, sk: "RUN" };
+          keys.set(`${runKey.pk}\0${runKey.sk}`, runKey);
+        }
+      }
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+
+    const pending: DocumentWriteRequest[] = [...keys.values()].map((Key) => ({
+      DeleteRequest: { Key },
+    }));
+    let unprocessedAttempts = 0;
+    while (pending.length) {
+      const batch = pending.splice(0, 25);
+      const result = await client.send(
+        new BatchWriteCommand({
+          RequestItems: { [this.tableName]: batch },
+        }),
+      );
+      const unprocessed = result.UnprocessedItems?.[this.tableName] ?? [];
+      if (unprocessed.length) {
+        unprocessedAttempts += 1;
+        if (unprocessedAttempts > 5)
+          throw new Error("Player data deletion did not finish");
+        pending.unshift(...unprocessed);
+        await new Promise((resolve) =>
+          setTimeout(resolve, 25 * 2 ** unprocessedAttempts),
+        );
+      } else {
+        unprocessedAttempts = 0;
+      }
+    }
+
+    return { deletedGames: profile?.totalGames ?? 0 };
   }
 
   async getCrProfile(tag: string): Promise<CrProfileSnapshot | undefined> {

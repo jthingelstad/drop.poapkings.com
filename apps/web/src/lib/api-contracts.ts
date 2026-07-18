@@ -130,6 +130,7 @@ export const nameOptionsResponseSchema = z.object({
 })
 
 export const playerResponseSchema = z.object({ player: playerSchema })
+export const accountDeletionResponseSchema = z.object({ ok: z.literal(true) })
 
 export const startedRunSchema = z
   .object({

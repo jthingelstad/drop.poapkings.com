@@ -200,6 +200,47 @@ describe("repository DynamoDB requests", () => {
     expect(JSON.stringify(update)).not.toContain("trophyRoadGames");
   });
 
+  it("deletes the player partition and its leaderboard-backed run records", async () => {
+    send
+      .mockResolvedValueOnce({ Attributes: { totalGames: 42 } })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#player-sub",
+            sk: "RUN#2026-07-18T12:00:00.000Z#run-1",
+            runId: "run-1",
+            GSI1PK: "LEADERBOARD#2026-07#surge",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").deleteAccount("player-sub"),
+    ).resolves.toEqual({ deletedGames: 42 });
+
+    const profileDelete = send.mock.calls[0]?.[0].input;
+    expect(profileDelete).toMatchObject({
+      Key: { pk: "PLAYER#player-sub", sk: "PROFILE" },
+      ReturnValues: "ALL_OLD",
+    });
+    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
+    expect(batch).toEqual(
+      expect.arrayContaining([
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "PLAYER#player-sub",
+              sk: "RUN#2026-07-18T12:00:00.000Z#run-1",
+            },
+          },
+        },
+        { DeleteRequest: { Key: { pk: "RUN#run-1", sk: "RUN" } } },
+      ]),
+    );
+    expect(JSON.stringify(batch)).not.toContain('"pk":"GLOBAL"');
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {

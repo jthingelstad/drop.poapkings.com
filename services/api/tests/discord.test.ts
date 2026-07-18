@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   completedGameWebhookPayload,
   loginWebhookPayload,
-  maskedEmail,
   publishDiscordEvent,
 } from "../src/discord.js";
 import type { PlayerProfile } from "../src/types.js";
@@ -36,14 +35,13 @@ describe("Discord event notifications", () => {
     expect(JSON.stringify(payload)).not.toContain("player-123");
   });
 
-  it("masks email addresses when a public player name is not available", () => {
+  it("never derives Discord labels from a private email address", () => {
     const anonymousProfile = { ...profile, publicName: undefined };
 
-    expect(maskedEmail(anonymousProfile.email)).toBe("p***@e***.com");
     expect(
       loginWebhookPayload({ profile: anonymousProfile, newPlayer: true })
         .content,
-    ).toContain("p***@e***.com");
+    ).toContain("unnamed player");
     expect(
       completedGameWebhookPayload({
         runId: "run-124",

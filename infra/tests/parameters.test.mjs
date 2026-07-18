@@ -118,5 +118,7 @@ void describe("deployment parameters", () => {
     assert.match(template, /Handler: handler\.mailCanaryHandler/);
     assert.match(template, /ScheduleExpression: cron\(0 13 \* \* \? \*\)/);
     assert.match(template, /AlarmName: elixir-drop-mail-canary-missing/);
+    assert.match(template, /dynamodb:BatchWriteItem/);
+    assert.match(template, /- DELETE/);
   });
 });

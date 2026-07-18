@@ -10,6 +10,8 @@ const cardsData = JSON.parse(
 ) as CardsData
 const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
 const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
+const testApiBaseUrl = 'https://fhmql8x10m.execute-api.us-east-1.amazonaws.com'
+const testApiRoute = `${testApiBaseUrl}/**`
 const testSeason = {
   id: '2026-07',
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -156,7 +158,8 @@ const routes = [
   { hash: '#/endless-ladder', label: 'Endless Ladder', ready: '.endless-ready' },
   { hash: '#/cost-sweep', label: 'Cost Sweep', ready: '.sweep-ready' },
   { hash: '#/leaderboards', label: 'Drop leaderboards', ready: '.leaderboard-screen' },
-  { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
+  { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
+  { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
 ]
 
 const pageErrors = new WeakMap<Page, string[]>()
@@ -187,9 +190,13 @@ test.beforeEach(async ({ page }) => {
   // Browser gameplay tests use a signed-in player but never create production
   // records. The deployed API has a separate live smoke in infra/scripts.
   await page.route('**/api-config.json', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":"https://api.example"}' })
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ apiBaseUrl: testApiBaseUrl })
+    })
   )
-  await page.route('https://api.example/**', async (route) => {
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh' || path === '/auth/redeem') {
       await route.fulfill({
@@ -266,8 +273,8 @@ test('requires email authentication before entering a game and returns after log
   await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurge$/)
 
   let loginBody: Record<string, unknown> | undefined
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/request') {
       loginBody = route.request().postDataJSON() as Record<string, unknown>
@@ -321,8 +328,8 @@ test('new players choose a favorite card and generated name before returning to 
   const configuredPlayer = { ...newPlayer, publicName: 'Knight Main', favoriteCardId: 26000000 }
   let savedIdentity: Record<string, unknown> | undefined
 
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     if (path === '/auth/redeem') {
@@ -389,8 +396,8 @@ test('new players choose a favorite card and generated name before returning to 
 test('a signed run must be prepared before game controls become available', async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let attempts = 0
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -434,8 +441,8 @@ test('a signed run must be prepared before game controls become available', asyn
 })
 
 test('a malformed signed challenge is rejected without local gameplay fallback', async ({ page }) => {
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -482,8 +489,8 @@ test('a malformed signed challenge is rejected without local gameplay fallback',
 
 test('a temporary authentication outage keeps the saved login', async ({ page }) => {
   allowExpectedApiErrors.add(page)
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -511,8 +518,8 @@ test('a temporary authentication outage keeps the saved login', async ({ page })
 test('a failed completion blocks replay until the recorded run retry succeeds', async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let completionAttempts = 0
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -563,8 +570,8 @@ test('a failed completion blocks replay until the recorded run retry succeeds', 
 
 test('a permanently rejected game does not offer a retry that cannot work', async ({ page }) => {
   allowExpectedApiErrors.add(page)
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -614,8 +621,8 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
 })
 
 test('a quarantined result stays out of player progress and remains playable', async ({ page }) => {
-  await page.unroute('https://api.example/**')
-  await page.route('https://api.example/**', async (route) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/refresh') {
       await route.fulfill({
@@ -676,6 +683,53 @@ test('a quarantined result stays out of player progress and remains playable', a
   await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
 })
 
+test('account deletion requires typed confirmation and clears the saved session', async ({ page }) => {
+  let deletionBody: unknown
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me' && route.request().method() === 'DELETE') {
+      deletionBody = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/profile')
+  await page.getByRole('button', { name: 'Delete account' }).click()
+  const confirmDelete = page.getByRole('button', { name: 'Permanently delete account' })
+  await expect(confirmDelete).toBeDisabled()
+  await page.getByLabel('Type DELETE to confirm').fill('delete')
+  await expect(confirmDelete).toBeDisabled()
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE')
+  await confirmDelete.click()
+
+  await expect(page.locator('.home')).toBeVisible()
+  expect(deletionBody).toEqual({ confirmation: 'DELETE' })
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()
+})
+
 test('Trophy Road explains and displays the site-wide game counter', async ({ page }) => {
   await page.goto('/')
 
@@ -687,6 +741,10 @@ test('Trophy Road explains and displays the site-wide game counter', async ({ pa
   await expect(dialog).toContainText('Every completed, recorded Drop game adds one to the whole site’s road.')
   await expect(dialog).toContainText('592 Drop games')
   await expect(dialog).not.toContainText('visits')
+  await expect(page.getByRole('button', { name: 'Close Trophy Road' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(trophyRoad).toBeFocused()
 })
 
 for (const route of routes) {
@@ -1181,10 +1239,14 @@ test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
-  await page.unroute('https://api.example/**')
+  await page.unroute(testApiRoute)
   await page.unroute('**/api-config.json')
   await page.route('**/api-config.json', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":"https://api.example"}' })
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ apiBaseUrl: testApiBaseUrl })
+    })
   )
 
   const basePlayer = {
@@ -1201,7 +1263,7 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   }
   const session = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
   let saved = false
-  await page.route('https://api.example/**', async (route) => {
+  await page.route(testApiRoute, async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname === '/auth/refresh') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session }) })

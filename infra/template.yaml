@@ -177,6 +177,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
                   - dynamodb:DeleteItem
                   - dynamodb:GetItem
                   - dynamodb:PutItem
@@ -556,6 +557,7 @@ Resources:
           - GET
           - POST
           - PATCH
+          - DELETE
           - OPTIONS
         AllowHeaders:
           - authorization

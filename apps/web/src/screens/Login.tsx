@@ -37,7 +37,10 @@ export default function Login() {
         <p class="lede">We’ll send a private link. No password, no Clash Royale account access.</p>
         <p class="account-privacy">
           Your email is used only for sign-in and stays private. Your chosen player name, favorite card, scores, and
-          optional public Clash Royale tag appear in Drop.
+          optional public Clash Royale tag appear in Drop.{' '}
+          <button class="text-link" onClick={() => navigate('/privacy')}>
+            Privacy details
+          </button>
         </p>
         {status.value === 'sent' ? (
           <div class="account-message account-message--success" role="status">

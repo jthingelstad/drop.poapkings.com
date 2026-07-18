@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
-import { ApiError, getMe, patchMe, redeemLogin, refreshLogin } from './api'
+import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin } from './api'
 
 interface StoredSession {
   token: string
@@ -111,6 +111,12 @@ export async function refreshAccount(): Promise<void> {
     if (error instanceof ApiError && error.status === 401) signOut()
     throw error
   }
+}
+
+export async function deleteAccount(confirmation: string): Promise<void> {
+  if (!session) throw new Error('Sign in to delete your player account.')
+  await deleteMe(session.token, confirmation)
+  signOut()
 }
 
 export function applyRunProgress(progress: {

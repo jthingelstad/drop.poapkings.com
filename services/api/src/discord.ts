@@ -41,16 +41,8 @@ function scoreText(mode: GameMode, score: number): string {
   return score.toLocaleString("en-US");
 }
 
-export function maskedEmail(email: string): string {
-  const [local = "player", domain = "email"] = email.toLowerCase().split("@");
-  const domainParts = domain.split(".");
-  const domainName = domainParts.shift() || "email";
-  const suffix = domainParts.length ? `.${domainParts.join(".")}` : "";
-  return `${local.charAt(0) || "p"}***@${domainName.charAt(0) || "e"}***${suffix}`;
-}
-
 function playerLabel(profile: PlayerProfile): string {
-  return profile.publicName || maskedEmail(profile.email);
+  return profile.publicName || "unnamed player";
 }
 
 function gameCount(count: number): string {
@@ -88,7 +80,7 @@ export function completedGameWebhookPayload(
   event: CompletedGameEvent,
 ): DiscordWebhookPayload {
   const player = event.profile
-    ? event.profile.publicName || maskedEmail(event.profile.email)
+    ? event.profile.publicName || "unnamed player"
     : "player";
   return {
     username: "Elixir Drop Events",

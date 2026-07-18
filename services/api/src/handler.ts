@@ -335,6 +335,23 @@ async function route(event: APIGatewayProxyEventV2) {
     });
   }
 
+  if (method === "DELETE" && path === "/me") {
+    const session = sessionFor(event, config.sessionSecret, true);
+    const body = bodyOf(event);
+    if (body.confirmation !== "DELETE")
+      throw new HttpError(
+        400,
+        "Type DELETE to confirm account deletion.",
+        "deletion_confirmation_required",
+      );
+    const deleted = await repository.deleteAccount(session.sub);
+    console.info("Player account deleted", {
+      requestId: event.requestContext.requestId,
+      deletedGames: deleted.deletedGames,
+    });
+    return json(200, { ok: true });
+  }
+
   if (method === "PATCH" && path === "/me") {
     const session = sessionFor(event, config.sessionSecret, true);
     const body = bodyOf(event);

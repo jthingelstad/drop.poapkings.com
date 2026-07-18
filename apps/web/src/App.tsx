@@ -13,6 +13,7 @@ import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
 import Leaderboards from './screens/Leaderboards'
+import Privacy from './screens/Privacy'
 import type { CardsData } from './types'
 
 const POAP_KINGS = 'https://poapkings.com'
@@ -242,7 +243,8 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/survival', label: 'Survival' },
   { match: '/ladder', label: 'Speed Ladder' },
   { match: '/endless-ladder', label: 'Endless Ladder' },
-  { match: '/cost-sweep', label: 'Cost Sweep' }
+  { match: '/cost-sweep', label: 'Cost Sweep' },
+  { match: '/privacy', label: 'Privacy' }
 ]
 
 function Header() {
@@ -307,6 +309,10 @@ function Footer() {
         <a href={POAP_KINGS} target="_blank" rel="noopener noreferrer">
           POAP KINGS
         </a>
+        <span aria-hidden="true"> · </span>
+        <button class="site-foot__link" onClick={() => navigate('/privacy')}>
+          Privacy
+        </button>
       </div>
       <div class="site-foot__disc">
         This fan community is not affiliated with{' '}
@@ -412,6 +418,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/auth')) return <AuthRedeem />
   if (r.startsWith('/profile')) return <Profile />
   if (r.startsWith('/leaderboards')) return <Leaderboards />
+  if (r.startsWith('/privacy')) return <Privacy />
   return <Home />
 }
 
