@@ -108,7 +108,9 @@ describe("Discord event notifications", () => {
     const [url, init] = fetcher.mock.calls[0] ?? [];
     expect(url).toBe("https://discord.example/webhook");
     expect(init?.method).toBe("POST");
-    expect(JSON.parse(String(init?.body))).toEqual(payload);
+    expect(
+      JSON.parse(typeof init?.body === "string" ? init.body : "{}"),
+    ).toEqual(payload);
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     await expect(

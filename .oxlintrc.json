@@ -10,19 +10,29 @@
     "node": true,
     "es2026": true
   },
-  "ignorePatterns": ["dist/**", "node_modules/**"],
+  "ignorePatterns": [
+    "**/coverage/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/test-results/**",
+    "**/playwright-report/**"
+  ],
   "rules": {
     "eqeqeq": ["error", "smart"],
     "no-array-constructor": "error",
     "no-else-return": "error",
     "no-implicit-coercion": ["error", { "allow": ["!!"] }],
     "no-unused-expressions": "error",
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "caughtErrors": "none" }],
+    "no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "caughtErrors": "none" }
+    ],
     "no-var": "error",
     "object-shorthand": ["error", "always"],
     "prefer-const": ["error", { "destructuring": "all" }],
     "prefer-rest-params": "error",
     "prefer-spread": "error",
+    "react/react-in-jsx-scope": "allow",
     "react/exhaustive-deps": "warn",
     "react/rules-of-hooks": "error",
     "typescript/ban-ts-comment": "error",

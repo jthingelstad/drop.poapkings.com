@@ -330,9 +330,11 @@ function isAscending(ids: number[]): boolean {
 }
 
 function isPermutation(actual: number[], expected: number[]): boolean {
+  const sortedActual = [...actual].sort((left, right) => left - right);
+  const sortedExpected = [...expected].sort((left, right) => left - right);
   return (
     actual.length === expected.length &&
-    [...actual].sort().every((id, index) => id === [...expected].sort()[index])
+    sortedActual.every((id, index) => id === sortedExpected[index])
   );
 }
 
@@ -378,7 +380,7 @@ function scoreEndless(
   const attempts = objectArray(transcript.attempts, "Endless Ladder");
   if (!attempts.length || attempts.length > challenge.cardIds.length)
     throw new Error("Endless Ladder transcript is invalid");
-  let row = [...challenge.startingIds];
+  const row = [...challenge.startingIds];
   let score = 0;
   let ended = false;
   attempts.forEach((attempt, index) => {

@@ -77,10 +77,12 @@ function responseFor(
     (item) => item[2] === id && (item[0] === name || item[0] === "error"),
   );
   if (!response) throw new Error(`JMAP ${name} response missing`);
-  if (response[0] === "error")
+  if (response[0] === "error") {
+    const errorType = response[1].type;
     throw new Error(
-      `JMAP ${name} failed: ${String(response[1].type ?? "error")}`,
+      `JMAP ${name} failed: ${typeof errorType === "string" ? errorType : "error"}`,
     );
+  }
   return response[1];
 }
 

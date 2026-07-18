@@ -60,8 +60,8 @@ describe('API resilience', () => {
   it('bounds a stalled request with a timeout', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
-      if (String(input).endsWith('/api-config.json'))
-        return Promise.resolve(json({ apiBaseUrl: 'https://api.example' }))
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url.endsWith('/api-config.json')) return Promise.resolve(json({ apiBaseUrl: 'https://api.example' }))
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
       })

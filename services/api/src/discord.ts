@@ -1,9 +1,5 @@
 import { MODE_RULES } from "./games.js";
-import type {
-  CrProfileSnapshot,
-  GameMode,
-  PlayerProfile,
-} from "./types.js";
+import type { CrProfileSnapshot, GameMode, PlayerProfile } from "./types.js";
 
 export interface DiscordWebhookPayload {
   username: string;

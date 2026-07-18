@@ -18,11 +18,12 @@
     "test": "npm run test --workspaces --if-present",
     "test:unit": "npm run test:unit --workspace=@elixir-drop/web",
     "test:e2e": "npm run test:e2e --workspace=@elixir-drop/web --",
-    "verify": "npm run verify --workspaces --if-present",
+    "verify": "npm run format:check && npm run lint && npm run verify:workspaces",
+    "verify:workspaces": "npm run verify --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "format": "npm run format --workspaces --if-present",
-    "format:check": "npm run format:check --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"{apps,services,packages/contracts,infra}/**/*.{ts,tsx,mjs,json,yml,yaml}\" \".github/**/*.{yml,yaml}\" \"*.{json,jsonc}\"",
+    "format:check": "prettier --check \"{apps,services,packages/contracts,infra}/**/*.{ts,tsx,mjs,json,yml,yaml}\" \".github/**/*.{yml,yaml}\" \"*.{json,jsonc}\"",
+    "lint": "oxlint --type-aware --type-check --deny-warnings --report-unused-disable-directives .",
     "lint:css": "npm run lint:css --workspaces --if-present",
     "knip": "npm run knip --workspaces --if-present",
     "og": "npm run og --workspace=@elixir-drop/web",
@@ -34,5 +35,11 @@
     "esbuild@0.28.1": true,
     "fsevents@2.3.2": true,
     "fsevents@2.3.3": true
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^0.25.0",
+    "prettier": "^3.9.5"
   }
 }

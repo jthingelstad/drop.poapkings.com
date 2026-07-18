@@ -12,8 +12,9 @@
     "start": "node dist/index.cjs",
     "start:once": "node dist/index.cjs --once",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm test && npm run build"
+    "verify": "npm run typecheck && npm run test:coverage && npm run build"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.1090.0",

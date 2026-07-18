@@ -33,7 +33,7 @@ describe('site-wide Trophy Road', () => {
   it('refreshes the server-owned counter after a game is recorded', async () => {
     let trophyRoadGames = 592
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      const url = String(input)
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url.endsWith('/api-config.json')) {
         return new Response(JSON.stringify({ apiBaseUrl: 'https://api.example' }), { status: 200 })
       }

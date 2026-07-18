@@ -9,7 +9,12 @@ function fixtureFetch(options?: {
   logs?: Array<Record<string, unknown>>;
 }) {
   return vi.fn(async (input: string | URL | Request) => {
-    const url = String(input);
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
     const body = url.includes("currentriverrace")
       ? {
           sectionIndex: options?.sectionIndex ?? 1,
