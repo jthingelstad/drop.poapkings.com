@@ -12,8 +12,11 @@ export default function StarCount() {
 
   useEffect(() => {
     let cancelled = false
+    let activeRequest: AbortController | undefined
     const refresh = () => {
-      void getStats()
+      activeRequest?.abort()
+      activeRequest = new AbortController()
+      void getStats(activeRequest.signal)
         .then((stats) => {
           if (cancelled) return
           trophyRoadGames.value = stats.trophyRoadGames
@@ -25,6 +28,7 @@ export default function StarCount() {
 
     return () => {
       cancelled = true
+      activeRequest?.abort()
       window.removeEventListener(TROPHY_ROAD_UPDATED_EVENT, refresh)
     }
   }, [trophyRoadGames])

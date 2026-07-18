@@ -1,5 +1,6 @@
 import { render } from 'preact'
 import App from './App'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import { initSound } from './lib/sound'
 import { initReducedMotion } from './lib/motion'
 import './styles.css'
@@ -8,4 +9,9 @@ import './styles.css'
 initSound()
 initReducedMotion()
 
-render(<App />, document.getElementById('app')!)
+render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+  document.getElementById('app')!
+)

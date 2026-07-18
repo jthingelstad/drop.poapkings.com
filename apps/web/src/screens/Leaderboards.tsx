@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { GAME_MODES, type GameMode, type Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
-import { getLeaderboard, type LeaderboardEntry } from '../lib/api'
+import { ApiError, getLeaderboard, type LeaderboardEntry } from '../lib/api'
 
 const LABELS: Record<GameMode, string> = {
   surge: 'Surge',
@@ -46,17 +46,22 @@ export default function Leaderboards() {
   const error = useSignal('')
 
   useEffect(() => {
+    const controller = new AbortController()
     loading.value = true
     error.value = ''
-    void getLeaderboard(mode.value)
+    void getLeaderboard(mode.value, controller.signal)
       .then((response) => {
         entries.value = response.entries
         season.value = response.currentSeason
       })
       .catch((reason: unknown) => {
+        if (reason instanceof ApiError && reason.code === 'request_cancelled') return
         error.value = reason instanceof Error ? reason.message : 'Leaderboard could not be loaded.'
       })
-      .finally(() => (loading.value = false))
+      .finally(() => {
+        if (!controller.signal.aborted) loading.value = false
+      })
+    return () => controller.abort()
   }, [mode.value, entries, error, loading, season])
 
   return (

@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'preact/compat'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
-import { accountStatus, initializeAccount, player } from './lib/account'
+import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
@@ -139,6 +139,11 @@ function Home() {
               <strong>Sign in required to play</strong> · Every game counts toward your profile and the leaderboards
             </button>
           )}
+          {accountStatus.value === 'unavailable' && (
+            <button class="auth-nudge" onClick={() => void initializeAccount()}>
+              <strong>Player services are reconnecting</strong> · Your saved login is still on this device
+            </button>
+          )}
         </div>
       </div>
 
@@ -257,12 +262,19 @@ function Header() {
       <StarCount />
       <button
         class="site-head__account"
-        onClick={() => navigate(accountStatus.value === 'authenticated' ? '/profile' : '/login')}
+        onClick={() => navigate(['authenticated', 'unavailable'].includes(accountStatus.value) ? '/profile' : '/login')}
       >
         {accountStatus.value === 'authenticated' && (
           <PlayerAvatar favoriteCardId={player.value?.favoriteCardId} size="small" />
         )}
-        <span>{player.value?.publicName || (accountStatus.value === 'authenticated' ? 'Player' : 'Sign in')}</span>
+        <span>
+          {player.value?.publicName ||
+            (accountStatus.value === 'authenticated'
+              ? 'Player'
+              : accountStatus.value === 'unavailable'
+                ? 'Reconnecting…'
+                : 'Sign in')}
+        </span>
       </button>
       <button
         class="site-head__settings"
@@ -354,9 +366,32 @@ function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
   )
 }
 
+function AccountUnavailable() {
+  return (
+    <div class="main-content account-screen">
+      <div class="account-card" aria-live="polite">
+        <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+        <div class="eyebrow">Login safely kept</div>
+        <h1>Player services are reconnecting</h1>
+        <p class="account-message account-message--error">
+          {accountError.value || 'Drop could not reach player services.'}
+        </p>
+        <p class="lede">Your saved login has not been removed. Try again when your connection is ready.</p>
+        <button class="btn btn--gold" onClick={() => void initializeAccount()}>
+          Try reconnecting
+        </button>
+        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
+          Back to home
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
   if (gamePath && accountStatus.value === 'loading') return <RouteFallback />
+  if ((gamePath || r.startsWith('/profile')) && accountStatus.value === 'unavailable') return <AccountUnavailable />
   if (gamePath && accountStatus.value !== 'authenticated') return <AuthRequired returnTo={gamePath} />
   if (gamePath && (!player.value?.favoriteCardId || !player.value.publicName)) {
     return <ProfileRequired returnTo={gamePath} />

@@ -10,8 +10,11 @@ interface StoredSession {
 const SESSION_KEY = 'elixirdrop:session:v1'
 
 export const player = signal<Player | null>(null)
-export const accountStatus = signal<'loading' | 'anonymous' | 'authenticated'>('loading')
+export type AccountStatus = 'loading' | 'anonymous' | 'authenticated' | 'unavailable'
+export const accountStatus = signal<AccountStatus>('loading')
+export const accountError = signal('')
 let session: StoredSession | undefined
+let initialization: Promise<void> | undefined
 
 function loadSession(): StoredSession | undefined {
   try {
@@ -25,8 +28,12 @@ function loadSession(): StoredSession | undefined {
 
 function saveSession(value: StoredSession | undefined): void {
   session = value
-  if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value))
-  else localStorage.removeItem(SESSION_KEY)
+  try {
+    if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value))
+    else localStorage.removeItem(SESSION_KEY)
+  } catch {
+    // Keep the in-memory session usable when browser storage is unavailable.
+  }
 }
 
 export function sessionToken(): string | undefined {
@@ -38,9 +45,21 @@ export function requiredSessionToken(): string {
   return session.token
 }
 
-export async function initializeAccount(): Promise<void> {
-  session = loadSession()
+export function initializeAccount(): Promise<void> {
+  initialization ??= initializeAccountOnce().finally(() => {
+    initialization = undefined
+  })
+  return initialization
+}
+
+async function initializeAccountOnce(): Promise<void> {
+  accountError.value = ''
+  accountStatus.value = 'loading'
+  const storedSession = loadSession()
+  if (storedSession) session = storedSession
+  else if (!session || new Date(session.expiresAt).getTime() <= Date.now()) session = undefined
   if (!session) {
+    player.value = null
     accountStatus.value = 'anonymous'
     return
   }
@@ -51,8 +70,14 @@ export async function initializeAccount(): Promise<void> {
     player.value = response.player
     accountStatus.value = 'authenticated'
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) saveSession(undefined)
-    accountStatus.value = 'anonymous'
+    if (error instanceof ApiError && error.status === 401) {
+      saveSession(undefined)
+      player.value = null
+      accountStatus.value = 'anonymous'
+      return
+    }
+    accountError.value = error instanceof Error ? error.message : 'Drop could not reconnect to player services.'
+    accountStatus.value = 'unavailable'
   }
 }
 
@@ -61,6 +86,7 @@ export async function redeemAccount(token: string): Promise<Player> {
   saveSession(response.session)
   const me = await getMe(response.session.token)
   player.value = me.player
+  accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
 }
@@ -78,8 +104,13 @@ export async function updateAccount(updates: {
 
 export async function refreshAccount(): Promise<void> {
   if (!session) return
-  const response = await getMe(session.token)
-  player.value = response.player
+  try {
+    const response = await getMe(session.token)
+    player.value = response.player
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) signOut()
+    throw error
+  }
 }
 
 export function applyRunProgress(progress: {
@@ -101,5 +132,6 @@ export function applyRunProgress(progress: {
 export function signOut(): void {
   saveSession(undefined)
   player.value = null
+  accountError.value = ''
   accountStatus.value = 'anonymous'
 }

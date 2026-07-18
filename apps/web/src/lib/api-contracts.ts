@@ -1,0 +1,184 @@
+import { z } from 'zod'
+import { GAME_MODES } from '@elixir-drop/contracts'
+
+const nonEmptyString = z.string().min(1)
+const isoDateTime = z.string().datetime({ offset: true })
+const safeInteger = z.number().int().safe()
+const nonNegativeInteger = safeInteger.nonnegative()
+const cardId = safeInteger.positive()
+
+export const apiConfigSchema = z.object({
+  apiBaseUrl: z.string()
+})
+
+export const apiErrorSchema = z.object({
+  error: z.optional(
+    z.object({
+      code: z.optional(nonEmptyString),
+      message: z.optional(nonEmptyString)
+    })
+  )
+})
+
+export const gameModeSchema = z.enum(GAME_MODES)
+
+export const seasonSchema = z.object({
+  id: nonEmptyString,
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  durationWeeks: safeInteger.positive(),
+  source: z.optional(z.enum(['clash-royale', 'calendar-fallback'])),
+  crSeasonId: z.optional(nonNegativeInteger),
+  currentWeek: z.optional(safeInteger.positive()),
+  daysRemainingInWeek: z.optional(nonNegativeInteger),
+  periodType: z.optional(z.enum(['training', 'warDay', 'colosseum'])),
+  clockUpdatedAt: z.optional(isoDateTime)
+})
+
+const clashRoyaleCardSchema = z.object({
+  id: cardId,
+  name: nonEmptyString,
+  iconUrl: z.optional(z.string().url())
+})
+
+const clashRoyaleClanSchema = z.object({
+  tag: nonEmptyString,
+  name: nonEmptyString,
+  badgeId: nonNegativeInteger,
+  role: z.optional(nonEmptyString)
+})
+
+const clashRoyaleProfileSchema = z.object({
+  tag: nonEmptyString,
+  status: z.enum(['pending', 'ready', 'not_found', 'unavailable']),
+  name: z.optional(nonEmptyString),
+  clan: z.optional(clashRoyaleClanSchema),
+  accountAge: z.optional(
+    z.object({
+      days: z.optional(nonNegativeInteger),
+      years: z.optional(nonNegativeInteger)
+    })
+  ),
+  cards: z.optional(z.array(clashRoyaleCardSchema)),
+  fetchedAt: z.optional(isoDateTime),
+  refreshRequestedAt: z.optional(isoDateTime)
+})
+
+export const playerSchema = z.object({
+  id: nonEmptyString,
+  email: z.string().email(),
+  publicName: z.optional(nonEmptyString),
+  favoriteCardId: z.optional(cardId),
+  playerTag: z.optional(nonEmptyString),
+  clashRoyale: z.optional(clashRoyaleProfileSchema),
+  totalGames: nonNegativeInteger,
+  level: safeInteger.positive(),
+  levelStartGames: nonNegativeInteger,
+  nextLevelGames: nonNegativeInteger,
+  createdAt: isoDateTime,
+  updatedAt: isoDateTime
+})
+
+const sessionSchema = z.object({
+  token: nonEmptyString,
+  expiresAt: isoDateTime
+})
+
+const cardSequenceChallengeSchemas = [
+  z.object({ mode: z.literal('surge'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('practice'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('identify'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('blitz'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('ladder'), cardIds: z.array(cardId) })
+] as const
+
+export const runChallengeSchema = z.discriminatedUnion('mode', [
+  ...cardSequenceChallengeSchemas,
+  z.object({ mode: z.literal('higher-lower'), pairs: z.array(z.tuple([cardId, cardId])) }),
+  z.object({
+    mode: z.literal('trade'),
+    rounds: z.array(z.object({ blueIds: z.array(cardId), redIds: z.array(cardId) }))
+  }),
+  z.object({ mode: z.literal('endless-ladder'), startingIds: z.array(cardId), cardIds: z.array(cardId) }),
+  z.object({
+    mode: z.literal('cost-sweep'),
+    boards: z.array(z.object({ targetElixir: safeInteger.min(1).max(10), cardIds: z.array(cardId) }))
+  })
+])
+
+export const loginRequestResponseSchema = z.object({ ok: z.literal(true), message: nonEmptyString })
+export const sessionResponseSchema = z.object({ session: sessionSchema })
+
+export const recentRunSchema = z.object({
+  runId: nonEmptyString,
+  mode: gameModeSchema,
+  score: z.number().finite(),
+  seasonId: nonEmptyString,
+  completedAt: isoDateTime
+})
+
+export const meResponseSchema = z.object({
+  player: playerSchema,
+  recentRuns: z.array(recentRunSchema)
+})
+
+export const nameOptionsResponseSchema = z.object({
+  favoriteCardId: cardId,
+  names: z.array(nonEmptyString).min(1),
+  nameToken: nonEmptyString
+})
+
+export const playerResponseSchema = z.object({ player: playerSchema })
+
+export const startedRunSchema = z
+  .object({
+    runId: nonEmptyString,
+    runToken: nonEmptyString,
+    mode: gameModeSchema,
+    challenge: runChallengeSchema,
+    expiresAt: isoDateTime
+  })
+  .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })
+
+export const completedRunSchema = z.object({
+  accepted: z.literal(true),
+  runId: nonEmptyString,
+  mode: gameModeSchema,
+  score: z.number().finite(),
+  season: seasonSchema,
+  completedAt: isoDateTime,
+  totalGames: nonNegativeInteger,
+  level: safeInteger.positive(),
+  levelStartGames: nonNegativeInteger,
+  nextLevelGames: nonNegativeInteger
+})
+
+export const siteStatsSchema = z.object({
+  trophyRoadGames: nonNegativeInteger,
+  currentSeason: seasonSchema
+})
+
+export const leaderboardEntrySchema = z.object({
+  rank: safeInteger.positive(),
+  score: z.number().finite(),
+  achievedAt: isoDateTime,
+  player: z.object({
+    id: nonEmptyString,
+    publicName: nonEmptyString,
+    favoriteCardId: z.optional(cardId),
+    playerTag: z.optional(nonEmptyString),
+    totalGames: nonNegativeInteger,
+    level: safeInteger.positive()
+  })
+})
+
+export const leaderboardResponseSchema = z.object({
+  mode: gameModeSchema,
+  seasonId: nonEmptyString,
+  currentSeason: seasonSchema,
+  entries: z.array(leaderboardEntrySchema)
+})
+
+export type RecentRun = z.infer<typeof recentRunSchema>
+export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>

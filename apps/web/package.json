@@ -26,7 +26,8 @@
     "@elixir-drop/contracts": "*",
     "@elixir-drop/game-data": "*",
     "@preact/signals": "^2.9.4",
-    "preact": "^10.29.7"
+    "preact": "^10.29.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

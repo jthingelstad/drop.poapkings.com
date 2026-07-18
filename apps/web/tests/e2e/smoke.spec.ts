@@ -10,6 +10,19 @@ const cardsData = JSON.parse(
 ) as CardsData
 const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
 const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
+const testSeason = {
+  id: '2026-07',
+  startsAt: '2026-07-06T10:00:00.000Z',
+  endsAt: '2026-08-03T10:00:00.000Z',
+  durationWeeks: 4,
+  source: 'clash-royale',
+  crSeasonId: 134,
+  currentWeek: 2,
+  daysRemainingInWeek: 2,
+  periodType: 'warDay',
+  clockUpdatedAt: '2026-07-18T19:00:00.000Z'
+} as const
+const testStats = { trophyRoadGames: 592, currentSeason: testSeason }
 const testPlayer = {
   id: 'player-1',
   email: 'player@example.com',
@@ -206,7 +219,7 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ trophyRoadGames: 592 })
+        body: JSON.stringify(testStats)
       })
       return
     }
@@ -217,18 +230,7 @@ test.beforeEach(async ({ page }) => {
         body: JSON.stringify({
           mode: 'surge',
           seasonId: '2026-07',
-          currentSeason: {
-            id: '2026-07',
-            startsAt: '2026-07-06T10:00:00.000Z',
-            endsAt: '2026-08-03T10:00:00.000Z',
-            durationWeeks: 4,
-            source: 'clash-royale',
-            crSeasonId: 134,
-            currentWeek: 2,
-            daysRemainingInWeek: 2,
-            periodType: 'warDay',
-            clockUpdatedAt: '2026-07-18T19:00:00.000Z'
-          },
+          currentSeason: testSeason,
           entries: []
         })
       })
@@ -360,7 +362,7 @@ test('new players choose a favorite card and generated name before returning to 
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ trophyRoadGames: 592 })
+        body: JSON.stringify(testStats)
       })
       return
     }
@@ -407,7 +409,7 @@ test('a signed run must be prepared before game controls become available', asyn
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
       return
     }
     if (path === '/runs/start' && attempts++ === 0) {
@@ -429,6 +431,81 @@ test('a signed run must be prepared before game controls become available', asyn
   await expect(page.locator('.surge-ready')).toHaveCount(0)
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.locator('.surge-ready')).toBeVisible()
+})
+
+test('a malformed signed challenge is rejected without local gameplay fallback', async ({ page }) => {
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+      return
+    }
+    if (path === '/runs/start') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          runId: 'bad-run',
+          runToken: 'bad-run',
+          mode: 'surge',
+          challenge: { mode: 'surge', cardIds: [26000000] },
+          expiresAt: '2099-01-01T00:00:00.000Z'
+        })
+      })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/surge')
+  await expect(page.getByText('Drop received an invalid signed Surge challenge.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start sprint' })).toHaveCount(0)
+  await expect(page.locator('.pip-keypad')).toHaveCount(0)
+})
+
+test('a temporary authentication outage keeps the saved login', async ({ page }) => {
+  allowExpectedApiErrors.add(page)
+  await page.unroute('https://api.example/**')
+  await page.route('https://api.example/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/refresh') {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Player services are restarting.' } })
+      })
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/surge')
+  await expect(page.getByRole('heading', { name: 'Player services are reconnecting' })).toBeVisible()
+  await expect(page.getByText('Your saved login has not been removed.')).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('elixirdrop:session:v1') || 'null')?.token))
+    .toBe(testSession.token)
 })
 
 test('a failed completion blocks replay until the recorded run retry succeeds', async ({ page }) => {
@@ -454,7 +531,7 @@ test('a failed completion blocks replay until the recorded run retry succeeds', 
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
       return
     }
     if (path === '/runs/complete' && completionAttempts++ === 0) {
@@ -506,7 +583,7 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
       return
     }
     if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"trophyRoadGames":592}' })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
       return
     }
     if (path === '/runs/complete') {
@@ -1071,7 +1148,7 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ trophyRoadGames: 592 })
+        body: JSON.stringify(testStats)
       })
       return
     }

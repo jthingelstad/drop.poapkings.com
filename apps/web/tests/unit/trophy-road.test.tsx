@@ -7,6 +7,12 @@ import RANKS, { rankFor } from '../../src/data/starRanks'
 import { TROPHY_ROAD_UPDATED_EVENT } from '../../src/lib/trophy-road'
 
 describe('site-wide Trophy Road', () => {
+  const currentSeason = {
+    id: '2026-07',
+    startsAt: '2026-07-06T10:00:00.000Z',
+    endsAt: '2026-08-03T10:00:00.000Z',
+    durationWeeks: 4
+  }
   it('uses completed-game-scale arena thresholds', () => {
     expect(rankFor(49).current.name).toBe('Goblin Stadium')
     expect(rankFor(50).current.name).toBe('Bone Pit')
@@ -31,7 +37,7 @@ describe('site-wide Trophy Road', () => {
       if (url.endsWith('/api-config.json')) {
         return new Response(JSON.stringify({ apiBaseUrl: 'https://api.example' }), { status: 200 })
       }
-      return new Response(JSON.stringify({ trophyRoadGames }), { status: 200 })
+      return new Response(JSON.stringify({ trophyRoadGames, currentSeason }), { status: 200 })
     })
     vi.stubGlobal('fetch', fetchMock)
     const root = document.createElement('div')
