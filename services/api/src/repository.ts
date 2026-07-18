@@ -16,6 +16,7 @@ import { leaderboardSortKey } from "./games.js";
 import { levelForGames } from "./progression.js";
 import type {
   GameMode,
+  CrProfileSnapshot,
   PlayerProfile,
   PublicProfile,
   RunChallenge,
@@ -51,8 +52,17 @@ interface ProfileItem extends PlayerProfile {
   sk: "PROFILE";
 }
 
+interface CrProfileItem extends CrProfileSnapshot {
+  pk: string;
+  sk: "PROFILE";
+}
+
 function profileKey(sub: string) {
   return { pk: `PLAYER#${sub}`, sk: "PROFILE" as const };
+}
+
+function crProfileKey(tag: string) {
+  return { pk: `CR_PLAYER#${tag}`, sk: "PROFILE" as const };
 }
 
 function publicProfile(profile: PlayerProfile): PublicProfile {
@@ -257,6 +267,119 @@ export class Repository {
       }),
     );
     return result.Attributes as ProfileItem;
+  }
+
+  async getCrProfile(tag: string): Promise<CrProfileSnapshot | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: crProfileKey(tag),
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as CrProfileItem | undefined;
+  }
+
+  async claimCrRefresh(
+    tag: string,
+    jobId: string,
+    requestedAt: string,
+    staleBefore: string,
+    retryBefore: string,
+  ): Promise<boolean> {
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: crProfileKey(tag),
+          UpdateExpression:
+            "SET #tag = :tag, #status = if_not_exists(#status, :pending), jobId = :jobId, refreshRequestedAt = :requestedAt, updatedAt = :requestedAt",
+          ConditionExpression:
+            "(attribute_not_exists(fetchedAt) OR fetchedAt < :staleBefore) AND (attribute_not_exists(refreshRequestedAt) OR refreshRequestedAt < :retryBefore)",
+          ExpressionAttributeNames: {
+            "#tag": "tag",
+            "#status": "status",
+          },
+          ExpressionAttributeValues: {
+            ":tag": tag,
+            ":pending": "pending",
+            ":jobId": jobId,
+            ":requestedAt": requestedAt,
+            ":staleBefore": staleBefore,
+            ":retryBefore": retryBefore,
+          },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  async markCrRefreshUnavailable(
+    tag: string,
+    jobId: string,
+    updatedAt: string,
+  ): Promise<void> {
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: crProfileKey(tag),
+          UpdateExpression:
+            "SET #status = :unavailable, updatedAt = :updatedAt",
+          ConditionExpression:
+            "jobId = :jobId AND attribute_not_exists(fetchedAt)",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: {
+            ":unavailable": "unavailable",
+            ":updatedAt": updatedAt,
+            ":jobId": jobId,
+          },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return;
+      throw error;
+    }
+  }
+
+  async saveCrProfileResult(snapshot: CrProfileSnapshot): Promise<boolean> {
+    if (!snapshot.refreshRequestedAt)
+      throw new Error("CR profile result is missing its request timestamp");
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            ...crProfileKey(snapshot.tag),
+            ...snapshot,
+          } satisfies CrProfileItem,
+          ConditionExpression:
+            "attribute_not_exists(refreshRequestedAt) OR refreshRequestedAt <= :refreshRequestedAt",
+          ExpressionAttributeValues: {
+            ":refreshRequestedAt": snapshot.refreshRequestedAt,
+          },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
   }
 
   async createRun(

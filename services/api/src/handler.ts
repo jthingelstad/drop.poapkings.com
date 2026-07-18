@@ -6,6 +6,11 @@ import type {
 import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
 import {
+  publicCrProfile,
+  requestCrProfileRefresh,
+  usesPlayerCollection,
+} from "./cr-refresh.js";
+import {
   completedGameWebhookPayload,
   loginWebhookPayload,
   publishDiscordEvent,
@@ -20,7 +25,12 @@ import { Repository } from "./repository.js";
 import { createChallenge, scoreRun } from "./scoring.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
-import type { NameClaims, RunTranscript, SessionClaims } from "./types.js";
+import type {
+  CrProfileSnapshot,
+  NameClaims,
+  RunTranscript,
+  SessionClaims,
+} from "./types.js";
 import {
   emailSubject,
   normalizeEmail,
@@ -99,28 +109,51 @@ function sessionFor(
   }
 }
 
-function profileResponse(profile: {
-  sub: string;
-  playerId: string;
-  email: string;
-  publicName?: string;
-  favoriteCardId?: number;
-  playerTag?: string;
-  totalGames: number;
-  createdAt: string;
-  updatedAt: string;
-}) {
+function profileResponse(
+  profile: {
+    sub: string;
+    playerId: string;
+    email: string;
+    publicName?: string;
+    favoriteCardId?: number;
+    playerTag?: string;
+    totalGames: number;
+    createdAt: string;
+    updatedAt: string;
+  },
+  crProfile?: CrProfileSnapshot,
+) {
   return {
     id: profile.playerId,
     email: profile.email,
     publicName: profile.publicName,
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
+    ...(profile.playerTag
+      ? { clashRoyale: publicCrProfile(profile.playerTag, crProfile) }
+      : {}),
     totalGames: profile.totalGames,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
     ...levelForGames(profile.totalGames),
   };
+}
+
+async function refreshedCrProfile(
+  repository: Repository,
+  queueUrl: string,
+  tag: string | undefined,
+): Promise<CrProfileSnapshot | undefined> {
+  if (!tag) return undefined;
+  try {
+    return await requestCrProfileRefresh(repository, queueUrl, tag);
+  } catch (error) {
+    console.error("CR profile refresh could not be queued", {
+      playerTag: tag,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return repository.getCrProfile(tag);
+  }
 }
 
 async function route(event: APIGatewayProxyEventV2) {
@@ -205,17 +238,25 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "GET" && path === "/me") {
     const session = sessionFor(event, config.sessionSecret, true);
-    const [profile, recentRuns] = await Promise.all([
-      repository.getProfile(session.sub),
-      repository.listRecentRuns(session.sub),
-    ]);
+    const profile = await repository.getProfile(session.sub);
     if (!profile)
       throw new HttpError(
         404,
         "Player profile was not found.",
         "profile_not_found",
       );
-    return json(200, { player: profileResponse(profile), recentRuns });
+    const [recentRuns, crProfile] = await Promise.all([
+      repository.listRecentRuns(session.sub),
+      refreshedCrProfile(
+        repository,
+        config.crRequestQueueUrl,
+        profile.playerTag,
+      ),
+    ]);
+    return json(200, {
+      player: profileResponse(profile, crProfile),
+      recentRuns,
+    });
   }
 
   if (method === "POST" && path === "/me/name-options") {
@@ -304,7 +345,12 @@ async function route(event: APIGatewayProxyEventV2) {
     if (!Object.keys(updates).length)
       throw new HttpError(400, "No profile changes were provided.");
     const profile = await repository.updateProfile(session.sub, updates);
-    return json(200, { player: profileResponse(profile) });
+    const crProfile = await refreshedCrProfile(
+      repository,
+      config.crRequestQueueUrl,
+      profile.playerTag,
+    );
+    return json(200, { player: profileResponse(profile, crProfile) });
   }
 
   if (method === "POST" && path === "/runs/start") {
@@ -319,7 +365,16 @@ async function route(event: APIGatewayProxyEventV2) {
       60 * 60,
     );
     const owner = session?.sub ?? `ANON#${randomUUID()}`;
-    const challenge = createChallenge(body.mode, randomInt);
+    let playerCardIds: number[] | undefined;
+    if (session && usesPlayerCollection(body.mode)) {
+      const profile = await repository.getProfile(session.sub);
+      if (profile?.playerTag) {
+        const crProfile = await repository.getCrProfile(profile.playerTag);
+        if (crProfile?.status === "ready")
+          playerCardIds = crProfile.cards?.map((card) => card.id);
+      }
+    }
+    const challenge = createChallenge(body.mode, randomInt, { playerCardIds });
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const run = await repository.createRun(
       owner,
@@ -482,3 +537,5 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     });
   }
 };
+
+export { crResultHandler } from "./cr-results.js";

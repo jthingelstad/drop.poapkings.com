@@ -71,4 +71,46 @@ describe('favorite-card identity', () => {
 
     render(<></>, container)
   })
+
+  it('shows clan, account age, and cards without card levels', async () => {
+    accountStatus.value = 'authenticated'
+    player.value = {
+      ...basePlayer,
+      publicName: 'Knight Main',
+      favoriteCardId: 26000000,
+      playerTag: '#2PYQ0',
+      clashRoyale: {
+        tag: '#2PYQ0',
+        status: 'ready',
+        name: 'CR Player',
+        clan: {
+          tag: '#P0QY',
+          name: 'POAP KINGS',
+          badgeId: 16000000,
+          role: 'coLeader'
+        },
+        accountAge: { days: 2_930, years: 8 },
+        cards: [
+          {
+            id: 26000000,
+            name: 'Knight',
+            iconUrl: 'https://api-assets.clashroyale.com/cards/300/knight.png'
+          }
+        ],
+        fetchedAt: '2026-07-18T12:00:00.000Z'
+      }
+    }
+
+    const html = await renderToStringAsync(<Profile />)
+
+    expect(html).toContain('CR Player')
+    expect(html).toContain('POAP KINGS')
+    expect(html).toContain('Co Leader')
+    expect(html).toContain('About 8 years in Clash Royale')
+    expect(html).toContain('Knight')
+    expect(html).toContain('Levels stay private')
+    expect(html).not.toContain('Card level')
+    expect(html).not.toContain('troph')
+    expect(html).not.toContain('arena')
+  })
 })

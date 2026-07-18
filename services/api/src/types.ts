@@ -3,7 +3,12 @@ export {
   type GameMode,
   type RunChallenge,
 } from "@elixir-drop/contracts";
-import type { GameMode } from "@elixir-drop/contracts";
+import type {
+  ClashRoyaleAccountAge,
+  ClashRoyaleCard,
+  ClashRoyaleClan,
+  GameMode,
+} from "@elixir-drop/contracts";
 export type ScoreDirection = "lower" | "higher";
 
 export interface ModeRule {
@@ -77,4 +82,17 @@ export interface RunRecord {
   score: number;
   seasonId: string;
   completedAt: string;
+}
+
+export interface CrProfileSnapshot {
+  tag: string;
+  status: "pending" | "ready" | "not_found" | "unavailable";
+  jobId?: string;
+  name?: string;
+  clan?: ClashRoyaleClan;
+  accountAge?: ClashRoyaleAccountAge;
+  cards?: ClashRoyaleCard[];
+  fetchedAt?: string;
+  refreshRequestedAt?: string;
+  updatedAt: string;
 }

@@ -67,6 +67,42 @@ Resources:
         AttributeName: expiresAt
         Enabled: true
 
+  CrRequestDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: elixir-drop-cr-requests-dlq
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  CrRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: elixir-drop-cr-requests
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 60
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CrRequestDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  CrResultDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: elixir-drop-cr-results-dlq
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  CrResultQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: elixir-drop-cr-results
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 180
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CrResultDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
   ApiRole:
     Type: AWS::IAM::Role
     Properties:
@@ -104,6 +140,15 @@ Resources:
               - Effect: Allow
                 Action: bedrock:InvokeModel
                 Resource: "*"
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt CrRequestQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt CrResultQueue.Arn
 
   ApiFunction:
     Type: AWS::Lambda::Function
@@ -130,6 +175,43 @@ Resources:
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+          CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+
+  CrResultFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: elixir-drop-cr-results
+      Description: Stores normalized Clash Royale player results from the fixed-IP bridge
+      Architectures:
+        - arm64
+      Runtime: nodejs24.x
+      Handler: handler.crResultHandler
+      Role: !GetAtt ApiRole.Arn
+      MemorySize: 256
+      Timeout: 20
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+          SESSION_SECRET: !Ref SessionSecret
+          FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
+          APP_URL: !Ref AppUrl
+          ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
+          ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
+          NAME_MODEL_ID: !Ref NameModelId
+          ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+          CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+
+  CrResultEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt CrResultQueue.Arn
+      FunctionName: !Ref CrResultFunction
+      BatchSize: 10
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
 
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
@@ -185,3 +267,7 @@ Outputs:
     Value: !Ref DataTable
   FunctionName:
     Value: !Ref ApiFunction
+  CrRequestQueueUrl:
+    Value: !Ref CrRequestQueue
+  CrResultQueueUrl:
+    Value: !Ref CrResultQueue

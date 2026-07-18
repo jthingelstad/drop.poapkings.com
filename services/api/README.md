@@ -8,7 +8,7 @@ Responsibilities in this release:
 - 15-minute, single-use email magic links sent through Fastmail JMAP;
 - renewable 10-day HMAC bearer sessions;
 - player profiles with favorite-card avatars, card-scoped generated public names,
-  and unverified CR player tags;
+  unverified CR player tags, and cached CR name/clan/account-age/card snapshots;
 - short-lived, single-use signed runs for all ten game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and a gradual level curve;
@@ -17,9 +17,13 @@ Responsibilities in this release:
 - best-effort Discord notifications for successful magic-link logins and every
   server-validated completed game.
 
-The API never calls the Clash Royale API. A future bridge may cache a tagged
-player's card collection; challenge generation already accepts an optional
-canonical card pool so each mode can choose whether to use that context.
+The API never calls the Clash Royale API. Saving or reading a stale player tag
+queues a refresh for the fixed-IP bridge. The result consumer stores only CR
+name, clan, the gameplay-derived `YearsPlayed` badge, and card identity/art.
+Experience, arenas, trophies, wins, and card levels are excluded from the
+message contract and persistence model. Surge, Practice, Identify,
+Higher/Lower, Blitz, and Survival use an attached collection when at least 12
+canonical cards are available; other modes keep using the complete catalog.
 
 ## Routes
 
@@ -50,6 +54,11 @@ games post their mode, server-computed score, authentication state, player
 progress when available, season, and run ID. Delivery is best effort with a
 three-second timeout; Discord failure never changes an otherwise successful API
 response.
+
+The fixed-IP bridge uses the same locally stored webhook to record successful
+and not-found CR player pulls with the tag, CR name, clan, account age,
+collection size, fetch duration, and job ID. It never includes competitive
+rank data or card levels, and Discord failure never blocks queue completion.
 
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.

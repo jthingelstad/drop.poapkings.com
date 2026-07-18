@@ -484,3 +484,114 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.getByLabel('Build information')).toContainText('Build ID')
   await expect(page.getByLabel('Build information')).toContainText('Build date')
 })
+
+test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
+  await page.unroute('**/api-config.json')
+  await page.route('**/api-config.json', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{"apiBaseUrl":"https://api.example"}' })
+  )
+
+  const basePlayer = {
+    id: 'player-1',
+    email: 'player@example.com',
+    publicName: 'Knight Main',
+    favoriteCardId: 26000000,
+    totalGames: 12,
+    level: 2,
+    levelStartGames: 10,
+    nextLevelGames: 25,
+    createdAt: '2026-07-18T00:00:00.000Z',
+    updatedAt: '2026-07-18T00:00:00.000Z'
+  }
+  const session = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
+  let saved = false
+  await page.route('https://api.example/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/auth/refresh') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session }) })
+      return
+    }
+    if (url.pathname === '/stats') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ totalGames: 100, authenticatedGames: 80 })
+      })
+      return
+    }
+    if (url.pathname === '/me' && route.request().method() === 'PATCH') {
+      saved = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          player: {
+            ...basePlayer,
+            playerTag: '#20JJJ2CCRU',
+            clashRoyale: { tag: '#20JJJ2CCRU', status: 'pending' }
+          }
+        })
+      })
+      return
+    }
+    if (url.pathname === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          player: saved
+            ? {
+                ...basePlayer,
+                playerTag: '#20JJJ2CCRU',
+                clashRoyale: {
+                  tag: '#20JJJ2CCRU',
+                  status: 'ready',
+                  name: 'King Thing',
+                  clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000, role: 'leader' },
+                  cards: [
+                    {
+                      id: 26000000,
+                      name: 'Knight',
+                      iconUrl: cardsById.get(26000000)?.icon
+                    },
+                    {
+                      id: 26000001,
+                      name: 'Archers',
+                      iconUrl: cardsById.get(26000001)?.icon
+                    }
+                  ],
+                  fetchedAt: '2026-07-18T13:27:25.039Z'
+                }
+              }
+            : basePlayer,
+          recentRuns: []
+        })
+      })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+  await page.addInitScript((storedSession) => {
+    localStorage.setItem('elixirdrop:session:v1', JSON.stringify(storedSession))
+  }, session)
+
+  await page.goto('/#/profile')
+  const tagInput = page.getByPlaceholder('#PLAYER_TAG')
+  await expect(tagInput).toBeVisible()
+  await tagInput.fill('20JJJ2CCRU')
+  await page.getByRole('button', { name: 'Save tag' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Loading Clash Royale profile' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 5_000 })
+  await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
+  await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
+  await expect(page.getByLabel('Clash Royale card collection')).toContainText('Knight')
+  await expect(page.getByLabel('Clash Royale card collection')).toContainText('Archers')
+  await expect(page.locator('.cr-profile')).not.toContainText(/troph|arena|card level/i)
+
+  const screenshot = await page.screenshot({ fullPage: true })
+  await testInfo.attach('resolved-cr-profile.png', { body: screenshot, contentType: 'image/png' })
+  const results = await new AxeBuilder({ page }).analyze()
+  const serious = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))
+  expect(serious).toEqual([])
+})

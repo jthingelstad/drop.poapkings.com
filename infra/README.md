@@ -6,8 +6,10 @@ stack:
 - arm64 Node.js 24 Lambda;
 - API Gateway HTTP API with Drop plus the standard Vite dev and preview localhost CORS origins;
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
-  seasonal leaderboard index; and
-- a least-purpose Lambda runtime role for DynamoDB, logs, and Bedrock name
+  seasonal leaderboard index;
+- encrypted CR request/result queues with dead-letter queues and an SQS-triggered
+  result Lambda; and
+- a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
 The gitignored root `.env` also supplies
@@ -15,9 +17,11 @@ The gitignored root `.env` also supplies
 parameter and exposes it only to the Lambda runtime for notable event delivery.
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
-administrator credentials to create the `elixir-drop` IAM deploy user, a
-CloudFormation execution role, a private versioned code bucket, and a mode-0600
-gitignored root `.env`. Secret values are never printed.
+administrator credentials to create the `elixir-drop` IAM deploy user, the
+queue-only `elixir-drop-cr-bridge` user, a CloudFormation execution role, a
+private versioned code bucket, and a mode-0600 gitignored root `.env`. It copies
+the existing CR token only into that local file; Lambda and CI never receive it.
+Secret values are never printed.
 
 `npm run deploy:api` then uses AWS SDK clients—not the AWS CLI—to build and zip
 the TypeScript Lambda, upload it, create or update the stack, and write the
@@ -40,5 +44,6 @@ copying those application secrets into GitHub.
 The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.
 
-The GitHub Pages website remains outside this AWS stack. The future CR API bridge
-and queue are also deliberately outside this release.
+The GitHub Pages website remains outside this AWS stack. CloudFormation owns the
+bridge queues and result consumer; the fixed-IP worker remains a local launchd
+service on the allowlisted Mac.

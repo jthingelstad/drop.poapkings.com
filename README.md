@@ -46,7 +46,7 @@ a banner.
 - `services/api` — the TypeScript Lambda backend for email authentication,
   player profiles, signed game runs, progression, seasonal leaderboards, and
   notable Discord events.
-- `services/cr-api-bridge` — the future worker that will run on the fixed,
+- `services/cr-api-bridge` — the TypeScript queue worker running on this fixed,
   Clash Royale API-allowlisted host.
 - `packages/contracts` and `packages/game-data` — shared TypeScript API contracts
   and the canonical Clash Royale card snapshot.
@@ -96,7 +96,7 @@ the API**, for two reasons:
 So card data is refreshed out-of-band and **committed to the repo**:
 
 - A checkout lives on a host whose IP is registered with the token.
-- The token sits in `.env` there (`CR_API_TOKEN`) — **gitignored**, never committed.
+- The token sits in `.env` there (`CR_API_KEY`) — **gitignored**, never committed.
 - A cron job (or manual run) executes
   `node apps/web/scripts/refresh-cards.mjs`, which fetches `/cards`, normalizes
   it, **diffs** against the committed snapshot, and **commits only when something
@@ -108,10 +108,13 @@ Card art is hotlinked from Supercell's CDN (`api-assets.clashroyale.com`) and
 preloaded before timed runs. A `MIRROR_IMAGES` flag in the refresh script can
 download art locally instead, with no game-code change.
 
-The application backend does not call the Clash Royale API directly.
-Dynamic requests will be queued for `services/cr-api-bridge`, which will run on
-the allowlisted host. The queue and response contracts remain intentionally
-deferred until the bridge release.
+The application backend does not call the Clash Royale API directly. It writes
+tag refresh work to SQS. `services/cr-api-bridge` long-polls that queue from this
+allowlisted host, calls `/players/{tag}`, and puts a narrow result on a second
+queue. A result Lambda stores the player's CR name, clan, Years Played badge,
+and card collection without competitive fields or card levels. The profile
+serves cached data while snapshots older than six hours refresh in the
+background.
 
 ---
 
@@ -131,10 +134,17 @@ npm run bootstrap:aws  # one time: IAM deploy user, role, bucket, root .env
 npm run deploy:api     # SDK-based build, upload, stack update, web API config
 ```
 
-Bootstrap copies the existing Fastmail JMAP token into the gitignored root
-`.env`, generates a Drop-specific signing secret, and creates access credentials
-for the limited `elixir-drop` IAM deploy user. Routine deployment uses the AWS
-SDK and does not invoke the AWS CLI.
+Bootstrap copies the existing Fastmail JMAP and CR tokens into the gitignored
+root `.env`, generates a Drop-specific signing secret, and creates separate
+access credentials for the limited `elixir-drop` deploy user and the even
+narrower `elixir-drop-cr-bridge` queue user. Routine deployment and bridge work
+use the AWS SDK and do not invoke the AWS CLI.
+
+On the allowlisted Mac, install the built worker as a persistent launch agent:
+
+```bash
+npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
+```
 
 ---
 
@@ -150,7 +160,7 @@ elixir-drop/
 │     └─ tests/              # unit and browser coverage
 ├─ services/
 │  ├─ api/                   # TypeScript Lambda API backend
-│  └─ cr-api-bridge/         # future fixed-IP Clash Royale API worker
+│  └─ cr-api-bridge/         # fixed-IP TypeScript Clash Royale API worker
 ├─ packages/
 │  ├─ contracts/             # browser/server TypeScript contracts
 │  └─ game-data/             # canonical cards.json snapshot
@@ -164,7 +174,7 @@ elixir-drop/
 ```
 
 The Clash Royale API reference under `docs/cr-agent-api-docs/` is source material
-for the static card refresher and future bridge work; it is not an API design.
+for the static card refresher and bridge normalization; it is not an API design.
 The Clash Royale screenshots under `docs/clash-royale-screenshots/` are visual
 reference for the shared card chrome, not runtime assets.
 

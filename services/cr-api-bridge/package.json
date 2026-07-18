@@ -5,5 +5,24 @@
   "type": "module",
   "engines": {
     "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/index.cjs",
+    "install:launchd": "npm run build && node scripts/install-launchd.mjs",
+    "start": "node dist/index.cjs",
+    "start:once": "node dist/index.cjs --once",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1090.0",
+    "@elixir-drop/contracts": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "esbuild": "^0.28.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

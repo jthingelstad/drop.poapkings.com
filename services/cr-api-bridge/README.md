@@ -1,21 +1,34 @@
 # Clash Royale API Bridge
 
-This workspace is reserved for the process that will run on a managed host with
-the fixed, Clash Royale API-allowlisted IP address.
+This TypeScript worker runs on the Elixir Drop Mac with the fixed, Clash Royale
+API-allowlisted IP address.
 
-Its expected boundary is intentionally narrow:
+Its boundary is intentionally narrow:
 
-- receive work asynchronously from the Elixir Drop backend;
-- call the Clash Royale API from the allowlisted host; and
-- return results to AWS for backend consumption.
+- long-poll the `elixir-drop-cr-requests` SQS queue using a dedicated
+  least-privilege IAM identity;
+- call `/players/{tag}` using the CR token in the gitignored root `.env`;
+- normalize name, clan, Years Played account age, and cards without competitive
+  fields or card levels;
+- send the result to `elixir-drop-cr-results`, then delete the request; and
+- post a best-effort Elixir Drop Discord event after the queue round-trip is
+  safely complete.
 
-The queue provider, request and response envelopes, retry behavior, credentials,
-and process supervision model are not designed yet. Do not couple Lambda code to
-the Clash Royale API or place the Clash Royale token in AWS while those decisions
-remain open.
+SQS visibility and dead-letter queues provide retries. The result Lambda is
+idempotent and ignores an older response when a newer refresh has already been
+requested. Neither Lambda nor the browser receives the CR token.
 
-When implementation begins, this workspace should gain its own build, test, and
-`verify` scripts so the root workspace gate includes it automatically.
+Commands from the repository root:
+
+```bash
+npm run verify --workspace=@elixir-drop/cr-api-bridge
+npm run start:once --workspace=@elixir-drop/cr-api-bridge
+npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
+```
+
+The launchd installer builds the worker, writes
+`~/Library/LaunchAgents/com.poapkings.elixir-drop-cr-bridge.plist`, and keeps the
+process alive. Logs go to `~/Library/Logs/elixir-drop-cr-bridge.log`.
 
 The existing static card-snapshot refresher remains in
 `apps/web/scripts/refresh-cards.mjs`. Moving or replacing that maintenance path is

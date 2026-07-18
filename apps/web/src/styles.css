@@ -361,6 +361,86 @@ a { color: var(--lavender); }
 .identity-cancel { justify-self: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; text-decoration: underline; }
 .account-actions { display: flex; justify-content: center; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
 
+.cr-profile__state {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cr-profile__state h2, .cr-profile__state p { margin: 0; }
+.cr-profile__state p { margin-top: 5px; }
+.cr-profile__pulse {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--purple);
+  box-shadow: 0 0 0 0 rgba(109, 40, 217, 0.65);
+  animation: cr-profile-pulse 1.5s ease-out infinite;
+}
+@keyframes cr-profile-pulse {
+  70%, 100% { box-shadow: 0 0 0 13px rgba(109, 40, 217, 0); }
+}
+.cr-profile__head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.cr-profile__head h2 { margin: 3px 0; font-size: clamp(1.45rem, 5vw, 2rem); }
+.cr-profile__head small { color: var(--muted); text-align: right; }
+.cr-profile__tag { margin: 0; color: var(--gold) !important; font-weight: 800; letter-spacing: 0.04em; }
+.cr-profile__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+.cr-profile__facts > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: rgba(7, 6, 16, 0.52);
+}
+.cr-profile__facts span, .cr-profile__facts small { color: var(--muted); }
+.cr-profile__facts span { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.cr-profile__facts strong { line-height: 1.2; }
+.cr-profile__facts small { line-height: 1.25; }
+.cr-collection { margin-top: 24px; }
+.cr-collection__head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.cr-collection__head h3 { margin: 0; font-family: var(--font-display); }
+.cr-collection__head span { color: var(--muted); font-size: 0.82rem; }
+.cr-card-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 560px;
+  margin-top: 14px;
+  padding: 4px 8px 4px 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cr-card {
+  display: grid;
+  grid-template-rows: 92px auto;
+  justify-items: center;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 4px 10px;
+  border-radius: var(--r-md);
+  background: rgba(7, 6, 16, 0.38);
+  text-align: center;
+}
+.cr-card img {
+  width: 74px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.34));
+}
+.cr-card span { font-size: 0.72rem; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+
 .leaderboard-head { max-width: 720px; text-align: center; }
 .leaderboard-picker { width: min(100%, 720px); display: grid; gap: 8px; font-weight: 700; }
 .leaderboard-list { width: min(100%, 720px); padding: 0; margin: 0; display: grid; gap: 8px; }
@@ -416,6 +496,8 @@ a { color: var(--lavender); }
   .account-form--row { grid-template-columns: 1fr; }
   .profile-section__head { display: grid; }
   .favorite-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cr-profile__facts { grid-template-columns: 1fr; }
+  .cr-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .leaderboard-row { grid-template-columns: 44px 42px 1fr auto; gap: 8px; padding: 12px 10px; }
   .leaderboard-row .player-avatar { width: 42px; height: 42px; }
   .avatar-audit__controls { grid-template-columns: 1fr; }
@@ -427,10 +509,17 @@ a { color: var(--lavender); }
   .profile-identity { align-items: center; }
   .profile-identity .player-avatar { width: 82px; height: 82px; }
   .favorite-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cr-profile__head { display: grid; }
+  .cr-profile__head small { text-align: left; }
+  .cr-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .selected-card-panel { align-items: flex-start; }
   .selected-card-panel .player-avatar { width: 76px; height: 76px; }
   .site-head__account:has(.player-avatar) { padding: 4px; }
   .site-head__account:has(.player-avatar) > span:last-child { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-profile__pulse { animation: none; }
 }
 
 /* ── Elixir drop shape ────────────────────────────────────── */

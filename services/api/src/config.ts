@@ -7,6 +7,7 @@ export interface Config {
   emailFromName: string;
   nameModelId: string;
   discordWebhookUrl?: string;
+  crRequestQueueUrl: string;
 }
 
 function required(name: string): string {
@@ -28,5 +29,6 @@ export function getConfig(): Config {
     nameModelId: process.env.NAME_MODEL_ID?.trim() || "amazon.nova-micro-v1:0",
     discordWebhookUrl:
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
+    crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
   };
 }

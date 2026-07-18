@@ -70,6 +70,12 @@ export async function updateAccount(updates: {
   player.value = response.player
 }
 
+export async function refreshAccount(): Promise<void> {
+  if (!session) return
+  const response = await getMe(session.token)
+  player.value = response.player
+}
+
 export function applyRunProgress(progress: {
   totalGames?: number
   level?: number

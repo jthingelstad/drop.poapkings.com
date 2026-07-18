@@ -26,11 +26,11 @@ Doc map:
 2. **Only the bridge may call the Clash Royale API at runtime.** The browser and
    Lambda backend must never call it directly. The current website reads the
    committed `packages/game-data/cards.json` snapshot; future dynamic backend
-   requests must go through the asynchronous bridge boundary.
+   requests go through the asynchronous SQS bridge boundary.
 3. **The CR token lives only on the managed, allowlisted host.** It is
    gitignored. Never commit it, expose it to the browser, place it in CI, or put
-   it in Lambda configuration. The current static refresher at
-   `apps/web/scripts/refresh-cards.mjs` is the only implemented consumer.
+   it in Lambda configuration. The static refresher and local bridge are the
+   only implemented consumers on the allowlisted host.
 4. **The public website remains GitHub Pages + hash routing.** Its custom domain
    is in `apps/web/public/CNAME`; Vite uses `base: '/'`; history routing will 404
    on Pages. The deploy build needs no secrets.
@@ -55,9 +55,10 @@ Doc map:
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 
-The current player API and infrastructure are implemented and documented in
-`services/api/README.md` and `infra/README.md`. The bridge queue contract remains
-deferred; do not invent it as part of unrelated work.
+The player API, infrastructure, and bridge are implemented and documented in
+their workspace READMEs. Keep the request/result contracts in
+`packages/contracts`; do not bypass the queues or widen the CR snapshot with
+rank-oriented fields as part of unrelated work.
 
 ---
 
@@ -103,6 +104,9 @@ deferred; do not invent it as part of unrelated work.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
+- **CR profile snapshots are practice context, not rank context.** Store CR name,
+  clan, Years Played account age, and cards. Do not add experience, arenas,
+  trophies, wins, or card levels. Player tags remain unverified ownership.
 - **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
   Preload the sprint's card images before the clock starts.
 
@@ -157,7 +161,7 @@ the `items` array (standard cards with `elixirCost`);
 - Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). Embed in `<head>`:
   `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?spa&hits&kudos=%F0%9F%91%8F&countries&events&beacon`
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
-- Discord: `https://discord.gg/kBD62fYHWx` — the clan is often full; lead with
+- Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).
 - Recruit is **moments, not chrome**: trigger on a new PB / strong session, never
   a load-time modal. Keep a quiet "Run by POAP KINGS" footer link always.

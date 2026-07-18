@@ -22,14 +22,15 @@ remains the canonical source for shipped modes and game ideas.
 The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
 global game totals, and seasonal leaderboards. It remains playable when that API
-is unavailable. The Clash Royale bridge is still deferred.
+is unavailable. Dynamic Clash Royale player enrichment runs asynchronously
+through the fixed-IP bridge.
 
 The only outbound ties are ordinary links:
 
 - POAP KINGS site: `https://poapkings.com`
 - Clan invite:
   `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
-- Discord: `https://discord.gg/kBD62fYHWx`
+- Discord: `https://discord.gg/SdvKfJW5kA`
 - Supercell / fan-policy attribution links
 
 Hard product constraints:
@@ -52,14 +53,14 @@ The repository uses npm workspaces:
 | ------------------------ | --------------------------------------------------- | ----------- |
 | `apps/web`               | Public Preact game                                  | Implemented |
 | `services/api`           | TypeScript Lambda player and game API               | Implemented |
-| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker                    | Scaffolded  |
+| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker                    | Implemented |
 | `packages/contracts`     | Shared browser/server TypeScript contracts          | Implemented |
 | `packages/game-data`     | Canonical card facts                                | Implemented |
 | `infra`                  | CloudFormation and SDK deployment automation        | Implemented |
 
-The future bridge queue and response contract remain undecided. The current API
-uses API Gateway HTTP API, Lambda, DynamoDB, Fastmail JMAP, Bedrock, and
-CloudFormation.
+The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Fastmail JMAP, Bedrock,
+and CloudFormation. The local bridge long-polls SQS with its own queue-only IAM
+credentials and returns normalized results through a second queue.
 
 Current public website stack:
 
@@ -112,9 +113,9 @@ Refresh model:
 - `MIRROR_IMAGES=false` hotlinks Supercell CDN card art; `true` can mirror art
   into `apps/web/public/cards/` without changing game code.
 
-This static snapshot refresh is the only implemented Clash Royale API consumer.
-Future dynamic backend work must be queued for `services/cr-api-bridge`; its
-request and response contracts are not part of this spec yet.
+The static refresher and local bridge are the only implemented Clash Royale API
+consumers. Dynamic backend work must be queued for
+`services/cr-api-bridge`; Lambda and browsers never call CR directly.
 
 Normalization rules:
 
@@ -225,8 +226,14 @@ Authenticated public identity is centered on one favorite card:
 - Changing a favorite card requires choosing a new card-derived name in the
   same flow. Existing profiles without a favorite card remain readable and use
   the Elixir avatar until the player chooses one.
-- Clash Royale player tags are separate and unverified. A future bridge may use
-  a tag's collection to shape game challenges, but it does not control identity.
+- Clash Royale player tags are separate and unverified. Saving or reading a
+  stale tag queues a refresh; snapshots are fresh for six hours and shared by
+  tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
+  owned cards without card levels. Experience, arena, trophies, wins, and other
+  rank-oriented fields are excluded.
+- Surge, Practice, Identify, Higher/Lower, Blitz, and Survival use the attached
+  collection when it contains at least 12 canonical cards. Other modes continue
+  to use the full catalog.
 
 ---
 
@@ -326,20 +333,21 @@ Current e2e coverage includes:
 
 ---
 
-## 10. Open Operations And Architecture
+## 10. Operations And Architecture
 
-The remaining non-code operation is the card refresh host:
+This Mac owns the allowlisted CR API token and runs both CR consumers:
 
-- Confirm or maintain the managed host that owns the allowlisted CR API token.
-- Keep `apps/web/.env` local to that host.
-- Keep push credentials scoped to the repo.
+- Keep the root `.env` local and mode `0600`; it holds the CR token plus separate
+  deployment and queue-only bridge credentials.
+- Keep the launchd bridge loaded and review
+  `~/Library/Logs/elixir-drop-cr-bridge.log` when a refresh is delayed.
 - Run `apps/web/scripts/refresh-cards.mjs` manually after known Supercell updates
   or on a conservative cron.
+- Queue retries end in dedicated request/result dead-letter queues rather than
+  silently dropping work.
 
-The implemented API and deployment model are documented in
-`services/api/README.md` and `infra/README.md`. The remaining architecture work
-is the bridge queue, response cache, and per-mode policy for when a tagged
-player's card collection should influence server challenge generation.
+The implemented API, bridge, and deployment model are documented in their
+workspace READMEs.
 
 ---
 

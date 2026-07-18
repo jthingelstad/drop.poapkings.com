@@ -2,13 +2,36 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import PlayerAvatar from '../components/PlayerAvatar'
-import { accountStatus, player, sessionToken, signOut, updateAccount } from '../lib/account'
+import { accountStatus, player, refreshAccount, sessionToken, signOut, updateAccount } from '../lib/account'
 import { getNameOptions } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
 import { navigate } from '../lib/router'
 import type { CardsData } from '../types'
 
 const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
+
+function accountAgeText(years: number | undefined, days: number | undefined): string {
+  if (years !== undefined) return years === 1 ? 'About 1 year in Clash Royale' : `About ${years} years in Clash Royale`
+  if (days !== undefined)
+    return days < 365 ? 'Less than a year in Clash Royale' : `About ${Math.floor(days / 365)} years in Clash Royale`
+  return 'Account age unavailable'
+}
+
+function roleText(role: string | undefined): string | undefined {
+  if (!role) return undefined
+  return role.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase())
+}
+
+function fetchedText(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  return `${new Date(value).toLocaleString('en-US', {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })} UTC`
+}
 
 export default function Profile() {
   const tag = useSignal(player.value?.playerTag || '')
@@ -20,6 +43,7 @@ export default function Profile() {
   const busy = useSignal(false)
   const message = useSignal('')
   const syncedPlayerId = useRef<string | undefined>(undefined)
+  const pollingCrStatus = player.value?.clashRoyale?.status
 
   useEffect(() => {
     const authenticatedPlayer = player.value
@@ -29,6 +53,12 @@ export default function Profile() {
     selectedCardId.value = authenticatedPlayer.favoriteCardId ?? null
     editingIdentity.value = authenticatedPlayer.favoriteCardId === undefined
   })
+
+  useEffect(() => {
+    if (pollingCrStatus !== 'pending') return
+    const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
+    return () => window.clearInterval(interval)
+  }, [pollingCrStatus])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -111,7 +141,7 @@ export default function Profile() {
     busy.value = true
     try {
       await updateAccount({ playerTag: tag.value || null })
-      message.value = tag.value ? 'Player tag saved. It is not verified yet.' : 'Player tag removed.'
+      message.value = tag.value ? 'Player tag saved. Loading its public Clash Royale profile…' : 'Player tag removed.'
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
     } finally {
@@ -229,7 +259,7 @@ export default function Profile() {
         <section class="profile-section">
           <h2>Clash Royale player tag</h2>
           <p>
-            This points at a public CR profile; it does not authenticate ownership. Card loading comes with the bridge.
+            This points at a public CR profile and does not authenticate ownership. Drop refreshes it automatically.
           </p>
           <form class="account-form account-form--row" onSubmit={saveTag}>
             <input
@@ -242,6 +272,95 @@ export default function Profile() {
             </button>
           </form>
         </section>
+
+        {current.clashRoyale && (
+          <section class="profile-section cr-profile" aria-live="polite">
+            {current.clashRoyale.status === 'pending' && (
+              <div class="cr-profile__state">
+                <div class="cr-profile__pulse" aria-hidden="true" />
+                <div>
+                  <h2>Loading Clash Royale profile</h2>
+                  <p>The fixed-IP helper is fetching {current.clashRoyale.tag}. This page will update automatically.</p>
+                </div>
+              </div>
+            )}
+
+            {current.clashRoyale.status === 'not_found' && (
+              <div class="cr-profile__state">
+                <div>
+                  <h2>Player tag not found</h2>
+                  <p>Clash Royale could not find {current.clashRoyale.tag}. Check the tag and save it again.</p>
+                </div>
+              </div>
+            )}
+
+            {current.clashRoyale.status === 'unavailable' && (
+              <div class="cr-profile__state">
+                <div>
+                  <h2>Profile refresh delayed</h2>
+                  <p>Drop could not queue this refresh. The saved tag is safe and will be retried automatically.</p>
+                </div>
+              </div>
+            )}
+
+            {current.clashRoyale.status === 'ready' && (
+              <>
+                <div class="cr-profile__head">
+                  <div>
+                    <div class="eyebrow">Clash Royale profile</div>
+                    <h2>{current.clashRoyale.name}</h2>
+                    <p class="cr-profile__tag">{current.clashRoyale.tag}</p>
+                  </div>
+                  {fetchedText(current.clashRoyale.fetchedAt) && (
+                    <small>Updated {fetchedText(current.clashRoyale.fetchedAt)}</small>
+                  )}
+                </div>
+
+                <div class="cr-profile__facts">
+                  <div>
+                    <span>Clan</span>
+                    <strong>{current.clashRoyale.clan?.name || 'No clan'}</strong>
+                    {roleText(current.clashRoyale.clan?.role) && (
+                      <small>{roleText(current.clashRoyale.clan?.role)}</small>
+                    )}
+                  </div>
+                  <div>
+                    <span>Account age</span>
+                    <strong>
+                      {accountAgeText(current.clashRoyale.accountAge?.years, current.clashRoyale.accountAge?.days)}
+                    </strong>
+                    <small>From the Years Played badge</small>
+                  </div>
+                  <div>
+                    <span>Collection</span>
+                    <strong>{current.clashRoyale.cards?.length || 0} cards</strong>
+                    <small>Levels stay private</small>
+                  </div>
+                </div>
+
+                <div class="cr-collection">
+                  <div class="cr-collection__head">
+                    <h3>Card collection</h3>
+                    <span>{current.clashRoyale.cards?.length || 0} owned</span>
+                  </div>
+                  <div class="cr-card-grid" aria-label="Clash Royale card collection">
+                    {current.clashRoyale.cards?.map((card) => {
+                      const catalogCard = challengeCard(card.id)
+                      return (
+                        <div class="cr-card" key={card.id}>
+                          {(card.iconUrl || catalogCard?.icon) && (
+                            <img src={card.iconUrl || catalogCard?.icon} alt="" loading="lazy" />
+                          )}
+                          <span>{card.name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         {message.value && (
           <div class="account-message" role="status">
