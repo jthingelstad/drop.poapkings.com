@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
+import { emailValidationMessage } from "@elixir-drop/contracts";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PLAYER_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
 const GAME_RETURN_PATHS = new Set([
   "/practice",
@@ -16,10 +16,10 @@ const GAME_RETURN_PATHS = new Set([
 ]);
 
 export function normalizeEmail(value: unknown): string {
-  if (typeof value !== "string") throw new Error("Email is required");
+  const validationMessage = emailValidationMessage(value);
+  if (validationMessage) throw new Error(validationMessage);
+  if (typeof value !== "string") throw new Error("Enter your email address.");
   const email = value.trim().toLowerCase();
-  if (email.length > 254 || !EMAIL_PATTERN.test(email))
-    throw new Error("Enter a valid email address");
   return email;
 }
 

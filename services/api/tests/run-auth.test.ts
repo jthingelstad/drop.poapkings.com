@@ -75,4 +75,18 @@ describe("run authentication", () => {
       },
     });
   });
+
+  it("returns a useful client error for masked email addresses", async () => {
+    const response = await invoke("/auth/request", {
+      email: "e***@p***.com",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body || "{}")).toEqual({
+      error: {
+        code: "invalid_request",
+        message: "Enter your complete email address, not a masked address.",
+      },
+    });
+  });
 });

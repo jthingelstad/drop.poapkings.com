@@ -169,7 +169,12 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "POST" && path === "/auth/request") {
     const body = bodyOf(event);
-    const email = normalizeEmail(body.email);
+    let email: string;
+    try {
+      email = normalizeEmail(body.email);
+    } catch (error) {
+      throw badRequest(error);
+    }
     const returnTo = normalizeGameReturnPath(body.returnTo);
     const ip = event.requestContext.http.sourceIp || "unknown";
     await Promise.all([

@@ -11,6 +11,46 @@ export const GAME_MODES = [
   "survival",
 ] as const;
 
+const EMAIL_LOCAL_PATTERN = /^[a-z0-9.!#$%&'+/=?^_`{|}~-]+$/i;
+const EMAIL_DOMAIN_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+const EMAIL_TLD_PATTERN = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i;
+
+export function emailValidationMessage(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim())
+    return "Enter your email address.";
+  const email = value.trim();
+  if (email.includes("*"))
+    return "Enter your complete email address, not a masked address.";
+  if (email.length > 254) return "Enter a valid email address.";
+
+  const at = email.indexOf("@");
+  if (at <= 0 || at !== email.lastIndexOf("@"))
+    return "Enter a valid email address.";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (
+    local.length > 64 ||
+    local.startsWith(".") ||
+    local.endsWith(".") ||
+    local.includes("..") ||
+    !EMAIL_LOCAL_PATTERN.test(local)
+  )
+    return "Enter a valid email address.";
+
+  const labels = domain.split(".");
+  if (
+    domain.length > 253 ||
+    labels.length < 2 ||
+    labels.some(
+      (label) =>
+        !label || label.length > 63 || !EMAIL_DOMAIN_LABEL_PATTERN.test(label),
+    ) ||
+    !EMAIL_TLD_PATTERN.test(labels[labels.length - 1] || "")
+  )
+    return "Enter a valid email address.";
+  return undefined;
+}
+
 export type GameMode = (typeof GAME_MODES)[number];
 
 export type RunChallenge =

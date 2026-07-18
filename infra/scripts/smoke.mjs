@@ -66,6 +66,19 @@ if (
   throw new Error("Leaderboard response is incomplete");
 }
 
+const maskedLogin = await fetch(`${apiBaseUrl}/auth/request`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ email: "e***@p***.com" }),
+});
+const maskedLoginBody = await maskedLogin.json();
+if (
+  maskedLogin.status !== 400 ||
+  maskedLoginBody.error?.code !== "invalid_request"
+) {
+  throw new Error("Masked email address was not rejected");
+}
+
 const started = await fetch(`${apiBaseUrl}/runs/start`, {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -113,6 +126,7 @@ console.log(
     deploymentIdentity: identity.Arn,
     fastmailJmap,
     anonymousPlay: "rejected",
+    maskedEmail: "rejected",
     leaderboard: "verified",
     totalGames: statsBody.totalGames,
   }),

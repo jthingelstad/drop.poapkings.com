@@ -271,7 +271,15 @@ test('requires email authentication before entering a game and returns after log
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
-  await page.getByLabel('Email address').fill('player@example.com')
+  const emailInput = page.getByLabel('Email address')
+  await emailInput.fill('e***@p***.com')
+  await page.getByRole('button', { name: 'Email me a login link' }).click()
+  await expect(page.getByRole('alert')).toHaveText('Enter your complete email address, not a masked address.')
+  await expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+  expect(loginBody).toBeUndefined()
+
+  await emailInput.fill('player@example.com')
+  await expect(page.getByRole('alert')).toHaveCount(0)
   await page.getByRole('button', { name: 'Email me a login link' }).click()
   await expect(page.getByRole('status')).toContainText('Check your email')
   expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
@@ -344,8 +352,10 @@ test('new players choose a favorite card and generated name before returning to 
   await page.getByRole('button', { name: 'Get name choices' }).click()
   await page.getByRole('button', { name: 'Knight Main', exact: true }).click()
 
-  expect(savedIdentity).toEqual({ favoriteCardId: 26000000, publicName: 'Knight Main', nameToken: 'name-token' })
   await expect(page).toHaveURL(/#\/surge$/)
+  await expect
+    .poll(() => savedIdentity)
+    .toEqual({ favoriteCardId: 26000000, publicName: 'Knight Main', nameToken: 'name-token' })
   await expect(page.locator('.surge-ready')).toBeVisible()
 })
 

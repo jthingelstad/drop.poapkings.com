@@ -1,4 +1,5 @@
 import { useSignal } from '@preact/signals'
+import { emailValidationMessage } from '@elixir-drop/contracts'
 import { requestLogin } from '../lib/api'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
@@ -11,9 +12,15 @@ export default function Login() {
 
   async function submit(event: Event) {
     event.preventDefault()
+    const validationMessage = emailValidationMessage(email.value)
+    if (validationMessage) {
+      message.value = validationMessage
+      status.value = 'error'
+      return
+    }
     status.value = 'sending'
     try {
-      const response = await requestLogin(email.value, returnTo)
+      const response = await requestLogin(email.value.trim(), returnTo)
       message.value = response.message
       status.value = 'sent'
     } catch (error) {
@@ -37,22 +44,37 @@ export default function Login() {
             {message.value}
           </div>
         ) : (
-          <form class="account-form" onSubmit={submit}>
+          <form class="account-form" onSubmit={submit} novalidate>
             <label for="login-email">Email address</label>
             <input
               id="login-email"
               type="email"
               autocomplete="email"
+              inputmode="email"
+              maxlength={254}
               required
+              spellcheck={false}
+              aria-invalid={status.value === 'error'}
+              aria-describedby={status.value === 'error' ? 'login-email-error' : undefined}
               value={email.value}
-              onInput={(event) => (email.value = event.currentTarget.value)}
+              onInput={(event) => {
+                email.value = event.currentTarget.value
+                if (status.value === 'error') {
+                  status.value = 'idle'
+                  message.value = ''
+                }
+              }}
             />
             <button class="btn btn--gold" disabled={status.value === 'sending'}>
               {status.value === 'sending' ? 'Sending…' : 'Email me a login link'}
             </button>
           </form>
         )}
-        {status.value === 'error' && <div class="account-message account-message--error">{message.value}</div>}
+        {status.value === 'error' && (
+          <div id="login-email-error" class="account-message account-message--error" role="alert">
+            {message.value}
+          </div>
+        )}
         <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
           Back to home
         </button>

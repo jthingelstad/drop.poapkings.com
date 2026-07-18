@@ -13,6 +13,17 @@ describe("player input validation", () => {
     expect(normalizePlayerTag(" 2pyq0 ")).toBe("#2PYQ0");
   });
 
+  it.each([
+    "e***@p***.com",
+    "player@example",
+    "player@-example.com",
+    "player@example..com",
+    ".player@example.com",
+    "player..one@example.com",
+  ])("rejects incomplete or malformed email addresses: %s", (email) => {
+    expect(() => normalizeEmail(email)).toThrow();
+  });
+
   it("only carries game routes through magic-link authentication", () => {
     expect(normalizeGameReturnPath("/surge")).toBe("/surge");
     expect(normalizeGameReturnPath("/leaderboards")).toBeUndefined();
