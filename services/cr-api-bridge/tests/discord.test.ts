@@ -30,13 +30,13 @@ describe("CR bridge Discord event", () => {
     const payload = playerPulledWebhookPayload(result, 321);
     const serialized = JSON.stringify(payload);
 
-    expect(payload.embeds[0]?.title).toBe("Clash Royale Player Loaded");
-    expect(serialized).toContain("#2PYQ0");
-    expect(serialized).toContain("POAP KINGS · Co-leader");
-    expect(serialized).toContain("8 years");
-    expect(serialized).toContain("1 card");
+    expect(payload.content).toBe(
+      "🔄 CR loaded · CR Player (#2PYQ0) · POAP KINGS · 1 card · 8y account · 321ms",
+    );
+    expect(payload).not.toHaveProperty("embeds");
     expect(serialized).not.toContain("troph");
     expect(serialized).not.toContain("level");
+    expect(serialized).not.toContain("job-1");
   });
 
   it("does not let webhook delivery block the bridge", async () => {

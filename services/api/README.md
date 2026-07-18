@@ -48,17 +48,17 @@ name. `playerTag` remains an independent, unverified profile field.
 ## Discord events
 
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL` is a server-only deployment secret. Successful
-magic-link redemption posts account and profile metadata plus request
-correlation, but never a session token, magic link, or IP address. Completed
-games post their mode, server-computed score, authentication state, player
-progress when available, season, and run ID. Delivery is best effort with a
-three-second timeout; Discord failure never changes an otherwise successful API
-response.
+magic-link redemption and completed games each post one compact text line with
+the useful player, progress, mode, score, and season context. Session tokens,
+magic links, IP addresses, verbose clients, and correlation IDs stay out of
+Discord; request/run IDs remain in CloudWatch logs. Delivery is best effort with
+a three-second timeout and never changes an otherwise successful API response.
 
 The fixed-IP bridge uses the same locally stored webhook to record successful
-and not-found CR player pulls with the tag, CR name, clan, account age,
-collection size, fetch duration, and job ID. It never includes competitive
-rank data or card levels, and Discord failure never blocks queue completion.
+and not-found CR player pulls as one-line text with the tag, CR name, clan,
+account age, collection size, and fetch duration. Job IDs remain in the local
+worker and Lambda logs. Discord never includes competitive rank data or card
+levels, and delivery failure never blocks queue completion.
 
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.

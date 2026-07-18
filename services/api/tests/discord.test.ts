@@ -18,31 +18,20 @@ const profile: PlayerProfile = {
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
 
-function fieldValue(
-  payload: ReturnType<typeof loginWebhookPayload>,
-  name: string,
-): string | undefined {
-  return payload.embeds[0]?.fields.find((field) => field.name === name)?.value;
-}
-
 describe("Discord event notifications", () => {
-  it("builds login events from useful profile metadata", () => {
+  it("builds a compact login line from useful profile metadata", () => {
     const payload = loginWebhookPayload({
       profile,
       newPlayer: false,
-      occurredAt: "2026-07-18T12:00:00.000Z",
-      requestId: "request-123",
-      userAgent: "Drop Browser",
     });
 
     expect(payload.allowed_mentions).toEqual({ parse: [] });
-    expect(payload.embeds[0]?.title).toBe("Player Login");
-    expect(fieldValue(payload, "Login Type")).toBe("Returning player");
-    expect(fieldValue(payload, "Email")).toBe("player@example.com");
-    expect(fieldValue(payload, "Favorite Card")).toBe("Inferno Dragon");
-    expect(fieldValue(payload, "Progress")).toBe("14 games · Level 2");
-    expect(fieldValue(payload, "Client")).toBe("Drop Browser");
+    expect(payload.content).toBe(
+      "🔐 Login · returning · player@example.com · Inferno Dragon Main · 14 games · #2PYQ0",
+    );
+    expect(payload).not.toHaveProperty("embeds");
     expect(JSON.stringify(payload)).not.toContain("email-subject");
+    expect(JSON.stringify(payload)).not.toContain("player-123");
   });
 
   it("formats authenticated and anonymous completed games", () => {
@@ -55,11 +44,10 @@ describe("Discord event notifications", () => {
       completedAt: "2026-07-18T12:01:00.000Z",
       profile,
     });
-    expect(authenticated.embeds[0]?.title).toBe("Game Finished");
-    expect(fieldValue(authenticated, "Mode")).toBe("Surge");
-    expect(fieldValue(authenticated, "Score")).toBe("12.345 seconds");
-    expect(fieldValue(authenticated, "Authenticated")).toBe("Yes");
-    expect(fieldValue(authenticated, "Run ID")).toBe("run-123");
+    expect(authenticated.content).toBe(
+      "🎮 Surge · 12.345s · Inferno Dragon Main · 14 games · 2026-07",
+    );
+    expect(authenticated.content).not.toContain("run-123");
 
     const anonymous = completedGameWebhookPayload({
       authenticated: false,
@@ -69,16 +57,13 @@ describe("Discord event notifications", () => {
       seasonId: "2026-07",
       completedAt: "2026-07-18T12:02:00.000Z",
     });
-    expect(fieldValue(anonymous, "Player")).toBe("Anonymous");
-    expect(fieldValue(anonymous, "Score")).toBe("87%");
+    expect(anonymous.content).toBe("🎮 Practice · 87% · anonymous · 2026-07");
   });
 
   it("posts JSON without allowing notification failures to escape", async () => {
     const payload = loginWebhookPayload({
       profile,
       newPlayer: true,
-      occurredAt: "2026-07-18T12:00:00.000Z",
-      requestId: "request-123",
     });
     const fetcher = vi.fn(async (_input: string, _init: RequestInit) => ({
       ok: true,

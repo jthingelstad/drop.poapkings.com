@@ -210,14 +210,16 @@ async function route(event: APIGatewayProxyEventV2) {
     const sub = emailSubject(email);
     const login = await repository.ensureProfile(sub, email);
     const session = issueSession(sub, config.sessionSecret, nowSeconds);
+    console.info("Player login completed", {
+      requestId: event.requestContext.requestId,
+      playerId: login.profile.playerId,
+      newPlayer: login.created,
+    });
     await publishDiscordEvent(
       config.discordWebhookUrl,
       loginWebhookPayload({
         profile: login.profile,
         newPlayer: login.created,
-        occurredAt: new Date(nowSeconds * 1_000).toISOString(),
-        requestId: event.requestContext.requestId,
-        userAgent: event.requestContext.http.userAgent,
       }),
     );
     return json(200, {
@@ -459,6 +461,13 @@ async function route(event: APIGatewayProxyEventV2) {
     const season = seasonForDate();
     const result = await repository.completeRun(run, score, season.id);
     const authenticated = !run.owner.startsWith("ANON#");
+    console.info("Game completed", {
+      runId: run.runId,
+      mode: run.mode,
+      score,
+      authenticated,
+      seasonId: season.id,
+    });
     await publishDiscordEvent(
       config.discordWebhookUrl,
       completedGameWebhookPayload({
