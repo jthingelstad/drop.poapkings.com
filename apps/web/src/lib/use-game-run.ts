@@ -79,6 +79,18 @@ export function useGameRun<T extends GameMode>(mode: T) {
     setRecordingNotice({ state: 'saving', message: 'Recording your game…' })
     try {
       const result = await completeRun(active.runToken, transcript, requiredSessionToken())
+      if (!result.accepted) {
+        run.current = null
+        pendingCompletion.current = null
+        setRecordingNotice({
+          state: 'error',
+          message: 'This result is awaiting a quick integrity review.',
+          detail: 'It was not added to your progress or the leaderboard. You can close this message and keep playing.',
+          actionLabel: 'Close',
+          action: () => setRecordingNotice({ state: 'idle' })
+        })
+        return
+      }
       applyRunProgress(result)
       run.current = null
       pendingCompletion.current = null

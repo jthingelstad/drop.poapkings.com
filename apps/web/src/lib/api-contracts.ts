@@ -141,8 +141,7 @@ export const startedRunSchema = z
   })
   .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })
 
-export const completedRunSchema = z.object({
-  accepted: z.literal(true),
+const runCompletionFields = {
   runId: nonEmptyString,
   mode: gameModeSchema,
   score: z.number().finite(),
@@ -152,7 +151,12 @@ export const completedRunSchema = z.object({
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger
-})
+}
+
+export const completedRunSchema = z.discriminatedUnion('accepted', [
+  z.object({ accepted: z.literal(true), ...runCompletionFields }),
+  z.object({ accepted: z.literal(false), reviewStatus: z.literal('pending'), ...runCompletionFields })
+])
 
 export const siteStatsSchema = z.object({
   trophyRoadGames: nonNegativeInteger,

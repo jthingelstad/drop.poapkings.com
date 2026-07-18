@@ -13,6 +13,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import { leaderboardSortKey } from "./games.js";
+import type { IntegrityReason } from "./integrity.js";
 import { levelForGames } from "./progression.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
@@ -44,12 +45,21 @@ export interface RunItem {
   owner: string;
   mode: GameMode;
   challenge: RunChallenge;
-  state: "started" | "completed";
+  state: "started" | "completed" | "quarantined";
   startedAt: string;
   expiresAt: number;
   completedAt?: string;
   score?: number;
   seasonId?: string;
+  reviewReason?: IntegrityReason;
+  integrityEvidence?: RunIntegrityEvidence;
+}
+
+export interface RunIntegrityEvidence {
+  wallElapsedMs: number;
+  answerCount?: number;
+  attemptCount?: number;
+  pickCount?: number;
 }
 
 interface ProfileItem extends PlayerProfile {
@@ -584,6 +594,59 @@ export class Repository {
 
     const profile = await this.getProfile(run.owner);
     if (!profile) throw new Error("Completed run profile could not be loaded");
+    return { totalGames: profile.totalGames, completedAt, profile };
+  }
+
+  async quarantineRun(
+    run: RunItem,
+    score: number,
+    seasonId: string,
+    reason: IntegrityReason,
+    integrityEvidence: RunIntegrityEvidence,
+  ): Promise<{
+    totalGames: number;
+    completedAt: string;
+    profile: PlayerProfile;
+  }> {
+    const completedAt = new Date().toISOString();
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: run.pk, sk: run.sk },
+          UpdateExpression:
+            "SET #state = :quarantined, completedAt = :completedAt, score = :score, seasonId = :seasonId, reviewReason = :reviewReason, integrityEvidence = :integrityEvidence",
+          ConditionExpression: "#state = :started AND #owner = :owner",
+          ExpressionAttributeNames: { "#state": "state", "#owner": "owner" },
+          ExpressionAttributeValues: {
+            ":quarantined": "quarantined",
+            ":started": "started",
+            ":owner": run.owner,
+            ":completedAt": completedAt,
+            ":score": score,
+            ":seasonId": seasonId,
+            ":reviewReason": reason,
+            ":integrityEvidence": integrityEvidence,
+          },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      ) {
+        throw new HttpError(
+          409,
+          "This run was already recorded or is no longer valid.",
+          "run_conflict",
+        );
+      }
+      throw error;
+    }
+
+    const profile = await this.getProfile(run.owner);
+    if (!profile)
+      throw new Error("Quarantined run profile could not be loaded");
     return { totalGames: profile.totalGames, completedAt, profile };
   }
 

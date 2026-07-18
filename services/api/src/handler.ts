@@ -19,6 +19,7 @@ import {
 import { badRequest, HttpError } from "./errors.js";
 import { isGameMode } from "./games.js";
 import { bearerToken, json } from "./http.js";
+import { assessRunIntegrity } from "./integrity.js";
 import { sendMagicLink } from "./jmap.js";
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
@@ -57,6 +58,24 @@ function bodyOf(event: APIGatewayProxyEventV2): Record<string, unknown> {
   } catch (error) {
     throw badRequest(error);
   }
+}
+
+function runIntegrityEvidence(
+  transcript: RunTranscript,
+  wallElapsedMs: number,
+) {
+  return {
+    wallElapsedMs,
+    ...(Array.isArray(transcript.answers)
+      ? { answerCount: transcript.answers.length }
+      : {}),
+    ...(Array.isArray(transcript.attempts)
+      ? { attemptCount: transcript.attempts.length }
+      : {}),
+    ...(Array.isArray(transcript.picks)
+      ? { pickCount: transcript.picks.length }
+      : {}),
+  };
 }
 
 function issueSession(
@@ -497,6 +516,34 @@ async function route(event: APIGatewayProxyEventV2) {
         ...progress,
       });
     }
+    if (run.state === "quarantined") {
+      if (!run.completedAt || typeof run.score !== "number" || !run.seasonId)
+        throw new HttpError(
+          409,
+          "This run is under review but its result is unavailable.",
+          "run_conflict",
+        );
+      const profile = await repository.getProfile(run.owner);
+      if (!profile)
+        throw new HttpError(
+          404,
+          "Player profile was not found.",
+          "profile_not_found",
+        );
+      const season = seasonForDate(new Date(run.completedAt));
+      const progress = levelForGames(profile.totalGames);
+      return json(202, {
+        accepted: false,
+        reviewStatus: "pending",
+        runId: run.runId,
+        mode: run.mode,
+        score: run.score,
+        season: { ...season, id: run.seasonId },
+        completedAt: run.completedAt,
+        totalGames: profile.totalGames,
+        ...progress,
+      });
+    }
     const nowSeconds = Math.floor(Date.now() / 1_000);
     if (run.expiresAt <= nowSeconds)
       throw new HttpError(
@@ -505,15 +552,45 @@ async function route(event: APIGatewayProxyEventV2) {
         "run_expired",
       );
     let score: number;
+    let transcript: RunTranscript;
+    let wallElapsedMs: number;
     try {
-      const transcript = requireObject(body.transcript ?? {}) as RunTranscript;
-      const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
+      transcript = requireObject(body.transcript ?? {}) as RunTranscript;
+      wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
       score = scoreRun(run.challenge, transcript, wallElapsedMs);
     } catch (error) {
       throw badRequest(error);
     }
 
     const season = seasonForDate(new Date(), await currentWarClock(repository));
+    const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
+    if (!integrity.eligible) {
+      const result = await repository.quarantineRun(
+        run,
+        score,
+        season.id,
+        integrity.reason,
+        runIntegrityEvidence(transcript, wallElapsedMs),
+      );
+      console.warn("Game quarantined for integrity review", {
+        runId: run.runId,
+        mode: run.mode,
+        score,
+        reason: integrity.reason,
+        wallElapsedMs,
+      });
+      return json(202, {
+        accepted: false,
+        reviewStatus: "pending",
+        runId: run.runId,
+        mode: run.mode,
+        score,
+        season,
+        completedAt: result.completedAt,
+        totalGames: result.totalGames,
+        ...levelForGames(result.totalGames),
+      });
+    }
     const result = await repository.completeRun(run, score, season.id);
     let crProfile: CrProfileSnapshot | undefined;
     if (result.profile.playerTag) {

@@ -156,6 +156,50 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
   });
 
+  it("stores quarantined evidence without touching progress or leaderboards", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 4,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:00:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-review",
+      sk: "RUN",
+      runId: "run-review",
+      owner: "player-sub",
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+    };
+
+    await new Repository("test-table").quarantineRun(
+      run,
+      4_000,
+      "2026-07",
+      "score_below_ui_floor",
+      { wallElapsedMs: 10_000, answerCount: 15 },
+    );
+
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.TransactItems).toBeUndefined();
+    expect(update.Key).toEqual({ pk: "RUN#run-review", sk: "RUN" });
+    expect(update.UpdateExpression).toContain("reviewReason = :reviewReason");
+    expect(update.ExpressionAttributeValues).toMatchObject({
+      ":quarantined": "quarantined",
+      ":reviewReason": "score_below_ui_floor",
+      ":integrityEvidence": { wallElapsedMs: 10_000, answerCount: 15 },
+    });
+    expect(JSON.stringify(update)).not.toContain("LEADERBOARD#");
+    expect(JSON.stringify(update)).not.toContain("trophyRoadGames");
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {

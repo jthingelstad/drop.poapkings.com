@@ -130,4 +130,59 @@ describe("idempotent run completion", () => {
       season: { id: "2026-07" },
     });
   });
+
+  it("returns the pending review when a quarantined run is retried", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-review",
+        owner: "player-sub",
+        mode: "surge",
+        iat: nowSeconds - 120,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-review",
+      sk: "RUN",
+      runId: "run-review",
+      owner: "player-sub",
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: [] },
+      state: "quarantined",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: nowSeconds + 1_800,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      score: 4_000,
+      seasonId: "2026-07",
+      reviewReason: "score_below_ui_floor",
+    });
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "player-1",
+      email: "player@example.com",
+      publicName: "Knight Main",
+      favoriteCardId: 26000000,
+      totalGames: 8,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-18T12:01:00.000Z",
+    });
+
+    const response = (await handler(
+      event(runToken),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(202);
+    expect(body).toMatchObject({
+      accepted: false,
+      reviewStatus: "pending",
+      runId: "run-review",
+      score: 4_000,
+      totalGames: 8,
+    });
+  });
 });
