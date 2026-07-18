@@ -1,9 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, CardsData } from '../../types'
+import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
@@ -22,9 +20,6 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 // Surge tunables — one config object (SPEC §9).
 const SURGE = {
   SPRINT_LEN: 15,
@@ -37,23 +32,9 @@ const CORRECT_BEAT_MS = 280
 const WRONG_BEAT_MS = 430
 const COUNTDOWN_STEP_MS = 650
 
-// A distinct sprint of N cards, biased toward weak cards by the sampler.
-function pickSprint(n: number): Card[] {
-  const chosen: Card[] = []
-  const seen = new Set<number>()
-  const recent: number[] = []
-  while (chosen.length < n) {
-    const c = sampleUnseenCard(ALL_CARDS, seen, recent)
-    chosen.push(c)
-    recent.push(c.id)
-    if (recent.length > 6) recent.shift()
-  }
-  return chosen
-}
-
 export default function Surge() {
   const gameRun = useGameRun('surge')
-  const sprint = useRef<Card[]>(pickSprint(SURGE.SPRINT_LEN))
+  const sprint = useRef<Card[]>([])
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const firstGuess = useRef(0)
@@ -76,10 +57,8 @@ export default function Surge() {
   const prevBest = useSignal<number | undefined>(undefined)
   const elixirLine = useSignal('')
 
-  // Preload the sprint art once on mount.
   useEffect(() => {
-    preloadImages(sprint.current, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    track('mode.surge')
   }, [])
 
   useLayoutEffect(() => {
@@ -180,7 +159,7 @@ export default function Surge() {
 
   function replay() {
     timed.reset('ready')
-    sprint.current = pickSprint(SURGE.SPRINT_LEN)
+    sprint.current = []
     answers.current = []
     serverAnswers.current = []
     currentGuesses.current = []
@@ -189,7 +168,6 @@ export default function Surge() {
     insights.value = null
     cardPhase.value = 'playing'
     index.value = 0
-    preloadImages(sprint.current, () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 

@@ -1,9 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { JSX } from 'preact'
-import type { Card, CardsData } from '../../types'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
+import type { Card } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -21,9 +19,6 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 const LADDER = {
   SIZE: 5,
   PENALTY_MS: 2000
@@ -33,42 +28,6 @@ const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
 type Feedback = 'idle' | 'wrong'
-
-function shuffle(cards: Card[]): Card[] {
-  const next = [...cards]
-  for (let i = next.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const tmp = next[i]
-    next[i] = next[j]
-    next[j] = tmp
-  }
-  return next
-}
-
-function pickLadderCards(): Card[] {
-  const chosen: Card[] = []
-  const seen = new Set<number>()
-  const recent: number[] = []
-
-  while (chosen.length < LADDER.SIZE) {
-    const card = sampleUnseenCard(ALL_CARDS, seen, recent)
-    chosen.push(card)
-    recent.push(card.id)
-    if (recent.length > 6) recent.shift()
-  }
-
-  if (new Set(chosen.map((card) => card.elixir)).size < 2) {
-    const replacement = ALL_CARDS.find((card) => card.elixir !== chosen[0].elixir && !seen.has(card.id))
-    if (replacement) chosen[LADDER.SIZE - 1] = replacement
-  }
-
-  for (let i = 0; i < 6; i += 1) {
-    const shuffled = shuffle(chosen)
-    if (!isAscendingByElixir(shuffled)) return shuffled
-  }
-
-  return [...chosen].sort((a, b) => b.elixir - a.elixir || b.name.localeCompare(a.name))
-}
 
 function pluralizeMisses(count: number): string {
   return `${count} ${count === 1 ? 'miss' : 'misses'}`
@@ -178,7 +137,7 @@ export default function SpeedLadder() {
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
   const imagesReady = useSignal(false)
-  const order = useSignal<Card[]>(pickLadderCards())
+  const order = useSignal<Card[]>([])
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongLocks = useSignal(0)
   const feedback = useSignal<Feedback>('idle')
@@ -192,8 +151,6 @@ export default function SpeedLadder() {
 
   useEffect(() => {
     track('mode.ladder')
-    preloadImages(order.value, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -324,9 +281,8 @@ export default function SpeedLadder() {
     draggedId.current = null
     draggingCard.value = null
     selectedCard.value = null
-    const next = pickLadderCards()
     serverAttempts.current = []
-    order.value = next
+    order.value = []
     revealedIds.value = new Set()
     imagesReady.value = false
     wrongLocks.value = 0
@@ -335,15 +291,14 @@ export default function SpeedLadder() {
     isPB.value = false
     prevBest.value = undefined
     totalMs.value = 0
-    preloadImages(next, () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value) {
+  if (!gameRun.challenge.value || order.value.length !== LADDER.SIZE) {
     return (
       <GameRunGate
         preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
+        error={gameRun.startError.value || 'Drop received an invalid signed Ladder challenge.'}
         onRetry={() => void gameRun.prepare()}
       />
     )

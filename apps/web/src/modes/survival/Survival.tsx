@@ -1,9 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, CardsData } from '../../types'
+import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -20,9 +18,6 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 // Survival = sudden death. Each card has a short clock; a miss OR a timeout ends
 // the run. Score is how many you clear in a row.
 const SURVIVAL = {
@@ -33,17 +28,8 @@ const DEATH_BEAT_MS = 1100
 
 type Stage = 'ready' | 'running' | 'over'
 
-function nextSample(recent: number[], seen: Set<number>): Card {
-  const c = sampleUnseenCard(ALL_CARDS, seen, recent)
-  recent.push(c.id)
-  if (recent.length > 6) recent.shift()
-  return c
-}
-
 export default function Survival() {
   const gameRun = useGameRun('survival')
-  const recent = useRef<number[]>([])
-  const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const timers = useRef<number[]>([])
@@ -68,13 +54,7 @@ export default function Survival() {
   useEffect(() => {
     const timerList = timers.current
     track('mode.survival')
-    const batch: Card[] = []
-    const seed: number[] = []
-    const seedSeen = new Set<number>()
-    for (let i = 0; i < SURVIVAL.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
-    preloadImages(batch, () => (imagesReady.value = true))
     return () => clearTimers(timerList)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -116,13 +96,11 @@ export default function Survival() {
 
   function begin() {
     dead.current = false
-    recent.current = []
-    seen.current.clear()
     answers.current = []
     serverAnswers.current = []
     streak.value = 0
-    current.value = serverCards.current[0] ?? nextSample(recent.current, seen.current)
-    serverCardIndex.current = serverCards.current.length ? 1 : 0
+    current.value = serverCards.current[0] ?? null
+    serverCardIndex.current = current.value ? 1 : 0
     cardStart.current = performance.now()
     remainingFrac.value = 1
     cardPhase.value = 'playing'
@@ -131,8 +109,12 @@ export default function Survival() {
 
   function nextCard() {
     if (stage.value !== 'running' || dead.current) return
-    const c = serverCards.current[serverCardIndex.current] ?? nextSample(recent.current, seen.current)
-    if (serverCards.current[serverCardIndex.current]) serverCardIndex.current += 1
+    const c = serverCards.current[serverCardIndex.current]
+    if (!c) {
+      finish()
+      return
+    }
+    serverCardIndex.current += 1
     current.value = c
     cardStart.current = performance.now()
     remainingFrac.value = 1
@@ -211,11 +193,6 @@ export default function Survival() {
     streak.value = 0
     remainingFrac.value = 1
     stage.value = 'ready'
-    const batch: Card[] = []
-    const seed: number[] = []
-    const seedSeen = new Set<number>()
-    for (let i = 0; i < SURVIVAL.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
-    preloadImages(batch, () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 

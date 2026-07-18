@@ -1,8 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, CardsData, ElixirMood } from '../../types'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
+import type { Card, ElixirMood } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
@@ -14,24 +12,8 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCard } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 const ADVANCE_DELAY = 1400
 type Choice = 'higher' | 'equal' | 'lower'
-
-function rememberRecent(recent: number[], id: number) {
-  recent.push(id)
-  if (recent.length > 6) recent.shift()
-}
-
-function pickPair(seen: Set<number>, recent: number[]): [Card, Card] {
-  const left = sampleUnseenCard(ALL_CARDS, seen, recent)
-  rememberRecent(recent, left.id)
-  const right = sampleUnseenCard(ALL_CARDS, seen, recent, [left.id])
-  rememberRecent(recent, right.id)
-  return [left, right]
-}
 
 function relation(left: Card, right: Card): Choice {
   if (right.elixir > left.elixir) return 'higher'
@@ -42,12 +24,7 @@ function relation(left: Card, right: Card): Choice {
 export default function HigherLower() {
   const gameRun = useGameRun('higher-lower')
   const advanceTimer = useRef<number | undefined>(undefined)
-  const seen = useRef<Set<number>>(new Set())
-  const recent = useRef<number[]>([])
-  const initialPair = useRef<[Card, Card] | null>(null)
-  if (!initialPair.current) initialPair.current = pickPair(seen.current, recent.current)
-
-  const pair = useSignal<[Card, Card]>(initialPair.current!)
+  const pair = useSignal<[Card, Card] | null>(null)
   const challengePairs = useRef<Array<[Card, Card]>>([])
   const pairIndex = useRef(0)
   const serverAnswers = useRef<Array<{ leftId: number; rightId: number; choice: Choice }>>([])
@@ -83,7 +60,12 @@ export default function HigherLower() {
 
   function next() {
     pairIndex.current += 1
-    pair.value = challengePairs.current[pairIndex.current] ?? pickPair(seen.current, recent.current)
+    const nextPair = challengePairs.current[pairIndex.current]
+    if (!nextPair) {
+      void gameRun.complete({ answers: serverAnswers.current }, () => void restartAfterMiss())
+      return
+    }
+    pair.value = nextPair
     picked.value = null
     revealed.value = false
     elixirLine.value = ''
@@ -91,10 +73,10 @@ export default function HigherLower() {
   }
 
   async function restartAfterMiss() {
+    pair.value = null
     await gameRun.prepare()
     pairIndex.current = 0
     serverAnswers.current = []
-    pair.value = challengePairs.current[0] ?? pickPair(seen.current, recent.current)
     picked.value = null
     revealed.value = false
     elixirLine.value = ''
@@ -102,8 +84,9 @@ export default function HigherLower() {
   }
 
   function choose(choice: Choice) {
-    if (revealed.value) return
-    const [left, right] = pair.value
+    const activePair = pair.value
+    if (revealed.value || !activePair) return
+    const [left, right] = activePair
     const answer = relation(left, right)
     const correct = choice === answer
     serverAnswers.current.push({ leftId: left.id, rightId: right.id, choice })
@@ -137,11 +120,11 @@ export default function HigherLower() {
     }, ADVANCE_DELAY)
   }
 
-  if (!gameRun.challenge.value) {
+  if (!gameRun.challenge.value || !pair.value) {
     return (
       <GameRunGate
         preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
+        error={gameRun.startError.value || 'Drop received an invalid signed Higher or Lower challenge.'}
         onRetry={() => void gameRun.prepare()}
       />
     )

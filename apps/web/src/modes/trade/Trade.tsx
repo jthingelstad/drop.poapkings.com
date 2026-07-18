@@ -1,8 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, CardsData } from '../../types'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
+import type { Card } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -11,14 +9,7 @@ import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
 import { preloadImages } from '../../lib/preload'
 import { useTimedRun } from '../../lib/use-timed-run'
-import {
-  formatTrade,
-  isTradeInRange,
-  pickTradeHintCard,
-  tradeValue,
-  TRADE_ANSWERS,
-  type TradeRound
-} from '../../lib/trade'
+import { formatTrade, pickTradeHintCard, tradeValue, TRADE_ANSWERS, type TradeRound } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
@@ -27,14 +18,9 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 const TRADE = {
   SEQUENCE_LEN: 8,
-  PENALTY_MS: 2000,
-  MIN_SIDE_CARDS: 1,
-  MAX_SIDE_CARDS: 3
+  PENALTY_MS: 2000
 }
 
 const CORRECT_BEAT_MS = 240
@@ -43,61 +29,8 @@ const WRONG_BEAT_MS = 720
 
 type Feedback = 'idle' | 'wrong' | 'correct'
 
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function pickSide(count: number, seen: Set<number>, recent: number[]): Card[] {
-  const cards: Card[] = []
-  while (cards.length < count) {
-    const card = sampleUnseenCard(ALL_CARDS, seen, recent)
-    cards.push(card)
-    recent.push(card.id)
-    if (recent.length > 6) recent.shift()
-  }
-  return cards
-}
-
 function roundCards(round: TradeRound): Card[] {
   return [...round.blue, ...round.red]
-}
-
-function pickTradeRound(
-  excluded: ReadonlySet<number>,
-  recent: readonly number[]
-): { round: TradeRound; recent: number[] } {
-  for (let tries = 0; tries < 160; tries += 1) {
-    const seen = new Set<number>(excluded)
-    const nextRecent = [...recent]
-    const blue = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, nextRecent)
-    const red = pickSide(randomInt(TRADE.MIN_SIDE_CARDS, TRADE.MAX_SIDE_CARDS), seen, nextRecent)
-    const round = { blue, red }
-    if (isTradeInRange(tradeValue(round))) return { round, recent: nextRecent }
-  }
-
-  const available = ALL_CARDS.filter((card) => !excluded.has(card.id))
-  const pool = available.length > 1 ? available : ALL_CARDS
-  const blue = [...pool].sort((a, b) => a.elixir - b.elixir)[0]
-  const red =
-    pool.find((card) => card.id !== blue.id && isTradeInRange(card.elixir - blue.elixir)) ??
-    pool.find((card) => card.id !== blue.id) ??
-    blue
-  return { round: { blue: [blue], red: [red] }, recent: [...recent, blue.id, red.id].slice(-6) }
-}
-
-function pickTradeSequence(length: number): TradeRound[] {
-  const excluded = new Set<number>()
-  let recent: number[] = []
-  const sequence: TradeRound[] = []
-
-  while (sequence.length < length) {
-    const next = pickTradeRound(excluded, recent)
-    sequence.push(next.round)
-    recent = next.recent
-    for (const card of roundCards(next.round)) excluded.add(card.id)
-  }
-
-  return sequence
 }
 
 function pluralizeMisses(count: number): string {
@@ -160,7 +93,7 @@ function TradeSide({
 
 export default function Trade() {
   const gameRun = useGameRun('trade')
-  const rounds = useRef<TradeRound[]>(pickTradeSequence(TRADE.SEQUENCE_LEN))
+  const rounds = useRef<TradeRound[]>([])
   const roundMisses = useRef(0)
   const runStartedAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
@@ -168,6 +101,7 @@ export default function Trade() {
 
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
+  const challengeReady = useSignal(false)
   const imagesReady = useSignal(false)
   const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
@@ -184,8 +118,6 @@ export default function Trade() {
 
   useEffect(() => {
     track('mode.trade')
-    preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -197,6 +129,7 @@ export default function Trade() {
     }))
     if (resolved.some((round) => !round.blue.length || !round.red.length)) return
     rounds.current = resolved
+    challengeReady.value = true
     imagesReady.value = false
     preloadImages(resolved.flatMap(roundCards), () => (imagesReady.value = true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,6 +193,7 @@ export default function Trade() {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
 
     const round = rounds.current[index.value]
+    if (!round) return
     picked.value = value
     currentGuesses.current.push(value)
     const answer = tradeValue(round)
@@ -302,7 +236,8 @@ export default function Trade() {
 
   function replay() {
     timed.reset('ready')
-    rounds.current = pickTradeSequence(TRADE.SEQUENCE_LEN)
+    rounds.current = []
+    challengeReady.value = false
     serverAnswers.current = []
     currentGuesses.current = []
     imagesReady.value = false
@@ -318,21 +253,20 @@ export default function Trade() {
     isPB.value = false
     prevBest.value = undefined
     totalMs.value = 0
-    preloadImages(rounds.current.flatMap(roundCards), () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 
-  const round = rounds.current[index.value]
-
-  if (!gameRun.challenge.value) {
+  if (!gameRun.challenge.value || !challengeReady.value) {
     return (
       <GameRunGate
         preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
+        error={gameRun.startError.value || 'Drop received an invalid signed Trade challenge.'}
         onRetry={() => void gameRun.prepare()}
       />
     )
   }
+
+  const round = rounds.current[index.value]!
 
   if (stage.value === 'summary') {
     const pbCallout = isPB.value

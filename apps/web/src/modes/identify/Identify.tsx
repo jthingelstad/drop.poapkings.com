@@ -2,7 +2,6 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -43,26 +42,13 @@ interface IdentifyAnswer {
   ms: number
 }
 
-function pickSprint(n: number): Card[] {
-  const chosen: Card[] = []
-  const seen = new Set<number>()
-  const recent: number[] = []
-  while (chosen.length < n) {
-    const card = sampleUnseenCard(ALL_CARDS, seen, recent)
-    chosen.push(card)
-    recent.push(card.id)
-    if (recent.length > 6) recent.shift()
-  }
-  return chosen
-}
-
 function pluralize(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
 export default function Identify() {
   const gameRun = useGameRun('identify')
-  const sprint = useRef<Card[]>(pickSprint(IDENTIFY.SPRINT_LEN))
+  const sprint = useRef<Card[]>([])
   const answers = useRef<IdentifyAnswer[]>([])
   const cardStart = useRef(0)
   const runStartedAt = useRef(0)
@@ -71,9 +57,10 @@ export default function Identify() {
 
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
+  const challengeReady = useSignal(false)
   const imagesReady = useSignal(false)
   const index = useSignal(0)
-  const choices = useSignal<Card[]>(makeNameChoices(sprint.current[0], ALL_CARDS, IDENTIFY.CHOICE_COUNT))
+  const choices = useSignal<Card[]>([])
   const wrongIds = useSignal<Set<number>>(new Set())
   const selectedId = useSignal<number | null>(null)
   const phase = useSignal<Phase>('playing')
@@ -89,8 +76,6 @@ export default function Identify() {
 
   useEffect(() => {
     track('mode.identify')
-    preloadImages(sprint.current, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -99,6 +84,7 @@ export default function Identify() {
     const resolved = challengeCards(challenge.cardIds)
     if (resolved.length !== IDENTIFY.SPRINT_LEN) return
     sprint.current = resolved
+    challengeReady.value = true
     choices.value = makeNameChoices(resolved[0]!, ALL_CARDS, IDENTIFY.CHOICE_COUNT)
     imagesReady.value = false
     preloadImages(resolved, () => (imagesReady.value = true))
@@ -206,13 +192,14 @@ export default function Identify() {
 
   function replay() {
     timed.reset('ready')
-    sprint.current = pickSprint(IDENTIFY.SPRINT_LEN)
+    sprint.current = []
+    challengeReady.value = false
     answers.current = []
     serverAnswers.current = []
     currentGuesses.current = []
     imagesReady.value = false
     index.value = 0
-    choices.value = makeNameChoices(sprint.current[0], ALL_CARDS, IDENTIFY.CHOICE_COUNT)
+    choices.value = []
     wrongIds.value = new Set()
     selectedId.value = null
     phase.value = 'playing'
@@ -222,15 +209,14 @@ export default function Identify() {
     firstTryCount.value = 0
     missCount.value = 0
     missedCards.value = []
-    preloadImages(sprint.current, () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 
-  if (!gameRun.challenge.value) {
+  if (!gameRun.challenge.value || !challengeReady.value) {
     return (
       <GameRunGate
         preparing={gameRun.preparing.value}
-        error={gameRun.startError.value}
+        error={gameRun.startError.value || 'Drop received an invalid signed Identify challenge.'}
         onRetry={() => void gameRun.prepare()}
       />
     )

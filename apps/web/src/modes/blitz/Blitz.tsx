@@ -1,9 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
-import type { Card, CardsData } from '../../types'
+import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import { sampleUnseenCard } from '../../lib/sampling'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
@@ -21,9 +19,6 @@ import GameRunGate from '../../components/GameRunGate'
 import { useGameRun } from '../../lib/use-game-run'
 import { challengeCards } from '../../lib/challenge-cards'
 
-const cardsData = rawCards as CardsData
-const ALL_CARDS = cardsData.cards
-
 // Blitz = a 60s count-up variant of Surge: clear as many as you can, higher wins.
 const BLITZ = {
   WINDOW_MS: 60000,
@@ -33,17 +28,8 @@ const CORRECT_BEAT_MS = 230
 const WRONG_BEAT_MS = 380
 const COUNTDOWN_STEP_MS = 650
 
-function nextSample(recent: number[], seen: Set<number>): Card {
-  const c = sampleUnseenCard(ALL_CARDS, seen, recent)
-  recent.push(c.id)
-  if (recent.length > 6) recent.shift()
-  return c
-}
-
 export default function Blitz() {
   const gameRun = useGameRun('blitz')
-  const recent = useRef<number[]>([])
-  const seen = useRef<Set<number>>(new Set())
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const recorded = useRef(false)
@@ -75,12 +61,6 @@ export default function Blitz() {
 
   useEffect(() => {
     track('mode.blitz')
-    const batch: Card[] = []
-    const seed: number[] = []
-    const seedSeen = new Set<number>()
-    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
-    preloadImages(batch, () => (imagesReady.value = true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -99,24 +79,26 @@ export default function Blitz() {
     timed.start((startedAt) => {
       finished.current = false
       runStartedAt.current = startedAt
-      recent.current = []
-      seen.current.clear()
       answers.current = []
       cleared.value = 0
       cardStart.current = startedAt
       recorded.current = false
       currentGuesses.current = []
       serverAnswers.current = []
-      current.value = serverCards.current[0] ?? nextSample(recent.current, seen.current)
-      serverCardIndex.current = serverCards.current.length ? 1 : 0
+      current.value = serverCards.current[0] ?? null
+      serverCardIndex.current = current.value ? 1 : 0
       cardPhase.value = 'playing'
     })
   }
 
   function nextCard() {
     if (stage.value !== 'running') return
-    const c = serverCards.current[serverCardIndex.current] ?? nextSample(recent.current, seen.current)
-    if (serverCards.current[serverCardIndex.current]) serverCardIndex.current += 1
+    const c = serverCards.current[serverCardIndex.current]
+    if (!c) {
+      finish()
+      return
+    }
+    serverCardIndex.current += 1
     current.value = c
     cardStart.current = performance.now()
     recorded.current = false
@@ -194,11 +176,6 @@ export default function Blitz() {
     currentGuesses.current = []
     cardPhase.value = 'playing'
     cleared.value = 0
-    const batch: Card[] = []
-    const seed: number[] = []
-    const seedSeen = new Set<number>()
-    for (let i = 0; i < BLITZ.PRELOAD_BATCH; i++) batch.push(nextSample(seed, seedSeen))
-    preloadImages(batch, () => (imagesReady.value = true))
     void gameRun.prepare()
   }
 
