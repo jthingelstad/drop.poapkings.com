@@ -9,7 +9,9 @@
   "scripts": {
     "bootstrap": "node scripts/bootstrap.mjs",
     "deploy": "node scripts/deploy.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm test"
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "^3.1090.0",

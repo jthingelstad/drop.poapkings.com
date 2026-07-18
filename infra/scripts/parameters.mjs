@@ -1,0 +1,52 @@
+const SECRET_PARAMETERS = [
+  ["SessionSecret", "SESSION_SECRET"],
+  ["FastmailJmapToken", "FASTMAIL_JMAP_TOKEN"],
+  ["DiscordWebhookUrl", "ELIXIR_DROP_DISCORD_WEBHOOK_URL"],
+];
+
+function secretParameter(
+  parameterKey,
+  environmentKey,
+  environment,
+  stackExists,
+) {
+  const value = environment[environmentKey]?.trim();
+  if (value) return { ParameterKey: parameterKey, ParameterValue: value };
+  if (stackExists)
+    return { ParameterKey: parameterKey, UsePreviousValue: true };
+  throw new Error(
+    `Missing ${environmentKey}; it is required when creating the API stack`,
+  );
+}
+
+export function deploymentParameters({
+  bucket,
+  codeKey,
+  environment,
+  stackExists,
+}) {
+  const parameters = [
+    { ParameterKey: "CodeBucket", ParameterValue: bucket },
+    { ParameterKey: "CodeKey", ParameterValue: codeKey },
+    {
+      ParameterKey: "AppUrl",
+      ParameterValue: environment.APP_URL || "https://drop.poapkings.com",
+    },
+    {
+      ParameterKey: "EmailFrom",
+      ParameterValue:
+        environment.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com",
+    },
+    {
+      ParameterKey: "NameModelId",
+      ParameterValue: environment.NAME_MODEL_ID || "amazon.nova-micro-v1:0",
+    },
+  ];
+
+  for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {
+    parameters.push(
+      secretParameter(parameterKey, environmentKey, environment, stackExists),
+    );
+  }
+  return parameters;
+}

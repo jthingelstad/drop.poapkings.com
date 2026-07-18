@@ -23,5 +23,22 @@ gitignored root `.env`. Secret values are never printed.
 the TypeScript Lambda, upload it, create or update the stack, and write the
 public API endpoint to `apps/web/public/api-config.json`.
 
+## Continuous deployment
+
+Every push to `main` runs the complete repository verification, deploys the API,
+and only then publishes the matching website build to GitHub Pages. A failed API
+deployment blocks the website deployment, preventing incompatible web and Lambda
+versions from reaching production.
+
+GitHub Actions receives only the limited `elixir-drop` IAM deploy-user key through
+the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
+repository secrets. Region, CloudFormation role, code bucket, and stack name are
+repository variables. Fastmail, session-signing, and Discord secrets stay in
+CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
+copying those application secrets into GitHub.
+
+The first stack creation and any intentional secret rotation remain local
+`npm run deploy:api` operations using the mode-0600 root `.env`.
+
 The GitHub Pages website remains outside this AWS stack. The future CR API bridge
 and queue are also deliberately outside this release.

@@ -14,29 +14,23 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.mjs";
+import { deploymentParameters } from "./parameters.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
-const env = await loadEnv(resolve(repoRoot, ".env"));
+const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
 for (const [key, value] of Object.entries(env)) {
   if (!process.env[key]) process.env[key] = value;
 }
 
 const requiredNames = [
-  "AWS_ACCESS_KEY_ID",
-  "AWS_SECRET_ACCESS_KEY",
   "AWS_REGION",
   "ELIXIR_DROP_CFN_ROLE_ARN",
   "ELIXIR_DROP_CODE_BUCKET",
   "ELIXIR_DROP_STACK_NAME",
-  "FASTMAIL_JMAP_TOKEN",
-  "SESSION_SECRET",
-  "APP_URL",
-  "ELIXIR_DROP_DISCORD_WEBHOOK_URL",
 ];
 for (const name of requiredNames) {
-  if (!process.env[name])
-    throw new Error(`Missing ${name}; run npm run bootstrap:aws first`);
+  if (!process.env[name]) throw new Error(`Missing deployment setting ${name}`);
 }
 
 execFileSync("npm", ["run", "build", "--workspace=@elixir-drop/api"], {
@@ -57,6 +51,23 @@ try {
   const codeKey = `lambda/${Date.now()}-${digest}.zip`;
   const s3 = new S3Client({ region });
   const cloudformation = new CloudFormationClient({ region });
+
+  let exists = true;
+  try {
+    await cloudformation.send(
+      new DescribeStacksCommand({ StackName: stackName }),
+    );
+  } catch (error) {
+    if (error?.name === "ValidationError") exists = false;
+    else throw error;
+  }
+
+  const parameters = deploymentParameters({
+    bucket,
+    codeKey,
+    environment: process.env,
+    stackExists: exists,
+  });
   await s3.send(
     new PutObjectCommand({
       Bucket: bucket,
@@ -67,16 +78,6 @@ try {
     }),
   );
 
-  const parameters = [
-    ["CodeBucket", bucket],
-    ["CodeKey", codeKey],
-    ["SessionSecret", process.env.SESSION_SECRET],
-    ["FastmailJmapToken", process.env.FASTMAIL_JMAP_TOKEN],
-    ["AppUrl", process.env.APP_URL],
-    ["DiscordWebhookUrl", process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL],
-    ["EmailFrom", process.env.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com"],
-    ["NameModelId", process.env.NAME_MODEL_ID || "amazon.nova-micro-v1:0"],
-  ].map(([ParameterKey, ParameterValue]) => ({ ParameterKey, ParameterValue }));
   const common = {
     StackName: stackName,
     TemplateBody: await readFile(
@@ -88,16 +89,6 @@ try {
     RoleARN: process.env.ELIXIR_DROP_CFN_ROLE_ARN,
     Tags: [{ Key: "application", Value: "elixir-drop" }],
   };
-
-  let exists = true;
-  try {
-    await cloudformation.send(
-      new DescribeStacksCommand({ StackName: stackName }),
-    );
-  } catch (error) {
-    if (error?.name === "ValidationError") exists = false;
-    else throw error;
-  }
 
   if (exists) {
     await cloudformation.send(new UpdateStackCommand(common));
