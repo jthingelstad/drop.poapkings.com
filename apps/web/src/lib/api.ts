@@ -13,6 +13,7 @@ import {
   siteStatsSchema,
   startedRunSchema
 } from './api-contracts'
+import { reportApiAvailable, reportApiUnavailable } from './api-availability'
 
 interface ResponseSchema<T> {
   safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown }
@@ -95,6 +96,13 @@ function retryable(error: unknown): boolean {
   )
 }
 
+function serviceUnavailable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.code === 'network_unavailable' || error.code === 'request_timeout' || error.status >= 500)
+  )
+}
+
 async function retryDelay(signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) throw new ApiError(0, 'request_cancelled', 'The request was cancelled.')
   await new Promise<void>((resolve, reject) => {
@@ -120,17 +128,23 @@ async function requestPayload(url: string, init: RequestInit, canRetry: boolean,
       const payload = await responsePayload(response)
       if (!response.ok) {
         const parsedError = apiErrorSchema.safeParse(payload)
-        throw new ApiError(
+        const apiError = new ApiError(
           response.status,
           parsedError.success ? parsedError.data.error?.code || 'request_failed' : 'request_failed',
           parsedError.success
             ? parsedError.data.error?.message || 'The request could not be completed.'
             : 'The request could not be completed.'
         )
+        if (response.status < 500) reportApiAvailable()
+        throw apiError
       }
+      reportApiAvailable()
       return payload
     } catch (error) {
-      if (attempt >= attempts || !retryable(error)) throw error
+      if (attempt >= attempts || !retryable(error)) {
+        if (serviceUnavailable(error)) reportApiUnavailable()
+        throw error
+      }
       await retryDelay(init.signal ?? undefined)
     }
   }

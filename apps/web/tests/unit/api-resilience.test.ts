@@ -57,6 +57,24 @@ describe('API resilience', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('publishes an outage and clears it after a successful retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ apiBaseUrl: 'https://api.example' }))
+      .mockResolvedValueOnce(json({ error: { code: 'temporarily_unavailable', message: 'Try again.' } }, 503))
+      .mockResolvedValueOnce(json({ error: { code: 'temporarily_unavailable', message: 'Try again.' } }, 503))
+      .mockResolvedValueOnce(json({ trophyRoadGames: 594, currentSeason }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { getStats } = await import('../../src/lib/api')
+    const { apiAvailability } = await import('../../src/lib/api-availability')
+
+    await expect(getStats()).rejects.toMatchObject({ status: 503 })
+    expect(apiAvailability.value).toBe('unavailable')
+
+    await expect(getStats()).resolves.toMatchObject({ trophyRoadGames: 594 })
+    expect(apiAvailability.value).toBe('available')
+  })
+
   it('bounds a stalled request with a timeout', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -75,5 +93,7 @@ describe('API resilience', () => {
     await vi.advanceTimersByTimeAsync(25)
 
     await rejected
+    const { apiAvailability } = await import('../../src/lib/api-availability')
+    expect(apiAvailability.value).toBe('unavailable')
   })
 })

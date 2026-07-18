@@ -27,11 +27,13 @@ export default function StarCount() {
         .catch(() => {})
     }
     refresh()
+    const refreshTimer = window.setInterval(refresh, 60_000)
     window.addEventListener(TROPHY_ROAD_UPDATED_EVENT, refresh)
 
     return () => {
       cancelled = true
       activeRequest?.abort()
+      window.clearInterval(refreshTimer)
       window.removeEventListener(TROPHY_ROAD_UPDATED_EVENT, refresh)
     }
   }, [trophyRoadGames])

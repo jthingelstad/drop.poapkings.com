@@ -179,6 +179,49 @@ a { color: var(--lavender); }
 
 .auth-nudge strong { color: var(--gold); }
 
+.api-status {
+  position: relative;
+  z-index: 35;
+  width: min(calc(100% - 32px), var(--col));
+  margin: 14px auto 0;
+  padding: 13px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid rgba(245, 200, 76, 0.42);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(circle at 0% 50%, rgba(109, 40, 217, 0.25), transparent 42%),
+    rgba(18, 13, 40, 0.96);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+}
+
+.api-status__icon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.45));
+}
+
+.api-status__copy { min-width: 0; }
+
+.api-status__copy h2 {
+  margin: 0 0 2px;
+  color: var(--gold);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.api-status__copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.api-status__retry { white-space: nowrap; }
+
 .site-head__account {
   border: 1px solid rgba(215, 200, 255, 0.28);
   border-radius: 999px;
@@ -613,6 +656,13 @@ a { color: var(--lavender); }
 .avatar-audit__empty { padding: 40px; color: var(--muted); text-align: center; }
 
 @media (width <= 600px) {
+  .api-status {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .api-status__retry {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
   .site-head__account { max-width: 118px; }
   .account-form--row { grid-template-columns: 1fr; }
   .profile-section__head { display: grid; }
@@ -1519,6 +1569,7 @@ a { color: var(--lavender); }
 
 /* Active play states get a lower-chrome shell so the card surface owns the frame. */
 body:has(.game-run) .site-foot { display: none; }
+body:has(.game-run) .api-status { display: none; }
 
 .main-content.game-run {
   padding-bottom: 32px;

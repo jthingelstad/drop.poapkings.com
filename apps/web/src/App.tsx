@@ -8,6 +8,7 @@ import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
 import PlayerAvatar from './components/PlayerAvatar'
+import ApiStatusBanner from './components/ApiStatusBanner'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
@@ -446,6 +447,7 @@ export default function App() {
   return (
     <>
       <Header />
+      <ApiStatusBanner />
       <main>
         {title && <h1 class="sr-only">{title}</h1>}
         <Screen r={route.value} />

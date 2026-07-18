@@ -260,6 +260,36 @@ test.afterEach(async ({ page }) => {
   expect(errors).toEqual([])
 })
 
+test('shows a friendly API outage notice and recovers in place', async ({ page }) => {
+  allowExpectedApiErrors.add(page)
+  let available = false
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/stats') {
+      await route.fulfill({
+        status: available ? 200 : 503,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          available ? testStats : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
+        )
+      })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await useSignedOutState(page)
+  const outage = page.locator('.api-status')
+  await expect(page.getByRole('heading', { name: 'Drop is taking a quick elixir break' })).toBeVisible()
+  await expect(outage).toContainText('Your account and recorded games are safe.')
+
+  available = true
+  await page.getByRole('button', { name: 'Try reconnecting' }).click()
+  await expect(outage).toHaveCount(0)
+  await expect(page.getByText('Sign in required to play')).toBeVisible()
+})
+
 async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
   await page.goto(`/?signedOut=1#${hash}`)
 }
