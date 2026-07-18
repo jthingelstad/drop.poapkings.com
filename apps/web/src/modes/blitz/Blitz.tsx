@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import rawCards from '@elixir-drop/game-data/cards.json'
@@ -83,7 +83,7 @@ export default function Blitz() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const challenge = gameRun.challenge.value
     if (!challenge || stage.value !== 'ready') return
     const resolved = challengeCards(challenge.cardIds)

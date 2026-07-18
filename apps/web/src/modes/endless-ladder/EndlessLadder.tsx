@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { sampleUnseenCard } from '../../lib/sampling'
@@ -84,7 +84,7 @@ export default function EndlessLadder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const challenge = gameRun.challenge.value
     if (!challenge || stage.value === 'running') return
     const starting = challengeCards(challenge.startingIds)

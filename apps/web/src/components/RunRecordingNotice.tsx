@@ -16,11 +16,11 @@ export default function RunRecordingNotice() {
         </span>
         <div>
           <strong>{notice.message}</strong>
-          {notice.state === 'error' && <small>Your score and progress will stay here while Drop reconnects.</small>}
+          {notice.state === 'error' && <small>{notice.detail}</small>}
         </div>
         {notice.state === 'error' && (
-          <button class="btn btn--gold btn--sm" onClick={notice.retry}>
-            Retry recording
+          <button class="btn btn--gold btn--sm" onClick={notice.action}>
+            {notice.actionLabel}
           </button>
         )}
       </div>

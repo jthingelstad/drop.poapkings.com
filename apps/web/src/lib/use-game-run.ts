@@ -10,7 +10,7 @@ type RecordingNotice =
   | { state: 'idle' }
   | { state: 'saving'; message: string }
   | { state: 'saved'; message: string }
-  | { state: 'error'; message: string; retry: () => void }
+  | { state: 'error'; message: string; detail: string; actionLabel: string; action: () => void }
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 
@@ -93,6 +93,23 @@ export function useGameRun<T extends GameMode>(mode: T) {
         navigate(gamePath ? loginRouteForGame(gamePath) : '/login')
         return
       }
+      if (error instanceof ApiError && [400, 403, 404, 410].includes(error.status)) {
+        pendingCompletion.current = null
+        run.current = null
+        console.warn('Online run completion could not be verified', {
+          mode,
+          code: error.code
+        })
+        setRecordingNotice({
+          state: 'error',
+          message: 'This game could not be verified and was not recorded.',
+          detail:
+            'Your result is still visible, but this run cannot be retried. Close this message, then start a new game.',
+          actionLabel: 'Close',
+          action: () => setRecordingNotice({ state: 'idle' })
+        })
+        return
+      }
       console.warn('Online run completion was rejected', {
         mode,
         error: error instanceof Error ? error.message : 'unknown'
@@ -100,7 +117,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
       setRecordingNotice({
         state: 'error',
         message: 'This game has not been recorded yet. Keep this page open and try again.',
-        retry: () => {
+        detail: 'Your score and progress will stay here while Drop reconnects.',
+        actionLabel: 'Retry recording',
+        action: () => {
           const pending = pendingCompletion.current
           if (pending) void submitCompletion(pending.run, pending.transcript, pending.onRecorded)
         }
@@ -114,7 +133,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
       setRecordingNotice({
         state: 'error',
         message: 'This game did not receive a signed run. Return to the game and try again.',
-        retry: () => void prepare()
+        detail: 'Your result is still visible, but it cannot be recorded without a signed run.',
+        actionLabel: 'Try again',
+        action: () => void prepare()
       })
       return
     }

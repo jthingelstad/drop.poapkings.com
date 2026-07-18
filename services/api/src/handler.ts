@@ -584,6 +584,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       statusCode: safeError.statusCode,
       code: safeError.code,
       error: error instanceof Error ? error.name : "unknown",
+      reason: error instanceof HttpError ? error.message : undefined,
     });
     return json(safeError.statusCode, {
       error: { code: safeError.code, message: safeError.message },

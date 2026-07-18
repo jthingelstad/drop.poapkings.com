@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { Card, CardsData, ElixirMood } from '../../types'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { sampleUnseenCard } from '../../lib/sampling'
@@ -63,7 +63,7 @@ export default function HigherLower() {
     return () => clearTimeout(advanceTimer.current)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const challenge = gameRun.challenge.value
     if (!challenge) return
     const resolved = challenge.pairs

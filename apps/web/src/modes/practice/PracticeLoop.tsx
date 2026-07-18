@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 import type { Card, ElixirMood, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { sampleUnseenCard } from '../../lib/sampling'
@@ -58,7 +58,7 @@ export default function PracticeLoop({ pool, eyebrow, onExit }: Props) {
   const insights = useSignal<Insights | null>(null)
   const strongSession = useSignal(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const challenge = gameRun.challenge.value
     if (!challenge || answers.current.length) return
     const resolved = challengeCards(challenge.cardIds)
