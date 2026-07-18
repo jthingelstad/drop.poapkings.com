@@ -7,10 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
+  completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
   ensureProfile: vi.fn(),
   getCrProfile: vi.fn(),
   getProfile: vi.fn(),
+  getRun: vi.fn(),
   listRecentRuns: vi.fn(),
   updateProfile: vi.fn(),
 }));
@@ -18,10 +20,12 @@ const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
     ensureProfile = repository.ensureProfile;
     getCrProfile = repository.getCrProfile;
     getProfile = repository.getProfile;
+    getRun = repository.getRun;
     listRecentRuns = repository.listRecentRuns;
     updateProfile = repository.updateProfile;
   },
@@ -171,5 +175,51 @@ describe("Clash Royale refresh scheduling", () => {
       "https://sqs.example/requests",
       profile.playerTag,
     );
+  });
+
+  it("reads cached CR identity after a game without requesting a refresh", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-1",
+        owner: profile.sub,
+        mode: "practice",
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-1",
+      sk: "RUN",
+      runId: "run-1",
+      owner: profile.sub,
+      mode: "practice",
+      challenge: { mode: "practice", cardIds: [26000000] },
+      state: "started",
+      startedAt: new Date(nowSeconds * 1_000 - 60_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5 },
+    });
+
+    const response = await invoke(
+      "POST",
+      "/runs/complete",
+      {
+        runToken,
+        transcript: {
+          answers: [{ cardId: 26000000, guess: 3 }],
+        },
+      },
+      true,
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
+    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
 });

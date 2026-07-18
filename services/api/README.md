@@ -57,10 +57,12 @@ name. `playerTag` remains an independent, unverified profile field.
 
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL` is a server-only deployment secret. Successful
 magic-link redemption and completed games each post one compact text line with
-the useful player, progress, mode, score, and season context. Session tokens,
-magic links, IP addresses, verbose clients, and correlation IDs stay out of
-Discord; request/run IDs remain in CloudWatch logs. Delivery is best effort with
-a three-second timeout and never changes an otherwise successful API response.
+the useful player, progress, mode, score, and season context. Completed-game
+events also include the cached CR name, tag, and clan when attached; they never
+request a CR refresh. Session tokens, magic links, IP addresses, verbose
+clients, and correlation IDs stay out of Discord; request/run IDs remain in
+CloudWatch logs. Delivery is best effort with a three-second timeout and never
+changes an otherwise successful API response.
 
 The fixed-IP bridge uses the same locally stored webhook to record successful
 and not-found CR player pulls as one-line text with the tag, CR name, clan,

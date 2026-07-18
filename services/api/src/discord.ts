@@ -1,5 +1,9 @@
 import { MODE_RULES } from "./games.js";
-import type { GameMode, PlayerProfile } from "./types.js";
+import type {
+  CrProfileSnapshot,
+  GameMode,
+  PlayerProfile,
+} from "./types.js";
 
 export interface DiscordWebhookPayload {
   username: string;
@@ -19,6 +23,7 @@ interface CompletedGameEvent {
   seasonId: string;
   completedAt: string;
   profile?: PlayerProfile;
+  crProfile?: CrProfileSnapshot;
 }
 
 type DiscordFetch = (
@@ -52,6 +57,22 @@ function playerLabel(profile: PlayerProfile): string {
   return profile.publicName || maskedEmail(profile.email);
 }
 
+function gameCount(count: number): string {
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "game" : "games"}`;
+}
+
+function clashRoyalePlayerLabels(event: CompletedGameEvent): string[] {
+  const tag = event.profile?.playerTag;
+  if (!tag) return [];
+  const identity = event.crProfile?.name
+    ? `${event.crProfile.name} (${tag})`
+    : tag;
+  return [
+    identity,
+    ...(event.crProfile?.clan?.name ? [event.crProfile.clan.name] : []),
+  ];
+}
+
 export function loginWebhookPayload(event: LoginEvent): DiscordWebhookPayload {
   const { profile } = event;
   return {
@@ -61,7 +82,7 @@ export function loginWebhookPayload(event: LoginEvent): DiscordWebhookPayload {
       "🔐 Login",
       event.newPlayer ? "new" : "returning",
       playerLabel(profile),
-      `${profile.totalGames} games`,
+      gameCount(profile.totalGames),
       profile.playerTag || "no CR tag",
     ].join(" · "),
   };
@@ -80,7 +101,8 @@ export function completedGameWebhookPayload(
       `🎮 ${modeName(event.mode)}`,
       scoreText(event.mode, event.score),
       player,
-      ...(event.profile ? [`${event.profile.totalGames} games`] : []),
+      ...clashRoyalePlayerLabels(event),
+      ...(event.profile ? [gameCount(event.profile.totalGames)] : []),
       event.seasonId,
     ].join(" · "),
   };

@@ -57,18 +57,36 @@ describe("Discord event notifications", () => {
   });
 
   it("formats a completed game with player progress", () => {
+    const firstGameProfile = {
+      ...profile,
+      publicName: "Inferno Dragon Ace",
+      playerTag: "#20JJJ2CCRU",
+      totalGames: 1,
+    };
     const completed = completedGameWebhookPayload({
       runId: "run-123",
       mode: "surge",
-      score: 12_345,
+      score: 67_299,
       seasonId: "2026-07",
       completedAt: "2026-07-18T12:01:00.000Z",
-      profile,
+      profile: firstGameProfile,
+      crProfile: {
+        tag: "#20JJJ2CCRU",
+        status: "ready",
+        name: "King Thing",
+        clan: {
+          tag: "#P0QY",
+          name: "POAP KINGS",
+          badgeId: 16000000,
+        },
+        updatedAt: "2026-07-18T12:00:00.000Z",
+      },
     });
     expect(completed.content).toBe(
-      "🎮 Surge · 12.345s · Inferno Dragon Main · 14 games · 2026-07",
+      "🎮 Surge · 67.299s · Inferno Dragon Ace · King Thing (#20JJJ2CCRU) · POAP KINGS · 1 game · 2026-07",
     );
     expect(completed.content).not.toContain("run-123");
+    expect(completed.content).not.toContain("troph");
   });
 
   it("posts JSON without allowing notification failures to escape", async () => {

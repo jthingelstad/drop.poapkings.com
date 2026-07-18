@@ -500,6 +500,17 @@ async function route(event: APIGatewayProxyEventV2) {
 
     const season = seasonForDate();
     const result = await repository.completeRun(run, score, season.id);
+    let crProfile: CrProfileSnapshot | undefined;
+    if (result.profile.playerTag) {
+      try {
+        crProfile = await repository.getCrProfile(result.profile.playerTag);
+      } catch (error) {
+        console.warn("Completed game CR profile lookup failed", {
+          playerTag: result.profile.playerTag,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
     console.info("Game completed", {
       runId: run.runId,
       mode: run.mode,
@@ -515,6 +526,7 @@ async function route(event: APIGatewayProxyEventV2) {
         seasonId: season.id,
         completedAt: result.completedAt,
         profile: result.profile,
+        crProfile,
       }),
     );
     return json(201, {
