@@ -3362,7 +3362,7 @@ body:has(.game-run) .starcount {
   .starcount__icon { width: 18px; height: 18px; flex-basis: 18px; }
 }
 
-@media (width <= 480px) and (height <= 760px) {
+@media (height <= 760px) {
   .main-content.game-run.surge {
     gap: 8px;
     padding: 10px 12px 12px;

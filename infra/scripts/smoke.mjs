@@ -56,6 +56,16 @@ const stats = await fetch(`${apiBaseUrl}/stats`);
 if (!stats.ok) throw new Error("Stats check failed");
 const statsBody = await stats.json();
 
+const leaderboard = await fetch(`${apiBaseUrl}/leaderboards?mode=surge`);
+if (!leaderboard.ok) throw new Error("Leaderboard check failed");
+const leaderboardBody = await leaderboard.json();
+if (
+  !leaderboardBody.currentSeason?.id ||
+  !Array.isArray(leaderboardBody.entries)
+) {
+  throw new Error("Leaderboard response is incomplete");
+}
+
 const started = await fetch(`${apiBaseUrl}/runs/start`, {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -103,6 +113,7 @@ console.log(
     deploymentIdentity: identity.Arn,
     fastmailJmap,
     anonymousPlay: "rejected",
+    leaderboard: "verified",
     totalGames: statsBody.totalGames,
   }),
 );

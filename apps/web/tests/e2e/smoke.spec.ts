@@ -897,6 +897,25 @@ test.describe('mobile timed-mode controls', () => {
   })
 })
 
+test.describe('low-height desktop timed controls', () => {
+  test.use({ viewport: { width: 1280, height: 720 } })
+
+  test('keeps the entire Surge keypad in view', async ({ page }) => {
+    await page.goto('/#/surge')
+    await page.getByRole('button', { name: 'Start sprint' }).click()
+    const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
+    await expect(keypad).toBeVisible({ timeout: 5_000 })
+
+    const controlsFit = await keypad.evaluate((element) =>
+      [...element.querySelectorAll('button')].every((button) => {
+        const bounds = button.getBoundingClientRect()
+        return bounds.top >= 0 && bounds.bottom <= window.innerHeight + 1
+      })
+    )
+    expect(controlsFit).toBe(true)
+  })
+})
+
 test('settings persist input and motion preferences across reload', async ({ page }) => {
   await page.goto('/')
   await page.goto('/#/settings')
@@ -1009,6 +1028,8 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
 
   await expect(page.getByRole('heading', { name: 'Loading Clash Royale profile' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByText('Clash Royale profile loaded.')).toBeVisible()
+  await expect(page.getByText('Player tag saved. Loading its public Clash Royale profile…')).toHaveCount(0)
   await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
   await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
   await expect(page.locator('.cr-profile')).toContainText('Years Played badge not returned by Clash Royale')

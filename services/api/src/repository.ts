@@ -296,7 +296,7 @@ export class Repository {
           TableName: this.tableName,
           Key: crProfileKey(tag),
           UpdateExpression:
-            "SET #tag = :tag, #status = if_not_exists(#status, :pending), jobId = :jobId, refreshRequestedAt = :requestedAt, updatedAt = :requestedAt",
+            "SET #tag = :tag, #status = :pending, jobId = :jobId, refreshRequestedAt = :requestedAt, updatedAt = :requestedAt",
           ConditionExpression:
             "(attribute_not_exists(fetchedAt) OR fetchedAt < :staleBefore) AND (attribute_not_exists(refreshRequestedAt) OR refreshRequestedAt < :retryBefore)",
           ExpressionAttributeNames: {
@@ -575,7 +575,10 @@ export class Repository {
             [this.tableName]: {
               Keys: subs.map((sub) => profileKey(sub)),
               ProjectionExpression:
-                "sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
+                "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
+              ExpressionAttributeNames: {
+                "#sub": "sub",
+              },
             },
           },
         }),

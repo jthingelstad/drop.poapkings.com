@@ -41,6 +41,8 @@ function fetchedText(value: string | undefined): string | undefined {
   })} UTC`
 }
 
+const CR_LOADING_MESSAGE = 'Player tag saved. Loading its public Clash Royale profile…'
+
 export default function Profile() {
   const returnTo = gameReturnPathFromRoute(route.value)
   const tag = useSignal(player.value?.playerTag || '')
@@ -68,6 +70,13 @@ export default function Profile() {
     const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
     return () => window.clearInterval(interval)
   }, [pollingCrStatus])
+
+  useEffect(() => {
+    if (message.value !== CR_LOADING_MESSAGE || pollingCrStatus === 'pending') return
+    if (pollingCrStatus === 'ready') message.value = 'Clash Royale profile loaded.'
+    if (pollingCrStatus === 'not_found') message.value = 'Player tag was not found.'
+    if (pollingCrStatus === 'unavailable') message.value = 'Profile refresh delayed. Drop will retry automatically.'
+  }, [message.value, pollingCrStatus])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -154,7 +163,7 @@ export default function Profile() {
     busy.value = true
     try {
       await updateAccount({ playerTag: tag.value || null })
-      message.value = tag.value ? 'Player tag saved. Loading its public Clash Royale profile…' : 'Player tag removed.'
+      message.value = tag.value ? CR_LOADING_MESSAGE : 'Player tag removed.'
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
     } finally {
