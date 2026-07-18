@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  bridgeStartedWebhookPayload,
   playerPulledWebhookPayload,
+  publishBridgeStartedEvent,
   publishPlayerPulledEvent,
 } from "../src/discord.js";
 
@@ -26,6 +28,14 @@ const result = {
 };
 
 describe("CR bridge Discord event", () => {
+  it("keeps bridge startup notifications compact and identifies the process", () => {
+    expect(bridgeStartedWebhookPayload(98_235)).toEqual({
+      username: "Elixir Drop Events",
+      allowed_mentions: { parse: [] },
+      content: "🟢 CR bridge online · process 98235",
+    });
+  });
+
   it("includes useful fetch metadata without rank or card levels", () => {
     const payload = playerPulledWebhookPayload(result, 321);
     const serialized = JSON.stringify(payload);
@@ -51,6 +61,21 @@ describe("CR bridge Discord event", () => {
     ).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(
       "Discord bridge event failed with HTTP 429.",
+    );
+    warn.mockRestore();
+  });
+
+  it("does not let startup event delivery block the bridge", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await expect(
+      publishBridgeStartedEvent(
+        "https://discord.example/webhook",
+        98_235,
+        async () => ({ ok: false, status: 429 }),
+      ),
+    ).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "Discord bridge startup event failed with HTTP 429.",
     );
     warn.mockRestore();
   });

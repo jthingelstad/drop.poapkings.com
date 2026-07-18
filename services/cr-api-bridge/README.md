@@ -11,8 +11,8 @@ Its boundary is intentionally narrow:
 - normalize name, clan, Years Played account age, and cards without competitive
   fields or card levels;
 - send the result to `elixir-drop-cr-results`, then delete the request; and
-- post a best-effort Elixir Drop Discord event after the queue round-trip is
-  safely complete.
+- post compact, best-effort Elixir Drop Discord events when the bridge starts or
+  restarts and after a player queue round-trip is safely complete.
 
 SQS visibility and dead-letter queues provide retries. The result Lambda is
 idempotent and ignores an older response when a newer refresh has already been
@@ -28,7 +28,8 @@ npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
 
 The launchd installer builds the worker, writes
 `~/Library/LaunchAgents/com.poapkings.elixir-drop-cr-bridge.plist`, and keeps the
-process alive. Logs go to `~/Library/Logs/elixir-drop-cr-bridge.log`.
+process alive on the required Node 24 runtime. Logs go to
+`~/Library/Logs/elixir-drop-cr-bridge.log`.
 The worker also publishes a one-minute CloudWatch heartbeat. Production alarms
 notify `ELIXIR_DROP_ALARM_EMAIL` if the heartbeat stops, requests back up, or a
 request/result reaches a dead-letter queue.

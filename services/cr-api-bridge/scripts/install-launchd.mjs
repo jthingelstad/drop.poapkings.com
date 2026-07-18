@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -10,6 +11,27 @@ const agentsDir = resolve(homedir(), "Library", "LaunchAgents");
 const logsDir = resolve(homedir(), "Library", "Logs");
 const plistPath = resolve(agentsDir, `${label}.plist`);
 const logPath = resolve(logsDir, "elixir-drop-cr-bridge.log");
+
+function isNode24(path) {
+  if (!existsSync(path)) return false;
+  try {
+    return execFileSync(path, ["--version"], { encoding: "utf8" })
+      .trim()
+      .startsWith("v24.");
+  } catch {
+    return false;
+  }
+}
+
+const nodePath = [
+  process.execPath,
+  "/opt/homebrew/opt/node@24/bin/node",
+  "/usr/local/opt/node@24/bin/node",
+].find(isNode24);
+
+if (!nodePath) {
+  throw new Error("Node 24 is required to install the CR bridge service.");
+}
 
 function xml(value) {
   return value
@@ -26,7 +48,7 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
   <string>${label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${xml(process.execPath)}</string>
+    <string>${xml(nodePath)}</string>
     <string>${xml(resolve(serviceDir, "dist", "index.cjs"))}</string>
   </array>
   <key>WorkingDirectory</key>
@@ -68,4 +90,5 @@ execFileSync("launchctl", ["kickstart", "-k", `${domain}/${label}`], {
 });
 
 console.log(`Installed and started ${label}.`);
+console.log(`Runtime: ${nodePath}`);
 console.log(`Logs: ${logPath}`);

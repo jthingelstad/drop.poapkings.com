@@ -1,6 +1,7 @@
 import { CloudWatchClient } from "@aws-sdk/client-cloudwatch";
 import { GetQueueUrlCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { getBridgeConfig } from "./config.js";
+import { publishBridgeStartedEvent } from "./discord.js";
 import { pollOnce, runWorker } from "./worker.js";
 import { publishBridgeHeartbeat } from "./heartbeat.js";
 
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
     const abort = new AbortController();
     process.once("SIGINT", () => abort.abort());
     process.once("SIGTERM", () => abort.abort());
+    await publishBridgeStartedEvent(config.discordWebhookUrl, process.pid);
     console.info("Elixir Drop CR bridge started", {
       region: config.region,
       requestQueue: config.requestQueueName,

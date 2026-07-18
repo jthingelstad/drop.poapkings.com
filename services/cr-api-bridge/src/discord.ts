@@ -11,6 +11,14 @@ type DiscordFetch = (
   init: RequestInit,
 ) => Promise<{ ok: boolean; status: number }>;
 
+export function bridgeStartedWebhookPayload(processId: number): DiscordPayload {
+  return {
+    username: "Elixir Drop Events",
+    allowed_mentions: { parse: [] },
+    content: `🟢 CR bridge online · process ${processId}`,
+  };
+}
+
 function accountAge(result: CrPlayerRefreshResult): string {
   if (result.outcome !== "success") return "";
   const days = result.player.accountAge?.days;
@@ -72,6 +80,30 @@ export async function publishPlayerPulledEvent(
   } catch (error) {
     console.warn(
       `Discord bridge event failed with ${error instanceof Error ? error.name : "UnknownError"}.`,
+    );
+  }
+}
+
+export async function publishBridgeStartedEvent(
+  webhookUrl: string | undefined,
+  processId: number,
+  fetcher: DiscordFetch = fetch,
+): Promise<void> {
+  if (!webhookUrl) return;
+  try {
+    const response = await fetcher(webhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(bridgeStartedWebhookPayload(processId)),
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!response.ok)
+      console.warn(
+        `Discord bridge startup event failed with HTTP ${response.status}.`,
+      );
+  } catch (error) {
+    console.warn(
+      `Discord bridge startup event failed with ${error instanceof Error ? error.name : "UnknownError"}.`,
     );
   }
 }
