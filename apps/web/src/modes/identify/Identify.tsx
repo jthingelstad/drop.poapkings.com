@@ -87,7 +87,8 @@ export default function Identify() {
     phase.value = 'playing'
   }
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     timed.start((startedAt) => {
       runStartedAt.current = startedAt
       answers.current = []

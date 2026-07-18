@@ -151,7 +151,8 @@ export default function SpeedLadder() {
     track('mode.ladder')
   }, [])
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     if (!gameRun.content) return
     order.value = [...gameRun.content]
     timed.start((startedAt) => {

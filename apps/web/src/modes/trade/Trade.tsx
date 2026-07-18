@@ -113,7 +113,8 @@ export default function Trade() {
     track('mode.trade')
   }, [])
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     timed.start((startedAt) => {
       runStartedAt.current = startedAt
       roundMisses.current = 0

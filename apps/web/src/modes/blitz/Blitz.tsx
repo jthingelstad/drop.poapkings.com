@@ -60,7 +60,8 @@ export default function Blitz() {
     track('mode.blitz')
   }, [])
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     timed.start((startedAt) => {
       finished.current = false
       runStartedAt.current = startedAt

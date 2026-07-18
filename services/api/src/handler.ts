@@ -44,7 +44,11 @@ import {
 
 const MAGIC_LINK_SECONDS = 15 * 60;
 const SESSION_SECONDS = 10 * 24 * 60 * 60;
-const RUN_SECONDS = 30 * 60;
+const RUN_SECONDS = 60 * 60;
+// The run token stays verifiable well past run.expiresAt so a late completion
+// reaches the explicit 410 run_expired branch instead of dying in verifyToken
+// as a generic 401 (which the web app treats as session loss).
+const RUN_TOKEN_GRACE_SECONDS = 24 * 60 * 60;
 const NAME_OPTIONS_SECONDS = 15 * 60;
 
 function sha256(value: string): string {
@@ -464,7 +468,7 @@ async function route(event: APIGatewayProxyEventV2) {
         owner,
         mode: body.mode,
         iat: nowSeconds,
-        exp: nowSeconds + RUN_SECONDS,
+        exp: nowSeconds + RUN_SECONDS + RUN_TOKEN_GRACE_SECONDS,
       },
       config.sessionSecret,
     );

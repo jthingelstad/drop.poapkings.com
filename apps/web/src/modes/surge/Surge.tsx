@@ -57,7 +57,8 @@ export default function Surge() {
     track('mode.surge')
   }, [])
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     timed.start((startedAt) => {
       cardStart.current = startedAt
       runStartedAt.current = startedAt

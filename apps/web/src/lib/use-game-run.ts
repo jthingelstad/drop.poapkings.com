@@ -28,6 +28,10 @@ function setRecordingNotice(notice: RecordingNotice): void {
   }
 }
 
+// Re-prepare a signed run when the player starts a game this close to its
+// server-side expiry (a Ready screen left open, a long break before Start).
+const RUN_FRESHNESS_BUFFER_MS = 2 * 60_000
+
 export function useGameRun<T extends GameMode>(mode: T) {
   const run = useRef<StartedRun | null>(null)
   const pendingCompletion = useRef<{
@@ -71,6 +75,19 @@ export function useGameRun<T extends GameMode>(mode: T) {
     void prepare()
   }, [prepare])
 
+  // Returns true when the held run is safe to start now. A stale or missing
+  // run triggers a re-prepare and returns false: the fresh challenge still has
+  // to preload, so the mode's Start button simply re-enables when it is ready.
+  const ensureFreshRun = useCallback(async (): Promise<boolean> => {
+    const active = run.current
+    if (active) {
+      const expiresAtMs = Date.parse(active.expiresAt)
+      if (!Number.isFinite(expiresAtMs) || Date.now() < expiresAtMs - RUN_FRESHNESS_BUFFER_MS) return true
+    }
+    await prepare()
+    return false
+  }, [prepare])
+
   async function submitCompletion(
     active: StartedRun,
     transcript: Record<string, unknown>,
@@ -98,7 +115,10 @@ export function useGameRun<T extends GameMode>(mode: T) {
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
+      // An expired or invalid run token only invalidates this run, never the
+      // player's session — do not sign the player out over a stale game.
+      const runTokenRejected = error instanceof ApiError && error.status === 401 && error.code === 'invalid_run_token'
+      if (error instanceof ApiError && error.status === 401 && !runTokenRejected) {
         pendingCompletion.current = null
         setRecordingNotice({ state: 'idle' })
         signOut()
@@ -106,21 +126,33 @@ export function useGameRun<T extends GameMode>(mode: T) {
         navigate(gamePath ? loginRouteForGame(gamePath) : '/login')
         return
       }
-      if (error instanceof ApiError && [400, 403, 404, 410].includes(error.status)) {
+      const runExpired = runTokenRejected || (error instanceof ApiError && error.status === 410)
+      if (runExpired || (error instanceof ApiError && [400, 403, 404].includes(error.status))) {
         pendingCompletion.current = null
         run.current = null
         console.warn('Online run completion could not be verified', {
           mode,
-          code: error.code
+          code: error instanceof ApiError ? error.code : 'unknown'
         })
-        setRecordingNotice({
-          state: 'error',
-          message: 'This game could not be verified and was not recorded.',
-          detail:
-            'Your result is still visible, but this run cannot be retried. Close this message, then start a new game.',
-          actionLabel: 'Close',
-          action: () => setRecordingNotice({ state: 'idle' })
-        })
+        setRecordingNotice(
+          runExpired
+            ? {
+                state: 'error',
+                message: 'This game ran past its signed time window and was not recorded.',
+                detail:
+                  'You are still signed in and your local result is visible. Close this message, then start a new game.',
+                actionLabel: 'Close',
+                action: () => setRecordingNotice({ state: 'idle' })
+              }
+            : {
+                state: 'error',
+                message: 'This game could not be verified and was not recorded.',
+                detail:
+                  'Your result is still visible, but this run cannot be retried. Close this message, then start a new game.',
+                actionLabel: 'Close',
+                action: () => setRecordingNotice({ state: 'idle' })
+              }
+        )
         return
       }
       console.warn('Online run completion was rejected', {
@@ -156,5 +188,5 @@ export function useGameRun<T extends GameMode>(mode: T) {
     await submitCompletion(active, transcript, onRecorded)
   }
 
-  return { challenge, preparing, startError, prepare, complete }
+  return { challenge, preparing, startError, prepare, ensureFreshRun, complete }
 }

@@ -80,7 +80,8 @@ export default function Survival() {
     schedule(timers.current, fn, ms)
   }
 
-  function begin() {
+  async function begin() {
+    if (!(await gameRun.ensureFreshRun())) return
     dead.current = false
     answers.current = []
     serverAnswers.current = []

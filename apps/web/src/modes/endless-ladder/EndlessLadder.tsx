@@ -102,7 +102,8 @@ export default function EndlessLadder() {
     schedule(timers.current, fn, ms)
   }
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     const challenge = gameRun.content
     if (!challenge) return
     row.value = sortByElixir(challenge.starting)

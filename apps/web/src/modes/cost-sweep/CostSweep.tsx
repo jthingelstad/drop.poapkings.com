@@ -118,7 +118,8 @@ export default function CostSweep() {
     board.value = null
   }
 
-  function start() {
+  async function start() {
+    if (!(await gameRun.ensureFreshRun())) return
     const firstBoard = gameRun.content?.[0]
     if (!firstBoard) return
     board.value = firstBoard
