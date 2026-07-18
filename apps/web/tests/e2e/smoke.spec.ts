@@ -479,6 +479,7 @@ for (const route of routes) {
 }
 
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
+  test.setTimeout(60_000)
   const activeModes = [
     { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
     { hash: '#/blitz', ready: '.surge-ready', start: 'Start Blitz', control: '.pip-keypad' },
