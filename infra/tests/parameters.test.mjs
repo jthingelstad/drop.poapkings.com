@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { deploymentParameters } from "../scripts/parameters.mjs";
 
@@ -7,6 +8,10 @@ const base = {
   codeKey: "lambda/api.zip",
   environment: {},
 };
+const template = readFileSync(
+  new URL("../template.yaml", import.meta.url),
+  "utf8",
+);
 
 void describe("deployment parameters", () => {
   void it("uses Claude Haiku for creative player names by default", () => {
@@ -74,5 +79,44 @@ void describe("deployment parameters", () => {
       parameters.find((parameter) => parameter.ParameterKey === "AlarmEmail"),
       { ParameterKey: "AlarmEmail", ParameterValue: "alerts@example.com" },
     );
+  });
+
+  void it("sends the mail canary to Elixir by default or an explicit override", () => {
+    const defaults = deploymentParameters({ ...base, stackExists: true });
+    const overridden = deploymentParameters({
+      ...base,
+      environment: { ELIXIR_DROP_CANARY_EMAIL: "canary@example.com" },
+      stackExists: true,
+    });
+
+    assert.deepEqual(
+      defaults.find(
+        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
+      ),
+      {
+        ParameterKey: "MailCanaryEmail",
+        ParameterValue: "elixir@poapkings.com",
+      },
+    );
+    assert.deepEqual(
+      overridden.find(
+        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
+      ),
+      {
+        ParameterKey: "MailCanaryEmail",
+        ParameterValue: "canary@example.com",
+      },
+    );
+  });
+
+  void it("alarms on observable API 5xx responses and retains structured logs", () => {
+    assert.match(template, /Namespace: AWS\/ApiGateway\s+MetricName: 5xx/);
+    assert.match(
+      template,
+      /LogGroupName: \/elixir-drop\/api\s+RetentionInDays: 30/,
+    );
+    assert.match(template, /Handler: handler\.mailCanaryHandler/);
+    assert.match(template, /ScheduleExpression: cron\(0 13 \* \* \? \*\)/);
+    assert.match(template, /AlarmName: elixir-drop-mail-canary-missing/);
   });
 });

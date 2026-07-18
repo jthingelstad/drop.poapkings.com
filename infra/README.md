@@ -16,7 +16,11 @@ The gitignored root `.env` also supplies
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL`. CloudFormation treats it as a `NoEcho`
 parameter and exposes it only to the Lambda runtime for notable event delivery.
 CloudWatch separately alarms on the bridge process heartbeat and on successful
-five-minute Clan Wars clock relays.
+five-minute Clan Wars clock relays. The API, result consumer, and daily mail
+canary write JSON logs to dedicated 30-day log groups. The canary submits one
+message each day through the same Fastmail JMAP path as player magic links and
+alarms on both delivery failure and a missing scheduled run. It targets
+`elixir@poapkings.com` unless `ELIXIR_DROP_CANARY_EMAIL` overrides it.
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, the

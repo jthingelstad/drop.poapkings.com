@@ -6,6 +6,7 @@ Lambda artifact and uses one DynamoDB table.
 Responsibilities in this release:
 
 - 15-minute, single-use email magic links sent through Fastmail JMAP;
+- a daily Fastmail JMAP delivery canary using the same submission path as magic links;
 - renewable 10-day HMAC bearer sessions;
 - player profiles with favorite-card avatars, safe Claude Haiku-generated
   public names, unverified CR player tags, and cached CR

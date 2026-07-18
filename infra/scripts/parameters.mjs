@@ -45,6 +45,13 @@ export function deploymentParameters({
         "elixir@poapkings.com",
     },
     {
+      ParameterKey: "MailCanaryEmail",
+      ParameterValue:
+        environment.ELIXIR_DROP_CANARY_EMAIL ||
+        environment.ELIXIR_DROP_EMAIL_FROM ||
+        "elixir@poapkings.com",
+    },
+    {
       ParameterKey: "NameModelId",
       ParameterValue:
         environment.NAME_MODEL_ID ||

@@ -683,6 +683,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
             "internal_error",
           );
     console.error("API request failed", {
+      requestId: event.requestContext.requestId,
       method: event.requestContext.http.method,
       path: event.rawPath,
       statusCode: safeError.statusCode,
@@ -697,3 +698,4 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 };
 
 export { crResultHandler } from "./cr-results.js";
+export { mailCanaryHandler } from "./mail-canary.js";

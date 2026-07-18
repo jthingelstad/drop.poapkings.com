@@ -29,6 +29,24 @@ interface SendMagicLinkInput {
   expiresMinutes: number;
 }
 
+interface SendMailCanaryInput {
+  token: string;
+  fromEmail: string;
+  fromName: string;
+  to: string;
+  observedAt?: Date;
+}
+
+interface SendEmailInput {
+  token: string;
+  fromEmail: string;
+  fromName: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
 interface MagicLinkEmailInput {
   magicLink: string;
   expiresMinutes: number;
@@ -223,11 +241,8 @@ export function magicLinkEmailHtml({
 </html>`;
 }
 
-export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
+async function sendEmail(input: SendEmailInput): Promise<void> {
   const sendContext = await context(input.token, input.fromEmail);
-  const subject = magicLinkEmailSubject();
-  const text = magicLinkEmailText(input);
-  const html = magicLinkEmailHtml(input);
 
   const responses = await call(sendContext.apiUrl, input.token, [
     [
@@ -240,7 +255,7 @@ export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
             keywords: { $draft: true },
             from: [{ name: input.fromName, email: input.fromEmail }],
             to: [{ email: input.to }],
-            subject,
+            subject: input.subject,
             bodyStructure: {
               type: "multipart/alternative",
               subParts: [
@@ -249,8 +264,8 @@ export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
               ],
             },
             bodyValues: {
-              text: { value: text, charset: "utf-8" },
-              html: { value: html, charset: "utf-8" },
+              text: { value: input.text, charset: "utf-8" },
+              html: { value: input.html, charset: "utf-8" },
             },
           },
         },
@@ -288,4 +303,36 @@ export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
     throw new Error("JMAP email creation failed");
   if ((submitResult.notCreated as Record<string, unknown> | undefined)?.send)
     throw new Error("JMAP email submission failed");
+}
+
+export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
+  await sendEmail({
+    ...input,
+    subject: magicLinkEmailSubject(),
+    text: magicLinkEmailText(input),
+    html: magicLinkEmailHtml(input),
+  });
+}
+
+export function mailCanaryEmailSubject(): string {
+  return "Elixir Drop mail canary";
+}
+
+export async function sendMailCanary(
+  input: SendMailCanaryInput,
+): Promise<void> {
+  const observedAt = (input.observedAt ?? new Date()).toISOString();
+  const subject = mailCanaryEmailSubject();
+  const text = [
+    "Elixir Drop email delivery canary.",
+    "",
+    `Submitted at ${observedAt}.`,
+    "This automated message confirms the same Fastmail JMAP submission path used by player magic links.",
+  ].join("\n");
+  await sendEmail({
+    ...input,
+    subject,
+    text,
+    html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title></head><body><p>Elixir Drop email delivery canary.</p><p>Submitted at ${observedAt}.</p><p>This automated message confirms the same Fastmail JMAP submission path used by player magic links.</p></body></html>`,
+  });
 }

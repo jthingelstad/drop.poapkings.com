@@ -24,6 +24,9 @@ Parameters:
   AlarmEmail:
     Type: String
     Default: elixir@poapkings.com
+  MailCanaryEmail:
+    Type: String
+    Default: elixir@poapkings.com
   NameModelId:
     Type: String
     Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
@@ -131,6 +134,24 @@ Resources:
         - Protocol: email
           Endpoint: !Ref AlarmEmail
 
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/api
+      RetentionInDays: 30
+
+  CrResultLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/cr-results
+      RetentionInDays: 30
+
+  MailCanaryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/mail-canary
+      RetentionInDays: 30
+
   ApiRole:
     Type: AWS::IAM::Role
     Properties:
@@ -178,6 +199,28 @@ Resources:
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt CrResultQueue.Arn
 
+  MailCanaryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-mail-canary-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-mail-canary-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt MailCanaryLogGroup.Arn
+
   ApiFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -190,6 +233,11 @@ Resources:
       Role: !GetAtt ApiRole.Arn
       MemorySize: 512
       Timeout: 20
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref ApiLogGroup
+        SystemLogLevel: INFO
       Code:
         S3Bucket: !Ref CodeBucket
         S3Key: !Ref CodeKey
@@ -217,6 +265,11 @@ Resources:
       Role: !GetAtt ApiRole.Arn
       MemorySize: 256
       Timeout: 20
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref CrResultLogGroup
+        SystemLogLevel: INFO
       Code:
         S3Bucket: !Ref CodeBucket
         S3Key: !Ref CodeKey
@@ -232,6 +285,54 @@ Resources:
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
 
+  MailCanaryFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: elixir-drop-mail-canary
+      Description: Submits a daily email through the player magic-link delivery path
+      Architectures:
+        - arm64
+      Runtime: nodejs24.x
+      Handler: handler.mailCanaryHandler
+      Role: !GetAtt MailCanaryRole.Arn
+      MemorySize: 256
+      Timeout: 20
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref MailCanaryLogGroup
+        SystemLogLevel: INFO
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
+          ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
+          ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
+          ELIXIR_DROP_CANARY_EMAIL: !Ref MailCanaryEmail
+
+  MailCanarySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Submit one Elixir Drop email delivery canary each day
+      ScheduleExpression: cron(0 13 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt MailCanaryFunction.Arn
+          Id: elixir-drop-mail-canary
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 3600
+            MaximumRetryAttempts: 2
+
+  MailCanaryInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MailCanaryFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MailCanarySchedule.Arn
+
   CrResultEventSource:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -246,9 +347,31 @@ Resources:
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-api-errors
-      AlarmDescription: Elixir Drop API Lambda returned one or more errors.
+      AlarmDescription: Elixir Drop API returned one or more HTTP 5xx responses.
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  ApiFunctionThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-api-throttles
+      AlarmDescription: Elixir Drop API Lambda was throttled.
       Namespace: AWS/Lambda
-      MetricName: Errors
+      MetricName: Throttles
       Dimensions:
         - Name: FunctionName
           Value: !Ref ApiFunction
@@ -258,6 +381,47 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  MailCanaryErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-mail-canary-errors
+      AlarmDescription: The daily Elixir Drop email delivery canary failed.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref MailCanaryFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  MailCanaryMissingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-mail-canary-missing
+      AlarmDescription: The scheduled Elixir Drop email delivery canary has not run for two days.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref MailCanaryFunction
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
       AlarmActions:
         - !Ref AlarmTopic
 
