@@ -53,12 +53,13 @@ a banner.
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-The website remains playable if the backend is unavailable. Local card-learning
-statistics stay in **localStorage**; authenticated game history, player levels,
-profiles, the global Trophy Road, and leaderboards live in DynamoDB. Trophy
-Road began at a one-time launch seed of 592 and advances exactly once for every
-server-accepted completed game; page views and Tinylytics analytics never
-contribute to it.
+Every player signs in with an email magic link and every game starts from a
+signed server challenge. The app never falls back to an anonymous or locally
+sampled run when player services are unavailable. Local display and input
+preferences stay in **localStorage**; game history, player levels, profiles, the
+global Trophy Road, and leaderboards live in DynamoDB. Trophy Road began at a
+one-time launch seed of 592 and advances exactly once for every server-accepted
+completed game; page views and Tinylytics analytics never contribute to it.
 Each signed-in player chooses a favorite Clash Royale card as their profile
 image and selects a safe, playful name inspired by that card, including its
 community nicknames and character.
@@ -73,6 +74,7 @@ npm run dev       # Vite dev server
 npm run verify    # verify every implemented workspace
 npm run build     # build every implemented workspace
 npm run preview   # serve the build locally
+npm run check:beta # full quality gate plus production API smoke
 ```
 
 The root commands use npm workspaces. The repo ships with a committed
@@ -147,6 +149,10 @@ The API is a separate production CloudFormation stack:
 npm run bootstrap:aws  # one time: IAM deploy user, role, bucket, root .env
 npm run deploy:api     # SDK-based build, upload, stack update, web API config
 ```
+
+Before inviting a new beta group, follow
+[`docs/beta-readiness.md`](docs/beta-readiness.md). It separates automated
+release gates from the few real-user checks that should not be faked in CI.
 
 Bootstrap copies the existing Fastmail JMAP and CR tokens into the gitignored
 root `.env`, generates a Drop-specific signing secret, and creates separate

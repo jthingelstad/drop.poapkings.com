@@ -1,4 +1,8 @@
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import {
+  CloudFormationClient,
+  DescribeStacksCommand,
+} from "@aws-sdk/client-cloudformation";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.mjs";
@@ -19,6 +23,17 @@ if (!identity.Arn?.endsWith(":user/elixir-drop")) {
   );
 }
 
+const stackName = process.env.ELIXIR_DROP_STACK_NAME;
+if (!stackName) throw new Error("ELIXIR_DROP_STACK_NAME is missing");
+const stack = (
+  await new CloudFormationClient({ region: process.env.AWS_REGION }).send(
+    new DescribeStacksCommand({ StackName: stackName }),
+  )
+).Stacks?.[0];
+if (!stack?.StackStatus?.endsWith("_COMPLETE")) {
+  throw new Error(`Production stack is not settled: ${stack?.StackStatus}`);
+}
+
 const publicConfig = await fetch(
   new URL("../../apps/web/public/api-config.json", import.meta.url),
 ).catch(() => undefined);
@@ -35,6 +50,14 @@ if (publicConfig?.ok) {
   ).apiBaseUrl;
 }
 if (!apiBaseUrl) throw new Error("Public API URL is missing");
+const stackApiUrl = stack.Outputs?.find(
+  (output) => output.OutputKey === "ApiUrl",
+)?.OutputValue;
+if (stackApiUrl !== apiBaseUrl) {
+  throw new Error(
+    "Public API configuration does not match the production stack",
+  );
+}
 
 const allowedOrigins = [
   "https://drop.poapkings.com",
@@ -64,6 +87,22 @@ if (
   "authenticatedGames" in statsBody
 ) {
   throw new Error("Stats response does not match the Trophy Road contract");
+}
+if (
+  statsBody.currentSeason.source !== "clash-royale" ||
+  !statsBody.currentSeason.crSeasonId ||
+  !statsBody.currentSeason.clockUpdatedAt
+) {
+  throw new Error("Stats are not using the live Clash Royale season clock");
+}
+const clockAgeMs =
+  Date.now() - Date.parse(statsBody.currentSeason.clockUpdatedAt);
+if (
+  !Number.isFinite(clockAgeMs) ||
+  clockAgeMs < 0 ||
+  clockAgeMs > 15 * 60_000
+) {
+  throw new Error("Clash Royale season clock is more than fifteen minutes old");
 }
 
 const leaderboard = await fetch(`${apiBaseUrl}/leaderboards?mode=surge`);
@@ -129,15 +168,33 @@ if (process.env.FASTMAIL_JMAP_TOKEN) {
   fastmailJmap = "verified";
 }
 
+const appUrl = process.env.APP_URL || "https://drop.poapkings.com";
+const [website, deployedConfig] = await Promise.all([
+  fetch(`${appUrl}/`),
+  fetch(`${appUrl}/api-config.json`),
+]);
+if (!website.ok || !(await website.text()).includes("Elixir Drop")) {
+  throw new Error("Production website check failed");
+}
+if (
+  !deployedConfig.ok ||
+  (await deployedConfig.json()).apiBaseUrl !== apiBaseUrl
+) {
+  throw new Error("Production website points to a different API");
+}
+
 console.log(
   JSON.stringify({
     api: "healthy",
+    stack: stack.StackStatus,
     cors: "verified",
     deploymentIdentity: identity.Arn,
     fastmailJmap,
     anonymousPlay: "rejected",
     maskedEmail: "rejected",
     leaderboard: "verified",
+    clashRoyaleClock: "fresh",
+    website: "healthy",
     trophyRoadGames: statsBody.trophyRoadGames,
   }),
 );

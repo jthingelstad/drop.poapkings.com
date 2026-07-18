@@ -29,7 +29,8 @@
     "og": "npm run og --workspace=@elixir-drop/web",
     "bootstrap:aws": "npm run bootstrap --workspace=@elixir-drop/infra",
     "deploy:api": "npm run deploy --workspace=@elixir-drop/infra",
-    "smoke:api": "npm run smoke --workspace=@elixir-drop/infra"
+    "smoke:api": "npm run smoke --workspace=@elixir-drop/infra",
+    "check:beta": "npm audit --audit-level=high && npm run verify && npm run smoke:api"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
