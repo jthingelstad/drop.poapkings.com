@@ -222,13 +222,20 @@ async function route(event: APIGatewayProxyEventV2) {
       playerId: login.profile.playerId,
       newPlayer: login.created,
     });
-    await publishDiscordEvent(
-      config.discordWebhookUrl,
-      loginWebhookPayload({
-        profile: login.profile,
-        newPlayer: login.created,
-      }),
-    );
+    await Promise.all([
+      publishDiscordEvent(
+        config.discordWebhookUrl,
+        loginWebhookPayload({
+          profile: login.profile,
+          newPlayer: login.created,
+        }),
+      ),
+      refreshedCrProfile(
+        repository,
+        config.crRequestQueueUrl,
+        login.profile.playerTag,
+      ),
+    ]);
     return json(200, {
       session,
     });
@@ -256,11 +263,9 @@ async function route(event: APIGatewayProxyEventV2) {
       );
     const [recentRuns, crProfile] = await Promise.all([
       repository.listRecentRuns(session.sub),
-      refreshedCrProfile(
-        repository,
-        config.crRequestQueueUrl,
-        profile.playerTag,
-      ),
+      profile.playerTag
+        ? repository.getCrProfile(profile.playerTag)
+        : undefined,
     ]);
     return json(200, {
       player: profileResponse(profile, crProfile),
@@ -354,11 +359,15 @@ async function route(event: APIGatewayProxyEventV2) {
     if (!Object.keys(updates).length)
       throw new HttpError(400, "No profile changes were provided.");
     const profile = await repository.updateProfile(session.sub, updates);
-    const crProfile = await refreshedCrProfile(
-      repository,
-      config.crRequestQueueUrl,
-      profile.playerTag,
-    );
+    const crProfile = profile.playerTag
+      ? updates.playerTag
+        ? await refreshedCrProfile(
+            repository,
+            config.crRequestQueueUrl,
+            profile.playerTag,
+          )
+        : await repository.getCrProfile(profile.playerTag)
+      : undefined;
     return json(200, { player: profileResponse(profile, crProfile) });
   }
 

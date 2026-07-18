@@ -286,7 +286,8 @@ export default function Profile() {
         <section class="profile-section">
           <h2>Clash Royale player tag</h2>
           <p>
-            This points at a public CR profile and does not authenticate ownership. Drop refreshes it automatically.
+            This points at a public CR profile and does not authenticate ownership. Drop loads it when saved, then
+            refreshes it when you sign in.
           </p>
           <form class="account-form account-form--row" onSubmit={saveTag}>
             <input
@@ -325,7 +326,7 @@ export default function Profile() {
               <div class="cr-profile__state">
                 <div>
                   <h2>Profile refresh delayed</h2>
-                  <p>Drop could not queue this refresh. The saved tag is safe and will be retried automatically.</p>
+                  <p>The saved tag is safe. Save it again or sign in later to retry.</p>
                 </div>
               </div>
             )}

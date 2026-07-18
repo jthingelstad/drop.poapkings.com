@@ -113,9 +113,10 @@ tag refresh work to SQS. `services/cr-api-bridge` long-polls that queue from thi
 allowlisted host, calls `/players/{tag}`, and puts a narrow result on a second
 queue. A result Lambda stores the player's CR name, clan, Years Played badge
 day count (used to calculate account age), and card collection without
-competitive fields or card levels. The profile
-serves cached data while snapshots older than six hours refresh in the
-background.
+competitive fields or card levels. Saving a tag fetches its first snapshot.
+Later snapshots refresh only when the player completes a new magic-link login;
+routine session restoration, profile reads, and games use cached data without
+creating bridge work.
 
 ---
 
