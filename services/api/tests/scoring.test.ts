@@ -35,6 +35,28 @@ describe("server-side game scoring", () => {
     );
   });
 
+  it("tolerates one lightning solve in Surge but rejects a whole run of them", () => {
+    // One sub-79ms gap between solves (an elite burst) — accepted.
+    const oneFast = cards.map((card, index) => ({
+      cardId: card.id,
+      guesses: [card.elixir],
+      atMs: index <= 4 ? 1_000 + index * 800 : 4_250 + (index - 5) * 800,
+    }));
+    expect(
+      scoreRun({ mode: "surge", cardIds }, { answers: oneFast }, 20_000),
+    ).toBeGreaterThan(0);
+
+    // Every solve 50ms apart — automation, rejected.
+    const allFast = cards.map((card, index) => ({
+      cardId: card.id,
+      guesses: [card.elixir],
+      atMs: 500 + index * 50,
+    }));
+    expect(() =>
+      scoreRun({ mode: "surge", cardIds }, { answers: allFast }, 20_000),
+    ).toThrow(/implausibly fast/);
+  });
+
   it("recomputes Practice accuracy from canonical card costs", () => {
     const answers = cards.map((card, index) => ({
       cardId: card.id,

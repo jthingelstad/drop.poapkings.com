@@ -274,6 +274,7 @@ function scoreAnswerSprint(
     throw new Error("A complete answer transcript is required");
   let previousAtMs = 0;
   let misses = 0;
+  let fastGaps = 0;
   for (let index = 0; index < challenge.length; index += 1) {
     const expectedCardId = challenge[index]!;
     const answer = answers[index]!;
@@ -281,11 +282,18 @@ function scoreAnswerSprint(
       throw new Error("Card order does not match the signed run");
     const guesses = numberArray(answer.guesses, "Guesses");
     const atMs = Number(answer.atMs);
-    // The cap bounds payload size, not honest play: a struggling beginner
-    // mashing the keypad must not have the whole run voided (the client stops
-    // recording at the same limit).
-    if (guesses.length < 1 || guesses.length > 60 || atMs <= previousAtMs + 79)
+    // The guesses cap bounds payload size, not honest play (the client stops
+    // recording at the same limit). Timestamps must strictly advance; a sub-79ms
+    // gap is a lightning solve — counted, not fatal, so one instant answer in a
+    // fast run is fine while a whole run of them (a bot) is caught below.
+    if (
+      guesses.length < 1 ||
+      guesses.length > 60 ||
+      !Number.isFinite(atMs) ||
+      atMs <= previousAtMs
+    )
       throw new Error("Answer timing is invalid");
+    if (atMs < previousAtMs + 79) fastGaps += 1;
     const correct =
       answerKind === "elixir" ? card(expectedCardId).elixir : expectedCardId;
     if (guesses.at(-1) !== correct || guesses.slice(0, -1).includes(correct))
@@ -300,6 +308,8 @@ function scoreAnswerSprint(
     misses += guesses.length - 1;
     previousAtMs = atMs;
   }
+  if (isImplausiblyFast(fastGaps, answers.length))
+    throw new Error("Answer timing is implausibly fast");
   verifyPlausibleEnd(previousAtMs, wallElapsedMs);
   return Math.round(previousAtMs) + misses * SURGE_PENALTY_MS;
 }
@@ -506,16 +516,20 @@ function scoreBlitz(
     throw new Error("Blitz run ended too early");
   let previousAtMs = 0;
   let cleared = 0;
+  let fastGaps = 0;
   for (const [index, answer] of answers.entries()) {
     const cardId = challenge.cardIds[index]!;
     const guesses = numberArray(answer.guesses, "Blitz guesses");
     const atMs = Number(answer.atMs);
+    // Timestamps must strictly advance; a sub-79ms gap is a lightning solve —
+    // counted, not fatal (a whole run of them is caught below).
     if (
       answer.cardId !== cardId ||
       !Number.isFinite(atMs) ||
-      atMs <= previousAtMs + 79
+      atMs <= previousAtMs
     )
       throw new Error("Blitz answer is invalid");
+    if (atMs < previousAtMs + 79) fastGaps += 1;
     // Answers past the buzzer (a suspended rAF clock kept the board live) are
     // clipped rather than voiding the whole run.
     if (atMs > 60_500) break;
@@ -529,6 +543,8 @@ function scoreBlitz(
     previousAtMs = atMs;
     cleared += 1;
   }
+  if (isImplausiblyFast(fastGaps, cleared))
+    throw new Error("Blitz answers are implausibly fast");
   return cleared;
 }
 
