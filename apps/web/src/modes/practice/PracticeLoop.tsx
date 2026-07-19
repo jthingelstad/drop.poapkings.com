@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { ElixirMood, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { makeChoices } from '../../lib/choices'
-import { saveResult, getSettings, saveSettings, recordSession, getRecords, saveRecords } from '../../lib/storage'
+import { saveResult, getSettings, saveSettings, recordSession } from '../../lib/storage'
 import { computeInsights, insightPhrase } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -82,8 +82,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     recordSession()
 
     if (complete) {
-      const prev = getRecords().bestAccuracy ?? 0
-      if (ins.accuracyPct > prev) saveRecords({ bestAccuracy: ins.accuracyPct })
+      // bestAccuracy is persisted centrally when the server accepts the run.
       void gameRun.complete({ answers: serverAnswers.current })
     }
 

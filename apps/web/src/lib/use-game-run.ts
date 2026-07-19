@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
 import { applyRunProgress, recordRecentRun, requiredSessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
-import { LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
-import { getSeasonRecords, saveSeasonRecord } from './storage'
+import { betterScore, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
+import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
@@ -42,6 +42,17 @@ function recordSeasonBest(result: { mode: GameMode; score: number; season: { id:
   if (better) saveSeasonRecord(result.season.id, { [key]: result.score })
   // The first recorded score of a season is a baseline, not a "best".
   return better && current !== undefined
+}
+
+// Persist the all-time local best ONLY for a server-accepted run, so a device
+// can never keep a "best" the API rejected. localStorage records mirror the
+// leaderboard: the previous divergence (each mode wrote its best eagerly in
+// finish(), before the server verdict) is why a rejected run still showed as a
+// personal best on that player's device.
+function recordAllTimeBest(result: { mode: GameMode; score: number }): void {
+  const key = RECORD_KEYS[result.mode]
+  const current = getRecords()[key] as number | undefined
+  if (betterScore(result.mode, result.score, current)) saveRecords({ [key]: result.score })
 }
 
 export function useGameRun<T extends GameMode>(mode: T) {
@@ -134,6 +145,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       run.current = null
       pendingCompletion.current = null
       const seasonBest = recordSeasonBest(result)
+      recordAllTimeBest(result)
       // Practice is unranked by design; its local bests still track quietly,
       // but the toast stays plain practice language.
       setRecordingNotice({

@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { Card, CardsData } from '../../types'
 import rawCards from '@elixir-drop/game-data/cards.json'
-import { getRecords, saveRecords } from '../../lib/storage'
+import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -127,10 +127,8 @@ export default function Identify() {
     missCount.value = misses
     missedCards.value = missed
 
-    if (pb) {
-      saveRecords({ identifyBest: total })
-      track('record.new')
-    }
+    // identifyBest is persisted centrally when the server accepts the run.
+    if (pb) track('record.new')
     track('identify.complete')
 
     elixirLine.value = identifySummaryLine({

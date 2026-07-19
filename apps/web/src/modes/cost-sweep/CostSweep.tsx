@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { getRecords, saveRecords, saveResult } from '../../lib/storage'
+import { getRecords, saveResult } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -168,10 +168,8 @@ export default function CostSweep() {
     isPB.value = pb
     remainingMs.value = 0
 
-    if (pb) {
-      saveRecords({ costSweepBest: found.value })
-      track('record.new')
-    }
+    // costSweepBest is persisted centrally when the server accepts the run.
+    if (pb) track('record.new')
 
     track('costsweep.complete')
     elixirLine.value = pb

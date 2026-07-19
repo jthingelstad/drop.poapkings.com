@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { JSX } from 'preact'
 import type { Card } from '../../types'
-import { getRecords, saveRecords } from '../../lib/storage'
+import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -267,10 +267,8 @@ export default function SpeedLadder() {
     prevBest.value = best
     isPB.value = pb
 
-    if (pb) {
-      saveRecords({ ladderBest: total })
-      track('record.new')
-    }
+    // ladderBest is persisted centrally when the server accepts the run.
+    if (pb) track('record.new')
     track('ladder.complete')
     elixirLine.value = ladderSummaryLine({
       isPB: pb,

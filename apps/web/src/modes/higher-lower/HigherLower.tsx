@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { higherLowerWindowMs } from '@elixir-drop/contracts'
 import type { ElixirMood } from '../../types'
-import { getRecords, saveRecords } from '../../lib/storage'
+import { getRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -139,10 +139,9 @@ export default function HigherLower() {
       const s = streak.value + 1
       streak.value = s
       if (s === 3 || (s > 3 && s % 5 === 0)) streakCue.value++
-      if (s > best.value) {
-        best.value = s
-        saveRecords({ longestStreak: s })
-      }
+      // Live display only; longestStreak is persisted centrally when the server
+      // accepts the completed run, so the device never keeps a rejected best.
+      if (s > best.value) best.value = s
       elixirLine.value = s >= 3 ? pickLine('hl_streak', { n: s }) : pickLine('hl_right')
       elixirMood.value = s >= 3 ? 'celebrate' : 'happy'
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })

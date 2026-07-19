@@ -1,7 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
-import { getRecords, saveRecords, saveResult } from '../../lib/storage'
+import { getRecords, saveResult } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -146,7 +146,7 @@ export default function EndlessLadder() {
     isPB.value = pb
 
     if (pb) {
-      saveRecords({ endlessLadderBest: inserts.value })
+      // Live display only; endlessLadderBest is persisted centrally on acceptance.
       best.value = inserts.value
       track('record.new')
     }

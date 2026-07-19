@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import { survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { saveResult, getRecords, saveRecords } from '../../lib/storage'
+import { saveResult, getRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -158,13 +158,13 @@ export default function Survival() {
     // Cumulative time across the surviving cards — matches the server's tiebreak.
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
     if (pb) {
-      saveRecords({ survivalBest: streak.value })
+      // Live display only; survivalBest is persisted centrally on acceptance.
       best.value = streak.value
       track('record.new')
     }
     if (won.current) {
       track('survival.win')
-      elixirLine.value = `Every card, no misses — ${(finishTimeMs.value / 1000).toFixed(1)}s. Now go faster.`
+      elixirLine.value = `Every card, no misses — ${(finishTimeMs.value / 1000).toFixed(2)}s. Now go faster.`
     } else {
       elixirLine.value = pb
         ? `${streak.value} in a row — new best. That's nerve.`
@@ -218,7 +218,7 @@ export default function Survival() {
   }
 
   if (stage.value === 'over' && insights.value) {
-    const winTime = `${(finishTimeMs.value / 1000).toFixed(1)}s`
+    const winTime = `${(finishTimeMs.value / 1000).toFixed(2)}s`
     const pbCallout = won.current
       ? `Cleared in ${winTime}`
       : isPB.value

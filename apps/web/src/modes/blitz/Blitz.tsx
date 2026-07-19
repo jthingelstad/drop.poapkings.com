@@ -2,7 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { saveResult, getRecords, saveRecords } from '../../lib/storage'
+import { saveResult, getRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
@@ -118,10 +118,8 @@ export default function Blitz() {
     isPB.value = pb
     remainingMs.value = 0
 
-    if (pb) {
-      saveRecords({ blitzBest: cleared.value })
-      track('record.new')
-    }
+    // blitzBest is persisted centrally when the server accepts the run.
+    if (pb) track('record.new')
     elixirLine.value = pb
       ? `${cleared.value} cleared. New Blitz best.`
       : pickLine('surge_done', { time: '60.0', insight: `${cleared.value} cleared` })

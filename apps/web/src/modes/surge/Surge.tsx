@@ -108,17 +108,13 @@ export default function Surge() {
     prevBest.value = best
     isPB.value = pb
 
-    if (pb)
-      saveRecords({
-        surgeBest: total,
-        // Penalty-adjusted elapsed at each card, for next run's ghost pacing.
-        surgeBestPace: serverAnswers.current.map((answer, index) => {
-          const misses = serverAnswers.current
-            .slice(0, index + 1)
-            .reduce((sum, entry) => sum + entry.guesses.length - 1, 0)
-          return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
-        })
-      })
+    // Penalty-adjusted elapsed at each card, for next run's ghost pacing. The
+    // all-time best (surgeBest) is now persisted centrally only when the server
+    // accepts the run; this pace snapshot rides along on that same acceptance.
+    const bestPace = serverAnswers.current.map((answer, index) => {
+      const misses = serverAnswers.current.slice(0, index + 1).reduce((sum, entry) => sum + entry.guesses.length - 1, 0)
+      return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
+    })
     track('surge.complete')
     if (pb) track('record.new')
 
@@ -128,7 +124,9 @@ export default function Surge() {
       elixirLine.value = pickLine('surge_done', { time: formatSeconds(total), insight: insightPhrase(ins) })
     }
     runtime.finish()
-    void gameRun.complete({ answers: serverAnswers.current })
+    void gameRun.complete({ answers: serverAnswers.current }, () => {
+      if (pb) saveRecords({ surgeBestPace: bestPace })
+    })
   }
 
   function answer(picked: number) {

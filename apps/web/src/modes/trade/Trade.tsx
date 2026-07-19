@@ -1,7 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Card } from '../../types'
-import { getRecords, saveRecords } from '../../lib/storage'
+import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -160,10 +160,8 @@ export default function Trade() {
     prevBest.value = best
     isPB.value = pb
 
-    if (pb) {
-      saveRecords({ tradeBest: total })
-      track('record.new')
-    }
+    // tradeBest is persisted centrally when the server accepts the run.
+    if (pb) track('record.new')
     track('trade.complete')
     elixirLine.value = tradeSummaryLine({
       isPB: pb,
