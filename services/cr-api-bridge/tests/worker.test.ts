@@ -66,9 +66,10 @@ describe("CR bridge worker", () => {
 
     expect(await pollOnce(sqs as never, config)).toBe(true);
     expect(sqs.sent).toHaveLength(1);
-    expect(
-      JSON.parse(String(sqs.sent[0]?.input.MessageBody)),
-    ).toMatchObject({ jobId: "job-dedupe", outcome: "success" });
+    expect(JSON.parse(String(sqs.sent[0]?.input.MessageBody))).toMatchObject({
+      jobId: "job-dedupe",
+      outcome: "success",
+    });
     expect(sqs.deleted).toHaveLength(1);
 
     // A redelivered duplicate (expired visibility, failed delete) must be

@@ -17,14 +17,14 @@ Ladder is not shipped and should not be built without a fresh product decision.*
 
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through
-`apps/web/src/lib/storage.ts`, card selection goes through
-`apps/web/src/lib/sampling.ts`, elixir multiple-choice distractors through
-`apps/web/src/lib/choices.ts`, card-name distractors through
-`apps/web/src/lib/name-choices.ts`, and card presentation through
+`apps/web/src/lib/storage.ts`, card selection comes from the signed server
+challenge (created in `services/api/src/scoring.ts`, resolved client-side by
+`apps/web/src/lib/game-challenge-content.ts`), elixir multiple-choice
+distractors through `apps/web/src/lib/choices.ts`, card-name distractors
+through `apps/web/src/lib/name-choices.ts`, and card presentation through
 `apps/web/src/lib/card-rendering.ts` plus
-`apps/web/src/components/CardChrome.tsx`. Completed games also use a
-server-issued signed challenge and a mode-specific transcript through
-`apps/web/src/lib/use-game-run.ts`.
+`apps/web/src/components/CardChrome.tsx`. Completed games submit a
+mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
 
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
@@ -62,8 +62,8 @@ The 15-card sprint is scored as golf time.
 - Record: `identifyBest` (lowest time).
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
-Untimed. A card appears; name its cost. The weighted sampler surfaces weak cards;
-a round of 15, with end-early, closes in the shared summary + insights.
+Untimed. A card appears; name its cost. The signed challenge deals a round of
+15, with end-early, closing in the shared summary + insights.
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
 - Record: `bestAccuracy`.

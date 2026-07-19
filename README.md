@@ -30,9 +30,10 @@ See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
 of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the
 shared Clash-style card-rendering rules used by the modes.
 
-A weighted sampler surfaces the cards you miss more often, and a short
-end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
-a coach rather than a quiz. **Elixir**, the clan's mascot, hosts.
+Every game deals from a signed server challenge (drawing from your linked
+Clash Royale collection in most modes), and a short end-of-session insight
+("you bleed time on 5–6 cost cards") turns the game into a coach rather than a
+quiz. **Elixir**, the clan's mascot, hosts.
 
 It's also a quiet front door to the clan: a good run is met with an invite, not
 a banner.

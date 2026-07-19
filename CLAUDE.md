@@ -78,8 +78,10 @@ rank-oriented fields as part of unrelated work.
   Name-option tokens bind the player, card ID, and exact safe choices; the API
   saves favorite card and public name together. Keep player tags separate and
   explicitly unverified.
-- **`apps/web/src/lib/sampling.ts`** — weighted SRS-lite: surface missed cards more, fade
-  mastered ones, avoid immediate repeats. Tunables in one config object.
+- **Card selection is server-owned.** Signed challenges from
+  `services/api/src/scoring.ts` deal every game (no immediate repeats across
+  shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves
+  them into playable content. The old client-side `sampling.ts` is gone.
 - **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
   (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
 - **`apps/web/src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the

@@ -9,7 +9,11 @@ const request = {
   requestedAt: "2026-07-18T12:00:00.000Z",
 };
 
-function jsonResponse(status: number, body: unknown, headers?: HeadersInit) {
+function jsonResponse(
+  status: number,
+  body: unknown,
+  headers?: Record<string, string>,
+) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json", ...headers },

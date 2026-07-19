@@ -95,7 +95,7 @@ packages/game-data/cards.json
 
 Current snapshot:
 
-- `version`: `2026-06-13`
+- `version`: `2026-07-18`
 - `count`: `121`
 
 The API is refreshed out-of-band because:
@@ -120,12 +120,16 @@ consumers. Dynamic backend work must be queued for
 `services/cr-api-bridge`; Lambda and browsers never call CR directly.
 
 The runtime clock combines POAP KINGS' `/currentriverrace` section, period, and
-phase with the sequential season ID in `/riverracelog`. The result Lambda stores
-one current clock in DynamoDB. Completed runs and leaderboard reads use its
-stable leaderboard-season mapping; a changed CR season ID is the authoritative
-reset signal. The UI shows the CR season, current week, phase, and days left in
-the war week. A clock older than two hours is ignored in favor of the existing
-first-Monday 10:00 UTC calendar fallback.
+phase with the sequential season ID in `/riverracelog`. Daily-reset math is
+anchored on the latest observed race close (the reset hour drifts per season),
+falling back to 10:00 UTC. The result Lambda stores one current clock in
+DynamoDB. Completed runs and leaderboard reads use its stable
+leaderboard-season mapping; a changed CR season ID is the authoritative reset
+signal. The UI shows the CR season, current week, phase, and days left in the
+war week. A clock older than two hours keeps naming the stored leaderboard
+season for as long as the season it observed can run (five weeks) — a bridge
+outage must not split the leaderboard mid-season — and only after that does the
+first-Monday calendar fallback take over.
 
 Normalization rules:
 
@@ -173,7 +177,8 @@ Product decisions currently in force:
 Important shared modules:
 
 - `apps/web/src/lib/storage.ts` - all current localStorage reads/writes.
-- `apps/web/src/lib/sampling.ts` - weighted card sampling.
+- `apps/web/src/lib/game-challenge-content.ts` - resolves signed server
+  challenges into playable card content (card selection is server-owned).
 - `apps/web/src/lib/choices.ts` - adjacent elixir distractors.
 - `apps/web/src/lib/name-choices.ts` - card-name distractors.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
