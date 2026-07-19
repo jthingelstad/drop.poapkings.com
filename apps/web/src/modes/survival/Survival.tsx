@@ -9,6 +9,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
 import { clearTimers, schedule } from '../../lib/run-loop'
+import { useRunUnloadGuard } from '../../lib/use-run-unload-guard'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -55,6 +56,21 @@ export default function Survival() {
     track('mode.survival')
     return () => clearTimers(timerList)
   }, [])
+
+  useRunUnloadGuard(stage.value === 'running')
+
+  // Sudden death cannot pause (that would be free thinking time), so leaving
+  // the tab ends the run right away with the streak intact — instead of the
+  // old behavior where the clock kept running while hidden and the first
+  // frame after returning executed the death.
+  useEffect(() => {
+    if (stage.value !== 'running') return
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') dieRef.current(current.value, undefined)
+    }
+    document.addEventListener('visibilitychange', onHidden)
+    return () => document.removeEventListener('visibilitychange', onHidden)
+  }, [current, stage.value])
 
   // Per-card clock — drives the depleting bar and times you out.
   useEffect(() => {

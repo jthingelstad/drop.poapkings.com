@@ -55,8 +55,7 @@ function validateResponse<T>(schema: ResponseSchema<T>, payload: unknown, path: 
   throw new ApiError(502, 'invalid_response', 'Drop received an invalid response from player services.')
 }
 
-async function responsePayload(response: Response): Promise<unknown> {
-  const text = await response.text()
+function parsePayload(text: string): unknown {
   if (!text) return {}
   try {
     return JSON.parse(text) as unknown
@@ -65,7 +64,11 @@ async function responsePayload(response: Response): Promise<unknown> {
   }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ response: Response; text: string }> {
   const controller = new AbortController()
   const externalSignal = init.signal
   let timedOut = false
@@ -78,7 +81,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }, timeoutMs)
 
   try {
-    return await fetch(url, { ...init, signal: controller.signal })
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    // Read the body under the same timeout: a connection that stalls after
+    // the headers arrive was the one remaining unbounded await.
+    const text = await response.text()
+    return { response, text }
   } catch (error) {
     if (timedOut) throw new ApiError(0, 'request_timeout', 'Player services took too long to respond. Try again.')
     if (externalSignal?.aborted) throw new ApiError(0, 'request_cancelled', 'The request was cancelled.')
@@ -124,8 +131,8 @@ async function requestPayload(url: string, init: RequestInit, canRetry: boolean,
   const attempts = canRetry ? 2 : 1
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const response = await fetchWithTimeout(url, init, timeoutMs)
-      const payload = await responsePayload(response)
+      const { response, text } = await fetchWithTimeout(url, init, timeoutMs)
+      const payload = parsePayload(text)
       if (!response.ok) {
         const parsedError = apiErrorSchema.safeParse(payload)
         const apiError = new ApiError(

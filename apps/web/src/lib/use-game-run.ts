@@ -38,6 +38,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     run: StartedRun
     transcript: Record<string, unknown>
     onRecorded?: () => void
+    onUnrecorded?: () => void
   } | null>(null)
   const challenge = useSignal<Extract<RunChallenge, { mode: T }> | null>(null)
   const preparing = useSignal(true)
@@ -91,7 +92,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
   async function submitCompletion(
     active: StartedRun,
     transcript: Record<string, unknown>,
-    onRecorded?: () => void
+    onRecorded?: () => void,
+    onUnrecorded?: () => void
   ): Promise<void> {
     setRecordingNotice({ state: 'saving', message: 'Recording your game…' })
     try {
@@ -106,6 +108,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
           actionLabel: 'Close',
           action: () => setRecordingNotice({ state: 'idle' })
         })
+        onUnrecorded?.()
         return
       }
       applyRunProgress(result)
@@ -153,6 +156,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
                 action: () => setRecordingNotice({ state: 'idle' })
               }
         )
+        onUnrecorded?.()
         return
       }
       console.warn('Online run completion was rejected', {
@@ -166,13 +170,21 @@ export function useGameRun<T extends GameMode>(mode: T) {
         actionLabel: 'Retry recording',
         action: () => {
           const pending = pendingCompletion.current
-          if (pending) void submitCompletion(pending.run, pending.transcript, pending.onRecorded)
+          if (pending) void submitCompletion(pending.run, pending.transcript, pending.onRecorded, pending.onUnrecorded)
         }
       })
     }
   }
 
-  async function complete(transcript: Record<string, unknown>, onRecorded?: () => void): Promise<void> {
+  // onRecorded fires when the result is accepted; onUnrecorded fires when
+  // this run is settled without being recorded (rejected, expired, or
+  // quarantined) so streak-style modes can deal a fresh game instead of
+  // stranding the player on disabled controls.
+  async function complete(
+    transcript: Record<string, unknown>,
+    onRecorded?: () => void,
+    onUnrecorded?: () => void
+  ): Promise<void> {
     const active = run.current
     if (!active) {
       setRecordingNotice({
@@ -184,8 +196,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
       })
       return
     }
-    pendingCompletion.current = { run: active, transcript, onRecorded }
-    await submitCompletion(active, transcript, onRecorded)
+    pendingCompletion.current = { run: active, transcript, onRecorded, onUnrecorded }
+    await submitCompletion(active, transcript, onRecorded, onUnrecorded)
   }
 
   return { challenge, preparing, startError, prepare, ensureFreshRun, complete }

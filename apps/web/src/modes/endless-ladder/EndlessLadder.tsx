@@ -9,6 +9,7 @@ import { preloadImages } from '../../lib/preload'
 import { computeInsights, type Answer, type Insights } from '../../lib/insights'
 import { canInsertAt, insertAtSlot } from '../../lib/endless-ladder'
 import { clearTimers, schedule } from '../../lib/run-loop'
+import { useRunUnloadGuard } from '../../lib/use-run-unload-guard'
 import CardDisplay from '../../components/CardDisplay'
 import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
@@ -72,6 +73,8 @@ export default function EndlessLadder() {
     track('mode.endless')
     return () => clearTimers(timerList)
   }, [])
+
+  useRunUnloadGuard(stage.value === 'running')
 
   function drawCard(): Card | undefined {
     const serverCard = gameRun.content?.incoming[serverCardIndex.current]

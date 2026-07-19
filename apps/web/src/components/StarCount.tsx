@@ -8,7 +8,9 @@ import { TROPHY_ROAD_UPDATED_EVENT } from '../lib/trophy-road'
 
 export default function StarCount() {
   const modalOpen = useSignal(false)
-  const trophyRoadGames = useSignal(0)
+  // null = never loaded; a failed refresh keeps the last known count instead
+  // of showing a confusing "0 games".
+  const trophyRoadGames = useSignal<number | null>(null)
   const closeModal = useCallback(() => {
     modalOpen.value = false
   }, [modalOpen])
@@ -38,8 +40,9 @@ export default function StarCount() {
     }
   }, [trophyRoadGames])
 
-  const rank = rankFor(trophyRoadGames.value).current
-  const formattedGames = trophyRoadGames.value.toLocaleString()
+  const knownGames = trophyRoadGames.value
+  const rank = rankFor(knownGames ?? 0).current
+  const formattedGames = knownGames === null ? '—' : knownGames.toLocaleString()
 
   return (
     <>
@@ -56,7 +59,7 @@ export default function StarCount() {
         <span class="starcount__n">{formattedGames}</span>
       </button>
       {modalOpen.value &&
-        createPortal(<TrophyModal trophyRoadGames={trophyRoadGames.value} onClose={closeModal} />, document.body)}
+        createPortal(<TrophyModal trophyRoadGames={knownGames ?? 0} onClose={closeModal} />, document.body)}
     </>
   )
 }

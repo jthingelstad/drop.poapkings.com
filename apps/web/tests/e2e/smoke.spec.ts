@@ -349,6 +349,8 @@ test('requires email authentication before entering a game and returns after log
   expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
+  // Redemption is click-gated so mail scanners cannot burn the single-use link.
+  await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page.locator('.surge-ready')).toBeVisible()
   await expect(page).toHaveURL(/#\/surge$/)
 })
@@ -408,6 +410,7 @@ test('new players choose a favorite card and generated name before returning to 
   })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
+  await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
   await expect(page.getByText('Choose a favorite card and generated name to continue')).toBeVisible()
 

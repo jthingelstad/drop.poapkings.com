@@ -42,7 +42,11 @@ export default function HigherLower() {
     const nextIndex = pairIndex.value + 1
     const nextPair = gameRun.content?.[nextIndex]
     if (!nextPair) {
-      void gameRun.complete({ answers: serverAnswers.current }, () => void restartAfterMiss())
+      void gameRun.complete(
+        { answers: serverAnswers.current },
+        () => void restartAfterMiss(),
+        () => void restartAfterMiss()
+      )
       return
     }
     pairIndex.value = nextIndex
@@ -94,7 +98,13 @@ export default function HigherLower() {
       if (correct) {
         next()
       } else {
-        void gameRun.complete({ answers: serverAnswers.current }, () => void restartAfterMiss())
+        // A permanently rejected or quarantined completion still deals the
+        // next round — Higher/Lower has no summary screen to escape to.
+        void gameRun.complete(
+          { answers: serverAnswers.current },
+          () => void restartAfterMiss(),
+          () => void restartAfterMiss()
+        )
       }
     }, ADVANCE_DELAY)
   }

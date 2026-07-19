@@ -46,7 +46,7 @@ function pluralize(count: number, one: string, many: string): string {
 }
 
 export default function Identify() {
-  const gameRun = useGameSession('identify', challengePreparers.identify)
+  const gameRun = useGameSession('identify', challengePreparers.identify, { requireArt: true })
   const sprint = gameRun.content
   const choiceSets = useMemo(
     () => sprint?.map((card) => makeNameChoices(card, ALL_CARDS, IDENTIFY.CHOICE_COUNT)) ?? [],

@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown, type TimerList } from './run-loop'
+import { useRunUnloadGuard } from './use-run-unload-guard'
 
 export type TimedRunStage = 'ready' | 'countdown' | 'running' | 'summary'
 
@@ -24,6 +25,8 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
     const timerList = timers.current
     return () => clearTimers(timerList)
   }, [])
+
+  useRunUnloadGuard(stage.value === 'running')
 
   useEffect(() => {
     if (stage.value !== 'running') return

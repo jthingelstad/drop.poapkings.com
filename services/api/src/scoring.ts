@@ -39,8 +39,17 @@ function cardSequence(
   pool: readonly Card[],
 ): number[] {
   const result: number[] = [];
-  while (result.length < count)
-    result.push(...shuffle(pool, randomInt).map((card) => card.id));
+  while (result.length < count) {
+    const next = shuffle(pool, randomInt);
+    // No back-to-back repeats across shuffle boundaries: the same card twice
+    // in a row reads as a bug, and in Higher/Lower a boundary repeat dealt a
+    // "Knight vs Knight" pair.
+    if (pool.length > 1 && next[0]!.id === result.at(-1)) {
+      const swapIndex = 1 + randomInt(next.length - 1);
+      [next[0], next[swapIndex]] = [next[swapIndex]!, next[0]!];
+    }
+    result.push(...next.map((card) => card.id));
+  }
   return result.slice(0, count);
 }
 

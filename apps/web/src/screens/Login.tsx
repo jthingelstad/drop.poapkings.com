@@ -43,9 +43,20 @@ export default function Login() {
           </button>
         </p>
         {status.value === 'sent' ? (
-          <div class="account-message account-message--success" role="status">
-            {message.value}
-          </div>
+          <>
+            <div class="account-message account-message--success" role="status">
+              {message.value}
+            </div>
+            <button
+              class="btn btn--ghost btn--sm"
+              onClick={() => {
+                status.value = 'idle'
+                message.value = ''
+              }}
+            >
+              Send again or use a different address
+            </button>
+          </>
         ) : (
           <form class="account-form" onSubmit={submit} novalidate>
             <label for="login-email">Email address</label>

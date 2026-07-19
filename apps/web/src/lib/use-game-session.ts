@@ -11,12 +11,15 @@ type Resolved<T> = { prepared: PreparedChallenge<T>; error: '' } | { prepared: n
 
 export function useGameSession<TMode extends GameMode, TContent>(
   mode: TMode,
-  resolve: (challenge: ChallengeFor<TMode>) => PreparedChallenge<TContent>
+  resolve: (challenge: ChallengeFor<TMode>) => PreparedChallenge<TContent>,
+  options?: { requireArt?: boolean }
 ) {
   const run = useGameRun(mode)
   const loadedChallenge = useSignal<ChallengeFor<TMode> | null>(null)
+  const artFailed = useSignal(false)
   const preloadGeneration = useRef(0)
   const challenge = run.challenge.value
+  const requireArt = options?.requireArt ?? false
 
   const resolved = useMemo<Resolved<TContent>>(() => {
     if (!challenge) return { prepared: null, error: '' }
@@ -33,19 +36,31 @@ export function useGameSession<TMode extends GameMode, TContent>(
   useEffect(() => {
     const generation = ++preloadGeneration.current
     loadedChallenge.value = null
+    artFailed.value = false
     if (!challenge || !resolved.prepared) return
-    preloadImages(resolved.prepared.assets, () => {
-      if (preloadGeneration.current === generation) loadedChallenge.value = challenge
+    const assets = resolved.prepared.assets
+    preloadImages(assets, (loadedCount) => {
+      if (preloadGeneration.current !== generation) return
+      // When the art IS the question (Identify), starting the clock against
+      // gray fallback boxes is unwinnable; surface a retry instead.
+      if (requireArt && assets.length > 0 && loadedCount === 0) {
+        artFailed.value = true
+        return
+      }
+      loadedChallenge.value = challenge
     })
     return () => {
       preloadGeneration.current += 1
     }
-  }, [challenge, loadedChallenge, resolved])
+  }, [artFailed, challenge, loadedChallenge, requireArt, resolved])
 
   return {
     ...run,
-    content: resolved.prepared?.content ?? null,
+    content: artFailed.value ? null : (resolved.prepared?.content ?? null),
     assetsReady: Boolean(challenge && loadedChallenge.value === challenge),
-    error: run.startError.value || resolved.error
+    error:
+      run.startError.value ||
+      resolved.error ||
+      (artFailed.value ? 'Card art could not be loaded. Check your connection and try again.' : '')
   }
 }

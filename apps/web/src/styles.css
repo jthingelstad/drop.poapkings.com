@@ -53,8 +53,15 @@ html, body {
 
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* Rapid-tap play (Blitz keypad, Cost Sweep grid) must never trigger the
+   browser's double-tap zoom mid-run. */
+button {
+  touch-action: manipulation;
 }
 
 /* ── Body / background ────────────────────────────────────── */
