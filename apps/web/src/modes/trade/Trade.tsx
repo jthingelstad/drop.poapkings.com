@@ -16,6 +16,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import PenaltyFlash from '../../components/PenaltyFlash'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -117,6 +119,7 @@ export default function Trade() {
 
   useEffect(() => {
     track('mode.trade')
+    preloadGameFx()
   }, [])
 
   async function start() {
@@ -341,6 +344,7 @@ export default function Trade() {
 
   return (
     <div class="main-content game-run trade" style={{ alignItems: 'center', gap: 18 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
       <div class="surge-hud trade-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}
@@ -356,19 +360,27 @@ export default function Trade() {
         <div class="progress-track__fill" style={{ width: `${(index.value / TRADE.SEQUENCE_LEN) * 100}%` }} />
       </div>
 
-      <div class="trade-board" data-trade-index={index.value + 1}>
-        <TradeSide side="blue" label="You played" sub="Blue King" cards={round.blue} revealedIds={revealedIds.value} />
-        <div class="trade-versus" aria-hidden="true">
-          vs
+      <GameMotion contentKey={index.value} cue={runtime.cue.value} preset="board">
+        <div class="trade-board" data-trade-index={index.value + 1}>
+          <TradeSide
+            side="blue"
+            label="You played"
+            sub="Blue King"
+            cards={round.blue}
+            revealedIds={revealedIds.value}
+          />
+          <div class="trade-versus" aria-hidden="true">
+            vs
+          </div>
+          <TradeSide
+            side="red"
+            label="Opponent played"
+            sub="Red King"
+            cards={round.red}
+            revealedIds={revealedIds.value}
+          />
         </div>
-        <TradeSide
-          side="red"
-          label="Opponent played"
-          sub="Red King"
-          cards={round.red}
-          revealedIds={revealedIds.value}
-        />
-      </div>
+      </GameMotion>
 
       <div class="trade-prompt">
         {feedback.value === 'correct' ? (

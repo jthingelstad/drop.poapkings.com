@@ -10,6 +10,8 @@ import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
 import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -40,6 +42,7 @@ export default function HigherLower() {
 
   useEffect(() => {
     track('mode.higherlower')
+    preloadGameFx()
   }, [])
 
   function next() {
@@ -146,6 +149,7 @@ export default function HigherLower() {
 
   return (
     <div class="main-content game-run hl" style={{ alignItems: 'center', gap: 22 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={6} />
       <RunScopeBadge ranked={gameRun.ranked.value} />
       <div class="session-bar">
         <div class="session-bar__stat">
@@ -162,16 +166,23 @@ export default function HigherLower() {
         Is the <strong>right</strong> card higher, lower, or equal?
       </p>
 
-      <div class="hl__pair">
-        {/* Pairs are chained: the left card is last round's right card, whose
-            cost was already revealed — keep it visible so each round asks for
-            exactly one new read. Round one stays fully hidden. */}
-        <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value || pairIndex.value > 0} />
-        <div class="hl__vs" aria-hidden="true">
-          vs
+      <GameMotion contentKey={pairIndex.value} cue={runtime.cue.value} preset="pair">
+        <div class="hl__pair">
+          {/* Pairs are chained: the left card is last round's right card, whose
+              cost was already revealed — keep it visible so each round asks for
+              exactly one new read. Round one stays fully hidden. */}
+          <CardDisplay
+            card={left}
+            phase="playing"
+            dropAnimKey={0}
+            forceReveal={revealed.value || pairIndex.value > 0}
+          />
+          <div class="hl__vs" aria-hidden="true">
+            vs
+          </div>
+          <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
         </div>
-        <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
-      </div>
+      </GameMotion>
 
       <div class="hl-controls" role="group" aria-label="Higher, equal, or lower">
         {controls.map((c) => (

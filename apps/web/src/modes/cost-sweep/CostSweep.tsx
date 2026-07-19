@@ -16,6 +16,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import PenaltyFlash from '../../components/PenaltyFlash'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers, type SweepBoard } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -98,6 +100,7 @@ export default function CostSweep() {
 
   useEffect(() => {
     track('mode.costsweep')
+    preloadGameFx()
   }, [])
 
   function resetRun() {
@@ -315,6 +318,7 @@ export default function CostSweep() {
 
   return (
     <div class="main-content game-run sweep" style={{ alignItems: 'center', gap: 18 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={6} />
       <div class="surge-hud sweep-hud">
         <div class={`surge-hud__timer${seconds <= 10 ? ' surge-hud__timer--low' : ''}`} aria-label="time remaining">
           {seconds}
@@ -341,19 +345,25 @@ export default function CostSweep() {
             <div class="progress-track__fill" style={{ width: `${(remainingMs.value / SWEEP.WINDOW_MS) * 100}%` }} />
           </div>
 
-          <div class="sweep-grid" aria-label={`Cost Sweep cards for ${currentBoard.targetElixir} elixir`}>
-            {currentBoard.cards.map((card) => (
-              <SweepCard
-                key={card.id}
-                card={card}
-                isTarget={card.elixir === currentBoard.targetElixir}
-                isFound={selectedIds.value.has(card.id)}
-                isWrong={wrongIds.value.has(card.id)}
-                disabled={boardLocked.value}
-                onPick={pick}
-              />
-            ))}
-          </div>
+          <GameMotion
+            contentKey={`${currentBoard.targetElixir}:${currentBoard.cards.map((card) => card.id).join(',')}`}
+            cue={runtime.cue.value}
+            preset="grid"
+          >
+            <div class="sweep-grid" aria-label={`Cost Sweep cards for ${currentBoard.targetElixir} elixir`}>
+              {currentBoard.cards.map((card) => (
+                <SweepCard
+                  key={card.id}
+                  card={card}
+                  isTarget={card.elixir === currentBoard.targetElixir}
+                  isFound={selectedIds.value.has(card.id)}
+                  isWrong={wrongIds.value.has(card.id)}
+                  disabled={boardLocked.value}
+                  onPick={pick}
+                />
+              ))}
+            </div>
+          </GameMotion>
         </>
       )}
     </div>

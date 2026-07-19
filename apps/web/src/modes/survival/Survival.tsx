@@ -17,6 +17,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -50,6 +52,7 @@ export default function Survival() {
 
   useEffect(() => {
     track('mode.survival')
+    preloadGameFx()
   }, [])
 
   // Sudden death cannot pause (that would be free thinking time), so leaving
@@ -251,6 +254,7 @@ export default function Survival() {
   const low = remainingFrac.value <= 0.35
   return (
     <div class="main-content game-run surge">
+      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
       <div class="surge-hud">
         <div class="surge-hud__timer">{streak.value}</div>
         <div class="surge-hud__count">streak · best {best.value}</div>
@@ -264,12 +268,14 @@ export default function Survival() {
       </div>
 
       {card && (
-        <CardDisplay
-          card={card}
-          phase={cardPhase.value}
-          dropAnimKey={dropKey.value}
-          revealCost={cardPhase.value === 'wrong'}
-        />
+        <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+          <CardDisplay
+            card={card}
+            phase={cardPhase.value}
+            dropAnimKey={dropKey.value}
+            revealCost={cardPhase.value === 'wrong'}
+          />
+        </GameMotion>
       )}
 
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />

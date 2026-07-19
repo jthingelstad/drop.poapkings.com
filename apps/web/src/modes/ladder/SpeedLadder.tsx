@@ -17,6 +17,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import PenaltyFlash from '../../components/PenaltyFlash'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -152,6 +154,7 @@ export default function SpeedLadder() {
 
   useEffect(() => {
     track('mode.ladder')
+    preloadGameFx()
   }, [])
 
   async function start() {
@@ -392,6 +395,7 @@ export default function SpeedLadder() {
 
   return (
     <div class="main-content game-run ladder" style={{ alignItems: 'center', gap: 18 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={16} />
       <div class="surge-hud ladder-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}
@@ -406,26 +410,28 @@ export default function SpeedLadder() {
         <span>high</span>
       </div>
 
-      <ol class={`ladder-board ladder-board--${feedback.value}`} aria-label="Speed Ladder card order">
-        {order.value.map((card, index) => (
-          <LadderCard
-            key={card.id}
-            card={card}
-            index={index}
-            total={order.value.length}
-            disabled={feedback.value !== 'idle'}
-            isDragging={draggingCard.value === card.id}
-            isRevealed={revealedIds.value.has(card.id)}
-            isSelected={selectedCard.value === card.id}
-            onMove={moveCard}
-            onTap={tapCard}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-          />
-        ))}
-      </ol>
+      <GameMotion cue={runtime.cue.value} preset="ladder">
+        <ol class={`ladder-board ladder-board--${feedback.value}`} aria-label="Speed Ladder card order">
+          {order.value.map((card, index) => (
+            <LadderCard
+              key={card.id}
+              card={card}
+              index={index}
+              total={order.value.length}
+              disabled={feedback.value !== 'idle'}
+              isDragging={draggingCard.value === card.id}
+              isRevealed={revealedIds.value.has(card.id)}
+              isSelected={selectedCard.value === card.id}
+              onMove={moveCard}
+              onTap={tapCard}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
+            />
+          ))}
+        </ol>
+      </GameMotion>
 
       <div class="ladder-actions">
         <button class="btn btn--gold ladder-actions__lock" onClick={lockOrder} disabled={feedback.value !== 'idle'}>

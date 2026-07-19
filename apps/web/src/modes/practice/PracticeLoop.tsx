@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useMemo, useRef } from 'preact/hooks'
+import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { ElixirMood, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { makeChoices } from '../../lib/choices'
@@ -16,6 +16,8 @@ import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -52,6 +54,10 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const correct = useSignal(0)
   const insights = useSignal<Insights | null>(null)
   const strongSession = useSignal(false)
+
+  useEffect(() => {
+    preloadGameFx()
+  }, [])
 
   function nextCard() {
     const nextIndex = cardIndex.value + 1
@@ -174,6 +180,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
   return (
     <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={6} />
       <RunScopeBadge ranked={gameRun.ranked.value} />
       <div class="session-bar">
         <div class="session-bar__stat">
@@ -204,7 +211,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         <div class="progress-track__fill" style={{ width: `${(answered.value / ROUND_LEN) * 100}%` }} />
       </div>
 
-      <CardDisplay card={card} phase={phase.value} dropAnimKey={dropKey.value} />
+      <GameMotion contentKey={card.id} cue={runtime.cue.value} preset="reveal">
+        <CardDisplay card={card} phase={phase.value} dropAnimKey={dropKey.value} />
+      </GameMotion>
 
       <div style={{ textAlign: 'center' }}>
         <p class="lede" style={{ fontSize: '1.0rem', marginBottom: 4 }}>

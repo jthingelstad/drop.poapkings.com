@@ -5,6 +5,7 @@ import { isReducedMotionEnabled } from '../lib/motion'
 
 interface Props {
   cue: GameRuntimeCue | null
+  particleCount?: number
 }
 
 interface Particle {
@@ -34,11 +35,13 @@ export function preloadGameFx(): void {
   if (!isReducedMotionEnabled()) void loadPixi()
 }
 
-export default function GameFxLayer({ cue }: Props) {
+export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const runtimeRef = useRef<FxRuntime | null>(null)
   const handledCueId = useRef(0)
   const pendingCorrectCue = useRef(false)
+  const particleCountRef = useRef(particleCount)
+  particleCountRef.current = particleCount
 
   useEffect(() => {
     const host = hostRef.current
@@ -99,7 +102,7 @@ export default function GameFxLayer({ cue }: Props) {
             const originY = app.screen.height * 0.52
             const colors = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
 
-            for (let index = 0; index < 16; index += 1) {
+            for (let index = 0; index < particleCountRef.current; index += 1) {
               const radius = 3.5 + Math.random() * 3.5
               const graphic = new Graphics()
                 .circle(0, 0, radius)

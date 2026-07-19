@@ -15,6 +15,8 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -72,6 +74,7 @@ export default function EndlessLadder() {
 
   useEffect(() => {
     track('mode.endless')
+    preloadGameFx()
   }, [])
 
   function drawCard(): Card | undefined {
@@ -295,6 +298,7 @@ export default function EndlessLadder() {
 
   return (
     <div class="main-content game-run endless" style={{ alignItems: 'center', gap: 18 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={8} />
       <div class="surge-hud ladder-hud">
         <div class="surge-hud__timer" aria-label="successful inserts">
           {inserts.value}
@@ -303,16 +307,18 @@ export default function EndlessLadder() {
       </div>
 
       {card && (
-        <div class="endless-current" data-testid="endless-current-card" data-card-id={card.id}>
-          <div class="eyebrow">Place this card</div>
-          <CardDisplay
-            card={card}
-            phase={cardPhase.value}
-            dropAnimKey={dropKey.value}
-            revealCost={cardPhase.value === 'wrong'}
-            showMeta={false}
-          />
-        </div>
+        <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+          <div class="endless-current" data-testid="endless-current-card" data-card-id={card.id}>
+            <div class="eyebrow">Place this card</div>
+            <CardDisplay
+              card={card}
+              phase={cardPhase.value}
+              dropAnimKey={dropKey.value}
+              revealCost={cardPhase.value === 'wrong'}
+              showMeta={false}
+            />
+          </div>
+        </GameMotion>
       )}
 
       <div class="ladder-rail endless-rail" aria-hidden="true">

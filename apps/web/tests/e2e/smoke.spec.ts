@@ -825,7 +825,7 @@ test('surge runtime cues drive card motion and the optional effects canvas', asy
   await page.goto('/#/surge')
   await page.getByRole('button', { name: 'Start sprint' }).click()
 
-  const motionCard = page.locator('.game-card-motion')
+  const motionCard = page.locator('.game-motion')
   const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
   expect(card).toBeTruthy()
@@ -857,7 +857,7 @@ test('surge keeps gameplay still and skips optional effects when reduced motion 
   await page.goto('/#/surge')
   await page.getByRole('button', { name: 'Start sprint' }).click()
 
-  const motionCard = page.locator('.game-card-motion')
+  const motionCard = page.locator('.game-motion')
   const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
   expect(card).toBeTruthy()
@@ -901,6 +901,11 @@ test('active play states use low chrome and keep controls visible', async ({ pag
     await expect(page.locator('.site-foot')).toBeHidden()
     await expect(page.locator('.starcount')).toBeHidden()
     await expect(page.locator(mode.control)).toBeVisible()
+    await expect(page.locator('.game-motion')).toBeVisible()
+    await expect(page.locator('.game-fx-layer')).toHaveCount(1)
+    if (testInfo.project.name === 'chromium') {
+      await expect(page.locator('.game-fx-layer canvas')).toHaveCount(1)
+    }
 
     if (mode.hash === '#/surge') {
       const artChrome = await page.locator('.cr-card-art').evaluate((element) => ({
@@ -933,7 +938,7 @@ test('active play states use low chrome and keep controls visible', async ({ pag
   }
 })
 
-test('continuous play modes expose working controls with low chrome', async ({ page }) => {
+test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
   const modes = [
     { hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' },
     { hash: '#/higher-lower', control: '.hl-controls', answer: 'Equal' }
@@ -945,8 +950,18 @@ test('continuous play modes expose working controls with low chrome', async ({ p
 
     await expect(page.locator('.game-run')).toBeVisible()
     await expect(page.locator(mode.control)).toBeVisible()
+    await expect(page.locator('.game-motion')).toBeVisible()
+    await expect(page.locator('.game-fx-layer')).toHaveCount(1)
+    if (testInfo.project.name === 'chromium') {
+      await expect(page.locator('.game-fx-layer canvas')).toHaveCount(1)
+    }
     await expect(page.locator('.site-foot')).toBeHidden()
     await expect(page.getByRole('button', { name: mode.answer, exact: true })).toBeEnabled()
+
+    await testInfo.attach(`${mode.hash.slice(2)}-running.png`, {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
     await page.getByRole('button', { name: mode.answer, exact: true }).click()
   }
 })

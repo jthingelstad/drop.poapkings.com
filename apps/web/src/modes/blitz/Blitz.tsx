@@ -18,6 +18,8 @@ import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import Icon from '../../components/Icon'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -63,6 +65,7 @@ export default function Blitz() {
 
   useEffect(() => {
     track('mode.blitz')
+    preloadGameFx()
   }, [])
 
   async function start() {
@@ -262,6 +265,7 @@ export default function Blitz() {
   const seconds = Math.ceil(remainingMs.value / 1000)
   return (
     <div class="main-content game-run surge">
+      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
       <div class="surge-hud">
         <div class={`surge-hud__timer${seconds <= 10 ? ' surge-hud__timer--low' : ''}`} aria-label="time remaining">
           {seconds}
@@ -274,7 +278,11 @@ export default function Blitz() {
         <div class="progress-track__fill" style={{ width: `${(remainingMs.value / BLITZ.WINDOW_MS) * 100}%` }} />
       </div>
 
-      {card && <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />}
+      {card && (
+        <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+          <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+        </GameMotion>
+      )}
 
       <div class="surge-hint" data-testid="blitz-hint" aria-live="polite">
         {hint.value === 'higher' && (

@@ -10,7 +10,7 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
-import GameCardMotion from '../../components/GameCardMotion'
+import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import Icon from '../../components/Icon'
 import PenaltyFlash from '../../components/PenaltyFlash'
@@ -279,7 +279,7 @@ export default function Surge() {
   const card = gameRun.content[index.value]!
   return (
     <div class="main-content game-run surge">
-      <GameFxLayer cue={runtime.cue.value} />
+      <GameFxLayer cue={runtime.cue.value} particleCount={16} />
       <div class="surge-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}
@@ -308,9 +308,9 @@ export default function Surge() {
         <div class="progress-track__fill" style={{ width: `${(index.value / SURGE.SPRINT_LEN) * 100}%` }} />
       </div>
 
-      <GameCardMotion cardKey={card.id} cue={runtime.cue.value}>
+      <GameMotion contentKey={card.id} cue={runtime.cue.value}>
         <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
-      </GameCardMotion>
+      </GameMotion>
 
       {/* Fixed-height slot so the keypad never shifts mid-tap. */}
       <div class="surge-hint" data-testid="surge-hint" aria-live="polite">

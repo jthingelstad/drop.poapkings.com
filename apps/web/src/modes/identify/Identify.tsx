@@ -17,6 +17,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import GameMotion from '../../components/GameMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import PenaltyFlash from '../../components/PenaltyFlash'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -78,6 +80,7 @@ export default function Identify() {
 
   useEffect(() => {
     track('mode.identify')
+    preloadGameFx()
   }, [])
 
   function setCard(nextIndex: number) {
@@ -302,6 +305,7 @@ export default function Identify() {
 
   return (
     <div class="main-content game-run identify identify-run" style={{ alignItems: 'center', gap: 20 }}>
+      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
       <div class="surge-hud identify-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}
@@ -318,14 +322,16 @@ export default function Identify() {
       </div>
 
       <div class="identify-card" data-testid="identify-card" data-card-id={card.id}>
-        <CardDisplay
-          card={card}
-          phase={phase.value}
-          dropAnimKey={dropKey.value}
-          revealCost={false}
-          hideName
-          showMeta={false}
-        />
+        <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+          <CardDisplay
+            card={card}
+            phase={phase.value}
+            dropAnimKey={dropKey.value}
+            revealCost={false}
+            hideName
+            showMeta={false}
+          />
+        </GameMotion>
       </div>
 
       <div class="identify-prompt">

@@ -1621,12 +1621,19 @@ body:has(.game-run) .api-status { display: none; }
   gap: 20px;
 }
 
-.game-card-motion {
+.game-motion {
   display: grid;
   place-items: center;
   width: 100%;
   transform-origin: center 46%;
   will-change: transform, opacity;
+}
+
+.game-motion--pair,
+.game-motion--board,
+.game-motion--ladder,
+.game-motion--grid {
+  transform-origin: center;
 }
 
 .game-fx-layer {
@@ -1644,12 +1651,12 @@ body:has(.game-run) .api-status { display: none; }
   pointer-events: none;
 }
 
-html.reduce-motion .game-card-motion {
+html.reduce-motion .game-motion {
   will-change: opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .game-card-motion {
+  .game-motion {
     will-change: opacity;
   }
 }
