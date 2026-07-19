@@ -89,6 +89,11 @@ rank-oriented fields as part of unrelated work.
   nothing; localStorage stats are a display cache.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
+- **"Elixir Rain" screensaver egg**: activation state in
+  `apps/web/src/lib/screensaver.ts` (5 logo taps or 2-min Home idle; full
+  no-op under reduced motion), overlay in `components/Screensaver.tsx`, Pixi
+  scene in `components/ScreensaverScene.ts` (lazy chunk via
+  `lib/load-pixi.ts`). It must never trigger on gameplay routes.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves
@@ -159,7 +164,8 @@ The committed snapshot is authoritative for the running app. From `/cards`, use
 the `items` array (standard cards with `elixirCost`);
 **exclude `supportItems`** (4 Tower Troops — no cost). `type` from id range
 (26→troop, 27→building, 28→spell). `evo`/`hero` from `maxEvolutionLevel`
-(1→evo, 2→hero, 3→both). `icon` = `iconUrls.medium` (CDN), or local path if
+(1→evo, 2→hero, 3→both). `icon` = local `/cards/{id}.png` (art is mirrored —
+refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures under CSP), historically `iconUrls.medium` if
 `MIRROR_IMAGES=true`.
 
 ---

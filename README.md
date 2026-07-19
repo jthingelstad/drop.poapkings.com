@@ -112,9 +112,11 @@ So card data is refreshed out-of-band and **committed to the repo**:
 - That push triggers the GitHub Actions build + deploy. The Pages build only ever
   reads the committed `cards.json` — so the token stays off CI entirely.
 
-Card art is hotlinked from Supercell's CDN (`api-assets.clashroyale.com`) and
-preloaded before timed runs. A `MIRROR_IMAGES` flag in the refresh script can
-download art locally instead, with no game-code change.
+Card art is mirrored same-origin under `apps/web/public/cards/` and preloaded
+before timed runs. The refresh script always runs with `MIRROR_IMAGES=true`
+on the managed host (kept in its `.env`); a bare refresh would revert the
+snapshot to hotlinked CDN URLs, which the page CSP blocks for WebGL texture
+use and which reintroduces a CDN dependency for gameplay art.
 
 The application backend does not call the Clash Royale API directly. It writes
 tag refresh work to SQS. `services/cr-api-bridge` long-polls that queue from this

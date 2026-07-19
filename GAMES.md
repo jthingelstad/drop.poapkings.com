@@ -148,6 +148,18 @@ the fifth board; wrong taps cost 2s (flashed in the HUD).
 - Input: card-grid taps.
 - Record: `costSweepBest` (most target cards found in 45s).
 
+### Easter egg: "Elixir Rain" screensaver
+
+Tap the ELIXIR DROP hero logo five times quickly (1.5s per tap), or leave the
+Home screen idle for two minutes, and the site dims into an ambient WebGL
+scene: a fresh random cast of ~24 cards drifts down through elixir droplets in
+three parallax layers, occasionally flipping into other cards, with the
+mascot gliding through every so often. Any tap or key exits. It never triggers
+on a gameplay route, pauses while the tab is hidden, and under reduced motion
+it simply does not exist. Deliberate discovery fires the `egg.screensaver`
+analytics event; idle attract is untracked. Purely cosmetic — no scores, no
+records, no server involvement.
+
 ### Shared active-play chrome
 
 Timed active states use the `game-run` layout: compact header, no footer, and no

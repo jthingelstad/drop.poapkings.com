@@ -1,6 +1,7 @@
 import type { Application, Graphics, Ticker } from 'pixi.js'
 import { useEffect, useRef } from 'preact/hooks'
 import type { GameRuntimeCue } from '../lib/game-runtime'
+import { loadPixi } from '../lib/load-pixi'
 import { isReducedMotionEnabled } from '../lib/motion'
 
 interface Props {
@@ -22,13 +23,6 @@ interface FxRuntime {
   app: Application
   particles: Particle[]
   spawnCorrectBurst: () => void
-}
-
-let pixiModule: Promise<typeof import('pixi.js')> | undefined
-
-function loadPixi(): Promise<typeof import('pixi.js')> {
-  pixiModule ??= Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(([, pixi]) => pixi)
-  return pixiModule
 }
 
 export function preloadGameFx(): void {

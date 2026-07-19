@@ -1302,6 +1302,11 @@ a { color: var(--lavender); }
   line-height: 1.05;
   font-size: clamp(2.8rem, 13vw, 5.4rem);
   letter-spacing: 0.01em;
+
+  /* The 5-tap egg target: rapid taps must not select text or zoom. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .hero__title .t-elixir,
@@ -2061,6 +2066,34 @@ body:has(.game-run) .starcount {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* "Elixir Rain" screensaver overlay. Opaque backdrop so a WebGL failure
+   still yields a dismissible dark room; z-index above the trophy modal
+   (1000) and the recording notice (1200). */
+.screensaver {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: radial-gradient(120% 120% at 50% 0%, #14102b 0%, #070610 70%);
+  animation: screensaver-in 600ms ease-out;
+  cursor: none;
+}
+
+.screensaver:focus {
+  outline: none;
+}
+
+.screensaver canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes screensaver-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* Home coach tile: the weakest cost band, one line, one tap into Practice. */

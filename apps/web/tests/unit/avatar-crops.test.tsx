@@ -43,7 +43,7 @@ describe('player avatar crops', () => {
     const container = document.createElement('div')
     render(<PlayerAvatar favoriteCardId={26000037} size="medium" />, container)
     const image = container.querySelector('img')
-    expect(image?.getAttribute('src')).toContain('api-assets.clashroyale.com')
+    expect(image?.getAttribute('src')).toContain('/cards/26000037.png')
 
     image?.dispatchEvent(new Event('error'))
     await new Promise((resolve) => setTimeout(resolve, 0))

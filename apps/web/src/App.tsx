@@ -11,6 +11,8 @@ import PlayerAvatar from './components/PlayerAvatar'
 import ApiStatusBanner from './components/ApiStatusBanner'
 import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
+import Screensaver from './components/Screensaver'
+import { createIdleWatcher, registerLogoTap, screensaverActive, startScreensaver } from './lib/screensaver'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
@@ -137,7 +139,7 @@ function Home() {
     <div class="home">
       <div class="hero">
         <div class="hero__inner">
-          <h1 class="hero__title">
+          <h1 class="hero__title" onClick={() => registerLogoTap()}>
             <span class="t-elixir">ELIXIR</span>
             <span class="t-drop">DROP</span>
           </h1>
@@ -470,6 +472,15 @@ export default function App() {
     void initializeAccount()
   }, [])
 
+  // Idle attract mode arms only on Home; leaving the route disarms it, so it
+  // can never fire during a game. (Reading route.value in render subscribes
+  // this component to the signal, so the local flag is a real dependency.)
+  const onHome = route.value === '/'
+  useEffect(() => {
+    if (!onHome) return
+    return createIdleWatcher(() => startScreensaver('idle'))
+  }, [onHome])
+
   const title = screenTitle(route.value)
 
   return (
@@ -482,6 +493,7 @@ export default function App() {
       </main>
       <RunRecordingNotice />
       <Footer />
+      {screensaverActive.value && <Screensaver />}
     </>
   )
 }

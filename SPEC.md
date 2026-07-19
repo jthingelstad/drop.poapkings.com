@@ -112,8 +112,12 @@ Refresh model:
   diffs it against `packages/game-data/cards.json`, and commits only when the
   snapshot changes.
 - A push from that host triggers the normal GitHub Pages build.
-- `MIRROR_IMAGES=false` hotlinks Supercell CDN card art; `true` can mirror art
-  into `apps/web/public/cards/` without changing game code.
+- Card art is **mirrored and committed** under `apps/web/public/cards/`
+  (`cards.json` icons point at local `/cards/{id}.png` paths). The refresh
+  host keeps `MIRROR_IMAGES=true` in the root `.env` — a bare refresh would
+  revert icons to CDN URLs, which the page CSP's `connect-src` blocks for
+  WebGL texture loads (the screensaver) and which reintroduces a CDN
+  dependency for gameplay art.
 
 The static refresher and local bridge are the only implemented Clash Royale API
 consumers. Dynamic backend work must be queued for
@@ -311,8 +315,11 @@ Elixir Drop vendors its own visual layer:
 - `apps/web/src/styles.css` contains the local tokens and components.
 - `apps/web/public/assets/` contains Elixir art, emoji states, arena images, fonts, OG
   image, favicon, and star asset.
-- Card art hotlinks the Supercell CDN unless `MIRROR_IMAGES` is enabled during a
-  data refresh.
+- Card art is mirrored same-origin under `apps/web/public/cards/` (refresh
+  always runs with `MIRROR_IMAGES=true`). The "Elixir Rain" screensaver
+  Easter egg (see GAMES.md) draws this art as WebGL textures via pixi.js;
+  activation lives in `apps/web/src/lib/screensaver.ts`, the overlay in
+  `apps/web/src/components/Screensaver.tsx`.
 - Player avatars use the canonical card art through a circular CSS crop. Default
   focal coordinates and rare per-card adjustments live in
   `apps/web/src/data/avatar-crops.ts`; no derivative avatar images are shipped.

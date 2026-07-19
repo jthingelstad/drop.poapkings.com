@@ -34,6 +34,7 @@ export type TinyEvent =
   | 'recruit.join'
   | 'recruit.discord'
   | 'result.share'
+  | 'egg.screensaver'
 
 // Mirror the funnel-relevant events into local storage (SPEC §7 funnel schema).
 export function mirrorFunnel(event: TinyEvent): void {

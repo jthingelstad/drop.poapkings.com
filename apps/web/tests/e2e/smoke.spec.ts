@@ -975,6 +975,24 @@ test('card art fallback renders when card images cannot load', async ({ page }) 
   await expect(page.locator('.pcard__fallback')).toBeVisible()
 })
 
+test('five hero-logo taps start the screensaver and any key exits it', async ({ page, browserName, isMobile }) => {
+  test.skip(browserName !== 'chromium' || isMobile, 'egg smoke runs on desktop chromium only')
+  await page.goto('/')
+  const logo = page.locator('.hero__title')
+  for (let tap = 0; tap < 5; tap += 1) await logo.click()
+
+  const overlay = page.getByTestId('screensaver')
+  await expect(overlay).toBeVisible()
+  await expect(overlay).toHaveAttribute('role', 'dialog')
+  const axe = await new AxeBuilder({ page }).analyze()
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([])
+
+  await page.keyboard.press('Escape')
+  await expect(overlay).toHaveCount(0)
+  await expect(page.locator('.hero__title')).toBeVisible()
+  await expect(page.locator('.home')).toBeVisible()
+})
+
 test('footer links to the Elixir Drop Discord', async ({ page }) => {
   await page.goto('/')
 
@@ -1359,6 +1377,18 @@ test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
+  // The mocked CR profile carries CDN-shaped iconUrls (as the bridge relays);
+  // serve them a pixel so no browser logs a 404.
+  await page.route('https://api-assets.clashroyale.com/**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64'
+      )
+    })
+  )
   await page.unroute(testApiRoute)
   await page.unroute('**/api-config.json')
   await page.route('**/api-config.json', (route) =>
@@ -1430,12 +1460,12 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
                     {
                       id: 26000000,
                       name: 'Knight',
-                      iconUrl: cardsById.get(26000000)?.icon
+                      iconUrl: 'https://api-assets.clashroyale.com/cards/300/knight.png'
                     },
                     {
                       id: 26000001,
                       name: 'Archers',
-                      iconUrl: cardsById.get(26000001)?.icon
+                      iconUrl: 'https://api-assets.clashroyale.com/cards/300/archers.png'
                     }
                   ],
                   fetchedAt: '2026-07-18T13:27:25.039Z'
