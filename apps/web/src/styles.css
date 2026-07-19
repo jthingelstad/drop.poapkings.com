@@ -4264,20 +4264,34 @@ html.reduce-motion .surge-hint__cue {
 .trade-prompt {
   width: min(100%, 680px);
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+
+  /* Reserve height so swapping the question for the solved math never shifts
+     the answer grid below. */
+  min-height: 40px;
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;
 }
 
-.trade-prompt strong {
-  color: var(--red);
+.trade-prompt__sub {
+  color: var(--lavender);
+  font-weight: 700;
 }
 
-.trade-prompt strong::first-letter {
-  text-transform: uppercase;
+.trade-prompt strong {
+  color: var(--gold);
+}
+
+/* Reserved slot keeps the Next button from pushing the answer grid. */
+.trade-next-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
 }
 
 .trade-answers {

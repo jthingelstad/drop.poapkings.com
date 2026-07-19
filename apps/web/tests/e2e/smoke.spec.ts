@@ -1131,7 +1131,7 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
       expect(wrong).toBeDefined()
       await expect(page.locator('.trade-card__cost')).toHaveCount(0)
       await page.getByRole('button', { name: format(wrong!) }).click()
-      await expect(page.locator('.trade-prompt')).toContainText('Cost revealed')
+      await expect(page.getByTestId('trade-hint')).toContainText('Cost revealed')
       await expect(page.locator('.trade-card__cost')).toHaveCount(1)
     }
 

@@ -14,7 +14,8 @@
     "src/modes/cost-sweep/**",
     "src/modes/endless-ladder/**",
     "src/modes/identify/**",
-    "src/modes/ladder/**"
+    "src/modes/ladder/**",
+    "src/components/PenaltyFlash.tsx"
   ],
   "vite": false
 }

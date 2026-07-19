@@ -15,7 +15,7 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import PenaltyFlash from '../../components/PenaltyFlash'
+import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -353,7 +353,6 @@ export default function Trade() {
         <div class="surge-hud__count">
           trade {index.value + 1} / {TRADE.SEQUENCE_LEN}
         </div>
-        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="progress-track" aria-hidden="true">
@@ -382,6 +381,8 @@ export default function Trade() {
         </div>
       </GameMotion>
 
+      {/* Fixed-height prompt: swapping the question for the solved math never
+          reflows the board. Transient +2s / retry feedback floats (below). */}
       <div class="trade-prompt">
         {feedback.value === 'correct' ? (
           <span class="trade-prompt__math" data-testid="trade-math">
@@ -391,20 +392,19 @@ export default function Trade() {
         ) : (
           <>
             <span>What was your elixir trade?</span>
-            <strong>
-              {feedback.value === 'wrong'
-                ? `${hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}. +${TRADE.PENALTY_MS / 1000}s`
-                : 'Blue perspective'}
-            </strong>
+            <span class="trade-prompt__sub">Blue perspective</span>
           </>
         )}
       </div>
 
-      {feedback.value === 'correct' && (
-        <button class="btn btn--gold btn--sm trade-next" onClick={() => advanceRef.current()}>
-          Next trade <Icon name="arrow-right" />
-        </button>
-      )}
+      {/* Reserved row so the Next button never pushes the answer grid. */}
+      <div class="trade-next-slot">
+        {feedback.value === 'correct' && (
+          <button class="btn btn--gold btn--sm trade-next" onClick={() => advanceRef.current()}>
+            Next trade <Icon name="arrow-right" />
+          </button>
+        )}
+      </div>
 
       <div class="trade-answers" role="group" aria-label="Choose your elixir trade">
         {TRADE_ANSWERS.map((value) => {
@@ -424,6 +424,18 @@ export default function Trade() {
             </button>
           )
         })}
+      </div>
+
+      {/* Transient feedback, composited over the game — never in layout flow. */}
+      <div class="game-cues" aria-hidden="true">
+        <div class="game-cues__slot game-cues__slot--top">
+          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+            <Icon name="timer" /> +2s
+          </FloatingCue>
+          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="trade-hint">
+            {hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}
+          </FloatingCue>
+        </div>
       </div>
     </div>
   )
