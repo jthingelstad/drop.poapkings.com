@@ -8,8 +8,7 @@ import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
 import { computeInsights, type Answer, type Insights } from '../../lib/insights'
 import { canInsertAt, insertAtSlot } from '../../lib/endless-ladder'
-import { clearTimers, schedule } from '../../lib/run-loop'
-import { useRunUnloadGuard } from '../../lib/use-run-unload-guard'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
@@ -27,7 +26,6 @@ const ENDLESS = {
   WRONG_BEAT_MS: 1400
 }
 
-type Stage = 'ready' | 'running' | 'over'
 type CardPhase = 'playing' | 'correct' | 'wrong'
 
 function sortByElixir(cards: Card[]): Card[] {
@@ -52,14 +50,14 @@ function EndlessRowCard({ card, revealCost }: { card: Card; revealCost: boolean 
 
 export default function EndlessLadder() {
   const gameRun = useGameSession('endless-ladder', challengePreparers['endless-ladder'])
-  const timers = useRef<number[]>([])
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const best = useSignal(getRecords().endlessLadderBest ?? 0)
   const serverCardIndex = useRef(0)
   const serverAttempts = useRef<Array<{ cardId: number; slotIndex: number }>>([])
 
-  const stage = useSignal<Stage>('ready')
+  const runtime = useGameRuntime()
+  const { stage, later } = runtime
   const row = useSignal<Card[]>([])
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<CardPhase>('playing')
@@ -73,12 +71,8 @@ export default function EndlessLadder() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.endless')
-    return () => clearTimers(timerList)
   }, [])
-
-  useRunUnloadGuard(stage.value === 'running')
 
   function drawCard(): Card | undefined {
     const serverCard = gameRun.content?.incoming[serverCardIndex.current]
@@ -90,7 +84,7 @@ export default function EndlessLadder() {
   }
 
   function dealRun() {
-    clearTimers(timers.current)
+    runtime.reset('ready')
     answers.current = []
     serverCardIndex.current = 0
     serverAttempts.current = []
@@ -103,11 +97,6 @@ export default function EndlessLadder() {
 
     row.value = []
     current.value = null
-    stage.value = 'ready'
-  }
-
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
   }
 
   async function start() {
@@ -118,9 +107,10 @@ export default function EndlessLadder() {
     current.value = challenge.incoming[0] ?? null
     serverCardIndex.current = current.value ? 1 : 0
     if (!current.value) return
-    cardStart.current = performance.now()
-    cardPhase.value = 'playing'
-    stage.value = 'running'
+    runtime.startNow((startedAt) => {
+      cardStart.current = startedAt
+      cardPhase.value = 'playing'
+    })
   }
 
   function nextCard() {
@@ -134,6 +124,7 @@ export default function EndlessLadder() {
     cardPhase.value = 'playing'
     cardStart.current = performance.now()
     preloadImages([card], () => {})
+    runtime.emitCue('round-advance', { cardId: card.id })
   }
 
   function finish(slotIndex: number | null) {
@@ -163,7 +154,7 @@ export default function EndlessLadder() {
       : slotIndex === null
         ? `${inserts.value} inserts. Signed challenge cleared.`
         : `${inserts.value} inserts. The slot math broke first; rebuild from the anchors.`
-    stage.value = 'over'
+    runtime.finish('over')
     void gameRun.complete({ attempts: serverAttempts.current })
   }
 
@@ -180,6 +171,7 @@ export default function EndlessLadder() {
       playWrong()
       revealOutcome.value = true
       cardPhase.value = 'wrong'
+      runtime.emitCue('answer-wrong', { cardId: card.id })
       later(() => finish(groupSlot), ENDLESS.WRONG_BEAT_MS)
       return
     }
@@ -192,6 +184,7 @@ export default function EndlessLadder() {
     inserts.value += 1
     cardPhase.value = 'correct'
     dropKey.value += 1
+    runtime.emitCue('answer-correct', { cardId: card.id })
     later(nextCard, ENDLESS.CORRECT_BEAT_MS)
   }
 

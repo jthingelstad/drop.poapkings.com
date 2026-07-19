@@ -4,6 +4,7 @@ import { makeChoices } from '../../src/lib/choices'
 import { countTargetCards, isSweepComplete, remainingTargetIds, targetIds } from '../../src/lib/cost-sweep'
 import { canInsertAt, insertAtSlot, validInsertSlots } from '../../src/lib/endless-ladder'
 import { formatSeconds } from '../../src/lib/format'
+import { createGameRuntimeCue, transitionGameRuntimeStage } from '../../src/lib/game-runtime'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
@@ -228,6 +229,26 @@ describe('learning helpers', () => {
     expect(scheduled).not.toHaveBeenCalled()
     expect(timers).toHaveLength(0)
     expect(elapsedWithPenalty(1000, 2000)).toBe(3450)
+  })
+
+  it('enforces the shared game runtime lifecycle', () => {
+    expect(transitionGameRuntimeStage('ready', 'countdown')).toBe('countdown')
+    expect(transitionGameRuntimeStage('countdown', 'running')).toBe('running')
+    expect(transitionGameRuntimeStage('running', 'summary')).toBe('summary')
+    expect(transitionGameRuntimeStage('summary', 'ready')).toBe('ready')
+    expect(transitionGameRuntimeStage('running', 'over')).toBe('over')
+    expect(() => transitionGameRuntimeStage('ready', 'summary')).toThrow(
+      'Invalid game runtime transition: ready -> summary'
+    )
+  })
+
+  it('creates ordered presentation cues without putting effects in runtime state', () => {
+    expect(createGameRuntimeCue(7, 'answer-correct', 1250, { cardId: 42 })).toEqual({
+      id: 7,
+      type: 'answer-correct',
+      atMs: 1250,
+      detail: { cardId: 42 }
+    })
   })
 
   it('reveals Trade hint cards by highest hidden elixir value', () => {

@@ -9,7 +9,7 @@ import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
 import { computeInsights } from '../../lib/insights'
 import { isSweepComplete, remainingTargetIds } from '../../lib/cost-sweep'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import { CardArt } from '../../components/CardChrome'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
@@ -78,12 +78,12 @@ export default function CostSweep() {
   const serverBoardIndex = useRef(0)
   const serverPicks = useRef<Array<{ boardIndex: number; cardId: number; atMs: number }>>([])
 
-  const timed = useTimedRun({
+  const runtime = useGameRuntime({
     countdownStepMs: COUNTDOWN_STEP_MS,
     durationMs: SWEEP.WINDOW_MS,
     onDurationEnd: finish
   })
-  const { stage, count, elapsedMs: remainingMs, later } = timed
+  const { stage, count, elapsedMs: remainingMs, later } = runtime
   const board = useSignal<SweepBoard | null>(null)
   const selectedIds = useSignal<Set<number>>(new Set())
   const wrongIds = useSignal<Set<number>>(new Set())
@@ -101,7 +101,7 @@ export default function CostSweep() {
   }, [])
 
   function resetRun() {
-    timed.reset('ready')
+    runtime.reset('ready')
     answers.current = []
     finished.current = false
     serverBoardIndex.current = 0
@@ -125,7 +125,7 @@ export default function CostSweep() {
     if (!firstBoard) return
     board.value = firstBoard
     serverBoardIndex.current = 0
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       runStartedAt.current = startedAt
       serverPicks.current = []
       finished.current = false
@@ -148,12 +148,13 @@ export default function CostSweep() {
     wrongIds.value = new Set()
     boardLocked.value = false
     preloadImages(next.cards, () => {})
+    runtime.emitCue('round-advance', { boardIndex: serverBoardIndex.current })
   }
 
   function finish() {
     if (finished.current) return
     finished.current = true
-    timed.clearScheduled()
+    runtime.clearScheduled()
 
     const best = getRecords().costSweepBest
     const pb = best === undefined || found.value > best
@@ -173,7 +174,7 @@ export default function CostSweep() {
     elixirLine.value = pb
       ? `${found.value} found. New Cost Sweep best.`
       : `${found.value} found. Scan the target cost first, then trust the taps.`
-    timed.setStage('summary')
+    runtime.finish()
     void gameRun.complete({ picks: serverPicks.current })
   }
 
@@ -182,7 +183,7 @@ export default function CostSweep() {
     if (stage.value !== 'running' || !currentBoard || boardLocked.value || selectedIds.value.has(card.id)) return
     // The rAF-driven buzzer can lag (backgrounded tab, iOS scroll); check the
     // real clock so taps after the window end the run instead of recording.
-    if (timed.currentElapsed() >= SWEEP.WINDOW_MS) {
+    if (runtime.currentElapsed() >= SWEEP.WINDOW_MS) {
       finish()
       return
     }
@@ -200,6 +201,7 @@ export default function CostSweep() {
       found.value += 1
       answers.current.push({ card, guess: currentBoard.targetElixir, correct: true })
       saveResult(card.id, true)
+      runtime.emitCue('answer-correct', { cardId: card.id })
 
       if (isSweepComplete(currentBoard.cards, currentBoard.targetElixir, nextSelected)) {
         boardsCleared.value += 1
@@ -211,13 +213,14 @@ export default function CostSweep() {
 
     playWrong()
     wrongTaps.value += 1
-    timed.addPenalty(SWEEP.WRONG_PENALTY_MS)
+    runtime.addPenalty(SWEEP.WRONG_PENALTY_MS)
     answers.current.push({ card, guess: currentBoard.targetElixir, correct: false })
     saveResult(card.id, false)
 
     const nextWrong = new Set(wrongIds.value)
     nextWrong.add(card.id)
     wrongIds.value = nextWrong
+    runtime.emitCue('answer-wrong', { cardId: card.id })
     later(() => {
       const cleared = new Set(wrongIds.value)
       cleared.delete(card.id)
@@ -320,7 +323,7 @@ export default function CostSweep() {
         <div class="surge-hud__count">
           {found.value} found · {boardsCleared.value} boards
         </div>
-        <PenaltyFlash pulse={timed.penaltyPulse.value} label="−2s" />
+        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="−2s" />
       </div>
 
       {currentBoard && (

@@ -9,8 +9,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
-import { clearTimers, schedule } from '../../lib/run-loop'
-import { useRunUnloadGuard } from '../../lib/use-run-unload-guard'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -26,18 +25,16 @@ import { useGameSession } from '../../lib/use-game-session'
 // the run. Score is how many you clear in a row.
 const DEATH_BEAT_MS = 1100
 
-type Stage = 'ready' | 'running' | 'over'
-
 export default function Survival() {
   const gameRun = useGameSession('survival', challengePreparers.survival)
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
-  const timers = useRef<number[]>([])
   const dead = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
 
-  const stage = useSignal<Stage>('ready')
+  const runtime = useGameRuntime()
+  const { stage, later } = runtime
   const streak = useSignal(0)
   const best = useSignal(getRecords().survivalBest ?? 0)
   const remainingFrac = useSignal(1)
@@ -52,12 +49,8 @@ export default function Survival() {
   dieRef.current = die
 
   useEffect(() => {
-    const timerList = timers.current
     track('mode.survival')
-    return () => clearTimers(timerList)
   }, [])
-
-  useRunUnloadGuard(stage.value === 'running')
 
   // Sudden death cannot pause (that would be free thinking time), so leaving
   // the tab ends the run right away with the streak intact — instead of the
@@ -94,22 +87,19 @@ export default function Survival() {
     return () => cancelAnimationFrame(raf)
   }, [cardPhase, current, remainingFrac, stage.value, streak])
 
-  function later(fn: () => void, ms: number) {
-    schedule(timers.current, fn, ms)
-  }
-
   async function begin() {
     if (!(await gameRun.ensureFreshRun())) return
-    dead.current = false
-    answers.current = []
-    serverAnswers.current = []
-    streak.value = 0
-    current.value = gameRun.content?.[0] ?? null
-    serverCardIndex.current = current.value ? 1 : 0
-    cardStart.current = performance.now()
-    remainingFrac.value = 1
-    cardPhase.value = 'playing'
-    stage.value = 'running'
+    runtime.startNow((startedAt) => {
+      dead.current = false
+      answers.current = []
+      serverAnswers.current = []
+      streak.value = 0
+      current.value = gameRun.content?.[0] ?? null
+      serverCardIndex.current = current.value ? 1 : 0
+      cardStart.current = startedAt
+      remainingFrac.value = 1
+      cardPhase.value = 'playing'
+    })
   }
 
   function nextCard() {
@@ -125,6 +115,7 @@ export default function Survival() {
     remainingFrac.value = 1
     cardPhase.value = 'playing'
     preloadImages([c], () => {})
+    runtime.emitCue('round-advance', { cardId: c.id })
   }
 
   // death by a wrong guess (picked set) or a timeout (picked undefined)
@@ -143,6 +134,7 @@ export default function Survival() {
     }
     cardPhase.value = 'wrong'
     remainingFrac.value = 0
+    runtime.emitCue('answer-wrong', { cardId: card?.id, timeout: picked === undefined })
     later(finish, DEATH_BEAT_MS)
   }
 
@@ -161,7 +153,7 @@ export default function Survival() {
     elixirLine.value = pb
       ? `${streak.value} in a row — new best. That's nerve.`
       : `${streak.value} in a row. The clan goes deeper. Run it back.`
-    stage.value = 'over'
+    runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current })
   }
 
@@ -179,6 +171,7 @@ export default function Survival() {
       streak.value += 1
       cardPhase.value = 'correct'
       dropKey.value += 1
+      runtime.emitCue('answer-correct', { cardId: card.id })
       later(nextCard, 230)
     } else {
       die(card, picked)
@@ -186,7 +179,7 @@ export default function Survival() {
   }
 
   function replay() {
-    clearTimers(timers.current)
+    runtime.reset('ready')
     dead.current = false
     insights.value = null
     current.value = null
@@ -195,7 +188,6 @@ export default function Survival() {
     cardPhase.value = 'playing'
     streak.value = 0
     remainingFrac.value = 1
-    stage.value = 'ready'
     void gameRun.prepare()
   }
 

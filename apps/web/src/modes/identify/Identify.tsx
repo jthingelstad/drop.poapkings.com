@@ -8,7 +8,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { identifySummaryLine } from '../../lib/mode-insights'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import { makeNameChoices, NAME_CHOICE_COUNT } from '../../lib/name-choices'
 import CardDisplay from '../../components/CardDisplay'
 import { CardName } from '../../components/CardChrome'
@@ -60,8 +60,8 @@ export default function Identify() {
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
 
-  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
-  const { stage, count, elapsedMs, later } = timed
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = runtime
   const index = useSignal(0)
   const wrongIds = useSignal<Set<number>>(new Set())
   const selectedId = useSignal<number | null>(null)
@@ -91,7 +91,7 @@ export default function Identify() {
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       runStartedAt.current = startedAt
       answers.current = []
       serverAnswers.current = []
@@ -106,10 +106,11 @@ export default function Identify() {
       return
     }
     setCard(nextIndex)
+    runtime.emitCue('round-advance', { cardId: sprint?.[nextIndex]?.id })
   }
 
   function finish(finalScore?: number) {
-    const total = finalScore ?? timed.currentElapsed()
+    const total = finalScore ?? runtime.currentElapsed()
     const best = getRecords().identifyBest
     const pb = best === undefined || total < best
     const firstTry = answers.current.filter((answer) => answer.firstTry).length
@@ -138,7 +139,7 @@ export default function Identify() {
       misses,
       missedCards: missed
     })
-    timed.setStage('summary')
+    runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current })
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }
@@ -153,11 +154,12 @@ export default function Identify() {
 
     if (choice.id !== card.id) {
       playWrong()
-      timed.addPenalty(IDENTIFY.PENALTY_MS)
+      runtime.addPenalty(IDENTIFY.PENALTY_MS)
       const nextWrong = new Set(wrongIds.value)
       nextWrong.add(choice.id)
       wrongIds.value = nextWrong
       phase.value = 'wrong'
+      runtime.emitCue('answer-wrong', { cardId: card.id, choiceId: choice.id })
       later(() => {
         selectedId.value = null
         phase.value = 'playing'
@@ -172,6 +174,7 @@ export default function Identify() {
     serverAnswers.current.push({ cardId: card.id, guesses: [...currentGuesses.current], atMs })
     phase.value = 'correct'
     dropKey.value += 1
+    runtime.emitCue('answer-correct', { cardId: card.id })
     if (index.value + 1 >= IDENTIFY.SPRINT_LEN) {
       const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
       later(() => finish(Math.round(atMs) + misses * IDENTIFY.PENALTY_MS), CORRECT_BEAT_MS)
@@ -181,7 +184,7 @@ export default function Identify() {
   }
 
   function replay() {
-    timed.reset('ready')
+    runtime.reset('ready')
     answers.current = []
     serverAnswers.current = []
     currentGuesses.current = []
@@ -307,7 +310,7 @@ export default function Identify() {
         <div class="surge-hud__count">
           card {index.value + 1} / {IDENTIFY.SPRINT_LEN}
         </div>
-        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
+        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="progress-track" aria-hidden="true">

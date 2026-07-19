@@ -9,7 +9,7 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
@@ -44,12 +44,12 @@ export default function Blitz() {
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
 
-  const timed = useTimedRun({
+  const runtime = useGameRuntime({
     countdownStepMs: COUNTDOWN_STEP_MS,
     durationMs: BLITZ.WINDOW_MS,
     onDurationEnd: finish
   })
-  const { stage, count, elapsedMs: remainingMs, later } = timed
+  const { stage, count, elapsedMs: remainingMs, later } = runtime
   const cleared = useSignal(0)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
@@ -67,7 +67,7 @@ export default function Blitz() {
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       finished.current = false
       runStartedAt.current = startedAt
       answers.current = []
@@ -97,6 +97,7 @@ export default function Blitz() {
     currentGuesses.current = []
     cardPhase.value = 'playing'
     hint.value = null
+    runtime.emitCue('round-advance', { cardId: c.id })
     // Prefetch the following card's art to keep the stream smooth.
     preloadImages([c], () => {})
   }
@@ -104,7 +105,7 @@ export default function Blitz() {
   function finish() {
     if (finished.current) return
     finished.current = true
-    timed.clearScheduled()
+    runtime.clearScheduled()
 
     const ins = computeInsights(answers.current)
     const best = getRecords().blitzBest
@@ -122,7 +123,7 @@ export default function Blitz() {
     elixirLine.value = pb
       ? `${cleared.value} cleared. New Blitz best.`
       : pickLine('surge_done', { time: '60.0', insight: `${cleared.value} cleared` })
-    timed.setStage('summary')
+    runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current })
   }
 
@@ -130,7 +131,7 @@ export default function Blitz() {
     if (stage.value !== 'running' || cardPhase.value !== 'playing') return
     // The rAF-driven buzzer can lag (backgrounded tab, iOS scroll); check the
     // real clock so taps after the window end the run instead of recording.
-    if (timed.currentElapsed() >= BLITZ.WINDOW_MS) {
+    if (runtime.currentElapsed() >= BLITZ.WINDOW_MS) {
       finish()
       return
     }
@@ -156,6 +157,7 @@ export default function Blitz() {
       cardPhase.value = 'correct'
       hint.value = null
       dropKey.value += 1
+      runtime.emitCue('answer-correct', { cardId: card.id })
       later(nextCard, CORRECT_BEAT_MS)
     } else {
       playWrong()
@@ -163,12 +165,13 @@ export default function Blitz() {
       const missesOnCard = currentGuesses.current.length - 1
       const lockout = WRONG_BEAT_STEPS_MS[Math.min(missesOnCard, WRONG_BEAT_STEPS_MS.length - 1)] ?? 380
       cardPhase.value = 'wrong'
+      runtime.emitCue('answer-wrong', { cardId: card.id })
       later(() => (cardPhase.value = 'playing'), lockout)
     }
   }
 
   function replay() {
-    timed.reset('ready')
+    runtime.reset('ready')
     finished.current = false
     insights.value = null
     current.value = null

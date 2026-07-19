@@ -18,6 +18,7 @@ import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 
 const STRONG_SESSION_PCT = 85
 const ROUND_LEN = 15
@@ -32,6 +33,7 @@ interface Props {
 // The untimed quiz loop used by Practice.
 export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const gameRun = useGameSession('practice', challengePreparers.practice)
+  const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const exit = onExit ?? (() => navigate('/'))
   const answers = useRef<Answer[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
@@ -40,7 +42,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
-  const view = useSignal<'play' | 'summary'>('play')
   const cardIndex = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const elixirLine = useSignal<string>(pickLine('idle'))
@@ -59,6 +60,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     phase.value = 'playing'
     elixirLine.value = ''
     elixirMood.value = 'thinking'
+    runtime.emitCue('round-advance', { cardId: cards[nextIndex]?.id })
   }
 
   function finishRound(complete: boolean) {
@@ -82,11 +84,11 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     const good = ins.accuracyPct >= 80
     elixirLine.value = pickLine('session_end', { accuracy: ins.accuracyPct, insight: insightPhrase(ins) })
     elixirMood.value = good ? 'trophy' : 'neutral'
-    view.value = 'summary'
+    runtime.finish()
   }
 
   function handleAnswer(picked: number) {
-    if (phase.value !== 'playing') return
+    if (runtime.stage.value !== 'running' || phase.value !== 'playing') return
 
     const card = cards?.[cardIndex.value]
     if (!card) return
@@ -106,6 +108,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       const event = streak.value >= 3 ? 'correct_streak' : 'correct_fast'
       elixirLine.value = pickLine(event, { n: streak.value })
       elixirMood.value = streak.value >= 3 ? 'celebrate' : 'happy'
+      runtime.emitCue('answer-correct', { cardId: card.id })
     } else {
       playWrong()
       streak.value = 0
@@ -113,14 +116,16 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       const diff = Math.abs(picked - card.elixir)
       elixirLine.value = pickLine(diff <= 1 ? 'wrong_close' : 'wrong_far')
       elixirMood.value = diff <= 1 ? 'angry' : 'facepalm'
+      runtime.emitCue('answer-wrong', { cardId: card.id })
     }
 
     const isLast = answered.value >= ROUND_LEN
     const delay = isCorrect ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
-    setTimeout(() => (isLast ? finishRound(true) : nextCard()), delay)
+    runtime.later(() => (isLast ? finishRound(true) : nextCard()), delay)
   }
 
   function replay() {
+    runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
     cardIndex.value = 0
@@ -132,7 +137,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     elixirLine.value = pickLine('idle')
     elixirMood.value = 'thinking'
     phase.value = 'playing'
-    view.value = 'play'
   }
 
   function switchInput(style: InputStyle) {
@@ -146,7 +150,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     )
   }
 
-  if (view.value === 'summary' && insights.value) {
+  if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
     return (
       <div class="main-content">

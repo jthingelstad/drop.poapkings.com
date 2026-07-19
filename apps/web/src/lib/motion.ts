@@ -12,3 +12,8 @@ export function applyReducedMotion(on: boolean): void {
 export function initReducedMotion(): void {
   applyReducedMotion(Boolean(getSettings().reducedMotion))
 }
+
+export function isReducedMotionEnabled(): boolean {
+  if (document.documentElement.classList.contains('reduce-motion')) return true
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}

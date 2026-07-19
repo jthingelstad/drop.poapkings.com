@@ -8,8 +8,10 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
+import GameCardMotion from '../../components/GameCardMotion'
+import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import Icon from '../../components/Icon'
 import PenaltyFlash from '../../components/PenaltyFlash'
 import PipKeypad from '../../components/PipKeypad'
@@ -44,8 +46,8 @@ export default function Surge() {
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
 
-  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
-  const { stage, count, elapsedMs, later } = timed
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = runtime
   const index = useSignal(0)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   // After a wrong tap, point at the answer relative to the latest guess.
@@ -62,11 +64,12 @@ export default function Surge() {
 
   useEffect(() => {
     track('mode.surge')
+    preloadGameFx()
   }, [])
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       cardStart.current = startedAt
       runStartedAt.current = startedAt
       recorded.current = false
@@ -90,10 +93,11 @@ export default function Surge() {
     currentGuesses.current = []
     cardPhase.value = 'playing'
     hint.value = null
+    runtime.emitCue('round-advance', { cardId: gameRun.content?.[nextIdx]?.id })
   }
 
   function finish(finalScore?: number) {
-    const total = finalScore ?? timed.currentElapsed()
+    const total = finalScore ?? runtime.currentElapsed()
     const ins = computeInsights(answers.current)
     const best = getRecords().surgeBest
     const pb = best === undefined || total < best
@@ -123,7 +127,7 @@ export default function Surge() {
     } else {
       elixirLine.value = pickLine('surge_done', { time: formatSeconds(total), insight: insightPhrase(ins) })
     }
-    timed.setStage('summary')
+    runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current })
   }
 
@@ -162,6 +166,7 @@ export default function Surge() {
       cardPhase.value = 'correct'
       hint.value = null
       dropKey.value += 1
+      runtime.emitCue('answer-correct', { cardId: card.id })
       if (index.value + 1 >= SURGE.SPRINT_LEN) {
         const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
         later(() => finish(Math.round(atMs) + misses * SURGE.PENALTY_MS), CORRECT_BEAT_MS)
@@ -170,15 +175,16 @@ export default function Surge() {
       }
     } else {
       playWrong()
-      timed.addPenalty(SURGE.PENALTY_MS)
+      runtime.addPenalty(SURGE.PENALTY_MS)
       hint.value = picked < card.elixir ? 'higher' : 'lower'
       cardPhase.value = 'wrong'
+      runtime.emitCue('answer-wrong', { cardId: card.id })
       later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)
     }
   }
 
   function replay() {
-    timed.reset('ready')
+    runtime.reset('ready')
     answers.current = []
     serverAnswers.current = []
     currentGuesses.current = []
@@ -273,6 +279,7 @@ export default function Surge() {
   const card = gameRun.content[index.value]!
   return (
     <div class="main-content game-run surge">
+      <GameFxLayer cue={runtime.cue.value} />
       <div class="surge-hud">
         <div class="surge-hud__timer" aria-label="elapsed time">
           {formatSeconds(elapsedMs.value)}
@@ -281,7 +288,7 @@ export default function Surge() {
         <div class="surge-hud__count">
           card {index.value + 1} / {SURGE.SPRINT_LEN}
         </div>
-        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
+        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="surge-hint" aria-live="polite">
@@ -301,7 +308,9 @@ export default function Surge() {
         <div class="progress-track__fill" style={{ width: `${(index.value / SURGE.SPRINT_LEN) * 100}%` }} />
       </div>
 
-      <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+      <GameCardMotion cardKey={card.id} cue={runtime.cue.value}>
+        <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+      </GameCardMotion>
 
       {/* Fixed-height slot so the keypad never shifts mid-tap. */}
       <div class="surge-hint" data-testid="surge-hint" aria-live="polite">

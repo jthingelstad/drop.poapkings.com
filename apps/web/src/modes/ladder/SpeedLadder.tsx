@@ -8,7 +8,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { ladderSummaryLine } from '../../lib/mode-insights'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
 import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
@@ -136,8 +136,8 @@ export default function SpeedLadder() {
   const runStartedAt = useRef(0)
   const serverAttempts = useRef<Array<{ order: number[]; atMs: number }>>([])
 
-  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
-  const { stage, count, elapsedMs, later } = timed
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = runtime
   const order = useSignal<Card[]>([])
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongLocks = useSignal(0)
@@ -158,7 +158,7 @@ export default function SpeedLadder() {
     if (!(await gameRun.ensureFreshRun())) return
     if (!gameRun.content) return
     order.value = [...gameRun.content]
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       runStartedAt.current = startedAt
       serverAttempts.current = []
       wrongLocks.value = 0
@@ -244,9 +244,10 @@ export default function SpeedLadder() {
       }
       hintedOnLastLock.value = hintedCardId !== undefined
       wrongLocks.value += 1
-      timed.addPenalty(LADDER.PENALTY_MS)
+      runtime.addPenalty(LADDER.PENALTY_MS)
       feedback.value = 'wrong'
       selectedCard.value = null
+      runtime.emitCue('answer-wrong')
       later(() => (feedback.value = 'idle'), WRONG_BEAT_MS)
       return
     }
@@ -255,6 +256,7 @@ export default function SpeedLadder() {
     selectedCard.value = null
     // Freeze the board during the solve reveal; the transcript is final.
     feedback.value = 'solved'
+    runtime.emitCue('answer-correct')
     const total = Math.round(atMs) + (serverAttempts.current.length - 1) * LADDER.PENALTY_MS
     const best = getRecords().ladderBest
     const pb = best === undefined || total < best
@@ -276,12 +278,12 @@ export default function SpeedLadder() {
     // they see it confirmed before the summary takes over. The score was
     // captured above; this beat costs nothing.
     revealedIds.value = new Set(order.value.map((card) => card.id))
-    later(() => timed.setStage('summary'), SOLVE_REVEAL_MS)
+    later(() => runtime.finish(), SOLVE_REVEAL_MS)
     void gameRun.complete({ attempts: serverAttempts.current })
   }
 
   function replay() {
-    timed.reset('ready')
+    runtime.reset('ready')
     draggedId.current = null
     draggingCard.value = null
     selectedCard.value = null
@@ -396,7 +398,7 @@ export default function SpeedLadder() {
           <span class="surge-hud__unit">s</span>
         </div>
         <div class="surge-hud__count">{wrongLocks.value ? `+${wrongLocks.value} lock` : `${LADDER.SIZE} cards`}</div>
-        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
+        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="ladder-rail" aria-hidden="true">

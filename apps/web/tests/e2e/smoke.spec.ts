@@ -819,6 +819,57 @@ test('surge points higher or lower after a wrong guess and clears on the solve',
   await expect(page.getByTestId('surge-hint')).toBeEmpty()
 })
 
+test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium', 'Chromium provides the stable WebGL test surface for Pixi effects.')
+
+  await page.goto('/#/surge')
+  await page.getByRole('button', { name: 'Start sprint' }).click()
+
+  const motionCard = page.locator('.game-card-motion')
+  const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  await expect(page.locator('.game-fx-layer canvas')).toHaveCount(1)
+
+  const wrongCost = card!.elixir === 1 ? 2 : 1
+  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+  await page.waitForTimeout(60)
+  expect(await motionCard.evaluate((element) => getComputedStyle(element).transform)).not.toBe('none')
+  await testInfo.attach('surge-wrong-shake.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+
+  const correctButton = page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })
+  await expect(correctButton).toBeEnabled()
+  await correctButton.click()
+  await expect.poll(() => motionCard.locator('.pcard__img').getAttribute('alt')).not.toBe(cardName)
+  await expect(motionCard).toBeVisible()
+  await testInfo.attach('surge-correct-transition.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+})
+
+test('surge keeps gameplay still and skips optional effects when reduced motion is enabled', async ({ page }) => {
+  await page.goto('/#/settings')
+  await page.getByRole('switch', { name: 'Reduce motion' }).click()
+  await page.goto('/#/surge')
+  await page.getByRole('button', { name: 'Start sprint' }).click()
+
+  const motionCard = page.locator('.game-card-motion')
+  const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  await expect(page.locator('.game-fx-layer canvas')).toHaveCount(0)
+
+  const wrongCost = card!.elixir === 1 ? 2 : 1
+  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+  await page.waitForTimeout(60)
+  expect(await motionCard.evaluate((element) => getComputedStyle(element).transform)).toBe('none')
+  await expect(motionCard).toBeVisible()
+})
+
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)
   const activeModes = [

@@ -7,7 +7,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
-import { useTimedRun } from '../../lib/use-timed-run'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
@@ -99,8 +99,8 @@ export default function Trade() {
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ guesses: number[]; atMs: number }>>([])
 
-  const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
-  const { stage, count, elapsedMs, later } = timed
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, elapsedMs, later } = runtime
   const advanceRef = useRef<() => void>(() => {})
   const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
@@ -121,7 +121,7 @@ export default function Trade() {
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
-    timed.start((startedAt) => {
+    runtime.start((startedAt) => {
       runStartedAt.current = startedAt
       roundMisses.current = 0
       currentGuesses.current = []
@@ -145,10 +145,11 @@ export default function Trade() {
     hintedOnLastGuess.value = false
     picked.value = null
     revealedIds.value = new Set()
+    runtime.emitCue('round-advance', { roundIndex: index.value })
   }
 
   function finish(finalScore?: number) {
-    const total = finalScore ?? timed.currentElapsed()
+    const total = finalScore ?? runtime.currentElapsed()
     const best = getRecords().tradeBest
     const pb = best === undefined || total < best
     totalMs.value = total
@@ -169,7 +170,7 @@ export default function Trade() {
       wrongGuesses: wrongGuesses.value,
       lastTrade: lastTrade.value
     })
-    timed.setStage('summary')
+    runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current })
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }
@@ -193,8 +194,9 @@ export default function Trade() {
       hintedOnLastGuess.value = hintId !== undefined
       roundMisses.current += 1
       wrongGuesses.value += 1
-      timed.addPenalty(TRADE.PENALTY_MS)
+      runtime.addPenalty(TRADE.PENALTY_MS)
       feedback.value = 'wrong'
+      runtime.emitCue('answer-wrong', { roundIndex: index.value })
       later(() => {
         feedback.value = 'idle'
         hintedOnLastGuess.value = false
@@ -209,6 +211,7 @@ export default function Trade() {
     lastTrade.value = answer
     if (roundMisses.current === 0) cleanTrades.value += 1
     feedback.value = 'correct'
+    runtime.emitCue('answer-correct', { roundIndex: index.value })
     // Reveal the whole exchange — every cost plus both sums — so the player
     // sees the arithmetic confirmed, then advance on tap or after the beat.
     revealedIds.value = new Set([...round.blue, ...round.red].map((card) => card.id))
@@ -228,7 +231,7 @@ export default function Trade() {
   }
 
   function replay() {
-    timed.reset('ready')
+    runtime.reset('ready')
     serverAnswers.current = []
     currentGuesses.current = []
     index.value = 0
@@ -346,7 +349,7 @@ export default function Trade() {
         <div class="surge-hud__count">
           trade {index.value + 1} / {TRADE.SEQUENCE_LEN}
         </div>
-        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
+        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="progress-track" aria-hidden="true">

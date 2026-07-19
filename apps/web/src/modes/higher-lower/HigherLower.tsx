@@ -12,6 +12,7 @@ import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import { useGameRuntime } from '../../lib/use-game-runtime'
 
 // A correct read earns a quick beat; a miss keeps the longer one — that's the
 // learning moment.
@@ -27,7 +28,7 @@ function relation(left: Card, right: Card): Choice {
 
 export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
-  const advanceTimer = useRef<number | undefined>(undefined)
+  const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const pairIndex = useSignal(0)
   const serverAnswers = useRef<Array<{ leftId: number; rightId: number; choice: Choice }>>([])
   const picked = useSignal<Choice | null>(null)
@@ -39,7 +40,6 @@ export default function HigherLower() {
 
   useEffect(() => {
     track('mode.higherlower')
-    return () => clearTimeout(advanceTimer.current)
   }, [])
 
   function next() {
@@ -58,9 +58,11 @@ export default function HigherLower() {
     revealed.value = false
     elixirLine.value = ''
     elixirMood.value = 'neutral'
+    runtime.emitCue('round-advance', { pairIndex: nextIndex })
   }
 
   async function restartAfterMiss() {
+    runtime.reset('running')
     pairIndex.value = 0
     serverAnswers.current = []
     await gameRun.prepare()
@@ -72,7 +74,7 @@ export default function HigherLower() {
 
   function choose(choice: Choice) {
     const activePair = gameRun.content?.[pairIndex.value]
-    if (revealed.value || !activePair) return
+    if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
     const answer = relation(left, right)
     const correct = choice === answer
@@ -91,14 +93,16 @@ export default function HigherLower() {
       }
       elixirLine.value = s >= 3 ? pickLine('hl_streak', { n: s }) : pickLine('hl_right')
       elixirMood.value = s >= 3 ? 'celebrate' : 'happy'
+      runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
       streak.value = 0
       elixirLine.value = pickLine('hl_wrong')
       elixirMood.value = 'angry'
+      runtime.emitCue('answer-wrong', { pairIndex: pairIndex.value })
     }
 
-    advanceTimer.current = window.setTimeout(
+    runtime.later(
       () => {
         if (correct) {
           next()
