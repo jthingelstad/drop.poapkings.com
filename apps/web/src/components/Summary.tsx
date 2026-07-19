@@ -1,8 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { Insights } from '../lib/insights'
-import type { Card, ElixirMood } from '../types'
+import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
-import ElixirHost from './ElixirHost'
 
 export interface SummaryMoment {
   label: string
@@ -14,8 +13,6 @@ interface Props {
   eyebrow: string // e.g. "Surge complete" / "Practice round"
   headline: string // e.g. "15 cards · 28.6s" or "12 / 15 · 80%"
   pbCallout?: string // e.g. "New personal best! −3.4s"
-  elixirLine: string
-  elixirMood?: ElixirMood
   insights: Insights
   moments?: SummaryMoment[]
   children?: ComponentChildren // share line + recruit CTA slot
@@ -80,8 +77,6 @@ export default function Summary({
   eyebrow,
   headline,
   pbCallout,
-  elixirLine,
-  elixirMood = 'neutral',
   insights,
   moments,
   children,
@@ -99,8 +94,6 @@ export default function Summary({
         <div class="summary__headline">{headline}</div>
         {pbCallout && <div class="summary__pb">{pbCallout}</div>}
       </div>
-
-      <ElixirHost line={elixirLine} mood={elixirMood} />
 
       {runMoments.length > 0 && (
         <div class="summary-moments" aria-label="Run highlights">
@@ -158,12 +151,6 @@ export default function Summary({
 
       {/* Share line / recruit CTA slot */}
       {children}
-
-      {/* Kudos — Tinylytics fills this in (?kudos in the embed) */}
-      <div class="summary__kudos">
-        <button class="tinylytics_kudos btn btn--ghost btn--sm" aria-label="Give kudos" />
-        <span class="summary__kudos-hint">Was this fun?</span>
-      </div>
 
       <div class="summary__actions">
         <button class="btn btn--gold" onClick={onReplay}>

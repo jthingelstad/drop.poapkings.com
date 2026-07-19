@@ -2,8 +2,8 @@ import type { Card } from '../types'
 
 // Preload card art so nothing pops in mid-run. Resolves on load OR error, and
 // never hangs (a blocked/slow CDN still settles via the timeout). The callback
-// reports how many images actually loaded so timed modes where the art IS the
-// question (Identify) can refuse to start the clock against gray boxes.
+// reports how many images actually loaded so a mode that needs the art to be
+// playable can refuse to start the clock against gray boxes.
 export function preloadImages(cards: Card[], done: (loadedCount: number) => void, timeoutMs = 2500): void {
   const urls = cards.map((c) => c.icon).filter(Boolean)
   if (urls.length === 0) {

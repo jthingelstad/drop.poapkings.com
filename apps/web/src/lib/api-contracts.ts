@@ -93,10 +93,7 @@ const sessionSchema = z.object({
 const cardSequenceChallengeSchemas = [
   z.object({ mode: z.literal('surge'), cardIds: z.array(cardId) }),
   z.object({ mode: z.literal('practice'), cardIds: z.array(cardId) }),
-  z.object({ mode: z.literal('identify'), cardIds: z.array(cardId) }),
-  z.object({ mode: z.literal('blitz'), cardIds: z.array(cardId) }),
-  z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) }),
-  z.object({ mode: z.literal('ladder'), cardIds: z.array(cardId) })
+  z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) })
 ] as const
 
 export const runChallengeSchema = z.discriminatedUnion('mode', [
@@ -105,11 +102,6 @@ export const runChallengeSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('trade'),
     rounds: z.array(z.object({ blueIds: z.array(cardId), redIds: z.array(cardId) }))
-  }),
-  z.object({ mode: z.literal('endless-ladder'), startingIds: z.array(cardId), cardIds: z.array(cardId) }),
-  z.object({
-    mode: z.literal('cost-sweep'),
-    boards: z.array(z.object({ targetElixir: safeInteger.min(1).max(10), cardIds: z.array(cardId) }))
   })
 ])
 

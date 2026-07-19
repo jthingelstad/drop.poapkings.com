@@ -19,13 +19,10 @@ describe("competition integrity review", () => {
     expect(assessRunIntegrity("higher-lower", 20, 10_000)).toMatchObject({
       eligible: false,
     });
-    expect(assessRunIntegrity("endless-ladder", 50, 3_000)).toMatchObject({
-      eligible: false,
-    });
   });
 
   it("quarantines scores outside the mode's accepted range", () => {
-    expect(assessRunIntegrity("blitz", 10_001, 60_000)).toEqual({
+    expect(assessRunIntegrity("survival", 100_001, 60_000)).toEqual({
       eligible: false,
       reason: "score_out_of_range",
     });

@@ -8,18 +8,8 @@ export interface PreparedChallenge<T> {
   assets: Card[]
 }
 
-export interface SweepBoard {
-  cards: Card[]
-  targetElixir: number
-}
-
-export interface EndlessLadderChallenge {
-  starting: Card[]
-  incoming: Card[]
-}
-
 type ChallengeFor<T extends GameMode> = Extract<RunChallenge, { mode: T }>
-type SequenceMode = 'surge' | 'practice' | 'identify' | 'blitz' | 'survival' | 'ladder'
+type SequenceMode = 'surge' | 'practice' | 'survival'
 type SequenceChallengeFor<T extends SequenceMode> = { mode: T; cardIds: number[] }
 
 function invalid(label: string): never {
@@ -47,10 +37,7 @@ function sequenceChallenge<T extends SequenceMode>(
 export const challengePreparers = {
   surge: sequenceChallenge<'surge'>('Surge', 15),
   practice: sequenceChallenge<'practice'>('Practice', 15),
-  identify: sequenceChallenge<'identify'>('Identify', 15),
-  blitz: sequenceChallenge<'blitz'>('Blitz', 240, 18),
   survival: sequenceChallenge<'survival'>('Survival', fullDeckSize, 14),
-  ladder: sequenceChallenge<'ladder'>('Ladder', 5),
   'higher-lower': (challenge: ChallengeFor<'higher-lower'>): PreparedChallenge<Array<[Card, Card]>> => {
     if (!Array.isArray(challenge.pairs) || challenge.pairs.length !== 250) invalid('Higher or Lower')
     const pairs = challenge.pairs.map((pair) => {
@@ -80,24 +67,6 @@ export const challengePreparers = {
       return { blue, red }
     })
     return { content: rounds, assets: rounds.flatMap((round) => [...round.blue, ...round.red]) }
-  },
-  'endless-ladder': (challenge: ChallengeFor<'endless-ladder'>): PreparedChallenge<EndlessLadderChallenge> => {
-    const starting = exactCards(challenge.startingIds, 2, 'Endless Ladder')
-    const incoming = exactCards(challenge.cardIds, 250, 'Endless Ladder')
-    return { content: { starting, incoming }, assets: [...starting, incoming[0]!] }
-  },
-  'cost-sweep': (challenge: ChallengeFor<'cost-sweep'>): PreparedChallenge<SweepBoard[]> => {
-    if (!Array.isArray(challenge.boards) || challenge.boards.length !== 50) invalid('Cost Sweep')
-    const boards = challenge.boards.map((board) => {
-      if (!Number.isInteger(board.targetElixir) || board.targetElixir < 1 || board.targetElixir > 10) {
-        invalid('Cost Sweep')
-      }
-      return {
-        targetElixir: board.targetElixir,
-        cards: exactCards(board.cardIds, 12, 'Cost Sweep')
-      }
-    })
-    return { content: boards, assets: boards[0]?.cards ?? [] }
   }
 } satisfies {
   [T in GameMode]: (challenge: ChallengeFor<T>) => PreparedChallenge<unknown>

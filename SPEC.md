@@ -150,10 +150,8 @@ these assumptions.
 
 ## 4. Shipped Modes
 
-`GAMES.md` is authoritative for mode mechanics, the vault, backlog, and
-retired ideas. The launch app has five playable modes; five more are vaulted
-(built and retained, hidden from the web, API still accepts them) for
-post-launch re-release drops:
+`GAMES.md` is authoritative for mode mechanics, backlog, and retired ideas. The
+app has five playable modes:
 
 | Mode           | Route            | Score / record                              |
 | -------------- | ---------------- | ------------------------------------------- |
@@ -163,14 +161,13 @@ post-launch re-release drops:
 | Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
 
-Vaulted: Identify, Blitz, Speed Ladder, Endless Ladder, Cost Sweep. Practice
-runs are created `ranked: false` server-side: they record to history and
-Trophy Road but never write a leaderboard entry, and Practice has no
+Practice runs are created `ranked: false` server-side: they record to history
+and Trophy Road but never write a leaderboard entry, and Practice has no
 leaderboard tab.
 
 Product decisions currently in force:
 
-- Surge, Identify, Trade, and Speed Ladder are golf-time modes: lower is better.
+- Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
 - Practice defaults to the pip keypad and also offers 4-button choices.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
@@ -186,16 +183,12 @@ Important shared modules:
 - `apps/web/src/lib/game-challenge-content.ts` - resolves signed server
   challenges into playable card content (card selection is server-owned).
 - `apps/web/src/lib/choices.ts` - adjacent elixir distractors.
-- `apps/web/src/lib/name-choices.ts` - card-name distractors.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
 - `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
-- `apps/web/src/lib/endless-ladder.ts` - insertion-slot validation for Endless Ladder.
-- `apps/web/src/lib/cost-sweep.ts` - target tracking for Cost Sweep boards.
 - `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
   Clash-style name tone mapping.
 - `apps/web/src/lib/insights.ts` - Practice and Surge coaching insights.
-- `apps/web/src/lib/mode-insights.ts` - mode-specific Identify, Trade, and Ladder summary
-  lines.
+- `apps/web/src/lib/mode-insights.ts` - mode-specific Trade summary lines.
 - `apps/web/src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
 
@@ -250,8 +243,7 @@ All currently implemented persistence goes through
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
 elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak, bestAccuracy,
-                              identifyBest, blitzBest, survivalBest, ladderBest,
-                              tradeBest, endlessLadderBest, costSweepBest }
+                              survivalBest, tradeBest }
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)
 elixirdrop:funnel        -> { recruitShown, recruitJoin, recruitDiscord, shares }
@@ -309,11 +301,10 @@ Tinylytics property:
 Analytics are best-effort and must never block gameplay.
 
 Tracked events include:
-`game.start`, `mode.practice`, `mode.identify`, `mode.surge`,
-`mode.higherlower`, `mode.trade`, `mode.blitz`, `mode.survival`, `mode.ladder`,
-`mode.endless`, `mode.costsweep`, `identify.complete`, `surge.complete`,
-`ladder.complete`, `trade.complete`, `endless.complete`, `costsweep.complete`,
-`record.new`, `recruit.shown`, `recruit.join`, `recruit.discord`, `result.share`.
+`game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`, `mode.trade`,
+`mode.survival`, `surge.complete`, `trade.complete`, `survival.win`,
+`record.new`, `recruit.shown`, `recruit.join`, `recruit.discord`,
+`result.share`, `egg.screensaver`.
 
 Recruitment remains moment-based:
 

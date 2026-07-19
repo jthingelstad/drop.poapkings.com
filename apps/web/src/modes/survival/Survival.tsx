@@ -19,6 +19,7 @@ import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
+import RunCountdown from '../../components/RunCountdown'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -26,6 +27,10 @@ import { useGameSession } from '../../lib/use-game-session'
 // streak grows (shared curve with the server scorer); a miss OR a timeout ends
 // the run. Score is how many you clear in a row.
 const DEATH_BEAT_MS = 1100
+// A 3-2-1 before the first card so the per-card clock never starts while the
+// player is still orienting — the sudden-death clock only begins once counting
+// ends. Matches Surge's cadence.
+const COUNTDOWN_STEP_MS = 650
 
 export default function Survival() {
   const gameRun = useGameSession('survival', challengePreparers.survival)
@@ -35,8 +40,8 @@ export default function Survival() {
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
 
-  const runtime = useGameRuntime()
-  const { stage, later } = runtime
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
+  const { stage, count, later } = runtime
   const streak = useSignal(0)
   const streakCue = useSignal(0)
   const best = useSignal(getRecords().survivalBest ?? 0)
@@ -50,7 +55,6 @@ export default function Survival() {
   // Set when the whole deck is cleared — a win, not a death.
   const won = useRef(false)
   const finishTimeMs = useSignal(0)
-  const elixirLine = useSignal('')
   const dieRef = useRef<(card: Card | null, picked: number | undefined) => void>(() => {})
   dieRef.current = die
 
@@ -96,7 +100,7 @@ export default function Survival() {
 
   async function begin() {
     if (!(await gameRun.ensureFreshRun())) return
-    runtime.startNow((startedAt) => {
+    runtime.start((startedAt) => {
       dead.current = false
       won.current = false
       answers.current = []
@@ -164,11 +168,6 @@ export default function Survival() {
     }
     if (won.current) {
       track('survival.win')
-      elixirLine.value = `Every card, no misses — ${(finishTimeMs.value / 1000).toFixed(2)}s. Now go faster.`
-    } else {
-      elixirLine.value = pb
-        ? `${streak.value} in a row — new best. That's nerve.`
-        : `${streak.value} in a row. The clan goes deeper. Run it back.`
     }
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current })
@@ -232,8 +231,6 @@ export default function Survival() {
           eyebrow={won.current ? 'Survival · cleared!' : 'Survival · sudden death'}
           headline={won.current ? 'You named every card!' : `${streak.value} in a row`}
           pbCallout={pbCallout}
-          elixirLine={elixirLine.value}
-          elixirMood={won.current || isPB.value ? 'hype' : 'unimpressed'}
           insights={insights.value}
           onReplay={replay}
           replayLabel={won.current ? 'Go faster' : 'Run it back'}
@@ -277,8 +274,12 @@ export default function Survival() {
     )
   }
 
-  // ── Running ──────────────────────────────────────────────────────────────
-  const card = current.value
+  // ── Countdown + Running ──────────────────────────────────────────────────
+  // The interface is drawn for the countdown too: the 3-2-1 ticks down in the
+  // card's slot (the first card is present but hidden, reserving its height), and
+  // the per-card clock stays full until the first card lands.
+  const counting = stage.value === 'countdown'
+  const card = counting ? gameRun.content[0]! : current.value
   const low = remainingFrac.value <= 0.35
   return (
     <div class="main-content game-run surge">
@@ -295,18 +296,21 @@ export default function Survival() {
         />
       </div>
 
-      {card && (
-        <GameMotion contentKey={card.id} cue={runtime.cue.value}>
-          <CardDisplay
-            card={card}
-            phase={cardPhase.value}
-            dropAnimKey={dropKey.value}
-            revealCost={cardPhase.value === 'wrong'}
-          />
-        </GameMotion>
-      )}
+      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
+        {card && (
+          <GameMotion contentKey={counting ? 'ready' : card.id} cue={runtime.cue.value}>
+            <CardDisplay
+              card={card}
+              phase={cardPhase.value}
+              dropAnimKey={dropKey.value}
+              revealCost={cardPhase.value === 'wrong'}
+            />
+          </GameMotion>
+        )}
+        {counting && <RunCountdown count={count.value} />}
+      </div>
 
-      <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
+      <PipKeypad onPick={answer} disabled={counting || cardPhase.value !== 'playing'} />
 
       {/* Shared floating streak cue — composited, never in layout flow. */}
       <div class="game-cues" aria-hidden="true">

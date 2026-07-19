@@ -30,8 +30,8 @@ function answerArray(value: unknown): Array<Record<string, unknown>> {
 }
 
 // Extract per-card recall outcomes from a transcript the scorer has already
-// validated. Only the single-card cost/name recall modes carry a clean signal;
-// relational modes (Higher/Lower, Trade, ladders, Sweep) are skipped.
+// validated. Only the single-card cost recall modes carry a clean signal;
+// relational modes (Higher/Lower, Trade) are skipped.
 export function cardResultsFromTranscript(
   challenge: RunChallenge,
   transcript: RunTranscript,
@@ -46,8 +46,6 @@ export function cardResultsFromTranscript(
           : [{ cardId, correct: answer.guess === elixir }];
       });
     case "surge":
-    case "identify":
-    case "blitz":
       return answerArray(transcript.answers).flatMap((answer) => {
         const cardId = Number(answer.cardId);
         if (cardElixir(cardId) === undefined) return [];

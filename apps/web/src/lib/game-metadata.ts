@@ -13,9 +13,7 @@ export interface GameInfo {
   unranked?: boolean
 }
 
-// The launch five. Identify, Speed Ladder, Endless Ladder, Cost Sweep, and
-// Blitz are vaulted (see GAMES.md "Vaulted for launch") — code retained for
-// later re-release drops, hidden from every web surface.
+// The launch five.
 export const GAMES: GameInfo[] = [
   {
     mode: 'surge',
@@ -57,18 +55,13 @@ export const GAMES: GameInfo[] = [
 
 export const RANKED_GAMES = GAMES.filter((game) => !game.unranked)
 
-// Display names/icons for every mode that has ever shipped, so historical
-// runs from vaulted modes still render in activity lists and profiles.
+// Display names/icons for every launched mode, so runs render consistently in
+// activity lists and profiles.
 const ALL_MODE_DISPLAY: Record<GameMode, { name: string; icon: string }> = {
   surge: { name: 'Surge', icon: '⚡' },
   practice: { name: 'Practice', icon: '🎯' },
-  identify: { name: 'Identify', icon: '🔎' },
   'higher-lower': { name: 'Higher / Lower', icon: '⚖️' },
   trade: { name: 'Trade', icon: '👑' },
-  ladder: { name: 'Speed Ladder', icon: '↕️' },
-  'endless-ladder': { name: 'Endless Ladder', icon: '➕' },
-  'cost-sweep': { name: 'Cost Sweep', icon: '🧹' },
-  blitz: { name: 'Blitz', icon: '⏱️' },
   survival: { name: 'Survival', icon: '💀' }
 }
 
@@ -79,28 +72,21 @@ export function gameDisplay(mode: GameMode): { name: string; icon: string } {
 
 export const GAME_BY_MODE = new Map(GAMES.map((game) => [game.mode, game]))
 
-export const LOWER_IS_BETTER = new Set<GameMode>(['surge', 'identify', 'trade', 'ladder'])
+export const LOWER_IS_BETTER = new Set<GameMode>(['surge', 'trade'])
 
 type NumericRecordKey = Exclude<keyof Records, 'surgeBestPace'>
 
 export const RECORD_KEYS: Record<GameMode, NumericRecordKey> = {
   surge: 'surgeBest',
   practice: 'bestAccuracy',
-  identify: 'identifyBest',
   'higher-lower': 'longestStreak',
   trade: 'tradeBest',
-  ladder: 'ladderBest',
-  'endless-ladder': 'endlessLadderBest',
-  'cost-sweep': 'costSweepBest',
-  blitz: 'blitzBest',
   survival: 'survivalBest'
 }
 
 export function scoreLabel(mode: GameMode, score: number): string {
   if (LOWER_IS_BETTER.has(mode)) return `${(score / 1_000).toFixed(2)}s`
   if (mode === 'practice') return `${Math.round(score)}%`
-  if (mode === 'blitz' || mode === 'cost-sweep') return `${Math.round(score)} cards`
-  if (mode === 'endless-ladder') return `${Math.round(score)} inserts`
   return `${Math.round(score)} streak`
 }
 

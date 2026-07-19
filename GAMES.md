@@ -10,10 +10,8 @@ Doc map:
 - **`SPEC.md`** is the current implementation spec and product constraints.
 - **`CLAUDE.md`** is the agent working guide.
 
-Shipped state as of July 19, 2026: **five playable modes for launch** — Surge,
-Practice, Higher / Lower, Trade, and Survival. Five more finished modes are
-**vaulted** (built, tested, hidden from the web) for post-launch re-release
-drops; see "Vaulted for launch" below. **Practice is true practice**: runs
+Shipped state as of July 19, 2026: **five playable modes** — Surge, Practice,
+Higher / Lower, Trade, and Survival. **Practice is true practice**: runs
 record to history and earn Player XP (activity, like every mode) but are
 unranked and have no leaderboard tab. Player XP is a per-player activity score
 (one point per question practiced, right or wrong) that drives the arena;
@@ -25,8 +23,7 @@ Every game shares one engine and the same shared paths: cards come from
 `apps/web/src/lib/storage.ts`, card selection comes from the signed server
 challenge (created in `services/api/src/scoring.ts`, resolved client-side by
 `apps/web/src/lib/game-challenge-content.ts`), elixir multiple-choice
-distractors through `apps/web/src/lib/choices.ts`, card-name distractors
-through `apps/web/src/lib/name-choices.ts`, and card presentation through
+distractors through `apps/web/src/lib/choices.ts`, and card presentation through
 `apps/web/src/lib/card-rendering.ts` plus
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
 mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
@@ -118,61 +115,6 @@ key's tiebreak), so once everyone can clear the deck it becomes a speedrun.
 
 - Record: `survivalBest` (streak). Cumulative time is the leaderboard tiebreak.
 
-## Vaulted for launch
-
-These five modes are **finished and retained in the tree** (components under
-`apps/web/src/modes/`, pure libs, server challenge/scoring support, and
-`knip.json` ignores) but hidden from every web surface for launch: no Home
-tile, no route, no leaderboard tab. The API still accepts them, so historical
-runs render normally and re-releasing one is a web-only change (restore its
-`GAMES` entry, route, and `GAME_PATHS` path, drop the knip ignore, re-add its
-e2e coverage). Intent: re-release one at a time as post-launch content drops.
-
-**Identify** — `/identify` · `apps/web/src/modes/identify/`
-Card art appears with the name hidden; pick the correct card name from six
-choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
-The 15-card sprint is scored as golf time.
-
-- Input: six card-name buttons.
-- Record: `identifyBest` (lowest time).
-
-**Blitz** — `/blitz` · `apps/web/src/modes/blitz/`
-A 60s count-up variant of Surge: how many cards can you clear? Reuses the
-timed cost-recall loop with the higher/lower cue; the miss lockout escalates
-(380→600→900ms) on repeated misses on one card, so informed retries stay
-cheap and cost roulette does not.
-
-- Record: `blitzBest`.
-
-**Speed Ladder** — `/ladder` · `apps/web/src/modes/ladder/`
-Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards
-or use the explicit move controls; touch players can tap a card, then tap its
-destination. Equal-cost cards are valid in either relative order. A wrong lock
-adds +2.0s (flashed in the HUD), reveals one persistent card-cost hint, and
-leaves the ladder live. The solve flashes all five costs in final order before
-the summary.
-
-- Record: `ladderBest` (lowest time).
-
-**Endless Ladder** — `/endless-ladder` · `apps/web/src/modes/endless-ladder/`
-Starts with a small sorted row, then deals one hidden-cost card at a time.
-Insert the new card into the correct low-to-high slot; consecutive same-cost
-cards collapse into stack chips (×N) so deep rows stay tap-sized. A correct
-insert extends the row; one wrong slot ends the climb — death reveals every
-cost and lights up the slots that would have worked.
-
-- Input: insertion-slot buttons between ordered cards.
-- Record: `endlessLadderBest` (most successful inserts).
-
-**Cost Sweep** — `/cost-sweep` · `apps/web/src/modes/cost-sweep/`
-Shows a compact grid and a target elixir value. Tap every card matching that
-cost before the 45s clock runs out. Correct taps mark cards as found and
-clearing a board deals a fresh grid that escalates from two targets to four by
-the fifth board; wrong taps cost 2s (flashed in the HUD).
-
-- Input: card-grid taps.
-- Record: `costSweepBest` (most target cards found in 45s).
-
 ### Easter egg: "Elixir Rain" screensaver
 
 Tap the ELIXIR DROP hero logo five times quickly (1.5s per tap), or leave the
@@ -207,16 +149,19 @@ The open-ended target-average puzzle was flat, and making it feel authentically
 Clash Royale would require curated deck/archetype data. That is the rabbit hole we
 are avoiding.
 
+**Identify, Blitz, Speed Ladder, Endless Ladder, Cost Sweep** — removed.
+These five were built and briefly vaulted for a possible post-launch re-release,
+then cut entirely (components, libs, server challenge/scoring support, and their
+`GameMode` entries are gone). Reviving one is a fresh build, not a flag flip.
+
 ---
 
 ## Ideas & backlog
 
-From the June 2026 refresh. The active lineup already covers speed
-(Surge/Blitz/Survival), comparison (Higher/Lower), card-name recognition
-(Identify), cost recall (Practice), trade math (Trade), and spatial ordering
-(Speed Ladder/Endless Ladder), scan-and-recall (Cost Sweep), and small target
-search. The remaining useful whitespace is **small arithmetic** and
-**single-card estimation** — still without deck data.
+From the June 2026 refresh. The active lineup covers speed (Surge/Survival),
+comparison (Higher/Lower), cost recall (Practice), and trade math (Trade). The
+remaining useful whitespace is **small arithmetic** and **single-card
+estimation** — still without deck data.
 
 ### Strong non-deck candidates
 
@@ -234,9 +179,9 @@ Wordle clone.
 ### Explicitly deferred
 
 **Daily Ladder** — _shareable spatial puzzle_
-A daily seeded set of 5–6 sampled cards using the same sorting rules as Speed
-Ladder. It remains a valid idea, but it is **not the next build**. Do not
-implement it unless it is re-approved.
+A daily seeded set of 5–6 sampled cards to sort from lowest elixir to highest.
+It remains a valid idea, but it is **not the next build**. Do not implement it
+unless it is re-approved.
 
 ### Set aside
 

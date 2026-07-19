@@ -2,8 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
-import { computeInsights, insightPhrase } from '../../lib/insights'
-import { pickLine } from '../../lib/elixir-lines'
+import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
@@ -21,6 +20,7 @@ import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import RunCountdown from '../../components/RunCountdown'
 
 // Surge tunables — one config object (SPEC §9).
 const SURGE = {
@@ -60,7 +60,6 @@ export default function Surge() {
   const totalMs = useSignal(0)
   const isPB = useSignal(false)
   const prevBest = useSignal<number | undefined>(undefined)
-  const elixirLine = useSignal('')
 
   useEffect(() => {
     track('mode.surge')
@@ -118,11 +117,6 @@ export default function Surge() {
     track('surge.complete')
     if (pb) track('record.new')
 
-    if (pb) {
-      elixirLine.value = pickLine('record', { time: formatSeconds(total) })
-    } else {
-      elixirLine.value = pickLine('surge_done', { time: formatSeconds(total), insight: insightPhrase(ins) })
-    }
     runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current }, () => {
       if (pb) saveRecords({ surgeBestPace: bestPace })
@@ -218,8 +212,6 @@ export default function Surge() {
           eyebrow="Surge complete"
           headline={`${SURGE.SPRINT_LEN} cards · ${formatSeconds(totalMs.value)}s`}
           pbCallout={pbCallout}
-          elixirLine={elixirLine.value}
-          elixirMood={isPB.value ? 'celebrate' : 'gg'}
           insights={ins}
           onReplay={replay}
           replayLabel="Run again"
@@ -261,19 +253,11 @@ export default function Surge() {
     )
   }
 
-  // ── Countdown ────────────────────────────────────────────────────────────
-  if (stage.value === 'countdown') {
-    return (
-      <div class="main-content game-run surge">
-        <div class="surge-countdown" aria-live="assertive">
-          {count.value}
-        </div>
-        <p class="lede">Get ready…</p>
-      </div>
-    )
-  }
-
-  // ── Running ──────────────────────────────────────────────────────────────
+  // ── Countdown + Running ──────────────────────────────────────────────────
+  // The interface is drawn for the countdown too: the 3-2-1 ticks down in the
+  // card's own slot (the card is present but hidden, so its height is reserved
+  // and nothing reflows), then the first card rises into that exact spot.
+  const counting = stage.value === 'countdown'
   const card = gameRun.content[index.value]!
   const pace = paceDelta.value
   const paceAhead = (pace?.aheadMs ?? 0) >= 0
@@ -294,11 +278,14 @@ export default function Surge() {
         <div class="progress-track__fill" style={{ width: `${(index.value / SURGE.SPRINT_LEN) * 100}%` }} />
       </div>
 
-      <GameMotion contentKey={card.id} cue={runtime.cue.value}>
-        <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
-      </GameMotion>
+      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
+        <GameMotion contentKey={counting ? 'ready' : card.id} cue={runtime.cue.value}>
+          <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+        </GameMotion>
+        {counting && <RunCountdown count={count.value} />}
+      </div>
 
-      <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
+      <PipKeypad onPick={answer} disabled={counting || cardPhase.value !== 'playing'} />
 
       {/* Transient feedback, composited over the game — never in layout flow. */}
       <div class="game-cues" aria-hidden="true">

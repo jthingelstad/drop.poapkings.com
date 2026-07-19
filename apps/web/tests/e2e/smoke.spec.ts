@@ -47,13 +47,6 @@ const testRecentRuns = [
     completedAt: '2026-07-18T18:42:00.000Z'
   },
   {
-    runId: 'recent-identify',
-    mode: 'identify',
-    score: 19_450,
-    seasonId: '2026-07',
-    completedAt: '2026-07-18T17:12:00.000Z'
-  },
-  {
     runId: 'recent-trade',
     mode: 'trade',
     score: 11_800,
@@ -92,10 +85,7 @@ function testChallenge(mode: GameMode): RunChallenge {
   switch (mode) {
     case 'surge':
     case 'practice':
-    case 'identify':
       return { mode, cardIds: sequence(15) }
-    case 'blitz':
-      return { mode, cardIds: sequence(240) }
     case 'survival':
       // Survival deals the whole catalog once (clearing it is a win), so the
       // signed deck length tracks the card count — matching the server and the
@@ -125,32 +115,6 @@ function testChallenge(mode: GameMode): RunChallenge {
           redIds: [byCost[index * 2 + 1]!.id]
         }))
       }
-    }
-    case 'ladder': {
-      const seenCosts = new Set<number>()
-      const descending = cards
-        .toSorted((left, right) => right.elixir - left.elixir)
-        .filter((card) => {
-          if (seenCosts.has(card.elixir)) return false
-          seenCosts.add(card.elixir)
-          return true
-        })
-        .slice(0, 5)
-      return {
-        mode,
-        cardIds: descending.map((card) => card.id)
-      }
-    }
-    case 'endless-ladder': {
-      const starting = cards.toSorted((left, right) => left.elixir - right.elixir).slice(0, 2)
-      return { mode, startingIds: starting.map((card) => card.id), cardIds: sequence(250) }
-    }
-    case 'cost-sweep': {
-      const targetElixir = 4
-      const targets = cards.filter((card) => card.elixir === targetElixir).slice(0, 3)
-      const fillers = cards.filter((card) => card.elixir !== targetElixir).slice(0, 9)
-      const board = { targetElixir, cardIds: [...targets, ...fillers].map((card) => card.id) }
-      return { mode, boards: Array.from({ length: 50 }, () => board) }
     }
   }
 }
@@ -912,8 +876,9 @@ test('higher/lower: tap the higher card; a miss resets the streak', async ({ pag
 test('higher/lower: running out the clock ends the round', async ({ page }) => {
   await page.goto('/#/higher-lower')
   await expect(page.locator('.hl__pair')).toBeVisible()
-  // Never tap — the 5s opening window runs out and the timeout ends the round.
-  await expect(page.locator('.elixir-host__bubble')).toContainText("Time's up", { timeout: 7_000 })
+  // Never tap — the 5s opening window runs out and the timeout reveals the round
+  // (the lower card, auto-picked on timeout, is flagged wrong).
+  await expect(page.locator('.hl__card--wrong')).toBeVisible({ timeout: 7_000 })
   await expect(page.locator('.hl__card--correct')).toBeVisible()
 })
 
@@ -926,7 +891,7 @@ test('home brings season standings, player bests, activity, and Trophy Road forw
   await expect(page.getByRole('heading', { name: 'Your season' })).toBeVisible()
   await expect(page.locator('.player-bests')).toContainText('67.30s')
   await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible()
-  await expect(page.locator('.activity-list')).toContainText('Identify')
+  await expect(page.locator('.activity-list')).toContainText('Trade')
   await expect(page.getByRole('heading', { name: 'Drop together' })).toBeVisible()
   await expect(page.locator('.community-progress')).toContainText('592')
   await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Your season best')
@@ -1245,6 +1210,21 @@ test.describe('mobile timed-mode controls', () => {
       })
       expect(controlsFit).toBe(true)
     }
+  })
+
+  // Practice is untimed (no Start), but pairs a full card with the same 3×3
+  // keypad — its bottom row must not fall off the first viewport either.
+  test('keeps the Practice keypad in the first viewport', async ({ page }) => {
+    await page.goto('/#/practice')
+    const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
+    await expect(keypad).toBeVisible({ timeout: 5_000 })
+
+    const controlsFit = await keypad.evaluate((element) =>
+      [...element.querySelectorAll('button')].every(
+        (button) => button.getBoundingClientRect().bottom <= window.innerHeight + 1
+      )
+    )
+    expect(controlsFit).toBe(true)
   })
 })
 

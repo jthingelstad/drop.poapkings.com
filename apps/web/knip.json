@@ -9,13 +9,6 @@
     "tests/**/*.{ts,tsx}"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}", "*.config.ts"],
-  "ignore": [
-    "src/modes/blitz/**",
-    "src/modes/cost-sweep/**",
-    "src/modes/endless-ladder/**",
-    "src/modes/identify/**",
-    "src/modes/ladder/**",
-    "src/components/PenaltyFlash.tsx"
-  ],
+  "ignore": ["src/components/PenaltyFlash.tsx"],
   "vite": false
 }

@@ -110,8 +110,6 @@ rank-oriented fields as part of unrelated work.
   them into playable content. The old client-side `sampling.ts` is gone.
 - **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
   (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
-- **`apps/web/src/lib/name-choices.ts`** — `makeNameChoices(card, cards)` returns the
-  target plus similar card-name distractors for identification modes.
 - **`apps/web/src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
   Clash-style card-name tone mapping. Pair it with `apps/web/src/components/CardChrome.tsx`
   instead of hand-rolling card art/name/cost UI in a mode.
@@ -120,24 +118,16 @@ rank-oriented fields as part of unrelated work.
   `apps/web/src/data/avatar-crops.ts`. Review the complete catalog at the
   development-only `#/avatar-audit` route before adding an override.
 - **`apps/web/src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
-  (`correct_fast`, `wrong_close`, `surge_done`, `record`, `recruit`, …). No LLM at
-  runtime. Elixir stays **silent during Surge** (timing) and speaks on summaries.
+  (`correct_fast`, `wrong_close`, `recruit`, …). No LLM at runtime. Used by the
+  Recruit CTA line.
 - **`apps/web/src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
   helpers for timed modes.
-- **`apps/web/src/lib/endless-ladder.ts`** — pure Endless Ladder insertion-slot logic.
-- **`apps/web/src/lib/cost-sweep.ts`** — pure Cost Sweep target tracking.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
-- **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines for Identify,
-  Trade, and Speed Ladder.
-- **Modes** in `apps/web/src/modes/`. The LAUNCH FIVE are routed: `surge`,
-  `practice`, `higher-lower`, `trade`, `survival`. `identify`, `blitz`,
-  `ladder`, `endless-ladder`, and `cost-sweep` are VAULTED: components stay
-  on disk (knip.json ignores them), the API still accepts them, but they have
-  no tile, route, or leaderboard tab. Practice is unranked by design
+- **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines (Trade).
+- **Modes** in `apps/web/src/modes/`. The five shipped, routed modes are `surge`,
+  `practice`, `higher-lower`, `trade`, `survival`. Practice is unranked by design
   (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI).
-  Re-releasing a vaulted mode: restore its GAMES entry (game-metadata.ts),
-  App.tsx route, and GAME_PATHS path; drop the knip ignore; re-add its e2e.
-  See `GAMES.md` for mechanics, the vault, backlog, and retired modes.
+  See `GAMES.md` for mechanics, backlog, and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
@@ -213,7 +203,8 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 ## Key values
 
 - Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). Embed in `<head>`:
-  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?spa&hits&kudos=%F0%9F%91%8F&countries&events&beacon`
+  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?spa&hits&countries&events&beacon`
+  (kudos removed — the like button was only on game summaries and is gone)
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).

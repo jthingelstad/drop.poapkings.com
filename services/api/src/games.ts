@@ -13,12 +13,6 @@ export const MODE_RULES: Record<GameMode, ModeRule> = {
     maxScore: 100,
     scoreUnit: "percent",
   },
-  identify: {
-    direction: "lower",
-    minScore: 1_000,
-    maxScore: 3_600_000,
-    scoreUnit: "milliseconds",
-  },
   "higher-lower": {
     direction: "higher",
     minScore: 0,
@@ -30,30 +24,6 @@ export const MODE_RULES: Record<GameMode, ModeRule> = {
     minScore: 500,
     maxScore: 3_600_000,
     scoreUnit: "milliseconds",
-  },
-  ladder: {
-    direction: "lower",
-    minScore: 500,
-    maxScore: 3_600_000,
-    scoreUnit: "milliseconds",
-  },
-  "endless-ladder": {
-    direction: "higher",
-    minScore: 0,
-    maxScore: 100_000,
-    scoreUnit: "count",
-  },
-  "cost-sweep": {
-    direction: "higher",
-    minScore: 0,
-    maxScore: 10_000,
-    scoreUnit: "count",
-  },
-  blitz: {
-    direction: "higher",
-    minScore: 0,
-    maxScore: 10_000,
-    scoreUnit: "count",
   },
   survival: {
     direction: "higher",

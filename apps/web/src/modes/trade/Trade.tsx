@@ -11,13 +11,13 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
-import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
+import RunCountdown from '../../components/RunCountdown'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -64,13 +64,11 @@ function TradeCard({ card, revealed }: { card: Card; revealed: boolean }) {
 
 function TradeSide({
   label,
-  sub,
   side,
   cards,
   revealedIds
 }: {
   label: string
-  sub: string
   side: 'blue' | 'red'
   cards: Card[]
   revealedIds: Set<number>
@@ -79,10 +77,7 @@ function TradeSide({
     <section class={`trade-side trade-side--${side}`}>
       <div class="trade-side__head">
         <span class="trade-side__badge">{side === 'blue' ? 'Blue King' : 'Red King'}</span>
-        <div>
-          <h2 class="trade-side__title">{label}</h2>
-          <p class="trade-side__sub">{sub}</p>
-        </div>
+        <h2 class="trade-side__title">{label}</h2>
       </div>
       <ol class="trade-side__cards">
         {cards.map((card) => (
@@ -279,7 +274,7 @@ export default function Trade() {
             {cleanTrades.value} clean · {pluralizeMisses(wrongGuesses.value)}
           </div>
 
-          <ElixirHost line={elixirLine.value} mood={isPB.value ? 'celebrate' : 'gg'} />
+          <p class="trade-result__coach">{elixirLine.value}</p>
 
           <div class="trade-result__math" aria-label="Trade math">
             <span>Last trade {formatTrade(lastTrade.value)}</span>
@@ -329,17 +324,7 @@ export default function Trade() {
     )
   }
 
-  if (stage.value === 'countdown') {
-    return (
-      <div class="main-content game-run trade">
-        <div class="surge-countdown" aria-live="assertive">
-          {count.value}
-        </div>
-        <p class="lede">Count the exchanges…</p>
-      </div>
-    )
-  }
-
+  const counting = stage.value === 'countdown'
   return (
     <div class="main-content game-run trade" style={{ alignItems: 'center', gap: 18 }}>
       <GameFxLayer cue={runtime.cue.value} particleCount={10} />
@@ -357,27 +342,18 @@ export default function Trade() {
         <div class="progress-track__fill" style={{ width: `${(index.value / TRADE.SEQUENCE_LEN) * 100}%` }} />
       </div>
 
-      <GameMotion contentKey={index.value} cue={runtime.cue.value} preset="board">
-        <div class="trade-board" data-trade-index={index.value + 1}>
-          <TradeSide
-            side="blue"
-            label="You played"
-            sub="Blue King"
-            cards={round.blue}
-            revealedIds={revealedIds.value}
-          />
-          <div class="trade-versus" aria-hidden="true">
-            vs
+      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
+        <GameMotion contentKey={counting ? 'ready' : index.value} cue={runtime.cue.value} preset="board">
+          <div class="trade-board" data-trade-index={index.value + 1}>
+            <TradeSide side="blue" label="You" cards={round.blue} revealedIds={revealedIds.value} />
+            <div class="trade-versus" aria-hidden="true">
+              vs
+            </div>
+            <TradeSide side="red" label="Opponent" cards={round.red} revealedIds={revealedIds.value} />
           </div>
-          <TradeSide
-            side="red"
-            label="Opponent played"
-            sub="Red King"
-            cards={round.red}
-            revealedIds={revealedIds.value}
-          />
-        </div>
-      </GameMotion>
+        </GameMotion>
+        {counting && <RunCountdown count={count.value} />}
+      </div>
 
       {/* Fixed-height prompt: swapping the question for the solved math never
           reflows the board. Transient +2s / retry feedback floats (below). */}
@@ -415,7 +391,7 @@ export default function Trade() {
               key={value}
               class={classes.join(' ')}
               onClick={() => guess(value)}
-              disabled={feedback.value !== 'idle'}
+              disabled={counting || feedback.value !== 'idle'}
               aria-label={value === 0 ? 'Even trade' : `${formatTrade(value)} trade`}
             >
               {formatTrade(value)}

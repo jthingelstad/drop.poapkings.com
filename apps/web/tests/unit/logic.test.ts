@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cardNameToneClass, cardRarityLabel, cardRarityModifier } from '../../src/lib/card-rendering'
 import { makeChoices } from '../../src/lib/choices'
-import { countTargetCards, isSweepComplete, remainingTargetIds, targetIds } from '../../src/lib/cost-sweep'
-import { canInsertAt, insertAtSlot, validInsertSlots } from '../../src/lib/endless-ladder'
 import { formatSeconds } from '../../src/lib/format'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { fullDeckSize } from '../../src/lib/challenge-cards'
@@ -10,9 +8,7 @@ import rawCards from '@elixir-drop/game-data/cards.json'
 import { createGameRuntimeCue, transitionGameRuntimeStage } from '../../src/lib/game-runtime'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
-import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../src/lib/ladder'
-import { makeNameChoices } from '../../src/lib/name-choices'
-import { identifySummaryLine, ladderSummaryLine, tradeSummaryLine } from '../../src/lib/mode-insights'
+import { tradeSummaryLine } from '../../src/lib/mode-insights'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
@@ -78,24 +74,6 @@ describe('learning helpers', () => {
     )
   })
 
-  it('builds card-name choices with the target and nearby distractors', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-
-    const fireball = card(1, 'Fireball', 4, 'spell')
-    const arrows = card(2, 'Arrows', 3, 'spell')
-    const zap = card(3, 'Zap', 2, 'spell')
-    const rocket = card(4, 'Rocket', 6, 'spell')
-    const knight = card(5, 'Knight', 3)
-    const cannon = card(6, 'Cannon', 3, 'building')
-
-    const choices = makeNameChoices(fireball, [fireball, arrows, zap, rocket, knight, cannon], 4)
-
-    expect(choices).toHaveLength(4)
-    expect(new Set(choices.map((choice) => choice.id)).size).toBe(4)
-    expect(choices.map((choice) => choice.name)).toContain('Fireball')
-    expect(choices.map((choice) => choice.name)).toContain('Arrows')
-  })
-
   it('computes accuracy, weak cards, bias, and timing insight', () => {
     const knight = card(1, 'Knight', 3)
     const fireball = card(2, 'Fireball', 4, 'spell')
@@ -119,19 +97,6 @@ describe('learning helpers', () => {
   })
 
   it('writes mode-specific summary coaching', () => {
-    const tesla = card(1, 'Tesla', 4, 'building')
-
-    expect(
-      identifySummaryLine({
-        isPB: false,
-        totalMs: 12_300,
-        totalCards: 15,
-        firstTry: 13,
-        misses: 2,
-        missedCards: [tesla]
-      })
-    ).toContain('Re-drill Tesla')
-
     expect(
       tradeSummaryLine({
         isPB: false,
@@ -142,9 +107,6 @@ describe('learning helpers', () => {
         lastTrade: -1
       })
     ).toContain('Blue spends more')
-
-    expect(ladderSummaryLine({ isPB: false, totalMs: 6_700, wrongLocks: 2 })).toContain('2 lock misses')
-    expect(ladderSummaryLine({ isPB: true, totalMs: 5_200, wrongLocks: 0 })).toContain('New Ladder best')
   })
 
   it('interpolates Elixir lines and returns empty for unknown events', () => {
@@ -153,57 +115,6 @@ describe('learning helpers', () => {
     expect(pickLine('correct_streak', { n: 4 })).toContain('4')
     expect(pickLine('surge_done', { time: '28.6', insight: 'clean read' })).toContain('28.6')
     expect(pickLine('missing' as never)).toBe('')
-  })
-
-  it('validates and reorders Speed Ladder cards', () => {
-    const knight = card(1, 'Knight', 3)
-    const fireball = card(2, 'Fireball', 4, 'spell')
-    const rocket = card(3, 'Rocket', 6, 'spell')
-
-    expect(isAscendingByElixir([knight, fireball, rocket])).toBe(true)
-    expect(isAscendingByElixir([fireball, knight, rocket])).toBe(false)
-    expect(reorderCards([fireball, knight, rocket], 1, 0)).toEqual([knight, fireball, rocket])
-  })
-
-  it('validates Endless Ladder insertion slots', () => {
-    const skeletons = card(1, 'Skeletons', 1)
-    const knight = card(2, 'Knight', 3)
-    const fireball = card(3, 'Fireball', 4, 'spell')
-    const rocket = card(4, 'Rocket', 6, 'spell')
-    const row = [skeletons, fireball, rocket]
-
-    expect(canInsertAt(row, knight, 0)).toBe(false)
-    expect(canInsertAt(row, knight, 1)).toBe(true)
-    expect(canInsertAt(row, knight, 2)).toBe(false)
-    expect(validInsertSlots(row, knight)).toEqual([1])
-    expect(insertAtSlot(row, knight, 1)).toEqual([skeletons, knight, fireball, rocket])
-  })
-
-  it('tracks Cost Sweep targets and completion', () => {
-    const skeletons = card(1, 'Skeletons', 1)
-    const knight = card(2, 'Knight', 3)
-    const archers = card(3, 'Archers', 3)
-    const fireball = card(4, 'Fireball', 4, 'spell')
-    const board = [skeletons, knight, archers, fireball]
-
-    expect(targetIds(board, 3)).toEqual(new Set([knight.id, archers.id]))
-    expect(countTargetCards(board, 3)).toBe(2)
-    expect(remainingTargetIds(board, 3, new Set([knight.id]))).toEqual([archers.id])
-    expect(isSweepComplete(board, 3, new Set([knight.id]))).toBe(false)
-    expect(isSweepComplete(board, 3, new Set([knight.id, archers.id]))).toBe(true)
-  })
-
-  it('reveals Speed Ladder hint cards from the first ordering problem', () => {
-    const knight = card(1, 'Knight', 3)
-    const fireball = card(2, 'Fireball', 4, 'spell')
-    const rocket = card(3, 'Rocket', 6, 'spell')
-    const goblins = card(4, 'Goblins', 2)
-    const order = [rocket, knight, fireball, goblins]
-
-    expect(pickLadderHintCard(order, new Set())).toBe(knight.id)
-    expect(pickLadderHintCard(order, new Set([knight.id]))).toBe(rocket.id)
-    expect(pickLadderHintCard(order, new Set([knight.id, rocket.id]))).toBe(goblins.id)
-    expect(pickLadderHintCard(order, new Set(order.map((c) => c.id)))).toBeUndefined()
   })
 
   it('scores Trade from the Blue King perspective', () => {

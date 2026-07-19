@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import type { GameRuntimeCue } from '../lib/game-runtime'
 import { isReducedMotionEnabled } from '../lib/motion'
 
-export type GameMotionPreset = 'card' | 'reveal' | 'pair' | 'board' | 'ladder' | 'grid'
+export type GameMotionPreset = 'card' | 'reveal' | 'pair' | 'board'
 
 interface Props {
   contentKey?: string | number
@@ -37,20 +37,7 @@ const wrongTransforms: Record<GameMotionPreset, string[]> = {
     'translate3d(-6px, 0, 0)',
     'translate3d(0, 0, 0)'
   ],
-  board: ['translate3d(0, 0, 0)', 'translate3d(-9px, 0, 0)', 'translate3d(7px, 0, 0)', 'translate3d(0, 0, 0)'],
-  ladder: [
-    'translate3d(0, 0, 0)',
-    'translate3d(-8px, 0, 0)',
-    'translate3d(7px, 0, 0)',
-    'translate3d(-3px, 0, 0)',
-    'translate3d(0, 0, 0)'
-  ],
-  grid: [
-    'translate3d(0, 0, 0) scale(1)',
-    'translate3d(-6px, 0, 0) scale(0.992)',
-    'translate3d(5px, 0, 0) scale(0.992)',
-    'translate3d(0, 0, 0) scale(1)'
-  ]
+  board: ['translate3d(0, 0, 0)', 'translate3d(-9px, 0, 0)', 'translate3d(7px, 0, 0)', 'translate3d(0, 0, 0)']
 }
 
 function enterAnimation(preset: GameMotionPreset) {
@@ -69,13 +56,6 @@ function enterAnimation(preset: GameMotionPreset) {
         opacity: [0, 1],
         transform: ['translate3d(42px, 0, 0) scale(0.98)', 'translate3d(0, 0, 0) scale(1)']
       }
-    case 'ladder':
-      return {
-        opacity: [0.7, 1],
-        transform: ['translate3d(0, 18px, 0) scale(0.99)', 'translate3d(0, 0, 0) scale(1)']
-      }
-    case 'grid':
-      return { opacity: [0.72, 1], transform: ['scale(0.96)', 'scale(1)'] }
     case 'board':
     case 'reveal':
       return {
@@ -103,17 +83,6 @@ function correctAnimation(preset: GameMotionPreset) {
       transform: [
         'translate3d(0, 0, 0) scale(1)',
         'translate3d(-16px, 0, 0) scale(1.01)',
-        'translate3d(0, 0, 0) scale(1)'
-      ]
-    }
-  }
-
-  if (preset === 'ladder') {
-    return {
-      opacity: [1, 0.82, 1],
-      transform: [
-        'translate3d(0, 0, 0) scale(1)',
-        'translate3d(0, -8px, 0) scale(1.012)',
         'translate3d(0, 0, 0) scale(1)'
       ]
     }

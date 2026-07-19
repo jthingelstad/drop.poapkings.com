@@ -1,18 +1,15 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { higherLowerWindowMs } from '@elixir-drop/contracts'
-import type { ElixirMood } from '../../types'
 import { getRecords } from '../../lib/storage'
-import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
-import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
-import ElixirHost from '../../components/ElixirHost'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
+import RunCountdown from '../../components/RunCountdown'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -21,10 +18,14 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 // learning moment.
 const ADVANCE_DELAY_CORRECT = 750
 const ADVANCE_DELAY_WRONG = 1400
+// A 3-2-1 before the opening pair so the round clock never starts while you are
+// still reading. Only on the fresh run — a miss restarts straight in (the reveal
+// beat already gives orientation), so an endless streak is never nagged.
+const COUNTDOWN_STEP_MS = 650
 
 export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
-  const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
+  const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, guardActiveRun: false, trackElapsed: false })
   const pairIndex = useSignal(0)
   const serverAnswers = useRef<Array<{ leftId: number; rightId: number; pickedId: number; elapsedMs: number }>>([])
   // The card the player tapped as higher (for reveal highlighting).
@@ -33,8 +34,6 @@ export default function HigherLower() {
   const streak = useSignal(0)
   const streakCue = useSignal(0)
   const best = useSignal(getRecords().longestStreak ?? 0)
-  const elixirLine = useSignal(pickLine('idle'))
-  const elixirMood = useSignal<ElixirMood>('neutral')
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
@@ -45,15 +44,26 @@ export default function HigherLower() {
     preloadGameFx()
   }, [])
 
+  // Play the 3-2-1 once the opening pair is loaded (fresh run only — a miss
+  // resets straight to 'running', so this never re-fires mid-streak).
+  useEffect(() => {
+    if (gameRun.content && runtime.stage.value === 'ready') {
+      runtime.start(() => {
+        remainingFrac.value = 1
+      })
+    }
+  }, [gameRun.content, runtime.stage.value, remainingFrac, runtime])
+
   // (Re)start the round clock whenever a new pair is dealt (its left card
-  // changes). Pairs never repeat a card round-to-round, so this fires each round
-  // and on the first deal.
+  // changes) — but only once the run is live, so the countdown doesn't secretly
+  // burn the opening window. The stage flip to 'running' re-runs this and starts
+  // the first round's clock.
   const leftCardId = gameRun.content?.[pairIndex.value]?.[0]?.id
   useEffect(() => {
-    if (leftCardId === undefined) return
+    if (leftCardId === undefined || runtime.stage.value !== 'running') return
     roundStart.current = performance.now()
     remainingFrac.value = 1
-  }, [leftCardId, remainingFrac])
+  }, [leftCardId, remainingFrac, runtime.stage.value])
 
   // The countdown itself: drives the depleting bar and times you out. The window
   // tightens each round, so deep runs end at your true read speed.
@@ -100,8 +110,6 @@ export default function HigherLower() {
     pairIndex.value = nextIndex
     picked.value = null
     revealed.value = false
-    elixirLine.value = ''
-    elixirMood.value = 'neutral'
     runtime.emitCue('round-advance', { pairIndex: nextIndex })
   }
 
@@ -112,11 +120,9 @@ export default function HigherLower() {
     await gameRun.prepare()
     picked.value = null
     revealed.value = false
-    elixirLine.value = ''
-    elixirMood.value = 'neutral'
   }
 
-  function choose(pickedId: number, timedOut = false) {
+  function choose(pickedId: number) {
     const activePair = gameRun.content?.[pairIndex.value]
     if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
@@ -142,14 +148,10 @@ export default function HigherLower() {
       // Live display only; longestStreak is persisted centrally when the server
       // accepts the completed run, so the device never keeps a rejected best.
       if (s > best.value) best.value = s
-      elixirLine.value = s >= 3 ? pickLine('hl_streak', { n: s }) : pickLine('hl_right')
-      elixirMood.value = s >= 3 ? 'celebrate' : 'happy'
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
       streak.value = 0
-      elixirLine.value = timedOut ? "Time's up — read faster." : pickLine('hl_wrong')
-      elixirMood.value = 'angry'
       runtime.emitCue('answer-wrong', { pairIndex: pairIndex.value })
     }
 
@@ -177,7 +179,7 @@ export default function HigherLower() {
     if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
     const lowerId = left.elixir > right.elixir ? right.id : left.id
-    choose(lowerId, true)
+    choose(lowerId)
   }
   timeoutRef.current = timeout
 
@@ -198,10 +200,11 @@ export default function HigherLower() {
     return 'hl__card hl__card--dim'
   }
 
-  const disabled = revealed.value || gameRun.preparing.value
+  const counting = runtime.stage.value !== 'running'
+  const disabled = counting || revealed.value || gameRun.preparing.value
 
   return (
-    <div class="main-content game-run hl" style={{ alignItems: 'center', gap: 22 }}>
+    <div class="main-content game-run hl">
       <GameFxLayer cue={runtime.cue.value} particleCount={6} />
       <div class="session-bar">
         <div class="session-bar__stat">
@@ -225,25 +228,22 @@ export default function HigherLower() {
         />
       </div>
 
-      <GameMotion contentKey={pairIndex.value} cue={runtime.cue.value} preset="pair">
-        <div class="hl__pair" role="group" aria-label="Tap the higher-cost card">
-          <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
-            <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
-          </button>
-          <div class="hl__vs" aria-hidden="true">
-            vs
+      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
+        <GameMotion contentKey={counting ? 'ready' : pairIndex.value} cue={runtime.cue.value} preset="pair">
+          <div class="hl__pair" role="group" aria-label="Tap the higher-cost card">
+            <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
+              <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+            </button>
+            <div class="hl__vs" aria-hidden="true">
+              vs
+            </div>
+            <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
+              <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+            </button>
           </div>
-          <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
-            <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
-          </button>
-        </div>
-      </GameMotion>
-
-      <ElixirHost line={elixirLine.value} mood={elixirMood.value} />
-
-      <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-        Home
-      </button>
+        </GameMotion>
+        {counting && <RunCountdown count={runtime.count.value} />}
+      </div>
 
       {/* Shared floating streak cue — composited, never in layout flow. */}
       <div class="game-cues" aria-hidden="true">

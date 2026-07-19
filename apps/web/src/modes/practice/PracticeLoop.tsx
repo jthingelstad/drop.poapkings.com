@@ -1,17 +1,15 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import type { ElixirMood, InputStyle } from '../../types'
+import type { InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { makeChoices } from '../../lib/choices'
 import { saveResult, getSettings, saveSettings, recordSession } from '../../lib/storage'
-import { computeInsights, insightPhrase } from '../../lib/insights'
-import { pickLine } from '../../lib/elixir-lines'
+import { computeInsights } from '../../lib/insights'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import MultipleChoice from '../../components/MultipleChoice'
-import ElixirHost from '../../components/ElixirHost'
 import FloatingCue from '../../components/FloatingCue'
 import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
@@ -46,8 +44,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
   const cardIndex = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
-  const elixirLine = useSignal<string>(pickLine('idle'))
-  const elixirMood = useSignal<ElixirMood>('neutral')
   const dropKey = useSignal(0)
   const streak = useSignal(0)
   // Bumped at streak milestones to fire the shared floating streak cue.
@@ -66,8 +62,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     if (!cards?.[nextIndex]) return
     cardIndex.value = nextIndex
     phase.value = 'playing'
-    elixirLine.value = ''
-    elixirMood.value = 'thinking'
     runtime.emitCue('round-advance', { cardId: cards[nextIndex]?.id })
   }
 
@@ -88,9 +82,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
     strongSession.value = complete && ins.total >= 10 && ins.accuracyPct >= STRONG_SESSION_PCT
 
-    const good = ins.accuracyPct >= 80
-    elixirLine.value = pickLine('session_end', { accuracy: ins.accuracyPct, insight: insightPhrase(ins) })
-    elixirMood.value = good ? 'trophy' : 'neutral'
     runtime.finish()
   }
 
@@ -113,17 +104,11 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       dropKey.value++
       if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
       phase.value = 'correct'
-      const event = streak.value >= 3 ? 'correct_streak' : 'correct_fast'
-      elixirLine.value = pickLine(event, { n: streak.value })
-      elixirMood.value = streak.value >= 3 ? 'celebrate' : 'happy'
       runtime.emitCue('answer-correct', { cardId: card.id })
     } else {
       playWrong()
       streak.value = 0
       phase.value = 'wrong'
-      const diff = Math.abs(picked - card.elixir)
-      elixirLine.value = pickLine(diff <= 1 ? 'wrong_close' : 'wrong_far')
-      elixirMood.value = diff <= 1 ? 'angry' : 'facepalm'
       runtime.emitCue('answer-wrong', { cardId: card.id })
     }
 
@@ -142,8 +127,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     correct.value = 0
     streak.value = 0
     insights.value = null
-    elixirLine.value = pickLine('idle')
-    elixirMood.value = 'thinking'
     phase.value = 'playing'
   }
 
@@ -165,8 +148,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         <Summary
           eyebrow={eyebrow}
           headline={`${ins.correct} / ${ins.total} · ${ins.accuracyPct}%`}
-          elixirLine={elixirLine.value}
-          elixirMood={elixirMood.value}
           insights={ins}
           onReplay={replay}
           onHome={exit}
@@ -181,7 +162,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const card = cards[cardIndex.value]!
 
   return (
-    <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
+    <div class="main-content game-run practice">
       <GameFxLayer cue={runtime.cue.value} particleCount={6} />
       <div class="session-bar session-bar--fixed">
         <div class="session-bar__stat">
@@ -247,8 +228,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           disabled={phase.value !== 'playing' || gameRun.preparing.value}
         />
       )}
-
-      <ElixirHost line={elixirLine.value} mood={elixirMood.value} />
 
       {/* Shared floating streak cue — composited, never in layout flow. */}
       <div class="game-cues" aria-hidden="true">

@@ -130,7 +130,7 @@ describe("Discord event notifications", () => {
       undefined,
       completedGameWebhookPayload({
         runId: "run-123",
-        mode: "blitz",
+        mode: "survival",
         score: 4,
         seasonId: "2026-07",
         completedAt: "2026-07-18T12:02:00.000Z",

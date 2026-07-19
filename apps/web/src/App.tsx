@@ -24,9 +24,7 @@ import Privacy from './screens/Privacy'
 
 const POAP_KINGS = 'https://poapkings.com'
 
-// The launch five. Identify, Speed Ladder, Endless Ladder, Cost Sweep, and
-// Blitz are vaulted — components retained under src/modes/ for re-release
-// drops (GAMES.md "Vaulted for launch"), but unrouted and unbundled.
+// The five shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
 const loadSurge = () => import('./modes/surge/Surge')
 const loadHigherLower = () => import('./modes/higher-lower/HigherLower')

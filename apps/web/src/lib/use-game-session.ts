@@ -41,8 +41,8 @@ export function useGameSession<TMode extends GameMode, TContent>(
     const assets = resolved.prepared.assets
     preloadImages(assets, (loadedCount) => {
       if (preloadGeneration.current !== generation) return
-      // When the art IS the question (Identify), starting the clock against
-      // gray fallback boxes is unwinnable; surface a retry instead.
+      // When a mode needs the art loaded to be playable, starting the clock
+      // against gray fallback boxes is unwinnable; surface a retry instead.
       if (requireArt && assets.length > 0 && loadedCount === 0) {
         artFailed.value = true
         return

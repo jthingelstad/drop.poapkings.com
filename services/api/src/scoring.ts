@@ -20,7 +20,6 @@ export function cardElixir(id: number): number | undefined {
 }
 export const SURGE_CARD_COUNT = 15;
 export const SURGE_PENALTY_MS = 2_000;
-export const BLITZ_CARD_COUNT = 240;
 export const HIGHER_LOWER_PAIR_COUNT = 250;
 
 type RandomInt = (upperBound: number) => number;
@@ -99,41 +98,6 @@ function tradeRounds(
   );
 }
 
-function sweepBoards(
-  randomInt: RandomInt,
-  pool: readonly Card[],
-): Array<{ targetElixir: number; cardIds: number[] }> {
-  const targetCosts = [...new Set(pool.map((card) => card.elixir))].filter(
-    (cost) => pool.filter((card) => card.elixir === cost).length >= 3,
-  );
-  const sweepPool = targetCosts.length ? pool : CARDS;
-  const eligibleCosts = targetCosts.length
-    ? targetCosts
-    : [...new Set(CARDS.map((card) => card.elixir))].filter(
-        (cost) => CARDS.filter((card) => card.elixir === cost).length >= 3,
-      );
-  return Array.from({ length: 50 }, (_, boardIndex) => {
-    const targetElixir = eligibleCosts[randomInt(eligibleCosts.length)] ?? 4;
-    // Escalate across boards: two targets to find early, four by the fifth
-    // board — clean early boards earn a harder, higher-scoring late run.
-    const desiredTargets = Math.min(4, 2 + Math.floor(boardIndex / 2));
-    const targets = shuffle(
-      sweepPool.filter((card) => card.elixir === targetElixir),
-      randomInt,
-    ).slice(0, desiredTargets);
-    const fillers = shuffle(
-      sweepPool.filter((card) => card.elixir !== targetElixir),
-      randomInt,
-    ).slice(0, 12 - targets.length);
-    return {
-      targetElixir,
-      cardIds: shuffle([...targets, ...fillers], randomInt).map(
-        (card) => card.id,
-      ),
-    };
-  });
-}
-
 // Independent pairs for the tap-the-higher-card game: each pair's two cards
 // always differ in elixir (never equal, so there is always a strictly higher
 // card), and neither card repeats from the immediately previous pair.
@@ -186,10 +150,7 @@ export function createChallenge(
   switch (mode) {
     case "practice":
     case "surge":
-    case "identify":
       return { mode, cardIds: cardSequence(15, randomInt, pool) };
-    case "blitz":
-      return { mode, cardIds: cardSequence(BLITZ_CARD_COUNT, randomInt, pool) };
     case "survival":
       // Every card once, shuffled: clearing the whole deck is a WIN, then it is
       // a race on cumulative time. No repeats, so the max streak is the catalog
@@ -199,32 +160,6 @@ export function createChallenge(
       return { mode, pairs: higherLowerPairs(randomInt, pool) };
     case "trade":
       return { mode, rounds: tradeRounds(randomInt, pool) };
-    case "ladder": {
-      let cardIds = cardSequence(5, randomInt, pool);
-      // A draw where all five cards share one elixir cost can never become
-      // "not ascending" — the old unbounded shuffle loop hung the Lambda
-      // (~0.2% of draws). Redraw, fall back to the full catalog, and finish
-      // deterministically instead of spinning.
-      for (let redraw = 0; redraw < 20 && allSameCost(cardIds); redraw += 1)
-        cardIds = cardSequence(5, randomInt, pool);
-      if (allSameCost(cardIds)) cardIds = cardSequence(5, randomInt, CARDS);
-      for (let attempt = 0; attempt < 50 && isAscending(cardIds); attempt += 1)
-        cardIds = shuffle(cardIds, randomInt);
-      // With two distinct costs present, the reverse of an ascending order is
-      // guaranteed non-ascending.
-      if (isAscending(cardIds)) cardIds = [...cardIds].reverse();
-      return { mode, cardIds };
-    }
-    case "endless-ladder": {
-      const ids = cardSequence(252, randomInt, pool);
-      return {
-        mode,
-        startingIds: sortIds(ids.slice(0, 2)),
-        cardIds: ids.slice(2),
-      };
-    }
-    case "cost-sweep":
-      return { mode, boards: sweepBoards(randomInt, pool) };
   }
 }
 
@@ -267,7 +202,6 @@ function scoreAnswerSprint(
   challenge: number[],
   transcript: RunTranscript,
   wallElapsedMs: number,
-  answerKind: "elixir" | "card",
 ): number {
   const answers = objectArray(transcript.answers, "Answer");
   if (answers.length !== challenge.length)
@@ -294,17 +228,11 @@ function scoreAnswerSprint(
     )
       throw new Error("Answer timing is invalid");
     if (atMs < previousAtMs + 79) fastGaps += 1;
-    const correct =
-      answerKind === "elixir" ? card(expectedCardId).elixir : expectedCardId;
+    const correct = card(expectedCardId).elixir;
     if (guesses.at(-1) !== correct || guesses.slice(0, -1).includes(correct))
       throw new Error("Answer sequence is invalid");
-    if (
-      answerKind === "elixir" &&
-      guesses.some((guess) => guess < 1 || guess > 10)
-    )
+    if (guesses.some((guess) => guess < 1 || guess > 10))
       throw new Error("Elixir guess is invalid");
-    if (answerKind === "card" && new Set(guesses).size !== guesses.length)
-      throw new Error("Identify guesses must be unique");
     misses += guesses.length - 1;
     previousAtMs = atMs;
   }
@@ -414,140 +342,6 @@ function scoreTrade(
   return Math.round(atMs) + misses * 2_000;
 }
 
-function sortIds(ids: number[]): number[] {
-  return [...ids].sort(
-    (left, right) =>
-      card(left).elixir - card(right).elixir ||
-      card(left).name.localeCompare(card(right).name),
-  );
-}
-
-function isAscending(ids: number[]): boolean {
-  return ids.every(
-    (id, index) =>
-      index === 0 || card(ids[index - 1]!).elixir <= card(id).elixir,
-  );
-}
-
-function allSameCost(ids: number[]): boolean {
-  return ids.every((id) => card(id).elixir === card(ids[0]!).elixir);
-}
-
-function isPermutation(actual: number[], expected: number[]): boolean {
-  const sortedActual = [...actual].sort((left, right) => left - right);
-  const sortedExpected = [...expected].sort((left, right) => left - right);
-  return (
-    actual.length === expected.length &&
-    sortedActual.every((id, index) => id === sortedExpected[index])
-  );
-}
-
-function scoreLadder(
-  challenge: Extract<RunChallenge, { mode: "ladder" }>,
-  transcript: RunTranscript,
-  wallElapsedMs: number,
-): number {
-  const attempts = objectArray(transcript.attempts, "Ladder");
-  // Sized for a genuinely struggling beginner (the client stops recording at
-  // the same limit), while still bounding the payload.
-  if (!attempts.length || attempts.length > 60)
-    throw new Error("Ladder transcript is invalid");
-  let finalAtMs = 0;
-  attempts.forEach((attempt, index) => {
-    const order = numberArray(attempt.order, "Ladder order");
-    if (!isPermutation(order, challenge.cardIds))
-      throw new Error("Ladder order is not the signed challenge");
-    const ascending = isAscending(order);
-    if (index < attempts.length - 1 && ascending)
-      throw new Error("Ladder continued after a correct order");
-    if (index === attempts.length - 1 && !ascending)
-      throw new Error("Ladder final order is not correct");
-    finalAtMs = Number(attempt.atMs);
-  });
-  verifyPlausibleEnd(finalAtMs, wallElapsedMs);
-  return Math.round(finalAtMs) + (attempts.length - 1) * 2_000;
-}
-
-function canInsert(row: number[], cardId: number, slot: number): boolean {
-  if (!Number.isInteger(slot) || slot < 0 || slot > row.length) return false;
-  const value = card(cardId).elixir;
-  const left = row[slot - 1];
-  const right = row[slot];
-  return (
-    (!left || card(left).elixir <= value) &&
-    (!right || value <= card(right).elixir)
-  );
-}
-
-function scoreEndless(
-  challenge: Extract<RunChallenge, { mode: "endless-ladder" }>,
-  transcript: RunTranscript,
-): number {
-  const attempts = objectArray(transcript.attempts, "Endless Ladder");
-  if (!attempts.length || attempts.length > challenge.cardIds.length)
-    throw new Error("Endless Ladder transcript is invalid");
-  const row = [...challenge.startingIds];
-  let score = 0;
-  let ended = false;
-  attempts.forEach((attempt, index) => {
-    if (ended) throw new Error("Endless Ladder continued after a miss");
-    const cardId = challenge.cardIds[index]!;
-    if (attempt.cardId !== cardId || !Number.isInteger(attempt.slotIndex))
-      throw new Error("Endless Ladder attempt is invalid");
-    if (canInsert(row, cardId, Number(attempt.slotIndex))) {
-      row.splice(Number(attempt.slotIndex), 0, cardId);
-      score += 1;
-    } else {
-      ended = true;
-    }
-  });
-  if (!ended && attempts.length < challenge.cardIds.length)
-    throw new Error("Endless Ladder run has not ended");
-  return score;
-}
-
-function scoreBlitz(
-  challenge: Extract<RunChallenge, { mode: "blitz" }>,
-  transcript: RunTranscript,
-  wallElapsedMs: number,
-): number {
-  const answers = objectArray(transcript.answers, "Blitz");
-  if (wallElapsedMs < 58_000 || answers.length > challenge.cardIds.length)
-    throw new Error("Blitz run ended too early");
-  let previousAtMs = 0;
-  let cleared = 0;
-  let fastGaps = 0;
-  for (const [index, answer] of answers.entries()) {
-    const cardId = challenge.cardIds[index]!;
-    const guesses = numberArray(answer.guesses, "Blitz guesses");
-    const atMs = Number(answer.atMs);
-    // Timestamps must strictly advance; a sub-79ms gap is a lightning solve —
-    // counted, not fatal (a whole run of them is caught below).
-    if (
-      answer.cardId !== cardId ||
-      !Number.isFinite(atMs) ||
-      atMs <= previousAtMs
-    )
-      throw new Error("Blitz answer is invalid");
-    if (atMs < previousAtMs + 79) fastGaps += 1;
-    // Answers past the buzzer (a suspended rAF clock kept the board live) are
-    // clipped rather than voiding the whole run.
-    if (atMs > 60_500) break;
-    const expected = card(cardId).elixir;
-    if (
-      !guesses.length ||
-      guesses.at(-1) !== expected ||
-      guesses.slice(0, -1).includes(expected)
-    )
-      throw new Error("Blitz guesses are invalid");
-    previousAtMs = atMs;
-    cleared += 1;
-  }
-  if (isImplausiblyFast(fastGaps, cleared))
-    throw new Error("Blitz answers are implausibly fast");
-  return cleared;
-}
-
 function scoreSurvival(
   challenge: Extract<RunChallenge, { mode: "survival" }>,
   transcript: RunTranscript,
@@ -592,58 +386,6 @@ function scoreSurvival(
   return score;
 }
 
-function scoreSweep(
-  challenge: Extract<RunChallenge, { mode: "cost-sweep" }>,
-  transcript: RunTranscript,
-  wallElapsedMs: number,
-): number {
-  const picks = objectArray(transcript.picks, "Cost Sweep");
-  let boardIndex = 0;
-  let previousAtMs = 0;
-  let penalties = 0;
-  let found = 0;
-  let selected = new Set<number>();
-  for (const pick of picks) {
-    const board = challenge.boards[boardIndex];
-    if (!board) throw new Error("Cost Sweep exceeded its signed boards");
-    const cardId = Number(pick.cardId);
-    const atMs = Number(pick.atMs);
-    if (
-      pick.boardIndex !== boardIndex ||
-      !board.cardIds.includes(cardId) ||
-      !Number.isFinite(atMs) ||
-      atMs < previousAtMs
-    ) {
-      throw new Error("Cost Sweep pick is invalid");
-    }
-    // A tap past the buzzer (a suspended rAF clock on iOS, a tap in flight at
-    // the horn) clips the run at the window instead of voiding it.
-    if (atMs + penalties > 45_500) break;
-    previousAtMs = atMs;
-    if (card(cardId).elixir === board.targetElixir) {
-      if (selected.has(cardId))
-        throw new Error("Cost Sweep target was selected twice");
-      selected.add(cardId);
-      found += 1;
-      const targets = board.cardIds.filter(
-        (id) => card(id).elixir === board.targetElixir,
-      );
-      if (targets.every((id) => selected.has(id))) {
-        boardIndex += 1;
-        selected = new Set();
-      }
-    } else {
-      penalties += 2_000;
-    }
-  }
-  // The 45s window shrinks by 2s per wrong tap, so an honest run's wall time
-  // is 45s minus its penalties: validate the effective window, not raw wall
-  // time (a static floor rejected honest runs with three or more wrong taps).
-  if (wallElapsedMs + penalties < 43_000)
-    throw new Error("Cost Sweep run ended too early");
-  return found;
-}
-
 // Cumulative response time across the surviving (correct) Survival cards — the
 // leaderboard tiebreak among equal streaks, and the "you cleared it in X" time.
 export function survivalTimeMs(
@@ -666,33 +408,13 @@ export function scoreRun(
 ): number {
   switch (challenge.mode) {
     case "surge":
-      return scoreAnswerSprint(
-        challenge.cardIds,
-        transcript,
-        wallElapsedMs,
-        "elixir",
-      );
+      return scoreAnswerSprint(challenge.cardIds, transcript, wallElapsedMs);
     case "practice":
       return scorePractice(challenge, transcript);
-    case "identify":
-      return scoreAnswerSprint(
-        challenge.cardIds,
-        transcript,
-        wallElapsedMs,
-        "card",
-      );
     case "higher-lower":
       return scoreHigherLower(challenge, transcript, wallElapsedMs);
     case "trade":
       return scoreTrade(challenge, transcript, wallElapsedMs);
-    case "ladder":
-      return scoreLadder(challenge, transcript, wallElapsedMs);
-    case "endless-ladder":
-      return scoreEndless(challenge, transcript);
-    case "cost-sweep":
-      return scoreSweep(challenge, transcript, wallElapsedMs);
-    case "blitz":
-      return scoreBlitz(challenge, transcript, wallElapsedMs);
     case "survival":
       return scoreSurvival(challenge, transcript, wallElapsedMs);
   }

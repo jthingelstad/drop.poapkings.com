@@ -4,15 +4,10 @@ import { emailValidationMessage } from "@elixir-drop/contracts";
 const PLAYER_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
 const GAME_RETURN_PATHS = new Set([
   "/practice",
-  "/identify",
   "/surge",
   "/higher-lower",
   "/trade",
-  "/blitz",
   "/survival",
-  "/ladder",
-  "/endless-ladder",
-  "/cost-sweep",
 ]);
 
 export function normalizeEmail(value: unknown): string {

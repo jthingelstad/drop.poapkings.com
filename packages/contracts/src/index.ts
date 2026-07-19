@@ -1,13 +1,8 @@
 export const GAME_MODES = [
   "surge",
   "practice",
-  "identify",
   "higher-lower",
   "trade",
-  "ladder",
-  "endless-ladder",
-  "cost-sweep",
-  "blitz",
   "survival",
 ] as const;
 
@@ -88,17 +83,9 @@ export function higherLowerWindowMs(round: number): number {
 export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
   | { mode: "practice"; cardIds: number[] }
-  | { mode: "identify"; cardIds: number[] }
-  | { mode: "blitz"; cardIds: number[] }
   | { mode: "survival"; cardIds: number[] }
   | { mode: "higher-lower"; pairs: Array<[number, number]> }
-  | { mode: "trade"; rounds: Array<{ blueIds: number[]; redIds: number[] }> }
-  | { mode: "ladder"; cardIds: number[] }
-  | { mode: "endless-ladder"; startingIds: number[]; cardIds: number[] }
-  | {
-      mode: "cost-sweep";
-      boards: Array<{ targetElixir: number; cardIds: number[] }>;
-    };
+  | { mode: "trade"; rounds: Array<{ blueIds: number[]; redIds: number[] }> };
 
 export interface Season {
   id: string;
