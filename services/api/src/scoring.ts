@@ -191,7 +191,10 @@ export function createChallenge(
     case "blitz":
       return { mode, cardIds: cardSequence(BLITZ_CARD_COUNT, randomInt, pool) };
     case "survival":
-      return { mode, cardIds: cardSequence(250, randomInt, pool) };
+      // Every card once, shuffled: clearing the whole deck is a WIN, then it is
+      // a race on cumulative time. No repeats, so the max streak is the catalog
+      // size (~120).
+      return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
     case "higher-lower":
       return { mode, pairs: higherLowerPairs(randomInt, pool) };
     case "trade":
@@ -623,6 +626,21 @@ function scoreSweep(
   if (wallElapsedMs + penalties < 43_000)
     throw new Error("Cost Sweep run ended too early");
   return found;
+}
+
+// Cumulative response time across the surviving (correct) Survival cards — the
+// leaderboard tiebreak among equal streaks, and the "you cleared it in X" time.
+export function survivalTimeMs(
+  transcript: RunTranscript,
+  score: number,
+): number {
+  const answers = Array.isArray(transcript.answers) ? transcript.answers : [];
+  let total = 0;
+  for (let index = 0; index < score && index < answers.length; index += 1) {
+    const ms = Number((answers[index] as { elapsedMs?: unknown })?.elapsedMs);
+    if (Number.isFinite(ms) && ms > 0) total += ms;
+  }
+  return Math.round(total);
 }
 
 export function scoreRun(

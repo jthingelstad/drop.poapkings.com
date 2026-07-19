@@ -56,11 +56,12 @@ export type GameMode = (typeof GAME_MODES)[number];
 // Survival's per-card window tightens as the streak grows — every run gets a
 // natural climax. The curve is hyperbolic, so the clock keeps getting faster the
 // deeper you go (no flat floor): a 5s opening eases toward an 800ms ultimate
-// ceiling, dropping below 2s around a 40 streak and near 1.1s by 167. One curve,
-// shared by the browser clock and the server scorer (small boundary tolerance).
+// ceiling, dropping below 2s by a ~27 streak and near 1.1s by the full deck
+// (~120 cards). One curve, shared by the browser clock and the server scorer
+// (small boundary tolerance).
 export const SURVIVAL_BASE_WINDOW_MS = 5_000;
 export const SURVIVAL_MIN_WINDOW_MS = 800;
-export const SURVIVAL_WINDOW_RAMP = 15;
+export const SURVIVAL_WINDOW_RAMP = 10;
 
 export function survivalWindowMs(streak: number): number {
   const span = SURVIVAL_BASE_WINDOW_MS - SURVIVAL_MIN_WINDOW_MS;

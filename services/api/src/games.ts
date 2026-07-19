@@ -77,8 +77,15 @@ export function leaderboardSortKey(
   score: number,
   completedAt: string,
   sub: string,
+  tiebreakMs?: number,
 ): string {
   const sortableScore =
     MODE_RULES[mode].direction === "lower" ? score : MAX_SORT_SCORE - score;
-  return `${String(sortableScore).padStart(12, "0")}#${completedAt}#${sub}`;
+  // An optional ascending tiebreak (Survival cumulative time): among equal
+  // scores the smaller value sorts first, so the fastest clear ranks higher.
+  const tiebreak =
+    tiebreakMs === undefined
+      ? ""
+      : `#${String(Math.min(Math.max(0, Math.round(tiebreakMs)), 999_999_999)).padStart(9, "0")}`;
+  return `${String(sortableScore).padStart(12, "0")}${tiebreak}#${completedAt}#${sub}`;
 }

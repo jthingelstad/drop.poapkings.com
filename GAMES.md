@@ -111,9 +111,12 @@ hyperbolic curve — dropping below 2s around a 40 streak and toward an 800ms
 ultimate ceiling — so it never flattens and always pressures a deep run (one
 shared curve, `survivalWindowMs`, enforced server-side). One wrong answer _or_ a
 timeout ends the run, revealing the missed card's cost; hiding the tab ends
-the run with the streak intact.
+the run with the streak intact. The deck is **every card once** (no repeats), so
+clearing it is a **WIN** (max streak ≈ the catalog, ~120). The leaderboard ranks
+on **streak count, then fastest cumulative time** (`survivalTimeMs` → the sort
+key's tiebreak), so once everyone can clear the deck it becomes a speedrun.
 
-- Record: `survivalBest`.
+- Record: `survivalBest` (streak). Cumulative time is the leaderboard tiebreak.
 
 ## Vaulted for launch
 

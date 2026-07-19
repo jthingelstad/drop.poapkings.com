@@ -47,6 +47,9 @@ export default function Survival() {
 
   const insights = useSignal<Insights | null>(null)
   const isPB = useSignal(false)
+  // Set when the whole deck is cleared — a win, not a death.
+  const won = useRef(false)
+  const finishTimeMs = useSignal(0)
   const elixirLine = useSignal('')
   const dieRef = useRef<(card: Card | null, picked: number | undefined) => void>(() => {})
   dieRef.current = die
@@ -95,6 +98,7 @@ export default function Survival() {
     if (!(await gameRun.ensureFreshRun())) return
     runtime.startNow((startedAt) => {
       dead.current = false
+      won.current = false
       answers.current = []
       serverAnswers.current = []
       streak.value = 0
@@ -110,6 +114,8 @@ export default function Survival() {
     if (stage.value !== 'running' || dead.current) return
     const c = gameRun.content?.[serverCardIndex.current]
     if (!c) {
+      // Cleared the whole deck — a win.
+      won.current = true
       finish()
       return
     }
@@ -149,14 +155,21 @@ export default function Survival() {
 
     insights.value = ins
     isPB.value = pb
+    // Cumulative time across the surviving cards — matches the server's tiebreak.
+    finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
     if (pb) {
       saveRecords({ survivalBest: streak.value })
       best.value = streak.value
       track('record.new')
     }
-    elixirLine.value = pb
-      ? `${streak.value} in a row — new best. That's nerve.`
-      : `${streak.value} in a row. The clan goes deeper. Run it back.`
+    if (won.current) {
+      track('survival.win')
+      elixirLine.value = `Every card, no misses — ${(finishTimeMs.value / 1000).toFixed(1)}s. Now go faster.`
+    } else {
+      elixirLine.value = pb
+        ? `${streak.value} in a row — new best. That's nerve.`
+        : `${streak.value} in a row. The clan goes deeper. Run it back.`
+    }
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current })
   }
@@ -186,6 +199,7 @@ export default function Survival() {
   function replay() {
     runtime.reset('ready')
     dead.current = false
+    won.current = false
     insights.value = null
     current.value = null
     serverCardIndex.current = 0
@@ -204,22 +218,35 @@ export default function Survival() {
   }
 
   if (stage.value === 'over' && insights.value) {
-    const pbCallout = isPB.value ? 'New personal best!' : best.value > 0 ? `Best: ${best.value}` : undefined
+    const winTime = `${(finishTimeMs.value / 1000).toFixed(1)}s`
+    const pbCallout = won.current
+      ? `Cleared in ${winTime}`
+      : isPB.value
+        ? 'New personal best!'
+        : best.value > 0
+          ? `Best: ${best.value}`
+          : undefined
     return (
       <div class="main-content">
         <Summary
-          eyebrow="Survival · sudden death"
-          headline={`${streak.value} in a row`}
+          eyebrow={won.current ? 'Survival · cleared!' : 'Survival · sudden death'}
+          headline={won.current ? 'You named every card!' : `${streak.value} in a row`}
           pbCallout={pbCallout}
           elixirLine={elixirLine.value}
-          elixirMood={isPB.value ? 'hype' : 'unimpressed'}
+          elixirMood={won.current || isPB.value ? 'hype' : 'unimpressed'}
           insights={insights.value}
           onReplay={replay}
-          replayLabel="Run it back"
+          replayLabel={won.current ? 'Go faster' : 'Run it back'}
           onHome={() => navigate('/')}
         >
-          <ShareLine text={`Survival: ${streak.value} in a row — drop.poapkings.com`} />
-          {isPB.value && streak.value >= 10 && <Recruit />}
+          <ShareLine
+            text={
+              won.current
+                ? `Survival: named every card in ${winTime} — drop.poapkings.com`
+                : `Survival: ${streak.value} in a row — drop.poapkings.com`
+            }
+          />
+          {(won.current || (isPB.value && streak.value >= 10)) && <Recruit />}
         </Summary>
       </div>
     )

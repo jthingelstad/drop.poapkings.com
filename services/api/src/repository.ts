@@ -671,6 +671,7 @@ export class Repository {
     score: number,
     seasonId: string,
     xp: number,
+    tiebreakMs?: number,
   ): Promise<{
     totalGames: number;
     completedAt: string;
@@ -687,12 +688,21 @@ export class Repository {
       seasonId,
       completedAt,
       playerSub: run.owner,
+      // Cumulative time (Survival) rides along for the leaderboard tiebreak and
+      // for display.
+      ...(tiebreakMs !== undefined ? { timeMs: tiebreakMs } : {}),
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.
       ...(ranked
         ? {
             GSI1PK: `LEADERBOARD#${seasonId}#${run.mode}`,
-            GSI1SK: leaderboardSortKey(run.mode, score, completedAt, run.owner),
+            GSI1SK: leaderboardSortKey(
+              run.mode,
+              score,
+              completedAt,
+              run.owner,
+              tiebreakMs,
+            ),
           }
         : {}),
     };
@@ -968,6 +978,7 @@ export class Repository {
       rank: index + 1,
       score: item.score,
       achievedAt: item.completedAt,
+      ...(item.timeMs !== undefined ? { timeMs: item.timeMs as number } : {}),
       player: profiles.get(String(item.playerSub)) ?? {
         id: `player-${index + 1}`,
         publicName: "Elixir Player",

@@ -26,7 +26,7 @@ import {
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
-import { createChallenge, scoreRun } from "./scoring.js";
+import { createChallenge, scoreRun, survivalTimeMs } from "./scoring.js";
 import { runXp } from "./xp.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
@@ -693,7 +693,16 @@ async function route(event: APIGatewayProxyEventV2) {
       });
     }
     const xpAward = runXp(transcript);
-    const result = await repository.completeRun(run, score, season.id, xpAward);
+    // Survival ranks equal streaks by fastest cumulative time.
+    const tiebreakMs =
+      run.mode === "survival" ? survivalTimeMs(transcript, score) : undefined;
+    const result = await repository.completeRun(
+      run,
+      score,
+      season.id,
+      xpAward,
+      tiebreakMs,
+    );
     // Fold the validated transcript into the player's server-side learning
     // stats. Best-effort: a stats failure must never fail a recorded game.
     try {

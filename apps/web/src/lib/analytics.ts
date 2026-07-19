@@ -30,6 +30,7 @@ export type TinyEvent =
   | 'endless.complete'
   | 'costsweep.complete'
   | 'record.new'
+  | 'survival.win'
   | 'recruit.shown'
   | 'recruit.join'
   | 'recruit.discord'

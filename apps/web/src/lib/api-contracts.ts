@@ -186,6 +186,8 @@ export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
   achievedAt: isoDateTime,
+  // Survival: cumulative time (ms) — the tiebreak among equal streaks.
+  timeMs: z.optional(nonNegativeInteger),
   player: z.object({
     id: nonEmptyString,
     publicName: nonEmptyString,

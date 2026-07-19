@@ -1066,9 +1066,17 @@ a {
   color: #24151b;
 }
 .leaderboard-score {
+  display: grid;
+  justify-items: end;
   color: var(--gold);
   font-family: var(--font-display);
   font-size: clamp(1.15rem, 4vw, 1.55rem);
+}
+.leaderboard-score__time {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 .leaderboard-player {
   display: grid;

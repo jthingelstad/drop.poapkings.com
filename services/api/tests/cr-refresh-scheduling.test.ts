@@ -291,6 +291,7 @@ describe("Clash Royale refresh scheduling", () => {
       expect.any(Number),
       "2026-07",
       expect.any(Number),
+      undefined, // no Survival time tiebreak for a Practice run
     );
     expect(JSON.parse(response.body || "{}").season).toMatchObject({
       source: "clash-royale",

@@ -1,7 +1,13 @@
 import { randomInt } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
-import { createChallenge, scoreRun, SURGE_CARD_COUNT } from "../src/scoring.js";
+import {
+  createChallenge,
+  scoreRun,
+  SURGE_CARD_COUNT,
+  survivalTimeMs,
+} from "../src/scoring.js";
+import { leaderboardSortKey } from "../src/games.js";
 
 const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
@@ -187,6 +193,49 @@ describe("server-side game scoring", () => {
       atMs: 1_000 + index * 100,
     }));
     expect(scoreRun(sweep, { picks }, 45_000)).toBe(targetIds.length);
+  });
+
+  it("deals Survival as the whole deck once (no repeats) so it can be cleared", () => {
+    const survival = createChallenge("survival", randomInt);
+    expect(new Set(survival.cardIds).size).toBe(survival.cardIds.length);
+    expect(survival.cardIds.length).toBeGreaterThan(100);
+  });
+
+  it("sums Survival cumulative time over the surviving cards only", () => {
+    const answers = [
+      { cardId: 1, guess: 1, elapsedMs: 400 },
+      { cardId: 2, guess: 2, elapsedMs: 600 },
+      { cardId: 3, guess: 3, elapsedMs: 900 }, // the death card — excluded
+    ];
+    expect(survivalTimeMs({ answers }, 2)).toBe(1_000);
+  });
+
+  it("ranks equal Survival streaks by fastest cumulative time", () => {
+    const faster = leaderboardSortKey(
+      "survival",
+      120,
+      "2026-07-19T00:00:00Z",
+      "a",
+      40_000,
+    );
+    const slower = leaderboardSortKey(
+      "survival",
+      120,
+      "2026-07-19T00:00:00Z",
+      "b",
+      55_000,
+    );
+    // Ascending GSI order → the smaller (faster) key sorts first.
+    expect(faster < slower).toBe(true);
+    // A higher streak always outranks a lower one regardless of time.
+    const deeper = leaderboardSortKey(
+      "survival",
+      121,
+      "2026-07-19T00:00:00Z",
+      "c",
+      90_000,
+    );
+    expect(deeper < faster).toBe(true);
   });
 
   it("tolerates a lone lightning tap but rejects sustained sub-100ms answers", () => {
