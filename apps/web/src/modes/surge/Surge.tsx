@@ -13,7 +13,7 @@ import CardDisplay from '../../components/CardDisplay'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import Icon from '../../components/Icon'
-import PenaltyFlash from '../../components/PenaltyFlash'
+import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
@@ -55,6 +55,7 @@ export default function Surge() {
 
   const insights = useSignal<Insights | null>(null)
   const paceDelta = useSignal<{ aheadMs: number } | null>(null)
+  const pacePulse = useSignal(0)
   const paceTimer = useRef<number | undefined>(undefined)
   const totalMs = useSignal(0)
   const isPB = useSignal(false)
@@ -159,6 +160,7 @@ export default function Surge() {
       if ((solved === 5 || solved === 10) && pace?.[solved - 1] !== undefined) {
         const missesSoFar = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
         paceDelta.value = { aheadMs: pace[solved - 1]! - (atMs + missesSoFar * SURGE.PENALTY_MS) }
+        pacePulse.value += 1
         window.clearTimeout(paceTimer.current)
         paceTimer.current = window.setTimeout(() => (paceDelta.value = null), 2000)
       }
@@ -275,6 +277,8 @@ export default function Surge() {
 
   // ── Running ──────────────────────────────────────────────────────────────
   const card = gameRun.content[index.value]!
+  const pace = paceDelta.value
+  const paceAhead = (pace?.aheadMs ?? 0) >= 0
   return (
     <div class="main-content game-run surge">
       <GameFxLayer cue={runtime.cue.value} particleCount={16} />
@@ -286,20 +290,6 @@ export default function Surge() {
         <div class="surge-hud__count">
           card {index.value + 1} / {SURGE.SPRINT_LEN}
         </div>
-        <PenaltyFlash pulse={runtime.penaltyPulse.value} label="+2s" />
-      </div>
-
-      <div class="surge-hint" aria-live="polite">
-        {paceDelta.value && (
-          <span
-            class={`pace-delta ${paceDelta.value.aheadMs >= 0 ? 'pace-delta--ahead' : 'pace-delta--behind'}`}
-            data-testid="pace-delta"
-          >
-            <Icon name={paceDelta.value.aheadMs >= 0 ? 'arrow-up' : 'arrow-down'} />
-            {(Math.abs(paceDelta.value.aheadMs) / 1000).toFixed(1)}s{' '}
-            {paceDelta.value.aheadMs >= 0 ? 'ahead of' : 'behind'} best
-          </span>
-        )}
       </div>
 
       <div class="progress-track" aria-hidden="true">
@@ -310,21 +300,41 @@ export default function Surge() {
         <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
       </GameMotion>
 
-      {/* Fixed-height slot so the keypad never shifts mid-tap. */}
-      <div class="surge-hint" data-testid="surge-hint" aria-live="polite">
-        {hint.value === 'higher' && (
-          <span class="surge-hint__cue surge-hint__cue--higher">
-            <Icon name="arrow-up" /> Higher
-          </span>
-        )}
-        {hint.value === 'lower' && (
-          <span class="surge-hint__cue surge-hint__cue--lower">
-            <Icon name="arrow-down" /> Lower
-          </span>
-        )}
-      </div>
-
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
+
+      {/* Transient feedback, composited over the game — never in layout flow. */}
+      <div class="game-cues" aria-hidden="true">
+        <div class="game-cues__slot game-cues__slot--top">
+          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+            <Icon name="timer" /> +2s
+          </FloatingCue>
+          <FloatingCue
+            trigger={pacePulse.value}
+            className={`floating-cue--pace ${paceAhead ? 'is-ahead' : 'is-behind'}`}
+          >
+            <Icon name={paceAhead ? 'arrow-up' : 'arrow-down'} />
+            {(Math.abs(pace?.aheadMs ?? 0) / 1000).toFixed(1)}s {paceAhead ? 'ahead' : 'behind'}
+          </FloatingCue>
+        </div>
+        <div class="game-cues__slot game-cues__slot--bottom">
+          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="surge-hint">
+            {hint.value === 'higher' && (
+              <>
+                <Icon name="arrow-up" /> Higher
+              </>
+            )}
+            {hint.value === 'lower' && (
+              <>
+                <Icon name="arrow-down" /> Lower
+              </>
+            )}
+          </FloatingCue>
+        </div>
+      </div>
+      {/* Screen-reader announcement for the directional hint. */}
+      <span class="sr-only" aria-live="assertive">
+        {cardPhase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
+      </span>
     </div>
   )
 }
