@@ -127,6 +127,44 @@ function sweepBoards(
   });
 }
 
+// Independent pairs for the tap-the-higher-card game: each pair's two cards
+// always differ in elixir (never equal, so there is always a strictly higher
+// card), and neither card repeats from the immediately previous pair.
+function higherLowerPairs(
+  randomInt: RandomInt,
+  pool: readonly Card[],
+): Array<[number, number]> {
+  const hasTwoCosts = new Set(pool.map((card) => card.elixir)).size >= 2;
+  const source = pool.length >= 2 && hasTwoCosts ? pool : CARDS;
+  const pairs: Array<[number, number]> = [];
+  let previous = new Set<number>();
+  for (let index = 0; index < HIGHER_LOWER_PAIR_COUNT; index += 1) {
+    let a = source[randomInt(source.length)]!;
+    let b = source[randomInt(source.length)]!;
+    for (
+      let attempt = 0;
+      attempt < 60 &&
+      (a.id === b.id ||
+        a.elixir === b.elixir ||
+        previous.has(a.id) ||
+        previous.has(b.id));
+      attempt += 1
+    ) {
+      a = source[randomInt(source.length)]!;
+      b = source[randomInt(source.length)]!;
+    }
+    // Guarantee a strict higher/lower even if a degenerate draw ran out of
+    // attempts: swap in the first differing-elixir card.
+    if (a.elixir === b.elixir) {
+      const alt = source.find((card) => card.elixir !== a.elixir);
+      if (alt) b = alt;
+    }
+    pairs.push([a.id, b.id]);
+    previous = new Set([a.id, b.id]);
+  }
+  return pairs;
+}
+
 export function createChallenge<T extends GameMode>(
   mode: T,
   randomInt: RandomInt,
@@ -147,19 +185,8 @@ export function createChallenge(
       return { mode, cardIds: cardSequence(BLITZ_CARD_COUNT, randomInt, pool) };
     case "survival":
       return { mode, cardIds: cardSequence(250, randomInt, pool) };
-    case "higher-lower": {
-      // Chained pairs: each round's right card becomes the next round's left,
-      // so every round asks for exactly one new read — the classic rhythm.
-      // cardSequence guarantees adjacent cards differ.
-      const ids = cardSequence(HIGHER_LOWER_PAIR_COUNT + 1, randomInt, pool);
-      return {
-        mode,
-        pairs: Array.from(
-          { length: HIGHER_LOWER_PAIR_COUNT },
-          (_, index) => [ids[index]!, ids[index + 1]!] as [number, number],
-        ),
-      };
-    }
+    case "higher-lower":
+      return { mode, pairs: higherLowerPairs(randomInt, pool) };
     case "trade":
       return { mode, rounds: tradeRounds(randomInt, pool) };
     case "ladder": {
@@ -284,12 +311,6 @@ function scorePractice(
   return Math.round((correct / answers.length) * 100);
 }
 
-function relation(leftId: number, rightId: number): string {
-  const left = card(leftId).elixir;
-  const right = card(rightId).elixir;
-  return right > left ? "higher" : right < left ? "lower" : "equal";
-}
-
 function scoreHigherLower(
   challenge: Extract<RunChallenge, { mode: "higher-lower" }>,
   transcript: RunTranscript,
@@ -305,7 +326,14 @@ function scoreHigherLower(
     const pair = challenge.pairs[index]!;
     if (answer.leftId !== pair[0] || answer.rightId !== pair[1])
       throw new Error("Higher/Lower pair is invalid");
-    if (answer.choice === relation(...pair)) score += 1;
+    // The player taps the card they read as higher; it must be one of the two.
+    const pickedId = answer.pickedId;
+    if (pickedId !== pair[0] && pickedId !== pair[1])
+      throw new Error("Higher/Lower pick is invalid");
+    const otherId = pickedId === pair[0] ? pair[1] : pair[0];
+    // Pairs are generated with differing elixir, so the higher card is
+    // unambiguous; `>=` keeps a degenerate equal pair from failing a player.
+    if (card(pickedId).elixir >= card(otherId).elixir) score += 1;
     else ended = true;
   });
   if (!ended && answers.length < challenge.pairs.length)

@@ -77,11 +77,12 @@ tab. Local bests still track for self-paced improvement.
 - Record: `bestAccuracy` (local only; not a leaderboard).
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
-Two cards; pick Higher, Equal, or Lower relative to the left card. Endless
-streak. Pairs are chained — each round's right card becomes the next round's
-left, cost revealed — so every round asks for exactly one new read (round one
-is a pure double read). Correct advances in 750ms; a miss holds 1.4s. Trains
-the relative read that wins elixir trades.
+Two cards, costs hidden; **tap the card that costs more elixir**. Endless
+streak. Pairs are generated so the two cards **never share an elixir cost**
+(server `higherLowerPairs`), so there is always a strictly higher card and no
+"equal" option is needed — the whole card is the tap target (no separate
+controls; far easier on mobile). Correct advances in 750ms; a miss holds 1.4s
+and resets the streak. Trains the relative read that wins elixir trades.
 
 - Record: `longestStreak`.
 

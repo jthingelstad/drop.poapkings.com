@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import type { Card, ElixirMood } from '../../types'
+import type { ElixirMood } from '../../types'
 import { getRecords, saveRecords } from '../../lib/storage'
 import { pickLine } from '../../lib/elixir-lines'
 import { track } from '../../lib/analytics'
@@ -20,20 +20,14 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 // learning moment.
 const ADVANCE_DELAY_CORRECT = 750
 const ADVANCE_DELAY_WRONG = 1400
-type Choice = 'higher' | 'equal' | 'lower'
-
-function relation(left: Card, right: Card): Choice {
-  if (right.elixir > left.elixir) return 'higher'
-  if (right.elixir < left.elixir) return 'lower'
-  return 'equal'
-}
 
 export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
   const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const pairIndex = useSignal(0)
-  const serverAnswers = useRef<Array<{ leftId: number; rightId: number; choice: Choice }>>([])
-  const picked = useSignal<Choice | null>(null)
+  const serverAnswers = useRef<Array<{ leftId: number; rightId: number; pickedId: number }>>([])
+  // The card the player tapped as higher (for reveal highlighting).
+  const picked = useSignal<number | null>(null)
   const revealed = useSignal(false)
   const streak = useSignal(0)
   const streakCue = useSignal(0)
@@ -76,15 +70,16 @@ export default function HigherLower() {
     elixirMood.value = 'neutral'
   }
 
-  function choose(choice: Choice) {
+  function choose(pickedId: number) {
     const activePair = gameRun.content?.[pairIndex.value]
     if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
-    const answer = relation(left, right)
-    const correct = choice === answer
-    serverAnswers.current.push({ leftId: left.id, rightId: right.id, choice })
+    // Pairs never tie, so exactly one card is the higher cost.
+    const higherId = left.elixir > right.elixir ? left.id : right.id
+    const correct = pickedId === higherId
+    serverAnswers.current.push({ leftId: left.id, rightId: right.id, pickedId })
 
-    picked.value = choice
+    picked.value = pickedId
     revealed.value = true
 
     if (correct) {
@@ -133,21 +128,16 @@ export default function HigherLower() {
   }
 
   const [left, right] = pair
-  const answer = relation(left, right)
-  const controls: { choice: Choice; label: string }[] = [
-    { choice: 'higher', label: 'Higher' },
-    { choice: 'equal', label: 'Equal' },
-    { choice: 'lower', label: 'Lower' }
-  ]
+  const higherId = left.elixir > right.elixir ? left.id : right.id
 
-  function controlClass(choice: Choice): string {
-    if (!revealed.value) return 'hl-control'
-    const classes = ['hl-control']
-    if (choice === answer) classes.push('hl-control--correct')
-    else if (choice === picked.value) classes.push('hl-control--wrong')
-    else classes.push('hl-control--dim')
-    return classes.join(' ')
+  function cardClass(cardId: number): string {
+    if (!revealed.value) return 'hl__card'
+    if (cardId === higherId) return 'hl__card hl__card--correct'
+    if (cardId === picked.value) return 'hl__card hl__card--wrong'
+    return 'hl__card hl__card--dim'
   }
+
+  const disabled = revealed.value || gameRun.preparing.value
 
   return (
     <div class="main-content game-run hl" style={{ alignItems: 'center', gap: 22 }}>
@@ -164,39 +154,22 @@ export default function HigherLower() {
       </div>
 
       <p class="lede hl__prompt">
-        Is the <strong>right</strong> card higher, lower, or equal?
+        Tap the card that costs <strong>more</strong> elixir.
       </p>
 
       <GameMotion contentKey={pairIndex.value} cue={runtime.cue.value} preset="pair">
-        <div class="hl__pair">
-          {/* Pairs are chained: the left card is last round's right card, whose
-              cost was already revealed — keep it visible so each round asks for
-              exactly one new read. Round one stays fully hidden. */}
-          <CardDisplay
-            card={left}
-            phase="playing"
-            dropAnimKey={0}
-            forceReveal={revealed.value || pairIndex.value > 0}
-          />
+        <div class="hl__pair" role="group" aria-label="Tap the higher-cost card">
+          <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
+            <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+          </button>
           <div class="hl__vs" aria-hidden="true">
             vs
           </div>
-          <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+          <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
+            <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+          </button>
         </div>
       </GameMotion>
-
-      <div class="hl-controls" role="group" aria-label="Higher, equal, or lower">
-        {controls.map((c) => (
-          <button
-            key={c.choice}
-            class={controlClass(c.choice)}
-            onClick={() => choose(c.choice)}
-            disabled={revealed.value || gameRun.preparing.value}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
 
       <ElixirHost line={elixirLine.value} mood={elixirMood.value} />
 

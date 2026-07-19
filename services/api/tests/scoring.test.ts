@@ -50,8 +50,10 @@ describe("server-side game scoring", () => {
       [high.id, low.id],
     ];
     const answers = [
-      { leftId: low.id, rightId: high.id, choice: "higher" },
-      { leftId: high.id, rightId: low.id, choice: "higher" },
+      // Taps the higher-cost card — correct.
+      { leftId: low.id, rightId: high.id, pickedId: high.id },
+      // Taps the lower-cost card — the miss ends the run.
+      { leftId: high.id, rightId: low.id, pickedId: low.id },
     ];
     expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 0)).toBe(1);
   });
@@ -226,12 +228,20 @@ describe("server-side game scoring", () => {
     expect(new Set(challenge.cardIds.map(cost)).size).toBeGreaterThan(1);
   });
 
-  it("chains Higher/Lower pairs so each round adds one new card", () => {
+  it("deals Higher/Lower pairs with a strictly higher card (never equal)", () => {
     const challenge = createChallenge("higher-lower", randomInt);
-    for (let index = 0; index + 1 < challenge.pairs.length; index += 1) {
-      expect(challenge.pairs[index]![1]).toBe(challenge.pairs[index + 1]![0]);
-      // A pair of the same card would read as a bug.
-      expect(challenge.pairs[index]![0]).not.toBe(challenge.pairs[index]![1]);
+    expect(challenge.pairs.length).toBeGreaterThan(0);
+    for (const [a, b] of challenge.pairs) {
+      // Two distinct cards whose costs always differ, so tapping "the higher
+      // card" is never ambiguous.
+      expect(a).not.toBe(b);
+      expect(cost(a)).not.toBe(cost(b));
+    }
+    // No card repeats from the immediately previous pair.
+    for (let index = 1; index < challenge.pairs.length; index += 1) {
+      const prev = new Set(challenge.pairs[index - 1]!);
+      expect(prev.has(challenge.pairs[index]![0])).toBe(false);
+      expect(prev.has(challenge.pairs[index]![1])).toBe(false);
     }
   });
 

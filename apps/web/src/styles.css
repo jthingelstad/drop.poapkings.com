@@ -4439,52 +4439,43 @@ html.reduce-motion .surge-hint__cue {
   flex-shrink: 0;
 }
 
-.hl-controls {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  width: 100%;
-  max-width: 380px;
-}
-
-.hl-control {
-  padding: 14px 8px;
-  border-radius: var(--r-md);
-  border: 1.5px solid rgba(215, 200, 255, 0.2);
-  background: rgba(59, 29, 122, 0.55);
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
+/* Each card is the tap target — no separate controls. */
+.hl__card {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--r-lg);
+  background: none;
   cursor: pointer;
   transition:
-    transform 0.1s,
+    transform 0.12s,
     border-color 0.15s,
-    background 0.15s,
-    opacity 0.15s;
+    opacity 0.2s,
+    box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
-.hl-control:hover:not(:disabled) {
-  border-color: var(--purple);
-  background: rgba(109, 40, 217, 0.3);
+.hl__card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: rgba(215, 200, 255, 0.4);
 }
-.hl-control:active:not(:disabled) {
-  transform: scale(0.95);
+.hl__card:active:not(:disabled) {
+  transform: scale(0.97);
 }
-.hl-control:disabled {
+.hl__card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.hl__card:disabled {
   cursor: default;
 }
-
-.hl-control--correct {
+.hl__card--correct {
   border-color: var(--green);
-  background: rgba(34, 197, 94, 0.25);
-  color: #d6ffe4;
+  box-shadow: 0 0 22px rgba(34, 197, 94, 0.45);
 }
-.hl-control--wrong {
+.hl__card--wrong {
   border-color: var(--red);
-  background: rgba(239, 68, 68, 0.22);
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.4);
 }
-.hl-control--dim {
+.hl__card--dim {
   opacity: 0.4;
 }
 

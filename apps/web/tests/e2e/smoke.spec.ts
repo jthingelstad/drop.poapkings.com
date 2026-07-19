@@ -99,10 +99,18 @@ function testChallenge(mode: GameMode): RunChallenge {
     case 'survival':
       return { mode, cardIds: sequence(250) }
     case 'higher-lower': {
-      const pairIds = sequence(500)
+      // Every pair mixes a low- and a high-cost card so there is always a
+      // strictly higher card (matches the server's higherLowerPairs), with the
+      // higher card alternating sides.
+      const low = cardsData.cards.filter((card) => card.elixir <= 2)
+      const high = cardsData.cards.filter((card) => card.elixir >= 5)
       return {
         mode,
-        pairs: Array.from({ length: 250 }, (_, index) => [pairIds[index * 2]!, pairIds[index * 2 + 1]!])
+        pairs: Array.from({ length: 250 }, (_, index) => {
+          const l = low[index % low.length]!
+          const h = high[index % high.length]!
+          return (index % 2 === 0 ? [l.id, h.id] : [h.id, l.id]) as [number, number]
+        })
       }
     }
     case 'trade': {
@@ -864,6 +872,40 @@ test('nav offers a visible screensaver launcher', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Play the screensaver' })).toBeVisible()
 })
 
+test('higher/lower: tap the higher card; a miss resets the streak', async ({ page }) => {
+  await page.goto('/#/higher-lower')
+  await expect(page.locator('.hl__pair')).toBeVisible()
+  // Low chrome + effects present, like the other running modes.
+  await expect(page.locator('.game-motion')).toBeVisible()
+  await expect(page.locator('.game-fx-layer')).toHaveCount(1)
+  await expect(page.locator('.site-foot')).toBeHidden()
+
+  // Index (0 = left, 1 = right) of the higher-cost card, read from the two
+  // rendered card names.
+  const higherIndex = async () => {
+    const names = await page
+      .locator('.hl__card .pcard__img')
+      .evaluateAll((imgs) => imgs.map((img) => img.getAttribute('alt')))
+    const costs = names.map((name) => cardsData.cards.find((card) => card.name === name)?.elixir ?? 0)
+    return costs[0]! > costs[1]! ? 0 : 1
+  }
+
+  // Tap the higher card → correct, streak advances to 1.
+  await page
+    .locator('.hl__card')
+    .nth(await higherIndex())
+    .click()
+  await expect(page.locator('.hl__card--correct')).toBeVisible()
+  await expect(page.locator('.session-bar__val').first()).toHaveText('1')
+
+  // Next round: tap the lower card → miss, streak resets to 0.
+  await page.waitForTimeout(900)
+  const lower = (await higherIndex()) === 0 ? 1 : 0
+  await page.locator('.hl__card').nth(lower).click()
+  await expect(page.locator('.hl__card--wrong')).toBeVisible()
+  await expect(page.locator('.session-bar__val').first()).toHaveText('0')
+})
+
 test('home brings season standings, player bests, activity, and Trophy Road forward', async ({ page }, testInfo) => {
   await page.goto('/')
 
@@ -1033,10 +1075,8 @@ test('active play states use low chrome and keep controls visible', async ({ pag
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
-  const modes = [
-    { hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' },
-    { hash: '#/higher-lower', control: '.hl-controls', answer: 'Equal' }
-  ]
+  // Higher/Lower has its own tap-the-card coverage above.
+  const modes = [{ hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' }]
 
   for (const mode of modes) {
     await page.goto('/')
