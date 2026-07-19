@@ -15,6 +15,7 @@ const repository = vi.hoisted(() => ({
   getProfile: vi.fn(),
   getRun: vi.fn(),
   listRecentRuns: vi.fn(),
+  peekMagicLink: vi.fn(),
   updateProfile: vi.fn(),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
@@ -29,6 +30,7 @@ vi.mock("../src/repository.js", () => ({
     getProfile = repository.getProfile;
     getRun = repository.getRun;
     listRecentRuns = repository.listRecentRuns;
+    peekMagicLink = repository.peekMagicLink;
     updateProfile = repository.updateProfile;
   },
 }));
@@ -136,6 +138,7 @@ describe("Clash Royale refresh scheduling", () => {
   });
 
   it("refreshes an attached tag after a successful magic-link login", async () => {
+    repository.peekMagicLink.mockResolvedValue(profile.email);
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
 
@@ -149,6 +152,20 @@ describe("Clash Royale refresh scheduling", () => {
       "https://sqs.example/requests",
       profile.playerTag,
     );
+  });
+
+  it("does not burn the magic link when the durable login work fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    repository.peekMagicLink.mockResolvedValue(profile.email);
+    repository.ensureProfile.mockRejectedValue(new Error("dynamo down"));
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(500);
+    // The single-use link must stay redeemable for the retry click.
+    expect(repository.consumeMagicLink).not.toHaveBeenCalled();
   });
 
   it("serves cached CR data without refreshing on a profile read", async () => {

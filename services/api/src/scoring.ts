@@ -147,7 +147,18 @@ export function createChallenge(
       return { mode, rounds: tradeRounds(randomInt, pool) };
     case "ladder": {
       let cardIds = cardSequence(5, randomInt, pool);
-      while (isAscending(cardIds)) cardIds = shuffle(cardIds, randomInt);
+      // A draw where all five cards share one elixir cost can never become
+      // "not ascending" — the old unbounded shuffle loop hung the Lambda
+      // (~0.2% of draws). Redraw, fall back to the full catalog, and finish
+      // deterministically instead of spinning.
+      for (let redraw = 0; redraw < 20 && allSameCost(cardIds); redraw += 1)
+        cardIds = cardSequence(5, randomInt, pool);
+      if (allSameCost(cardIds)) cardIds = cardSequence(5, randomInt, CARDS);
+      for (let attempt = 0; attempt < 50 && isAscending(cardIds); attempt += 1)
+        cardIds = shuffle(cardIds, randomInt);
+      // With two distinct costs present, the reverse of an ascending order is
+      // guaranteed non-ascending.
+      if (isAscending(cardIds)) cardIds = [...cardIds].reverse();
       return { mode, cardIds };
     }
     case "endless-ladder": {
@@ -216,7 +227,10 @@ function scoreAnswerSprint(
       throw new Error("Card order does not match the signed run");
     const guesses = numberArray(answer.guesses, "Guesses");
     const atMs = Number(answer.atMs);
-    if (guesses.length < 1 || guesses.length > 20 || atMs <= previousAtMs + 79)
+    // The cap bounds payload size, not honest play: a struggling beginner
+    // mashing the keypad must not have the whole run voided (the client stops
+    // recording at the same limit).
+    if (guesses.length < 1 || guesses.length > 60 || atMs <= previousAtMs + 79)
       throw new Error("Answer timing is invalid");
     const correct =
       answerKind === "elixir" ? card(expectedCardId).elixir : expectedCardId;
@@ -331,6 +345,10 @@ function isAscending(ids: number[]): boolean {
   );
 }
 
+function allSameCost(ids: number[]): boolean {
+  return ids.every((id) => card(id).elixir === card(ids[0]!).elixir);
+}
+
 function isPermutation(actual: number[], expected: number[]): boolean {
   const sortedActual = [...actual].sort((left, right) => left - right);
   const sortedExpected = [...expected].sort((left, right) => left - right);
@@ -346,7 +364,9 @@ function scoreLadder(
   wallElapsedMs: number,
 ): number {
   const attempts = objectArray(transcript.attempts, "Ladder");
-  if (!attempts.length || attempts.length > 20)
+  // Sized for a genuinely struggling beginner (the client stops recording at
+  // the same limit), while still bounding the payload.
+  if (!attempts.length || attempts.length > 60)
     throw new Error("Ladder transcript is invalid");
   let finalAtMs = 0;
   attempts.forEach((attempt, index) => {

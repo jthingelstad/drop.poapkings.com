@@ -220,6 +220,20 @@ describe("server-side game scoring", () => {
     expect(scoreRun(sweep, { picks }, 45_500)).toBe(targetIds.length - 1);
   });
 
+  it("generates a solvable Speed Ladder even from a single-cost collection", () => {
+    // All five draws sharing one elixir cost can never be "not ascending";
+    // the old unbounded shuffle loop hung the Lambda on this input.
+    const sameCost = allCards
+      .filter((card) => card.elixir === 4)
+      .slice(0, 12)
+      .map((card) => card.id);
+    const challenge = createChallenge("ladder", randomInt, {
+      playerCardIds: sameCost,
+    });
+    expect(challenge.cardIds).toHaveLength(5);
+    expect(new Set(challenge.cardIds.map(cost)).size).toBeGreaterThan(1);
+  });
+
   it("rejects altered challenge order and implausible clocks", () => {
     const answers = cards.map((card, index) => ({
       cardId: card.id,

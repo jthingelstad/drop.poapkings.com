@@ -218,6 +218,10 @@ async function route(event: APIGatewayProxyEventV2) {
     await Promise.all([
       repository.useRateLimit("magic-email", emailSubject(email), 5, 60 * 60),
       repository.useRateLimit("magic-ip", sha256(ip), 20, 60 * 60),
+      // A global hourly ceiling: distributed abuse across many IPs must not
+      // turn the login mailer into a spam cannon that burns the domain's
+      // sender reputation. Far above any honest beta hour.
+      repository.useRateLimit("magic-global", "all", 200, 60 * 60),
     ]);
 
     const token = randomBytes(32).toString("base64url");
@@ -248,32 +252,43 @@ async function route(event: APIGatewayProxyEventV2) {
     if (typeof body.token !== "string" || body.token.length < 32)
       throw new HttpError(400, "A login token is required.");
     const nowSeconds = Math.floor(Date.now() / 1_000);
-    const email = await repository.consumeMagicLink(
-      sha256(body.token),
-      nowSeconds,
-    );
+    const tokenHash = sha256(body.token);
+    // Validate and complete the durable work before burning the single-use
+    // link: a transient failure mid-login used to consume the link and strand
+    // the player on "already used" with no way to retry.
+    const email = await repository.peekMagicLink(tokenHash, nowSeconds);
     const sub = emailSubject(email);
     const login = await repository.ensureProfile(sub, email);
+    await repository.consumeMagicLink(tokenHash, nowSeconds);
     const session = issueSession(sub, config.sessionSecret, nowSeconds);
     console.info("Player login completed", {
       requestId: event.requestContext.requestId,
       playerId: login.profile.playerId,
       newPlayer: login.created,
     });
-    await Promise.all([
-      publishDiscordEvent(
-        config.discordWebhookUrl,
-        loginWebhookPayload({
-          profile: login.profile,
-          newPlayer: login.created,
-        }),
-      ),
-      refreshedCrProfile(
-        repository,
-        config.crRequestQueueUrl,
-        login.profile.playerTag,
-      ),
-    ]);
+    // Side channels are best-effort: a Discord or CR hiccup must not fail a
+    // login whose link is already spent.
+    try {
+      await Promise.all([
+        publishDiscordEvent(
+          config.discordWebhookUrl,
+          loginWebhookPayload({
+            profile: login.profile,
+            newPlayer: login.created,
+          }),
+        ),
+        refreshedCrProfile(
+          repository,
+          config.crRequestQueueUrl,
+          login.profile.playerTag,
+        ),
+      ]);
+    } catch (error) {
+      console.warn("Post-login side effects failed", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
     return json(200, {
       session,
     });
@@ -325,7 +340,16 @@ async function route(event: APIGatewayProxyEventV2) {
     ]);
     return json(200, {
       player: profileResponse(profile, crProfile),
-      recentRuns,
+      // Map storage items onto the RunRecord contract: raw history rows carry
+      // table keys, GSI keys, and the email-hash sub, none of which belong on
+      // the wire.
+      recentRuns: recentRuns.map((run) => ({
+        runId: run.runId,
+        mode: run.mode,
+        score: run.score,
+        seasonId: run.seasonId,
+        completedAt: run.completedAt,
+      })),
     });
   }
 
@@ -385,7 +409,14 @@ async function route(event: APIGatewayProxyEventV2) {
     } = {};
 
     if (Object.hasOwn(body, "playerTag")) {
-      const tag = normalizePlayerTag(body.playerTag);
+      let tag: string | undefined;
+      try {
+        // A mistyped tag is the most common profile input; it must answer
+        // with the validation message, not a generic 500.
+        tag = normalizePlayerTag(body.playerTag);
+      } catch (error) {
+        throw badRequest(error);
+      }
       if (tag) updates.playerTag = tag;
       else updates.clearPlayerTag = true;
     }

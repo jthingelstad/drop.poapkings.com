@@ -113,7 +113,10 @@ export default function Surge() {
     const card = gameRun.content?.[index.value]
     if (!card) return
     const correct = picked === card.elixir
-    currentGuesses.current.push(picked)
+    // Mirror the server's transcript cap: wrong taps beyond it still penalize
+    // locally but are no longer recorded, so a mashing beginner cannot push
+    // the transcript past what the server accepts.
+    if (correct || currentGuesses.current.length < 59) currentGuesses.current.push(picked)
 
     if (!recorded.current) {
       recorded.current = true

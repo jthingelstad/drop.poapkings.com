@@ -176,6 +176,28 @@ export class Repository {
     );
   }
 
+  // Read-only validity check so redemption can do its durable work (profile
+  // creation) before burning the single-use link; a transient failure then
+  // leaves the link redeemable instead of eaten by a 500.
+  async peekMagicLink(tokenHash: string, nowSeconds: number): Promise<string> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `MAGIC#${tokenHash}`, sk: "MAGIC" },
+        ConsistentRead: true,
+      }),
+    );
+    const item = result.Item as MagicItem | undefined;
+    if (!item?.email || item.usedAt || item.expiresAt < nowSeconds) {
+      throw new HttpError(
+        401,
+        "This login link is invalid, expired, or already used.",
+        "invalid_magic_link",
+      );
+    }
+    return item.email;
+  }
+
   async consumeMagicLink(
     tokenHash: string,
     nowSeconds: number,
@@ -690,10 +712,26 @@ export class Repository {
         error instanceof Error &&
         error.name === "TransactionCanceledException"
       ) {
+        // Only a failed condition means the run truly cannot be recorded.
+        // TransactionConflict/throttling is two players completing at the
+        // same instant on the shared stats item — retryable, not "already
+        // recorded".
+        const reasons =
+          (error as { CancellationReasons?: Array<{ Code?: string }> })
+            .CancellationReasons ?? [];
+        const conditionFailed = reasons.some(
+          (reason) => reason?.Code === "ConditionalCheckFailed",
+        );
+        if (conditionFailed)
+          throw new HttpError(
+            409,
+            "This run was already recorded or is no longer valid.",
+            "run_conflict",
+          );
         throw new HttpError(
-          409,
-          "This run was already recorded or is no longer valid.",
-          "run_conflict",
+          503,
+          "Recording is briefly busy. Try again.",
+          "run_record_busy",
         );
       }
       throw error;
@@ -810,6 +848,11 @@ export class Repository {
     const items: Array<Record<string, unknown>> = [];
     const seenPlayers = new Set<string>();
     let lastKey: Record<string, unknown> | undefined;
+    // Cap the page walk: every completed run adds a GSI row, so a handful of
+    // grinders with thousands of runs must not turn the public, unauthenticated
+    // leaderboard read into an unbounded scan. Ten 200-item pages of one
+    // player's dense run history is already an extreme board.
+    let pagesRead = 0;
     do {
       const result = await client.send(
         new QueryCommand({
@@ -824,6 +867,7 @@ export class Repository {
           ExclusiveStartKey: lastKey,
         }),
       );
+      pagesRead += 1;
       for (const item of result.Items ?? []) {
         const sub = String(item.playerSub);
         if (!seenPlayers.has(sub)) {
@@ -833,28 +877,41 @@ export class Repository {
         }
       }
       lastKey = result.LastEvaluatedKey;
-    } while (items.length < limit && lastKey);
+    } while (items.length < limit && lastKey && pagesRead < 10);
 
     const subs = [...new Set(items.map((item) => String(item.playerSub)))];
     const profiles = new Map<string, PublicProfile>();
     if (subs.length) {
-      const profileResult = await client.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [this.tableName]: {
-              Keys: subs.map((sub) => profileKey(sub)),
-              ProjectionExpression:
-                "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
-              ExpressionAttributeNames: {
-                "#sub": "sub",
+      // BatchGet is allowed to return unprocessed keys under throttling;
+      // without the retry, real players render as the placeholder profile.
+      let keys: Array<Record<string, unknown>> = subs.map((sub) =>
+        profileKey(sub),
+      );
+      for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
+        if (attempt > 0)
+          await new Promise((resolve) =>
+            setTimeout(resolve, 50 * 2 ** attempt),
+          );
+        const profileResult = await client.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [this.tableName]: {
+                Keys: keys,
+                ProjectionExpression:
+                  "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
+                ExpressionAttributeNames: {
+                  "#sub": "sub",
+                },
               },
             },
-          },
-        }),
-      );
-      for (const item of profileResult.Responses?.[this.tableName] ?? []) {
-        const profile = item as PlayerProfile;
-        profiles.set(profile.sub, publicProfile(profile));
+          }),
+        );
+        for (const item of profileResult.Responses?.[this.tableName] ?? []) {
+          const profile = item as PlayerProfile;
+          profiles.set(profile.sub, publicProfile(profile));
+        }
+        keys = (profileResult.UnprocessedKeys?.[this.tableName]?.Keys ??
+          []) as Array<Record<string, unknown>>;
       }
     }
     return items.map((item, index) => ({

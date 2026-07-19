@@ -30,7 +30,10 @@ export function emailSubject(email: string): string {
 export function normalizePlayerTag(value: unknown): string | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   if (typeof value !== "string") throw new Error("Player tag must be a string");
-  const tag = `#${value.trim().toUpperCase().replace(/^#/, "")}`;
+  // Clash Royale tags never contain the letter O; the game itself reads a
+  // typed O as a zero, so honor the same canonicalization for players copying
+  // tags from screenshots.
+  const tag = `#${value.trim().toUpperCase().replaceAll("O", "0").replace(/^#/, "")}`;
   if (!PLAYER_TAG_PATTERN.test(tag))
     throw new Error("Enter a valid Clash Royale player tag");
   return tag;

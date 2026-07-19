@@ -15,6 +15,12 @@ describe("player input validation", () => {
   it("normalizes identity fields", () => {
     expect(normalizeEmail(" Player@Example.COM ")).toBe("player@example.com");
     expect(normalizePlayerTag(" 2pyq0 ")).toBe("#2PYQ0");
+    // CR tags never contain the letter O; the game reads it as a zero, so a
+    // tag copied from a screenshot must resolve rather than reject.
+    expect(normalizePlayerTag("2PYQO")).toBe("#2PYQ0");
+    expect(() => normalizePlayerTag("abc!")).toThrow(
+      "Enter a valid Clash Royale player tag",
+    );
   });
 
   it.each([

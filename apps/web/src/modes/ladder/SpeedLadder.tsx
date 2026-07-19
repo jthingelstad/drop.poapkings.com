@@ -224,9 +224,14 @@ export default function SpeedLadder() {
     if (stage.value !== 'running' || feedback.value === 'wrong') return
 
     const atMs = performance.now() - runStartedAt.current
-    serverAttempts.current.push({ order: order.value.map((card) => card.id), atMs })
+    const correct = isAscendingByElixir(order.value)
+    // Mirror the server's transcript cap: wrong locks beyond it still
+    // penalize locally but are no longer recorded, so a struggling
+    // beginner's eventual solve is not voided.
+    if (correct || serverAttempts.current.length < 59)
+      serverAttempts.current.push({ order: order.value.map((card) => card.id), atMs })
 
-    if (!isAscendingByElixir(order.value)) {
+    if (!correct) {
       playWrong()
       const hintedCardId = pickLadderHintCard(order.value, revealedIds.value)
       if (hintedCardId !== undefined) {
