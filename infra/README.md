@@ -3,8 +3,11 @@
 `template.yaml` provisions the production Elixir Drop API as one CloudFormation
 stack:
 
-- arm64 Node.js 24 Lambda;
-- API Gateway HTTP API with Drop plus the standard Vite dev and preview localhost CORS origins;
+- arm64 Node.js 24 Lambda with reserved concurrency caps;
+- API Gateway HTTP API with default-route throttling and Drop plus the standard
+  Vite dev and preview localhost CORS origins — the localhost origins are
+  intentional (local development runs against the deployed API with
+  bearer-token auth) and the deploy smoke test asserts them;
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
   seasonal leaderboard index;
 - encrypted CR request/result queues with dead-letter queues and an SQS-triggered
@@ -45,7 +48,12 @@ the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
 repository secrets. Region, CloudFormation role, code bucket, and stack name are
 repository variables. Fastmail, session-signing, and Discord secrets stay in
 CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
-copying those application secrets into GitHub.
+copying those application secrets into GitHub. The CI smoke step therefore
+reports its Fastmail JMAP probe as "not checked" — live mail verification runs
+from the fixed host via `npm run check:beta`. (If a
+`ELIXIR_DROP_FASTMAIL_JMAP_TOKEN` repository secret still exists from an earlier
+setup, delete it.) Pull requests run the same `npm run verify` gate through
+`.github/workflows/verify.yml` with no secrets at all.
 
 The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.

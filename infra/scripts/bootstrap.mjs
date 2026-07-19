@@ -87,19 +87,73 @@ async function ensureRole(accountId, bucketName) {
       PolicyDocument: JSON.stringify({
         Version: "2012-10-17",
         Statement: [
+          // API Gateway control-plane ARNs are not stack-name-scoped, so that
+          // one service keeps a wildcard resource; everything else is pinned
+          // to elixir-drop-* resources so a malicious or buggy template can
+          // no longer touch unrelated tables, functions, or log groups in
+          // the account.
+          {
+            Effect: "Allow",
+            Action: ["apigateway:*"],
+            Resource: "*",
+          },
+          {
+            Effect: "Allow",
+            Action: ["cloudwatch:*"],
+            Resource: [
+              `arn:aws:cloudwatch:${region}:${accountId}:alarm:elixir-drop-*`,
+            ],
+          },
+          {
+            Effect: "Allow",
+            Action: ["dynamodb:*"],
+            Resource: [
+              `arn:aws:dynamodb:${region}:${accountId}:table/elixir-drop*`,
+            ],
+          },
+          {
+            Effect: "Allow",
+            Action: ["events:*", "scheduler:*"],
+            Resource: [
+              `arn:aws:events:${region}:${accountId}:rule/elixir-drop-*`,
+              `arn:aws:scheduler:${region}:${accountId}:schedule/*/elixir-drop-*`,
+            ],
+          },
+          {
+            Effect: "Allow",
+            Action: ["lambda:*"],
+            Resource: [
+              `arn:aws:lambda:${region}:${accountId}:function:elixir-drop-*`,
+              `arn:aws:lambda:${region}:${accountId}:event-source-mapping:*`,
+            ],
+          },
+          // Event-source mapping creation validates against the function ARN;
+          // listing/describing mappings needs no resource scope.
           {
             Effect: "Allow",
             Action: [
-              "apigateway:*",
-              "cloudwatch:*",
-              "dynamodb:*",
-              "events:*",
-              "lambda:*",
-              "logs:*",
-              "sns:*",
-              "sqs:*",
+              "lambda:GetEventSourceMapping",
+              "lambda:ListEventSourceMappings",
             ],
             Resource: "*",
+          },
+          {
+            Effect: "Allow",
+            Action: ["logs:*"],
+            Resource: [
+              `arn:aws:logs:${region}:${accountId}:log-group:/elixir-drop/*`,
+              `arn:aws:logs:${region}:${accountId}:log-group:/elixir-drop/*:*`,
+            ],
+          },
+          {
+            Effect: "Allow",
+            Action: ["sns:*"],
+            Resource: [`arn:aws:sns:${region}:${accountId}:elixir-drop-*`],
+          },
+          {
+            Effect: "Allow",
+            Action: ["sqs:*"],
+            Resource: [`arn:aws:sqs:${region}:${accountId}:elixir-drop-*`],
           },
           {
             Effect: "Allow",

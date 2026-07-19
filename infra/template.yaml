@@ -168,12 +168,15 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # Both Lambdas are pinned to managed log groups via
+              # LoggingConfig, so no CreateLogGroup and no wildcard resource.
               - Effect: Allow
                 Action:
-                  - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: "*"
+                Resource:
+                  - !GetAtt ApiLogGroup.Arn
+                  - !GetAtt CrResultLogGroup.Arn
               - Effect: Allow
                 Action:
                   - dynamodb:BatchGetItem
@@ -187,9 +190,13 @@ Resources:
                 Resource:
                   - !GetAtt DataTable.Arn
                   - !Sub "${DataTable.Arn}/index/*"
+              # Scoped to the configured Haiku inference profile plus the
+              # Anthropic foundation models it routes to — not Resource: "*".
               - Effect: Allow
                 Action: bedrock:InvokeModel
-                Resource: "*"
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${NameModelId}
+                  - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*
               - Effect: Allow
                 Action: sqs:SendMessage
                 Resource: !GetAtt CrRequestQueue.Arn
@@ -234,6 +241,9 @@ Resources:
       Role: !GetAtt ApiRole.Arn
       MemorySize: 512
       Timeout: 20
+      # Caps concurrent spend if something hammers the API past the stage
+      # throttle; generous for beta-scale traffic.
+      ReservedConcurrentExecutions: 25
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -266,6 +276,7 @@ Resources:
       Role: !GetAtt ApiRole.Arn
       MemorySize: 256
       Timeout: 20
+      ReservedConcurrentExecutions: 5
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -298,6 +309,7 @@ Resources:
       Role: !GetAtt MailCanaryRole.Arn
       MemorySize: 256
       Timeout: 20
+      ReservedConcurrentExecutions: 1
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -342,6 +354,30 @@ Resources:
       BatchSize: 10
       FunctionResponseTypes:
         - ReportBatchItemFailures
+
+  EstimatedChargesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-estimated-charges
+      AlarmDescription: >-
+        Account-wide estimated AWS charges passed the monthly comfort ceiling.
+        Requires billing alerts to be enabled once in the account (Billing
+        preferences → Receive CloudWatch billing alerts); the metric only
+        exists in us-east-1.
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
 
   ApiFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -585,6 +621,12 @@ Resources:
       ApiId: !Ref HttpApi
       StageName: $default
       AutoDeploy: true
+      # A hard ceiling on request volume: beta-scale traffic sits far below
+      # this, and a script hammering the unauthenticated routes hits the
+      # throttle instead of an unbounded Lambda + DynamoDB bill.
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 50
+        ThrottlingBurstLimit: 100
 
   ApiInvokePermission:
     Type: AWS::Lambda::Permission

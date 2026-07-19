@@ -1,0 +1,30 @@
+name: Verify
+
+# Pull requests get the same monorepo verification the deploy runs, with no
+# secrets exposed — fork-safe by construction. Deployment still happens only
+# on push to main.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm audit --audit-level=high
+
+      - run: npx playwright install --with-deps chromium webkit
+
+      - run: npm run verify
