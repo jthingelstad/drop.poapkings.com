@@ -9,7 +9,9 @@ import { loadPixi } from '../lib/load-pixi'
 // tab is hidden. Card art is same-origin (mirrored), so textures load clean.
 
 const PALETTE = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
-const CARD_CAST_SIZE = 24
+// The scene draws from the whole card catalog. An initial cast loads fast so the
+// rain starts immediately; the rest streams in behind it for full variety.
+const INITIAL_CAST_SIZE = 30
 const FLIP_DURATION_MS = 620
 const MASCOT_INTERVAL_MS = 45_000
 const MASCOT_TEXTURE_URL = '/assets/emoji/elixir_hype.png'
@@ -65,12 +67,30 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
   // main thread instead of a blob worker.
   Assets.setPreferences({ preferWorkers: false })
 
-  // A fresh random cast of cards every activation.
-  const cast = shuffled((rawCards as CardsData).cards.filter((card) => card.icon)).slice(0, CARD_CAST_SIZE)
-  const urls = cast.map((card) => card.icon)
-  const loaded = await Assets.load<Texture>(urls)
-  const textures = urls.map((url) => loaded[url]).filter((texture): texture is Texture => Boolean(texture))
+  // A freshly shuffled run through the whole catalog every activation.
+  let destroyed = false
+  const catalog = shuffled((rawCards as CardsData).cards.filter((card) => card.icon))
+  const allUrls = catalog.map((card) => card.icon)
+  const initialUrls = allUrls.slice(0, INITIAL_CAST_SIZE)
+  const loaded = await Assets.load<Texture>(initialUrls)
+  const textures = initialUrls.map((url) => loaded[url]).filter((texture): texture is Texture => Boolean(texture))
   if (!textures.length) throw new Error('No card textures available for the screensaver')
+
+  // Stream the rest of the catalog in behind the running scene; flips and
+  // recycles start drawing from every card as its texture arrives.
+  const remainingUrls = allUrls.slice(INITIAL_CAST_SIZE)
+  if (remainingUrls.length) {
+    void Assets.load<Texture>(remainingUrls)
+      .then((rest) => {
+        if (destroyed) return
+        for (const url of remainingUrls) {
+          const texture = rest[url]
+          if (texture) textures.push(texture)
+        }
+      })
+      .catch(() => undefined)
+  }
+
   let mascotTexture: Texture | undefined
   try {
     mascotTexture = await Assets.load<Texture>(MASCOT_TEXTURE_URL)
@@ -221,9 +241,11 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
 
   return {
     destroy() {
+      destroyed = true
       document.removeEventListener('visibilitychange', onVisibility)
       app.destroy(true, { children: true, texture: false })
-      void Assets.unload(urls).catch(() => undefined)
+      // Unloading a URL that never finished loading is a harmless no-op.
+      void Assets.unload(allUrls).catch(() => undefined)
     }
   }
 }

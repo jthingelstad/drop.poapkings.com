@@ -20,6 +20,16 @@ export default function Privacy() {
         </section>
 
         <section>
+          <h2>Your email address</h2>
+          <p>
+            We will never sell, rent, or share your email address, and we never use it for third-party marketing or
+            advertising. We do intend to email you occasional Drop release news about upcoming versions of Elixir Drop,
+            and we may add you to an Elixir Drop mailing list in the future. It stays between you and the people who run
+            Drop.
+          </p>
+        </section>
+
+        <section>
           <h2>What other players can see</h2>
           <p>
             Leaderboards can show your generated Drop name, favorite card, scores, total games, and attached player tag.
@@ -62,7 +72,7 @@ export default function Privacy() {
           </p>
         </section>
 
-        <p class="privacy-card__updated">Last updated July 18, 2026.</p>
+        <p class="privacy-card__updated">Last updated July 19, 2026.</p>
       </article>
     </div>
   )

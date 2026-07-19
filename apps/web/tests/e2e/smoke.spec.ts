@@ -31,6 +31,7 @@ const testPlayer = {
   publicName: 'Knight Main',
   favoriteCardId: 26000000,
   totalGames: 12,
+  xp: 480,
   level: 2,
   levelStartGames: 10,
   nextLevelGames: 25,
@@ -77,6 +78,7 @@ function leaderboardEntries(mode: GameMode) {
       publicName: entry.name,
       favoriteCardId: entry.card,
       level: entry.level,
+      xp: 1000 - index * 200,
       totalGames: 120 - index * 23
     }
   }))
@@ -846,21 +848,20 @@ test('account deletion requires typed confirmation and clears the saved session'
   await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()
 })
 
-test('Trophy Road explains and displays the site-wide game counter', async ({ page }) => {
+test('nav player block shows Player XP and opens the profile', async ({ page }) => {
   await page.goto('/')
 
-  const trophyRoad = page.getByRole('button', { name: 'Trophy Road, Electro Valley, 592 Drop games' })
-  await expect(trophyRoad).toBeVisible()
-  await trophyRoad.click()
+  const block = page.getByRole('button', { name: /Your profile — 480 XP, .+ arena/ })
+  await expect(block).toBeVisible()
+  await block.click()
 
-  const dialog = page.getByRole('dialog', { name: 'Trophy Road' })
-  await expect(dialog).toContainText('Every completed, recorded Drop game adds one to the whole site’s road.')
-  await expect(dialog).toContainText('592 Drop games')
-  await expect(dialog).not.toContainText('visits')
-  await expect(page.getByRole('button', { name: 'Close Trophy Road' })).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(dialog).toHaveCount(0)
-  await expect(trophyRoad).toBeFocused()
+  await expect(page.locator('.profile-xp')).toContainText('Player XP')
+  await expect(page.locator('.profile-xp')).toContainText('480')
+})
+
+test('nav offers a visible screensaver launcher', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Play the screensaver' })).toBeVisible()
 })
 
 test('home brings season standings, player bests, activity, and Trophy Road forward', async ({ page }, testInfo) => {
@@ -875,7 +876,7 @@ test('home brings season standings, player bests, activity, and Trophy Road forw
   await expect(page.locator('.activity-list')).toContainText('Identify')
   await expect(page.getByRole('heading', { name: 'Drop together' })).toBeVisible()
   await expect(page.locator('.community-progress')).toContainText('592')
-  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Season best')
+  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Your season best')
 
   await testInfo.attach('competition-home.png', {
     body: await page.screenshot({ fullPage: true }),
@@ -992,7 +993,7 @@ test('active play states use low chrome and keep controls visible', async ({ pag
     await page.waitForTimeout(2_300)
 
     await expect(page.locator('.site-foot')).toBeHidden()
-    await expect(page.locator('.starcount')).toBeHidden()
+    await expect(page.locator('.player-block__xp')).toBeHidden()
     await expect(page.locator(mode.control)).toBeVisible()
     await expect(page.locator('.game-motion')).toBeVisible()
     await expect(page.locator('.game-fx-layer')).toHaveCount(1)
@@ -1156,8 +1157,8 @@ test.describe('mobile site header', () => {
   test('keeps account and navigation controls readable without overflow', async ({ page }) => {
     await useSignedOutState(page)
 
-    const account = page.locator('.site-head__account')
-    await expect(account).toHaveText('Sign in')
+    const account = page.locator('.site-head__signin')
+    await expect(account).toHaveAttribute('aria-label', 'Sign in')
     await expect(page.locator('.site-head__name')).toBeHidden()
 
     const accountIsClipped = await account.evaluate((element) => element.scrollWidth > element.clientWidth + 1)
@@ -1228,16 +1229,18 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.getByLabel('Build information')).toContainText('Build date')
 })
 
-test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
+test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   await page.goto('/#/leaderboards')
 
-  await expect(page.getByRole('heading', { name: 'Season leaderboards' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
   await expect(page.locator('.leaderboard-hero')).toContainText(
-    'CR Season 134 · Week 2 · Battle days · 2 days left in week'
+    'Season ends August 3 at 10:00 UTC — new boards open then'
   )
-  await expect(page.locator('.leaderboard-hero')).toContainText('Resets Aug 3 at 10:00 UTC')
+  // The Clan-Wars weekly clock must not appear on the season board.
+  await expect(page.locator('.leaderboard-hero')).not.toContainText('left in week')
   await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
   await expect(page.locator('.leaderboard-row--player')).toContainText('You')
+  await expect(page.locator('.leaderboard-list')).toContainText('XP')
 
   await page.getByRole('button', { name: /Survival/ }).click()
   await expect(page.getByRole('heading', { name: 'Survival' })).toBeVisible()
@@ -1362,8 +1365,10 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
   await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
   await expect(page.locator('.cr-profile')).toContainText('Years Played badge not returned by Clash Royale')
-  await expect(page.getByLabel('Clash Royale card collection')).toContainText('Knight')
-  await expect(page.getByLabel('Clash Royale card collection')).toContainText('Archers')
+  // The collection COUNT stays; the card grid was removed (no use in Drop).
+  await expect(page.locator('.cr-profile')).toContainText('Collection')
+  await expect(page.locator('.cr-profile')).toContainText('Not used in Drop')
+  await expect(page.getByLabel('Clash Royale card collection')).toHaveCount(0)
   await expect(page.locator('.cr-profile')).not.toContainText(/troph|arena|card level/i)
 
   const screenshot = await page.screenshot({ fullPage: true })
