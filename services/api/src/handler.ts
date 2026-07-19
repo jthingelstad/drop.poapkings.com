@@ -776,6 +776,7 @@ async function route(event: APIGatewayProxyEventV2) {
         new Date(),
         await currentWarClock(repository),
       ),
+      ...(config.webVersion ? { webVersion: config.webVersion } : {}),
     };
     return json(200, response);
   }

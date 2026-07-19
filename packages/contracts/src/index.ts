@@ -112,6 +112,9 @@ export interface Season {
 export interface SiteStats {
   trophyRoadGames: number;
   currentSeason: Season;
+  // Current front-end build id; the running app compares it to its own to
+  // prompt a reload when a newer version has shipped. Absent on older stacks.
+  webVersion?: string;
 }
 
 export type ClanWarPeriodType = "training" | "warDay" | "colosseum";

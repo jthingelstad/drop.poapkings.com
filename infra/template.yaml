@@ -30,6 +30,10 @@ Parameters:
   NameModelId:
     Type: String
     Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  WebVersion:
+    Type: String
+    Default: ""
+    Description: Current front-end build id (git sha); the API reports it so stale tabs can prompt a reload.
   AllowedOrigins:
     Type: CommaDelimitedList
     Default: https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173
@@ -263,6 +267,7 @@ Resources:
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+          WEB_VERSION: !Ref WebVersion
 
   CrResultFunction:
     Type: AWS::Lambda::Function

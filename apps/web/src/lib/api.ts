@@ -14,6 +14,7 @@ import {
   startedRunSchema
 } from './api-contracts'
 import { reportApiAvailable, reportApiUnavailable } from './api-availability'
+import { noteWebVersion } from './version'
 
 interface ResponseSchema<T> {
   safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown }
@@ -257,7 +258,10 @@ export function completeRun(runToken: string, transcript: Record<string, unknown
 }
 
 export function getStats(signal?: AbortSignal) {
-  return apiRequest('/stats', siteStatsSchema, { signal })
+  return apiRequest('/stats', siteStatsSchema, { signal }).then((stats) => {
+    noteWebVersion(stats.webVersion)
+    return stats
+  })
 }
 
 export function getLeaderboard(mode: GameMode, signal?: AbortSignal) {

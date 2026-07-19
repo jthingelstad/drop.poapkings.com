@@ -178,7 +178,8 @@ export const completedRunSchema = z.discriminatedUnion('accepted', [
 
 export const siteStatsSchema = z.object({
   trophyRoadGames: nonNegativeInteger,
-  currentSeason: seasonSchema
+  currentSeason: seasonSchema,
+  webVersion: z.optional(nonEmptyString)
 })
 
 export const leaderboardEntrySchema = z.object({

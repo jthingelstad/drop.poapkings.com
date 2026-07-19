@@ -57,6 +57,10 @@ export function deploymentParameters({
         environment.NAME_MODEL_ID ||
         "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     },
+    {
+      ParameterKey: "WebVersion",
+      ParameterValue: environment.WEB_VERSION?.trim() || "",
+    },
   ];
 
   for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {

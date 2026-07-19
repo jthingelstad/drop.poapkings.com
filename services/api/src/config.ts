@@ -8,6 +8,9 @@ export interface Config {
   nameModelId: string;
   discordWebhookUrl?: string;
   crRequestQueueUrl: string;
+  // Current front-end build id (first 12 chars of the git sha), reported on
+  // /stats so stale tabs can prompt a reload. Absent until a deploy sets it.
+  webVersion?: string;
 }
 
 function required(name: string): string {
@@ -32,5 +35,6 @@ export function getConfig(): Config {
     discordWebhookUrl:
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
+    webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };
 }

@@ -8,6 +8,9 @@ import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import PlayerAvatar from './components/PlayerAvatar'
 import { rankFor } from './data/starRanks'
 import ApiStatusBanner from './components/ApiStatusBanner'
+import UpdateBanner from './components/UpdateBanner'
+import { getStats } from './lib/api'
+import { updateAvailable } from './lib/version'
 import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Screensaver from './components/Screensaver'
@@ -273,6 +276,22 @@ export default function App() {
     void initializeAccount()
   }, [])
 
+  // Watch for a newer front-end build: /stats reports the current version, so a
+  // periodic poll and a check when the tab is refocused catch a stale tab and
+  // let the player reload. Stops polling once an update is known.
+  useEffect(() => {
+    const check = () => {
+      if (updateAvailable.value || document.visibilityState !== 'visible') return
+      void getStats().catch(() => {})
+    }
+    const timer = window.setInterval(check, 15 * 60_000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [])
+
   // Idle attract mode arms only on Home; leaving the route disarms it, so it
   // can never fire during a game. (Reading route.value in render subscribes
   // this component to the signal, so the local flag is a real dependency.)
@@ -288,6 +307,7 @@ export default function App() {
     <>
       <Header />
       <ApiStatusBanner />
+      <UpdateBanner />
       <main>
         {title && <h1 class="sr-only">{title}</h1>}
         <Screen r={route.value} />

@@ -30,6 +30,23 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("passes the front-end build version through, empty when unset", () => {
+    assert.deepEqual(
+      deploymentParameters({ ...base, stackExists: true }).find(
+        (parameter) => parameter.ParameterKey === "WebVersion",
+      ),
+      { ParameterKey: "WebVersion", ParameterValue: "" },
+    );
+    assert.deepEqual(
+      deploymentParameters({
+        ...base,
+        environment: { WEB_VERSION: "abc123def456" },
+        stackExists: true,
+      }).find((parameter) => parameter.ParameterKey === "WebVersion"),
+      { ParameterKey: "WebVersion", ParameterValue: "abc123def456" },
+    );
+  });
+
   void it("reuses runtime secrets when updating an existing stack from CI", () => {
     const parameters = deploymentParameters({ ...base, stackExists: true });
 

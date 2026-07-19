@@ -43,6 +43,10 @@ jobs:
           ELIXIR_DROP_CODE_BUCKET: ${{ vars.ELIXIR_DROP_CODE_BUCKET }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
           APP_URL: https://drop.poapkings.com
+          # The API reports this so stale browser tabs can prompt a reload. It is
+          # the same commit the web bundle is built from below (GITHUB_SHA), and
+          # the front-end build id is its first 12 chars.
+          WEB_VERSION: ${{ github.sha }}
 
       # The Fastmail token deliberately stays out of GitHub: the smoke script
       # reports its JMAP probe as "not checked" here, and the operator-side
