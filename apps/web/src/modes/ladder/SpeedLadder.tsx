@@ -26,8 +26,9 @@ const LADDER = {
 
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
+const SOLVE_REVEAL_MS = 1100
 
-type Feedback = 'idle' | 'wrong'
+type Feedback = 'idle' | 'wrong' | 'solved'
 
 function pluralizeMisses(count: number): string {
   return `${count} ${count === 1 ? 'miss' : 'misses'}`
@@ -168,12 +169,12 @@ export default function SpeedLadder() {
   }
 
   function moveCard(fromIndex: number, toIndex: number) {
-    if (stage.value !== 'running' || feedback.value === 'wrong') return
+    if (stage.value !== 'running' || feedback.value !== 'idle') return
     order.value = reorderCards(order.value, fromIndex, toIndex)
   }
 
   function tapCard(cardId: number, index: number) {
-    if (stage.value !== 'running' || feedback.value === 'wrong') return
+    if (stage.value !== 'running' || feedback.value !== 'idle') return
     if (performance.now() < suppressTapUntil.current) return
 
     if (selectedCard.value === null) {
@@ -222,7 +223,7 @@ export default function SpeedLadder() {
   }
 
   function lockOrder() {
-    if (stage.value !== 'running' || feedback.value === 'wrong') return
+    if (stage.value !== 'running' || feedback.value !== 'idle') return
 
     const atMs = performance.now() - runStartedAt.current
     const correct = isAscendingByElixir(order.value)
@@ -251,6 +252,8 @@ export default function SpeedLadder() {
 
     playCorrect()
     selectedCard.value = null
+    // Freeze the board during the solve reveal; the transcript is final.
+    feedback.value = 'solved'
     const total = Math.round(atMs) + (serverAttempts.current.length - 1) * LADDER.PENALTY_MS
     const best = getRecords().ladderBest
     const pb = best === undefined || total < best
@@ -268,7 +271,11 @@ export default function SpeedLadder() {
       totalMs: total,
       wrongLocks: wrongLocks.value
     })
-    timed.setStage('summary')
+    // The player just built the ladder — flash every cost in final order so
+    // they see it confirmed before the summary takes over. The score was
+    // captured above; this beat costs nothing.
+    revealedIds.value = new Set(order.value.map((card) => card.id))
+    later(() => timed.setStage('summary'), SOLVE_REVEAL_MS)
     void gameRun.complete({ attempts: serverAttempts.current })
   }
 
@@ -402,7 +409,7 @@ export default function SpeedLadder() {
             card={card}
             index={index}
             total={order.value.length}
-            disabled={feedback.value === 'wrong'}
+            disabled={feedback.value !== 'idle'}
             isDragging={draggingCard.value === card.id}
             isRevealed={revealedIds.value.has(card.id)}
             isSelected={selectedCard.value === card.id}
@@ -417,7 +424,7 @@ export default function SpeedLadder() {
       </ol>
 
       <div class="ladder-actions">
-        <button class="btn btn--gold ladder-actions__lock" onClick={lockOrder} disabled={feedback.value === 'wrong'}>
+        <button class="btn btn--gold ladder-actions__lock" onClick={lockOrder} disabled={feedback.value !== 'idle'}>
           Lock order
         </button>
         <div class="ladder-actions__feedback" aria-live="polite">

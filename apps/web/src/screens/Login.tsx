@@ -62,8 +62,10 @@ export default function Login() {
             <label for="login-email">Email address</label>
             <input
               id="login-email"
+              name="email"
               type="email"
               autocomplete="email"
+              autocapitalize="none"
               inputmode="email"
               maxlength={254}
               required

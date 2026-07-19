@@ -91,7 +91,14 @@ function tradeRounds(
       for (const card of [...blue, ...red]) excluded.add(card.id);
     }
   }
-  return rounds;
+  // Ramp the mental load: open with the small exchanges (1v1, 2v1) and close
+  // with the big boards, so the run teaches before it tests.
+  return rounds.sort(
+    (left, right) =>
+      left.blueIds.length +
+      left.redIds.length -
+      (right.blueIds.length + right.redIds.length),
+  );
 }
 
 function sweepBoards(
@@ -107,12 +114,15 @@ function sweepBoards(
     : [...new Set(CARDS.map((card) => card.elixir))].filter(
         (cost) => CARDS.filter((card) => card.elixir === cost).length >= 3,
       );
-  return Array.from({ length: 50 }, () => {
+  return Array.from({ length: 50 }, (_, boardIndex) => {
     const targetElixir = eligibleCosts[randomInt(eligibleCosts.length)] ?? 4;
+    // Escalate across boards: two targets to find early, four by the fifth
+    // board — clean early boards earn a harder, higher-scoring late run.
+    const desiredTargets = Math.min(4, 2 + Math.floor(boardIndex / 2));
     const targets = shuffle(
       sweepPool.filter((card) => card.elixir === targetElixir),
       randomInt,
-    ).slice(0, randomInt(2) + 2);
+    ).slice(0, desiredTargets);
     const fillers = shuffle(
       sweepPool.filter((card) => card.elixir !== targetElixir),
       randomInt,

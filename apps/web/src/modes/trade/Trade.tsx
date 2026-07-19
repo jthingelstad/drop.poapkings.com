@@ -8,8 +8,9 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
 import { useTimedRun } from '../../lib/use-timed-run'
-import { formatTrade, pickTradeHintCard, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
+import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
+import Icon from '../../components/Icon'
 import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
@@ -22,7 +23,10 @@ const TRADE = {
   PENALTY_MS: 2000
 }
 
-const CORRECT_BEAT_MS = 240
+// A solved exchange reveals every cost and both sums — the mode's actual
+// lesson. Speed players tap straight through; the clock only charges the
+// dwell a player chooses to spend reading.
+const REVEAL_BEAT_MS = 1600
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
@@ -96,6 +100,7 @@ export default function Trade() {
 
   const timed = useTimedRun({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = timed
+  const advanceRef = useRef<() => void>(() => {})
   const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongGuesses = useSignal(0)
@@ -203,14 +208,22 @@ export default function Trade() {
     lastTrade.value = answer
     if (roundMisses.current === 0) cleanTrades.value += 1
     feedback.value = 'correct'
-    later(() => {
+    // Reveal the whole exchange — every cost plus both sums — so the player
+    // sees the arithmetic confirmed, then advance on tap or after the beat.
+    revealedIds.value = new Set([...round.blue, ...round.red].map((card) => card.id))
+    let advanced = false
+    const advance = () => {
+      if (advanced) return
+      advanced = true
       if (index.value + 1 >= TRADE.SEQUENCE_LEN) {
         const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
         finish(Math.round(atMs) + misses * TRADE.PENALTY_MS)
         return
       }
       nextRound()
-    }, CORRECT_BEAT_MS)
+    }
+    advanceRef.current = advance
+    later(advance, REVEAL_BEAT_MS)
   }
 
   function replay() {
@@ -353,13 +366,28 @@ export default function Trade() {
       </div>
 
       <div class="trade-prompt">
-        <span>What was your elixir trade?</span>
-        <strong>
-          {feedback.value === 'wrong'
-            ? `${hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}. +${TRADE.PENALTY_MS / 1000}s`
-            : 'Blue perspective'}
-        </strong>
+        {feedback.value === 'correct' ? (
+          <span class="trade-prompt__math" data-testid="trade-math">
+            Blue {sideTotal(round.blue)} · Red {sideTotal(round.red)} →{' '}
+            <strong>{formatTrade(tradeValue(round))}</strong>
+          </span>
+        ) : (
+          <>
+            <span>What was your elixir trade?</span>
+            <strong>
+              {feedback.value === 'wrong'
+                ? `${hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}. +${TRADE.PENALTY_MS / 1000}s`
+                : 'Blue perspective'}
+            </strong>
+          </>
+        )}
       </div>
+
+      {feedback.value === 'correct' && (
+        <button class="btn btn--gold btn--sm trade-next" onClick={() => advanceRef.current()}>
+          Next trade <Icon name="arrow-right" />
+        </button>
+      )}
 
       <div class="trade-answers" role="group" aria-label="Choose your elixir trade">
         {TRADE_ANSWERS.map((value) => {

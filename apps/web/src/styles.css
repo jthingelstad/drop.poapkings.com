@@ -2023,6 +2023,37 @@ body:has(.game-run) .starcount {
   letter-spacing: 0.08em;
 }
 
+/* Endless Ladder stacks: consecutive same-cost cards collapse into one chip
+   with a count badge, keeping long rows tap-sized on phones. */
+.endless-stack {
+  position: relative;
+  display: inline-flex;
+}
+
+.endless-stack--multi {
+  filter: drop-shadow(3px 3px 0 rgba(109, 40, 217, 0.35));
+}
+
+.endless-stack__count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #201435;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.endless-slot--correct {
+  border-color: rgba(74, 222, 128, 0.85);
+  color: #4ade80;
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.35);
+}
+
 /* Non-ranked run disclosure (collection pool / focused practice). */
 .run-scope {
   display: inline-flex;

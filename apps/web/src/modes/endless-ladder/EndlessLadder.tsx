@@ -22,7 +22,9 @@ import { useGameSession } from '../../lib/use-game-session'
 const ENDLESS = {
   STARTING_CARDS: 2,
   CORRECT_BEAT_MS: 260,
-  WRONG_BEAT_MS: 760
+  // Long enough to read the death reveal: every cost shows and the slots
+  // that would have worked light up.
+  WRONG_BEAT_MS: 1400
 }
 
 type Stage = 'ready' | 'running' | 'over'
@@ -64,6 +66,8 @@ export default function EndlessLadder() {
   const dropKey = useSignal(0)
   const inserts = useSignal(0)
   const failedSlot = useSignal<number | null>(null)
+  // Death reveal: show all costs and highlight the slots that were valid.
+  const revealOutcome = useSignal(false)
   const insights = useSignal<Insights | null>(null)
   const isPB = useSignal(false)
   const elixirLine = useSignal('')
@@ -92,6 +96,7 @@ export default function EndlessLadder() {
     serverAttempts.current = []
     insights.value = null
     failedSlot.value = null
+    revealOutcome.value = false
     isPB.value = false
     inserts.value = 0
     cardPhase.value = 'playing'
@@ -162,7 +167,10 @@ export default function EndlessLadder() {
     void gameRun.complete({ attempts: serverAttempts.current })
   }
 
-  function insert(slotIndex: number) {
+  // Rendered slots are group boundaries; the transcript and row math use the
+  // full-row index. Equal-cost cards accept either side, so the boundary set
+  // loses no legal placement.
+  function insert(groupSlot: number, slotIndex: number) {
     if (stage.value !== 'running' || cardPhase.value !== 'playing') return
     const card = current.value
     if (!card) return
@@ -170,8 +178,9 @@ export default function EndlessLadder() {
 
     if (!canInsertAt(row.value, card, slotIndex)) {
       playWrong()
+      revealOutcome.value = true
       cardPhase.value = 'wrong'
-      later(() => finish(slotIndex), ENDLESS.WRONG_BEAT_MS)
+      later(() => finish(groupSlot), ENDLESS.WRONG_BEAT_MS)
       return
     }
 
@@ -273,6 +282,24 @@ export default function EndlessLadder() {
 
   const card = current.value
 
+  // Collapse consecutive same-cost cards into stacks: the late game stays
+  // about "where does this cost belong", not scanning a scrolling row.
+  const rowGroups: Array<{ card: Card; count: number }> = []
+  for (const rowCard of row.value) {
+    const last = rowGroups.at(-1)
+    if (last && last.card.elixir === rowCard.elixir) last.count += 1
+    else rowGroups.push({ card: rowCard, count: 1 })
+  }
+  const fullSlotIndex = (groupSlot: number) =>
+    rowGroups.slice(0, groupSlot).reduce((sum, group) => sum + group.count, 0)
+  const slotWouldWork = (groupSlot: number) => Boolean(card && canInsertAt(row.value, card, fullSlotIndex(groupSlot)))
+  const slotClass = (groupSlot: number) => {
+    const classes = ['endless-slot']
+    if (failedSlot.value === groupSlot) classes.push('endless-slot--wrong')
+    if (revealOutcome.value && slotWouldWork(groupSlot)) classes.push('endless-slot--correct')
+    return classes.join(' ')
+  }
+
   return (
     <div class="main-content game-run endless" style={{ alignItems: 'center', gap: 18 }}>
       <div class="surge-hud ladder-hud">
@@ -303,26 +330,33 @@ export default function EndlessLadder() {
       <div class="endless-track" aria-label="Endless Ladder insertion slots">
         <button
           type="button"
-          class={`endless-slot${failedSlot.value === 0 ? ' endless-slot--wrong' : ''}`}
-          onClick={() => insert(0)}
+          class={slotClass(0)}
+          onClick={() => insert(0, 0)}
           disabled={cardPhase.value !== 'playing'}
           data-testid="endless-slot"
           data-slot-index={0}
         >
           Insert before
         </button>
-        {row.value.map((rowCard, index) => (
-          <div class="endless-step" key={rowCard.id}>
-            <EndlessRowCard card={rowCard} revealCost={stage.value === 'over'} />
+        {rowGroups.map((group, index) => (
+          <div class="endless-step" key={`${group.card.id}-${group.count}`}>
+            <div class={`endless-stack${group.count > 1 ? ' endless-stack--multi' : ''}`}>
+              <EndlessRowCard card={group.card} revealCost={stage.value === 'over' || revealOutcome.value} />
+              {group.count > 1 && (
+                <span class="endless-stack__count" aria-label={`${group.count} cards of this cost`}>
+                  ×{group.count}
+                </span>
+              )}
+            </div>
             <button
               type="button"
-              class={`endless-slot${failedSlot.value === index + 1 ? ' endless-slot--wrong' : ''}`}
-              onClick={() => insert(index + 1)}
+              class={slotClass(index + 1)}
+              onClick={() => insert(index + 1, fullSlotIndex(index + 1))}
               disabled={cardPhase.value !== 'playing'}
               data-testid="endless-slot"
               data-slot-index={index + 1}
             >
-              {index === row.value.length - 1 ? 'Insert after' : 'Insert here'}
+              {index === rowGroups.length - 1 ? 'Insert after' : 'Insert here'}
             </button>
           </div>
         ))}
