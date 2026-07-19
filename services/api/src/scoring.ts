@@ -25,6 +25,13 @@ export const HIGHER_LOWER_PAIR_COUNT = 250;
 
 type RandomInt = (upperBound: number) => number;
 
+// Reflex modes expect fast mash-taps, so a lone sub-100ms answer is human, not a
+// bot. Reject a run only when lightning taps are BOTH several and a large share
+// of the score — the signature of automation, not an occasional lucky tap.
+function isImplausiblyFast(lightningTaps: number, score: number): boolean {
+  return lightningTaps >= 3 && lightningTaps > score * 0.25;
+}
+
 function shuffle<T>(values: readonly T[], randomInt: RandomInt): T[] {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -321,6 +328,7 @@ function scoreHigherLower(
     throw new Error("Higher/Lower transcript is invalid");
   let score = 0;
   let totalElapsed = 0;
+  let lightningTaps = 0;
   let ended = false;
   answers.forEach((answer, index) => {
     if (ended)
@@ -344,13 +352,16 @@ function scoreHigherLower(
     const correct =
       card(pickedId).elixir >= card(otherId).elixir &&
       elapsedMs <= higherLowerWindowMs(score) + 250;
-    if (correct && elapsedMs < 100)
-      throw new Error("Higher/Lower answer is implausibly fast");
+    if (correct && elapsedMs < 100) lightningTaps += 1;
     if (correct) score += 1;
     else ended = true;
   });
   if (!ended && answers.length < challenge.pairs.length)
     throw new Error("Higher/Lower run has not ended");
+  // Only a sustained run of sub-100ms taps (automation) is rejected — a single
+  // human mash-tap must not void an honest streak.
+  if (isImplausiblyFast(lightningTaps, score))
+    throw new Error("Higher/Lower answers are implausibly fast");
   if (totalElapsed > wallElapsedMs + 2_000)
     throw new Error("Higher/Lower timing is not plausible");
   return score;
@@ -528,6 +539,7 @@ function scoreSurvival(
     throw new Error("Survival transcript is invalid");
   let score = 0;
   let totalElapsed = 0;
+  let lightningTaps = 0;
   let ended = false;
   answers.forEach((answer, index) => {
     if (ended) throw new Error("Survival continued after death");
@@ -545,13 +557,17 @@ function scoreSurvival(
     const correct =
       answer.guess === card(cardId).elixir &&
       elapsedMs <= survivalWindowMs(score) + 250;
-    if (correct && elapsedMs < 100)
-      throw new Error("Survival answer is implausibly fast");
+    if (correct && elapsedMs < 100) lightningTaps += 1;
     if (correct) score += 1;
     else ended = true;
   });
   if (!ended && answers.length < challenge.cardIds.length)
     throw new Error("Survival run has not ended");
+  // A single sub-100ms tap is human mash-timing in a fast reflex game; only a
+  // sustained run of them (automation) is rejected — one lightning tap must not
+  // nuke an honest deep run.
+  if (isImplausiblyFast(lightningTaps, score))
+    throw new Error("Survival answers are implausibly fast");
   if (totalElapsed + score * 200 > wallElapsedMs + 2_000)
     throw new Error("Survival timing is not plausible");
   return score;

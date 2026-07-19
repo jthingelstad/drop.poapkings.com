@@ -189,6 +189,38 @@ describe("server-side game scoring", () => {
     expect(scoreRun(sweep, { picks }, 45_000)).toBe(targetIds.length);
   });
 
+  it("tolerates a lone lightning tap but rejects sustained sub-100ms answers", () => {
+    const survival = createChallenge("survival", randomInt);
+    const ids = survival.cardIds;
+    const miss = {
+      cardId: ids[6]!,
+      guess: cost(ids[6]!) === 1 ? 2 : 1,
+      elapsedMs: 500,
+    };
+
+    // Six correct with one 50ms mash-tap, then a miss — an honest deep run.
+    const honest = [
+      ...ids.slice(0, 6).map((id, index) => ({
+        cardId: id,
+        guess: cost(id),
+        elapsedMs: index === 2 ? 50 : 500,
+      })),
+      miss,
+    ];
+    expect(scoreRun(survival, { answers: honest }, 30_000)).toBe(6);
+
+    // Every correct answer sub-100ms — the signature of automation.
+    const bot = [
+      ...ids
+        .slice(0, 6)
+        .map((id) => ({ cardId: id, guess: cost(id), elapsedMs: 50 })),
+      miss,
+    ];
+    expect(() => scoreRun(survival, { answers: bot }, 30_000)).toThrow(
+      /implausibly fast/,
+    );
+  });
+
   it("accepts an honest Cost Sweep whose window shrank from wrong taps", () => {
     const sweep = createChallenge("cost-sweep", randomInt);
     const board = sweep.boards[0]!;

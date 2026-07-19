@@ -116,7 +116,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
         setRecordingNotice({
           state: 'error',
           message: 'This result is awaiting a quick integrity review.',
-          detail: 'It was not added to your progress or the leaderboard. You can close this message and keep playing.',
+          detail: `It was not added to your progress or the leaderboard. You can close this message and keep playing. Reference: ${active.runId}`,
           actionLabel: 'Close',
           action: () => setRecordingNotice({ state: 'idle' })
         })
@@ -165,6 +165,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
         run.current = null
         console.warn('Online run completion could not be verified', {
           mode,
+          runId: active.runId,
           code: error instanceof ApiError ? error.code : 'unknown'
         })
         setRecordingNotice(
@@ -172,16 +173,14 @@ export function useGameRun<T extends GameMode>(mode: T) {
             ? {
                 state: 'error',
                 message: 'This game ran past its signed time window and was not recorded.',
-                detail:
-                  'You are still signed in and your local result is visible. Close this message, then start a new game.',
+                detail: `You are still signed in and your local result is visible. Close this message, then start a new game. Reference: ${active.runId}`,
                 actionLabel: 'Close',
                 action: () => setRecordingNotice({ state: 'idle' })
               }
             : {
                 state: 'error',
                 message: 'This game could not be verified and was not recorded.',
-                detail:
-                  'Your result is still visible, but this run cannot be retried. Close this message, then start a new game.',
+                detail: `Your result is still visible, but this run cannot be retried. Close this message, then start a new game. Reference: ${active.runId}`,
                 actionLabel: 'Close',
                 action: () => setRecordingNotice({ state: 'idle' })
               }

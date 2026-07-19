@@ -644,12 +644,21 @@ async function route(event: APIGatewayProxyEventV2) {
       );
     let score: number;
     let transcript: RunTranscript;
-    let wallElapsedMs: number;
+    const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
     try {
       transcript = requireObject(body.transcript ?? {}) as RunTranscript;
-      wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
       score = scoreRun(run.challenge, transcript, wallElapsedMs);
     } catch (error) {
+      // Surface rejected completions in the logs (not just to the player) so we
+      // can see when an honest game trips a scorer rule — the run id here
+      // matches the one shown to the player.
+      console.warn("Run completion rejected by scorer", {
+        requestId: event.requestContext.requestId,
+        runId: run.runId,
+        mode: run.mode,
+        wallElapsedMs,
+        reason: error instanceof Error ? error.message : "unknown",
+      });
       throw badRequest(error);
     }
 
