@@ -11,6 +11,7 @@ import { formatSeconds } from '../../lib/format'
 import { useTimedRun } from '../../lib/use-timed-run'
 import CardDisplay from '../../components/CardDisplay'
 import Icon from '../../components/Icon'
+import PenaltyFlash from '../../components/PenaltyFlash'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
@@ -52,6 +53,8 @@ export default function Surge() {
   const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
+  const paceDelta = useSignal<{ aheadMs: number } | null>(null)
+  const paceTimer = useRef<number | undefined>(undefined)
   const totalMs = useSignal(0)
   const isPB = useSignal(false)
   const prevBest = useSignal<number | undefined>(undefined)
@@ -101,7 +104,17 @@ export default function Surge() {
     prevBest.value = best
     isPB.value = pb
 
-    if (pb) saveRecords({ surgeBest: total })
+    if (pb)
+      saveRecords({
+        surgeBest: total,
+        // Penalty-adjusted elapsed at each card, for next run's ghost pacing.
+        surgeBestPace: serverAnswers.current.map((answer, index) => {
+          const misses = serverAnswers.current
+            .slice(0, index + 1)
+            .reduce((sum, entry) => sum + entry.guesses.length - 1, 0)
+          return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
+        })
+      })
     track('surge.complete')
     if (pb) track('record.new')
 
@@ -137,6 +150,15 @@ export default function Surge() {
       answers.current.push({ card, guess: firstGuess.current, correct: firstCorrect.current, ms })
       serverAnswers.current.push({ cardId: card.id, guesses: [...currentGuesses.current], atMs })
       saveResult(card.id, firstCorrect.current, ms)
+      // Ghost pacing: at the checkpoints, show the delta against the PB run.
+      const solved = serverAnswers.current.length
+      const pace = getRecords().surgeBestPace
+      if ((solved === 5 || solved === 10) && pace?.[solved - 1] !== undefined) {
+        const missesSoFar = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
+        paceDelta.value = { aheadMs: pace[solved - 1]! - (atMs + missesSoFar * SURGE.PENALTY_MS) }
+        window.clearTimeout(paceTimer.current)
+        paceTimer.current = window.setTimeout(() => (paceDelta.value = null), 2000)
+      }
       cardPhase.value = 'correct'
       hint.value = null
       dropKey.value += 1
@@ -259,6 +281,20 @@ export default function Surge() {
         <div class="surge-hud__count">
           card {index.value + 1} / {SURGE.SPRINT_LEN}
         </div>
+        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
+      </div>
+
+      <div class="surge-hint" aria-live="polite">
+        {paceDelta.value && (
+          <span
+            class={`pace-delta ${paceDelta.value.aheadMs >= 0 ? 'pace-delta--ahead' : 'pace-delta--behind'}`}
+            data-testid="pace-delta"
+          >
+            <Icon name={paceDelta.value.aheadMs >= 0 ? 'arrow-up' : 'arrow-down'} />
+            {(Math.abs(paceDelta.value.aheadMs) / 1000).toFixed(1)}s{' '}
+            {paceDelta.value.aheadMs >= 0 ? 'ahead of' : 'behind'} best
+          </span>
+        )}
       </div>
 
       <div class="progress-track" aria-hidden="true">

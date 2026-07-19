@@ -49,6 +49,7 @@ export type CardStats = Record<string, CardStat>
 
 export interface Records {
   surgeBest?: number // Surge: lowest time (ms) — lower is better
+  surgeBestPace?: number[] // elapsed ms at each card of the PB run (ghost pacing)
   longestStreak?: number // Higher/Lower: longest streak
   bestAccuracy?: number // Practice: best round accuracy (%)
   identifyBest?: number // Identify: lowest card-name sprint time (ms) — lower is better

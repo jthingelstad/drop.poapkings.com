@@ -16,6 +16,7 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import Icon from '../../components/Icon'
 import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -25,7 +26,9 @@ const BLITZ = {
   WINDOW_MS: 60000
 }
 const CORRECT_BEAT_MS = 230
-const WRONG_BEAT_MS = 380
+// The only cost of a miss is this lockout, so it escalates on repeated
+// misses on the same card — informed retries stay cheap, roulette does not.
+const WRONG_BEAT_STEPS_MS = [380, 600, 900]
 const COUNTDOWN_STEP_MS = 650
 
 export default function Blitz() {
@@ -50,6 +53,7 @@ export default function Blitz() {
   const cleared = useSignal(0)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
+  const hint = useSignal<'higher' | 'lower' | null>(null)
   const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
@@ -75,6 +79,7 @@ export default function Blitz() {
       current.value = gameRun.content?.[0] ?? null
       serverCardIndex.current = current.value ? 1 : 0
       cardPhase.value = 'playing'
+      hint.value = null
     })
   }
 
@@ -91,6 +96,7 @@ export default function Blitz() {
     recorded.current = false
     currentGuesses.current = []
     cardPhase.value = 'playing'
+    hint.value = null
     // Prefetch the following card's art to keep the stream smooth.
     preloadImages([c], () => {})
   }
@@ -148,12 +154,16 @@ export default function Blitz() {
       saveResult(card.id, firstCorrect.current, ms)
       cleared.value += 1
       cardPhase.value = 'correct'
+      hint.value = null
       dropKey.value += 1
       later(nextCard, CORRECT_BEAT_MS)
     } else {
       playWrong()
+      hint.value = picked < card.elixir ? 'higher' : 'lower'
+      const missesOnCard = currentGuesses.current.length - 1
+      const lockout = WRONG_BEAT_STEPS_MS[Math.min(missesOnCard, WRONG_BEAT_STEPS_MS.length - 1)] ?? 380
       cardPhase.value = 'wrong'
-      later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)
+      later(() => (cardPhase.value = 'playing'), lockout)
     }
   }
 
@@ -262,6 +272,19 @@ export default function Blitz() {
       </div>
 
       {card && <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />}
+
+      <div class="surge-hint" data-testid="blitz-hint" aria-live="polite">
+        {hint.value === 'higher' && (
+          <span class="surge-hint__cue surge-hint__cue--higher">
+            <Icon name="arrow-up" /> Higher
+          </span>
+        )}
+        {hint.value === 'lower' && (
+          <span class="surge-hint__cue surge-hint__cue--lower">
+            <Icon name="arrow-down" /> Lower
+          </span>
+        )}
+      </div>
 
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
     </div>

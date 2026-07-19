@@ -15,6 +15,7 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import PenaltyFlash from '../../components/PenaltyFlash'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -345,6 +346,7 @@ export default function Trade() {
         <div class="surge-hud__count">
           trade {index.value + 1} / {TRADE.SEQUENCE_LEN}
         </div>
+        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="progress-track" aria-hidden="true">

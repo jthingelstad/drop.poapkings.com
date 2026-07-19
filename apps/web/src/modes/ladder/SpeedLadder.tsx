@@ -16,6 +16,7 @@ import Icon from '../../components/Icon'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import PenaltyFlash from '../../components/PenaltyFlash'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -395,6 +396,7 @@ export default function SpeedLadder() {
           <span class="surge-hud__unit">s</span>
         </div>
         <div class="surge-hud__count">{wrongLocks.value ? `+${wrongLocks.value} lock` : `${LADDER.SIZE} cards`}</div>
+        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="ladder-rail" aria-hidden="true">

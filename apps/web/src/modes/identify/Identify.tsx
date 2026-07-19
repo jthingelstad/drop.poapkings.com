@@ -17,6 +17,7 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import RunScopeBadge from '../../components/RunScopeBadge'
+import PenaltyFlash from '../../components/PenaltyFlash'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -306,6 +307,7 @@ export default function Identify() {
         <div class="surge-hud__count">
           card {index.value + 1} / {IDENTIFY.SPRINT_LEN}
         </div>
+        <PenaltyFlash pulse={timed.penaltyPulse.value} label="+2s" />
       </div>
 
       <div class="progress-track" aria-hidden="true">

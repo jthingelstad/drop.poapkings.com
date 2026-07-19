@@ -2,8 +2,13 @@
 // e.g. 4 → [3,4,5,6]; 1 → [1,2,3,4]; 9 → [7,8,9,10]
 // Shared by every multiple-choice surface.
 
+import rawCards from '@elixir-drop/game-data/cards.json'
+import type { CardsData } from '../types'
+
 const MIN = 1
-const MAX = 10
+// Top of the distractor window follows the catalog: offering a cost no card
+// has is a trap, not a distractor.
+const MAX = Math.max(...(rawCards as CardsData).cards.map((card) => card.elixir))
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]

@@ -15,6 +15,7 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import PenaltyFlash from '../../components/PenaltyFlash'
 import { challengePreparers, type SweepBoard } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -319,6 +320,7 @@ export default function CostSweep() {
         <div class="surge-hud__count">
           {found.value} found · {boardsCleared.value} boards
         </div>
+        <PenaltyFlash pulse={timed.penaltyPulse.value} label="−2s" />
       </div>
 
       {currentBoard && (

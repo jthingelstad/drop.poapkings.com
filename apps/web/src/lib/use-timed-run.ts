@@ -15,6 +15,9 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
   const stage = useSignal<TimedRunStage>('ready')
   const count = useSignal(3)
   const elapsedMs = useSignal(durationMs ?? 0)
+  // Increments every time a penalty lands; HUDs key a flash off it so the
+  // silent clock jump becomes visible.
+  const penaltyPulse = useSignal(0)
   const startTime = useRef(0)
   const penaltyMs = useRef(0)
   const timers = useRef<TimerList>([])
@@ -92,6 +95,7 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
 
   function addPenalty(ms: number): void {
     penaltyMs.current += ms
+    penaltyPulse.value += 1
   }
 
   function currentElapsed(): number {
@@ -102,6 +106,7 @@ export function useTimedRun({ countdownStepMs, durationMs, onDurationEnd }: Time
     stage,
     count,
     elapsedMs,
+    penaltyPulse,
     startTime,
     penaltyMs,
     later,

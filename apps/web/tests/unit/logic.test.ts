@@ -43,7 +43,9 @@ describe('learning helpers', () => {
 
     expect(new Set(makeChoices(1))).toEqual(new Set([1, 2, 3, 4]))
     expect(new Set(makeChoices(4))).toEqual(new Set([3, 4, 5, 6]))
-    expect(new Set(makeChoices(10))).toEqual(new Set([7, 8, 9, 10]))
+    // The window tops out at the catalog's highest cost — offering a cost no
+    // card has is a trap, not a distractor.
+    expect(new Set(makeChoices(9))).toEqual(new Set([6, 7, 8, 9]))
   })
 
   it('maps card rarity into shared Clash-style render classes', () => {
