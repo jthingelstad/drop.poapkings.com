@@ -7,10 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
 
 const deleteAccount = vi.hoisted(() => vi.fn());
+const getProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     deleteAccount = deleteAccount;
+    getProfile = getProfile;
   },
 }));
 
@@ -95,5 +97,25 @@ describe("account deletion", () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body || "{}")).toEqual({ ok: true });
     expect(deleteAccount).toHaveBeenCalledWith("player-sub");
+  });
+
+  it("stops a deleted account's session from renewing", async () => {
+    getProfile.mockResolvedValue(undefined);
+
+    const refresh = event("DELETE");
+    refresh.rawPath = "/auth/refresh";
+    refresh.requestContext.http.method = "POST";
+    refresh.requestContext.http.path = "/auth/refresh";
+    refresh.body = "{}";
+
+    const response = (await handler(
+      refresh,
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(401);
+    expect(body.error.code).toBe("invalid_session");
   });
 });

@@ -281,6 +281,24 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "POST" && path === "/auth/refresh") {
     const session = sessionFor(event, config.sessionSecret, true);
+    // Sessions are stateless signed claims, so renewal is the one moment to
+    // stop a deleted account from sliding forever on self-refreshing tokens.
+    const profile = await repository.getProfile(session.sub);
+    if (!profile)
+      throw new HttpError(
+        401,
+        "Your session has expired. Sign in again.",
+        "invalid_session",
+      );
+    // A renewed session is also the routine "player is back" signal: queue a
+    // (six-hour-deduplicated) Clash Royale refresh so an active player's
+    // linked profile keeps up without ever re-redeeming a magic link.
+    if (profile.playerTag)
+      await refreshedCrProfile(
+        repository,
+        config.crRequestQueueUrl,
+        profile.playerTag,
+      );
     return json(200, {
       session: issueSession(
         session.sub,

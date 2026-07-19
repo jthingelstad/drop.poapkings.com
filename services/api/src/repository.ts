@@ -311,14 +311,14 @@ export class Repository {
   }
 
   async deleteAccount(sub: string): Promise<{ deletedGames: number }> {
-    const deletedProfile = await client.send(
-      new DeleteCommand({
+    const existing = await client.send(
+      new GetCommand({
         TableName: this.tableName,
         Key: profileKey(sub),
-        ReturnValues: "ALL_OLD",
+        ConsistentRead: true,
       }),
     );
-    const profile = deletedProfile.Attributes as ProfileItem | undefined;
+    const profile = existing.Item as ProfileItem | undefined;
     const keys = new Map<string, { pk: string; sk: string }>();
     let lastKey: Record<string, unknown> | undefined;
     do {
@@ -365,6 +365,28 @@ export class Repository {
         unprocessedAttempts = 0;
       }
     }
+
+    // The cached Clash Royale snapshot for the player's tag goes too: the
+    // privacy page promises deletion removes CR-derived data, and any other
+    // player sharing the tag simply queues a fresh fetch.
+    if (profile?.playerTag) {
+      await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: crProfileKey(profile.playerTag),
+        }),
+      );
+    }
+
+    // The profile is deleted last so a mid-sweep failure leaves the account
+    // intact and the DELETE retryable, rather than orphaning leaderboard rows
+    // behind a 500 with no profile left to authenticate the retry.
+    await client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+      }),
+    );
 
     return { deletedGames: profile?.totalGames ?? 0 };
   }

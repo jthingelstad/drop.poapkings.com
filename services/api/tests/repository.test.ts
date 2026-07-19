@@ -255,9 +255,11 @@ describe("repository DynamoDB requests", () => {
     expect(runs).toMatchObject([{ runId: "run-review" }]);
   });
 
-  it("deletes the player partition and its leaderboard-backed run records", async () => {
+  it("deletes the player partition, CR snapshot, and profile last", async () => {
     send
-      .mockResolvedValueOnce({ Attributes: { totalGames: 42 } })
+      .mockResolvedValueOnce({
+        Item: { totalGames: 42, playerTag: "#2PYQ0" },
+      })
       .mockResolvedValueOnce({
         Items: [
           {
@@ -268,17 +270,19 @@ describe("repository DynamoDB requests", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
     await expect(
       new Repository("test-table").deleteAccount("player-sub"),
     ).resolves.toEqual({ deletedGames: 42 });
 
-    const profileDelete = send.mock.calls[0]?.[0].input;
-    expect(profileDelete).toMatchObject({
-      Key: { pk: "PLAYER#player-sub", sk: "PROFILE" },
-      ReturnValues: "ALL_OLD",
-    });
+    // The profile is only read up front; it must be deleted after the sweep
+    // so a mid-sweep failure stays retryable with the account intact.
+    const firstCall = send.mock.calls[0]?.[0].input;
+    expect(firstCall.Key).toEqual({ pk: "PLAYER#player-sub", sk: "PROFILE" });
+    expect(firstCall.ReturnValues).toBeUndefined();
     const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
     expect(batch).toEqual(
       expect.arrayContaining([
@@ -294,6 +298,17 @@ describe("repository DynamoDB requests", () => {
       ]),
     );
     expect(JSON.stringify(batch)).not.toContain('"pk":"GLOBAL"');
+    // The privacy page promises deletion removes CR-derived data too.
+    const snapshotDelete = send.mock.calls[3]?.[0].input;
+    expect(snapshotDelete.Key).toEqual({
+      pk: "CR_PLAYER##2PYQ0",
+      sk: "PROFILE",
+    });
+    const profileDelete = send.mock.calls[4]?.[0].input;
+    expect(profileDelete.Key).toEqual({
+      pk: "PLAYER#player-sub",
+      sk: "PROFILE",
+    });
   });
 
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
