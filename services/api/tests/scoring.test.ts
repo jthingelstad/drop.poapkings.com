@@ -7,7 +7,7 @@ import {
   SURGE_CARD_COUNT,
   survivalTimeMs,
 } from "../src/scoring.js";
-import { leaderboardSortKey } from "../src/games.js";
+import { leaderboardPartition, leaderboardSortKey } from "../src/games.js";
 
 const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
@@ -193,6 +193,15 @@ describe("server-side game scoring", () => {
       atMs: 1_000 + index * 100,
     }));
     expect(scoreRun(sweep, { picks }, 45_000)).toBe(targetIds.length);
+  });
+
+  it("puts Survival on a reset board epoch while other modes stay put", () => {
+    expect(leaderboardPartition("2026-07", "survival")).toBe(
+      "LEADERBOARD#2026-07#survival#r2",
+    );
+    expect(leaderboardPartition("2026-07", "surge")).toBe(
+      "LEADERBOARD#2026-07#surge",
+    );
   });
 
   it("deals Survival as the whole deck once (no repeats) so it can be cleared", () => {

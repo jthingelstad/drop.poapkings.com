@@ -14,7 +14,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
-import { leaderboardSortKey } from "./games.js";
+import { leaderboardPartition, leaderboardSortKey } from "./games.js";
 import type { IntegrityReason } from "./integrity.js";
 import type { CardStatsMap } from "./learning.js";
 import { levelForGames } from "./progression.js";
@@ -695,7 +695,7 @@ export class Repository {
       // count for history, totals, and Trophy Road.
       ...(ranked
         ? {
-            GSI1PK: `LEADERBOARD#${seasonId}#${run.mode}`,
+            GSI1PK: leaderboardPartition(seasonId, run.mode),
             GSI1SK: leaderboardSortKey(
               run.mode,
               score,
@@ -920,7 +920,7 @@ export class Repository {
           IndexName: "GSI1",
           KeyConditionExpression: "GSI1PK = :pk",
           ExpressionAttributeValues: {
-            ":pk": `LEADERBOARD#${seasonId}#${mode}`,
+            ":pk": leaderboardPartition(seasonId, mode),
           },
           ScanIndexForward: true,
           Limit: 200,

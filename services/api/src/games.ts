@@ -72,6 +72,21 @@ export function isGameMode(value: unknown): value is GameMode {
 
 const MAX_SORT_SCORE = 999_999_999_999;
 
+// Bump a mode's board epoch to start its leaderboard fresh without touching or
+// deleting data: new runs write to (and reads query) the new partition, so
+// older entries are simply orphaned. Survival moved to "r2" when it became a
+// clear-the-deck, time-ranked game — its pre-change scores are retired.
+const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
+  survival: "r2",
+};
+
+export function leaderboardPartition(seasonId: string, mode: GameMode): string {
+  const epoch = BOARD_EPOCH[mode];
+  return epoch
+    ? `LEADERBOARD#${seasonId}#${mode}#${epoch}`
+    : `LEADERBOARD#${seasonId}#${mode}`;
+}
+
 export function leaderboardSortKey(
   mode: GameMode,
   score: number,
