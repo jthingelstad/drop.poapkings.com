@@ -3,8 +3,8 @@ import type { RunChallenge, RunTranscript } from "./types.js";
 
 // Server-owned learning telemetry, derived from validated run transcripts at
 // completion time. The browser never uploads stats — the server already holds
-// every guess it accepted, so it aggregates per-card recall itself and uses it
-// to deal weakness-focused Practice challenges.
+// every guess it accepted, so it aggregates per-card recall for possible future
+// coaching features. These stats do not affect challenge generation.
 
 export interface CardStat {
   seen: number;
@@ -92,8 +92,8 @@ export function mergeCardStats(
   return merged;
 }
 
-// Cards worth drilling: an active miss streak, or seen-enough accuracy under
-// 75%. Ordered worst-first so Practice seeds from the biggest gaps.
+// Cards worth revisiting: an active miss streak, or seen-enough accuracy under
+// 75%. Ordered worst-first for future coaching features.
 export function weakCardIds(stats: CardStatsMap, limit: number): number[] {
   return Object.entries(stats)
     .map(([key, stat]) => ({ cardId: Number(key), stat }))

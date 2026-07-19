@@ -78,15 +78,15 @@ rank-oriented fields as part of unrelated work.
   Name-option tokens bind the player, card ID, and exact safe choices; the API
   saves favorite card and public name together. Keep player tags separate and
   explicitly unverified.
-- **Non-uniform deals never rank.** Collection pools (12+ cards) and
-  weakness-focused Practice rounds set `ranked: false` on the run: history and
-  Trophy Road record, the leaderboard GSI keys are skipped, and the web badges
-  the run. `collectionPool()` in `services/api/src/scoring.ts` is the single
-  source of truth for the pool decision.
+- **Every new run uses the full canonical catalog and ranks.** Linked Clash
+  Royale collection data remains on the player profile for future features but
+  never changes challenge selection. The optional `ranked` field remains only
+  so historical unranked runs can be read safely.
 - **Learning stats are server-owned** (`services/api/src/learning.ts`): derived
-  from validated transcripts at completion, stored per player, used to seed
-  focused Practice and the GET /me learning summary. The browser uploads
-  nothing; localStorage stats are a display cache.
+  from validated transcripts at completion, stored per player, and returned in
+  the GET /me learning summary for possible future coaching. They do not affect
+  challenge selection. The browser uploads nothing; localStorage stats are a
+  display cache.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
 - **"Elixir Rain" screensaver egg**: activation state in

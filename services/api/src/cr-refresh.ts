@@ -2,7 +2,6 @@ import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type {
   ClashRoyaleProfile,
   CrPlayerRefreshRequest,
-  GameMode,
 } from "@elixir-drop/contracts";
 import { randomUUID } from "node:crypto";
 import { Repository } from "./repository.js";
@@ -11,20 +10,7 @@ import type { CrProfileSnapshot } from "./types.js";
 const PROFILE_FRESH_MS = 6 * 60 * 60 * 1_000;
 const REFRESH_RETRY_MS = 2 * 60 * 1_000;
 
-const PLAYER_COLLECTION_MODES = new Set<GameMode>([
-  "surge",
-  "practice",
-  "identify",
-  "higher-lower",
-  "blitz",
-  "survival",
-]);
-
 const sqs = new SQSClient({});
-
-export function usesPlayerCollection(mode: GameMode): boolean {
-  return PLAYER_COLLECTION_MODES.has(mode);
-}
 
 export function publicCrProfile(
   tag: string,

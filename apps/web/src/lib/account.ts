@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals'
-import type { LearningSummary, Player } from '@elixir-drop/contracts'
-import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin } from './api'
+import type { Player } from '@elixir-drop/contracts'
+import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin, type RecentRun } from './api'
 
 interface StoredSession {
   token: string
@@ -10,8 +10,7 @@ interface StoredSession {
 const SESSION_KEY = 'elixirdrop:session:v1'
 
 export const player = signal<Player | null>(null)
-// Server-derived learning summary from GET /me (weak cards + cost accuracy).
-export const learning = signal<LearningSummary | null>(null)
+export const recentRuns = signal<RecentRun[]>([])
 export type AccountStatus = 'loading' | 'anonymous' | 'authenticated' | 'unavailable'
 export const accountStatus = signal<AccountStatus>('loading')
 export const accountError = signal('')
@@ -62,6 +61,7 @@ async function initializeAccountOnce(): Promise<void> {
   else if (!session || new Date(session.expiresAt).getTime() <= Date.now()) session = undefined
   if (!session) {
     player.value = null
+    recentRuns.value = []
     accountStatus.value = 'anonymous'
     return
   }
@@ -70,12 +70,13 @@ async function initializeAccountOnce(): Promise<void> {
     saveSession(refreshed.session)
     const response = await getMe(refreshed.session.token)
     player.value = response.player
-    learning.value = response.learning ?? null
+    recentRuns.value = response.recentRuns
     accountStatus.value = 'authenticated'
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       saveSession(undefined)
       player.value = null
+      recentRuns.value = []
       accountStatus.value = 'anonymous'
       return
     }
@@ -89,7 +90,7 @@ export async function redeemAccount(token: string): Promise<Player> {
   saveSession(response.session)
   const me = await getMe(response.session.token)
   player.value = me.player
-  learning.value = me.learning ?? null
+  recentRuns.value = me.recentRuns
   accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
@@ -111,7 +112,7 @@ export async function refreshAccount(): Promise<void> {
   try {
     const response = await getMe(session.token)
     player.value = response.player
-    learning.value = response.learning ?? null
+    recentRuns.value = response.recentRuns
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) signOut()
     throw error
@@ -140,9 +141,14 @@ export function applyRunProgress(progress: {
   }
 }
 
+export function recordRecentRun(run: RecentRun): void {
+  recentRuns.value = [run, ...recentRuns.value.filter((recent) => recent.runId !== run.runId)].slice(0, 20)
+}
+
 export function signOut(): void {
   saveSession(undefined)
   player.value = null
+  recentRuns.value = []
   accountError.value = ''
   accountStatus.value = 'anonymous'
 }

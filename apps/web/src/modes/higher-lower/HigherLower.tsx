@@ -9,7 +9,6 @@ import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
 import GameRunGate from '../../components/GameRunGate'
-import RunScopeBadge from '../../components/RunScopeBadge'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -150,7 +149,6 @@ export default function HigherLower() {
   return (
     <div class="main-content game-run hl" style={{ alignItems: 'center', gap: 22 }}>
       <GameFxLayer cue={runtime.cue.value} particleCount={6} />
-      <RunScopeBadge ranked={gameRun.ranked.value} />
       <div class="session-bar">
         <div class="session-bar__stat">
           <span class="session-bar__val">{streak.value}</span>

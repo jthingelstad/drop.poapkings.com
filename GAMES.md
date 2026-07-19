@@ -26,10 +26,10 @@ through `apps/web/src/lib/name-choices.ts`, and card presentation through
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
 mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
 
-**Ranked vs practice deals:** a uniform catalog deal ranks on the seasonal
-leaderboards. Any non-uniform deal — a linked-collection pool (12+ cards) or a
-weakness-focused Practice round — records history and Trophy Road but is marked
-`ranked: false` and never places. The UI badges those runs.
+**Card pool and ranking:** every new run deals from the complete canonical card
+catalog and ranks on its seasonal leaderboard. Linked Clash Royale collections
+remain available on player profiles but do not affect game card selection.
+Historical `ranked: false` runs remain readable for compatibility only.
 
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
@@ -71,9 +71,8 @@ The 15-card sprint is scored as golf time.
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
 Untimed. A card appears; name its cost. The signed challenge deals a round of
-15 — seeded up to half from the player's weakest cards (server-side learning
-stats; those focused rounds are unranked) — with end-early, closing in the
-shared summary + insights.
+15 from the complete canonical catalog, with end-early, closing in the shared
+summary + insights.
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
 - Record: `bestAccuracy`.

@@ -172,7 +172,7 @@ describe("run expiry", () => {
     expect(claims.exp).toBeGreaterThan(runExpirySeconds + 12 * 60 * 60);
   });
 
-  it("seeds weak cards into Practice and marks the run unranked", async () => {
+  it("starts Practice from the full catalog without consulting personalized data", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
       sub: "player-sub",
@@ -180,11 +180,13 @@ describe("run expiry", () => {
       email: "player@example.com",
       publicName: "Knight Main",
       favoriteCardId: 26000000,
+      playerTag: "#2PYQ0",
       totalGames: 12,
       createdAt: "2026-07-01T00:00:00.000Z",
       updatedAt: "2026-07-18T12:01:00.000Z",
     });
-    // Knight has an active miss streak; the server should deal it.
+    // Historical learning data remains stored, but challenge generation no
+    // longer reads it or the linked Clash Royale collection.
     repository.getCardStats.mockResolvedValue({
       "26000000": {
         seen: 4,
@@ -199,7 +201,6 @@ describe("run expiry", () => {
         mode: string,
         challenge: { cardIds: number[] },
         expiresAt: number,
-        ranked: boolean,
       ) =>
         Promise.resolve({
           runId: "run-focus",
@@ -209,7 +210,7 @@ describe("run expiry", () => {
           state: "started",
           startedAt: new Date(nowSeconds * 1_000).toISOString(),
           expiresAt,
-          ranked,
+          ranked: true,
         }),
     );
 
@@ -221,15 +222,14 @@ describe("run expiry", () => {
     const body = JSON.parse(response.body || "{}");
 
     expect(response.statusCode).toBe(201);
-    expect(body.ranked).toBe(false);
-    expect(body.challenge.cardIds).toContain(26000000);
+    expect(body.ranked).toBe(true);
     expect(body.challenge.cardIds).toHaveLength(15);
+    expect(repository.getCardStats).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(
       "player-sub",
       "practice",
       expect.anything(),
       expect.any(Number),
-      false,
     );
   });
 });

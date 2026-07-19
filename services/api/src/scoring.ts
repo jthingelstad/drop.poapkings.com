@@ -25,15 +25,6 @@ export const HIGHER_LOWER_PAIR_COUNT = 250;
 
 type RandomInt = (upperBound: number) => number;
 
-export interface ChallengeContext {
-  playerCardIds?: readonly number[];
-  // Practice only: known-weak cards the server seeds into the deal. A focused
-  // deal is non-uniform, so the handler marks those runs unranked.
-  focusCardIds?: readonly number[];
-}
-
-const FOCUS_SEED_LIMIT = 8;
-
 function shuffle<T>(values: readonly T[], randomInt: RandomInt): T[] {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -136,57 +127,19 @@ function sweepBoards(
   });
 }
 
-// A linked collection must offer at least this many known cards before it can
-// replace the catalog as a challenge pool.
-export const MIN_COLLECTION_POOL = 12;
-
-// The single source of truth for whether a run deals from the player's linked
-// collection: the handler uses the same answer to mark those runs unranked (a
-// 12-card pool is materially easier than the full catalog, so it plays as
-// practice, not leaderboard placement).
-export function collectionPool(
-  playerCardIds?: readonly number[],
-): ReadonlyArray<{ id: number }> | undefined {
-  const playerPool = [...new Set(playerCardIds ?? [])]
-    .map((id) => CARD_BY_ID.get(id))
-    .filter((card): card is Card => Boolean(card));
-  return playerPool.length >= MIN_COLLECTION_POOL ? playerPool : undefined;
-}
-
 export function createChallenge<T extends GameMode>(
   mode: T,
   randomInt: RandomInt,
-  context?: ChallengeContext,
 ): Extract<RunChallenge, { mode: T }>;
 export function createChallenge(
   mode: GameMode,
   randomInt: RandomInt,
-  context: ChallengeContext = {},
 ): RunChallenge {
-  // A small or stale collection safely falls back to the canonical catalog.
-  const pool = (collectionPool(context.playerCardIds) as Card[]) ?? CARDS;
+  // Every run draws from the same canonical catalog. Clash Royale collection
+  // snapshots remain available on player profiles but do not affect games.
+  const pool = CARDS;
   switch (mode) {
-    case "practice": {
-      // Seed up to half the round from known-weak cards, then fill from the
-      // pool without immediate repeats; the final shuffle hides the seam.
-      const focus = shuffle(
-        [...new Set(context.focusCardIds ?? [])].filter((id): id is number =>
-          CARD_BY_ID.has(Number(id)),
-        ),
-        randomInt,
-      ).slice(0, FOCUS_SEED_LIMIT);
-      if (!focus.length)
-        return { mode, cardIds: cardSequence(15, randomInt, pool) };
-      // Draw a long fill so small pools still complete a 15-card round after
-      // the focus cards are excluded from it.
-      const fill = cardSequence(30, randomInt, pool).filter(
-        (id) => !focus.includes(id),
-      );
-      return {
-        mode,
-        cardIds: shuffle([...focus, ...fill].slice(0, 15), randomInt),
-      };
-    }
+    case "practice":
     case "surge":
     case "identify":
       return { mode, cardIds: cardSequence(15, randomInt, pool) };

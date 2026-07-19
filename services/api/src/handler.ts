@@ -6,11 +6,7 @@ import type {
 import type { SiteStats } from "@elixir-drop/contracts";
 import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
-import {
-  publicCrProfile,
-  requestCrProfileRefresh,
-  usesPlayerCollection,
-} from "./cr-refresh.js";
+import { publicCrProfile, requestCrProfileRefresh } from "./cr-refresh.js";
 import {
   completedGameWebhookPayload,
   loginWebhookPayload,
@@ -30,7 +26,7 @@ import {
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
-import { collectionPool, createChallenge, scoreRun } from "./scoring.js";
+import { createChallenge, scoreRun } from "./scoring.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
 import type {
@@ -347,8 +343,8 @@ async function route(event: APIGatewayProxyEventV2) {
     ]);
     return json(200, {
       player: profileResponse(profile, crProfile),
-      // Server-owned learning summary: which cards to drill and how each
-      // elixir band is going. Derived from validated transcripts only.
+      // Retain server-owned learning history for possible future coaching.
+      // It is derived from validated transcripts and does not affect deals.
       learning: {
         weakCardIds: weakCardIds(cardStats, 8),
         costAccuracy: costAccuracy(cardStats),
@@ -507,42 +503,16 @@ async function route(event: APIGatewayProxyEventV2) {
         "Choose a favorite card and player name before starting a game.",
         "profile_setup_required",
       );
-    let playerCardIds: number[] | undefined;
-    if (usesPlayerCollection(body.mode)) {
-      if (profile.playerTag) {
-        const crProfile = await repository.getCrProfile(profile.playerTag);
-        if (crProfile?.status === "ready")
-          playerCardIds = crProfile.cards?.map((card) => card.id);
-      }
-    }
-    // Practice deals from the server-owned learning stats: weak cards seed
-    // roughly half the round. Best-effort — a stats hiccup falls back to a
-    // uniform (ranked) deal.
-    let focusCardIds: number[] | undefined;
-    if (body.mode === "practice") {
-      try {
-        focusCardIds = weakCardIds(await repository.getCardStats(owner), 8);
-      } catch (error) {
-        console.warn("Learning stats lookup failed", {
-          error: error instanceof Error ? error.name : "unknown",
-        });
-      }
-    }
-    // A non-uniform deal plays as practice: a 12-card collection pool is
-    // materially easier than the full catalog, and a weakness-focused deal is
-    // personal by construction — neither ranks.
-    const ranked = !collectionPool(playerCardIds) && !focusCardIds?.length;
-    const challenge = createChallenge(body.mode, randomInt, {
-      playerCardIds,
-      focusCardIds,
-    });
+    // Every game uses the complete canonical catalog. Linked Clash Royale card
+    // data and learning history stay on the profile for future features but do
+    // not influence challenge selection or leaderboard eligibility.
+    const challenge = createChallenge(body.mode, randomInt);
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const run = await repository.createRun(
       owner,
       body.mode,
       challenge,
       nowSeconds + RUN_SECONDS,
-      ranked,
     );
     const runToken = signToken(
       {
@@ -560,7 +530,7 @@ async function route(event: APIGatewayProxyEventV2) {
       runToken,
       mode: run.mode,
       challenge: run.challenge,
-      ranked,
+      ranked: true,
       expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
     });
   }

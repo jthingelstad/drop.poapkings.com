@@ -1,29 +1,12 @@
 import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
-import { GAME_MODES, type GameMode, type Season } from '@elixir-drop/contracts'
+import type { GameMode, Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
+import Icon from '../components/Icon'
+import { player } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry } from '../lib/api'
-
-const LABELS: Record<GameMode, string> = {
-  surge: 'Surge',
-  practice: 'Practice',
-  identify: 'Identify',
-  'higher-lower': 'Higher / Lower',
-  trade: 'Trade',
-  ladder: 'Speed Ladder',
-  'endless-ladder': 'Endless Ladder',
-  'cost-sweep': 'Cost Sweep',
-  blitz: 'Blitz',
-  survival: 'Survival'
-}
-
-const TIME_MODES = new Set<GameMode>(['surge', 'identify', 'trade', 'ladder'])
-
-function scoreLabel(mode: GameMode, score: number): string {
-  if (TIME_MODES.has(mode)) return `${(score / 1_000).toFixed(2)}s`
-  if (mode === 'practice') return `${score}%`
-  return String(score)
-}
+import { GAME_BY_MODE, GAMES, scoreLabel } from '../lib/game-metadata'
+import { navigate } from '../lib/router'
 
 function warPhaseLabel(periodType: Season['periodType']): string | undefined {
   if (periodType === 'training') return 'Training days'
@@ -32,10 +15,61 @@ function warPhaseLabel(periodType: Season['periodType']): string | undefined {
   return undefined
 }
 
-function daysLeftLabel(days: number | undefined): string | undefined {
-  if (days === undefined) return undefined
-  if (days <= 0) return 'week ending soon'
-  return `${days} ${days === 1 ? 'day' : 'days'} left in week`
+function seasonSummary(season: Season): string {
+  const pieces = [
+    season.crSeasonId === undefined ? `${season.durationWeeks}-week season` : `CR Season ${season.crSeasonId}`,
+    season.currentWeek === undefined ? undefined : `Week ${season.currentWeek}`,
+    warPhaseLabel(season.periodType),
+    season.daysRemainingInWeek === undefined
+      ? undefined
+      : season.daysRemainingInWeek <= 0
+        ? 'Week ending soon'
+        : `${season.daysRemainingInWeek} ${season.daysRemainingInWeek === 1 ? 'day' : 'days'} left in week`
+  ]
+  return pieces.filter(Boolean).join(' · ')
+}
+
+function resetLabel(season: Season): string {
+  const date = new Date(season.endsAt).toLocaleDateString(undefined, {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric'
+  })
+  const time = new Date(season.endsAt).toLocaleTimeString(undefined, {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+  return `Resets ${date} at ${time} UTC${season.source === 'calendar-fallback' ? ' · estimated' : ''}`
+}
+
+function achievedLabel(value: string): string {
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMode }) {
+  const isPlayer = entry.player.id === player.value?.id
+  return (
+    <li
+      class={`leaderboard-row${entry.rank <= 3 ? ' leaderboard-row--podium' : ''}${
+        isPlayer ? ' leaderboard-row--player' : ''
+      }`}
+    >
+      <span class="leaderboard-rank">{entry.rank}</span>
+      <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
+      <span class="leaderboard-player">
+        <strong>
+          {entry.player.publicName}
+          {isPlayer && <em>You</em>}
+        </strong>
+        <small>
+          Level {entry.player.level} · {entry.player.totalGames} games · {achievedLabel(entry.achievedAt)}
+        </small>
+      </span>
+      <span class="leaderboard-score">{scoreLabel(mode, entry.score)}</span>
+    </li>
+  )
 }
 
 export default function Leaderboards() {
@@ -64,74 +98,69 @@ export default function Leaderboards() {
     return () => controller.abort()
   }, [mode.value, entries, error, loading, season])
 
+  const selectedGame = GAME_BY_MODE.get(mode.value)!
+
   return (
-    <div class="main-content leaderboard-screen">
-      <div class="leaderboard-head">
-        <div class="eyebrow">Clan Wars season</div>
-        <h1>Drop leaderboards</h1>
-        {season.value && (
-          <p class="lede">
-            {season.value.crSeasonId !== undefined && season.value.currentWeek !== undefined ? (
-              <>
-                CR Season {season.value.crSeasonId} · Week {season.value.currentWeek}
-                {warPhaseLabel(season.value.periodType) ? ` · ${warPhaseLabel(season.value.periodType)}` : ''}
-                {daysLeftLabel(season.value.daysRemainingInWeek)
-                  ? ` · ${daysLeftLabel(season.value.daysRemainingInWeek)}`
-                  : ''}
-                <br />
-              </>
-            ) : (
-              <>{season.value.durationWeeks}-week season · </>
-            )}
-            Leaderboard resets{' '}
-            {new Date(season.value.endsAt).toLocaleDateString(undefined, {
-              timeZone: 'UTC',
-              month: 'short',
-              day: 'numeric'
-            })}{' '}
-            at{' '}
-            {new Date(season.value.endsAt).toLocaleTimeString(undefined, {
-              timeZone: 'UTC',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            })}{' '}
-            UTC
-            {season.value.source === 'calendar-fallback' ? ' (estimated)' : ''}
-          </p>
-        )}
+    <div class="main-content leaderboard-screen leaderboard-screen--competition">
+      <div class="leaderboard-hero">
+        <div>
+          <div class="eyebrow">Every run counts</div>
+          <h1>Season leaderboards</h1>
+          {season.value ? (
+            <>
+              <p>{seasonSummary(season.value)}</p>
+              <small>{resetLabel(season.value)}</small>
+            </>
+          ) : (
+            <p>Climb a fresh set of boards every Clash Royale Clan Wars season.</p>
+          )}
+        </div>
+        <button class="btn btn--gold" onClick={() => navigate(selectedGame.path)}>
+          Play {selectedGame.name}
+        </button>
       </div>
-      <label class="leaderboard-picker">
-        Game
-        <select value={mode.value} onChange={(event) => (mode.value = event.currentTarget.value as GameMode)}>
-          {GAME_MODES.map((value) => (
-            <option key={value} value={value}>
-              {LABELS[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {loading.value && <div class="account-message">Loading leaderboard…</div>}
-      {error.value && <div class="account-message account-message--error">{error.value}</div>}
-      {!loading.value && !error.value && (
-        <ol class="leaderboard-list">
-          {entries.value.map((entry) => (
-            <li class="leaderboard-row" key={entry.player.id}>
-              <span class="leaderboard-rank">#{entry.rank}</span>
-              <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
-              <span class="leaderboard-player">
-                <strong>{entry.player.publicName}</strong>
-                <small>
-                  Level {entry.player.level}
-                  {entry.player.playerTag ? ` · ${entry.player.playerTag}` : ''}
-                </small>
-              </span>
-              <span class="leaderboard-score">{scoreLabel(mode.value, entry.score)}</span>
-            </li>
-          ))}
-          {!entries.value.length && <li class="leaderboard-empty">No scores yet. First run gets the crown.</li>}
-        </ol>
-      )}
+
+      <div class="leaderboard-mode-tabs" aria-label="Choose a game leaderboard">
+        {GAMES.map((game) => (
+          <button
+            aria-pressed={mode.value === game.mode}
+            class={mode.value === game.mode ? 'leaderboard-mode leaderboard-mode--active' : 'leaderboard-mode'}
+            onClick={() => (mode.value = game.mode)}
+            key={game.mode}
+          >
+            <span aria-hidden="true">{game.icon}</span>
+            {game.name}
+          </button>
+        ))}
+      </div>
+
+      <section class="leaderboard-board" aria-labelledby="active-leaderboard-title">
+        <div class="leaderboard-board__head">
+          <div>
+            <span aria-hidden="true">{selectedGame.icon}</span>
+            <h2 id="active-leaderboard-title">{selectedGame.name}</h2>
+          </div>
+          <span>{entries.value.length ? `Top ${entries.value.length}` : 'The crown is open'}</span>
+        </div>
+        {loading.value && <div class="competition-empty">Loading leaderboard…</div>}
+        {error.value && <div class="account-message account-message--error">{error.value}</div>}
+        {!loading.value && !error.value && (
+          <ol class="leaderboard-list">
+            {entries.value.map((entry) => (
+              <LeaderboardRow entry={entry} mode={mode.value} key={entry.player.id} />
+            ))}
+            {!entries.value.length && (
+              <li class="leaderboard-empty">
+                <strong>No scores yet.</strong>
+                <span>First run gets the crown.</span>
+                <button class="text-action" onClick={() => navigate(selectedGame.path)}>
+                  Play {selectedGame.name} <Icon name="arrow-right" />
+                </button>
+              </li>
+            )}
+          </ol>
+        )}
+      </section>
     </div>
   )
 }

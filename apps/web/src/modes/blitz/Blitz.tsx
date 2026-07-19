@@ -17,7 +17,6 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import Icon from '../../components/Icon'
-import RunScopeBadge from '../../components/RunScopeBadge'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -232,7 +231,6 @@ export default function Blitz() {
             One minute on the clock. Tap each card's cost — a miss just keeps the card up, so it's all about flow.
             Higher count wins.
           </p>
-          <RunScopeBadge ranked={gameRun.ranked.value} />
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}

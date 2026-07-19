@@ -1,9 +1,9 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
-import type { Records } from '../types'
-import { applyRunProgress, requiredSessionToken, signOut } from './account'
+import { applyRunProgress, recordRecentRun, requiredSessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
+import { LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getSeasonRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
@@ -34,29 +34,8 @@ function setRecordingNotice(notice: RecordingNotice): void {
 // server-side expiry (a Ready screen left open, a long break before Start).
 const RUN_FRESHNESS_BUFFER_MS = 2 * 60_000
 
-// Season-scoped personal bests, keyed by the server's authoritative season id.
-// Golf modes chase lower scores; everything else chases higher.
-const LOWER_IS_BETTER = new Set<GameMode>(['surge', 'identify', 'trade', 'ladder'])
-// Only the numeric record fields participate (surgeBestPace is an array).
-type NumericRecordKey = {
-  [K in keyof Records]: Records[K] extends number | undefined ? K : never
-}[keyof Records]
-const SEASON_RECORD_KEYS: Partial<Record<GameMode, NumericRecordKey>> = {
-  surge: 'surgeBest',
-  identify: 'identifyBest',
-  trade: 'tradeBest',
-  ladder: 'ladderBest',
-  'higher-lower': 'longestStreak',
-  practice: 'bestAccuracy',
-  blitz: 'blitzBest',
-  survival: 'survivalBest',
-  'endless-ladder': 'endlessLadderBest',
-  'cost-sweep': 'costSweepBest'
-}
-
 function recordSeasonBest(result: { mode: GameMode; score: number; season: { id: string } }): boolean {
-  const key = SEASON_RECORD_KEYS[result.mode]
-  if (!key) return false
+  const key = RECORD_KEYS[result.mode]
   const current = getSeasonRecords(result.season.id)[key]
   const better =
     current === undefined || (LOWER_IS_BETTER.has(result.mode) ? result.score < current : result.score > current)
@@ -76,9 +55,6 @@ export function useGameRun<T extends GameMode>(mode: T) {
   const challenge = useSignal<Extract<RunChallenge, { mode: T }> | null>(null)
   const preparing = useSignal(true)
   const startError = useSignal('')
-  // False when the server dealt a non-uniform (collection or focus) challenge:
-  // the run still records, but never ranks.
-  const ranked = useSignal(true)
 
   const prepare = useCallback(async (): Promise<void> => {
     preparing.value = true
@@ -89,7 +65,6 @@ export function useGameRun<T extends GameMode>(mode: T) {
     try {
       const started = await startRun(mode, requiredSessionToken())
       run.current = started
-      ranked.value = started.ranked !== false
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -107,7 +82,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     } finally {
       preparing.value = false
     }
-  }, [challenge, mode, preparing, ranked, startError])
+  }, [challenge, mode, preparing, startError])
 
   useEffect(() => {
     void prepare()
@@ -149,17 +124,19 @@ export function useGameRun<T extends GameMode>(mode: T) {
         return
       }
       applyRunProgress(result)
+      recordRecentRun({
+        runId: result.runId,
+        mode: result.mode,
+        score: result.score,
+        seasonId: result.season.id,
+        completedAt: result.completedAt
+      })
       run.current = null
       pendingCompletion.current = null
       const seasonBest = recordSeasonBest(result)
       setRecordingNotice({
         state: 'saved',
-        message:
-          result.ranked === false
-            ? 'Practice run recorded — not ranked'
-            : seasonBest
-              ? 'Game recorded — new season best!'
-              : 'Game recorded'
+        message: seasonBest ? 'Game recorded — new season best!' : 'Game recorded'
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
@@ -246,5 +223,5 @@ export function useGameRun<T extends GameMode>(mode: T) {
     await submitCompletion(active, transcript, onRecorded, onUnrecorded)
   }
 
-  return { challenge, preparing, startError, ranked, prepare, ensureFreshRun, complete }
+  return { challenge, preparing, startError, prepare, ensureFreshRun, complete }
 }

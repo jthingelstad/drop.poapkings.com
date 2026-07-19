@@ -15,7 +15,6 @@ import ElixirHost from '../../components/ElixirHost'
 import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import RunScopeBadge from '../../components/RunScopeBadge'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -181,7 +180,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   return (
     <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
       <GameFxLayer cue={runtime.cue.value} particleCount={6} />
-      <RunScopeBadge ranked={gameRun.ranked.value} />
       <div class="session-bar">
         <div class="session-bar__stat">
           <span class="session-bar__val">

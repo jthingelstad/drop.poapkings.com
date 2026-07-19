@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { GAME_MODES } from '@elixir-drop/contracts'
 
+// Drop ships a strict CSP without unsafe-eval. Disable Zod's optional JIT probe
+// so Firefox does not report a security-policy violation for every API parse.
+z.config({ jitless: true })
+
 const nonEmptyString = z.string().min(1)
 const isoDateTime = z.string().datetime({ offset: true })
 const safeInteger = z.number().int().safe()
@@ -145,7 +149,7 @@ export const startedRunSchema = z
     runToken: nonEmptyString,
     mode: gameModeSchema,
     challenge: runChallengeSchema,
-    // Absent from older responses — treat as ranked.
+    // Retained for compatibility with historical unranked runs.
     ranked: z.optional(z.boolean()),
     expiresAt: isoDateTime
   })

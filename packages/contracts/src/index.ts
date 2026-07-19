@@ -207,8 +207,8 @@ export interface Player {
   updatedAt: string;
 }
 
-// Server-derived learning summary (from validated run transcripts): which
-// cards to drill next and per-elixir-band accuracy.
+// Server-derived learning history from validated run transcripts. It remains
+// available for future coaching features but does not change card selection.
 export interface LearningSummary {
   weakCardIds: number[];
   costAccuracy: Record<string, { seen: number; correct: number }>;
@@ -219,8 +219,8 @@ export interface StartedRun {
   runToken: string;
   mode: GameMode;
   challenge: RunChallenge;
-  // False when the deal is non-uniform (linked-collection pool or focused
-  // practice): the run records history and Trophy Road but never ranks.
+  // Retained for responses from historical unranked runs. New runs always use
+  // the canonical catalog and rank.
   ranked?: boolean;
   expiresAt: string;
 }

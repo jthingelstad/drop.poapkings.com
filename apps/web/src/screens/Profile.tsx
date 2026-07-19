@@ -6,6 +6,7 @@ import {
   accountStatus,
   deleteAccount,
   player,
+  recentRuns,
   refreshAccount,
   sessionToken,
   signOut,
@@ -13,6 +14,7 @@ import {
 } from '../lib/account'
 import { getNameOptions } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
+import { GAME_BY_MODE, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import type { CardsData } from '../types'
@@ -222,6 +224,37 @@ export default function Profile() {
             {current.nextLevelGames - current.totalGames} games to level {current.level + 1}
           </small>
         </div>
+
+        <section class="profile-section profile-competition">
+          <div class="profile-section__head">
+            <div>
+              <h2>Recent games</h2>
+              <p>Your recorded activity follows you across devices.</p>
+            </div>
+            <button class="btn btn--ghost" onClick={() => navigate('/leaderboards')}>
+              View leaderboards
+            </button>
+          </div>
+          {recentRuns.value.length ? (
+            <ul class="profile-activity-list">
+              {recentRuns.value.slice(0, 5).map((run) => {
+                const game = GAME_BY_MODE.get(run.mode)
+                return (
+                  <li key={run.runId}>
+                    <span aria-hidden="true">{game?.icon}</span>
+                    <strong>{game?.name}</strong>
+                    <span>{scoreLabel(run.mode, run.score)}</span>
+                    <time dateTime={run.completedAt}>
+                      {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </time>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p class="profile-activity-empty">Finish a game and your recent scores will appear here.</p>
+          )}
+        </section>
 
         <section class="profile-section profile-section--identity">
           <div class="profile-section__head">

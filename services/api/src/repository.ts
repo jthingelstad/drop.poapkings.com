@@ -59,9 +59,8 @@ export interface RunItem {
   state: "started" | "completed" | "quarantined";
   startedAt: string;
   expiresAt: number;
-  // Unranked runs (collection-scoped or focus practice) record history and
-  // Trophy Road but never write a leaderboard entry. Absent on runs started
-  // before this field existed — treat as ranked.
+  // Retained for historical runs created by the former personalized-practice
+  // path. New runs are always ranked. Absent on older runs means ranked.
   ranked?: boolean;
   completedAt?: string;
   score?: number;
@@ -686,8 +685,8 @@ export class Repository {
       seasonId,
       completedAt,
       playerSub: run.owner,
-      // Unranked (practice-scoped) runs skip the sparse leaderboard index but
-      // still count for history, totals, and Trophy Road.
+      // Historical unranked runs skip the sparse leaderboard index but still
+      // count for history, totals, and Trophy Road.
       ...(ranked
         ? {
             GSI1PK: `LEADERBOARD#${seasonId}#${run.mode}`,

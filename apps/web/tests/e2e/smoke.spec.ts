@@ -37,6 +37,50 @@ const testPlayer = {
   createdAt: '2026-07-18T00:00:00.000Z',
   updatedAt: '2026-07-18T00:00:00.000Z'
 }
+const testRecentRuns = [
+  {
+    runId: 'recent-surge',
+    mode: 'surge',
+    score: 67_299,
+    seasonId: '2026-07',
+    completedAt: '2026-07-18T18:42:00.000Z'
+  },
+  {
+    runId: 'recent-identify',
+    mode: 'identify',
+    score: 19_450,
+    seasonId: '2026-07',
+    completedAt: '2026-07-18T17:12:00.000Z'
+  },
+  {
+    runId: 'recent-trade',
+    mode: 'trade',
+    score: 11_800,
+    seasonId: '2026-07',
+    completedAt: '2026-07-17T20:00:00.000Z'
+  }
+] as const
+
+function leaderboardEntries(mode: GameMode) {
+  const scores = mode === 'surge' ? [58_410, 61_220, 64_805, 67_299] : [42, 36, 29, 24]
+  return [
+    { id: 'player-2', name: 'Royal Ghosted', card: 26000050, level: 7 },
+    { id: 'player-3', name: 'Mini P Menace', card: 26000018, level: 5 },
+    { id: 'player-4', name: 'Skarmy Party', card: 26000012, level: 4 },
+    { id: testPlayer.id, name: testPlayer.publicName, card: testPlayer.favoriteCardId, level: testPlayer.level }
+  ].map((entry, index) => ({
+    rank: index + 1,
+    score: scores[index]!,
+    achievedAt: `2026-07-${18 - index}T18:00:00.000Z`,
+    player: {
+      id: entry.id,
+      publicName: entry.name,
+      favoriteCardId: entry.card,
+      level: entry.level,
+      totalGames: 120 - index * 23
+    }
+  }))
+}
 
 function testChallenge(mode: GameMode): RunChallenge {
   const cards = [...cardsData.cards]
@@ -157,7 +201,7 @@ const routes = [
   { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
   { hash: '#/endless-ladder', label: 'Endless Ladder', ready: '.endless-ready' },
   { hash: '#/cost-sweep', label: 'Cost Sweep', ready: '.sweep-ready' },
-  { hash: '#/leaderboards', label: 'Drop leaderboards', ready: '.leaderboard-screen' },
+  { hash: '#/leaderboards', label: 'Season leaderboards', ready: '.leaderboard-screen' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
   { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
 ]
@@ -218,7 +262,7 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+        body: JSON.stringify({ player: testPlayer, recentRuns: testRecentRuns })
       })
       return
     }
@@ -231,14 +275,15 @@ test.beforeEach(async ({ page }) => {
       return
     }
     if (path === '/leaderboards') {
+      const mode = (new URL(route.request().url()).searchParams.get('mode') ?? 'surge') as GameMode
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          mode: 'surge',
+          mode,
           seasonId: '2026-07',
           currentSeason: testSeason,
-          entries: []
+          entries: leaderboardEntries(mode)
         })
       })
       return
@@ -276,6 +321,23 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
       })
       return
     }
+    if (path === '/leaderboards') {
+      await route.fulfill({
+        status: available ? 200 : 503,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          available
+            ? {
+                mode: 'surge',
+                seasonId: testSeason.id,
+                currentSeason: testSeason,
+                entries: leaderboardEntries('surge')
+              }
+            : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
+        )
+      })
+      return
+    }
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
@@ -287,7 +349,7 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
   available = true
   await page.getByRole('button', { name: 'Try reconnecting' }).click()
   await expect(outage).toHaveCount(0)
-  await expect(page.getByText('Sign in required to play')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in to compete' })).toBeVisible()
 })
 
 async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
@@ -450,6 +512,19 @@ test('a signed run must be prepared before game controls become available', asyn
     }
     if (path === '/stats') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+      return
+    }
+    if (path === '/leaderboards') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          mode: 'surge',
+          seasonId: testSeason.id,
+          currentSeason: testSeason,
+          entries: leaderboardEntries('surge')
+        })
+      })
       return
     }
     if (path === '/runs/start' && attempts++ === 0) {
@@ -746,6 +821,19 @@ test('account deletion requires typed confirmation and clears the saved session'
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
       return
     }
+    if (path === '/leaderboards') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          mode: 'surge',
+          seasonId: testSeason.id,
+          currentSeason: testSeason,
+          entries: leaderboardEntries('surge')
+        })
+      })
+      return
+    }
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
@@ -778,6 +866,26 @@ test('Trophy Road explains and displays the site-wide game counter', async ({ pa
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
   await expect(trophyRoad).toBeFocused()
+})
+
+test('home brings season standings, player bests, activity, and Trophy Road forward', async ({ page }, testInfo) => {
+  await page.goto('/')
+
+  await expect(page.getByRole('heading', { name: 'Season standings: Surge' })).toBeVisible()
+  await expect(page.locator('.season-standings')).toContainText('Royal Ghosted')
+  await expect(page.locator('.season-standings')).toContainText('Knight Main')
+  await expect(page.getByRole('heading', { name: 'Your season' })).toBeVisible()
+  await expect(page.locator('.player-bests')).toContainText('67.30s')
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible()
+  await expect(page.locator('.activity-list')).toContainText('Identify')
+  await expect(page.getByRole('heading', { name: 'Drop together' })).toBeVisible()
+  await expect(page.locator('.community-progress')).toContainText('592')
+  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Season best')
+
+  await testInfo.attach('competition-home.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
 })
 
 for (const route of routes) {
@@ -1369,11 +1477,17 @@ test('settings persist input and motion preferences across reload', async ({ pag
 test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
   await page.goto('/#/leaderboards')
 
-  await expect(page.getByRole('heading', { name: 'Drop leaderboards' })).toBeVisible()
-  await expect(page.locator('.leaderboard-head')).toContainText(
+  await expect(page.getByRole('heading', { name: 'Season leaderboards' })).toBeVisible()
+  await expect(page.locator('.leaderboard-hero')).toContainText(
     'CR Season 134 · Week 2 · Battle days · 2 days left in week'
   )
-  await expect(page.locator('.leaderboard-head')).toContainText('Leaderboard resets Aug 3 at 10:00 UTC')
+  await expect(page.locator('.leaderboard-hero')).toContainText('Resets Aug 3 at 10:00 UTC')
+  await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
+  await expect(page.locator('.leaderboard-row--player')).toContainText('You')
+
+  await page.getByRole('button', { name: /Identify/ }).click()
+  await expect(page.getByRole('heading', { name: 'Identify' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play Identify' })).toBeVisible()
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {

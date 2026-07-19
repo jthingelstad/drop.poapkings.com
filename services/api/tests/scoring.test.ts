@@ -1,12 +1,7 @@
 import { randomInt } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
-import {
-  collectionPool,
-  createChallenge,
-  scoreRun,
-  SURGE_CARD_COUNT,
-} from "../src/scoring.js";
+import { createChallenge, scoreRun, SURGE_CARD_COUNT } from "../src/scoring.js";
 
 const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
@@ -225,16 +220,8 @@ describe("server-side game scoring", () => {
     expect(scoreRun(sweep, { picks }, 45_500)).toBe(targetIds.length - 1);
   });
 
-  it("generates a solvable Speed Ladder even from a single-cost collection", () => {
-    // All five draws sharing one elixir cost can never be "not ascending";
-    // the old unbounded shuffle loop hung the Lambda on this input.
-    const sameCost = allCards
-      .filter((card) => card.elixir === 4)
-      .slice(0, 12)
-      .map((card) => card.id);
-    const challenge = createChallenge("ladder", randomInt, {
-      playerCardIds: sameCost,
-    });
+  it("generates a solvable Speed Ladder from the canonical catalog", () => {
+    const challenge = createChallenge("ladder", randomInt);
     expect(challenge.cardIds).toHaveLength(5);
     expect(new Set(challenge.cardIds.map(cost)).size).toBeGreaterThan(1);
   });
@@ -258,15 +245,6 @@ describe("server-side game scoring", () => {
       elapsedMs: index === 40 ? 4_900 : 300,
     }));
     expect(scoreRun(survival, { answers }, 30_000)).toBe(40);
-  });
-
-  it("only treats a dozen known cards as a collection pool", () => {
-    const dozen = allCards.slice(0, 12).map((card) => card.id);
-    expect(collectionPool(dozen)).toHaveLength(12);
-    // Too small, unknown ids, or absent → catalog play (ranked).
-    expect(collectionPool(dozen.slice(0, 11))).toBeUndefined();
-    expect(collectionPool([1, 2, 3])).toBeUndefined();
-    expect(collectionPool(undefined)).toBeUndefined();
   });
 
   it("rejects altered challenge order and implausible clocks", () => {

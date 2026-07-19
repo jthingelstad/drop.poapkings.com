@@ -246,10 +246,10 @@ elixirdrop:settings      -> { inputStyle, sound, reducedMotion? }
 
 Authoritative learning telemetry is server-side: accepted completions in the
 card-recall modes fold per-card outcomes (derived from the validated
-transcript) into a per-player CARDSTATS item. Practice seeds weak cards from
-it, GET /me returns a learning summary (weak cards + per-cost accuracy) for
-the coaching surfaces, and account deletion sweeps it. The localStorage copy
-is a display cache only.
+transcript) into a per-player CARDSTATS item. GET /me retains a learning
+summary (weak cards + per-cost accuracy) for possible future coaching, and
+account deletion sweeps it. Learning telemetry does not affect challenge card
+selection. The localStorage copy is a display cache only.
 
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
@@ -276,11 +276,10 @@ Authenticated public identity is centered on one favorite card:
   tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
   owned cards without card levels. Experience, arena, trophies, wins, and other
   rank-oriented fields are excluded.
-- Surge, Practice, Identify, Higher/Lower, Blitz, and Survival use the attached
-  collection when it contains at least 12 canonical cards. Other modes continue
-  to use the full catalog. Collection-dealt runs — like weakness-focused
-  Practice rounds — are marked `ranked: false`: they record history and Trophy
-  Road but never place on leaderboards.
+- Every game uses the complete canonical card catalog and every new run ranks.
+  The attached collection remains loaded, stored, and visible on the player
+  profile, but is not used for challenge generation. Historical unranked runs
+  remain readable for compatibility.
 
 ---
 

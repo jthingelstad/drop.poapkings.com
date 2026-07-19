@@ -16,7 +16,6 @@ import ElixirHost from '../../components/ElixirHost'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
-import RunScopeBadge from '../../components/RunScopeBadge'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import PenaltyFlash from '../../components/PenaltyFlash'
@@ -274,7 +273,6 @@ export default function Identify() {
             Pick the card's name from six choices. Wrong picks add{' '}
             <strong>+{(IDENTIFY.PENALTY_MS / 1000).toFixed(0)}s</strong> and get eliminated.
           </p>
-          <RunScopeBadge ranked={gameRun.ranked.value} />
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}

@@ -28,7 +28,7 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      - run: npx playwright install --with-deps chromium webkit
+      - run: npx playwright install --with-deps chromium firefox webkit
 
       # Build reads only packages/game-data/cards.json — no API or mail tokens needed.
       - run: npm run verify
