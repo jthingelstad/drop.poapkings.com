@@ -2,7 +2,11 @@ import type { Application, Graphics, Ticker } from 'pixi.js'
 import { useEffect, useRef } from 'preact/hooks'
 import type { GameRuntimeCue } from '../lib/game-runtime'
 import { loadPixi } from '../lib/load-pixi'
-import { isReducedMotionEnabled } from '../lib/motion'
+import { isEnhancedEffectsEnabled, isReducedMotionEnabled } from '../lib/motion'
+
+const CORRECT_COLORS = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
+const WRONG_COLORS = [0xef4444, 0xf87171, 0xf59e0b]
+type BurstTone = 'correct' | 'wrong'
 
 interface Props {
   cue: GameRuntimeCue | null
@@ -22,7 +26,7 @@ interface Particle {
 interface FxRuntime {
   app: Application
   particles: Particle[]
-  spawnCorrectBurst: () => void
+  spawnBurst: (options: { colors: readonly number[]; count: number; tone: BurstTone }) => void
 }
 
 export function preloadGameFx(): void {
@@ -91,27 +95,29 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
         const runtime: FxRuntime = {
           app,
           particles,
-          spawnCorrectBurst: () => {
+          spawnBurst: ({ colors, count, tone }) => {
             const originX = app.screen.width / 2
             const originY = app.screen.height * 0.52
-            const colors = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
+            const wrong = tone === 'wrong'
 
-            for (let index = 0; index < particleCountRef.current; index += 1) {
+            for (let index = 0; index < count; index += 1) {
               const radius = 3.5 + Math.random() * 3.5
               const graphic = new Graphics()
                 .circle(0, 0, radius)
-                .fill({ color: colors[index % colors.length], alpha: 0.9 })
-              const angle = -Math.PI * (0.14 + Math.random() * 0.72)
-              const speed = 150 + Math.random() * 210
-              const maxLifeMs = 520 + Math.random() * 280
+                .fill({ color: colors[index % colors.length]!, alpha: 0.9 })
+              // Correct: an upward celebratory fan. Wrong: a quicker, wider
+              // scatter that falls back down faster.
+              const angle = wrong ? -Math.PI * Math.random() : -Math.PI * (0.14 + Math.random() * 0.72)
+              const speed = (wrong ? 120 : 150) + Math.random() * 210
+              const maxLifeMs = (wrong ? 340 : 520) + Math.random() * 260
 
               graphic.position.set(originX + (Math.random() - 0.5) * 56, originY + (Math.random() - 0.5) * 28)
               app.stage.addChild(graphic)
               particles.push({
                 graphic,
                 velocityX: Math.cos(angle) * speed,
-                velocityY: Math.sin(angle) * speed - 80,
-                gravity: 430,
+                velocityY: Math.sin(angle) * speed - (wrong ? 20 : 80),
+                gravity: wrong ? 620 : 430,
                 spin: (Math.random() - 0.5) * 5,
                 lifeMs: maxLifeMs,
                 maxLifeMs
@@ -123,7 +129,10 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
         runtimeRef.current = runtime
         if (pendingCorrectCue.current) {
           pendingCorrectCue.current = false
-          runtime.spawnCorrectBurst()
+          const count = isEnhancedEffectsEnabled()
+            ? Math.round(particleCountRef.current * 1.7)
+            : particleCountRef.current
+          runtime.spawnBurst({ colors: CORRECT_COLORS, count, tone: 'correct' })
         }
       } catch (error) {
         // Effects are progressive enhancement. Gameplay remains fully usable
@@ -141,11 +150,23 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!cue || handledCueId.current === cue.id || cue.type !== 'answer-correct') return
+    if (!cue || handledCueId.current === cue.id) return
+    if (cue.type !== 'answer-correct' && cue.type !== 'answer-wrong') return
     handledCueId.current = cue.id
     if (isReducedMotionEnabled()) return
-    if (runtimeRef.current) runtimeRef.current.spawnCorrectBurst()
-    else pendingCorrectCue.current = true
+    const enhanced = isEnhancedEffectsEnabled()
+    const base = particleCountRef.current
+    const runtime = runtimeRef.current
+    if (cue.type === 'answer-correct') {
+      const count = enhanced ? Math.round(base * 1.7) : base
+      if (runtime) runtime.spawnBurst({ colors: CORRECT_COLORS, count, tone: 'correct' })
+      else pendingCorrectCue.current = true
+      return
+    }
+    // A wrong-answer burst is part of the richer, opt-in enhanced layer only.
+    if (enhanced && runtime) {
+      runtime.spawnBurst({ colors: WRONG_COLORS, count: Math.round(base * 0.9), tone: 'wrong' })
+    }
   }, [cue])
 
   return <div ref={hostRef} class="game-fx-layer" aria-hidden="true" />

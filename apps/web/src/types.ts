@@ -35,6 +35,8 @@ export interface Settings {
   inputStyle: InputStyle
   sound: boolean
   reducedMotion?: boolean
+  // Richer particle FX across the games. On by default; reduced motion overrides.
+  enhancedEffects?: boolean
 }
 
 export interface CardStat {

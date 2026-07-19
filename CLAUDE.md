@@ -95,6 +95,15 @@ rank-oriented fields as part of unrelated work.
   reduced motion), overlay in `components/Screensaver.tsx`, Pixi scene in
   `components/ScreensaverScene.ts` (lazy chunk via `lib/load-pixi.ts`; rotates
   the whole card catalog). It must never trigger on gameplay routes.
+- **Game feedback is composited, never in layout flow.** Transient feedback
+  (penalties, hints, streaks) uses the shared `components/FloatingCue.tsx`
+  (motion-lib rise-and-fade) inside a `.game-cues` overlay — every mode uses it,
+  so feedback can never reflow the board mid-tap. Card enter/shake/celebrate go
+  through `components/GameMotion.tsx`; particle bursts through
+  `components/GameFxLayer.tsx`, keyed on `runtime.cue`. The **Enhance effects**
+  setting (default on; `isEnhancedEffectsEnabled()` in `lib/motion.ts`) layers
+  richer bursts — including on misses — on top; **reduced motion always wins**
+  (no FX). Don't hand-roll in-flow feedback text or ad-hoc CSS keyframes.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves

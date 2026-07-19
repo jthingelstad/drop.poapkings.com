@@ -110,7 +110,8 @@ export function saveSeasonRecord(seasonId: string, records: Partial<Records>): v
 const DEFAULT_SETTINGS: Settings = {
   inputStyle: 'keypad',
   sound: false,
-  reducedMotion: false
+  reducedMotion: false,
+  enhancedEffects: true
 }
 
 export function getSettings(): Settings {

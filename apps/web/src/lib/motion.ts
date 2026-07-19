@@ -17,3 +17,10 @@ export function isReducedMotionEnabled(): boolean {
   if (document.documentElement.classList.contains('reduce-motion')) return true
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
+
+// Enhanced effects layer richer particle FX across the games on top of the base
+// motion. On by default; reduced motion always wins (no FX at all).
+export function isEnhancedEffectsEnabled(): boolean {
+  if (isReducedMotionEnabled()) return false
+  return getSettings().enhancedEffects ?? true
+}

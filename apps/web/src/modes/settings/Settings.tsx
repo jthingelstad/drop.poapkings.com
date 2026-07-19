@@ -25,6 +25,7 @@ export default function Settings() {
   const inputStyle = useSignal<InputStyle>(s.inputStyle)
   const sound = useSignal(s.sound)
   const reducedMotion = useSignal(Boolean(s.reducedMotion))
+  const enhancedEffects = useSignal(s.enhancedEffects ?? true)
 
   function setInput(style: InputStyle) {
     inputStyle.value = style
@@ -44,6 +45,12 @@ export default function Settings() {
     reducedMotion.value = on
     saveSettings({ reducedMotion: on })
     applyReducedMotion(on)
+  }
+
+  function toggleEnhanced() {
+    const on = !enhancedEffects.value
+    enhancedEffects.value = on
+    saveSettings({ enhancedEffects: on })
   }
 
   return (
@@ -88,6 +95,17 @@ export default function Settings() {
             <div class="setting-row__desc">Drop the celebratory animations. Surge keeps its timer and red flash.</div>
           </div>
           <Toggle on={reducedMotion.value} onToggle={toggleMotion} label="Reduce motion" />
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-row__text">
+            <div class="setting-row__name">Enhance effects</div>
+            <div class="setting-row__desc">
+              Richer particle bursts across the games, including on misses. On by default. Reduce motion turns all
+              effects off.
+            </div>
+          </div>
+          <Toggle on={enhancedEffects.value} onToggle={toggleEnhanced} label="Enhance effects" />
         </div>
 
         <dl class="settings-meta" aria-label="Build information">
