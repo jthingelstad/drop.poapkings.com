@@ -1,5 +1,5 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
-import { survivalWindowMs } from "@elixir-drop/contracts";
+import { higherLowerWindowMs, survivalWindowMs } from "@elixir-drop/contracts";
 import type { GameMode, RunChallenge, RunTranscript } from "./types.js";
 
 interface Card {
@@ -314,11 +314,13 @@ function scorePractice(
 function scoreHigherLower(
   challenge: Extract<RunChallenge, { mode: "higher-lower" }>,
   transcript: RunTranscript,
+  wallElapsedMs: number,
 ): number {
   const answers = objectArray(transcript.answers, "Higher/Lower");
   if (!answers.length || answers.length > challenge.pairs.length)
     throw new Error("Higher/Lower transcript is invalid");
   let score = 0;
+  let totalElapsed = 0;
   let ended = false;
   answers.forEach((answer, index) => {
     if (ended)
@@ -330,14 +332,27 @@ function scoreHigherLower(
     const pickedId = answer.pickedId;
     if (pickedId !== pair[0] && pickedId !== pair[1])
       throw new Error("Higher/Lower pick is invalid");
+    const elapsedMs = Number(answer.elapsedMs);
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0)
+      throw new Error("Higher/Lower answer is invalid");
+    totalElapsed += elapsedMs;
     const otherId = pickedId === pair[0] ? pair[1] : pair[0];
     // Pairs are generated with differing elixir, so the higher card is
-    // unambiguous; `>=` keeps a degenerate equal pair from failing a player.
-    if (card(pickedId).elixir >= card(otherId).elixir) score += 1;
+    // unambiguous (`>=` guards a degenerate equal pair). The response also has
+    // to land inside the shrinking window; a small tolerance absorbs client
+    // timing jitter on the boundary.
+    const correct =
+      card(pickedId).elixir >= card(otherId).elixir &&
+      elapsedMs <= higherLowerWindowMs(score) + 250;
+    if (correct && elapsedMs < 100)
+      throw new Error("Higher/Lower answer is implausibly fast");
+    if (correct) score += 1;
     else ended = true;
   });
   if (!ended && answers.length < challenge.pairs.length)
     throw new Error("Higher/Lower run has not ended");
+  if (totalElapsed > wallElapsedMs + 2_000)
+    throw new Error("Higher/Lower timing is not plausible");
   return score;
 }
 
@@ -617,7 +632,7 @@ export function scoreRun(
         "card",
       );
     case "higher-lower":
-      return scoreHigherLower(challenge, transcript);
+      return scoreHigherLower(challenge, transcript, wallElapsedMs);
     case "trade":
       return scoreTrade(challenge, transcript, wallElapsedMs);
     case "ladder":

@@ -906,6 +906,14 @@ test('higher/lower: tap the higher card; a miss resets the streak', async ({ pag
   await expect(page.locator('.session-bar__val').first()).toHaveText('0')
 })
 
+test('higher/lower: running out the clock ends the round', async ({ page }) => {
+  await page.goto('/#/higher-lower')
+  await expect(page.locator('.hl__pair')).toBeVisible()
+  // Never tap — the 5s opening window runs out and the timeout ends the round.
+  await expect(page.locator('.elixir-host__bubble')).toContainText("Time's up", { timeout: 7_000 })
+  await expect(page.locator('.hl__card--correct')).toBeVisible()
+})
+
 test('home brings season standings, player bests, activity, and Trophy Road forward', async ({ page }, testInfo) => {
   await page.goto('/')
 

@@ -67,6 +67,20 @@ export function survivalWindowMs(streak: number): number {
   );
 }
 
+// Higher/Lower's response clock: 5s to read the first pair, 250ms less each
+// round it survives, down to a 2s floor (reached at round 12). One curve shared
+// by the browser countdown and the server scorer (small boundary tolerance).
+export const HIGHER_LOWER_BASE_WINDOW_MS = 5_000;
+export const HIGHER_LOWER_SHRINK_PER_ROUND_MS = 250;
+export const HIGHER_LOWER_MIN_WINDOW_MS = 2_000;
+
+export function higherLowerWindowMs(round: number): number {
+  return Math.max(
+    HIGHER_LOWER_MIN_WINDOW_MS,
+    HIGHER_LOWER_BASE_WINDOW_MS - HIGHER_LOWER_SHRINK_PER_ROUND_MS * round,
+  );
+}
+
 export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
   | { mode: "practice"; cardIds: number[] }

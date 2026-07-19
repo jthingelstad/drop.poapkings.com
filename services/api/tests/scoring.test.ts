@@ -50,12 +50,31 @@ describe("server-side game scoring", () => {
       [high.id, low.id],
     ];
     const answers = [
-      // Taps the higher-cost card — correct.
-      { leftId: low.id, rightId: high.id, pickedId: high.id },
+      // Taps the higher-cost card in time — correct.
+      { leftId: low.id, rightId: high.id, pickedId: high.id, elapsedMs: 800 },
       // Taps the lower-cost card — the miss ends the run.
-      { leftId: high.id, rightId: low.id, pickedId: low.id },
+      { leftId: high.id, rightId: low.id, pickedId: low.id, elapsedMs: 900 },
     ];
-    expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 0)).toBe(1);
+    expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 5_000)).toBe(
+      1,
+    );
+  });
+
+  it("times out a Higher/Lower answer that misses the response window", () => {
+    const low = cards.find((card) => card.elixir <= 2) ?? cards[0]!;
+    const high = cards.find((card) => card.elixir >= 5) ?? cards.at(-1)!;
+    const pairs: Array<[number, number]> = [
+      [low.id, high.id],
+      [low.id, high.id],
+    ];
+    // The higher card is tapped, but slower than the 5s opening window (+250ms
+    // tolerance): the timeout ends the run at zero.
+    const answers = [
+      { leftId: low.id, rightId: high.id, pickedId: high.id, elapsedMs: 6_000 },
+    ];
+    expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 7_000)).toBe(
+      0,
+    );
   });
 
   it("validates Identify and Trade transcripts", () => {

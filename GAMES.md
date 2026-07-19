@@ -81,8 +81,12 @@ Two cards, costs hidden; **tap the card that costs more elixir**. Endless
 streak. Pairs are generated so the two cards **never share an elixir cost**
 (server `higherLowerPairs`), so there is always a strictly higher card and no
 "equal" option is needed — the whole card is the tap target (no separate
-controls; far easier on mobile). Correct advances in 750ms; a miss holds 1.4s
-and resets the streak. Trains the relative read that wins elixir trades.
+controls; far easier on mobile). Each round runs a **shrinking response clock**:
+5s to read the opening pair, 250ms less every round it survives, down to a 2s
+floor (`higherLowerWindowMs`, shared by the client countdown and the server
+scorer with a 250ms boundary tolerance). A wrong tap **or a timeout** ends the
+run. Correct advances in 750ms; a miss holds 1.4s and resets the streak. Trains
+the relative read that wins elixir trades.
 
 - Record: `longestStreak`.
 
