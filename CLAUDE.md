@@ -89,11 +89,12 @@ rank-oriented fields as part of unrelated work.
   display cache.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
-- **"Elixir Rain" screensaver egg**: activation state in
-  `apps/web/src/lib/screensaver.ts` (5 logo taps or 2-min Home idle; full
-  no-op under reduced motion), overlay in `components/Screensaver.tsx`, Pixi
-  scene in `components/ScreensaverScene.ts` (lazy chunk via
-  `lib/load-pixi.ts`). It must never trigger on gameplay routes.
+- **"Elixir Rain" screensaver**: activation state in
+  `apps/web/src/lib/screensaver.ts` (three doors: the nav launcher — a visible
+  feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under
+  reduced motion), overlay in `components/Screensaver.tsx`, Pixi scene in
+  `components/ScreensaverScene.ts` (lazy chunk via `lib/load-pixi.ts`; rotates
+  the whole card catalog). It must never trigger on gameplay routes.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves
@@ -132,13 +133,24 @@ rank-oriented fields as part of unrelated work.
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
 - **CR profile snapshots are practice context, not rank context.** Store CR name,
-  clan, Years Played account age, and cards. Do not add experience, arenas,
-  trophies, wins, or card levels. Player tags remain unverified ownership.
-- **The site-wide Trophy Road advances on completed games, never traffic.**
-  `GET /stats.trophyRoadGames` has the stable one-time launch seed of 592, then
-  increments atomically with every server-accepted run. Keep the real tracked
-  total separate. Tinylytics is analytics only; seasonal leaderboard resets do
-  not reset Trophy Road.
+  clan, Years Played account age, and card *count*. Do not add experience,
+  arenas, trophies, wins, or card levels, and do not render the CR card
+  collection (removed — it has no use in Drop; the count stays). Player tags
+  remain unverified ownership. Drop's own arena (below) is a native construct
+  from Player XP — unrelated to CR arenas.
+- **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is
+  server-computed in `services/api/src/xp.ts` (`runXp` = questions attempted in
+  a run, right or wrong; floor 1), added to the `PLAYER#/PROFILE` item inside
+  the `completeRun` transaction, and returned on `GET /me`, `/runs/complete`,
+  and leaderboard rows. It rewards practice volume, never correctness — a
+  beginner always progresses. XP drives the 28-tier arena in
+  `apps/web/src/data/starRanks.ts` (thresholds scaled to XP), shown in the nav
+  player block and profile. Leaderboards stay ranked purely on speed. The old
+  games-derived "Level" is retired.
+- **The global `GET /stats.trophyRoadGames` counter is site social proof only.**
+  Stable launch seed of 592, increments atomically with every server-accepted
+  run; surfaced on Home as "games played across Drop". It is NOT the arena/XP
+  progression (that is per-player). Tinylytics is analytics only.
 - **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
   Preload the sprint's card images before the clock starts.
 

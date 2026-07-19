@@ -14,9 +14,11 @@ Shipped state as of July 19, 2026: **five playable modes for launch** — Surge,
 Practice, Higher / Lower, Trade, and Survival. Five more finished modes are
 **vaulted** (built, tested, hidden from the web) for post-launch re-release
 drops; see "Vaulted for launch" below. **Practice is true practice**: runs
-record to history and Trophy Road but are unranked and have no leaderboard
-tab. **Daily Ladder is not shipped and should not be built without a fresh
-product decision.**
+record to history and earn Player XP (activity, like every mode) but are
+unranked and have no leaderboard tab. Player XP is a per-player activity score
+(one point per question practiced, right or wrong) that drives the arena;
+leaderboards rank on speed. **Daily Ladder is not shipped and should not be
+built without a fresh product decision.**
 
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through

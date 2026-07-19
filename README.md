@@ -57,10 +57,13 @@ a banner.
 Every player signs in with an email magic link and every game starts from a
 signed server challenge. The app never falls back to an anonymous or locally
 sampled run when player services are unavailable. Local display and input
-preferences stay in **localStorage**; game history, player levels, profiles, the
-global Trophy Road, and leaderboards live in DynamoDB. Trophy Road began at a
-one-time launch seed of 592 and advances exactly once for every server-accepted
-completed game; page views and Tinylytics analytics never contribute to it.
+preferences stay in **localStorage**; game history, player profiles, per-player
+Player XP, and leaderboards live in DynamoDB. Player XP is an activity score
+(one point per question practiced, right or wrong) that drives a per-player
+arena; the leaderboard is ranked purely on speed. A separate global games
+counter began at a one-time launch seed of 592 and advances once for every
+server-accepted completed game — shown on Home as social proof; page views and
+Tinylytics analytics never contribute to it.
 Each signed-in player chooses a favorite Clash Royale card as their profile
 image and selects a safe, playful name inspired by that card, including its
 community nicknames and character.

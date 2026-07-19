@@ -199,19 +199,31 @@ Important shared modules:
 - `apps/web/src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
 
-Site-wide Trophy Road:
+Player XP and the per-player arena:
 
-- `GET /stats` returns `trophyRoadGames`. It starts at the one-time random launch
-  seed of 592 and then advances once for each server-accepted completed run.
-- The API keeps the real tracked-game count separate and increments both values
-  in the same DynamoDB transaction as the player count, immutable run history,
-  and leaderboard entry. Failed, rejected, and duplicate submissions do not
-  advance the road.
-- Tinylytics page views and events are analytics only and never affect Trophy
-  Road. Clan Wars seasons reset leaderboards, not the lifetime Trophy Road.
-- The 28 arena milestones in `apps/web/src/data/starRanks.ts` are scaled for
-  Trophy Road game volume, from Goblin Stadium at 0 through Summit of Heroes at
-  17,250.
+- **XP is an activity score, not a skill score.** `services/api/src/xp.ts`
+  `runXp` awards one point per question attempted in a run — right or wrong —
+  with a floor of 1. It rewards practice volume so a longer session moves the
+  arena more than a quick one and a beginner always progresses. Skill lives
+  entirely on the leaderboard (speed). Practice earns XP too (it is unranked,
+  not inconsequential).
+- XP is added to the `PLAYER#/PROFILE` item inside the same `completeRun`
+  transaction as the player and global counts, and is returned on `GET /me`,
+  `/runs/complete`, and leaderboard rows. Quarantined runs earn nothing.
+- The 28 arena tiers in `apps/web/src/data/starRanks.ts` are thresholded on
+  lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000, ~5,000
+  games), shown in the nav player block and the profile. The arena only climbs.
+  The former games-derived "Level" is retired.
+
+Global games counter (site social proof):
+
+- `GET /stats` returns `trophyRoadGames`: a one-time launch seed of 592 that
+  advances once per server-accepted completed run, incremented in the same
+  transaction as the player count, run history, and leaderboard entry. Failed,
+  rejected, and duplicate submissions do not advance it. It is surfaced on Home
+  as "games played across Drop" and is unrelated to per-player XP.
+- Tinylytics page views and events are analytics only. Clan Wars seasons reset
+  leaderboards, not lifetime XP or the global games counter.
 
 Timing rules:
 
@@ -276,12 +288,14 @@ Authenticated public identity is centered on one favorite card:
 - Clash Royale player tags are separate and unverified. Saving or reading a
   stale tag queues a refresh; snapshots are fresh for six hours and shared by
   tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
-  owned cards without card levels. Experience, arena, trophies, wins, and other
-  rank-oriented fields are excluded.
-- Every game uses the complete canonical card catalog and every new run ranks.
-  The attached collection remains loaded, stored, and visible on the player
-  profile, but is not used for challenge generation. Historical unranked runs
-  remain readable for compatibility.
+  the owned-card *count*. Experience, arena, trophies, wins, card levels, and
+  the card collection grid are excluded — the grid has no use in Drop, only the
+  count is shown. Drop's own arena (per-player, from Player XP) is native and
+  unrelated to CR arenas.
+- Every game uses the complete canonical card catalog; ranked runs place on the
+  seasonal leaderboard while Practice is unranked. The attached collection
+  remains loaded and stored, but is not used for challenge generation and is not
+  rendered. Historical unranked runs remain readable for compatibility.
 
 ---
 
