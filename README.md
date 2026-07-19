@@ -82,8 +82,13 @@ npm run check:beta # full quality gate plus production API smoke
 ```
 
 The root commands use npm workspaces. The repo ships with a committed
-`packages/game-data/cards.json` snapshot, so the game
-runs fully offline in dev — no API key required to develop.
+`packages/game-data/cards.json` snapshot and mirrored card art, so the **UI**
+runs locally with no API key or secrets — you can browse and reach every game's
+ready screen without signing in. There is no local API stack yet:
+`apps/web/public/api-config.json` points the dev server at the **deployed
+production API**, so signing in and recording games hit the live backend. See
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full local-development story, the
+quality gate, and repo conventions.
 
 Elixir Drop intentionally does **not** maintain curated deck definitions,
 archetype data, or "real deck" dependencies. New modes should work from the
@@ -205,6 +210,18 @@ The Clash Royale screenshots under `docs/clash-royale-screenshots/` are visual
 reference for the shared card chrome, not runtime assets.
 
 ---
+
+## Contributing
+
+Contributions are welcome — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup,
+the quality gate, and conventions.
+
+## License
+
+The **source code** is [MIT licensed](./LICENSE). Clash Royale card art and data
+distributed in this repository are **not** covered by that license — they are ©
+Supercell under the Fan Content Policy (see below) and are not ours to
+relicense.
 
 ## Credits & fan content
 
