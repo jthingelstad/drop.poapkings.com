@@ -2023,6 +2023,32 @@ body:has(.game-run) .starcount {
   letter-spacing: 0.08em;
 }
 
+/* Home coach tile: the weakest cost band, one line, one tap into Practice. */
+.coach-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 200, 76, 0.35);
+  background: rgba(245, 200, 76, 0.1);
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coach-tile .icon {
+  color: var(--gold);
+  font-size: 1.1em;
+  flex-shrink: 0;
+}
+
+.coach-tile:hover {
+  background: rgba(245, 200, 76, 0.18);
+}
+
 /* Penalty flash: the clock jump made visible. */
 .penalty-flash {
   display: inline-flex;

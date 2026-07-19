@@ -71,13 +71,24 @@ rank-oriented fields as part of unrelated work.
   `getCardStats`, `saveResult`, …). Authenticated identity and signed runs use
   `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
-  `records`, `funnel`, `settings`.
+  `records`, `seasonRecords`, `funnel`, `settings`.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
   canonical card snapshot. Claude Haiku may use community nicknames and playful
   card associations; the public name does not need the exact card title.
   Name-option tokens bind the player, card ID, and exact safe choices; the API
   saves favorite card and public name together. Keep player tags separate and
   explicitly unverified.
+- **Non-uniform deals never rank.** Collection pools (12+ cards) and
+  weakness-focused Practice rounds set `ranked: false` on the run: history and
+  Trophy Road record, the leaderboard GSI keys are skipped, and the web badges
+  the run. `collectionPool()` in `services/api/src/scoring.ts` is the single
+  source of truth for the pool decision.
+- **Learning stats are server-owned** (`services/api/src/learning.ts`): derived
+  from validated transcripts at completion, stored per player, used to seed
+  focused Practice and the GET /me learning summary. The browser uploads
+  nothing; localStorage stats are a display cache.
+- **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
+  (build-time inlined, currentColor). Don't hand-type arrows or symbols.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves

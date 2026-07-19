@@ -1,8 +1,10 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
+import type { Records } from '../types'
 import { applyRunProgress, requiredSessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
+import { getSeasonRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
@@ -31,6 +33,37 @@ function setRecordingNotice(notice: RecordingNotice): void {
 // Re-prepare a signed run when the player starts a game this close to its
 // server-side expiry (a Ready screen left open, a long break before Start).
 const RUN_FRESHNESS_BUFFER_MS = 2 * 60_000
+
+// Season-scoped personal bests, keyed by the server's authoritative season id.
+// Golf modes chase lower scores; everything else chases higher.
+const LOWER_IS_BETTER = new Set<GameMode>(['surge', 'identify', 'trade', 'ladder'])
+// Only the numeric record fields participate (surgeBestPace is an array).
+type NumericRecordKey = {
+  [K in keyof Records]: Records[K] extends number | undefined ? K : never
+}[keyof Records]
+const SEASON_RECORD_KEYS: Partial<Record<GameMode, NumericRecordKey>> = {
+  surge: 'surgeBest',
+  identify: 'identifyBest',
+  trade: 'tradeBest',
+  ladder: 'ladderBest',
+  'higher-lower': 'longestStreak',
+  practice: 'bestAccuracy',
+  blitz: 'blitzBest',
+  survival: 'survivalBest',
+  'endless-ladder': 'endlessLadderBest',
+  'cost-sweep': 'costSweepBest'
+}
+
+function recordSeasonBest(result: { mode: GameMode; score: number; season: { id: string } }): boolean {
+  const key = SEASON_RECORD_KEYS[result.mode]
+  if (!key) return false
+  const current = getSeasonRecords(result.season.id)[key]
+  const better =
+    current === undefined || (LOWER_IS_BETTER.has(result.mode) ? result.score < current : result.score > current)
+  if (better) saveSeasonRecord(result.season.id, { [key]: result.score })
+  // The first recorded score of a season is a baseline, not a "best".
+  return better && current !== undefined
+}
 
 export function useGameRun<T extends GameMode>(mode: T) {
   const run = useRef<StartedRun | null>(null)
@@ -118,9 +151,15 @@ export function useGameRun<T extends GameMode>(mode: T) {
       applyRunProgress(result)
       run.current = null
       pendingCompletion.current = null
+      const seasonBest = recordSeasonBest(result)
       setRecordingNotice({
         state: 'saved',
-        message: result.ranked === false ? 'Practice run recorded — not ranked' : 'Game recorded'
+        message:
+          result.ranked === false
+            ? 'Practice run recorded — not ranked'
+            : seasonBest
+              ? 'Game recorded — new season best!'
+              : 'Game recorded'
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()

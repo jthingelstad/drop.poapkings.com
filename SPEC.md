@@ -229,14 +229,23 @@ All currently implemented persistence goes through
 `apps/web/src/lib/storage.ts`.
 
 ```text
-elixirdrop:profile    -> { createdAt, nickname?, totalSessions }
-elixirdrop:cardStats  -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
-elixirdrop:records    -> { surgeBest, longestStreak, bestAccuracy, identifyBest,
-                           blitzBest, survivalBest, ladderBest, tradeBest,
-                           endlessLadderBest, costSweepBest }
-elixirdrop:funnel     -> { recruitShown, recruitJoin, recruitDiscord, shares }
-elixirdrop:settings   -> { inputStyle, sound, reducedMotion? }
+elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
+elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
+elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak, bestAccuracy,
+                              identifyBest, blitzBest, survivalBest, ladderBest,
+                              tradeBest, endlessLadderBest, costSweepBest }
+elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
+                             server season id resets the slate)
+elixirdrop:funnel        -> { recruitShown, recruitJoin, recruitDiscord, shares }
+elixirdrop:settings      -> { inputStyle, sound, reducedMotion? }
 ```
+
+Authoritative learning telemetry is server-side: accepted completions in the
+card-recall modes fold per-card outcomes (derived from the validated
+transcript) into a per-player CARDSTATS item. Practice seeds weak cards from
+it, GET /me returns a learning summary (weak cards + per-cost accuracy) for
+the coaching surfaces, and account deletion sweeps it. The localStorage copy
+is a display cache only.
 
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
@@ -265,7 +274,9 @@ Authenticated public identity is centered on one favorite card:
   rank-oriented fields are excluded.
 - Surge, Practice, Identify, Higher/Lower, Blitz, and Survival use the attached
   collection when it contains at least 12 canonical cards. Other modes continue
-  to use the full catalog.
+  to use the full catalog. Collection-dealt runs — like weakness-focused
+  Practice rounds — are marked `ranked: false`: they record history and Trophy
+  Road but never place on leaderboards.
 
 ---
 

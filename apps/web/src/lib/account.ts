@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import type { Player } from '@elixir-drop/contracts'
+import type { LearningSummary, Player } from '@elixir-drop/contracts'
 import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin } from './api'
 
 interface StoredSession {
@@ -10,6 +10,8 @@ interface StoredSession {
 const SESSION_KEY = 'elixirdrop:session:v1'
 
 export const player = signal<Player | null>(null)
+// Server-derived learning summary from GET /me (weak cards + cost accuracy).
+export const learning = signal<LearningSummary | null>(null)
 export type AccountStatus = 'loading' | 'anonymous' | 'authenticated' | 'unavailable'
 export const accountStatus = signal<AccountStatus>('loading')
 export const accountError = signal('')
@@ -68,6 +70,7 @@ async function initializeAccountOnce(): Promise<void> {
     saveSession(refreshed.session)
     const response = await getMe(refreshed.session.token)
     player.value = response.player
+    learning.value = response.learning ?? null
     accountStatus.value = 'authenticated'
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
@@ -86,6 +89,7 @@ export async function redeemAccount(token: string): Promise<Player> {
   saveSession(response.session)
   const me = await getMe(response.session.token)
   player.value = me.player
+  learning.value = me.learning ?? null
   accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
@@ -107,6 +111,7 @@ export async function refreshAccount(): Promise<void> {
   try {
     const response = await getMe(session.token)
     player.value = response.player
+    learning.value = response.learning ?? null
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) signOut()
     throw error

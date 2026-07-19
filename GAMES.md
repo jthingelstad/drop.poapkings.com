@@ -26,6 +26,11 @@ through `apps/web/src/lib/name-choices.ts`, and card presentation through
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
 mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
 
+**Ranked vs practice deals:** a uniform catalog deal ranks on the seasonal
+leaderboards. Any non-uniform deal — a linked-collection pool (12+ cards) or a
+weakness-focused Practice round — records history and Trophy Road but is marked
+`ranked: false` and never places. The UI badges those runs.
+
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
 `ElixirCostBadge` instead of inventing another card frame.
@@ -44,11 +49,12 @@ and art.
 
 **Surge** — `/surge` · `apps/web/src/modes/surge/`
 A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
-wins. A wrong answer adds +2.0s and the card stays until correct, with a
-higher/lower arrow cue pointing from the latest guess toward the answer (the
-penalty already paid for the information). The sprint's images preload before
-the timer starts; Elixir stays silent during the run and reacts on the summary.
-Produces one clean, shareable number.
+wins. A wrong answer adds +2.0s (flashed in the HUD) and the card stays until
+correct, with a higher/lower arrow cue pointing from the latest guess toward
+the answer (the penalty already paid for the information). At cards 5 and 10 a
+ghost-pace checkpoint shows the delta against the recorded best run. The
+sprint's images preload before the timer starts; Elixir stays silent during
+the run and reacts on the summary. Produces one clean, shareable number.
 
 - Input: pip keypad.
 - Record: `surgeBest` (lowest time).
@@ -65,23 +71,31 @@ The 15-card sprint is scored as golf time.
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
 Untimed. A card appears; name its cost. The signed challenge deals a round of
-15, with end-early, closing in the shared summary + insights.
+15 — seeded up to half from the player's weakest cards (server-side learning
+stats; those focused rounds are unranked) — with end-early, closing in the
+shared summary + insights.
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
 - Record: `bestAccuracy`.
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
-Two cards; pick Higher, Equal, or Lower relative to the left card. Endless streak.
-Trains the relative read that wins elixir trades.
+Two cards; pick Higher, Equal, or Lower relative to the left card. Endless
+streak. Pairs are chained — each round's right card becomes the next round's
+left, cost revealed — so every round asks for exactly one new read (round one
+is a pure double read). Correct advances in 750ms; a miss holds 1.4s. Trains
+the relative read that wins elixir trades.
 
 - Record: `longestStreak`.
 
 **Trade** — `/trade` · `apps/web/src/modes/trade/`
-You are always Blue King; Red is the opponent. Blue plays 1–3 sampled cards and
-Red answers with 1–3 sampled cards across an 8-exchange sprint. Guess your
-elixir trade from `-4` through `+4`, where positive means Red spent more elixir
-than you. A wrong guess adds +2.0s, reveals one persistent card-cost hint for
-that exchange, and leaves the exchange live.
+You are always Blue King; Red is the opponent. Blue plays 1–3 dealt cards and
+Red answers with 1–3 dealt cards across an 8-exchange sprint that ramps from
+the small boards (1v1, 2v1) to the big ones. Guess your elixir trade from
+`-4` through `+4`, where positive means Red spent more elixir than you. A
+wrong guess adds +2.0s, reveals one persistent card-cost hint for that
+exchange, and leaves the exchange live. A solved exchange reveals every cost
+and both side sums ("Blue 7 · Red 9 → +2") with a tap-to-continue Next —
+readers pay only their own dwell against the clock.
 
 - Input: signed trade keypad (`-4 … Even … +4`).
 - Record: `tradeBest` (lowest 8-exchange time).
@@ -89,14 +103,19 @@ that exchange, and leaves the exchange live.
 ### Stretch
 
 **Blitz** — `/blitz` · `apps/web/src/modes/blitz/`
-A 60s count-up variant of Surge: how many cards can you clear? Reuses the timed
-cost-recall loop.
+A 60s count-up variant of Surge: how many cards can you clear? Reuses the
+timed cost-recall loop with the higher/lower cue; the miss lockout escalates
+(380→600→900ms) on repeated misses on one card, so informed retries stay
+cheap and cost roulette does not.
 
 - Record: `blitzBest`.
 
 **Survival** — `/survival` · `apps/web/src/modes/survival/`
-Sudden death. A per-card 5s clock; one wrong answer _or_ a timeout ends the run,
-revealing the missed card's cost.
+Sudden death. The per-card clock starts at 5s and tightens 75ms per correct
+answer down to a 2.2s floor (one shared curve, enforced server-side), so
+every run ends at the player's true speed ceiling. One wrong answer _or_ a
+timeout ends the run, revealing the missed card's cost; hiding the tab ends
+the run with the streak intact.
 
 - Record: `survivalBest`.
 
@@ -104,22 +123,27 @@ revealing the missed card's cost.
 Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards
 or use the explicit move controls; touch players can tap a card, then tap its
 destination. Equal-cost cards are valid in either relative order. A wrong lock
-adds +2.0s, reveals one persistent card-cost hint, and leaves the ladder live.
+adds +2.0s (flashed in the HUD), reveals one persistent card-cost hint, and
+leaves the ladder live. The solve flashes all five costs in final order before
+the summary.
 
 - Record: `ladderBest` (lowest time).
 
 **Endless Ladder** — `/endless-ladder` · `apps/web/src/modes/endless-ladder/`
-Starts with a small sorted row, then deals one hidden-cost card at a time. Insert
-the new card into the correct low-to-high slot. A correct insert extends the row;
-one wrong slot ends the climb.
+Starts with a small sorted row, then deals one hidden-cost card at a time.
+Insert the new card into the correct low-to-high slot; consecutive same-cost
+cards collapse into stack chips (×N) so deep rows stay tap-sized. A correct
+insert extends the row; one wrong slot ends the climb — death reveals every
+cost and lights up the slots that would have worked.
 
 - Input: insertion-slot buttons between ordered cards.
 - Record: `endlessLadderBest` (most successful inserts).
 
 **Cost Sweep** — `/cost-sweep` · `apps/web/src/modes/cost-sweep/`
-Shows a compact grid and a target elixir value. Tap every card matching that cost
-before the 45s clock runs out. Correct taps mark cards as found and clearing a
-board deals a fresh grid; wrong taps cost 2s.
+Shows a compact grid and a target elixir value. Tap every card matching that
+cost before the 45s clock runs out. Correct taps mark cards as found and
+clearing a board deals a fresh grid that escalates from two targets to four by
+the fifth board; wrong taps cost 2s (flashed in the HUD).
 
 - Input: card-grid taps.
 - Record: `costSweepBest` (most target cards found in 45s).

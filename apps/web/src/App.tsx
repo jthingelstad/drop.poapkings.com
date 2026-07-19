@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'preact/compat'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
-import { accountError, accountStatus, initializeAccount, player } from './lib/account'
+import { accountError, accountStatus, initializeAccount, learning, player } from './lib/account'
 import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
@@ -116,7 +116,23 @@ function GameCard({ m }: { m: Mode }) {
   )
 }
 
+// The weakest well-sampled elixir band from the server's learning summary —
+// the coach's one-line read that funnels players into focused Practice.
+function weakCostBand(): { elixir: number; accuracyPct: number } | undefined {
+  const summary = learning.value
+  if (!summary) return undefined
+  let weakest: { elixir: number; accuracyPct: number } | undefined
+  for (const [cost, bucket] of Object.entries(summary.costAccuracy)) {
+    if (bucket.seen < 10) continue
+    const accuracyPct = Math.round((bucket.correct / bucket.seen) * 100)
+    if (accuracyPct >= 85) continue
+    if (!weakest || accuracyPct < weakest.accuracyPct) weakest = { elixir: Number(cost), accuracyPct }
+  }
+  return weakest
+}
+
 function Home() {
+  const weakBand = accountStatus.value === 'authenticated' ? weakCostBand() : undefined
   return (
     <div class="home">
       <div class="hero">
@@ -147,6 +163,15 @@ function Home() {
           {accountStatus.value === 'unavailable' && (
             <button class="auth-nudge" onClick={() => void initializeAccount()}>
               <strong>Player services are reconnecting</strong> · Your saved login is still on this device
+            </button>
+          )}
+          {weakBand && (
+            <button class="coach-tile" data-testid="coach-tile" onClick={() => navigate('/practice')}>
+              <Icon name="target" />
+              <span>
+                <strong>Coach's read:</strong> {weakBand.elixir}-elixir cards are your slow band ({weakBand.accuracyPct}
+                %). Practice deals them to you.
+              </span>
             </button>
           )}
         </div>

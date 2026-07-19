@@ -7,6 +7,7 @@ const K = {
   profile: 'elixirdrop:profile',
   cardStats: 'elixirdrop:cardStats',
   records: 'elixirdrop:records',
+  seasonRecords: 'elixirdrop:seasonRecords',
   funnel: 'elixirdrop:funnel',
   settings: 'elixirdrop:settings'
 } as const
@@ -80,6 +81,28 @@ export function getRecords(): Records {
 
 export function saveRecords(r: Partial<Records>): void {
   save(K.records, { ...getRecords(), ...r })
+}
+
+// ── Season records ────────────────────────────────────────────────────────────
+// Personal bests scoped to the current Clan Wars season (identified by the
+// server's season id on each recorded completion). A new season id resets the
+// slate — a fresh "season best" chase every four weeks.
+
+interface SeasonRecords {
+  seasonId: string
+  records: Records
+}
+
+export function getSeasonRecords(seasonId: string): Records {
+  const stored = load<SeasonRecords | null>(K.seasonRecords, null)
+  return stored && stored.seasonId === seasonId ? stored.records : {}
+}
+
+export function saveSeasonRecord(seasonId: string, records: Partial<Records>): void {
+  save(K.seasonRecords, {
+    seasonId,
+    records: { ...getSeasonRecords(seasonId), ...records }
+  } satisfies SeasonRecords)
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
