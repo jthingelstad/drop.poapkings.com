@@ -409,12 +409,20 @@ function scoreBlitz(
   if (wallElapsedMs < 58_000 || answers.length > challenge.cardIds.length)
     throw new Error("Blitz run ended too early");
   let previousAtMs = 0;
-  answers.forEach((answer, index) => {
+  let cleared = 0;
+  for (const [index, answer] of answers.entries()) {
     const cardId = challenge.cardIds[index]!;
     const guesses = numberArray(answer.guesses, "Blitz guesses");
     const atMs = Number(answer.atMs);
-    if (answer.cardId !== cardId || atMs <= previousAtMs + 79 || atMs > 60_500)
+    if (
+      answer.cardId !== cardId ||
+      !Number.isFinite(atMs) ||
+      atMs <= previousAtMs + 79
+    )
       throw new Error("Blitz answer is invalid");
+    // Answers past the buzzer (a suspended rAF clock kept the board live) are
+    // clipped rather than voiding the whole run.
+    if (atMs > 60_500) break;
     const expected = card(cardId).elixir;
     if (
       !guesses.length ||
@@ -423,8 +431,9 @@ function scoreBlitz(
     )
       throw new Error("Blitz guesses are invalid");
     previousAtMs = atMs;
-  });
-  return answers.length;
+    cleared += 1;
+  }
+  return cleared;
 }
 
 function scoreSurvival(
@@ -468,7 +477,6 @@ function scoreSweep(
   wallElapsedMs: number,
 ): number {
   const picks = objectArray(transcript.picks, "Cost Sweep");
-  if (wallElapsedMs < 43_000) throw new Error("Cost Sweep run ended too early");
   let boardIndex = 0;
   let previousAtMs = 0;
   let penalties = 0;
@@ -482,11 +490,14 @@ function scoreSweep(
     if (
       pick.boardIndex !== boardIndex ||
       !board.cardIds.includes(cardId) ||
-      atMs < previousAtMs ||
-      atMs + penalties > 45_500
+      !Number.isFinite(atMs) ||
+      atMs < previousAtMs
     ) {
       throw new Error("Cost Sweep pick is invalid");
     }
+    // A tap past the buzzer (a suspended rAF clock on iOS, a tap in flight at
+    // the horn) clips the run at the window instead of voiding it.
+    if (atMs + penalties > 45_500) break;
     previousAtMs = atMs;
     if (card(cardId).elixir === board.targetElixir) {
       if (selected.has(cardId))
@@ -504,6 +515,11 @@ function scoreSweep(
       penalties += 2_000;
     }
   }
+  // The 45s window shrinks by 2s per wrong tap, so an honest run's wall time
+  // is 45s minus its penalties: validate the effective window, not raw wall
+  // time (a static floor rejected honest runs with three or more wrong taps).
+  if (wallElapsedMs + penalties < 43_000)
+    throw new Error("Cost Sweep run ended too early");
   return found;
 }
 

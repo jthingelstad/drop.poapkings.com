@@ -121,6 +121,12 @@ export default function Blitz() {
 
   function answer(picked: number) {
     if (stage.value !== 'running' || cardPhase.value !== 'playing') return
+    // The rAF-driven buzzer can lag (backgrounded tab, iOS scroll); check the
+    // real clock so taps after the window end the run instead of recording.
+    if (timed.currentElapsed() >= BLITZ.WINDOW_MS) {
+      finish()
+      return
+    }
     const card = current.value
     if (!card) return
     const correct = picked === card.elixir

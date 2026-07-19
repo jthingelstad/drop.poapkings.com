@@ -168,6 +168,58 @@ describe("server-side game scoring", () => {
     expect(scoreRun(sweep, { picks }, 45_000)).toBe(targetIds.length);
   });
 
+  it("accepts an honest Cost Sweep whose window shrank from wrong taps", () => {
+    const sweep = createChallenge("cost-sweep", randomInt);
+    const board = sweep.boards[0]!;
+    const targetIds = board.cardIds.filter(
+      (id) => cost(id) === board.targetElixir,
+    );
+    const wrongIds = board.cardIds
+      .filter((id) => cost(id) !== board.targetElixir)
+      .slice(0, 3);
+    const picks = [
+      ...wrongIds.map((id, index) => ({
+        boardIndex: 0,
+        cardId: id,
+        atMs: 500 + index * 200,
+      })),
+      ...targetIds.map((id, index) => ({
+        boardIndex: 0,
+        cardId: id,
+        atMs: 2_000 + index * 200,
+      })),
+    ];
+    // Three wrong taps shrink the 45s window to 39s of wall time; the old
+    // static 43s floor rejected exactly this honest run.
+    expect(scoreRun(sweep, { picks }, 39_100)).toBe(targetIds.length);
+    // A run that truly ended early is still rejected.
+    expect(() => scoreRun(sweep, { picks }, 30_000)).toThrow("too early");
+  });
+
+  it("clips answers past the buzzer instead of voiding the run", () => {
+    const blitz = createChallenge("blitz", randomInt);
+    const answers = blitz.cardIds.slice(0, 3).map((id, index) => ({
+      cardId: id,
+      guesses: [cost(id)],
+      // The third answer lands after the 60s window (a suspended rAF clock).
+      atMs: index === 2 ? 61_000 : 1_000 + index * 100,
+    }));
+    expect(scoreRun(blitz, { answers }, 61_500)).toBe(2);
+
+    const sweep = createChallenge("cost-sweep", randomInt);
+    const board = sweep.boards[0]!;
+    const targetIds = board.cardIds.filter(
+      (id) => cost(id) === board.targetElixir,
+    );
+    const picks = targetIds.map((id, index) => ({
+      boardIndex: 0,
+      cardId: id,
+      // The final pick lands after the 45s window.
+      atMs: index === targetIds.length - 1 ? 46_000 : 1_000 + index * 100,
+    }));
+    expect(scoreRun(sweep, { picks }, 45_500)).toBe(targetIds.length - 1);
+  });
+
   it("rejects altered challenge order and implausible clocks", () => {
     const answers = cards.map((card, index) => ({
       cardId: card.id,

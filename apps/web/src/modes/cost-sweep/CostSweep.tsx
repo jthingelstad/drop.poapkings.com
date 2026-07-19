@@ -179,6 +179,12 @@ export default function CostSweep() {
   function pick(card: Card) {
     const currentBoard = board.value
     if (stage.value !== 'running' || !currentBoard || boardLocked.value || selectedIds.value.has(card.id)) return
+    // The rAF-driven buzzer can lag (backgrounded tab, iOS scroll); check the
+    // real clock so taps after the window end the run instead of recording.
+    if (timed.currentElapsed() >= SWEEP.WINDOW_MS) {
+      finish()
+      return
+    }
     serverPicks.current.push({
       boardIndex: serverBoardIndex.current,
       cardId: card.id,
