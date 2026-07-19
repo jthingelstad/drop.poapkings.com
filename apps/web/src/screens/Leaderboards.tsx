@@ -8,31 +8,16 @@ import { ApiError, getLeaderboard, type LeaderboardEntry } from '../lib/api'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
 
-function warPhaseLabel(periodType: Season['periodType']): string | undefined {
-  if (periodType === 'training') return 'Training days'
-  if (periodType === 'warDay') return 'Battle days'
-  if (periodType === 'colosseum') return 'Colosseum'
-  return undefined
+// The leaderboards are season-scoped, not week-scoped: drop the Clan-Wars
+// weekly clock entirely and speak only to the season boundary.
+function seasonHeading(season: Season): string {
+  return season.crSeasonId === undefined ? 'Season leaderboards' : `Season ${season.crSeasonId} leaderboards`
 }
 
-function seasonSummary(season: Season): string {
-  const pieces = [
-    season.crSeasonId === undefined ? `${season.durationWeeks}-week season` : `CR Season ${season.crSeasonId}`,
-    season.currentWeek === undefined ? undefined : `Week ${season.currentWeek}`,
-    warPhaseLabel(season.periodType),
-    season.daysRemainingInWeek === undefined
-      ? undefined
-      : season.daysRemainingInWeek <= 0
-        ? 'Week ending soon'
-        : `${season.daysRemainingInWeek} ${season.daysRemainingInWeek === 1 ? 'day' : 'days'} left in week`
-  ]
-  return pieces.filter(Boolean).join(' · ')
-}
-
-function resetLabel(season: Season): string {
+function seasonTiming(season: Season): string {
   const date = new Date(season.endsAt).toLocaleDateString(undefined, {
     timeZone: 'UTC',
-    month: 'short',
+    month: 'long',
     day: 'numeric'
   })
   const time = new Date(season.endsAt).toLocaleTimeString(undefined, {
@@ -41,15 +26,13 @@ function resetLabel(season: Season): string {
     minute: '2-digit',
     hour12: false
   })
-  return `Resets ${date} at ${time} UTC${season.source === 'calendar-fallback' ? ' · estimated' : ''}`
-}
-
-function achievedLabel(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const estimated = season.source === 'calendar-fallback' ? ' (estimated)' : ''
+  return `Season ends ${date} at ${time} UTC${estimated} — new boards open then`
 }
 
 function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMode }) {
   const isPlayer = entry.player.id === player.value?.id
+  const games = entry.player.totalGames
   return (
     <li
       class={`leaderboard-row${entry.rank <= 3 ? ' leaderboard-row--podium' : ''}${
@@ -63,8 +46,14 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
           {entry.player.publicName}
           {isPlayer && <em>You</em>}
         </strong>
-        <small>
-          Level {entry.player.level} · {entry.player.totalGames} games · {achievedLabel(entry.achievedAt)}
+        <small class="leaderboard-stats">
+          <span class="leaderboard-stat leaderboard-stat--xp">
+            <Icon name="zap" />
+            {entry.player.xp.toLocaleString()} XP
+          </span>
+          <span class="leaderboard-stat">
+            {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
+          </span>
         </small>
       </span>
       <span class="leaderboard-score">{scoreLabel(mode, entry.score)}</span>
@@ -105,14 +94,11 @@ export default function Leaderboards() {
       <div class="leaderboard-hero">
         <div>
           <div class="eyebrow">Every run counts</div>
-          <h1>Season leaderboards</h1>
+          <h1>{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
           {season.value ? (
-            <>
-              <p>{seasonSummary(season.value)}</p>
-              <small>{resetLabel(season.value)}</small>
-            </>
+            <p>{seasonTiming(season.value)}</p>
           ) : (
-            <p>Climb a fresh set of boards every Clash Royale Clan Wars season.</p>
+            <p>Climb a fresh set of boards every Clash Royale season.</p>
           )}
         </div>
         <button class="btn btn--gold" onClick={() => navigate(selectedGame.path)}>

@@ -683,7 +683,7 @@ async function route(event: APIGatewayProxyEventV2) {
         ...levelForGames(result.totalGames),
       });
     }
-    const xpAward = runXp(run.mode, score, transcript);
+    const xpAward = runXp(transcript);
     const result = await repository.completeRun(run, score, season.id, xpAward);
     // Fold the validated transcript into the player's server-side learning
     // stats. Best-effort: a stats failure must never fail a recorded game.
