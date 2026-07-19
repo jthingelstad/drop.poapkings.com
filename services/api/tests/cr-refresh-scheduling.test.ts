@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
   ensureProfile: vi.fn(),
+  getCardStats: vi.fn(async () => ({})),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("../src/repository.js", () => ({
     completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
     ensureProfile = repository.ensureProfile;
+    getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;

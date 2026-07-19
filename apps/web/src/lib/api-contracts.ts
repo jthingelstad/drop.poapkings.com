@@ -118,9 +118,16 @@ export const recentRunSchema = z.object({
   completedAt: isoDateTime
 })
 
+export const learningSummarySchema = z.object({
+  weakCardIds: z.array(cardId),
+  costAccuracy: z.record(z.string(), z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger }))
+})
+
 export const meResponseSchema = z.object({
   player: playerSchema,
-  recentRuns: z.array(recentRunSchema)
+  recentRuns: z.array(recentRunSchema),
+  // Absent from older responses.
+  learning: z.optional(learningSummarySchema)
 })
 
 export const nameOptionsResponseSchema = z.object({

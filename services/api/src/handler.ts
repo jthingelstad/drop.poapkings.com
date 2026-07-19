@@ -21,6 +21,12 @@ import { isGameMode } from "./games.js";
 import { bearerToken, json } from "./http.js";
 import { assessRunIntegrity } from "./integrity.js";
 import { sendMagicLink } from "./jmap.js";
+import {
+  cardResultsFromTranscript,
+  costAccuracy,
+  mergeCardStats,
+  weakCardIds,
+} from "./learning.js";
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
@@ -332,14 +338,21 @@ async function route(event: APIGatewayProxyEventV2) {
         "Player profile was not found.",
         "profile_not_found",
       );
-    const [recentRuns, crProfile] = await Promise.all([
+    const [recentRuns, crProfile, cardStats] = await Promise.all([
       repository.listRecentRuns(session.sub),
       profile.playerTag
         ? repository.getCrProfile(profile.playerTag)
         : undefined,
+      repository.getCardStats(session.sub).catch(() => ({})),
     ]);
     return json(200, {
       player: profileResponse(profile, crProfile),
+      // Server-owned learning summary: which cards to drill and how each
+      // elixir band is going. Derived from validated transcripts only.
+      learning: {
+        weakCardIds: weakCardIds(cardStats, 8),
+        costAccuracy: costAccuracy(cardStats),
+      },
       // Map storage items onto the RunRecord contract: raw history rows carry
       // table keys, GSI keys, and the email-hash sub, none of which belong on
       // the wire.
@@ -502,10 +515,27 @@ async function route(event: APIGatewayProxyEventV2) {
           playerCardIds = crProfile.cards?.map((card) => card.id);
       }
     }
-    // A run dealt from a linked collection plays as practice: a 12-card pool
-    // is materially easier than the full catalog, so it never ranks.
-    const ranked = !collectionPool(playerCardIds);
-    const challenge = createChallenge(body.mode, randomInt, { playerCardIds });
+    // Practice deals from the server-owned learning stats: weak cards seed
+    // roughly half the round. Best-effort — a stats hiccup falls back to a
+    // uniform (ranked) deal.
+    let focusCardIds: number[] | undefined;
+    if (body.mode === "practice") {
+      try {
+        focusCardIds = weakCardIds(await repository.getCardStats(owner), 8);
+      } catch (error) {
+        console.warn("Learning stats lookup failed", {
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      }
+    }
+    // A non-uniform deal plays as practice: a 12-card collection pool is
+    // materially easier than the full catalog, and a weakness-focused deal is
+    // personal by construction — neither ranks.
+    const ranked = !collectionPool(playerCardIds) && !focusCardIds?.length;
+    const challenge = createChallenge(body.mode, randomInt, {
+      playerCardIds,
+      focusCardIds,
+    });
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const run = await repository.createRun(
       owner,
@@ -674,6 +704,24 @@ async function route(event: APIGatewayProxyEventV2) {
       });
     }
     const result = await repository.completeRun(run, score, season.id);
+    // Fold the validated transcript into the player's server-side learning
+    // stats. Best-effort: a stats failure must never fail a recorded game.
+    try {
+      const cardResults = cardResultsFromTranscript(run.challenge, transcript);
+      if (cardResults.length) {
+        const existing = await repository.getCardStats(run.owner);
+        await repository.saveCardStats(
+          run.owner,
+          mergeCardStats(existing, cardResults, result.completedAt),
+          result.completedAt,
+        );
+      }
+    } catch (error) {
+      console.warn("Learning stats update failed", {
+        runId: run.runId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
     let crProfile: CrProfileSnapshot | undefined;
     if (result.profile.playerTag) {
       try {

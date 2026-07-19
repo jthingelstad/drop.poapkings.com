@@ -193,6 +193,13 @@ export interface Player {
   updatedAt: string;
 }
 
+// Server-derived learning summary (from validated run transcripts): which
+// cards to drill next and per-elixir-band accuracy.
+export interface LearningSummary {
+  weakCardIds: number[];
+  costAccuracy: Record<string, { seen: number; correct: number }>;
+}
+
 export interface StartedRun {
   runId: string;
   runToken: string;

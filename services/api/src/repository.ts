@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import { leaderboardSortKey } from "./games.js";
 import type { IntegrityReason } from "./integrity.js";
+import type { CardStatsMap } from "./learning.js";
 import { levelForGames } from "./progression.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
@@ -622,6 +623,36 @@ export class Repository {
       }),
     );
     return item;
+  }
+
+  // Server-owned learning telemetry lives in the player partition (so account
+  // deletion sweeps it) and is written best-effort after completions.
+  async getCardStats(sub: string): Promise<CardStatsMap> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "CARDSTATS" },
+      }),
+    );
+    return (result.Item?.stats ?? {}) as CardStatsMap;
+  }
+
+  async saveCardStats(
+    sub: string,
+    stats: CardStatsMap,
+    updatedAt: string,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `PLAYER#${sub}`,
+          sk: "CARDSTATS",
+          stats,
+          updatedAt,
+        },
+      }),
+    );
   }
 
   async getRun(runId: string): Promise<RunItem | undefined> {

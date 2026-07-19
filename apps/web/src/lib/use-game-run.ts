@@ -74,7 +74,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     } finally {
       preparing.value = false
     }
-  }, [challenge, mode, preparing, startError])
+  }, [challenge, mode, preparing, ranked, startError])
 
   useEffect(() => {
     void prepare()

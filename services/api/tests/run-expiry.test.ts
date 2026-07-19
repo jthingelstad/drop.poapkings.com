@@ -9,6 +9,7 @@ import { signToken, verifyToken } from "../src/signing.js";
 const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   getProfile: vi.fn(),
+  getCardStats: vi.fn(async () => ({})),
   createRun: vi.fn(),
   useRateLimit: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock("../src/repository.js", () => ({
   Repository: class {
     getRun = repository.getRun;
     getProfile = repository.getProfile;
+    getCardStats = repository.getCardStats;
     createRun = repository.createRun;
     useRateLimit = repository.useRateLimit;
   },
@@ -168,5 +170,66 @@ describe("run expiry", () => {
     );
     expect(claims.runId).toBe("run-new");
     expect(claims.exp).toBeGreaterThan(runExpirySeconds + 12 * 60 * 60);
+  });
+
+  it("seeds weak cards into Practice and marks the run unranked", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "player-1",
+      email: "player@example.com",
+      publicName: "Knight Main",
+      favoriteCardId: 26000000,
+      totalGames: 12,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-18T12:01:00.000Z",
+    });
+    // Knight has an active miss streak; the server should deal it.
+    repository.getCardStats.mockResolvedValue({
+      "26000000": {
+        seen: 4,
+        correct: 1,
+        missStreak: 2,
+        lastSeenAt: "2026-07-18T12:00:00.000Z",
+      },
+    });
+    repository.createRun.mockImplementation(
+      (
+        owner: string,
+        mode: string,
+        challenge: { cardIds: number[] },
+        expiresAt: number,
+        ranked: boolean,
+      ) =>
+        Promise.resolve({
+          runId: "run-focus",
+          owner,
+          mode,
+          challenge,
+          state: "started",
+          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          expiresAt,
+          ranked,
+        }),
+    );
+
+    const response = (await handler(
+      event("/runs/start", { mode: "practice" }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(201);
+    expect(body.ranked).toBe(false);
+    expect(body.challenge.cardIds).toContain(26000000);
+    expect(body.challenge.cardIds).toHaveLength(15);
+    expect(repository.createRun).toHaveBeenCalledWith(
+      "player-sub",
+      "practice",
+      expect.anything(),
+      expect.any(Number),
+      false,
+    );
   });
 });

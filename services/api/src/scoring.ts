@@ -13,6 +13,10 @@ interface CardData {
 
 const CARDS = (rawCards as CardData).cards;
 const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
+
+export function cardElixir(id: number): number | undefined {
+  return CARD_BY_ID.get(id)?.elixir;
+}
 export const SURGE_CARD_COUNT = 15;
 export const SURGE_PENALTY_MS = 2_000;
 export const BLITZ_CARD_COUNT = 240;
@@ -22,7 +26,12 @@ type RandomInt = (upperBound: number) => number;
 
 export interface ChallengeContext {
   playerCardIds?: readonly number[];
+  // Practice only: known-weak cards the server seeds into the deal. A focused
+  // deal is non-uniform, so the handler marks those runs unranked.
+  focusCardIds?: readonly number[];
 }
+
+const FOCUS_SEED_LIMIT = 8;
 
 function shuffle<T>(values: readonly T[], randomInt: RandomInt): T[] {
   const result = [...values];
@@ -146,8 +155,28 @@ export function createChallenge(
   // A small or stale collection safely falls back to the canonical catalog.
   const pool = (collectionPool(context.playerCardIds) as Card[]) ?? CARDS;
   switch (mode) {
+    case "practice": {
+      // Seed up to half the round from known-weak cards, then fill from the
+      // pool without immediate repeats; the final shuffle hides the seam.
+      const focus = shuffle(
+        [...new Set(context.focusCardIds ?? [])].filter((id): id is number =>
+          CARD_BY_ID.has(Number(id)),
+        ),
+        randomInt,
+      ).slice(0, FOCUS_SEED_LIMIT);
+      if (!focus.length)
+        return { mode, cardIds: cardSequence(15, randomInt, pool) };
+      // Draw a long fill so small pools still complete a 15-card round after
+      // the focus cards are excluded from it.
+      const fill = cardSequence(30, randomInt, pool).filter(
+        (id) => !focus.includes(id),
+      );
+      return {
+        mode,
+        cardIds: shuffle([...focus, ...fill].slice(0, 15), randomInt),
+      };
+    }
     case "surge":
-    case "practice":
     case "identify":
       return { mode, cardIds: cardSequence(15, randomInt, pool) };
     case "blitz":

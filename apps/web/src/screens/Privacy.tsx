@@ -13,8 +13,9 @@ export default function Privacy() {
           <h2>Your account</h2>
           <p>
             Your email address is used for one-time magic-link sign-in and is never shown on your public profile. Drop
-            stores your chosen player name, favorite-card avatar, game results, total games, and optional Clash Royale
-            player tag.
+            stores your chosen player name, favorite-card avatar, game results, total games, per-card practice
+            statistics derived from your recorded games (used only to deal you better practice rounds — never shown to
+            other players), and optional Clash Royale player tag. All of it is removed when you delete your account.
           </p>
         </section>
 
