@@ -966,9 +966,10 @@ test('continuous play modes expose working controls with low chrome', async ({ p
   }
 })
 
-test('card art fallback renders when the Clash Royale CDN is blocked', async ({ page }) => {
+test('card art fallback renders when card images cannot load', async ({ page }) => {
   allowBlockedAssets.add(page)
-  await page.route('https://api-assets.clashroyale.com/**', (route) => route.abort())
+  // Card art is mirrored same-origin under /cards/; block that path.
+  await page.route('**/cards/*.png', (route) => route.abort())
   await page.goto('/')
   await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible()
