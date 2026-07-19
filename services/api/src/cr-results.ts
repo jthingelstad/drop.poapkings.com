@@ -116,6 +116,8 @@ export function parseCrPlayerResult(value: unknown): CrPlayerRefreshResult {
     completedAt: isoDate(source.completedAt, "Completed at"),
   };
   if (source.outcome === "not_found") return { ...base, outcome: "not_found" };
+  if (source.outcome === "unavailable")
+    return { ...base, outcome: "unavailable" };
   if (source.outcome !== "success")
     throw new Error("CR result outcome is invalid");
   return { ...base, outcome: "success", player: parsePlayer(source.player) };
@@ -179,6 +181,18 @@ export async function saveCrPlayerResult(
   repository: Repository,
   result: CrPlayerRefreshResult,
 ): Promise<boolean> {
+  if (result.outcome === "unavailable") {
+    // Resolve the pending claim without touching an existing snapshot: a
+    // player with older ready data keeps it, while a first-time link shows
+    // "unavailable" instead of polling "pending" forever. The claim's retry
+    // window re-queues on the next login, session renewal, or tag save.
+    await repository.markCrRefreshUnavailable(
+      result.playerTag,
+      result.jobId,
+      result.completedAt,
+    );
+    return true;
+  }
   return repository.saveCrProfileResult({
     tag: result.playerTag,
     status: result.outcome === "success" ? "ready" : "not_found",

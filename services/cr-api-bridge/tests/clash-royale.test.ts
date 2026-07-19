@@ -1,5 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { normalizePlayer } from "../src/clash-royale.js";
+import { describe, expect, it, vi } from "vitest";
+import { fetchPlayer, normalizePlayer } from "../src/clash-royale.js";
+
+const request = {
+  version: 1 as const,
+  type: "refresh-player" as const,
+  jobId: "job-1",
+  playerTag: "#2PYQ0",
+  requestedAt: "2026-07-18T12:00:00.000Z",
+};
+
+function jsonResponse(status: number, body: unknown, headers?: HeadersInit) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...headers },
+  });
+}
+
+const noDelay = vi.fn(async () => undefined);
 
 describe("Clash Royale player normalization", () => {
   it("keeps practice context and drops rank and card levels", () => {
@@ -68,5 +85,56 @@ describe("Clash Royale player normalization", () => {
     });
 
     expect(player.accountAge).toEqual({ days: undefined, years: 3 });
+  });
+});
+
+describe("Clash Royale player fetch outcomes", () => {
+  it("maps a 404 to not_found without retrying", async () => {
+    const fetcher = vi.fn(async () => jsonResponse(404, {}));
+    const result = await fetchPlayer(request, "key", fetcher, noDelay);
+    expect(result.outcome).toBe("not_found");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a 429 honoring Retry-After, then succeeds", async () => {
+    const delays: number[] = [];
+    const delay = vi.fn(async (ms: number) => {
+      delays.push(ms);
+    });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(429, {}, { "retry-after": "2" }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          name: "CR Player",
+          cards: [{ id: 26000000, name: "Knight" }],
+        }),
+      );
+    const result = await fetchPlayer(request, "key", fetcher, delay);
+    expect(result.outcome).toBe("success");
+    expect(delays).toEqual([2_000]);
+  });
+
+  it("resolves persistent 503s as unavailable instead of throwing", async () => {
+    // A thrown error burned five SQS redeliveries into the DLQ and stranded
+    // the profile on "pending" forever.
+    const fetcher = vi.fn(async () => jsonResponse(503, {}));
+    const result = await fetchPlayer(request, "key", fetcher, noDelay);
+    expect(result.outcome).toBe("unavailable");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("resolves network failures and unusable 200s as unavailable", async () => {
+    const failing = vi.fn(async () => {
+      throw new Error("socket hang up");
+    });
+    await expect(
+      fetchPlayer(request, "key", failing, noDelay),
+    ).resolves.toMatchObject({ outcome: "unavailable" });
+
+    const garbage = vi.fn(async () => jsonResponse(200, { nonsense: true }));
+    await expect(
+      fetchPlayer(request, "key", garbage, noDelay),
+    ).resolves.toMatchObject({ outcome: "unavailable" });
   });
 });

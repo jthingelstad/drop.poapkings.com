@@ -153,8 +153,14 @@ export interface CrPlayerRefreshNotFound extends CrPlayerRefreshResultBase {
   outcome: "not_found";
 }
 
+// The Clash Royale API answered with a transient failure (429/5xx, timeout);
+// the profile is marked unavailable instead of poisoning the request queue.
+export interface CrPlayerRefreshUnavailable extends CrPlayerRefreshResultBase {
+  outcome: "unavailable";
+}
+
 export type CrPlayerRefreshResult =
-  CrPlayerRefreshSuccess | CrPlayerRefreshNotFound;
+  CrPlayerRefreshSuccess | CrPlayerRefreshNotFound | CrPlayerRefreshUnavailable;
 
 export interface CrWarClock {
   crSeasonId: number;

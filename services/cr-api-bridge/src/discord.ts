@@ -47,6 +47,13 @@ export function playerPulledWebhookPayload(
       content: `⚠️ CR not found · ${result.playerTag} · ${durationMs.toLocaleString("en-US")}ms`,
     };
   }
+  if (result.outcome === "unavailable") {
+    return {
+      username: "Elixir Drop Events",
+      allowed_mentions: { parse: [] },
+      content: `🟠 CR unavailable · ${result.playerTag} · ${durationMs.toLocaleString("en-US")}ms`,
+    };
+  }
   return {
     username: "Elixir Drop Events",
     allowed_mentions: { parse: [] },

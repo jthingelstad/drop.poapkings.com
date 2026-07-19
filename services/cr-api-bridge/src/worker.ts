@@ -20,6 +20,24 @@ export interface WorkerConfig {
 const HEARTBEAT_INTERVAL_MS = 60_000;
 const WAR_CLOCK_INTERVAL_MS = 5 * 60_000;
 
+// SQS standard queues deliver at-least-once. Remembering fully processed jobs
+// lets a redelivered duplicate (expired visibility, failed delete) be dropped
+// without a second CR fetch, result message, or Discord event.
+const PROCESSED_JOB_LIMIT = 500;
+const processedJobs = new Set<string>();
+
+function alreadyProcessed(jobId: string): boolean {
+  return processedJobs.has(jobId);
+}
+
+function rememberProcessed(jobId: string): void {
+  processedJobs.add(jobId);
+  if (processedJobs.size > PROCESSED_JOB_LIMIT) {
+    const oldest = processedJobs.values().next().value;
+    if (oldest !== undefined) processedJobs.delete(oldest);
+  }
+}
+
 function retryDelay(signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const finish = () => {
@@ -48,6 +66,19 @@ export async function pollOnce(
   if (!message?.Body || !message.ReceiptHandle) return false;
 
   const request = parseRefreshRequest(JSON.parse(message.Body) as unknown);
+  if (alreadyProcessed(request.jobId)) {
+    await sqs.send(
+      new DeleteMessageCommand({
+        QueueUrl: config.requestQueueUrl,
+        ReceiptHandle: message.ReceiptHandle,
+      }),
+    );
+    console.info("CR player refresh duplicate dropped", {
+      jobId: request.jobId,
+      playerTag: request.playerTag,
+    });
+    return true;
+  }
   const startedAt = Date.now();
   const result = await fetchPlayer(request, config.crApiKey);
   await sqs.send(
@@ -62,6 +93,7 @@ export async function pollOnce(
       ReceiptHandle: message.ReceiptHandle,
     }),
   );
+  rememberProcessed(request.jobId);
   await publishPlayerPulledEvent(
     config.discordWebhookUrl,
     result,
