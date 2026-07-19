@@ -70,17 +70,6 @@ export function isGameMode(value: unknown): value is GameMode {
   );
 }
 
-export function validateScore(mode: GameMode, value: unknown): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error("Score must be an integer");
-  }
-  const rule = MODE_RULES[mode];
-  if (value < rule.minScore || value > rule.maxScore) {
-    throw new Error(`Score is outside the accepted range for ${mode}`);
-  }
-  return value;
-}
-
 const MAX_SORT_SCORE = 999_999_999_999;
 
 export function leaderboardSortKey(

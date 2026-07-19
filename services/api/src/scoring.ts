@@ -15,6 +15,8 @@ const CARDS = (rawCards as CardData).cards;
 const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 export const SURGE_CARD_COUNT = 15;
 export const SURGE_PENALTY_MS = 2_000;
+export const BLITZ_CARD_COUNT = 240;
+export const HIGHER_LOWER_PAIR_COUNT = 250;
 
 type RandomInt = (upperBound: number) => number;
 
@@ -127,15 +129,15 @@ export function createChallenge(
     case "identify":
       return { mode, cardIds: cardSequence(15, randomInt, pool) };
     case "blitz":
-      return { mode, cardIds: cardSequence(240, randomInt, pool) };
+      return { mode, cardIds: cardSequence(BLITZ_CARD_COUNT, randomInt, pool) };
     case "survival":
       return { mode, cardIds: cardSequence(250, randomInt, pool) };
     case "higher-lower": {
-      const ids = cardSequence(500, randomInt, pool);
+      const ids = cardSequence(HIGHER_LOWER_PAIR_COUNT * 2, randomInt, pool);
       return {
         mode,
         pairs: Array.from(
-          { length: 250 },
+          { length: HIGHER_LOWER_PAIR_COUNT },
           (_, index) =>
             [ids[index * 2]!, ids[index * 2 + 1]!] as [number, number],
         ),

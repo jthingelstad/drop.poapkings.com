@@ -226,6 +226,33 @@ describe("repository DynamoDB requests", () => {
     });
     expect(JSON.stringify(update)).not.toContain("LEADERBOARD#");
     expect(JSON.stringify(update)).not.toContain("trophyRoadGames");
+
+    // The evidence must survive the short started-run TTL and be queryable
+    // from the review queue partition — otherwise "review quarantined
+    // scores" is fiction.
+    expect(update.UpdateExpression).toContain("expiresAt = :reviewExpiresAt");
+    const twentyNineDays = Math.floor(Date.now() / 1_000) + 29 * 24 * 60 * 60;
+    expect(
+      Number(update.ExpressionAttributeValues[":reviewExpiresAt"]),
+    ).toBeGreaterThan(twentyNineDays);
+    expect(update.ExpressionAttributeValues[":queuePk"]).toBe("QUARANTINE");
+    expect(update.ExpressionAttributeValues[":queueSk"]).toContain(
+      "run-review",
+    );
+  });
+
+  it("lists the quarantine review queue from its sparse index partition", async () => {
+    send.mockResolvedValueOnce({
+      Items: [{ runId: "run-review", state: "quarantined" }],
+    });
+
+    const runs = await new Repository("test-table").listQuarantinedRuns();
+    const query = send.mock.calls[0]?.[0].input;
+
+    expect(query.IndexName).toBe("GSI1");
+    expect(query.ExpressionAttributeValues).toEqual({ ":pk": "QUARANTINE" });
+    expect(query.ScanIndexForward).toBe(false);
+    expect(runs).toMatchObject([{ runId: "run-review" }]);
   });
 
   it("deletes the player partition and its leaderboard-backed run records", async () => {

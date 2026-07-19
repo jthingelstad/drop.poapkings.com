@@ -102,3 +102,24 @@ entry, and season-clock update have all succeeded in production.
 Do not promise a prize until the whole four-week season has run with score
 quarantine and operational monitoring in place. Quarantined scores should be
 reviewed as signals; never promote them directly into leaderboard state.
+
+## 7. Reviewing quarantined scores
+
+Quarantined runs keep their evidence for thirty days and sit in a dedicated
+`QUARANTINE` partition on the table's `GSI1` index (newest first). Review them
+from the operator host with the deployment credentials:
+
+```bash
+aws dynamodb query \
+  --table-name "$ELIXIR_DROP_TABLE_NAME" \
+  --index-name GSI1 \
+  --key-condition-expression 'GSI1PK = :pk' \
+  --expression-attribute-values '{":pk":{"S":"QUARANTINE"}}' \
+  --no-scan-index-forward
+```
+
+Each item carries the mode, recomputed score, `reviewReason`, and
+`integrityEvidence` (wall time plus transcript counts). Treat entries as
+signals about the shipped UI limits or a probing client — never write a
+quarantined score into leaderboard state by hand, and expect entries to age
+out on their own once reviewed.
