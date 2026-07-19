@@ -1,6 +1,6 @@
 {
   "version": "2026-07-19",
-  "count": 121,
+  "count": 120,
   "cards": [
     {
       "id": 26000000,
@@ -1246,16 +1246,6 @@
       "evo": false,
       "hero": false,
       "icon": "/cards/28000024.png"
-    },
-    {
-      "id": 28000025,
-      "name": "Spirit Empress",
-      "elixir": 6,
-      "rarity": "legendary",
-      "type": "spell",
-      "evo": false,
-      "hero": false,
-      "icon": "/cards/28000025.png"
     },
     {
       "id": 28000026,

@@ -97,10 +97,19 @@ if (MIRROR) {
   await mkdir(join(WEB_ROOT, 'public/cards'), { recursive: true })
 }
 
+// Cards whose in-game elixir cost is ambiguous — two different costs — so a
+// "name the cost" game can't score them fairly. Mirror is already dropped
+// automatically (the API returns no elixirCost for it); these list a single
+// cost in the API but play at two, so exclude them explicitly.
+const EXCLUDED_CARD_IDS = new Set([
+  28000025 // Spirit Empress — two different elixir costs (Mirror-like)
+])
+
 const cards = []
 
 for (const card of data.items ?? []) {
   if (!('elixirCost' in card)) continue // skip supportItems that sneak in
+  if (EXCLUDED_CARD_IDS.has(card.id)) continue // ambiguous dual-cost cards
 
   const idStr = String(card.id)
   let type = 'troop'

@@ -170,7 +170,7 @@ rank-oriented fields as part of unrelated work.
 ```json
 {
   "version": "YYYY-MM-DD",
-  "count": 121,
+  "count": 120,
   "cards": [
     {
       "id": 26000000,
