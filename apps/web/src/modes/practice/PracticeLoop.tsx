@@ -12,6 +12,7 @@ import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import MultipleChoice from '../../components/MultipleChoice'
 import ElixirHost from '../../components/ElixirHost'
+import FloatingCue from '../../components/FloatingCue'
 import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
@@ -49,6 +50,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const elixirMood = useSignal<ElixirMood>('neutral')
   const dropKey = useSignal(0)
   const streak = useSignal(0)
+  // Bumped at streak milestones to fire the shared floating streak cue.
+  const streakCue = useSignal(0)
   const answered = useSignal(0)
   const correct = useSignal(0)
   const insights = useSignal<Insights | null>(null)
@@ -109,6 +112,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       correct.value++
       streak.value++
       dropKey.value++
+      if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
       phase.value = 'correct'
       const event = streak.value >= 3 ? 'correct_streak' : 'correct_fast'
       elixirLine.value = pickLine(event, { n: streak.value })
@@ -180,7 +184,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   return (
     <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
       <GameFxLayer cue={runtime.cue.value} particleCount={6} />
-      <div class="session-bar">
+      <div class="session-bar session-bar--fixed">
         <div class="session-bar__stat">
           <span class="session-bar__val">
             {Math.min(answered.value + 1, ROUND_LEN)}
@@ -246,6 +250,15 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       )}
 
       <ElixirHost line={elixirLine.value} mood={elixirMood.value} />
+
+      {/* Shared floating streak cue — composited, never in layout flow. */}
+      <div class="game-cues" aria-hidden="true">
+        <div class="game-cues__slot game-cues__slot--top">
+          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+            🔥 {streak.value} streak
+          </FloatingCue>
+        </div>
+      </div>
     </div>
   )
 }

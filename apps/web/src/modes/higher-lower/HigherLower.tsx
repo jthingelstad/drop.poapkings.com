@@ -8,6 +8,7 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import ElixirHost from '../../components/ElixirHost'
+import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
@@ -35,6 +36,7 @@ export default function HigherLower() {
   const picked = useSignal<Choice | null>(null)
   const revealed = useSignal(false)
   const streak = useSignal(0)
+  const streakCue = useSignal(0)
   const best = useSignal(getRecords().longestStreak ?? 0)
   const elixirLine = useSignal(pickLine('idle'))
   const elixirMood = useSignal<ElixirMood>('neutral')
@@ -89,6 +91,7 @@ export default function HigherLower() {
       playCorrect()
       const s = streak.value + 1
       streak.value = s
+      if (s === 3 || (s > 3 && s % 5 === 0)) streakCue.value++
       if (s > best.value) {
         best.value = s
         saveRecords({ longestStreak: s })
@@ -200,6 +203,15 @@ export default function HigherLower() {
       <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
         Home
       </button>
+
+      {/* Shared floating streak cue — composited, never in layout flow. */}
+      <div class="game-cues" aria-hidden="true">
+        <div class="game-cues__slot game-cues__slot--top">
+          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+            🔥 {streak.value} streak
+          </FloatingCue>
+        </div>
+      </div>
     </div>
   )
 }

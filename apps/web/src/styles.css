@@ -1842,6 +1842,16 @@ a {
   color: var(--muted);
 }
 
+/* Fixed width + right-anchored End button so conditionally-shown stats (accuracy,
+   streak) can appear without re-centering the bar or shifting the button. */
+.session-bar--fixed {
+  width: 100%;
+  max-width: 440px;
+}
+.session-bar--fixed .session-bar__end {
+  margin-left: auto;
+}
+
 .session-bar__stat {
   display: flex;
   align-items: center;
@@ -1853,6 +1863,7 @@ a {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Drop pop overlay (on correct) ───────────────────────── */
@@ -2578,6 +2589,10 @@ body:has(.game-run) .api-status {
 }
 .floating-cue--pace.is-behind {
   color: var(--gold2);
+}
+.floating-cue--streak {
+  color: var(--gold);
+  text-transform: uppercase;
 }
 
 .main-content.game-run.surge {

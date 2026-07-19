@@ -11,6 +11,7 @@ import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
+import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
@@ -37,6 +38,7 @@ export default function Survival() {
   const runtime = useGameRuntime()
   const { stage, later } = runtime
   const streak = useSignal(0)
+  const streakCue = useSignal(0)
   const best = useSignal(getRecords().survivalBest ?? 0)
   const remainingFrac = useSignal(1)
   const current = useSignal<Card | null>(null)
@@ -171,6 +173,7 @@ export default function Survival() {
       answers.current.push({ card, guess: picked, correct: true, ms })
       saveResult(card.id, true, ms)
       streak.value += 1
+      if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value += 1
       cardPhase.value = 'correct'
       dropKey.value += 1
       runtime.emitCue('answer-correct', { cardId: card.id })
@@ -277,6 +280,15 @@ export default function Survival() {
       )}
 
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
+
+      {/* Shared floating streak cue — composited, never in layout flow. */}
+      <div class="game-cues" aria-hidden="true">
+        <div class="game-cues__slot game-cues__slot--top">
+          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+            🔥 {streak.value} streak
+          </FloatingCue>
+        </div>
+      </div>
     </div>
   )
 }
