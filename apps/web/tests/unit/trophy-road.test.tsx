@@ -1,56 +1,30 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render } from 'preact'
+import { describe, expect, it } from 'vitest'
 import { renderToStringAsync } from 'preact-render-to-string'
-import StarCount from '../../src/components/StarCount'
-import TrophyModal from '../../src/components/TrophyModal'
 import RANKS, { rankFor } from '../../src/data/starRanks'
-import { TROPHY_ROAD_UPDATED_EVENT } from '../../src/lib/trophy-road'
+import ArenaProgress from '../../src/components/ArenaProgress'
 
-describe('site-wide Trophy Road', () => {
-  const currentSeason = {
-    id: '2026-07',
-    startsAt: '2026-07-06T10:00:00.000Z',
-    endsAt: '2026-08-03T10:00:00.000Z',
-    durationWeeks: 4
-  }
-  it('uses completed-game-scale arena thresholds', () => {
-    expect(rankFor(49).current.name).toBe('Goblin Stadium')
-    expect(rankFor(50).current.name).toBe('Bone Pit')
-    expect(rankFor(100).current.name).toBe('Spell Valley')
-    expect(rankFor(17_250).current.name).toBe('Summit of Heroes')
+describe('per-player arena (Trophy Road)', () => {
+  it('thresholds arenas on lifetime Player XP', () => {
+    expect(rankFor(0).current.name).toBe('Goblin Stadium')
+    expect(rankFor(149).current.name).toBe('Goblin Stadium')
+    expect(rankFor(150).current.name).toBe('Bone Pit')
+    expect(rankFor(750).current.name).toBe('Spell Valley')
+    expect(rankFor(222_000).current.name).toBe('Summit of Heroes')
     expect(RANKS.every((rank, index) => index === 0 || rank.threshold > RANKS[index - 1]!.threshold)).toBe(true)
   })
 
-  it('describes recorded games without page-view language', async () => {
-    const html = await renderToStringAsync(<TrophyModal trophyRoadGames={49} onClose={vi.fn()} />)
-
-    expect(html).toContain('Every completed, recorded Drop game adds one to the whole site’s road.')
-    expect(html).toContain('49 Drop games')
-    expect(html).toContain('1 game away from Bone Pit.')
-    expect(html).not.toContain('visits')
+  it('renders the current arena and XP-to-next progress', async () => {
+    const html = await renderToStringAsync(<ArenaProgress xp={149} />)
+    expect(html).toContain('Goblin Stadium')
+    expect(html).toContain('149 XP')
+    // 1 XP short of Bone Pit (threshold 150).
+    expect(html).toContain('1 XP to Bone Pit')
+    expect(html).not.toContain('games')
   })
 
-  it('refreshes the server-owned counter after a game is recorded', async () => {
-    let trophyRoadGames = 592
-    const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url.endsWith('/api-config.json')) {
-        return new Response(JSON.stringify({ apiBaseUrl: 'https://api.example' }), { status: 200 })
-      }
-      return new Response(JSON.stringify({ trophyRoadGames, currentSeason }), { status: 200 })
-    })
-    vi.stubGlobal('fetch', fetchMock)
-    const root = document.createElement('div')
-
-    render(<StarCount />, root)
-    await vi.waitFor(() => expect(root.querySelector('.starcount__n')?.textContent).toBe('592'))
-
-    trophyRoadGames = 593
-    window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
-    await vi.waitFor(() => expect(root.querySelector('.starcount__n')?.textContent).toBe('593'))
-
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    render(null, root)
-    vi.unstubAllGlobals()
+  it('caps at the summit without a next-arena label', async () => {
+    const html = await renderToStringAsync(<ArenaProgress xp={222_000} />)
+    expect(html).toContain('Summit of Heroes')
+    expect(html).toContain('Top arena reached.')
   })
 })

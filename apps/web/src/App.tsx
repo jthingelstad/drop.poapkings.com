@@ -5,8 +5,8 @@ import { track } from './lib/analytics'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
-import StarCount from './components/StarCount'
 import PlayerAvatar from './components/PlayerAvatar'
+import { rankFor } from './data/starRanks'
 import ApiStatusBanner from './components/ApiStatusBanner'
 import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
@@ -54,6 +54,43 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/privacy', label: 'Privacy' }
 ]
 
+// The player block: activity score (XP), profile card, and arena badge — a
+// single tap target into the profile. Signed out, it becomes a sign-in glyph.
+function PlayerBlock() {
+  const current = player.value
+  if (!current) {
+    const reconnecting = accountStatus.value === 'unavailable'
+    return (
+      <button
+        class="site-head__signin"
+        onClick={() => navigate(reconnecting ? '/profile' : '/login')}
+        aria-label={reconnecting ? 'Reconnecting' : 'Sign in'}
+        title={reconnecting ? 'Reconnecting…' : 'Sign in'}
+      >
+        <Icon name="log-in" />
+        <span class="site-head__signin-label">{reconnecting ? 'Reconnecting…' : 'Sign in'}</span>
+      </button>
+    )
+  }
+  const xp = current.xp ?? 0
+  const arena = rankFor(xp).current
+  return (
+    <button
+      class="player-block"
+      onClick={() => navigate('/profile')}
+      aria-label={`Your profile — ${xp.toLocaleString()} XP, ${arena.name} arena`}
+      title={`${xp.toLocaleString()} XP · ${arena.name}`}
+    >
+      <span class="player-block__xp">
+        <Icon name="zap" />
+        {xp.toLocaleString()}
+      </span>
+      <PlayerAvatar favoriteCardId={current.favoriteCardId} size="small" />
+      <img class="player-block__arena" src={arena.image} alt="" aria-hidden="true" />
+    </button>
+  )
+}
+
 function Header() {
   const r = route.value
   const active = ROUTE_LABELS.find((x) => r.startsWith(x.match))
@@ -68,30 +105,26 @@ function Header() {
 
       <div class="site-head__spacer" />
 
-      <StarCount />
+      <PlayerBlock />
+
       <button
-        class="site-head__account"
-        onClick={() => navigate(['authenticated', 'unavailable'].includes(accountStatus.value) ? '/profile' : '/login')}
+        class="site-head__icon"
+        onClick={() => navigate('/leaderboards')}
+        aria-label="Leaderboards"
+        title="Leaderboards"
       >
-        {accountStatus.value === 'authenticated' && (
-          <PlayerAvatar favoriteCardId={player.value?.favoriteCardId} size="small" />
-        )}
-        <span>
-          {player.value?.publicName ||
-            (accountStatus.value === 'authenticated'
-              ? 'Player'
-              : accountStatus.value === 'unavailable'
-                ? 'Reconnecting…'
-                : 'Sign in')}
-        </span>
+        <Icon name="trophy" />
       </button>
-      <button class="site-head__leaderboards" onClick={() => navigate('/leaderboards')} aria-label="Leaderboards">
-        <span aria-hidden="true">♛</span>
-        <span class="site-head__leaderboards-full">Leaderboards</span>
-        <span class="site-head__leaderboards-short">Boards</span>
+      <button class="site-head__icon" onClick={() => navigate('/settings')} aria-label="Settings" title="Settings">
+        <Icon name="settings" />
       </button>
-      <button class="site-head__settings" onClick={() => navigate('/settings')} aria-label="Settings" title="Settings">
-        ⚙
+      <button
+        class="site-head__icon"
+        onClick={() => startScreensaver('nav')}
+        aria-label="Play the screensaver"
+        title="Screensaver"
+      >
+        <Icon name="sparkles" />
       </button>
     </header>
   )

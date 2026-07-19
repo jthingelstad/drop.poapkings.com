@@ -455,7 +455,7 @@ a { color: var(--lavender); }
   font-family: var(--font-display);
 }
 
-.level-card, .profile-section {
+.profile-xp, .profile-section {
   margin-top: 24px;
   padding: 20px;
   border: 1px solid rgba(215, 200, 255, 0.16);
@@ -463,7 +463,20 @@ a { color: var(--lavender); }
   text-align: left;
 }
 
-.level-card { display: grid; gap: 10px; }
+.profile-xp { display: grid; gap: 18px; }
+.profile-xp__stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.profile-xp__stats > div { display: grid; gap: 2px; }
+.profile-xp__stats strong {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--gold);
+}
+.profile-xp__stats span { color: var(--muted); font-size: 0.78rem; font-weight: 700; }
 .profile-section p { color: var(--muted); }
 .profile-section__head { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .profile-section__head p { margin-bottom: 0; }
@@ -1774,42 +1787,87 @@ html.reduce-motion .game-motion {
 .site-head__crumb { margin-left: 2px; }
 .site-head__spacer { flex: 1; }
 
-.site-head__leaderboards {
+/* Nav glyph buttons: Leaderboards, Settings, Screensaver. */
+.site-head__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px;
+  border: 1px solid rgba(215, 200, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(215, 200, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.site-head__icon .icon { font-size: 1.15rem; }
+.site-head__icon:hover {
+  color: var(--ink);
+  border-color: rgba(215, 200, 255, 0.3);
+  background: rgba(215, 200, 255, 0.09);
+}
+
+/* ── Player block: XP · profile card · arena badge ────────── */
+
+.player-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(245, 200, 76, 0.16), rgba(201, 140, 16, 0.12));
+  border: 1px solid rgba(245, 200, 76, 0.34);
+  color: #ffe9b3;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 6px 18px rgba(201, 140, 16, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+.player-block:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px rgba(201, 140, 16, 0.25);
+}
+.player-block__xp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.player-block__xp .icon { font-size: 0.95rem; }
+.player-block__arena {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  flex: 0 0 30px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+/* Sign-in / reconnecting affordance in the player-block's place. */
+.site-head__signin {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   min-height: 44px;
-  padding: 8px 13px;
+  padding: 8px 14px;
   border: 1px solid rgba(245, 200, 76, 0.28);
   border-radius: 999px;
   background: rgba(245, 200, 76, 0.08);
   color: var(--gold);
   cursor: pointer;
-  font: 700 0.78rem/1 var(--font-body);
+  font: 700 0.8rem/1 var(--font-body);
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
-
-.site-head__leaderboards:hover {
+.site-head__signin:hover {
   border-color: var(--gold);
   background: rgba(245, 200, 76, 0.14);
   color: #ffe89b;
 }
-
-.site-head__leaderboards-short { display: none; }
-
-.site-head__settings {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 4px;
-  transition: color 0.15s, transform 0.2s;
-}
-.site-head__settings:hover { color: var(--ink); transform: rotate(60deg); }
 
 body:has(.game-run) .site-head {
   padding-block: 8px;
@@ -1820,50 +1878,12 @@ body:has(.game-run) .site-head__name {
   font-size: 0.96rem;
 }
 
-body:has(.game-run) .starcount {
+body:has(.game-run) .player-block__xp {
   display: none;
 }
 
-body:has(.game-run) .site-head__leaderboards {
-  min-width: 44px;
-  padding-inline: 8px;
-}
-
-body:has(.game-run) .site-head__leaderboards-full,
-body:has(.game-run) .site-head__leaderboards-short { display: none; }
-
-/* ── Site-wide Trophy Road counter ────────────────────────── */
-
-.starcount {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 44px;
-  padding: 6px 12px 6px 10px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(245,200,76,.18), rgba(201,140,16,.14));
-  border: 1px solid rgba(245,200,76,.38);
-  color: #FFE9B3;
-  font-family: var(--font-display);
-  letter-spacing: .06em;
-  font-size: 13px;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 18px rgba(201,140,16,.12);
-  transition:
-    transform 0.12s,
-    box-shadow 0.2s;
-}
-.starcount:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 10px 24px rgba(201,140,16,.25); }
-
-.starcount__icon {
-  width: 20px; height: 20px;
-  display: block; flex: 0 0 20px;
-  object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.45));
-}
-.starcount__n {
-  font-variant-numeric: tabular-nums; font-weight: 800;
-  font-family: var(--font-display);
+body:has(.game-run) .site-head__signin-label {
+  display: none;
 }
 
 /* ── Progress track ───────────────────────────────────────── */
@@ -3739,11 +3759,12 @@ html.reduce-motion .surge-hint__cue {
   .pcard__name { font-size: 1.06rem; }
   .site-head { padding: 10px; gap: 6px; }
   .site-head__name { display: none; }
-  .site-head__account { flex-shrink: 0; }
-  .site-head__leaderboards { padding-inline: 9px; }
-  .site-head__leaderboards-short { display: none; }
-  .starcount { padding: 5px 9px 5px 8px; gap: 5px; font-size: 12px; }
-  .starcount__icon { width: 18px; height: 18px; flex-basis: 18px; }
+  .player-block { flex-shrink: 0; padding-left: 9px; gap: 6px; }
+
+  /* Reclaim width on phones: keep the profile card + arena badge, drop the number. */
+  .player-block__xp { display: none; }
+  .site-head__signin-label { display: none; }
+  .site-head__icon { min-width: 40px; }
 }
 
 @media (height <= 760px) {

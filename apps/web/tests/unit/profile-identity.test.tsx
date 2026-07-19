@@ -8,6 +8,7 @@ const basePlayer = {
   id: 'player-1',
   email: 'player@example.com',
   totalGames: 12,
+  xp: 480,
   level: 2,
   levelStartGames: 10,
   nextLevelGames: 25,
@@ -72,7 +73,7 @@ describe('favorite-card identity', () => {
     render(<></>, container)
   })
 
-  it('shows clan, account age, and cards without card levels', async () => {
+  it('shows clan, account age, and the collection count without the card grid', async () => {
     accountStatus.value = 'authenticated'
     player.value = {
       ...basePlayer,
@@ -108,10 +109,13 @@ describe('favorite-card identity', () => {
     expect(html).toContain('Co Leader')
     expect(html).toContain('8 years, 10 days in Clash Royale')
     expect(html).toContain('Calculated from the Years Played badge’s day count')
-    expect(html).toContain('Knight')
-    expect(html).toContain('Levels stay private')
+    // Collection COUNT stays; the card GRID is gone (it had no use in Drop).
+    expect(html).toContain('1 cards')
+    expect(html).toContain('Not used in Drop')
+    expect(html).not.toContain('cr-card-grid')
+    expect(html).not.toContain('Card collection')
+    expect(html).not.toContain('api-assets.clashroyale.com')
+    // No CR card-level or CR-trophy data is ever surfaced.
     expect(html).not.toContain('Card level')
-    expect(html).not.toContain('troph')
-    expect(html).not.toContain('arena')
   })
 })

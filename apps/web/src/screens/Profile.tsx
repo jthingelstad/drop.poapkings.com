@@ -2,6 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import PlayerAvatar from '../components/PlayerAvatar'
+import ArenaProgress from '../components/ArenaProgress'
 import {
   accountStatus,
   deleteAccount,
@@ -14,7 +15,7 @@ import {
 } from '../lib/account'
 import { getNameOptions } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
-import { GAME_BY_MODE, scoreLabel } from '../lib/game-metadata'
+import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import type { CardsData } from '../types'
@@ -113,8 +114,6 @@ export default function Profile() {
   const visibleCards = query
     ? favoriteCards.filter((card) => card.name.toLocaleLowerCase().includes(query))
     : favoriteCards
-  const levelSpan = current.nextLevelGames - current.levelStartGames
-  const levelProgress = levelSpan ? ((current.totalGames - current.levelStartGames) / levelSpan) * 100 : 0
 
   function beginIdentityEdit() {
     selectedCardId.value = current.favoriteCardId ?? null
@@ -214,15 +213,18 @@ export default function Profile() {
           </div>
         </div>
 
-        <div class="level-card">
-          <strong>Level {current.level}</strong>
-          <span>{current.totalGames} lifetime games</span>
-          <div class="progress-track">
-            <div class="progress-track__fill" style={{ width: `${levelProgress}%` }} />
+        <div class="profile-xp">
+          <div class="profile-xp__stats">
+            <div>
+              <strong>{(current.xp ?? 0).toLocaleString()}</strong>
+              <span>Player XP</span>
+            </div>
+            <div>
+              <strong>{current.totalGames.toLocaleString()}</strong>
+              <span>lifetime games</span>
+            </div>
           </div>
-          <small>
-            {current.nextLevelGames - current.totalGames} games to level {current.level + 1}
-          </small>
+          <ArenaProgress xp={current.xp ?? 0} />
         </div>
 
         <section class="profile-section profile-competition">
@@ -238,11 +240,11 @@ export default function Profile() {
           {recentRuns.value.length ? (
             <ul class="profile-activity-list">
               {recentRuns.value.slice(0, 5).map((run) => {
-                const game = GAME_BY_MODE.get(run.mode)
+                const game = gameDisplay(run.mode)
                 return (
                   <li key={run.runId}>
-                    <span aria-hidden="true">{game?.icon}</span>
-                    <strong>{game?.name}</strong>
+                    <span aria-hidden="true">{game.icon}</span>
+                    <strong>{game.name}</strong>
                     <span>{scoreLabel(run.mode, run.score)}</span>
                     <time dateTime={run.completedAt}>
                       {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -425,27 +427,7 @@ export default function Profile() {
                   <div>
                     <span>Collection</span>
                     <strong>{current.clashRoyale.cards?.length || 0} cards</strong>
-                    <small>Levels stay private</small>
-                  </div>
-                </div>
-
-                <div class="cr-collection">
-                  <div class="cr-collection__head">
-                    <h3>Card collection</h3>
-                    <span>{current.clashRoyale.cards?.length || 0} owned</span>
-                  </div>
-                  <div class="cr-card-grid" aria-label="Clash Royale card collection">
-                    {current.clashRoyale.cards?.map((card) => {
-                      const catalogCard = challengeCard(card.id)
-                      return (
-                        <div class="cr-card" key={card.id}>
-                          {(card.iconUrl || catalogCard?.icon) && (
-                            <img src={card.iconUrl || catalogCard?.icon} alt="" loading="lazy" />
-                          )}
-                          <span>{card.name}</span>
-                        </div>
-                      )
-                    })}
+                    <small>Not used in Drop — your games deal the full catalog</small>
                   </div>
                 </div>
               </>

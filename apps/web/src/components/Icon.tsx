@@ -6,12 +6,16 @@ import chevronDown from 'lucide-static/icons/chevron-down.svg?raw'
 import chevronUp from 'lucide-static/icons/chevron-up.svg?raw'
 import flame from 'lucide-static/icons/flame.svg?raw'
 import loaderCircle from 'lucide-static/icons/loader-circle.svg?raw'
+import logIn from 'lucide-static/icons/log-in.svg?raw'
+import settings from 'lucide-static/icons/settings.svg?raw'
 import sparkles from 'lucide-static/icons/sparkles.svg?raw'
 import target from 'lucide-static/icons/target.svg?raw'
 import timer from 'lucide-static/icons/timer.svg?raw'
 import trendingDown from 'lucide-static/icons/trending-down.svg?raw'
 import triangleAlert from 'lucide-static/icons/triangle-alert.svg?raw'
+import trophy from 'lucide-static/icons/trophy.svg?raw'
 import x from 'lucide-static/icons/x.svg?raw'
+import zap from 'lucide-static/icons/zap.svg?raw'
 
 // Lucide glyphs, inlined at build time so the bundle stays self-contained.
 // Strokes use currentColor and size follows font-size (see .icon CSS).
@@ -24,12 +28,16 @@ const ICONS = {
   'chevron-up': chevronUp,
   flame,
   'loader-circle': loaderCircle,
+  'log-in': logIn,
+  settings,
   sparkles,
   target,
   timer,
   'trending-down': trendingDown,
   'triangle-alert': triangleAlert,
-  x
+  trophy,
+  x,
+  zap
 } as const
 
 export type IconName = keyof typeof ICONS

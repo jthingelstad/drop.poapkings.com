@@ -2,11 +2,11 @@ import { signal } from '@preact/signals'
 import { track } from './analytics'
 import { isReducedMotionEnabled } from './motion'
 
-// "Elixir Rain" Easter-egg activation state. Two doors in: five quick taps on
-// the hero logo, or two idle minutes on Home. Any input exits. Under reduced
-// motion the egg simply does not exist.
+// "Elixir Rain" activation state. Three doors in: the nav launcher (a visible
+// feature now, not only an egg), five quick taps on the hero logo, or two idle
+// minutes on Home. Any input exits. Under reduced motion it simply does not run.
 
-export type ScreensaverSource = 'tap' | 'idle'
+export type ScreensaverSource = 'tap' | 'idle' | 'nav'
 
 export const screensaverActive = signal<ScreensaverSource | null>(null)
 
@@ -20,9 +20,9 @@ let lastTapAt = 0
 export function startScreensaver(source: ScreensaverSource): void {
   if (screensaverActive.value || isReducedMotionEnabled()) return
   screensaverActive.value = source
-  // Only deliberate discovery is worth counting; idle attract would just
-  // tally abandoned tabs.
-  if (source === 'tap') track('egg.screensaver')
+  // Only deliberate opens (nav launcher, logo taps) are worth counting; idle
+  // attract would just tally abandoned tabs.
+  if (source !== 'idle') track('egg.screensaver')
 }
 
 export function stopScreensaver(): void {

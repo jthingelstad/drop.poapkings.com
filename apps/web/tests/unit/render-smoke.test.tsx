@@ -23,6 +23,7 @@ describe('SSR render smoke', () => {
       publicName: 'Knight Main',
       favoriteCardId: 26000000,
       totalGames: 1,
+      xp: 60,
       level: 1,
       levelStartGames: 0,
       nextLevelGames: 10,
