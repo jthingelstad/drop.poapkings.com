@@ -239,6 +239,27 @@ describe("server-side game scoring", () => {
     expect(new Set(challenge.cardIds.map(cost)).size).toBeGreaterThan(1);
   });
 
+  it("chains Higher/Lower pairs so each round adds one new card", () => {
+    const challenge = createChallenge("higher-lower", randomInt);
+    for (let index = 0; index + 1 < challenge.pairs.length; index += 1) {
+      expect(challenge.pairs[index]![1]).toBe(challenge.pairs[index + 1]![0]);
+      // A pair of the same card would read as a bug.
+      expect(challenge.pairs[index]![0]).not.toBe(challenge.pairs[index]![1]);
+    }
+  });
+
+  it("tightens the Survival window as the streak grows", () => {
+    const survival = createChallenge("survival", randomInt);
+    const answers = survival.cardIds.slice(0, 41).map((id, index) => ({
+      cardId: id,
+      guess: cost(id),
+      // Fast until the last answer, which takes 4.9s — fine at streak 0 but
+      // far past the tightened window at streak 40.
+      elapsedMs: index === 40 ? 4_900 : 300,
+    }));
+    expect(scoreRun(survival, { answers }, 30_000)).toBe(40);
+  });
+
   it("only treats a dozen known cards as a collection pool", () => {
     const dozen = allCards.slice(0, 12).map((card) => card.id);
     expect(collectionPool(dozen)).toHaveLength(12);

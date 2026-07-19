@@ -1,4 +1,5 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
+import { survivalWindowMs } from "@elixir-drop/contracts";
 import type { GameMode, RunChallenge, RunTranscript } from "./types.js";
 
 interface Card {
@@ -184,13 +185,15 @@ export function createChallenge(
     case "survival":
       return { mode, cardIds: cardSequence(250, randomInt, pool) };
     case "higher-lower": {
-      const ids = cardSequence(HIGHER_LOWER_PAIR_COUNT * 2, randomInt, pool);
+      // Chained pairs: each round's right card becomes the next round's left,
+      // so every round asks for exactly one new read — the classic rhythm.
+      // cardSequence guarantees adjacent cards differ.
+      const ids = cardSequence(HIGHER_LOWER_PAIR_COUNT + 1, randomInt, pool);
       return {
         mode,
         pairs: Array.from(
           { length: HIGHER_LOWER_PAIR_COUNT },
-          (_, index) =>
-            [ids[index * 2]!, ids[index * 2 + 1]!] as [number, number],
+          (_, index) => [ids[index]!, ids[index + 1]!] as [number, number],
         ),
       };
     }
@@ -531,7 +534,11 @@ function scoreSurvival(
     )
       throw new Error("Survival answer is invalid");
     totalElapsed += elapsedMs;
-    const correct = answer.guess === card(cardId).elixir && elapsedMs <= 5_000;
+    // The window tightens with the streak; a small tolerance absorbs client
+    // timing jitter on the boundary.
+    const correct =
+      answer.guess === card(cardId).elixir &&
+      elapsedMs <= survivalWindowMs(score) + 250;
     if (correct && elapsedMs < 100)
       throw new Error("Survival answer is implausibly fast");
     if (correct) score += 1;

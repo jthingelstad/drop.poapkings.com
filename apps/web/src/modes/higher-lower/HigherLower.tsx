@@ -13,7 +13,10 @@ import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
-const ADVANCE_DELAY = 1400
+// A correct read earns a quick beat; a miss keeps the longer one — that's the
+// learning moment.
+const ADVANCE_DELAY_CORRECT = 750
+const ADVANCE_DELAY_WRONG = 1400
 type Choice = 'higher' | 'equal' | 'lower'
 
 function relation(left: Card, right: Card): Choice {
@@ -95,19 +98,22 @@ export default function HigherLower() {
       elixirMood.value = 'angry'
     }
 
-    advanceTimer.current = window.setTimeout(() => {
-      if (correct) {
-        next()
-      } else {
-        // A permanently rejected or quarantined completion still deals the
-        // next round — Higher/Lower has no summary screen to escape to.
-        void gameRun.complete(
-          { answers: serverAnswers.current },
-          () => void restartAfterMiss(),
-          () => void restartAfterMiss()
-        )
-      }
-    }, ADVANCE_DELAY)
+    advanceTimer.current = window.setTimeout(
+      () => {
+        if (correct) {
+          next()
+        } else {
+          // A permanently rejected or quarantined completion still deals the
+          // next round — Higher/Lower has no summary screen to escape to.
+          void gameRun.complete(
+            { answers: serverAnswers.current },
+            () => void restartAfterMiss(),
+            () => void restartAfterMiss()
+          )
+        }
+      },
+      correct ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
+    )
   }
 
   const pair = gameRun.content?.[pairIndex.value]
@@ -153,7 +159,10 @@ export default function HigherLower() {
       </p>
 
       <div class="hl__pair">
-        <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+        {/* Pairs are chained: the left card is last round's right card, whose
+            cost was already revealed — keep it visible so each round asks for
+            exactly one new read. Round one stays fully hidden. */}
+        <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value || pairIndex.value > 0} />
         <div class="hl__vs" aria-hidden="true">
           vs
         </div>

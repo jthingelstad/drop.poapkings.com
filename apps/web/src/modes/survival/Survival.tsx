@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import { survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
@@ -20,11 +21,9 @@ import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
-// Survival = sudden death. Each card has a short clock; a miss OR a timeout ends
+// Survival = sudden death. Each card has a short clock that tightens as the
+// streak grows (shared curve with the server scorer); a miss OR a timeout ends
 // the run. Score is how many you clear in a row.
-const SURVIVAL = {
-  CARD_MS: 5000
-}
 const DEATH_BEAT_MS = 1100
 
 type Stage = 'ready' | 'running' | 'over'
@@ -73,14 +72,16 @@ export default function Survival() {
     return () => document.removeEventListener('visibilitychange', onHidden)
   }, [current, stage.value])
 
-  // Per-card clock — drives the depleting bar and times you out.
+  // Per-card clock — drives the depleting bar and times you out. The window
+  // shrinks as the streak grows, so deep runs end at the player's true speed
+  // ceiling instead of by boredom or a lapse.
   useEffect(() => {
     if (stage.value !== 'running') return
     let raf = 0
     const loop = () => {
       if (cardPhase.value === 'playing') {
         const elapsed = performance.now() - cardStart.current
-        const frac = 1 - elapsed / SURVIVAL.CARD_MS
+        const frac = 1 - elapsed / survivalWindowMs(streak.value)
         remainingFrac.value = Math.max(0, frac)
         if (frac <= 0) {
           dieRef.current(current.value, undefined)
@@ -91,7 +92,7 @@ export default function Survival() {
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [cardPhase, current, remainingFrac, stage.value])
+  }, [cardPhase, current, remainingFrac, stage.value, streak])
 
   function later(fn: () => void, ms: number) {
     schedule(timers.current, fn, ms)

@@ -53,6 +53,20 @@ export function emailValidationMessage(value: unknown): string | undefined {
 
 export type GameMode = (typeof GAME_MODES)[number];
 
+// Survival's per-card window tightens as the streak grows — every run gets a
+// natural climax. One curve, shared by the browser clock and the server
+// scorer (which allows a small tolerance on the boundary).
+export const SURVIVAL_BASE_WINDOW_MS = 5_000;
+export const SURVIVAL_SHRINK_PER_CORRECT_MS = 75;
+export const SURVIVAL_MIN_WINDOW_MS = 2_200;
+
+export function survivalWindowMs(streak: number): number {
+  return Math.max(
+    SURVIVAL_MIN_WINDOW_MS,
+    SURVIVAL_BASE_WINDOW_MS - SURVIVAL_SHRINK_PER_CORRECT_MS * streak,
+  );
+}
+
 export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
   | { mode: "practice"; cardIds: number[] }
