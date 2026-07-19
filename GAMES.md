@@ -106,9 +106,10 @@ readers pay only their own dwell against the clock.
 ### Tension
 
 **Survival** — `/survival` · `apps/web/src/modes/survival/`
-Sudden death. The per-card clock starts at 5s and tightens 75ms per correct
-answer down to a 2.2s floor (one shared curve, enforced server-side), so
-every run ends at the player's true speed ceiling. One wrong answer _or_ a
+Sudden death. The per-card clock starts at 5s and keeps tightening on a
+hyperbolic curve — dropping below 2s around a 40 streak and toward an 800ms
+ultimate ceiling — so it never flattens and always pressures a deep run (one
+shared curve, `survivalWindowMs`, enforced server-side). One wrong answer _or_ a
 timeout ends the run, revealing the missed card's cost; hiding the tab ends
 the run with the streak intact.
 
