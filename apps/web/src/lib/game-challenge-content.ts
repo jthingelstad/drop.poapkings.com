@@ -1,7 +1,7 @@
 import type { GameMode, RunChallenge } from '@elixir-drop/contracts'
 import type { Card } from '../types'
 import type { TradeRound } from './trade'
-import { challengeCard, challengeCards } from './challenge-cards'
+import { challengeCard, challengeCards, fullDeckSize } from './challenge-cards'
 
 export interface PreparedChallenge<T> {
   content: T
@@ -49,7 +49,7 @@ export const challengePreparers = {
   practice: sequenceChallenge<'practice'>('Practice', 15),
   identify: sequenceChallenge<'identify'>('Identify', 15),
   blitz: sequenceChallenge<'blitz'>('Blitz', 240, 18),
-  survival: sequenceChallenge<'survival'>('Survival', 250, 14),
+  survival: sequenceChallenge<'survival'>('Survival', fullDeckSize, 14),
   ladder: sequenceChallenge<'ladder'>('Ladder', 5),
   'higher-lower': (challenge: ChallengeFor<'higher-lower'>): PreparedChallenge<Array<[Card, Card]>> => {
     if (!Array.isArray(challenge.pairs) || challenge.pairs.length !== 250) invalid('Higher or Lower')

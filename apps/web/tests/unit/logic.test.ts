@@ -4,6 +4,9 @@ import { makeChoices } from '../../src/lib/choices'
 import { countTargetCards, isSweepComplete, remainingTargetIds, targetIds } from '../../src/lib/cost-sweep'
 import { canInsertAt, insertAtSlot, validInsertSlots } from '../../src/lib/endless-ladder'
 import { formatSeconds } from '../../src/lib/format'
+import { challengePreparers } from '../../src/lib/game-challenge-content'
+import { fullDeckSize } from '../../src/lib/challenge-cards'
+import rawCards from '@elixir-drop/game-data/cards.json'
 import { createGameRuntimeCue, transitionGameRuntimeStage } from '../../src/lib/game-runtime'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { pickLine } from '../../src/lib/elixir-lines'
@@ -57,8 +60,22 @@ describe('learning helpers', () => {
     expect(cardRarityModifier(hunter, 'cr-card-art')).toBe('cr-card-art--epic')
   })
 
-  it('formats timed scores as one decimal second', () => {
-    expect(formatSeconds(28_600)).toBe('28.6')
+  it('formats timed scores to the hundredth of a second', () => {
+    expect(formatSeconds(28_600)).toBe('28.60')
+    expect(formatSeconds(14_432)).toBe('14.43')
+  })
+
+  it('accepts a full-catalog Survival deck and rejects the wrong length', () => {
+    // Survival deals every card once; the client deck length must track the
+    // catalog, not a fixed number. (A stale fixed 250 broke every start.)
+    const deck = (rawCards as { cards: Array<{ id: number }> }).cards.map((c) => c.id)
+    expect(deck.length).toBe(fullDeckSize)
+    const prepared = challengePreparers.survival({ mode: 'survival', cardIds: deck })
+    expect(prepared.content).toHaveLength(fullDeckSize)
+    expect(prepared.assets).toHaveLength(14)
+    expect(() => challengePreparers.survival({ mode: 'survival', cardIds: deck.slice(0, fullDeckSize - 1) })).toThrow(
+      /invalid signed Survival/
+    )
   })
 
   it('builds card-name choices with the target and nearby distractors', () => {

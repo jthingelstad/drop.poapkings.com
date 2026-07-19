@@ -97,7 +97,10 @@ function testChallenge(mode: GameMode): RunChallenge {
     case 'blitz':
       return { mode, cardIds: sequence(240) }
     case 'survival':
-      return { mode, cardIds: sequence(250) }
+      // Survival deals the whole catalog once (clearing it is a win), so the
+      // signed deck length tracks the card count — matching the server and the
+      // client's fullDeckSize check.
+      return { mode, cardIds: [...ids] }
     case 'higher-lower': {
       // Every pair mixes a low- and a high-cost card so there is always a
       // strictly higher card (matches the server's higherLowerPairs), with the
