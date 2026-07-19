@@ -44,9 +44,11 @@ and art.
 
 **Surge** — `/surge` · `apps/web/src/modes/surge/`
 A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
-wins. A wrong answer adds +2.0s and the card stays until correct. The sprint's
-images preload before the timer starts; Elixir stays silent during the run and
-reacts on the summary. Produces one clean, shareable number.
+wins. A wrong answer adds +2.0s and the card stays until correct, with a
+higher/lower arrow cue pointing from the latest guess toward the answer (the
+penalty already paid for the information). The sprint's images preload before
+the timer starts; Elixir stays silent during the run and reacts on the summary.
+Produces one clean, shareable number.
 
 - Input: pip keypad.
 - Record: `surgeBest` (lowest time).

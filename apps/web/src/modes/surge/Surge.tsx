@@ -45,6 +45,8 @@ export default function Surge() {
   const { stage, count, elapsedMs, later } = timed
   const index = useSignal(0)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
+  // After a wrong tap, point at the answer relative to the latest guess.
+  const hint = useSignal<'higher' | 'lower' | null>(null)
   const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
@@ -67,6 +69,7 @@ export default function Surge() {
       serverAnswers.current = []
       index.value = 0
       cardPhase.value = 'playing'
+      hint.value = null
     })
   }
 
@@ -81,6 +84,7 @@ export default function Surge() {
     recorded.current = false
     currentGuesses.current = []
     cardPhase.value = 'playing'
+    hint.value = null
   }
 
   function finish(finalScore?: number) {
@@ -132,6 +136,7 @@ export default function Surge() {
       serverAnswers.current.push({ cardId: card.id, guesses: [...currentGuesses.current], atMs })
       saveResult(card.id, firstCorrect.current, ms)
       cardPhase.value = 'correct'
+      hint.value = null
       dropKey.value += 1
       if (index.value + 1 >= SURGE.SPRINT_LEN) {
         const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
@@ -142,6 +147,7 @@ export default function Surge() {
     } else {
       playWrong()
       timed.addPenalty(SURGE.PENALTY_MS)
+      hint.value = picked < card.elixir ? 'higher' : 'lower'
       cardPhase.value = 'wrong'
       later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)
     }
@@ -155,6 +161,7 @@ export default function Surge() {
     recorded.current = false
     insights.value = null
     cardPhase.value = 'playing'
+    hint.value = null
     index.value = 0
     void gameRun.prepare()
   }
@@ -256,6 +263,12 @@ export default function Surge() {
       </div>
 
       <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+
+      {/* Fixed-height slot so the keypad never shifts mid-tap. */}
+      <div class="surge-hint" data-testid="surge-hint" aria-live="polite">
+        {hint.value === 'higher' && <span class="surge-hint__cue surge-hint__cue--higher">↑ Higher</span>}
+        {hint.value === 'lower' && <span class="surge-hint__cue surge-hint__cue--lower">↓ Lower</span>}
+      </div>
 
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
     </div>

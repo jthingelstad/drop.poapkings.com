@@ -799,6 +799,26 @@ for (const route of routes) {
   })
 }
 
+test('surge points higher or lower after a wrong guess and clears on the solve', async ({ page }) => {
+  await page.goto('/#/surge')
+  await page.getByRole('button', { name: 'Start sprint' }).click()
+
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  const wrongCost = card!.elixir === 1 ? 2 : 1
+  const expectedCue = wrongCost < card!.elixir ? '↑ Higher' : '↓ Lower'
+
+  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+  await expect(page.getByTestId('surge-hint')).toHaveText(expectedCue)
+
+  // Solving the card clears the cue for the next one.
+  const correctButton = page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })
+  await expect(correctButton).toBeEnabled()
+  await correctButton.click()
+  await expect(page.getByTestId('surge-hint')).toBeEmpty()
+})
+
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)
   const activeModes = [
