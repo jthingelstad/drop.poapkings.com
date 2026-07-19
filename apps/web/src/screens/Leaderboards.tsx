@@ -89,7 +89,15 @@ export default function Leaderboards() {
               month: 'short',
               day: 'numeric'
             })}{' '}
-            at 10:00 UTC
+            at{' '}
+            {new Date(season.value.endsAt).toLocaleTimeString(undefined, {
+              timeZone: 'UTC',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            })}{' '}
+            UTC
+            {season.value.source === 'calendar-fallback' ? ' (estimated)' : ''}
           </p>
         )}
       </div>

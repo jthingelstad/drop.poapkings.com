@@ -494,10 +494,14 @@ export class Repository {
   ): Promise<boolean> {
     const existing = await this.getCrWarClock();
     const calendarId = calendarSeasonId(clock.seasonStartsAt);
+    // A new CR season inside a calendar month already using that id gets a
+    // crSeasonId-suffixed id. Matching on the prefix (not equality) keeps a
+    // third season in one month unique instead of colliding back onto the
+    // month's first id.
     const leaderboardSeasonId =
       existing?.crSeasonId === clock.crSeasonId
         ? existing.leaderboardSeasonId
-        : existing?.leaderboardSeasonId === calendarId
+        : existing?.leaderboardSeasonId.startsWith(calendarId)
           ? `${calendarId}-${clock.crSeasonId}`
           : calendarId;
     try {
@@ -510,9 +514,21 @@ export class Repository {
             leaderboardSeasonId,
             updatedAt: clock.observedAt,
           } satisfies CrWarClockItem,
-          ConditionExpression:
-            "attribute_not_exists(observedAt) OR observedAt <= :observedAt",
-          ExpressionAttributeValues: { ":observedAt": clock.observedAt },
+          // Guard the read-modify-write id derivation: a concurrent save that
+          // changed the CR season since our read fails the condition instead
+          // of overwriting its id with one derived from stale state.
+          ...(existing
+            ? {
+                ConditionExpression:
+                  "observedAt <= :observedAt AND crSeasonId = :readCrSeasonId",
+                ExpressionAttributeValues: {
+                  ":observedAt": clock.observedAt,
+                  ":readCrSeasonId": existing.crSeasonId,
+                },
+              }
+            : {
+                ConditionExpression: "attribute_not_exists(observedAt)",
+              }),
         }),
       );
       return true;

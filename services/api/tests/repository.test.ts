@@ -118,6 +118,34 @@ describe("repository DynamoDB requests", () => {
     expect(put.input.Item.leaderboardSeasonId).toBe("2026-07-135");
   });
 
+  it("keeps a third CR season in one month distinct from the first", async () => {
+    send
+      .mockResolvedValueOnce({
+        Item: {
+          crSeasonId: 135,
+          leaderboardSeasonId: "2026-07-135",
+        },
+      })
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").saveCrWarClock({
+      crSeasonId: 136,
+      sectionIndex: 0,
+      periodIndex: 0,
+      periodType: "training",
+      seasonStartsAt: "2026-07-30T10:00:00.000Z",
+      observedAt: "2026-07-30T10:05:00.000Z",
+      sourceClanTag: "#J2RGCRVG",
+    });
+    const put = send.mock.calls[1]?.[0];
+
+    // Falling back to the bare calendar id here would collide with the
+    // month's first season and merge two leaderboards.
+    expect(put.input.Item.leaderboardSeasonId).toBe("2026-07-136");
+    // The save is also guarded against a concurrent CR-season change.
+    expect(put.input.ConditionExpression).toContain("crSeasonId");
+  });
+
   it("increments the site-wide completed-game total atomically with an accepted run", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {

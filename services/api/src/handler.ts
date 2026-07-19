@@ -524,7 +524,10 @@ async function route(event: APIGatewayProxyEventV2) {
           "Player profile was not found.",
           "profile_not_found",
         );
-      const season = seasonForDate(new Date(run.completedAt));
+      const season = seasonForDate(
+        new Date(run.completedAt),
+        await currentWarClock(repository),
+      );
       const progress = levelForGames(profile.totalGames);
       return json(200, {
         accepted: true,
@@ -551,7 +554,10 @@ async function route(event: APIGatewayProxyEventV2) {
           "Player profile was not found.",
           "profile_not_found",
         );
-      const season = seasonForDate(new Date(run.completedAt));
+      const season = seasonForDate(
+        new Date(run.completedAt),
+        await currentWarClock(repository),
+      );
       const progress = levelForGames(profile.totalGames);
       return json(202, {
         accepted: false,

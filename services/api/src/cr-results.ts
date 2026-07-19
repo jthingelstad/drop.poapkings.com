@@ -139,6 +139,11 @@ export function parseCrWarClockResult(value: unknown): CrWarClockResult {
     throw new Error("CR season ID is required");
   if (sectionIndex === undefined || periodIndex === undefined)
     throw new Error("War clock indexes are required");
+  // A five-week season has at most 5 sections of 7 periods. A glitched index
+  // (e.g. periodIndex 500) would back-date seasonStartsAt by over a year and
+  // silently rewrite the leaderboard season, so bound both.
+  if (sectionIndex > 5 || periodIndex > 34)
+    throw new Error("War clock indexes are out of range");
   if (
     clock.periodType !== "training" &&
     clock.periodType !== "warDay" &&

@@ -54,13 +54,21 @@ function parseCrDate(value: unknown): Date {
   return parsed;
 }
 
-function seasonStartAt(observedAt: Date, periodIndex: number): Date {
+// The daily war reset drifts per season (observed 09:56 in S130, 09:37 in
+// S131), so anchor period math on the latest river-race close time when one is
+// available and fall back to the historical 10:00 UTC otherwise.
+function seasonStartAt(
+  observedAt: Date,
+  periodIndex: number,
+  anchor?: Date,
+): Date {
   const currentPeriodStart = new Date(
     Date.UTC(
       observedAt.getUTCFullYear(),
       observedAt.getUTCMonth(),
       observedAt.getUTCDate(),
-      RESET_HOUR_UTC,
+      anchor?.getUTCHours() ?? RESET_HOUR_UTC,
+      anchor?.getUTCMinutes() ?? 0,
     ),
   );
   if (observedAt.getTime() < currentPeriodStart.getTime())
@@ -121,7 +129,10 @@ export async function fetchWarClock(
     current.periodIndex,
     "Clan Wars period index",
   );
-  const startsAt = seasonStartAt(observedAt, periodIndex);
+  // A five-week season has at most 5 sections of 7 periods; a glitched index
+  // would back-date the season start by months.
+  if (sectionIndex > 5 || periodIndex > 34)
+    throw new Error("Clash Royale returned out-of-range Clan Wars indexes");
   const logEntries = log.items
     .map(record)
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
@@ -139,9 +150,15 @@ export async function fetchWarClock(
   const latest = logEntries[0];
   if (!latest)
     throw new Error("Clash Royale river-race log did not include a season");
+  const startsAt = seasonStartAt(observedAt, periodIndex, latest.createdAt);
 
+  // A log close at (or seconds after) the derived season start is the
+  // previous season's final race: the current season is one newer. The first
+  // legitimate close of the current season lands a full week after its start,
+  // so a generous tolerance absorbs anchor drift without ambiguity.
+  const boundaryToleranceMs = 6 * 60 * 60 * 1_000;
   const crSeasonId =
-    latest.createdAt.getTime() < startsAt.getTime()
+    latest.createdAt.getTime() < startsAt.getTime() + boundaryToleranceMs
       ? latest.seasonId + 1
       : latest.seasonId;
   return {

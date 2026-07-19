@@ -43,7 +43,7 @@ function fixtureFetch(options?: {
 }
 
 describe("Clan Wars clock relay", () => {
-  it("normalizes the live CR week and sequential season", async () => {
+  it("normalizes the live CR week and anchors the reset on the observed race close", async () => {
     const fetcher = fixtureFetch();
     const result = await fetchWarClock(
       "#J2RGCRVG",
@@ -60,7 +60,9 @@ describe("Clan Wars clock relay", () => {
         sectionIndex: 1,
         periodIndex: 12,
         periodType: "warDay",
-        seasonStartsAt: "2026-07-06T10:00:00.000Z",
+        // The reset hour drifts per season; the latest race close in the log
+        // (09:30) anchors the period math, not a hardcoded 10:00 UTC.
+        seasonStartsAt: "2026-07-06T09:30:00.000Z",
         observedAt: "2026-07-18T19:00:00.000Z",
         sourceClanTag: "#J2RGCRVG",
       },
@@ -91,8 +93,19 @@ describe("Clan Wars clock relay", () => {
       crSeasonId: 135,
       sectionIndex: 0,
       periodIndex: 0,
-      seasonStartsAt: "2026-08-03T10:00:00.000Z",
+      seasonStartsAt: "2026-08-03T09:30:00.000Z",
     });
+  });
+
+  it("rejects out-of-range Clan Wars indexes", async () => {
+    await expect(
+      fetchWarClock(
+        "#J2RGCRVG",
+        "test-key",
+        fixtureFetch({ periodIndex: 500 }),
+        new Date("2026-07-18T19:00:00.000Z"),
+      ),
+    ).rejects.toThrow("out-of-range");
   });
 
   it("puts the normalized clock onto the existing result queue", async () => {
