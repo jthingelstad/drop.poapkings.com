@@ -12,6 +12,7 @@ import {
   GAME_BY_MODE,
   gameDisplay,
   GAMES,
+  RANKED_GAMES,
   scoreFromRecords,
   scoreLabel,
   type GameInfo
@@ -24,24 +25,14 @@ import type { CardsData, Records } from '../types'
 const CARD_COUNT = (rawCards as CardsData).cards.length
 
 function seasonLine(season: Season | null): string {
-  if (!season) return 'Season standings update with the Clash Royale war clock'
-  const pieces = [
-    season.crSeasonId === undefined ? 'Current season' : `CR Season ${season.crSeasonId}`,
-    season.currentWeek === undefined ? undefined : `Week ${season.currentWeek}`,
-    season.periodType === 'training'
-      ? 'Training days'
-      : season.periodType === 'warDay'
-        ? 'Battle days'
-        : season.periodType === 'colosseum'
-          ? 'Colosseum'
-          : undefined,
-    season.daysRemainingInWeek === undefined
-      ? undefined
-      : season.daysRemainingInWeek <= 0
-        ? 'Week ending soon'
-        : `${season.daysRemainingInWeek} ${season.daysRemainingInWeek === 1 ? 'day' : 'days'} left`
-  ]
-  return pieces.filter(Boolean).join(' · ')
+  if (!season) return 'Leaderboards run a fresh season with the Clash Royale calendar'
+  const label = season.crSeasonId === undefined ? 'Current season' : `Season ${season.crSeasonId}`
+  const date = new Date(season.endsAt).toLocaleDateString(undefined, {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric'
+  })
+  return `${label} · leaderboards reset ${date}`
 }
 
 function activityAge(completedAt: string): string {
@@ -68,22 +59,57 @@ function mergedBestScores(season: Season | null): Partial<Record<GameMode, numbe
   return merged
 }
 
-function GameCard({ game, best }: { game: GameInfo; best: number | undefined }) {
+function GameCard({
+  game,
+  best,
+  champion
+}: {
+  game: GameInfo
+  best: number | undefined
+  champion: LeaderboardEntry | undefined
+}) {
   return (
     <button
       class={`competition-game${game.mode === 'surge' ? ' competition-game--featured' : ''}`}
       onClick={() => navigate(game.path)}
     >
-      <span class="competition-game__icon" aria-hidden="true">
-        {game.icon}
-      </span>
       <span class="competition-game__copy">
         <strong>{game.name}</strong>
         <small>{game.description}</small>
+        {champion ? (
+          <span class="competition-game__champion">
+            <Icon name="trophy" />
+            <span>
+              #1 {champion.player.publicName} · {scoreLabel(game.mode, champion.score)}
+            </span>
+          </span>
+        ) : (
+          <span class="competition-game__champion competition-game__champion--open">The crown is open</span>
+        )}
       </span>
       <span class="competition-game__best">
-        <small>{best === undefined ? 'Set a score' : 'Season best'}</small>
-        {best !== undefined && <strong>{scoreLabel(game.mode, best)}</strong>}
+        <small>{best === undefined ? 'Your best' : 'Your season best'}</small>
+        <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
+      </span>
+      <Icon name="arrow-right" />
+    </button>
+  )
+}
+
+// Practice is called out on its own: no clock, no leaderboard, no crown.
+function PracticeCard({ game, best }: { game: GameInfo; best: number | undefined }) {
+  return (
+    <button class="competition-game competition-game--practice" onClick={() => navigate(game.path)}>
+      <span class="competition-game__copy">
+        <strong>{game.name}</strong>
+        <small>{game.description}</small>
+        <span class="competition-game__champion competition-game__champion--open">
+          Unranked — learn at your own pace
+        </span>
+      </span>
+      <span class="competition-game__best">
+        <small>{best === undefined ? 'Your accuracy' : 'Your best'}</small>
+        <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
       </span>
       <Icon name="arrow-right" />
     </button>
@@ -98,7 +124,7 @@ function StandingRow({ entry }: { entry: LeaderboardEntry }) {
       <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
       <span class="season-standing__player">
         <strong>{entry.player.publicName}</strong>
-        <small>{isPlayer ? 'You' : `Level ${entry.player.level}`}</small>
+        <small>{isPlayer ? 'You' : `${entry.player.xp.toLocaleString()} XP`}</small>
       </span>
       <strong class="season-standing__score">{scoreLabel('surge', entry.score)}</strong>
     </li>
@@ -146,7 +172,7 @@ function PlayerSeason({ bestScores }: { bestScores: Partial<Record<GameMode, num
     return (
       <section class="competition-panel competition-panel--join">
         <h2>Make the season yours</h2>
-        <p>Sign in to record every run, build your player level, and chase a place on each board.</p>
+        <p>Sign in to record every run, earn XP toward your arena, and chase a place on each board.</p>
         <button class="btn btn--gold" onClick={() => navigate('/login')}>
           Sign in to compete
         </button>
@@ -166,7 +192,7 @@ function PlayerSeason({ bestScores }: { bestScores: Partial<Record<GameMode, num
         <PlayerAvatar favoriteCardId={player.value.favoriteCardId} size="large" />
         <div>
           <strong>{player.value.publicName}</strong>
-          <span>Level {player.value.level}</span>
+          <span>{(player.value.xp ?? 0).toLocaleString()} XP</span>
           <small>{player.value.totalGames} lifetime games</small>
         </div>
       </div>
@@ -224,7 +250,9 @@ function RecentActivity() {
 
 export default function Home() {
   const stats = useSignal<SiteStats | null>(null)
-  const standings = useSignal<LeaderboardEntry[]>([])
+  // Top entries per ranked board: powers the hero standings (Surge) and the
+  // #1-champion social proof on every game tile.
+  const boards = useSignal<Partial<Record<GameMode, LeaderboardEntry[]>>>({})
   const standingsLoading = useSignal(true)
 
   useEffect(() => {
@@ -232,16 +260,27 @@ export default function Home() {
     void getStats(controller.signal)
       .then((value) => (stats.value = value))
       .catch(() => undefined)
-    void getLeaderboard('surge', controller.signal)
-      .then((value) => (standings.value = value.entries))
-      .catch(() => undefined)
+    void Promise.all(
+      RANKED_GAMES.map((game) =>
+        getLeaderboard(game.mode, controller.signal)
+          .then((value) => ({ mode: game.mode, entries: value.entries }))
+          .catch(() => null)
+      )
+    )
+      .then((results) => {
+        const next: Partial<Record<GameMode, LeaderboardEntry[]>> = {}
+        for (const result of results) if (result) next[result.mode] = result.entries
+        boards.value = next
+      })
       .finally(() => {
         if (!controller.signal.aborted) standingsLoading.value = false
       })
     return () => controller.abort()
-  }, [standings, standingsLoading, stats])
+  }, [boards, standingsLoading, stats])
 
   const bestScores = mergedBestScores(stats.value?.currentSeason ?? null)
+  const champion = (mode: GameMode): LeaderboardEntry | undefined => boards.value[mode]?.[0]
+  const practiceGame = GAMES.find((game) => game.unranked)
 
   return (
     <div class="home home--competition">
@@ -257,10 +296,27 @@ export default function Home() {
           </button>
           <div class="season-clock">{seasonLine(stats.value?.currentSeason ?? null)}</div>
         </div>
-        <Standings entries={standings.value} loading={standingsLoading.value} />
+        <Standings entries={boards.value.surge ?? []} loading={standingsLoading.value} />
       </div>
 
       <div class="home__wrap competition-home__body">
+        <section class="game-catalog" id="games" aria-labelledby="game-catalog-title">
+          <div class="competition-section-head">
+            <h2 id="game-catalog-title">Choose your game</h2>
+            <span>Four boards to climb. See who holds each crown.</span>
+          </div>
+          <div class="competition-games">
+            {RANKED_GAMES.map((game) => (
+              <GameCard game={game} best={bestScores[game.mode]} champion={champion(game.mode)} key={game.mode} />
+            ))}
+          </div>
+          {practiceGame && (
+            <div class="practice-callout">
+              <PracticeCard game={practiceGame} best={bestScores.practice} />
+            </div>
+          )}
+        </section>
+
         <div class="competition-rail">
           <PlayerSeason bestScores={bestScores} />
           <RecentActivity />
@@ -269,25 +325,13 @@ export default function Home() {
             <div>
               <h2>Drop together</h2>
               <strong>{stats.value ? stats.value.trophyRoadGames.toLocaleString() : '—'}</strong>
-              <span>games on Trophy Road</span>
+              <span>games played across Drop</span>
               <small>
                 {CARD_COUNT} cards · {GAMES.length} ways to play
               </small>
             </div>
           </section>
         </div>
-
-        <section class="game-catalog" id="games" aria-labelledby="game-catalog-title">
-          <div class="competition-section-head">
-            <h2 id="game-catalog-title">Choose your game</h2>
-            <span>Play. Beat your best. Climb the boards.</span>
-          </div>
-          <div class="competition-games">
-            {GAMES.map((game) => (
-              <GameCard game={game} best={bestScores[game.mode]} key={game.mode} />
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   )
