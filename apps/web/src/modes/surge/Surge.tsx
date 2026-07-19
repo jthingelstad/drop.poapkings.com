@@ -10,6 +10,7 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { useTimedRun } from '../../lib/use-timed-run'
 import CardDisplay from '../../components/CardDisplay'
+import Icon from '../../components/Icon'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
@@ -266,8 +267,16 @@ export default function Surge() {
 
       {/* Fixed-height slot so the keypad never shifts mid-tap. */}
       <div class="surge-hint" data-testid="surge-hint" aria-live="polite">
-        {hint.value === 'higher' && <span class="surge-hint__cue surge-hint__cue--higher">↑ Higher</span>}
-        {hint.value === 'lower' && <span class="surge-hint__cue surge-hint__cue--lower">↓ Lower</span>}
+        {hint.value === 'higher' && (
+          <span class="surge-hint__cue surge-hint__cue--higher">
+            <Icon name="arrow-up" /> Higher
+          </span>
+        )}
+        {hint.value === 'lower' && (
+          <span class="surge-hint__cue surge-hint__cue--lower">
+            <Icon name="arrow-down" /> Lower
+          </span>
+        )}
       </div>
 
       <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />

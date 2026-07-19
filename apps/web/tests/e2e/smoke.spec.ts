@@ -807,10 +807,10 @@ test('surge points higher or lower after a wrong guess and clears on the solve',
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
   expect(card).toBeTruthy()
   const wrongCost = card!.elixir === 1 ? 2 : 1
-  const expectedCue = wrongCost < card!.elixir ? '↑ Higher' : '↓ Lower'
+  const expectedCue = wrongCost < card!.elixir ? 'Higher' : 'Lower'
 
   await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
-  await expect(page.getByTestId('surge-hint')).toHaveText(expectedCue)
+  await expect(page.getByTestId('surge-hint')).toContainText(expectedCue)
 
   // Solving the card clears the cue for the next one.
   const correctButton = page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })

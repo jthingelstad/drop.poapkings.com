@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { track } from '../lib/analytics'
+import Icon from './Icon'
 
 interface Props {
   text: string
@@ -32,7 +33,13 @@ export default function ShareLine({ text }: Props) {
           onFocus={(e) => e.currentTarget.select()}
         />
         <button class="btn btn--purple btn--sm shareline__btn" onClick={copy}>
-          {copied.value ? 'Copied ✓' : 'Copy'}
+          {copied.value ? (
+            <>
+              Copied <Icon name="check" />
+            </>
+          ) : (
+            'Copy'
+          )}
         </button>
       </div>
     </div>

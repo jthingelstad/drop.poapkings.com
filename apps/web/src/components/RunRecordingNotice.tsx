@@ -1,4 +1,5 @@
 import { recordingNotice } from '../lib/use-game-run'
+import Icon from './Icon'
 
 export default function RunRecordingNotice() {
   const notice = recordingNotice.value
@@ -12,7 +13,13 @@ export default function RunRecordingNotice() {
     >
       <div class={`run-recording__card run-recording__card--${notice.state}`}>
         <span class="run-recording__icon" aria-hidden="true">
-          {notice.state === 'saving' ? '⏳' : notice.state === 'saved' ? '✓' : '!'}
+          {notice.state === 'saving' ? (
+            <Icon name="loader-circle" className="icon--spin" />
+          ) : notice.state === 'saved' ? (
+            <Icon name="check" />
+          ) : (
+            <Icon name="triangle-alert" />
+          )}
         </span>
         <div>
           <strong>{notice.message}</strong>

@@ -12,6 +12,7 @@ import { useTimedRun } from '../../lib/use-timed-run'
 import { isAscendingByElixir, pickLadderHintCard, reorderCards } from '../../lib/ladder'
 import { CardArt, CardName, ElixirCostBadge } from '../../components/CardChrome'
 import ElixirHost from '../../components/ElixirHost'
+import Icon from '../../components/Icon'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
@@ -106,7 +107,7 @@ function LadderCard({
           aria-label={`Move ${card.name} earlier`}
           title="Move earlier"
         >
-          ↑
+          <Icon name="chevron-up" />
         </button>
         <button
           type="button"
@@ -119,7 +120,7 @@ function LadderCard({
           aria-label={`Move ${card.name} later`}
           title="Move later"
         >
-          ↓
+          <Icon name="chevron-down" />
         </button>
       </span>
     </li>

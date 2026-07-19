@@ -64,6 +64,40 @@ button {
   touch-action: manipulation;
 }
 
+/* Inline lucide glyphs: sized by font-size, colored by currentColor. */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  vertical-align: -0.125em;
+}
+
+.icon svg {
+  width: 1em;
+  height: 1em;
+}
+
+.icon--spin svg {
+  animation: icon-spin 1.1s linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon--spin svg {
+    animation: none;
+  }
+}
+
+html.reduce-motion .icon--spin svg {
+  animation: none;
+}
+
 /* ── Body / background ────────────────────────────────────── */
 
 body {

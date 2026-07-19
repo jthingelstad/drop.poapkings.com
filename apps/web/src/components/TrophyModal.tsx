@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { rankFor, zoneFor } from '../data/starRanks'
+import Icon from './Icon'
 
 interface Props {
   trophyRoadGames: number
@@ -77,7 +78,7 @@ export default function TrophyModal({ trophyRoadGames, onClose }: Props) {
     >
       <div class="trophy-modal__panel">
         <button class="trophy-modal__close" ref={closeRef} onClick={onClose} aria-label="Close Trophy Road">
-          ×
+          <Icon name="x" />
         </button>
         <div class="trophy-modal__title" id="trophy-modal-title">
           Trophy Road

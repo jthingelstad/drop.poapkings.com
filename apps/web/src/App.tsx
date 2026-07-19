@@ -9,6 +9,7 @@ import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import StarCount from './components/StarCount'
 import PlayerAvatar from './components/PlayerAvatar'
 import ApiStatusBanner from './components/ApiStatusBanner'
+import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
@@ -108,7 +109,9 @@ function GameCard({ m }: { m: Mode }) {
         <span class="game-card__name">{m.name}</span>
         <span class="game-card__desc">{m.desc}</span>
       </span>
-      <span class="game-card__arrow">→</span>
+      <span class="game-card__arrow">
+        <Icon name="arrow-right" />
+      </span>
     </button>
   )
 }
@@ -302,7 +305,7 @@ function Footer() {
       <div class="site-foot__community">
         <span>Feedback, ideas, and game talk:</span>{' '}
         <a href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
-          Join the Elixir Drop Discord →
+          Join the Elixir Drop Discord <Icon name="arrow-right" />
         </a>
       </div>
       <div class="site-foot__run">

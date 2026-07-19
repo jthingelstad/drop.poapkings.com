@@ -27,6 +27,7 @@
     "@elixir-drop/contracts": "*",
     "@elixir-drop/game-data": "*",
     "@preact/signals": "^2.9.4",
+    "lucide-static": "^1.25.0",
     "preact": "^10.29.7",
     "zod": "^4.4.3"
   },

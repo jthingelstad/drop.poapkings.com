@@ -3,6 +3,7 @@ import { useSignal } from '@preact/signals'
 import { pickLine } from '../lib/elixir-lines'
 import { track } from '../lib/analytics'
 import { ELIXIR_DROP_DISCORD_URL } from '../lib/links'
+import Icon from './Icon'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
 
@@ -28,7 +29,7 @@ export default function Recruit() {
         rel="noopener noreferrer"
         onClick={() => track('recruit.discord')}
       >
-        Join the Elixir Drop Discord →
+        Join the Elixir Drop Discord <Icon name="arrow-right" />
       </a>
       <a
         class="recruit__alt"
@@ -51,7 +52,7 @@ export default function Recruit() {
         rel="noopener noreferrer"
         onClick={() => track('recruit.join')}
       >
-        Join POAP KINGS →
+        Join POAP KINGS <Icon name="arrow-right" />
       </a>
       <a
         class="recruit__alt"
