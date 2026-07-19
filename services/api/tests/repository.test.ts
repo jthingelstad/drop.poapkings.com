@@ -174,7 +174,9 @@ describe("repository DynamoDB requests", () => {
     const transaction = send.mock.calls[0]?.[0];
     const globalUpdate = transaction.input.TransactItems[1]?.Update;
     const profileUpdate = transaction.input.TransactItems[3]?.Update;
-    expect(profileUpdate?.UpdateExpression).toContain("ADD totalGames :one, xp :xp");
+    expect(profileUpdate?.UpdateExpression).toContain(
+      "ADD totalGames :one, xp :xp",
+    );
     expect(profileUpdate?.ExpressionAttributeValues[":xp"]).toBe(45);
     expect(globalUpdate?.Key).toEqual({ pk: "GLOBAL", sk: "STATS" });
     expect(globalUpdate?.UpdateExpression).toContain(
