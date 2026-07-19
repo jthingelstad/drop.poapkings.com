@@ -59,7 +59,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
       <span class="leaderboard-score">
         {scoreLabel(mode, entry.score)}
         {entry.timeMs !== undefined && (
-          <small class="leaderboard-score__time">{(entry.timeMs / 1000).toFixed(1)}s</small>
+          <small class="leaderboard-score__time">{(entry.timeMs / 1000).toFixed(2)}s</small>
         )}
       </span>
     </li>
