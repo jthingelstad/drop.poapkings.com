@@ -1,15 +1,6 @@
-export const GAME_PATHS = [
-  '/practice',
-  '/identify',
-  '/surge',
-  '/higher-lower',
-  '/trade',
-  '/blitz',
-  '/survival',
-  '/ladder',
-  '/endless-ladder',
-  '/cost-sweep'
-] as const
+// The launch five. Vaulted mode paths (identify, blitz, ladder,
+// endless-ladder, cost-sweep) are unrouted until their re-release drops.
+export const GAME_PATHS = ['/practice', '/surge', '/higher-lower', '/trade', '/survival'] as const
 
 export type GamePath = (typeof GAME_PATHS)[number]
 

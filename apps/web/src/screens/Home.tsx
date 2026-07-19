@@ -10,6 +10,7 @@ import {
   bestScoresFromRuns,
   betterScore,
   GAME_BY_MODE,
+  gameDisplay,
   GAMES,
   scoreFromRecords,
   scoreLabel,
@@ -152,7 +153,7 @@ function PlayerSeason({ bestScores }: { bestScores: Partial<Record<GameMode, num
       </section>
     )
   }
-  const featuredModes: GameMode[] = ['surge', 'identify', 'trade']
+  const featuredModes: GameMode[] = ['surge', 'trade', 'survival']
   return (
     <section class="competition-panel player-season" aria-labelledby="your-season-title">
       <div class="competition-panel__head">
@@ -200,14 +201,15 @@ function RecentActivity() {
       {!!runs.length && (
         <ul class="activity-list">
           {runs.map((run) => {
-            const game = GAME_BY_MODE.get(run.mode)
+            // Vaulted modes still render for historical runs.
+            const game = gameDisplay(run.mode)
             return (
               <li key={run.runId}>
                 <span class="activity-list__icon" aria-hidden="true">
-                  {game?.icon}
+                  {game.icon}
                 </span>
                 <span class="activity-list__game">
-                  <strong>{game?.name}</strong>
+                  <strong>{game.name}</strong>
                   <small>{activityAge(run.completedAt)}</small>
                 </span>
                 <strong>{scoreLabel(run.mode, run.score)}</strong>
@@ -268,7 +270,9 @@ export default function Home() {
               <h2>Drop together</h2>
               <strong>{stats.value ? stats.value.trophyRoadGames.toLocaleString() : '—'}</strong>
               <span>games on Trophy Road</span>
-              <small>{CARD_COUNT} cards · 10 ways to play</small>
+              <small>
+                {CARD_COUNT} cards · {GAMES.length} ways to play
+              </small>
             </div>
           </section>
         </div>

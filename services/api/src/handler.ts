@@ -505,14 +505,18 @@ async function route(event: APIGatewayProxyEventV2) {
       );
     // Every game uses the complete canonical catalog. Linked Clash Royale card
     // data and learning history stay on the profile for future features but do
-    // not influence challenge selection or leaderboard eligibility.
+    // not influence challenge selection.
     const challenge = createChallenge(body.mode, randomInt);
+    // Practice is true practice: runs record to the player's history and
+    // Trophy Road but never write a leaderboard entry.
+    const ranked = body.mode !== "practice";
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const run = await repository.createRun(
       owner,
       body.mode,
       challenge,
       nowSeconds + RUN_SECONDS,
+      ranked,
     );
     const runToken = signToken(
       {
@@ -530,7 +534,7 @@ async function route(event: APIGatewayProxyEventV2) {
       runToken,
       mode: run.mode,
       challenge: run.challenge,
-      ranked: true,
+      ranked,
       expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
     });
   }

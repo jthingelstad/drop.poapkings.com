@@ -150,21 +150,23 @@ these assumptions.
 
 ## 4. Shipped Modes
 
-`GAMES.md` is authoritative for mode mechanics, backlog, and retired ideas. The
-current shipped app has ten playable modes:
+`GAMES.md` is authoritative for mode mechanics, the vault, backlog, and
+retired ideas. The launch app has five playable modes; five more are vaulted
+(built and retained, hidden from the web, API still accepts them) for
+post-launch re-release drops:
 
-| Mode           | Route              | Score / record                               |
-| -------------- | ------------------ | -------------------------------------------- |
-| Surge          | `#/surge`          | `surgeBest`, lowest 15-card sprint time      |
-| Practice       | `#/practice`       | `bestAccuracy`, best 15-card accuracy        |
-| Identify       | `#/identify`       | `identifyBest`, lowest card-name sprint time |
-| Higher / Lower | `#/higher-lower`   | `longestStreak`                              |
-| Trade          | `#/trade`          | `tradeBest`, lowest 8-exchange time          |
-| Blitz          | `#/blitz`          | `blitzBest`, most cleared in 60 seconds      |
-| Survival       | `#/survival`       | `survivalBest`, longest sudden-death streak  |
-| Speed Ladder   | `#/ladder`         | `ladderBest`, lowest sort time               |
-| Endless Ladder | `#/endless-ladder` | `endlessLadderBest`, most inserts            |
-| Cost Sweep     | `#/cost-sweep`     | `costSweepBest`, most target cards in 45s    |
+| Mode           | Route            | Score / record                              |
+| -------------- | ---------------- | ------------------------------------------- |
+| Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
+| Practice       | `#/practice`     | `bestAccuracy` — **unranked by design**     |
+| Higher / Lower | `#/higher-lower` | `longestStreak`                             |
+| Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
+| Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
+
+Vaulted: Identify, Blitz, Speed Ladder, Endless Ladder, Cost Sweep. Practice
+runs are created `ranked: false` server-side: they record to history and
+Trophy Road but never write a leaderboard entry, and Practice has no
+leaderboard tab.
 
 Product decisions currently in force:
 
@@ -370,12 +372,8 @@ installing Chromium with Playwright. The Pages artifact is uploaded from
 
 Current e2e coverage includes:
 
-- Route accessibility smoke checks.
+- Route accessibility smoke checks (launch five).
 - Card art fallback.
-- Identify completion behavior.
-- Speed Ladder desktop and mobile interactions.
-- Endless Ladder insertion behavior.
-- Cost Sweep target clearing.
 - Trade exchange hints.
 - Settings persistence.
 - Active timed states using low chrome with visible controls.

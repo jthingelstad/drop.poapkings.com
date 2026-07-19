@@ -10,10 +10,13 @@ Doc map:
 - **`SPEC.md`** is the current implementation spec and product constraints.
 - **`CLAUDE.md`** is the agent working guide.
 
-Shipped state as of June 15, 2026: **ten playable modes**. The home screen
-spotlights **Surge** and lists nine more: Practice, Identify, Higher / Lower,
-Trade, Speed Ladder, Endless Ladder, Cost Sweep, Blitz, and Survival. **Daily
-Ladder is not shipped and should not be built without a fresh product decision.**
+Shipped state as of July 19, 2026: **five playable modes for launch** — Surge,
+Practice, Higher / Lower, Trade, and Survival. Five more finished modes are
+**vaulted** (built, tested, hidden from the web) for post-launch re-release
+drops; see "Vaulted for launch" below. **Practice is true practice**: runs
+record to history and Trophy Road but are unranked and have no leaderboard
+tab. **Daily Ladder is not shipped and should not be built without a fresh
+product decision.**
 
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through
@@ -61,21 +64,15 @@ the run and reacts on the summary. Produces one clean, shareable number.
 
 ### Core drills
 
-**Identify** — `/identify` · `apps/web/src/modes/identify/`
-Card art appears with the name hidden; pick the correct card name from six
-choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
-The 15-card sprint is scored as golf time.
-
-- Input: six card-name buttons.
-- Record: `identifyBest` (lowest time).
-
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
 Untimed. A card appears; name its cost. The signed challenge deals a round of
 15 from the complete canonical catalog, with end-early, closing in the shared
-summary + insights.
+summary + insights. **Unranked by design** — runs are created `ranked: false`
+server-side, never write a leaderboard entry, and Practice has no leaderboard
+tab. Local bests still track for self-paced improvement.
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
-- Record: `bestAccuracy`.
+- Record: `bestAccuracy` (local only; not a leaderboard).
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
 Two cards; pick Higher, Equal, or Lower relative to the left card. Endless
@@ -99,15 +96,7 @@ readers pay only their own dwell against the clock.
 - Input: signed trade keypad (`-4 … Even … +4`).
 - Record: `tradeBest` (lowest 8-exchange time).
 
-### Stretch
-
-**Blitz** — `/blitz` · `apps/web/src/modes/blitz/`
-A 60s count-up variant of Surge: how many cards can you clear? Reuses the
-timed cost-recall loop with the higher/lower cue; the miss lockout escalates
-(380→600→900ms) on repeated misses on one card, so informed retries stay
-cheap and cost roulette does not.
-
-- Record: `blitzBest`.
+### Tension
 
 **Survival** — `/survival` · `apps/web/src/modes/survival/`
 Sudden death. The per-card clock starts at 5s and tightens 75ms per correct
@@ -117,6 +106,32 @@ timeout ends the run, revealing the missed card's cost; hiding the tab ends
 the run with the streak intact.
 
 - Record: `survivalBest`.
+
+## Vaulted for launch
+
+These five modes are **finished and retained in the tree** (components under
+`apps/web/src/modes/`, pure libs, server challenge/scoring support, and
+`knip.json` ignores) but hidden from every web surface for launch: no Home
+tile, no route, no leaderboard tab. The API still accepts them, so historical
+runs render normally and re-releasing one is a web-only change (restore its
+`GAMES` entry, route, and `GAME_PATHS` path, drop the knip ignore, re-add its
+e2e coverage). Intent: re-release one at a time as post-launch content drops.
+
+**Identify** — `/identify` · `apps/web/src/modes/identify/`
+Card art appears with the name hidden; pick the correct card name from six
+choices. A wrong pick adds +2.0s, eliminates that name, and leaves the card live.
+The 15-card sprint is scored as golf time.
+
+- Input: six card-name buttons.
+- Record: `identifyBest` (lowest time).
+
+**Blitz** — `/blitz` · `apps/web/src/modes/blitz/`
+A 60s count-up variant of Surge: how many cards can you clear? Reuses the
+timed cost-recall loop with the higher/lower cue; the miss lockout escalates
+(380→600→900ms) on repeated misses on one card, so informed retries stay
+cheap and cost roulette does not.
+
+- Record: `blitzBest`.
 
 **Speed Ladder** — `/ladder` · `apps/web/src/modes/ladder/`
 Sort 5 sampled cards from lowest elixir to highest as fast as possible. Drag cards

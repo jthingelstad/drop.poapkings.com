@@ -119,10 +119,15 @@ rank-oriented fields as part of unrelated work.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
 - **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines for Identify,
   Trade, and Speed Ladder.
-- **Modes** in `apps/web/src/modes/`: `surge`, `practice`, `identify`, `higher-lower`,
-  `trade`, `blitz`, `survival`, `ladder`, `endless-ladder`, `cost-sweep`. See
-  `GAMES.md` for each game's mechanic, scoring, route, and records key, plus the
-  idea backlog and retired modes.
+- **Modes** in `apps/web/src/modes/`. The LAUNCH FIVE are routed: `surge`,
+  `practice`, `higher-lower`, `trade`, `survival`. `identify`, `blitz`,
+  `ladder`, `endless-ladder`, and `cost-sweep` are VAULTED: components stay
+  on disk (knip.json ignores them), the API still accepts them, but they have
+  no tile, route, or leaderboard tab. Practice is unranked by design
+  (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI).
+  Re-releasing a vaulted mode: restore its GAMES entry (game-metadata.ts),
+  App.tsx route, and GAME_PATHS path; drop the knip ignore; re-add its e2e.
+  See `GAMES.md` for mechanics, the vault, backlog, and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.

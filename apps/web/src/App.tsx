@@ -21,28 +21,21 @@ import Privacy from './screens/Privacy'
 
 const POAP_KINGS = 'https://poapkings.com'
 
+// The launch five. Identify, Speed Ladder, Endless Ladder, Cost Sweep, and
+// Blitz are vaulted — components retained under src/modes/ for re-release
+// drops (GAMES.md "Vaulted for launch"), but unrouted and unbundled.
 const loadPractice = () => import('./modes/practice/Practice')
-const loadIdentify = () => import('./modes/identify/Identify')
 const loadSurge = () => import('./modes/surge/Surge')
 const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
 const loadTrade = () => import('./modes/trade/Trade')
-const loadSpeedLadder = () => import('./modes/ladder/SpeedLadder')
-const loadEndlessLadder = () => import('./modes/endless-ladder/EndlessLadder')
-const loadCostSweep = () => import('./modes/cost-sweep/CostSweep')
-const loadBlitz = () => import('./modes/blitz/Blitz')
 const loadSurvival = () => import('./modes/survival/Survival')
 const loadSettings = () => import('./modes/settings/Settings')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
 const Practice = lazy(loadPractice)
-const Identify = lazy(loadIdentify)
 const Surge = lazy(loadSurge)
 const HigherLower = lazy(loadHigherLower)
 const Trade = lazy(loadTrade)
-const SpeedLadder = lazy(loadSpeedLadder)
-const EndlessLadder = lazy(loadEndlessLadder)
-const CostSweep = lazy(loadCostSweep)
-const Blitz = lazy(loadBlitz)
 const Survival = lazy(loadSurvival)
 const SettingsScreen = lazy(loadSettings)
 const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
@@ -51,15 +44,10 @@ const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
 const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/practice', label: 'Practice' },
-  { match: '/identify', label: 'Identify' },
   { match: '/surge', label: 'Surge' },
   { match: '/higher-lower', label: 'Higher / Lower' },
   { match: '/trade', label: 'Trade' },
-  { match: '/blitz', label: 'Blitz' },
   { match: '/survival', label: 'Survival' },
-  { match: '/ladder', label: 'Speed Ladder' },
-  { match: '/endless-ladder', label: 'Endless Ladder' },
-  { match: '/cost-sweep', label: 'Cost Sweep' },
   { match: '/leaderboards', label: 'Leaderboards' },
   { match: '/profile', label: 'Profile' },
   { match: '/settings', label: 'Settings' },
@@ -220,15 +208,10 @@ function ScreenContent({ r }: { r: string }) {
   }
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
-  if (r.startsWith('/identify')) return <Identify />
   if (r.startsWith('/surge')) return <Surge />
   if (r.startsWith('/higher-lower')) return <HigherLower />
   if (r.startsWith('/trade')) return <Trade />
-  if (r.startsWith('/blitz')) return <Blitz />
   if (r.startsWith('/survival')) return <Survival />
-  if (r.startsWith('/ladder')) return <SpeedLadder />
-  if (r.startsWith('/endless-ladder')) return <EndlessLadder />
-  if (r.startsWith('/cost-sweep')) return <CostSweep />
   if (r.startsWith('/settings')) return <SettingsScreen />
   if (r.startsWith('/login')) return <Login />
   if (r.startsWith('/auth')) return <AuthRedeem />

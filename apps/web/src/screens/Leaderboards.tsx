@@ -5,7 +5,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import { player } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry } from '../lib/api'
-import { GAME_BY_MODE, GAMES, scoreLabel } from '../lib/game-metadata'
+import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
 
 function warPhaseLabel(periodType: Season['periodType']): string | undefined {
@@ -121,7 +121,7 @@ export default function Leaderboards() {
       </div>
 
       <div class="leaderboard-mode-tabs" aria-label="Choose a game leaderboard">
-        {GAMES.map((game) => (
+        {RANKED_GAMES.map((game) => (
           <button
             aria-pressed={mode.value === game.mode}
             class={mode.value === game.mode ? 'leaderboard-mode leaderboard-mode--active' : 'leaderboard-mode'}

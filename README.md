@@ -10,21 +10,20 @@ as a static single-page app in the Elixir Drop monorepo.
 
 ## What it is
 
-Ten ways to play, one card-cost engine:
+Five ways to play at launch, one card-cost engine:
 
 - **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
   answers add a time penalty. Your score is your time, lower is better.
-- **Practice** — untimed cost recall. A card appears, you pick its elixir cost.
-- **Identify** — card art appears with the name hidden. Pick the right name from
-  six choices.
+- **Practice** — untimed, unranked cost recall. A card appears, you pick its
+  elixir cost. True practice: never touches a leaderboard.
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative read
   that wins elixir trades.
 - **Trade** — Blue King vs. Red King elixir math across eight exchanges.
-- **Blitz** — 60 seconds of cost recall; clear as many cards as possible.
-- **Survival** — sudden death; one miss or timeout ends the run.
-- **Speed Ladder** — sort five cards from lowest elixir to highest.
-- **Endless Ladder** — insert each new card into a growing low-to-high row.
-- **Cost Sweep** — tap every card in a grid that matches the target elixir cost.
+- **Survival** — sudden death; one miss or timeout ends the run, and the clock
+  tightens as your streak grows.
+
+Five more finished modes (Identify, Blitz, Speed Ladder, Endless Ladder, Cost
+Sweep) are vaulted for post-launch re-release drops — see `GAMES.md`.
 
 See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
 of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the

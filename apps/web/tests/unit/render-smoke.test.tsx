@@ -7,15 +7,10 @@ import { route } from '../../src/lib/router'
 const CASES = [
   ['/', 'Elixir Drop'],
   ['/practice', 'Preparing your game…'],
-  ['/identify', 'Preparing your game…'],
   ['/surge', 'Preparing your game…'],
   ['/higher-lower', 'Preparing your game…'],
   ['/trade', 'Preparing your game…'],
-  ['/blitz', 'Preparing your game…'],
   ['/survival', 'Preparing your game…'],
-  ['/ladder', 'Preparing your game…'],
-  ['/endless-ladder', 'Preparing your game…'],
-  ['/cost-sweep', 'Preparing your game…'],
   ['/settings', 'Settings']
 ] as const
 

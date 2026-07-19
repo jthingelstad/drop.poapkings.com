@@ -9,7 +9,7 @@ import {
 describe('authenticated game routes', () => {
   it('recognizes every game path without treating public screens as games', () => {
     expect(gamePathForRoute('/surge')).toBe('/surge')
-    expect(gamePathForRoute('/cost-sweep?round=2')).toBe('/cost-sweep')
+    expect(gamePathForRoute('/higher-lower?round=2')).toBe('/higher-lower')
     expect(gamePathForRoute('/leaderboards')).toBeUndefined()
   })
 

@@ -8,8 +8,14 @@ export interface GameInfo {
   name: string
   icon: string
   description: string
+  // Practice is true practice: runs record to history but never place on a
+  // leaderboard, and the mode has no leaderboard tab.
+  unranked?: boolean
 }
 
+// The launch five. Identify, Speed Ladder, Endless Ladder, Cost Sweep, and
+// Blitz are vaulted (see GAMES.md "Vaulted for launch") — code retained for
+// later re-release drops, hidden from every web surface.
 export const GAMES: GameInfo[] = [
   {
     mode: 'surge',
@@ -23,9 +29,9 @@ export const GAMES: GameInfo[] = [
     path: '/practice',
     name: 'Practice',
     icon: '🎯',
-    description: 'Learn elixir costs at your own pace — no clock.'
+    description: 'Learn elixir costs at your own pace — no clock, no rankings.',
+    unranked: true
   },
-  { mode: 'identify', path: '/identify', name: 'Identify', icon: '🔎', description: 'See the art. Pick the card.' },
   {
     mode: 'higher-lower',
     path: '/higher-lower',
@@ -41,28 +47,6 @@ export const GAMES: GameInfo[] = [
     description: 'Read the elixir trade from Blue King side.'
   },
   {
-    mode: 'ladder',
-    path: '/ladder',
-    name: 'Speed Ladder',
-    icon: '↕️',
-    description: 'Sort five cards from cheap to expensive.'
-  },
-  {
-    mode: 'endless-ladder',
-    path: '/endless-ladder',
-    name: 'Endless Ladder',
-    icon: '➕',
-    description: 'Insert each new card into the growing ladder.'
-  },
-  {
-    mode: 'cost-sweep',
-    path: '/cost-sweep',
-    name: 'Cost Sweep',
-    icon: '🧹',
-    description: 'Tap every card matching the target elixir cost.'
-  },
-  { mode: 'blitz', path: '/blitz', name: 'Blitz', icon: '⏱️', description: '60 seconds — how many can you clear?' },
-  {
     mode: 'survival',
     path: '/survival',
     name: 'Survival',
@@ -70,6 +54,28 @@ export const GAMES: GameInfo[] = [
     description: 'Sudden death — one miss ends the run.'
   }
 ]
+
+export const RANKED_GAMES = GAMES.filter((game) => !game.unranked)
+
+// Display names/icons for every mode that has ever shipped, so historical
+// runs from vaulted modes still render in activity lists and profiles.
+const ALL_MODE_DISPLAY: Record<GameMode, { name: string; icon: string }> = {
+  surge: { name: 'Surge', icon: '⚡' },
+  practice: { name: 'Practice', icon: '🎯' },
+  identify: { name: 'Identify', icon: '🔎' },
+  'higher-lower': { name: 'Higher / Lower', icon: '⚖️' },
+  trade: { name: 'Trade', icon: '👑' },
+  ladder: { name: 'Speed Ladder', icon: '↕️' },
+  'endless-ladder': { name: 'Endless Ladder', icon: '➕' },
+  'cost-sweep': { name: 'Cost Sweep', icon: '🧹' },
+  blitz: { name: 'Blitz', icon: '⏱️' },
+  survival: { name: 'Survival', icon: '💀' }
+}
+
+export function gameDisplay(mode: GameMode): { name: string; icon: string } {
+  const game = GAME_BY_MODE.get(mode)
+  return game ? { name: game.name, icon: game.icon } : ALL_MODE_DISPLAY[mode]
+}
 
 export const GAME_BY_MODE = new Map(GAMES.map((game) => [game.mode, game]))
 

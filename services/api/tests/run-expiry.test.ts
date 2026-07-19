@@ -210,7 +210,7 @@ describe("run expiry", () => {
           state: "started",
           startedAt: new Date(nowSeconds * 1_000).toISOString(),
           expiresAt,
-          ranked: true,
+          ranked: false,
         }),
     );
 
@@ -222,7 +222,9 @@ describe("run expiry", () => {
     const body = JSON.parse(response.body || "{}");
 
     expect(response.statusCode).toBe(201);
-    expect(body.ranked).toBe(true);
+    // Practice is true practice: runs are born unranked and never write a
+    // leaderboard entry (completeRun skips the GSI for ranked:false).
+    expect(body.ranked).toBe(false);
     expect(body.challenge.cardIds).toHaveLength(15);
     expect(repository.getCardStats).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(
@@ -230,6 +232,57 @@ describe("run expiry", () => {
       "practice",
       expect.anything(),
       expect.any(Number),
+      false,
+    );
+  });
+
+  it("starts every non-practice mode ranked", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "player-1",
+      email: "player@example.com",
+      publicName: "Knight Main",
+      favoriteCardId: 26000000,
+      totalGames: 12,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-18T12:01:00.000Z",
+    });
+    repository.createRun.mockImplementation(
+      (
+        owner: string,
+        mode: string,
+        challenge: unknown,
+        expiresAt: number,
+        ranked: boolean,
+      ) =>
+        Promise.resolve({
+          runId: "run-ranked",
+          owner,
+          mode,
+          challenge,
+          state: "started",
+          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          expiresAt,
+          ranked,
+        }),
+    );
+
+    const response = (await handler(
+      event("/runs/start", { mode: "survival" }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(201);
+    expect(body.ranked).toBe(true);
+    expect(repository.createRun).toHaveBeenCalledWith(
+      "player-sub",
+      "survival",
+      expect.anything(),
+      expect.any(Number),
+      true,
     );
   });
 });

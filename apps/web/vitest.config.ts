@@ -12,7 +12,17 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx', 'src/vite-env.d.ts'],
+      exclude: [
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        // Vaulted modes (GAMES.md "Vaulted for launch"): retained for
+        // re-release, unrouted, so no test exercises them.
+        'src/modes/blitz/**',
+        'src/modes/cost-sweep/**',
+        'src/modes/endless-ladder/**',
+        'src/modes/identify/**',
+        'src/modes/ladder/**'
+      ],
       thresholds: {
         statements: 30,
         branches: 20,

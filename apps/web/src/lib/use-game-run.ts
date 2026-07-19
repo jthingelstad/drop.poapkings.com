@@ -134,9 +134,16 @@ export function useGameRun<T extends GameMode>(mode: T) {
       run.current = null
       pendingCompletion.current = null
       const seasonBest = recordSeasonBest(result)
+      // Practice is unranked by design; its local bests still track quietly,
+      // but the toast stays plain practice language.
       setRecordingNotice({
         state: 'saved',
-        message: seasonBest ? 'Game recorded — new season best!' : 'Game recorded'
+        message:
+          result.ranked === false
+            ? 'Practice recorded'
+            : seasonBest
+              ? 'Game recorded — new season best!'
+              : 'Game recorded'
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()

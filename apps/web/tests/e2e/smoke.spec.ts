@@ -192,15 +192,10 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
 const routes = [
   { hash: '#/', label: 'Elixir Drop', ready: '.home' },
   { hash: '#/practice', label: 'Practice', ready: '.pcard' },
-  { hash: '#/identify', label: 'Identify', ready: '.identify-ready' },
   { hash: '#/surge', label: 'Surge', ready: '.surge-ready' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.hl' },
   { hash: '#/trade', label: 'Trade', ready: '.trade-ready' },
-  { hash: '#/blitz', label: 'Blitz', ready: '.surge-ready' },
   { hash: '#/survival', label: 'Survival', ready: '.surge-ready' },
-  { hash: '#/ladder', label: 'Speed Ladder', ready: '.ladder-ready' },
-  { hash: '#/endless-ladder', label: 'Endless Ladder', ready: '.endless-ready' },
-  { hash: '#/cost-sweep', label: 'Cost Sweep', ready: '.sweep-ready' },
   { hash: '#/leaderboards', label: 'Season leaderboards', ready: '.leaderboard-screen' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
   { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
@@ -982,18 +977,8 @@ test('active play states use low chrome and keep controls visible', async ({ pag
   test.setTimeout(60_000)
   const activeModes = [
     { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
-    { hash: '#/blitz', ready: '.surge-ready', start: 'Start Blitz', control: '.pip-keypad' },
     { hash: '#/survival', ready: '.surge-ready', start: 'Start run', control: '.pip-keypad' },
-    { hash: '#/identify', ready: '.identify-ready', start: 'Start Identify', control: '.identify-choices' },
-    { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' },
-    { hash: '#/ladder', ready: '.ladder-ready', start: 'Start Speed Ladder', control: '.ladder-board' },
-    {
-      hash: '#/endless-ladder',
-      ready: '.endless-ready',
-      start: 'Start Endless Ladder',
-      control: '.endless-track'
-    },
-    { hash: '#/cost-sweep', ready: '.sweep-ready', start: 'Start Cost Sweep', control: '.sweep-grid' }
+    { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' }
   ]
 
   for (const mode of activeModes) {
@@ -1111,167 +1096,6 @@ test('footer links to the Elixir Drop Discord', async ({ page }) => {
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer')
 })
 
-test('identify eliminates wrong names and completes without repeated cards', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/identify')
-  await expect(page.locator('.identify-ready')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start Identify' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Identify' }).click()
-  await expect(page.locator('.identify-run')).toBeVisible({ timeout: 5_000 })
-
-  const currentCard = page.locator('[data-testid="identify-card"]')
-  await expect(currentCard.locator('.pcard__name')).toHaveCount(0)
-  await expect(page.locator('.identify-choice')).toHaveCount(6)
-
-  const readId = async () => Number(await currentCard.getAttribute('data-card-id'))
-  const seenIds: number[] = []
-  let id = await readId()
-  seenIds.push(id)
-  const correctName = cardsById.get(id)?.name
-  expect(correctName).toBeTruthy()
-  const choiceNames = (await page.locator('.identify-choice').allTextContents()).map((name) => name.trim())
-  const wrongName = choiceNames.find((name) => name !== correctName)
-  expect(wrongName).toBeTruthy()
-
-  const choices = page.locator('.identify-choices')
-  await choices.getByRole('button', { name: wrongName!, exact: true }).click()
-  await expect(page.locator('.identify-prompt')).toContainText('Not that one')
-  await expect(choices.getByRole('button', { name: wrongName!, exact: true })).toBeDisabled()
-  await expect(choices.getByRole('button', { name: correctName!, exact: true })).toBeEnabled()
-  await choices.getByRole('button', { name: correctName!, exact: true }).click()
-
-  for (let answered = 1; answered < 15; answered += 1) {
-    const previousId = id
-    await page.waitForFunction(
-      (prev) => document.querySelector('[data-testid="identify-card"]')?.getAttribute('data-card-id') !== String(prev),
-      previousId
-    )
-    id = await readId()
-    seenIds.push(id)
-    const name = cardsById.get(id)?.name
-    expect(name).toBeTruthy()
-    await choices.getByRole('button', { name: name!, exact: true }).click()
-  }
-
-  await expect(page.locator('.identify-result')).toBeVisible()
-  expect(new Set(seenIds).size).toBe(seenIds.length)
-})
-
-test('speed ladder can be sorted and completed with move controls', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/ladder')
-  await expect(page.locator('.ladder-ready')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Speed Ladder' }).click()
-  await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
-
-  const ladderCards = page.locator('[data-testid="ladder-card"]')
-  const readIds = async () =>
-    ladderCards.evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
-  const isSorted = (ids: number[]) =>
-    ids.every(
-      (id, index) => index === 0 || (cardsById.get(ids[index - 1])?.elixir ?? 0) <= (cardsById.get(id)?.elixir ?? 0)
-    )
-
-  for (let step = 0; step < 30; step += 1) {
-    const ids = await readIds()
-    if (isSorted(ids)) break
-
-    const inversion = ids.findIndex(
-      (id, index) => index > 0 && (cardsById.get(ids[index - 1])?.elixir ?? 0) > (cardsById.get(id)?.elixir ?? 0)
-    )
-    expect(inversion).toBeGreaterThan(0)
-    const movingId = ids[inversion - 1]
-    const movingCard = cardsById.get(movingId)
-    expect(movingCard).toBeTruthy()
-    await page
-      .locator(`[data-card-id="${movingId}"]`)
-      .getByRole('button', { name: `Move ${movingCard!.name} later` })
-      .click()
-  }
-
-  expect(isSorted(await readIds())).toBe(true)
-  await page.getByRole('button', { name: 'Lock order' }).click()
-  await expect(page.locator('.ladder-result')).toBeVisible()
-  await expect(page.locator('.ladder-result')).toContainText('Speed Ladder complete')
-})
-
-test('endless ladder accepts valid inserts and ends on a wrong slot', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/endless-ladder')
-  await expect(page.locator('.endless-ready')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start Endless Ladder' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Endless Ladder' }).click()
-  await expect(page.locator('.endless-track')).toBeVisible({ timeout: 5_000 })
-
-  const readRowIds = async () =>
-    page
-      .locator('.endless-card')
-      .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
-  const readCurrentId = async () =>
-    Number(await page.locator('[data-testid="endless-current-card"]').getAttribute('data-card-id'))
-  const validSlots = (ids: number[], currentId: number) => {
-    const current = cardsById.get(currentId)
-    expect(current).toBeTruthy()
-    const slots: number[] = []
-    for (let slot = 0; slot <= ids.length; slot += 1) {
-      const left = slot > 0 ? cardsById.get(ids[slot - 1]) : undefined
-      const right = slot < ids.length ? cardsById.get(ids[slot]) : undefined
-      if ((!left || left.elixir <= current!.elixir) && (!right || current!.elixir <= right.elixir)) slots.push(slot)
-    }
-    return slots
-  }
-
-  for (let insert = 0; insert < 3; insert += 1) {
-    const ids = await readRowIds()
-    const currentId = await readCurrentId()
-    const [slot] = validSlots(ids, currentId)
-    expect(slot).toBeDefined()
-    await page.locator(`[data-testid="endless-slot"][data-slot-index="${slot}"]`).click()
-    await page.waitForFunction(
-      (prev) =>
-        document.querySelector('[data-testid="endless-current-card"]')?.getAttribute('data-card-id') !== String(prev),
-      currentId
-    )
-  }
-
-  const ids = await readRowIds()
-  const currentId = await readCurrentId()
-  const valid = new Set(validSlots(ids, currentId))
-  const wrongSlot = Array.from({ length: ids.length + 1 }, (_, index) => index).find((slot) => !valid.has(slot))
-  expect(wrongSlot).toBeDefined()
-  await page.locator(`[data-testid="endless-slot"][data-slot-index="${wrongSlot}"]`).click()
-  await expect(page.locator('.ladder-result')).toBeVisible()
-  await expect(page.locator('.ladder-result')).toContainText('Endless Ladder complete')
-})
-
-test('cost sweep clears a target board and penalizes wrong taps', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/cost-sweep')
-  await expect(page.locator('.sweep-ready')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start Cost Sweep' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Cost Sweep' }).click()
-  await expect(page.locator('.sweep-grid')).toBeVisible({ timeout: 5_000 })
-
-  const nonTarget = page.locator('.sweep-card[data-target="false"]').first()
-  const nonTargetId = Number(await nonTarget.getAttribute('data-card-id'))
-  const nonTargetCard = cardsById.get(nonTargetId)
-  expect(nonTargetCard).toBeTruthy()
-  await nonTarget.click()
-  await expect(nonTarget).toHaveClass(/sweep-card--wrong/)
-  await expect(nonTarget.locator('.sweep-card__cost')).toContainText(String(nonTargetCard!.elixir))
-  await expect(nonTarget.locator('.sweep-card__cost')).toHaveClass(/sweep-card__cost--wrong/)
-
-  const targetIds = await page
-    .locator('.sweep-card[data-target="true"]')
-    .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
-  expect(targetIds.length).toBeGreaterThanOrEqual(2)
-
-  for (const id of targetIds) await page.locator(`.sweep-card[data-card-id="${id}"]`).click()
-
-  await expect(page.locator('.surge-hud__count')).toContainText('1 boards')
-})
-
 test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/')
   await page.goto('/#/trade')
@@ -1326,75 +1150,6 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
   expect(new Set(seenIds).size).toBe(seenIds.length)
 })
 
-test('speed ladder reveals one persistent cost hint per wrong lock', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/ladder')
-  await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Speed Ladder' }).click()
-  await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
-
-  const hasCardContentOverlap = await page.locator('[data-testid="ladder-card"]').evaluateAll((cards) => {
-    const overlaps = (left: DOMRect, right: DOMRect) =>
-      left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top
-    return cards.some((card) => {
-      const art = card.querySelector('.ladder-card__art')?.getBoundingClientRect()
-      const details = card.querySelector('.ladder-card__details')?.getBoundingClientRect()
-      const controls = card.querySelector('.ladder-card__controls')?.getBoundingClientRect()
-      return Boolean(art && details && controls && (overlaps(art, details) || overlaps(details, controls)))
-    })
-  })
-  expect(hasCardContentOverlap).toBe(false)
-
-  await expect(page.locator('.ladder-card__cost')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Lock order' }).click()
-  await expect(page.locator('.ladder-actions__feedback')).toContainText('Cost revealed')
-  await expect(page.locator('.ladder-card__cost')).toHaveCount(1)
-
-  await expect(page.getByRole('button', { name: 'Lock order' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Lock order' }).click()
-  await expect(page.locator('.ladder-card__cost')).toHaveCount(2)
-})
-
-test.describe('mobile Speed Ladder interactions', () => {
-  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
-
-  test('speed ladder can be sorted and completed with tap-to-place', async ({ page }) => {
-    await page.goto('/')
-    await page.goto('/#/ladder')
-    await expect(page.getByRole('button', { name: 'Start Speed Ladder' })).toBeEnabled({ timeout: 8_000 })
-    await page.getByRole('button', { name: 'Start Speed Ladder' }).tap()
-    await expect(page.locator('.ladder-board')).toBeVisible({ timeout: 5_000 })
-
-    const ladderCards = page.locator('[data-testid="ladder-card"]')
-    const readIds = async () =>
-      ladderCards.evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
-    const isSorted = (ids: number[]) =>
-      ids.every(
-        (id, index) => index === 0 || (cardsById.get(ids[index - 1])?.elixir ?? 0) <= (cardsById.get(id)?.elixir ?? 0)
-      )
-
-    for (let step = 0; step < 30; step += 1) {
-      const ids = await readIds()
-      if (isSorted(ids)) break
-
-      const inversion = ids.findIndex(
-        (id, index) => index > 0 && (cardsById.get(ids[index - 1])?.elixir ?? 0) > (cardsById.get(id)?.elixir ?? 0)
-      )
-      expect(inversion).toBeGreaterThan(0)
-
-      const movingId = ids[inversion - 1]
-      const targetId = ids[inversion]
-      await page.locator(`[data-card-id="${movingId}"] .ladder-card__details`).tap()
-      await expect(page.locator(`[data-card-id="${movingId}"]`)).toHaveClass(/ladder-card--selected/)
-      await page.locator(`[data-card-id="${targetId}"] .ladder-card__details`).tap()
-    }
-
-    expect(isSorted(await readIds())).toBe(true)
-    await page.getByRole('button', { name: 'Lock order' }).tap()
-    await expect(page.locator('.ladder-result')).toBeVisible()
-  })
-})
-
 test.describe('mobile site header', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
@@ -1421,7 +1176,6 @@ test.describe('mobile timed-mode controls', () => {
   test('keeps every timed keypad in the first viewport', async ({ page }) => {
     const modes = [
       { hash: '#/surge', start: 'Start sprint' },
-      { hash: '#/blitz', start: 'Start Blitz' },
       { hash: '#/survival', start: 'Start run' }
     ]
 
@@ -1485,9 +1239,9 @@ test('leaderboards show the live Clan Wars season clock', async ({ page }) => {
   await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
   await expect(page.locator('.leaderboard-row--player')).toContainText('You')
 
-  await page.getByRole('button', { name: /Identify/ }).click()
-  await expect(page.getByRole('heading', { name: 'Identify' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Play Identify' })).toBeVisible()
+  await page.getByRole('button', { name: /Survival/ }).click()
+  await expect(page.getByRole('heading', { name: 'Survival' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play Survival' })).toBeVisible()
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
