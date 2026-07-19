@@ -127,6 +127,7 @@ export async function deleteAccount(confirmation: string): Promise<void> {
 
 export function applyRunProgress(progress: {
   totalGames?: number
+  xp?: number
   level?: number
   levelStartGames?: number
   nextLevelGames?: number
@@ -135,6 +136,7 @@ export function applyRunProgress(progress: {
   player.value = {
     ...player.value,
     totalGames: progress.totalGames,
+    xp: progress.xp ?? player.value.xp,
     level: progress.level ?? player.value.level,
     levelStartGames: progress.levelStartGames ?? player.value.levelStartGames,
     nextLevelGames: progress.nextLevelGames ?? player.value.nextLevelGames

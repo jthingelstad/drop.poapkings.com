@@ -62,6 +62,9 @@ export interface PlayerProfile {
   favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
+  // Lifetime Player XP (correctness-weighted, only climbs). Absent on profiles
+  // created before XP shipped — treat as 0.
+  xp?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +75,8 @@ export interface PublicProfile {
   favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
+  // Lifetime Player XP; drives the player's arena tier.
+  xp: number;
   level: number;
   levelStartGames: number;
   nextLevelGames: number;

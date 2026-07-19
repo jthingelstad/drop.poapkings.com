@@ -76,6 +76,8 @@ export const playerSchema = z.object({
   playerTag: z.optional(nonEmptyString),
   clashRoyale: z.optional(clashRoyaleProfileSchema),
   totalGames: nonNegativeInteger,
+  // Absent on responses from before XP shipped — default to 0.
+  xp: nonNegativeInteger.default(0),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger,
@@ -163,6 +165,7 @@ const runCompletionFields = {
   ranked: z.optional(z.boolean()),
   completedAt: isoDateTime,
   totalGames: nonNegativeInteger,
+  xp: nonNegativeInteger.default(0),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger
@@ -188,6 +191,7 @@ export const leaderboardEntrySchema = z.object({
     favoriteCardId: z.optional(cardId),
     playerTag: z.optional(nonEmptyString),
     totalGames: nonNegativeInteger,
+    xp: nonNegativeInteger.default(0),
     level: safeInteger.positive()
   })
 })

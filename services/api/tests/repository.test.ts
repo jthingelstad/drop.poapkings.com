@@ -169,10 +169,13 @@ describe("repository DynamoDB requests", () => {
       expiresAt: 1_800_000_000,
     };
 
-    await new Repository("test-table").completeRun(run, 12.3, "2026-07");
+    await new Repository("test-table").completeRun(run, 12.3, "2026-07", 45);
 
     const transaction = send.mock.calls[0]?.[0];
     const globalUpdate = transaction.input.TransactItems[1]?.Update;
+    const profileUpdate = transaction.input.TransactItems[3]?.Update;
+    expect(profileUpdate?.UpdateExpression).toContain("ADD totalGames :one, xp :xp");
+    expect(profileUpdate?.ExpressionAttributeValues[":xp"]).toBe(45);
     expect(globalUpdate?.Key).toEqual({ pk: "GLOBAL", sk: "STATS" });
     expect(globalUpdate?.UpdateExpression).toContain(
       "trophyRoadGames = if_not_exists(trophyRoadGames, :trophyRoadStart) + :one",
@@ -208,7 +211,7 @@ describe("repository DynamoDB requests", () => {
       ranked: false,
     };
 
-    await new Repository("test-table").completeRun(run, 12.3, "2026-07");
+    await new Repository("test-table").completeRun(run, 12.3, "2026-07", 20);
 
     const transaction = send.mock.calls[0]?.[0];
     const history = transaction.input.TransactItems[2]?.Put?.Item;

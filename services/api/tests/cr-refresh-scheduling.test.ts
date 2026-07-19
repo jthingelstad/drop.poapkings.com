@@ -290,6 +290,7 @@ describe("Clash Royale refresh scheduling", () => {
       expect.anything(),
       expect.any(Number),
       "2026-07",
+      expect.any(Number),
     );
     expect(JSON.parse(response.body || "{}").season).toMatchObject({
       source: "clash-royale",

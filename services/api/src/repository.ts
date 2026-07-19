@@ -118,6 +118,7 @@ function publicProfile(profile: PlayerProfile): PublicProfile {
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
     totalGames: profile.totalGames,
+    xp: profile.xp ?? 0,
     ...progress,
   };
 }
@@ -669,6 +670,7 @@ export class Repository {
     run: RunItem,
     score: number,
     seasonId: string,
+    xp: number,
   ): Promise<{
     totalGames: number;
     completedAt: string;
@@ -739,9 +741,14 @@ export class Repository {
         Update: {
           TableName: this.tableName,
           Key: profileKey(run.owner),
-          UpdateExpression: "SET updatedAt = :updatedAt ADD totalGames :one",
+          UpdateExpression:
+            "SET updatedAt = :updatedAt ADD totalGames :one, xp :xp",
           ConditionExpression: "attribute_exists(pk)",
-          ExpressionAttributeValues: { ":one": 1, ":updatedAt": completedAt },
+          ExpressionAttributeValues: {
+            ":one": 1,
+            ":xp": xp,
+            ":updatedAt": completedAt,
+          },
         },
       },
     ];
@@ -941,7 +948,7 @@ export class Repository {
               [this.tableName]: {
                 Keys: keys,
                 ProjectionExpression:
-                  "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames",
+                  "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
                 ExpressionAttributeNames: {
                   "#sub": "sub",
                 },
@@ -965,6 +972,7 @@ export class Repository {
         id: `player-${index + 1}`,
         publicName: "Elixir Player",
         totalGames: 0,
+        xp: 0,
         ...levelForGames(0),
       },
     }));

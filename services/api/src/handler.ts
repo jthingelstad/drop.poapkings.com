@@ -27,6 +27,7 @@ import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
 import { createChallenge, scoreRun } from "./scoring.js";
+import { runXp } from "./xp.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
 import type {
@@ -146,6 +147,7 @@ function profileResponse(
     favoriteCardId?: number;
     playerTag?: string;
     totalGames: number;
+    xp?: number;
     createdAt: string;
     updatedAt: string;
   },
@@ -161,6 +163,7 @@ function profileResponse(
       ? { clashRoyale: publicCrProfile(profile.playerTag, crProfile) }
       : {}),
     totalGames: profile.totalGames,
+    xp: profile.xp ?? 0,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
     ...levelForGames(profile.totalGames),
@@ -596,6 +599,7 @@ async function route(event: APIGatewayProxyEventV2) {
         ranked: run.ranked !== false,
         completedAt: run.completedAt,
         totalGames: profile.totalGames,
+        xp: profile.xp ?? 0,
         ...progress,
       });
     }
@@ -627,6 +631,7 @@ async function route(event: APIGatewayProxyEventV2) {
         season: { ...season, id: run.seasonId },
         completedAt: run.completedAt,
         totalGames: profile.totalGames,
+        xp: profile.xp ?? 0,
         ...progress,
       });
     }
@@ -674,10 +679,12 @@ async function route(event: APIGatewayProxyEventV2) {
         season,
         completedAt: result.completedAt,
         totalGames: result.totalGames,
+        xp: result.profile.xp ?? 0,
         ...levelForGames(result.totalGames),
       });
     }
-    const result = await repository.completeRun(run, score, season.id);
+    const xpAward = runXp(run.mode, score, transcript);
+    const result = await repository.completeRun(run, score, season.id, xpAward);
     // Fold the validated transcript into the player's server-side learning
     // stats. Best-effort: a stats failure must never fail a recorded game.
     try {
@@ -734,6 +741,7 @@ async function route(event: APIGatewayProxyEventV2) {
       ranked: run.ranked !== false,
       completedAt: result.completedAt,
       totalGames: result.totalGames,
+      xp: result.profile.xp ?? 0,
       ...levelForGames(result.totalGames),
     });
   }

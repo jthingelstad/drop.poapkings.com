@@ -200,6 +200,8 @@ export interface Player {
   playerTag?: string;
   clashRoyale?: ClashRoyaleProfile;
   totalGames: number;
+  // Lifetime Player XP (correctness-weighted, only climbs); drives the arena.
+  xp: number;
   level: number;
   levelStartGames: number;
   nextLevelGames: number;
@@ -234,6 +236,7 @@ export interface CompletedRun {
   ranked?: boolean;
   completedAt: string;
   totalGames: number;
+  xp: number;
   level: number;
   levelStartGames: number;
   nextLevelGames: number;
@@ -248,6 +251,7 @@ export interface QuarantinedRun {
   season: Season;
   completedAt: string;
   totalGames: number;
+  xp: number;
   level: number;
   levelStartGames: number;
   nextLevelGames: number;
