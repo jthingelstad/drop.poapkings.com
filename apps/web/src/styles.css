@@ -2023,6 +2023,22 @@ body:has(.game-run) .starcount {
   letter-spacing: 0.08em;
 }
 
+/* Non-ranked run disclosure (collection pool / focused practice). */
+.run-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(245, 200, 76, 0.12);
+  border: 1px solid rgba(245, 200, 76, 0.35);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 /* Wrong-guess direction cue. The slot always reserves its height so the
    keypad never shifts under a moving finger mid-run. */
 .surge-hint {

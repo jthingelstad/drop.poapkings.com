@@ -184,6 +184,42 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
   });
 
+  it("records an unranked run's history without a leaderboard entry", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 5,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:01:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-practice",
+      sk: "RUN",
+      runId: "run-practice",
+      owner: "player-sub",
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+      ranked: false,
+    };
+
+    await new Repository("test-table").completeRun(run, 12.3, "2026-07");
+
+    const transaction = send.mock.calls[0]?.[0];
+    const history = transaction.input.TransactItems[2]?.Put?.Item;
+    // History, totals, and Trophy Road still record; only ranking is skipped.
+    expect(history?.score).toBe(12.3);
+    expect(history?.GSI1PK).toBeUndefined();
+    expect(history?.GSI1SK).toBeUndefined();
+    const globalUpdate = transaction.input.TransactItems[1]?.Update;
+    expect(globalUpdate?.UpdateExpression).toContain("trophyRoadGames");
+  });
+
   it("stores quarantined evidence without touching progress or leaderboards", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {

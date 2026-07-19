@@ -15,6 +15,7 @@ import ElixirHost from '../../components/ElixirHost'
 import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -169,6 +170,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
   return (
     <div class="main-content game-run" style={{ alignItems: 'center', gap: 24 }}>
+      <RunScopeBadge ranked={gameRun.ranked.value} />
       <div class="session-bar">
         <div class="session-bar__stat">
           <span class="session-bar__val">

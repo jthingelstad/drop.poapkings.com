@@ -116,6 +116,23 @@ function sweepBoards(
   });
 }
 
+// A linked collection must offer at least this many known cards before it can
+// replace the catalog as a challenge pool.
+export const MIN_COLLECTION_POOL = 12;
+
+// The single source of truth for whether a run deals from the player's linked
+// collection: the handler uses the same answer to mark those runs unranked (a
+// 12-card pool is materially easier than the full catalog, so it plays as
+// practice, not leaderboard placement).
+export function collectionPool(
+  playerCardIds?: readonly number[],
+): ReadonlyArray<{ id: number }> | undefined {
+  const playerPool = [...new Set(playerCardIds ?? [])]
+    .map((id) => CARD_BY_ID.get(id))
+    .filter((card): card is Card => Boolean(card));
+  return playerPool.length >= MIN_COLLECTION_POOL ? playerPool : undefined;
+}
+
 export function createChallenge<T extends GameMode>(
   mode: T,
   randomInt: RandomInt,
@@ -126,12 +143,8 @@ export function createChallenge(
   randomInt: RandomInt,
   context: ChallengeContext = {},
 ): RunChallenge {
-  const playerPool = [...new Set(context.playerCardIds ?? [])]
-    .map((id) => CARD_BY_ID.get(id))
-    .filter((card): card is Card => Boolean(card));
-  // The mode policy decides whether to pass a player collection. A small or
-  // stale collection safely falls back to the canonical catalog.
-  const pool = playerPool.length >= 12 ? playerPool : CARDS;
+  // A small or stale collection safely falls back to the canonical catalog.
+  const pool = (collectionPool(context.playerCardIds) as Card[]) ?? CARDS;
   switch (mode) {
     case "surge":
     case "practice":

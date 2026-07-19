@@ -198,6 +198,9 @@ export interface StartedRun {
   runToken: string;
   mode: GameMode;
   challenge: RunChallenge;
+  // False when the deal is non-uniform (linked-collection pool or focused
+  // practice): the run records history and Trophy Road but never ranks.
+  ranked?: boolean;
   expiresAt: string;
 }
 
@@ -207,6 +210,7 @@ export interface CompletedRun {
   mode: GameMode;
   score: number;
   season: Season;
+  ranked?: boolean;
   completedAt: string;
   totalGames: number;
   level: number;

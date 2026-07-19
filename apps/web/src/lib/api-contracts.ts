@@ -138,6 +138,8 @@ export const startedRunSchema = z
     runToken: nonEmptyString,
     mode: gameModeSchema,
     challenge: runChallengeSchema,
+    // Absent from older responses — treat as ranked.
+    ranked: z.optional(z.boolean()),
     expiresAt: isoDateTime
   })
   .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })
@@ -147,6 +149,7 @@ const runCompletionFields = {
   mode: gameModeSchema,
   score: z.number().finite(),
   season: seasonSchema,
+  ranked: z.optional(z.boolean()),
   completedAt: isoDateTime,
   totalGames: nonNegativeInteger,
   level: safeInteger.positive(),

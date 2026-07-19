@@ -43,6 +43,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
   const challenge = useSignal<Extract<RunChallenge, { mode: T }> | null>(null)
   const preparing = useSignal(true)
   const startError = useSignal('')
+  // False when the server dealt a non-uniform (collection or focus) challenge:
+  // the run still records, but never ranks.
+  const ranked = useSignal(true)
 
   const prepare = useCallback(async (): Promise<void> => {
     preparing.value = true
@@ -53,6 +56,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     try {
       const started = await startRun(mode, requiredSessionToken())
       run.current = started
+      ranked.value = started.ranked !== false
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -114,7 +118,10 @@ export function useGameRun<T extends GameMode>(mode: T) {
       applyRunProgress(result)
       run.current = null
       pendingCompletion.current = null
-      setRecordingNotice({ state: 'saved', message: 'Game recorded' })
+      setRecordingNotice({
+        state: 'saved',
+        message: result.ranked === false ? 'Practice run recorded — not ranked' : 'Game recorded'
+      })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
     } catch (error) {
@@ -200,5 +207,5 @@ export function useGameRun<T extends GameMode>(mode: T) {
     await submitCompletion(active, transcript, onRecorded, onUnrecorded)
   }
 
-  return { challenge, preparing, startError, prepare, ensureFreshRun, complete }
+  return { challenge, preparing, startError, ranked, prepare, ensureFreshRun, complete }
 }

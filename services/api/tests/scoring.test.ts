@@ -1,7 +1,12 @@
 import { randomInt } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
-import { createChallenge, scoreRun, SURGE_CARD_COUNT } from "../src/scoring.js";
+import {
+  collectionPool,
+  createChallenge,
+  scoreRun,
+  SURGE_CARD_COUNT,
+} from "../src/scoring.js";
 
 const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
@@ -232,6 +237,15 @@ describe("server-side game scoring", () => {
     });
     expect(challenge.cardIds).toHaveLength(5);
     expect(new Set(challenge.cardIds.map(cost)).size).toBeGreaterThan(1);
+  });
+
+  it("only treats a dozen known cards as a collection pool", () => {
+    const dozen = allCards.slice(0, 12).map((card) => card.id);
+    expect(collectionPool(dozen)).toHaveLength(12);
+    // Too small, unknown ids, or absent → catalog play (ranked).
+    expect(collectionPool(dozen.slice(0, 11))).toBeUndefined();
+    expect(collectionPool([1, 2, 3])).toBeUndefined();
+    expect(collectionPool(undefined)).toBeUndefined();
   });
 
   it("rejects altered challenge order and implausible clocks", () => {

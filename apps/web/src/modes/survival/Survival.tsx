@@ -16,6 +16,7 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -236,6 +237,7 @@ export default function Survival() {
           <p class="lede">
             Name each cost before the bar runs out. A wrong tap or a timeout — and the run's over. How deep can you go?
           </p>
+          <RunScopeBadge ranked={gameRun.ranked.value} />
           <button
             class="btn btn--gold surge-ready__go"
             onClick={begin}

@@ -24,7 +24,7 @@ import { sendMagicLink } from "./jmap.js";
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { Repository } from "./repository.js";
-import { createChallenge, scoreRun } from "./scoring.js";
+import { collectionPool, createChallenge, scoreRun } from "./scoring.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
 import type {
@@ -502,6 +502,9 @@ async function route(event: APIGatewayProxyEventV2) {
           playerCardIds = crProfile.cards?.map((card) => card.id);
       }
     }
+    // A run dealt from a linked collection plays as practice: a 12-card pool
+    // is materially easier than the full catalog, so it never ranks.
+    const ranked = !collectionPool(playerCardIds);
     const challenge = createChallenge(body.mode, randomInt, { playerCardIds });
     const nowSeconds = Math.floor(Date.now() / 1_000);
     const run = await repository.createRun(
@@ -509,6 +512,7 @@ async function route(event: APIGatewayProxyEventV2) {
       body.mode,
       challenge,
       nowSeconds + RUN_SECONDS,
+      ranked,
     );
     const runToken = signToken(
       {
@@ -526,6 +530,7 @@ async function route(event: APIGatewayProxyEventV2) {
       runToken,
       mode: run.mode,
       challenge: run.challenge,
+      ranked,
       expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
     });
   }
@@ -584,6 +589,7 @@ async function route(event: APIGatewayProxyEventV2) {
         mode: run.mode,
         score: run.score,
         season: { ...season, id: run.seasonId },
+        ranked: run.ranked !== false,
         completedAt: run.completedAt,
         totalGames: profile.totalGames,
         ...progress,
@@ -703,6 +709,7 @@ async function route(event: APIGatewayProxyEventV2) {
       mode: run.mode,
       score,
       season,
+      ranked: run.ranked !== false,
       completedAt: result.completedAt,
       totalGames: result.totalGames,
       ...levelForGames(result.totalGames),

@@ -16,6 +16,7 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import RunScopeBadge from '../../components/RunScopeBadge'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -218,6 +219,7 @@ export default function Surge() {
             <strong>+{(SURGE.PENALTY_MS / 1000).toFixed(0)}s</strong> and the card stays until you nail it. Lower time
             wins.
           </p>
+          <RunScopeBadge ranked={gameRun.ranked.value} />
           <button
             class="btn btn--gold surge-ready__go"
             onClick={start}
