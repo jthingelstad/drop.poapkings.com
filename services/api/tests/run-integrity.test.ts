@@ -12,7 +12,7 @@ const repository = vi.hoisted(() => ({
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
   getRun: vi.fn(),
-  quarantineRun: vi.fn(),
+  useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
@@ -22,7 +22,7 @@ vi.mock("../src/repository.js", () => ({
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
     getRun = repository.getRun;
-    quarantineRun = repository.quarantineRun;
+    useRateLimit = repository.useRateLimit;
   },
 }));
 
@@ -100,7 +100,7 @@ function completionEvent(runToken: string): APIGatewayProxyEventV2 {
   };
 }
 
-describe("run integrity quarantine", () => {
+describe("run integrity rejection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
@@ -109,9 +109,10 @@ describe("run integrity quarantine", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.useRateLimit.mockResolvedValue(undefined);
   });
 
-  it("retains an implausibly fast run without advancing public progress", async () => {
+  it("rejects an implausibly fast run and records nothing", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -134,11 +135,6 @@ describe("run integrity quarantine", () => {
       startedAt: new Date(Date.now() - 10_000).toISOString(),
       expiresAt: nowSeconds + 1_800,
     });
-    repository.quarantineRun.mockResolvedValue({
-      totalGames: profile.totalGames,
-      completedAt: "2026-07-18T12:01:00.000Z",
-      profile,
-    });
 
     const response = (await handler(
       completionEvent(runToken),
@@ -147,25 +143,12 @@ describe("run integrity quarantine", () => {
     )) as APIGatewayProxyStructuredResultV2;
     const body = JSON.parse(response.body || "{}");
 
-    expect(response.statusCode).toBe(202);
-    expect(body).toMatchObject({
-      accepted: false,
-      reviewStatus: "pending",
-      runId: "run-fast",
-      score: 2_400,
-      totalGames: 4,
-    });
-    expect(repository.quarantineRun).toHaveBeenCalledWith(
-      expect.objectContaining({ runId: "run-fast" }),
-      2_400,
-      expect.any(String),
-      "score_below_ui_floor",
-      expect.objectContaining({
-        wallElapsedMs: expect.any(Number),
-        answerCount: 15,
-      }),
-    );
+    // The run is rejected outright — not recorded, not credited, and the run
+    // row is left "started" to TTL-expire on its own.
+    expect(response.statusCode).toBe(400);
+    expect(body.error?.code).toBe("integrity_rejected");
     expect(repository.completeRun).not.toHaveBeenCalled();
+    expect(repository.getProfile).not.toHaveBeenCalled();
     expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 });

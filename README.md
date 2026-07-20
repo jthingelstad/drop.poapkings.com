@@ -22,18 +22,16 @@ Five ways to play at launch, one card-cost engine:
 - **Survival** — sudden death; one miss or timeout ends the run, and the clock
   tightens as your streak grows.
 
-Five more finished modes (Identify, Blitz, Speed Ladder, Endless Ladder, Cost
-Sweep) are vaulted for post-launch re-release drops — see `GAMES.md`.
-
 See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
 of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the
 shared Clash-style card-rendering rules used by the modes.
 
 Every game deals from a signed server challenge drawn from the complete card
 catalog, and a short end-of-session insight ("you bleed time on 5–6 cost
-cards") turns the game into a coach rather than a quiz. Linked Clash Royale
-collections remain visible on player profiles but do not change the deal.
-**Elixir**, the clan's mascot, hosts.
+cards") turns the game into a coach rather than a quiz. A linked Clash Royale
+collection is stored but not rendered; only the card count is shown, and it does
+not change the deal. **Elixir**, the clan's mascot, is the cosmetic face of the
+game and the voice of the Recruit call-to-action — not a runtime host.
 
 It's also a quiet front door to the clan: a good run is met with an invite, not
 a banner.

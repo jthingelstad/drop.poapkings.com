@@ -7,7 +7,7 @@ import type { RunTranscript } from "./types.js";
 // leaderboard, which ranks pure speed. Two separate systems: the arena is an
 // inclusive personal journey for everyone; the boards are for the competitive.
 //
-// Awarded once per accepted run (quarantined runs earn nothing). The transcript
+// Awarded once per accepted run (rejected runs earn nothing). The transcript
 // is already validated by scoreRun before this runs, so it reads leniently.
 export function runXp(transcript: RunTranscript): number {
   const items = Array.isArray(transcript.answers)

@@ -99,27 +99,22 @@ log, mail delivery, and player feedback during the first session. Expand only
 after at least one fresh login, CR profile load, completed run, leaderboard
 entry, and season-clock update have all succeeded in production.
 
-Do not promise a prize until the whole four-week season has run with score
-quarantine and operational monitoring in place. Quarantined scores should be
-reviewed as signals; never promote them directly into leaderboard state.
+Do not promise a prize until the whole four-week season has run with the
+integrity checks and operational monitoring in place.
 
-## 7. Reviewing quarantined scores
+## 7. Anti-cheat: reject, don't review
 
-Quarantined runs keep their evidence for thirty days and sit in a dedicated
-`QUARANTINE` partition on the table's `GSI1` index (newest first). Review them
-from the operator host with the deployment credentials:
+Score integrity is enforced by outright rejection, not a review queue.
+`services/api/src/integrity.ts` recomputes every completion and rejects an
+implausible or impossible run with `400 integrity_rejected`: it is neither
+recorded nor credited, and the started-run row is left to TTL-expire on its own
+(exactly like a scorer reject). There is no quarantine partition and nothing to
+review by hand. Watch CloudWatch for the `Run completion rejected by integrity
+check` warnings — a cluster of them signals either a shipped UI limit that is too
+tight or a probing client.
 
-```bash
-aws dynamodb query \
-  --table-name "$ELIXIR_DROP_TABLE_NAME" \
-  --index-name GSI1 \
-  --key-condition-expression 'GSI1PK = :pk' \
-  --expression-attribute-values '{":pk":{"S":"QUARANTINE"}}' \
-  --no-scan-index-forward
-```
-
-Each item carries the mode, recomputed score, `reviewReason`, and
-`integrityEvidence` (wall time plus transcript counts). Treat entries as
-signals about the shipped UI limits or a probing client — never write a
-quarantined score into leaderboard state by hand, and expect entries to age
-out on their own once reviewed.
+The completion and public read endpoints are also IP rate-limited
+(`/runs/complete` at 300/hour; a shared `reads` scope over `/leaderboards`,
+`/stats`, and `/seasons` at 1200/hour, deliberately generous so a shared NAT
+does not trip it). A `429 rate_limited` in the logs is the expected response to
+abusive volume, not a fault.

@@ -163,10 +163,7 @@ const runCompletionFields = {
   nextLevelGames: nonNegativeInteger
 }
 
-export const completedRunSchema = z.discriminatedUnion('accepted', [
-  z.object({ accepted: z.literal(true), ...runCompletionFields }),
-  z.object({ accepted: z.literal(false), reviewStatus: z.literal('pending'), ...runCompletionFields })
-])
+export const completedRunSchema = z.object({ accepted: z.literal(true), ...runCompletionFields })
 
 export const siteStatsSchema = z.object({
   trophyRoadGames: nonNegativeInteger,

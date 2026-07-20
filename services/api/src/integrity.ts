@@ -5,7 +5,6 @@ import type { GameMode } from "./types.js";
 export type IntegrityReason =
   | "score_out_of_range"
   | "score_below_ui_floor"
-  | "wall_time_below_ui_floor"
   | "completion_rate_above_ui_limit";
 
 export type IntegrityAssessment =
@@ -32,9 +31,6 @@ export function assessRunIntegrity(
   const scoreFloor = MIN_TIMED_SCORES[mode];
   if (scoreFloor !== undefined && score < scoreFloor)
     return { eligible: false, reason: "score_below_ui_floor" };
-
-  if (mode === "practice" && wallElapsedMs < 14_000)
-    return { eligible: false, reason: "wall_time_below_ui_floor" };
 
   if (mode === "higher-lower") {
     const answered = score >= HIGHER_LOWER_PAIR_COUNT ? score : score + 1;

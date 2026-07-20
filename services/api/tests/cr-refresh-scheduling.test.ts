@@ -18,6 +18,7 @@ const repository = vi.hoisted(() => ({
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
   updateProfile: vi.fn(),
+  useRateLimit: vi.fn(),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 
@@ -34,6 +35,7 @@ vi.mock("../src/repository.js", () => ({
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
     updateProfile = repository.updateProfile;
+    useRateLimit = repository.useRateLimit;
   },
 }));
 

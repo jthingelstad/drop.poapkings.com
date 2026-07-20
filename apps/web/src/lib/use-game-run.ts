@@ -121,19 +121,6 @@ export function useGameRun<T extends GameMode>(mode: T) {
     setRecordingNotice({ state: 'saving', message: 'Recording your game…' })
     try {
       const result = await completeRun(active.runToken, transcript, requiredSessionToken())
-      if (!result.accepted) {
-        run.current = null
-        pendingCompletion.current = null
-        setRecordingNotice({
-          state: 'error',
-          message: 'This result is awaiting a quick integrity review.',
-          detail: `It was not added to your progress or the leaderboard. You can close this message and keep playing. Reference: ${active.runId}`,
-          actionLabel: 'Close',
-          action: () => setRecordingNotice({ state: 'idle' })
-        })
-        onUnrecorded?.()
-        return
-      }
       applyRunProgress(result)
       recordRecentRun({
         runId: result.runId,
@@ -218,9 +205,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
   }
 
   // onRecorded fires when the result is accepted; onUnrecorded fires when
-  // this run is settled without being recorded (rejected, expired, or
-  // quarantined) so streak-style modes can deal a fresh game instead of
-  // stranding the player on disabled controls.
+  // this run is settled without being recorded (rejected or expired) so
+  // streak-style modes can deal a fresh game instead of stranding the player
+  // on disabled controls.
   async function complete(
     transcript: Record<string, unknown>,
     onRecorded?: () => void,

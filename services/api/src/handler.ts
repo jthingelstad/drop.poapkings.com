@@ -67,24 +67,6 @@ function bodyOf(event: APIGatewayProxyEventV2): Record<string, unknown> {
   }
 }
 
-function runIntegrityEvidence(
-  transcript: RunTranscript,
-  wallElapsedMs: number,
-) {
-  return {
-    wallElapsedMs,
-    ...(Array.isArray(transcript.answers)
-      ? { answerCount: transcript.answers.length }
-      : {}),
-    ...(Array.isArray(transcript.attempts)
-      ? { attemptCount: transcript.attempts.length }
-      : {}),
-    ...(Array.isArray(transcript.picks)
-      ? { pickCount: transcript.picks.length }
-      : {}),
-  };
-}
-
 function issueSession(
   sub: string,
   secret: string,
@@ -354,14 +336,19 @@ async function route(event: APIGatewayProxyEventV2) {
       },
       // Map storage items onto the RunRecord contract: raw history rows carry
       // table keys, GSI keys, and the email-hash sub, none of which belong on
-      // the wire.
-      recentRuns: recentRuns.map((run) => ({
-        runId: run.runId,
-        mode: run.mode,
-        score: run.score,
-        seasonId: run.seasonId,
-        completedAt: run.completedAt,
-      })),
+      // the wire. Drop runs whose mode is no longer a live game — retired modes
+      // (e.g. the vaulted five) still sit in a player's history, and the client
+      // validates each run's mode against the current GAME_MODES enum, so an
+      // unfiltered retired-mode row would fail the whole /me response.
+      recentRuns: recentRuns
+        .filter((run) => isGameMode(run.mode))
+        .map((run) => ({
+          runId: run.runId,
+          mode: run.mode,
+          score: run.score,
+          seasonId: run.seasonId,
+          completedAt: run.completedAt,
+        })),
     });
   }
 
@@ -545,6 +532,12 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/runs/complete") {
     const body = bodyOf(event);
     const session = sessionFor(event, config.sessionSecret, true);
+    await repository.useRateLimit(
+      "run-complete",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      300,
+      60 * 60,
+    );
     if (typeof body.runToken !== "string")
       throw new HttpError(400, "A signed run token is required.");
     let claims;
@@ -603,38 +596,6 @@ async function route(event: APIGatewayProxyEventV2) {
         ...progress,
       });
     }
-    if (run.state === "quarantined") {
-      if (!run.completedAt || typeof run.score !== "number" || !run.seasonId)
-        throw new HttpError(
-          409,
-          "This run is under review but its result is unavailable.",
-          "run_conflict",
-        );
-      const profile = await repository.getProfile(run.owner);
-      if (!profile)
-        throw new HttpError(
-          404,
-          "Player profile was not found.",
-          "profile_not_found",
-        );
-      const season = seasonForDate(
-        new Date(run.completedAt),
-        await currentWarClock(repository),
-      );
-      const progress = levelForGames(profile.totalGames);
-      return json(202, {
-        accepted: false,
-        reviewStatus: "pending",
-        runId: run.runId,
-        mode: run.mode,
-        score: run.score,
-        season: { ...season, id: run.seasonId },
-        completedAt: run.completedAt,
-        totalGames: profile.totalGames,
-        xp: profile.xp ?? 0,
-        ...progress,
-      });
-    }
     const nowSeconds = Math.floor(Date.now() / 1_000);
     if (run.expiresAt <= nowSeconds)
       throw new HttpError(
@@ -665,32 +626,22 @@ async function route(event: APIGatewayProxyEventV2) {
     const season = seasonForDate(new Date(), await currentWarClock(repository));
     const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
     if (!integrity.eligible) {
-      const result = await repository.quarantineRun(
-        run,
-        score,
-        season.id,
-        integrity.reason,
-        runIntegrityEvidence(transcript, wallElapsedMs),
-      );
-      console.warn("Game quarantined for integrity review", {
+      // An implausible/impossible run is rejected outright (like a scorer
+      // reject): not recorded, not credited. The run row stays "started" so it
+      // TTL-expires on its own. Surface it in the logs the same way.
+      console.warn("Run completion rejected by integrity check", {
+        requestId: event.requestContext.requestId,
         runId: run.runId,
         mode: run.mode,
         score,
         reason: integrity.reason,
         wallElapsedMs,
       });
-      return json(202, {
-        accepted: false,
-        reviewStatus: "pending",
-        runId: run.runId,
-        mode: run.mode,
-        score,
-        season,
-        completedAt: result.completedAt,
-        totalGames: result.totalGames,
-        xp: result.profile.xp ?? 0,
-        ...levelForGames(result.totalGames),
-      });
+      throw new HttpError(
+        400,
+        "This game could not be verified and was not recorded.",
+        "integrity_rejected",
+      );
     }
     const xpAward = runXp(transcript);
     // Survival ranks equal streaks by fastest cumulative time.
@@ -765,6 +716,12 @@ async function route(event: APIGatewayProxyEventV2) {
   }
 
   if (method === "GET" && path === "/leaderboards") {
+    await repository.useRateLimit(
+      "reads",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      1200,
+      60 * 60,
+    );
     const mode = event.queryStringParameters?.mode;
     if (!isGameMode(mode))
       throw new HttpError(400, "Choose a valid game mode.");
@@ -780,6 +737,12 @@ async function route(event: APIGatewayProxyEventV2) {
   }
 
   if (method === "GET" && path === "/seasons") {
+    await repository.useRateLimit(
+      "reads",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      1200,
+      60 * 60,
+    );
     const now = new Date();
     const clock = await currentWarClock(repository);
     const current = seasonForDate(now, clock);
@@ -787,6 +750,12 @@ async function route(event: APIGatewayProxyEventV2) {
   }
 
   if (method === "GET" && path === "/stats") {
+    await repository.useRateLimit(
+      "reads",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      1200,
+      60 * 60,
+    );
     const stats = await repository.globalStats();
     const response: SiteStats = {
       ...stats,

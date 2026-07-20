@@ -202,7 +202,7 @@ Player XP and the per-player arena:
   not inconsequential).
 - XP is added to the `PLAYER#/PROFILE` item inside the same `completeRun`
   transaction as the player and global counts, and is returned on `GET /me`,
-  `/runs/complete`, and leaderboard rows. Quarantined runs earn nothing.
+  `/runs/complete`, and leaderboard rows. Rejected runs earn nothing.
 - The 28 arena tiers in `apps/web/src/data/starRanks.ts` are thresholded on
   lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000, ~5,000
   games), shown in the nav player block and the profile. The arena only climbs.
@@ -263,6 +263,15 @@ owns the challenge, validates the submitted transcript, and recomputes the
 score. Authenticated completions become immutable run history and leaderboard
 input. Both run creation and completion reject requests without a valid player
 session; there is no anonymous play path.
+
+Anti-cheat is by rejection, not review. `services/api/src/integrity.ts` checks
+each recomputed score for plausibility (in-range score, timed-mode score floors,
+and a continuous-mode completion-rate ceiling); an implausible or impossible run
+returns `400 integrity_rejected` and is neither recorded nor credited — the run
+row is left to TTL-expire, exactly like a scorer reject. Practice is unranked and
+only feeds XP, so it is checked for score range alone. Completion and the public
+read endpoints are also IP rate-limited (`/runs/complete` at 300/hour; the shared
+`reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
 
 Authenticated public identity is centered on one favorite card:
 

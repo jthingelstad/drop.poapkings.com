@@ -15,7 +15,6 @@ import {
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import { leaderboardPartition, leaderboardSortKey } from "./games.js";
-import type { IntegrityReason } from "./integrity.js";
 import type { CardStatsMap } from "./learning.js";
 import { levelForGames } from "./progression.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
@@ -37,10 +36,6 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-// Quarantined runs must outlive the short started-run TTL so the review queue
-// is real; thirty days comfortably covers a season's review cadence.
-const QUARANTINE_RETENTION_SECONDS = 30 * 24 * 60 * 60;
-
 interface MagicItem {
   pk: string;
   sk: "MAGIC";
@@ -56,7 +51,7 @@ export interface RunItem {
   owner: string;
   mode: GameMode;
   challenge: RunChallenge;
-  state: "started" | "completed" | "quarantined";
+  state: "started" | "completed";
   startedAt: string;
   expiresAt: number;
   // Retained for historical runs created by the former personalized-practice
@@ -65,15 +60,6 @@ export interface RunItem {
   completedAt?: string;
   score?: number;
   seasonId?: string;
-  reviewReason?: IntegrityReason;
-  integrityEvidence?: RunIntegrityEvidence;
-}
-
-export interface RunIntegrityEvidence {
-  wallElapsedMs: number;
-  answerCount?: number;
-  attemptCount?: number;
-  pickCount?: number;
 }
 
 interface ProfileItem extends PlayerProfile {
@@ -800,88 +786,6 @@ export class Repository {
     const profile = await this.getProfile(run.owner);
     if (!profile) throw new Error("Completed run profile could not be loaded");
     return { totalGames: profile.totalGames, completedAt, profile };
-  }
-
-  async quarantineRun(
-    run: RunItem,
-    score: number,
-    seasonId: string,
-    reason: IntegrityReason,
-    integrityEvidence: RunIntegrityEvidence,
-  ): Promise<{
-    totalGames: number;
-    completedAt: string;
-    profile: PlayerProfile;
-  }> {
-    const completedAt = new Date().toISOString();
-    // A quarantined run keeps the started run's expiresAt — the table's TTL
-    // attribute — unless it is extended here, so the evidence used to erase
-    // itself within the hour. Reviews get thirty days, and the sparse
-    // QUARANTINE index partition makes the queue queryable.
-    const reviewExpiresAt =
-      Math.floor(Date.now() / 1_000) + QUARANTINE_RETENTION_SECONDS;
-    try {
-      await client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { pk: run.pk, sk: run.sk },
-          UpdateExpression:
-            "SET #state = :quarantined, completedAt = :completedAt, score = :score, seasonId = :seasonId, reviewReason = :reviewReason, integrityEvidence = :integrityEvidence, expiresAt = :reviewExpiresAt, GSI1PK = :queuePk, GSI1SK = :queueSk",
-          ConditionExpression: "#state = :started AND #owner = :owner",
-          ExpressionAttributeNames: { "#state": "state", "#owner": "owner" },
-          ExpressionAttributeValues: {
-            ":quarantined": "quarantined",
-            ":started": "started",
-            ":owner": run.owner,
-            ":completedAt": completedAt,
-            ":score": score,
-            ":seasonId": seasonId,
-            ":reviewReason": reason,
-            ":integrityEvidence": integrityEvidence,
-            ":reviewExpiresAt": reviewExpiresAt,
-            ":queuePk": "QUARANTINE",
-            ":queueSk": `${completedAt}#${run.runId}`,
-          },
-        }),
-      );
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      ) {
-        throw new HttpError(
-          409,
-          "This run was already recorded or is no longer valid.",
-          "run_conflict",
-        );
-      }
-      throw error;
-    }
-
-    const profile = await this.getProfile(run.owner);
-    if (!profile)
-      // The account was deleted between starting and finishing the run; the
-      // mutated run row is review noise, not a server fault.
-      throw new HttpError(
-        404,
-        "Player profile was not found.",
-        "profile_not_found",
-      );
-    return { totalGames: profile.totalGames, completedAt, profile };
-  }
-
-  async listQuarantinedRuns(limit = 50): Promise<RunItem[]> {
-    const result = await client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: "GSI1",
-        KeyConditionExpression: "GSI1PK = :pk",
-        ExpressionAttributeValues: { ":pk": "QUARANTINE" },
-        ScanIndexForward: false,
-        Limit: limit,
-      }),
-    );
-    return (result.Items ?? []) as RunItem[];
   }
 
   async listRecentRuns(sub: string, limit = 20): Promise<RunRecord[]> {

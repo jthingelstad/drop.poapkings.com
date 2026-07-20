@@ -700,69 +700,6 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
   await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
 })
 
-test('a quarantined result stays out of player progress and remains playable', async ({ page }) => {
-  await page.unroute(testApiRoute)
-  await page.route(testApiRoute, async (route) => {
-    const path = new URL(route.request().url()).pathname
-    if (path === '/auth/refresh') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ session: testSession })
-      })
-      return
-    }
-    if (path === '/me') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
-      })
-      return
-    }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
-    if (path === '/runs/complete') {
-      await route.fulfill({
-        status: 202,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          accepted: false,
-          reviewStatus: 'pending',
-          runId: 'run-survival',
-          mode: 'survival',
-          score: 0,
-          season: testSeason,
-          completedAt: '2026-07-18T00:00:00.000Z',
-          totalGames: testPlayer.totalGames,
-          level: testPlayer.level,
-          levelStartGames: testPlayer.levelStartGames,
-          nextLevelGames: testPlayer.nextLevelGames
-        })
-      })
-      return
-    }
-    if (await fulfillTestRun(route)) return
-    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
-  })
-
-  await page.goto('/#/survival')
-  await page.getByRole('button', { name: 'Start run' }).click()
-  const cardName = await page.locator('.pcard__img').getAttribute('alt')
-  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
-  expect(card).toBeTruthy()
-  const wrongCost = card?.elixir === 1 ? 2 : 1
-  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
-
-  await expect(page.getByText('This result is awaiting a quick integrity review.')).toBeVisible()
-  await expect(page.getByText('Game recorded', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Retry recording' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Close' }).click()
-  await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
-})
-
 test('account deletion requires typed confirmation and clears the saved session', async ({ page }) => {
   let deletionBody: unknown
   await page.unroute(testApiRoute)

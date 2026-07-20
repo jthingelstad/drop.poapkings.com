@@ -11,9 +11,10 @@ Responsibilities in this release:
 - player profiles with favorite-card avatars, safe Claude Haiku-generated
   public names, unverified CR player tags, and cached CR
   name/clan/account-age/card snapshots;
-- short-lived, single-use signed runs for all ten game modes;
+- short-lived, single-use signed runs for all five game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
-- lifetime player game counts and a gradual level curve;
+- lifetime player game counts and server-computed Player XP feeding the 28-tier
+  arena;
 - a site-wide Trophy Road advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock;
   and
@@ -29,8 +30,8 @@ card identity/art. Account age is calculated from the badge's `progress` days
 rather than trusting its display tier.
 Experience, arenas, trophies, wins, and card levels are excluded from the
 message contract and persistence model. Every game uses the complete canonical
-catalog. Attached collection data remains stored and visible on the player
-profile but does not affect challenge generation.
+catalog. Attached collection data remains stored but not rendered; only the
+card count is shown, and it does not affect challenge generation.
 
 The bridge also publishes a five-minute Clan Wars clock snapshot from
 `/currentriverrace` plus `/riverracelog`. The API stores the latest CR season

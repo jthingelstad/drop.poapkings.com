@@ -250,19 +250,4 @@ export interface CompletedRun {
   nextLevelGames: number;
 }
 
-export interface QuarantinedRun {
-  accepted: false;
-  reviewStatus: "pending";
-  runId: string;
-  mode: GameMode;
-  score: number;
-  season: Season;
-  completedAt: string;
-  totalGames: number;
-  xp: number;
-  level: number;
-  levelStartGames: number;
-  nextLevelGames: number;
-}
-
-export type RunCompletion = CompletedRun | QuarantinedRun;
+export type RunCompletion = CompletedRun;

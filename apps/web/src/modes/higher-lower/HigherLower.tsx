@@ -160,8 +160,8 @@ export default function HigherLower() {
         if (correct) {
           next()
         } else {
-          // A permanently rejected or quarantined completion still deals the
-          // next round — Higher/Lower has no summary screen to escape to.
+          // A permanently rejected completion still deals the next round —
+          // Higher/Lower has no summary screen to escape to.
           void gameRun.complete(
             { answers: serverAnswers.current },
             () => void restartAfterMiss(),
