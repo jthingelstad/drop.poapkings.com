@@ -46,7 +46,10 @@ import {
 } from "./validation.js";
 
 const MAGIC_LINK_SECONDS = 15 * 60;
-const SESSION_SECONDS = 10 * 24 * 60 * 60;
+// A login lasts 28 days. Sessions slide: /auth/refresh re-issues a fresh 28-day
+// token whenever an active player returns, so a stored credential keeps working
+// until it sits unused for 28 days.
+const SESSION_SECONDS = 28 * 24 * 60 * 60;
 const RUN_SECONDS = 60 * 60;
 // The run token stays verifiable well past run.expiresAt so a late completion
 // reaches the explicit 410 run_expired branch instead of dying in verifyToken
