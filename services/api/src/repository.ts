@@ -57,6 +57,9 @@ export interface RunItem {
   // Retained for historical runs created by the former personalized-practice
   // path. New runs are always ranked. Absent on older runs means ranked.
   ranked?: boolean;
+  // A guest run (no session, owner "guest"): scored on completion but never
+  // recorded. Absent/false on ordinary signed-in runs.
+  guest?: boolean;
   completedAt?: string;
   score?: number;
   seasonId?: string;
@@ -587,6 +590,7 @@ export class Repository {
     challenge: RunChallenge,
     expiresAt: number,
     ranked = true,
+    guest = false,
   ): Promise<RunItem> {
     const runId = randomUUID();
     const item: RunItem = {
@@ -600,6 +604,7 @@ export class Repository {
       startedAt: new Date().toISOString(),
       expiresAt,
       ranked,
+      guest,
     };
     await client.send(
       new PutCommand({

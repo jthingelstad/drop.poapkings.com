@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact'
 import type { Insights } from '../lib/insights'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
+import SignInToSave from './SignInToSave'
 
 export interface SummaryMoment {
   label: string
@@ -151,6 +152,9 @@ export default function Summary({
 
       {/* Share line / recruit CTA slot */}
       {children}
+
+      {/* Signed-out players played as a guest — invite them to save the score. */}
+      <SignInToSave />
 
       <div class="summary__actions">
         <button class="btn btn--gold" onClick={onReplay}>

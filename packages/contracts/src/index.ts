@@ -237,6 +237,7 @@ export interface StartedRun {
 
 export interface CompletedRun {
   accepted: true;
+  guest?: false;
   runId: string;
   mode: GameMode;
   score: number;
@@ -250,4 +251,14 @@ export interface CompletedRun {
   nextLevelGames: number;
 }
 
-export type RunCompletion = CompletedRun;
+// A guest completion: the run was scored but nothing was recorded (no account,
+// no leaderboard, no XP). Only the mode, score, and season come back.
+export interface GuestRunCompletion {
+  accepted: true;
+  guest: true;
+  mode: GameMode;
+  score: number;
+  season: Season;
+}
+
+export type RunCompletion = CompletedRun | GuestRunCompletion;

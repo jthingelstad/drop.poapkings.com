@@ -10,6 +10,7 @@ import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
 import RunCountdown from '../../components/RunCountdown'
+import SignInToSave from '../../components/SignInToSave'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -220,6 +221,10 @@ export default function HigherLower() {
       <p class="lede hl__prompt">
         Tap the card that costs <strong>more</strong> elixir — before the clock runs out.
       </p>
+
+      {/* Higher/Lower has no summary screen, so a signed-out player sees a
+          persistent prompt to save their streak. */}
+      <SignInToSave variant="line" />
 
       <div class="progress-track" aria-hidden="true">
         <div

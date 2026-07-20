@@ -241,7 +241,10 @@ export function deleteMe(sessionToken: string, confirmation: string) {
   })
 }
 
-export function startRun(mode: GameMode, sessionToken: string) {
+// The session token is optional: with none, the request is a guest request and
+// the server deals/scores a run that is never recorded. apiRequest only sends
+// the authorization header when a token is present.
+export function startRun(mode: GameMode, sessionToken?: string) {
   return apiRequest('/runs/start', startedRunSchema, {
     method: 'POST',
     sessionToken,
@@ -249,7 +252,7 @@ export function startRun(mode: GameMode, sessionToken: string) {
   })
 }
 
-export function completeRun(runToken: string, transcript: Record<string, unknown>, sessionToken: string) {
+export function completeRun(runToken: string, transcript: Record<string, unknown>, sessionToken?: string) {
   return apiRequest('/runs/complete', completedRunSchema, {
     method: 'POST',
     sessionToken,

@@ -22,9 +22,13 @@ remains the canonical source for shipped modes and game ideas.
 The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
 global game totals, and seasonal leaderboards. The site and leaderboards remain
-public, while every game requires an email-authenticated player session. Dynamic
-Clash Royale player enrichment and the global Clan Wars clock run
-asynchronously through the fixed-IP bridge.
+public. Anyone can play every mode **without an account as a guest**: a guest run
+is dealt the same server-signed challenge and scored the same way, but nothing is
+recorded (no leaderboard, no all-time, no XP, no history, no Discord) — the
+summary nudges the visitor to sign in to save the score. An email-authenticated
+player session unlocks recording and ranking. Dynamic Clash Royale player
+enrichment and the global Clan Wars clock run asynchronously through the fixed-IP
+bridge.
 
 The only outbound ties are ordinary links:
 
@@ -278,16 +282,30 @@ Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
 owns the challenge, validates the submitted transcript, and recomputes the
 score. Authenticated completions become immutable run history and leaderboard
-input. Both run creation and completion reject requests without a valid player
-session; there is no anonymous play path.
+input.
+
+Guest play is the signed-out path. `/runs/start` and `/runs/complete` both make
+the session **optional**: with no bearer token, `/runs/start` deals the same
+server-signed challenge under the reserved `guest` owner sentinel (which cannot
+collide with a real base64url-SHA-256 sub), marks the run `guest: true`, always
+unranked, and signs the run token `guest: true`. On completion a guest run is
+still scored (validate + recompute) but the integrity gate and every recording
+step are skipped — no `completeRun`, XP, leaderboard, all-time best, Discord, or
+learning stats — and the run row is left to TTL-expire. The guest completion
+returns a distinct minimal shape `{ accepted: true, guest: true, mode, score,
+season }`. A `/runs/complete` carrying a non-guest run token still requires a
+session that owns the run.
 
 Anti-cheat is by rejection, not review. `services/api/src/integrity.ts` checks
 each recomputed score for plausibility (in-range score, timed-mode score floors,
 and a continuous-mode completion-rate ceiling); an implausible or impossible run
 returns `400 integrity_rejected` and is neither recorded nor credited — the run
 row is left to TTL-expire, exactly like a scorer reject. Practice is unranked and
-only feeds XP, so it is checked for score range alone. Completion and the public
-read endpoints are also IP rate-limited (`/runs/complete` at 300/hour; the shared
+only feeds XP, so it is checked for score range alone. Guest runs skip the
+integrity gate entirely because they are never recorded. Completion and the
+public read endpoints are also IP rate-limited (guests included, since the
+per-IP `run-start`/`run-complete` limits run before any auth branch;
+`/runs/complete` at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
 
 Authenticated public identity is centered on one favorite card:

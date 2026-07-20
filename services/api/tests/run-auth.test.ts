@@ -61,20 +61,11 @@ describe("run authentication", () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    ["/runs/start", { mode: "surge" }],
-    ["/runs/complete", { runToken: "unsigned", transcript: {} }],
-  ])("rejects %s without a player session", async (path, body) => {
-    const response = await invoke(path, body);
-
-    expect(response.statusCode).toBe(401);
-    expect(JSON.parse(response.body || "{}")).toEqual({
-      error: {
-        code: "authentication_required",
-        message: "Sign in to continue.",
-      },
-    });
-  });
+  // Signed-out callers are no longer rejected at /runs/start or /runs/complete:
+  // they play as guests (scored but never recorded). Guest coverage lives in
+  // guest-play.test.ts. A /runs/complete carrying a NON-guest run token but no
+  // session is still refused, but that path rate-limits first (real DynamoDB),
+  // so it is exercised with a mocked Repository in guest-play.test.ts instead.
 
   it("returns a useful client error for masked email addresses", async () => {
     const response = await invoke("/auth/request", {

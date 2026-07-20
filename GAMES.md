@@ -18,6 +18,15 @@ unranked and have no leaderboard tab. Player XP is a per-player activity score
 leaderboards rank on speed. **Daily Ladder is not shipped and should not be
 built without a fresh product decision.**
 
+**Guest play (no account):** every mode is playable signed-out. A guest is dealt
+the same server-signed challenge and scored the same way, but the run records
+**nothing** — no leaderboard, no all-time, no XP, no history. After a guest run
+the summary shows a "Create an account to save this score" nudge (Surge,
+Practice, Survival via the shared `Summary`; Trade on its own result screen;
+Higher / Lower shows a small persistent "Sign in to save your streak" line).
+Local personal bests still track on-device. Signing in unlocks recording and
+ranking.
+
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through
 `apps/web/src/lib/storage.ts`, card selection comes from the signed server

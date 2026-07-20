@@ -13,6 +13,7 @@ import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
+import SignInToSave from '../../components/SignInToSave'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
@@ -285,6 +286,9 @@ export default function Trade() {
             text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
           {isPB.value && <Recruit />}
+
+          {/* Signed-out players played as a guest — invite them to save the score. */}
+          <SignInToSave />
 
           <div class="summary__actions">
             <button class="btn btn--gold" onClick={replay}>

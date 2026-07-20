@@ -2214,6 +2214,30 @@ a {
   font-size: 0.88rem;
 }
 
+/* Guest "sign in to save your score" nudges. The panel variant reuses the
+   competition-panel--join look; the line variant is a quiet inline prompt for
+   modes with no summary screen (Higher/Lower). */
+.signin-save {
+  width: 100%;
+}
+.signin-save--line {
+  display: inline-block;
+  margin: 0 auto;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.signin-save--line:hover {
+  color: var(--ink);
+}
+
 .player-season__identity {
   display: flex;
   align-items: center;

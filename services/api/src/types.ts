@@ -31,6 +31,9 @@ export interface RunClaims {
   runId: string;
   owner: string;
   mode: GameMode;
+  // A guest run is scored on completion but never recorded (no session, no
+  // profile, no leaderboard). Absent means an ordinary signed-in run.
+  guest?: boolean;
   iat: number;
   exp: number;
 }

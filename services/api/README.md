@@ -50,9 +50,21 @@ first-Monday calendar instead of failing.
 - `POST /runs/start`, `POST /runs/complete`
 - `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /health`
 
-Starting and completing a run both require a valid player session. The public
-site and leaderboards remain browsable without an account, but games do not
-have an anonymous path.
+Starting and completing a run make the player session **optional**, so anyone
+can play as a guest. With a valid session, `/runs/start` runs the ranked flow
+(profile favorite card + public name required) and `/runs/complete` records the
+run. With **no** session, `/runs/start` deals the same server-signed challenge
+under the reserved `guest` owner sentinel (it can never collide with a real
+base64url-SHA-256 sub), marks the run `guest: true`, always unranked, and signs
+the run token `guest: true`; the per-IP `run-start` rate limit runs first so it
+still covers signed-out callers. On completion, a guest run is scored with
+`scoreRun` (validate + recompute) but the integrity check and **every** recording
+step are skipped — no `completeRun`, XP, leaderboard, all-time best, Discord, or
+learning stats — and the run row is left to TTL-expire. A guest completion
+returns the minimal shape `{ accepted: true, guest: true, mode, score, season }`.
+A `/runs/complete` presenting a non-guest run token still requires a session
+that owns the run. The public site and leaderboards remain browsable without an
+account.
 
 `GET /leaderboards?mode=…` takes an optional `scope`. `scope=season` (default)
 returns the current or requested season board from the `LEADERBOARD#{seasonId}#{mode}`

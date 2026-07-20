@@ -145,6 +145,9 @@ export const startedRunSchema = z
     challenge: runChallengeSchema,
     // Retained for compatibility with historical unranked runs.
     ranked: z.optional(z.boolean()),
+    // Signed-out visitors get a guest run: dealt a real signed challenge but
+    // never recorded on completion.
+    guest: z.optional(z.boolean()),
     expiresAt: isoDateTime
   })
   .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })
@@ -163,7 +166,25 @@ const runCompletionFields = {
   nextLevelGames: nonNegativeInteger
 }
 
-export const completedRunSchema = z.object({ accepted: z.literal(true), ...runCompletionFields })
+// A recorded (signed-in) completion carries the full progress payload; a guest
+// completion carries only the scored result and nothing recorded. The guest
+// member is matched first so the recorded shape (no `guest` field) falls
+// through to the full schema.
+const guestRunSchema = z.object({
+  accepted: z.literal(true),
+  guest: z.literal(true),
+  mode: gameModeSchema,
+  score: z.number().finite(),
+  season: seasonSchema
+})
+
+const recordedRunSchema = z.object({
+  accepted: z.literal(true),
+  guest: z.optional(z.literal(false)),
+  ...runCompletionFields
+})
+
+export const completedRunSchema = z.union([guestRunSchema, recordedRunSchema])
 
 export const siteStatsSchema = z.object({
   trophyRoadGames: nonNegativeInteger,

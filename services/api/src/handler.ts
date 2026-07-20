@@ -481,35 +481,46 @@ async function route(event: APIGatewayProxyEventV2) {
     const body = bodyOf(event);
     if (!isGameMode(body.mode))
       throw new HttpError(400, "Choose a valid game mode.");
-    const session = sessionFor(event, config.sessionSecret, true);
+    // Rate-limit per IP FIRST, before any auth branch, so a signed-out (guest)
+    // caller is covered exactly like a signed-in one.
     await repository.useRateLimit(
       "run-start",
       sha256(event.requestContext.http.sourceIp || "unknown"),
       300,
       60 * 60,
     );
-    const owner = session.sub;
-    const profile = await repository.getProfile(session.sub);
-    if (!profile?.favoriteCardId || !profile.publicName)
-      throw new HttpError(
-        409,
-        "Choose a favorite card and player name before starting a game.",
-        "profile_setup_required",
-      );
+    // The session is optional: a signed-in player gets the ranked flow; a
+    // signed-out visitor gets a scored-but-never-recorded guest run.
+    const session = sessionFor(event, config.sessionSecret, false);
     // Every game uses the complete canonical catalog. Linked Clash Royale card
     // data and learning history stay on the profile for future features but do
-    // not influence challenge selection.
+    // not influence challenge selection. Guests are dealt the same challenge.
     const challenge = createChallenge(body.mode, randomInt);
-    // Practice is true practice: runs record to the player's history and
-    // Trophy Road but never write a leaderboard entry.
-    const ranked = body.mode !== "practice";
     const nowSeconds = Math.floor(Date.now() / 1_000);
+    // "guest" is a sentinel owner that can never collide with a real sub: real
+    // subs are base64url SHA-256 email hashes, never the literal string.
+    const owner = session?.sub ?? "guest";
+    const isGuest = !session;
+    if (session) {
+      const profile = await repository.getProfile(session.sub);
+      if (!profile?.favoriteCardId || !profile.publicName)
+        throw new HttpError(
+          409,
+          "Choose a favorite card and player name before starting a game.",
+          "profile_setup_required",
+        );
+    }
+    // Practice is true practice: signed-in runs record to the player's history
+    // and Trophy Road but never write a leaderboard entry. Guest runs are never
+    // ranked and never recorded at all.
+    const ranked = !isGuest && body.mode !== "practice";
     const run = await repository.createRun(
       owner,
       body.mode,
       challenge,
       nowSeconds + RUN_SECONDS,
       ranked,
+      isGuest,
     );
     const runToken = signToken(
       {
@@ -517,6 +528,7 @@ async function route(event: APIGatewayProxyEventV2) {
         runId: run.runId,
         owner,
         mode: body.mode,
+        ...(isGuest ? { guest: true } : {}),
         iat: nowSeconds,
         exp: nowSeconds + RUN_SECONDS + RUN_TOKEN_GRACE_SECONDS,
       },
@@ -528,19 +540,23 @@ async function route(event: APIGatewayProxyEventV2) {
       mode: run.mode,
       challenge: run.challenge,
       ranked,
+      ...(isGuest ? { guest: true } : {}),
       expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
     });
   }
 
   if (method === "POST" && path === "/runs/complete") {
     const body = bodyOf(event);
-    const session = sessionFor(event, config.sessionSecret, true);
+    // Rate-limit per IP FIRST so a signed-out (guest) completion is covered
+    // exactly like a signed-in one.
     await repository.useRateLimit(
       "run-complete",
       sha256(event.requestContext.http.sourceIp || "unknown"),
       300,
       60 * 60,
     );
+    // Optional session: a guest completion carries no bearer token.
+    const session = sessionFor(event, config.sessionSecret, false);
     if (typeof body.runToken !== "string")
       throw new HttpError(400, "A signed run token is required.");
     let claims;
@@ -561,6 +577,54 @@ async function route(event: APIGatewayProxyEventV2) {
         "run_conflict",
       );
     }
+    // A guest run is scored (validated + computed) but never recorded: no
+    // owner/session check, no integrity gate, no completeRun, XP, leaderboard,
+    // all-time, Discord, or learning stats. The run row simply TTL-expires.
+    if (run.guest === true || claims.guest === true) {
+      const nowSeconds = Math.floor(Date.now() / 1_000);
+      if (run.expiresAt <= nowSeconds)
+        throw new HttpError(
+          410,
+          "This run expired before it was completed.",
+          "run_expired",
+        );
+      let score: number;
+      const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
+      try {
+        const transcript = requireObject(
+          body.transcript ?? {},
+        ) as RunTranscript;
+        score = scoreRun(run.challenge, transcript, wallElapsedMs);
+      } catch (error) {
+        console.warn("Guest run completion rejected by scorer", {
+          requestId: event.requestContext.requestId,
+          runId: run.runId,
+          mode: run.mode,
+          wallElapsedMs,
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+        throw badRequest(error);
+      }
+      const season = seasonForDate(
+        new Date(),
+        await currentWarClock(repository),
+      );
+      return json(200, {
+        accepted: true,
+        guest: true,
+        mode: run.mode,
+        score,
+        season,
+      });
+    }
+    // From here the run is a recorded, signed-in run: it requires a valid
+    // session that owns the run.
+    if (!session)
+      throw new HttpError(
+        401,
+        "Sign in to continue.",
+        "authentication_required",
+      );
     if (session.sub !== run.owner)
       throw new HttpError(
         403,

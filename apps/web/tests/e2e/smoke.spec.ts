@@ -140,6 +140,22 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
   if (path === '/runs/complete') {
     const { runToken } = route.request().postDataJSON() as { runToken: string }
     const mode = runToken.replace(/^run-/, '') as GameMode
+    const season = {
+      id: '2026-07',
+      startsAt: '2026-07-06T08:00:00.000Z',
+      endsAt: '2026-08-03T08:00:00.000Z',
+      durationWeeks: 4
+    }
+    // No bearer token → a guest completion: scored but never recorded, so the
+    // server returns the minimal guest shape with no progress fields.
+    if (!route.request().headers()['authorization']) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accepted: true, guest: true, mode, score: 1, season })
+      })
+      return true
+    }
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -148,12 +164,7 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
         runId: runToken,
         mode,
         score: 1,
-        season: {
-          id: '2026-07',
-          startsAt: '2026-07-06T08:00:00.000Z',
-          endsAt: '2026-08-03T08:00:00.000Z',
-          durationWeeks: 4
-        },
+        season,
         completedAt: '2026-07-18T00:00:00.000Z',
         totalGames: 13,
         level: 2,
@@ -340,13 +351,29 @@ async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
   await page.goto(`/?signedOut=1#${hash}`)
 }
 
-test('requires email authentication before entering a game and returns after login', async ({ page }) => {
-  await useSignedOutState(page, '/surge')
+test('a signed-out visitor plays a game as a guest and is nudged to save the score', async ({ page }) => {
+  // Guests are no longer redirected to sign in: they can open any game and play.
+  await useSignedOutState(page, '/survival')
+  await expect(page.locator('.surge-ready')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to play' })).toHaveCount(0)
 
-  await expect(page.getByRole('heading', { name: 'Sign in to play' })).toBeVisible()
-  await expect(page.locator('.surge-ready')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Sign in with email' }).click()
-  await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurge$/)
+  await page.getByRole('button', { name: 'Start run' }).click()
+  // Survival ends on a single miss — a complete run for a guest.
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  const wrongCost = card?.elixir === 1 ? 2 : 1
+  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+
+  // The shared summary appears with the guest sign-in-to-save nudge.
+  await expect(page.locator('.summary')).toBeVisible()
+  await expect(page.getByText('Create an account to save this score to the leaderboard — forever.')).toBeVisible()
+  await page.getByRole('button', { name: 'Sign in to save' }).click()
+  await expect(page).toHaveURL(/#\/login$/)
+})
+
+test('signing in from the login screen returns the player to the requested game', async ({ page }) => {
+  await useSignedOutState(page, '/login?returnTo=%2Fsurge')
 
   let loginBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)

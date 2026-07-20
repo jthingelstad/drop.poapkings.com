@@ -1,7 +1,7 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
-import { applyRunProgress, recordRecentRun, requiredSessionToken, signOut } from './account'
+import { applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { betterScore, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
@@ -74,7 +74,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
     startError.value = ''
     setRecordingNotice({ state: 'idle' })
     try {
-      const started = await startRun(mode, requiredSessionToken())
+      // No token → a guest run: the server deals the same signed challenge but
+      // records nothing on completion.
+      const started = await startRun(mode, sessionToken())
       run.current = started
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
     } catch (error) {
@@ -120,7 +122,23 @@ export function useGameRun<T extends GameMode>(mode: T) {
   ): Promise<void> {
     setRecordingNotice({ state: 'saving', message: 'Recording your game…' })
     try {
-      const result = await completeRun(active.runToken, transcript, requiredSessionToken())
+      const result = await completeRun(active.runToken, transcript, sessionToken())
+      // A guest run is scored but never recorded: there is no player progress
+      // to apply and no account to refresh. The local bests still track (so a
+      // signed-out streak advances and the device shows a personal best), and
+      // the normal onRecorded fires so streak modes deal the next game.
+      if (result.guest) {
+        run.current = null
+        pendingCompletion.current = null
+        const seasonBest = recordSeasonBest(result)
+        recordAllTimeBest(result)
+        setRecordingNotice({
+          state: 'saved',
+          message: seasonBest ? 'Local best! Sign in to save it' : 'Played as a guest — sign in to save scores'
+        })
+        onRecorded?.()
+        return
+      }
       applyRunProgress(result)
       recordRecentRun({
         runId: result.runId,

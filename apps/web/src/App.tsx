@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
-import { gamePathForRoute, loginRouteForGame, profileRouteForGame, type GamePath } from './lib/game-routes'
+import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import PlayerAvatar from './components/PlayerAvatar'
 import { rankFor } from './data/starRanks'
@@ -175,26 +175,6 @@ function RouteFallback() {
   )
 }
 
-function AuthRequired({ returnTo }: { returnTo: GamePath }) {
-  return (
-    <div class="main-content account-screen">
-      <div class="account-card">
-        <div class="eyebrow">Player account required</div>
-        <h1>Sign in to play</h1>
-        <p class="lede">
-          Every Elixir Drop game is recorded to your player profile and can count toward its seasonal leaderboard.
-        </p>
-        <button class="btn btn--gold" onClick={() => navigate(loginRouteForGame(returnTo))}>
-          Sign in with email
-        </button>
-        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-          Browse games
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
   return (
     <div class="main-content account-screen">
@@ -236,8 +216,13 @@ function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
   if (gamePath && accountStatus.value === 'loading') return <RouteFallback />
   if ((gamePath || r.startsWith('/profile')) && accountStatus.value === 'unavailable') return <AccountUnavailable />
-  if (gamePath && accountStatus.value !== 'authenticated') return <AuthRequired returnTo={gamePath} />
-  if (gamePath && (!player.value?.favoriteCardId || !player.value.publicName)) {
+  // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
+  // player who has not finished profile setup is routed to it first.
+  if (
+    gamePath &&
+    accountStatus.value === 'authenticated' &&
+    (!player.value?.favoriteCardId || !player.value.publicName)
+  ) {
     return <ProfileRequired returnTo={gamePath} />
   }
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
