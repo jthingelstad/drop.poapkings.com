@@ -128,30 +128,35 @@ if (
   throw new Error("Masked email address was not rejected");
 }
 
+// Guest play: an unauthenticated run start returns a scored-but-unrecorded
+// guest run (a real challenge + a guest-flagged token), not a 401.
 const started = await fetch(`${apiBaseUrl}/runs/start`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ mode: "practice" }),
 });
-const unauthenticatedStart = await started.json();
+const guestStart = await started.json();
 if (
-  started.status !== 401 ||
-  unauthenticatedStart.error?.code !== "authentication_required"
+  started.status !== 201 ||
+  guestStart.guest !== true ||
+  !guestStart.runToken
 ) {
-  throw new Error("Unauthenticated run start was not rejected");
+  throw new Error("Unauthenticated run start did not return a guest run");
 }
 
+// A completion with an unsigned/invalid run token is still rejected (the session
+// is optional now, so the request reaches — and fails — token verification).
 const rejectedCompletion = await fetch(`${apiBaseUrl}/runs/complete`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ runToken: "unsigned", transcript: {} }),
 });
-const unauthenticatedCompletion = await rejectedCompletion.json();
+const invalidCompletion = await rejectedCompletion.json();
 if (
   rejectedCompletion.status !== 401 ||
-  unauthenticatedCompletion.error?.code !== "authentication_required"
+  invalidCompletion.error?.code !== "invalid_run_token"
 ) {
-  throw new Error("Unauthenticated run completion was not rejected");
+  throw new Error("Run completion with an invalid token was not rejected");
 }
 
 let fastmailJmap = "not checked";
@@ -190,7 +195,8 @@ console.log(
     cors: "verified",
     deploymentIdentity: identity.Arn,
     fastmailJmap,
-    anonymousPlay: "rejected",
+    guestPlay: "verified",
+    invalidRunToken: "rejected",
     maskedEmail: "rejected",
     leaderboard: "verified",
     clashRoyaleClock: "fresh",
