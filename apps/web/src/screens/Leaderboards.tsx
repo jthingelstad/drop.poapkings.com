@@ -4,7 +4,7 @@ import type { GameMode, Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import { player } from '../lib/account'
-import { ApiError, getLeaderboard, type LeaderboardEntry } from '../lib/api'
+import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
 
@@ -66,8 +66,14 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
   )
 }
 
+const SCOPES: Array<{ scope: LeaderboardScope; label: string }> = [
+  { scope: 'season', label: 'Season' },
+  { scope: 'all-time', label: 'All-time' }
+]
+
 export default function Leaderboards() {
   const mode = useSignal<GameMode>('surge')
+  const scope = useSignal<LeaderboardScope>('season')
   const entries = useSignal<LeaderboardEntry[]>([])
   const season = useSignal<Season | null>(null)
   const loading = useSignal(true)
@@ -77,7 +83,7 @@ export default function Leaderboards() {
     const controller = new AbortController()
     loading.value = true
     error.value = ''
-    void getLeaderboard(mode.value, controller.signal)
+    void getLeaderboard(mode.value, scope.value, controller.signal)
       .then((response) => {
         entries.value = response.entries
         season.value = response.currentSeason
@@ -90,8 +96,9 @@ export default function Leaderboards() {
         if (!controller.signal.aborted) loading.value = false
       })
     return () => controller.abort()
-  }, [mode.value, entries, error, loading, season])
+  }, [mode.value, scope.value, entries, error, loading, season])
 
+  const isAllTime = scope.value === 'all-time'
   const selectedGame = GAME_BY_MODE.get(mode.value)!
 
   return (
@@ -99,16 +106,38 @@ export default function Leaderboards() {
       <div class="leaderboard-hero">
         <div>
           <div class="eyebrow">Every run counts</div>
-          <h1>{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
-          {season.value ? (
-            <p>{seasonTiming(season.value)}</p>
+          {isAllTime ? (
+            <>
+              <h1>All-time leaderboards</h1>
+              <p>Your best-ever score in each mode, across every season.</p>
+            </>
           ) : (
-            <p>Climb a fresh set of boards every Clash Royale season.</p>
+            <>
+              <h1>{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
+              {season.value ? (
+                <p>{seasonTiming(season.value)}</p>
+              ) : (
+                <p>Climb a fresh set of boards every Clash Royale season.</p>
+              )}
+            </>
           )}
         </div>
         <button class="btn btn--gold" onClick={() => navigate(selectedGame.path)}>
           Play {selectedGame.name}
         </button>
+      </div>
+
+      <div class="leaderboard-mode-tabs" aria-label="Choose a leaderboard scope">
+        {SCOPES.map((option) => (
+          <button
+            aria-pressed={scope.value === option.scope}
+            class={scope.value === option.scope ? 'leaderboard-mode leaderboard-mode--active' : 'leaderboard-mode'}
+            onClick={() => (scope.value = option.scope)}
+            key={option.scope}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       <div class="leaderboard-mode-tabs" aria-label="Choose a game leaderboard">

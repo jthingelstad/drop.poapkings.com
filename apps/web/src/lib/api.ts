@@ -264,8 +264,11 @@ export function getStats(signal?: AbortSignal) {
   })
 }
 
-export function getLeaderboard(mode: GameMode, signal?: AbortSignal) {
-  return apiRequest(`/leaderboards?mode=${encodeURIComponent(mode)}`, leaderboardResponseSchema, { signal })
+export type LeaderboardScope = 'season' | 'all-time'
+
+export function getLeaderboard(mode: GameMode, scope: LeaderboardScope = 'season', signal?: AbortSignal) {
+  const query = `/leaderboards?mode=${encodeURIComponent(mode)}` + (scope === 'all-time' ? '&scope=all-time' : '')
+  return apiRequest(query, leaderboardResponseSchema, { signal })
 }
 
 // Keep these public type aliases close to the request functions that return them.

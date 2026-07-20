@@ -12,6 +12,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
   };
 });
 
+import { leaderboardSortKey } from "../src/games.js";
 import { Repository, type RunItem } from "../src/repository.js";
 
 describe("repository DynamoDB requests", () => {
@@ -301,5 +302,137 @@ describe("repository DynamoDB requests", () => {
     await expect(new Repository("test-table").globalStats()).resolves.toEqual({
       trophyRoadGames: 592,
     });
+  });
+
+  const allTimeRun: RunItem = {
+    pk: "RUN#run-1",
+    sk: "RUN",
+    runId: "run-1",
+    owner: "player-sub",
+    mode: "surge",
+    challenge: { mode: "surge", cardIds: [26000000] },
+    state: "started",
+    startedAt: "2026-07-18T12:00:00.000Z",
+    expiresAt: 1_800_000_000,
+  };
+
+  it("writes a best-ever item guarded by the sort-key condition", async () => {
+    send.mockResolvedValueOnce({});
+
+    await new Repository("test-table").updateAllTimeBest(
+      allTimeRun,
+      12_300,
+      undefined,
+      "2026-07-18T12:05:00.000Z",
+    );
+
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.Key).toEqual({
+      pk: "PLAYER#player-sub",
+      sk: "ALLTIME#surge",
+    });
+    expect(update.ConditionExpression).toBe(
+      "attribute_not_exists(GSI1SK) OR :newSk < GSI1SK",
+    );
+    expect(update.ExpressionAttributeValues[":gsi1pk"]).toBe(
+      "LEADERBOARD#ALLTIME#surge",
+    );
+    expect(update.ExpressionAttributeValues[":newSk"]).toBe(
+      leaderboardSortKey(
+        "surge",
+        12_300,
+        "2026-07-18T12:05:00.000Z",
+        "player-sub",
+      ),
+    );
+    expect(update.ExpressionAttributeValues[":playerSub"]).toBe("player-sub");
+    // No Survival tiebreak here, so timeMs must not be written.
+    expect(update.UpdateExpression).not.toContain("timeMs");
+  });
+
+  it("stores the Survival cumulative time and its partition epoch", async () => {
+    send.mockResolvedValueOnce({});
+
+    await new Repository("test-table").updateAllTimeBest(
+      { ...allTimeRun, mode: "survival" },
+      40,
+      95_400,
+      "2026-07-18T12:05:00.000Z",
+    );
+
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.Key.sk).toBe("ALLTIME#survival");
+    expect(update.ExpressionAttributeValues[":gsi1pk"]).toBe(
+      "LEADERBOARD#ALLTIME#survival#r2",
+    );
+    expect(update.ExpressionAttributeValues[":timeMs"]).toBe(95_400);
+    expect(update.UpdateExpression).toContain("timeMs = :timeMs");
+  });
+
+  it("swallows a worse run that fails the all-time condition", async () => {
+    const conditionFailed = new Error("The conditional request failed");
+    conditionFailed.name = "ConditionalCheckFailedException";
+    send.mockRejectedValueOnce(conditionFailed);
+
+    await expect(
+      new Repository("test-table").updateAllTimeBest(
+        allTimeRun,
+        99_000,
+        undefined,
+        "2026-07-18T12:05:00.000Z",
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("ranks the all-time board one row per player with no dedup", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            playerSub: "player-a",
+            score: 11_000,
+            completedAt: "2026-06-01T12:00:00.000Z",
+          },
+          {
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-01T12:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").allTimeLeaderboard(
+      "surge",
+      10,
+    );
+
+    const query = send.mock.calls[0]?.[0].input;
+    expect(query.IndexName).toBe("GSI1");
+    expect(query.ExpressionAttributeValues[":pk"]).toBe(
+      "LEADERBOARD#ALLTIME#surge",
+    );
+    expect(query.Limit).toBe(10);
+    expect(entries).toMatchObject([
+      { rank: 1, score: 11_000, player: { publicName: "Ace" } },
+      { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
+    ]);
   });
 });

@@ -247,16 +247,28 @@ test.beforeEach(async ({ page }) => {
       return
     }
     if (path === '/leaderboards') {
-      const mode = (new URL(route.request().url()).searchParams.get('mode') ?? 'surge') as GameMode
+      const params = new URL(route.request().url()).searchParams
+      const mode = (params.get('mode') ?? 'surge') as GameMode
+      const allTime = params.get('scope') === 'all-time'
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          mode,
-          seasonId: '2026-07',
-          currentSeason: testSeason,
-          entries: leaderboardEntries(mode)
-        })
+        body: JSON.stringify(
+          allTime
+            ? {
+                mode,
+                scope: 'all-time',
+                currentSeason: testSeason,
+                entries: leaderboardEntries(mode)
+              }
+            : {
+                mode,
+                scope: 'season',
+                seasonId: '2026-07',
+                currentSeason: testSeason,
+                entries: leaderboardEntries(mode)
+              }
+        )
       })
       return
     }
@@ -1213,6 +1225,17 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   await page.getByRole('button', { name: /Survival/ }).click()
   await expect(page.getByRole('heading', { name: 'Survival' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Play Survival' })).toBeVisible()
+
+  // Toggling to All-time switches the board to the best-ever heading and drops
+  // the season-reset line, while the ranked player rows still render.
+  await page.getByRole('button', { name: 'All-time' }).click()
+  await expect(page.getByRole('heading', { name: 'All-time leaderboards' })).toBeVisible()
+  await expect(page.locator('.leaderboard-hero')).not.toContainText('new boards open then')
+  await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
+
+  // And back to Season restores the season heading.
+  await page.getByRole('button', { name: 'Season', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {

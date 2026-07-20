@@ -675,6 +675,24 @@ async function route(event: APIGatewayProxyEventV2) {
         error: error instanceof Error ? error.name : "unknown",
       });
     }
+    // Best-effort all-time best per mode, outside the completeRun transaction so
+    // a "not a new best" no-op can never roll back the recorded run. Ranked
+    // only; Practice keeps no board.
+    if (run.ranked !== false) {
+      try {
+        await repository.updateAllTimeBest(
+          run,
+          score,
+          tiebreakMs,
+          result.completedAt,
+        );
+      } catch (error) {
+        console.warn("All-time best update failed", {
+          runId: run.runId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      }
+    }
     let crProfile: CrProfileSnapshot | undefined;
     if (result.profile.playerTag) {
       try {
@@ -732,11 +750,23 @@ async function route(event: APIGatewayProxyEventV2) {
       new Date(),
       await currentWarClock(repository),
     );
+    // All-time ranks a player's best-ever score per mode across every season;
+    // season (default) keeps the existing per-season board untouched.
+    if (event.queryStringParameters?.scope === "all-time") {
+      const entries = await repository.allTimeLeaderboard(mode);
+      return json(200, { mode, scope: "all-time", currentSeason, entries });
+    }
     const seasonId = event.queryStringParameters?.season || currentSeason.id;
     if (!/^\d{4}-\d{2}(?:-\d+)?$/.test(seasonId))
       throw new HttpError(400, "Season ID is invalid.");
     const entries = await repository.leaderboard(mode, seasonId);
-    return json(200, { mode, seasonId, currentSeason, entries });
+    return json(200, {
+      mode,
+      scope: "season",
+      seasonId,
+      currentSeason,
+      entries,
+    });
   }
 
   if (method === "GET" && path === "/seasons") {

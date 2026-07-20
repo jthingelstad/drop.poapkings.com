@@ -165,6 +165,23 @@ Practice runs are created `ranked: false` server-side: they record to history
 and Trophy Road but never write a leaderboard entry, and Practice has no
 leaderboard tab.
 
+Each ranked mode has two boards, selected by the `scope` query param on
+`GET /leaderboards` (`season`, the default, or `all-time`):
+
+- **Season** is the existing per-season board: every completed ranked run writes
+  a history row into GSI1 under `LEADERBOARD#{seasonId}#{mode}`, and a read
+  dedups to each player's best run in that season.
+- **All-time** ranks a player's best-ever score per mode across all seasons. It
+  stores exactly one best item per player per ranked mode at
+  `pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`, indexed into the same GSI1 under
+  `LEADERBOARD#ALLTIME#{mode}` with the identical sort-key encoding (better
+  score/tiebreak → smaller key). A completion updates it best-effort after
+  `completeRun`, guarded by `attribute_not_exists(GSI1SK) OR :newSk < GSI1SK`;
+  a run that is not a new best fails the condition and is silently skipped, so
+  the recorded run never rolls back. Because there is one item per player, the
+  read needs no dedup. The web Leaderboards screen offers a Season / All-time
+  toggle; the all-time view shows no season-reset line.
+
 Product decisions currently in force:
 
 - Surge and Trade are golf-time modes: lower is better.

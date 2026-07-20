@@ -190,7 +190,10 @@ export const leaderboardEntrySchema = z.object({
 
 export const leaderboardResponseSchema = z.object({
   mode: gameModeSchema,
-  seasonId: nonEmptyString,
+  // 'season' (default) is the per-season board; 'all-time' ranks best-ever
+  // scores. seasonId is present only for the season board.
+  scope: z.optional(z.enum(['season', 'all-time'])),
+  seasonId: z.optional(nonEmptyString),
   currentSeason: seasonSchema,
   entries: z.array(leaderboardEntrySchema)
 })

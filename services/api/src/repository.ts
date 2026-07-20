@@ -804,6 +804,72 @@ export class Repository {
     return (result.Items ?? []) as RunRecord[];
   }
 
+  // Record one best-ever item per player per ranked mode. Called best-effort
+  // AFTER completeRun succeeds (never inside its transaction): a run that is not
+  // a new all-time best fails the condition, and that no-op must not roll back
+  // the recorded run. Keyed PLAYER#/ALLTIME#mode so there is exactly one row per
+  // player per mode (no dedup on read), indexed into the shared leaderboard GSI
+  // under the literal "ALLTIME" season id.
+  async updateAllTimeBest(
+    run: RunItem,
+    score: number,
+    tiebreakMs: number | undefined,
+    completedAt: string,
+  ): Promise<void> {
+    const newSk = leaderboardSortKey(
+      run.mode,
+      score,
+      completedAt,
+      run.owner,
+      tiebreakMs,
+    );
+    const sets = [
+      "GSI1PK = :gsi1pk",
+      "GSI1SK = :newSk",
+      "#mode = :mode",
+      "score = :score",
+      "completedAt = :completedAt",
+      "playerSub = :playerSub",
+    ];
+    const values: Record<string, unknown> = {
+      ":gsi1pk": leaderboardPartition("ALLTIME", run.mode),
+      ":newSk": newSk,
+      ":mode": run.mode,
+      ":score": score,
+      ":completedAt": completedAt,
+      ":playerSub": run.owner,
+    };
+    // Survival's cumulative time rides along for display and is already folded
+    // into the sort key as the streak tiebreak.
+    if (tiebreakMs !== undefined) {
+      sets.push("timeMs = :timeMs");
+      values[":timeMs"] = tiebreakMs;
+    }
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: `PLAYER#${run.owner}`, sk: `ALLTIME#${run.mode}` },
+          UpdateExpression: `SET ${sets.join(", ")}`,
+          // A better run produces a lexicographically smaller sort key; only
+          // then does it overwrite the stored best. Absent row = first score.
+          ConditionExpression:
+            "attribute_not_exists(GSI1SK) OR :newSk < GSI1SK",
+          ExpressionAttributeNames: { "#mode": "mode" },
+          ExpressionAttributeValues: values,
+        }),
+      );
+    } catch (error) {
+      // Not a new best is the normal case, not an error — swallow it.
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return;
+      throw error;
+    }
+  }
+
   async leaderboard(
     mode: GameMode,
     seasonId: string,
@@ -843,42 +909,86 @@ export class Repository {
       lastKey = result.LastEvaluatedKey;
     } while (items.length < limit && lastKey && pagesRead < 10);
 
-    const subs = [...new Set(items.map((item) => String(item.playerSub)))];
+    const profiles = await this.hydratePublicProfiles([
+      ...new Set(items.map((item) => String(item.playerSub))),
+    ]);
+    return items.map((item, index) =>
+      this.toLeaderboardRow(item, index, profiles),
+    );
+  }
+
+  // Best-ever board: one item per player per ranked mode already lives in the
+  // partition, so the ordered query maps straight to ranked rows — no dedup.
+  async allTimeLeaderboard(
+    mode: GameMode,
+    limit = 50,
+  ): Promise<Array<Record<string, unknown>>> {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: "GSI1",
+        KeyConditionExpression: "GSI1PK = :pk",
+        ExpressionAttributeValues: {
+          ":pk": leaderboardPartition("ALLTIME", mode),
+        },
+        ScanIndexForward: true,
+        Limit: limit,
+      }),
+    );
+    const items = result.Items ?? [];
+    const profiles = await this.hydratePublicProfiles([
+      ...new Set(items.map((item) => String(item.playerSub))),
+    ]);
+    return items.map((item, index) =>
+      this.toLeaderboardRow(item, index, profiles),
+    );
+  }
+
+  // Shared public-profile hydration for the season and all-time boards.
+  private async hydratePublicProfiles(
+    subs: string[],
+  ): Promise<Map<string, PublicProfile>> {
     const profiles = new Map<string, PublicProfile>();
-    if (subs.length) {
-      // BatchGet is allowed to return unprocessed keys under throttling;
-      // without the retry, real players render as the placeholder profile.
-      let keys: Array<Record<string, unknown>> = subs.map((sub) =>
-        profileKey(sub),
-      );
-      for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
-        if (attempt > 0)
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 * 2 ** attempt),
-          );
-        const profileResult = await client.send(
-          new BatchGetCommand({
-            RequestItems: {
-              [this.tableName]: {
-                Keys: keys,
-                ProjectionExpression:
-                  "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
-                ExpressionAttributeNames: {
-                  "#sub": "sub",
-                },
+    if (!subs.length) return profiles;
+    // BatchGet is allowed to return unprocessed keys under throttling; without
+    // the retry, real players render as the placeholder profile.
+    let keys: Array<Record<string, unknown>> = subs.map((sub) =>
+      profileKey(sub),
+    );
+    for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
+      if (attempt > 0)
+        await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** attempt));
+      const profileResult = await client.send(
+        new BatchGetCommand({
+          RequestItems: {
+            [this.tableName]: {
+              Keys: keys,
+              ProjectionExpression:
+                "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
+              ExpressionAttributeNames: {
+                "#sub": "sub",
               },
             },
-          }),
-        );
-        for (const item of profileResult.Responses?.[this.tableName] ?? []) {
-          const profile = item as PlayerProfile;
-          profiles.set(profile.sub, publicProfile(profile));
-        }
-        keys = (profileResult.UnprocessedKeys?.[this.tableName]?.Keys ??
-          []) as Array<Record<string, unknown>>;
+          },
+        }),
+      );
+      for (const item of profileResult.Responses?.[this.tableName] ?? []) {
+        const profile = item as PlayerProfile;
+        profiles.set(profile.sub, publicProfile(profile));
       }
+      keys = (profileResult.UnprocessedKeys?.[this.tableName]?.Keys ??
+        []) as Array<Record<string, unknown>>;
     }
-    return items.map((item, index) => ({
+    return profiles;
+  }
+
+  // Shared row shape for the season and all-time boards.
+  private toLeaderboardRow(
+    item: Record<string, unknown>,
+    index: number,
+    profiles: Map<string, PublicProfile>,
+  ): Record<string, unknown> {
+    return {
       rank: index + 1,
       score: item.score,
       achievedAt: item.completedAt,
@@ -890,7 +1000,7 @@ export class Repository {
         xp: 0,
         ...levelForGames(0),
       },
-    }));
+    };
   }
 
   async globalStats(): Promise<{

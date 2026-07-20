@@ -260,7 +260,7 @@ export default function Home() {
       .catch(() => undefined)
     void Promise.all(
       RANKED_GAMES.map((game) =>
-        getLeaderboard(game.mode, controller.signal)
+        getLeaderboard(game.mode, 'season', controller.signal)
           .then((value) => ({ mode: game.mode, entries: value.entries }))
           .catch(() => null)
       )

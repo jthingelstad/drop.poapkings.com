@@ -16,8 +16,8 @@ Responsibilities in this release:
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
   arena;
 - a site-wide Trophy Road advanced by completed games from signed-in players;
-- per-mode best-score leaderboards driven by the live Clan Wars season clock;
-  and
+- per-mode best-score leaderboards driven by the live Clan Wars season clock,
+  plus an all-time board of each player's best-ever score per mode; and
 - best-effort Discord notifications for successful magic-link logins and every
   server-validated completed game.
 
@@ -53,6 +53,17 @@ first-Monday calendar instead of failing.
 Starting and completing a run both require a valid player session. The public
 site and leaderboards remain browsable without an account, but games do not
 have an anonymous path.
+
+`GET /leaderboards?mode=…` takes an optional `scope`. `scope=season` (default)
+returns the current or requested season board from the `LEADERBOARD#{seasonId}#{mode}`
+GSI partition. `scope=all-time` returns the best-ever board: one item per player
+per ranked mode (`pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`) indexed under
+`LEADERBOARD#ALLTIME#{mode}` with the same sort-key encoding, so a player's rank
+reflects their single best score across every season. The all-time item is
+updated best-effort after a ranked completion (outside the `completeRun`
+transaction) with a conditional write that only overwrites on a strictly better
+sort key; a run that is not a new best is a silent no-op. Practice, being
+unranked, has neither board.
 
 `GET /stats` exposes `trophyRoadGames` as the site-wide Trophy Road counter. It
 has one stable launch seed of 592, then advances exactly once for each
