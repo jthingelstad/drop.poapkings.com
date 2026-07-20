@@ -28,10 +28,11 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      - run: npx playwright install --with-deps chromium firefox webkit
-
-      # Build reads only packages/game-data/cards.json — no API or mail tokens needed.
-      - run: npm run verify
+      # Deploy gate skips the multi-browser Playwright e2e (slow to install + run);
+      # the full 4-browser suite runs locally before pushing. Post-deploy smoke
+      # checks below still validate the live API and website. Build reads only
+      # packages/game-data/cards.json — no API or mail tokens needed.
+      - run: npm run verify:deploy
 
       - name: Deploy API
         run: npm run deploy:api

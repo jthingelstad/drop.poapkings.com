@@ -269,9 +269,8 @@ export default function Surge() {
           {formatSeconds(elapsedMs.value)}
           <span class="surge-hud__unit">s</span>
         </div>
-        <div class="surge-hud__count">
-          card {index.value + 1} / {SURGE.SPRINT_LEN}
-        </div>
+        {/* No card counter — it wrapped and shoved the board on narrow screens,
+            and the progress bar below already shows how far along the sprint is. */}
       </div>
 
       <div class="progress-track" aria-hidden="true">

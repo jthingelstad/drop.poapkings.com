@@ -21,7 +21,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{ts,js,json}\" \"*.config.ts\"",
     "lint": "oxlint --config ../../.oxlintrc.json --type-aware --type-check --deny-warnings --report-unused-disable-directives .",
     "lint:css": "stylelint \"src/styles.css\"",
-    "knip": "knip --no-config-hints --include files,dependencies,unlisted"
+    "knip": "knip --no-config-hints --include files,dependencies,unlisted",
+    "verify:deploy": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run knip && npm run test:coverage && npm run build"
   },
   "dependencies": {
     "@elixir-drop/contracts": "*",
