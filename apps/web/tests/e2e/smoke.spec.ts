@@ -831,7 +831,7 @@ test('home brings season standings, player bests, activity, and Trophy Road forw
   await expect(page.locator('.activity-list')).toContainText('Trade')
   await expect(page.getByRole('heading', { name: 'Drop together' })).toBeVisible()
   await expect(page.locator('.community-progress')).toContainText('592')
-  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Your season best')
+  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Season best')
 
   await testInfo.attach('competition-home.png', {
     body: await page.screenshot({ fullPage: true }),

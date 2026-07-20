@@ -73,9 +73,9 @@ function GameCard({
       class={`competition-game${game.mode === 'surge' ? ' competition-game--featured' : ''}`}
       onClick={() => navigate(game.path)}
     >
-      <span class="competition-game__copy">
-        <strong>{game.name}</strong>
-        <small>{game.description}</small>
+      <strong class="competition-game__name">{game.name}</strong>
+      <small class="competition-game__desc">{game.description}</small>
+      <span class="competition-game__foot">
         {champion ? (
           <span class="competition-game__champion">
             <Icon name="trophy" />
@@ -86,12 +86,11 @@ function GameCard({
         ) : (
           <span class="competition-game__champion competition-game__champion--open">The crown is open</span>
         )}
+        <span class="competition-game__best">
+          <small>{best === undefined ? 'Your best' : 'Season best'}</small>
+          <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
+        </span>
       </span>
-      <span class="competition-game__best">
-        <small>{best === undefined ? 'Your best' : 'Your season best'}</small>
-        <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
-      </span>
-      <Icon name="arrow-right" />
     </button>
   )
 }
@@ -100,18 +99,17 @@ function GameCard({
 function PracticeCard({ game, best }: { game: GameInfo; best: number | undefined }) {
   return (
     <button class="competition-game competition-game--practice" onClick={() => navigate(game.path)}>
-      <span class="competition-game__copy">
-        <strong>{game.name}</strong>
-        <small>{game.description}</small>
+      <strong class="competition-game__name">{game.name}</strong>
+      <small class="competition-game__desc">{game.description}</small>
+      <span class="competition-game__foot">
         <span class="competition-game__champion competition-game__champion--open">
           Unranked — learn at your own pace
         </span>
+        <span class="competition-game__best">
+          <small>{best === undefined ? 'Your accuracy' : 'Your best'}</small>
+          <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
+        </span>
       </span>
-      <span class="competition-game__best">
-        <small>{best === undefined ? 'Your accuracy' : 'Your best'}</small>
-        <strong>{best === undefined ? '—' : scoreLabel(game.mode, best)}</strong>
-      </span>
-      <Icon name="arrow-right" />
     </button>
   )
 }
@@ -284,22 +282,16 @@ export default function Home() {
 
   return (
     <div class="home home--competition">
-      <div class="competition-hero">
-        <div class="competition-hero__identity">
-          <h1 class="hero__title" onClick={() => registerLogoTap()}>
-            <span class="t-elixir">ELIXIR</span>
-            <span class="t-drop">DROP</span>
-          </h1>
-          <p>Train your Clash Royale elixir instinct.</p>
-          <button class="btn btn--gold btn--lg" onClick={() => navigate('/surge')}>
-            ▶ Play Surge
-          </button>
-          <div class="season-clock">{seasonLine(stats.value?.currentSeason ?? null)}</div>
-        </div>
-        <Standings entries={boards.value.surge ?? []} loading={standingsLoading.value} />
-      </div>
+      <header class="home-top">
+        <h1 class="hero__title" onClick={() => registerLogoTap()}>
+          <span class="t-elixir">ELIXIR</span>
+          <span class="t-drop">DROP</span>
+        </h1>
+        <p class="home-top__tag">Train your Clash Royale elixir instinct.</p>
+        <div class="season-clock">{seasonLine(stats.value?.currentSeason ?? null)}</div>
+      </header>
 
-      <div class="home__wrap competition-home__body">
+      <div class="home__wrap">
         <section class="game-catalog" id="games" aria-labelledby="game-catalog-title">
           <div class="competition-section-head">
             <h2 id="game-catalog-title">Choose your game</h2>
@@ -310,27 +302,35 @@ export default function Home() {
               <GameCard game={game} best={bestScores[game.mode]} champion={champion(game.mode)} key={game.mode} />
             ))}
           </div>
-          {practiceGame && (
-            <div class="practice-callout">
-              <PracticeCard game={practiceGame} best={bestScores.practice} />
-            </div>
-          )}
         </section>
 
-        <div class="competition-rail">
-          <PlayerSeason bestScores={bestScores} />
-          <RecentActivity />
-          <section class="competition-panel community-progress">
-            <img src="/assets/elixir-hype.png" alt="" aria-hidden="true" />
-            <div>
-              <h2>Drop together</h2>
-              <strong>{stats.value ? stats.value.trophyRoadGames.toLocaleString() : '—'}</strong>
-              <span>games played across Drop</span>
-              <small>
-                {CARD_COUNT} cards · {GAMES.length} ways to play
-              </small>
+        {practiceGame && (
+          <section class="practice-section" aria-labelledby="practice-title">
+            <div class="competition-section-head">
+              <h2 id="practice-title">Just here to learn?</h2>
+              <span>No clock, no leaderboard — practice at your own pace.</span>
             </div>
+            <PracticeCard game={practiceGame} best={bestScores.practice} />
           </section>
+        )}
+
+        <div class="competition-home__body">
+          <Standings entries={boards.value.surge ?? []} loading={standingsLoading.value} />
+          <div class="competition-rail">
+            <PlayerSeason bestScores={bestScores} />
+            <RecentActivity />
+            <section class="competition-panel community-progress">
+              <img src="/assets/elixir-hype.png" alt="" aria-hidden="true" />
+              <div>
+                <h2>Drop together</h2>
+                <strong>{stats.value ? stats.value.trophyRoadGames.toLocaleString() : '—'}</strong>
+                <span>games played across Drop</span>
+                <small>
+                  {CARD_COUNT} cards · {GAMES.length} ways to play
+                </small>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
