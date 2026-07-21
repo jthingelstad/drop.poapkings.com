@@ -45,8 +45,9 @@ Doc map:
    other copyrighted text.
 7. **Referee evidence is sanitized; decisions are a bounded overlay.** Fair Play Referee
    evidence lives under `PLAYER#{sub}/EVIDENCE#` (written best-effort at
-   `/runs/complete` for recorded ranked (accepted or quarantined) +
-   scorer-rejected signed-in runs; never practice
+   `/runs/complete` for recorded ranked (accepted or quarantined) + unscored
+   signed-in attempts; automatic scorer/integrity labels are review signals,
+   never referee verdicts; never practice
    or guest) and holds the challenge, transcript, timing, versions, and
    **peppered** correlation hashes — **never a raw IP or user-agent**.
    `TELEMETRY_PEPPER` is Lambda-only: never put it in the `AGENT-TEAM/scripts`,

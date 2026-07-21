@@ -98,8 +98,9 @@ export interface BuildEvidenceInput {
   runId: string;
   mode: GameMode;
   seasonId: string;
-  runType: "ranked" | "rejected";
+  runType: "ranked" | "unscored" | "rejected";
   integrityOutcome: string;
+  reviewSignals?: string[];
   score?: number;
   tiebreakMs?: number;
   challenge: RunChallenge;
@@ -128,6 +129,9 @@ export function buildEvidenceItem(input: BuildEvidenceInput): EvidenceItem {
     seasonId: input.seasonId,
     runType: input.runType,
     integrityOutcome: input.integrityOutcome,
+    ...(input.reviewSignals?.length
+      ? { reviewSignals: input.reviewSignals }
+      : {}),
     ...(input.score !== undefined ? { score: input.score } : {}),
     ...(input.tiebreakMs !== undefined ? { tiebreakMs: input.tiebreakMs } : {}),
     challenge: input.challenge,

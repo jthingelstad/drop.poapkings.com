@@ -159,7 +159,7 @@ describe("run integrity rejection", () => {
     )) as APIGatewayProxyStructuredResultV2;
     const body = JSON.parse(response.body || "{}");
 
-    // The structurally valid run is retained but hidden atomically so the
+    // The deterministically scored run is retained but hidden atomically so the
     // referee can either confirm the quarantine or restore a false positive.
     expect(response.statusCode).toBe(201);
     expect(body).toMatchObject({ accepted: true, underReview: true });

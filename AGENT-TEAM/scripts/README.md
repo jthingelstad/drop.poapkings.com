@@ -19,6 +19,9 @@ node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
 node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
   --disposition clear --visibility visible \
   --reason "Approved after comparison with complete retained evidence"
+node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+  --disposition clear --visibility not_ranked \
+  --reason "Play appears genuine; candidate score needs product reconciliation"
 ```
 
 ## Credentials (least privilege)
@@ -48,18 +51,21 @@ Configuration:
 | `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <id>]`       | Ranked top cohort: `{ rank, playerId, runId, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                                            |
 | `referee-player.mjs`    | `<playerId>`                                                             | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                               |
 | `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |
-| `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries (season + all-time, every ranked mode) whose run completed after the cursor, newest first.                                                                                             |
-| `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden] [--limit 200]`       | Current private judgments for unresolved and changed-case review.                                                                                                                                     |
-| `referee-decide.mjs`    | `<runId> --disposition <d> --visibility visible\|hidden --reason <text>` | Atomically writes the current decision and immutable audit event. `hidden` requires `review`; `visible` restores/approves the run.                                                                    |
+| `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                       |
+| `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
+| `referee-decide.mjs`    | `<runId> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text>` | Atomically writes the current decision and immutable audit event. `hidden` requires `review`; `visible` restores a scored run; `not_ranked` records judgment when no candidate score exists. |
 
 Leaderboard cohort/feed output reconciles current decisions. A hidden seasonal
 best falls back to the player's next-best visible run. The all-time cohort does
 the same, so hiding one fabricated score does not erase the player's legitimate
-history. `referee-run` and `referee-player` annotate evidence/history with the
-current decision when one exists. The game may seed `review`/`hidden` for a
-plausibility-flagged but structurally valid run; `referee-decide.mjs` replaces
-that current decision with the referee's evidence-grounded judgment while
-preserving both events in audit history.
+history. Legacy all-time rows without a projected `runId` are resolved against
+immutable player history and fail closed if no exact earning run exists.
+`referee-run` and `referee-player` annotate evidence/history with the current
+decision when one exists. The game may seed `review`/`hidden` whenever
+an assumption in scoring or integrity flags a run that still has a deterministic
+candidate score; `referee-decide.mjs` replaces that current decision with the
+referee's evidence-grounded judgment while preserving both events in audit
+history. Automatic labels are review signals, never verdicts.
 
 ## Output contract
 

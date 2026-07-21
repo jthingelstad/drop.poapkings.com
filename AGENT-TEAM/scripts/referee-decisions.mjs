@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// referee-decisions.mjs [--disposition <value>] [--visibility visible|hidden]
+// referee-decisions.mjs [--disposition <value>]
+//   [--visibility visible|hidden|not_ranked]
 //
 // List current referee judgments for changed/unresolved-case review. Decision
 // reasons are private output and must never be copied to public issues.

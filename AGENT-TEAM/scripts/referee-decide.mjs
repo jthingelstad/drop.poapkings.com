@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // referee-decide.mjs <runId> --disposition clear|watch|review|insufficient_evidence
-//   --visibility visible|hidden --reason <private concise rationale>
+//   --visibility visible|hidden|not_ranked --reason <private concise rationale>
 //
 // The only sanctioned referee write path. It never edits a score, transcript,
 // player, or leaderboard row. It writes an independent current decision and an
@@ -26,7 +26,7 @@ const DISPOSITIONS = new Set([
   "review",
   "insufficient_evidence",
 ]);
-const VISIBILITIES = new Set(["visible", "hidden"]);
+const VISIBILITIES = new Set(["visible", "hidden", "not_ranked"]);
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
 const runId = positional[0];
@@ -45,7 +45,10 @@ if (!DISPOSITIONS.has(disposition))
     "--disposition must be clear, watch, review, or insufficient_evidence",
   );
 if (!VISIBILITIES.has(visibility))
-  failClosed("invalid_visibility", "--visibility must be visible or hidden");
+  failClosed(
+    "invalid_visibility",
+    "--visibility must be visible, hidden, or not_ranked",
+  );
 if (visibility === "hidden" && disposition !== "review")
   failClosed(
     "invalid_hidden_disposition",
@@ -67,10 +70,19 @@ try {
 }
 if (!evidence)
   failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
-if (evidence.runType !== "ranked")
+const subjectType =
+  evidence.runType === "ranked" && Number.isFinite(evidence.score)
+    ? "ranked_run"
+    : "unscored_attempt";
+if (subjectType === "ranked_run" && visibility === "not_ranked")
   failClosed(
-    "run_not_ranked",
-    "Only a recorded ranked run can be hidden or restored on a leaderboard",
+    "invalid_ranked_visibility",
+    "A deterministically scored ranked run must be visible or hidden",
+  );
+if (subjectType === "unscored_attempt" && visibility !== "not_ranked")
+  failClosed(
+    "score_required_for_ranking",
+    "An unscored attempt may be judged, but ranking requires a reproducible candidate score",
   );
 
 function canonicalJson(value) {
@@ -90,6 +102,7 @@ const evidenceDigest = createHash("sha256")
   .digest("hex");
 const fields = {
   runId,
+  subjectType,
   disposition,
   visibility,
   reason,

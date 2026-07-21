@@ -282,6 +282,37 @@ async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
     .sort((a, b) => rowSortKey(a).localeCompare(rowSortKey(b)))[0];
 }
 
+async function resolveAllTimeEarningRun(doc, row, mode) {
+  if (row.runId) return row;
+  let lastKey;
+  do {
+    const result = await doc.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+        ExpressionAttributeValues: {
+          ":pk": `PLAYER#${row.playerSub}`,
+          ":prefix": "RUN#",
+        },
+        ExclusiveStartKey: lastKey,
+        Limit: 500,
+      }),
+    );
+    const match = (result.Items ?? []).find(
+      (item) =>
+        item.mode === mode &&
+        item.score === row.score &&
+        item.completedAt === row.completedAt &&
+        (row.timeMs === undefined || item.timeMs === row.timeMs),
+    );
+    if (match?.runId) return { ...row, runId: match.runId };
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+  throw new Error(
+    `All-time ${mode} entry at ${row.completedAt} has no resolvable earning run`,
+  );
+}
+
 export async function visibleLeaderboardRows(
   doc,
   seasonId,
@@ -289,10 +320,14 @@ export async function visibleLeaderboardRows(
   scope,
   limit,
 ) {
-  const rows = await queryLeaderboard(
-    doc,
-    leaderboardPartition(seasonId, mode),
-  );
+  let rows = await queryLeaderboard(doc, leaderboardPartition(seasonId, mode));
+  if (scope === "all-time") {
+    rows = await Promise.all(
+      rows.map((row) => resolveAllTimeEarningRun(doc, row, mode)),
+    );
+  } else if (rows.some((row) => !row.runId)) {
+    throw new Error(`Season ${mode} leaderboard contains a row without runId`);
+  }
   const decisions = await loadDecisions(
     doc,
     rows.map((row) => String(row.runId ?? "")).filter(Boolean),

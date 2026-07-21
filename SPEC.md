@@ -296,18 +296,20 @@ returns a distinct minimal shape `{ accepted: true, guest: true, mode, score,
 season }`. A `/runs/complete` carrying a non-guest run token still requires a
 session that owns the run.
 
-Anti-cheat separates invalid input from suspicious valid play. A transcript that
-fails deterministic scoring remains rejected with `400` and is not recorded.
-When `services/api/src/integrity.ts` finds a structurally valid ranked run
-implausible (an out-of-range score, timed-mode score floor, or continuous-mode
-completion-rate ceiling), completion atomically records the run **and** creates
-a `review`/`hidden` decision before the score can appear publicly. The response
-includes `underReview: true`; Discord promotion is suppressed. The Fair Play
-Referee can confirm the hide or approve a false positive by writing a new,
-audited visible decision. Practice is unranked and only feeds XP, so it is
-checked for score range alone. Guest runs skip the integrity gate entirely
-because they are never recorded. Completion and the public read endpoints are
-also IP rate-limited (guests included, since the per-IP
+Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
+transcript consistency produce a deterministic candidate score; timing limits,
+terminal-state expectations, score floors, completion-rate ceilings, and other
+product assumptions produce machine-readable review signals. A scoreable ranked
+run with any such signal is atomically recorded with a `review`/`hidden`
+decision before it can appear publicly. The response includes
+`underReview: true`; Discord promotion is suppressed. The Fair Play Referee can
+confirm the hide or approve a false positive by writing a new, audited visible
+decision. Only incomplete or contradictory input from which no comparable score
+can be derived returns `400`; that attempt is still retained as referee evidence
+and is not labeled fake. Practice is unranked and only feeds XP. Guest runs use
+strict scoring but skip the integrity/referee path because they are never
+recorded. Completion and the public read endpoints are also IP rate-limited
+(guests included, since the per-IP
 `run-start`/`run-complete` limits run before any auth branch; `/runs/complete`
 at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
@@ -464,17 +466,18 @@ back a recorded run), one evidence item is written for:
 
 - a **recorded ranked** run, whether accepted immediately or automatically
   quarantined for review, and
-- a **scorer-rejected signed-in** run for which no valid score could be
-  produced.
+- an **unscored signed-in** attempt for which the current scorer could not
+  derive a comparable candidate score.
 
 Practice (`ranked:false`) and guest runs write **no** evidence.
 
 **Where it lives.** `PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}` in the main
 table, co-located with the player's partition so account deletion
 (`DELETE /me`) sweeps it for free. Each item carries: `runId`, `mode`,
-`seasonId`, `runType` (`ranked`/`rejected`), `integrityOutcome` (`accepted`, an
-automatic-review reason, or a scorer-reject reason), server-recomputed `score`
-(+ Survival `tiebreakMs`), the full
+`seasonId`, `runType` (`ranked`/`unscored`; legacy `rejected` remains readable), `integrityOutcome` (`accepted`, an
+automatic-review reason, or an unscored reason), optional machine-readable
+`reviewSignals`, server-recomputed candidate `score` (+ Survival `tiebreakMs`),
+the full
 signed `challenge`, the full raw `transcript`, `startedAt`/`completedAt`/
 `wallElapsedMs`, a `scoringVersion` (`{ web: build sha, rules: SCORING_RULES_VERSION }`),
 the normalized unverified `playerTag`, a `schemaVersion`, and an `expiresAt` TTL

@@ -75,7 +75,9 @@ reflects their single best score across every season. The all-time item is
 updated best-effort after a ranked completion (outside the `completeRun`
 transaction) with a conditional write that only overwrites on a strictly better
 sort key; a run that is not a new best is a silent no-op. Practice, being
-unranked, has neither board.
+unranked, has neither board. All-time rows created before earning `runId` was
+projected are resolved against immutable player history before referee decisions
+are applied; an unresolved row fails closed instead of bypassing review.
 
 `GET /stats` exposes `trophyRoadGames` as the site-wide Trophy Road counter. It
 has one stable launch seed of 592, then advances exactly once for each
@@ -121,14 +123,36 @@ levels, and delivery failure never blocks queue completion.
 
 On `/runs/complete`, the API writes best-effort **referee evidence** for every
 recorded **ranked** run (after `completeRun` and the learning-stats block) and
-for scorer-rejected signed-in runs (before the 400). A structurally valid run
-that fails the plausibility check is recorded with an automatic
-`review`/`hidden` decision in the same transaction, returns
-`underReview: true`, and writes ranked evidence with the review reason. It is
-excluded from seasonal and all-time leaderboards unless the referee approves
-it. Practice (`ranked:false`) and guest runs write none. The evidence write is
-best-effort like learning stats: it is wrapped so it can never fail or roll back
-a recorded run.
+for unscored signed-in attempts (before the 400). Timing, end-state, and other
+assumption-based scorer failures now return a deterministic candidate score plus
+machine-readable review signals. Such a run is recorded with an automatic
+`review`/`hidden` decision in the same transaction, returns `underReview: true`,
+and is excluded from seasonal and all-time leaderboards unless the referee
+approves it. Only input from which no comparable score can be derived remains
+unrecorded, while its evidence is retained without treating the automatic label
+as an integrity verdict. Practice (`ranked:false`) and guest runs write none.
+The evidence write is best-effort like learning stats: it is wrapped so it can
+never fail or roll back a recorded run.
+
+New evidence uses `runType: "unscored"` when no candidate score can be derived;
+the referee feed also recognizes legacy `"rejected"` items. The referee may
+record a `clear`, `watch`, `review`, or `insufficient_evidence` disposition with
+`visibility: "not_ranked"`. That judgment is authoritative about integrity, but
+does not invent a leaderboard score; a sanitized reconciliation issue is the
+path for making genuine play scoreable.
+
+## All-time projection backfill
+
+`scripts/backfill-all-time.mjs` rebuilds the one-row-per-player/mode all-time
+projection from immutable ranked history. It excludes unranked Practice and
+retired pre-r2 Survival results, uses the production sort/tiebreak rules, and
+conditionally refuses to overwrite a better concurrent result. It is dry-run
+by default:
+
+```sh
+AWS_REGION=us-east-1 npm run backfill:all-time --workspace=@elixir-drop/api
+AWS_REGION=us-east-1 npm run backfill:all-time --workspace=@elixir-drop/api -- --apply
+```
 
 `referee-evidence.ts` shapes and stamps each item; `repository.putRefereeEvidence`
 does the plain put. Items live at `PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}`

@@ -4,6 +4,7 @@ import rawCards from "@elixir-drop/game-data/cards.json";
 import {
   createChallenge,
   scoreRun,
+  scoreRunWithSignals,
   SURGE_CARD_COUNT,
   survivalTimeMs,
 } from "../src/scoring.js";
@@ -46,7 +47,8 @@ describe("server-side game scoring", () => {
       scoreRun({ mode: "surge", cardIds }, { answers: oneFast }, 20_000),
     ).toBeGreaterThan(0);
 
-    // Every solve 50ms apart — automation, rejected.
+    // Every solve 50ms apart — strict scoring rejects it, while ranked
+    // completion retains the deterministic score for referee review.
     const allFast = cards.map((card, index) => ({
       cardId: card.id,
       guesses: [card.elixir],
@@ -55,6 +57,16 @@ describe("server-side game scoring", () => {
     expect(() =>
       scoreRun({ mode: "surge", cardIds }, { answers: allFast }, 20_000),
     ).toThrow(/implausibly fast/);
+    expect(
+      scoreRunWithSignals(
+        { mode: "surge", cardIds },
+        { answers: allFast },
+        20_000,
+      ),
+    ).toEqual({
+      score: 1_200,
+      reviewSignals: ["answer_timing_implausibly_fast"],
+    });
   });
 
   it("recomputes Practice accuracy from canonical card costs", () => {
@@ -271,5 +283,15 @@ describe("server-side game scoring", () => {
     expect(() =>
       scoreRun({ mode: "surge", cardIds }, { answers: validAnswers }, 1_000),
     ).toThrow("plausible");
+    expect(
+      scoreRunWithSignals(
+        { mode: "surge", cardIds },
+        { answers: validAnswers },
+        1_000,
+      ),
+    ).toEqual({
+      score: 6_400,
+      reviewSignals: ["end_time_outside_wall_clock"],
+    });
   });
 });

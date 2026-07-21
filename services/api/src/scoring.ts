@@ -19,7 +19,7 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "1";
+export const SCORING_RULES_VERSION = "2";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
@@ -199,15 +199,50 @@ function card(id: number): Card {
   return result;
 }
 
-function verifyPlausibleEnd(atMs: number, wallElapsedMs: number): void {
-  if (!Number.isFinite(atMs) || atMs < 500 || atMs > wallElapsedMs + 2_000)
-    throw new Error("Run timing is not plausible");
+export type ScoringReviewSignal =
+  | "answer_timestamps_not_increasing"
+  | "answer_timing_implausibly_fast"
+  | "end_time_outside_wall_clock"
+  | "higher_lower_no_terminal_event"
+  | "higher_lower_timing_implausibly_fast"
+  | "higher_lower_time_outside_wall_clock"
+  | "survival_no_terminal_event"
+  | "survival_timing_implausibly_fast"
+  | "survival_time_outside_wall_clock";
+
+export interface ScoredRunWithSignals {
+  score: number;
+  reviewSignals: ScoringReviewSignal[];
+}
+
+function flagOrReject(
+  reviewSignals: ScoringReviewSignal[] | undefined,
+  signal: ScoringReviewSignal,
+  strictMessage: string,
+): void {
+  if (!reviewSignals) throw new Error(strictMessage);
+  if (!reviewSignals.includes(signal)) reviewSignals.push(signal);
+}
+
+function verifyPlausibleEnd(
+  atMs: number,
+  wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
+): void {
+  if (!Number.isFinite(atMs)) throw new Error("Run timing is not plausible");
+  if (atMs < 500 || atMs > wallElapsedMs + 2_000)
+    flagOrReject(
+      reviewSignals,
+      "end_time_outside_wall_clock",
+      "Run timing is not plausible",
+    );
 }
 
 function scoreAnswerSprint(
   challenge: number[],
   transcript: RunTranscript,
   wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
 ): number {
   const answers = objectArray(transcript.answers, "Answer");
   if (answers.length !== challenge.length)
@@ -226,13 +261,14 @@ function scoreAnswerSprint(
     // recording at the same limit). Timestamps must strictly advance; a sub-79ms
     // gap is a lightning solve — counted, not fatal, so one instant answer in a
     // fast run is fine while a whole run of them (a bot) is caught below.
-    if (
-      guesses.length < 1 ||
-      guesses.length > 60 ||
-      !Number.isFinite(atMs) ||
-      atMs <= previousAtMs
-    )
+    if (guesses.length < 1 || guesses.length > 60 || !Number.isFinite(atMs))
       throw new Error("Answer timing is invalid");
+    if (atMs <= previousAtMs)
+      flagOrReject(
+        reviewSignals,
+        "answer_timestamps_not_increasing",
+        "Answer timing is invalid",
+      );
     if (atMs < previousAtMs + 79) fastGaps += 1;
     const correct = card(expectedCardId).elixir;
     if (guesses.at(-1) !== correct || guesses.slice(0, -1).includes(correct))
@@ -240,11 +276,17 @@ function scoreAnswerSprint(
     if (guesses.some((guess) => guess < 1 || guess > 10))
       throw new Error("Elixir guess is invalid");
     misses += guesses.length - 1;
-    previousAtMs = atMs;
+    // A client clock anomaly is reviewable, but must not manufacture an
+    // artificially low candidate time. Score from the furthest observed time.
+    previousAtMs = Math.max(previousAtMs, atMs);
   }
   if (isImplausiblyFast(fastGaps, answers.length))
-    throw new Error("Answer timing is implausibly fast");
-  verifyPlausibleEnd(previousAtMs, wallElapsedMs);
+    flagOrReject(
+      reviewSignals,
+      "answer_timing_implausibly_fast",
+      "Answer timing is implausibly fast",
+    );
+  verifyPlausibleEnd(previousAtMs, wallElapsedMs, reviewSignals);
   return Math.round(previousAtMs) + misses * SURGE_PENALTY_MS;
 }
 
@@ -269,6 +311,7 @@ function scoreHigherLower(
   challenge: Extract<RunChallenge, { mode: "higher-lower" }>,
   transcript: RunTranscript,
   wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
 ): number {
   const answers = objectArray(transcript.answers, "Higher/Lower");
   if (!answers.length || answers.length > challenge.pairs.length)
@@ -304,13 +347,25 @@ function scoreHigherLower(
     else ended = true;
   });
   if (!ended && answers.length < challenge.pairs.length)
-    throw new Error("Higher/Lower run has not ended");
-  // Only a sustained run of sub-100ms taps (automation) is rejected — a single
-  // human mash-tap must not void an honest streak.
+    flagOrReject(
+      reviewSignals,
+      "higher_lower_no_terminal_event",
+      "Higher/Lower run has not ended",
+    );
+  // Only a sustained run of sub-100ms taps raises a review signal — a single
+  // human mash-tap must not flag an honest streak.
   if (isImplausiblyFast(lightningTaps, score))
-    throw new Error("Higher/Lower answers are implausibly fast");
+    flagOrReject(
+      reviewSignals,
+      "higher_lower_timing_implausibly_fast",
+      "Higher/Lower answers are implausibly fast",
+    );
   if (totalElapsed > wallElapsedMs + 2_000)
-    throw new Error("Higher/Lower timing is not plausible");
+    flagOrReject(
+      reviewSignals,
+      "higher_lower_time_outside_wall_clock",
+      "Higher/Lower timing is not plausible",
+    );
   return score;
 }
 
@@ -325,6 +380,7 @@ function scoreTrade(
   challenge: Extract<RunChallenge, { mode: "trade" }>,
   transcript: RunTranscript,
   wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
 ): number {
   const answers = objectArray(transcript.answers, "Trade");
   if (answers.length !== challenge.rounds.length)
@@ -344,7 +400,7 @@ function scoreTrade(
     misses += guesses.length - 1;
     atMs = Number(answer.atMs);
   });
-  verifyPlausibleEnd(atMs, wallElapsedMs);
+  verifyPlausibleEnd(atMs, wallElapsedMs, reviewSignals);
   return Math.round(atMs) + misses * 2_000;
 }
 
@@ -352,6 +408,7 @@ function scoreSurvival(
   challenge: Extract<RunChallenge, { mode: "survival" }>,
   transcript: RunTranscript,
   wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
 ): number {
   const answers = objectArray(transcript.answers, "Survival");
   if (!answers.length || answers.length > challenge.cardIds.length)
@@ -381,14 +438,26 @@ function scoreSurvival(
     else ended = true;
   });
   if (!ended && answers.length < challenge.cardIds.length)
-    throw new Error("Survival run has not ended");
+    flagOrReject(
+      reviewSignals,
+      "survival_no_terminal_event",
+      "Survival run has not ended",
+    );
   // A single sub-100ms tap is human mash-timing in a fast reflex game; only a
-  // sustained run of them (automation) is rejected — one lightning tap must not
-  // nuke an honest deep run.
+  // sustained run raises a review signal — one lightning tap must not flag an
+  // honest deep run.
   if (isImplausiblyFast(lightningTaps, score))
-    throw new Error("Survival answers are implausibly fast");
+    flagOrReject(
+      reviewSignals,
+      "survival_timing_implausibly_fast",
+      "Survival answers are implausibly fast",
+    );
   if (totalElapsed + score * 200 > wallElapsedMs + 2_000)
-    throw new Error("Survival timing is not plausible");
+    flagOrReject(
+      reviewSignals,
+      "survival_time_outside_wall_clock",
+      "Survival timing is not plausible",
+    );
   return score;
 }
 
@@ -424,4 +493,51 @@ export function scoreRun(
     case "survival":
       return scoreSurvival(challenge, transcript, wallElapsedMs);
   }
+}
+
+// Score all objectively interpretable transcript data while returning the
+// assumptions that the strict scorer would have rejected. Ranked completion
+// uses this path so those assumptions become an automatic hidden review, not a
+// final judgment. Missing or contradictory data that cannot produce a
+// comparable score still throws and is retained as unscored evidence.
+export function scoreRunWithSignals(
+  challenge: RunChallenge,
+  transcript: RunTranscript,
+  wallElapsedMs: number,
+): ScoredRunWithSignals {
+  const reviewSignals: ScoringReviewSignal[] = [];
+  let score: number;
+  switch (challenge.mode) {
+    case "surge":
+      score = scoreAnswerSprint(
+        challenge.cardIds,
+        transcript,
+        wallElapsedMs,
+        reviewSignals,
+      );
+      break;
+    case "practice":
+      score = scorePractice(challenge, transcript);
+      break;
+    case "higher-lower":
+      score = scoreHigherLower(
+        challenge,
+        transcript,
+        wallElapsedMs,
+        reviewSignals,
+      );
+      break;
+    case "trade":
+      score = scoreTrade(challenge, transcript, wallElapsedMs, reviewSignals);
+      break;
+    case "survival":
+      score = scoreSurvival(
+        challenge,
+        transcript,
+        wallElapsedMs,
+        reviewSignals,
+      );
+      break;
+  }
+  return { score, reviewSignals };
 }

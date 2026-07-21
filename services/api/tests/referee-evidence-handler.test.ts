@@ -291,7 +291,67 @@ describe("referee evidence write path", () => {
     expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
-  it("writes rejected evidence (with the reason, no score) for a scorer-rejected completion", async () => {
+  it("quarantines a scoreable scorer assumption for referee authority", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-scorer-flag",
+        owner: profile.sub,
+        mode: "surge",
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-scorer-flag",
+      sk: "RUN",
+      runId: "run-scorer-flag",
+      owner: profile.sub,
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
+      state: "started",
+      startedAt: new Date(Date.now() - 30_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5 },
+    });
+
+    // The transcript is internally scoreable, but its client clock runs beyond
+    // the observed wall clock. That assumption is review evidence, not a veto.
+    const response = (await handler(
+      signedInEvent({ runToken, transcript: surgeTranscript(2_500) }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-scorer-flag" }),
+      36_000,
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      "end_time_outside_wall_clock",
+    );
+    expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-scorer-flag",
+        runType: "ranked",
+        score: 36_000,
+        integrityOutcome: "end_time_outside_wall_clock",
+        reviewSignals: ["end_time_outside_wall_clock"],
+      }),
+    );
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
+  });
+
+  it("writes unscored evidence when no candidate score can be derived", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -325,7 +385,7 @@ describe("referee evidence write path", () => {
     expect(response.statusCode).toBe(400);
     expect(repository.putRefereeEvidence).toHaveBeenCalledTimes(1);
     const item = repository.putRefereeEvidence.mock.calls[0]?.[0];
-    expect(item.runType).toBe("rejected");
+    expect(item.runType).toBe("unscored");
     expect(item.score).toBeUndefined();
     expect(typeof item.integrityOutcome).toBe("string");
     expect(item.transcript).toEqual({ answers: [] });

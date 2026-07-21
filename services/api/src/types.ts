@@ -104,9 +104,9 @@ export interface Correlation {
   uaFamily?: string;
 }
 
-// Referee-grade evidence for one recorded (ranked) or scorer-rejected signed-in
-// run. Ranked evidence may be accepted immediately or automatically quarantined
-// for referee review.
+// Referee-grade evidence for one recorded ranked run or an unscored signed-in
+// attempt. Scoreable scorer/integrity assumptions become automatic referee
+// quarantine signals rather than final rejection.
 // Co-located under the player partition (PLAYER#{sub}) so account deletion
 // sweeps it automatically. Contains NO email. Scripts map sub -> playerId on the
 // way out; the referee never sees sub.
@@ -117,9 +117,14 @@ export interface EvidenceItem {
   playerSub: string;
   mode: GameMode;
   seasonId: string;
-  runType: "ranked" | "rejected";
-  // "accepted" for a clear ranked run, or the integrity/scorer reason string.
+  // "rejected" is retained for evidence written by pre-v2 scorers.
+  runType: "ranked" | "unscored" | "rejected";
+  // "accepted" for a clear ranked run, an automatic-review reason, or why no
+  // comparable candidate score could be derived.
   integrityOutcome: string;
+  // Machine-readable assumptions that sent a deterministically scored run to
+  // referee review. Empty/absent means no automatic flag.
+  reviewSignals?: string[];
   score?: number;
   tiebreakMs?: number;
   challenge: RunChallenge;
@@ -138,15 +143,17 @@ export interface EvidenceItem {
 export type RefereeDisposition =
   "clear" | "watch" | "review" | "insufficient_evidence";
 
-export type RefereeVisibility = "visible" | "hidden";
+export type RefereeVisibility = "visible" | "hidden" | "not_ranked";
 
-// Independent referee judgment for a ranked run. The current item controls
-// public leaderboard visibility; immutable DECISION# history items provide the
-// audit trail. Scores, transcripts, and player records remain untouched.
+// Independent referee judgment for a ranked run or unscored attempt. The
+// current item controls public leaderboard visibility when a candidate score
+// exists; `not_ranked` records an authoritative judgment without inventing a
+// score. Immutable DECISION# items provide the audit trail.
 export interface RefereeDecision {
   pk: string; // REFEREE#{runId}
   sk: "CURRENT" | `DECISION#${string}`;
   runId: string;
+  subjectType: "ranked_run" | "unscored_attempt";
   disposition: RefereeDisposition;
   visibility: RefereeVisibility;
   reason: string;

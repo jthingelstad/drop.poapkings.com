@@ -25,12 +25,14 @@ describe("repository DynamoDB requests", () => {
       .mockResolvedValueOnce({
         Items: [
           {
+            runId: "run-1",
             playerSub: "player-sub",
             score: 12.3,
             completedAt: "2026-07-18T12:00:00.000Z",
           },
         ],
       })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
       .mockResolvedValueOnce({
         Responses: {
           "test-table": [
@@ -49,7 +51,7 @@ describe("repository DynamoDB requests", () => {
       "2026-07",
       10,
     );
-    const batchGet = send.mock.calls[1]?.[0];
+    const batchGet = send.mock.calls[2]?.[0];
     const request = batchGet.input.RequestItems["test-table"];
 
     expect(request.ProjectionExpression).toContain("#sub");
@@ -658,17 +660,20 @@ describe("repository DynamoDB requests", () => {
       .mockResolvedValueOnce({
         Items: [
           {
+            runId: "run-a",
             playerSub: "player-a",
             score: 11_000,
             completedAt: "2026-06-01T12:00:00.000Z",
           },
           {
+            runId: "run-b",
             playerSub: "player-b",
             score: 12_000,
             completedAt: "2026-07-01T12:00:00.000Z",
           },
         ],
       })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
       .mockResolvedValueOnce({
         Responses: {
           "test-table": [
@@ -702,6 +707,62 @@ describe("repository DynamoDB requests", () => {
     expect(entries).toMatchObject([
       { rank: 1, score: 11_000, player: { publicName: "Ace" } },
       { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
+    ]);
+  });
+
+  it("resolves a legacy all-time row to its immutable earning run", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            playerSub: "player-a",
+            score: 11_000,
+            completedAt: "2026-06-01T12:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-a-legacy",
+            playerSub: "player-a",
+            mode: "surge",
+            score: 11_000,
+            completedAt: "2026-06-01T12:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").allTimeLeaderboard(
+      "surge",
+      10,
+    );
+
+    const historyQuery = send.mock.calls[1]?.[0].input;
+    expect(historyQuery.ExpressionAttributeValues).toMatchObject({
+      ":pk": "PLAYER#player-a",
+      ":prefix": "RUN#",
+    });
+    const decisionRead = send.mock.calls[2]?.[0].input;
+    expect(decisionRead.RequestItems["test-table"].Keys).toContainEqual({
+      pk: "REFEREE#run-a-legacy",
+      sk: "CURRENT",
+    });
+    expect(entries).toMatchObject([
+      { rank: 1, score: 11_000, player: { publicName: "Ace" } },
     ]);
   });
 

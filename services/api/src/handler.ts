@@ -27,7 +27,12 @@ import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { buildEvidenceItem, deriveCorrelation } from "./referee-evidence.js";
 import { Repository } from "./repository.js";
-import { createChallenge, scoreRun, survivalTimeMs } from "./scoring.js";
+import {
+  createChallenge,
+  scoreRun,
+  scoreRunWithSignals,
+  survivalTimeMs,
+} from "./scoring.js";
 import { runXp } from "./xp.js";
 import { seasonForDate, upcomingSeasons } from "./seasons.js";
 import { signToken, verifyToken } from "./signing.js";
@@ -690,13 +695,20 @@ async function route(event: APIGatewayProxyEventV2) {
     );
     let score: number;
     let transcript: RunTranscript;
+    let scoringReviewSignals: string[] = [];
     const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
     // The season is resolved before scoring so a rejected run's evidence can be
     // filed against the season it was attempted in.
     const season = seasonForDate(new Date(), await currentWarClock(repository));
     try {
       transcript = requireObject(body.transcript ?? {}) as RunTranscript;
-      score = scoreRun(run.challenge, transcript, wallElapsedMs);
+      const scored = scoreRunWithSignals(
+        run.challenge,
+        transcript,
+        wallElapsedMs,
+      );
+      score = scored.score;
+      scoringReviewSignals = scored.reviewSignals;
     } catch (error) {
       // Surface rejected completions in the logs (not just to the player) so we
       // can see when an honest game trips a scorer rule — the run id here
@@ -719,7 +731,7 @@ async function route(event: APIGatewayProxyEventV2) {
             runId: run.runId,
             mode: run.mode,
             seasonId: season.id,
-            runType: "rejected",
+            runType: "unscored",
             integrityOutcome: reason,
             challenge: run.challenge,
             transcript: (body.transcript ?? {}) as RunTranscript,
@@ -742,9 +754,13 @@ async function route(event: APIGatewayProxyEventV2) {
     }
 
     const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
+    const automaticReviewSignals = [
+      ...scoringReviewSignals,
+      ...(!integrity.eligible ? [integrity.reason] : []),
+    ];
     const automaticReviewReason =
-      !integrity.eligible && run.ranked !== false
-        ? integrity.reason
+      automaticReviewSignals.length && run.ranked !== false
+        ? automaticReviewSignals.join(",")
         : undefined;
     if (!integrity.eligible && run.ranked === false) {
       throw new HttpError(
@@ -754,16 +770,17 @@ async function route(event: APIGatewayProxyEventV2) {
       );
     }
     if (automaticReviewReason) {
-      // The scorer produced a structurally valid score, so preserve the exact
-      // run and quarantine it from public rankings. This makes a false positive
-      // reversible while preventing a suspicious score from ever appearing on
-      // the leaderboard before referee review.
+      // The signed evidence produced a deterministic candidate score, so
+      // preserve the exact run and quarantine it from public rankings. This
+      // makes a false positive reversible while preventing a suspicious score
+      // from appearing before referee review.
       console.warn("Run completion quarantined by integrity check", {
         requestId: event.requestContext.requestId,
         runId: run.runId,
         mode: run.mode,
         score,
         reason: automaticReviewReason,
+        signals: automaticReviewSignals,
         wallElapsedMs,
       });
     }
@@ -827,6 +844,7 @@ async function route(event: APIGatewayProxyEventV2) {
             seasonId: season.id,
             runType: "ranked",
             integrityOutcome: automaticReviewReason ?? "accepted",
+            reviewSignals: automaticReviewSignals,
             score,
             tiebreakMs,
             challenge: run.challenge,

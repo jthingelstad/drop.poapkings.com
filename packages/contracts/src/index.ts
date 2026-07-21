@@ -245,7 +245,7 @@ export interface CompletedRun {
   ranked?: boolean;
   completedAt: string;
   // The score was recorded but is excluded from public leaderboards pending a
-  // Fair Play Referee decision. Structural scorer failures are still rejected.
+  // Fair Play Referee decision. Automatic scorer flags are not final verdicts.
   underReview?: boolean;
   totalGames: number;
   xp: number;

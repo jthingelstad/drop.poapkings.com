@@ -163,16 +163,16 @@ describe("buildEvidenceItem", () => {
     expect(item.playerSub).toBe("player-sub");
   });
 
-  it("omits score for a scorer-rejected item with no computed score", () => {
+  it("omits score for an unscored item with no computed score", () => {
     const item = buildEvidenceItem({
       ...base,
       score: undefined,
-      runType: "rejected",
+      runType: "unscored",
       integrityOutcome: "Answer timing is invalid",
       startCorrelation: undefined,
     });
     expect(item.score).toBeUndefined();
-    expect(item.runType).toBe("rejected");
+    expect(item.runType).toBe("unscored");
     expect(item.integrityOutcome).toBe("Answer timing is invalid");
     // No start correlation captured -> only complete is present.
     expect(item.correlation.start).toBeUndefined();

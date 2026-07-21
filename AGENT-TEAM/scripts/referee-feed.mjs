@@ -15,7 +15,9 @@ import {
   playerIdForSub,
   print,
   RANKED_MODES,
+  ScanCommand,
   sanitizeRecord,
+  TABLE_NAME,
   visibleLeaderboardRows,
 } from "./_referee-lib.mjs";
 
@@ -60,6 +62,50 @@ try {
         });
       }
     }
+  }
+
+  // Unscored attempts are not discoverable through a leaderboard partition,
+  // but they still require referee judgment. Include both the v2 name and the
+  // legacy "rejected" evidence type so automatic scorer labels are never final.
+  const unscored = [];
+  let lastKey;
+  do {
+    const result = await doc.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression:
+          "begins_with(sk, :evidence) AND completedAt > :since AND (#runType = :unscored OR #runType = :legacy)",
+        ExpressionAttributeNames: { "#runType": "runType" },
+        ExpressionAttributeValues: {
+          ":evidence": "EVIDENCE#",
+          ":since": new Date(sinceTime).toISOString(),
+          ":unscored": "unscored",
+          ":legacy": "rejected",
+        },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    unscored.push(...(result.Items ?? []));
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+  const unscoredDecisions = await loadDecisions(
+    doc,
+    unscored.map((item) => String(item.runId ?? "")).filter(Boolean),
+  );
+  for (const item of unscored) {
+    const playerId = await playerIdForSub(doc, String(item.playerSub));
+    if (!playerId) continue;
+    const decision = unscoredDecisions.get(String(item.runId));
+    entries.push({
+      scope: "unscored",
+      mode: item.mode,
+      seasonId: item.seasonId,
+      playerId,
+      runId: item.runId,
+      completedAt: item.completedAt,
+      integrityOutcome: item.integrityOutcome,
+      ...(decision ? { decision: sanitizeRecord(decision) } : {}),
+    });
   }
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");

@@ -721,8 +721,8 @@ export class Repository {
   }
 
   // Referee-grade evidence, written best-effort by the caller after a recorded
-  // ranked completion (accepted or quarantined) or a scorer-rejected signed-in
-  // completion. A plain put (no condition): the evidence sk embeds
+  // ranked completion (accepted or quarantined) or an unscored signed-in
+  // attempt. A plain put (no condition): the evidence sk embeds
   // completedAt+runId, so it is unique, and a failed write must never affect the
   // recorded run. Lives under PLAYER#{sub} so account deletion sweeps it.
   async putRefereeEvidence(item: EvidenceItem): Promise<void> {
@@ -852,6 +852,7 @@ export class Repository {
         .digest("hex");
       const decision = {
         runId: run.runId,
+        subjectType: "ranked_run",
         disposition: "review",
         visibility: "hidden",
         reason: automaticReviewReason,
@@ -1039,6 +1040,12 @@ export class Repository {
       );
       pagesRead += 1;
       const pageItems = (result.Items ?? []) as Array<Record<string, unknown>>;
+      if (pageItems.some((item) => typeof item.runId !== "string"))
+        throw new HttpError(
+          503,
+          "Leaderboard run history is briefly unavailable. Try again.",
+          "leaderboard_history_unavailable",
+        );
       const decisions = await this.refereeDecisions(
         pageItems
           .map((item) => (typeof item.runId === "string" ? item.runId : ""))
@@ -1088,7 +1095,11 @@ export class Repository {
           ExclusiveStartKey: lastKey,
         }),
       );
-      const pageItems = (result.Items ?? []) as Array<Record<string, unknown>>;
+      const pageItems = await Promise.all(
+        ((result.Items ?? []) as Array<Record<string, unknown>>).map((item) =>
+          this.resolveAllTimeEarningRun(item, mode),
+        ),
+      );
       const decisions = await this.refereeDecisions(
         pageItems
           .map((item) => (typeof item.runId === "string" ? item.runId : ""))
@@ -1176,6 +1187,43 @@ export class Repository {
         );
     }
     return decisions;
+  }
+
+  private async resolveAllTimeEarningRun(
+    item: Record<string, unknown>,
+    mode: GameMode,
+  ): Promise<Record<string, unknown>> {
+    if (typeof item.runId === "string") return item;
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${String(item.playerSub)}`,
+            ":prefix": "RUN#",
+          },
+          ExclusiveStartKey: lastKey,
+          Limit: 500,
+        }),
+      );
+      const match = (result.Items ?? []).find(
+        (run) =>
+          run.mode === mode &&
+          run.score === item.score &&
+          run.completedAt === item.completedAt &&
+          (item.timeMs === undefined || run.timeMs === item.timeMs),
+      );
+      if (typeof match?.runId === "string")
+        return { ...item, runId: match.runId };
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+    throw new HttpError(
+      503,
+      "Leaderboard run history is briefly unavailable. Try again.",
+      "leaderboard_history_unavailable",
+    );
   }
 
   private async bestVisibleRun(
