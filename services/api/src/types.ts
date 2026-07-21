@@ -104,7 +104,9 @@ export interface Correlation {
   uaFamily?: string;
 }
 
-// Referee-grade evidence for one recorded (ranked) or rejected signed-in run.
+// Referee-grade evidence for one recorded (ranked) or scorer-rejected signed-in
+// run. Ranked evidence may be accepted immediately or automatically quarantined
+// for referee review.
 // Co-located under the player partition (PLAYER#{sub}) so account deletion
 // sweeps it automatically. Contains NO email. Scripts map sub -> playerId on the
 // way out; the referee never sees sub.
@@ -116,7 +118,7 @@ export interface EvidenceItem {
   mode: GameMode;
   seasonId: string;
   runType: "ranked" | "rejected";
-  // "accepted" for a recorded ranked run, or the reject reason string.
+  // "accepted" for a clear ranked run, or the integrity/scorer reason string.
   integrityOutcome: string;
   score?: number;
   tiebreakMs?: number;
@@ -131,6 +133,27 @@ export interface EvidenceItem {
   schemaVersion: "1";
   // Epoch seconds; DynamoDB TTL sweeps the item after the review window.
   expiresAt: number;
+}
+
+export type RefereeDisposition =
+  "clear" | "watch" | "review" | "insufficient_evidence";
+
+export type RefereeVisibility = "visible" | "hidden";
+
+// Independent referee judgment for a ranked run. The current item controls
+// public leaderboard visibility; immutable DECISION# history items provide the
+// audit trail. Scores, transcripts, and player records remain untouched.
+export interface RefereeDecision {
+  pk: string; // REFEREE#{runId}
+  sk: "CURRENT" | `DECISION#${string}`;
+  runId: string;
+  disposition: RefereeDisposition;
+  visibility: RefereeVisibility;
+  reason: string;
+  evidenceDigest: string;
+  decidedAt: string;
+  decidedBy: "fair-play-referee" | "integrity-gate";
+  schemaVersion: "1";
 }
 
 export interface CrProfileSnapshot {

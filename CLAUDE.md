@@ -43,15 +43,18 @@ Doc map:
 6. **Fan-content & copyright.** Card art is used under Supercell's Fan Content
    Policy: non-commercial, attributed, keep the footer disclaimer. Don't reproduce
    other copyrighted text.
-7. **Referee evidence is a one-way, sanitized surface.** Fair Play Referee
+7. **Referee evidence is sanitized; decisions are a bounded overlay.** Fair Play Referee
    evidence lives under `PLAYER#{sub}/EVIDENCE#` (written best-effort at
-   `/runs/complete` for accepted ranked + rejected signed-in runs; never practice
+   `/runs/complete` for recorded ranked (accepted or quarantined) +
+   scorer-rejected signed-in runs; never practice
    or guest) and holds the challenge, transcript, timing, versions, and
    **peppered** correlation hashes — **never a raw IP or user-agent**.
    `TELEMETRY_PEPPER` is Lambda-only: never put it in the `AGENT-TEAM/scripts`,
-   the read-only `RefereeReadRole`, CI, or the browser. The `AGENT-TEAM/scripts`
-   are the **only** sanctioned referee data path; they emit the pseudonymous
-   `playerId`, never `sub` or email, and fail closed.
+   the referee role, CI, or the browser. The `AGENT-TEAM/scripts` are the
+   **only** sanctioned referee data and decision path; they emit the
+   pseudonymous `playerId`, never `sub` or email, and fail closed. The role may
+   write only `REFEREE#` decision partitions. Leaderboards honor a reversible
+   `hidden`/`visible` decision without changing canonical runs or scores.
 
 ---
 
@@ -141,7 +144,7 @@ rank-oriented fields as part of unrelated work.
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only.
 - **CR profile snapshots are practice context, not rank context.** Store CR name,
-  clan, Years Played account age, and card *count*. Do not add experience,
+  clan, Years Played account age, and card _count_. Do not add experience,
   arenas, trophies, wins, or card levels, and do not render the CR card
   collection (removed — it has no use in Drop; the count stays). Player tags
   remain unverified ownership. Drop's own arena (below) is a native construct

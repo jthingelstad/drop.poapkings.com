@@ -742,52 +742,30 @@ async function route(event: APIGatewayProxyEventV2) {
     }
 
     const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
-    if (!integrity.eligible) {
-      // An implausible/impossible run is rejected outright (like a scorer
-      // reject): not recorded, not credited. The run row stays "started" so it
-      // TTL-expires on its own. Surface it in the logs the same way.
-      console.warn("Run completion rejected by integrity check", {
-        requestId: event.requestContext.requestId,
-        runId: run.runId,
-        mode: run.mode,
-        score,
-        reason: integrity.reason,
-        wallElapsedMs,
-      });
-      // Referee evidence for the rejected signed-in run (best-effort). The score
-      // was computed here, so include it alongside the integrity reason.
-      try {
-        await repository.putRefereeEvidence(
-          buildEvidenceItem({
-            sub: run.owner,
-            runId: run.runId,
-            mode: run.mode,
-            seasonId: season.id,
-            runType: "rejected",
-            integrityOutcome: integrity.reason,
-            score,
-            challenge: run.challenge,
-            transcript,
-            startedAt: run.startedAt,
-            completedAt: new Date().toISOString(),
-            wallElapsedMs,
-            webVersion: config.webVersion,
-            startCorrelation: run.startCorrelation,
-            completeCorrelation,
-          }),
-        );
-      } catch (evidenceError) {
-        console.warn("Referee evidence (integrity reject) write failed", {
-          runId: run.runId,
-          error:
-            evidenceError instanceof Error ? evidenceError.name : "unknown",
-        });
-      }
+    const automaticReviewReason =
+      !integrity.eligible && run.ranked !== false
+        ? integrity.reason
+        : undefined;
+    if (!integrity.eligible && run.ranked === false) {
       throw new HttpError(
         400,
         "This game could not be verified and was not recorded.",
         "integrity_rejected",
       );
+    }
+    if (automaticReviewReason) {
+      // The scorer produced a structurally valid score, so preserve the exact
+      // run and quarantine it from public rankings. This makes a false positive
+      // reversible while preventing a suspicious score from ever appearing on
+      // the leaderboard before referee review.
+      console.warn("Run completion quarantined by integrity check", {
+        requestId: event.requestContext.requestId,
+        runId: run.runId,
+        mode: run.mode,
+        score,
+        reason: automaticReviewReason,
+        wallElapsedMs,
+      });
     }
     const xpAward = runXp(transcript);
     // Survival ranks equal streaks by fastest cumulative time.
@@ -799,6 +777,7 @@ async function route(event: APIGatewayProxyEventV2) {
       season.id,
       xpAward,
       tiebreakMs,
+      automaticReviewReason,
     );
     // Fold the validated transcript into the player's server-side learning
     // stats. Best-effort: a stats failure must never fail a recorded game.
@@ -835,8 +814,9 @@ async function route(event: APIGatewayProxyEventV2) {
           error: error instanceof Error ? error.name : "unknown",
         });
       }
-      // Referee evidence for the accepted ranked run (best-effort; never fails
-      // or rolls back the recorded run). Practice is ranked:false, so this
+      // Referee evidence for every recorded ranked run, including runs that the
+      // automatic integrity gate quarantined for review. Best-effort; never
+      // fails or rolls back the recorded run. Practice is ranked:false, so this
       // branch naturally excludes it — practice writes no evidence.
       try {
         await repository.putRefereeEvidence(
@@ -846,7 +826,7 @@ async function route(event: APIGatewayProxyEventV2) {
             mode: run.mode,
             seasonId: season.id,
             runType: "ranked",
-            integrityOutcome: "accepted",
+            integrityOutcome: automaticReviewReason ?? "accepted",
             score,
             tiebreakMs,
             challenge: run.challenge,
@@ -868,7 +848,7 @@ async function route(event: APIGatewayProxyEventV2) {
       }
     }
     let crProfile: CrProfileSnapshot | undefined;
-    if (result.profile.playerTag) {
+    if (!automaticReviewReason && result.profile.playerTag) {
       try {
         crProfile = await repository.getCrProfile(result.profile.playerTag);
       } catch (error) {
@@ -878,24 +858,34 @@ async function route(event: APIGatewayProxyEventV2) {
         });
       }
     }
-    console.info("Game completed", {
-      runId: run.runId,
-      mode: run.mode,
-      score,
-      seasonId: season.id,
-    });
-    await publishDiscordEvent(
-      config.discordWebhookUrl,
-      completedGameWebhookPayload({
+    console.info(
+      automaticReviewReason
+        ? "Game completed under referee review"
+        : "Game completed",
+      {
         runId: run.runId,
         mode: run.mode,
         score,
         seasonId: season.id,
-        completedAt: result.completedAt,
-        profile: result.profile,
-        crProfile,
-      }),
+        ...(automaticReviewReason
+          ? { reviewReason: automaticReviewReason }
+          : {}),
+      },
     );
+    if (!automaticReviewReason) {
+      await publishDiscordEvent(
+        config.discordWebhookUrl,
+        completedGameWebhookPayload({
+          runId: run.runId,
+          mode: run.mode,
+          score,
+          seasonId: season.id,
+          completedAt: result.completedAt,
+          profile: result.profile,
+          crProfile,
+        }),
+      );
+    }
     return json(201, {
       accepted: true,
       runId: run.runId,
@@ -904,6 +894,7 @@ async function route(event: APIGatewayProxyEventV2) {
       season,
       ranked: run.ranked !== false,
       completedAt: result.completedAt,
+      ...(automaticReviewReason ? { underReview: true } : {}),
       totalGames: result.totalGames,
       xp: result.profile.xp ?? 0,
       ...levelForGames(result.totalGames),

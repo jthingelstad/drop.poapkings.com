@@ -119,12 +119,16 @@ levels, and delivery failure never blocks queue completion.
 
 ## Referee evidence
 
-On `/runs/complete`, the API writes best-effort **referee evidence** for
-accepted **ranked** runs (after `completeRun` and the learning-stats block) and
-for **rejected signed-in** runs (both the scorer-reject and integrity-reject
-branches, before the 400). Practice (`ranked:false`) and guest runs write none.
-The write is best-effort like learning stats: it is wrapped so it can never fail
-or roll back a recorded run.
+On `/runs/complete`, the API writes best-effort **referee evidence** for every
+recorded **ranked** run (after `completeRun` and the learning-stats block) and
+for scorer-rejected signed-in runs (before the 400). A structurally valid run
+that fails the plausibility check is recorded with an automatic
+`review`/`hidden` decision in the same transaction, returns
+`underReview: true`, and writes ranked evidence with the review reason. It is
+excluded from seasonal and all-time leaderboards unless the referee approves
+it. Practice (`ranked:false`) and guest runs write none. The evidence write is
+best-effort like learning stats: it is wrapped so it can never fail or roll back
+a recorded run.
 
 `referee-evidence.ts` shapes and stamps each item; `repository.putRefereeEvidence`
 does the plain put. Items live at `PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}`
@@ -142,9 +146,13 @@ rules change so historical evidence stays interpretable.
 HMAC hashes of the request IP and user-agent (`deriveCorrelation`) and discards
 the raw values — no raw IP or user-agent is ever stored. `TELEMETRY_PEPPER` is a
 required server secret (Lambda env only, guarded like `SESSION_SECRET`; never in
-the referee scripts, the read-only role, CI, or the browser). The read surface is
-the read-only scripts in `AGENT-TEAM/scripts/` (see that README), run under the
-`RefereeReadRole`; they never see the pepper, `sub`, email, or a raw IP.
+the referee scripts, the referee role, CI, or the browser). The bounded surface
+is in `AGENT-TEAM/scripts/` (see that README), run under `RefereeReadRole`; the
+physical name is retained for compatibility. Scripts never see the pepper,
+`sub`, email, or a raw IP. The role may write only independent `REFEREE#`
+decision records. Repository leaderboard reads apply those decisions, falling
+back to a player's next-best visible run when a best run is hidden and restoring
+the original ordering after approval.
 
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.

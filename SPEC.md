@@ -54,14 +54,14 @@ Hard product constraints:
 
 The repository uses npm workspaces:
 
-| Workspace / directory    | Responsibility                                      | Status      |
-| ------------------------ | --------------------------------------------------- | ----------- |
-| `apps/web`               | Public Preact game                                  | Implemented |
-| `services/api`           | TypeScript Lambda player and game API               | Implemented |
-| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker                    | Implemented |
-| `packages/contracts`     | Shared browser/server TypeScript contracts          | Implemented |
-| `packages/game-data`     | Canonical card facts                                | Implemented |
-| `infra`                  | CloudFormation and SDK deployment automation        | Implemented |
+| Workspace / directory    | Responsibility                               | Status      |
+| ------------------------ | -------------------------------------------- | ----------- |
+| `apps/web`               | Public Preact game                           | Implemented |
+| `services/api`           | TypeScript Lambda player and game API        | Implemented |
+| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker             | Implemented |
+| `packages/contracts`     | Shared browser/server TypeScript contracts   | Implemented |
+| `packages/game-data`     | Canonical card facts                         | Implemented |
+| `infra`                  | CloudFormation and SDK deployment automation | Implemented |
 
 The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Fastmail JMAP, Bedrock,
 and CloudFormation. The local bridge long-polls SQS with its own queue-only IAM
@@ -296,16 +296,20 @@ returns a distinct minimal shape `{ accepted: true, guest: true, mode, score,
 season }`. A `/runs/complete` carrying a non-guest run token still requires a
 session that owns the run.
 
-Anti-cheat is by rejection, not review. `services/api/src/integrity.ts` checks
-each recomputed score for plausibility (in-range score, timed-mode score floors,
-and a continuous-mode completion-rate ceiling); an implausible or impossible run
-returns `400 integrity_rejected` and is neither recorded nor credited — the run
-row is left to TTL-expire, exactly like a scorer reject. Practice is unranked and
-only feeds XP, so it is checked for score range alone. Guest runs skip the
-integrity gate entirely because they are never recorded. Completion and the
-public read endpoints are also IP rate-limited (guests included, since the
-per-IP `run-start`/`run-complete` limits run before any auth branch;
-`/runs/complete` at 300/hour; the shared
+Anti-cheat separates invalid input from suspicious valid play. A transcript that
+fails deterministic scoring remains rejected with `400` and is not recorded.
+When `services/api/src/integrity.ts` finds a structurally valid ranked run
+implausible (an out-of-range score, timed-mode score floor, or continuous-mode
+completion-rate ceiling), completion atomically records the run **and** creates
+a `review`/`hidden` decision before the score can appear publicly. The response
+includes `underReview: true`; Discord promotion is suppressed. The Fair Play
+Referee can confirm the hide or approve a false positive by writing a new,
+audited visible decision. Practice is unranked and only feeds XP, so it is
+checked for score range alone. Guest runs skip the integrity gate entirely
+because they are never recorded. Completion and the public read endpoints are
+also IP rate-limited (guests included, since the per-IP
+`run-start`/`run-complete` limits run before any auth branch; `/runs/complete`
+at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
 
 Authenticated public identity is centered on one favorite card:
@@ -324,7 +328,7 @@ Authenticated public identity is centered on one favorite card:
 - Clash Royale player tags are separate and unverified. Saving or reading a
   stale tag queues a refresh; snapshots are fresh for six hours and shared by
   tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
-  the owned-card *count*. Experience, arena, trophies, wins, card levels, and
+  the owned-card _count_. Experience, arena, trophies, wins, card levels, and
   the card collection grid are excluded — the grid has no use in Drop, only the
   count is shown. Drop's own arena (per-player, from Player XP) is native and
   unrelated to CR arenas.
@@ -451,22 +455,26 @@ workspace READMEs.
 
 Drop durably persists **referee-grade evidence** so the external Fair Play
 Referee (`AGENT-TEAM/fair-play-referee.md`) can review leaderboard integrity
-against exact server-side facts. This is Drop-side support only; the referee
-agent and its private disposition/watermark store are out of scope.
+against exact server-side facts and make reversible run-visibility decisions.
+The agent owns its judgment; Drop stores the audited decision overlay and
+reconciles it into public leaderboards.
 
 **What is captured.** On `/runs/complete`, best-effort (never failing or rolling
 back a recorded run), one evidence item is written for:
 
-- an **accepted ranked** run (the core case), and
-- a **rejected signed-in** run (scorer reject or integrity reject).
+- a **recorded ranked** run, whether accepted immediately or automatically
+  quarantined for review, and
+- a **scorer-rejected signed-in** run for which no valid score could be
+  produced.
 
 Practice (`ranked:false`) and guest runs write **no** evidence.
 
 **Where it lives.** `PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}` in the main
 table, co-located with the player's partition so account deletion
 (`DELETE /me`) sweeps it for free. Each item carries: `runId`, `mode`,
-`seasonId`, `runType` (`ranked`/`rejected`), `integrityOutcome` (`accepted` or
-the reject reason), server-recomputed `score` (+ Survival `tiebreakMs`), the full
+`seasonId`, `runType` (`ranked`/`rejected`), `integrityOutcome` (`accepted`, an
+automatic-review reason, or a scorer-reject reason), server-recomputed `score`
+(+ Survival `tiebreakMs`), the full
 signed `challenge`, the full raw `transcript`, `startedAt`/`completedAt`/
 `wallElapsedMs`, a `scoringVersion` (`{ web: build sha, rules: SCORING_RULES_VERSION }`),
 the normalized unverified `playerTag`, a `schemaVersion`, and an `expiresAt` TTL
@@ -479,8 +487,8 @@ all-time entries (the referee rubric handles this); lengthen the TTL
 
 ### Connection correlation without storing IPs
 
-The referee must be able to show that *"games from different players share one
-source"* **without Drop storing the actual IP or user-agent**.
+The referee must be able to show that _"games from different players share one
+source"_ **without Drop storing the actual IP or user-agent**.
 
 - On start **and** complete, Drop reads `sourceIp` / `user-agent`, immediately
   derives peppered HMAC hashes, and **discards the raw values** — they are never
@@ -493,23 +501,29 @@ source"* **without Drop storing the actual IP or user-agent**.
   reversible** to an IP without the pepper.
 - **`TELEMETRY_PEPPER`** is a required server secret, guarded like
   `SESSION_SECRET`: Lambda env only, **never** in the read scripts, the
-  `RefereeReadRole`, CI, or the browser. A stable pepper enables long-window
+  referee role, CI, or the browser. A stable pepper enables long-window
   correlation (default); rotating it strengthens privacy but shortens the
-  correlation window. Anyone holding the pepper *and* table read could brute the
+  correlation window. Anyone holding the pepper _and_ table read could brute the
   ~2³² IPv4 space, which is exactly why the pepper is Lambda-only and the
   referee only ever sees opaque tokens.
 
-### Read surface
+### Referee surface
 
-The referee reads via purpose-built, read-only scripts in `AGENT-TEAM/scripts/`
-(documented in that directory's README), run under the read-only
-`RefereeReadRole` (DynamoDB read only; no write; no secret access). A sparse
+The referee operates via purpose-built scripts in `AGENT-TEAM/scripts/`
+(documented in that directory's README), run under the bounded
+`RefereeReadRole` (physical name retained for compatibility). It can read the
+game table and write only `REFEREE#` decision partitions; it cannot edit runs,
+scores, evidence, players, XP, or leaderboard rows and has no secret access. A sparse
 `GSI2` (`GSI2PK="TAGGED"`, `GSI2SK="{normalizedPlayerTag}#{playerId}"` on tagged
 PROFILE items) backs player-tag clustering, and `runId` on the all-time item
 resolves an all-time board entry to its earning run. The scripts sanitize on the
 way out (pseudonymous `playerId`, opaque hashes, normalized tag — never `sub`,
 email, a raw IP, or the pepper) and **fail closed** on missing or incomplete
-evidence.
+evidence. Each current decision records disposition, `visible`/`hidden`, a
+private reason, evidence digest, and timestamp, with immutable decision history.
+Season and all-time reads omit hidden runs; if a hidden run was a player's best,
+the board uses that player's next-best visible run. Approval restores the run at
+its correct rank.
 
 ---
 

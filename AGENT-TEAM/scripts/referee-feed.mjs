@@ -10,12 +10,13 @@ import {
   client,
   currentSeasonId,
   failClosed,
-  leaderboardPartition,
+  loadDecisions,
   parseFlags,
   playerIdForSub,
   print,
-  queryLeaderboard,
   RANKED_MODES,
+  sanitizeRecord,
+  visibleLeaderboardRows,
 } from "./_referee-lib.mjs";
 
 const { flags } = parseFlags(process.argv.slice(2));
@@ -36,12 +37,17 @@ try {
       ["season", seasonId],
       ["all-time", "ALLTIME"],
     ]) {
-      const rows = await queryLeaderboard(doc, leaderboardPartition(sid, mode));
+      const { rows } = await visibleLeaderboardRows(doc, sid, mode, scope, 25);
+      const decisions = await loadDecisions(
+        doc,
+        rows.map((row) => String(row.runId ?? "")).filter(Boolean),
+      );
       for (const row of rows) {
         if (!row.completedAt || Date.parse(row.completedAt) <= sinceTime)
           continue;
         const playerId = await playerIdForSub(doc, String(row.playerSub));
         if (!playerId) continue;
+        const decision = decisions.get(String(row.runId));
         entries.push({
           scope,
           mode,
@@ -50,6 +56,7 @@ try {
           runId: row.runId,
           score: row.score,
           completedAt: row.completedAt,
+          ...(decision ? { decision: sanitizeRecord(decision) } : {}),
         });
       }
     }

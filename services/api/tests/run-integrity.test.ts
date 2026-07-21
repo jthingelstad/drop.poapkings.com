@@ -9,9 +9,13 @@ import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
+  getCardStats: vi.fn(async () => ({})),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
   getRun: vi.fn(),
+  putRefereeEvidence: vi.fn(),
+  saveCardStats: vi.fn(),
+  updateAllTimeBest: vi.fn(),
   useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
@@ -19,9 +23,13 @@ const publishDiscordEvent = vi.hoisted(() => vi.fn());
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     completeRun = repository.completeRun;
+    getCardStats = repository.getCardStats;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
     getRun = repository.getRun;
+    putRefereeEvidence = repository.putRefereeEvidence;
+    saveCardStats = repository.saveCardStats;
+    updateAllTimeBest = repository.updateAllTimeBest;
     useRateLimit = repository.useRateLimit;
   },
 }));
@@ -110,10 +118,12 @@ describe("run integrity rejection", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.putRefereeEvidence.mockResolvedValue(undefined);
+    repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
 
-  it("rejects an implausibly fast run and records nothing", async () => {
+  it("records an implausible run under hidden referee review", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -136,6 +146,11 @@ describe("run integrity rejection", () => {
       startedAt: new Date(Date.now() - 10_000).toISOString(),
       expiresAt: nowSeconds + 1_800,
     });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5, xp: 45 },
+    });
 
     const response = (await handler(
       completionEvent(runToken),
@@ -144,12 +159,26 @@ describe("run integrity rejection", () => {
     )) as APIGatewayProxyStructuredResultV2;
     const body = JSON.parse(response.body || "{}");
 
-    // The run is rejected outright — not recorded, not credited, and the run
-    // row is left "started" to TTL-expire on its own.
-    expect(response.statusCode).toBe(400);
-    expect(body.error?.code).toBe("integrity_rejected");
-    expect(repository.completeRun).not.toHaveBeenCalled();
+    // The structurally valid run is retained but hidden atomically so the
+    // referee can either confirm the quarantine or restore a false positive.
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-fast" }),
+      expect.any(Number),
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      "score_below_ui_floor",
+    );
     expect(repository.getProfile).not.toHaveBeenCalled();
+    expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-fast",
+        runType: "ranked",
+        integrityOutcome: "score_below_ui_floor",
+      }),
+    );
     expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 });

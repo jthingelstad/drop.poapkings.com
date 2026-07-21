@@ -12,7 +12,7 @@ Parameters:
   TelemetryPepper:
     Type: String
     NoEcho: true
-    Description: Server-only pepper for referee connection-correlation HMACs. Lambda env only; never exposed to the referee scripts, the read-only role, CI, or the browser.
+    Description: Server-only pepper for referee connection-correlation HMACs. Lambda env only; never exposed to the referee scripts, referee role, CI, or the browser.
   FastmailJmapToken:
     Type: String
     NoEcho: true
@@ -256,12 +256,12 @@ Resources:
                   - logs:PutLogEvents
                 Resource: !GetAtt MailCanaryLogGroup.Arn
 
-  # Read-only identity the referee host assumes to run the AGENT-TEAM/scripts.
-  # DynamoDB reads only — no write actions, and NO access to any secret (so it
-  # can never reverse a correlation hash to an IP: the pepper is Lambda-only).
-  # The trust policy allows the account root to assume it; the managed host,
-  # which already authenticates to this account, assumes this role so a script
-  # bug can never write. Keep the scope to the table and its indexes.
+  # Referee identity for evidence review and reversible run judgments. It reads
+  # the canonical evidence surface and may write only REFEREE# decision
+  # partitions; it cannot alter players, runs, scores, evidence, or leaderboard
+  # index rows, and has NO access to any secret (the pepper is Lambda-only).
+  # The physical name is retained for compatibility with the managed host's
+  # existing AWS profile even though the role is no longer strictly read-only.
   RefereeReadRole:
     Type: AWS::IAM::Role
     Properties:
@@ -274,7 +274,7 @@ Resources:
               AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: elixir-drop-referee-read-only
+        - PolicyName: elixir-drop-referee-bounded
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -287,6 +287,15 @@ Resources:
                 Resource:
                   - !GetAtt DataTable.Arn
                   - !Sub "${DataTable.Arn}/index/*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:TransactWriteItems
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - REFEREE#*
 
   ApiFunction:
     Type: AWS::Lambda::Function
@@ -716,4 +725,4 @@ Outputs:
     Value: !Ref AlarmTopic
   RefereeReadRoleArn:
     Value: !GetAtt RefereeReadRole.Arn
-    Description: Read-only DynamoDB role the referee host assumes to run AGENT-TEAM/scripts.
+    Description: Bounded referee role for evidence reads and REFEREE# decision writes.

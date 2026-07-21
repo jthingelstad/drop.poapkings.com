@@ -8,17 +8,20 @@
 import {
   client,
   failClosed,
+  loadDecisions,
   parseFlags,
   print,
   QueryCommand,
   sanitize,
+  sanitizeRecord,
   subForPlayerId,
   TABLE_NAME,
 } from "./_referee-lib.mjs";
 
 const { positional } = parseFlags(process.argv.slice(2));
 const playerId = positional[0];
-if (!playerId) failClosed("missing_player_id", "usage: referee-player.mjs <playerId>");
+if (!playerId)
+  failClosed("missing_player_id", "usage: referee-player.mjs <playerId>");
 
 const doc = client();
 
@@ -28,7 +31,8 @@ try {
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
-if (!sub) failClosed("player_not_found", `No profile maps to playerId ${playerId}`);
+if (!sub)
+  failClosed("player_not_found", `No profile maps to playerId ${playerId}`);
 
 const runs = [];
 let lastKey;
@@ -38,7 +42,10 @@ try {
       new QueryCommand({
         TableName: TABLE_NAME,
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
-        ExpressionAttributeValues: { ":pk": `PLAYER#${sub}`, ":prefix": "RUN#" },
+        ExpressionAttributeValues: {
+          ":pk": `PLAYER#${sub}`,
+          ":prefix": "RUN#",
+        },
         ScanIndexForward: true,
         ExclusiveStartKey: lastKey,
         Limit: 500,
@@ -51,16 +58,28 @@ try {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
 
+let decisions;
+try {
+  decisions = await loadDecisions(
+    doc,
+    runs.map((run) => String(run.runId ?? "")).filter(Boolean),
+  );
+} catch (error) {
+  failClosed("read_failed", error instanceof Error ? error.message : "unknown");
+}
+
 // Per-mode progression: scores in completion order.
 const byMode = {};
 for (const run of runs) {
   const mode = String(run.mode);
+  const decision = decisions.get(String(run.runId));
   (byMode[mode] ??= []).push({
     runId: run.runId,
     score: run.score,
     seasonId: run.seasonId,
     completedAt: run.completedAt,
     ...(run.timeMs !== undefined ? { timeMs: run.timeMs } : {}),
+    ...(decision ? { decision: sanitizeRecord(decision) } : {}),
   });
 }
 

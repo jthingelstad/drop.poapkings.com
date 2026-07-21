@@ -57,6 +57,139 @@ describe("repository DynamoDB requests", () => {
     expect(entries).toMatchObject([{ player: { publicName: "Knight Ace" } }]);
   });
 
+  it("hides a referee-reviewed season run and promotes the next visible scores", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-a-hidden",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-18T12:01:00.000Z",
+          },
+          {
+            runId: "run-a-visible",
+            playerSub: "player-a",
+            score: 13_000,
+            completedAt: "2026-07-18T12:02:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              pk: "REFEREE#run-a-hidden",
+              sk: "CURRENT",
+              runId: "run-a-hidden",
+              visibility: "hidden",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").leaderboard(
+      "surge",
+      "2026-07",
+      10,
+    );
+    const decisionRead = send.mock.calls[1]?.[0];
+    expect(decisionRead.input.RequestItems["test-table"].ConsistentRead).toBe(
+      true,
+    );
+
+    expect(entries).toMatchObject([
+      { rank: 1, score: 12_000, player: { publicName: "Bolt" } },
+      { rank: 2, score: 13_000, player: { publicName: "Ace" } },
+    ]);
+  });
+
+  it("restores an approved run to its correct leaderboard rank", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-approved",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-18T12:01:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              pk: "REFEREE#run-approved",
+              sk: "CURRENT",
+              runId: "run-approved",
+              disposition: "clear",
+              visibility: "visible",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").leaderboard(
+      "surge",
+      "2026-07",
+      10,
+    );
+
+    expect(entries).toMatchObject([
+      { rank: 1, score: 10_000, player: { publicName: "Ace" } },
+      { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
+    ]);
+  });
+
   it("marks every claimed Clash Royale refresh as pending", async () => {
     send.mockResolvedValueOnce({});
 
@@ -190,6 +323,63 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
   });
 
+  it("atomically hides an integrity-flagged ranked run for referee review", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 5,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:01:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-review",
+      sk: "RUN",
+      runId: "run-review",
+      owner: "player-sub",
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+    };
+
+    await new Repository("test-table").completeRun(
+      run,
+      1_000,
+      "2026-07",
+      45,
+      undefined,
+      "score_below_ui_floor",
+    );
+
+    const items = send.mock.calls[0]?.[0].input.TransactItems;
+    expect(items).toHaveLength(6);
+    const history = items[4]?.Put;
+    const current = items[5]?.Put;
+    expect(history?.Item).toMatchObject({
+      pk: "REFEREE#run-review",
+      runId: "run-review",
+      disposition: "review",
+      visibility: "hidden",
+      reason: "score_below_ui_floor",
+      decidedBy: "integrity-gate",
+      schemaVersion: "1",
+    });
+    expect(history?.Item.sk).toMatch(/^DECISION#/);
+    expect(history?.Item.evidenceDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(history?.ConditionExpression).toBe("attribute_not_exists(pk)");
+    expect(current?.Item).toMatchObject({
+      pk: "REFEREE#run-review",
+      sk: "CURRENT",
+      runId: "run-review",
+      visibility: "hidden",
+    });
+    expect(current?.Item.decidedAt).toBe(history?.Item.decidedAt);
+  });
+
   it("records an unranked run's history without a leaderboard entry", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {
@@ -241,6 +431,15 @@ describe("repository DynamoDB requests", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "REFEREE#run-1", sk: "CURRENT" },
+          {
+            pk: "REFEREE#run-1",
+            sk: "DECISION#2026-07-18T12:05:00.000Z",
+          },
+        ],
+      })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
@@ -254,7 +453,7 @@ describe("repository DynamoDB requests", () => {
     const firstCall = send.mock.calls[0]?.[0].input;
     expect(firstCall.Key).toEqual({ pk: "PLAYER#player-sub", sk: "PROFILE" });
     expect(firstCall.ReturnValues).toBeUndefined();
-    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
+    const batch = send.mock.calls[3]?.[0].input.RequestItems["test-table"];
     expect(batch).toEqual(
       expect.arrayContaining([
         {
@@ -266,23 +465,34 @@ describe("repository DynamoDB requests", () => {
           },
         },
         { DeleteRequest: { Key: { pk: "RUN#run-1", sk: "RUN" } } },
+        {
+          DeleteRequest: { Key: { pk: "REFEREE#run-1", sk: "CURRENT" } },
+        },
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "REFEREE#run-1",
+              sk: "DECISION#2026-07-18T12:05:00.000Z",
+            },
+          },
+        },
       ]),
     );
     expect(JSON.stringify(batch)).not.toContain('"pk":"GLOBAL"');
     // The privacy page promises deletion removes CR-derived data too.
-    const snapshotDelete = send.mock.calls[3]?.[0].input;
+    const snapshotDelete = send.mock.calls[4]?.[0].input;
     expect(snapshotDelete.Key).toEqual({
       pk: "CR_PLAYER##2PYQ0",
       sk: "PROFILE",
     });
-    const profileDelete = send.mock.calls[4]?.[0].input;
+    const profileDelete = send.mock.calls[5]?.[0].input;
     expect(profileDelete.Key).toEqual({
       pk: "PLAYER#player-sub",
       sk: "PROFILE",
     });
   });
 
-  it("sweeps co-located referee evidence when deleting the account", async () => {
+  it("sweeps referee evidence and decision history when deleting the account", async () => {
     send
       .mockResolvedValueOnce({ Item: { totalGames: 3 } })
       .mockResolvedValueOnce({
@@ -294,14 +504,23 @@ describe("repository DynamoDB requests", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "REFEREE#run-1", sk: "CURRENT" },
+          {
+            pk: "REFEREE#run-1",
+            sk: "DECISION#2026-07-18T12:05:00.000Z",
+          },
+        ],
+      })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
     await new Repository("test-table").deleteAccount("player-sub");
 
-    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
-    // The partition query already returns the EVIDENCE# item, so it is deleted
-    // by the same sweep — no separate purge path is needed.
+    const batch = send.mock.calls[3]?.[0].input.RequestItems["test-table"];
+    // The player query returns EVIDENCE#; the follow-up REFEREE# query adds the
+    // independent current decision and its audit history to the same sweep.
     expect(batch).toEqual(
       expect.arrayContaining([
         {
@@ -314,6 +533,17 @@ describe("repository DynamoDB requests", () => {
         },
         // Its runId also enqueues the ephemeral RUN# row for deletion.
         { DeleteRequest: { Key: { pk: "RUN#run-1", sk: "RUN" } } },
+        {
+          DeleteRequest: { Key: { pk: "REFEREE#run-1", sk: "CURRENT" } },
+        },
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "REFEREE#run-1",
+              sk: "DECISION#2026-07-18T12:05:00.000Z",
+            },
+          },
+        },
       ]),
     );
   });
@@ -468,10 +698,85 @@ describe("repository DynamoDB requests", () => {
     expect(query.ExpressionAttributeValues[":pk"]).toBe(
       "LEADERBOARD#ALLTIME#surge",
     );
-    expect(query.Limit).toBe(10);
+    expect(query.Limit).toBe(200);
     expect(entries).toMatchObject([
       { rank: 1, score: 11_000, player: { publicName: "Ace" } },
       { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
+    ]);
+  });
+
+  it("uses the next-best visible run when an all-time best is hidden", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-a-hidden",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-06-01T12:00:00.000Z",
+            GSI1SK: "000010000",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-01T12:00:00.000Z",
+            GSI1SK: "000012000",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              pk: "REFEREE#run-a-hidden",
+              sk: "CURRENT",
+              runId: "run-a-hidden",
+              visibility: "hidden",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-a-fallback",
+            playerSub: "player-a",
+            mode: "surge",
+            score: 13_000,
+            completedAt: "2026-05-01T12:00:00.000Z",
+            GSI1SK: "000013000",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").allTimeLeaderboard(
+      "surge",
+      10,
+    );
+
+    expect(entries).toMatchObject([
+      { rank: 1, score: 12_000, player: { publicName: "Bolt" } },
+      { rank: 2, score: 13_000, player: { publicName: "Ace" } },
     ]);
   });
 });

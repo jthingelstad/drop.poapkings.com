@@ -12,7 +12,7 @@ import {
   type TransactWriteCommandInput,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import { leaderboardPartition, leaderboardSortKey } from "./games.js";
 import type { CardStatsMap } from "./learning.js";
@@ -25,6 +25,7 @@ import type {
   CrProfileSnapshot,
   PlayerProfile,
   PublicProfile,
+  RefereeDecision,
   RunChallenge,
   RunRecord,
   StoredCrWarClock,
@@ -371,6 +372,7 @@ export class Repository {
     );
     const profile = existing.Item as ProfileItem | undefined;
     const keys = new Map<string, { pk: string; sk: string }>();
+    const runIds = new Set<string>();
     let lastKey: Record<string, unknown> | undefined;
     do {
       const result = await client.send(
@@ -385,12 +387,36 @@ export class Repository {
         const key = { pk: String(item.pk), sk: String(item.sk) };
         keys.set(`${key.pk}\0${key.sk}`, key);
         if (typeof item.runId === "string") {
+          runIds.add(item.runId);
           const runKey = { pk: `RUN#${item.runId}`, sk: "RUN" };
           keys.set(`${runKey.pk}\0${runKey.sk}`, runKey);
         }
       }
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
+
+    // Referee decisions deliberately live outside PLAYER# so the referee can
+    // write them without authority over player data. Account deletion still
+    // promises a complete sweep, so remove current + audit history for every
+    // run discovered in the player's partition.
+    for (const runId of runIds) {
+      let decisionLastKey: Record<string, unknown> | undefined;
+      do {
+        const result = await client.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: "pk = :pk",
+            ExpressionAttributeValues: { ":pk": `REFEREE#${runId}` },
+            ExclusiveStartKey: decisionLastKey,
+          }),
+        );
+        for (const item of result.Items ?? []) {
+          const key = { pk: String(item.pk), sk: String(item.sk) };
+          keys.set(`${key.pk}\0${key.sk}`, key);
+        }
+        decisionLastKey = result.LastEvaluatedKey;
+      } while (decisionLastKey);
+    }
 
     const pending: DocumentWriteRequest[] = [...keys.values()].map((Key) => ({
       DeleteRequest: { Key },
@@ -694,11 +720,11 @@ export class Repository {
     return result.Item as RunItem | undefined;
   }
 
-  // Referee-grade evidence, written best-effort by the caller after an accepted
-  // ranked completion or a rejected signed-in completion. A plain put (no
-  // condition): the evidence sk embeds completedAt+runId, so it is unique, and a
-  // failed write must never affect the recorded run. Lives under PLAYER#{sub} so
-  // account deletion sweeps it for free.
+  // Referee-grade evidence, written best-effort by the caller after a recorded
+  // ranked completion (accepted or quarantined) or a scorer-rejected signed-in
+  // completion. A plain put (no condition): the evidence sk embeds
+  // completedAt+runId, so it is unique, and a failed write must never affect the
+  // recorded run. Lives under PLAYER#{sub} so account deletion sweeps it.
   async putRefereeEvidence(item: EvidenceItem): Promise<void> {
     await client.send(
       new PutCommand({
@@ -714,6 +740,7 @@ export class Repository {
     seasonId: string,
     xp: number,
     tiebreakMs?: number,
+    automaticReviewReason?: string,
   ): Promise<{
     totalGames: number;
     completedAt: string;
@@ -804,6 +831,59 @@ export class Repository {
         },
       },
     ];
+
+    // A plausibility failure is a quarantine, not destruction of the run. The
+    // visibility decision is committed atomically with the score so a flagged
+    // result cannot briefly appear on a public leaderboard. The referee may
+    // later replace CURRENT with an audited visible decision; both events stay
+    // in immutable DECISION history.
+    if (ranked && automaticReviewReason) {
+      const evidenceDigest = createHash("sha256")
+        .update(
+          JSON.stringify({
+            runId: run.runId,
+            mode: run.mode,
+            score,
+            startedAt: run.startedAt,
+            completedAt,
+            reason: automaticReviewReason,
+          }),
+        )
+        .digest("hex");
+      const decision = {
+        runId: run.runId,
+        disposition: "review",
+        visibility: "hidden",
+        reason: automaticReviewReason,
+        evidenceDigest,
+        decidedAt: completedAt,
+        decidedBy: "integrity-gate",
+        schemaVersion: "1",
+      };
+      transactionItems.push(
+        {
+          Put: {
+            TableName: this.tableName,
+            Item: {
+              pk: `REFEREE#${run.runId}`,
+              sk: `DECISION#${completedAt}`,
+              ...decision,
+            },
+            ConditionExpression: "attribute_not_exists(pk)",
+          },
+        },
+        {
+          Put: {
+            TableName: this.tableName,
+            Item: {
+              pk: `REFEREE#${run.runId}`,
+              sk: "CURRENT",
+              ...decision,
+            },
+          },
+        },
+      );
+    }
 
     try {
       await client.send(
@@ -958,7 +1038,15 @@ export class Repository {
         }),
       );
       pagesRead += 1;
-      for (const item of result.Items ?? []) {
+      const pageItems = (result.Items ?? []) as Array<Record<string, unknown>>;
+      const decisions = await this.refereeDecisions(
+        pageItems
+          .map((item) => (typeof item.runId === "string" ? item.runId : ""))
+          .filter(Boolean),
+      );
+      for (const item of pageItems) {
+        const decision = decisions.get(String(item.runId));
+        if (decision?.visibility === "hidden") continue;
         const sub = String(item.playerSub);
         if (!seenPlayers.has(sub)) {
           seenPlayers.add(sub);
@@ -983,24 +1071,168 @@ export class Repository {
     mode: GameMode,
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
-    const result = await client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: "GSI1",
-        KeyConditionExpression: "GSI1PK = :pk",
-        ExpressionAttributeValues: {
-          ":pk": leaderboardPartition("ALLTIME", mode),
-        },
-        ScanIndexForward: true,
-        Limit: limit,
-      }),
-    );
-    const items = result.Items ?? [];
+    const reconciled: Array<Record<string, unknown>> = [];
+    let lastKey: Record<string, unknown> | undefined;
+    let pagesRead = 0;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: "GSI1",
+          KeyConditionExpression: "GSI1PK = :pk",
+          ExpressionAttributeValues: {
+            ":pk": leaderboardPartition("ALLTIME", mode),
+          },
+          ScanIndexForward: true,
+          Limit: 200,
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+      const pageItems = (result.Items ?? []) as Array<Record<string, unknown>>;
+      const decisions = await this.refereeDecisions(
+        pageItems
+          .map((item) => (typeof item.runId === "string" ? item.runId : ""))
+          .filter(Boolean),
+      );
+      reconciled.push(
+        ...(
+          await Promise.all(
+            pageItems.map(async (item) => {
+              const decision = decisions.get(String(item.runId));
+              if (decision?.visibility !== "hidden") return item;
+              return this.bestVisibleRun(
+                String(item.playerSub),
+                mode,
+                String(item.runId),
+              );
+            }),
+          )
+        ).filter((item): item is Record<string, unknown> => Boolean(item)),
+      );
+      reconciled.sort((a, b) =>
+        this.leaderboardItemSortKey(a, mode).localeCompare(
+          this.leaderboardItemSortKey(b, mode),
+        ),
+      );
+      lastKey = result.LastEvaluatedKey;
+      pagesRead += 1;
+      // Base all-time rows are ordered. A hidden row can only fall backward to
+      // a worse score, so once the effective cutoff is no worse than the last
+      // base row read, no unseen player can enter the requested top cohort.
+      const cutoff = reconciled[limit - 1];
+      const frontier = pageItems.at(-1);
+      if (
+        cutoff &&
+        frontier &&
+        this.leaderboardItemSortKey(cutoff, mode) <=
+          this.leaderboardItemSortKey(frontier, mode)
+      )
+        break;
+    } while (lastKey && pagesRead < 10);
+
+    const items = reconciled.slice(0, limit);
     const profiles = await this.hydratePublicProfiles([
       ...new Set(items.map((item) => String(item.playerSub))),
     ]);
     return items.map((item, index) =>
       this.toLeaderboardRow(item, index, profiles),
+    );
+  }
+
+  private async refereeDecisions(
+    runIds: string[],
+  ): Promise<Map<string, RefereeDecision>> {
+    const decisions = new Map<string, RefereeDecision>();
+    const uniqueIds = [...new Set(runIds.filter(Boolean))];
+    for (let offset = 0; offset < uniqueIds.length; offset += 100) {
+      let keys: Array<Record<string, unknown>> = uniqueIds
+        .slice(offset, offset + 100)
+        .map((runId) => ({ pk: `REFEREE#${runId}`, sk: "CURRENT" }));
+      for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
+        if (attempt > 0)
+          await new Promise((resolve) =>
+            setTimeout(resolve, 50 * 2 ** attempt),
+          );
+        const result = await client.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [this.tableName]: { Keys: keys, ConsistentRead: true },
+            },
+          }),
+        );
+        for (const item of result.Responses?.[this.tableName] ?? []) {
+          const decision = item as RefereeDecision;
+          decisions.set(decision.runId, decision);
+        }
+        keys = (result.UnprocessedKeys?.[this.tableName]?.Keys ?? []) as Array<
+          Record<string, unknown>
+        >;
+      }
+      if (keys.length)
+        throw new HttpError(
+          503,
+          "Leaderboard review status is briefly unavailable. Try again.",
+          "leaderboard_review_unavailable",
+        );
+    }
+    return decisions;
+  }
+
+  private async bestVisibleRun(
+    sub: string,
+    mode: GameMode,
+    hiddenRunId: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const runs: Array<Record<string, unknown>> = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":prefix": "RUN#",
+          },
+          ExclusiveStartKey: lastKey,
+          Limit: 500,
+        }),
+      );
+      runs.push(
+        ...((result.Items ?? []) as Array<Record<string, unknown>>).filter(
+          (item) => item.mode === mode && item.runId !== hiddenRunId,
+        ),
+      );
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey && runs.length < 2_000);
+
+    const decisions = await this.refereeDecisions(
+      runs
+        .map((item) => (typeof item.runId === "string" ? item.runId : ""))
+        .filter(Boolean),
+    );
+    return runs
+      .filter(
+        (item) => decisions.get(String(item.runId))?.visibility !== "hidden",
+      )
+      .sort((a, b) =>
+        this.leaderboardItemSortKey(a, mode).localeCompare(
+          this.leaderboardItemSortKey(b, mode),
+        ),
+      )[0];
+  }
+
+  private leaderboardItemSortKey(
+    item: Record<string, unknown>,
+    mode: GameMode,
+  ): string {
+    if (typeof item.GSI1SK === "string") return item.GSI1SK;
+    return leaderboardSortKey(
+      mode,
+      Number(item.score),
+      String(item.completedAt),
+      String(item.playerSub),
+      item.timeMs === undefined ? undefined : Number(item.timeMs),
     );
   }
 

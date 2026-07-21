@@ -234,7 +234,7 @@ describe("referee evidence write path", () => {
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
   });
 
-  it("writes rejected evidence for a signed-in integrity-rejected completion", async () => {
+  it("writes ranked evidence for an automatically quarantined completion", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -257,8 +257,13 @@ describe("referee evidence write path", () => {
       startedAt: new Date(Date.now() - 30_000).toISOString(),
       expiresAt: nowSeconds + 1_800,
     });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5 },
+    });
 
-    // A low atMs step keeps the score under the surge UI floor -> integrity reject.
+    // A low atMs step keeps the score under the surge UI floor -> hidden review.
     const response = (await handler(
       signedInEvent({ runToken, transcript: surgeTranscript(100) }),
       {} as Context,
@@ -266,16 +271,24 @@ describe("referee evidence write path", () => {
     )) as APIGatewayProxyStructuredResultV2;
     const body = JSON.parse(response.body || "{}");
 
-    expect(response.statusCode).toBe(400);
-    expect(body.error?.code).toBe("integrity_rejected");
-    expect(repository.completeRun).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-rejected" }),
+      expect.any(Number),
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      "score_below_ui_floor",
+    );
     expect(repository.putRefereeEvidence).toHaveBeenCalledTimes(1);
     const item = repository.putRefereeEvidence.mock.calls[0]?.[0];
     expect(item).toMatchObject({
       runId: "run-rejected",
-      runType: "rejected",
+      runType: "ranked",
       integrityOutcome: "score_below_ui_floor",
     });
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("writes rejected evidence (with the reason, no score) for a scorer-rejected completion", async () => {

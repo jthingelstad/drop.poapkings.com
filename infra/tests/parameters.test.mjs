@@ -155,4 +155,13 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /"events:\*"/);
     assert.match(bootstrap, /"logs:\*"/);
   });
+
+  void it("bounds referee writes to its independent decision partitions", () => {
+    assert.match(template, /PolicyName: elixir-drop-referee-bounded/);
+    assert.match(template, /- dynamodb:TransactWriteItems/);
+    assert.match(template, /dynamodb:LeadingKeys:[\s\S]*- REFEREE#\*/);
+    assert.match(bootstrap, /PolicyName: "elixir-drop-referee-assume"/);
+    assert.match(bootstrap, /Action: "sts:AssumeRole"/);
+    assert.match(bootstrap, /role\/elixir-drop-referee-read/);
+  });
 });

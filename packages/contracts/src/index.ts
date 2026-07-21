@@ -244,6 +244,9 @@ export interface CompletedRun {
   season: Season;
   ranked?: boolean;
   completedAt: string;
+  // The score was recorded but is excluded from public leaderboards pending a
+  // Fair Play Referee decision. Structural scorer failures are still rejected.
+  underReview?: boolean;
   totalGames: number;
   xp: number;
   level: number;

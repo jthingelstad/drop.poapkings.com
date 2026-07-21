@@ -12,13 +12,14 @@
 
 import {
   client,
+  currentDecision,
   failClosed,
+  findEvidenceByRunId,
   parseFlags,
   playerIdForSub,
   print,
   sanitize,
-  ScanCommand,
-  TABLE_NAME,
+  sanitizeRecord,
 } from "./_referee-lib.mjs";
 
 const { positional } = parseFlags(process.argv.slice(2));
@@ -28,34 +29,33 @@ if (!runId) failClosed("missing_run_id", "usage: referee-run.mjs <runId>");
 const doc = client();
 
 let evidence;
-let lastKey;
 try {
-  do {
-    const result = await doc.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: "begins_with(sk, :evidence) AND runId = :runId",
-        ExpressionAttributeValues: {
-          ":evidence": "EVIDENCE#",
-          ":runId": runId,
-        },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    evidence = (result.Items ?? [])[0];
-    lastKey = evidence ? undefined : result.LastEvaluatedKey;
-  } while (!evidence && lastKey);
+  evidence = await findEvidenceByRunId(doc, runId);
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
 
-if (!evidence) failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
+if (!evidence)
+  failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
 
-const playerId = await playerIdForSub(doc, evidence.playerSub);
+let playerId;
+let decision;
+try {
+  [playerId, decision] = await Promise.all([
+    playerIdForSub(doc, evidence.playerSub),
+    currentDecision(doc, runId),
+  ]);
+} catch (error) {
+  failClosed("read_failed", error instanceof Error ? error.message : "unknown");
+}
 if (!playerId) {
   // The owning profile is gone (account deleted): the evidence was swept too, or
   // is mid-deletion. Nothing reviewable.
   failClosed("player_not_found", "Owning profile is absent (deleted account)");
 }
 
-print({ status: "ok", run: sanitize(evidence, playerId) });
+print({
+  status: "ok",
+  run: sanitize(evidence, playerId),
+  ...(decision ? { decision: sanitizeRecord(decision) } : {}),
+});

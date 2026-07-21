@@ -314,6 +314,26 @@ await iam.send(
   }),
 );
 
+// The managed host assumes the bounded referee role for evidence reads and
+// REFEREE# decision writes. Keep this separate from deployment permissions so
+// either capability can be revoked independently.
+await iam.send(
+  new PutUserPolicyCommand({
+    UserName: userName,
+    PolicyName: "elixir-drop-referee-assume",
+    PolicyDocument: JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: "sts:AssumeRole",
+          Resource: `arn:aws:iam::${accountId}:role/elixir-drop-referee-read`,
+        },
+      ],
+    }),
+  }),
+);
+
 const queueArnPrefix = `arn:aws:sqs:${region}:${accountId}`;
 await iam.send(
   new PutUserPolicyCommand({
