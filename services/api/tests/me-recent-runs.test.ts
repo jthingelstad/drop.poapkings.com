@@ -64,6 +64,7 @@ describe("GET /me recent runs", () => {
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
     process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";

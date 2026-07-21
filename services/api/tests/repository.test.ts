@@ -282,6 +282,42 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
+  it("sweeps co-located referee evidence when deleting the account", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3 } })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#player-sub",
+            sk: "EVIDENCE#2026-07-18T12:01:00.000Z#run-1",
+            runId: "run-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").deleteAccount("player-sub");
+
+    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
+    // The partition query already returns the EVIDENCE# item, so it is deleted
+    // by the same sweep — no separate purge path is needed.
+    expect(batch).toEqual(
+      expect.arrayContaining([
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "PLAYER#player-sub",
+              sk: "EVIDENCE#2026-07-18T12:01:00.000Z#run-1",
+            },
+          },
+        },
+        // Its runId also enqueues the ephemeral RUN# row for deletion.
+        { DeleteRequest: { Key: { pk: "RUN#run-1", sk: "RUN" } } },
+      ]),
+    );
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {
@@ -346,6 +382,9 @@ describe("repository DynamoDB requests", () => {
       ),
     );
     expect(update.ExpressionAttributeValues[":playerSub"]).toBe("player-sub");
+    // The earning run id is written so an all-time entry resolves to its run.
+    expect(update.UpdateExpression).toContain("runId = :runId");
+    expect(update.ExpressionAttributeValues[":runId"]).toBe("run-1");
     // No Survival tiebreak here, so timeMs must not be written.
     expect(update.UpdateExpression).not.toContain("timeMs");
   });

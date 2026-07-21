@@ -1,5 +1,6 @@
 const SECRET_PARAMETERS = [
   ["SessionSecret", "SESSION_SECRET"],
+  ["TelemetryPepper", "TELEMETRY_PEPPER"],
   ["FastmailJmapToken", "FASTMAIL_JMAP_TOKEN"],
   ["DiscordWebhookUrl", "ELIXIR_DROP_DISCORD_WEBHOOK_URL"],
 ];

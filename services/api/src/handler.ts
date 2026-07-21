@@ -25,6 +25,7 @@ import {
 } from "./learning.js";
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
+import { buildEvidenceItem, deriveCorrelation } from "./referee-evidence.js";
 import { Repository } from "./repository.js";
 import { createChallenge, scoreRun, survivalTimeMs } from "./scoring.js";
 import { runXp } from "./xp.js";
@@ -514,6 +515,15 @@ async function route(event: APIGatewayProxyEventV2) {
     // and Trophy Road but never write a leaderboard entry. Guest runs are never
     // ranked and never recorded at all.
     const ranked = !isGuest && body.mode !== "practice";
+    // Derive the peppered start-time correlation hashes and discard the raw
+    // IP/user-agent. Done for every run (guest included — it is only two hashes)
+    // so completion evidence can compare start vs complete. The raw values are
+    // never stored.
+    const startCorrelation = deriveCorrelation(
+      config.telemetryPepper,
+      event.requestContext.http.sourceIp,
+      event.headers["user-agent"],
+    );
     const run = await repository.createRun(
       owner,
       body.mode,
@@ -521,6 +531,7 @@ async function route(event: APIGatewayProxyEventV2) {
       nowSeconds + RUN_SECONDS,
       ranked,
       isGuest,
+      startCorrelation,
     );
     const runToken = signToken(
       {
@@ -670,9 +681,19 @@ async function route(event: APIGatewayProxyEventV2) {
         "This run expired before it was completed.",
         "run_expired",
       );
+    // Complete-time correlation hashes, derived and the raw IP/user-agent
+    // discarded. A start/complete mismatch is itself a referee signal.
+    const completeCorrelation = deriveCorrelation(
+      config.telemetryPepper,
+      event.requestContext.http.sourceIp,
+      event.headers["user-agent"],
+    );
     let score: number;
     let transcript: RunTranscript;
     const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
+    // The season is resolved before scoring so a rejected run's evidence can be
+    // filed against the season it was attempted in.
+    const season = seasonForDate(new Date(), await currentWarClock(repository));
     try {
       transcript = requireObject(body.transcript ?? {}) as RunTranscript;
       score = scoreRun(run.challenge, transcript, wallElapsedMs);
@@ -680,17 +701,46 @@ async function route(event: APIGatewayProxyEventV2) {
       // Surface rejected completions in the logs (not just to the player) so we
       // can see when an honest game trips a scorer rule — the run id here
       // matches the one shown to the player.
+      const reason = error instanceof Error ? error.message : "scorer_rejected";
       console.warn("Run completion rejected by scorer", {
         requestId: event.requestContext.requestId,
         runId: run.runId,
         mode: run.mode,
         wallElapsedMs,
-        reason: error instanceof Error ? error.message : "unknown",
+        reason,
       });
+      // Referee evidence for a rejected signed-in run (best-effort; a guest run
+      // returned earlier and writes nothing). The scorer may not have produced a
+      // score, so store the raw submitted transcript and the reason, no score.
+      try {
+        await repository.putRefereeEvidence(
+          buildEvidenceItem({
+            sub: run.owner,
+            runId: run.runId,
+            mode: run.mode,
+            seasonId: season.id,
+            runType: "rejected",
+            integrityOutcome: reason,
+            challenge: run.challenge,
+            transcript: (body.transcript ?? {}) as RunTranscript,
+            startedAt: run.startedAt,
+            completedAt: new Date().toISOString(),
+            wallElapsedMs,
+            webVersion: config.webVersion,
+            startCorrelation: run.startCorrelation,
+            completeCorrelation,
+          }),
+        );
+      } catch (evidenceError) {
+        console.warn("Referee evidence (scorer reject) write failed", {
+          runId: run.runId,
+          error:
+            evidenceError instanceof Error ? evidenceError.name : "unknown",
+        });
+      }
       throw badRequest(error);
     }
 
-    const season = seasonForDate(new Date(), await currentWarClock(repository));
     const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
     if (!integrity.eligible) {
       // An implausible/impossible run is rejected outright (like a scorer
@@ -704,6 +754,35 @@ async function route(event: APIGatewayProxyEventV2) {
         reason: integrity.reason,
         wallElapsedMs,
       });
+      // Referee evidence for the rejected signed-in run (best-effort). The score
+      // was computed here, so include it alongside the integrity reason.
+      try {
+        await repository.putRefereeEvidence(
+          buildEvidenceItem({
+            sub: run.owner,
+            runId: run.runId,
+            mode: run.mode,
+            seasonId: season.id,
+            runType: "rejected",
+            integrityOutcome: integrity.reason,
+            score,
+            challenge: run.challenge,
+            transcript,
+            startedAt: run.startedAt,
+            completedAt: new Date().toISOString(),
+            wallElapsedMs,
+            webVersion: config.webVersion,
+            startCorrelation: run.startCorrelation,
+            completeCorrelation,
+          }),
+        );
+      } catch (evidenceError) {
+        console.warn("Referee evidence (integrity reject) write failed", {
+          runId: run.runId,
+          error:
+            evidenceError instanceof Error ? evidenceError.name : "unknown",
+        });
+      }
       throw new HttpError(
         400,
         "This game could not be verified and was not recorded.",
@@ -752,6 +831,37 @@ async function route(event: APIGatewayProxyEventV2) {
         );
       } catch (error) {
         console.warn("All-time best update failed", {
+          runId: run.runId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      }
+      // Referee evidence for the accepted ranked run (best-effort; never fails
+      // or rolls back the recorded run). Practice is ranked:false, so this
+      // branch naturally excludes it — practice writes no evidence.
+      try {
+        await repository.putRefereeEvidence(
+          buildEvidenceItem({
+            sub: run.owner,
+            runId: run.runId,
+            mode: run.mode,
+            seasonId: season.id,
+            runType: "ranked",
+            integrityOutcome: "accepted",
+            score,
+            tiebreakMs,
+            challenge: run.challenge,
+            transcript,
+            startedAt: run.startedAt,
+            completedAt: result.completedAt,
+            wallElapsedMs,
+            webVersion: config.webVersion,
+            startCorrelation: run.startCorrelation,
+            completeCorrelation,
+            playerTag: result.profile.playerTag,
+          }),
+        );
+      } catch (error) {
+        console.warn("Referee evidence write failed", {
           runId: run.runId,
           error: error instanceof Error ? error.name : "unknown",
         });

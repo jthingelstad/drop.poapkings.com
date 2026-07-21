@@ -9,6 +9,7 @@ import type {
   ClashRoyaleClan,
   CrWarClock,
   GameMode,
+  RunChallenge,
 } from "@elixir-drop/contracts";
 export type ScoreDirection = "lower" | "higher";
 
@@ -91,6 +92,45 @@ export interface RunRecord {
   score: number;
   seasonId: string;
   completedAt: string;
+}
+
+// Non-reversible connection-correlation signals derived from a request's IP and
+// user-agent. The raw IP/user-agent are NEVER stored — only these peppered
+// HMACs and a coarse UA family string. See referee-evidence.ts.
+export interface Correlation {
+  ipHash?: string;
+  ipSubnetHash?: string;
+  uaHash?: string;
+  uaFamily?: string;
+}
+
+// Referee-grade evidence for one recorded (ranked) or rejected signed-in run.
+// Co-located under the player partition (PLAYER#{sub}) so account deletion
+// sweeps it automatically. Contains NO email. Scripts map sub -> playerId on the
+// way out; the referee never sees sub.
+export interface EvidenceItem {
+  pk: string; // PLAYER#{sub}
+  sk: string; // EVIDENCE#{completedAt}#{runId}
+  runId: string;
+  playerSub: string;
+  mode: GameMode;
+  seasonId: string;
+  runType: "ranked" | "rejected";
+  // "accepted" for a recorded ranked run, or the reject reason string.
+  integrityOutcome: string;
+  score?: number;
+  tiebreakMs?: number;
+  challenge: RunChallenge;
+  transcript: RunTranscript;
+  startedAt: string;
+  completedAt: string;
+  wallElapsedMs: number;
+  scoringVersion: { web?: string; rules: string };
+  correlation: { start?: Correlation; complete: Correlation };
+  playerTag?: string;
+  schemaVersion: "1";
+  // Epoch seconds; DynamoDB TTL sweeps the item after the review window.
+  expiresAt: number;
 }
 
 export interface CrProfileSnapshot {

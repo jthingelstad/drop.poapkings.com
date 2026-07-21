@@ -9,6 +9,10 @@ Parameters:
   SessionSecret:
     Type: String
     NoEcho: true
+  TelemetryPepper:
+    Type: String
+    NoEcho: true
+    Description: Server-only pepper for referee connection-correlation HMACs. Lambda env only; never exposed to the referee scripts, the read-only role, CI, or the browser.
   FastmailJmapToken:
     Type: String
     NoEcho: true
@@ -55,6 +59,10 @@ Resources:
           AttributeType: S
         - AttributeName: GSI1SK
           AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
@@ -69,6 +77,21 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+        # Sparse tag-cluster index: only tagged PROFILE items carry GSI2 keys
+        # (GSI2PK = "TAGGED", GSI2SK = "{normalizedPlayerTag}#{playerId}"), so
+        # referee-tags can group accounts by tag without a table scan. A single
+        # "TAGGED" partition is fine at beta scale. Projects only the
+        # pseudonymous playerId — never sub or email.
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - playerId
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       SSESpecification:
@@ -233,6 +256,38 @@ Resources:
                   - logs:PutLogEvents
                 Resource: !GetAtt MailCanaryLogGroup.Arn
 
+  # Read-only identity the referee host assumes to run the AGENT-TEAM/scripts.
+  # DynamoDB reads only — no write actions, and NO access to any secret (so it
+  # can never reverse a correlation hash to an IP: the pepper is Lambda-only).
+  # The trust policy allows the account root to assume it; the managed host,
+  # which already authenticates to this account, assumes this role so a script
+  # bug can never write. Keep the scope to the table and its indexes.
+  RefereeReadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-referee-read
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-referee-read-only
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt DataTable.Arn
+                  - !Sub "${DataTable.Arn}/index/*"
+
   ApiFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -260,6 +315,7 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           SESSION_SECRET: !Ref SessionSecret
+          TELEMETRY_PEPPER: !Ref TelemetryPepper
           FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
           APP_URL: !Ref AppUrl
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
@@ -294,6 +350,10 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           SESSION_SECRET: !Ref SessionSecret
+          # The result consumer does not write referee evidence, but it calls the
+          # shared getConfig(), which requires TELEMETRY_PEPPER. Present here only
+          # to satisfy that shared config; still Lambda-only, never exported.
+          TELEMETRY_PEPPER: !Ref TelemetryPepper
           FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
           APP_URL: !Ref AppUrl
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
@@ -654,3 +714,6 @@ Outputs:
     Value: !Ref CrResultQueue
   AlarmTopicArn:
     Value: !Ref AlarmTopic
+  RefereeReadRoleArn:
+    Value: !GetAtt RefereeReadRole.Arn
+    Description: Read-only DynamoDB role the referee host assumes to run AGENT-TEAM/scripts.

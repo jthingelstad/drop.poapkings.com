@@ -52,6 +52,7 @@ void describe("deployment parameters", () => {
 
     for (const parameterKey of [
       "SessionSecret",
+      "TelemetryPepper",
       "FastmailJmapToken",
       "DiscordWebhookUrl",
     ]) {
@@ -72,6 +73,7 @@ void describe("deployment parameters", () => {
   void it("passes supplied runtime secrets during local creation or rotation", () => {
     const environment = {
       SESSION_SECRET: "session-secret",
+      TELEMETRY_PEPPER: "telemetry-pepper",
       FASTMAIL_JMAP_TOKEN: "jmap-token",
       ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
     };
@@ -86,6 +88,12 @@ void describe("deployment parameters", () => {
         (parameter) => parameter.ParameterKey === "SessionSecret",
       ),
       { ParameterKey: "SessionSecret", ParameterValue: "session-secret" },
+    );
+    assert.deepEqual(
+      parameters.find(
+        (parameter) => parameter.ParameterKey === "TelemetryPepper",
+      ),
+      { ParameterKey: "TelemetryPepper", ParameterValue: "telemetry-pepper" },
     );
   });
 

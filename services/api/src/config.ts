@@ -1,6 +1,10 @@
 export interface Config {
   tableName: string;
   sessionSecret: string;
+  // Server-only pepper for the referee correlation HMACs (see
+  // referee-evidence.ts). Guarded exactly like SESSION_SECRET: Lambda env only,
+  // never in the referee scripts, the read-only role, CI, or the browser.
+  telemetryPepper: string;
   appUrl: string;
   jmapToken: string;
   emailFrom: string;
@@ -23,6 +27,7 @@ export function getConfig(): Config {
   return {
     tableName: required("TABLE_NAME"),
     sessionSecret: required("SESSION_SECRET"),
+    telemetryPepper: required("TELEMETRY_PEPPER"),
     appUrl: required("APP_URL").replace(/\/$/, ""),
     jmapToken: required("FASTMAIL_JMAP_TOKEN"),
     emailFrom:

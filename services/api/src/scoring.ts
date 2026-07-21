@@ -15,6 +15,12 @@ interface CardData {
 const CARDS = (rawCards as CardData).cards;
 const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 
+// Version of the scoring + integrity rules. Bump whenever the logic in this
+// file or integrity.ts changes so historical referee evidence stays
+// interpretable across builds that did not change the rules. Stamped onto every
+// evidence item alongside the front-end build sha (WEB_VERSION).
+export const SCORING_RULES_VERSION = "1";
+
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
 }

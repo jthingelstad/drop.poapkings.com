@@ -53,6 +53,18 @@ export default function Privacy() {
         </section>
 
         <section>
+          <h2>Fair play</h2>
+          <p>
+            To keep leaderboards honest, Drop derives non-reversible fraud-prevention signals from the connection
+            metadata on a recorded game—so we can tell when different accounts share one source. We do
+            <strong> not</strong> store your IP address or your browser's user-agent: they are converted into one-way,
+            salted fingerprints the moment a game is recorded and the originals are discarded. These signals are used
+            only to review competitive integrity, never for advertising or tracking, and they are removed with the rest
+            of your data when you delete your account.
+          </p>
+        </section>
+
+        <section>
           <h2>Retention and deletion</h2>
           <p>
             Magic links and signed run challenges expire quickly. Application logs are retained for 30 days. Your active

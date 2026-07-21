@@ -43,6 +43,15 @@ Doc map:
 6. **Fan-content & copyright.** Card art is used under Supercell's Fan Content
    Policy: non-commercial, attributed, keep the footer disclaimer. Don't reproduce
    other copyrighted text.
+7. **Referee evidence is a one-way, sanitized surface.** Fair Play Referee
+   evidence lives under `PLAYER#{sub}/EVIDENCE#` (written best-effort at
+   `/runs/complete` for accepted ranked + rejected signed-in runs; never practice
+   or guest) and holds the challenge, transcript, timing, versions, and
+   **peppered** correlation hashes — **never a raw IP or user-agent**.
+   `TELEMETRY_PEPPER` is Lambda-only: never put it in the `AGENT-TEAM/scripts`,
+   the read-only `RefereeReadRole`, CI, or the browser. The `AGENT-TEAM/scripts`
+   are the **only** sanctioned referee data path; they emit the pseudonymous
+   `playerId`, never `sub` or email, and fail closed.
 
 ---
 

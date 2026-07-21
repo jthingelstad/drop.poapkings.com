@@ -117,5 +117,34 @@ account age, collection size, and fetch duration. Job IDs remain in the local
 worker and Lambda logs. Discord never includes competitive rank data or card
 levels, and delivery failure never blocks queue completion.
 
+## Referee evidence
+
+On `/runs/complete`, the API writes best-effort **referee evidence** for
+accepted **ranked** runs (after `completeRun` and the learning-stats block) and
+for **rejected signed-in** runs (both the scorer-reject and integrity-reject
+branches, before the 400). Practice (`ranked:false`) and guest runs write none.
+The write is best-effort like learning stats: it is wrapped so it can never fail
+or roll back a recorded run.
+
+`referee-evidence.ts` shapes and stamps each item; `repository.putRefereeEvidence`
+does the plain put. Items live at `PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}`
+so account deletion sweeps them, and carry the full signed challenge, the raw
+transcript, timing, server-recomputed score, integrity outcome, the normalized
+`playerTag`, and a TTL (`EVIDENCE_TTL_SECONDS`, default 180 days). They contain
+**no email**.
+
+**Versioning.** Every item stamps `scoringVersion: { web, rules }` — the
+front-end build sha (`WEB_VERSION`) plus `SCORING_RULES_VERSION` (exported from
+`scoring.ts`). Bump `SCORING_RULES_VERSION` whenever `scoring.ts` / `integrity.ts`
+rules change so historical evidence stays interpretable.
+
+**Connection correlation.** At start and complete the handler derives peppered
+HMAC hashes of the request IP and user-agent (`deriveCorrelation`) and discards
+the raw values — no raw IP or user-agent is ever stored. `TELEMETRY_PEPPER` is a
+required server secret (Lambda env only, guarded like `SESSION_SECRET`; never in
+the referee scripts, the read-only role, CI, or the browser). The read surface is
+the read-only scripts in `AGENT-TEAM/scripts/` (see that README), run under the
+`RefereeReadRole`; they never see the pepper, `sub`, email, or a raw IP.
+
 Run `npm run verify --workspace=@elixir-drop/api` from the repository root to
 type-check, test, and bundle the service.

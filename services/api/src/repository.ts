@@ -19,6 +19,8 @@ import type { CardStatsMap } from "./learning.js";
 import { levelForGames } from "./progression.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
+  Correlation,
+  EvidenceItem,
   GameMode,
   CrProfileSnapshot,
   PlayerProfile,
@@ -63,6 +65,10 @@ export interface RunItem {
   completedAt?: string;
   score?: number;
   seasonId?: string;
+  // Correlation hashes derived from the request at /runs/start. Stored on the
+  // ephemeral RUN# row so the completion evidence can compare start vs complete
+  // (a mismatch is itself a signal). No raw IP/user-agent is ever kept.
+  startCorrelation?: Correlation;
 }
 
 interface ProfileItem extends PlayerProfile {
@@ -277,6 +283,20 @@ export class Repository {
     return result.Item as ProfileItem | undefined;
   }
 
+  // The pseudonymous profile UUID for a subject, used to key the tag cluster
+  // index without exposing sub. Projects only playerId.
+  private async playerIdFor(sub: string): Promise<string | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        ProjectionExpression: "playerId",
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item?.playerId as string | undefined;
+  }
+
   async updateProfile(
     sub: string,
     updates: {
@@ -307,9 +327,24 @@ export class Repository {
       names["#playerTag"] = "playerTag";
       values[":playerTag"] = updates.playerTag;
       sets.push("#playerTag = :playerTag");
+      // Sparse GSI2 tag cluster (single "TAGGED" partition, one row per tagged
+      // account). GSI2SK embeds the pseudonymous playerId — NEVER sub — so the
+      // read-only referee-tags query never sees an internal subject key. Only
+      // PROFILE items carry these keys, and only while a tag is present.
+      const playerId = await this.playerIdFor(sub);
+      if (playerId) {
+        names["#gsi2pk"] = "GSI2PK";
+        names["#gsi2sk"] = "GSI2SK";
+        values[":gsi2pk"] = "TAGGED";
+        values[":gsi2sk"] = `${updates.playerTag}#${playerId}`;
+        sets.push("#gsi2pk = :gsi2pk", "#gsi2sk = :gsi2sk");
+      }
     } else if (updates.clearPlayerTag) {
       names["#playerTag"] = "playerTag";
-      removes.push("#playerTag");
+      names["#gsi2pk"] = "GSI2PK";
+      names["#gsi2sk"] = "GSI2SK";
+      // Clearing the tag removes the tag AND its cluster membership.
+      removes.push("#playerTag", "#gsi2pk", "#gsi2sk");
     }
 
     const result = await client.send(
@@ -591,6 +626,7 @@ export class Repository {
     expiresAt: number,
     ranked = true,
     guest = false,
+    startCorrelation?: Correlation,
   ): Promise<RunItem> {
     const runId = randomUUID();
     const item: RunItem = {
@@ -605,6 +641,7 @@ export class Repository {
       expiresAt,
       ranked,
       guest,
+      ...(startCorrelation ? { startCorrelation } : {}),
     };
     await client.send(
       new PutCommand({
@@ -655,6 +692,20 @@ export class Repository {
       }),
     );
     return result.Item as RunItem | undefined;
+  }
+
+  // Referee-grade evidence, written best-effort by the caller after an accepted
+  // ranked completion or a rejected signed-in completion. A plain put (no
+  // condition): the evidence sk embeds completedAt+runId, so it is unique, and a
+  // failed write must never affect the recorded run. Lives under PLAYER#{sub} so
+  // account deletion sweeps it for free.
+  async putRefereeEvidence(item: EvidenceItem): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: item,
+      }),
+    );
   }
 
   async completeRun(
@@ -835,6 +886,9 @@ export class Repository {
       "score = :score",
       "completedAt = :completedAt",
       "playerSub = :playerSub",
+      // The earning run id, so an all-time board entry resolves to the exact run
+      // that produced it (season history rows already carry runId).
+      "runId = :runId",
     ];
     const values: Record<string, unknown> = {
       ":gsi1pk": leaderboardPartition("ALLTIME", run.mode),
@@ -843,6 +897,7 @@ export class Repository {
       ":score": score,
       ":completedAt": completedAt,
       ":playerSub": run.owner,
+      ":runId": run.runId,
     };
     // Survival's cumulative time rides along for display and is already folded
     // into the sort key as the streak tiebreak.
