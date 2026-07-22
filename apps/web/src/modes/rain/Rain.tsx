@@ -99,12 +99,24 @@ export default function Rain() {
       target.current = null
       rainSpd.current = 0
       cursor.current = 0
-      if (fieldRef.current) fieldRef.current.innerHTML = ''
-      spawnDrop()
       spawnTimer.current = window.setInterval(spawnDrop, SPAWN_MS)
       fallTimer.current = window.setInterval(tick, TICK_MS)
     })
   }
+
+  // The falling-cards field only mounts on the 'running' render, which happens
+  // *after* runtime.start()'s begin callback runs — so the eager first drop has
+  // to wait for that mount, otherwise fieldRef is null and spawnDrop() no-ops
+  // (leaving the field empty until the first 900ms interval tick). Clear any
+  // prior run's tiles and deal the opening card as soon as the stage is live.
+  // spawnDrop is reached through a ref so this only fires on the stage flip.
+  const spawnRef = useRef<() => void>(() => {})
+  spawnRef.current = spawnDrop
+  useEffect(() => {
+    if (stage.value !== 'running') return
+    if (fieldRef.current) fieldRef.current.innerHTML = ''
+    spawnRef.current()
+  }, [stage.value])
 
   function nextCard(): Card | null {
     const deck = gameRun.content
