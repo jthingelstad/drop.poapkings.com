@@ -14,6 +14,8 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
+import FloatingCue from '../../components/FloatingCue'
+import Icon from '../../components/Icon'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives; spawn/fall speed ramps every 5 clears. RANKED: tiles are drawn in order
@@ -52,6 +54,9 @@ export default function Rain() {
 
   const lives = useSignal(RAIN_LIVES)
   const score = useSignal(0)
+  // Directional hint after a wrong tap (like Surge): aim higher or lower.
+  const hint = useSignal<'higher' | 'lower' | null>(null)
+  const hintPulse = useSignal(0)
   const insights = useSignal<Insights | null>(null)
   const best = useSignal(getRecords().rainBest ?? 0)
   const isPB = useSignal(false)
@@ -180,9 +185,13 @@ export default function Rain() {
       const next = score.value + 1
       score.value = next
       rainSpd.current = Math.min(0.6, Math.floor(next / 5) * 0.06)
+      hint.value = null
       playRainClear()
     } else {
-      // A wrong tap does not resolve the card — it stays and keeps falling.
+      // A wrong tap does not resolve the card — it stays and keeps falling. Nudge
+      // the player toward the right cost.
+      hint.value = value < t.card.elixir ? 'higher' : 'lower'
+      hintPulse.value += 1
       t.el.classList.remove('ed-rain__shake')
       void t.el.offsetWidth
       t.el.classList.add('ed-rain__shake')
@@ -286,9 +295,26 @@ export default function Rain() {
       <div class="ed-rain">
         <div ref={fieldRef} class="ed-rain__field" aria-hidden="true" />
         <div class="ed-rain__hint">Clear the lit card before it lands</div>
+        <div class="ed-rain__cue" aria-hidden="true">
+          <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="rain-hint">
+            {hint.value === 'higher' && (
+              <>
+                <Icon name="arrow-up" /> Higher
+              </>
+            )}
+            {hint.value === 'lower' && (
+              <>
+                <Icon name="arrow-down" /> Lower
+              </>
+            )}
+          </FloatingCue>
+        </div>
         <div class="ed-rain__pad">
           <PipKeypad onPick={answer} disabled={counting} />
         </div>
+        <span class="sr-only" aria-live="assertive">
+          {hint.value === 'higher' ? 'Higher' : hint.value === 'lower' ? 'Lower' : ''}
+        </span>
       </div>
     </GameFrame>
   )

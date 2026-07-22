@@ -1,0 +1,12 @@
+{
+  "name": "Elixir Drop",
+  "short_name": "Elixir Drop",
+  "description": "Train your Clash Royale elixir intuition. Run by POAP KINGS.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070610",
+  "theme_color": "#070610",
+  "icons": [{ "src": "/assets/elixir-neutral.png", "sizes": "128x128", "type": "image/png", "purpose": "any" }]
+}

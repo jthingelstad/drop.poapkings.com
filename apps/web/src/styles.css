@@ -7246,6 +7246,18 @@ html.reduce-motion .ed-profile-guest__halo::before {
   background: linear-gradient(180deg, rgba(11, 9, 32, 0), rgba(11, 9, 32, 0.82) 42%);
   backdrop-filter: blur(3px);
 }
+
+/* Directional wrong-tap hint, floated just above the keypad. */
+.ed-rain__cue {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 88px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
 .ed-rain__tile {
   position: absolute;
   top: -16%;

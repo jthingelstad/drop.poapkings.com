@@ -8,6 +8,7 @@ const GAME_RETURN_PATHS = new Set([
   "/higher-lower",
   "/trade",
   "/survival",
+  "/rain",
 ]);
 
 export function normalizeEmail(value: unknown): string {
