@@ -10,7 +10,14 @@ export type InstallMode = 'none' | 'available' | 'ios'
 
 const DISMISS_KEY = 'elixirdrop:installDismissed'
 
+// Capability: whether Drop can be installed here at all ('none' = already
+// standalone, or a browser with no install path).
 export const installMode = signal<InstallMode>('none')
+
+// Whether the player dismissed the prominent Home banner. Dismissing does not
+// hide install entirely — a compact row stays on Home and the full Install page
+// stays in Profile → More. Persisted so the banner doesn't nag on every visit.
+export const installDismissed = signal<boolean>(dismissed())
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -44,7 +51,9 @@ function dismissed(): boolean {
 
 export function initInstallPrompt(): void {
   if (typeof window === 'undefined') return
-  if (isStandalone() || dismissed()) return
+  // Already installed → no install UI at all. A prior dismiss no longer stops
+  // capability detection; it only collapses the banner (see installDismissed).
+  if (isStandalone()) return
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()
@@ -77,7 +86,7 @@ export function dismissInstall(): void {
   try {
     localStorage.setItem(DISMISS_KEY, '1')
   } catch {
-    // ignore — a non-persisted dismiss still hides it this session
+    // ignore — a non-persisted dismiss still collapses it this session
   }
-  installMode.value = 'none'
+  installDismissed.value = true
 }

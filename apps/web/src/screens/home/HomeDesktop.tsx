@@ -1,5 +1,4 @@
 import Icon from '../../components/Icon'
-import InstallPrompt from '../../components/InstallPrompt'
 import { navigate } from '../../lib/router'
 import { seasonEndsLabel, type HomeData } from './home-data'
 import { MORE_GAMES } from './home-games'
@@ -29,8 +28,6 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
           <MoreGameCard game={g} championFor={data.championFor} key={g.key} />
         ))}
       </div>
-
-      <InstallPrompt />
     </div>
   )
 }

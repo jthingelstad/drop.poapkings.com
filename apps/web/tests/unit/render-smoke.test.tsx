@@ -11,7 +11,10 @@ const CASES = [
   ['/higher-lower', 'Preparing your game…'],
   ['/trade', 'Preparing your game…'],
   ['/survival', 'Preparing your game…'],
-  ['/settings', 'Settings']
+  ['/settings', 'Settings'],
+  ['/about', 'About Elixir Drop'],
+  ['/faq', 'Frequently asked'],
+  ['/install', 'Install Elixir Drop']
 ] as const
 
 describe('SSR render smoke', () => {
@@ -37,8 +40,7 @@ describe('SSR render smoke', () => {
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain(expectedText)
-    // The shell wraps every route; the footer rides along except during a live
-    // game (asserted separately below), so check the shell wrapper here.
+    // The shell wraps every route — check the desktop shell wrapper here.
     expect(html).toContain('ed-app')
   })
 
@@ -50,11 +52,13 @@ describe('SSR render smoke', () => {
     expect(html).toContain('Build date')
   })
 
-  it('links to the Elixir Drop Discord from the footer', async () => {
+  it('links to the Elixir Drop Discord from the desktop rail cluster', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
-    expect(html).toContain('Join the Elixir Drop Discord')
+    // The old global footer moved into the meta entry points; the desktop
+    // left-rail cluster carries the external Discord link.
+    expect(html).toContain('ed-railfoot')
     expect(html).toContain('https://discord.gg/SdvKfJW5kA')
   })
 })

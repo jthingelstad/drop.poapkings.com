@@ -4734,6 +4734,7 @@ body.modal-open {
   font-family: var(--font-display);
   line-height: 1;
   letter-spacing: 0.01em;
+  text-decoration: none;
   background: linear-gradient(100deg, #c98c10 0%, #f5c84c 30%, #fff6d5 48%, #f5c84c 66%, #c98c10 100%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
@@ -4747,6 +4748,7 @@ body.modal-open {
   font-size: 0.56rem;
   letter-spacing: 0.02em;
   color: var(--faint);
+  text-decoration: none;
 }
 
 /* Game-card ambient elixir motes. */
@@ -5737,70 +5739,102 @@ html.reduce-motion .ed-gcard {
 }
 
 /* Add-to-Home-Screen prompt (dismissible). */
-.ed-install {
+
+/* Prominent Home install banner (mobile). */
+.ed-installbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 11px;
+  padding: 12px 13px;
   border-radius: 16px;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  background: linear-gradient(145deg, rgba(72, 37, 148, 0.35), rgba(18, 13, 40, 0.7));
+  border: 1px solid rgba(245, 200, 76, 0.35);
+  background: linear-gradient(135deg, rgba(245, 200, 76, 0.15), rgba(139, 92, 246, 0.13));
 }
-.ed-install__icon {
+.ed-installbar__icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   flex: 0 0 auto;
   border-radius: 12px;
-  background: rgba(139, 92, 246, 0.18);
-  color: var(--lavender);
-  font-size: 1.2rem;
+  background: rgba(245, 200, 76, 0.18);
+  color: var(--gold);
 }
-.ed-install__text {
+.ed-installbar__text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
-.ed-install__title {
+.ed-installbar__title {
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
-.ed-install__sub {
-  color: var(--muted);
-  font-size: 0.72rem;
+.ed-installbar__sub {
+  color: var(--lavender);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
-.ed-install__sub strong {
-  color: var(--lavender-2);
-  font-weight: 800;
-}
-.ed-install__go {
+.ed-installbar__go {
   flex: 0 0 auto;
-  min-height: 40px;
-  padding: 0 16px;
+  padding: 9px 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: 11px;
   cursor: pointer;
   font-family: var(--font-display);
-  font-size: 0.86rem;
+  font-size: 0.7rem;
   color: var(--ink-on-gold);
   background: var(--gold-grad);
 }
-.ed-install__x {
+.ed-installbar__x {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--muted);
+  color: var(--faint);
   cursor: pointer;
 }
-.ed-install__x:hover {
+.ed-installbar__x:hover {
   color: var(--ink);
+}
+
+/* Compact Home install row, shown after the banner is dismissed (mobile). */
+.ed-installrow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(18, 13, 40, 0.55);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ed-installrow__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(245, 200, 76, 0.16);
+  color: var(--gold);
+}
+.ed-installrow__text {
+  flex: 1;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+.ed-installrow__end {
+  color: var(--faint);
 }
 
 .ed-home__foot {
@@ -5813,6 +5847,210 @@ html.reduce-motion .ed-gcard {
 }
 .ed-home__foot .ed-wordmark {
   font-size: 1.15rem;
+}
+
+/* ── Meta pages (About / FAQ / Install) ─────────────────────── */
+
+.ed-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 6px 18px 40px;
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+}
+.ed-desktop__main .ed-page {
+  padding: 0 0 40px;
+}
+.ed-page__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ed-page__back {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(18, 13, 40, 0.7);
+  color: var(--lavender);
+  cursor: pointer;
+}
+.ed-page__back:hover {
+  color: var(--ink);
+}
+.ed-page__eyebrow {
+  color: var(--lavender);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ed-page__title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  margin: 2px 0 0;
+}
+.ed-page__prose {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.ed-page__prose p {
+  margin: 0;
+  color: #d9d1f5;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.ed-page__disclaimer {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.ed-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-faq__item {
+  border-radius: 14px;
+  border: 1px solid rgba(215, 200, 255, 0.12);
+  background: rgba(18, 13, 40, 0.5);
+  padding: 14px 15px;
+}
+.ed-faq__q {
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  color: var(--gold);
+  line-height: 1.35;
+}
+.ed-faq__a {
+  margin: 8px 0 0;
+  color: #d9d1f5;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.ed-install-steps {
+  border-radius: 16px;
+  border: 1px solid rgba(215, 200, 255, 0.14);
+  background: rgba(18, 13, 40, 0.55);
+  padding: 16px;
+}
+.ed-install-steps__label {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.ed-install-steps__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.ed-install-steps__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: var(--lavender-2);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.ed-install-steps__n {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(245, 200, 76, 0.16);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+}
+
+/* Mobile "More" list (Profile entry points to the meta pages). */
+.ed-morelist {
+  margin-top: 4px;
+}
+.ed-morelist__label {
+  color: var(--lavender);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.ed-morelist__group {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(215, 200, 255, 0.14);
+  background: rgba(18, 13, 40, 0.6);
+}
+.ed-morelist__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-bottom: 1px solid rgba(215, 200, 255, 0.08);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ed-morelist__row:last-child {
+  border-bottom: none;
+}
+.ed-morelist__lead {
+  color: var(--lavender);
+}
+.ed-morelist__text {
+  flex: 1;
+}
+.ed-morelist__end {
+  color: var(--faint);
+}
+
+/* Desktop left-rail footer link cluster. */
+.ed-railfoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 16px 10px 4px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(215, 200, 255, 0.08);
+}
+.ed-railfoot__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--faint);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ed-railfoot__link:hover {
+  color: var(--gold);
 }
 
 /* ── Home (desktop) ─────────────────────────────────────────── */

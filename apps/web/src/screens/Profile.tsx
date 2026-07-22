@@ -20,6 +20,8 @@ import { challengeCard } from '../lib/challenge-cards'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
+import { layout } from '../lib/use-layout'
+import MetaMoreList from '../components/MetaMoreList'
 import type { CardsData } from '../types'
 
 const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
@@ -114,6 +116,8 @@ export default function Profile() {
         <button class="ed-textlink" onClick={() => navigate('/')}>
           Keep playing as guest
         </button>
+
+        {layout.value === 'mobile' && <MetaMoreList />}
       </div>
     )
   }
@@ -547,6 +551,8 @@ export default function Profile() {
           <span class="tap-face">Sign out</span>
         </button>
       </div>
+
+      {layout.value === 'mobile' && <MetaMoreList />}
     </div>
   )
 }

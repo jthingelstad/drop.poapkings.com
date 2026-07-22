@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
 import { seasonEndsLabel } from '../../src/screens/home/home-data'
 import { scoreLabel, gameDisplay, RANKED_GAMES, GAMES } from '../../src/lib/game-metadata'
-import { installMode, dismissInstall } from '../../src/lib/pwa-install'
+import { installMode, installDismissed, dismissInstall } from '../../src/lib/pwa-install'
 import type { Season } from '@elixir-drop/contracts'
 
 describe('shell nav model', () => {
@@ -51,6 +51,7 @@ describe('rain is a ranked mode', () => {
 describe('install prompt state', () => {
   afterEach(() => {
     installMode.value = 'none'
+    installDismissed.value = false
     try {
       localStorage.removeItem('elixirdrop:installDismissed')
     } catch {
@@ -58,10 +59,14 @@ describe('install prompt state', () => {
     }
   })
 
-  it('dismissing hides the prompt and persists the choice', () => {
+  it('dismissing collapses the banner, keeps capability, and persists the choice', () => {
     installMode.value = 'ios'
+    installDismissed.value = false
     dismissInstall()
-    expect(installMode.value).toBe('none')
+    // Capability stays (a compact Home row + the Install page remain reachable);
+    // only the prominent banner is dismissed, and the choice persists.
+    expect(installMode.value).toBe('ios')
+    expect(installDismissed.value).toBe(true)
     expect(localStorage.getItem('elixirdrop:installDismissed')).toBe('1')
   })
 })

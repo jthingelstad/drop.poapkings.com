@@ -8,12 +8,16 @@ import chevronDown from 'lucide-static/icons/chevron-down.svg?raw'
 import chevronLeft from 'lucide-static/icons/chevron-left.svg?raw'
 import chevronRight from 'lucide-static/icons/chevron-right.svg?raw'
 import chevronUp from 'lucide-static/icons/chevron-up.svg?raw'
+import circleHelp from 'lucide-static/icons/circle-help.svg?raw'
 import clock from 'lucide-static/icons/clock.svg?raw'
 import download from 'lucide-static/icons/download.svg?raw'
+import externalLink from 'lucide-static/icons/arrow-up-right.svg?raw'
 import flame from 'lucide-static/icons/flame.svg?raw'
 import gamepad from 'lucide-static/icons/gamepad-2.svg?raw'
+import info from 'lucide-static/icons/info.svg?raw'
 import loaderCircle from 'lucide-static/icons/loader-circle.svg?raw'
 import logIn from 'lucide-static/icons/log-in.svg?raw'
+import messageCircle from 'lucide-static/icons/message-circle.svg?raw'
 import logOut from 'lucide-static/icons/log-out.svg?raw'
 import pencil from 'lucide-static/icons/pencil.svg?raw'
 import play from 'lucide-static/icons/play.svg?raw'
@@ -21,6 +25,7 @@ import scanEye from 'lucide-static/icons/scan-eye.svg?raw'
 import search from 'lucide-static/icons/search.svg?raw'
 import share from 'lucide-static/icons/share.svg?raw'
 import settings from 'lucide-static/icons/settings.svg?raw'
+import shield from 'lucide-static/icons/shield.svg?raw'
 import skull from 'lucide-static/icons/skull.svg?raw'
 import sparkles from 'lucide-static/icons/sparkles.svg?raw'
 import star from 'lucide-static/icons/star.svg?raw'
@@ -47,12 +52,16 @@ const ICONS = {
   'chevron-left': chevronLeft,
   'chevron-right': chevronRight,
   'chevron-up': chevronUp,
+  'circle-help': circleHelp,
   clock,
   download,
+  'external-link': externalLink,
   flame,
   gamepad,
+  info,
   'loader-circle': loaderCircle,
   'log-in': logIn,
+  'message-circle': messageCircle,
   'log-out': logOut,
   pencil,
   play,
@@ -60,6 +69,7 @@ const ICONS = {
   search,
   share,
   settings,
+  shield,
   skull,
   sparkles,
   star,

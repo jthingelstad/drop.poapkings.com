@@ -3,6 +3,7 @@
 
 import type { ComponentChildren } from 'preact'
 import { route, navigate } from '../../lib/router'
+import { ELIXIR_DROP_DISCORD_URL } from '../../lib/links'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { player, accountStatus, signOut } from '../../lib/account'
 import { startScreensaver } from '../../lib/screensaver'
@@ -93,6 +94,22 @@ function LeftRail() {
           </button>
         )}
       </div>
+
+      <nav class="ed-railfoot" aria-label="About Elixir Drop">
+        <button class="ed-railfoot__link" onClick={() => navigate('/about')}>
+          About
+        </button>
+        <button class="ed-railfoot__link" onClick={() => navigate('/faq')}>
+          FAQ
+        </button>
+        <button class="ed-railfoot__link" onClick={() => navigate('/privacy')}>
+          Privacy
+        </button>
+        <a class="ed-railfoot__link" href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+          Discord
+          <Icon name="external-link" />
+        </a>
+      </nav>
     </aside>
   )
 }

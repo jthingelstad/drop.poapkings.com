@@ -1150,10 +1150,18 @@ test('five logo taps start the screensaver and any key exits it', async ({ page,
   await expect(page.locator('.ed-home')).toBeVisible()
 })
 
-test('footer links to the Elixir Drop Discord', async ({ page }) => {
-  await page.goto('/')
+test('the meta entry points link to the Elixir Drop Discord', async ({ page, viewport }) => {
+  // The old global footer moved into the meta entry points: the desktop
+  // left-rail cluster, and the mobile Profile → More list.
+  const desktop = isDesktopViewport(viewport)
+  if (desktop) {
+    await page.goto('/')
+  } else {
+    await page.goto('/#/profile')
+  }
 
-  const discord = page.getByRole('link', { name: 'Join the Elixir Drop Discord' })
+  const scope = desktop ? '.ed-railfoot' : '.ed-morelist'
+  const discord = page.locator(`${scope} a`, { hasText: 'Discord' })
   await expect(discord).toBeVisible()
   await expect(discord).toHaveAttribute('href', 'https://discord.gg/SdvKfJW5kA')
   await expect(discord).toHaveAttribute('target', '_blank')

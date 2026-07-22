@@ -4,12 +4,10 @@ import { route, navigate } from './lib/router'
 import { track } from './lib/analytics'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
-import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
 import ApiStatusBanner from './components/ApiStatusBanner'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { updateAvailable } from './lib/version'
-import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
@@ -17,15 +15,13 @@ import { initInstallPrompt } from './lib/pwa-install'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import DesktopShell from './components/shell/DesktopShell'
-import { isGameRoute } from './components/shell/nav'
 import Home from './screens/Home'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
 import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
-
-const POAP_KINGS = 'https://poapkings.com'
+import MetaPage from './screens/MetaPage'
 
 // The five shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -57,41 +53,11 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/leaderboards', label: 'Leaderboards' },
   { match: '/profile', label: 'Profile' },
   { match: '/settings', label: 'Settings' },
-  { match: '/privacy', label: 'Privacy' }
+  { match: '/privacy', label: 'Privacy' },
+  { match: '/about', label: 'About' },
+  { match: '/faq', label: 'FAQ' },
+  { match: '/install', label: 'Install' }
 ]
-
-// ── Footer ────────────────────────────────────────────────────────────────────
-
-function Footer() {
-  return (
-    <footer class="site-foot">
-      <div class="site-foot__community">
-        <span>Feedback, ideas, and game talk:</span>{' '}
-        <a href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
-          Join the Elixir Drop Discord <Icon name="arrow-right" />
-        </a>
-      </div>
-      <div class="site-foot__run">
-        Run by{' '}
-        <a href={POAP_KINGS} target="_blank" rel="noopener noreferrer">
-          POAP KINGS
-        </a>
-        <span aria-hidden="true"> · </span>
-        <button class="site-foot__link" onClick={() => navigate('/privacy')}>
-          Privacy
-        </button>
-      </div>
-      <div class="site-foot__disc">
-        This fan community is not affiliated with{' '}
-        <a href="https://supercell.com" target="_blank" rel="noopener noreferrer">
-          Supercell
-        </a>
-        . Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell's
-        Fan Content Policy.
-      </div>
-    </footer>
-  )
-}
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -167,6 +133,9 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/profile')) return <Profile />
   if (r.startsWith('/leaderboards')) return <Leaderboards />
   if (r.startsWith('/privacy')) return <Privacy />
+  if (r.startsWith('/about')) return <MetaPage kind="about" />
+  if (r.startsWith('/faq')) return <MetaPage kind="faq" />
+  if (r.startsWith('/install')) return <MetaPage kind="install" />
   return <Home />
 }
 
@@ -219,18 +188,15 @@ export default function App() {
 
   // Same routes + data on both layouts; only the surrounding shell differs. The
   // shell is chosen at the 1024px breakpoint (lib/use-layout) and re-evaluated
-  // on resize. The legal footer (Supercell fan-content disclaimer) rides along
-  // in the content until the screens are individually restyled.
-  // The footer (Discord + legal disclaimer) rides along on every screen except a
-  // live game, where the play area fills the viewport (matching the prototype).
-  const gaming = isGameRoute(route.value)
+  // on resize. The old global footer (Discord + fan-content disclaimer) has moved
+  // into the meta pages — About carries the disclaimer, Discord/Privacy/About/FAQ
+  // are reachable from Profile → More (mobile) and the left-rail cluster (desktop).
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
       <ApiStatusBanner />
       <UpdateBanner />
       <Screen r={route.value} />
-      {!gaming && <Footer />}
     </>
   )
 
