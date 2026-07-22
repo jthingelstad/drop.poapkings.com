@@ -539,7 +539,7 @@ describe('DesktopRightRail', () => {
     expect(host.querySelector('.ed-rail-block__title')!.textContent).toContain('Season standings')
   })
 
-  it('shows the standings-unavailable message and an empty live feed', async () => {
+  it('shows the standings-unavailable message and an empty recent-runs feed', async () => {
     apiMock.getLeaderboard.mockReset()
     apiMock.getActivity.mockReset()
     apiMock.getLeaderboard.mockRejectedValue(new Error('boom'))
@@ -547,10 +547,10 @@ describe('DesktopRightRail', () => {
 
     await drawAsync(<DesktopRightRail />)
     expect(host.textContent).toContain('Standings unavailable')
-    expect(host.textContent).toContain('Quiet right now')
+    expect(host.textContent).toContain('No recent runs yet')
   })
 
-  it('renders populated standings, a "You" row, the season card, and the live feed', async () => {
+  it('renders populated standings, a "You" row, the season card, and grouped recent runs', async () => {
     apiMock.getLeaderboard.mockReset()
     apiMock.getActivity.mockReset()
     apiMock.getLeaderboard.mockResolvedValue({
@@ -573,8 +573,9 @@ describe('DesktopRightRail', () => {
       entries: [
         {
           mode: 'surge',
-          score: 1.42,
+          score: 17_260,
           achievedAt: new Date().toISOString(),
+          runCount: 8,
           player: { id: 'rival', publicName: 'Rival', favoriteCardId: 26000000 }
         }
       ]
@@ -592,8 +593,11 @@ describe('DesktopRightRail', () => {
     // "This season" card shows the player's own rank (#2).
     expect(host.querySelector('.ed-rail-this')).toBeTruthy()
     expect(host.textContent).toContain('#2')
-    // Live feed rendered a row (not the quiet/loading placeholder).
+    // The grouped feed renders one compact row with its count and best score.
     expect(host.querySelector('.ed-rail-live__row')).toBeTruthy()
-    expect(host.textContent).not.toContain('Quiet right now')
+    expect(host.textContent).toContain('Recent runs')
+    expect(host.textContent).toContain('Surge · 8 runs · best 17.26s')
+    expect(host.textContent).not.toContain('Live now')
+    expect(host.querySelector('.ed-rail-live__dot')).toBeNull()
   })
 })

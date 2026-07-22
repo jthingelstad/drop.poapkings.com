@@ -77,7 +77,7 @@ function leaderboardEntries(mode: GameMode) {
   }))
 }
 
-// The desktop right rail polls GET /activity ("Live now"); a small feed keeps it
+// The desktop right rail polls GET /activity ("Recent runs"); a small feed keeps it
 // from 404-ing (which the console-error guard would flag) and lets the desktop
 // home test assert the recent-activity surface.
 const testActivity = {
@@ -87,6 +87,7 @@ const testActivity = {
       mode: 'trade' as GameMode,
       score: 11_800,
       achievedAt: '2026-07-18T18:00:00.000Z',
+      runCount: 8,
       player: {
         id: 'player-9',
         publicName: 'Skarmy Party',
@@ -374,6 +375,23 @@ async function waitForKeypad(page: Page) {
   return keypad
 }
 
+async function completeSurge(page: Page) {
+  await waitForKeypad(page)
+
+  for (let index = 0; index < 15; index += 1) {
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+
+    if (index < 14) {
+      await expect(page.locator('.ed-game__progress')).toHaveText(`Card ${index + 2} / 15`)
+    }
+  }
+
+  await expect(page.locator('.ed-sum')).toBeVisible()
+}
+
 function isDesktopViewport(viewport: { width: number; height: number } | null): boolean {
   return (viewport?.width ?? 0) >= 1024
 }
@@ -461,6 +479,7 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
   // The shared summary appears with the guest sign-in-to-save nudge.
   const summary = page.locator('.ed-sum')
   await expect(summary).toBeVisible()
+  await expect(summary.getByRole('button', { name: 'Play again' })).toBeVisible()
   await expect(page.getByText('Create an account to save this score to the leaderboard — forever.')).toBeVisible()
   await summary.getByRole('button', { name: 'Sign in to save' }).click()
   await expect(page).toHaveURL(/#\/login$/)
@@ -801,7 +820,7 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
   await expect(page.getByRole('button', { name: 'Retry recording' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByText('This game could not be verified and was not recorded.')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
 })
 
 test('account deletion requires typed confirmation and clears the saved session', async ({ page, viewport }) => {
@@ -988,8 +1007,10 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
     // Season standings live in the desktop right rail.
     await expect(page.locator('.ed-rail-standings')).toContainText('Royal Ghosted')
     await expect(page.locator('.ed-rail-standings')).toContainText('You')
-    // Recent activity is the "Live now" feed.
-    await expect(page.locator('.ed-rail-live')).toContainText('Trade')
+    // Repeated activity is grouped into one recent-runs row.
+    await expect(page.locator('.ed-rail-live__head')).toContainText('Recent runs')
+    await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.80s')
+    await expect(page.locator('.ed-rail-live__dot')).toHaveCount(0)
   } else {
     await expect(page.locator('.ed-home')).toBeVisible()
     // Season standings surface as the mobile peek.
@@ -1074,6 +1095,8 @@ test('Tinylytics stays off the token route and captures normalized game events',
 
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
+  { hash: '#/about', label: 'About', ready: '.ed-page' },
+  { hash: '#/faq', label: 'FAQ', ready: '.ed-page' },
   { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
@@ -1083,8 +1106,62 @@ const a11yRoutes = [
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-profile' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
-  { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
+  { hash: '#/privacy', label: 'Privacy', ready: '.ed-page--privacy' }
 ]
+
+test('About, FAQ, and Privacy share one stable responsive page layout', async ({ page, viewport }) => {
+  const routes = [
+    { hash: 'about', title: 'About Elixir Drop' },
+    { hash: 'faq', title: 'Frequently asked' },
+    { hash: 'privacy', title: 'What Drop keeps—and why' }
+  ] as const
+  let referencePage: { left: number; width: number } | null = null
+
+  for (const meta of routes) {
+    await page.goto(`/#/${meta.hash}`)
+    const pageSurface = page.locator('.ed-page')
+    await expect(pageSurface).toBeVisible()
+    await expect(pageSurface.getByRole('heading', { name: meta.title, exact: true })).toBeVisible()
+    await expect(pageSurface.locator('.ed-meta-section')).not.toHaveCount(0)
+    await expect(page.locator('html')).not.toHaveAttribute('data-vite-error-overlay')
+
+    const box = await pageSurface.boundingBox()
+    expect(box).not.toBeNull()
+    if (referencePage) {
+      expect(Math.abs(box!.x - referencePage.left)).toBeLessThanOrEqual(1)
+      expect(Math.abs(box!.width - referencePage.width)).toBeLessThanOrEqual(1)
+    } else {
+      referencePage = { left: box!.x, width: box!.width }
+    }
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+    )
+    expect(overflow).toBe(false)
+
+    if (isDesktopViewport(viewport)) {
+      await expect(page.locator('.ed-rail__foot')).toBeVisible()
+      const shell = await page.locator('.ed-desktop').evaluate((element) => ({
+        height: element.getBoundingClientRect().height,
+        viewportHeight: document.documentElement.clientHeight,
+        documentScrolls: document.documentElement.scrollHeight > document.documentElement.clientHeight
+      }))
+      expect(Math.abs(shell.height - shell.viewportHeight)).toBeLessThanOrEqual(1)
+      expect(shell.documentScrolls).toBe(false)
+
+      const linkTops = await page
+        .locator('.ed-railfoot__link')
+        .evaluateAll((links) => links.map((link) => Math.round(link.getBoundingClientRect().top)))
+      expect(Math.max(...linkTops) - Math.min(...linkTops)).toBeLessThanOrEqual(3)
+    } else {
+      await expect(page.locator('.ed-desktop')).toHaveCount(0)
+    }
+  }
+
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(page).toHaveURL(/\/#\/faq$/)
+  await expect(page.getByRole('heading', { name: 'Frequently asked', exact: true })).toBeVisible()
+})
 
 for (const route of a11yRoutes) {
   test(`renders ${route.label} without serious accessibility issues`, async ({ page }, testInfo) => {
@@ -1122,6 +1199,33 @@ test('surge points higher or lower after a wrong guess and clears on the solve',
   await expect(correctButton).toBeEnabled()
   await correctButton.click()
   await expect(page.getByTestId('surge-hint')).toBeEmpty()
+})
+
+test('surge summary shows cost accuracy bars without a recruitment callout', async ({ page }, testInfo) => {
+  await page.goto('/#/surge')
+  await completeSurge(page)
+
+  const chart = page.locator('.ed-sum-bands')
+  await expect(chart).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
+  await expect(page.getByText('Join the Elixir Drop Discord')).toHaveCount(0)
+  await expect(page.locator('.recruit')).toHaveCount(0)
+
+  const barHeights = await chart
+    .locator('.ed-sum-band__bar')
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))
+  expect(barHeights).toHaveLength(5)
+  expect(barHeights.every((height) => height > 0)).toBe(true)
+
+  const fillHeights = await chart
+    .locator('.ed-sum-band__fill')
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))
+  expect(fillHeights.some((height) => height > 0)).toBe(true)
+
+  await testInfo.attach('surge-summary.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {
@@ -1258,6 +1362,55 @@ test('continuous play modes expose working controls with low chrome', async ({ p
     })
     await page.getByRole('button', { name: mode.answer, exact: true }).click()
   }
+})
+
+test('practice uses Surge feedback and keeps a missed card active until solved', async ({ page }, testInfo) => {
+  await page.goto('/#/practice')
+  await waitForKeypad(page)
+
+  const motion = page.locator('.game-motion')
+  await expect(motion).toHaveClass(/game-motion--card/)
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  expect(card!.elixir).toBeGreaterThan(1)
+  expect(card!.elixir).toBeLessThan(9)
+
+  await page.getByRole('button', { name: `${card!.elixir - 1} elixir`, exact: true }).click()
+  await expect(page.getByTestId('practice-hint')).toContainText('Higher')
+  await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')
+  await expect(page.locator('.pcard__cost')).toHaveCount(0)
+  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card!.name)
+
+  await expect(page.getByRole('button', { name: `${card!.elixir + 1} elixir`, exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: `${card!.elixir + 1} elixir`, exact: true }).click()
+  await expect(page.getByTestId('practice-hint')).toContainText('Lower')
+  await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')
+  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card!.name)
+
+  await testInfo.attach('practice-wrong-feedback.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+
+  await expect(page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+  const feedback = await motion.evaluate((element) => ({
+    className: element.className,
+    phaseClass: element.querySelector('.pcard')?.className,
+    costBadges: element.querySelectorAll('.pcard__cost').length,
+    purpleDrops: element.querySelectorAll('.drop-pop-wrap').length
+  }))
+  expect(feedback.className).toContain('game-motion--card')
+  expect(feedback.phaseClass).toContain('pcard')
+  expect(feedback.costBadges).toBe(0)
+  expect(feedback.purpleDrops).toBe(0)
+
+  await testInfo.attach('practice-correct-motion.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  await expect(page.locator('.ed-game__progress')).toHaveText('Card 2 / 15')
 })
 
 test('card art fallback renders when card images cannot load', async ({ page }) => {
@@ -1439,7 +1592,8 @@ test.describe('mobile timed-mode controls', () => {
 test.describe('low-height desktop timed controls', () => {
   test.use({ viewport: { width: 1280, height: 720 } })
 
-  test('keeps the entire Surge keypad in view', async ({ page }) => {
+  test('keeps the entire Surge keypad in view', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
     await page.goto('/#/surge')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
     await expect(keypad).toBeVisible({ timeout: 12_000 })
@@ -1453,7 +1607,8 @@ test.describe('low-height desktop timed controls', () => {
     expect(controlsFit).toBe(true)
   })
 
-  test('keeps the Higher / Lower replay action in view', async ({ page }) => {
+  test('keeps the Higher / Lower replay action in view', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
     await page.goto('/#/higher-lower')
     const replay = page.getByRole('button', { name: 'Play again' })
     await expect(replay).toBeVisible({ timeout: 12_000 })
@@ -1476,11 +1631,10 @@ test.describe('low-height desktop timed controls', () => {
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {
-  await page.goto('/')
-  await page.goto('/#/settings')
+  await page.goto('/#/settings', { waitUntil: 'domcontentloaded' })
   await page.getByRole('button', { name: '4 choices' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
-  await page.reload()
+  await page.reload({ waitUntil: 'domcontentloaded' })
 
   await expect(page.getByRole('button', { name: '4 choices' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)

@@ -14,7 +14,12 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { createHash, randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
-import { leaderboardPartition, leaderboardSortKey } from "./games.js";
+import {
+  isGameMode,
+  leaderboardPartition,
+  leaderboardSortKey,
+  MODE_RULES,
+} from "./games.js";
 import type { CardStatsMap } from "./learning.js";
 import { levelForGames } from "./progression.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
@@ -39,8 +44,22 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-// "Live now" feed rows are ephemeral — they expire two days after the run.
+// Recent-run feed rows are ephemeral — they expire two days after the run.
 const FEED_TTL_SECONDS = 2 * 24 * 60 * 60;
+export const ACTIVITY_WINDOW_HOURS = 24;
+const ACTIVITY_WINDOW_MS = ACTIVITY_WINDOW_HOURS * 60 * 60 * 1_000;
+const ACTIVITY_QUERY_PAGE_SIZE = 100;
+const ACTIVITY_SCAN_LIMIT = 500;
+const MAX_ACTIVITY_GROUPS_PER_PLAYER = 2;
+
+interface ActivityGroup {
+  playerSub: string;
+  mode: GameMode;
+  score: number;
+  achievedAt: string;
+  runCount: number;
+  timeMs?: number;
+}
 
 interface MagicItem {
   pk: string;
@@ -883,7 +902,7 @@ export class Repository {
       },
     ];
 
-    // "Live now" recent-activity feed: one ephemeral (TTL'd) row per accepted
+    // Recent-activity feed: one ephemeral (TTL'd) row per accepted
     // ranked run, keyed newest-first in the main table (pk = FEED#{season}, sk =
     // ISO ts). Quarantined runs (automaticReviewReason set → hidden) never hit the
     // public feed. The history Put's idempotency condition makes the whole
@@ -1015,33 +1034,110 @@ export class Repository {
     return (result.Items ?? []) as RunRecord[];
   }
 
-  // "Live now" — the most recent ranked runs across all players this season,
-  // newest first (feed rows are keyed pk=FEED#{season}, sk=ISO ts). Display
-  // name/card are resolved at read time; the row shape mirrors a leaderboard row
-  // plus the run's mode.
+  // Recent runs — collapse the last 24 hours by player + mode before applying
+  // the visible limit. This keeps one enthusiastic player from filling the rail
+  // while still letting distinct games tell separate stories. Raw feed rows
+  // remain immutable and TTL'd; this is a read-only display projection.
   async recentActivity(
     seasonId: string,
     limit = 8,
   ): Promise<Array<Record<string, unknown>>> {
-    const result = await client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        KeyConditionExpression: "pk = :pk",
-        ExpressionAttributeValues: { ":pk": `FEED#${seasonId}` },
-        ScanIndexForward: false,
-        Limit: Math.max(1, Math.min(limit, 25)),
-      }),
-    );
-    const items = (result.Items ?? []) as Array<Record<string, unknown>>;
+    const visibleLimit = Math.max(1, Math.min(limit, 25));
+    const since = new Date(Date.now() - ACTIVITY_WINDOW_MS).toISOString();
+    const items: Array<Record<string, unknown>> = [];
+    let cursor: Record<string, unknown> | undefined;
+
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND sk >= :since",
+          ExpressionAttributeValues: {
+            ":pk": `FEED#${seasonId}`,
+            ":since": since,
+          },
+          ScanIndexForward: false,
+          Limit: Math.min(
+            ACTIVITY_QUERY_PAGE_SIZE,
+            ACTIVITY_SCAN_LIMIT - items.length,
+          ),
+          ...(cursor ? { ExclusiveStartKey: cursor } : {}),
+        }),
+      );
+      const remaining = ACTIVITY_SCAN_LIMIT - items.length;
+      items.push(
+        ...((result.Items ?? []) as Array<Record<string, unknown>>).slice(
+          0,
+          remaining,
+        ),
+      );
+      cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (cursor && items.length < ACTIVITY_SCAN_LIMIT);
+
+    const grouped = new Map<string, ActivityGroup>();
+    for (const item of items) {
+      if (
+        typeof item.playerSub !== "string" ||
+        !isGameMode(item.mode) ||
+        typeof item.completedAt !== "string" ||
+        typeof item.score !== "number" ||
+        !Number.isFinite(item.score)
+      )
+        continue;
+
+      const key = `${item.playerSub}\u0000${item.mode}`;
+      const existing = grouped.get(key);
+      const candidateTimeMs =
+        typeof item.timeMs === "number" && Number.isFinite(item.timeMs)
+          ? item.timeMs
+          : undefined;
+      if (!existing) {
+        grouped.set(key, {
+          playerSub: item.playerSub,
+          mode: item.mode,
+          score: item.score,
+          achievedAt: item.completedAt,
+          runCount: 1,
+          ...(candidateTimeMs !== undefined ? { timeMs: candidateTimeMs } : {}),
+        });
+        continue;
+      }
+
+      existing.runCount += 1;
+      if (item.completedAt > existing.achievedAt)
+        existing.achievedAt = item.completedAt;
+      const isBetter =
+        MODE_RULES[item.mode].direction === "lower"
+          ? item.score < existing.score
+          : item.score > existing.score;
+      if (isBetter) {
+        existing.score = item.score;
+        if (candidateTimeMs === undefined) delete existing.timeMs;
+        else existing.timeMs = candidateTimeMs;
+      }
+    }
+
+    const perPlayer = new Map<string, number>();
+    const groups = [...grouped.values()]
+      .sort((left, right) => right.achievedAt.localeCompare(left.achievedAt))
+      .filter((group) => {
+        const count = perPlayer.get(group.playerSub) ?? 0;
+        if (count >= MAX_ACTIVITY_GROUPS_PER_PLAYER) return false;
+        perPlayer.set(group.playerSub, count + 1);
+        return true;
+      })
+      .slice(0, visibleLimit);
+
     const profiles = await this.hydratePublicProfiles([
-      ...new Set(items.map((item) => String(item.playerSub))),
+      ...new Set(groups.map((group) => group.playerSub)),
     ]);
-    return items.map((item, index) => ({
-      mode: item.mode,
-      score: item.score,
-      achievedAt: item.completedAt,
-      ...(item.timeMs !== undefined ? { timeMs: item.timeMs as number } : {}),
-      player: profiles.get(String(item.playerSub)) ?? {
+    return groups.map((group, index) => ({
+      mode: group.mode,
+      score: group.score,
+      achievedAt: group.achievedAt,
+      runCount: group.runCount,
+      ...(group.timeMs !== undefined ? { timeMs: group.timeMs } : {}),
+      player: profiles.get(group.playerSub) ?? {
         id: `player-${index + 1}`,
         publicName: "Elixir Player",
         totalGames: 0,

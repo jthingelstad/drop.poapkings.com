@@ -5,7 +5,6 @@ import { CardArt } from './CardChrome'
 interface Props {
   card: Card
   phase: 'playing' | 'correct' | 'wrong'
-  dropAnimKey: number
   // Surge keeps the cost hidden on a wrong answer — the card stays until correct.
   revealCost?: boolean
   // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
@@ -13,14 +12,7 @@ interface Props {
   hideName?: boolean
 }
 
-export default function CardDisplay({
-  card,
-  phase,
-  dropAnimKey,
-  revealCost = true,
-  forceReveal = false,
-  hideName = false
-}: Props) {
+export default function CardDisplay({ card, phase, revealCost = true, forceReveal = false, hideName = false }: Props) {
   const cardClass = classNames('pcard', phase === 'correct' && 'pcard--correct', phase === 'wrong' && 'pcard--wrong')
   const showCost = forceReveal || (phase !== 'playing' && revealCost)
 
@@ -38,13 +30,6 @@ export default function CardDisplay({
         showName={!hideName}
         nameClassName="pcard__name"
       />
-
-      {/* Drop pop on correct */}
-      {phase === 'correct' && (
-        <div class="drop-pop-wrap" key={dropAnimKey}>
-          <div class="drop-pop-large drop-celebrate" />
-        </div>
-      )}
     </div>
   )
 }

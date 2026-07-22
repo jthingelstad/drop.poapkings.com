@@ -1,5 +1,5 @@
 // Desktop right rail: Season standings (Surge) · a "This season" personal card ·
-// the "Live now" recent-activity feed (polls GET /activity). Rows link to the
+// the grouped "Recent runs" feed (polls GET /activity). Rows link to the
 // player's own profile (per-player profiles don't exist yet).
 
 import { useEffect } from 'preact/hooks'
@@ -10,18 +10,17 @@ import { navigate } from '../../lib/router'
 import { player } from '../../lib/account'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
+import Icon from '../Icon'
 
 const RAIL_MODE = 'surge' as const
 const standings = signal<LeaderboardEntry[] | null>(null)
 const standingsFailed = signal(false)
 const activity = signal<ActivityEntry[] | null>(null)
 
-// "cleared 44 in Rain" / "18 streak · Survival" / "Surge · 1.42s"
-function activityAction(mode: GameMode, score: number): string {
+function activityAction(mode: GameMode, score: number, runCount: number): string {
   const name = gameDisplay(mode).name
-  if (mode === 'rain') return `cleared ${score} in Rain`
-  if (mode === 'survival' || mode === 'higher-lower') return `${scoreLabel(mode, score)} · ${name}`
-  return `${name} · ${scoreLabel(mode, score)}`
+  const result = scoreLabel(mode, score)
+  return runCount > 1 ? `${name} · ${runCount} runs · best ${result}` : `${name} · ${result}`
 }
 
 function activityWhen(iso: string): string {
@@ -112,12 +111,12 @@ export default function DesktopRightRail() {
 
       <section class="ed-rail-block">
         <div class="ed-rail-live__head">
-          <span class="ed-rail-live__dot" aria-hidden="true" />
-          <span class="ed-rail-block__title">Live now</span>
+          <Icon name="clock" className="ed-rail-live__icon" />
+          <span class="ed-rail-block__title">Recent runs</span>
         </div>
         <div class="ed-rail-live">
           {feed === null && <div class="ed-rail-empty">Loading…</div>}
-          {feed?.length === 0 && <div class="ed-rail-empty">Quiet right now — be the first.</div>}
+          {feed?.length === 0 && <div class="ed-rail-empty">No recent runs yet — be the first.</div>}
           {feed?.map((a, i) => (
             <button
               key={`${a.player.id}-${a.achievedAt}-${i}`}
@@ -127,7 +126,7 @@ export default function DesktopRightRail() {
               <PlayerAvatar favoriteCardId={a.player.favoriteCardId} size="small" />
               <span class="ed-rail-live__text">
                 <span class="ed-rail-live__name">{a.player.id === meId ? 'You' : a.player.publicName}</span>
-                <span class="ed-rail-live__action">{activityAction(a.mode, a.score)}</span>
+                <span class="ed-rail-live__action">{activityAction(a.mode, a.score, a.runCount)}</span>
               </span>
               <span class="ed-rail-live__when">{activityWhen(a.achievedAt)}</span>
             </button>

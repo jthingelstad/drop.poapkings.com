@@ -252,6 +252,8 @@ describe('api.ts request helpers', () => {
 
     const result = await getActivity(5)
     expect(result.seasonId).toBe('2026-07')
+    expect(result.windowHours).toBe(24)
+    expect(result.entries[0]?.runCount).toBe(1)
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/activity?limit=5`)
   })
 

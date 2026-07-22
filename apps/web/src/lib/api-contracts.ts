@@ -230,18 +230,21 @@ export const leaderboardResponseSchema = z.object({
   entries: z.array(leaderboardEntrySchema)
 })
 
-// "Live now" — recent ranked runs across players (desktop rail). Same public
-// player shape as a leaderboard row, plus the run's mode.
+// Recent ranked runs across players (desktop rail), grouped by player + mode
+// over the API's rolling window. score is the group's best score and achievedAt
+// is its latest run. Optional defaults keep rolling web/API deploys compatible.
 export const activityEntrySchema = z.object({
   mode: gameModeSchema,
   score: z.number().finite(),
   achievedAt: isoDateTime,
+  runCount: z.optional(safeInteger.positive()).default(1),
   timeMs: z.optional(nonNegativeInteger),
   player: leaderboardEntrySchema.shape.player
 })
 
 export const activityResponseSchema = z.object({
   seasonId: nonEmptyString,
+  windowHours: z.optional(safeInteger.positive()).default(24),
   entries: z.array(activityEntrySchema)
 })
 

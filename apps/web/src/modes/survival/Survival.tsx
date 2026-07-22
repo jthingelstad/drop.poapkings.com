@@ -16,7 +16,6 @@ import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
-import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -50,7 +49,6 @@ export default function Survival() {
   const remainingFrac = useSignal(1)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
-  const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
   const isPB = useSignal(false)
@@ -195,7 +193,6 @@ export default function Survival() {
       streak.value += 1
       if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value += 1
       cardPhase.value = 'correct'
-      dropKey.value += 1
       runtime.emitCue('answer-correct', { cardId: card.id })
       later(nextCard, 230)
     } else {
@@ -252,7 +249,6 @@ export default function Survival() {
             }
           ]}
           onReplay={replay}
-          replayLabel={won.current ? 'Go faster' : 'Run it back'}
           onHome={() => navigate('/')}
         >
           <ShareLine
@@ -263,7 +259,6 @@ export default function Survival() {
                 : `Survival: ${streak.value} in a row — drop.poapkings.com`
             }
           />
-          {(won.current || (isPB.value && streak.value >= 10)) && <Recruit mode="survival" />}
         </Summary>
       </div>
     )
@@ -301,12 +296,7 @@ export default function Survival() {
         <div class="ed-kstage__card">
           {card && (
             <GameMotion contentKey={card.id} cue={runtime.cue.value}>
-              <CardDisplay
-                card={card}
-                phase={cardPhase.value}
-                dropAnimKey={dropKey.value}
-                revealCost={cardPhase.value === 'wrong'}
-              />
+              <CardDisplay card={card} phase={cardPhase.value} revealCost={cardPhase.value === 'wrong'} />
             </GameMotion>
           )}
         </div>

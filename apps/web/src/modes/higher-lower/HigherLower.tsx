@@ -247,13 +247,13 @@ export default function HigherLower() {
         <GameMotion contentKey={counting ? 'ready' : pairIndex.value} cue={runtime.cue.value} preset="pair">
           <div class="ed-duel__cards" role="group" aria-label="Tap the higher-cost card">
             <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
-              <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+              <CardDisplay card={left} phase="playing" forceReveal={revealed.value} />
             </button>
             <div class="ed-duel__vs" aria-hidden="true">
               VS
             </div>
             <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
-              <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
+              <CardDisplay card={right} phase="playing" forceReveal={revealed.value} />
             </button>
           </div>
         </GameMotion>

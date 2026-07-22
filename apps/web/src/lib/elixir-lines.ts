@@ -33,10 +33,6 @@ const TABLE: Record<string, string[]> = {
     'New best: {time}s. People who read elixir like this win wars →',
     "PB: {time}s. That's clan-ready awareness →"
   ],
-  recruit: [
-    "You're reading elixir like a clan member. We have room for that →",
-    "That's the kind of game sense POAP KINGS runs on →"
-  ],
   hl_right: ['Read it perfectly.', 'You saw that.', 'Right call.', 'Clean read.', 'Yep.'],
   hl_wrong: ['Other way.', 'Wrong read.', 'Nope — feel the matchup.', 'Misread that one.', 'Not this time.'],
   hl_streak: ['{n} reads in a row.', "{n} straight. That's trade sense.", '{n} clean. The clan reads like this.'],

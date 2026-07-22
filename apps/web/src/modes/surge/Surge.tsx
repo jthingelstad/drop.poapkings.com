@@ -17,7 +17,6 @@ import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
-import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -53,7 +52,6 @@ export default function Surge() {
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   // After a wrong tap, point at the answer relative to the latest guess.
   const hint = useSignal<'higher' | 'lower' | null>(null)
-  const dropKey = useSignal(0)
 
   const insights = useSignal<Insights | null>(null)
   const paceDelta = useSignal<{ aheadMs: number } | null>(null)
@@ -168,7 +166,6 @@ export default function Surge() {
       }
       cardPhase.value = 'correct'
       hint.value = null
-      dropKey.value += 1
       runtime.emitCue('answer-correct', { cardId: card.id })
       if (index.value + 1 >= SURGE.SPRINT_LEN) {
         const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
@@ -238,7 +235,6 @@ export default function Surge() {
             mode="surge"
             text={`Surge: ${SURGE.SPRINT_LEN} cards in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
-          {isPB.value && <Recruit mode="surge" />}
         </Summary>
       </div>
     )
@@ -274,7 +270,7 @@ export default function Surge() {
       <div class="ed-kstage">
         <div class="ed-kstage__card">
           <GameMotion contentKey={card.id} cue={runtime.cue.value}>
-            <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+            <CardDisplay card={card} phase={cardPhase.value} revealCost={false} />
           </GameMotion>
         </div>
         <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>

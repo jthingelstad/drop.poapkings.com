@@ -26,7 +26,7 @@ import {
 import { generateNameOptions, isSafeGeneratedName } from "./names.js";
 import { levelForGames } from "./progression.js";
 import { buildEvidenceItem, deriveCorrelation } from "./referee-evidence.js";
-import { Repository } from "./repository.js";
+import { ACTIVITY_WINDOW_HOURS, Repository } from "./repository.js";
 import {
   createChallenge,
   scoreRun,
@@ -1026,7 +1026,11 @@ async function route(event: APIGatewayProxyEventV2) {
       ? Math.max(1, Math.min(Math.floor(rawLimit), 25))
       : 8;
     const entries = await repository.recentActivity(currentSeason.id, limit);
-    return json(200, { seasonId: currentSeason.id, entries });
+    return json(200, {
+      seasonId: currentSeason.id,
+      windowHours: ACTIVITY_WINDOW_HOURS,
+      entries,
+    });
   }
 
   if (method === "GET" && path === "/stats") {

@@ -13,7 +13,6 @@ import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } 
 import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
 import ShareLine from '../../components/ShareLine'
-import Recruit from '../../components/Recruit'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
@@ -321,7 +320,6 @@ export default function Trade() {
             mode="trade"
             text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
-          {isPB.value && <Recruit mode="trade" />}
         </Summary>
       </div>
     )

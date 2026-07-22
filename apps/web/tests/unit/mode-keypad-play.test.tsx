@@ -367,7 +367,7 @@ describe('Survival gameplay', () => {
     advance(1100)
     expect(host.textContent).toContain('Sudden death')
 
-    clickText(host, 'button', 'Run it back')
+    clickText(host, 'button', 'Play again')
     expect(session.prepare).toHaveBeenCalled()
     expect(host.textContent).toContain('Loading cards…')
   })
@@ -377,6 +377,26 @@ describe('Survival gameplay', () => {
 // Practice — untimed round of 15, unranked; keypad or 4-choice input.
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Practice gameplay', () => {
+  it('uses the Surge card motion and no purple correct-answer treatment', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    expect(host.querySelector('.game-motion--card')).toBeTruthy()
+    press(host, cards[0]!.elixir)
+    expect(host.querySelector('.pcard--correct')).toBeTruthy()
+    expect(host.querySelector('.pcard__cost')).toBeNull()
+    expect(host.querySelector('.drop-pop-wrap')).toBeNull()
+
+    advance(280)
+    expect(host.textContent).toContain('Card 2 / 15')
+  })
+
   it('answers a full round on the keypad → summary + complete', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
@@ -390,7 +410,7 @@ describe('Practice gameplay', () => {
 
     for (let i = 0; i < 15; i++) {
       press(host, cards[i]!.elixir)
-      advance(1100) // ADVANCE_DELAY_CORRECT → nextCard (or finishRound on the last)
+      advance(280) // ADVANCE_DELAY_CORRECT → nextCard (or finishRound on the last)
     }
 
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -401,7 +421,7 @@ describe('Practice gameplay', () => {
     expect(host.textContent).toContain('15 / 15 · 100%')
   })
 
-  it('a wrong answer breaks the streak and the miss lowers accuracy', () => {
+  it('keeps a missed card active with Higher/Lower feedback and grades only the first read', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -411,16 +431,32 @@ describe('Practice gameplay', () => {
       host = mount(<Practice />)
     })
 
-    press(host, wrongFor(cards[0]!.elixir)) // miss card 0
-    advance(1500) // ADVANCE_DELAY_WRONG → nextCard
+    const correctCost = cards[0]!.elixir
+    press(host, correctCost - 1)
+    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Higher')
+    expect(host.querySelector('.pcard__cost')).toBeNull()
+    expect(host.textContent).toContain('Card 1 / 15')
+
+    advance(430)
+    press(host, correctCost + 1)
+    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Lower')
+    expect(host.textContent).toContain('Card 1 / 15')
+
+    advance(430)
+    press(host, correctCost)
+    advance(280)
     expect(host.textContent).toContain('Card 2 / 15')
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
     for (let i = 1; i < 15; i++) {
       press(host, cards[i]!.elixir)
-      advance(1100)
+      advance(280)
     }
     expect(host.textContent).toContain('14 / 15 · 93%')
+    const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ cardId: number; guess: number }> }
+    expect(payload.answers).toHaveLength(15)
+    expect(payload.answers[0]).toEqual({ cardId: cards[0]!.id, guess: correctCost - 1 })
+    expect(saveResult).toHaveBeenCalledTimes(15)
   })
 
   it('switches to 4-choice input and answers through it', () => {
@@ -438,13 +474,24 @@ describe('Practice gameplay', () => {
     const choices = host.querySelector('.mc-choices')
     expect(choices).not.toBeNull()
 
-    // Answer the first card via the choice grid (its cost is always in-window).
+    // A wrong choice keeps the card active and gives the same directional cue.
     const correct = host.querySelector<HTMLButtonElement>(`.mc-choices__btn[aria-label="${cards[0]!.elixir} elixir"]`)
     expect(correct).not.toBeNull()
+    const wrong = [...host.querySelectorAll<HTMLButtonElement>('.mc-choices__btn')].find((button) => button !== correct)
+    expect(wrong).not.toBeNull()
+    void act(() => {
+      wrong!.click()
+    })
+    const expectedHint =
+      Number(wrong!.getAttribute('aria-label')?.split(' ')[0]) < cards[0]!.elixir ? 'Higher' : 'Lower'
+    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain(expectedHint)
+    expect(host.textContent).toContain('Card 1 / 15')
+
+    advance(430)
     void act(() => {
       correct!.click()
     })
-    advance(1100)
+    advance(280)
     expect(host.textContent).toContain('Card 2 / 15')
   })
 
@@ -463,7 +510,7 @@ describe('Practice gameplay', () => {
       void act(() => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: `${cards[i]!.elixir}` }))
       })
-      advance(1100)
+      advance(280)
     }
     expect(host.textContent).toContain('15 / 15 · 100%')
 

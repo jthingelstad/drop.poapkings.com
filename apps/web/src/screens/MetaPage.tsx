@@ -3,45 +3,34 @@
 // as a full sub-screen with a back arrow; desktop renders it in the center
 // stage. No game, auth, or leaderboard logic here.
 
-import { back } from '../lib/router'
-import Icon from '../components/Icon'
+import MetaPageHead from '../components/MetaPageHead'
+import MetaSection from '../components/MetaSection'
 import { ABOUT, FAQ, INSTALL } from '../data/meta-content'
 
 export type MetaPageKind = 'about' | 'faq' | 'install'
 
-function PageHead({ eyebrow, title }: { eyebrow: string; title: string }) {
-  return (
-    <div class="ed-page__head">
-      <button class="ed-page__back tap-fx" onClick={() => back('/')} aria-label="Back">
-        <Icon name="chevron-left" />
-      </button>
-      <div>
-        <div class="ed-page__eyebrow">{eyebrow}</div>
-        <h1 class="ed-page__title">{title}</h1>
-      </div>
-    </div>
-  )
-}
-
 function AboutBody() {
   return (
-    <div class="ed-page__prose">
-      {ABOUT.paras.map((p) => (
-        <p key={p}>{p}</p>
+    <div class="ed-meta-sections">
+      {ABOUT.sections.map((section) => (
+        <MetaSection title={section.title} key={section.title}>
+          <p>{section.body}</p>
+        </MetaSection>
       ))}
-      <p class="ed-page__disclaimer">{ABOUT.disclaimer}</p>
+      <MetaSection title="Fan content" muted>
+        <p>{ABOUT.disclaimer}</p>
+      </MetaSection>
     </div>
   )
 }
 
 function FaqBody() {
   return (
-    <div class="ed-faq">
+    <div class="ed-meta-sections">
       {FAQ.items.map((item) => (
-        <div class="ed-faq__item" key={item.q}>
-          <div class="ed-faq__q">{item.q}</div>
-          <p class="ed-faq__a">{item.a}</p>
-        </div>
+        <MetaSection title={item.q} key={item.q}>
+          <p>{item.a}</p>
+        </MetaSection>
       ))}
     </div>
   )
@@ -76,11 +65,11 @@ function InstallBody() {
 export default function MetaPage({ kind }: { kind: MetaPageKind }) {
   const meta = kind === 'about' ? ABOUT : kind === 'faq' ? FAQ : INSTALL
   return (
-    <div class="ed-page">
-      <PageHead eyebrow={meta.eyebrow} title={meta.title} />
+    <article class="ed-page">
+      <MetaPageHead eyebrow={meta.eyebrow} title={meta.title} />
       {kind === 'about' && <AboutBody />}
       {kind === 'faq' && <FaqBody />}
       {kind === 'install' && <InstallBody />}
-    </div>
+    </article>
   )
 }

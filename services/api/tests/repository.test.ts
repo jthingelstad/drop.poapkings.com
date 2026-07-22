@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const send = vi.hoisted(() => vi.fn());
 
@@ -18,6 +18,138 @@ import { Repository, type RunItem } from "../src/repository.js";
 describe("repository DynamoDB requests", () => {
   beforeEach(() => {
     send.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("groups recent activity by player and mode before applying diversity limits", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-07-22T15:00:00.000Z").getTime(),
+    );
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            playerSub: "player-a",
+            mode: "surge",
+            score: 20_000,
+            completedAt: "2026-07-22T14:55:00.000Z",
+          },
+          {
+            playerSub: "player-a",
+            mode: "surge",
+            score: 18_000,
+            completedAt: "2026-07-22T14:54:00.000Z",
+          },
+          {
+            playerSub: "player-a",
+            mode: "rain",
+            score: 12,
+            completedAt: "2026-07-22T14:53:00.000Z",
+          },
+          {
+            playerSub: "player-a",
+            mode: "rain",
+            score: 15,
+            completedAt: "2026-07-22T14:52:30.000Z",
+          },
+          {
+            playerSub: "player-a",
+            mode: "survival",
+            score: 5,
+            completedAt: "2026-07-22T14:52:00.000Z",
+          },
+        ],
+        LastEvaluatedKey: { pk: "FEED#2026-07", sk: "cursor" },
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            playerSub: "player-b",
+            mode: "trade",
+            score: 13_000,
+            completedAt: "2026-07-22T14:51:00.000Z",
+          },
+          {
+            playerSub: "player-c",
+            mode: "higher-lower",
+            score: 7,
+            completedAt: "2026-07-22T14:50:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 20,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 8,
+            },
+            {
+              sub: "player-c",
+              playerId: "p-c",
+              publicName: "Crown",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").recentActivity(
+      "2026-07",
+      4,
+    );
+
+    const firstQuery = send.mock.calls[0]?.[0].input;
+    expect(firstQuery.KeyConditionExpression).toBe("pk = :pk AND sk >= :since");
+    expect(firstQuery.ExpressionAttributeValues).toMatchObject({
+      ":pk": "FEED#2026-07",
+      ":since": "2026-07-21T15:00:00.000Z",
+    });
+    expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
+      pk: "FEED#2026-07",
+      sk: "cursor",
+    });
+    expect(entries).toMatchObject([
+      {
+        mode: "surge",
+        score: 18_000,
+        achievedAt: "2026-07-22T14:55:00.000Z",
+        runCount: 2,
+        player: { publicName: "Ace" },
+      },
+      {
+        mode: "rain",
+        score: 15,
+        runCount: 2,
+        player: { publicName: "Ace" },
+      },
+      {
+        mode: "trade",
+        score: 13_000,
+        runCount: 1,
+        player: { publicName: "Bolt" },
+      },
+      {
+        mode: "higher-lower",
+        score: 7,
+        runCount: 1,
+        player: { publicName: "Crown" },
+      },
+    ]);
+    expect(entries).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ mode: "survival" })]),
+    );
   });
 
   it("aliases the reserved profile subject attribute in leaderboard reads", async () => {

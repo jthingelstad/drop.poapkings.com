@@ -17,7 +17,7 @@ export interface InstallStepList {
 export interface AboutContent {
   eyebrow: string
   title: string
-  paras: string[]
+  sections: Array<{ title: string; body: string }>
   // Relocated from the old global footer — the required fan-content notice.
   disclaimer: string
 }
@@ -39,10 +39,19 @@ export interface InstallContent {
 export const ABOUT: AboutContent = {
   eyebrow: 'What is this',
   title: 'About Elixir Drop',
-  paras: [
-    'Elixir Drop is a reflex trainer built by the POAP KINGS. It turns one small Clash Royale skill — knowing every card’s elixir cost cold — into a fast, replayable game.',
-    'Six modes push that instinct in different ways: Surge races the clock, Higher / Lower and Trade test comparison, Survival is sudden death, Rain drops cards you clear before they land, and Practice stays unranked so you can warm up without the pressure.',
-    'Every ranked run is scored and stacked against the seasonal leaderboards. It’s free, it runs in your browser, and it plays best installed to your home screen.'
+  sections: [
+    {
+      title: 'Built for fast reads',
+      body: 'Elixir Drop is a reflex trainer built by the POAP KINGS. It turns one small Clash Royale skill — knowing every card’s elixir cost cold — into a fast, replayable game.'
+    },
+    {
+      title: 'Six ways to train',
+      body: 'Six modes push that instinct in different ways: Surge races the clock, Higher / Lower and Trade test comparison, Survival is sudden death, Rain drops cards you clear before they land, and Practice stays unranked so you can warm up without the pressure.'
+    },
+    {
+      title: 'Play, improve, compete',
+      body: 'Every ranked run is scored and stacked against the seasonal leaderboards. It’s free, it runs in your browser, and it plays best installed to your home screen.'
+    }
   ],
   disclaimer:
     'This fan community is not affiliated with Supercell. Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell’s Fan Content Policy.'

@@ -17,7 +17,7 @@ interface Props {
   pbCallout?: string // e.g. "New personal best! −3.4s"
   insights: Insights
   moments?: SummaryMoment[]
-  children?: ComponentChildren // share line + recruit CTA slot
+  children?: ComponentChildren // optional mode-specific result details
   onReplay: () => void
   replayLabel?: string
   onHome: () => void
@@ -158,7 +158,7 @@ export default function Summary({
         </div>
       )}
 
-      {/* Share line / recruit CTA slot */}
+      {/* Optional mode-specific result details, such as the share line. */}
       {children}
 
       {/* Signed-out players played as a guest — invite them to save the score. */}

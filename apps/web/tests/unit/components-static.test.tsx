@@ -3,13 +3,13 @@ import { renderToStringAsync } from 'preact-render-to-string'
 
 import Summary from '../../src/components/Summary'
 import MetaPage from '../../src/screens/MetaPage'
+import Privacy from '../../src/screens/Privacy'
 import MetaMoreList from '../../src/components/MetaMoreList'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
 import { ElixirCostBadge, CardName, CardArt } from '../../src/components/CardChrome'
 import CardDisplay from '../../src/components/CardDisplay'
 import SignInToSave from '../../src/components/SignInToSave'
 import ShareLine from '../../src/components/ShareLine'
-import Recruit from '../../src/components/Recruit'
 import GameRunGate from '../../src/components/GameRunGate'
 import RunCountdown from '../../src/components/RunCountdown'
 import MultipleChoice from '../../src/components/MultipleChoice'
@@ -187,6 +187,8 @@ describe('Summary', () => {
     // hasBands → accuracy-by-cost section.
     expect(html).toContain('Accuracy by cost')
     expect(html).toContain('ed-sum-band__fill')
+    expect(html).toContain('height:100%')
+    expect(html).toContain('height:50%')
     // weakest chips.
     expect(html).toContain('Missed this round')
     expect(html).toContain('Knight')
@@ -207,19 +209,31 @@ describe('MetaPage', () => {
     expect(html).toContain('aria-label="Back"')
     expect(html).toContain(ABOUT.title)
     expect(html).toContain(ABOUT.eyebrow)
-    expect(html).toContain('ed-page__disclaimer')
-    expect(html).toContain('ed-page__prose')
+    expect(html).toContain('ed-meta-sections')
+    expect(html).toContain('ed-meta-section--muted')
+    expect(html).toContain(ABOUT.sections[0]!.title)
+    expect(html).toContain(ABOUT.sections[0]!.body)
     // FAQ / install specific markup absent.
-    expect(html).not.toContain('ed-faq__item')
     expect(html).not.toContain('ed-install-steps')
   })
 
   it('renders the FAQ page with question/answer items', async () => {
     const html = await render(<MetaPage kind="faq" />)
     expect(html).toContain(FAQ.title)
-    expect(html).toContain('ed-faq__item')
+    expect(html).toContain('ed-meta-section')
     expect(html).toContain(FAQ.items[0].q)
     expect(html).toContain(FAQ.items[0].a)
+  })
+
+  it('renders Privacy with the shared header and section-card treatment', async () => {
+    const html = await render(<Privacy />)
+    expect(html).toContain('ed-page ed-page--privacy')
+    expect(html).toContain('ed-page__back')
+    expect(html).toContain('ed-meta-sections')
+    expect(html).toContain('ed-meta-section')
+    expect(html).toContain('What Drop keeps—and why')
+    expect(html).toContain('Retention and deletion')
+    expect(html).not.toContain('main-content privacy-screen')
   })
 
   it('renders the Install page with numbered iOS and Android steps', async () => {
@@ -340,28 +354,28 @@ describe('CardChrome', () => {
 
 describe('CardDisplay', () => {
   it('hides the cost while playing', async () => {
-    const html = await render(<CardDisplay card={KNIGHT} phase="playing" dropAnimKey={0} />)
+    const html = await render(<CardDisplay card={KNIGHT} phase="playing" />)
     expect(html).toContain('pcard')
     expect(html).not.toContain('cr-elixir-badge')
     expect(html).not.toContain('drop-pop-wrap')
     expect(html).toContain('Knight') // name shown by default
   })
 
-  it('reveals the cost and pops on a correct answer', async () => {
-    const html = await render(<CardDisplay card={KNIGHT} phase="correct" dropAnimKey={2} />)
+  it('reveals the cost without the retired purple drop on a correct answer', async () => {
+    const html = await render(<CardDisplay card={KNIGHT} phase="correct" />)
     expect(html).toContain('pcard--correct')
     expect(html).toContain('cr-elixir-badge')
-    expect(html).toContain('drop-pop-wrap')
+    expect(html).not.toContain('drop-pop-wrap')
   })
 
   it('keeps the cost hidden on a wrong Surge answer (revealCost false)', async () => {
-    const html = await render(<CardDisplay card={KNIGHT} phase="wrong" dropAnimKey={0} revealCost={false} />)
+    const html = await render(<CardDisplay card={KNIGHT} phase="wrong" revealCost={false} />)
     expect(html).toContain('pcard--wrong')
     expect(html).not.toContain('cr-elixir-badge')
   })
 
   it('forceReveal shows the cost even while playing, and hideName drops the name', async () => {
-    const html = await render(<CardDisplay card={KNIGHT} phase="playing" dropAnimKey={0} forceReveal hideName />)
+    const html = await render(<CardDisplay card={KNIGHT} phase="playing" forceReveal hideName />)
     expect(html).toContain('cr-elixir-badge')
     expect(html).not.toContain('cr-card-name')
   })
@@ -397,18 +411,6 @@ describe('ShareLine', () => {
     expect(html).toContain('value="I read 15 cards in 28.6s"')
     expect(html).toContain('readonly')
     expect(html).toContain('Copy')
-  })
-})
-
-describe('Recruit', () => {
-  it('leads with Discord while the clan is full', async () => {
-    const html = await render(<Recruit mode="surge" />)
-    expect(html).toContain('recruit')
-    expect(html).toContain('Join the Elixir Drop Discord')
-    expect(html).toContain(`href="${ELIXIR_DROP_DISCORD_URL}"`)
-    // Secondary in-game invite line.
-    expect(html).toContain("clan's often full")
-    expect(html).toContain('link.clashroyale.com/invite/clan')
   })
 })
 

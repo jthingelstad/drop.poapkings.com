@@ -12,8 +12,8 @@ import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import MultipleChoice from '../../components/MultipleChoice'
 import FloatingCue from '../../components/FloatingCue'
+import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
-import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -23,10 +23,9 @@ import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 
-const STRONG_SESSION_PCT = 85
 const ROUND_LEN = 15
-const ADVANCE_DELAY_CORRECT = 1100
-const ADVANCE_DELAY_WRONG = 1500
+const ADVANCE_DELAY_CORRECT = 280
+const WRONG_BEAT_MS = 430
 
 interface Props {
   eyebrow: string
@@ -40,6 +39,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const exit = onExit ?? (() => navigate('/'))
   const answers = useRef<Answer[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
+  const recorded = useRef(false)
   const cards = gameRun.content
   const choiceSets = useMemo(() => cards?.map((card) => makeChoices(card.elixir)) ?? [], [cards])
 
@@ -47,14 +47,13 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
   const cardIndex = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
-  const dropKey = useSignal(0)
+  const hint = useSignal<'higher' | 'lower' | null>(null)
+  const hintPulse = useSignal(0)
   const streak = useSignal(0)
   // Bumped at streak milestones to fire the shared floating streak cue.
   const streakCue = useSignal(0)
-  const answered = useSignal(0)
   const correct = useSignal(0)
   const insights = useSignal<Insights | null>(null)
-  const strongSession = useSignal(false)
 
   useEffect(() => {
     preloadGameFx()
@@ -64,7 +63,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     const nextIndex = cardIndex.value + 1
     if (!cards?.[nextIndex]) return
     cardIndex.value = nextIndex
+    recorded.current = false
     phase.value = 'playing'
+    hint.value = null
     runtime.emitCue('round-advance', { cardId: cards[nextIndex]?.id })
   }
 
@@ -83,8 +84,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       void gameRun.complete({ answers: serverAnswers.current })
     }
 
-    strongSession.value = complete && ins.total >= 10 && ins.accuracyPct >= STRONG_SESSION_PCT
-
     runtime.finish()
   }
 
@@ -95,29 +94,39 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     if (!card) return
     const isCorrect = picked === card.elixir
 
-    saveResult(card.id, isCorrect)
-    answers.current.push({ card, guess: picked, correct: isCorrect })
-    serverAnswers.current.push({ cardId: card.id, guess: picked })
-    answered.value++
+    // Practice grades the first read, like Surge, but lets the player keep
+    // trying the same card until they solve it. The server still receives one
+    // canonical answer per card, preserving the existing accuracy contract.
+    if (!recorded.current) {
+      recorded.current = true
+      saveResult(card.id, isCorrect)
+      answers.current.push({ card, guess: picked, correct: isCorrect })
+      serverAnswers.current.push({ cardId: card.id, guess: picked })
+
+      if (isCorrect) {
+        correct.value++
+        streak.value++
+        if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
+      } else {
+        streak.value = 0
+      }
+    }
 
     if (isCorrect) {
       playCorrect()
-      correct.value++
-      streak.value++
-      dropKey.value++
-      if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
       phase.value = 'correct'
+      hint.value = null
       runtime.emitCue('answer-correct', { cardId: card.id })
+      const isLast = cardIndex.value + 1 >= ROUND_LEN
+      runtime.later(() => (isLast ? finishRound(true) : nextCard()), ADVANCE_DELAY_CORRECT)
     } else {
       playWrong()
-      streak.value = 0
+      hint.value = picked < card.elixir ? 'higher' : 'lower'
+      hintPulse.value++
       phase.value = 'wrong'
       runtime.emitCue('answer-wrong', { cardId: card.id })
+      runtime.later(() => (phase.value = 'playing'), WRONG_BEAT_MS)
     }
-
-    const isLast = answered.value >= ROUND_LEN
-    const delay = isCorrect ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
-    runtime.later(() => (isLast ? finishRound(true) : nextCard()), delay)
   }
 
   function replay() {
@@ -125,13 +134,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
+    recorded.current = false
     cardIndex.value = 0
     void gameRun.prepare()
-    answered.value = 0
     correct.value = 0
     streak.value = 0
     insights.value = null
     phase.value = 'playing'
+    hint.value = null
   }
 
   function switchInput(style: InputStyle) {
@@ -160,9 +170,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           ]}
           onReplay={replay}
           onHome={exit}
-        >
-          {strongSession.value && <Recruit mode="practice" />}
-        </Summary>
+        />
       </div>
     )
   }
@@ -177,14 +185,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       onQuit={exit}
       cue={runtime.cue.value}
       fxParticles={6}
-      progressText={`Card ${Math.min(answered.value + 1, ROUND_LEN)} / ${ROUND_LEN}`}
+      progressText={`Card ${Math.min(cardIndex.value + 1, ROUND_LEN)} / ${ROUND_LEN}`}
       metric={{ value: String(correct.value), label: 'correct' }}
-      progressPct={(answered.value / ROUND_LEN) * 100}
+      progressPct={(cardIndex.value / ROUND_LEN) * 100}
     >
-      <div class="ed-kstage">
+      <div class="ed-kstage ed-kstage--practice">
         <div class="ed-kstage__card">
-          <GameMotion contentKey={card.id} cue={runtime.cue.value} preset="reveal">
-            <CardDisplay card={card} phase={phase.value} dropAnimKey={dropKey.value} />
+          <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+            <CardDisplay card={card} phase={phase.value} revealCost={false} />
           </GameMotion>
         </div>
 
@@ -223,7 +231,24 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
               🔥 {streak.value} streak
             </FloatingCue>
           </div>
+          <div class="game-cues__slot game-cues__slot--bottom">
+            <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="practice-hint">
+              {hint.value === 'higher' && (
+                <>
+                  <Icon name="arrow-up" /> Higher
+                </>
+              )}
+              {hint.value === 'lower' && (
+                <>
+                  <Icon name="arrow-down" /> Lower
+                </>
+              )}
+            </FloatingCue>
+          </div>
         </div>
+        <span class="sr-only" aria-live="assertive">
+          {phase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
+        </span>
       </div>
     </GameFrame>
   )
