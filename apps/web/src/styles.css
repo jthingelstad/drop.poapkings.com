@@ -5957,6 +5957,16 @@ html.reduce-motion .ed-soon__halo::before {
   font-size: 1rem;
   color: var(--lavender);
 }
+
+/* A positioned, sized box so RunCountdown (position:absolute; inset:0) centers
+   its number WITHIN it — below the mode name — instead of over the whole stage. */
+.ed-game__count-num {
+  position: relative;
+  width: clamp(150px, 44vw, 210px);
+  height: clamp(150px, 44vw, 210px);
+  display: grid;
+  place-items: center;
+}
 .ed-game__count-num .run-count__num {
   font-family: var(--font-display);
   font-size: 6rem;

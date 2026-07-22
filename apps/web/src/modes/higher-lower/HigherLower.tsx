@@ -185,6 +185,27 @@ export default function HigherLower() {
   }
   timeoutRef.current = timeout
 
+  // Desktop keyboard: ← / → pick the left / right card.
+  const keyRef = useRef<(event: KeyboardEvent) => void>(() => {})
+  keyRef.current = (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+    if (runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value) return
+    const active = gameRun.content?.[pairIndex.value]
+    if (!active) return
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      choose(active[0].id)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      choose(active[1].id)
+    }
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => keyRef.current(event)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const pair = gameRun.content?.[pairIndex.value]
   if (!pair) {
     return (

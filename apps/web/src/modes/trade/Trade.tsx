@@ -257,6 +257,29 @@ export default function Trade() {
     void gameRun.prepare()
   }
 
+  // Desktop keyboard: number keys 1-9 map to the answer pad left→right
+  // (1 = −4 … 5 = Even … 9 = +4); 0 also answers Even.
+  const keyRef = useRef<(event: KeyboardEvent) => void>(() => {})
+  keyRef.current = (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+    if (stage.value !== 'running' || feedback.value !== 'idle') return
+    if (event.key === '0') {
+      event.preventDefault()
+      guess(0)
+      return
+    }
+    const slot = Number(event.key)
+    if (Number.isInteger(slot) && slot >= 1 && slot <= TRADE_ANSWERS.length) {
+      event.preventDefault()
+      guess(TRADE_ANSWERS[slot - 1]!)
+    }
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => keyRef.current(event)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   if (!rounds) {
     return (
       <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />

@@ -1,5 +1,5 @@
 import { animate } from 'motion'
-import { useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import type { CardsData } from '../types'
 import { isEnhancedEffectsEnabled } from '../lib/motion'
@@ -66,6 +66,7 @@ function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean
   return (
     <button
       ref={ref}
+      data-pip-value={value}
       class={`pip-keypad__pip${disabled ? ' pip-keypad__pip--disabled' : ''}`}
       onPointerDown={() => {
         if (disabled) return
@@ -84,8 +85,32 @@ function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean
 }
 
 export default function PipKeypad({ onPick, disabled }: Props) {
+  const groupRef = useRef<HTMLDivElement>(null)
+
+  // Desktop keyboard: number keys 1..N answer, with the same tap sound + key FX
+  // as a click. A ref keeps the handler current without re-binding each render.
+  const handlerRef = useRef<(event: KeyboardEvent) => void>(() => {})
+  handlerRef.current = (event) => {
+    if (disabled || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+    const target = event.target as HTMLElement | null
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+    const value = Number(event.key)
+    if (!Number.isInteger(value) || value < 1 || value > MAX_ELIXIR) return
+    event.preventDefault()
+    const button = groupRef.current?.querySelector<HTMLButtonElement>(`[data-pip-value="${value}"]`)
+    playTap()
+    if (button && isEnhancedEffectsEnabled()) pressFx(button)
+    onPick(value)
+  }
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => handlerRef.current(event)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
-    <div class="pip-keypad" role="group" aria-label="Elixir cost keypad">
+    <div ref={groupRef} class="pip-keypad" role="group" aria-label="Elixir cost keypad">
       {KEY_ORDER.map((n) => (
         <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />
       ))}
