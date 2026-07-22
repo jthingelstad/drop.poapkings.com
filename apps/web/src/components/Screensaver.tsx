@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 import { stopScreensaver } from '../lib/screensaver'
 
 // The "Elixir Rain" overlay shell: opaque backdrop, exit on any input, focus
@@ -8,7 +8,11 @@ import { stopScreensaver } from '../lib/screensaver'
 export default function Screensaver() {
   const hostRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  // Layout effect, not a plain effect: the exit listeners must be attached
+  // synchronously with the overlay's first paint. A plain effect runs *after*
+  // paint, leaving a one-frame window where the overlay is visible but a key
+  // press (Escape) would fall through to the page and never dismiss it.
+  useLayoutEffect(() => {
     const host = hostRef.current
     if (!host) return
     const previouslyFocused = document.activeElement as HTMLElement | null

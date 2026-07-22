@@ -8,5 +8,10 @@
   "orientation": "portrait",
   "background_color": "#070610",
   "theme_color": "#070610",
-  "icons": [{ "src": "/assets/elixir-neutral.png", "sizes": "128x128", "type": "image/png", "purpose": "any" }]
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

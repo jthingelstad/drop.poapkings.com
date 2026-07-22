@@ -6403,11 +6403,12 @@ html.reduce-motion .ed-duel__card {
   min-height: 0;
 }
 .ed-trade__team {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  gap: 6px;
   border-radius: 16px;
-  padding: 10px 12px;
+  padding: 12px 12px 14px;
   min-height: 0;
 }
 .ed-trade__team--blue {
@@ -6433,42 +6434,34 @@ html.reduce-motion .ed-duel__card {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-start;
   justify-content: center;
 }
 .ed-trade__card {
-  flex: 0 1 92px;
-  max-width: 104px;
+  flex: 0 1 116px;
+  max-width: 136px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.ed-trade__card--revealed .ed-trade__card-img {
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 9px rgba(245, 200, 76, 0.6));
+}
+.ed-trade__card-art {
+  width: clamp(76px, 22vw, 108px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  padding: 8px 6px;
-  border-radius: 12px;
 }
-.ed-trade__team--blue .ed-trade__card {
-  background: linear-gradient(165deg, rgba(59, 130, 246, 0.22), rgba(9, 6, 20, 0.4));
-  border: 1px solid rgba(96, 165, 250, 0.28);
-}
-.ed-trade__team--red .ed-trade__card {
-  background: linear-gradient(165deg, rgba(239, 68, 68, 0.2), rgba(9, 6, 20, 0.4));
-  border: 1px solid rgba(248, 113, 113, 0.28);
-}
-.ed-trade__card--revealed {
-  box-shadow: 0 0 0 1px rgba(245, 200, 76, 0.45);
-}
-.ed-trade__card-art {
-  width: 44px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-}
-.ed-trade__card-img {
+.ed-trade__card-img,
+.ed-trade__card-fallback {
   width: 100%;
-  height: 100%;
+  height: clamp(92px, 26vw, 130px);
   object-fit: contain;
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
 }
@@ -6603,12 +6596,15 @@ html.reduce-motion .ed-duel__card {
   color: var(--lavender);
 }
 .ed-desktop__main .ed-trade__card {
-  flex: 0 1 106px;
-  max-width: 120px;
+  flex: 0 1 132px;
+  max-width: 152px;
 }
 .ed-desktop__main .ed-trade__card-art {
-  width: 48px;
-  height: 56px;
+  width: 104px;
+}
+.ed-desktop__main .ed-trade__card-img,
+.ed-desktop__main .ed-trade__card-fallback {
+  height: 124px;
 }
 
 /* ── Leaderboards ───────────────────────────────────────────── */

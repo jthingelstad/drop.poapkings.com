@@ -853,8 +853,9 @@ test('the desktop rail launches the Falling Cards screensaver', async ({ page, v
 
   const overlay = page.getByTestId('screensaver')
   await expect(overlay).toBeVisible()
-  // Any input dismisses the screensaver; a click lands as a pointerdown exit.
-  await overlay.click({ position: { x: 5, y: 5 } })
+  // Any input dismisses the screensaver; the Escape key lands as a keydown exit
+  // (the overlay traps focus so the capture-phase handler catches it).
+  await page.keyboard.press('Escape')
   await expect(overlay).toHaveCount(0)
 })
 
@@ -1142,8 +1143,9 @@ test('five logo taps start the screensaver and any key exits it', async ({ page,
   const axe = await new AxeBuilder({ page }).analyze()
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([])
 
-  // Any input dismisses the screensaver — a tap lands as a pointerdown exit.
-  await overlay.click({ position: { x: 5, y: 5 } })
+  // Any input dismisses the screensaver — the Escape key lands as a keydown exit
+  // (the overlay traps focus, so the key is caught in the capture phase).
+  await page.keyboard.press('Escape')
   await expect(overlay).toHaveCount(0)
   await expect(page.locator('.ed-home')).toBeVisible()
 })
