@@ -86,6 +86,8 @@ function testChallenge(mode: GameMode): RunChallenge {
     case 'surge':
     case 'practice':
       return { mode, cardIds: sequence(15) }
+    case 'rain':
+      return { mode, cardIds: sequence(250) }
     case 'survival':
       // Survival deals the whole catalog once (clearing it is a win), so the
       // signed deck length tracks the card count — matching the server and the

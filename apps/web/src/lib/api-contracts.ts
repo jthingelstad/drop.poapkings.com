@@ -93,7 +93,8 @@ const sessionSchema = z.object({
 const cardSequenceChallengeSchemas = [
   z.object({ mode: z.literal('surge'), cardIds: z.array(cardId) }),
   z.object({ mode: z.literal('practice'), cardIds: z.array(cardId) }),
-  z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) })
+  z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) }),
+  z.object({ mode: z.literal('rain'), cardIds: z.array(cardId) })
 ] as const
 
 export const runChallengeSchema = z.discriminatedUnion('mode', [
@@ -219,5 +220,21 @@ export const leaderboardResponseSchema = z.object({
   entries: z.array(leaderboardEntrySchema)
 })
 
+// "Live now" — recent ranked runs across players (desktop rail). Same public
+// player shape as a leaderboard row, plus the run's mode.
+export const activityEntrySchema = z.object({
+  mode: gameModeSchema,
+  score: z.number().finite(),
+  achievedAt: isoDateTime,
+  timeMs: z.optional(nonNegativeInteger),
+  player: leaderboardEntrySchema.shape.player
+})
+
+export const activityResponseSchema = z.object({
+  seasonId: nonEmptyString,
+  entries: z.array(activityEntrySchema)
+})
+
 export type RecentRun = z.infer<typeof recentRunSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
+export type ActivityEntry = z.infer<typeof activityEntrySchema>

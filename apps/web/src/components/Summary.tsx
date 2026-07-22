@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact'
 import type { Insights } from '../lib/insights'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
+import Icon from './Icon'
 import SignInToSave from './SignInToSave'
 
 export interface SummaryMoment {
@@ -12,7 +13,7 @@ export interface SummaryMoment {
 
 interface Props {
   eyebrow: string // e.g. "Surge complete" / "Practice round"
-  headline: string // e.g. "15 cards · 28.6s" or "12 / 15 · 80%"
+  headline: string // e.g. "28.6s" or "12 / 15 · 80%"
   pbCallout?: string // e.g. "New personal best! −3.4s"
   insights: Insights
   moments?: SummaryMoment[]
@@ -24,10 +25,10 @@ interface Props {
 
 function CardChip({ card, sub }: { card: Card; sub?: string }) {
   return (
-    <span class="summary-chip">
-      <CardName card={card} className="summary-chip__name" />
-      <ElixirCostBadge elixir={card.elixir} className="summary-chip__cost" />
-      {sub && <span class="summary-chip__sub">{sub}</span>}
+    <span class="ed-sum-chip">
+      <CardName card={card} className="ed-sum-chip__name" />
+      <ElixirCostBadge elixir={card.elixir} className="ed-sum-chip__cost" />
+      {sub && <span class="ed-sum-chip__sub">{sub}</span>}
     </span>
   )
 }
@@ -87,50 +88,57 @@ export default function Summary({
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
   const runMoments = moments ?? defaultMoments(insights, pbCallout)
+  // Modes without per-card cost answers (Trade, Higher/Lower) have no bands.
+  const hasBands = bands.some((b) => b.total > 0)
 
   return (
-    <div class="summary">
-      <div class="summary__head">
-        <div class="eyebrow">{eyebrow}</div>
-        <div class="summary__headline">{headline}</div>
-        {pbCallout && <div class="summary__pb">{pbCallout}</div>}
+    <div class="ed-sum" data-summary>
+      <div class="ed-sum__head">
+        <div class="ed-eyebrow">{eyebrow}</div>
+        <div class="ed-sum__headline">{headline}</div>
+        {pbCallout && (
+          <div class="ed-sum__pb">
+            <Icon name="star" /> {pbCallout}
+          </div>
+        )}
       </div>
 
       {runMoments.length > 0 && (
-        <div class="summary-moments" aria-label="Run highlights">
+        <div class="ed-sum-tiles" aria-label="Run highlights">
           {runMoments.map((moment) => (
-            <div class={`summary-moment summary-moment--${moment.tone ?? 'purple'}`} key={moment.label}>
-              <div class="summary-moment__label">{moment.label}</div>
-              <div class="summary-moment__value">{moment.value}</div>
+            <div class={`ed-sum-tile ed-sum-tile--${moment.tone ?? 'purple'}`} key={moment.label}>
+              <div class="ed-sum-tile__label">{moment.label}</div>
+              <div class="ed-sum-tile__value">{moment.value}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Accuracy by cost band */}
-      <div class="summary__section">
-        <div class="summary__label">Accuracy by cost</div>
-        <div class="band-row">
-          {bands.map((b) => {
-            const pct = b.total > 0 ? Math.round((b.correct / b.total) * 100) : null
-            return (
-              <div class="band" key={b.label}>
-                <div class="band__bar">
-                  <div class="band__fill" style={{ height: `${pct ?? 0}%` }} />
+      {/* Accuracy by cost band (only for modes that answer per-card costs) */}
+      {hasBands && (
+        <div class="ed-sum-bands">
+          <div class="ed-sum__label">Accuracy by cost</div>
+          <div class="ed-sum-bandrow">
+            {bands.map((b) => {
+              const pct = b.total > 0 ? Math.round((b.correct / b.total) * 100) : null
+              return (
+                <div class="ed-sum-band" key={b.label}>
+                  <div class="ed-sum-band__bar">
+                    <div class="ed-sum-band__fill" style={{ height: `${pct ?? 0}%` }} />
+                  </div>
+                  <div class="ed-sum-band__label">{b.label}</div>
                 </div>
-                <div class="band__pct">{pct === null ? '—' : `${pct}%`}</div>
-                <div class="band__label">{b.label}</div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Weakest cards */}
       {weakest.length > 0 && (
-        <div class="summary__section">
-          <div class="summary__label">Missed this round</div>
-          <div class="summary__chips">
+        <div class="ed-sum-section">
+          <div class="ed-sum__label">Missed this round</div>
+          <div class="ed-sum-chips">
             {weakest.slice(0, 5).map((c) => (
               <CardChip card={c} key={c.id} />
             ))}
@@ -140,9 +148,9 @@ export default function Summary({
 
       {/* Slowest cards (Surge) */}
       {hasTiming && slowestCards && slowestCards.length > 0 && (
-        <div class="summary__section">
-          <div class="summary__label">Slowest reads</div>
-          <div class="summary__chips">
+        <div class="ed-sum-section">
+          <div class="ed-sum__label">Slowest reads</div>
+          <div class="ed-sum-chips">
             {slowestCards.map((c) => (
               <CardChip card={c} key={c.id} />
             ))}
@@ -156,12 +164,12 @@ export default function Summary({
       {/* Signed-out players played as a guest — invite them to save the score. */}
       <SignInToSave />
 
-      <div class="summary__actions">
-        <button class="btn btn--gold" onClick={onReplay}>
-          {replayLabel}
+      <div class="ed-sum__actions">
+        <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={onReplay}>
+          <span class="tap-face">{replayLabel}</span>
         </button>
-        <button class="btn btn--ghost" onClick={onHome}>
-          Home
+        <button class="ed-btn ed-btn--ghost tap-fx" onClick={onHome}>
+          <span class="tap-face">Home</span>
         </button>
       </div>
     </div>

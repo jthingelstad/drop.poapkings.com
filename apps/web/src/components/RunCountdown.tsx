@@ -1,6 +1,7 @@
 import { animate } from 'motion'
 import { useEffect, useRef } from 'preact/hooks'
 import { isReducedMotionEnabled } from '../lib/motion'
+import { playCountdownTick } from '../lib/sound'
 
 // In-slot countdown: the number lands where the first card will, so a mode's
 // interface is already drawn and nothing reflows when the card arrives. Each tick
@@ -12,6 +13,7 @@ export default function RunCountdown({ count }: { count: number }) {
   useEffect(() => {
     const element = numberRef.current
     if (!element) return
+    if (count > 0) playCountdownTick()
     if (isReducedMotionEnabled()) {
       const fade = animate(element, { opacity: [0.6, 1] }, { duration: 0.12, ease: 'easeOut' })
       return () => fade.stop()

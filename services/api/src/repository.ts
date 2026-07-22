@@ -39,6 +39,9 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 
+// "Live now" feed rows are ephemeral — they expire two days after the run.
+const FEED_TTL_SECONDS = 2 * 24 * 60 * 60;
+
 interface MagicItem {
   pk: string;
   sk: "MAGIC";
@@ -832,6 +835,29 @@ export class Repository {
       },
     ];
 
+    // "Live now" recent-activity feed: one ephemeral (TTL'd) row per accepted
+    // ranked run, keyed newest-first in the main table (pk = FEED#{season}, sk =
+    // ISO ts). Quarantined runs (automaticReviewReason set → hidden) never hit the
+    // public feed. The history Put's idempotency condition makes the whole
+    // transaction — feed row included — safe to replay. Name/card resolve on read.
+    if (ranked && !automaticReviewReason) {
+      transactionItems.push({
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            pk: `FEED#${seasonId}`,
+            sk: `${completedAt}#${run.runId}`,
+            playerSub: run.owner,
+            mode: run.mode,
+            score,
+            completedAt,
+            ...(tiebreakMs !== undefined ? { timeMs: tiebreakMs } : {}),
+            expiresAt: Math.floor(Date.now() / 1_000) + FEED_TTL_SECONDS,
+          },
+        },
+      });
+    }
+
     // A plausibility failure is a quarantine, not destruction of the run. The
     // visibility decision is committed atomically with the score so a flagged
     // result cannot briefly appear on a public leaderboard. The referee may
@@ -939,6 +965,42 @@ export class Repository {
       }),
     );
     return (result.Items ?? []) as RunRecord[];
+  }
+
+  // "Live now" — the most recent ranked runs across all players this season,
+  // newest first (feed rows are keyed pk=FEED#{season}, sk=ISO ts). Display
+  // name/card are resolved at read time; the row shape mirrors a leaderboard row
+  // plus the run's mode.
+  async recentActivity(
+    seasonId: string,
+    limit = 8,
+  ): Promise<Array<Record<string, unknown>>> {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: { ":pk": `FEED#${seasonId}` },
+        ScanIndexForward: false,
+        Limit: Math.max(1, Math.min(limit, 25)),
+      }),
+    );
+    const items = (result.Items ?? []) as Array<Record<string, unknown>>;
+    const profiles = await this.hydratePublicProfiles([
+      ...new Set(items.map((item) => String(item.playerSub))),
+    ]);
+    return items.map((item, index) => ({
+      mode: item.mode,
+      score: item.score,
+      achievedAt: item.completedAt,
+      ...(item.timeMs !== undefined ? { timeMs: item.timeMs as number } : {}),
+      player: profiles.get(String(item.playerSub)) ?? {
+        id: `player-${index + 1}`,
+        publicName: "Elixir Player",
+        totalGames: 0,
+        xp: 0,
+        ...levelForGames(0),
+      },
+    }));
   }
 
   // Record one best-ever item per player per ranked mode. Called best-effort

@@ -27,6 +27,8 @@ export function cardElixir(id: number): number | undefined {
 export const SURGE_CARD_COUNT = 15;
 export const SURGE_PENALTY_MS = 2_000;
 export const HIGHER_LOWER_PAIR_COUNT = 250;
+export const RAIN_DECK_SIZE = 250;
+export const RAIN_LIVES = 3;
 
 type RandomInt = (upperBound: number) => number;
 
@@ -162,6 +164,11 @@ export function createChallenge(
       // a race on cumulative time. No repeats, so the max streak is the catalog
       // size (~120).
       return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
+    case "rain":
+      // A long draw deck of falling cards. The client spawns tiles from it in
+      // order; a deep run rarely exhausts it, and the signed deck is what the
+      // scorer validates transcript card ids against.
+      return { mode, cardIds: cardSequence(RAIN_DECK_SIZE, randomInt, pool) };
     case "higher-lower":
       return { mode, pairs: higherLowerPairs(randomInt, pool) };
     case "trade":
@@ -461,6 +468,40 @@ function scoreSurvival(
   return score;
 }
 
+// Rain: cards fall; the player clears (correctly names the cost of) each lit
+// card before it lands, with three lives. The transcript records one entry per
+// RESOLVED card in resolution order — { cardId, guess } where guess is the cost
+// on a clear and null on a landed (missed) card. Score is the cleared count.
+// Card ids are validated against the signed deck (anti-injection); the falling
+// timing itself is client-owned (like the other modes' timing), with the run
+// capped at three misses.
+function scoreRain(
+  challenge: Extract<RunChallenge, { mode: "rain" }>,
+  transcript: RunTranscript,
+): number {
+  const answers = objectArray(transcript.answers, "Rain");
+  if (answers.length > challenge.cardIds.length)
+    throw new Error("Rain transcript is longer than the signed deck");
+  const deck = new Set(challenge.cardIds);
+  let cleared = 0;
+  let misses = 0;
+  for (const answer of answers) {
+    if (misses >= RAIN_LIVES)
+      throw new Error("Rain continued past three lives");
+    const cardId = Number(answer.cardId);
+    if (!deck.has(cardId))
+      throw new Error("Rain card is not from the signed deck");
+    const guess = answer.guess;
+    if (guess === null || guess === undefined) {
+      misses += 1;
+      continue;
+    }
+    if (Number(guess) === card(cardId).elixir) cleared += 1;
+    else misses += 1;
+  }
+  return cleared;
+}
+
 // Cumulative response time across the surviving (correct) Survival cards — the
 // leaderboard tiebreak among equal streaks, and the "you cleared it in X" time.
 export function survivalTimeMs(
@@ -492,6 +533,8 @@ export function scoreRun(
       return scoreTrade(challenge, transcript, wallElapsedMs);
     case "survival":
       return scoreSurvival(challenge, transcript, wallElapsedMs);
+    case "rain":
+      return scoreRain(challenge, transcript);
   }
 }
 
@@ -537,6 +580,9 @@ export function scoreRunWithSignals(
         wallElapsedMs,
         reviewSignals,
       );
+      break;
+    case "rain":
+      score = scoreRain(challenge, transcript);
       break;
   }
   return { score, reviewSignals };

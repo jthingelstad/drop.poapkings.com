@@ -965,6 +965,25 @@ async function route(event: APIGatewayProxyEventV2) {
     return json(200, { current, upcoming: upcomingSeasons(now, 3, clock) });
   }
 
+  if (method === "GET" && path === "/activity") {
+    await repository.useRateLimit(
+      "reads",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      1200,
+      60 * 60,
+    );
+    const currentSeason = seasonForDate(
+      new Date(),
+      await currentWarClock(repository),
+    );
+    const rawLimit = Number(event.queryStringParameters?.limit);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(Math.floor(rawLimit), 25))
+      : 8;
+    const entries = await repository.recentActivity(currentSeason.id, limit);
+    return json(200, { seasonId: currentSeason.id, entries });
+  }
+
   if (method === "GET" && path === "/stats") {
     await repository.useRateLimit(
       "reads",

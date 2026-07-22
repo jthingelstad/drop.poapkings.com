@@ -166,6 +166,33 @@ describe("server-side game scoring", () => {
     expect(survival.cardIds.length).toBeGreaterThan(100);
   });
 
+  it("scores Rain as cleared cards and caps the run at three misses", () => {
+    const rain = createChallenge("rain", randomInt);
+    const deck = rain.cardIds;
+    const answers = [
+      ...Array.from({ length: 5 }, (_unused, i) => ({
+        cardId: deck[i]!,
+        guess: cost(deck[i]!),
+      })),
+      { cardId: deck[5]!, guess: null },
+      { cardId: deck[6]!, guess: null },
+      { cardId: deck[7]!, guess: null },
+    ];
+    expect(scoreRun(rain, { answers }, 12_000)).toBe(5);
+    // A fourth miss is impossible — the run ends when the third life is lost.
+    expect(() =>
+      scoreRun(
+        rain,
+        { answers: [...answers, { cardId: deck[8]!, guess: null }] },
+        12_000,
+      ),
+    ).toThrow(/three lives/);
+  });
+
+  it("deals Rain as a long draw deck", () => {
+    expect(createChallenge("rain", randomInt).cardIds.length).toBe(250);
+  });
+
   it("sums Survival cumulative time over the surviving cards only", () => {
     const answers = [
       { cardId: 1, guess: 1, elapsedMs: 400 },

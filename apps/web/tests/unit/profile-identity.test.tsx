@@ -33,19 +33,21 @@ describe('favorite-card identity', () => {
     const html = await renderToStringAsync(<Profile />)
 
     expect(html).toContain('Knight Main')
-    expect(html).toContain('Knight · Favorite card')
+    expect(html).toContain('Knight · Player Card')
     expect(html).toContain('Knight favorite card')
-    expect(html).toContain('Change card and name')
+    // The profile view offers an Edit action into the identity editor.
+    expect(html).toContain('ed-profile__edit')
   })
 
   it('prompts a legacy profile to choose from the canonical cards', async () => {
     accountStatus.value = 'authenticated'
     player.value = basePlayer
 
+    // No favorite card yet → the editor opens straight to setup.
     const html = await renderToStringAsync(<Profile />)
 
-    expect(html).toContain('Choose a favorite card')
-    expect(html).toContain('Search all cards')
+    expect(html).toContain('Finish setup')
+    expect(html).toContain('Search cards')
     expect(html).toContain('aria-label="Choose your favorite card"')
     expect(html).toContain('Knight')
   })
@@ -65,10 +67,10 @@ describe('favorite-card identity', () => {
     accountStatus.value = 'authenticated'
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(container.textContent).toContain('Knight · Favorite card')
-    expect(container.querySelector('input[placeholder="#PLAYER_TAG"]')).toHaveProperty('value', '#2PYQ0')
-    expect(container.querySelector('input[placeholder="Search all cards"]')).toBeNull()
-    expect(container.textContent).toContain('Change card and name')
+    // Sync ran → the player has a favorite card, so the view (not the editor) shows.
+    expect(container.textContent).toContain('Knight · Player Card')
+    expect(container.querySelector('input[placeholder="Search cards"]')).toBeNull()
+    expect(container.querySelector('.ed-profile__edit')).not.toBeNull()
 
     render(<></>, container)
   })

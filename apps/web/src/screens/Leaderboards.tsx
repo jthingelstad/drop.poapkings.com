@@ -33,34 +33,33 @@ function seasonTiming(season: Season): string {
 function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMode }) {
   const isPlayer = entry.player.id === player.value?.id
   const games = entry.player.totalGames
+  const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
   return (
     <li
-      class={`leaderboard-row${entry.rank <= 3 ? ' leaderboard-row--podium' : ''}${
-        isPlayer ? ' leaderboard-row--player' : ''
+      class={`ed-lbrow leaderboard-row${entry.rank <= 3 ? ' leaderboard-row--podium' : ''}${
+        isPlayer ? ' ed-lbrow--you leaderboard-row--player' : ''
       }`}
     >
-      <span class="leaderboard-rank">{entry.rank}</span>
+      <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{entry.rank}</span>
       <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
-      <span class="leaderboard-player">
-        <strong>
+      <span class="ed-lbrow__player">
+        <strong class="ed-lbrow__name">
           {entry.player.publicName}
-          {isPlayer && <em>You</em>}
+          {isPlayer && <em> You</em>}
         </strong>
-        <small class="leaderboard-stats">
-          <span class="leaderboard-stat leaderboard-stat--xp">
+        <small class="ed-lbrow__meta">
+          <span class="ed-lbrow__xp">
             <Icon name="zap" />
             {entry.player.xp.toLocaleString()} XP
           </span>
-          <span class="leaderboard-stat">
-            {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
+          <span>
+            · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
           </span>
         </small>
       </span>
-      <span class="leaderboard-score">
+      <span class="ed-lbrow__score">
         {scoreLabel(mode, entry.score)}
-        {entry.timeMs !== undefined && (
-          <small class="leaderboard-score__time">{(entry.timeMs / 1000).toFixed(2)}s</small>
-        )}
+        {entry.timeMs !== undefined && <small class="ed-lbrow__time">{(entry.timeMs / 1000).toFixed(2)}s</small>}
       </span>
     </li>
   )
@@ -102,36 +101,29 @@ export default function Leaderboards() {
   const selectedGame = GAME_BY_MODE.get(mode.value)!
 
   return (
-    <div class="main-content leaderboard-screen leaderboard-screen--competition">
-      <div class="leaderboard-hero">
-        <div>
-          <div class="eyebrow">Every run counts</div>
-          {isAllTime ? (
-            <>
-              <h1>All-time leaderboards</h1>
-              <p>Your best-ever score in each mode, across every season.</p>
-            </>
-          ) : (
-            <>
-              <h1>{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
-              {season.value ? (
-                <p>{seasonTiming(season.value)}</p>
-              ) : (
-                <p>Climb a fresh set of boards every Clash Royale season.</p>
-              )}
-            </>
-          )}
-        </div>
-        <button class="btn btn--gold" onClick={() => navigate(selectedGame.path)}>
-          Play {selectedGame.name}
-        </button>
-      </div>
+    <div class="ed-board leaderboard-screen">
+      <header class="ed-board__head">
+        <div class="ed-eyebrow">Every run counts</div>
+        {isAllTime ? (
+          <>
+            <h1 class="ed-h1">All-time leaderboards</h1>
+            <p class="ed-board__timing">Your best-ever score in each mode, across every season.</p>
+          </>
+        ) : (
+          <>
+            <h1 class="ed-h1">{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
+            <p class="ed-board__timing">
+              {season.value ? seasonTiming(season.value) : 'Climb a fresh set of boards every Clash Royale season.'}
+            </p>
+          </>
+        )}
+      </header>
 
-      <div class="leaderboard-mode-tabs" aria-label="Choose a leaderboard scope">
+      <div class="ed-board__scopes" aria-label="Choose a leaderboard scope">
         {SCOPES.map((option) => (
           <button
             aria-pressed={scope.value === option.scope}
-            class={scope.value === option.scope ? 'leaderboard-mode leaderboard-mode--active' : 'leaderboard-mode'}
+            class={`ed-scope${scope.value === option.scope ? ' ed-scope--active' : ''}`}
             onClick={() => (scope.value = option.scope)}
             key={option.scope}
           >
@@ -140,40 +132,35 @@ export default function Leaderboards() {
         ))}
       </div>
 
-      <div class="leaderboard-mode-tabs" aria-label="Choose a game leaderboard">
+      <div class="ed-board__modes row-x" aria-label="Choose a game leaderboard">
         {RANKED_GAMES.map((game) => (
           <button
             aria-pressed={mode.value === game.mode}
-            class={mode.value === game.mode ? 'leaderboard-mode leaderboard-mode--active' : 'leaderboard-mode'}
+            class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
             onClick={() => (mode.value = game.mode)}
             key={game.mode}
           >
-            <span aria-hidden="true">{game.icon}</span>
-            {game.name}
+            <span aria-hidden="true">{game.icon}</span> {game.name}
           </button>
         ))}
       </div>
 
-      <section class="leaderboard-board" aria-labelledby="active-leaderboard-title">
-        <div class="leaderboard-board__head">
-          <div>
-            <span aria-hidden="true">{selectedGame.icon}</span>
-            <h2 id="active-leaderboard-title">{selectedGame.name}</h2>
-          </div>
-          <span>{entries.value.length ? `Top ${entries.value.length}` : 'The crown is open'}</span>
-        </div>
-        {loading.value && <div class="competition-empty">Loading leaderboard…</div>}
-        {error.value && <div class="account-message account-message--error">{error.value}</div>}
+      <section class="ed-board__list leaderboard-list" aria-labelledby="active-leaderboard-title">
+        <h2 id="active-leaderboard-title" class="sr-only">
+          {selectedGame.name} leaderboard
+        </h2>
+        {loading.value && <div class="ed-rail-empty">Loading leaderboard…</div>}
+        {error.value && <div class="ed-board__error">{error.value}</div>}
         {!loading.value && !error.value && (
-          <ol class="leaderboard-list">
+          <ol class="ed-board__rows">
             {entries.value.map((entry) => (
               <LeaderboardRow entry={entry} mode={mode.value} key={entry.player.id} />
             ))}
             {!entries.value.length && (
-              <li class="leaderboard-empty">
+              <li class="ed-board__empty">
                 <strong>No scores yet.</strong>
                 <span>First run gets the crown.</span>
-                <button class="text-action" onClick={() => navigate(selectedGame.path)}>
+                <button class="ed-textlink" onClick={() => navigate(selectedGame.path)}>
                   Play {selectedGame.name} <Icon name="arrow-right" />
                 </button>
               </li>

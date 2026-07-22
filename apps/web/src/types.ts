@@ -44,6 +44,7 @@ export interface Records {
   bestAccuracy?: number // Practice: best round accuracy (%)
   survivalBest?: number // Survival: longest sudden-death streak
   tradeBest?: number // Trade: lowest 8-exchange read time (ms) — lower is better
+  rainBest?: number // Rain: most cards cleared (local until the ranked backend lands)
 }
 
 export interface Profile {

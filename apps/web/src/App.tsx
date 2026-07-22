@@ -5,8 +5,6 @@ import { track } from './lib/analytics'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import { ELIXIR_DROP_DISCORD_URL } from './lib/links'
-import PlayerAvatar from './components/PlayerAvatar'
-import { rankFor } from './data/starRanks'
 import ApiStatusBanner from './components/ApiStatusBanner'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
@@ -15,6 +13,10 @@ import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
+import { layout } from './lib/use-layout'
+import MobileShell from './components/shell/MobileShell'
+import DesktopShell from './components/shell/DesktopShell'
+import { isGameRoute } from './components/shell/nav'
 import Home from './screens/Home'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
@@ -30,6 +32,7 @@ const loadSurge = () => import('./modes/surge/Surge')
 const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
 const loadTrade = () => import('./modes/trade/Trade')
 const loadSurvival = () => import('./modes/survival/Survival')
+const loadRain = () => import('./modes/rain/Rain')
 const loadSettings = () => import('./modes/settings/Settings')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
@@ -38,10 +41,11 @@ const Surge = lazy(loadSurge)
 const HigherLower = lazy(loadHigherLower)
 const Trade = lazy(loadTrade)
 const Survival = lazy(loadSurvival)
+const Rain = lazy(loadRain)
 const SettingsScreen = lazy(loadSettings)
 const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Screen title (sr-only) ──────────────────────────────────────────────────
 
 const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/practice', label: 'Practice' },
@@ -54,82 +58,6 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/settings', label: 'Settings' },
   { match: '/privacy', label: 'Privacy' }
 ]
-
-// The player block: activity score (XP), profile card, and arena badge — a
-// single tap target into the profile. Signed out, it becomes a sign-in glyph.
-function PlayerBlock() {
-  const current = player.value
-  if (!current) {
-    const reconnecting = accountStatus.value === 'unavailable'
-    return (
-      <button
-        class="site-head__signin"
-        onClick={() => navigate(reconnecting ? '/profile' : '/login')}
-        aria-label={reconnecting ? 'Reconnecting' : 'Sign in'}
-        title={reconnecting ? 'Reconnecting…' : 'Sign in'}
-      >
-        <Icon name="log-in" />
-        <span class="site-head__signin-label">{reconnecting ? 'Reconnecting…' : 'Sign in'}</span>
-      </button>
-    )
-  }
-  const xp = current.xp ?? 0
-  const arena = rankFor(xp).current
-  return (
-    <button
-      class="player-block"
-      onClick={() => navigate('/profile')}
-      aria-label={`Your profile — ${xp.toLocaleString()} XP, ${arena.name} arena`}
-      title={`${xp.toLocaleString()} XP · ${arena.name}`}
-    >
-      <span class="player-block__xp">
-        <Icon name="zap" />
-        {xp.toLocaleString()}
-      </span>
-      <PlayerAvatar favoriteCardId={current.favoriteCardId} size="small" />
-      <img class="player-block__arena" src={arena.image} alt="" aria-hidden="true" />
-    </button>
-  )
-}
-
-function Header() {
-  const r = route.value
-  const active = ROUTE_LABELS.find((x) => r.startsWith(x.match))
-  return (
-    <header class="site-head">
-      <button class="site-head__brand" onClick={() => navigate('/')} aria-label="Elixir Drop home">
-        <img src="/assets/emoji/elixir.png" alt="" class="site-head__logo" aria-hidden="true" />
-        <span class="site-head__name">Elixir Drop</span>
-      </button>
-
-      {active && <span class="pill pill--purple site-head__crumb">{active.label}</span>}
-
-      <div class="site-head__spacer" />
-
-      <PlayerBlock />
-
-      <button
-        class="site-head__icon"
-        onClick={() => navigate('/leaderboards')}
-        aria-label="Leaderboards"
-        title="Leaderboards"
-      >
-        <Icon name="trophy" />
-      </button>
-      <button class="site-head__icon" onClick={() => navigate('/settings')} aria-label="Settings" title="Settings">
-        <Icon name="settings" />
-      </button>
-      <button
-        class="site-head__icon"
-        onClick={() => startScreensaver('nav')}
-        aria-label="Play the screensaver"
-        title="Screensaver"
-      >
-        <Icon name="sparkles" />
-      </button>
-    </header>
-  )
-}
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 
@@ -231,6 +159,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/higher-lower')) return <HigherLower />
   if (r.startsWith('/trade')) return <Trade />
   if (r.startsWith('/survival')) return <Survival />
+  if (r.startsWith('/rain')) return <Rain />
   if (r.startsWith('/settings')) return <SettingsScreen />
   if (r.startsWith('/login')) return <Login />
   if (r.startsWith('/auth')) return <AuthRedeem />
@@ -286,17 +215,27 @@ export default function App() {
 
   const title = screenTitle(route.value)
 
-  return (
+  // Same routes + data on both layouts; only the surrounding shell differs. The
+  // shell is chosen at the 1024px breakpoint (lib/use-layout) and re-evaluated
+  // on resize. The legal footer (Supercell fan-content disclaimer) rides along
+  // in the content until the screens are individually restyled.
+  // The footer (Discord + legal disclaimer) rides along on every screen except a
+  // live game, where the play area fills the viewport (matching the prototype).
+  const gaming = isGameRoute(route.value)
+  const content = (
     <>
-      <Header />
+      {title && <h1 class="sr-only">{title}</h1>}
       <ApiStatusBanner />
       <UpdateBanner />
-      <main>
-        {title && <h1 class="sr-only">{title}</h1>}
-        <Screen r={route.value} />
-      </main>
+      <Screen r={route.value} />
+      {!gaming && <Footer />}
+    </>
+  )
+
+  return (
+    <>
+      {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
       <RunRecordingNotice />
-      <Footer />
       {screensaverActive.value && <Screensaver />}
     </>
   )

@@ -27,10 +27,10 @@ describe("magic-link email", () => {
       expiresMinutes: 15,
     });
 
-    expect(html).toContain("Ready to Drop?");
-    expect(html).toContain("Sign in to Elixir Drop");
+    expect(html).toContain("Ready to drop some elixir?");
+    expect(html).toContain("Let's drop!");
     expect(html).toContain("https://drop.poapkings.com/assets/elixir-hype.png");
-    expect(html).toContain("If the button does not work");
+    expect(html).toContain("Button being stubborn?");
     expect(html).toContain("&amp;unsafe=&lt;script&gt;");
     expect(html).not.toContain("<script>");
   });

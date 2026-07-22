@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'preact/hooks'
 import { higherLowerWindowMs } from '@elixir-drop/contracts'
 import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
+import { navigate } from '../../lib/router'
 import { playCorrect, playWrong } from '../../lib/sound'
 import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
-import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
-import RunCountdown from '../../components/RunCountdown'
+import { preloadGameFx } from '../../components/GameFxLayer'
+import GameFrame from '../../components/game/GameFrame'
 import SignInToSave from '../../components/SignInToSave'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -195,69 +196,58 @@ export default function HigherLower() {
   const higherId = left.elixir > right.elixir ? left.id : right.id
 
   function cardClass(cardId: number): string {
-    if (!revealed.value) return 'hl__card'
-    if (cardId === higherId) return 'hl__card hl__card--correct'
-    if (cardId === picked.value) return 'hl__card hl__card--wrong'
-    return 'hl__card hl__card--dim'
+    if (!revealed.value) return 'ed-duel__card'
+    if (cardId === higherId) return 'ed-duel__card ed-duel__card--correct'
+    if (cardId === picked.value) return 'ed-duel__card ed-duel__card--wrong'
+    return 'ed-duel__card ed-duel__card--dim'
   }
 
   const counting = runtime.stage.value !== 'running'
   const disabled = counting || revealed.value || gameRun.preparing.value
 
   return (
-    <div class="main-content game-run hl">
-      <GameFxLayer cue={runtime.cue.value} particleCount={6} />
-      <div class="session-bar">
-        <div class="session-bar__stat">
-          <span class="session-bar__val">{streak.value}</span>
-          <span>streak</span>
-        </div>
-        <div class="session-bar__stat">
-          <span class="session-bar__val">{best.value}</span>
-          <span>best</span>
-        </div>
-      </div>
-
-      <p class="lede hl__prompt">
-        Tap the card that costs <strong>more</strong> elixir — before the clock runs out.
-      </p>
-
-      {/* Higher/Lower has no summary screen, so a signed-out player sees a
-          persistent prompt to save their streak. */}
-      <SignInToSave variant="line" />
-
-      <div class="progress-track" aria-hidden="true">
-        <div
-          class={`progress-track__fill${remainingFrac.value <= 0.35 ? ' progress-track__fill--low' : ''}`}
-          style={{ width: `${remainingFrac.value * 100}%`, transition: 'none' }}
-        />
-      </div>
-
-      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
+    <GameFrame
+      modeName="Higher / Lower"
+      counting={counting}
+      count={runtime.count.value}
+      onQuit={() => navigate('/')}
+      cue={runtime.cue.value}
+      fxParticles={6}
+      progressText="Keep the streak"
+      metric={{ value: String(streak.value), label: 'streak' }}
+      progressPct={remainingFrac.value * 100}
+      barTransition={false}
+      barLow={remainingFrac.value <= 0.35}
+    >
+      <div class="ed-duel">
+        <div class="ed-duel__prompt">Which costs more?</div>
         <GameMotion contentKey={counting ? 'ready' : pairIndex.value} cue={runtime.cue.value} preset="pair">
-          <div class="hl__pair" role="group" aria-label="Tap the higher-cost card">
+          <div class="ed-duel__cards" role="group" aria-label="Tap the higher-cost card">
             <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
               <CardDisplay card={left} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
             </button>
-            <div class="hl__vs" aria-hidden="true">
-              vs
+            <div class="ed-duel__vs" aria-hidden="true">
+              VS
             </div>
             <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
               <CardDisplay card={right} phase="playing" dropAnimKey={0} forceReveal={revealed.value} />
             </button>
           </div>
         </GameMotion>
-        {counting && <RunCountdown count={runtime.count.value} />}
-      </div>
 
-      {/* Shared floating streak cue — composited, never in layout flow. */}
-      <div class="game-cues" aria-hidden="true">
-        <div class="game-cues__slot game-cues__slot--top">
-          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-            🔥 {streak.value} streak
-          </FloatingCue>
+        {/* Higher/Lower has no summary screen, so a signed-out player sees a
+            persistent prompt to save their streak. */}
+        <SignInToSave variant="line" />
+
+        {/* Shared floating streak cue — composited, never in layout flow. */}
+        <div class="game-cues" aria-hidden="true">
+          <div class="game-cues__slot game-cues__slot--top">
+            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+              🔥 {streak.value} streak
+            </FloatingCue>
+          </div>
         </div>
       </div>
-    </div>
+    </GameFrame>
   )
 }

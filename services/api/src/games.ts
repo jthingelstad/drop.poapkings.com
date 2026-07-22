@@ -31,6 +31,12 @@ export const MODE_RULES: Record<GameMode, ModeRule> = {
     maxScore: 100_000,
     scoreUnit: "count",
   },
+  rain: {
+    direction: "higher",
+    minScore: 0,
+    maxScore: 100_000,
+    scoreUnit: "count",
+  },
 };
 
 export function isGameMode(value: unknown): value is GameMode {

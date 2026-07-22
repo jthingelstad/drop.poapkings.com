@@ -1,6 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import {
   accountDeletionResponseSchema,
+  activityResponseSchema,
   apiConfigSchema,
   apiErrorSchema,
   completedRunSchema,
@@ -274,6 +275,11 @@ export function getLeaderboard(mode: GameMode, scope: LeaderboardScope = 'season
   return apiRequest(query, leaderboardResponseSchema, { signal })
 }
 
+export function getActivity(limit = 8, signal?: AbortSignal) {
+  return apiRequest(`/activity?limit=${limit}`, activityResponseSchema, { signal })
+}
+
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
+export type { ActivityEntry } from './api-contracts'
 export type { LeaderboardEntry, RecentRun } from './api-contracts'

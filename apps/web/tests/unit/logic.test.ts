@@ -92,7 +92,7 @@ describe('learning helpers', () => {
     expect(insights.accuracyPct).toBe(25)
     expect(insights.weakest[0]).toBe(fireball)
     expect(insights.biasLine).toBe('you overestimate spells by ~2')
-    expect(insights.slowestBandLabel).toBe('5+')
+    expect(insights.slowestBandLabel).toBe('6+')
     expect(insightPhrase(insights)).toContain('cost cards')
   })
 

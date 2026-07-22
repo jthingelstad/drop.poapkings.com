@@ -4,6 +4,7 @@ export const GAME_MODES = [
   "higher-lower",
   "trade",
   "survival",
+  "rain",
 ] as const;
 
 const EMAIL_LOCAL_PATTERN = /^[a-z0-9.!#$%&'+/=?^_`{|}~-]+$/i;
@@ -84,6 +85,7 @@ export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
   | { mode: "practice"; cardIds: number[] }
   | { mode: "survival"; cardIds: number[] }
+  | { mode: "rain"; cardIds: number[] }
   | { mode: "higher-lower"; pairs: Array<[number, number]> }
   | { mode: "trade"; rounds: Array<{ blueIds: number[]; redIds: number[] }> };
 

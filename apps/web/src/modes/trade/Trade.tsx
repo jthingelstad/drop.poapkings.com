@@ -7,18 +7,19 @@ import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
+import { computeInsights } from '../../lib/insights'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
-import SignInToSave from '../../components/SignInToSave'
+import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
-import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
-import RunCountdown from '../../components/RunCountdown'
+import GameFrame from '../../components/game/GameFrame'
+import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -36,28 +37,27 @@ const WRONG_BEAT_MS = 720
 
 type Feedback = 'idle' | 'wrong' | 'correct'
 
-function pluralizeMisses(count: number): string {
-  return `${count} ${count === 1 ? 'miss' : 'misses'}`
-}
-
 function tradeLine(value: number): string {
   if (value > 0) return `You got a ${formatTrade(value)} trade.`
   if (value < 0) return `You took a ${formatTrade(value)} trade.`
   return 'Even trade.'
 }
 
+// The mode's lesson is cost recall: each card's cost stays hidden until the
+// exchange is solved (or a miss reveals a hint card), then the whole board
+// reveals so the player sees the arithmetic confirmed.
 function TradeCard({ card, revealed }: { card: Card; revealed: boolean }) {
   return (
-    <li class={`trade-card${revealed ? ' trade-card--revealed' : ''}`} data-card-id={card.id}>
+    <li class={`ed-trade__card${revealed ? ' ed-trade__card--revealed' : ''}`} data-card-id={card.id}>
       <CardArt
         card={card}
-        className="trade-card__art"
-        imgClassName="trade-card__img"
-        fallbackClassName="trade-card__fallback"
+        className="ed-trade__card-art"
+        imgClassName="ed-trade__card-img"
+        fallbackClassName="ed-trade__card-fallback"
         showCost={revealed}
-        costClassName="trade-card__cost"
+        costClassName="ed-trade__card-cost"
         showName
-        nameClassName="trade-card__name"
+        nameClassName="ed-trade__card-name"
       />
     </li>
   )
@@ -75,12 +75,9 @@ function TradeSide({
   revealedIds: Set<number>
 }) {
   return (
-    <section class={`trade-side trade-side--${side}`}>
-      <div class="trade-side__head">
-        <span class="trade-side__badge">{side === 'blue' ? 'Blue King' : 'Red King'}</span>
-        <h2 class="trade-side__title">{label}</h2>
-      </div>
-      <ol class="trade-side__cards">
+    <section class={`ed-trade__team ed-trade__team--${side}`}>
+      <span class="ed-trade__team-label">{label}</span>
+      <ol class="ed-trade__cards">
         {cards.map((card) => (
           <TradeCard key={card.id} card={card} revealed={revealedIds.has(card.id)} />
         ))}
@@ -92,6 +89,7 @@ function TradeSide({
 export default function Trade() {
   const gameRun = useGameSession('trade', challengePreparers.trade)
   const rounds = gameRun.content
+  const started = useRef(false)
   const roundMisses = useRef(0)
   const runStartedAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
@@ -117,6 +115,17 @@ export default function Trade() {
     track('mode.trade')
     preloadGameFx()
   }, [])
+
+  // Play → countdown (no manual ready screen). Auto-start once loaded; re-arms on
+  // replay. start() is reached via a ref so this only re-fires on load state.
+  const startRef = useRef<() => void>(() => {})
+  startRef.current = start
+  useEffect(() => {
+    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
+      started.current = true
+      startRef.current()
+    }
+  }, [gameRun.content, gameRun.assetsReady, stage])
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
@@ -182,6 +191,7 @@ export default function Trade() {
     const answer = tradeValue(round)
     if (value !== answer) {
       playWrong()
+      // Each miss reveals one more card's cost as a hint toward the arithmetic.
       const hintId = pickTradeHintCard(round, revealedIds.value)
       if (hintId !== undefined) {
         const next = new Set(revealedIds.value)
@@ -209,8 +219,8 @@ export default function Trade() {
     if (roundMisses.current === 0) cleanTrades.value += 1
     feedback.value = 'correct'
     runtime.emitCue('answer-correct', { roundIndex: index.value })
-    // Reveal the whole exchange — every cost plus both sums — so the player
-    // sees the arithmetic confirmed, then advance on tap or after the beat.
+    // Reveal the whole exchange — every cost plus both sums — so the player sees
+    // the arithmetic confirmed, then advance on tap or after the beat.
     revealedIds.value = new Set([...round.blue, ...round.red].map((card) => card.id))
     let advanced = false
     const advance = () => {
@@ -229,6 +239,7 @@ export default function Trade() {
 
   function replay() {
     runtime.reset('ready')
+    started.current = false
     serverAnswers.current = []
     currentGuesses.current = []
     index.value = 0
@@ -262,159 +273,163 @@ export default function Trade() {
       : prevBest.value !== undefined
         ? `Best: ${formatSeconds(prevBest.value)}s`
         : undefined
+    const accuracyPct = Math.round((cleanTrades.value / TRADE.SEQUENCE_LEN) * 100)
 
     return (
-      <div class="main-content trade">
-        <div class="trade-result">
-          <div class="eyebrow">Trade complete</div>
-          <div class="trade-result__value">
-            {TRADE.SEQUENCE_LEN} trades · {formatSeconds(totalMs.value)}s
-          </div>
-          {pbCallout && <div class="summary__pb">{pbCallout}</div>}
-          <div class="trade-result__sub">
-            {cleanTrades.value} clean · {pluralizeMisses(wrongGuesses.value)}
-          </div>
-
-          <p class="trade-result__coach">{elixirLine.value}</p>
-
-          <div class="trade-result__math" aria-label="Trade math">
+      <div class="ed-gamewrap">
+        <Summary
+          eyebrow="Trade complete"
+          headline={`${formatSeconds(totalMs.value)}s`}
+          pbCallout={pbCallout}
+          insights={computeInsights([])}
+          moments={[
+            { label: 'Clean', value: `${cleanTrades.value}/${TRADE.SEQUENCE_LEN}` },
+            { label: 'Accuracy', value: `${accuracyPct}%`, tone: 'green' },
+            { label: 'Time', value: `${formatSeconds(totalMs.value)}s`, tone: 'gold' }
+          ]}
+          onReplay={replay}
+          replayLabel="Play again"
+          onHome={() => navigate('/')}
+        >
+          <p class="ed-trade__coach">{elixirLine.value}</p>
+          <div class="ed-trade__math" aria-label="Trade math">
             <span>Last trade {formatTrade(lastTrade.value)}</span>
             <span>{tradeLine(lastTrade.value)}</span>
           </div>
-
           <ShareLine
             text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
           {isPB.value && <Recruit />}
-
-          {/* Signed-out players played as a guest — invite them to save the score. */}
-          <SignInToSave />
-
-          <div class="summary__actions">
-            <button class="btn btn--gold" onClick={replay}>
-              Run Trade again
-            </button>
-            <button class="btn btn--ghost" onClick={() => navigate('/')}>
-              Home
-            </button>
-          </div>
-        </div>
+        </Summary>
       </div>
     )
   }
 
   if (stage.value === 'ready') {
     return (
-      <div class="main-content trade">
-        <div class="surge-ready trade-ready">
-          <div class="eyebrow">Trade · Blue perspective</div>
-          <h1 class="h1">Read the elixir trade.</h1>
-          <p class="lede">
-            You are <strong>Blue King</strong>. Solve {TRADE.SEQUENCE_LEN} exchanges. Positive means Red spent more than
-            you.
-          </p>
-          <button
-            class="btn btn--gold surge-ready__go"
-            onClick={start}
-            disabled={!gameRun.assetsReady || gameRun.preparing.value}
-          >
-            {gameRun.assetsReady ? 'Start Trade' : 'Loading exchange…'}
-          </button>
-          <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-            Back
-          </button>
-        </div>
+      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
+        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
+        <span>Loading exchange…</span>
       </div>
     )
   }
 
   const counting = stage.value === 'countdown'
+  const solved = feedback.value === 'correct'
+  const negatives = TRADE_ANSWERS.filter((v) => v < 0)
+  const positives = TRADE_ANSWERS.filter((v) => v > 0)
+
+  function answerClass(value: number, base: string): string {
+    const isPicked = picked.value === value
+    if (feedback.value === 'wrong' && isPicked) return `${base} ed-trade__ans--wrong`
+    if (feedback.value === 'correct' && isPicked) return `${base} ed-trade__ans--correct`
+    return base
+  }
+
   return (
-    <div class="main-content game-run trade" style={{ alignItems: 'center', gap: 18 }}>
-      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
-      <div class="surge-hud trade-hud">
-        <div class="surge-hud__timer" aria-label="elapsed time">
-          {formatSeconds(elapsedMs.value)}
-          <span class="surge-hud__unit">s</span>
-        </div>
-        <div class="surge-hud__count">
-          trade {index.value + 1} / {TRADE.SEQUENCE_LEN}
-        </div>
-      </div>
-
-      <div class="progress-track" aria-hidden="true">
-        <div class="progress-track__fill" style={{ width: `${(index.value / TRADE.SEQUENCE_LEN) * 100}%` }} />
-      </div>
-
-      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
-        <GameMotion contentKey={counting ? 'ready' : index.value} cue={runtime.cue.value} preset="board">
-          <div class="trade-board" data-trade-index={index.value + 1}>
-            <TradeSide side="blue" label="You" cards={round.blue} revealedIds={revealedIds.value} />
-            <div class="trade-versus" aria-hidden="true">
-              vs
+    <GameFrame
+      modeName="Trade"
+      counting={counting}
+      count={count.value}
+      onQuit={() => navigate('/')}
+      cue={runtime.cue.value}
+      fxParticles={10}
+      progressText={`Round ${Math.min(index.value + 1, TRADE.SEQUENCE_LEN)} / ${TRADE.SEQUENCE_LEN}`}
+      metric={{ value: `${formatSeconds(elapsedMs.value)}s`, label: 'time' }}
+      progressPct={(index.value / TRADE.SEQUENCE_LEN) * 100}
+    >
+      <div class="ed-trade">
+        <GameMotion contentKey={index.value} cue={runtime.cue.value} preset="board">
+          <div class="ed-trade__teams" data-trade-index={index.value + 1}>
+            <TradeSide side="blue" label="BLUE — YOU" cards={round.blue} revealedIds={revealedIds.value} />
+            <div class="ed-trade__divider" aria-hidden="true">
+              <span />
+              TRADE
+              <span />
             </div>
-            <TradeSide side="red" label="Opponent" cards={round.red} revealedIds={revealedIds.value} />
+            <TradeSide side="red" label="RED" cards={round.red} revealedIds={revealedIds.value} />
           </div>
         </GameMotion>
-        {counting && <RunCountdown count={count.value} />}
-      </div>
 
-      {/* Fixed-height prompt: swapping the question for the solved math never
-          reflows the board. Transient +2s / retry feedback floats (below). */}
-      <div class="trade-prompt">
-        {feedback.value === 'correct' ? (
-          <span class="trade-prompt__math" data-testid="trade-math">
-            Blue {sideTotal(round.blue)} · Red {sideTotal(round.red)} →{' '}
-            <strong>{formatTrade(tradeValue(round))}</strong>
-          </span>
-        ) : (
-          <>
-            <span>What was your elixir trade?</span>
-            <span class="trade-prompt__sub">Blue perspective</span>
-          </>
-        )}
-      </div>
+        <div class="ed-trade__prompt">
+          {solved ? (
+            <span class="ed-trade__math-line" data-testid="trade-math">
+              Blue {sideTotal(round.blue)} · Red {sideTotal(round.red)} →{' '}
+              <strong>Answer: {formatTrade(tradeValue(round))}</strong>
+            </span>
+          ) : (
+            'Elixir swing from your side?'
+          )}
+        </div>
 
-      {/* Reserved row so the Next button never pushes the answer grid. */}
-      <div class="trade-next-slot">
-        {feedback.value === 'correct' && (
-          <button class="btn btn--gold btn--sm trade-next" onClick={() => advanceRef.current()}>
-            Next trade <Icon name="arrow-right" />
-          </button>
-        )}
-      </div>
-
-      <div class="trade-answers" role="group" aria-label="Choose your elixir trade">
-        {TRADE_ANSWERS.map((value) => {
-          const isPicked = picked.value === value
-          const classes = ['trade-answer']
-          if (feedback.value === 'wrong' && isPicked) classes.push('trade-answer--wrong')
-          if (feedback.value === 'correct' && isPicked) classes.push('trade-answer--correct')
-          return (
-            <button
-              key={value}
-              class={classes.join(' ')}
-              onClick={() => guess(value)}
-              disabled={counting || feedback.value !== 'idle'}
-              aria-label={value === 0 ? 'Even trade' : `${formatTrade(value)} trade`}
-            >
-              {formatTrade(value)}
+        {solved && (
+          <div class="ed-trade__next-slot">
+            <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" onClick={() => advanceRef.current()}>
+              <span class="tap-face">
+                Next trade <Icon name="arrow-right" />
+              </span>
             </button>
-          )
-        })}
-      </div>
+          </div>
+        )}
 
-      {/* Transient feedback, composited over the game — never in layout flow. */}
-      <div class="game-cues" aria-hidden="true">
-        <div class="game-cues__slot game-cues__slot--top">
-          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
-            <Icon name="timer" /> +2s
-          </FloatingCue>
-          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="trade-hint">
-            {hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}
-          </FloatingCue>
+        <div class="ed-trade__pad" role="group" aria-label="Choose your elixir trade">
+          <div class="ed-trade__pad-col">
+            <div class="ed-trade__pad-label ed-trade__pad-label--down">You're down</div>
+            <div class="ed-trade__pad-grid">
+              {negatives.map((value) => (
+                <button
+                  key={value}
+                  class={answerClass(value, 'ed-trade__ans ed-trade__ans--neg')}
+                  onClick={() => guess(value)}
+                  disabled={counting || feedback.value !== 'idle'}
+                  aria-label={`${formatTrade(value)} trade`}
+                >
+                  {formatTrade(value)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div class="ed-trade__pad-mid">
+            <div class="ed-trade__pad-label">Wash</div>
+            <button
+              class={answerClass(0, 'ed-trade__ans ed-trade__ans--even')}
+              onClick={() => guess(0)}
+              disabled={counting || feedback.value !== 'idle'}
+              aria-label="Even trade"
+            >
+              EVEN
+            </button>
+          </div>
+          <div class="ed-trade__pad-col">
+            <div class="ed-trade__pad-label ed-trade__pad-label--up">You're up</div>
+            <div class="ed-trade__pad-grid">
+              {positives.map((value) => (
+                <button
+                  key={value}
+                  class={answerClass(value, 'ed-trade__ans ed-trade__ans--pos')}
+                  onClick={() => guess(value)}
+                  disabled={counting || feedback.value !== 'idle'}
+                  aria-label={`${formatTrade(value)} trade`}
+                >
+                  {formatTrade(value)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Transient feedback, composited over the game — never in layout flow. */}
+        <div class="game-cues" aria-hidden="true">
+          <div class="game-cues__slot game-cues__slot--top">
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+              <Icon name="timer" /> +2s
+            </FloatingCue>
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="trade-hint">
+              {hintedOnLastGuess.value ? 'Cost revealed' : 'Try again'}
+            </FloatingCue>
+          </div>
         </div>
       </div>
-    </div>
+    </GameFrame>
   )
 }

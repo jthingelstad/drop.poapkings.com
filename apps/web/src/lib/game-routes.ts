@@ -1,5 +1,5 @@
-// The launch five.
-export const GAME_PATHS = ['/practice', '/surge', '/higher-lower', '/trade', '/survival'] as const
+// The launch six (Rain joined as a ranked mode).
+export const GAME_PATHS = ['/practice', '/surge', '/higher-lower', '/trade', '/survival', '/rain'] as const
 
 export type GamePath = (typeof GAME_PATHS)[number]
 

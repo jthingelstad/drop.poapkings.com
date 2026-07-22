@@ -10,7 +10,7 @@ import { formatSeconds } from '../../lib/format'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import GameMotion from '../../components/GameMotion'
-import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
+import { preloadGameFx } from '../../components/GameFxLayer'
 import Icon from '../../components/Icon'
 import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
@@ -18,9 +18,9 @@ import Summary from '../../components/Summary'
 import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
+import GameFrame from '../../components/game/GameFrame'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
-import RunCountdown from '../../components/RunCountdown'
 
 // Surge tunables — one config object (SPEC §9).
 const SURGE = {
@@ -41,6 +41,7 @@ export default function Surge() {
   const firstGuess = useRef(0)
   const firstCorrect = useRef(false)
   const recorded = useRef(false)
+  const started = useRef(false)
   const runStartedAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
@@ -65,6 +66,18 @@ export default function Surge() {
     track('mode.surge')
     preloadGameFx()
   }, [])
+
+  // No manual "ready" screen in the redesign: Play → countdown. Auto-start once
+  // the signed challenge + card art are loaded. `started` re-arms on replay.
+  // start() is reached via a ref so this effect only re-fires on load state.
+  const startRef = useRef<() => void>(() => {})
+  startRef.current = start
+  useEffect(() => {
+    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
+      started.current = true
+      startRef.current()
+    }
+  }, [gameRun.content, gameRun.assetsReady, stage])
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
@@ -182,6 +195,7 @@ export default function Surge() {
     serverAnswers.current = []
     currentGuesses.current = []
     recorded.current = false
+    started.current = false
     insights.value = null
     cardPhase.value = 'playing'
     hint.value = null
@@ -207,14 +221,19 @@ export default function Surge() {
         : undefined
 
     return (
-      <div class="main-content">
+      <div class="ed-gamewrap">
         <Summary
           eyebrow="Surge complete"
-          headline={`${SURGE.SPRINT_LEN} cards · ${formatSeconds(totalMs.value)}s`}
+          headline={`${formatSeconds(totalMs.value)}s`}
           pbCallout={pbCallout}
           insights={ins}
+          moments={[
+            { label: 'Cards', value: String(SURGE.SPRINT_LEN) },
+            { label: 'Avg / card', value: `${formatSeconds(totalMs.value / SURGE.SPRINT_LEN)}s`, tone: 'gold' },
+            { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' }
+          ]}
           onReplay={replay}
-          replayLabel="Run again"
+          replayLabel="Play again"
           onHome={() => navigate('/')}
         >
           <ShareLine
@@ -226,99 +245,75 @@ export default function Surge() {
     )
   }
 
-  // ── Get ready ────────────────────────────────────────────────────────────
+  // ── Loading (pre-countdown) ───────────────────────────────────────────────
   if (stage.value === 'ready') {
     return (
-      <div class="main-content surge">
-        <div class="surge-ready">
-          <div class="eyebrow">Surge · Sprint</div>
-          <h1 class="h1">{SURGE.SPRINT_LEN} cards. One honest time.</h1>
-          <p class="lede">
-            Tap each card's elixir cost as fast as you can. A wrong tap costs{' '}
-            <strong>+{(SURGE.PENALTY_MS / 1000).toFixed(0)}s</strong> and the card stays until you nail it. Lower time
-            wins.
-          </p>
-          <button
-            class="btn btn--gold surge-ready__go"
-            onClick={start}
-            disabled={!gameRun.assetsReady || gameRun.preparing.value}
-          >
-            {gameRun.assetsReady ? 'Start sprint' : 'Loading cards…'}
-          </button>
-          <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-            Back
-          </button>
-        </div>
+      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
+        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
+        <span>Loading cards…</span>
       </div>
     )
   }
 
   // ── Countdown + Running ──────────────────────────────────────────────────
-  // The interface is drawn for the countdown too: the 3-2-1 ticks down in the
-  // card's own slot (the card is present but hidden, so its height is reserved
-  // and nothing reflows), then the first card rises into that exact spot.
   const counting = stage.value === 'countdown'
   const card = gameRun.content[index.value]!
   const pace = paceDelta.value
   const paceAhead = (pace?.aheadMs ?? 0) >= 0
   return (
-    <div class="main-content game-run surge">
-      <GameFxLayer cue={runtime.cue.value} particleCount={16} />
-      <div class="surge-hud">
-        <div class="surge-hud__timer" aria-label="elapsed time">
-          {formatSeconds(elapsedMs.value)}
-          <span class="surge-hud__unit">s</span>
+    <GameFrame
+      modeName="Surge"
+      counting={counting}
+      count={count.value}
+      onQuit={() => navigate('/')}
+      cue={runtime.cue.value}
+      fxParticles={16}
+      progressText={`Card ${Math.min(index.value + 1, SURGE.SPRINT_LEN)} / ${SURGE.SPRINT_LEN}`}
+      metric={{ value: `${formatSeconds(elapsedMs.value)}s`, label: 'time' }}
+      progressPct={(index.value / SURGE.SPRINT_LEN) * 100}
+    >
+      <div class="ed-kstage">
+        <div class="ed-kstage__card">
+          <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+            <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
+          </GameMotion>
         </div>
-        {/* No card counter — it wrapped and shoved the board on narrow screens,
-            and the progress bar below already shows how far along the sprint is. */}
-      </div>
+        <div class="ed-kstage__hint">Tap the elixir cost</div>
+        <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
-      <div class="progress-track" aria-hidden="true">
-        <div class="progress-track__fill" style={{ width: `${(index.value / SURGE.SPRINT_LEN) * 100}%` }} />
-      </div>
-
-      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
-        <GameMotion contentKey={counting ? 'ready' : card.id} cue={runtime.cue.value}>
-          <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
-        </GameMotion>
-        {counting && <RunCountdown count={count.value} />}
-      </div>
-
-      <PipKeypad onPick={answer} disabled={counting || cardPhase.value !== 'playing'} />
-
-      {/* Transient feedback, composited over the game — never in layout flow. */}
-      <div class="game-cues" aria-hidden="true">
-        <div class="game-cues__slot game-cues__slot--top">
-          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
-            <Icon name="timer" /> +2s
-          </FloatingCue>
-          <FloatingCue
-            trigger={pacePulse.value}
-            className={`floating-cue--pace ${paceAhead ? 'is-ahead' : 'is-behind'}`}
-          >
-            <Icon name={paceAhead ? 'arrow-up' : 'arrow-down'} />
-            {(Math.abs(pace?.aheadMs ?? 0) / 1000).toFixed(1)}s {paceAhead ? 'ahead' : 'behind'}
-          </FloatingCue>
+        {/* Transient feedback, composited over the game — never in layout flow. */}
+        <div class="game-cues" aria-hidden="true">
+          <div class="game-cues__slot game-cues__slot--top">
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+              <Icon name="timer" /> +2s
+            </FloatingCue>
+            <FloatingCue
+              trigger={pacePulse.value}
+              className={`floating-cue--pace ${paceAhead ? 'is-ahead' : 'is-behind'}`}
+            >
+              <Icon name={paceAhead ? 'arrow-up' : 'arrow-down'} />
+              {(Math.abs(pace?.aheadMs ?? 0) / 1000).toFixed(1)}s {paceAhead ? 'ahead' : 'behind'}
+            </FloatingCue>
+          </div>
+          <div class="game-cues__slot game-cues__slot--bottom">
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="surge-hint">
+              {hint.value === 'higher' && (
+                <>
+                  <Icon name="arrow-up" /> Higher
+                </>
+              )}
+              {hint.value === 'lower' && (
+                <>
+                  <Icon name="arrow-down" /> Lower
+                </>
+              )}
+            </FloatingCue>
+          </div>
         </div>
-        <div class="game-cues__slot game-cues__slot--bottom">
-          <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="surge-hint">
-            {hint.value === 'higher' && (
-              <>
-                <Icon name="arrow-up" /> Higher
-              </>
-            )}
-            {hint.value === 'lower' && (
-              <>
-                <Icon name="arrow-down" /> Lower
-              </>
-            )}
-          </FloatingCue>
-        </div>
+        <span class="sr-only" aria-live="assertive">
+          {cardPhase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
+        </span>
       </div>
-      {/* Screen-reader announcement for the directional hint. */}
-      <span class="sr-only" aria-live="assertive">
-        {cardPhase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
-      </span>
-    </div>
+    </GameFrame>
   )
 }

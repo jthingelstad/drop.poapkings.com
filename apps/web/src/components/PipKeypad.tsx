@@ -3,21 +3,16 @@ import { useRef } from 'preact/hooks'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import type { CardsData } from '../types'
 import { isEnhancedEffectsEnabled } from '../lib/motion'
+import { playTap } from '../lib/sound'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
 const MAX_ELIXIR = Math.max(...(rawCards as CardsData).cards.map((card) => card.elixir))
 
-// Fixed 3×3 in numpad order: chunk 1..N into rows of three and stack them
-// low-row-last, so 7-8-9 (the rare high costs) sit up top out of the thumb's way
-// and the common 1-2-3 / 4-5-6 stay reachable. Fixed positions across every
-// device mean muscle memory actually holds in a speed game.
-const KEY_ORDER = (() => {
-  const keys = Array.from({ length: MAX_ELIXIR }, (_, i) => i + 1)
-  const rows: number[][] = []
-  for (let index = 0; index < keys.length; index += 3) rows.push(keys.slice(index, index + 3))
-  return rows.reverse().flat()
-})()
+// Locked single row, 1..N ascending — the one keypad layout in the redesign
+// (design-ref/SPEC-EXTRACT.md). Fixed positions across every device mean muscle
+// memory holds in a speed game.
+const KEY_ORDER = Array.from({ length: MAX_ELIXIR }, (_, i) => i + 1)
 
 interface Props {
   onPick: (value: number) => void
@@ -73,14 +68,15 @@ function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean
       ref={ref}
       class={`pip-keypad__pip${disabled ? ' pip-keypad__pip--disabled' : ''}`}
       onPointerDown={() => {
-        if (!disabled && isEnhancedEffectsEnabled() && ref.current) pressFx(ref.current)
+        if (disabled) return
+        playTap()
+        if (isEnhancedEffectsEnabled() && ref.current) pressFx(ref.current)
       }}
       onClick={() => !disabled && onPick(value)}
       aria-label={`${value} elixir`}
       disabled={disabled}
     >
       <span class="pip-keypad__face">
-        <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
         <span class="pip-keypad__num">{value}</span>
       </span>
     </button>

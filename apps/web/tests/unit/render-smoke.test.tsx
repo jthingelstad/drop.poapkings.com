@@ -37,7 +37,9 @@ describe('SSR render smoke', () => {
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain(expectedText)
-    expect(html).toContain('site-foot')
+    // The shell wraps every route; the footer rides along except during a live
+    // game (asserted separately below), so check the shell wrapper here.
+    expect(html).toContain('ed-app')
   })
 
   it('renders build metadata on settings', async () => {

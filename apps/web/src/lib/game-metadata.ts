@@ -50,6 +50,13 @@ export const GAMES: GameInfo[] = [
     name: 'Survival',
     icon: '💀',
     description: 'Sudden death — one miss ends the run.'
+  },
+  {
+    mode: 'rain',
+    path: '/rain',
+    name: 'Rain',
+    icon: '🌧️',
+    description: 'Cards fall from the sky — clear each cost before it lands. 3 lives.'
   }
 ]
 
@@ -62,7 +69,8 @@ const ALL_MODE_DISPLAY: Record<GameMode, { name: string; icon: string }> = {
   practice: { name: 'Practice', icon: '🎯' },
   'higher-lower': { name: 'Higher / Lower', icon: '⚖️' },
   trade: { name: 'Trade', icon: '👑' },
-  survival: { name: 'Survival', icon: '💀' }
+  survival: { name: 'Survival', icon: '💀' },
+  rain: { name: 'Rain', icon: '🌧️' }
 }
 
 export function gameDisplay(mode: GameMode): { name: string; icon: string } {
@@ -81,12 +89,14 @@ export const RECORD_KEYS: Record<GameMode, NumericRecordKey> = {
   practice: 'bestAccuracy',
   'higher-lower': 'longestStreak',
   trade: 'tradeBest',
-  survival: 'survivalBest'
+  survival: 'survivalBest',
+  rain: 'rainBest'
 }
 
 export function scoreLabel(mode: GameMode, score: number): string {
   if (LOWER_IS_BETTER.has(mode)) return `${(score / 1_000).toFixed(2)}s`
   if (mode === 'practice') return `${Math.round(score)}%`
+  if (mode === 'rain') return `${Math.round(score)} cleared`
   return `${Math.round(score)} streak`
 }
 

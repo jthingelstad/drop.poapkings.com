@@ -30,10 +30,13 @@ export interface Insights {
   slowestCards?: Card[]
 }
 
+// Five cost bands, matching the redesign's accuracy-by-cost bars.
 const BANDS: { label: string; test: (e: number) => boolean }[] = [
   { label: '1–2', test: (e) => e <= 2 },
-  { label: '3–4', test: (e) => e === 3 || e === 4 },
-  { label: '5+', test: (e) => e >= 5 }
+  { label: '3', test: (e) => e === 3 },
+  { label: '4', test: (e) => e === 4 },
+  { label: '5', test: (e) => e === 5 },
+  { label: '6+', test: (e) => e >= 6 }
 ]
 
 function bandLabel(elixir: number): string {

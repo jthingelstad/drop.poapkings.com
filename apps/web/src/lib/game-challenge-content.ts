@@ -38,6 +38,14 @@ export const challengePreparers = {
   surge: sequenceChallenge<'surge'>('Surge', 15),
   practice: sequenceChallenge<'practice'>('Practice', 15),
   survival: sequenceChallenge<'survival'>('Survival', fullDeckSize, 14),
+  rain: (challenge: ChallengeFor<'rain'>): PreparedChallenge<Card[]> => {
+    // A long draw deck (server RAIN_DECK_SIZE); tiles spawn from it in order. Any
+    // non-empty resolvable deck is valid; only a first handful needs preloading.
+    if (!Array.isArray(challenge.cardIds) || challenge.cardIds.length < 1) invalid('Rain')
+    const cards = challengeCards(challenge.cardIds)
+    if (cards.length !== challenge.cardIds.length) invalid('Rain')
+    return { content: cards, assets: cards.slice(0, 24) }
+  },
   'higher-lower': (challenge: ChallengeFor<'higher-lower'>): PreparedChallenge<Array<[Card, Card]>> => {
     if (!Array.isArray(challenge.pairs) || challenge.pairs.length !== 250) invalid('Higher or Lower')
     const pairs = challenge.pairs.map((pair) => {

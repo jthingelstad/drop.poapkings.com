@@ -15,7 +15,8 @@ import Summary from '../../components/Summary'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
-import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
+import GameFrame from '../../components/game/GameFrame'
+import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -144,11 +145,16 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
     return (
-      <div class="main-content">
+      <div class="ed-gamewrap">
         <Summary
           eyebrow={eyebrow}
           headline={`${ins.correct} / ${ins.total} · ${ins.accuracyPct}%`}
           insights={ins}
+          moments={[
+            { label: 'Correct', value: `${ins.correct}/${ins.total}` },
+            { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' },
+            { label: 'Mode', value: 'Unranked', tone: 'purple' }
+          ]}
           onReplay={replay}
           onHome={exit}
         >
@@ -158,49 +164,28 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     )
   }
 
-  const accuracy = answered.value > 0 ? Math.round((correct.value / answered.value) * 100) : null
   const card = cards[cardIndex.value]!
 
   return (
-    <div class="main-content game-run practice">
-      <GameFxLayer cue={runtime.cue.value} particleCount={6} />
-      <div class="session-bar session-bar--fixed">
-        <div class="session-bar__stat">
-          <span class="session-bar__val">
-            {Math.min(answered.value + 1, ROUND_LEN)}
-            <span class="session-bar__sep"> / {ROUND_LEN}</span>
-          </span>
-          <span>card</span>
+    <GameFrame
+      modeName="Practice"
+      counting={false}
+      count={0}
+      onQuit={exit}
+      cue={runtime.cue.value}
+      fxParticles={6}
+      progressText={`Card ${Math.min(answered.value + 1, ROUND_LEN)} / ${ROUND_LEN}`}
+      metric={{ value: String(correct.value), label: 'correct' }}
+      progressPct={(answered.value / ROUND_LEN) * 100}
+    >
+      <div class="ed-kstage">
+        <div class="ed-kstage__card">
+          <GameMotion contentKey={card.id} cue={runtime.cue.value} preset="reveal">
+            <CardDisplay card={card} phase={phase.value} dropAnimKey={dropKey.value} />
+          </GameMotion>
         </div>
-        {accuracy !== null && (
-          <div class="session-bar__stat">
-            <span class="session-bar__val">{accuracy}%</span>
-            <span>accuracy</span>
-          </div>
-        )}
-        {streak.value >= 3 && (
-          <div class="session-bar__stat">
-            <span class="session-bar__val">{streak.value}</span>
-            <span>🔥 streak</span>
-          </div>
-        )}
-        <button class="session-bar__end" onClick={() => finishRound(false)}>
-          End round
-        </button>
-      </div>
 
-      <div class="progress-track" aria-hidden="true">
-        <div class="progress-track__fill" style={{ width: `${(answered.value / ROUND_LEN) * 100}%` }} />
-      </div>
-
-      <GameMotion contentKey={card.id} cue={runtime.cue.value} preset="reveal">
-        <CardDisplay card={card} phase={phase.value} dropAnimKey={dropKey.value} />
-      </GameMotion>
-
-      <div style={{ textAlign: 'center' }}>
-        <p class="lede" style={{ fontSize: '1.0rem', marginBottom: 4 }}>
-          How much elixir does this cost?
-        </p>
+        <div class="ed-kstage__hint">Tap the elixir cost</div>
         <div class="input-toggle">
           <button
             class={`input-toggle__btn${inputStyle.value === 'keypad' ? ' input-toggle__btn--active' : ''}`}
@@ -217,26 +202,26 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
             4 choices
           </button>
         </div>
-      </div>
 
-      {inputStyle.value === 'keypad' ? (
-        <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing' || gameRun.preparing.value} />
-      ) : (
-        <MultipleChoice
-          choices={choiceSets[cardIndex.value] ?? []}
-          onPick={handleAnswer}
-          disabled={phase.value !== 'playing' || gameRun.preparing.value}
-        />
-      )}
+        {inputStyle.value === 'keypad' ? (
+          <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing' || gameRun.preparing.value} />
+        ) : (
+          <MultipleChoice
+            choices={choiceSets[cardIndex.value] ?? []}
+            onPick={handleAnswer}
+            disabled={phase.value !== 'playing' || gameRun.preparing.value}
+          />
+        )}
 
-      {/* Shared floating streak cue — composited, never in layout flow. */}
-      <div class="game-cues" aria-hidden="true">
-        <div class="game-cues__slot game-cues__slot--top">
-          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-            🔥 {streak.value} streak
-          </FloatingCue>
+        {/* Shared floating streak cue — composited, never in layout flow. */}
+        <div class="game-cues" aria-hidden="true">
+          <div class="game-cues__slot game-cues__slot--top">
+            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+              🔥 {streak.value} streak
+            </FloatingCue>
+          </div>
         </div>
       </div>
-    </div>
+    </GameFrame>
   )
 }

@@ -4,3 +4,6 @@ dist/
 playwright-report/
 test-results/
 coverage/
+
+# local design prototypes (not shipped)
+design-ref/

@@ -192,48 +192,60 @@ export function magicLinkEmailHtml({
   const safeLink = escapeHtml(magicLink);
   const safeImageUrl = escapeHtml(imageUrl);
   const safeMinutes = escapeHtml(String(expiresMinutes));
+  // Dark purple/gold "Elixir Drop" brand email, matching design-ref/Elixir Drop
+  // Login Email.html. The button + fallback use the app's real hash magic link.
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${magicLinkEmailSubject()}</title>
+    <meta name="color-scheme" content="light dark">
+    <title>Log in to Elixir Drop</title>
   </head>
-  <body style="margin:0;background:#f4f0fa;color:#21172f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;">Your private, one-time link to play Elixir Drop.</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:#f4f0fa;margin:0;">
+  <body style="margin:0;padding:0;background-color:#0b0920;-webkit-text-size-adjust:100%;">
+    <span style="display:none !important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">Your one-tap link to log in to Elixir Drop — expires in ${safeMinutes} minutes.</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0b0920;background-image:linear-gradient(180deg,#160f30,#0b0920);">
       <tr>
         <td align="center" style="padding:32px 16px;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:520px;background:#ffffff;border:1px solid #ded4ed;border-radius:22px;overflow:hidden;box-shadow:0 18px 50px rgba(53,31,83,0.12);">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
             <tr>
-              <td align="center" style="padding:34px 28px 10px;">
-                <img src="${safeImageUrl}" width="128" height="128" alt="Elixir Drop" style="display:block;width:128px;height:128px;border:0;margin:0 auto 14px;">
-                <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#76569c;font-weight:800;">Elixir Drop</div>
-                <h1 style="font-size:30px;line-height:1.15;margin:10px 0 0;color:#21172f;font-weight:800;">Ready to Drop?</h1>
+              <td align="center" style="padding:8px 0 26px;">
+                <img src="${safeImageUrl}" width="72" height="72" alt="Elixir Drop" style="display:block;width:72px;height:72px;border:0;margin:0 auto 12px;">
+                <span style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;color:#f7f4ff;">ELIXIR&nbsp;DROP</span>
               </td>
             </tr>
             <tr>
-              <td style="padding:12px 34px 8px;text-align:center;">
-                <p style="font-size:16px;line-height:1.55;margin:0;color:#51435f;">Your next game is waiting. Use this private link to sign in to Elixir Drop.</p>
+              <td style="background-color:#1a1030;background-image:linear-gradient(160deg,#2a1860,#160f30);border:1px solid #3a2a66;border-radius:22px;padding:0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr><td style="height:5px;background-color:#f5c84c;background-image:linear-gradient(90deg,#8b5cf6,#f5c84c);border-radius:22px 22px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
+                  <tr>
+                    <td style="padding:40px 44px 36px;">
+                      <p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c9b8ff;">Your arena awaits</p>
+                      <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.2;font-weight:800;color:#ffffff;">Ready to drop some elixir?</h1>
+                      <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#d7cff0;">Tap the button, skip the password, and get straight to naming elixir costs faster than the other guy. Your streaks and season rank are waiting.</p>
+                      <p style="margin:0 0 30px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#a99fce;">Move fast — this link only works once and self-destructs in <strong style="color:#f5c84c;">${safeMinutes} minutes</strong>.</p>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
+                        <tr>
+                          <td align="center" bgcolor="#f5c84c" style="border-radius:14px;background-color:#f5c84c;background-image:linear-gradient(135deg,#f5c84c,#c98c10);">
+                            <a href="${safeLink}" target="_blank" style="display:block;padding:16px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:800;letter-spacing:0.5px;color:#2a1500;text-decoration:none;border-radius:14px;">&#9654;&nbsp;&nbsp;Let's drop!</a>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#a99fce;">Button being stubborn? Paste this into your browser:</p>
+                      <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:12px;line-height:1.5;word-break:break-all;color:#c9b8ff;"><a href="${safeLink}" target="_blank" style="color:#c9b8ff;text-decoration:underline;">${safeLink}</a></p>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:28px 0 0;"><div style="height:1px;background-color:#3a2a66;font-size:0;line-height:0;">&nbsp;</div></td></tr></table>
+                      <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#a99fce;">Didn't ask to log in? No sweat — ignore this email and nothing happens. The link is useless until someone taps it, and your account stays exactly as you left it.</p>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding:24px 34px 14px;">
-                <a href="${safeLink}" style="display:inline-block;background:#f4c542;color:#21172f;text-decoration:none;border:1px solid #d8a91f;border-radius:999px;padding:15px 24px;font-size:16px;line-height:1;font-weight:800;box-shadow:0 8px 20px rgba(216,169,31,0.25);">Sign in to Elixir Drop</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:4px 34px 30px;text-align:center;">
-                <p style="font-size:13px;line-height:1.55;margin:0;color:#786986;">This link expires in ${safeMinutes} minutes and can only be used once.<br>Every game counts toward your profile and the seasonal leaderboards.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="background:#f8f5fc;border-top:1px solid #e8e0f1;padding:18px 24px;text-align:center;">
-                <p style="font-size:12px;line-height:1.55;margin:0;color:#756781;">If the button does not work, paste this link into your browser:<br><a href="${safeLink}" style="color:#654292;word-break:break-all;">${safeLink}</a></p>
+              <td style="padding:26px 24px 8px;" align="center">
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#8a80ad;">Elixir Drop is a fan-made training game run by the <strong style="color:#c9b8ff;">POAP KINGS</strong> clan. Not affiliated with or endorsed by Supercell.</p>
               </td>
             </tr>
           </table>
-          <p style="font-size:12px;line-height:1.5;margin:16px 0 0;color:#81758b;">If you did not request this, you can safely ignore this email.</p>
         </td>
       </tr>
     </table>

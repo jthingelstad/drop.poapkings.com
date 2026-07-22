@@ -18,8 +18,8 @@ import ShareLine from '../../components/ShareLine'
 import Recruit from '../../components/Recruit'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
-import GameFxLayer, { preloadGameFx } from '../../components/GameFxLayer'
-import RunCountdown from '../../components/RunCountdown'
+import GameFrame from '../../components/game/GameFrame'
+import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -37,6 +37,7 @@ export default function Survival() {
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const dead = useRef(false)
+  const started = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
 
@@ -62,6 +63,17 @@ export default function Survival() {
     track('mode.survival')
     preloadGameFx()
   }, [])
+
+  // Play → countdown (no manual ready screen). Auto-start once loaded; re-arms on
+  // replay. begin() is reached via a ref so this only re-fires on load state.
+  const beginRef = useRef<() => void>(() => {})
+  beginRef.current = begin
+  useEffect(() => {
+    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
+      started.current = true
+      beginRef.current()
+    }
+  }, [gameRun.content, gameRun.assetsReady, stage])
 
   // Sudden death cannot pause (that would be free thinking time), so leaving
   // the tab ends the run right away with the streak intact — instead of the
@@ -198,6 +210,7 @@ export default function Survival() {
   function replay() {
     runtime.reset('ready')
     dead.current = false
+    started.current = false
     won.current = false
     insights.value = null
     current.value = null
@@ -226,12 +239,21 @@ export default function Survival() {
           ? `Best: ${best.value}`
           : undefined
     return (
-      <div class="main-content">
+      <div class="ed-gamewrap">
         <Summary
-          eyebrow={won.current ? 'Survival · cleared!' : 'Survival · sudden death'}
-          headline={won.current ? 'You named every card!' : `${streak.value} in a row`}
+          eyebrow={won.current ? 'Survival · cleared!' : 'Sudden death'}
+          headline={won.current ? 'Every card named!' : `${streak.value} streak`}
           pbCallout={pbCallout}
           insights={insights.value}
+          moments={[
+            { label: 'Streak', value: String(streak.value) },
+            { label: 'Prev best', value: String(best.value), tone: 'purple' },
+            {
+              label: won.current ? 'Time' : 'Accuracy',
+              value: won.current ? winTime : `${insights.value.accuracyPct}%`,
+              tone: 'green'
+            }
+          ]}
           onReplay={replay}
           replayLabel={won.current ? 'Go faster' : 'Run it back'}
           onHome={() => navigate('/')}
@@ -249,77 +271,59 @@ export default function Survival() {
     )
   }
 
-  // ── Get ready ────────────────────────────────────────────────────────────
+  // ── Loading (pre-countdown) ───────────────────────────────────────────────
   if (stage.value === 'ready') {
     return (
-      <div class="main-content surge">
-        <div class="surge-ready">
-          <div class="eyebrow">Survival · sudden death</div>
-          <h1 class="h1">One miss ends it.</h1>
-          <p class="lede">
-            Name each cost before the bar runs out. A wrong tap or a timeout — and the run's over. How deep can you go?
-          </p>
-          <button
-            class="btn btn--gold surge-ready__go"
-            onClick={begin}
-            disabled={!gameRun.assetsReady || gameRun.preparing.value}
-          >
-            {gameRun.assetsReady ? 'Start run' : 'Loading cards…'}
-          </button>
-          <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-            Back
-          </button>
-        </div>
+      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
+        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
+        <span>Loading cards…</span>
       </div>
     )
   }
 
   // ── Countdown + Running ──────────────────────────────────────────────────
-  // The interface is drawn for the countdown too: the 3-2-1 ticks down in the
-  // card's slot (the first card is present but hidden, reserving its height), and
-  // the per-card clock stays full until the first card lands.
   const counting = stage.value === 'countdown'
   const card = counting ? gameRun.content[0]! : current.value
   const low = remainingFrac.value <= 0.35
   return (
-    <div class="main-content game-run surge">
-      <GameFxLayer cue={runtime.cue.value} particleCount={10} />
-      <div class="surge-hud">
-        <div class="surge-hud__timer">{streak.value}</div>
-        <div class="surge-hud__count">streak · best {best.value}</div>
-      </div>
+    <GameFrame
+      modeName="Survival"
+      counting={counting}
+      count={count.value}
+      onQuit={() => navigate('/')}
+      cue={runtime.cue.value}
+      fxParticles={10}
+      progressText="Sudden death"
+      metric={{ value: String(streak.value), label: 'streak' }}
+      progressPct={remainingFrac.value * 100}
+      barTransition={false}
+      barLow={low}
+    >
+      <div class="ed-kstage">
+        <div class="ed-kstage__card">
+          {card && (
+            <GameMotion contentKey={card.id} cue={runtime.cue.value}>
+              <CardDisplay
+                card={card}
+                phase={cardPhase.value}
+                dropAnimKey={dropKey.value}
+                revealCost={cardPhase.value === 'wrong'}
+              />
+            </GameMotion>
+          )}
+        </div>
+        <div class="ed-kstage__hint">Tap the elixir cost</div>
+        <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
-      <div class="progress-track" aria-hidden="true">
-        <div
-          class={`progress-track__fill${low ? ' progress-track__fill--low' : ''}`}
-          style={{ width: `${remainingFrac.value * 100}%`, transition: 'none' }}
-        />
-      </div>
-
-      <div class={`run-stage${counting ? ' run-stage--counting' : ''}`}>
-        {card && (
-          <GameMotion contentKey={counting ? 'ready' : card.id} cue={runtime.cue.value}>
-            <CardDisplay
-              card={card}
-              phase={cardPhase.value}
-              dropAnimKey={dropKey.value}
-              revealCost={cardPhase.value === 'wrong'}
-            />
-          </GameMotion>
-        )}
-        {counting && <RunCountdown count={count.value} />}
-      </div>
-
-      <PipKeypad onPick={answer} disabled={counting || cardPhase.value !== 'playing'} />
-
-      {/* Shared floating streak cue — composited, never in layout flow. */}
-      <div class="game-cues" aria-hidden="true">
-        <div class="game-cues__slot game-cues__slot--top">
-          <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-            🔥 {streak.value} streak
-          </FloatingCue>
+        {/* Shared floating streak cue — composited, never in layout flow. */}
+        <div class="game-cues" aria-hidden="true">
+          <div class="game-cues__slot game-cues__slot--top">
+            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
+              🔥 {streak.value} streak
+            </FloatingCue>
+          </div>
         </div>
       </div>
-    </div>
+    </GameFrame>
   )
 }
