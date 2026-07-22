@@ -4872,6 +4872,14 @@ body.modal-open {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
+
+  /* The prototype is a fixed 1280-wide layout, not a fluid one: cap the shell at
+     the design width and center it so wide monitors get gutters instead of the
+     rails stretching to the screen edges with the stage islanded in the middle.
+     Below 1280 the center column shrinks to fit (rails stay fixed). */
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr) 340px;
 }

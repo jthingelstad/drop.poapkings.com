@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Answer, Insights } from '../../lib/insights'
+import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -278,7 +279,7 @@ export default function Surge() {
             <CardDisplay card={card} phase={cardPhase.value} dropAnimKey={dropKey.value} revealCost={false} />
           </GameMotion>
         </div>
-        <div class="ed-kstage__hint">Tap the elixir cost</div>
+        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
         {/* Transient feedback, composited over the game — never in layout flow. */}

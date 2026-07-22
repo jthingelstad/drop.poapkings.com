@@ -348,7 +348,7 @@ describe('mode smoke — Surge', () => {
     stageSession(fakeCards(15), 'running')
     const c = mount(<Surge />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Surge')
-    expect(c.textContent).toContain('Tap the elixir cost')
+    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
   })
 
   it('falls back to the run gate when preparation fails', () => {
@@ -372,7 +372,7 @@ describe('mode smoke — Practice', () => {
     stageSession(fakeCards(15), 'running')
     const c = mount(<Practice />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
-    expect(c.textContent).toContain('Tap the elixir cost')
+    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
   })
 })
 
@@ -387,7 +387,7 @@ describe('mode smoke — Survival', () => {
     stageSession(fakeCards(20), 'running')
     const c = mount(<Survival />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Survival')
-    expect(c.textContent).toContain('Tap the elixir cost')
+    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
   })
 })
 

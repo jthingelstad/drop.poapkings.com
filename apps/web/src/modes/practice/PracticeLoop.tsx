@@ -2,6 +2,7 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
+import { pointerVerb } from '../../lib/use-layout'
 import { makeChoices } from '../../lib/choices'
 import { saveResult, getSettings, saveSettings, recordSession } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
@@ -185,7 +186,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           </GameMotion>
         </div>
 
-        <div class="ed-kstage__hint">Tap the elixir cost</div>
+        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <div class="input-toggle">
           <button
             class={`input-toggle__btn${inputStyle.value === 'keypad' ? ' input-toggle__btn--active' : ''}`}

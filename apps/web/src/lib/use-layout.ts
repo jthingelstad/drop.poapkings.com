@@ -34,3 +34,10 @@ if (typeof window !== 'undefined' && window.matchMedia) {
 export function isDesktop(): boolean {
   return layout.value === 'desktop'
 }
+
+// The primary-input verb for prompts — "Click" on the desktop (pointer) shell,
+// "Tap" on the mobile shell, matching the two prototypes. Reactive: reads the
+// layout signal, so a prompt that calls it re-renders on a layout change.
+export function pointerVerb(): 'Click' | 'Tap' {
+  return layout.value === 'desktop' ? 'Click' : 'Tap'
+}

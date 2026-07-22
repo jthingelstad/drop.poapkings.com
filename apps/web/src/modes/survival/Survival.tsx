@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import { survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
+import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -312,7 +313,7 @@ export default function Survival() {
             </GameMotion>
           )}
         </div>
-        <div class="ed-kstage__hint">Tap the elixir cost</div>
+        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
         {/* Shared floating streak cue — composited, never in layout flow. */}
