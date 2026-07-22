@@ -58,7 +58,7 @@ export function computeInsights(answers: Answer[]): Insights {
   const correct = answers.filter((a) => a.correct).length
   const accuracyPct = total > 0 ? Math.round((correct / total) * 100) : 0
 
-  // Accuracy by cost band (1–2 / 3–4 / 5+)
+  // Accuracy by cost band (1–2 / 3 / 4 / 5 / 6+)
   const bands: BandStat[] = BANDS.map((b) => {
     const inBand = answers.filter((a) => b.test(a.card.elixir))
     return { label: b.label, correct: inBand.filter((a) => a.correct).length, total: inBand.length }
