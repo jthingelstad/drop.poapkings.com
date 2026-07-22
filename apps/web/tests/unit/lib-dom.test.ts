@@ -8,7 +8,8 @@ import {
   initReducedMotion
 } from '../../src/lib/motion'
 import { navigate, back, parseHash, route } from '../../src/lib/router'
-import { track, mirrorFunnel } from '../../src/lib/analytics'
+import { analyticsCollectorReady, track, mirrorFunnel } from '../../src/lib/analytics'
+import { initAnalytics } from '../../src/lib/analytics-loader'
 import {
   gameDisplay,
   scoreLabel,
@@ -342,33 +343,55 @@ describe('router', () => {
 // ── analytics.ts ──────────────────────────────────────────────────────────────
 
 describe('analytics', () => {
-  afterEach(() => {
-    delete (window as { tinylytics?: unknown }).tinylytics
+  it('track is best-effort when no collector is present', () => {
+    analyticsCollectorReady()
+    expect(() => track('game.started', 'surge')).not.toThrow()
   })
 
-  it('track works with no tinylytics global present', () => {
-    delete (window as { tinylytics?: unknown }).tinylytics
-    expect(() => track('game.start')).not.toThrow()
-  })
-
-  it('track nudges the tinylytics embed when present', () => {
-    const triggerUpdate = vi.fn()
-    ;(window as { tinylytics?: unknown }).tinylytics = { triggerUpdate }
-    track('surge.complete')
-    expect(triggerUpdate).toHaveBeenCalled()
+  it('bridges programmatic outcomes through Tinylytics event attributes', () => {
+    const received: Array<{ event: string | null; value: string | null }> = []
+    const hear = (click: Event) => {
+      const target = click.target as HTMLElement
+      received.push({
+        event: target.getAttribute('data-tinylytics-event'),
+        value: target.getAttribute('data-tinylytics-event-value')
+      })
+    }
+    document.addEventListener('click', hear)
+    track('game.completed', 'higher-lower')
+    document.removeEventListener('click', hear)
+    expect(received).toEqual([{ event: 'game.completed', value: 'higher-lower' }])
   })
 
   it('mirrorFunnel increments the funnel-relevant counters only', () => {
-    mirrorFunnel('recruit.shown')
-    mirrorFunnel('recruit.join')
-    mirrorFunnel('recruit.discord')
-    mirrorFunnel('result.share')
-    mirrorFunnel('game.start') // not a funnel event
+    mirrorFunnel('community.recruit_shown')
+    mirrorFunnel('community.clan_opened')
+    mirrorFunnel('community.discord_opened')
+    mirrorFunnel('game.shared')
+    mirrorFunnel('game.started') // not a local funnel event
     const f = getFunnel()
     expect(f.recruitShown).toBe(1)
     expect(f.recruitJoin).toBe(1)
     expect(f.recruitDiscord).toBe(1)
     expect(f.shares).toBe(1)
+  })
+})
+
+describe('analytics loader', () => {
+  afterEach(() => {
+    document.getElementById('elixir-drop-tinylytics')?.remove()
+    window.location.hash = '#/'
+  })
+
+  it('does not load on a token-bearing auth route, then loads after navigation', () => {
+    window.location.hash = '#/auth?token=secret-token'
+    initAnalytics()
+    expect(document.getElementById('elixir-drop-tinylytics')).toBeNull()
+
+    window.location.hash = '#/profile'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    const script = document.getElementById('elixir-drop-tinylytics') as HTMLScriptElement | null
+    expect(script?.src).toBe('https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?spa&events&beacon')
   })
 })
 
@@ -507,6 +530,8 @@ describe('pwa-install', () => {
     defineNav('platform', origPlatform)
     defineNav('standalone', undefined)
     defineNav('maxTouchPoints', 0)
+    localStorage.removeItem('elixirdrop:installSessionCount')
+    sessionStorage.removeItem('elixirdrop:installSessionCounted')
   })
 
   function stubMatchMedia(standalone: boolean) {
@@ -527,6 +552,7 @@ describe('pwa-install', () => {
     const mod = await loadPwa()
     expect(mod.installMode.value).toBe('none')
     mod.initInstallPrompt()
+    expect(mod.installEligible.value).toBe(false)
 
     const evt = new Event('beforeinstallprompt') as Event & {
       prompt: () => Promise<void>
@@ -543,6 +569,26 @@ describe('pwa-install', () => {
 
     // deferred is now cleared → a second prompt is a no-op
     await expect(mod.promptInstall()).resolves.toBeUndefined()
+  })
+
+  it('becomes eligible only on the third distinct browser session', async () => {
+    stubMatchMedia(false)
+    defineNav('userAgent', 'Mozilla/5.0 (Linux; Android 14) Chrome/120')
+
+    const first = await loadPwa()
+    first.initInstallPrompt()
+    expect(first.installEligible.value).toBe(false)
+
+    sessionStorage.removeItem('elixirdrop:installSessionCounted')
+    const second = await loadPwa()
+    second.initInstallPrompt()
+    expect(second.installEligible.value).toBe(false)
+
+    sessionStorage.removeItem('elixirdrop:installSessionCounted')
+    const third = await loadPwa()
+    third.initInstallPrompt()
+    expect(third.installEligible.value).toBe(true)
+    expect(localStorage.getItem('elixirdrop:installSessionCount')).toBe('3')
   })
 
   it('appinstalled resets install mode to none', async () => {

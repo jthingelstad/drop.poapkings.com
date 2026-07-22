@@ -64,7 +64,6 @@ export default function Surge() {
   const prevBest = useSignal<number | undefined>(undefined)
 
   useEffect(() => {
-    track('mode.surge')
     preloadGameFx()
   }, [])
 
@@ -128,9 +127,6 @@ export default function Surge() {
       const misses = serverAnswers.current.slice(0, index + 1).reduce((sum, entry) => sum + entry.guesses.length - 1, 0)
       return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
     })
-    track('surge.complete')
-    if (pb) track('record.new')
-
     runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current }, () => {
       if (pb) saveRecords({ surgeBestPace: bestPace })
@@ -191,6 +187,7 @@ export default function Surge() {
   }
 
   function replay() {
+    track('game.replayed', 'surge')
     runtime.reset('ready')
     answers.current = []
     serverAnswers.current = []
@@ -238,9 +235,10 @@ export default function Surge() {
           onHome={() => navigate('/')}
         >
           <ShareLine
+            mode="surge"
             text={`Surge: ${SURGE.SPRINT_LEN} cards in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
-          {isPB.value && <Recruit />}
+          {isPB.value && <Recruit mode="surge" />}
         </Summary>
       </div>
     )

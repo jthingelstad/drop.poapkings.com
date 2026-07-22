@@ -61,7 +61,6 @@ export default function Survival() {
   dieRef.current = die
 
   useEffect(() => {
-    track('mode.survival')
     preloadGameFx()
   }, [])
 
@@ -177,10 +176,6 @@ export default function Survival() {
     if (pb) {
       // Live display only; survivalBest is persisted centrally on acceptance.
       best.value = streak.value
-      track('record.new')
-    }
-    if (won.current) {
-      track('survival.win')
     }
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current })
@@ -209,6 +204,7 @@ export default function Survival() {
   }
 
   function replay() {
+    track('game.replayed', 'survival')
     runtime.reset('ready')
     dead.current = false
     started.current = false
@@ -260,13 +256,14 @@ export default function Survival() {
           onHome={() => navigate('/')}
         >
           <ShareLine
+            mode="survival"
             text={
               won.current
                 ? `Survival: named every card in ${winTime} — drop.poapkings.com`
                 : `Survival: ${streak.value} in a row — drop.poapkings.com`
             }
           />
-          {(won.current || (isPB.value && streak.value >= 10)) && <Recruit />}
+          {(won.current || (isPB.value && streak.value >= 10)) && <Recruit mode="survival" />}
         </Summary>
       </div>
     )

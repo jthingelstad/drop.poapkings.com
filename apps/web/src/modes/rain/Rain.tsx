@@ -62,7 +62,6 @@ export default function Rain() {
   const isPB = useSignal(false)
 
   useEffect(() => {
-    track('mode.rain')
     return () => {
       if (spawnTimer.current) window.clearInterval(spawnTimer.current)
       if (fallTimer.current) window.clearInterval(fallTimer.current)
@@ -228,15 +227,14 @@ export default function Rain() {
     )
     if (pb) {
       saveRecords({ rainBest: score.value })
-      track('record.new')
     }
-    track('rain.complete')
     runtime.finish('over')
     // Record the ranked run on the server (guest → scored, not persisted).
     void gameRun.complete({ answers: serverAnswers.current })
   }
 
   function replay() {
+    track('game.replayed', 'rain')
     clearLoops()
     started.current = false
     insights.value = null

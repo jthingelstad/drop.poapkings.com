@@ -1,13 +1,15 @@
 import { useSignal } from '@preact/signals'
 import { track } from '../lib/analytics'
 import Icon from './Icon'
+import type { GameMode } from '@elixir-drop/contracts'
 
 interface Props {
   text: string
+  mode: GameMode
 }
 
 // Copyable, backend-free share line for the Surge summary.
-export default function ShareLine({ text }: Props) {
+export default function ShareLine({ text, mode }: Props) {
   const copied = useSignal(false)
 
   async function copy() {
@@ -17,7 +19,7 @@ export default function ShareLine({ text }: Props) {
       // clipboard blocked — the input is still selectable as a fallback
     }
     copied.value = true
-    track('result.share')
+    track('game.shared', mode)
     window.setTimeout(() => (copied.value = false), 1800)
   }
 

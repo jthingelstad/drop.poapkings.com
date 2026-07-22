@@ -23,6 +23,7 @@ import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
 import type { CardsData } from '../types'
+import { track } from '../lib/analytics'
 
 const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
 
@@ -164,6 +165,7 @@ export default function Profile() {
 
   async function chooseName(name: string) {
     if (!selectedCard) return
+    const creatingIdentity = !current.favoriteCardId || !current.publicName
     busy.value = true
     message.value = ''
     try {
@@ -172,6 +174,7 @@ export default function Profile() {
         publicName: name,
         nameToken: nameToken.value
       })
+      if (creatingIdentity) track('account.profile_completed')
       names.value = []
       editingIdentity.value = false
       if (returnTo) {

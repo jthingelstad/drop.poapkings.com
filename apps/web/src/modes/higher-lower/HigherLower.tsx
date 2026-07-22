@@ -42,7 +42,6 @@ export default function HigherLower() {
   const timeoutRef = useRef<() => void>(() => {})
 
   useEffect(() => {
-    track('mode.higherlower')
     preloadGameFx()
   }, [])
 
@@ -116,6 +115,7 @@ export default function HigherLower() {
   }
 
   async function replay() {
+    track('game.replayed', 'higher-lower')
     awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []

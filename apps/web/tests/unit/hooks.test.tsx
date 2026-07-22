@@ -29,9 +29,14 @@ vi.mock('../../src/lib/preload', () => ({
   })
 }))
 
+vi.mock('../../src/lib/analytics', () => ({
+  track: vi.fn()
+}))
+
 import { ApiError, startRun, completeRun } from '../../src/lib/api'
 import { signOut, applyRunProgress, recordRecentRun } from '../../src/lib/account'
 import { preloadImages } from '../../src/lib/preload'
+import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { useGameSession } from '../../src/lib/use-game-session'
@@ -388,6 +393,9 @@ describe('useGameRun', () => {
     vi.mocked(signOut).mockClear()
     vi.mocked(applyRunProgress).mockClear()
     vi.mocked(recordRecentRun).mockClear()
+    vi.mocked(track).mockClear()
+    localStorage.removeItem('elixirdrop:records')
+    localStorage.removeItem('elixirdrop:seasonRecords')
   })
 
   it('prepares a signed run on mount', async () => {
@@ -398,6 +406,7 @@ describe('useGameRun', () => {
     expect(api().preparing.value).toBe(false)
     expect(api().startError.value).toBe('')
     expect(api().challenge.value).toEqual({ mode: 'surge', cardIds: [1, 2, 3] })
+    expect(track).toHaveBeenCalledWith('game.started', 'surge')
   })
 
   it('a 401 on prepare signs the player out and clears the challenge', async () => {
@@ -461,6 +470,8 @@ describe('useGameRun', () => {
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(applyRunProgress).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('saved')
+    expect(track).toHaveBeenCalledWith('game.completed', 'surge')
+    expect(track).toHaveBeenCalledWith('game.personal_best', 'surge')
   })
 
   it('complete() on a recorded run applies progress and records a recent run', async () => {
@@ -504,6 +515,7 @@ describe('useGameRun', () => {
     expect(onRecorded).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('error')
     expect((recordingNotice.value as { message: string }).message).toMatch(/signed time window/)
+    expect(track).not.toHaveBeenCalledWith('game.completed', 'surge')
   })
 
   it('a transient failure leaves a retry notice and does not settle the run', async () => {

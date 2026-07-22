@@ -8,6 +8,7 @@ import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './s
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
+import { track } from './analytics'
 
 type RecordingNotice =
   | { state: 'idle' }
@@ -50,10 +51,12 @@ function recordSeasonBest(result: { mode: GameMode; score: number; season: { id:
 // leaderboard: the previous divergence (each mode wrote its best eagerly in
 // finish(), before the server verdict) is why a rejected run still showed as a
 // personal best on that player's device.
-function recordAllTimeBest(result: { mode: GameMode; score: number }): void {
+function recordAllTimeBest(result: { mode: GameMode; score: number }): boolean {
   const key = RECORD_KEYS[result.mode]
   const current = getRecords()[key] as number | undefined
-  if (betterScore(result.mode, result.score, current)) saveRecords({ [key]: result.score })
+  const better = betterScore(result.mode, result.score, current)
+  if (better) saveRecords({ [key]: result.score })
+  return better
 }
 
 export function useGameRun<T extends GameMode>(mode: T) {
@@ -80,6 +83,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       const started = await startRun(mode, sessionToken())
       run.current = started
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
+      track('game.started', mode)
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         signOut()
@@ -128,6 +132,10 @@ export function useGameRun<T extends GameMode>(mode: T) {
     )
     try {
       const result = await completeRun(active.runToken, transcript, sessionToken())
+      const seasonBest = recordSeasonBest(result)
+      const personalBest = recordAllTimeBest(result)
+      track('game.completed', result.mode)
+      if (personalBest) track('game.personal_best', result.mode)
       // A guest run is scored but never recorded: there is no player progress
       // to apply and no account to refresh. The local bests still track (so a
       // signed-out streak advances and the device shows a personal best), and
@@ -135,8 +143,6 @@ export function useGameRun<T extends GameMode>(mode: T) {
       if (result.guest) {
         run.current = null
         pendingCompletion.current = null
-        const seasonBest = recordSeasonBest(result)
-        recordAllTimeBest(result)
         setRecordingNotice({
           state: 'saved',
           message: seasonBest ? 'Local best! Sign in to save it' : 'Played as a guest — sign in to save scores'
@@ -154,8 +160,6 @@ export function useGameRun<T extends GameMode>(mode: T) {
       })
       run.current = null
       pendingCompletion.current = null
-      const seasonBest = recordSeasonBest(result)
-      recordAllTimeBest(result)
       // Practice is unranked by design; its local bests still track quietly,
       // but the toast stays plain practice language.
       setRecordingNotice({

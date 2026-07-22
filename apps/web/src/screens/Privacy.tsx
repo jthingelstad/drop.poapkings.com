@@ -43,7 +43,11 @@ export default function Privacy() {
           <ul>
             <li>AWS runs the API and stores profiles and scores.</li>
             <li>Fastmail sends sign-in emails.</li>
-            <li>Tinylytics receives aggregate site visits and named game events, not your email or Drop session.</li>
+            <li>
+              Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or
+              platform labels. Drop never sends it your email, public player name, player tag, score, run ID, or Drop
+              session token.
+            </li>
             <li>
               A private Discord operator log receives compact login and completed-game events using your public Drop
               identity, never your full email address.
@@ -84,7 +88,7 @@ export default function Privacy() {
           </p>
         </section>
 
-        <p class="privacy-card__updated">Last updated July 19, 2026.</p>
+        <p class="privacy-card__updated">Last updated July 22, 2026.</p>
       </article>
     </div>
   )

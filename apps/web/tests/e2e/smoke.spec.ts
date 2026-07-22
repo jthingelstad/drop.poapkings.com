@@ -260,7 +260,15 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({
       status: 200,
       contentType: 'text/javascript',
-      body: 'window.tinylytics = { triggerUpdate() {} };'
+      body: `window.__tinylyticsEvents = [];
+        document.addEventListener('click', (event) => {
+          const node = event.target.closest?.('[data-tinylytics-event]');
+          if (!node) return;
+          window.__tinylyticsEvents.push({
+            event: node.getAttribute('data-tinylytics-event'),
+            value: node.getAttribute('data-tinylytics-event-value')
+          });
+        });`
     })
   )
   // Browser gameplay tests use a signed-in player but never create production
@@ -998,6 +1006,72 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
   })
 })
 
+test('mobile install suggestion waits until the third browser session', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const makeInstallable = () =>
+    page.evaluate(() => {
+      const event = new Event('beforeinstallprompt') as Event & {
+        prompt: () => Promise<void>
+        userChoice: Promise<{ outcome: 'accepted' }>
+      }
+      event.prompt = () => Promise.resolve()
+      event.userChoice = Promise.resolve({ outcome: 'accepted' })
+      window.dispatchEvent(event)
+    })
+
+  await makeInstallable()
+  await expect(page.locator('.ed-installbar')).toHaveCount(0)
+  await expect(page.locator('.ed-installrow')).toHaveCount(0)
+
+  await page.evaluate(() => {
+    localStorage.setItem('elixirdrop:installSessionCount', '2')
+    sessionStorage.removeItem('elixirdrop:installSessionCounted')
+  })
+  await page.reload()
+  await makeInstallable()
+
+  await expect(page.locator('.ed-installbar')).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { __tinylyticsEvents?: Array<{ event: string }> }).__tinylyticsEvents?.some(
+          (entry) => entry.event === 'install.suggestion_shown'
+        )
+      )
+    )
+    .toBe(true)
+})
+
+test('Tinylytics stays off the token route and captures normalized game events', async ({ page }) => {
+  const collectorRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://tinylytics.app/embed/')) collectorRequests.push(request.url())
+  })
+
+  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456')
+  await expect(page.getByRole('button', { name: 'Continue to Drop' })).toBeVisible()
+  expect(collectorRequests).toEqual([])
+
+  await page.getByRole('button', { name: 'Continue to Drop' }).click()
+  await expect(page).toHaveURL(/#\/profile/)
+  await expect.poll(() => collectorRequests.length).toBe(1)
+  expect(collectorRequests[0]).toContain('/min.js?spa&events&beacon')
+
+  await page.goto('/#/surge')
+  await waitForKeypad(page)
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __tinylyticsEvents?: Array<{ event: string; value: string }> }
+        ).__tinylyticsEvents?.some((entry) => entry.event === 'game.started' && entry.value === 'surge')
+      )
+    )
+    .toBe(true)
+})
+
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
   { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
@@ -1291,6 +1365,25 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
 
 test.describe('mobile primary navigation', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+
+  test('keeps home and game content below the installed-app status bar', async ({ page }) => {
+    // Desktop browser engines report a zero safe-area inset, so override the
+    // shell token with a representative modern-iPhone inset for regression QA.
+    const applyTestSafeArea = () =>
+      page.evaluate(() => document.documentElement.style.setProperty('--ed-safe-area-top', '47px'))
+    await useSignedOutState(page)
+    await applyTestSafeArea()
+
+    await expect(page.locator('.ed-mobile')).toHaveCSS('padding-top', '47px')
+    const identityTop = await page.locator('.ed-idchip').evaluate((element) => element.getBoundingClientRect().top)
+    expect(identityTop).toBeGreaterThanOrEqual(53)
+
+    await page.goto('/?signedOut=1#/surge')
+    await applyTestSafeArea()
+    await waitForKeypad(page)
+    const gameTop = await page.locator('.ed-game').evaluate((element) => element.getBoundingClientRect().top)
+    expect(gameTop).toBeGreaterThanOrEqual(47)
+  })
 
   test('shows the bottom pill nav without a header or horizontal overflow', async ({ page }) => {
     await useSignedOutState(page)

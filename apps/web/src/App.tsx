@@ -1,7 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
-import { track } from './lib/analytics'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import ApiStatusBanner from './components/ApiStatusBanner'
@@ -154,7 +153,6 @@ function screenTitle(r: string): string | null {
 
 export default function App() {
   useEffect(() => {
-    track('game.start')
     void initializeAccount()
     initInstallPrompt()
   }, [])

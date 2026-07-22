@@ -59,6 +59,11 @@
   --purple-grad: linear-gradient(135deg, #8b5cf6, #6d28d9);
   --progress-grad: linear-gradient(90deg, #8b5cf6, #f5c84c);
 
+  /* viewport-fit=cover lets the app background fill an installed iPhone's
+     status-bar region. Keep interactive content below that region. The custom
+     property also gives browser QA a deterministic safe-area test seam. */
+  --ed-safe-area-top: env(safe-area-inset-top, 0px);
+
   /* Spacing scale (was ad-hoc px throughout). */
   --s-1: 4px;
   --s-2: 8px;
@@ -4819,6 +4824,7 @@ body.modal-open {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  padding-top: var(--ed-safe-area-top);
 }
 .ed-mobile__scroll {
   flex: 1;

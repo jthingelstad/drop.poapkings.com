@@ -19,7 +19,7 @@ import ApiStatusBanner from '../../src/components/ApiStatusBanner'
 import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
-import { installMode, installDismissed } from '../../src/lib/pwa-install'
+import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
 import { apiAvailability, apiUnavailableReason } from '../../src/lib/api-availability'
 import { recordingNotice } from '../../src/lib/use-game-run'
 import { ABOUT, FAQ, INSTALL } from '../../src/data/meta-content'
@@ -73,6 +73,7 @@ function emptyInsights(over: Partial<Insights> = {}): Insights {
 afterEach(() => {
   player.value = null
   installMode.value = 'none'
+  installEligible.value = false
   installDismissed.value = false
   apiAvailability.value = 'checking'
   apiUnavailableReason.value = 'service'
@@ -256,8 +257,16 @@ describe('InstallPrompt', () => {
     expect(await render(<InstallBanner />)).toBe('')
   })
 
+  it('InstallBanner stays hidden before the third-session eligibility threshold', async () => {
+    installMode.value = 'available'
+    installEligible.value = false
+    installDismissed.value = false
+    expect(await render(<InstallBanner />)).toBe('')
+  })
+
   it('InstallBanner shows when available and not dismissed', async () => {
     installMode.value = 'available'
+    installEligible.value = true
     installDismissed.value = false
     const html = await render(<InstallBanner />)
     expect(html).toContain('ed-installbar')
@@ -267,12 +276,14 @@ describe('InstallPrompt', () => {
 
   it('InstallBanner hides once dismissed', async () => {
     installMode.value = 'available'
+    installEligible.value = true
     installDismissed.value = true
     expect(await render(<InstallBanner />)).toBe('')
   })
 
   it('InstallRow only shows after dismissal when installable', async () => {
     installMode.value = 'ios'
+    installEligible.value = true
     installDismissed.value = false
     expect(await render(<InstallRow />)).toBe('')
 
@@ -380,7 +391,7 @@ describe('SignInToSave', () => {
 
 describe('ShareLine', () => {
   it('renders a read-only share input and a Copy button', async () => {
-    const html = await render(<ShareLine text="I read 15 cards in 28.6s" />)
+    const html = await render(<ShareLine mode="surge" text="I read 15 cards in 28.6s" />)
     expect(html).toContain('shareline')
     expect(html).toContain('Share your time')
     expect(html).toContain('value="I read 15 cards in 28.6s"')
@@ -391,7 +402,7 @@ describe('ShareLine', () => {
 
 describe('Recruit', () => {
   it('leads with Discord while the clan is full', async () => {
-    const html = await render(<Recruit />)
+    const html = await render(<Recruit mode="surge" />)
     expect(html).toContain('recruit')
     expect(html).toContain('Join the Elixir Drop Discord')
     expect(html).toContain(`href="${ELIXIR_DROP_DISCORD_URL}"`)

@@ -21,6 +21,7 @@ import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
+import { track } from '../../lib/analytics'
 
 const STRONG_SESSION_PCT = 85
 const ROUND_LEN = 15
@@ -120,6 +121,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   }
 
   function replay() {
+    track('game.replayed', 'practice')
     runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
@@ -159,7 +161,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           onReplay={replay}
           onHome={exit}
         >
-          {strongSession.value && <Recruit />}
+          {strongSession.value && <Recruit mode="practice" />}
         </Summary>
       </div>
     )

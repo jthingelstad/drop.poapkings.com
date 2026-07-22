@@ -40,7 +40,7 @@ vi.mock('../../src/components/ScreensaverScene', () => ({
 import { requestLogin, pollLogin, getLeaderboard, type LeaderboardScope } from '../../src/lib/api'
 import { applyPolledSession, redeemAccount, player, accountStatus, recentRuns } from '../../src/lib/account'
 import { navigate, route } from '../../src/lib/router'
-import { installMode, installDismissed } from '../../src/lib/pwa-install'
+import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
 import { screensaverActive } from '../../src/lib/screensaver'
 import { createElixirRain } from '../../src/components/ScreensaverScene'
 
@@ -109,6 +109,7 @@ afterEach(() => {
   route.value = '/'
   screensaverActive.value = null
   installMode.value = 'none'
+  installEligible.value = false
   installDismissed.value = false
   vi.useRealTimers()
 })
@@ -426,6 +427,7 @@ describe('HomeMobile', () => {
 
   it('shows the prominent install banner while installable and undismissed', async () => {
     installMode.value = 'available'
+    installEligible.value = true
     installDismissed.value = false
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
     expect(html).toContain('ed-installbar')
@@ -435,6 +437,7 @@ describe('HomeMobile', () => {
 
   it('collapses to the compact install row once dismissed', async () => {
     installMode.value = 'available'
+    installEligible.value = true
     installDismissed.value = true
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
     expect(html).toContain('ed-installrow')

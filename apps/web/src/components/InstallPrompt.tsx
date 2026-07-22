@@ -5,7 +5,16 @@
 // Rendered on the mobile shell only — desktop has no install (it exists to shed
 // the mobile browser chrome for full-screen play).
 
-import { installMode, installDismissed, promptInstall, dismissInstall } from '../lib/pwa-install'
+import { useEffect } from 'preact/hooks'
+import { track } from '../lib/analytics'
+import {
+  installMode,
+  installEligible,
+  installDismissed,
+  installAnalyticsValue,
+  promptInstall,
+  dismissInstall
+} from '../lib/pwa-install'
 import { navigate } from '../lib/router'
 import { tapFxFrom } from '../lib/tap-fx'
 import Icon from './Icon'
@@ -14,12 +23,19 @@ import Icon from './Icon'
 // otherwise send the player to the step-by-step Install page.
 function install(): void {
   if (installMode.value === 'available') void promptInstall()
-  else navigate('/install')
+  else {
+    track('install.instructions_opened', installAnalyticsValue())
+    navigate('/install')
+  }
 }
 
 // Prominent gold banner, shown until dismissed.
 export function InstallBanner() {
-  if (installMode.value === 'none' || installDismissed.value) return null
+  const visible = installEligible.value && installMode.value !== 'none' && !installDismissed.value
+  useEffect(() => {
+    if (visible) track('install.suggestion_shown', installAnalyticsValue())
+  }, [visible])
+  if (!visible) return null
   return (
     <div class="ed-installbar" role="note">
       <span class="ed-installbar__icon">
@@ -47,9 +63,15 @@ export function InstallBanner() {
 
 // Compact, always-present row after the banner is dismissed.
 export function InstallRow() {
-  if (installMode.value === 'none' || !installDismissed.value) return null
+  if (!installEligible.value || installMode.value === 'none' || !installDismissed.value) return null
   return (
-    <button class="ed-installrow tap-fx" onClick={() => navigate('/install')}>
+    <button
+      class="ed-installrow tap-fx"
+      onClick={() => {
+        track('install.instructions_opened', installAnalyticsValue())
+        navigate('/install')
+      }}
+    >
       <span class="ed-installrow__icon">
         <Icon name="download" />
       </span>

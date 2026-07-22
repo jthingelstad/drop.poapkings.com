@@ -5,6 +5,7 @@ import { pollLogin, requestLogin } from '../lib/api'
 import { applyPolledSession } from '../lib/account'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
+import { track } from '../lib/analytics'
 
 export default function Login() {
   const returnTo = gameReturnPathFromRoute(route.value)
@@ -59,6 +60,7 @@ export default function Login() {
       message.value = response.message
       pollId.value = response.pollId ?? ''
       status.value = 'sent'
+      track('account.login_requested')
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'The login email could not be sent.'
       status.value = 'error'

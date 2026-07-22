@@ -22,7 +22,7 @@ export function startScreensaver(source: ScreensaverSource): void {
   screensaverActive.value = source
   // Only deliberate opens (nav launcher, logo taps) are worth counting; idle
   // attract would just tally abandoned tabs.
-  if (source !== 'idle') track('egg.screensaver')
+  if (source !== 'idle') track('easter_egg.screensaver_opened', source)
 }
 
 export function stopScreensaver(): void {

@@ -4,6 +4,7 @@ import { pickLine } from '../lib/elixir-lines'
 import { track } from '../lib/analytics'
 import { ELIXIR_DROP_DISCORD_URL } from '../lib/links'
 import Icon from './Icon'
+import type { GameMode } from '@elixir-drop/contracts'
 
 const CLAN_INVITE = 'https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg'
 
@@ -13,12 +14,12 @@ const CLAN_FULL = true
 
 // An earned-moment ask: one Elixir recruit line + a single primary CTA.
 // Rendered only inside a summary after a PB or a strong session — never on load.
-export default function Recruit() {
+export default function Recruit({ mode }: { mode: GameMode }) {
   const line = useSignal(pickLine('recruit'))
 
   useEffect(() => {
-    track('recruit.shown')
-  }, [])
+    track('community.recruit_shown', mode)
+  }, [mode])
 
   const primaryDiscord = (
     <>
@@ -27,7 +28,7 @@ export default function Recruit() {
         href={ELIXIR_DROP_DISCORD_URL}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track('recruit.discord')}
+        onClick={() => track('community.discord_opened', mode)}
       >
         Join the Elixir Drop Discord <Icon name="arrow-right" />
       </a>
@@ -36,7 +37,7 @@ export default function Recruit() {
         href={CLAN_INVITE}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track('recruit.join')}
+        onClick={() => track('community.clan_opened', mode)}
       >
         clan's often full — try the in-game invite
       </a>
@@ -50,7 +51,7 @@ export default function Recruit() {
         href={CLAN_INVITE}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track('recruit.join')}
+        onClick={() => track('community.clan_opened', mode)}
       >
         Join POAP KINGS <Icon name="arrow-right" />
       </a>
@@ -59,7 +60,7 @@ export default function Recruit() {
         href={ELIXIR_DROP_DISCORD_URL}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track('recruit.discord')}
+        onClick={() => track('community.discord_opened', mode)}
       >
         or join the Elixir Drop Discord first
       </a>

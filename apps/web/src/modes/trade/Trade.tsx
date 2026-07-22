@@ -112,7 +112,6 @@ export default function Trade() {
   const elixirLine = useSignal('')
 
   useEffect(() => {
-    track('mode.trade')
     preloadGameFx()
   }, [])
 
@@ -166,8 +165,6 @@ export default function Trade() {
     isPB.value = pb
 
     // tradeBest is persisted centrally when the server accepts the run.
-    if (pb) track('record.new')
-    track('trade.complete')
     elixirLine.value = tradeSummaryLine({
       isPB: pb,
       totalMs: total,
@@ -238,6 +235,7 @@ export default function Trade() {
   }
 
   function replay() {
+    track('game.replayed', 'trade')
     runtime.reset('ready')
     started.current = false
     serverAnswers.current = []
@@ -320,9 +318,10 @@ export default function Trade() {
             <span>{tradeLine(lastTrade.value)}</span>
           </div>
           <ShareLine
+            mode="trade"
             text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
           />
-          {isPB.value && <Recruit />}
+          {isPB.value && <Recruit mode="trade" />}
         </Summary>
       </div>
     )
