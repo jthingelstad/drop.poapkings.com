@@ -207,7 +207,7 @@ export function magicLinkEmailHtml({
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0b0920;background-image:linear-gradient(180deg,#160f30,#0b0920);">
       <tr>
         <td align="center" style="padding:32px 16px;">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
             <tr>
               <td align="center" style="padding:8px 0 26px;">
                 <img src="${safeImageUrl}" width="72" height="72" alt="Elixir Drop" style="display:block;width:72px;height:72px;border:0;margin:0 auto 12px;">
@@ -219,7 +219,7 @@ export function magicLinkEmailHtml({
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr><td style="height:5px;background-color:#f5c84c;background-image:linear-gradient(90deg,#8b5cf6,#f5c84c);border-radius:22px 22px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
                   <tr>
-                    <td style="padding:40px 44px 36px;">
+                    <td style="padding:34px 26px 30px;">
                       <p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c9b8ff;">Your arena awaits</p>
                       <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.2;font-weight:800;color:#ffffff;">Ready to drop some elixir?</h1>
                       <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#d7cff0;">Tap the button, skip the password, and get straight to naming elixir costs faster than the other guy. Your streaks and season rank are waiting.</p>
@@ -227,7 +227,7 @@ export function magicLinkEmailHtml({
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
                         <tr>
                           <td align="center" bgcolor="#f5c84c" style="border-radius:14px;background-color:#f5c84c;background-image:linear-gradient(135deg,#f5c84c,#c98c10);">
-                            <a href="${safeLink}" target="_blank" style="display:block;padding:16px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:800;letter-spacing:0.5px;color:#2a1500;text-decoration:none;border-radius:14px;">&#9654;&nbsp;&nbsp;Let's drop!</a>
+                            <a href="${safeLink}" target="_blank" style="display:block;padding:16px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:800;letter-spacing:0.5px;color:#2a1500;text-decoration:none;border-radius:14px;">Let's drop!</a>
                           </td>
                         </tr>
                       </table>
