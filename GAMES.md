@@ -41,6 +41,8 @@ mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
 catalog and ranks on its seasonal leaderboard. Linked Clash Royale collections
 remain available on player profiles but do not affect game card selection.
 Historical `ranked: false` runs remain readable for compatibility only.
+Ranked attempts that score zero still record to history and earn Player XP, but
+only a score above zero earns a seasonal or all-time leaderboard entry.
 
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and

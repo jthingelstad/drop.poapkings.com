@@ -16,6 +16,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { HttpError } from "./errors.js";
 import {
   isGameMode,
+  isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
   MODE_RULES,
@@ -818,6 +819,7 @@ export class Repository {
   }> {
     const completedAt = new Date().toISOString();
     const ranked = run.ranked !== false;
+    const leaderboardEligible = ranked && isLeaderboardEligibleScore(score);
     const historyItem = {
       pk: `PLAYER#${run.owner}`,
       sk: `RUN#${completedAt}#${run.runId}`,
@@ -832,7 +834,7 @@ export class Repository {
       ...(tiebreakMs !== undefined ? { timeMs: tiebreakMs } : {}),
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.
-      ...(ranked
+      ...(leaderboardEligible
         ? {
             GSI1PK: leaderboardPartition(seasonId, run.mode),
             GSI1SK: leaderboardSortKey(
@@ -1159,6 +1161,7 @@ export class Repository {
     tiebreakMs: number | undefined,
     completedAt: string,
   ): Promise<void> {
+    if (!isLeaderboardEligibleScore(score)) return;
     const newSk = leaderboardSortKey(
       run.mode,
       score,
@@ -1245,7 +1248,9 @@ export class Repository {
         }),
       );
       pagesRead += 1;
-      const pageItems = (result.Items ?? []) as Array<Record<string, unknown>>;
+      const pageItems = (
+        (result.Items ?? []) as Array<Record<string, unknown>>
+      ).filter((item) => isLeaderboardEligibleScore(Number(item.score)));
       if (pageItems.some((item) => typeof item.runId !== "string"))
         throw new HttpError(
           503,
@@ -1302,9 +1307,9 @@ export class Repository {
         }),
       );
       const pageItems = await Promise.all(
-        ((result.Items ?? []) as Array<Record<string, unknown>>).map((item) =>
-          this.resolveAllTimeEarningRun(item, mode),
-        ),
+        ((result.Items ?? []) as Array<Record<string, unknown>>)
+          .filter((item) => isLeaderboardEligibleScore(Number(item.score)))
+          .map((item) => this.resolveAllTimeEarningRun(item, mode)),
       );
       const decisions = await this.refereeDecisions(
         pageItems
@@ -1454,7 +1459,10 @@ export class Repository {
       );
       runs.push(
         ...((result.Items ?? []) as Array<Record<string, unknown>>).filter(
-          (item) => item.mode === mode && item.runId !== hiddenRunId,
+          (item) =>
+            item.mode === mode &&
+            item.runId !== hiddenRunId &&
+            isLeaderboardEligibleScore(Number(item.score)),
         ),
       );
       lastKey = result.LastEvaluatedKey;

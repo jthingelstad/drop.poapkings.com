@@ -8,7 +8,11 @@ import {
   SURGE_CARD_COUNT,
   survivalTimeMs,
 } from "../src/scoring.js";
-import { leaderboardPartition, leaderboardSortKey } from "../src/games.js";
+import {
+  isLeaderboardEligibleScore,
+  leaderboardPartition,
+  leaderboardSortKey,
+} from "../src/games.js";
 
 const cards = (
   rawCards as { cards: Array<{ id: number; elixir: number }> }
@@ -24,6 +28,13 @@ function cost(id: number): number {
 }
 
 describe("server-side game scoring", () => {
+  it("requires a positive score for leaderboard eligibility", () => {
+    expect(isLeaderboardEligibleScore(1)).toBe(true);
+    expect(isLeaderboardEligibleScore(0)).toBe(false);
+    expect(isLeaderboardEligibleScore(-1)).toBe(false);
+    expect(isLeaderboardEligibleScore(Number.NaN)).toBe(false);
+  });
+
   it("recomputes Surge elapsed time and wrong-answer penalties", () => {
     const answers = cards.map((card, index) => ({
       cardId: card.id,

@@ -46,6 +46,12 @@ export function isGameMode(value: unknown): value is GameMode {
   );
 }
 
+// A completed ranked run still belongs in history and earns activity XP when
+// the player scores zero, but it has not earned a place on a skill board.
+export function isLeaderboardEligibleScore(score: number): boolean {
+  return Number.isFinite(score) && score > 0;
+}
+
 const MAX_SORT_SCORE = 999_999_999_999;
 
 // Bump a mode's board epoch to start its leaderboard fresh without touching or

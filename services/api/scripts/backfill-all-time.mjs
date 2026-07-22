@@ -49,6 +49,7 @@ function rankedHistory(item) {
     !item.sk.startsWith("RUN#") ||
     !RANKED_MODES.has(item.mode) ||
     !Number.isFinite(item.score) ||
+    item.score <= 0 ||
     typeof item.completedAt !== "string" ||
     typeof item.runId !== "string" ||
     typeof item.GSI1PK !== "string"

@@ -1051,6 +1051,11 @@ test('mobile install suggestion waits until the third browser session', async ({
     sessionStorage.removeItem('elixirdrop:installSessionCounted')
   })
   await page.reload()
+  // The app records the new session and installs the browser prompt listener
+  // from the same effect. Wait for that initialization boundary before firing
+  // the synthetic event; dispatching immediately after `load` can race Preact's
+  // effect flush in fast Chromium runs.
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:installSessionCount'))).toBe('3')
   await makeInstallable()
 
   await expect(page.locator('.ed-installbar')).toBeVisible()

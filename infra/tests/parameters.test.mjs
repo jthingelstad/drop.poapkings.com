@@ -164,4 +164,26 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /Action: "sts:AssumeRole"/);
     assert.match(bootstrap, /role\/elixir-drop-referee-read/);
   });
+
+  void it("bounds leaderboard maintenance to sparse index attributes", () => {
+    const maintenanceRole = template.match(
+      /  LeaderboardMaintenanceRole:[\s\S]*?\n  ApiFunction:/,
+    )?.[0];
+    assert.ok(maintenanceRole);
+    assert.match(
+      maintenanceRole,
+      /RoleName: elixir-drop-leaderboard-maintenance/,
+    );
+    assert.match(maintenanceRole, /user\/elixir-drop/);
+    assert.match(maintenanceRole, /Action: dynamodb:UpdateItem/);
+    assert.match(maintenanceRole, /dynamodb:LeadingKeys:[\s\S]*- PLAYER#\*/);
+    assert.match(
+      maintenanceRole,
+      /dynamodb:Attributes:[\s\S]*- pk[\s\S]*- sk[\s\S]*- GSI1PK[\s\S]*- GSI1SK/,
+    );
+    assert.doesNotMatch(
+      maintenanceRole,
+      /dynamodb:(?:DeleteItem|PutItem|BatchWriteItem|TransactWriteItems)/,
+    );
+  });
 });

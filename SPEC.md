@@ -172,9 +172,10 @@ leaderboard tab.
 Each ranked mode has two boards, selected by the `scope` query param on
 `GET /leaderboards` (`season`, the default, or `all-time`):
 
-- **Season** is the existing per-season board: every completed ranked run writes
-  a history row into GSI1 under `LEADERBOARD#{seasonId}#{mode}`, and a read
-  dedups to each player's best run in that season.
+- **Season** is the existing per-season board: every positive-scoring completed
+  ranked run writes a history row into GSI1 under
+  `LEADERBOARD#{seasonId}#{mode}`, and a read dedups to each player's best run in
+  that season.
 - **All-time** ranks a player's best-ever score per mode across all seasons. It
   stores exactly one best item per player per ranked mode at
   `pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`, indexed into the same GSI1 under
@@ -185,6 +186,12 @@ Each ranked mode has two boards, selected by the `scope` query param on
   the recorded run never rolls back. Because there is one item per player, the
   read needs no dedup. The web Leaderboards screen offers a Season / All-time
   toggle; the all-time view shows no season-reset line.
+
+Leaderboard eligibility is stricter than run acceptance: a ranked completion
+must score **above zero** to receive a seasonal or all-time index projection.
+Zero-score attempts remain immutable history and still earn activity XP, but
+they have not demonstrated leaderboard skill. Reads reject legacy zero-score
+projections defensively.
 
 Product decisions currently in force:
 
@@ -233,9 +240,10 @@ Global games counter (site social proof):
 
 - `GET /stats` returns `trophyRoadGames`: a one-time launch seed of 592 that
   advances once per server-accepted completed run, incremented in the same
-  transaction as the player count, run history, and leaderboard entry. Failed,
-  rejected, and duplicate submissions do not advance it. It is surfaced on Home
-  as "games played across Drop" and is unrelated to per-player XP.
+  transaction as the player count, run history, and any eligible leaderboard
+  entry. Failed, rejected, and duplicate submissions do not advance it. It is
+  surfaced on Home as "games played across Drop" and is unrelated to
+  per-player XP.
 - Tinylytics page views and events are analytics only. Clan Wars seasons reset
   leaderboards, not lifetime XP or the global games counter.
 

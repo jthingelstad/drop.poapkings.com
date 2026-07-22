@@ -79,13 +79,20 @@ unranked, has neither board. All-time rows created before earning `runId` was
 projected are resolved against immutable player history before referee decisions
 are applied; an unresolved row fails closed instead of bypassing review.
 
+A ranked completion must score **above zero** to earn either leaderboard
+projection. Zero-score attempts remain valid run history and still earn Player
+XP, but they do not receive seasonal GSI keys or an all-time row. Reads also
+filter legacy zero projections defensively. Operators can remove stale sparse
+index keys without changing canonical history using the dry-run-first
+`cleanup:zero-leaderboards` script.
+
 `GET /stats` exposes `trophyRoadGames` as the site-wide Trophy Road counter. It
 has one stable launch seed of 592, then advances exactly once for each
 server-validated run—not for visits or analytics events. The Trophy Road
-counter, real tracked-game count, player count, immutable run history, and
-leaderboard entry are written in the same DynamoDB transaction, so a rejected
-or duplicate run cannot move Trophy Road. Seasonal leaderboard resets do not
-reset this counter.
+counter, real tracked-game count, player count, immutable run history, and any
+eligible leaderboard entry are written in the same DynamoDB transaction, so a
+rejected or duplicate run cannot move Trophy Road. Seasonal leaderboard resets
+do not reset this counter.
 
 ## Player identity
 
@@ -145,9 +152,9 @@ path for making genuine play scoreable.
 
 `scripts/backfill-all-time.mjs` rebuilds the one-row-per-player/mode all-time
 projection from immutable ranked history. It excludes unranked Practice and
-retired pre-r2 Survival results, uses the production sort/tiebreak rules, and
-conditionally refuses to overwrite a better concurrent result. It is dry-run
-by default:
+retired pre-r2 Survival results as well as zero-score attempts, uses the
+production sort/tiebreak rules, and conditionally refuses to overwrite a better
+concurrent result. It is dry-run by default:
 
 ```sh
 AWS_REGION=us-east-1 npm run backfill:all-time --workspace=@elixir-drop/api

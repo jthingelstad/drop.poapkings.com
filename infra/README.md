@@ -15,6 +15,11 @@ stack:
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
+The stack also exports a narrowly scoped leaderboard-maintenance role. The
+`elixir-drop` deploy user may assume it for explicit data repairs; it can scan
+the game table and update only `GSI1PK`/`GSI1SK` on `PLAYER#` items, so it cannot
+change canonical runs, scores, profiles, XP, or referee evidence.
+
 The gitignored root `.env` also supplies
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL`. CloudFormation treats it as a `NoEcho`
 parameter and exposes it only to the Lambda runtime for notable event delivery.

@@ -297,6 +297,43 @@ Resources:
                     dynamodb:LeadingKeys:
                       - REFEREE#*
 
+  # Narrow write identity for leaderboard projection repair. It may scan the
+  # table and update only the sparse GSI attributes on PLAYER# items; canonical
+  # runs, scores, profiles, XP, and referee evidence are outside its attribute
+  # allowlist. The deploy user assumes it explicitly for dry-run-first scripts.
+  LeaderboardMaintenanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-leaderboard-maintenance
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-leaderboard-maintenance
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !GetAtt DataTable.Arn
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - GSI1PK
+                      - GSI1SK
+
   ApiFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -726,3 +763,6 @@ Outputs:
   RefereeReadRoleArn:
     Value: !GetAtt RefereeReadRole.Arn
     Description: Bounded referee role for evidence reads and REFEREE# decision writes.
+  LeaderboardMaintenanceRoleArn:
+    Value: !GetAtt LeaderboardMaintenanceRole.Arn
+    Description: Bounded role for sparse leaderboard projection repair.

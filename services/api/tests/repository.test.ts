@@ -191,6 +191,54 @@ describe("repository DynamoDB requests", () => {
     expect(entries).toMatchObject([{ player: { publicName: "Knight Ace" } }]);
   });
 
+  it("filters legacy zero-score rows from seasonal leaderboard reads", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-zero",
+            playerSub: "player-zero",
+            score: 0,
+            completedAt: "2026-07-18T11:59:00.000Z",
+          },
+          {
+            runId: "run-positive",
+            playerSub: "player-positive",
+            score: 1,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-positive",
+              playerId: "positive",
+              publicName: "Earned It",
+              totalGames: 1,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").leaderboard(
+      "higher-lower",
+      "2026-07",
+      10,
+    );
+
+    expect(entries).toMatchObject([
+      { rank: 1, score: 1, player: { publicName: "Earned It" } },
+    ]);
+    const decisionKeys =
+      send.mock.calls[1]?.[0].input.RequestItems["test-table"].Keys;
+    expect(decisionKeys).toEqual([
+      { pk: "REFEREE#run-positive", sk: "CURRENT" },
+    ]);
+  });
+
   it("hides a referee-reviewed season run and promotes the next visible scores", async () => {
     send
       .mockResolvedValueOnce({
@@ -550,6 +598,49 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).toContain("trophyRoadGames");
   });
 
+  it("records a zero-score ranked run without projecting it to a leaderboard", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 5,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:01:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-zero",
+      sk: "RUN",
+      runId: "run-zero",
+      owner: "player-sub",
+      mode: "higher-lower",
+      challenge: {
+        mode: "higher-lower",
+        pairs: [[26000000, 26000001]],
+      },
+      state: "started",
+      startedAt: "2026-07-18T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+    };
+
+    await new Repository("test-table").completeRun(run, 0, "2026-07", 1);
+
+    const transaction = send.mock.calls[0]?.[0];
+    const history = transaction.input.TransactItems[2]?.Put?.Item;
+    expect(history).toMatchObject({ runId: "run-zero", score: 0 });
+    expect(history?.GSI1PK).toBeUndefined();
+    expect(history?.GSI1SK).toBeUndefined();
+    expect(
+      transaction.input.TransactItems[1]?.Update?.UpdateExpression,
+    ).toContain("trophyRoadGames");
+    expect(
+      transaction.input.TransactItems[3]?.Update?.ExpressionAttributeValues[
+        ":xp"
+      ],
+    ).toBe(1);
+  });
+
   it("deletes the player partition, CR snapshot, and profile last", async () => {
     send
       .mockResolvedValueOnce({
@@ -753,6 +844,17 @@ describe("repository DynamoDB requests", () => {
     expect(update.UpdateExpression).not.toContain("timeMs");
   });
 
+  it("does not create an all-time projection for a zero score", async () => {
+    await new Repository("test-table").updateAllTimeBest(
+      { ...allTimeRun, mode: "higher-lower" },
+      0,
+      undefined,
+      "2026-07-18T12:05:00.000Z",
+    );
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("stores the Survival cumulative time and its partition epoch", async () => {
     send.mockResolvedValueOnce({});
 
@@ -839,6 +941,48 @@ describe("repository DynamoDB requests", () => {
     expect(entries).toMatchObject([
       { rank: 1, score: 11_000, player: { publicName: "Ace" } },
       { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
+    ]);
+  });
+
+  it("filters legacy zero-score all-time projections", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-positive",
+            playerSub: "player-positive",
+            score: 4,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+          {
+            runId: "run-zero",
+            playerSub: "player-zero",
+            score: 0,
+            completedAt: "2026-07-18T12:01:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-positive",
+              playerId: "positive",
+              publicName: "Earned It",
+              totalGames: 1,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").allTimeLeaderboard(
+      "survival",
+      10,
+    );
+
+    expect(entries).toMatchObject([
+      { rank: 1, score: 4, player: { publicName: "Earned It" } },
     ]);
   });
 
