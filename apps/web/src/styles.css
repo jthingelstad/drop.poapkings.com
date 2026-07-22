@@ -4735,8 +4735,8 @@ body.modal-open {
   left: 5px;
   width: calc((100% - 10px) / 3);
   border-radius: 999px;
-  background: var(--purple-grad);
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.55);
+  background: var(--gold-grad);
+  box-shadow: 0 4px 14px rgba(245, 200, 76, 0.45);
   z-index: 0;
   transition: transform 0.28s var(--ease-drop);
 }
@@ -4758,7 +4758,7 @@ body.modal-open {
   font-size: 0.74rem;
 }
 .ed-pillnav__btn[aria-current='page'] {
-  color: #fff;
+  color: var(--ink-on-gold);
   font-weight: 800;
 }
 .ed-pillnav__btn svg {

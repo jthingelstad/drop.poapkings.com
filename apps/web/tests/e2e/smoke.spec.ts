@@ -1553,6 +1553,11 @@ test.describe('mobile primary navigation', () => {
     await expect(nav.getByRole('button', { name: 'Games' })).toBeVisible()
     await expect(nav.getByRole('button', { name: 'Ranks' })).toBeVisible()
     await expect(nav.getByRole('button', { name: 'You' })).toBeVisible()
+    await expect(nav.locator('.ed-pillnav__ind')).toHaveCSS(
+      'background-image',
+      'linear-gradient(135deg, rgb(245, 200, 76), rgb(201, 140, 16))'
+    )
+    await expect(nav.getByRole('button', { name: 'Games' })).toHaveCSS('color', 'rgb(42, 21, 0)')
 
     const pageHasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1
