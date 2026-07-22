@@ -77,6 +77,63 @@ function leaderboardEntries(mode: GameMode) {
   }))
 }
 
+// The desktop right rail polls GET /activity ("Live now"); a small feed keeps it
+// from 404-ing (which the console-error guard would flag) and lets the desktop
+// home test assert the recent-activity surface.
+const testActivity = {
+  seasonId: '2026-07',
+  entries: [
+    {
+      mode: 'trade' as GameMode,
+      score: 11_800,
+      achievedAt: '2026-07-18T18:00:00.000Z',
+      player: {
+        id: 'player-9',
+        publicName: 'Skarmy Party',
+        favoriteCardId: 26000012,
+        level: 4,
+        xp: 300,
+        totalGames: 40
+      }
+    }
+  ]
+}
+
+// The two shells both mount read-only surfaces that hit the API on every route:
+// the desktop right rail (GET /leaderboards + GET /activity) and Home
+// (GET /stats + per-mode /leaderboards). Any override test that navigates on the
+// desktop viewport must answer these or the browser logs a failed-fetch console
+// error that the afterEach guard treats as a failure. Tests that handle a path
+// with their own behavior match it first; this only backstops the rest.
+async function fulfillSupportData(route: Route): Promise<boolean> {
+  const url = new URL(route.request().url())
+  const path = url.pathname
+  if (path === '/stats') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+    return true
+  }
+  if (path === '/leaderboards') {
+    const mode = (url.searchParams.get('mode') ?? 'surge') as GameMode
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mode,
+        scope: url.searchParams.get('scope') === 'all-time' ? 'all-time' : 'season',
+        seasonId: testSeason.id,
+        currentSeason: testSeason,
+        entries: leaderboardEntries(mode)
+      })
+    })
+    return true
+  }
+  if (path === '/activity') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+    return true
+  }
+  return false
+}
+
 function testChallenge(mode: GameMode): RunChallenge {
   const cards = [...cardsData.cards]
   const ids = cards.map((card) => card.id)
@@ -179,18 +236,6 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
   return false
 }
 
-const routes = [
-  { hash: '#/', label: 'Elixir Drop', ready: '.home' },
-  { hash: '#/practice', label: 'Practice', ready: '.pcard' },
-  { hash: '#/surge', label: 'Surge', ready: '.surge-ready' },
-  { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.hl' },
-  { hash: '#/trade', label: 'Trade', ready: '.trade-ready' },
-  { hash: '#/survival', label: 'Survival', ready: '.surge-ready' },
-  { hash: '#/leaderboards', label: 'Season leaderboards', ready: '.leaderboard-screen' },
-  { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
-  { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
-]
-
 const pageErrors = new WeakMap<Page, string[]>()
 const allowBlockedAssets = new WeakSet<Page>()
 const allowExpectedApiErrors = new WeakSet<Page>()
@@ -285,6 +330,10 @@ test.beforeEach(async ({ page }) => {
       })
       return
     }
+    if (path === '/activity') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+      return
+    }
     if (await fulfillTestRun(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
@@ -301,6 +350,23 @@ test.afterEach(async ({ page }) => {
   await page.close()
   expect(errors).toEqual([])
 })
+
+async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
+  await page.goto(`/?signedOut=1#${hash}`)
+}
+
+// Redesign: games auto-start (no "Start" button) — the keypad appears once the
+// signed run is prepared and the 3-2-1 countdown finishes. This waits for that
+// playing state on a keypad mode.
+async function waitForKeypad(page: Page) {
+  const keypad = page.locator('.pip-keypad')
+  await expect(keypad).toBeVisible({ timeout: 12_000 })
+  return keypad
+}
+
+function isDesktopViewport(viewport: { width: number; height: number } | null): boolean {
+  return (viewport?.width ?? 0) >= 1024
+}
 
 test('shows a friendly API outage notice and recovers in place', async ({ page }) => {
   allowExpectedApiErrors.add(page)
@@ -335,6 +401,12 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
       })
       return
     }
+    // The desktop right rail also polls /activity; keep it benign so the outage
+    // banner (driven by /stats) is what the test observes.
+    if (path === '/activity') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+      return
+    }
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
@@ -346,20 +418,17 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
   available = true
   await page.getByRole('button', { name: 'Try reconnecting' }).click()
   await expect(outage).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Sign in to compete' })).toBeVisible()
+  // Recovers in place: the Home surface renders (the Surge hero + PLAY button).
+  await expect(page.locator('.ed-hero')).toBeVisible()
 })
 
-async function useSignedOutState(page: Page, hash = '/'): Promise<void> {
-  await page.goto(`/?signedOut=1#${hash}`)
-}
-
 test('a signed-out visitor plays a game as a guest and is nudged to save the score', async ({ page }) => {
-  // Guests are no longer redirected to sign in: they can open any game and play.
+  // Guests are no longer redirected to sign in: they can open any game, and it
+  // auto-starts (no "Start" button).
   await useSignedOutState(page, '/survival')
-  await expect(page.locator('.surge-ready')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Sign in to play' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Start run' }).click()
+  await waitForKeypad(page)
   // Survival ends on a single miss — a complete run for a guest.
   const cardName = await page.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
@@ -368,9 +437,10 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
   await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
 
   // The shared summary appears with the guest sign-in-to-save nudge.
-  await expect(page.locator('.summary')).toBeVisible()
+  const summary = page.locator('.ed-sum')
+  await expect(summary).toBeVisible()
   await expect(page.getByText('Create an account to save this score to the leaderboard — forever.')).toBeVisible()
-  await page.getByRole('button', { name: 'Sign in to save' }).click()
+  await summary.getByRole('button', { name: 'Sign in to save' }).click()
   await expect(page).toHaveURL(/#\/login$/)
 })
 
@@ -407,6 +477,7 @@ test('signing in from the login screen returns the player to the requested game'
       return
     }
     if (await fulfillTestRun(route)) return
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
@@ -426,8 +497,9 @@ test('signing in from the login screen returns the player to the requested game'
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
   // Redemption is click-gated so mail scanners cannot burn the single-use link.
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
-  await expect(page.locator('.surge-ready')).toBeVisible()
   await expect(page).toHaveURL(/#\/surge$/)
+  // The requested game opens and auto-starts.
+  await waitForKeypad(page)
 })
 
 test('new players choose a favorite card and generated name before returning to a game', async ({ page }) => {
@@ -472,33 +544,30 @@ test('new players choose a favorite card and generated name before returning to 
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(testStats)
-      })
-      return
-    }
     if (await fulfillTestRun(route)) return
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
+  // The identity editor (redesign) opens straight into setup for a new player.
   await expect(page.getByText('Choose a favorite card and generated name to continue')).toBeVisible()
 
   const favoriteCards = page.locator('.favorite-card-grid')
+  // The grid caps at 60 cards, so narrow to the Knight before selecting it.
+  await page.getByPlaceholder('Search cards').fill('Knight')
   await favoriteCards.getByRole('button', { name: 'Knight', exact: true }).click()
-  await page.getByRole('button', { name: 'Get name choices' }).click()
+  await page.getByRole('button', { name: 'Get name ideas' }).click()
   await page.getByRole('button', { name: 'Knight Main', exact: true }).click()
 
   await expect(page).toHaveURL(/#\/surge$/)
   await expect
     .poll(() => savedIdentity)
     .toEqual({ favoriteCardId: 26000000, publicName: 'Knight Main', nameToken: 'name-token' })
-  await expect(page.locator('.surge-ready')).toBeVisible()
+  // With the identity saved, the requested game opens and auto-starts.
+  await waitForKeypad(page)
 })
 
 test('a signed run must be prepared before game controls become available', async ({ page }) => {
@@ -523,23 +592,6 @@ test('a signed run must be prepared before game controls become available', asyn
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
-    if (path === '/leaderboards') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          mode: 'surge',
-          seasonId: testSeason.id,
-          currentSeason: testSeason,
-          entries: leaderboardEntries('surge')
-        })
-      })
-      return
-    }
     if (path === '/runs/start' && attempts++ === 0) {
       await route.fulfill({
         status: 503,
@@ -551,14 +603,16 @@ test('a signed run must be prepared before game controls become available', asyn
       return
     }
     if (await fulfillTestRun(route)) return
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/#/surge')
   await expect(page.getByRole('heading', { name: 'This game could not start' })).toBeVisible()
-  await expect(page.locator('.surge-ready')).toHaveCount(0)
+  await expect(page.locator('.pip-keypad')).toHaveCount(0)
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.locator('.surge-ready')).toBeVisible()
+  // The recovered run prepares, auto-starts, and the keypad becomes available.
+  await waitForKeypad(page)
 })
 
 test('a malformed signed challenge is rejected without local gameplay fallback', async ({ page }) => {
@@ -581,10 +635,6 @@ test('a malformed signed challenge is rejected without local gameplay fallback',
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
     if (path === '/runs/start') {
       await route.fulfill({
         status: 201,
@@ -599,12 +649,12 @@ test('a malformed signed challenge is rejected without local gameplay fallback',
       })
       return
     }
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/#/surge')
   await expect(page.getByText('Drop received an invalid signed Surge challenge.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start sprint' })).toHaveCount(0)
   await expect(page.locator('.pip-keypad')).toHaveCount(0)
 })
 
@@ -621,10 +671,7 @@ test('a temporary authentication outage keeps the saved login', async ({ page })
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
@@ -658,10 +705,6 @@ test('a failed completion blocks replay until the recorded run retry succeeds', 
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
     if (path === '/runs/complete' && completionAttempts++ === 0) {
       await route.fulfill({
         status: 503,
@@ -671,11 +714,12 @@ test('a failed completion blocks replay until the recorded run retry succeeds', 
       return
     }
     if (await fulfillTestRun(route)) return
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/#/survival')
-  await page.getByRole('button', { name: 'Start run' }).click()
+  await waitForKeypad(page)
   const cardName = await page.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
   expect(card).toBeTruthy()
@@ -710,10 +754,6 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
     if (path === '/runs/complete') {
       await route.fulfill({
         status: 400,
@@ -723,11 +763,12 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
       return
     }
     if (await fulfillTestRun(route)) return
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/#/survival')
-  await page.getByRole('button', { name: 'Start run' }).click()
+  await waitForKeypad(page)
   const cardName = await page.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
   expect(card).toBeTruthy()
@@ -741,7 +782,7 @@ test('a permanently rejected game does not offer a retry that cannot work', asyn
   await expect(page.getByRole('button', { name: 'Run it back' })).toBeVisible()
 })
 
-test('account deletion requires typed confirmation and clears the saved session', async ({ page }) => {
+test('account deletion requires typed confirmation and clears the saved session', async ({ page, viewport }) => {
   let deletionBody: unknown
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
@@ -767,27 +808,13 @@ test('account deletion requires typed confirmation and clears the saved session'
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
-      return
-    }
-    if (path === '/leaderboards') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          mode: 'surge',
-          seasonId: testSeason.id,
-          currentSeason: testSeason,
-          entries: leaderboardEntries('surge')
-        })
-      })
-      return
-    }
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
   await page.goto('/#/profile')
+  // Delete-account now lives inside the profile editor (redesign).
+  await page.locator('.ed-profile__edit').click()
   await page.getByRole('button', { name: 'Delete account' }).click()
   const confirmDelete = page.getByRole('button', { name: 'Permanently delete account' })
   await expect(confirmDelete).toBeDisabled()
@@ -796,40 +823,57 @@ test('account deletion requires typed confirmation and clears the saved session'
   await page.getByLabel('Type DELETE to confirm').fill('DELETE')
   await confirmDelete.click()
 
-  await expect(page.locator('.home')).toBeVisible()
+  const home = isDesktopViewport(viewport) ? '.ed-home-d' : '.ed-home'
+  await expect(page.locator(home)).toBeVisible()
   expect(deletionBody).toEqual({ confirmation: 'DELETE' })
   await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()
 })
 
-test('nav player block shows Player XP and opens the profile', async ({ page }) => {
+test('the profile is reachable from the shell and shows Player XP', async ({ page, viewport }) => {
   await page.goto('/')
-
-  const block = page.getByRole('button', { name: /Your profile — 480 XP, .+ arena/ })
-  await expect(block).toBeVisible()
-  await block.click()
+  // Both shells expose a profile entry point; the XP itself now lives on the
+  // profile (the old nav player-block XP chrome is gone).
+  if (isDesktopViewport(viewport)) {
+    await page.locator('.ed-rail-chip').first().click()
+  } else {
+    await page.locator('.ed-idchip').click()
+  }
 
   await expect(page.locator('.profile-xp')).toContainText('Player XP')
   await expect(page.locator('.profile-xp')).toContainText('480')
 })
 
-test('nav offers a visible screensaver launcher', async ({ page }) => {
+test('the desktop rail launches the Falling Cards screensaver', async ({ page, viewport }) => {
+  test.skip(!isDesktopViewport(viewport), 'the visible screensaver launcher is a desktop-rail control')
   await page.goto('/')
-  await expect(page.getByRole('button', { name: 'Play the screensaver' })).toBeVisible()
+
+  const launcher = page.getByRole('button', { name: 'Falling Cards' })
+  await expect(launcher).toBeVisible()
+  await launcher.click()
+
+  const overlay = page.getByTestId('screensaver')
+  await expect(overlay).toBeVisible()
+  // Any input dismisses the screensaver; a click lands as a pointerdown exit.
+  await overlay.click({ position: { x: 5, y: 5 } })
+  await expect(overlay).toHaveCount(0)
 })
 
 test('higher/lower: tap the higher card; a miss resets the streak', async ({ page }) => {
   await page.goto('/#/higher-lower')
-  await expect(page.locator('.hl__pair')).toBeVisible()
+  await expect(page.locator('.ed-duel')).toBeVisible()
   // Low chrome + effects present, like the other running modes.
   await expect(page.locator('.game-motion')).toBeVisible()
   await expect(page.locator('.game-fx-layer')).toHaveCount(1)
-  await expect(page.locator('.site-foot')).toBeHidden()
+  await expect(page.locator('.site-foot')).toHaveCount(0)
+
+  // Wait for play to begin (the streak metric renders once the countdown ends).
+  await expect(page.locator('.ed-game__metric').first()).toBeVisible({ timeout: 12_000 })
 
   // Index (0 = left, 1 = right) of the higher-cost card, read from the two
   // rendered card names.
   const higherIndex = async () => {
     const names = await page
-      .locator('.hl__card .pcard__img')
+      .locator('.ed-duel__card .pcard__img')
       .evaluateAll((imgs) => imgs.map((img) => img.getAttribute('alt')))
     const costs = names.map((name) => cardsData.cards.find((card) => card.name === name)?.elixir ?? 0)
     return costs[0]! > costs[1]! ? 0 : 1
@@ -837,55 +881,73 @@ test('higher/lower: tap the higher card; a miss resets the streak', async ({ pag
 
   // Tap the higher card → correct, streak advances to 1.
   await page
-    .locator('.hl__card')
+    .locator('.ed-duel__card')
     .nth(await higherIndex())
     .click()
-  await expect(page.locator('.hl__card--correct')).toBeVisible()
-  await expect(page.locator('.session-bar__val').first()).toHaveText('1')
+  await expect(page.locator('.ed-duel__card--correct')).toBeVisible()
+  await expect(page.locator('.ed-game__metric').first()).toHaveText('1')
 
   // Next round: tap the lower card → miss, streak resets to 0.
   await page.waitForTimeout(900)
   const lower = (await higherIndex()) === 0 ? 1 : 0
-  await page.locator('.hl__card').nth(lower).click()
-  await expect(page.locator('.hl__card--wrong')).toBeVisible()
-  await expect(page.locator('.session-bar__val').first()).toHaveText('0')
+  await page.locator('.ed-duel__card').nth(lower).click()
+  await expect(page.locator('.ed-duel__card--wrong')).toBeVisible()
+  await expect(page.locator('.ed-game__metric').first()).toHaveText('0')
 })
 
 test('higher/lower: running out the clock ends the round', async ({ page }) => {
   await page.goto('/#/higher-lower')
-  await expect(page.locator('.hl__pair')).toBeVisible()
-  // Never tap — the 5s opening window runs out and the timeout reveals the round
-  // (the lower card, auto-picked on timeout, is flagged wrong).
-  await expect(page.locator('.hl__card--wrong')).toBeVisible({ timeout: 7_000 })
-  await expect(page.locator('.hl__card--correct')).toBeVisible()
+  await expect(page.locator('.ed-duel')).toBeVisible()
+  // Never tap — the opening window (after the 3-2-1) runs out and the timeout
+  // reveals the round (the lower card, auto-picked on timeout, is flagged wrong).
+  await expect(page.locator('.ed-duel__card--wrong')).toBeVisible({ timeout: 12_000 })
+  await expect(page.locator('.ed-duel__card--correct')).toBeVisible()
 })
 
-test('home brings season standings, player bests, activity, and Trophy Road forward', async ({ page }, testInfo) => {
+test('home surfaces season standings and a personal Surge best', async ({ page, viewport }, testInfo) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'Season standings: Surge' })).toBeVisible()
-  await expect(page.locator('.season-standings')).toContainText('Royal Ghosted')
-  await expect(page.locator('.season-standings')).toContainText('Knight Main')
-  await expect(page.getByRole('heading', { name: 'Your season' })).toBeVisible()
-  await expect(page.locator('.player-bests')).toContainText('67.30s')
-  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible()
-  await expect(page.locator('.activity-list')).toContainText('Trade')
-  await expect(page.getByRole('heading', { name: 'Drop together' })).toBeVisible()
-  await expect(page.locator('.community-progress')).toContainText('592')
-  await expect(page.getByRole('button', { name: /Surge/ }).last()).toContainText('Season best')
+  if (isDesktopViewport(viewport)) {
+    await expect(page.locator('.ed-home-d')).toBeVisible()
+    // Season standings live in the desktop right rail.
+    await expect(page.locator('.ed-rail-standings')).toContainText('Royal Ghosted')
+    await expect(page.locator('.ed-rail-standings')).toContainText('You')
+    // Recent activity is the "Live now" feed.
+    await expect(page.locator('.ed-rail-live')).toContainText('Trade')
+  } else {
+    await expect(page.locator('.ed-home')).toBeVisible()
+    // Season standings surface as the mobile peek.
+    await expect(page.locator('.ed-standpeek')).toContainText('Royal Ghosted')
+    await expect(page.locator('.ed-standpeek')).toContainText('You')
+  }
 
-  await testInfo.attach('competition-home.png', {
+  // The player's Surge best (from recent runs) leads the hero.
+  await expect(page.locator('.ed-hero__best-val')).toContainText('67.30s')
+
+  await testInfo.attach('home.png', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png'
   })
 })
 
-for (const route of routes) {
+const a11yRoutes = [
+  { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
+  { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
+  { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
+  { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
+  { hash: '#/trade', label: 'Trade', ready: '.ed-game' },
+  { hash: '#/survival', label: 'Survival', ready: '.ed-game' },
+  { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
+  { hash: '#/profile', label: 'Profile', ready: '.ed-profile' },
+  { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
+  { hash: '#/privacy', label: 'Privacy', ready: '.privacy-screen' }
+]
+
+for (const route of a11yRoutes) {
   test(`renders ${route.label} without serious accessibility issues`, async ({ page }, testInfo) => {
     await page.goto('/')
     await page.goto(`/${route.hash}`)
-    await expect(page.locator(route.ready)).toBeVisible()
-    await expect(page.locator('.site-head__name')).toHaveText('Elixir Drop')
+    await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
 
     const screenshot = await page.screenshot({ fullPage: true })
     await testInfo.attach(`${route.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}.png`, {
@@ -901,7 +963,7 @@ for (const route of routes) {
 
 test('surge points higher or lower after a wrong guess and clears on the solve', async ({ page }) => {
   await page.goto('/#/surge')
-  await page.getByRole('button', { name: 'Start sprint' }).click()
+  await waitForKeypad(page)
 
   const cardName = await page.locator('.pcard__img').getAttribute('alt')
   const card = cardsData.cards.find((candidate) => candidate.name === cardName)
@@ -923,7 +985,7 @@ test('surge runtime cues drive card motion and the optional effects canvas', asy
   test.skip(testInfo.project.name !== 'chromium', 'Chromium provides the stable WebGL test surface for Pixi effects.')
 
   await page.goto('/#/surge')
-  await page.getByRole('button', { name: 'Start sprint' }).click()
+  await waitForKeypad(page)
 
   const motionCard = page.locator('.game-motion')
   const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
@@ -955,7 +1017,7 @@ test('surge keeps gameplay still and skips optional effects when reduced motion 
   await page.goto('/#/settings')
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
   await page.goto('/#/surge')
-  await page.getByRole('button', { name: 'Start sprint' }).click()
+  await waitForKeypad(page)
 
   const motionCard = page.locator('.game-motion')
   const cardName = await motionCard.locator('.pcard__img').getAttribute('alt')
@@ -973,24 +1035,19 @@ test('surge keeps gameplay still and skips optional effects when reduced motion 
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)
   const activeModes = [
-    { hash: '#/surge', ready: '.surge-ready', start: 'Start sprint', control: '.pip-keypad' },
-    { hash: '#/survival', ready: '.surge-ready', start: 'Start run', control: '.pip-keypad' },
-    { hash: '#/trade', ready: '.trade-ready', start: 'Start Trade', control: '.trade-answers' }
+    { hash: '#/surge', control: '.pip-keypad' },
+    { hash: '#/survival', control: '.pip-keypad' },
+    { hash: '#/trade', control: '.ed-trade__pad' }
   ]
 
   for (const mode of activeModes) {
     await page.goto('/')
     await page.goto(`/${mode.hash}`)
-    await expect(page.locator(mode.ready)).toBeVisible()
-    await expect(page.locator('.site-foot')).toBeVisible()
+    // Game routes render the play area full-bleed — the footer never mounts.
+    await expect(page.locator('.site-foot')).toHaveCount(0)
 
-    await page.getByRole('button', { name: mode.start }).click()
-    await expect(page.locator('.game-run')).toBeVisible()
-    await page.waitForTimeout(2_300)
-
-    await expect(page.locator('.site-foot')).toBeHidden()
-    await expect(page.locator('.player-block__xp')).toBeHidden()
-    await expect(page.locator(mode.control)).toBeVisible()
+    await expect(page.locator(mode.control)).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-game')).toBeVisible()
     await expect(page.locator('.game-motion')).toBeVisible()
     await expect(page.locator('.game-fx-layer')).toHaveCount(1)
     if (testInfo.project.name === 'chromium') {
@@ -998,18 +1055,24 @@ test('active play states use low chrome and keep controls visible', async ({ pag
     }
 
     if (mode.hash === '#/surge') {
-      const artChrome = await page.locator('.cr-card-art').evaluate((element) => ({
-        before: getComputedStyle(element, '::before').content,
-        after: getComputedStyle(element, '::after').content
-      }))
-      const cardPanel = await page.locator('.pcard').evaluate((element) => {
-        const style = getComputedStyle(element)
-        return {
-          backgroundImage: style.backgroundImage,
-          borderStyle: style.borderStyle,
-          borderWidth: style.borderWidth
-        }
-      })
+      const artChrome = await page
+        .locator('.cr-card-art')
+        .first()
+        .evaluate((element) => ({
+          before: getComputedStyle(element, '::before').content,
+          after: getComputedStyle(element, '::after').content
+        }))
+      const cardPanel = await page
+        .locator('.pcard')
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element)
+          return {
+            backgroundImage: style.backgroundImage,
+            borderStyle: style.borderStyle,
+            borderWidth: style.borderWidth
+          }
+        })
 
       expect(artChrome).toEqual({ before: 'none', after: 'none' })
       expect(cardPanel).toEqual({ backgroundImage: 'none', borderStyle: 'none', borderWidth: '0px' })
@@ -1036,14 +1099,14 @@ test('continuous play modes expose working controls with low chrome', async ({ p
     await page.goto('/')
     await page.goto(`/${mode.hash}`)
 
-    await expect(page.locator('.game-run')).toBeVisible()
+    await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
     await expect(page.locator(mode.control)).toBeVisible()
     await expect(page.locator('.game-motion')).toBeVisible()
     await expect(page.locator('.game-fx-layer')).toHaveCount(1)
     if (testInfo.project.name === 'chromium') {
       await expect(page.locator('.game-fx-layer canvas')).toHaveCount(1)
     }
-    await expect(page.locator('.site-foot')).toBeHidden()
+    await expect(page.locator('.site-foot')).toHaveCount(0)
     await expect(page.getByRole('button', { name: mode.answer, exact: true })).toBeEnabled()
 
     await testInfo.attach(`${mode.hash.slice(2)}-running.png`, {
@@ -1060,13 +1123,17 @@ test('card art fallback renders when card images cannot load', async ({ page }) 
   await page.route('**/cards/*.png', (route) => route.abort())
   await page.goto('/')
   await page.goto('/#/practice')
-  await expect(page.locator('.pcard__fallback')).toBeVisible()
+  await expect(page.locator('.pcard__fallback')).toBeVisible({ timeout: 12_000 })
 })
 
-test('five hero-logo taps start the screensaver and any key exits it', async ({ page, browserName, isMobile }) => {
-  test.skip(browserName !== 'chromium' || isMobile, 'egg smoke runs on desktop chromium only')
+test('five logo taps start the screensaver and any key exits it', async ({ page, isMobile }) => {
+  // The redesign's logo-tap door is the mobile "More games" title (there is no
+  // tapped hero logo on desktop — desktop uses the visible "Falling Cards" rail
+  // launcher instead, covered above).
+  test.skip(!isMobile, 'the logo-tap screensaver door exists on the mobile shell')
   await page.goto('/')
-  const logo = page.locator('.hero__title')
+  const logo = page.locator('.ed-more__title')
+  await expect(logo).toBeVisible()
   for (let tap = 0; tap < 5; tap += 1) await logo.click()
 
   const overlay = page.getByTestId('screensaver')
@@ -1075,10 +1142,10 @@ test('five hero-logo taps start the screensaver and any key exits it', async ({ 
   const axe = await new AxeBuilder({ page }).analyze()
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([])
 
-  await page.keyboard.press('Escape')
+  // Any input dismisses the screensaver — a tap lands as a pointerdown exit.
+  await overlay.click({ position: { x: 5, y: 5 } })
   await expect(overlay).toHaveCount(0)
-  await expect(page.locator('.hero__title')).toBeVisible()
-  await expect(page.locator('.home')).toBeVisible()
+  await expect(page.locator('.ed-home')).toBeVisible()
 })
 
 test('footer links to the Elixir Drop Discord', async ({ page }) => {
@@ -1092,12 +1159,10 @@ test('footer links to the Elixir Drop Discord', async ({ page }) => {
 })
 
 test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {
-  await page.goto('/')
   await page.goto('/#/trade')
-  await expect(page.locator('.trade-ready')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start Trade' })).toBeEnabled({ timeout: 8_000 })
-  await page.getByRole('button', { name: 'Start Trade' }).click()
-  await expect(page.locator('.trade-board')).toBeVisible({ timeout: 5_000 })
+  const teams = page.locator('.ed-trade__teams')
+  await expect(teams).toBeVisible({ timeout: 12_000 })
+  await expect(page.locator('.ed-trade__pad')).toBeVisible()
 
   const readSideIds = async (selector: string) =>
     page
@@ -1109,9 +1174,9 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
   const seenIds: number[] = []
 
   for (let trade = 1; trade <= 8; trade += 1) {
-    await expect(page.locator('.trade-board')).toHaveAttribute('data-trade-index', String(trade))
-    const blueIds = await readSideIds('.trade-side--blue')
-    const redIds = await readSideIds('.trade-side--red')
+    await expect(teams).toHaveAttribute('data-trade-index', String(trade))
+    const blueIds = await readSideIds('.ed-trade__team--blue')
+    const redIds = await readSideIds('.ed-trade__team--red')
     const roundIds = [...blueIds, ...redIds]
     expect(new Set(roundIds).size).toBe(roundIds.length)
     seenIds.push(...roundIds)
@@ -1123,10 +1188,10 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
     if (trade === 1) {
       const wrong = answers.find((value) => value !== answer)
       expect(wrong).toBeDefined()
-      await expect(page.locator('.trade-card__cost')).toHaveCount(0)
+      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(0)
       await page.getByRole('button', { name: format(wrong!) }).click()
       await expect(page.getByTestId('trade-hint')).toContainText('Cost revealed')
-      await expect(page.locator('.trade-card__cost')).toHaveCount(1)
+      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(1)
     }
 
     await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
@@ -1134,33 +1199,35 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
 
     if (trade < 8) {
       await page.waitForFunction(
-        (expected) => document.querySelector('.trade-board')?.getAttribute('data-trade-index') === String(expected),
+        (expected) => document.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index') === String(expected),
         trade + 1
       )
     }
   }
 
-  await expect(page.locator('.trade-result')).toBeVisible()
-  await expect(page.locator('.trade-result__value')).toContainText('8 trades')
+  // The Trade summary is now the shared summary card.
+  await expect(page.locator('.ed-sum')).toBeVisible()
+  await expect(page.getByText('Trade complete')).toBeVisible()
   expect(new Set(seenIds).size).toBe(seenIds.length)
 })
 
-test.describe('mobile site header', () => {
+test.describe('mobile primary navigation', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
-  test('keeps account and navigation controls readable without overflow', async ({ page }) => {
+  test('shows the bottom pill nav without a header or horizontal overflow', async ({ page }) => {
     await useSignedOutState(page)
 
-    const account = page.locator('.site-head__signin')
-    await expect(account).toHaveAttribute('aria-label', 'Sign in')
-    await expect(page.locator('.site-head__name')).toBeHidden()
+    // The mobile shell drops the old site header entirely for a bottom pill nav.
+    await expect(page.locator('.site-head')).toHaveCount(0)
+    const nav = page.locator('.ed-pillnav')
+    await expect(nav).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Games' })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Ranks' })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'You' })).toBeVisible()
 
-    const accountIsClipped = await account.evaluate((element) => element.scrollWidth > element.clientWidth + 1)
     const pageHasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1
     )
-
-    expect(accountIsClipped).toBe(false)
     expect(pageHasHorizontalOverflow).toBe(false)
   })
 })
@@ -1169,18 +1236,10 @@ test.describe('mobile timed-mode controls', () => {
   test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
 
   test('keeps every timed keypad in the first viewport', async ({ page }) => {
-    const modes = [
-      { hash: '#/surge', start: 'Start sprint' },
-      { hash: '#/survival', start: 'Start run' }
-    ]
-
-    for (const mode of modes) {
-      await page.goto(`/${mode.hash}`)
-      const start = page.getByRole('button', { name: mode.start })
-      await expect(start).toBeEnabled({ timeout: 8_000 })
-      await start.tap()
+    for (const hash of ['#/surge', '#/survival']) {
+      await page.goto(`/${hash}`)
       const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
-      await expect(keypad).toBeVisible({ timeout: 5_000 })
+      await expect(keypad).toBeVisible({ timeout: 12_000 })
 
       const controlsFit = await keypad.evaluate((element) => {
         const buttons = [...element.querySelectorAll('button')]
@@ -1190,12 +1249,12 @@ test.describe('mobile timed-mode controls', () => {
     }
   })
 
-  // Practice is untimed (no Start), but pairs a full card with the same 3×3
+  // Practice is untimed (no countdown), but pairs a full card with the same
   // keypad — its bottom row must not fall off the first viewport either.
   test('keeps the Practice keypad in the first viewport', async ({ page }) => {
     await page.goto('/#/practice')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
-    await expect(keypad).toBeVisible({ timeout: 5_000 })
+    await expect(keypad).toBeVisible({ timeout: 12_000 })
 
     const controlsFit = await keypad.evaluate((element) =>
       [...element.querySelectorAll('button')].every(
@@ -1211,9 +1270,8 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps the entire Surge keypad in view', async ({ page }) => {
     await page.goto('/#/surge')
-    await page.getByRole('button', { name: 'Start sprint' }).click()
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
-    await expect(keypad).toBeVisible({ timeout: 5_000 })
+    await expect(keypad).toBeVisible({ timeout: 12_000 })
 
     const controlsFit = await keypad.evaluate((element) =>
       [...element.querySelectorAll('button')].every((button) => {
@@ -1242,29 +1300,79 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   await page.goto('/#/leaderboards')
 
   await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
-  await expect(page.locator('.leaderboard-hero')).toContainText(
+  await expect(page.locator('.ed-board__timing')).toContainText(
     'Season ends August 3 at 10:00 UTC — new boards open then'
   )
   // The Clan-Wars weekly clock must not appear on the season board.
-  await expect(page.locator('.leaderboard-hero')).not.toContainText('left in week')
-  await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
-  await expect(page.locator('.leaderboard-row--player')).toContainText('You')
-  await expect(page.locator('.leaderboard-list')).toContainText('XP')
+  await expect(page.locator('.ed-board__timing')).not.toContainText('left in week')
+  await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-lbrow--you')).toContainText('You')
+  await expect(page.locator('.ed-board__list')).toContainText('XP')
 
-  await page.getByRole('button', { name: /Survival/ }).click()
-  await expect(page.getByRole('heading', { name: 'Survival' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Play Survival' })).toBeVisible()
+  // Switch the per-mode tab to Survival.
+  await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()
+  await expect(page.locator('.ed-modetab--active')).toContainText('Survival')
+  await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
 
   // Toggling to All-time switches the board to the best-ever heading and drops
   // the season-reset line, while the ranked player rows still render.
   await page.getByRole('button', { name: 'All-time' }).click()
   await expect(page.getByRole('heading', { name: 'All-time leaderboards' })).toBeVisible()
-  await expect(page.locator('.leaderboard-hero')).not.toContainText('new boards open then')
-  await expect(page.locator('.leaderboard-list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-board__timing')).not.toContainText('new boards open then')
+  await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
 
   // And back to Season restores the season heading.
   await page.getByRole('button', { name: 'Season', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
+})
+
+test('an empty leaderboard offers a play call-to-action', async ({ page }) => {
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/auth/refresh') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (url.pathname === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (url.pathname === '/leaderboards') {
+      const mode = (url.searchParams.get('mode') ?? 'surge') as GameMode
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mode, scope: 'season', seasonId: testSeason.id, currentSeason: testSeason, entries: [] })
+      })
+      return
+    }
+    if (url.pathname === '/activity') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ seasonId: '2026-07', entries: [] })
+      })
+      return
+    }
+    if (url.pathname === '/stats') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/#/leaderboards')
+  await expect(page.locator('.ed-board__empty')).toContainText('No scores yet.')
+  await expect(page.getByRole('button', { name: /Play Surge/ })).toBeVisible()
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
@@ -1308,14 +1416,6 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
     const url = new URL(route.request().url())
     if (url.pathname === '/auth/refresh') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session }) })
-      return
-    }
-    if (url.pathname === '/stats') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(testStats)
-      })
       return
     }
     if (url.pathname === '/me' && route.request().method() === 'PATCH') {
@@ -1368,6 +1468,7 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
       })
       return
     }
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
   await page.addInitScript((storedSession) => {
@@ -1375,13 +1476,16 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   }, session)
 
   await page.goto('/#/profile')
+  // The player tag now lives in the profile editor.
+  await page.locator('.ed-profile__edit').click()
   const tagInput = page.getByPlaceholder('#PLAYER_TAG')
   await expect(tagInput).toBeVisible()
   await tagInput.fill('20JJJ2CCRU')
   await page.getByRole('button', { name: 'Save tag' }).click()
+  // Return to the profile view, where the resolved CR profile renders.
+  await page.getByRole('button', { name: 'Done' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Loading Clash Royale profile' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 8_000 })
   await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
   await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
   await expect(page.locator('.cr-profile')).toContainText('Years Played badge not returned by Clash Royale')

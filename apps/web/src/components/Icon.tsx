@@ -9,6 +9,7 @@ import chevronLeft from 'lucide-static/icons/chevron-left.svg?raw'
 import chevronRight from 'lucide-static/icons/chevron-right.svg?raw'
 import chevronUp from 'lucide-static/icons/chevron-up.svg?raw'
 import clock from 'lucide-static/icons/clock.svg?raw'
+import download from 'lucide-static/icons/download.svg?raw'
 import flame from 'lucide-static/icons/flame.svg?raw'
 import gamepad from 'lucide-static/icons/gamepad-2.svg?raw'
 import loaderCircle from 'lucide-static/icons/loader-circle.svg?raw'
@@ -18,6 +19,7 @@ import pencil from 'lucide-static/icons/pencil.svg?raw'
 import play from 'lucide-static/icons/play.svg?raw'
 import scanEye from 'lucide-static/icons/scan-eye.svg?raw'
 import search from 'lucide-static/icons/search.svg?raw'
+import share from 'lucide-static/icons/share.svg?raw'
 import settings from 'lucide-static/icons/settings.svg?raw'
 import skull from 'lucide-static/icons/skull.svg?raw'
 import sparkles from 'lucide-static/icons/sparkles.svg?raw'
@@ -46,6 +48,7 @@ const ICONS = {
   'chevron-right': chevronRight,
   'chevron-up': chevronUp,
   clock,
+  download,
   flame,
   gamepad,
   'loader-circle': loaderCircle,
@@ -55,6 +58,7 @@ const ICONS = {
   play,
   'scan-eye': scanEye,
   search,
+  share,
   settings,
   skull,
   sparkles,

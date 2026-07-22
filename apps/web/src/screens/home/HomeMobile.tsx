@@ -5,6 +5,7 @@ import { navigate } from '../../lib/router'
 import { player, accountStatus } from '../../lib/account'
 import { scoreLabel } from '../../lib/game-metadata'
 import { registerLogoTap } from '../../lib/screensaver'
+import InstallPrompt from '../../components/InstallPrompt'
 import type { LeaderboardEntry } from '../../lib/api'
 import type { HomeData } from './home-data'
 import { MORE_GAMES } from './home-games'
@@ -94,6 +95,8 @@ export default function HomeMobile({ data }: { data: HomeData }) {
       </button>
 
       <StandingsPeek data={data} />
+
+      <InstallPrompt />
 
       <div class="ed-home__foot">
         <Wordmark />

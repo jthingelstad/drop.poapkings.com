@@ -6,6 +6,7 @@ import {
   apiErrorSchema,
   completedRunSchema,
   leaderboardResponseSchema,
+  loginPollResponseSchema,
   loginRequestResponseSchema,
   meResponseSchema,
   nameOptionsResponseSchema,
@@ -200,6 +201,17 @@ export function requestLogin(email: string, returnTo?: string) {
 
 export function redeemLogin(token: string) {
   return apiRequest('/auth/redeem', sessionResponseSchema, { method: 'POST', body: JSON.stringify({ token }) })
+}
+
+// Poll for a session handed off by a magic link redeemed in another browser
+// context (e.g. the emailed link opened Safari while the player waits in the
+// installed PWA). Returns { ready: false } until the link is opened.
+export function pollLogin(pollId: string, signal?: AbortSignal) {
+  return apiRequest('/auth/poll', loginPollResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify({ pollId }),
+    signal
+  })
 }
 
 export function refreshLogin(sessionToken: string) {

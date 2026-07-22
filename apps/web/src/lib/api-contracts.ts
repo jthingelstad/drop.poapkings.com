@@ -106,8 +106,18 @@ export const runChallengeSchema = z.discriminatedUnion('mode', [
   })
 ])
 
-export const loginRequestResponseSchema = z.object({ ok: z.literal(true), message: nonEmptyString })
+export const loginRequestResponseSchema = z.object({
+  ok: z.literal(true),
+  message: nonEmptyString,
+  // Secret poll id for the cross-context login handoff (PWA polls for its
+  // session after the emailed link is redeemed in another browser).
+  pollId: z.optional(nonEmptyString)
+})
 export const sessionResponseSchema = z.object({ session: sessionSchema })
+export const loginPollResponseSchema = z.union([
+  z.object({ ready: z.literal(false) }),
+  z.object({ ready: z.literal(true), session: sessionSchema })
+])
 
 export const recentRunSchema = z.object({
   runId: nonEmptyString,

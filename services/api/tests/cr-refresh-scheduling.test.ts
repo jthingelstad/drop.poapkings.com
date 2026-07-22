@@ -17,6 +17,7 @@ const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
+  savePollSession: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
 }));
@@ -34,6 +35,7 @@ vi.mock("../src/repository.js", () => ({
     getRun = repository.getRun;
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
+    savePollSession = repository.savePollSession;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
   },
@@ -143,7 +145,7 @@ describe("Clash Royale refresh scheduling", () => {
   });
 
   it("refreshes an attached tag after a successful magic-link login", async () => {
-    repository.peekMagicLink.mockResolvedValue(profile.email);
+    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
 
@@ -159,9 +161,39 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
+  it("hands the new session to a waiting poll id (cross-context/PWA login)", async () => {
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      pollId: "poll-abc",
+    });
+    repository.consumeMagicLink.mockResolvedValue(profile.email);
+    repository.ensureProfile.mockResolvedValue({ profile, created: false });
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const session = JSON.parse(response.body ?? "{}").session;
+    expect(repository.savePollSession).toHaveBeenCalledWith(
+      "poll-abc",
+      session,
+      expect.any(Number),
+    );
+  });
+
+  it("does not write a poll session when the link carries no poll id", async () => {
+    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
+    repository.consumeMagicLink.mockResolvedValue(profile.email);
+    repository.ensureProfile.mockResolvedValue({ profile, created: false });
+
+    await invoke("POST", "/auth/redeem", { token: "a".repeat(32) });
+    expect(repository.savePollSession).not.toHaveBeenCalled();
+  });
+
   it("does not burn the magic link when the durable login work fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    repository.peekMagicLink.mockResolvedValue(profile.email);
+    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
     repository.ensureProfile.mockRejectedValue(new Error("dynamo down"));
 
     const response = await invoke("POST", "/auth/redeem", {

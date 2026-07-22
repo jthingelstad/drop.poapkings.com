@@ -5736,6 +5736,73 @@ html.reduce-motion .ed-gcard {
   border-top: 1px solid rgba(215, 200, 255, 0.1);
 }
 
+/* Add-to-Home-Screen prompt (dismissible). */
+.ed-install {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: linear-gradient(145deg, rgba(72, 37, 148, 0.35), rgba(18, 13, 40, 0.7));
+}
+.ed-install__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.18);
+  color: var(--lavender);
+  font-size: 1.2rem;
+}
+.ed-install__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-install__title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+.ed-install__sub {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.ed-install__sub strong {
+  color: var(--lavender-2);
+  font-weight: 800;
+}
+.ed-install__go {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  color: var(--ink-on-gold);
+  background: var(--gold-grad);
+}
+.ed-install__x {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ed-install__x:hover {
+  color: var(--ink);
+}
+
 .ed-home__foot {
   padding: 20px 0 8px;
   display: flex;

@@ -13,6 +13,7 @@ import Icon from './components/Icon'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
+import { initInstallPrompt } from './lib/pwa-install'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import DesktopShell from './components/shell/DesktopShell'
@@ -186,6 +187,7 @@ export default function App() {
   useEffect(() => {
     track('game.start')
     void initializeAccount()
+    initInstallPrompt()
   }, [])
 
   // Watch for a newer front-end build: /stats reports the current version, so a

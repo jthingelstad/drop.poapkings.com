@@ -1,6 +1,8 @@
 import { useSignal } from '@preact/signals'
+import { useEffect } from 'preact/hooks'
 import { emailValidationMessage } from '@elixir-drop/contracts'
-import { requestLogin } from '../lib/api'
+import { pollLogin, requestLogin } from '../lib/api'
+import { applyPolledSession } from '../lib/account'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 
@@ -9,6 +11,39 @@ export default function Login() {
   const email = useSignal('')
   const status = useSignal<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const message = useSignal('')
+  const pollId = useSignal('')
+
+  // Once the link is on its way, quietly poll for the session. This is what lets
+  // an installed PWA finish signing in even though the emailed link opens in a
+  // separate browser (Safari) whose storage the PWA can't share.
+  useEffect(() => {
+    if (status.value !== 'sent' || !pollId.value) return
+    const controller = new AbortController()
+    const deadline = Date.now() + 15 * 60_000
+    let timer = 0
+    let stopped = false
+    const tick = async () => {
+      if (stopped || Date.now() > deadline) return
+      try {
+        const result = await pollLogin(pollId.value, controller.signal)
+        if (result.ready) {
+          stopped = true
+          await applyPolledSession(result.session)
+          navigate(returnTo || '/')
+          return
+        }
+      } catch {
+        // transient — keep polling
+      }
+      if (!stopped) timer = window.setTimeout(() => void tick(), 2500)
+    }
+    timer = window.setTimeout(() => void tick(), 2500)
+    return () => {
+      stopped = true
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [status.value, pollId.value, returnTo])
 
   async function submit(event: Event) {
     event.preventDefault()
@@ -22,6 +57,7 @@ export default function Login() {
     try {
       const response = await requestLogin(email.value.trim(), returnTo)
       message.value = response.message
+      pollId.value = response.pollId ?? ''
       status.value = 'sent'
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'The login email could not be sent.'
@@ -47,11 +83,18 @@ export default function Login() {
             <div class="account-message account-message--success" role="status">
               {message.value}
             </div>
+            {pollId.value && (
+              <p class="account-privacy" role="status">
+                Keep this page open — tap the link in your email and you&rsquo;ll be signed in here automatically, even
+                if the link opens in another browser.
+              </p>
+            )}
             <button
               class="btn btn--ghost btn--sm"
               onClick={() => {
                 status.value = 'idle'
                 message.value = ''
+                pollId.value = ''
               }}
             >
               Send again or use a different address

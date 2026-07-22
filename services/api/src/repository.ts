@@ -48,6 +48,14 @@ interface MagicItem {
   email: string;
   expiresAt: number;
   usedAt?: string;
+  // The secret poll id (known only to the requesting client) so a PWA that can't
+  // receive the emailed link's browser context can still pick up its session.
+  pollId?: string;
+}
+
+interface SessionEnvelope {
+  token: string;
+  expiresAt: string;
 }
 
 export interface RunItem {
@@ -157,6 +165,7 @@ export class Repository {
     tokenHash: string,
     email: string,
     expiresAt: number,
+    pollId?: string,
   ): Promise<void> {
     await client.send(
       new PutCommand({
@@ -166,9 +175,45 @@ export class Repository {
           sk: "MAGIC",
           email,
           expiresAt,
+          ...(pollId ? { pollId } : {}),
         } satisfies MagicItem,
       }),
     );
+  }
+
+  // Cross-context login handoff. When a magic link is redeemed (possibly in a
+  // different browser than the one that requested it — e.g. Safari opening the
+  // link while the player waits in the installed PWA), the redeem writes the new
+  // session here keyed by the request's secret poll id; the waiting client polls
+  // for it. TTL'd like the link itself.
+  async savePollSession(
+    pollId: string,
+    session: SessionEnvelope,
+    expiresAt: number,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: { pk: `POLL#${pollId}`, sk: "POLL", session, expiresAt },
+      }),
+    );
+  }
+
+  async takePollSession(
+    pollId: string,
+    nowSeconds: number,
+  ): Promise<SessionEnvelope | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `POLL#${pollId}`, sk: "POLL" },
+        ConsistentRead: true,
+      }),
+    );
+    const item = result.Item as
+      { session?: SessionEnvelope; expiresAt?: number } | undefined;
+    if (!item?.session || (item.expiresAt ?? 0) < nowSeconds) return undefined;
+    return item.session;
   }
 
   async deleteMagicLink(tokenHash: string): Promise<void> {
@@ -183,7 +228,10 @@ export class Repository {
   // Read-only validity check so redemption can do its durable work (profile
   // creation) before burning the single-use link; a transient failure then
   // leaves the link redeemable instead of eaten by a 500.
-  async peekMagicLink(tokenHash: string, nowSeconds: number): Promise<string> {
+  async peekMagicLink(
+    tokenHash: string,
+    nowSeconds: number,
+  ): Promise<{ email: string; pollId?: string }> {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -199,7 +247,7 @@ export class Repository {
         "invalid_magic_link",
       );
     }
-    return item.email;
+    return { email: item.email, pollId: item.pollId };
   }
 
   async consumeMagicLink(

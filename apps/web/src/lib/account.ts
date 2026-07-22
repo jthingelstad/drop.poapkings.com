@@ -85,15 +85,26 @@ async function initializeAccountOnce(): Promise<void> {
   }
 }
 
-export async function redeemAccount(token: string): Promise<Player> {
-  const response = await redeemLogin(token)
-  saveSession(response.session)
-  const me = await getMe(response.session.token)
+async function hydrateSession(newSession: StoredSession): Promise<Player> {
+  saveSession(newSession)
+  const me = await getMe(newSession.token)
   player.value = me.player
   recentRuns.value = me.recentRuns
   accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
+}
+
+export async function redeemAccount(token: string): Promise<Player> {
+  const response = await redeemLogin(token)
+  return hydrateSession(response.session)
+}
+
+// Adopt a session handed back by the cross-context login poll (see
+// lib/api.pollLogin): the emailed link was redeemed in another browser and the
+// server relayed the session to this waiting client.
+export async function applyPolledSession(newSession: StoredSession): Promise<Player> {
+  return hydrateSession(newSession)
 }
 
 export async function updateAccount(updates: {

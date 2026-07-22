@@ -222,8 +222,12 @@ async function route(event: APIGatewayProxyEventV2) {
 
     const token = randomBytes(32).toString("base64url");
     const tokenHash = sha256(token);
+    // Secret handoff id, returned only to this client (never emailed). Lets a
+    // waiting client — e.g. an installed PWA whose storage is isolated from the
+    // browser that opens the emailed link — poll for its session.
+    const pollId = randomBytes(24).toString("base64url");
     const expiresAt = Math.floor(Date.now() / 1_000) + MAGIC_LINK_SECONDS;
-    await repository.saveMagicLink(tokenHash, email, expiresAt);
+    await repository.saveMagicLink(tokenHash, email, expiresAt, pollId);
     try {
       await sendMagicLink({
         token: config.jmapToken,
@@ -240,7 +244,28 @@ async function route(event: APIGatewayProxyEventV2) {
     return json(202, {
       ok: true,
       message: "If that address can receive mail, a login link is on its way.",
+      pollId,
     });
+  }
+
+  if (method === "POST" && path === "/auth/poll") {
+    const body = bodyOf(event);
+    if (typeof body.pollId !== "string" || body.pollId.length < 16)
+      throw new HttpError(400, "A poll id is required.");
+    await Promise.all([
+      repository.useRateLimit("poll-id", sha256(body.pollId), 120, 60 * 30),
+      repository.useRateLimit(
+        "poll-ip",
+        sha256(event.requestContext.http.sourceIp || "unknown"),
+        600,
+        60 * 30,
+      ),
+    ]);
+    const session = await repository.takePollSession(
+      body.pollId,
+      Math.floor(Date.now() / 1_000),
+    );
+    return json(200, session ? { ready: true, session } : { ready: false });
   }
 
   if (method === "POST" && path === "/auth/redeem") {
@@ -252,11 +277,31 @@ async function route(event: APIGatewayProxyEventV2) {
     // Validate and complete the durable work before burning the single-use
     // link: a transient failure mid-login used to consume the link and strand
     // the player on "already used" with no way to retry.
-    const email = await repository.peekMagicLink(tokenHash, nowSeconds);
+    const { email, pollId } = await repository.peekMagicLink(
+      tokenHash,
+      nowSeconds,
+    );
     const sub = emailSubject(email);
     const login = await repository.ensureProfile(sub, email);
     await repository.consumeMagicLink(tokenHash, nowSeconds);
     const session = issueSession(sub, config.sessionSecret, nowSeconds);
+    // Hand the session to a client waiting on this request's poll id (e.g. the
+    // installed PWA, when the link opened in a different browser). Best-effort:
+    // a write hiccup must not fail a login whose link is already spent.
+    if (pollId) {
+      try {
+        await repository.savePollSession(
+          pollId,
+          session,
+          nowSeconds + MAGIC_LINK_SECONDS,
+        );
+      } catch (error) {
+        console.warn("Poll-session handoff write failed", {
+          requestId: event.requestContext.requestId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      }
+    }
     console.info("Player login completed", {
       requestId: event.requestContext.requestId,
       playerId: login.profile.playerId,
