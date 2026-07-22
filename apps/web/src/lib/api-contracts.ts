@@ -158,7 +158,7 @@ export const startedRunSchema = z
     ranked: z.optional(z.boolean()),
     // Signed-out visitors get a guest run: dealt a real signed challenge but
     // never recorded on completion.
-    guest: z.optional(z.boolean()),
+    guest: z.optional(z.literal(true)),
     expiresAt: isoDateTime
   })
   .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })

@@ -10,8 +10,8 @@ Doc map:
 - **`SPEC.md`** is the current implementation spec and product constraints.
 - **`CLAUDE.md`** is the agent working guide.
 
-Shipped state as of July 19, 2026: **five playable modes** — Surge, Practice,
-Higher / Lower, Trade, and Survival. **Practice is true practice**: runs
+Shipped state as of July 22, 2026: **six playable modes** — Surge, Practice,
+Higher / Lower, Trade, Survival, and Rain. **Practice is true practice**: runs
 record to history and earn Player XP (activity, like every mode) but are
 unranked and have no leaderboard tab. Player XP is a per-player activity score
 (one point per question practiced, right or wrong) that drives the arena;
@@ -91,8 +91,9 @@ controls; far easier on mobile). Each round runs a **shrinking response clock**:
 5s to read the opening pair, 250ms less every round it survives, down to a 2s
 floor (`higherLowerWindowMs`, shared by the client countdown and the server
 scorer with a 250ms boundary tolerance). A wrong tap **or a timeout** ends the
-run. Correct advances in 750ms; a miss holds 1.4s and resets the streak. Trains
-the relative read that wins elixir trades.
+run. Correct advances in 750ms; a miss holds 1.4s, resets the streak, and leaves
+the revealed result in place until the player explicitly starts another run.
+Trains the relative read that wins elixir trades.
 
 - Record: `longestStreak`.
 
@@ -123,6 +124,16 @@ on **streak count, then fastest cumulative time** (`survivalTimeMs` → the sort
 key's tiebreak), so once everyone can clear the deck it becomes a speedrun.
 
 - Record: `survivalBest` (streak). Cumulative time is the leaderboard tiebreak.
+
+**Rain** — `/rain` · `apps/web/src/modes/rain/`
+Cards fall through the playfield and the lowest lit card is the live target.
+Enter its elixir cost before it lands; a wrong tap gives a higher/lower hint but
+does not stop the fall. The player has three lives, with spawn and fall pressure
+ramping every five clears. The signed server deck supplies the cards, and every
+resolved card records either its correct cost or a landed miss.
+
+- Input: pip keypad.
+- Record: `rainBest` (cards cleared).
 
 ### Easter egg: "Elixir Rain" screensaver
 

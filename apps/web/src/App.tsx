@@ -23,7 +23,7 @@ import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
 import MetaPage from './screens/MetaPage'
 
-// The five shipped modes, each lazy-loaded as its own route chunk.
+// The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
 const loadSurge = () => import('./modes/surge/Surge')
 const loadHigherLower = () => import('./modes/higher-lower/HigherLower')

@@ -13,7 +13,7 @@ export default function RunRecordingNotice() {
     >
       <div class={`run-recording__card run-recording__card--${notice.state}`}>
         <span class="run-recording__icon" aria-hidden="true">
-          {notice.state === 'saving' ? (
+          {notice.state === 'saving' || notice.state === 'scoring' ? (
             <Icon name="loader-circle" className="icon--spin" />
           ) : notice.state === 'saved' ? (
             <Icon name="check" />

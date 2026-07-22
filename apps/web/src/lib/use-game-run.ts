@@ -11,6 +11,7 @@ import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
 
 type RecordingNotice =
   | { state: 'idle' }
+  | { state: 'scoring'; message: string }
   | { state: 'saving'; message: string }
   | { state: 'saved'; message: string }
   | { state: 'error'; message: string; detail: string; actionLabel: string; action: () => void }
@@ -120,7 +121,11 @@ export function useGameRun<T extends GameMode>(mode: T) {
     onRecorded?: () => void,
     onUnrecorded?: () => void
   ): Promise<void> {
-    setRecordingNotice({ state: 'saving', message: 'Recording your game…' })
+    setRecordingNotice(
+      active.guest
+        ? { state: 'scoring', message: 'Scoring your game…' }
+        : { state: 'saving', message: 'Recording your game…' }
+    )
     try {
       const result = await completeRun(active.runToken, transcript, sessionToken())
       // A guest run is scored but never recorded: there is no player progress

@@ -102,16 +102,22 @@ entry, and season-clock update have all succeeded in production.
 Do not promise a prize until the whole four-week season has run with the
 integrity checks and operational monitoring in place.
 
-## 7. Anti-cheat: reject, don't review
+## 7. Anti-cheat: preserve evidence and review signals
 
-Score integrity is enforced by outright rejection, not a review queue.
-`services/api/src/integrity.ts` recomputes every completion and rejects an
-implausible or impossible run with `400 integrity_rejected`: it is neither
-recorded nor credited, and the started-run row is left to TTL-expire on its own
-(exactly like a scorer reject). There is no quarantine partition and nothing to
-review by hand. Watch CloudWatch for the `Run completion rejected by integrity
-check` warnings — a cluster of them signals either a shipped UI limit that is too
-tight or a probing client.
+The server recomputes every completion from its signed challenge. When
+assumption-based timing or transcript checks produce a deterministic candidate
+score plus review signals, the ranked run is recorded under automatic
+`review`/`hidden` status and excluded from seasonal and all-time leaderboards.
+The Fair Play Referee can later approve a falsely flagged run or keep a suspect
+run hidden through an audited, reversible decision; the automatic label is not a
+final integrity verdict.
+
+If no comparable score can be derived, the attempt remains unscored and cannot
+be placed on a leaderboard. Its sanitized evidence is retained for review
+without inventing a result. Practice and guest runs do not write referee
+evidence. Watch CloudWatch review-signal and unscored-attempt warnings for a
+cluster that may indicate either a shipped UI/scoring mismatch or a probing
+client, then use the bounded referee scripts to inspect it.
 
 The completion and public read endpoints are also IP rate-limited
 (`/runs/complete` at 300/hour; a shared `reads` scope over `/leaderboards`,

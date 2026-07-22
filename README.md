@@ -10,7 +10,7 @@ as a static single-page app in the Elixir Drop monorepo.
 
 ## What it is
 
-Five ways to play at launch, one card-cost engine:
+Six ways to play, one card-cost engine:
 
 - **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
   answers add a time penalty. Your score is your time, lower is better.
@@ -21,6 +21,8 @@ Five ways to play at launch, one card-cost engine:
 - **Trade** — Blue King vs. Red King elixir math across eight exchanges.
 - **Survival** — sudden death; one miss or timeout ends the run, and the clock
   tightens as your streak grows.
+- **Rain** — falling cards, three lives, and a cost keypad. Clear the lit card
+  before it lands as the field accelerates.
 
 See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
 of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the

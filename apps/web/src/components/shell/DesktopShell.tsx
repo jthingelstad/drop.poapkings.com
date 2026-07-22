@@ -118,7 +118,7 @@ export default function DesktopShell({ children }: { children: ComponentChildren
   const gaming = isGameRoute(route.value)
   return (
     <div class="ed-app">
-      <div class="ed-desktop">
+      <div class={`ed-desktop${gaming ? ' ed-desktop--game' : ''}`}>
         <LeftRail />
         <main class="ed-desktop__main">{children}</main>
         <aside class="ed-desktop__right" style={{ opacity: gaming ? 0.32 : 1 }}>

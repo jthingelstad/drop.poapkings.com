@@ -234,6 +234,9 @@ export interface StartedRun {
   // Retained for responses from historical unranked runs. New runs always use
   // the canonical catalog and rank.
   ranked?: boolean;
+  // Guest runs use the same signed challenge/scoring path, but completion is
+  // never persisted to a player, leaderboard, history, XP, or Trophy Road.
+  guest?: true;
   expiresAt: string;
 }
 

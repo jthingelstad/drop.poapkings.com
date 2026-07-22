@@ -137,8 +137,8 @@ rank-oriented fields as part of unrelated work.
   helpers for timed modes.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
 - **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines (Trade).
-- **Modes** in `apps/web/src/modes/`. The five shipped, routed modes are `surge`,
-  `practice`, `higher-lower`, `trade`, `survival`. Practice is unranked by design
+- **Modes** in `apps/web/src/modes/`. The six shipped, routed modes are `surge`,
+  `practice`, `higher-lower`, `trade`, `survival`, and `rain`. Practice is unranked by design
   (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI).
   See `GAMES.md` for mechanics, backlog, and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or

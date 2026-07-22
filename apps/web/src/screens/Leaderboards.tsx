@@ -132,17 +132,22 @@ export default function Leaderboards() {
         ))}
       </div>
 
-      <div class="ed-board__modes row-x" aria-label="Choose a game leaderboard">
-        {RANKED_GAMES.map((game) => (
-          <button
-            aria-pressed={mode.value === game.mode}
-            class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
-            onClick={() => (mode.value = game.mode)}
-            key={game.mode}
-          >
-            <span aria-hidden="true">{game.icon}</span> {game.name}
-          </button>
-        ))}
+      <div class="ed-board__mode-guide" aria-hidden="true">
+        Swipe for every mode <Icon name="arrow-right" />
+      </div>
+      <div class="ed-board__mode-strip">
+        <div class="ed-board__modes row-x" aria-label="Choose a game leaderboard">
+          {RANKED_GAMES.map((game) => (
+            <button
+              aria-pressed={mode.value === game.mode}
+              class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
+              onClick={() => (mode.value = game.mode)}
+              key={game.mode}
+            >
+              <span aria-hidden="true">{game.icon}</span> {game.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <section class="ed-board__list leaderboard-list" aria-labelledby="active-leaderboard-title">

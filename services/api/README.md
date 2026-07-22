@@ -11,7 +11,7 @@ Responsibilities in this release:
 - player profiles with favorite-card avatars, safe Claude Haiku-generated
   public names, unverified CR player tags, and cached CR
   name/clan/account-age/card snapshots;
-- short-lived, single-use signed runs for all five game modes;
+- short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
   arena;
@@ -45,10 +45,10 @@ first-Monday calendar instead of failing.
 
 ## Routes
 
-- `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`
-- `GET /me`, `PATCH /me`, `POST /me/name-options`
+- `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
+- `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`
-- `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /health`
+- `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow

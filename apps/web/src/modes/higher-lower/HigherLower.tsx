@@ -20,9 +20,8 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 // learning moment.
 const ADVANCE_DELAY_CORRECT = 750
 const ADVANCE_DELAY_WRONG = 1400
-// A 3-2-1 before the opening pair so the round clock never starts while you are
-// still reading. Only on the fresh run — a miss restarts straight in (the reveal
-// beat already gives orientation), so an endless streak is never nagged.
+// A 3-2-1 before each explicitly started run so the round clock never starts
+// while the player is still reading or away from the controls.
 const COUNTDOWN_STEP_MS = 650
 
 export default function HigherLower() {
@@ -33,6 +32,7 @@ export default function HigherLower() {
   // The card the player tapped as higher (for reveal highlighting).
   const picked = useSignal<number | null>(null)
   const revealed = useSignal(false)
+  const awaitingReplay = useSignal(false)
   const streak = useSignal(0)
   const streakCue = useSignal(0)
   const best = useSignal(getRecords().longestStreak ?? 0)
@@ -46,8 +46,7 @@ export default function HigherLower() {
     preloadGameFx()
   }, [])
 
-  // Play the 3-2-1 once the opening pair is loaded (fresh run only — a miss
-  // resets straight to 'running', so this never re-fires mid-streak).
+  // Play the 3-2-1 once an explicitly requested run is loaded.
   useEffect(() => {
     if (gameRun.content && runtime.stage.value === 'ready') {
       runtime.start(() => {
@@ -102,11 +101,7 @@ export default function HigherLower() {
     const nextIndex = pairIndex.value + 1
     const nextPair = gameRun.content?.[nextIndex]
     if (!nextPair) {
-      void gameRun.complete(
-        { answers: serverAnswers.current },
-        () => void restartAfterMiss(),
-        () => void restartAfterMiss()
-      )
+      void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
       return
     }
     pairIndex.value = nextIndex
@@ -115,13 +110,22 @@ export default function HigherLower() {
     runtime.emitCue('round-advance', { pairIndex: nextIndex })
   }
 
-  async function restartAfterMiss() {
-    runtime.reset('running')
+  function offerReplay() {
+    runtime.finish('over')
+    awaitingReplay.value = true
+  }
+
+  async function replay() {
+    awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []
-    await gameRun.prepare()
     picked.value = null
     revealed.value = false
+    remainingFrac.value = 1
+    await gameRun.prepare()
+    // Arm the countdown only after prepare has synchronously cleared the old
+    // challenge and resolved the replacement, avoiding a stale-pair start.
+    runtime.reset('ready')
   }
 
   function choose(pickedId: number) {
@@ -162,13 +166,10 @@ export default function HigherLower() {
         if (correct) {
           next()
         } else {
-          // A permanently rejected completion still deals the next round —
-          // Higher/Lower has no summary screen to escape to.
-          void gameRun.complete(
-            { answers: serverAnswers.current },
-            () => void restartAfterMiss(),
-            () => void restartAfterMiss()
-          )
+          // Keep the revealed result in place after completion. The next signed
+          // run is prepared only after an explicit player action, so an idle
+          // screen cannot farm timed-out runs, XP, or activity events.
+          void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
         }
       },
       correct ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
@@ -185,17 +186,18 @@ export default function HigherLower() {
   }
   timeoutRef.current = timeout
 
-  // Desktop keyboard: ← / → pick the left / right card.
+  // Desktop keyboard follows the vertical layout with ↑ / ↓. Keep ← / → as
+  // aliases so existing players do not lose familiar controls.
   const keyRef = useRef<(event: KeyboardEvent) => void>(() => {})
   keyRef.current = (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
     if (runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value) return
     const active = gameRun.content?.[pairIndex.value]
     if (!active) return
-    if (event.key === 'ArrowLeft') {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
       event.preventDefault()
       choose(active[0].id)
-    } else if (event.key === 'ArrowRight') {
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       event.preventDefault()
       choose(active[1].id)
     }
@@ -223,8 +225,8 @@ export default function HigherLower() {
     return 'ed-duel__card ed-duel__card--dim'
   }
 
-  const counting = runtime.stage.value !== 'running'
-  const disabled = counting || revealed.value || gameRun.preparing.value
+  const counting = runtime.stage.value === 'ready' || runtime.stage.value === 'countdown'
+  const disabled = runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value
 
   return (
     <GameFrame
@@ -255,6 +257,18 @@ export default function HigherLower() {
             </button>
           </div>
         </GameMotion>
+
+        {awaitingReplay.value && (
+          <div class="ed-duel__replay" role="status">
+            <span>
+              <strong>{streak.value > 0 ? 'Deal complete' : 'Streak over'}</strong>
+              <small>Start the next run when you’re ready.</small>
+            </span>
+            <button type="button" class="btn btn--gold btn--sm" onClick={() => void replay()}>
+              Play again
+            </button>
+          </div>
+        )}
 
         {/* Higher/Lower has no summary screen, so a signed-out player sees a
             persistent prompt to save their streak. */}

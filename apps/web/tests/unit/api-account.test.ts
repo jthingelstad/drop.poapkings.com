@@ -190,6 +190,7 @@ describe('api.ts request helpers', () => {
 
     const result = await startRun('surge')
     expect(result.runToken).toBe('rt1')
+    expect(result.guest).toBe(true)
     const { url, init, headers } = endpointCall(fetchMock)
     expect(url).toBe(`${API_BASE}/runs/start`)
     expect(init.method).toBe('POST')

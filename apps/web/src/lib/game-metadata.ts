@@ -13,7 +13,7 @@ export interface GameInfo {
   unranked?: boolean
 }
 
-// The launch five.
+// The six shipped modes.
 export const GAMES: GameInfo[] = [
   {
     mode: 'surge',

@@ -522,6 +522,11 @@ a {
   pointer-events: none;
 }
 
+.run-recording:not(.run-recording--blocking) {
+  left: auto;
+  width: min(420px, calc(100% - 36px));
+}
+
 .run-recording--blocking {
   inset: 0;
   align-items: center;
@@ -542,14 +547,16 @@ a {
   border-radius: var(--r-lg);
   background: rgba(18, 13, 40, 0.97);
   box-shadow: var(--shadow);
-  pointer-events: auto;
+  pointer-events: none;
 }
 
+.run-recording__card--scoring,
 .run-recording__card--saved {
   border-color: rgba(34, 197, 94, 0.55);
 }
 .run-recording__card--error {
   border-color: rgba(239, 68, 68, 0.65);
+  pointer-events: auto;
 }
 .run-recording__card > div {
   min-width: 0;
@@ -574,6 +581,20 @@ a {
   background: rgba(109, 40, 217, 0.35);
   color: var(--gold);
   font-family: var(--font-display);
+}
+
+@media (width <= 1023px) {
+  .run-recording:not(.run-recording--blocking) {
+    top: max(12px, env(safe-area-inset-top));
+    right: 18px;
+    bottom: auto;
+    left: 18px;
+    width: auto;
+  }
+
+  .run-recording__card {
+    width: min(100%, 420px);
+  }
 }
 
 .profile-xp,
@@ -4883,6 +4904,11 @@ body.modal-open {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr) 340px;
 }
+.ed-desktop--game {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
 .ed-desktop__rail,
 .ed-desktop__right {
   overflow-y: auto;
@@ -6553,6 +6579,7 @@ html.reduce-motion .ed-sum-band__fill {
 }
 
 .ed-duel {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -6616,19 +6643,42 @@ html.reduce-motion .ed-sum-band__fill {
   font-size: 0.85rem;
   color: var(--lavender);
 }
+.ed-duel__replay {
+  position: absolute;
+  z-index: 4;
+  right: 12px;
+  bottom: 36px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 200, 76, 0.42);
+  border-radius: 16px;
+  background: rgba(30, 18, 58, 0.94);
+  box-shadow: var(--shadow);
+}
+.ed-duel__replay span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ed-duel__replay strong {
+  font-family: var(--font-display);
+  color: var(--gold);
+}
+.ed-duel__replay small {
+  color: var(--muted);
+}
 html.reduce-motion .ed-duel__card {
   transition: none;
 }
-.ed-desktop__main .ed-duel__cards {
-  flex-direction: row;
-  align-items: stretch;
-}
-.ed-desktop__main .ed-duel__vs {
-  display: flex;
-  align-items: center;
-}
+
+/* Keep the comparison order consistent on every shell: first card above the
+   second card, with VS between them. */
 .ed-desktop__main .ed-duel__card .pcard__art {
-  width: min(100%, 200px);
+  width: min(100%, 160px);
 }
 
 /* ── Trade stage ────────────────────────────────────────────── */
@@ -6905,12 +6955,48 @@ html.reduce-motion .ed-duel__card {
   overflow-x: auto;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  scroll-padding-inline: 8px 32px;
+  padding-right: 26px;
 }
 .ed-board__modes::-webkit-scrollbar {
   height: 0;
 }
 .ed-desktop__main .ed-board__modes {
   flex-wrap: wrap;
+  padding-right: 0;
+}
+.ed-board__mode-guide {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: -4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.ed-board__mode-guide .icon {
+  width: 14px;
+  height: 14px;
+}
+.ed-board__mode-strip {
+  position: relative;
+  min-width: 0;
+}
+.ed-board__mode-strip::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  background: linear-gradient(90deg, transparent, var(--bg0));
+  pointer-events: none;
+}
+.ed-desktop__main .ed-board__mode-guide,
+.ed-desktop__main .ed-board__mode-strip::after {
+  display: none;
 }
 .ed-modetab {
   flex: 0 0 auto;

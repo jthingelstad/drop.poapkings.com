@@ -183,6 +183,7 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
   if (path === '/runs/start') {
     const { mode } = route.request().postDataJSON() as { mode: GameMode }
     const challenge = testChallenge(mode)
+    const guest = !route.request().headers()['authorization']
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -191,6 +192,7 @@ async function fulfillTestRun(route: Route): Promise<boolean> {
         runToken: `run-${mode}`,
         mode,
         challenge,
+        ...(guest ? { guest: true } : {}),
         expiresAt: '2099-01-01T00:00:00.000Z'
       })
     })
@@ -423,6 +425,13 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
 })
 
 test('a signed-out visitor plays a game as a guest and is nudged to save the score', async ({ page }) => {
+  // Hold the response long enough to inspect the in-flight guest state. Guest
+  // runs are scored, never recorded, and must not cover the whole play surface.
+  await page.route(`${testApiBaseUrl}/runs/complete`, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    await route.fallback()
+  })
+
   // Guests are no longer redirected to sign in: they can open any game, and it
   // auto-starts (no "Start" button).
   await useSignedOutState(page, '/survival')
@@ -435,6 +444,11 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
   expect(card).toBeTruthy()
   const wrongCost = card?.elixir === 1 ? 2 : 1
   await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+
+  const scoringNotice = page.locator('.run-recording')
+  await expect(scoringNotice).toContainText('Scoring your game…')
+  await expect(scoringNotice).not.toHaveClass(/run-recording--blocking/)
+  await expect(page.getByText('Recording your game…')).toHaveCount(0)
 
   // The shared summary appears with the guest sign-in-to-save nudge.
   const summary = page.locator('.ed-sum')
@@ -896,6 +910,23 @@ test('higher/lower: tap the higher card; a miss resets the streak', async ({ pag
   await expect(page.locator('.ed-game__metric').first()).toHaveText('0')
 })
 
+test('higher/lower stacks both choices vertically on every shell', async ({ page }) => {
+  await page.goto('/#/higher-lower')
+  const choices = page.locator('.ed-duel__card')
+  await expect(choices).toHaveCount(2)
+  await expect(choices.first()).toBeVisible()
+
+  const bounds = await choices.evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect()
+      return { top: box.top, right: box.right, bottom: box.bottom, left: box.left }
+    })
+  )
+  expect(bounds[1]!.top).toBeGreaterThan(bounds[0]!.bottom)
+  expect(Math.abs(bounds[1]!.left - bounds[0]!.left)).toBeLessThanOrEqual(1)
+  expect(Math.abs(bounds[1]!.right - bounds[0]!.right)).toBeLessThanOrEqual(1)
+})
+
 test('higher/lower: running out the clock ends the round', async ({ page }) => {
   await page.goto('/#/higher-lower')
   await expect(page.locator('.ed-duel')).toBeVisible()
@@ -903,6 +934,42 @@ test('higher/lower: running out the clock ends the round', async ({ page }) => {
   // reveals the round (the lower card, auto-picked on timeout, is flagged wrong).
   await expect(page.locator('.ed-duel__card--wrong')).toBeVisible({ timeout: 12_000 })
   await expect(page.locator('.ed-duel__card--correct')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
+})
+
+test('higher/lower records once, then waits for an explicit replay while idle', async ({ page }) => {
+  let startRequests = 0
+  let completionRequests = 0
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname
+    if (path === '/runs/start') startRequests += 1
+    if (path === '/runs/complete') completionRequests += 1
+  })
+
+  await page.goto('/#/higher-lower')
+  const cards = page.locator('.ed-duel__card')
+  await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
+
+  const names = await cards.locator('.pcard__img').evaluateAll((imgs) => imgs.map((img) => img.getAttribute('alt')))
+  const costs = names.map((name) => cardsData.cards.find((card) => card.name === name)?.elixir ?? 0)
+  const lowerIndex = costs[0]! < costs[1]! ? 0 : 1
+  await cards.nth(lowerIndex).click()
+
+  const replay = page.getByRole('button', { name: 'Play again' })
+  await expect(replay).toBeVisible({ timeout: 8_000 })
+  await expect.poll(() => completionRequests).toBe(1)
+  expect(startRequests).toBe(1)
+
+  // The old behavior prepared and timed out another signed run every ~6s.
+  // Staying idle must leave both network counts unchanged.
+  await page.waitForTimeout(6_500)
+  expect(completionRequests).toBe(1)
+  expect(startRequests).toBe(1)
+
+  await replay.click()
+  await expect.poll(() => startRequests).toBe(2)
+  await expect(replay).toHaveCount(0)
+  await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
 })
 
 test('home surfaces season standings and a personal Surge best', async ({ page, viewport }, testInfo) => {
@@ -938,6 +1005,7 @@ const a11yRoutes = [
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
   { hash: '#/trade', label: 'Trade', ready: '.ed-game' },
   { hash: '#/survival', label: 'Survival', ready: '.ed-game' },
+  { hash: '#/rain', label: 'Rain', ready: '.ed-game' },
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-profile' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
@@ -1290,6 +1358,27 @@ test.describe('low-height desktop timed controls', () => {
       })
     )
     expect(controlsFit).toBe(true)
+  })
+
+  test('keeps the Higher / Lower replay action in view', async ({ page }) => {
+    await page.goto('/#/higher-lower')
+    const replay = page.getByRole('button', { name: 'Play again' })
+    await expect(replay).toBeVisible({ timeout: 12_000 })
+    const bounds = await replay.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(721)
+
+    const notice = page.locator('.run-recording__card--saved')
+    if (await notice.isVisible()) {
+      const noticeBounds = await notice.boundingBox()
+      expect(noticeBounds).not.toBeNull()
+      const overlaps =
+        bounds!.x < noticeBounds!.x + noticeBounds!.width &&
+        bounds!.x + bounds!.width > noticeBounds!.x &&
+        bounds!.y < noticeBounds!.y + noticeBounds!.height &&
+        bounds!.y + bounds!.height > noticeBounds!.y
+      expect(overlaps).toBe(false)
+    }
   })
 })
 
