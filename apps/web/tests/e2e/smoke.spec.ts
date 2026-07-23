@@ -295,6 +295,7 @@ test.beforeEach(async ({ page }) => {
         });`
     })
   )
+  await page.route('https://tinylytics.app/collector/**', (route) => route.fulfill({ status: 204 }))
   // Browser gameplay tests use a signed-in player but never create production
   // records. The deployed API has a separate live smoke in infra/scripts.
   await page.route('**/api-config.json', (route) =>
@@ -1150,20 +1151,34 @@ test('mobile install suggestion waits until the third browser session', async ({
     .toBe(true)
 })
 
-test('Tinylytics stays off the token route and captures normalized game events', async ({ page }) => {
-  const collectorRequests: string[] = []
+test('Tinylytics tracks hash pages, stays off the token route, and captures game events', async ({
+  page,
+  viewport
+}) => {
+  const embedRequests: string[] = []
+  const pageRequests: string[] = []
   page.on('request', (request) => {
-    if (request.url().startsWith('https://tinylytics.app/embed/')) collectorRequests.push(request.url())
+    if (request.url().startsWith('https://tinylytics.app/embed/')) embedRequests.push(request.url())
+    if (request.url().startsWith('https://tinylytics.app/collector/')) pageRequests.push(request.url())
   })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456')
   await expect(page.getByRole('button', { name: 'Continue to Drop' })).toBeVisible()
-  expect(collectorRequests).toEqual([])
+  expect(embedRequests).toEqual([])
+  expect(pageRequests).toEqual([])
 
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile/)
-  await expect.poll(() => collectorRequests.length).toBe(1)
-  expect(collectorRequests[0]).toContain('/min.js?spa&events&beacon')
+  await expect.poll(() => embedRequests.length).toBe(1)
+  await expect.poll(() => pageRequests.length).toBe(1)
+  expect(embedRequests[0]).toContain('/min.js?events&beacon')
+  expect(new URL(pageRequests[0]).searchParams.get('path')).toBe('/profile')
+  expect(pageRequests[0]).not.toContain('abcdefghijklmnopqrstuvwxyz123456')
+
+  await page.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true }).click()
+  await expect(page).toHaveURL(/#\/leaderboards/)
+  await expect.poll(() => pageRequests.length).toBe(2)
+  expect(new URL(pageRequests[1]).searchParams.get('path')).toBe('/leaderboards')
 
   await page.goto('/#/surge')
   await waitForKeypad(page)

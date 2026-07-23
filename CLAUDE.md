@@ -215,8 +215,9 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 
 ## Key values
 
-- Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). Embed in `<head>`:
-  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU.js?spa&hits&countries&events&beacon`
+- Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). The safe loader uses
+  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon` and explicitly
+  bridges credential-free hash routes into virtual page paths because Pages requires hash routing.
   (kudos removed — the like button was only on game summaries and is gone)
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with

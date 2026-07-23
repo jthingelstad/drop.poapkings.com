@@ -358,6 +358,13 @@ Tinylytics property:
 
 Analytics are best-effort and must never block gameplay.
 
+The Tinylytics embed owns the initial document hit and browser interaction
+events. Because GitHub Pages requires hash routing and Tinylytics' SPA observer
+does not see those transitions, `apps/web/src/lib/analytics-loader.ts` sends a
+browser collector hit for each distinct credential-free virtual route. Query
+parameters are stripped, public player IDs collapse to `/players/profile`, and
+the one-time-token `#/auth` route is never loaded or reported.
+
 Tracked events include:
 `game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`, `mode.trade`,
 `mode.survival`, `surge.complete`, `trade.complete`, `survival.win`,

@@ -9,7 +9,7 @@ import {
 } from '../../src/lib/motion'
 import { navigate, back, parseHash, route } from '../../src/lib/router'
 import { analyticsCollectorReady, track, mirrorFunnel } from '../../src/lib/analytics'
-import { initAnalytics } from '../../src/lib/analytics-loader'
+import { analyticsPagePath, initAnalytics } from '../../src/lib/analytics-loader'
 import {
   gameDisplay,
   scoreLabel,
@@ -383,15 +383,44 @@ describe('analytics loader', () => {
     window.location.hash = '#/'
   })
 
-  it('does not load on a token-bearing auth route, then loads after navigation', () => {
+  it('normalizes virtual page paths without exposing credentials or player ids', () => {
+    expect(analyticsPagePath('#/surge?returnTo=%2Fprofile')).toBe('/surge')
+    expect(analyticsPagePath('#/players/player-secret')).toBe('/players/profile')
+    expect(analyticsPagePath('#/not-a-real-route?token=secret')).toBe('/')
+    expect(analyticsPagePath('#/auth?token=secret-token')).toBeNull()
+  })
+
+  it('does not load or send a page on auth, then tracks safe hash navigation once', () => {
+    const sendBeacon = vi.fn((_url: string) => true)
+    defineNav('sendBeacon', sendBeacon)
     window.location.hash = '#/auth?token=secret-token'
-    initAnalytics()
+    const dispose = initAnalytics()
     expect(document.getElementById('elixir-drop-tinylytics')).toBeNull()
+    expect(sendBeacon).not.toHaveBeenCalled()
 
     window.location.hash = '#/profile'
     window.dispatchEvent(new HashChangeEvent('hashchange'))
     const script = document.getElementById('elixir-drop-tinylytics') as HTMLScriptElement | null
-    expect(script?.src).toBe('https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?spa&events&beacon')
+    expect(script?.src).toBe('https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon')
+    expect(sendBeacon).toHaveBeenCalledTimes(1)
+
+    const pageHit = new URL(sendBeacon.mock.calls[0][0])
+    expect(pageHit.pathname).toBe('/collector/JjqvUeyEnrPM1f_iXrbU')
+    expect(pageHit.searchParams.get('path')).toBe('/profile')
+    expect(pageHit.searchParams.get('url')).toBe('http://localhost/profile')
+    expect(pageHit.toString()).not.toContain('secret-token')
+
+    window.location.hash = '#/profile?returnTo=%2Fsurge'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(sendBeacon).toHaveBeenCalledTimes(1)
+
+    window.location.hash = '#/players/player-secret'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(sendBeacon).toHaveBeenCalledTimes(2)
+    expect(new URL(sendBeacon.mock.calls[1][0]).searchParams.get('path')).toBe('/players/profile')
+    expect(sendBeacon.mock.calls[1][0]).not.toContain('player-secret')
+
+    dispose()
   })
 })
 
