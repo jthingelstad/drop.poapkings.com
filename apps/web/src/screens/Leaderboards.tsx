@@ -7,6 +7,7 @@ import { player } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
+import { playerProfilePath } from '../lib/public-player'
 
 // The leaderboards are season-scoped, not week-scoped: drop the Clan-Wars
 // weekly clock entirely and speak only to the season boundary.
@@ -40,27 +41,33 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
         isPlayer ? ' ed-lbrow--you leaderboard-row--player' : ''
       }`}
     >
-      <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{entry.rank}</span>
-      <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
-      <span class="ed-lbrow__player">
-        <strong class="ed-lbrow__name">
-          {entry.player.publicName}
-          {isPlayer && <em> You</em>}
-        </strong>
-        <small class="ed-lbrow__meta">
-          <span class="ed-lbrow__xp">
-            <Icon name="zap" />
-            {entry.player.xp.toLocaleString()} XP
-          </span>
-          <span>
-            · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
-          </span>
-        </small>
-      </span>
-      <span class="ed-lbrow__score">
-        {scoreLabel(mode, entry.score)}
-        {entry.timeMs !== undefined && <small class="ed-lbrow__time">{(entry.timeMs / 1000).toFixed(2)}s</small>}
-      </span>
+      <button
+        class="ed-lbrow__button"
+        aria-label={`View ${isPlayer ? 'your' : `${entry.player.publicName}'s`} profile`}
+        onClick={() => navigate(playerProfilePath(entry.player, player.value?.id))}
+      >
+        <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{entry.rank}</span>
+        <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
+        <span class="ed-lbrow__player">
+          <strong class="ed-lbrow__name">
+            {entry.player.publicName}
+            {isPlayer && <em> You</em>}
+          </strong>
+          <small class="ed-lbrow__meta">
+            <span class="ed-lbrow__xp">
+              <Icon name="zap" />
+              {entry.player.xp.toLocaleString()} XP
+            </span>
+            <span>
+              · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
+            </span>
+          </small>
+        </span>
+        <span class="ed-lbrow__score">
+          {scoreLabel(mode, entry.score)}
+          {entry.timeMs !== undefined && <small class="ed-lbrow__time">{(entry.timeMs / 1000).toFixed(2)}s</small>}
+        </span>
+      </button>
     </li>
   )
 }

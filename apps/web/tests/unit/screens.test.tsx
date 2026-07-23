@@ -11,7 +11,8 @@ vi.mock('../../src/lib/api', async (importActual) => {
     ...actual,
     requestLogin: vi.fn(),
     pollLogin: vi.fn(),
-    getLeaderboard: vi.fn()
+    getLeaderboard: vi.fn(),
+    getPublicPlayer: vi.fn()
   }
 })
 
@@ -37,7 +38,7 @@ vi.mock('../../src/components/ScreensaverScene', () => ({
   createElixirRain: vi.fn(async () => ({ destroy: vi.fn() }))
 }))
 
-import { requestLogin, pollLogin, getLeaderboard, type LeaderboardScope } from '../../src/lib/api'
+import { requestLogin, pollLogin, getLeaderboard, getPublicPlayer, type LeaderboardScope } from '../../src/lib/api'
 import { applyPolledSession, redeemAccount, player, accountStatus, recentRuns } from '../../src/lib/account'
 import { navigate, route } from '../../src/lib/router'
 import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
@@ -51,6 +52,8 @@ import HomeMobile from '../../src/screens/home/HomeMobile'
 import Screensaver from '../../src/components/Screensaver'
 import type { HomeData } from '../../src/screens/home/home-data'
 import type { LeaderboardEntry } from '../../src/lib/api'
+import PublicProfile from '../../src/screens/PublicProfile'
+import { publicPlayerPreview } from '../../src/lib/public-player'
 
 // --- Harness ------------------------------------------------------------------
 const hosts: HTMLElement[] = []
@@ -111,6 +114,7 @@ afterEach(() => {
   installMode.value = 'none'
   installEligible.value = false
   installDismissed.value = false
+  publicPlayerPreview.value = null
   vi.useRealTimers()
 })
 
@@ -250,6 +254,20 @@ describe('Leaderboards', () => {
     expect(host.querySelector('.leaderboard-row--player')?.textContent).toContain('You')
   })
 
+  it('opens the selected player and keeps the signed-in player on the private profile route', async () => {
+    accountStatus.value = 'authenticated'
+    player.value = { id: 'p1' } as never
+    const host = await mount(<Leaderboards />)
+    await flush()
+
+    await click(host.querySelector('[aria-label="View Bob\'s profile"]')!)
+    expect(navigate).toHaveBeenLastCalledWith('/players/p2')
+    expect(publicPlayerPreview.value?.publicName).toBe('Bob')
+
+    await click(host.querySelector('[aria-label="View your profile"]')!)
+    expect(navigate).toHaveBeenLastCalledWith('/profile')
+  })
+
   it('switches the scope tab to all-time and re-queries', async () => {
     const host = await mount(<Leaderboards />)
     await flush()
@@ -286,6 +304,63 @@ describe('Leaderboards', () => {
     const play = buttonWithText(host, '.ed-board__empty button', 'Play')
     await click(play)
     expect(navigate).toHaveBeenCalledWith('/survival')
+  })
+})
+
+// =============================================================================
+// PublicProfile
+// =============================================================================
+describe('PublicProfile', () => {
+  it('renders the selected public identity and recent games without private account fields', async () => {
+    route.value = '/players/p2'
+    vi.mocked(getPublicPlayer).mockResolvedValue({
+      player: {
+        id: 'p2',
+        publicName: 'Royal Ghosted',
+        favoriteCardId: 26000050,
+        totalGames: 42,
+        xp: 900,
+        level: 4,
+        levelStartGames: 25,
+        nextLevelGames: 50
+      },
+      recentRuns: [
+        {
+          runId: 'run-1',
+          mode: 'surge',
+          score: 52_000,
+          seasonId: '2026-07',
+          completedAt: '2026-07-22T17:00:00.000Z'
+        }
+      ]
+    })
+
+    const host = await mount(<PublicProfile />)
+    await flush()
+
+    expect(getPublicPlayer).toHaveBeenCalledWith('p2', expect.any(AbortSignal))
+    expect(host.querySelector('h1')?.textContent).toBe('Royal Ghosted')
+    expect(host.textContent).toContain('52.00s')
+    expect(host.textContent).not.toContain('player@example.com')
+    expect(host.textContent).not.toContain('Edit')
+  })
+
+  it('keeps a clicked player preview visible if history cannot be refreshed', async () => {
+    route.value = '/players/p2'
+    publicPlayerPreview.value = {
+      id: 'p2',
+      publicName: 'Royal Ghosted',
+      totalGames: 42,
+      xp: 900,
+      level: 4
+    }
+    vi.mocked(getPublicPlayer).mockRejectedValue(new Error('offline'))
+
+    const host = await mount(<PublicProfile />)
+    await flush()
+
+    expect(host.querySelector('h1')?.textContent).toBe('Royal Ghosted')
+    expect(host.textContent).toContain('Recent games are temporarily unavailable.')
   })
 })
 

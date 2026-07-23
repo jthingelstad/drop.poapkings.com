@@ -12,6 +12,7 @@ import { useGameSession } from '../../lib/use-game-session'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
+import ShareLine from '../../components/ShareLine'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
 import FloatingCue from '../../components/FloatingCue'
@@ -272,7 +273,9 @@ export default function Rain() {
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
-        />
+        >
+          <ShareLine mode="rain" score={`${score.value} cleared`} />
+        </Summary>
       </div>
     )
   }

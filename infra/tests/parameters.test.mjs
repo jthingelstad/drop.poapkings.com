@@ -151,6 +151,17 @@ void describe("deployment parameters", () => {
     assert.match(template, /- DELETE/);
   });
 
+  void it("indexes public profile UUIDs without projecting email", () => {
+    const publicProfileIndex = template.match(
+      /- IndexName: GSI3[\s\S]*?(?=\n      PointInTimeRecoverySpecification:)/,
+    )?.[0];
+    assert.ok(publicProfileIndex);
+    assert.match(publicProfileIndex, /AttributeName: playerId\s+KeyType: HASH/);
+    assert.match(publicProfileIndex, /- publicName/);
+    assert.match(publicProfileIndex, /- totalGames/);
+    assert.doesNotMatch(publicProfileIndex, /- email/);
+  });
+
   void it("allows CloudFormation to manage scheduled structured logs", () => {
     assert.match(bootstrap, /"events:\*"/);
     assert.match(bootstrap, /"logs:\*"/);

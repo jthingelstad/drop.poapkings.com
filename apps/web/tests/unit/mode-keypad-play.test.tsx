@@ -209,6 +209,8 @@ describe('Surge gameplay', () => {
     expect(host.textContent).toContain('Surge complete')
     expect(host.textContent).toContain('First Surge logged')
     expect(host.textContent).toContain('100%')
+    expect(host.querySelector('.shareline')?.textContent).toContain('Surge')
+    expect(host.querySelector('.shareline')?.textContent).toContain('Share score')
   })
 
   it('penalizes a wrong tap, keeps the same card, then the correct tap advances', async () => {
@@ -300,6 +302,7 @@ describe('Survival gameplay', () => {
     expect(host.textContent).toContain('Sudden death')
     expect(host.textContent).toContain('2 streak')
     expect(host.textContent).toContain('New personal best!')
+    expect(host.querySelector('.shareline')?.textContent).toContain('Survival')
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0]![0] as { answers: unknown[] }
     expect(payload.answers).toHaveLength(3) // two cleared + the death entry
@@ -419,6 +422,7 @@ describe('Practice gameplay', () => {
     expect(recordSession).toHaveBeenCalled()
     expect(saveResult).toHaveBeenCalledTimes(15)
     expect(host.textContent).toContain('15 / 15 · 100%')
+    expect(host.querySelector('.shareline')?.textContent).toContain('Practice · 100% accuracy')
   })
 
   it('keeps a missed card active with Higher/Lower feedback and grades only the first read', () => {

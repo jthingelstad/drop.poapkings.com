@@ -253,11 +253,7 @@ export default function Survival() {
         >
           <ShareLine
             mode="survival"
-            text={
-              won.current
-                ? `Survival: named every card in ${winTime} — drop.poapkings.com`
-                : `Survival: ${streak.value} in a row — drop.poapkings.com`
-            }
+            score={won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`}
           />
         </Summary>
       </div>

@@ -406,6 +406,45 @@ async function route(event: APIGatewayProxyEventV2) {
     });
   }
 
+  const publicPlayerMatch =
+    method === "GET" ? path.match(/^\/players\/([^/]+)$/) : null;
+  if (publicPlayerMatch) {
+    let playerId: string;
+    try {
+      playerId = decodeURIComponent(publicPlayerMatch[1] ?? "");
+    } catch {
+      throw new HttpError(400, "Player ID is invalid.", "invalid_player_id");
+    }
+    if (!playerId || playerId.length > 100)
+      throw new HttpError(400, "Player ID is invalid.", "invalid_player_id");
+    await repository.useRateLimit(
+      "reads",
+      sha256(event.requestContext.http.sourceIp || "unknown"),
+      1200,
+      60 * 60,
+    );
+    const lookup = await repository.getPublicPlayer(playerId);
+    if (!lookup)
+      throw new HttpError(
+        404,
+        "Player profile was not found.",
+        "player_not_found",
+      );
+    const recentRuns = await repository.listRecentRuns(lookup.sub, 10);
+    return json(200, {
+      player: lookup.player,
+      recentRuns: recentRuns
+        .filter((run) => isGameMode(run.mode) && run.mode !== "practice")
+        .map((run) => ({
+          runId: run.runId,
+          mode: run.mode,
+          score: run.score,
+          seasonId: run.seasonId,
+          completedAt: run.completedAt,
+        })),
+    });
+  }
+
   if (method === "POST" && path === "/me/name-options") {
     const session = sessionFor(event, config.sessionSecret, true);
     const body = bodyOf(event);

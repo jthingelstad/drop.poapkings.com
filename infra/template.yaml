@@ -63,6 +63,8 @@ Resources:
           AttributeType: S
         - AttributeName: GSI2SK
           AttributeType: S
+        - AttributeName: playerId
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
@@ -92,6 +94,21 @@ Resources:
             ProjectionType: INCLUDE
             NonKeyAttributes:
               - playerId
+        # Public player lookup by the pseudonymous profile UUID. Only public
+        # profile fields are projected beyond DynamoDB's internal base keys;
+        # email stays off-index and no storage key crosses the API boundary.
+        - IndexName: GSI3
+          KeySchema:
+            - AttributeName: playerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - publicName
+              - favoriteCardId
+              - playerTag
+              - totalGames
+              - xp
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       SSESpecification:

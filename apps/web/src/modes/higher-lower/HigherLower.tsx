@@ -12,6 +12,7 @@ import GameMotion from '../../components/GameMotion'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
 import SignInToSave from '../../components/SignInToSave'
+import ShareLine from '../../components/ShareLine'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -34,6 +35,7 @@ export default function HigherLower() {
   const revealed = useSignal(false)
   const awaitingReplay = useSignal(false)
   const streak = useSignal(0)
+  const runBest = useSignal(0)
   const streakCue = useSignal(0)
   const best = useSignal(getRecords().longestStreak ?? 0)
   // Shrinking response clock: fraction of the current round's window remaining.
@@ -121,6 +123,8 @@ export default function HigherLower() {
     serverAnswers.current = []
     picked.value = null
     revealed.value = false
+    streak.value = 0
+    runBest.value = 0
     remainingFrac.value = 1
     await gameRun.prepare()
     // Arm the countdown only after prepare has synchronously cleared the old
@@ -150,6 +154,7 @@ export default function HigherLower() {
       playCorrect()
       const s = streak.value + 1
       streak.value = s
+      runBest.value = Math.max(runBest.value, s)
       if (s === 3 || (s > 3 && s % 5 === 0)) streakCue.value++
       // Live display only; longestStreak is persisted centrally when the server
       // accepts the completed run, so the device never keeps a rejected best.
@@ -259,11 +264,12 @@ export default function HigherLower() {
         </GameMotion>
 
         {awaitingReplay.value && (
-          <div class="ed-duel__replay" role="status">
+          <div class="ed-duel__replay" role="group" aria-label="Completed run actions">
             <span>
-              <strong>{streak.value > 0 ? 'Deal complete' : 'Streak over'}</strong>
-              <small>Start the next run when you’re ready.</small>
+              <strong>{runBest.value > 0 ? `${runBest.value} streak` : 'Streak over'}</strong>
+              <small>Share your score or start the next run.</small>
             </span>
+            <ShareLine mode="higher-lower" score={`${runBest.value} streak`} compact />
             <button type="button" class="btn btn--gold btn--sm" onClick={() => void replay()}>
               Play again
             </button>

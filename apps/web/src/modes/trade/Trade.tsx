@@ -27,10 +27,9 @@ const TRADE = {
   PENALTY_MS: 2000
 }
 
-// A solved exchange reveals every cost and both sums — the mode's actual
-// lesson. Speed players tap straight through; the clock only charges the
-// dwell a player chooses to spend reading.
-const REVEAL_BEAT_MS = 1600
+// Keep the same brief correct-answer beat as Surge, then deal automatically.
+// Trade is timed, so advancing must never depend on another player action.
+const CORRECT_BEAT_MS = 280
 const COUNTDOWN_STEP_MS = 650
 const WRONG_BEAT_MS = 720
 
@@ -96,7 +95,6 @@ export default function Trade() {
 
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = runtime
-  const advanceRef = useRef<() => void>(() => {})
   const index = useSignal(0)
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongGuesses = useSignal(0)
@@ -215,13 +213,9 @@ export default function Trade() {
     if (roundMisses.current === 0) cleanTrades.value += 1
     feedback.value = 'correct'
     runtime.emitCue('answer-correct', { roundIndex: index.value })
-    // Reveal the whole exchange — every cost plus both sums — so the player sees
-    // the arithmetic confirmed, then advance on tap or after the beat.
+    // Briefly reveal the arithmetic, then deal the next exchange automatically.
     revealedIds.value = new Set([...round.blue, ...round.red].map((card) => card.id))
-    let advanced = false
     const advance = () => {
-      if (advanced) return
-      advanced = true
       if (index.value + 1 >= TRADE.SEQUENCE_LEN) {
         const misses = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
         finish(Math.round(atMs) + misses * TRADE.PENALTY_MS)
@@ -229,8 +223,7 @@ export default function Trade() {
       }
       nextRound()
     }
-    advanceRef.current = advance
-    later(advance, REVEAL_BEAT_MS)
+    later(advance, CORRECT_BEAT_MS)
   }
 
   function replay() {
@@ -316,10 +309,7 @@ export default function Trade() {
             <span>Last trade {formatTrade(lastTrade.value)}</span>
             <span>{tradeLine(lastTrade.value)}</span>
           </div>
-          <ShareLine
-            mode="trade"
-            text={`Trade: ${TRADE.SEQUENCE_LEN} exchanges in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
-          />
+          <ShareLine mode="trade" score={`${formatSeconds(totalMs.value)}s`} />
         </Summary>
       </div>
     )
@@ -381,16 +371,6 @@ export default function Trade() {
             'Elixir swing from your side?'
           )}
         </div>
-
-        {solved && (
-          <div class="ed-trade__next-slot">
-            <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" onClick={() => advanceRef.current()}>
-              <span class="tap-face">
-                Next trade <Icon name="arrow-right" />
-              </span>
-            </button>
-          </div>
-        )}
 
         <div class="ed-trade__pad" role="group" aria-label="Choose your elixir trade">
           <div class="ed-trade__pad-col">

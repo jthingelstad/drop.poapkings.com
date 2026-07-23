@@ -257,6 +257,24 @@ describe('api.ts request helpers', () => {
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/activity?limit=5`)
   })
 
+  it('getPublicPlayer encodes the selected id and validates its public profile', async () => {
+    const fetchMock = stubFetch(
+      json({
+        player: {
+          ...publicPlayer,
+          levelStartGames: 0,
+          nextLevelGames: 20
+        },
+        recentRuns: []
+      })
+    )
+    const { getPublicPlayer } = await import('../../src/lib/api')
+
+    const result = await getPublicPlayer('player/id')
+    expect(result.player.publicName).toBe('Ace')
+    expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/players/player%2Fid`)
+  })
+
   it('throws ApiError with the server status + code on a non-2xx response', async () => {
     stubFetch(json({ error: { code: 'authentication_required', message: 'Sign in to play.' } }, 401))
     const { getMe, ApiError } = await import('../../src/lib/api')

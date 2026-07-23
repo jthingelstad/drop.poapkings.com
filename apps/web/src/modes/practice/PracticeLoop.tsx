@@ -14,6 +14,7 @@ import MultipleChoice from '../../components/MultipleChoice'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
+import ShareLine from '../../components/ShareLine'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -170,7 +171,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           ]}
           onReplay={replay}
           onHome={exit}
-        />
+        >
+          <ShareLine mode="practice" score={`${ins.accuracyPct}% accuracy`} />
+        </Summary>
       </div>
     )
   }

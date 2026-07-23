@@ -225,6 +225,21 @@ describe('Higher / Lower — gameplay', () => {
     expect(payload.answers[1].pickedId).toBe(104) // pair1: the lower (wrong) card
   })
 
+  it('keeps the completed run streak available for sharing', async () => {
+    const session = stage(pairs())
+    session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    await click(c.querySelectorAll('.ed-duel__cards button')[1])
+    await advance(800)
+    await click(c.querySelectorAll('.ed-duel__cards button')[1])
+    await advance(1500)
+
+    expect(c.querySelector('.ed-duel__replay')?.textContent).toContain('1 streak')
+    expect(c.querySelector('.shareline')?.textContent).toContain('Share score')
+  })
+
   it('the shrink-window running out records the lower card as the miss', async () => {
     const session = stage(pairs())
     const c = mount(<HigherLower />)
@@ -292,12 +307,16 @@ describe('Trade — gameplay', () => {
     expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(2)
     await advance(800)
 
-    // The correct swing (+2) solves the exchange: every cost reveals + the math
-    // line + the Next button appear.
+    // The correct swing (+2) briefly reveals every cost and the math, with no
+    // manual Next button, then deals the next exchange automatically.
     await click(c.querySelector('[aria-label="+2 trade"]'))
     expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(3)
     expect(c.querySelector('[data-testid="trade-math"]')).not.toBeNull()
-    expect(c.querySelector('.ed-trade__next-slot button')).not.toBeNull()
+    expect(c.textContent).not.toContain('Next trade')
+    await advance(279)
+    expect(c.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index')).toBe('1')
+    await advance(1)
+    expect(c.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index')).toBe('2')
   })
 
   it('solving all 8 exchanges lands on the summary with the run tiles and completes the run', async () => {
@@ -305,10 +324,10 @@ describe('Trade — gameplay', () => {
     const c = mount(<Trade />)
     await toRunning(c)
 
-    // Solve each round with the correct +2, then tap Next to advance.
+    // Solve each round with the correct +2; the next exchange is automatic.
     for (let round = 0; round < 8; round += 1) {
       await click(c.querySelector('[aria-label="+2 trade"]'))
-      await click(c.querySelector('.ed-trade__next-slot button'))
+      await advance(280)
     }
 
     // Summary screen with the three moment tiles.
@@ -317,6 +336,7 @@ describe('Trade — gameplay', () => {
     expect(c.textContent).toContain('8/8') // all clean (no wrong guesses)
     expect(c.textContent).toContain('Accuracy')
     expect(c.textContent).toContain('100%')
+    expect(c.querySelector('.shareline')?.textContent).toContain('Trade')
 
     // The run was reported with one transcript entry per solved round.
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -388,6 +408,7 @@ describe('Rain — gameplay', () => {
 
     expect(c.textContent).toContain('The rain stopped')
     expect(c.textContent).toContain('1 cleared') // score = one cleared card
+    expect(c.querySelector('.shareline')?.textContent).toContain('Rain · 1 cleared')
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0][0] as { answers: Array<{ cardId: number; guess: number | null }> }
     // The cleared card is recorded with its cost; landed cards with a null guess.

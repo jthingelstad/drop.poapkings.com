@@ -1,56 +1,17 @@
 import { useSignal } from '@preact/signals'
 import type { InputStyle } from '../../types'
 import { getSettings, saveSettings } from '../../lib/storage'
-import { setSoundEnabled, playCorrect } from '../../lib/sound'
-import { applyReducedMotion } from '../../lib/motion'
 import { navigate } from '../../lib/router'
 import { buildMeta } from '../../lib/build'
-
-function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
-  return (
-    <button
-      class={`switch${on ? ' switch--on' : ''}`}
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={onToggle}
-    >
-      <span class="switch__knob" />
-    </button>
-  )
-}
+import PlayerPreferences from '../../components/PlayerPreferences'
 
 export default function Settings() {
   const s = getSettings()
   const inputStyle = useSignal<InputStyle>(s.inputStyle)
-  const sound = useSignal(s.sound)
-  const reducedMotion = useSignal(Boolean(s.reducedMotion))
-  const enhancedEffects = useSignal(s.enhancedEffects ?? true)
 
   function setInput(style: InputStyle) {
     inputStyle.value = style
     saveSettings({ inputStyle: style })
-  }
-
-  function toggleSound() {
-    const on = !sound.value
-    sound.value = on
-    saveSettings({ sound: on })
-    setSoundEnabled(on)
-    if (on) playCorrect()
-  }
-
-  function toggleMotion() {
-    const on = !reducedMotion.value
-    reducedMotion.value = on
-    saveSettings({ reducedMotion: on })
-    applyReducedMotion(on)
-  }
-
-  function toggleEnhanced() {
-    const on = !enhancedEffects.value
-    enhancedEffects.value = on
-    saveSettings({ enhancedEffects: on })
   }
 
   return (
@@ -81,32 +42,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div class="setting-row">
-          <div class="setting-row__text">
-            <div class="setting-row__name">Sound</div>
-            <div class="setting-row__desc">Little blips on right and wrong answers. Off by default.</div>
-          </div>
-          <Toggle on={sound.value} onToggle={toggleSound} label="Sound effects" />
-        </div>
-
-        <div class="setting-row">
-          <div class="setting-row__text">
-            <div class="setting-row__name">Reduce motion</div>
-            <div class="setting-row__desc">Drop the celebratory animations. Surge keeps its timer and red flash.</div>
-          </div>
-          <Toggle on={reducedMotion.value} onToggle={toggleMotion} label="Reduce motion" />
-        </div>
-
-        <div class="setting-row">
-          <div class="setting-row__text">
-            <div class="setting-row__name">Enhance effects</div>
-            <div class="setting-row__desc">
-              Richer particle bursts across the games, including on misses. On by default. Reduce motion turns all
-              effects off.
-            </div>
-          </div>
-          <Toggle on={enhancedEffects.value} onToggle={toggleEnhanced} label="Enhance effects" />
-        </div>
+        <PlayerPreferences />
 
         <dl class="settings-meta" aria-label="Build information">
           <div class="settings-meta__row">

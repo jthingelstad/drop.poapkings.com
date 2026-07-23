@@ -3121,33 +3121,59 @@ body:has(.game-run) .site-head__signin-label {
 
 .shareline {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(245, 200, 76, 0.28);
+  border-radius: 16px;
+  background: rgba(18, 13, 40, 0.72);
 }
 
-.shareline__row {
-  display: flex;
-  gap: 8px;
-}
-
-.shareline__text {
+.shareline__copy {
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: var(--r-sm);
-  border: 1px solid rgba(215, 200, 255, 0.18);
-  background: rgba(11, 9, 32, 0.7);
-  color: var(--ink);
-  font-family: var(--font-body);
-  font-size: 0.82rem;
 }
-.shareline__text:focus {
-  outline: none;
-  border-color: var(--purple);
+.shareline__score {
+  margin-top: 3px;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+}
+.shareline__status {
+  min-height: 1.2em;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
 }
 
 .shareline__btn {
   flex-shrink: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(245, 200, 76, 0.48);
+  color: var(--gold);
+}
+.shareline__btn .icon {
+  width: 16px;
+  height: 16px;
+}
+.shareline--compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+@media (width <= 520px) {
+  .shareline:not(.shareline--compact) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .shareline:not(.shareline--compact) .shareline__btn {
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 /* ── Surge ────────────────────────────────────────────────── */
@@ -6589,6 +6615,14 @@ html.reduce-motion .ed-sum-band__fill {
 .ed-duel__replay small {
   color: var(--muted);
 }
+@media (width <= 520px) {
+  .ed-duel__replay {
+    flex-wrap: wrap;
+  }
+  .ed-duel__replay > span {
+    flex: 1 1 calc(100% - 110px);
+  }
+}
 html.reduce-motion .ed-duel__card {
   transition: none;
 }
@@ -6717,11 +6751,6 @@ html.reduce-motion .ed-duel__card {
 }
 .ed-trade__math-line strong {
   color: var(--gold);
-}
-.ed-trade__next-slot {
-  display: flex;
-  justify-content: center;
-  min-height: 40px;
 }
 .ed-trade__pad {
   display: flex;
@@ -6946,12 +6975,27 @@ html.reduce-motion .ed-duel__card {
   padding: 0;
 }
 .ed-lbrow {
+  border-bottom: 1px solid rgba(215, 200, 255, 0.08);
+}
+.ed-lbrow__button {
   display: grid;
   grid-template-columns: 26px 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 11px;
+  width: 100%;
   padding: 11px 14px;
-  border-bottom: 1px solid rgba(215, 200, 255, 0.08);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-lbrow__button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--gold);
+  outline-offset: -3px;
 }
 .ed-lbrow:last-child {
   border-bottom: none;
@@ -7198,6 +7242,23 @@ html.reduce-motion .ed-profile-guest__halo::before {
   justify-content: space-between;
   margin-bottom: 10px;
 }
+.ed-profile__preferences {
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: rgba(18, 13, 40, 0.6);
+  padding: 16px;
+}
+.ed-profile__preferences > .ed-profile__recent-title {
+  display: block;
+  margin: 0 0 4px;
+}
+.ed-profile__preferences .setting-row {
+  padding: 14px 0;
+}
+.ed-profile__preferences .setting-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
 .ed-profile__recent-title {
   font-family: var(--font-display);
   font-size: 0.95rem;
@@ -7244,6 +7305,22 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 .ed-profile__actions .ed-btn--ghost {
   flex: 1;
+}
+.ed-public-profile__back {
+  align-self: flex-start;
+}
+.ed-public-profile__state {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+.ed-public-profile .ed-profile__name {
+  margin: 0;
 }
 .ed-profile__signout {
   flex: 0 0 auto;

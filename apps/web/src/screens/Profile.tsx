@@ -22,6 +22,7 @@ import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
+import PlayerPreferences from '../components/PlayerPreferences'
 import type { CardsData } from '../types'
 import { track } from '../lib/analytics'
 
@@ -435,6 +436,13 @@ export default function Profile() {
         </div>
         <ArenaProgress xp={current.xp ?? 0} />
       </div>
+
+      <section class="ed-profile__preferences" aria-labelledby="game-settings-title">
+        <h2 id="game-settings-title" class="ed-profile__recent-title">
+          Game settings
+        </h2>
+        <PlayerPreferences />
+      </section>
 
       <section class="ed-profile__recent">
         <div class="ed-profile__recent-head">

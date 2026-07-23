@@ -18,6 +18,7 @@ import Home from './screens/Home'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
+import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
 import MetaPage from './screens/MetaPage'
@@ -51,6 +52,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/survival', label: 'Survival' },
   { match: '/leaderboards', label: 'Leaderboards' },
   { match: '/profile', label: 'Profile' },
+  { match: '/players', label: 'Player profile' },
   { match: '/settings', label: 'Settings' },
   { match: '/privacy', label: 'Privacy' },
   { match: '/about', label: 'About' },
@@ -129,6 +131,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/settings')) return <SettingsScreen />
   if (r.startsWith('/login')) return <Login />
   if (r.startsWith('/auth')) return <AuthRedeem />
+  if (r.startsWith('/players/')) return <PublicProfile />
   if (r.startsWith('/profile')) return <Profile />
   if (r.startsWith('/leaderboards')) return <Leaderboards />
   if (r.startsWith('/privacy')) return <Privacy />

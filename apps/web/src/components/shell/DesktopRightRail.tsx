@@ -1,12 +1,13 @@
 // Desktop right rail: Season standings (Surge) · a "This season" personal card ·
-// the grouped "Recent runs" feed (polls GET /activity). Rows link to the
-// player's own profile (per-player profiles don't exist yet).
+// the grouped "Recent runs" feed (polls GET /activity). Every player row opens
+// that player's read-only public profile.
 
 import { useEffect } from 'preact/hooks'
 import { signal } from '@preact/signals'
 import { getLeaderboard, getActivity, type LeaderboardEntry, type ActivityEntry } from '../../lib/api'
 import { scoreLabel, gameDisplay } from '../../lib/game-metadata'
 import { navigate } from '../../lib/router'
+import { playerProfilePath } from '../../lib/public-player'
 import { player } from '../../lib/account'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
@@ -79,7 +80,7 @@ export default function DesktopRightRail() {
               <button
                 key={r.player.id}
                 class={`ed-rail-row${you ? ' ed-rail-row--you' : ''}`}
-                onClick={() => navigate('/profile')}
+                onClick={() => navigate(playerProfilePath(r.player, meId))}
               >
                 <span class="ed-rail-row__rank" data-top={r.rank <= 3 ? '' : undefined}>
                   {r.rank}
@@ -121,7 +122,7 @@ export default function DesktopRightRail() {
             <button
               key={`${a.player.id}-${a.achievedAt}-${i}`}
               class="ed-rail-live__row"
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate(playerProfilePath(a.player, meId))}
             >
               <PlayerAvatar favoriteCardId={a.player.favoriteCardId} size="small" />
               <span class="ed-rail-live__text">

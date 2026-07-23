@@ -599,5 +599,14 @@ describe('DesktopRightRail', () => {
     expect(host.textContent).toContain('Surge · 8 runs · best 17.26s')
     expect(host.textContent).not.toContain('Live now')
     expect(host.querySelector('.ed-rail-live__dot')).toBeNull()
+
+    const rivalStanding = [...host.querySelectorAll<HTMLButtonElement>('.ed-rail-row')].find((row) =>
+      row.textContent?.includes('Rival')
+    )!
+    rivalStanding.click()
+    expect(window.location.hash).toBe('#/players/rival')
+
+    host.querySelector<HTMLButtonElement>('.ed-rail-live__row')!.click()
+    expect(window.location.hash).toBe('#/players/rival')
   })
 })

@@ -404,13 +404,12 @@ describe('SignInToSave', () => {
 })
 
 describe('ShareLine', () => {
-  it('renders a read-only share input and a Copy button', async () => {
-    const html = await render(<ShareLine mode="surge" text="I read 15 cards in 28.6s" />)
+  it('renders a browser-share action with the game and formatted score', async () => {
+    const html = await render(<ShareLine mode="surge" score="28.60s" />)
     expect(html).toContain('shareline')
-    expect(html).toContain('Share your time')
-    expect(html).toContain('value="I read 15 cards in 28.6s"')
-    expect(html).toContain('readonly')
-    expect(html).toContain('Copy')
+    expect(html).toContain('Share your score')
+    expect(html).toContain('Surge · 28.60s')
+    expect(html).toContain('Share score')
   })
 })
 

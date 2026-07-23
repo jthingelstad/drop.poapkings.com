@@ -203,21 +203,33 @@ export const siteStatsSchema = z.object({
   webVersion: z.optional(nonEmptyString)
 })
 
+export const publicPlayerSummarySchema = z.object({
+  id: nonEmptyString,
+  publicName: nonEmptyString,
+  favoriteCardId: z.optional(cardId),
+  playerTag: z.optional(nonEmptyString),
+  totalGames: nonNegativeInteger,
+  xp: nonNegativeInteger.default(0),
+  level: safeInteger.positive()
+})
+
+export const publicPlayerSchema = publicPlayerSummarySchema.extend({
+  levelStartGames: nonNegativeInteger,
+  nextLevelGames: nonNegativeInteger
+})
+
+export const publicPlayerResponseSchema = z.object({
+  player: publicPlayerSchema,
+  recentRuns: z.array(recentRunSchema)
+})
+
 export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
   achievedAt: isoDateTime,
   // Survival: cumulative time (ms) — the tiebreak among equal streaks.
   timeMs: z.optional(nonNegativeInteger),
-  player: z.object({
-    id: nonEmptyString,
-    publicName: nonEmptyString,
-    favoriteCardId: z.optional(cardId),
-    playerTag: z.optional(nonEmptyString),
-    totalGames: nonNegativeInteger,
-    xp: nonNegativeInteger.default(0),
-    level: safeInteger.positive()
-  })
+  player: publicPlayerSummarySchema
 })
 
 export const leaderboardResponseSchema = z.object({
@@ -249,5 +261,7 @@ export const activityResponseSchema = z.object({
 })
 
 export type RecentRun = z.infer<typeof recentRunSchema>
+export type PublicPlayerSummary = z.infer<typeof publicPlayerSummarySchema>
+export type PublicPlayer = z.infer<typeof publicPlayerSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
 export type ActivityEntry = z.infer<typeof activityEntrySchema>

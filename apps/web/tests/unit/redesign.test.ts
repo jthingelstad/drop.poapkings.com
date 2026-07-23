@@ -13,6 +13,7 @@ describe('shell nav model', () => {
     expect(activeNavIndex('/surge')).toBe(0)
     expect(activeNavIndex('/')).toBe(0)
     expect(activeNavIndex('/leaderboards')).toBe(1)
+    expect(activeNavIndex('/players/rival')).toBe(1)
     expect(activeNavIndex('/profile')).toBe(2)
     expect(NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Games', 'Ranks', 'You'])
   })

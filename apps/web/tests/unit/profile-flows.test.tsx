@@ -355,6 +355,7 @@ describe('Profile interactive flows', () => {
     account.recentRuns.value = []
     router.route.value = '/'
     useLayout.layout.value = 'desktop'
+    document.documentElement.classList.remove('reduce-motion')
     vi.doUnmock('../../src/lib/api')
   })
 
@@ -624,6 +625,32 @@ describe('Profile interactive flows', () => {
   })
 
   // --- Profile view: recent games / sign out / CR status -------------------
+
+  it('shows global game settings between Arena progress and recent games and persists each toggle', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    await mount()
+
+    const preferences = container.querySelector('.ed-profile__preferences') as HTMLElement
+    expect(preferences).not.toBeNull()
+    expect(preferences.previousElementSibling?.classList.contains('ed-profile__stats')).toBe(true)
+    expect(preferences.nextElementSibling?.classList.contains('ed-profile__recent')).toBe(true)
+    expect(preferences.textContent).toContain('Game settings')
+
+    const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
+    const motion = preferences.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
+    const effects = preferences.querySelector('[aria-label="Enhance effects"]') as HTMLButtonElement
+    expect(sound.getAttribute('aria-checked')).toBe('false')
+    expect(motion.getAttribute('aria-checked')).toBe('false')
+    expect(effects.getAttribute('aria-checked')).toBe('true')
+
+    await fire(sound)
+    await fire(motion)
+    await fire(effects)
+
+    const { getSettings } = await import('../../src/lib/storage')
+    expect(getSettings()).toMatchObject({ sound: true, reducedMotion: true, enhancedEffects: false })
+    expect(document.documentElement.classList.contains('reduce-motion')).toBe(true)
+  })
 
   it('lists recent games and signs out from the profile view', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })

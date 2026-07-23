@@ -22,7 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     route: '/leaderboards',
-    matches: (r) => r.startsWith('/leaderboards'),
+    matches: (r) => r.startsWith('/leaderboards') || r.startsWith('/players/'),
     icon: 'trophy',
     label: 'Leaderboards',
     shortLabel: 'Ranks'

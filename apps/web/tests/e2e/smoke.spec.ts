@@ -100,6 +100,20 @@ const testActivity = {
   ]
 }
 
+function publicPlayerResponse(playerId: string) {
+  const summaries = [...leaderboardEntries('surge').map((entry) => entry.player), testActivity.entries[0]!.player]
+  const summary = summaries.find((candidate) => candidate.id === playerId)
+  if (!summary) return null
+  return {
+    player: {
+      ...summary,
+      levelStartGames: Math.max(0, summary.totalGames - 10),
+      nextLevelGames: summary.totalGames + 15
+    },
+    recentRuns: testRecentRuns
+  }
+}
+
 // The two shells both mount read-only surfaces that hit the API on every route:
 // the desktop right rail (GET /leaderboards + GET /activity) and Home
 // (GET /stats + per-mode /leaderboards). Any override test that navigates on the
@@ -130,6 +144,15 @@ async function fulfillSupportData(route: Route): Promise<boolean> {
   }
   if (path === '/activity') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+    return true
+  }
+  if (path.startsWith('/players/')) {
+    const profile = publicPlayerResponse(decodeURIComponent(path.slice('/players/'.length)))
+    await route.fulfill({
+      status: profile ? 200 : 404,
+      contentType: 'application/json',
+      body: JSON.stringify(profile ?? { error: { code: 'player_not_found', message: 'Player profile was not found.' } })
+    })
     return true
   }
   return false
@@ -343,6 +366,17 @@ test.beforeEach(async ({ page }) => {
     }
     if (path === '/activity') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+      return
+    }
+    if (path.startsWith('/players/')) {
+      const profile = publicPlayerResponse(decodeURIComponent(path.slice('/players/'.length)))
+      await route.fulfill({
+        status: profile ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          profile ?? { error: { code: 'player_not_found', message: 'Player profile was not found.' } }
+        )
+      })
       return
     }
     if (await fulfillTestRun(route)) return
@@ -1109,6 +1143,7 @@ const a11yRoutes = [
   { hash: '#/survival', label: 'Survival', ready: '.ed-game' },
   { hash: '#/rain', label: 'Rain', ready: '.ed-game' },
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
+  { hash: '#/players/player-2', label: 'Public player', ready: '.ed-public-profile' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-profile' },
   { hash: '#/settings', label: 'Settings', ready: '.settings__card' },
   { hash: '#/privacy', label: 'Privacy', ready: '.ed-page--privacy' }
@@ -1230,6 +1265,33 @@ test('surge summary shows cost accuracy bars without a recruitment callout', asy
   await testInfo.attach('surge-summary.png', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png'
+  })
+})
+
+test('completed runs use native browser sharing with game, score, and Elixir Drop link', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        ;(window as unknown as { __runSharePayload?: ShareData }).__runSharePayload = payload
+      }
+    })
+  })
+  await page.goto('/#/surge')
+  await completeSurge(page)
+
+  const axe = await new AxeBuilder({ page }).analyze()
+  expect(
+    axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+  ).toEqual([])
+
+  await page.getByRole('button', { name: 'Share score' }).click()
+  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible()
+  const payload = await page.evaluate(() => (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload)
+  expect(payload).toMatchObject({
+    title: expect.stringContaining('Surge:'),
+    text: expect.stringMatching(/I scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
+    url: expect.stringMatching(/#\/surge$/)
   })
 })
 
@@ -1468,7 +1530,7 @@ test('the meta entry points link to the Elixir Drop Discord', async ({ page, vie
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer')
 })
 
-test('trade runs eight exchanges with one cost hint per wrong guess', async ({ page }) => {
+test('trade auto-advances eight exchanges with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/#/trade')
   const teams = page.locator('.ed-trade__teams')
   await expect(teams).toBeVisible({ timeout: 12_000 })
@@ -1506,6 +1568,7 @@ test('trade runs eight exchanges with one cost hint per wrong guess', async ({ p
 
     await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
     await page.getByRole('button', { name: format(answer) }).click()
+    await expect(page.getByRole('button', { name: 'Next trade' })).toHaveCount(0)
 
     if (trade < 8) {
       await page.waitForFunction(
@@ -1652,6 +1715,45 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.getByLabel('Build information')).toContainText('Build date')
 })
 
+test('profile restores global game preferences between arena progress and recent games', async ({ page }) => {
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+
+  const arena = page.locator('.ed-profile__stats')
+  const preferences = page.locator('.ed-profile__preferences')
+  const recent = page.locator('.ed-profile__recent')
+  await expect(preferences.getByRole('heading', { name: 'Game settings' })).toBeVisible()
+
+  const positions = await Promise.all([arena, preferences, recent].map((surface) => surface.boundingBox()))
+  expect(positions.every(Boolean)).toBe(true)
+  expect(positions[1]!.y).toBeGreaterThan(positions[0]!.y + positions[0]!.height)
+  expect(positions[2]!.y).toBeGreaterThan(positions[1]!.y + positions[1]!.height)
+
+  const sound = preferences.getByRole('switch', { name: 'Sound effects' })
+  const motion = preferences.getByRole('switch', { name: 'Reduce motion' })
+  const effects = preferences.getByRole('switch', { name: 'Enhance effects' })
+  await expect(sound).toHaveAttribute('aria-checked', 'false')
+  await expect(motion).toHaveAttribute('aria-checked', 'false')
+  await expect(effects).toHaveAttribute('aria-checked', 'true')
+
+  await sound.click()
+  await motion.click()
+  await effects.click()
+  await expect(page.locator('html')).toHaveClass(/reduce-motion/)
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Sound effects' })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  )
+  await expect(page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  )
+  await expect(
+    page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Enhance effects' })
+  ).toHaveAttribute('aria-checked', 'false')
+})
+
 test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   await page.goto('/#/leaderboards')
 
@@ -1680,6 +1782,22 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   // And back to Season restores the season heading.
   await page.getByRole('button', { name: 'Season', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
+})
+
+test('leaderboard and recent-run entries open the selected public player', async ({ page }) => {
+  await page.goto('/#/leaderboards')
+
+  await page.getByRole('button', { name: "View Royal Ghosted's profile" }).click()
+  await expect(page).toHaveURL(/#\/players\/player-2$/)
+  await expect(page.getByRole('heading', { name: 'Royal Ghosted' })).toBeVisible()
+  await expect(page.locator('.ed-public-profile')).not.toContainText(testPlayer.email)
+  await expect(page.locator('.ed-public-profile')).not.toContainText('Edit')
+
+  if ((page.viewportSize()?.width ?? 0) >= 1000) {
+    await page.locator('.ed-rail-live').getByRole('button').first().click()
+    await expect(page).toHaveURL(/#\/players\/player-9$/)
+    await expect(page.getByRole('heading', { name: 'Skarmy Party' })).toBeVisible()
+  }
 })
 
 test('an empty leaderboard offers a play call-to-action', async ({ page }) => {

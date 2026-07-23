@@ -48,7 +48,7 @@ first-Monday calendar instead of failing.
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`
-- `GET /leaderboards`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /health`
+- `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow
@@ -65,6 +65,13 @@ returns the minimal shape `{ accepted: true, guest: true, mode, score, season }`
 A `/runs/complete` presenting a non-guest run token still requires a session
 that owns the run. The public site and leaderboards remain browsable without an
 account.
+
+`GET /players/{playerId}` backs read-only profiles opened from leaderboards and
+recent activity. It resolves the pseudonymous player UUID through the sparse
+`GSI3` index and returns only public identity, progress, the already-public
+player tag when present, and sanitized recent ranked runs. Email,
+authentication subject, and DynamoDB storage keys never cross this response
+boundary.
 
 `GET /leaderboards?mode=…` takes an optional `scope`. `scope=season` (default)
 returns the current or requested season board from the `LEADERBOARD#{seasonId}#{mode}`

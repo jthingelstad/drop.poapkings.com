@@ -231,10 +231,7 @@ export default function Surge() {
           replayLabel="Play again"
           onHome={() => navigate('/')}
         >
-          <ShareLine
-            mode="surge"
-            text={`Surge: ${SURGE.SPRINT_LEN} cards in ${formatSeconds(totalMs.value)}s — drop.poapkings.com`}
-          />
+          <ShareLine mode="surge" score={`${formatSeconds(totalMs.value)}s`} />
         </Summary>
       </div>
     )

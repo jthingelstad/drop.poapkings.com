@@ -11,6 +11,7 @@ import {
   meResponseSchema,
   nameOptionsResponseSchema,
   playerResponseSchema,
+  publicPlayerResponseSchema,
   sessionResponseSchema,
   siteStatsSchema,
   startedRunSchema
@@ -291,7 +292,12 @@ export function getActivity(limit = 8, signal?: AbortSignal) {
   return apiRequest(`/activity?limit=${limit}`, activityResponseSchema, { signal })
 }
 
+export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
+  return apiRequest(`/players/${encodeURIComponent(playerId)}`, publicPlayerResponseSchema, { signal })
+}
+
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
 export type { ActivityEntry } from './api-contracts'
 export type { LeaderboardEntry, RecentRun } from './api-contracts'
+export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'

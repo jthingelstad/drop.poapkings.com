@@ -137,7 +137,17 @@ function calendarSeasonId(startsAt: string): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function publicProfile(profile: PlayerProfile): PublicProfile {
+type PublicProfileSource = Pick<
+  PlayerProfile,
+  | "playerId"
+  | "publicName"
+  | "favoriteCardId"
+  | "playerTag"
+  | "totalGames"
+  | "xp"
+>;
+
+function publicProfile(profile: PublicProfileSource): PublicProfile {
   const progress = levelForGames(profile.totalGames);
   return {
     id: profile.playerId,
@@ -148,6 +158,13 @@ function publicProfile(profile: PlayerProfile): PublicProfile {
     xp: profile.xp ?? 0,
     ...progress,
   };
+}
+
+export interface PublicPlayerLookup {
+  // The subject key is retained inside the repository boundary only so callers
+  // can load the player's run history. It is never part of a public response.
+  sub: string;
+  player: PublicProfile;
 }
 
 export class Repository {
@@ -353,6 +370,44 @@ export class Repository {
       }),
     );
     return result.Item as ProfileItem | undefined;
+  }
+
+  async getPublicPlayer(
+    playerId: string,
+  ): Promise<PublicPlayerLookup | undefined> {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: "GSI3",
+        KeyConditionExpression: "playerId = :playerId",
+        ExpressionAttributeValues: { ":playerId": playerId },
+        Limit: 1,
+      }),
+    );
+    const item = result.Items?.[0] as Partial<ProfileItem> | undefined;
+    if (
+      !item ||
+      item.sk !== "PROFILE" ||
+      typeof item.pk !== "string" ||
+      !item.pk.startsWith("PLAYER#") ||
+      typeof item.playerId !== "string" ||
+      typeof item.totalGames !== "number"
+    ) {
+      return undefined;
+    }
+    const sub = item.pk.slice("PLAYER#".length);
+    if (!sub) return undefined;
+    return {
+      sub,
+      player: publicProfile({
+        playerId: item.playerId,
+        publicName: item.publicName,
+        favoriteCardId: item.favoriteCardId,
+        playerTag: item.playerTag,
+        totalGames: item.totalGames,
+        xp: item.xp,
+      }),
+    };
   }
 
   // The pseudonymous profile UUID for a subject, used to key the tag cluster

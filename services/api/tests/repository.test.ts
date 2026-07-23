@@ -24,6 +24,48 @@ describe("repository DynamoDB requests", () => {
     vi.restoreAllMocks();
   });
 
+  it("looks up a public player by pseudonymous id without returning private fields", async () => {
+    send.mockResolvedValueOnce({
+      Items: [
+        {
+          pk: "PLAYER#private-sub",
+          sk: "PROFILE",
+          playerId: "player-public-id",
+          publicName: "Royal Ghosted",
+          favoriteCardId: 26000050,
+          playerTag: "#ABC123",
+          totalGames: 42,
+          xp: 900,
+        },
+      ],
+    });
+
+    const result = await new Repository("test-table").getPublicPlayer(
+      "player-public-id",
+    );
+
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      IndexName: "GSI3",
+      KeyConditionExpression: "playerId = :playerId",
+      ExpressionAttributeValues: { ":playerId": "player-public-id" },
+      Limit: 1,
+    });
+    expect(result).toMatchObject({
+      sub: "private-sub",
+      player: {
+        id: "player-public-id",
+        publicName: "Royal Ghosted",
+        favoriteCardId: 26000050,
+        playerTag: "#ABC123",
+        totalGames: 42,
+        xp: 900,
+      },
+    });
+    expect(result?.player).not.toHaveProperty("email");
+    expect(result?.player).not.toHaveProperty("sub");
+  });
+
   it("groups recent activity by player and mode before applying diversity limits", async () => {
     vi.spyOn(Date, "now").mockReturnValue(
       new Date("2026-07-22T15:00:00.000Z").getTime(),
