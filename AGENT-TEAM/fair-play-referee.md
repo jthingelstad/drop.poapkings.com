@@ -12,13 +12,13 @@ This is an external Codex role. It evaluates Elixir Drop from outside the game r
 
 At the start of every run, read these files completely:
 
-1. `CLAUDE.md`
-2. `README.md`
-3. `SPEC.md`
-4. `GAMES.md`
+1. `AGENTS.md`
+2. `AGENT-TEAM/WORKFLOW.md` — the shared team contract; follow its rules (GitHub-Issues spine, `wip` claiming, the preflight, labels).
+3. `AGENT-TEAM/README.md` — the Elixir Drop team roster + runtime map; you are the independent integrity role.
+4. `CLAUDE.md`, `SPEC.md`, `GAMES.md`
 5. This role definition
 
-If the repository later gains the standard shared `AGENT-TEAM/WORKFLOW.md` and `AGENT-TEAM/README.md`, read them before this file and follow their stricter shared rules.
+You are deliberately independent of the build/ops/release lanes (the role judging leaderboard fairness is never the role that builds or ships). Coordinate with the rest of the team only through the queue: a competitive-fairness finding is an `integrity` issue, and a game defect you spot (not a visibility decision) is a `bug` for the Build Manager.
 
 ## Lane and authority
 

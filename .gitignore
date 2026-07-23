@@ -7,3 +7,6 @@ coverage/
 
 # local design prototypes (not shipped)
 design-ref/
+
+# AGENT-TEAM per-run scratch (see AGENT-TEAM/WORKFLOW.md)
+AGENT-TEAM/notes/
