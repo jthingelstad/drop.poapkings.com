@@ -209,7 +209,7 @@ void test("publishes one idempotent Buttondown campaign to the explicit list", a
   let request;
   const email = await publishButtondown(manifest, {
     apiKey: "secret",
-    newsletterId: "497f6eca-6276-4993-bfeb-53cbbbba6f08",
+    newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
     request: async (url, options) => {
       request = { url, options };
       return new Response(
@@ -222,7 +222,7 @@ void test("publishes one idempotent Buttondown campaign to the explicit list", a
   assert.equal(request.url, "https://api.buttondown.com/v1/emails");
   assert.equal(
     request.options.headers["Buttondown-Context"],
-    "497f6eca-6276-4993-bfeb-53cbbbba6f08",
+    "news_2d3heqk1789vyatbxaeg4b2c91",
   );
   assert.equal(
     request.options.headers["X-Idempotency-Key"],
@@ -244,6 +244,6 @@ void test("Buttondown delivery fails closed without an explicit newsletter", asy
         throw new Error("request should not run");
       },
     }),
-    /newsletter UUID/,
+    /newsletter ID/,
   );
 });

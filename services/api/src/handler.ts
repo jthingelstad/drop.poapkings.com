@@ -4,6 +4,10 @@ import type {
   APIGatewayProxyHandlerV2,
 } from "aws-lambda";
 import type { SiteStats } from "@elixir-drop/contracts";
+import {
+  deleteButtondownSubscriber,
+  enrollButtondownSubscriber,
+} from "./buttondown.js";
 import { favoriteCard } from "./cards.js";
 import { getConfig } from "./config.js";
 import { publicCrProfile, requestCrProfileRefresh } from "./cr-refresh.js";
@@ -323,6 +327,13 @@ async function route(event: APIGatewayProxyEventV2) {
           config.crRequestQueueUrl,
           login.profile.playerTag,
         ),
+        enrollButtondownSubscriber(
+          {
+            apiKey: config.buttondownApiKey,
+            newsletterId: config.buttondownNewsletterId,
+          },
+          login.profile.email,
+        ),
       ]);
     } catch (error) {
       console.warn("Post-login side effects failed", {
@@ -482,7 +493,17 @@ async function route(event: APIGatewayProxyEventV2) {
         "Type DELETE to confirm account deletion.",
         "deletion_confirmation_required",
       );
+    const profile = await repository.getProfile(session.sub);
     const deleted = await repository.deleteAccount(session.sub);
+    if (profile) {
+      await deleteButtondownSubscriber(
+        {
+          apiKey: config.buttondownApiKey,
+          newsletterId: config.buttondownNewsletterId,
+        },
+        profile.email,
+      );
+    }
     console.info("Player account deleted", {
       requestId: event.requestContext.requestId,
       deletedGames: deleted.deletedGames,

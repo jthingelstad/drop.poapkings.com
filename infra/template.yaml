@@ -16,6 +16,13 @@ Parameters:
   FastmailJmapToken:
     Type: String
     NoEcho: true
+  ButtondownApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+  ButtondownNewsletterId:
+    Type: String
+    Default: ""
   DiscordWebhookUrl:
     Type: String
     NoEcho: true
@@ -380,6 +387,8 @@ Resources:
           SESSION_SECRET: !Ref SessionSecret
           TELEMETRY_PEPPER: !Ref TelemetryPepper
           FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
+          BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
+          BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
           APP_URL: !Ref AppUrl
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop

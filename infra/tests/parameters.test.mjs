@@ -76,6 +76,8 @@ void describe("deployment parameters", () => {
       TELEMETRY_PEPPER: "telemetry-pepper",
       FASTMAIL_JMAP_TOKEN: "jmap-token",
       ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+      BUTTONDOWN_API_KEY: "buttondown-key",
+      BUTTONDOWN_NEWSLETTER_ID: "news_2d3heqk1789vyatbxaeg4b2c91",
     };
     const parameters = deploymentParameters({
       ...base,
@@ -94,6 +96,37 @@ void describe("deployment parameters", () => {
         (parameter) => parameter.ParameterKey === "TelemetryPepper",
       ),
       { ParameterKey: "TelemetryPepper", ParameterValue: "telemetry-pepper" },
+    );
+    assert.deepEqual(
+      parameters.find(
+        (parameter) => parameter.ParameterKey === "ButtondownApiKey",
+      ),
+      { ParameterKey: "ButtondownApiKey", ParameterValue: "buttondown-key" },
+    );
+    assert.deepEqual(
+      parameters.find(
+        (parameter) => parameter.ParameterKey === "ButtondownNewsletterId",
+      ),
+      {
+        ParameterKey: "ButtondownNewsletterId",
+        ParameterValue: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+    );
+  });
+
+  void it("leaves Buttondown disabled until local credentials are supplied", () => {
+    const parameters = deploymentParameters({ ...base, stackExists: true });
+
+    assert.equal(
+      parameters.some((parameter) =>
+        parameter.ParameterKey.startsWith("Buttondown"),
+      ),
+      false,
+    );
+    assert.match(template, /BUTTONDOWN_API_KEY: !Ref ButtondownApiKey/);
+    assert.match(
+      template,
+      /BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId/,
     );
   });
 

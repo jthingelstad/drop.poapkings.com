@@ -64,6 +64,15 @@ export function deploymentParameters({
     },
   ];
 
+  for (const [parameterKey, environmentKey] of [
+    ["ButtondownApiKey", "BUTTONDOWN_API_KEY"],
+    ["ButtondownNewsletterId", "BUTTONDOWN_NEWSLETTER_ID"],
+  ]) {
+    const value = environment[environmentKey]?.trim();
+    if (value)
+      parameters.push({ ParameterKey: parameterKey, ParameterValue: value });
+  }
+
   for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {
     parameters.push(
       secretParameter(parameterKey, environmentKey, environment, stackExists),

@@ -21,8 +21,12 @@ the game table and update only `GSI1PK`/`GSI1SK` on `PLAYER#` items, so it canno
 change canonical runs, scores, profiles, XP, or referee evidence.
 
 The gitignored root `.env` also supplies
-`ELIXIR_DROP_DISCORD_WEBHOOK_URL`. CloudFormation treats it as a `NoEcho`
-parameter and exposes it only to the Lambda runtime for notable event delivery.
+`ELIXIR_DROP_DISCORD_WEBHOOK_URL`, `BUTTONDOWN_API_KEY`, and the explicit
+`BUTTONDOWN_NEWSLETTER_ID`. CloudFormation treats the credentials as `NoEcho`
+parameters and exposes them only to the Lambda runtime. Buttondown enrollment
+runs only after a player redeems a valid magic link; account deletion removes
+the matching subscriber, while Buttondown preserves its own unsubscribe and
+suppression states.
 CloudWatch separately alarms on the bridge process heartbeat and on successful
 five-minute Clan Wars clock relays. The API, result consumer, and daily mail
 canary write JSON logs to dedicated 30-day log groups. The canary submits one

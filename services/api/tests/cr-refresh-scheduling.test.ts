@@ -17,11 +17,14 @@ const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
+  saveMagicLink: vi.fn(),
   savePollSession: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
+const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
+const sendMagicLink = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -35,11 +38,22 @@ vi.mock("../src/repository.js", () => ({
     getRun = repository.getRun;
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
+    saveMagicLink = repository.saveMagicLink;
     savePollSession = repository.savePollSession;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
   },
 }));
+
+vi.mock("../src/buttondown.js", () => ({
+  deleteButtondownSubscriber: vi.fn(),
+  enrollButtondownSubscriber,
+}));
+
+vi.mock("../src/jmap.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/jmap.js")>();
+  return { ...actual, sendMagicLink };
+});
 
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
@@ -137,10 +151,13 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
+    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
     requestCrProfileRefresh.mockResolvedValue(snapshot);
+    sendMagicLink.mockResolvedValue(undefined);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
@@ -159,6 +176,26 @@ describe("Clash Royale refresh scheduling", () => {
       "https://sqs.example/requests",
       profile.playerTag,
     );
+    expect(enrollButtondownSubscriber).toHaveBeenCalledWith(
+      {
+        apiKey: "buttondown-key",
+        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+      profile.email,
+    );
+  });
+
+  it("does not enroll an address when a magic link is only requested", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: profile.email,
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(sendMagicLink).toHaveBeenCalledOnce();
+    expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
   });
 
   it("hands the new session to a waiting poll id (cross-context/PWA login)", async () => {
@@ -203,6 +240,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(500);
     // The single-use link must stay redeemable for the retry click.
     expect(repository.consumeMagicLink).not.toHaveBeenCalled();
+    expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
   });
 
   it("serves cached CR data without refreshing on a profile read", async () => {

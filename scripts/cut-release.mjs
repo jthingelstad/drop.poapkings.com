@@ -415,10 +415,12 @@ export async function publishButtondown(
   }
   if (
     !newsletterId?.match(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      /^(?:news_[0-9a-z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i,
     )
   ) {
-    throw new Error("BUTTONDOWN_NEWSLETTER_ID must be a newsletter UUID");
+    throw new Error(
+      "BUTTONDOWN_NEWSLETTER_ID must be a Buttondown newsletter ID",
+    );
   }
   const response = await request("https://api.buttondown.com/v1/emails", {
     method: "POST",

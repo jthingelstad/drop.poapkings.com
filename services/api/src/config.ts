@@ -7,6 +7,8 @@ export interface Config {
   telemetryPepper: string;
   appUrl: string;
   jmapToken: string;
+  buttondownApiKey?: string;
+  buttondownNewsletterId?: string;
   emailFrom: string;
   emailFromName: string;
   nameModelId: string;
@@ -24,12 +26,22 @@ function required(name: string): string {
 }
 
 export function getConfig(): Config {
+  const buttondownApiKey = process.env.BUTTONDOWN_API_KEY?.trim() || undefined;
+  const buttondownNewsletterId =
+    process.env.BUTTONDOWN_NEWSLETTER_ID?.trim() || undefined;
+  if (Boolean(buttondownApiKey) !== Boolean(buttondownNewsletterId)) {
+    throw new Error(
+      "BUTTONDOWN_API_KEY and BUTTONDOWN_NEWSLETTER_ID must be configured together",
+    );
+  }
   return {
     tableName: required("TABLE_NAME"),
     sessionSecret: required("SESSION_SECRET"),
     telemetryPepper: required("TELEMETRY_PEPPER"),
     appUrl: required("APP_URL").replace(/\/$/, ""),
     jmapToken: required("FASTMAIL_JMAP_TOKEN"),
+    buttondownApiKey,
+    buttondownNewsletterId,
     emailFrom:
       process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com",
     emailFromName:

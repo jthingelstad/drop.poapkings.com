@@ -6,26 +6,26 @@ export default function Privacy() {
     <article class="ed-page ed-page--privacy">
       <MetaPageHead eyebrow="Player privacy" title="What Drop keeps—and why" />
       <p class="ed-page__intro">
-        Elixir Drop keeps only the information needed to sign you in, build your player profile, record games, and
-        operate seasonal leaderboards.
+        Elixir Drop keeps only the information needed to sign you in, send occasional release news, build your player
+        profile, record games, and operate seasonal leaderboards.
       </p>
 
       <div class="ed-meta-sections">
         <MetaSection title="Your account">
           <p>
-            Your email address is used for one-time magic-link sign-in and is never shown on your public profile. Drop
-            stores your chosen player name, favorite-card avatar, game results, total games, per-card practice
-            statistics derived from your recorded games (used only to deal you better practice rounds — never shown to
-            other players), and optional Clash Royale player tag. All of it is removed when you delete your account.
+            Your email address is used for one-time magic-link sign-in and occasional Drop release news after you
+            successfully use a sign-in link. It is never shown on your public profile. Drop stores your chosen player
+            name, favorite-card avatar, game results, total games, per-card practice statistics derived from your
+            recorded games (used only to deal you better practice rounds — never shown to other players), and optional
+            Clash Royale player tag. All of it is removed when you delete your account.
           </p>
         </MetaSection>
 
         <MetaSection title="Your email address">
           <p>
-            We will never sell, rent, or share your email address, and we never use it for third-party marketing or
-            advertising. We do intend to email you occasional Drop release news about upcoming versions of Elixir Drop,
-            and we may add you to an Elixir Drop mailing list in the future. It stays between you and the people who run
-            Drop.
+            We will never sell or rent your email address, and we never use it for third-party marketing or advertising.
+            After you successfully use a sign-in link, we add the address to Drop&rsquo;s Buttondown mailing list for
+            occasional release news. Every release email includes an unsubscribe link.
           </p>
         </MetaSection>
 
@@ -41,6 +41,10 @@ export default function Privacy() {
           <ul>
             <li>AWS runs the API and stores profiles and scores.</li>
             <li>Fastmail sends sign-in emails.</li>
+            <li>
+              Buttondown sends occasional Drop release news after you successfully use a sign-in link, and manages
+              newsletter unsubscribes and delivery suppression.
+            </li>
             <li>
               Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or
               platform labels. Drop never sends it your email, public player name, player tag, score, run ID, or Drop
@@ -72,8 +76,9 @@ export default function Privacy() {
           </p>
           <p>
             Account deletion removes your email, Drop identity, saved tag association, game history, and leaderboard
-            entries from the active database. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups
-            and private operator event history may take longer to age out.
+            entries from the active database and removes the matching Buttondown subscriber. Anonymous aggregate Trophy
+            Road totals remain. Encrypted recovery backups and private operator event history may take longer to age
+            out.
           </p>
         </MetaSection>
 
@@ -84,7 +89,7 @@ export default function Privacy() {
         </MetaSection>
       </div>
 
-      <p class="ed-page__updated">Last updated July 22, 2026.</p>
+      <p class="ed-page__updated">Last updated July 23, 2026.</p>
     </article>
   )
 }

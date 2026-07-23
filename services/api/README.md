@@ -7,6 +7,8 @@ Responsibilities in this release:
 
 - 15-minute, single-use email magic links sent through Fastmail JMAP;
 - a daily Fastmail JMAP delivery canary using the same submission path as magic links;
+- Buttondown enrollment only after successful magic-link redemption, with
+  matching removal on account deletion;
 - renewable 28-day sliding HMAC bearer sessions;
 - player profiles with favorite-card avatars, safe Claude Haiku-generated
   public names, unverified CR player tags, and cached CR
@@ -132,6 +134,16 @@ and not-found CR player pulls as one-line text with the tag, CR name, clan,
 account age, collection size, and fetch duration. Job IDs remain in the local
 worker and Lambda logs. Discord never includes competitive rank data or card
 levels, and delivery failure never blocks queue completion.
+
+## Release-news subscribers
+
+`BUTTONDOWN_API_KEY` and `BUTTONDOWN_NEWSLETTER_ID` are server-only deployment
+settings. A successful magic-link redemption adds the verified address as a
+regular subscriber, so Buttondown does not send a redundant confirmation
+message. Repeat login collisions never overwrite Buttondown's unsubscribe or
+suppression state. Account deletion removes the subscriber by email. These
+calls are best effort with a three-second timeout and never change an otherwise
+successful login or deletion response.
 
 ## Referee evidence
 

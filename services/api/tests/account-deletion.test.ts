@@ -8,12 +8,18 @@ import { signToken } from "../src/signing.js";
 
 const deleteAccount = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
+const deleteButtondownSubscriber = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     deleteAccount = deleteAccount;
     getProfile = getProfile;
   },
+}));
+
+vi.mock("../src/buttondown.js", () => ({
+  deleteButtondownSubscriber,
+  enrollButtondownSubscriber: vi.fn(),
 }));
 
 import { handler } from "../src/handler.js";
@@ -71,8 +77,18 @@ describe("account deletion", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
+    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     vi.spyOn(console, "info").mockImplementation(() => undefined);
+    getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "player-1",
+      email: "player@example.com",
+      totalGames: 0,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
   });
 
   it("requires an exact destructive-action confirmation", async () => {
@@ -98,6 +114,13 @@ describe("account deletion", () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body || "{}")).toEqual({ ok: true });
     expect(deleteAccount).toHaveBeenCalledWith("player-sub");
+    expect(deleteButtondownSubscriber).toHaveBeenCalledWith(
+      {
+        apiKey: "buttondown-key",
+        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+      "player@example.com",
+    );
   });
 
   it("stops a deleted account's session from renewing", async () => {
