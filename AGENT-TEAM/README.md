@@ -72,8 +72,9 @@ Roles should name the layer + file that supplied every finding.
 - **CR bridge:** `services/cr-api-bridge` — the only runtime Clash Royale API ingress
   (fixed-IP, allowlisted host). The browser and Lambda never call CR directly; the committed
   `packages/game-data/cards.json` snapshot is authoritative for the running app.
-- **Email:** magic links **and** release notes send through **Fastmail JMAP**
-  (`services/api/src/jmap.ts`, `FASTMAIL_JMAP_TOKEN`). No SES, no sandbox.
+- **Email:** transactional messages use **Fastmail JMAP** (`services/api/src/jmap.ts`,
+  `FASTMAIL_JMAP_TOKEN`); bulk release notes use the dedicated **Buttondown**
+  newsletter. No SES, no BCC batching.
 - **Integrity:** the Referee's sanctioned data + decision path is `AGENT-TEAM/scripts/referee-*.mjs`;
   it emits pseudonymous `playerId`, never `sub`/email, and writes only `REFEREE#` partitions.
 
@@ -82,7 +83,7 @@ Roles should name the layer + file that supplied every finding.
 Drop ships as **named releases** (no SemVer — a coined name + date + build hash), modeled on
 Elixir's ceremony. The **Release Manager** owns it (`release-manager.md` → `scripts/cut-release.mjs`):
 coin an alliterative **Clash Royale card** name, generate the notes, publish a **GitHub
-release**, prepend `RELEASES.md`, and **email players** the notes via the JMAP path. The Manager
+release**, prepend `RELEASES.md`, and **email players** through Buttondown. The Manager
 triggers a cut when enough has shipped; the in-app "what's new" rides the existing
 `lib/version.ts` + `UpdateBanner`.
 

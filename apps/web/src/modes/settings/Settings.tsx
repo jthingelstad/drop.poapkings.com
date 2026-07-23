@@ -3,6 +3,7 @@ import type { InputStyle } from '../../types'
 import { getSettings, saveSettings } from '../../lib/storage'
 import { navigate } from '../../lib/router'
 import { buildMeta } from '../../lib/build'
+import releaseMeta from '../../data/release.json'
 import PlayerPreferences from '../../components/PlayerPreferences'
 
 export default function Settings() {
@@ -45,6 +46,12 @@ export default function Settings() {
         <PlayerPreferences />
 
         <dl class="settings-meta" aria-label="Build information">
+          <div class="settings-meta__row">
+            <dt>Release</dt>
+            <dd>
+              {releaseMeta.name}: {releaseMeta.blurb}
+            </dd>
+          </div>
           <div class="settings-meta__row">
             <dt>Build ID</dt>
             <dd>

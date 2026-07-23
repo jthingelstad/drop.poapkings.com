@@ -33,7 +33,7 @@ the POAP KINGS. A Preact SPA deploys to **GitHub Pages** at `drop.poapkings.com`
 - npm workspaces at the root; **Node 24**. `apps/web` = Preact + @preact/signals + Vite + TS.
 - `npm run dev` · `npm run build` · **`npm run verify`** (format, lint, CSS lint, typecheck, Knip, unit, Chromium e2e, prod build) — run before pushing.
 - **Deploy model:** pushing to `main` triggers CI (`verify:deploy`) which builds and deploys the **frontend to Pages automatically** — no manual step. The **Lambda API deploys separately** via `npm run deploy:api` (SDK-based); backend changes are not live until that runs (that is the `needs-deploy` handoff to the Operations Manager).
-- Player-email (magic links **and** release notes) sends through the **Fastmail JMAP** path in `services/api/src/jmap.ts` (`FASTMAIL_JMAP_TOKEN`), not SES.
+- Transactional player email (magic links and the delivery canary) sends through **Fastmail JMAP** in `services/api/src/jmap.ts`. Bulk release notes publish through the dedicated **Buttondown** newsletter; neither path uses SES.
 
 ## Work tracking
 
