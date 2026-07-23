@@ -89,6 +89,7 @@ describe('Summary', () => {
         headline="28.6s"
         pbCallout="New personal best! −3.4s"
         insights={emptyInsights({ accuracyPct: 95 })}
+        share={{ mode: 'surge', score: '28.6s' }}
         onReplay={() => {}}
         onHome={() => {}}
       />
@@ -114,6 +115,7 @@ describe('Summary', () => {
         eyebrow="Practice round"
         headline="12 / 15"
         insights={emptyInsights()}
+        share={{ mode: 'practice', score: '80% accuracy' }}
         onReplay={() => {}}
         onHome={() => {}}
       />
@@ -130,6 +132,7 @@ describe('Summary', () => {
         eyebrow="e"
         headline="h"
         insights={emptyInsights({ total: 10, correct: 10, accuracyPct: 100 })}
+        share={{ mode: 'surge', score: '10/10' }}
         onReplay={() => {}}
         onHome={() => {}}
       />
@@ -144,6 +147,7 @@ describe('Summary', () => {
         eyebrow="e"
         headline="h"
         insights={emptyInsights({ total: 15, correct: 9, accuracyPct: 60 })}
+        share={{ mode: 'surge', score: '9/15' }}
         onReplay={() => {}}
         onHome={() => {}}
       />
@@ -174,7 +178,7 @@ describe('Summary', () => {
         headline="40s"
         insights={insights}
         moments={[{ label: 'Custom', value: 'Nice', tone: 'green' }]}
-        shareAction={<div class="primary-share-slot">share first</div>}
+        share={{ mode: 'surge', score: '40s' }}
         replayLabel="Run it back"
         onReplay={() => {}}
         onHome={() => {}}
@@ -197,8 +201,8 @@ describe('Summary', () => {
     // slowest reads (timing).
     expect(html).toContain('Slowest reads')
     // Sharing is promoted directly below the result headline, before analysis.
-    expect(html).toContain('primary-share-slot')
-    expect(html.indexOf('primary-share-slot')).toBeLessThan(html.indexOf('ed-sum-tiles'))
+    expect(html).toContain('Share your score')
+    expect(html.indexOf('shareline')).toBeLessThan(html.indexOf('ed-sum-tiles'))
     // children slot.
     expect(html).toContain('my-share-slot')
     // custom replay label.

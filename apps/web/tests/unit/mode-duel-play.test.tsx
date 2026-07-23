@@ -213,7 +213,7 @@ describe('Higher / Lower — gameplay', () => {
     await click(c.querySelectorAll('.ed-duel__cards button')[1])
     expect(metricValue(c)).toBe('0') // streak reset
 
-    // A miss has no summary screen: it completes the run after ADVANCE_DELAY_WRONG.
+    // A miss completes the run after ADVANCE_DELAY_WRONG.
     expect(session.complete).not.toHaveBeenCalled()
     await advance(1500)
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -225,7 +225,7 @@ describe('Higher / Lower — gameplay', () => {
     expect(payload.answers[1].pickedId).toBe(104) // pair1: the lower (wrong) card
   })
 
-  it('keeps the completed run streak available for sharing', async () => {
+  it('shows the shared results screen with the completed streak and sharing', async () => {
     const session = stage(pairs())
     session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
     const c = mount(<HigherLower />)
@@ -236,8 +236,12 @@ describe('Higher / Lower — gameplay', () => {
     await click(c.querySelectorAll('.ed-duel__cards button')[1])
     await advance(1500)
 
-    expect(c.querySelector('.ed-duel__replay')?.textContent).toContain('1 streak')
+    expect(c.querySelector('[data-summary]')?.textContent).toContain('Higher / Lower complete')
+    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 streak')
+    expect(c.querySelector('.ed-duel')).toBeNull()
     expect(c.querySelector('.shareline')?.textContent).toContain('Share score')
+    expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Play again')
+    expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Home')
   })
 
   it('the shrink-window running out records the lower card as the miss', async () => {

@@ -14,3 +14,16 @@ export function noteWebVersion(serverVersion: string | undefined): void {
   if (buildMeta.id === 'dev' || !buildMeta.id) return
   if (serverVersion !== buildMeta.id) updateAvailable.value = true
 }
+
+// A normal reload may reuse the cached app shell. Give the document request a
+// unique query while preserving the hash route so installed PWAs are forced to
+// fetch the current index and its content-hashed assets.
+export function latestVersionUrl(href: string, nonce = Date.now()): string {
+  const url = new URL(href)
+  url.searchParams.set('drop-refresh', String(nonce))
+  return url.toString()
+}
+
+export function reloadToLatest(): void {
+  window.location.replace(latestVersionUrl(window.location.href))
+}

@@ -16,7 +16,6 @@ import Icon from '../../components/Icon'
 import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
-import ShareLine from '../../components/ShareLine'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -227,7 +226,7 @@ export default function Surge() {
             { label: 'Avg / card', value: `${formatSeconds(totalMs.value / SURGE.SPRINT_LEN)}s`, tone: 'gold' },
             { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' }
           ]}
-          shareAction={<ShareLine mode="surge" score={`${formatSeconds(totalMs.value)}s`} />}
+          share={{ mode: 'surge', score: `${formatSeconds(totalMs.value)}s` }}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}

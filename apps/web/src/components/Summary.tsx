@@ -1,8 +1,10 @@
 import type { ComponentChildren } from 'preact'
+import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
 import Icon from './Icon'
+import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
 
 export interface SummaryMoment {
@@ -17,7 +19,7 @@ interface Props {
   pbCallout?: string // e.g. "New personal best! −3.4s"
   insights: Insights
   moments?: SummaryMoment[]
-  shareAction?: ComponentChildren // keep sharing visible before the detailed run analysis
+  share: { mode: GameMode; score: string }
   children?: ComponentChildren // optional mode-specific result details
   onReplay: () => void
   replayLabel?: string
@@ -82,7 +84,7 @@ export default function Summary({
   pbCallout,
   insights,
   moments,
-  shareAction,
+  share,
   children,
   onReplay,
   replayLabel = 'Play again',
@@ -105,7 +107,8 @@ export default function Summary({
         )}
       </div>
 
-      {shareAction}
+      {/* A scored result cannot omit or bury its browser-share action. */}
+      <ShareLine mode={share.mode} score={share.score} />
 
       {runMoments.length > 0 && (
         <div class="ed-sum-tiles" aria-label="Run highlights">

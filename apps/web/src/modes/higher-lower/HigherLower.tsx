@@ -1,6 +1,8 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { higherLowerWindowMs } from '@elixir-drop/contracts'
+import type { Insights } from '../../lib/insights'
+import type { Card } from '../../types'
 import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { navigate } from '../../lib/router'
@@ -11,8 +13,7 @@ import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
-import SignInToSave from '../../components/SignInToSave'
-import ShareLine from '../../components/ShareLine'
+import Summary from '../../components/Summary'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -30,6 +31,7 @@ export default function HigherLower() {
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, guardActiveRun: false, trackElapsed: false })
   const pairIndex = useSignal(0)
   const serverAnswers = useRef<Array<{ leftId: number; rightId: number; pickedId: number; elapsedMs: number }>>([])
+  const gradedAnswers = useRef<Array<{ correct: boolean; higher: Card }>>([])
   // The card the player tapped as higher (for reveal highlighting).
   const picked = useSignal<number | null>(null)
   const revealed = useSignal(false)
@@ -37,7 +39,7 @@ export default function HigherLower() {
   const streak = useSignal(0)
   const runBest = useSignal(0)
   const streakCue = useSignal(0)
-  const best = useSignal(getRecords().longestStreak ?? 0)
+  const previousBest = useSignal(getRecords().longestStreak ?? 0)
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
@@ -118,9 +120,11 @@ export default function HigherLower() {
 
   async function replay() {
     track('game.replayed', 'higher-lower')
+    previousBest.value = Math.max(previousBest.value, runBest.value)
     awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []
+    gradedAnswers.current = []
     picked.value = null
     revealed.value = false
     streak.value = 0
@@ -139,12 +143,14 @@ export default function HigherLower() {
     // Pairs never tie, so exactly one card is the higher cost.
     const higherId = left.elixir > right.elixir ? left.id : right.id
     const correct = pickedId === higherId
+    const elapsedMs = Math.round(performance.now() - roundStart.current)
     serverAnswers.current.push({
       leftId: left.id,
       rightId: right.id,
       pickedId,
-      elapsedMs: Math.round(performance.now() - roundStart.current)
+      elapsedMs
     })
+    gradedAnswers.current.push({ correct, higher: left.id === higherId ? left : right })
 
     picked.value = pickedId
     revealed.value = true
@@ -156,9 +162,6 @@ export default function HigherLower() {
       streak.value = s
       runBest.value = Math.max(runBest.value, s)
       if (s === 3 || (s > 3 && s % 5 === 0)) streakCue.value++
-      // Live display only; longestStreak is persisted centrally when the server
-      // accepts the completed run, so the device never keeps a rejected best.
-      if (s > best.value) best.value = s
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
@@ -220,6 +223,46 @@ export default function HigherLower() {
     )
   }
 
+  if (awaitingReplay.value) {
+    const total = gradedAnswers.current.length
+    const correct = gradedAnswers.current.filter((answer) => answer.correct).length
+    const insights: Insights = {
+      total,
+      correct,
+      accuracyPct: total > 0 ? Math.round((correct / total) * 100) : 0,
+      bands: [],
+      weakest: gradedAnswers.current.filter((answer) => !answer.correct).map((answer) => answer.higher),
+      hasTiming: false
+    }
+    const pbCallout =
+      runBest.value > previousBest.value
+        ? previousBest.value > 0
+          ? `New personal best! +${runBest.value - previousBest.value}`
+          : 'First streak logged'
+        : previousBest.value > 0
+          ? `Best: ${previousBest.value}`
+          : undefined
+
+    return (
+      <div class="ed-gamewrap">
+        <Summary
+          eyebrow="Higher / Lower complete"
+          headline={`${runBest.value} streak`}
+          pbCallout={pbCallout}
+          insights={insights}
+          moments={[
+            { label: 'Streak', value: String(runBest.value) },
+            { label: 'Prev best', value: String(previousBest.value), tone: 'purple' },
+            { label: 'Accuracy', value: `${insights.accuracyPct}%`, tone: 'green' }
+          ]}
+          share={{ mode: 'higher-lower', score: `${runBest.value} streak` }}
+          onReplay={() => void replay()}
+          onHome={() => navigate('/')}
+        />
+      </div>
+    )
+  }
+
   const [left, right] = pair
   const higherId = left.elixir > right.elixir ? left.id : right.id
 
@@ -262,23 +305,6 @@ export default function HigherLower() {
             </button>
           </div>
         </GameMotion>
-
-        {awaitingReplay.value && (
-          <div class="ed-duel__replay" role="group" aria-label="Completed run actions">
-            <span>
-              <strong>{runBest.value > 0 ? `${runBest.value} streak` : 'Streak over'}</strong>
-              <small>Share your score or start the next run.</small>
-            </span>
-            <ShareLine mode="higher-lower" score={`${runBest.value} streak`} compact />
-            <button type="button" class="btn btn--gold btn--sm" onClick={() => void replay()}>
-              Play again
-            </button>
-          </div>
-        )}
-
-        {/* Higher/Lower has no summary screen, so a signed-out player sees a
-            persistent prompt to save their streak. */}
-        <SignInToSave variant="line" />
 
         {/* Shared floating streak cue — composited, never in layout flow. */}
         <div class="game-cues" aria-hidden="true">

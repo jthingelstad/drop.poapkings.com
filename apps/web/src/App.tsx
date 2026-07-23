@@ -161,13 +161,14 @@ export default function App() {
   }, [])
 
   // Watch for a newer front-end build: /stats reports the current version, so a
-  // periodic poll and a check when the tab is refocused catch a stale tab and
-  // let the player reload. Stops polling once an update is known.
+  // check at startup, periodic poll, and refocus check catch a stale installed
+  // PWA and let the player reload. Stops polling once an update is known.
   useEffect(() => {
     const check = () => {
       if (updateAvailable.value || document.visibilityState !== 'visible') return
       void getStats().catch(() => {})
     }
+    check()
     const timer = window.setInterval(check, 15 * 60_000)
     document.addEventListener('visibilitychange', check)
     return () => {

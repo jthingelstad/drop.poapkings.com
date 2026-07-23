@@ -12,7 +12,6 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
-import ShareLine from '../../components/ShareLine'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
@@ -300,7 +299,7 @@ export default function Trade() {
             { label: 'Accuracy', value: `${accuracyPct}%`, tone: 'green' },
             { label: 'Time', value: `${formatSeconds(totalMs.value)}s`, tone: 'gold' }
           ]}
-          shareAction={<ShareLine mode="trade" score={`${formatSeconds(totalMs.value)}s`} />}
+          share={{ mode: 'trade', score: `${formatSeconds(totalMs.value)}s` }}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}

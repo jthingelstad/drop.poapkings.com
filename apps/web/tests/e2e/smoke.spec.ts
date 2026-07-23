@@ -430,6 +430,27 @@ function isDesktopViewport(viewport: { width: number; height: number } | null): 
   return (viewport?.width ?? 0) >= 1024
 }
 
+test('a stale installed app checks immediately and cache-busts its reload', async ({ page }) => {
+  await page.route(`${testApiBaseUrl}/stats`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+    })
+  )
+
+  await page.goto('/#/higher-lower')
+  const reload = page.getByRole('button', { name: 'Reload' })
+  await expect(reload).toBeVisible()
+  // Let WebKit finish the lazy route import before replacing the document;
+  // otherwise its discarded page reports the intentional abort as an error.
+  await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
+  await reload.click()
+
+  await expect.poll(() => new URL(page.url()).searchParams.get('drop-refresh')).toMatch(/^\d+$/)
+  expect(new URL(page.url()).hash).toBe('#/higher-lower')
+})
+
 test('shows a friendly API outage notice and recovers in place', async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let available = false
@@ -995,6 +1016,31 @@ test('higher/lower: running out the clock ends the round', async ({ page }) => {
   // reveals the round (the lower card, auto-picked on timeout, is flagged wrong).
   await expect(page.locator('.ed-duel__card--wrong')).toBeVisible({ timeout: 12_000 })
   await expect(page.locator('.ed-duel__card--correct')).toBeVisible()
+  await expect(page.locator('[data-summary]')).toBeVisible()
+  await expect(page.locator('.ed-duel')).toHaveCount(0)
+  const costBadge = page.locator('.ed-sum-chip__cost').first()
+  await expect(costBadge).toBeVisible()
+  expect(
+    await costBadge.evaluate((element) => {
+      const badge = element.getBoundingClientRect()
+      const chip = element.closest('.ed-sum-chip')?.getBoundingClientRect()
+      return (
+        !!chip &&
+        badge.left >= chip.left &&
+        badge.top >= chip.top &&
+        badge.right <= chip.right &&
+        badge.bottom <= chip.bottom
+      )
+    })
+  ).toBe(true)
+  const share = page.getByRole('button', { name: 'Share score' })
+  await expect(share).toBeVisible()
+  expect(
+    await share.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.top >= 0 && bounds.bottom <= window.innerHeight
+    })
+  ).toBe(true)
   await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
 })
 

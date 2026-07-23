@@ -15,7 +15,6 @@ import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
-import ShareLine from '../../components/ShareLine'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -248,12 +247,10 @@ export default function Survival() {
               tone: 'green'
             }
           ]}
-          shareAction={
-            <ShareLine
-              mode="survival"
-              score={won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`}
-            />
-          }
+          share={{
+            mode: 'survival',
+            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`
+          }}
           onReplay={replay}
           onHome={() => navigate('/')}
         />

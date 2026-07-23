@@ -3153,6 +3153,8 @@ body:has(.game-run) .site-head__signin-label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+.shareline__btn.ed-btn--ghost {
   border-color: rgba(245, 200, 76, 0.48);
   color: var(--gold);
 }
@@ -6485,6 +6487,22 @@ html.reduce-motion .ed-sum-band__fill {
   background: rgba(18, 13, 40, 0.5);
   font-size: 0.78rem;
 }
+.ed-sum-chip__cost {
+  position: static;
+  z-index: auto;
+  flex: 0 0 auto;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px 1px;
+  font-size: 0.68rem;
+  box-shadow:
+    0 3px 7px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+.ed-sum-chip__cost .elixir-pip {
+  width: 11px;
+  height: 11px;
+}
 .ed-sum-chip__sub {
   color: var(--muted);
   font-size: 0.7rem;
@@ -6586,42 +6604,6 @@ html.reduce-motion .ed-sum-band__fill {
   font-family: var(--font-display);
   font-size: 0.85rem;
   color: var(--lavender);
-}
-.ed-duel__replay {
-  position: absolute;
-  z-index: 4;
-  right: 12px;
-  bottom: 36px;
-  left: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid rgba(245, 200, 76, 0.42);
-  border-radius: 16px;
-  background: rgba(30, 18, 58, 0.94);
-  box-shadow: var(--shadow);
-}
-.ed-duel__replay span {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.ed-duel__replay strong {
-  font-family: var(--font-display);
-  color: var(--gold);
-}
-.ed-duel__replay small {
-  color: var(--muted);
-}
-@media (width <= 520px) {
-  .ed-duel__replay {
-    flex-wrap: wrap;
-  }
-  .ed-duel__replay > span {
-    flex: 1 1 calc(100% - 110px);
-  }
 }
 html.reduce-motion .ed-duel__card {
   transition: none;

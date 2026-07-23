@@ -1,4 +1,4 @@
-import { updateAvailable } from '../lib/version'
+import { reloadToLatest, updateAvailable } from '../lib/version'
 
 // Shown when the server reports a newer front-end build than the one running.
 export default function UpdateBanner() {
@@ -10,7 +10,7 @@ export default function UpdateBanner() {
         <strong>A new version of Elixir Drop is ready.</strong>
         <span>Reload to get the latest games and fixes.</span>
       </div>
-      <button class="btn btn--gold btn--sm" onClick={() => window.location.reload()}>
+      <button class="btn btn--gold btn--sm" onClick={reloadToLatest}>
         Reload
       </button>
     </aside>

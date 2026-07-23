@@ -6,7 +6,7 @@ vi.mock('../../src/lib/build', () => ({
   buildMeta: { id: 'aaaaaaaaaaaa', dateIso: undefined, dateLabel: 'test' }
 }))
 
-import { noteWebVersion, updateAvailable } from '../../src/lib/version'
+import { latestVersionUrl, noteWebVersion, updateAvailable } from '../../src/lib/version'
 
 beforeEach(() => {
   updateAvailable.value = false
@@ -32,5 +32,19 @@ describe('noteWebVersion', () => {
     noteWebVersion('bbbbbbbbbbbb')
     noteWebVersion('aaaaaaaaaaaa')
     expect(updateAvailable.value).toBe(true)
+  })
+})
+
+describe('latestVersionUrl', () => {
+  it('cache-busts the app shell while preserving the active game route', () => {
+    expect(latestVersionUrl('https://drop.poapkings.com/#/higher-lower', 123)).toBe(
+      'https://drop.poapkings.com/?drop-refresh=123#/higher-lower'
+    )
+  })
+
+  it('replaces an earlier refresh token instead of accumulating them', () => {
+    expect(latestVersionUrl('https://drop.poapkings.com/?drop-refresh=old#/rain', 456)).toBe(
+      'https://drop.poapkings.com/?drop-refresh=456#/rain'
+    )
   })
 })
