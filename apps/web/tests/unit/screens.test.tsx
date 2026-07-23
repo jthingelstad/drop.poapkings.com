@@ -250,8 +250,8 @@ describe('Leaderboards', () => {
     expect(host.textContent).toContain('Alice')
     expect(host.textContent).toContain('4.20s') // surge = golf seconds
     // The player's own row is flagged.
-    expect(host.querySelector('.leaderboard-row--player')).not.toBeNull()
-    expect(host.querySelector('.leaderboard-row--player')?.textContent).toContain('You')
+    expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
+    expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
   })
 
   it('opens the selected player and keeps the signed-in player on the private profile route', async () => {

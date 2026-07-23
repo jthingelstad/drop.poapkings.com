@@ -36,11 +36,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
   const games = entry.player.totalGames
   const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
   return (
-    <li
-      class={`ed-lbrow leaderboard-row${entry.rank <= 3 ? ' leaderboard-row--podium' : ''}${
-        isPlayer ? ' ed-lbrow--you leaderboard-row--player' : ''
-      }`}
-    >
+    <li class={`ed-lbrow${entry.rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}`}>
       <button
         class="ed-lbrow__button"
         aria-label={`View ${isPlayer ? 'your' : `${entry.player.publicName}'s`} profile`}

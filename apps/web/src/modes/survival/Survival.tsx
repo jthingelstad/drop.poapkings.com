@@ -248,14 +248,15 @@ export default function Survival() {
               tone: 'green'
             }
           ]}
+          shareAction={
+            <ShareLine
+              mode="survival"
+              score={won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`}
+            />
+          }
           onReplay={replay}
           onHome={() => navigate('/')}
-        >
-          <ShareLine
-            mode="survival"
-            score={won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`}
-          />
-        </Summary>
+        />
       </div>
     )
   }

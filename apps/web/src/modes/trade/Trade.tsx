@@ -300,6 +300,7 @@ export default function Trade() {
             { label: 'Accuracy', value: `${accuracyPct}%`, tone: 'green' },
             { label: 'Time', value: `${formatSeconds(totalMs.value)}s`, tone: 'gold' }
           ]}
+          shareAction={<ShareLine mode="trade" score={`${formatSeconds(totalMs.value)}s`} />}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
@@ -309,7 +310,6 @@ export default function Trade() {
             <span>Last trade {formatTrade(lastTrade.value)}</span>
             <span>{tradeLine(lastTrade.value)}</span>
           </div>
-          <ShareLine mode="trade" score={`${formatSeconds(totalMs.value)}s`} />
         </Summary>
       </div>
     )

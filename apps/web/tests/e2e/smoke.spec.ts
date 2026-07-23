@@ -1268,7 +1268,7 @@ test('surge summary shows cost accuracy bars without a recruitment callout', asy
   })
 })
 
-test('completed runs use native browser sharing with game, score, and Elixir Drop link', async ({ page }) => {
+test('completed runs use native browser sharing with game, score, and Elixir Drop link', async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
@@ -1285,7 +1285,21 @@ test('completed runs use native browser sharing with game, score, and Elixir Dro
     axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
   ).toEqual([])
 
-  await page.getByRole('button', { name: 'Share score' }).click()
+  const shareButton = page.getByRole('button', { name: 'Share score' })
+  await expect(shareButton).toBeVisible()
+  expect(
+    await shareButton.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.top >= 0 && bounds.bottom <= window.innerHeight
+    })
+  ).toBe(true)
+  if (testInfo.project.name === 'iphone-14') {
+    await testInfo.attach('share-score-first-viewport.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
+  }
+  await shareButton.click()
   await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible()
   const payload = await page.evaluate(() => (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload)
   expect(payload).toMatchObject({
@@ -1766,6 +1780,16 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
+
+  const firstRow = page.locator('.ed-lbrow').first()
+  const firstName = firstRow.locator('.ed-lbrow__name')
+  const firstScore = firstRow.locator('.ed-lbrow__score')
+  await expect(firstName).toBeVisible()
+  const [nameBounds, scoreBounds] = await Promise.all([firstName.boundingBox(), firstScore.boundingBox()])
+  expect(nameBounds).not.toBeNull()
+  expect(scoreBounds).not.toBeNull()
+  expect(nameBounds!.width).toBeGreaterThan(40)
+  expect(nameBounds!.x).toBeLessThan(scoreBounds!.x)
 
   // Switch the per-mode tab to Survival.
   await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()

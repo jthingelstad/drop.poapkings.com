@@ -17,6 +17,7 @@ interface Props {
   pbCallout?: string // e.g. "New personal best! −3.4s"
   insights: Insights
   moments?: SummaryMoment[]
+  shareAction?: ComponentChildren // keep sharing visible before the detailed run analysis
   children?: ComponentChildren // optional mode-specific result details
   onReplay: () => void
   replayLabel?: string
@@ -81,6 +82,7 @@ export default function Summary({
   pbCallout,
   insights,
   moments,
+  shareAction,
   children,
   onReplay,
   replayLabel = 'Play again',
@@ -102,6 +104,8 @@ export default function Summary({
           </div>
         )}
       </div>
+
+      {shareAction}
 
       {runMoments.length > 0 && (
         <div class="ed-sum-tiles" aria-label="Run highlights">

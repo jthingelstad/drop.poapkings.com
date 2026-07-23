@@ -174,6 +174,7 @@ describe('Summary', () => {
         headline="40s"
         insights={insights}
         moments={[{ label: 'Custom', value: 'Nice', tone: 'green' }]}
+        shareAction={<div class="primary-share-slot">share first</div>}
         replayLabel="Run it back"
         onReplay={() => {}}
         onHome={() => {}}
@@ -195,6 +196,9 @@ describe('Summary', () => {
     expect(html).toContain('Giant')
     // slowest reads (timing).
     expect(html).toContain('Slowest reads')
+    // Sharing is promoted directly below the result headline, before analysis.
+    expect(html).toContain('primary-share-slot')
+    expect(html.indexOf('primary-share-slot')).toBeLessThan(html.indexOf('ed-sum-tiles'))
     // children slot.
     expect(html).toContain('my-share-slot')
     // custom replay label.

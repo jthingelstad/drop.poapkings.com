@@ -227,12 +227,11 @@ export default function Surge() {
             { label: 'Avg / card', value: `${formatSeconds(totalMs.value / SURGE.SPRINT_LEN)}s`, tone: 'gold' },
             { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' }
           ]}
+          shareAction={<ShareLine mode="surge" score={`${formatSeconds(totalMs.value)}s`} />}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
-        >
-          <ShareLine mode="surge" score={`${formatSeconds(totalMs.value)}s`} />
-        </Summary>
+        />
       </div>
     )
   }

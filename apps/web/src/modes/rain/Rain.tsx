@@ -270,12 +270,11 @@ export default function Rain() {
             { label: 'Prev best', value: String(best.value), tone: 'purple' },
             { label: 'Accuracy', value: `${insights.value.accuracyPct}%`, tone: 'green' }
           ]}
+          shareAction={<ShareLine mode="rain" score={`${score.value} cleared`} />}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
-        >
-          <ShareLine mode="rain" score={`${score.value} cleared`} />
-        </Summary>
+        />
       </div>
     )
   }

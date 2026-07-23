@@ -6975,7 +6975,12 @@ html.reduce-motion .ed-duel__card {
   padding: 0;
 }
 .ed-lbrow {
+  min-height: 78px;
   border-bottom: 1px solid rgba(215, 200, 255, 0.08);
+  background: rgba(18, 13, 40, 0.48);
+}
+.ed-lbrow--podium {
+  background: linear-gradient(90deg, rgba(109, 40, 217, 0.18), rgba(18, 13, 40, 0.62));
 }
 .ed-lbrow__button {
   display: grid;
@@ -6983,6 +6988,7 @@ html.reduce-motion .ed-duel__card {
   align-items: center;
   gap: 11px;
   width: 100%;
+  min-height: 78px;
   padding: 11px 14px;
   border: 0;
   background: transparent;

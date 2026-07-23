@@ -169,11 +169,10 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
             { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' },
             { label: 'Mode', value: 'Unranked', tone: 'purple' }
           ]}
+          shareAction={<ShareLine mode="practice" score={`${ins.accuracyPct}% accuracy`} />}
           onReplay={replay}
           onHome={exit}
-        >
-          <ShareLine mode="practice" score={`${ins.accuracyPct}% accuracy`} />
-        </Summary>
+        />
       </div>
     )
   }
