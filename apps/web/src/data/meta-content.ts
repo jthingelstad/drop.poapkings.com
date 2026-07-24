@@ -20,6 +20,9 @@ export interface AboutContent {
   sections: Array<{ title: string; body: string }>
   // Relocated from the old global footer — the required fan-content notice.
   disclaimer: string
+  // The exact disclaimer string the Supercell Fan Content Policy requires,
+  // reproduced verbatim. Do not paraphrase — the policy mandates this wording.
+  policyNotice: string
 }
 
 export interface FaqContent {
@@ -54,7 +57,9 @@ export const ABOUT: AboutContent = {
     }
   ],
   disclaimer:
-    'This fan community is not affiliated with Supercell. Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell’s Fan Content Policy.'
+    'This fan community is not affiliated with Supercell. Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell’s Fan Content Policy.',
+  policyNotice:
+    'This material is unofficial and is not endorsed by Supercell. For more information see Supercell’s Fan Content Policy: www.supercell.com/fan-content-policy.'
 }
 
 export const FAQ: FaqContent = {

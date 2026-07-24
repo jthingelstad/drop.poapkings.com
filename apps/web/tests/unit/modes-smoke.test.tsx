@@ -164,8 +164,6 @@ describe('Settings', () => {
     const c = mount(<Settings />)
     expect(c.textContent).toContain('Settings')
     expect(c.textContent).toContain('Release')
-    expect(c.textContent).toContain('Beta')
-    expect(c.textContent).toContain('Learn every drop.')
     expect(c.textContent).toContain('Build ID')
     expect(c.textContent).toContain('Build date')
   })

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'public/assets/og-image.png')
 const elixir = await readFile(path.join(root, 'public/assets/elixir-og.png'))
-const font = path.join(root, 'public/assets/fonts/SupercellMagic.ttf')
+const font = await readFile(path.join(root, 'public/assets/fonts/Clash_Regular.otf'))
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 })
@@ -15,9 +15,9 @@ await page.setContent(`
 <html>
   <head>
     <style>
-      @font-face { font-family: "Supercell Magic"; src: url("file://${font}") format("truetype"); }
+      @font-face { font-family: "Clash Royale"; src: url("data:font/otf;base64,${font.toString('base64')}") format("opentype"); }
       * { box-sizing: border-box; }
-      body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #070610; font-family: "Supercell Magic", system-ui, sans-serif; color: #f7f4ff; }
+      body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #070610; font-family: "Clash Royale", system-ui, sans-serif; color: #f7f4ff; }
       .card {
         position: relative; width: 1200px; height: 630px; overflow: hidden;
         background:
@@ -47,6 +47,12 @@ await page.setContent(`
     </main>
   </body>
 </html>`)
+// Ensure the @font-face is actually loaded before capturing, otherwise the
+// headline silently falls back to system-ui.
+await page.evaluate(async () => {
+  await document.fonts.load('78px "Clash Royale"')
+  await document.fonts.ready
+})
 await page.screenshot({ path: out, type: 'png' })
 await browser.close()
 console.log(`wrote ${path.relative(root, out)}`)

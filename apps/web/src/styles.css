@@ -2,13 +2,15 @@
    POAP KINGS design tokens — vendored into this repo.
    No runtime link to poapkings.com.
 
-   Fonts: Supercell Magic is vendored from poapkings.com.
-   Inter falls back to system-ui.
+   Fonts: "Clash" is Supercell's official Clash Royale display font,
+   from the Supercell Fan Kit and used under the Fan Content Policy
+   (see apps/web/public/assets/fonts/README.md). Inter falls back to
+   system-ui.
    ========================================================= */
 
 @font-face {
-  font-family: 'Supercell Magic';
-  src: url('/assets/fonts/SupercellMagic.ttf') format('truetype');
+  font-family: 'Clash Royale';
+  src: url('/assets/fonts/Clash_Regular.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -37,7 +39,7 @@
   --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
   --col: 1120px;
 
-  --font-display: 'Supercell Magic', system-ui, sans-serif;
+  --font-display: 'Clash Royale', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Arial', sans-serif;
 
   /* Redesign additions ─────────────────────────────────────── */

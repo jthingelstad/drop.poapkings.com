@@ -19,6 +19,7 @@ function AboutBody() {
       ))}
       <MetaSection title="Fan content" muted>
         <p>{ABOUT.disclaimer}</p>
+        <p>{ABOUT.policyNotice}</p>
       </MetaSection>
     </div>
   )
