@@ -69,8 +69,17 @@ export function deploymentParameters({
     ["ButtondownNewsletterId", "BUTTONDOWN_NEWSLETTER_ID"],
   ]) {
     const value = environment[environmentKey]?.trim();
-    if (value)
+    if (value) {
       parameters.push({ ParameterKey: parameterKey, ParameterValue: value });
+    } else if (stackExists) {
+      // Preserve the deployed credentials across env-less deploys (CI passes no
+      // Buttondown secrets). Without this, CloudFormation resets the parameter
+      // to its "" Default on every push to main and silently disables
+      // enrollment — same UsePreviousValue idiom the runtime secrets use.
+      parameters.push({ ParameterKey: parameterKey, UsePreviousValue: true });
+    }
+    // On stack creation with no value, omit so the template's "" Default
+    // applies and Buttondown stays disabled until credentials are supplied.
   }
 
   for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {

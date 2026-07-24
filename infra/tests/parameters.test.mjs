@@ -114,19 +114,44 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("leaves Buttondown disabled until local credentials are supplied", () => {
+  void it("preserves the deployed Buttondown credentials on env-less updates", () => {
+    // CI deploys pass no Buttondown secrets. The parameters must reuse the
+    // previously-deployed value; omitting them lets CloudFormation reset the
+    // parameter to its "" Default and silently disable enrollment.
     const parameters = deploymentParameters({ ...base, stackExists: true });
+
+    for (const parameterKey of ["ButtondownApiKey", "ButtondownNewsletterId"]) {
+      assert.deepEqual(
+        parameters.find((parameter) => parameter.ParameterKey === parameterKey),
+        { ParameterKey: parameterKey, UsePreviousValue: true },
+      );
+    }
+    assert.match(template, /BUTTONDOWN_API_KEY: !Ref ButtondownApiKey/);
+    assert.match(
+      template,
+      /BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId/,
+    );
+  });
+
+  void it("omits Buttondown parameters on stack creation without credentials", () => {
+    // No previous value exists yet on create; omitting lets the "" Default
+    // apply so a fresh stack comes up with Buttondown cleanly disabled.
+    const parameters = deploymentParameters({
+      ...base,
+      environment: {
+        SESSION_SECRET: "session-secret",
+        TELEMETRY_PEPPER: "telemetry-pepper",
+        FASTMAIL_JMAP_TOKEN: "jmap-token",
+        ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+      },
+      stackExists: false,
+    });
 
     assert.equal(
       parameters.some((parameter) =>
         parameter.ParameterKey.startsWith("Buttondown"),
       ),
       false,
-    );
-    assert.match(template, /BUTTONDOWN_API_KEY: !Ref ButtondownApiKey/);
-    assert.match(
-      template,
-      /BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId/,
     );
   });
 
