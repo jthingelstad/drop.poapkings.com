@@ -166,14 +166,22 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
 | Practice       | `#/practice`     | none — **endless, unranked, unscored**      |
 | Higher / Lower | `#/higher-lower` | `higherLowerBest`, total correct reads      |
-| Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
+| Trade          | `#/trade`        | `tradeLadderBest`, lowest 10-exchange time  |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
 | Rain           | `#/rain`         | `rainBest`, most cards cleared              |
 
-Survival, Rain, and Higher / Lower each carry a **board epoch** (`BOARD_EPOCH` in
-`services/api/src/games.ts`, mirrored in `AGENT-TEAM/scripts/_referee-lib.mjs`): a
-material rules change restarts the board rather than deleting data, and old rows
-are orphaned. All three are on `r2`.
+Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
+(`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
+`AGENT-TEAM/scripts/_referee-lib.mjs`): a material rules change restarts the
+board rather than deleting data, and old rows are orphaned. All four are on
+`r2`. A mode whose scoring shape changes usually renames its local record key in
+the same move (`longestStreak` → `higherLowerBest`, `tradeBest` →
+`tradeLadderBest`), so an on-device best from the retired rules orphans the same
+way the board did instead of standing as an unbeatable target.
+
+Trade's run length is the length of `TRADE_LADDER` in `packages/contracts`
+(`TRADE_ROUNDS`), the fixed board ladder the server deals and the browser plays;
+neither side carries its own exchange count.
 
 Equal scores are separated by **ordered ascending tiebreaks**
 (`MODE_TIEBREAKS`), each emitted as a 9-digit segment of the sort key in ranking
@@ -304,7 +312,7 @@ Learning progress, owned by `lib/storage.ts` (`localStorage`):
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
 elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerBest,
-                              survivalBest, tradeBest, rainBest }
+                              survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)

@@ -48,7 +48,12 @@ export interface Records {
   // Practice deliberately has NO record key: it is an endless, non-competitive
   // drill with no score and no personal best (see RECORD_KEYS / RecordedMode).
   survivalBest?: number // Survival: longest sudden-death streak
-  tradeBest?: number // Trade: lowest 8-exchange read time (ms) — lower is better
+  // Trade: lowest time (ms) over the ten-exchange board ladder — lower is
+  // better. Renamed from `tradeBest`, which deliberately orphans old on-device
+  // bests: that number came off eight exchanges of randomly sized boards, so a
+  // ten-round run could never beat it and the player would never see another
+  // personal best (see the r2 board epoch).
+  tradeLadderBest?: number
   rainBest?: number // Rain: most cards cleared — ranked; written only on server acceptance
 }
 

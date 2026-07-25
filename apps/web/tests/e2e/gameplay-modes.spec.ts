@@ -1,3 +1,4 @@
+import { TRADE_LADDER, TRADE_ROUNDS } from '@elixir-drop/contracts'
 import { cardsById, cardsData, expect, test, waitForKeypad } from './fixtures'
 
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
@@ -80,7 +81,7 @@ test('rain flashes the running total every 10 clears', async ({ page }) => {
   await expect(page.locator('.ed-rain__milestone')).toHaveCount(0, { timeout: 4_000 })
 })
 
-test('trade auto-advances eight exchanges with one cost hint per wrong guess', async ({ page }) => {
+test('trade auto-advances the ten-exchange ladder with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/#/trade')
   const teams = page.locator('.ed-trade__teams')
   await expect(teams).toBeVisible({ timeout: 12_000 })
@@ -95,13 +96,25 @@ test('trade auto-advances eight exchanges with one cost hint per wrong guess', a
   const format = (value: number) => (value === 0 ? 'Even trade' : `${value > 0 ? `+${value}` : value} trade`)
   const seenIds: number[] = []
 
-  for (let trade = 1; trade <= 8; trade += 1) {
+  for (let trade = 1; trade <= TRADE_ROUNDS; trade += 1) {
     await expect(teams).toHaveAttribute('data-trade-index', String(trade))
     const blueIds = await readSideIds('.ed-trade__team--blue')
     const redIds = await readSideIds('.ed-trade__team--red')
     const roundIds = [...blueIds, ...redIds]
     expect(new Set(roundIds).size).toBe(roundIds.length)
     seenIds.push(...roundIds)
+
+    // The board shape is the ladder's, the same on every run: 1v1 openers,
+    // growing one card at a time, 3v3 only at the finish.
+    const board = TRADE_LADDER[trade - 1]!
+    expect({ blue: blueIds.length, red: redIds.length }).toEqual(board)
+
+    // Every run now ends on the widest board the mode can draw, so six cards on
+    // a phone is no longer a rare deal — it is the finish line of every run.
+    if (board.blue === 3 && board.red === 3) {
+      const overflows = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
+      expect(overflows).toBe(false)
+    }
 
     const answer = total(redIds) - total(blueIds)
     expect(answer).toBeGreaterThanOrEqual(-4)
@@ -126,7 +139,7 @@ test('trade auto-advances eight exchanges with one cost hint per wrong guess', a
     await page.getByRole('button', { name: format(answer) }).click()
     await expect(page.getByRole('button', { name: 'Next trade' })).toHaveCount(0)
 
-    if (trade < 8) {
+    if (trade < TRADE_ROUNDS) {
       await page.waitForFunction(
         (expected) => document.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index') === String(expected),
         trade + 1

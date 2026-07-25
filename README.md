@@ -20,7 +20,8 @@ Six ways to play, one card-cost engine:
 - **Higher / Lower** — two cards, pick which costs more, on three lives. The gap
   between the two costs narrows as you go. Trains the relative read that wins
   elixir trades.
-- **Trade** — Blue King vs. Red King elixir math across eight exchanges.
+- **Trade** — Blue King vs. Red King elixir math across ten exchanges, on a fixed
+  board ladder that opens with 1v1 reads and ends 3v3.
 - **Survival** — sudden death; one miss or timeout ends the run, and the clock
   tightens as your streak grows.
 - **Rain** — falling cards, three lives, and a cost keypad. Clear the lit card

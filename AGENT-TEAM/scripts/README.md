@@ -87,10 +87,12 @@ skipped it; if you are reading a review older than that, Rain was not covered.
 materially gets a new epoch so its board restarts without deleting data — old
 rows are orphaned, and the scripts only ever see the current epoch. Survival is
 on `r2` (clear-the-deck rework), Rain on `r2` (2026-07-24 difficulty redesign:
-the old curve capped at 50 clears), and Higher/Lower on `r2` (2026-07-25: three
-lives + a gap-ramped deal, so a one-life score measures a different game).
-**Keep this in sync with the API** — a stale mirror reads the wrong partition
-and silently returns an empty cohort.
+the old curve capped at 50 clears), Higher/Lower on `r2` (2026-07-25: three
+lives + a gap-ramped deal, so a one-life score measures a different game), and
+Trade on `r2` (2026-07-25: ten exchanges on a fixed board ladder, so an
+eight-exchange time is both shorter and easier). **Keep this in sync with the
+API** — a stale mirror reads the wrong partition and silently returns an empty
+cohort.
 
 `MODE_TIEBREAKS` mirrors the ordered ascending tiebreaks each mode ranks equal
 scores by, named by the run attribute carrying each value: Survival `timeMs`;

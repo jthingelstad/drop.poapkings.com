@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import { TRADE_ROUNDS } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
@@ -25,8 +26,11 @@ import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
+// Trade tunables — one config object (SPEC §9). The exchange count is NOT a
+// tunable here: it is the length of the shared board ladder the server deals,
+// so the two can never disagree about how long a run is.
 const TRADE = {
-  SEQUENCE_LEN: 8,
+  SEQUENCE_LEN: TRADE_ROUNDS,
   PENALTY_MS: 2000
 }
 
@@ -147,14 +151,14 @@ export default function Trade() {
 
   function finish(finalScore?: number) {
     const total = finalScore ?? runtime.currentElapsed()
-    const best = getRecords().tradeBest
+    const best = getRecords().tradeLadderBest
     const pb = best === undefined || total < best
     totalMs.value = total
     elapsedMs.value = total
     prevBest.value = best
     isPB.value = pb
 
-    // tradeBest is persisted centrally when the server accepts the run.
+    // tradeLadderBest is persisted centrally when the server accepts the run.
     elixirLine.value = tradeSummaryLine({
       isPB: pb,
       totalMs: total,

@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test'
 import { test as base, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import type { GameMode, RunChallenge } from '@elixir-drop/contracts'
+import { TRADE_LADDER, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
 import type { CardsData } from '../../src/types'
 
 export const cardsData = JSON.parse(
@@ -192,13 +192,26 @@ function testChallenge(mode: GameMode): RunChallenge {
       }
     }
     case 'trade': {
-      const byCost = cards.toSorted((left, right) => left.elixir - right.elixir)
+      // The server's fixed board ladder, dealt like the server deals it: take
+      // the next window of catalog cards whose swing lands inside the keypad's
+      // -4..+4, and slide along until one does. Cards are consumed, so no card
+      // repeats inside the run.
+      const pool = [...cards]
       return {
         mode,
-        rounds: Array.from({ length: 8 }, (_, index) => ({
-          blueIds: [byCost[index * 2]!.id],
-          redIds: [byCost[index * 2 + 1]!.id]
-        }))
+        rounds: TRADE_LADDER.map((board) => {
+          const size = board.blue + board.red
+          for (let start = 0; start + size <= pool.length; start += 1) {
+            const window = pool.slice(start, start + size)
+            const total = (side: typeof window) => side.reduce((sum, card) => sum + card.elixir, 0)
+            const blue = window.slice(0, board.blue)
+            const red = window.slice(board.blue)
+            if (Math.abs(total(red) - total(blue)) > 4) continue
+            pool.splice(start, size)
+            return { blueIds: blue.map((card) => card.id), redIds: red.map((card) => card.id) }
+          }
+          throw new Error(`test challenge could not deal a ${board.blue}v${board.red} trade board`)
+        })
       }
     }
   }

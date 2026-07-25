@@ -75,10 +75,17 @@ const MAX_TIEBREAK = 999_999_999;
 // uniformly random pairs, and the score is now total correct reads across a
 // whole session that survives two misses. The two numbers are not the same
 // measurement, so they cannot share a board.
+// Trade moved to "r2" on 2026-07-25 when it went to ten exchanges on a fixed
+// board ladder. Its score is golf time over the whole run, so two more
+// exchanges alone make every old time unbeatable, and the ladder changed what
+// those exchanges ask: three 1v1 openers and 3v3 only at the end, instead of
+// randomly sized boards that reached 3v3 by round 8. Ten rounds on a gentler,
+// deterministic ramp are not comparable to eight on a random one.
 const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
   survival: "r2",
   rain: "r2",
   "higher-lower": "r2",
+  trade: "r2",
 };
 
 // The ordered ascending tiebreaks a mode ranks equal scores by, named by the

@@ -409,6 +409,9 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
     expect(scriptsLeaderboardPartition("2026-07", "higher-lower")).toBe(
       "LEADERBOARD#2026-07#higher-lower#r2",
     );
+    expect(scriptsLeaderboardPartition("2026-07", "trade")).toBe(
+      "LEADERBOARD#2026-07#trade#r2",
+    );
   });
 
   // -------------------------------------------------------------------------

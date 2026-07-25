@@ -2,6 +2,11 @@ import { randomInt } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import {
+  TRADE_LADDER,
+  TRADE_ROUNDS,
+  type TradeBoard,
+} from "@elixir-drop/contracts";
+import {
   createChallenge,
   higherLowerGap,
   higherLowerTiebreaks,
@@ -9,6 +14,7 @@ import {
   scoreRunWithSignals,
   SURGE_CARD_COUNT,
   survivalTimeMs,
+  tradeRounds,
 } from "../src/scoring.js";
 import {
   isLeaderboardEligibleScore,
@@ -65,6 +71,20 @@ function higherLowerAnswers(
       elapsedMs: elapsed[index] ?? 800,
     };
   });
+}
+
+// ── Trade fixtures ──────────────────────────────────────────────────────────
+// One clean guess per exchange of a dealt ladder, 100ms apart.
+function tradeAnswers(
+  challenge: Extract<ReturnType<typeof createChallenge>, { mode: "trade" }>,
+) {
+  return challenge.rounds.map((round, index) => ({
+    guesses: [
+      round.redIds.reduce((sum, id) => sum + cost(id), 0) -
+        round.blueIds.reduce((sum, id) => sum + cost(id), 0),
+    ],
+    atMs: 1_000 + index * 100,
+  }));
 }
 
 describe("server-side game scoring", () => {
@@ -302,14 +322,83 @@ describe("server-side game scoring", () => {
 
   it("validates Trade transcripts", () => {
     const trade = createChallenge("trade", randomInt);
-    const tradeAnswers = trade.rounds.map((round, index) => ({
-      guesses: [
-        round.redIds.reduce((sum, id) => sum + cost(id), 0) -
-          round.blueIds.reduce((sum, id) => sum + cost(id), 0),
-      ],
-      atMs: 1_000 + index * 100,
+    expect(trade.rounds).toHaveLength(TRADE_ROUNDS);
+    const answers = tradeAnswers(trade);
+    // The last answer's atMs is the run time; every round was solved first try.
+    expect(scoreRun(trade, { answers }, 10_000)).toBe(1_900);
+  });
+
+  it("rejects a Trade transcript that is not the full ladder", () => {
+    const trade = createChallenge("trade", randomInt);
+    const answers = tradeAnswers(trade);
+    // Eight exchanges was the old run length; it is now an incomplete run.
+    expect(() =>
+      scoreRun(trade, { answers: answers.slice(0, 8) }, 10_000),
+    ).toThrow(/complete Trade transcript/);
+    expect(() =>
+      scoreRun(trade, { answers: [...answers, answers[0]!] }, 10_000),
+    ).toThrow(/complete Trade transcript/);
+  });
+
+  it("climbs Trade's ladder: three 1v1 openers, then one card at a time", () => {
+    expect(TRADE_LADDER).toHaveLength(10);
+    const size = (board: TradeBoard) => board.blue + board.red;
+
+    // The first third is the fundamental read: two cards, one subtraction.
+    for (const board of TRADE_LADDER.slice(0, 3))
+      expect(board).toEqual({ blue: 1, red: 1 });
+
+    // Every side is playable (1-3 cards) and the load never drops back.
+    for (const [index, board] of TRADE_LADDER.entries()) {
+      for (const count of [board.blue, board.red]) {
+        expect(count).toBeGreaterThanOrEqual(1);
+        expect(count).toBeLessThanOrEqual(3);
+      }
+      if (index > 0)
+        expect(size(board)).toBeGreaterThanOrEqual(
+          size(TRADE_LADDER[index - 1]!),
+        );
+    }
+
+    // The full board is the finish line, not the middle of the run.
+    const firstFullBoard = TRADE_LADDER.findIndex(
+      (board) => board.blue === 3 && board.red === 3,
+    );
+    expect(firstFullBoard).toBeGreaterThanOrEqual(TRADE_LADDER.length - 2);
+    expect(TRADE_LADDER.at(-1)).toEqual({ blue: 3, red: 3 });
+  });
+
+  it("deals every Trade board to the ladder, inside the keypad's range", () => {
+    for (let seed = 0; seed < 100; seed += 1) {
+      const trade = createChallenge("trade", randomInt);
+      const seen: number[] = [];
+      trade.rounds.forEach((round, index) => {
+        const board = TRADE_LADDER[index]!;
+        expect(round.blueIds).toHaveLength(board.blue);
+        expect(round.redIds).toHaveLength(board.red);
+        const value =
+          round.redIds.reduce((sum, id) => sum + cost(id), 0) -
+          round.blueIds.reduce((sum, id) => sum + cost(id), 0);
+        // Outside -4..+4 the signed keypad cannot answer the exchange at all.
+        expect(value).toBeGreaterThanOrEqual(-4);
+        expect(value).toBeLessThanOrEqual(4);
+        seen.push(...round.blueIds, ...round.redIds);
+      });
+      // A card never comes back inside one run — the catalog is far larger than
+      // the 38 cards the ladder deals.
+      expect(new Set(seen).size).toBe(seen.length);
+    }
+  });
+
+  it("fails the deal instead of spinning when a board cannot land in range", () => {
+    // A catalog of nothing but 9-cost cards can open (1v1 is a wash) but can
+    // never make the 1v2 rung answerable. The bounded redeal has to give up.
+    const nines = Array.from({ length: 8 }, (_unused, index) => ({
+      id: 900 + index,
+      name: `Nine ${index}`,
+      elixir: 9,
     }));
-    expect(scoreRun(trade, { answers: tradeAnswers }, 10_000)).toBe(1_700);
+    expect(() => tradeRounds(randomInt, nines)).toThrow(/1v2 board/);
   });
 
   it("validates sudden-death games", () => {
@@ -350,6 +439,11 @@ describe("server-side game scoring", () => {
     // measured something else entirely and cannot share a board.
     expect(leaderboardPartition("2026-07", "higher-lower")).toBe(
       "LEADERBOARD#2026-07#higher-lower#r2",
+    );
+    // Trade restarted at ten exchanges on a fixed ladder: two more exchanges
+    // alone make every eight-exchange time unbeatable.
+    expect(leaderboardPartition("2026-07", "trade")).toBe(
+      "LEADERBOARD#2026-07#trade#r2",
     );
     expect(leaderboardPartition("2026-07", "surge")).toBe(
       "LEADERBOARD#2026-07#surge",

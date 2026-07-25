@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render } from 'preact'
 import { signal } from '@preact/signals'
 import rawCards from '@elixir-drop/game-data/cards.json'
+import { TRADE_LADDER, TRADE_ROUNDS } from '@elixir-drop/contracts'
 import type { Card } from '../../src/types'
 
 // ── Hoisted holders so the mocked game hooks return test-controlled fakes ──────
@@ -251,15 +252,19 @@ describe('challengePreparers', () => {
     expect(out.assets).toHaveLength(2)
   })
 
-  it('trade resolves 8 rounds of blue/red cards', () => {
-    const rounds = Array.from({ length: 8 }, (_, i) => ({
-      blueIds: [CARD_IDS[i]],
-      redIds: [CARD_IDS[i + 8]]
+  it('trade resolves the full ladder of blue/red boards', () => {
+    // Ladder-shaped rounds, dealt distinct ids straight off the catalog.
+    let next = 0
+    const rounds = TRADE_LADDER.map((board) => ({
+      blueIds: Array.from({ length: board.blue }, () => CARD_IDS[next++]),
+      redIds: Array.from({ length: board.red }, () => CARD_IDS[next++])
     }))
     const out = challengePreparers.trade({ mode: 'trade', rounds } as never)
-    expect(out.content).toHaveLength(8)
+    expect(out.content).toHaveLength(TRADE_ROUNDS)
     expect(out.content[0]!.blue).toHaveLength(1)
     expect(out.content[0]!.red).toHaveLength(1)
+    expect(out.content.at(-1)!.blue).toHaveLength(3)
+    expect(out.content.at(-1)!.red).toHaveLength(3)
   })
 
   it('rejects a challenge whose card count is wrong', () => {

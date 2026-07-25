@@ -165,16 +165,44 @@ Two difficulty axes, one of which is deliberately frozen:
 
 **Trade** — `/trade` · `apps/web/src/modes/trade/`
 You are always Blue King; Red is the opponent. Blue plays 1–3 dealt cards and
-Red answers with 1–3 dealt cards across an 8-exchange sprint that ramps from
-the small boards (1v1, 2v1) to the big ones. Guess your elixir trade from
-`-4` through `+4`, where positive means Red spent more elixir than you. A
-wrong guess adds +2.0s, reveals one persistent card-cost hint for that
-exchange, and leaves the exchange live. A solved exchange reveals every cost
-and both side sums ("Blue 7 · Red 9 → +2") with a tap-to-continue Next —
-readers pay only their own dwell against the clock.
+Red answers with 1–3 dealt cards across a **10-exchange** sprint. Guess your
+elixir trade from `-4` through `+4`, where positive means Red spent more elixir
+than you. A wrong guess adds +2.0s, reveals one persistent card-cost hint for
+that exchange, and leaves the exchange live. A solved exchange reveals every
+cost and both side sums ("Blue 7 · Red 9 → +2") for a beat and then deals the
+next exchange automatically — there is no Next button, because the run is timed
+and advancing must never wait on another tap.
 
+- **Board ladder (fixed, the same every run — only the cards vary):**
+
+  | R1  | R2  | R3  | R4  | R5  | R6  | R7  | R8  | R9  | R10 |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | 1v1 | 1v1 | 1v1 | 1v2 | 2v1 | 2v2 | 2v3 | 3v2 | 3v3 | 3v3 |
+
+  `TRADE_LADDER` in `packages/contracts` is the one definition of it, and
+  `TRADE_ROUNDS` (its length) is the run length both the server deal and the
+  browser read, so the two cannot drift. The first third is plain 1v1 reads —
+  the fundamental this mode teaches — then boards grow one card at a time and
+  the full 3v3 arrives only at the finish. Lopsided rungs alternate which side
+  is longer so the sign of the answer keeps flipping. The old deal rolled both
+  side sizes at random and sorted by card count, which reached 3v3 by round 8
+  with no run of simple boards to learn on; Trade was the least-played ranked
+  mode, at a median 77.6s over 8 exchanges (~9.7s each, against Surge's ~1.3s
+  per card).
+- Cards are dealt by rejection: the value has to land inside the keypad's
+  -4..+4, so a board is redealt until it does (bounded, and a shape that cannot
+  land fails the run start rather than spinning).
 - Input: signed trade keypad (`-4 … Even … +4`).
-- Record: `tradeBest` (lowest 8-exchange time).
+- Scoring: golf time (elapsed + 2.0s per miss), unchanged. Trade drills a read
+  that a real match asks for under time pressure, so the clock is the point.
+- Record: `tradeLadderBest` (lowest 10-exchange ladder time). Renamed from
+  `tradeBest`, which orphans existing on-device bests on purpose — a 10-round
+  run cannot beat an 8-round time, so keeping the key would retire the player's
+  personal best forever.
+- Board epoch `r2` (2026-07-25). The 8-exchange board is retired: the run is
+  two exchanges longer _and_ a different climb, so old times are neither
+  beatable nor comparable. Old rows are orphaned, not deleted (`BOARD_EPOCH` in
+  `services/api/src/games.ts`).
 
 ### Tension
 

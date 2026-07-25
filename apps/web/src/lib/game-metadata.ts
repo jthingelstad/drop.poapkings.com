@@ -98,7 +98,7 @@ export function isRecordedMode(mode: GameMode): mode is RecordedMode {
 export const RECORD_KEYS: Record<RecordedMode, NumericRecordKey> = {
   surge: 'surgeBest',
   'higher-lower': 'higherLowerBest',
-  trade: 'tradeBest',
+  trade: 'tradeLadderBest',
   survival: 'survivalBest',
   rain: 'rainBest'
 }

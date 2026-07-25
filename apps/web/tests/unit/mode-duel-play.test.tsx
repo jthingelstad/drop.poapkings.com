@@ -43,6 +43,7 @@ vi.mock('../../src/lib/storage', async (importOriginal) => {
   return { ...actual, getRecords: vi.fn(() => ({}) as ReturnType<typeof actual.getRecords>), saveRecords: vi.fn() }
 })
 
+import { TRADE_LADDER, TRADE_ROUNDS } from '@elixir-drop/contracts'
 import HigherLower from '../../src/modes/higher-lower/HigherLower'
 import Trade from '../../src/modes/trade/Trade'
 import Rain from '../../src/modes/rain/Rain'
@@ -325,15 +326,23 @@ describe('Higher / Lower — gameplay', () => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Trade — hidden costs, one reveal per wrong guess, solve reveals all, 8→summary
+// Trade — hidden costs, one reveal per wrong guess, solve reveals all,
+// ten ladder exchanges → summary
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Trade — gameplay', () => {
-  // blue total 3, red total 5 → tradeValue = +2 for every round.
+  // A round of the real board shape for its rung of the ladder, dealt so every
+  // round swings +2: blue cards all cost 3, and red totals that plus two.
   function simpleRound(i: number): { blue: Card[]; red: Card[] } {
-    return { blue: [fakeCard(200 + i, 3, `B${i}`)], red: [fakeCard(300 + i, 5, `R${i}`)] }
+    const board = TRADE_LADDER[i]!
+    const blue = Array.from({ length: board.blue }, (_, n) => fakeCard(200 + i * 10 + n, 3, `B${i}-${n}`))
+    const lastRedCost = 3 * (board.blue - board.red + 1) + 2
+    const red = Array.from({ length: board.red }, (_, n) =>
+      fakeCard(300 + i * 10 + n, n === board.red - 1 ? lastRedCost : 3, `R${i}-${n}`)
+    )
+    return { blue, red }
   }
   function rounds(): Array<{ blue: Card[]; red: Card[] }> {
-    return Array.from({ length: 8 }, (_, i) => simpleRound(i))
+    return TRADE_LADDER.map((_board, i) => simpleRound(i))
   }
 
   it('every round in the fixture swings +2 (sanity via tradeValue)', () => {
@@ -347,7 +356,7 @@ describe('Trade — gameplay', () => {
       blue: [fakeCard(201, 3, 'BA')],
       red: [fakeCard(202, 1, 'RB'), fakeCard(203, 4, 'RC')]
     }
-    const content = [round0, ...Array.from({ length: 7 }, (_, i) => simpleRound(i + 1))]
+    const content = [round0, ...TRADE_LADDER.slice(1).map((_board, i) => simpleRound(i + 1))]
     stage(content)
     const c = mount(<Trade />)
     await toRunning(c)
@@ -380,13 +389,13 @@ describe('Trade — gameplay', () => {
     expect(c.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index')).toBe('2')
   })
 
-  it('solving all 8 exchanges lands on the summary with the run tiles and completes the run', async () => {
+  it('solving all ten exchanges lands on the summary with the run tiles and completes the run', async () => {
     const session = stage(rounds())
     const c = mount(<Trade />)
     await toRunning(c)
 
     // Solve each round with the correct +2; the next exchange is automatic.
-    for (let round = 0; round < 8; round += 1) {
+    for (let round = 0; round < TRADE_ROUNDS; round += 1) {
       await click(c.querySelector('[aria-label="+2 trade"]'))
       await advance(280)
     }
@@ -394,7 +403,7 @@ describe('Trade — gameplay', () => {
     // Summary screen with the three moment tiles.
     expect(c.textContent).toContain('Trade complete')
     expect(c.textContent).toContain('Clean')
-    expect(c.textContent).toContain('8/8') // all clean (no wrong guesses)
+    expect(c.textContent).toContain(`${TRADE_ROUNDS}/${TRADE_ROUNDS}`) // all clean (no wrong guesses)
     expect(c.textContent).toContain('Accuracy')
     expect(c.textContent).toContain('100%')
     expect(c.querySelector('.shareline')?.textContent).toContain('Trade')
@@ -402,7 +411,7 @@ describe('Trade — gameplay', () => {
     // The run was reported with one transcript entry per solved round.
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0][0] as { answers: Array<{ guesses: number[] }> }
-    expect(payload.answers).toHaveLength(8)
+    expect(payload.answers).toHaveLength(TRADE_ROUNDS)
     expect(payload.answers[0].guesses).toEqual([2]) // one clean guess per round
   })
 })

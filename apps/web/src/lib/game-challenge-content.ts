@@ -1,4 +1,4 @@
-import type { GameMode, RunChallenge } from '@elixir-drop/contracts'
+import { TRADE_ROUNDS, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
 import type { Card } from '../types'
 import type { TradeRound } from './trade'
 import { challengeCard, challengeCards, fullDeckSize } from './challenge-cards'
@@ -68,7 +68,8 @@ export const challengePreparers = {
     return { content: pairs, assets: pairs[0] ? [...pairs[0]] : [] }
   },
   trade: (challenge: ChallengeFor<'trade'>): PreparedChallenge<TradeRound[]> => {
-    if (!Array.isArray(challenge.rounds) || challenge.rounds.length !== 8) invalid('Trade')
+    // The run length is the shared ladder's length, not a local literal.
+    if (!Array.isArray(challenge.rounds) || challenge.rounds.length !== TRADE_ROUNDS) invalid('Trade')
     const rounds = challenge.rounds.map((round) => {
       const blue = challengeCards(round.blueIds)
       const red = challengeCards(round.redIds)

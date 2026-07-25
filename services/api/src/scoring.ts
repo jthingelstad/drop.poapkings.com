@@ -1,5 +1,10 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
-import { higherLowerWindowMs, survivalWindowMs } from "@elixir-drop/contracts";
+import {
+  higherLowerWindowMs,
+  survivalWindowMs,
+  TRADE_LADDER,
+  type TradeBoard,
+} from "@elixir-drop/contracts";
 import type {
   GameMode,
   RunChallenge,
@@ -86,42 +91,67 @@ function cardSequence(
   return result.slice(0, count);
 }
 
-function tradeRounds(
+// The signed keypad answers -4 through +4, so a board whose swing falls outside
+// that is unanswerable. Card costs are drawn, not chosen, so the in-range board
+// is found by rejection: deal the shape, keep it if it lands, redeal if not.
+const TRADE_VALUE_LIMIT = 4;
+// A bound on that rejection loop. The tightest shapes on this ladder (2v3, 3v2)
+// land in range better than half the time, so 200 redeals is beyond
+// astronomically safe for the real catalog — it exists so a shape that CANNOT
+// land (a catalog of nothing but 9-cost cards, say) fails the run start loudly
+// instead of spinning the Lambda forever.
+const TRADE_DEAL_ATTEMPTS = 200;
+
+// Deal one exchange of the requested shape from `available`, or undefined when
+// the attempt budget runs out. A longer side carries more elixir on average, so
+// a lopsided board lands in range mostly when its short side holds the pricier
+// card — which is the classic trade read, not a distortion.
+function tradeBoard(
+  board: TradeBoard,
+  available: readonly Card[],
+  randomInt: RandomInt,
+): { blue: Card[]; red: Card[] } | undefined {
+  for (let attempt = 0; attempt < TRADE_DEAL_ATTEMPTS; attempt += 1) {
+    const cards = shuffle(available, randomInt);
+    const blue = cards.slice(0, board.blue);
+    const red = cards.slice(board.blue, board.blue + board.red);
+    const value =
+      red.reduce((sum, card) => sum + card.elixir, 0) -
+      blue.reduce((sum, card) => sum + card.elixir, 0);
+    if (Math.abs(value) <= TRADE_VALUE_LIMIT) return { blue, red };
+  }
+  return undefined;
+}
+
+// Trade's exchanges, one per rung of the fixed TRADE_LADDER. The ladder is the
+// difficulty ramp and it is deterministic — every run climbs the same board
+// shapes in the same order, and only the cards vary. (The old deal rolled both
+// side sizes at random and sorted by total card count, which put a two-card
+// board in round 1 about 81% of the time but reached 3v3 by round 8 with no run
+// of plain 1v1 reads to learn on first.)
+export function tradeRounds(
   randomInt: RandomInt,
   pool: readonly Card[],
 ): Array<{ blueIds: number[]; redIds: number[] }> {
   const rounds: Array<{ blueIds: number[]; redIds: number[] }> = [];
   let excluded = new Set<number>();
-  while (rounds.length < 8) {
-    let available = pool.filter((card) => !excluded.has(card.id));
-    if (available.length < 6) {
-      excluded = new Set();
-      available = [...pool];
-    }
-    const cards = shuffle(available, randomInt);
-    const blueCount = randomInt(3) + 1;
-    const redCount = randomInt(3) + 1;
-    const blue = cards.slice(0, blueCount);
-    const red = cards.slice(blueCount, blueCount + redCount);
-    const value =
-      red.reduce((sum, card) => sum + card.elixir, 0) -
-      blue.reduce((sum, card) => sum + card.elixir, 0);
-    if (value >= -4 && value <= 4) {
-      rounds.push({
-        blueIds: blue.map((card) => card.id),
-        redIds: red.map((card) => card.id),
-      });
-      for (const card of [...blue, ...red]) excluded.add(card.id);
-    }
+  for (const board of TRADE_LADDER) {
+    const size = board.blue + board.red;
+    // Cards do not repeat within a run while the catalog can afford it.
+    if (pool.length - excluded.size < size) excluded = new Set();
+    const available = pool.filter((card) => !excluded.has(card.id));
+    const dealt = tradeBoard(board, available, randomInt);
+    if (!dealt)
+      throw new Error(
+        `Trade could not deal a ${board.blue}v${board.red} board within the signed keypad's range`,
+      );
+    rounds.push({
+      blueIds: dealt.blue.map((card) => card.id),
+      redIds: dealt.red.map((card) => card.id),
+    });
+    for (const card of [...dealt.blue, ...dealt.red]) excluded.add(card.id);
   }
-  // Ramp the mental load: open with the small exchanges (1v1, 2v1) and close
-  // with the big boards, so the run teaches before it tests.
-  return rounds.sort(
-    (left, right) =>
-      left.blueIds.length +
-      left.redIds.length -
-      (right.blueIds.length + right.redIds.length),
-  );
+  return rounds;
 }
 
 // ── Higher/Lower difficulty ────────────────────────────────────────────────

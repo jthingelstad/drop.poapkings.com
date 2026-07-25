@@ -81,6 +81,37 @@ export function higherLowerWindowMs(round: number): number {
   );
 }
 
+// Trade's difficulty ladder: the board shape of every exchange, fixed and
+// identical on every run — only the cards change. Three 1v1 openers establish
+// the fundamental read (two cards, one subtraction) before anything is added,
+// then boards grow one card at a time and the full 3v3 arrives only in the last
+// two exchanges. Lopsided boards alternate which side is longer (1v2 then 2v1,
+// 2v3 then 3v2) so the sign of the answer keeps flipping instead of settling
+// into "the bigger side is always Red".
+//
+// One shared source: the server deals this ladder and the browser reads its
+// length as the run length, so the two cannot disagree about how many exchanges
+// a Trade run has.
+export interface TradeBoard {
+  blue: number;
+  red: number;
+}
+
+export const TRADE_LADDER: readonly TradeBoard[] = [
+  { blue: 1, red: 1 },
+  { blue: 1, red: 1 },
+  { blue: 1, red: 1 },
+  { blue: 1, red: 2 },
+  { blue: 2, red: 1 },
+  { blue: 2, red: 2 },
+  { blue: 2, red: 3 },
+  { blue: 3, red: 2 },
+  { blue: 3, red: 3 },
+  { blue: 3, red: 3 },
+];
+
+export const TRADE_ROUNDS = TRADE_LADDER.length;
+
 export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
   | { mode: "practice"; cardIds: number[] }

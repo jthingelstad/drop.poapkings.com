@@ -11,7 +11,13 @@ export type IntegrityAssessment =
 
 const MIN_TIMED_SCORES: Partial<Record<GameMode, number>> = {
   surge: 4_500,
-  trade: 2_000,
+  // The 10-rung ladder forces a 280ms beat between correct rounds, so nine
+  // beats alone put a legal run at 2,520ms before a single answer is read. A
+  // 2,000 floor could therefore never fire — it left a window where a
+  // fabricated time was structurally impossible yet passed the check meant to
+  // catch it. Keep this above the forced-beat total whenever the ladder length
+  // or CORRECT_BEAT_MS changes.
+  trade: 3_000,
 };
 
 export function assessRunIntegrity(

@@ -12,6 +12,25 @@ describe("competition integrity check", () => {
     });
   });
 
+  // The ladder forces a 280ms beat between correct rounds, so nine beats put a
+  // legal 10-round run at 2,520ms before any thinking. A floor below that could
+  // never fire; this pins it above the forced-beat total so the check keeps
+  // meaning something if the ladder length or the beat ever changes.
+  it("keeps Trade's floor above the ladder's own forced beats", () => {
+    const forcedBeatsMs = 9 * 280;
+    expect(assessRunIntegrity("trade", forcedBeatsMs, 10_000)).toEqual({
+      eligible: false,
+      reason: "score_below_ui_floor",
+    });
+    expect(assessRunIntegrity("trade", 2_999, 10_000)).toEqual({
+      eligible: false,
+      reason: "score_below_ui_floor",
+    });
+    expect(assessRunIntegrity("trade", 3_000, 10_000)).toEqual({
+      eligible: true,
+    });
+  });
+
   it("rejects continuous-mode completion rates that bypass UI delays", () => {
     expect(assessRunIntegrity("higher-lower", 20, 10_000)).toEqual({
       eligible: false,
