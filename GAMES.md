@@ -208,16 +208,34 @@ and advancing must never wait on another tap.
 
 **Survival** — `/survival` · `apps/web/src/modes/survival/`
 Sudden death. The per-card clock starts at 5s and keeps tightening on a
-hyperbolic curve — dropping below 2s around a 40 streak and toward an 800ms
-ultimate ceiling — so it never flattens and always pressures a deep run (one
-shared curve, `survivalWindowMs`, enforced server-side). One wrong answer _or_ a
-timeout ends the run, revealing the missed card's cost; hiding the tab ends
-the run with the streak intact. The deck is **every card once** (no repeats), so
-clearing it is a **WIN** (max streak ≈ the catalog, ~120). The leaderboard ranks
-on **streak count, then fastest cumulative time** (`survivalTimeMs` → the sort
-key's tiebreak), so once everyone can clear the deck it becomes a speedrun.
+hyperbolic curve — **below 3s by a 10 streak, below 2s by 26**, and ~1.1s on the
+deck's last card — toward an 800ms ultimate ceiling (one shared curve,
+`survivalWindowMs`, enforced server-side). One wrong answer _or_ a timeout ends
+the run, revealing the missed card's cost; hiding the tab ends the run with the
+streak intact. The deck is **every card once** (no repeats), so clearing it is a
+**WIN** (max streak = the catalog, 120). The leaderboard ranks on **streak
+count, then fastest cumulative time** (`survivalTimeMs` → the sort key's
+tiebreak), so once everyone can clear the deck it becomes a speedrun.
 
 - Record: `survivalBest` (streak). Cumulative time is the leaderboard tiebreak.
+
+**Reviewed 2026-07-25 and deliberately left alone.** Three things about Survival
+look like problems and are not:
+
+- **The back half barely tightens.** The 800ms floor is only approached at a
+  streak of ~201, and the deck ends at 120, so cards 50→119 squeeze just
+  1500ms → 1126ms. Steepening it was considered and rejected: the wall in the
+  real data is early (24% of runs score zero, 37% under 3), while runs that get
+  past ~10 tend to go deep. Making the back half harder would punish the players
+  who are already succeeding and would not touch the part that actually stops
+  people.
+- **It is the only tension mode without lives.** Higher/Lower and Rain both give
+  three. Survival's single life is the point — it is what makes a clear mean
+  something, and adding lives would make it Rain with different art. Do not
+  "harmonize" the three modes.
+- **A clear collapses the board into a time race.** That is the intended second
+  act, not a flaw: first prove you can clear the deck, then race it. The
+  cumulative-time tiebreak already implements it, so no work is pending.
 
 **Rain** — `/rain` · `apps/web/src/modes/rain/`
 Cards fall through the playfield and the lowest lit card is the live target.
