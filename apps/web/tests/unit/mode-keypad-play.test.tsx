@@ -120,6 +120,14 @@ function press(host: HTMLElement, value: number): void {
   })
 }
 
+// Read one of the summary's three "moment" tiles by its label.
+function tileValue(host: HTMLElement, label: string): string | undefined {
+  const tile = [...host.querySelectorAll('.ed-sum-tile')].find(
+    (t) => t.querySelector('.ed-sum-tile__label')?.textContent === label
+  )
+  return tile?.querySelector('.ed-sum-tile__value')?.textContent ?? undefined
+}
+
 function clickText(host: HTMLElement, selector: string, text: string): void {
   const el = [...host.querySelectorAll<HTMLButtonElement>(selector)].find((b) => (b.textContent ?? '').includes(text))
   if (!el) throw new Error(`no ${selector} containing "${text}"`)
@@ -341,6 +349,43 @@ describe('Survival gameplay', () => {
     expect(host.textContent).toContain('0 streak')
     expect(session.complete).toHaveBeenCalledTimes(1)
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+  })
+
+  // Regression: on a PB the summary used to assign best = the streak just set,
+  // so "Streak" and "Prev best" showed the same number and the mark the player
+  // actually beat was lost.
+  it('reports the PREVIOUS best on a PB, not the streak just set', async () => {
+    const cards = fakeCards(20)
+    hoisted.records.current = { survivalBest: 1 }
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    const host = await startTimed(<Survival />)
+    press(host, cards[0]!.elixir)
+    advance(230)
+    press(host, cards[1]!.elixir)
+    advance(230)
+    press(host, wrongFor(cards[2]!.elixir)) // fatal miss at streak 2
+    advance(1100)
+
+    expect(host.textContent).toContain('New personal best!')
+    expect(tileValue(host, 'Streak')).toBe('2')
+    expect(tileValue(host, 'Prev best')).toBe('1')
+  })
+
+  it('reports no previous best for a first-ever run', async () => {
+    const cards = fakeCards(20)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    const host = await startTimed(<Survival />)
+    press(host, cards[0]!.elixir)
+    advance(230)
+    press(host, wrongFor(cards[1]!.elixir))
+    advance(1100)
+
+    expect(tileValue(host, 'Streak')).toBe('1')
+    expect(tileValue(host, 'Prev best')).toBe('0')
   })
 
   it('shows the prior best when the run is not a PB', async () => {

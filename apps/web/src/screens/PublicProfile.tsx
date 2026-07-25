@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
 import ArenaProgress from '../components/ArenaProgress'
+import Icon from '../components/Icon'
 import PlayerAvatar from '../components/PlayerAvatar'
 import { rankFor } from '../data/starRanks'
 import { ApiError, getPublicPlayer, type PublicPlayer as PublicPlayerData, type RecentRun } from '../lib/api'
@@ -53,7 +54,7 @@ export default function PublicProfile() {
     return (
       <div class="ed-profile ed-public-profile">
         <button class="ed-textlink ed-public-profile__back" onClick={() => back('/leaderboards')}>
-          ← Back to leaderboards
+          <Icon name="arrow-left" /> Back to leaderboards
         </button>
         <div class="ed-public-profile__state" role={error.value ? 'alert' : 'status'}>
           {loading.value ? 'Loading player profile…' : error.value}
@@ -68,7 +69,7 @@ export default function PublicProfile() {
   return (
     <div class="ed-profile ed-public-profile">
       <button class="ed-textlink ed-public-profile__back" onClick={() => back('/leaderboards')}>
-        ← Back to leaderboards
+        <Icon name="arrow-left" /> Back to leaderboards
       </button>
 
       <div class="ed-profile__banner">
@@ -101,7 +102,7 @@ export default function PublicProfile() {
         <div class="ed-profile__recent-head">
           <span class="ed-profile__recent-title">Recent games</span>
           <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-            Leaderboards →
+            Leaderboards <Icon name="arrow-right" />
           </button>
         </div>
         {runs.value.length ? (

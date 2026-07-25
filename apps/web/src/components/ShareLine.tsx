@@ -1,4 +1,5 @@
 import { useSignal } from '@preact/signals'
+import { useEffect, useRef } from 'preact/hooks'
 import { track } from '../lib/analytics'
 import { gameDisplay } from '../lib/game-metadata'
 import { runSharePayload, shareRun, type RunShareOutcome } from '../lib/share-run'
@@ -22,6 +23,11 @@ export default function ShareLine({ mode, score, compact = false }: Props) {
   const outcome = useSignal<RunShareOutcome | null>(null)
   const sharing = useSignal(false)
   const game = gameDisplay(mode)
+  // The "Shared / Copied" confirmation reverts on a timer. Hold it so leaving
+  // the summary (Play again, Home) tears the timer down instead of leaving it
+  // pending against an unmounted component.
+  const resetTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(resetTimer.current), [])
 
   async function share() {
     if (sharing.value) return
@@ -32,7 +38,8 @@ export default function ShareLine({ mode, score, compact = false }: Props) {
     outcome.value = result === 'cancelled' ? null : result
     if (result === 'shared' || result === 'copied') {
       track('game.shared', mode)
-      window.setTimeout(() => (outcome.value = null), 1800)
+      window.clearTimeout(resetTimer.current)
+      resetTimer.current = window.setTimeout(() => (outcome.value = null), 1800)
     }
   }
 

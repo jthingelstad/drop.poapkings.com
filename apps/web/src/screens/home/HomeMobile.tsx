@@ -42,7 +42,9 @@ function StandingsPeek({ data }: { data: HomeData }) {
     <button class="ed-standpeek tap-fx" onClick={() => navigate('/leaderboards')}>
       <span class="ed-standpeek__head">
         <span class="ed-standpeek__title">Season standings</span>
-        <span class="ed-standpeek__more">Full board →</span>
+        <span class="ed-standpeek__more">
+          Full board <Icon name="arrow-right" />
+        </span>
       </span>
       {list.map((e) => {
         const you = e.player.id === meId
@@ -73,7 +75,9 @@ export default function HomeMobile({ data }: { data: HomeData }) {
           <span class="ed-more__title" onClick={() => registerLogoTap()}>
             More games
           </span>
-          <span class="ed-more__hint">swipe →</span>
+          <span class="ed-more__hint">
+            swipe <Icon name="arrow-right" />
+          </span>
         </div>
         <div class="ed-more-row">
           {MORE_GAMES.map((g) => (

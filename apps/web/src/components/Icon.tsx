@@ -14,6 +14,8 @@ import download from 'lucide-static/icons/download.svg?raw'
 import externalLink from 'lucide-static/icons/arrow-up-right.svg?raw'
 import flame from 'lucide-static/icons/flame.svg?raw'
 import gamepad from 'lucide-static/icons/gamepad-2.svg?raw'
+import heart from 'lucide-static/icons/heart.svg?raw'
+import heartCrack from 'lucide-static/icons/heart-crack.svg?raw'
 import info from 'lucide-static/icons/info.svg?raw'
 import loaderCircle from 'lucide-static/icons/loader-circle.svg?raw'
 import logIn from 'lucide-static/icons/log-in.svg?raw'
@@ -58,6 +60,8 @@ const ICONS = {
   'external-link': externalLink,
   flame,
   gamepad,
+  heart,
+  'heart-crack': heartCrack,
   info,
   'loader-circle': loaderCircle,
   'log-in': logIn,

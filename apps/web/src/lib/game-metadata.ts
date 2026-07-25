@@ -1,6 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import type { GamePath } from './game-routes'
 import type { Records } from '../types'
+import { formatSeconds } from './format'
 
 export interface GameInfo {
   mode: GameMode
@@ -94,7 +95,7 @@ export const RECORD_KEYS: Record<GameMode, NumericRecordKey> = {
 }
 
 export function scoreLabel(mode: GameMode, score: number): string {
-  if (LOWER_IS_BETTER.has(mode)) return `${(score / 1_000).toFixed(2)}s`
+  if (LOWER_IS_BETTER.has(mode)) return `${formatSeconds(score)}s`
   if (mode === 'practice') return `${Math.round(score)}%`
   if (mode === 'rain') return `${Math.round(score)} cleared`
   return `${Math.round(score)} streak`

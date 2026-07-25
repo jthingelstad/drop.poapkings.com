@@ -149,11 +149,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     saveSettings({ inputStyle: style })
   }
 
-  if (!cards) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!cards) return <GameRunGate session={gameRun} />
 
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value

@@ -8,6 +8,8 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
+import { pbCallout } from '../../lib/pb-callout'
+import { useAutoStart } from '../../lib/use-auto-start'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import GameMotion from '../../components/GameMotion'
@@ -18,6 +20,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
+import GameLoading from '../../components/game/GameLoading'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -40,7 +43,6 @@ export default function Surge() {
   const firstGuess = useRef(0)
   const firstCorrect = useRef(false)
   const recorded = useRef(false)
-  const started = useRef(false)
   const runStartedAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
@@ -55,7 +57,6 @@ export default function Surge() {
   const insights = useSignal<Insights | null>(null)
   const paceDelta = useSignal<{ aheadMs: number } | null>(null)
   const pacePulse = useSignal(0)
-  const paceTimer = useRef<number | undefined>(undefined)
   const totalMs = useSignal(0)
   const isPB = useSignal(false)
   const prevBest = useSignal<number | undefined>(undefined)
@@ -64,17 +65,7 @@ export default function Surge() {
     preloadGameFx()
   }, [])
 
-  // No manual "ready" screen in the redesign: Play → countdown. Auto-start once
-  // the signed challenge + card art are loaded. `started` re-arms on replay.
-  // start() is reached via a ref so this effect only re-fires on load state.
-  const startRef = useRef<() => void>(() => {})
-  startRef.current = start
-  useEffect(() => {
-    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
-      started.current = true
-      startRef.current()
-    }
-  }, [gameRun.content, gameRun.assetsReady, stage])
+  const rearmAutoStart = useAutoStart(Boolean(gameRun.content) && gameRun.assetsReady, stage, () => void start())
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
@@ -158,10 +149,16 @@ export default function Surge() {
       const pace = getRecords().surgeBestPace
       if ((solved === 5 || solved === 10) && pace?.[solved - 1] !== undefined) {
         const missesSoFar = serverAnswers.current.reduce((sum, answer) => sum + answer.guesses.length - 1, 0)
-        paceDelta.value = { aheadMs: pace[solved - 1]! - (atMs + missesSoFar * SURGE.PENALTY_MS) }
+        const delta = { aheadMs: pace[solved - 1]! - (atMs + missesSoFar * SURGE.PENALTY_MS) }
+        paceDelta.value = delta
         pacePulse.value += 1
-        window.clearTimeout(paceTimer.current)
-        paceTimer.current = window.setTimeout(() => (paceDelta.value = null), 2000)
+        // Goes through runtime.later so it is torn down with the run (a raw
+        // window.setTimeout here outlived unmount). The timer only clears the
+        // delta it scheduled, so a later checkpoint inside the window is never
+        // cut short by the previous one's timeout.
+        later(() => {
+          if (paceDelta.peek() === delta) paceDelta.value = null
+        }, 2000)
       }
       cardPhase.value = 'correct'
       hint.value = null
@@ -189,7 +186,7 @@ export default function Surge() {
     serverAnswers.current = []
     currentGuesses.current = []
     recorded.current = false
-    started.current = false
+    rearmAutoStart()
     insights.value = null
     cardPhase.value = 'playing'
     hint.value = null
@@ -197,29 +194,23 @@ export default function Surge() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.content) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!gameRun.content) return <GameRunGate session={gameRun} />
 
   // ── Summary ──────────────────────────────────────────────────────────────
   if (stage.value === 'summary' && insights.value) {
     const ins = insights.value
-    const pbCallout = isPB.value
-      ? prevBest.value !== undefined
-        ? `New best! −${formatSeconds(prevBest.value - totalMs.value)}s`
-        : 'First Surge logged'
-      : prevBest.value !== undefined
-        ? `Best: ${formatSeconds(prevBest.value)}s`
-        : undefined
+    const callout = pbCallout(isPB.value, prevBest.value, {
+      first: 'First Surge logged',
+      improved: (previous) => `New best! −${formatSeconds(previous - totalMs.value)}s`,
+      standing: (previous) => `Best: ${formatSeconds(previous)}s`
+    })
 
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow="Surge complete"
           headline={`${formatSeconds(totalMs.value)}s`}
-          pbCallout={pbCallout}
+          pbCallout={callout}
           insights={ins}
           moments={[
             { label: 'Cards', value: String(SURGE.SPRINT_LEN) },
@@ -236,14 +227,7 @@ export default function Surge() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') {
-    return (
-      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
-        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
-        <span>Loading cards…</span>
-      </div>
-    )
-  }
+  if (stage.value === 'ready') return <GameLoading />
 
   // ── Countdown + Running ──────────────────────────────────────────────────
   const counting = stage.value === 'countdown'

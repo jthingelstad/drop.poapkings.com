@@ -1,12 +1,11 @@
-import rawCards from '@elixir-drop/game-data/cards.json'
-import type { Card, CardsData } from '../types'
+import type { Card } from '../types'
+import { allCards } from './card-catalog'
 
-const cards = (rawCards as CardsData).cards
-const byId = new Map(cards.map((card) => [card.id, card]))
+const byId = new Map(allCards.map((card) => [card.id, card]))
 
 // Survival deals the entire catalog once (clearing it is a win), so its signed
 // deck length tracks the card count rather than a fixed number.
-export const fullDeckSize = cards.length
+export const fullDeckSize = allCards.length
 
 export function challengeCards(ids: readonly number[]): Card[] {
   const resolved = ids.map((id) => byId.get(id))

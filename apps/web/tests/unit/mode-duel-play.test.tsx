@@ -47,6 +47,7 @@ import HigherLower from '../../src/modes/higher-lower/HigherLower'
 import Trade from '../../src/modes/trade/Trade'
 import Rain from '../../src/modes/rain/Rain'
 import { tradeValue } from '../../src/lib/trade'
+import { getRecords, saveRecords } from '../../src/lib/storage'
 
 // ── Fakes ───────────────────────────────────────────────────────────────────
 function fakeCard(id: number, elixir: number, name = `Card ${id}`): Card {
@@ -138,6 +139,14 @@ async function toRunning(root: HTMLElement): Promise<void> {
 
 function metricValue(root: HTMLElement): string {
   return root.querySelector('.ed-game__metric')?.textContent ?? ''
+}
+
+// Read one of the summary's three "moment" tiles by its label.
+function tileValue(root: HTMLElement, label: string): string | undefined {
+  const tile = [...root.querySelectorAll('.ed-sum-tile')].find(
+    (t) => t.querySelector('.ed-sum-tile__label')?.textContent === label
+  )
+  return tile?.querySelector('.ed-sum-tile__value')?.textContent ?? undefined
 }
 
 beforeEach(() => {
@@ -242,6 +251,26 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.querySelector('.shareline')?.textContent).toContain('Share score')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Play again')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Home')
+  })
+
+  // All three streak/count modes read "Prev best" the same way: the record that
+  // stood BEFORE this run, with a recorded 0 treated as no best at all.
+  it('reports the standing record as the previous best, never the run just played', async () => {
+    vi.mocked(getRecords).mockReturnValue({ longestStreak: 5 })
+    const session = stage(pairs())
+    session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    await click(c.querySelectorAll('.ed-duel__cards button')[1]) // pair0 correct → streak 1
+    await advance(800)
+    await click(c.querySelectorAll('.ed-duel__cards button')[1]) // pair1 miss → ends the run
+    await advance(1500)
+
+    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 streak')
+    expect(tileValue(c, 'Streak')).toBe('1')
+    expect(tileValue(c, 'Prev best')).toBe('5')
+    expect(c.textContent).toContain('Best: 5')
   })
 
   it('the shrink-window running out records the lower card as the miss', async () => {
@@ -395,7 +424,10 @@ describe('Rain — gameplay', () => {
     expect(metricValue(c)).toBe('0')
     expect(c.querySelector('.sr-only')?.textContent).toBe('Lower')
     expect(c.querySelector('[data-testid="rain-hint"]')?.textContent).toContain('Lower')
-    expect(c.textContent).toContain('♥♥♥') // all three lives intact
+    // Lives are lucide glyphs (CLAUDE.md forbids hand-typed symbols), so the
+    // count lives on the row's accessible name, not in its text.
+    expect(c.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('3 of 3 lives left')
+    expect(c.querySelectorAll('[data-testid="rain-lives"] .icon')).toHaveLength(3)
   })
 
   it('flashes the running total every 10 clears, then clears it', async () => {
@@ -423,6 +455,36 @@ describe('Rain — gameplay', () => {
     // It is transient: gone after the ~0.5s window.
     await advance(600)
     expect(c.querySelector('.ed-rain__milestone')).toBeNull()
+  })
+
+  // Regression: Rain used to call saveRecords({ rainBest }) inside finish(),
+  // before the server verdict — so a rejected run still showed as a personal
+  // best on that device (and double-wrote with recordAllTimeBest). The local
+  // best is now written centrally, and only when the run is accepted.
+  it('never writes the local best from finish() — only a server-accepted run may', async () => {
+    vi.mocked(getRecords).mockReturnValue({ rainBest: 1 })
+    // A one-card deck (cost 3) that wraps, so the lit target is always a 3.
+    const session = stage([fakeCard(401, 3, 'RN-A')])
+    const c = mount(<Rain />)
+    await toRunning(c)
+
+    const tap = async () => {
+      await advance(1300)
+      await click(c.querySelector('[aria-label="3 elixir"]'))
+    }
+    await tap()
+    await tap()
+    expect(metricValue(c)).toBe('2') // beats the standing best of 1
+
+    await advance(20000) // drops land, 3 lives gone → endRain → finish → 'over'
+
+    expect(c.textContent).toContain('The rain stopped')
+    expect(saveRecords).not.toHaveBeenCalled()
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    // The summary still reports the personal best off the pre-run record.
+    expect(c.textContent).toContain('New best! +1')
+    expect(tileValue(c, 'Cleared')).toBe('2')
+    expect(tileValue(c, 'Prev best')).toBe('1')
   })
 
   it('losing all three lives ends the run and the summary shows the cleared count', async () => {

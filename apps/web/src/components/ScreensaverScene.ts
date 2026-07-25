@@ -1,6 +1,5 @@
 import type { Container, Sprite, Texture, Ticker } from 'pixi.js'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import type { CardsData } from '../types'
+import { allCards } from '../lib/card-catalog'
 import { loadPixi } from '../lib/load-pixi'
 
 // "Elixir Rain": card art drifts down through floating elixir droplets in
@@ -63,13 +62,9 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
   app.canvas.setAttribute('aria-hidden', 'true')
   host.appendChild(app.canvas)
 
-  // The page CSP sets worker-src 'none'; keep Pixi's asset loader on the
-  // main thread instead of a blob worker.
-  Assets.setPreferences({ preferWorkers: false })
-
   // A freshly shuffled run through the whole catalog every activation.
   let destroyed = false
-  const catalog = shuffled((rawCards as CardsData).cards.filter((card) => card.icon))
+  const catalog = shuffled(allCards.filter((card) => card.icon))
   const allUrls = catalog.map((card) => card.icon)
   const initialUrls = allUrls.slice(0, INITIAL_CAST_SIZE)
   const loaded = await Assets.load<Texture>(initialUrls)

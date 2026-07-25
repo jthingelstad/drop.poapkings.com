@@ -11,6 +11,7 @@ const CASES = [
   ['/higher-lower', 'Preparing your game…'],
   ['/trade', 'Preparing your game…'],
   ['/survival', 'Preparing your game…'],
+  ['/rain', 'Preparing your game…'],
   ['/settings', 'Settings'],
   ['/about', 'About Elixir Drop'],
   ['/faq', 'Frequently asked'],
@@ -42,6 +43,31 @@ describe('SSR render smoke', () => {
     expect(html).toContain(expectedText)
     // The shell wraps every route — check the desktop shell wrapper here.
     expect(html).toContain('ed-app')
+  })
+
+  // Regression: a routed path with no ROUTE_LABELS entry silently announces the
+  // generic "Elixir Drop" as its screen heading. /rain shipped that way — one of
+  // six modes with no name in the accessibility tree.
+  it.each([
+    ['/practice', 'Practice'],
+    ['/surge', 'Surge'],
+    ['/higher-lower', 'Higher / Lower'],
+    ['/trade', 'Trade'],
+    ['/survival', 'Survival'],
+    ['/rain', 'Rain'],
+    ['/leaderboards', 'Leaderboards'],
+    ['/settings', 'Settings'],
+    ['/privacy', 'Privacy'],
+    ['/about', 'About'],
+    ['/faq', 'FAQ'],
+    ['/install', 'Install'],
+    ['/login', 'Sign in']
+  ])('announces %s as its own screen title', async (path, label) => {
+    route.value = path
+    const html = await renderToStringAsync(<App />)
+
+    expect(html).toContain(`<h1 class="sr-only">${label}</h1>`)
+    expect(html).not.toContain('<h1 class="sr-only">Elixir Drop</h1>')
   })
 
   it('renders build metadata on settings', async () => {

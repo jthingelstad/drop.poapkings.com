@@ -44,12 +44,16 @@ const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
 // ── Screen title (sr-only) ──────────────────────────────────────────────────
 
+// One entry per routed path in ScreenContent below (the dev-only avatar audit
+// aside). A missing entry is not harmless: the route silently announces the
+// generic "Elixir Drop" as its page heading.
 const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/practice', label: 'Practice' },
   { match: '/surge', label: 'Surge' },
   { match: '/higher-lower', label: 'Higher / Lower' },
   { match: '/trade', label: 'Trade' },
   { match: '/survival', label: 'Survival' },
+  { match: '/rain', label: 'Rain' },
   { match: '/leaderboards', label: 'Leaderboards' },
   { match: '/profile', label: 'Profile' },
   { match: '/players', label: 'Player profile' },
@@ -57,7 +61,9 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/privacy', label: 'Privacy' },
   { match: '/about', label: 'About' },
   { match: '/faq', label: 'FAQ' },
-  { match: '/install', label: 'Install' }
+  { match: '/install', label: 'Install' },
+  { match: '/login', label: 'Sign in' },
+  { match: '/auth', label: 'Signing in' }
 ]
 
 // ── App ───────────────────────────────────────────────────────────────────────

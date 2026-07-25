@@ -5,8 +5,10 @@ import { computeInsights, type Insights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
 import { playRainClear, playRainMiss } from '../../lib/sound'
 import { navigate } from '../../lib/router'
-import { getRecords, saveRecords } from '../../lib/storage'
+import { getRecords } from '../../lib/storage'
 import { isReducedMotionEnabled } from '../../lib/motion'
+import { comparableBest, pbCallout } from '../../lib/pb-callout'
+import { useAutoStart } from '../../lib/use-auto-start'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { useGameSession } from '../../lib/use-game-session'
 import { challengePreparers } from '../../lib/game-challenge-content'
@@ -14,6 +16,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
+import GameLoading from '../../components/game/GameLoading'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import RainMilestone from './RainMilestone'
@@ -80,7 +83,6 @@ export default function Rain() {
   const cursor = useRef(0)
   const spawnTimer = useRef<number | undefined>(undefined)
   const fallTimer = useRef<number | undefined>(undefined)
-  const started = useRef(false)
   // Server transcript: one entry per resolved card, in resolution order.
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null }>>([])
   // Display insights (accuracy by cost) for the summary.
@@ -95,7 +97,9 @@ export default function Rain() {
   // Every-10-clears progress flash in the middle of the field (null = nothing showing).
   const milestone = useSignal<number | null>(null)
   const insights = useSignal<Insights | null>(null)
-  const best = useSignal(getRecords().rainBest ?? 0)
+  // The record standing BEFORE this run — the number the summary compares
+  // against. Never overwritten with the score just set.
+  const prevBest = useSignal(comparableBest(getRecords().rainBest))
   const isPB = useSignal(false)
 
   useEffect(() => {
@@ -105,16 +109,7 @@ export default function Rain() {
     }
   }, [])
 
-  // Auto-start (Play → countdown) once the signed deck + art are ready; re-armed
-  // on replay. begin() is reached via a ref so this only re-fires on load state.
-  const beginRef = useRef<() => void>(() => {})
-  beginRef.current = begin
-  useEffect(() => {
-    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
-      started.current = true
-      beginRef.current()
-    }
-  }, [gameRun.content, gameRun.assetsReady, stage])
+  const rearmAutoStart = useAutoStart(Boolean(gameRun.content) && gameRun.assetsReady, stage, () => void begin())
 
   function clearLoops() {
     if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
@@ -289,55 +284,49 @@ export default function Rain() {
     clearLoops()
     if (recorded.current) return
     recorded.current = true
-    const prev = getRecords().rainBest
+    const prev = comparableBest(getRecords().rainBest)
     const pb = score.value > (prev ?? 0)
-    best.value = prev ?? 0
+    prevBest.value = prev
     isPB.value = pb
     insights.value = computeInsights(
       answersLog.current.map((a) => ({ card: a.card, guess: a.correct ? a.card.elixir : 0, correct: a.correct }))
     )
-    if (pb) {
-      saveRecords({ rainBest: score.value })
-    }
     runtime.finish('over')
-    // Record the ranked run on the server (guest → scored, not persisted).
+    // Record the ranked run on the server (guest → scored, not persisted). The
+    // local rainBest is written centrally, and ONLY when the server accepts the
+    // run (see recordAllTimeBest) — writing it here would leave a rejected run
+    // showing as a personal best on this device.
     void gameRun.complete({ answers: serverAnswers.current })
   }
 
   function replay() {
     track('game.replayed', 'rain')
     clearLoops()
-    started.current = false
+    rearmAutoStart()
     insights.value = null
     runtime.reset('ready')
     void gameRun.prepare()
   }
 
-  if (!gameRun.content) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!gameRun.content) return <GameRunGate session={gameRun} />
 
   // ── Summary ───────────────────────────────────────────────────────────────
   if (stage.value === 'over' && insights.value) {
-    const pbCallout = isPB.value
-      ? best.value > 0
-        ? `New best! +${score.value - best.value}`
-        : 'First Rain logged'
-      : best.value > 0
-        ? `Best: ${best.value}`
-        : undefined
+    const callout = pbCallout(isPB.value, prevBest.value, {
+      first: 'First Rain logged',
+      improved: (previous) => `New best! +${score.value - previous}`,
+      standing: (previous) => `Best: ${previous}`
+    })
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow="The rain stopped"
           headline={`${score.value} cleared`}
-          pbCallout={pbCallout}
+          pbCallout={callout}
           insights={insights.value}
           moments={[
             { label: 'Cleared', value: String(score.value) },
-            { label: 'Prev best', value: String(best.value), tone: 'purple' },
+            { label: 'Prev best', value: String(prevBest.value ?? 0), tone: 'purple' },
             { label: 'Accuracy', value: `${insights.value.accuracyPct}%`, tone: 'green' }
           ]}
           share={{ mode: 'rain', score: `${score.value} cleared` }}
@@ -350,17 +339,19 @@ export default function Rain() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') {
-    return (
-      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
-        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
-        <span>Loading cards…</span>
-      </div>
-    )
-  }
+  if (stage.value === 'ready') return <GameLoading />
 
   const counting = stage.value !== 'running'
-  const hearts = '♥'.repeat(Math.max(0, lives.value)) + '♡'.repeat(Math.max(0, RAIN_LIVES - lives.value))
+  // Lives as glyphs, not hand-typed hearts (CLAUDE.md): a whole heart per life
+  // left, a cracked one per life spent. The row carries the count as its
+  // accessible name, since the icons themselves are decorative.
+  const hearts = (
+    <span role="img" aria-label={`${Math.max(0, lives.value)} of ${RAIN_LIVES} lives left`} data-testid="rain-lives">
+      {Array.from({ length: RAIN_LIVES }, (_, i) => (
+        <Icon key={i} name={i < lives.value ? 'heart' : 'heart-crack'} />
+      ))}
+    </span>
+  )
   return (
     <GameFrame
       modeName="Rain"

@@ -20,7 +20,7 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
       <div class="ed-more__head">
         <span class="ed-more__title">More games</span>
         <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-          All leaderboards →
+          All leaderboards <Icon name="arrow-right" />
         </button>
       </div>
       <div class="ed-more-grid">

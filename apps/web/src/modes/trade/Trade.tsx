@@ -8,6 +8,9 @@ import { navigate } from '../../lib/router'
 import { formatSeconds } from '../../lib/format'
 import { tradeSummaryLine } from '../../lib/mode-insights'
 import { computeInsights } from '../../lib/insights'
+import { pbCallout } from '../../lib/pb-callout'
+import { useAutoStart } from '../../lib/use-auto-start'
+import { useGameKeys } from '../../lib/use-game-keys'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
 import { CardArt } from '../../components/CardChrome'
@@ -17,6 +20,7 @@ import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
+import GameLoading from '../../components/game/GameLoading'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -86,7 +90,6 @@ function TradeSide({
 export default function Trade() {
   const gameRun = useGameSession('trade', challengePreparers.trade)
   const rounds = gameRun.content
-  const started = useRef(false)
   const roundMisses = useRef(0)
   const runStartedAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
@@ -111,16 +114,7 @@ export default function Trade() {
     preloadGameFx()
   }, [])
 
-  // Play → countdown (no manual ready screen). Auto-start once loaded; re-arms on
-  // replay. start() is reached via a ref so this only re-fires on load state.
-  const startRef = useRef<() => void>(() => {})
-  startRef.current = start
-  useEffect(() => {
-    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
-      started.current = true
-      startRef.current()
-    }
-  }, [gameRun.content, gameRun.assetsReady, stage])
+  const rearmAutoStart = useAutoStart(Boolean(gameRun.content) && gameRun.assetsReady, stage, () => void start())
 
   async function start() {
     if (!(await gameRun.ensureFreshRun())) return
@@ -228,7 +222,7 @@ export default function Trade() {
   function replay() {
     track('game.replayed', 'trade')
     runtime.reset('ready')
-    started.current = false
+    rearmAutoStart()
     serverAnswers.current = []
     currentGuesses.current = []
     index.value = 0
@@ -248,9 +242,7 @@ export default function Trade() {
 
   // Desktop keyboard: number keys 1-9 map to the answer pad left→right
   // (1 = −4 … 5 = Even … 9 = +4); 0 also answers Even.
-  const keyRef = useRef<(event: KeyboardEvent) => void>(() => {})
-  keyRef.current = (event) => {
-    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+  useGameKeys((event) => {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
     if (event.key === '0') {
       event.preventDefault()
@@ -262,29 +254,18 @@ export default function Trade() {
       event.preventDefault()
       guess(TRADE_ANSWERS[slot - 1]!)
     }
-  }
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => keyRef.current(event)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  })
 
-  if (!rounds) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!rounds) return <GameRunGate session={gameRun} />
 
   const round = rounds[index.value]!
 
   if (stage.value === 'summary') {
-    const pbCallout = isPB.value
-      ? prevBest.value !== undefined
-        ? `New best! −${formatSeconds(prevBest.value - totalMs.value)}s`
-        : 'First Trade logged'
-      : prevBest.value !== undefined
-        ? `Best: ${formatSeconds(prevBest.value)}s`
-        : undefined
+    const callout = pbCallout(isPB.value, prevBest.value, {
+      first: 'First Trade logged',
+      improved: (previous) => `New best! −${formatSeconds(previous - totalMs.value)}s`,
+      standing: (previous) => `Best: ${formatSeconds(previous)}s`
+    })
     const accuracyPct = Math.round((cleanTrades.value / TRADE.SEQUENCE_LEN) * 100)
 
     return (
@@ -292,7 +273,7 @@ export default function Trade() {
         <Summary
           eyebrow="Trade complete"
           headline={`${formatSeconds(totalMs.value)}s`}
-          pbCallout={pbCallout}
+          pbCallout={callout}
           insights={computeInsights([])}
           moments={[
             { label: 'Clean', value: `${cleanTrades.value}/${TRADE.SEQUENCE_LEN}` },
@@ -314,14 +295,7 @@ export default function Trade() {
     )
   }
 
-  if (stage.value === 'ready') {
-    return (
-      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
-        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
-        <span>Loading exchange…</span>
-      </div>
-    )
-  }
+  if (stage.value === 'ready') return <GameLoading label="Loading exchange…" />
 
   const counting = stage.value === 'countdown'
   const solved = feedback.value === 'correct'

@@ -1,13 +1,13 @@
 import { animate } from 'motion'
-import { useEffect, useRef } from 'preact/hooks'
-import rawCards from '@elixir-drop/game-data/cards.json'
-import type { CardsData } from '../types'
+import { useRef } from 'preact/hooks'
+import { allCards } from '../lib/card-catalog'
 import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
+import { useGameKeys } from '../lib/use-game-keys'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
-const MAX_ELIXIR = Math.max(...(rawCards as CardsData).cards.map((card) => card.elixir))
+const MAX_ELIXIR = Math.max(...allCards.map((card) => card.elixir))
 
 // Locked single row, 1..N ascending — the one keypad layout in the redesign
 // (design-ref/SPEC-EXTRACT.md). Fixed positions across every device mean muscle
@@ -88,12 +88,9 @@ export default function PipKeypad({ onPick, disabled }: Props) {
   const groupRef = useRef<HTMLDivElement>(null)
 
   // Desktop keyboard: number keys 1..N answer, with the same tap sound + key FX
-  // as a click. A ref keeps the handler current without re-binding each render.
-  const handlerRef = useRef<(event: KeyboardEvent) => void>(() => {})
-  handlerRef.current = (event) => {
-    if (disabled || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
-    const target = event.target as HTMLElement | null
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+  // as a click.
+  useGameKeys((event) => {
+    if (disabled) return
     const value = Number(event.key)
     if (!Number.isInteger(value) || value < 1 || value > MAX_ELIXIR) return
     event.preventDefault()
@@ -101,13 +98,7 @@ export default function PipKeypad({ onPick, disabled }: Props) {
     playTap()
     if (button && isEnhancedEffectsEnabled()) pressFx(button)
     onPick(value)
-  }
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => handlerRef.current(event)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  })
 
   return (
     <div ref={groupRef} class="pip-keypad" role="group" aria-label="Elixir cost keypad">

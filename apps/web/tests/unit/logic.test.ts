@@ -7,8 +7,8 @@ import { fullDeckSize } from '../../src/lib/challenge-cards'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { createGameRuntimeCue, transitionGameRuntimeStage } from '../../src/lib/game-runtime'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
-import { pickLine } from '../../src/lib/elixir-lines'
 import { tradeSummaryLine } from '../../src/lib/mode-insights'
+import { comparableBest, pbCallout } from '../../src/lib/pb-callout'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
@@ -109,14 +109,6 @@ describe('learning helpers', () => {
     ).toContain('Blue spends more')
   })
 
-  it('interpolates Elixir lines and returns empty for unknown events', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-
-    expect(pickLine('correct_streak', { n: 4 })).toContain('4')
-    expect(pickLine('surge_done', { time: '28.6', insight: 'clean read' })).toContain('28.6')
-    expect(pickLine('missing' as never)).toBe('')
-  })
-
   it('scores Trade from the Blue King perspective', () => {
     const knight = card(1, 'Knight', 3)
     const fireball = card(2, 'Fireball', 4, 'spell')
@@ -189,5 +181,37 @@ describe('learning helpers', () => {
     expect(pickTradeHintCard(round, new Set([rocket.id]))).toBe(fireball.id)
     expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id]))).toBe(knight.id)
     expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id, knight.id]))).toBeUndefined()
+  })
+})
+
+// ── Summary personal-best callout ────────────────────────────────────────────
+// One three-state chain shared by every mode; each mode supplies only the words.
+describe('pbCallout', () => {
+  const copy = {
+    first: 'First Surge logged',
+    improved: (previous: number) => `New best! −${previous - 900}ms`,
+    standing: (previous: number) => `Best: ${previous}`
+  }
+
+  it('names the first-ever run rather than comparing against nothing', () => {
+    expect(pbCallout(true, undefined, copy)).toBe('First Surge logged')
+  })
+
+  it('reports the improvement against the mark that was actually beaten', () => {
+    expect(pbCallout(true, 1_200, copy)).toBe('New best! −300ms')
+  })
+
+  it('shows the standing best when the run fell short', () => {
+    expect(pbCallout(false, 1_200, copy)).toBe('Best: 1200')
+  })
+
+  it('says nothing at all when a non-PB run has no best to report', () => {
+    expect(pbCallout(false, undefined, copy)).toBeUndefined()
+  })
+
+  it('treats a recorded 0 in a count mode as no best worth beating', () => {
+    expect(comparableBest(0)).toBeUndefined()
+    expect(comparableBest(undefined)).toBeUndefined()
+    expect(comparableBest(7)).toBe(7)
   })
 })

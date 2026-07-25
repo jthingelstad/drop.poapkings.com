@@ -1,12 +1,11 @@
 import { useSignal } from '@preact/signals'
-import rawCards from '@elixir-drop/game-data/cards.json'
 import PlayerAvatar from '../components/PlayerAvatar'
 import { avatarCrop, hasAvatarCropOverride } from '../data/avatar-crops'
-import type { CardsData } from '../types'
+import { allCards } from '../lib/card-catalog'
 
 type AvatarSize = 'small' | 'medium' | 'large'
 
-const cards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
+const cards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
 const sizes: Array<{ value: AvatarSize; label: string; pixels: number }> = [
   { value: 'small', label: 'Header', pixels: 30 },
   { value: 'medium', label: 'Leaderboard', pixels: 52 },

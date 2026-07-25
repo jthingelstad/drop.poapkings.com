@@ -10,6 +10,10 @@ import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import { preloadImages } from '../../lib/preload'
+import { formatSeconds } from '../../lib/format'
+import { comparableBest, pbCallout } from '../../lib/pb-callout'
+import { useAutoStart } from '../../lib/use-auto-start'
+import { useEndRunOnHide, useShrinkingWindow } from '../../lib/use-round-clock'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
@@ -18,6 +22,7 @@ import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
+import GameLoading from '../../components/game/GameLoading'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -36,7 +41,6 @@ export default function Survival() {
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
   const dead = useRef(false)
-  const started = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
 
@@ -44,7 +48,9 @@ export default function Survival() {
   const { stage, count, later } = runtime
   const streak = useSignal(0)
   const streakCue = useSignal(0)
-  const best = useSignal(getRecords().survivalBest ?? 0)
+  // The record standing BEFORE this run — the number the summary compares
+  // against. Never overwritten with the streak just set.
+  const prevBest = useSignal(comparableBest(getRecords().survivalBest))
   const remainingFrac = useSignal(1)
   const current = useSignal<Card | null>(null)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
@@ -61,51 +67,23 @@ export default function Survival() {
     preloadGameFx()
   }, [])
 
-  // Play → countdown (no manual ready screen). Auto-start once loaded; re-arms on
-  // replay. begin() is reached via a ref so this only re-fires on load state.
-  const beginRef = useRef<() => void>(() => {})
-  beginRef.current = begin
-  useEffect(() => {
-    if (gameRun.content && gameRun.assetsReady && !started.current && stage.peek() === 'ready') {
-      started.current = true
-      beginRef.current()
-    }
-  }, [gameRun.content, gameRun.assetsReady, stage])
+  const rearmAutoStart = useAutoStart(Boolean(gameRun.content) && gameRun.assetsReady, stage, () => void begin())
 
-  // Sudden death cannot pause (that would be free thinking time), so leaving
-  // the tab ends the run right away with the streak intact — instead of the
-  // old behavior where the clock kept running while hidden and the first
-  // frame after returning executed the death.
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    const onHidden = () => {
-      if (document.visibilityState === 'hidden') dieRef.current(current.value, undefined)
-    }
-    document.addEventListener('visibilitychange', onHidden)
-    return () => document.removeEventListener('visibilitychange', onHidden)
-  }, [current, stage.value])
+  // Sudden death cannot pause — leaving the tab ends the run with the streak
+  // intact rather than letting the clock burn while hidden.
+  useEndRunOnHide(stage.value === 'running', () => dieRef.current(current.value, undefined))
 
   // Per-card clock — drives the depleting bar and times you out. The window
   // shrinks as the streak grows, so deep runs end at the player's true speed
   // ceiling instead of by boredom or a lapse.
-  useEffect(() => {
-    if (stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      if (cardPhase.value === 'playing') {
-        const elapsed = performance.now() - cardStart.current
-        const frac = 1 - elapsed / survivalWindowMs(streak.value)
-        remainingFrac.value = Math.max(0, frac)
-        if (frac <= 0) {
-          dieRef.current(current.value, undefined)
-          return
-        }
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [cardPhase, current, remainingFrac, stage.value, streak])
+  useShrinkingWindow({
+    running: stage.value === 'running',
+    ticking: () => cardPhase.value === 'playing',
+    startedAt: cardStart,
+    windowMs: () => survivalWindowMs(streak.value),
+    remaining: remainingFrac,
+    onExpire: () => dieRef.current(current.value, undefined)
+  })
 
   async function begin() {
     if (!(await gameRun.ensureFreshRun())) return
@@ -163,17 +141,16 @@ export default function Survival() {
 
   function finish() {
     const ins = computeInsights(answers.current)
-    const prev = getRecords().survivalBest
-    const pb = streak.value > (prev ?? 0)
+    const prev = comparableBest(getRecords().survivalBest)
 
     insights.value = ins
-    isPB.value = pb
+    // Read the standing record BEFORE the server writes this run's, so the
+    // summary's "Prev best" is the mark that was actually beaten.
+    prevBest.value = prev
+    isPB.value = streak.value > (prev ?? 0)
     // Cumulative time across the surviving cards — matches the server's tiebreak.
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
-    if (pb) {
-      // Live display only; survivalBest is persisted centrally on acceptance.
-      best.value = streak.value
-    }
+    // survivalBest is persisted centrally when the server accepts the run.
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current })
   }
@@ -203,7 +180,7 @@ export default function Survival() {
     track('game.replayed', 'survival')
     runtime.reset('ready')
     dead.current = false
-    started.current = false
+    rearmAutoStart()
     won.current = false
     insights.value = null
     current.value = null
@@ -216,31 +193,30 @@ export default function Survival() {
   }
 
   // ── Game over ──────────────────────────────────────────────────────────────
-  if (!gameRun.content) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!gameRun.content) return <GameRunGate session={gameRun} />
 
   if (stage.value === 'over' && insights.value) {
-    const winTime = `${(finishTimeMs.value / 1000).toFixed(2)}s`
-    const pbCallout = won.current
+    const winTime = `${formatSeconds(finishTimeMs.value)}s`
+    // Clearing the deck is a win, not a streak comparison — it outranks the
+    // usual best/first/standing chain.
+    const callout = won.current
       ? `Cleared in ${winTime}`
-      : isPB.value
-        ? 'New personal best!'
-        : best.value > 0
-          ? `Best: ${best.value}`
-          : undefined
+      : pbCallout(isPB.value, prevBest.value, {
+          // Survival reports no delta: the streak tile already carries it.
+          first: 'New personal best!',
+          improved: () => 'New personal best!',
+          standing: (previous) => `Best: ${previous}`
+        })
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow={won.current ? 'Survival · cleared!' : 'Sudden death'}
           headline={won.current ? 'Every card named!' : `${streak.value} streak`}
-          pbCallout={pbCallout}
+          pbCallout={callout}
           insights={insights.value}
           moments={[
             { label: 'Streak', value: String(streak.value) },
-            { label: 'Prev best', value: String(best.value), tone: 'purple' },
+            { label: 'Prev best', value: String(prevBest.value ?? 0), tone: 'purple' },
             {
               label: won.current ? 'Time' : 'Accuracy',
               value: won.current ? winTime : `${insights.value.accuracyPct}%`,
@@ -259,14 +235,7 @@ export default function Survival() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') {
-    return (
-      <div class="ed-gamewrap ed-gameloading" aria-live="polite">
-        <span class="ed-drop-shape ed-gameloading__drop" aria-hidden="true" />
-        <span>Loading cards…</span>
-      </div>
-    )
-  }
+  if (stage.value === 'ready') return <GameLoading />
 
   // ── Countdown + Running ──────────────────────────────────────────────────
   const counting = stage.value === 'countdown'

@@ -5,6 +5,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import { player } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
+import { formatSeconds } from '../lib/format'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
@@ -61,7 +62,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
         </span>
         <span class="ed-lbrow__score">
           {scoreLabel(mode, entry.score)}
-          {entry.timeMs !== undefined && <small class="ed-lbrow__time">{(entry.timeMs / 1000).toFixed(2)}s</small>}
+          {entry.timeMs !== undefined && <small class="ed-lbrow__time">{formatSeconds(entry.timeMs)}s</small>}
         </span>
       </button>
     </li>

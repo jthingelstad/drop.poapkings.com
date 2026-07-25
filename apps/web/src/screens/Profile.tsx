@@ -1,6 +1,5 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import rawCards from '@elixir-drop/game-data/cards.json'
 import PlayerAvatar from '../components/PlayerAvatar'
 import ArenaProgress from '../components/ArenaProgress'
 import Icon from '../components/Icon'
@@ -16,6 +15,7 @@ import {
   updateAccount
 } from '../lib/account'
 import { getNameOptions } from '../lib/api'
+import { allCards } from '../lib/card-catalog'
 import { challengeCard } from '../lib/challenge-cards'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
@@ -23,10 +23,9 @@ import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
 import PlayerPreferences from '../components/PlayerPreferences'
-import type { CardsData } from '../types'
 import { track } from '../lib/analytics'
 
-const favoriteCards = [...(rawCards as CardsData).cards].sort((left, right) => left.name.localeCompare(right.name))
+const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
 
 function accountAgeText(years: number | undefined, days: number | undefined): string {
   if (days !== undefined) {
@@ -448,7 +447,7 @@ export default function Profile() {
         <div class="ed-profile__recent-head">
           <span class="ed-profile__recent-title">Recent games</span>
           <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-            Leaderboards →
+            Leaderboards <Icon name="arrow-right" />
           </button>
         </div>
         {recentRuns.value.length ? (

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { renderToStringAsync } from 'preact-render-to-string'
+import { signal } from '@preact/signals'
 
 import Summary from '../../src/components/Summary'
 import MetaPage from '../../src/screens/MetaPage'
@@ -422,22 +423,28 @@ describe('ShareLine', () => {
 })
 
 describe('GameRunGate', () => {
+  // The gate reads the session a mode hands it — the same shape all six modes
+  // used to unpack into three separate props.
+  function gateSession(preparing: boolean, error: string) {
+    return { preparing: signal(preparing), error, prepare: async () => {} }
+  }
+
   it('shows the preparing state', async () => {
-    const html = await render(<GameRunGate preparing error="" onRetry={() => {}} />)
+    const html = await render(<GameRunGate session={gateSession(true, '')} />)
     expect(html).toContain('Preparing your game')
     expect(html).toContain('signed run')
     expect(html).not.toContain('Try again')
   })
 
   it('shows the error state with a retry button and the given message', async () => {
-    const html = await render(<GameRunGate preparing={false} error="Boom happened" onRetry={() => {}} />)
+    const html = await render(<GameRunGate session={gateSession(false, 'Boom happened')} />)
     expect(html).toContain('This game could not start')
     expect(html).toContain('Boom happened')
     expect(html).toContain('Try again')
   })
 
   it('falls back to a default error message when none is given', async () => {
-    const html = await render(<GameRunGate preparing={false} error="" onRetry={() => {}} />)
+    const html = await render(<GameRunGate session={gateSession(false, '')} />)
     expect(html).toContain('Player services are temporarily unavailable')
   })
 })

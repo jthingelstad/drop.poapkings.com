@@ -21,7 +21,8 @@ interface Props {
   count: number
   onQuit: () => void
   cue: GameRuntimeCue | null
-  progressText?: string
+  // Usually a plain string ("Card 3 / 15"); Rain renders its lives as glyphs.
+  progressText?: ComponentChildren
   metric?: GameMetric
   progressPct?: number
   fxParticles?: number

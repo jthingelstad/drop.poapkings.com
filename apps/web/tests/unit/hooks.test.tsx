@@ -41,6 +41,7 @@ import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
+import { getRecords, saveRecords } from '../../src/lib/storage'
 import { schedule, clearTimers, startCountdown, elapsedWithPenalty } from '../../src/lib/run-loop'
 import { transitionGameRuntimeStage, createGameRuntimeCue } from '../../src/lib/game-runtime'
 
@@ -375,7 +376,7 @@ function startedRun(overrides: Record<string, unknown> = {}) {
 
 type RunApi = ReturnType<typeof useGameRun>
 
-function mountRun(mode: 'surge' = 'surge'): { api: () => RunApi } {
+function mountRun(mode: 'surge' | 'rain' = 'surge'): { api: () => RunApi } {
   let current: RunApi
   function Probe() {
     current = useGameRun(mode)
@@ -384,6 +385,22 @@ function mountRun(mode: 'surge' = 'surge'): { api: () => RunApi } {
   const host = makeHost()
   void act(() => render(<Probe />, host))
   return { api: () => current }
+}
+
+function acceptedResult(mode: 'surge' | 'rain', score: number) {
+  return {
+    accepted: true,
+    runId: 'run-1',
+    mode,
+    score,
+    season: { id: 'season-1', startsAt: '', endsAt: '', durationWeeks: 1 },
+    completedAt: '2026-07-24T00:00:00.000Z',
+    totalGames: 5,
+    xp: 12,
+    level: 2,
+    levelStartGames: 0,
+    nextLevelGames: 10
+  }
 }
 
 describe('useGameRun', () => {
@@ -530,6 +547,54 @@ describe('useGameRun', () => {
     expect(onUnrecorded).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('error')
     expect((recordingNotice.value as { actionLabel: string }).actionLabel).toBe('Retry recording')
+  })
+
+  // The all-time local best mirrors the leaderboard: it is written HERE, on the
+  // server's verdict, and nowhere else. Every mode used to write its own best
+  // eagerly in finish(), which left a rejected run showing as a personal best on
+  // that player's device (Rain was the last one still doing it).
+  it('writes the local all-time best only for a server-accepted run', async () => {
+    vi.mocked(startRun).mockResolvedValue(
+      startedRun({ mode: 'rain', challenge: { mode: 'rain', cardIds: [1, 2, 3] } }) as never
+    )
+    vi.mocked(completeRun).mockResolvedValue(acceptedResult('rain', 12) as never)
+    const { api } = mountRun('rain')
+    await flush()
+    await act(async () => {
+      await api().complete({ answers: [] })
+    })
+    expect(getRecords().rainBest).toBe(12)
+    expect(track).toHaveBeenCalledWith('game.personal_best', 'rain')
+  })
+
+  it('leaves the local all-time best untouched when the run is rejected', async () => {
+    vi.mocked(startRun).mockResolvedValue(
+      startedRun({ mode: 'rain', challenge: { mode: 'rain', cardIds: [1, 2, 3] } }) as never
+    )
+    vi.mocked(completeRun).mockRejectedValue(new ApiError(410, 'run_expired', 'too late'))
+    const { api } = mountRun('rain')
+    await flush()
+    const onUnrecorded = vi.fn()
+    await act(async () => {
+      await api().complete({ answers: [] }, undefined, onUnrecorded)
+    })
+    expect(onUnrecorded).toHaveBeenCalledTimes(1)
+    expect(getRecords().rainBest).toBeUndefined()
+    expect(track).not.toHaveBeenCalledWith('game.personal_best', 'rain')
+  })
+
+  it('does not demote a standing best when a weaker run is accepted', async () => {
+    saveRecords({ rainBest: 40 })
+    vi.mocked(startRun).mockResolvedValue(
+      startedRun({ mode: 'rain', challenge: { mode: 'rain', cardIds: [1, 2, 3] } }) as never
+    )
+    vi.mocked(completeRun).mockResolvedValue(acceptedResult('rain', 12) as never)
+    const { api } = mountRun('rain')
+    await flush()
+    await act(async () => {
+      await api().complete({ answers: [] })
+    })
+    expect(getRecords().rainBest).toBe(40)
   })
 
   it('complete() without an active run reports the missing-signed-run error', async () => {

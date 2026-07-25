@@ -7,6 +7,9 @@ import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { navigate } from '../../lib/router'
 import { playCorrect, playWrong } from '../../lib/sound'
+import { comparableBest, pbCallout } from '../../lib/pb-callout'
+import { useGameKeys } from '../../lib/use-game-keys'
+import { useEndRunOnHide, useShrinkingWindow } from '../../lib/use-round-clock'
 import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
@@ -39,24 +42,33 @@ export default function HigherLower() {
   const streak = useSignal(0)
   const runBest = useSignal(0)
   const streakCue = useSignal(0)
-  const previousBest = useSignal(getRecords().longestStreak ?? 0)
+  // The record standing BEFORE this run — the number the summary compares
+  // against. Never overwritten with the streak just set.
+  const previousBest = useSignal(comparableBest(getRecords().longestStreak))
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
   const timeoutRef = useRef<() => void>(() => {})
+  const stage = runtime.stage
 
   useEffect(() => {
     preloadGameFx()
   }, [])
 
-  // Play the 3-2-1 once an explicitly requested run is loaded.
+  // Play the 3-2-1 once an explicitly requested run is loaded. Unlike the other
+  // modes this cannot use useAutoStart: replay() re-prepares BEFORE resetting
+  // the stage, so the arming edge is the stage flip, not the content arriving —
+  // hence the subscribed `stage.value` dependency. The start callback goes
+  // through a ref because `runtime` is a fresh object literal every render, and
+  // depending on it would re-run this effect on every single render.
+  const startRun = useRef<() => void>(() => {})
+  startRun.current = () =>
+    runtime.start(() => {
+      remainingFrac.value = 1
+    })
   useEffect(() => {
-    if (gameRun.content && runtime.stage.value === 'ready') {
-      runtime.start(() => {
-        remainingFrac.value = 1
-      })
-    }
-  }, [gameRun.content, runtime.stage.value, remainingFrac, runtime])
+    if (gameRun.content && stage.value === 'ready') startRun.current()
+  }, [gameRun.content, stage.value])
 
   // (Re)start the round clock whenever a new pair is dealt (its left card
   // changes) — but only once the run is live, so the countdown doesn't secretly
@@ -64,41 +76,24 @@ export default function HigherLower() {
   // the first round's clock.
   const leftCardId = gameRun.content?.[pairIndex.value]?.[0]?.id
   useEffect(() => {
-    if (leftCardId === undefined || runtime.stage.value !== 'running') return
+    if (leftCardId === undefined || stage.value !== 'running') return
     roundStart.current = performance.now()
     remainingFrac.value = 1
-  }, [leftCardId, remainingFrac, runtime.stage.value])
+  }, [leftCardId, remainingFrac, stage.value])
 
   // The countdown itself: drives the depleting bar and times you out. The window
   // tightens each round, so deep runs end at your true read speed.
-  useEffect(() => {
-    if (runtime.stage.value !== 'running') return
-    let raf = 0
-    const loop = () => {
-      if (!revealed.value && roundStart.current > 0) {
-        const elapsed = performance.now() - roundStart.current
-        const frac = 1 - elapsed / higherLowerWindowMs(streak.value)
-        remainingFrac.value = Math.max(0, frac)
-        if (frac <= 0) {
-          timeoutRef.current()
-          return
-        }
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [revealed, remainingFrac, streak, runtime.stage.value])
+  useShrinkingWindow({
+    running: stage.value === 'running',
+    ticking: () => !revealed.value,
+    startedAt: roundStart,
+    windowMs: () => higherLowerWindowMs(streak.value),
+    remaining: remainingFrac,
+    onExpire: () => timeoutRef.current()
+  })
 
   // Leaving the tab is not free thinking time — it ends the round.
-  useEffect(() => {
-    if (runtime.stage.value !== 'running') return
-    const onHidden = () => {
-      if (document.visibilityState === 'hidden') timeoutRef.current()
-    }
-    document.addEventListener('visibilitychange', onHidden)
-    return () => document.removeEventListener('visibilitychange', onHidden)
-  }, [runtime.stage.value])
+  useEndRunOnHide(stage.value === 'running', () => timeoutRef.current())
 
   function next() {
     const nextIndex = pairIndex.value + 1
@@ -120,7 +115,9 @@ export default function HigherLower() {
 
   async function replay() {
     track('game.replayed', 'higher-lower')
-    previousBest.value = Math.max(previousBest.value, runBest.value)
+    // Carry this session's best forward so a second run compares against it,
+    // without promoting a 0-streak run into a "best" worth reporting.
+    if (runBest.value > (previousBest.value ?? 0)) previousBest.value = runBest.value
     awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []
@@ -196,10 +193,8 @@ export default function HigherLower() {
 
   // Desktop keyboard follows the vertical layout with ↑ / ↓. Keep ← / → as
   // aliases so existing players do not lose familiar controls.
-  const keyRef = useRef<(event: KeyboardEvent) => void>(() => {})
-  keyRef.current = (event) => {
-    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
-    if (runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value) return
+  useGameKeys((event) => {
+    if (stage.value !== 'running' || revealed.value || gameRun.preparing.value) return
     const active = gameRun.content?.[pairIndex.value]
     if (!active) return
     if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
@@ -209,19 +204,10 @@ export default function HigherLower() {
       event.preventDefault()
       choose(active[1].id)
     }
-  }
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => keyRef.current(event)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  })
 
   const pair = gameRun.content?.[pairIndex.value]
-  if (!pair) {
-    return (
-      <GameRunGate preparing={gameRun.preparing.value} error={gameRun.error} onRetry={() => void gameRun.prepare()} />
-    )
-  }
+  if (!pair) return <GameRunGate session={gameRun} />
 
   if (awaitingReplay.value) {
     const total = gradedAnswers.current.length
@@ -234,25 +220,22 @@ export default function HigherLower() {
       weakest: gradedAnswers.current.filter((answer) => !answer.correct).map((answer) => answer.higher),
       hasTiming: false
     }
-    const pbCallout =
-      runBest.value > previousBest.value
-        ? previousBest.value > 0
-          ? `New personal best! +${runBest.value - previousBest.value}`
-          : 'First streak logged'
-        : previousBest.value > 0
-          ? `Best: ${previousBest.value}`
-          : undefined
+    const callout = pbCallout(runBest.value > (previousBest.value ?? 0), previousBest.value, {
+      first: 'First streak logged',
+      improved: (previous) => `New personal best! +${runBest.value - previous}`,
+      standing: (previous) => `Best: ${previous}`
+    })
 
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow="Higher / Lower complete"
           headline={`${runBest.value} streak`}
-          pbCallout={pbCallout}
+          pbCallout={callout}
           insights={insights}
           moments={[
             { label: 'Streak', value: String(runBest.value) },
-            { label: 'Prev best', value: String(previousBest.value), tone: 'purple' },
+            { label: 'Prev best', value: String(previousBest.value ?? 0), tone: 'purple' },
             { label: 'Accuracy', value: `${insights.accuracyPct}%`, tone: 'green' }
           ]}
           share={{ mode: 'higher-lower', score: `${runBest.value} streak` }}
