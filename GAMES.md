@@ -4,13 +4,10 @@ This is the canonical games catalog: what ships, what is retired, and what is
 only an idea. Mechanic-level game decisions live here. Read it before adding or
 reworking a mode.
 
-Doc map:
+**Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
+owns.
 
-- **`README.md`** is the public overview and local-development entry point.
-- **`SPEC.md`** is the current implementation spec and product constraints.
-- **`CLAUDE.md`** is the agent working guide.
-
-Shipped state as of July 22, 2026: **six playable modes** — Surge, Practice,
+Shipped state as of July 24, 2026: **six playable modes** — Surge, Practice,
 Higher / Lower, Trade, Survival, and Rain. **Practice is true practice**: runs
 record to history and earn Player XP (activity, like every mode) but are
 unranked and have no leaderboard tab. Player XP is a per-player activity score
@@ -35,7 +32,10 @@ challenge (created in `services/api/src/scoring.ts`, resolved client-side by
 distractors through `apps/web/src/lib/choices.ts`, and card presentation through
 `apps/web/src/lib/card-rendering.ts` plus
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
-mode-specific transcript through `apps/web/src/lib/use-game-run.ts`.
+mode-specific transcript through `apps/web/src/lib/use-game-run.ts`, which is
+also the **only** place a local personal best is written — and only for a run the
+server scored, so a rejected run can never leave a "best" on the device. No mode
+writes its own record.
 
 **Card pool and ranking:** every new run deals from the complete canonical card
 catalog and ranks on its seasonal leaderboard. Linked Clash Royale collections
@@ -153,17 +153,18 @@ deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript siz
   not comparable to runs on the uncapped curve. Old rows are orphaned, not
   deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
 
-### Easter egg: "Elixir Rain" screensaver
+### "Elixir Rain" screensaver
 
-Tap the ELIXIR DROP hero logo five times quickly (1.5s per tap), or leave the
-Home screen idle for two minutes, and the site dims into an ambient WebGL
-scene: a fresh random cast of ~24 cards drifts down through elixir droplets in
-three parallax layers, occasionally flipping into other cards, with the
-mascot gliding through every so often. Any tap or key exits. It never triggers
-on a gameplay route, pauses while the tab is hidden, and under reduced motion
-it simply does not exist. Deliberate discovery fires the `egg.screensaver`
-analytics event; idle attract is untracked. Purely cosmetic — no scores, no
-records, no server involvement.
+Three doors in (`apps/web/src/lib/screensaver.ts`): the **nav launcher** — a
+visible feature now, not only an egg — five quick taps on the ELIXIR DROP hero
+logo (1.5s per tap), or two idle minutes on Home. The site dims into an ambient
+WebGL scene: a fresh random cast of ~24 cards drifts down through elixir droplets
+in three parallax layers, occasionally flipping into other cards, with the mascot
+gliding through every so often. Any tap or key exits. It never triggers on a
+gameplay route, pauses while the tab is hidden, and under reduced motion it simply
+does not exist. Deliberate opens fire `easter_egg.screensaver_opened` with the
+source as the value (`nav` or `tap`); idle attract is untracked. Purely cosmetic —
+no scores, no records, no server involvement.
 
 ### Shared active-play chrome
 

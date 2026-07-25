@@ -13,12 +13,14 @@ npm ci
 npm run check:beta
 ```
 
-This gate fails on high-severity dependency findings, formatting or lint errors,
-TypeScript errors, dead files or dependencies, coverage regressions, Chromium,
-WebKit or iPhone browser failures, build failures, a mismatched or unsettled AWS
-stack, invalid production CORS, anonymous gameplay, masked-email acceptance, a
-stale Clash Royale season clock, a broken Fastmail JMAP credential, or a website
-that points at the wrong API.
+`check:beta` is `npm audit --audit-level=high` + `npm run verify` +
+`npm run smoke:api`. It fails on high-severity dependency findings, formatting or
+lint errors, TypeScript errors, dead files or dependencies, coverage regressions,
+a Chromium / Firefox / WebKit / iPhone-14 browser failure, build failures, a
+mismatched or unsettled AWS stack, invalid production CORS, anonymous gameplay,
+masked-email acceptance, a stale Clash Royale season clock, a broken Fastmail JMAP
+credential, or a website that points at the wrong API. (`CONTRIBUTING.md` →
+"The quality gate" is the canonical description of the `verify` half.)
 
 Do not deploy around a failed gate. Fix the failure or make a deliberate,
 reviewed change to the gate itself.
@@ -26,9 +28,9 @@ reviewed change to the gate itself.
 ## 2. Deployment and automatic rollback boundary
 
 Push the reviewed commit to `main`. The `Build and Deploy` GitHub Actions run
-must finish successfully. It verifies the whole monorepo, deploys and smokes the
-API, rebuilds the web app against that API, and then deploys GitHub Pages. A
-failed API update blocks the website deployment.
+must finish successfully. It runs the same quality gate as step 1, deploys and
+smokes the API, rebuilds the web app against that API, and then deploys GitHub
+Pages. A failed API update blocks the website deployment.
 
 If the deployed app is unsafe for players, stop sending invites and revert the
 offending commit on `main`. The same pipeline will deploy the prior application
@@ -80,8 +82,8 @@ Road total intentionally does not decrement.
 
 ## 5. Device and accessibility spot check
 
-The automated suite covers Chromium, WebKit, and an iPhone-sized viewport. Also
-perform a short real-device check on current iPhone Safari and one desktop
+The automated suite covers Chromium, Firefox, WebKit, and an iPhone-14 viewport.
+Also perform a short real-device check on current iPhone Safari and one desktop
 browser:
 
 - sign in from the email link;

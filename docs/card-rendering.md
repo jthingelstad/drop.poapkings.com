@@ -51,9 +51,10 @@ The current rarity-to-name-tone mapping is:
 | Legendary | Teal / mint   |
 | Champion  | Champion gold |
 
-Mode-specific classes such as `pcard__name`, `ladder-card__cost`,
-`trade-card__name`, and `sweep-card__cost` remain in place for layout and tests.
-They should be paired with the shared helpers rather than rebuilt by hand.
+A mode may keep its own layout classes (Practice's `pcard__name`, for example) for
+positioning and test hooks. Pair them with the shared helpers rather than
+rebuilding card art, names, or cost badges by hand. Classes belonging to retired
+modes are not a precedent — when a mode goes, its CSS goes with it.
 
 ## Usage Rules
 

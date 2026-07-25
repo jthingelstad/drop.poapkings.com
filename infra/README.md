@@ -47,10 +47,12 @@ public API endpoint to `apps/web/public/api-config.json`.
 
 ## Continuous deployment
 
-Every push to `main` runs the complete repository verification, deploys the API,
-and only then publishes the matching website build to GitHub Pages. A failed API
-deployment blocks the website deployment, preventing incompatible web and Lambda
-versions from reaching production.
+Every push to `main` runs `.github/workflows/deploy.yml`: a high-severity `npm
+audit`, the repository quality gate, `npm run deploy:api`, a smoke test against
+the deployed API, a website rebuild against the endpoint that stack emitted, and
+only then the GitHub Pages publish. A failed API deployment blocks the website
+deployment, preventing incompatible web and Lambda versions from reaching
+production. What the quality gate contains is documented in `CONTRIBUTING.md`.
 
 GitHub Actions receives only the limited `elixir-drop` IAM deploy-user key through
 the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
@@ -61,8 +63,9 @@ copying those application secrets into GitHub. The CI smoke step therefore
 reports its Fastmail JMAP probe as "not checked" — live mail verification runs
 from the fixed host via `npm run check:beta`. (If a
 `ELIXIR_DROP_FASTMAIL_JMAP_TOKEN` repository secret still exists from an earlier
-setup, delete it.) Pull requests run the same `npm run verify` gate through
-`.github/workflows/verify.yml` with no secrets at all.
+setup, delete it.) Pull requests run the same gate through
+`.github/workflows/verify.yml` with no secrets at all — fork-safe by
+construction.
 
 The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.

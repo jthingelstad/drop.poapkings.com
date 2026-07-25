@@ -63,12 +63,15 @@ approval gate — lives inside the Manager. If either ever needs an independent 
 Roles should name the layer + file that supplied every finding.
 
 - **Frontend:** `apps/web` — Preact + @preact/signals + Vite SPA on GitHub Pages, hash
-  routing. Pushing to `main` auto-deploys it (CI `verify:deploy`). Two shells (`lib/use-layout`
-  @1024): a fixed **1280-wide** desktop, a mobile single-column shell.
+  routing. Two shells (`lib/use-layout` @1024): a fixed **1280-wide** desktop, a mobile
+  single-column shell.
 - **Backend:** `services/api` — one TypeScript **Lambda** + one **DynamoDB** table (pk/sk +
   GSI1/GSI2). Owns scoring/selection via signed challenges, magic-link auth, leaderboards, and
-  the recent-activity feed. Deploys **only** via `npm run deploy:api` — this is the
-  `needs-deploy` handoff (a committed backend change is not live until Ops runs it).
+  the recent-activity feed.
+- **Deploys:** one pipeline off a push to `main` ships **both** surfaces — the API stack first,
+  then Pages rebuilt against it. `npm run deploy:api` stays the Operations Manager's tool for
+  stack creation, secret rotation, and recovering a pipeline run that did not finish. The full
+  statement lives in `AGENTS.md` → "Deploy model".
 - **CR bridge:** `services/cr-api-bridge` — the only runtime Clash Royale API ingress
   (fixed-IP, allowlisted host). The browser and Lambda never call CR directly; the committed
   `packages/game-data/cards.json` snapshot is authoritative for the running app.

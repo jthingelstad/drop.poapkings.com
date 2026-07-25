@@ -16,7 +16,8 @@ remains the canonical source for shipped modes and game ideas.
 - **Owner:** POAP KINGS (clan tag `#J2RGCRVG`)
 - **Primary goal:** build fast, accurate intuition for Clash Royale card elixir
   costs and elixir trades.
-- **Secondary goal:** create earned recruiting moments for POAP KINGS.
+- **Secondary goal:** be a quiet, persistent front door to POAP KINGS — a footer
+  credit and a Discord link, not a triggered pitch.
 - **Host / mascot:** Elixir, bundled as local assets in this repo.
 
 The public website remains a static GitHub Pages app, but it now uses a separate
@@ -44,9 +45,8 @@ Hard product constraints:
 - Only the fixed-IP bridge may call the Clash Royale API at runtime.
 - Do not put the CR API token in client code, Lambda, CI, or committed files.
 - Do not add curated deck definitions, archetype lists, or game modes that depend
-  on authentic deck construction.
-- New game modes should work from the committed facts in
-  `packages/game-data/cards.json`.
+  on authentic deck construction; new game modes work from the committed facts in
+  `packages/game-data/cards.json`. (`GAMES.md` holds the rationale.)
 
 ---
 
@@ -77,10 +77,10 @@ Current public website stack:
 | Build       | Vite + TypeScript                                           |
 | Routing     | Hash routing through `apps/web/src/lib/router.ts`           |
 | Styling     | Vendored tokens and components in `apps/web/src/styles.css` |
-| Persistence | `localStorage` through `apps/web/src/lib/storage.ts`        |
+| Persistence | `localStorage`; learning progress through `apps/web/src/lib/storage.ts` (§6) |
 | Analytics   | Tinylytics, Elixir Drop's own property                      |
 | Hosting     | GitHub Pages, custom domain `drop.poapkings.com`            |
-| Deployment  | `.github/workflows/deploy.yml` on push to `main`            |
+| Deployment  | `.github/workflows/deploy.yml` on push to `main` (API + Pages) |
 
 The app builds to static files in `apps/web/dist/`. GitHub Pages serves the
 custom domain from root, so Vite `base` stays `/` and routes stay hash-based to
@@ -145,7 +145,11 @@ Normalization rules:
 - Exclude `supportItems` because Tower Troops have no elixir cost.
 - Emit `{ id, name, elixir, rarity, type, evo, hero, icon }`.
 - Derive `type` from ID range: `26` troop, `27` building, `28` spell.
-- Use `iconUrls.medium` by default.
+- Read art from `iconUrls.medium` (plus `evolutionMedium` / `heroMedium`), then —
+  because the refresh always runs with `MIRROR_IMAGES=true` — download it and
+  rewrite `icon` to the same-origin `/cards/{id}.png` path. A CDN URL only
+  survives in the snapshot if someone runs the refresh without that flag, which
+  is exactly the mistake the refresh model above guards against.
 
 The API reference under `docs/cr-agent-api-docs/` is the source material for
 these assumptions.
@@ -155,7 +159,7 @@ these assumptions.
 ## 4. Shipped Modes
 
 `GAMES.md` is authoritative for mode mechanics, backlog, and retired ideas. The
-app has five playable modes:
+app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 
 | Mode           | Route            | Score / record                              |
 | -------------- | ---------------- | ------------------------------------------- |
@@ -164,6 +168,12 @@ app has five playable modes:
 | Higher / Lower | `#/higher-lower` | `longestStreak`                             |
 | Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
+| Rain           | `#/rain`         | `rainBest`, most cards cleared              |
+
+Survival and Rain each carry a **board epoch** (`BOARD_EPOCH` in
+`services/api/src/games.ts`, mirrored in `AGENT-TEAM/scripts/_referee-lib.mjs`): a
+material rules change restarts the board rather than deleting data, and old rows
+are orphaned. Both are on `r2`.
 
 Practice runs are created `ranked: false` server-side: they record to history
 and Trophy Road but never write a leaderboard entry, and Practice has no
@@ -207,7 +217,7 @@ Product decisions currently in force:
 
 Important shared modules:
 
-- `apps/web/src/lib/storage.ts` - all current localStorage reads/writes.
+- `apps/web/src/lib/storage.ts` - the learning-progress storage boundary (§6).
 - `apps/web/src/lib/game-challenge-content.ts` - resolves signed server
   challenges into playable card content (card selection is server-owned).
 - `apps/web/src/lib/choices.ts` - adjacent elixir distractors.
@@ -217,8 +227,7 @@ Important shared modules:
   Clash-style name tone mapping.
 - `apps/web/src/lib/insights.ts` - Practice and Surge coaching insights.
 - `apps/web/src/lib/mode-insights.ts` - mode-specific Trade summary lines.
-- `apps/web/src/lib/elixir-lines.ts` - static host lines; no LLM at runtime.
-- `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge and local funnel mirror.
+- `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge.
 
 Player XP and the per-player arena:
 
@@ -265,19 +274,40 @@ Active-play layout:
 
 ## 6. Current Browser Storage
 
-All currently implemented persistence goes through
-`apps/web/src/lib/storage.ts`.
+**This section is the canonical inventory of every browser-storage key.** Every
+key uses the `elixirdrop:` prefix. `apps/web/src/lib/storage.ts` is the boundary
+for **learning progress** — game code must never touch those keys directly — but
+it is not the only owner: three other modules own their own narrow state, and
+that is deliberate, not drift.
+
+Learning progress, owned by `lib/storage.ts` (`localStorage`):
 
 ```text
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
 elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak, bestAccuracy,
-                              survivalBest, tradeBest }
+                              survivalBest, tradeBest, rainBest }
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)
-elixirdrop:funnel        -> { recruitShown, recruitJoin, recruitDiscord, shares }
-elixirdrop:settings      -> { inputStyle, sound, reducedMotion? }
+elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
 ```
+
+Session, analytics, and install state, owned by their own modules:
+
+```text
+elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
+elixirdrop:analyticsLoginCompleted  -> lib/analytics.ts   sessionStorage latch that holds the
+                                       login-completed event until the app has left the
+                                       token-bearing #/auth route
+elixirdrop:installDismissed         -> lib/pwa-install.ts localStorage   Home banner dismissed
+elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinct browser
+                                       sessions (install is suggested on the third)
+elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
+                                       one session counts once
+```
+
+The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
+`Settings` there.
 
 Authoritative learning telemetry is server-side: accepted completions in the
 card-recall modes fold per-card outcomes (derived from the validated
@@ -349,7 +379,7 @@ Authenticated public identity is centered on one favorite card:
 
 ---
 
-## 7. Analytics And Recruiting
+## 7. Analytics
 
 Tinylytics property:
 
@@ -365,17 +395,22 @@ browser collector hit for each distinct credential-free virtual route. Query
 parameters are stripped, public player IDs collapse to `/players/profile`, and
 the one-time-token `#/auth` route is never loaded or reported.
 
-Tracked events include:
-`game.start`, `mode.practice`, `mode.surge`, `mode.higherlower`, `mode.trade`,
-`mode.survival`, `surge.complete`, `trade.complete`, `survival.win`,
-`record.new`, `recruit.shown`, `recruit.join`, `recruit.discord`,
-`result.share`, `egg.screensaver`.
+Custom events are the `TinyEvent` union in `apps/web/src/lib/analytics.ts` — that
+type is authoritative; this list mirrors it. Names are `category.action`, plus at
+most one low-cardinality value (a game mode, or `browser` / `ios` / `nav` / `tap`).
+Player ids, emails, tags, scores, and run ids never cross this boundary.
 
-Recruitment remains moment-based:
+| Category | Events |
+| --- | --- |
+| `game` | `game.started`, `game.completed`, `game.replayed`, `game.personal_best`, `game.shared` |
+| `account` | `account.login_requested`, `account.login_completed`, `account.profile_completed` |
+| `install` | `install.suggestion_shown`, `install.suggestion_dismissed`, `install.instructions_opened`, `install.prompt_accepted`, `install.prompt_dismissed`, `install.completed` |
+| `easter_egg` | `easter_egg.screensaver_opened` (value `nav` or `tap`; idle attract is untracked) |
 
-- Trigger on strong summaries or new records, not load-time modals.
-- Keep the persistent footer quiet.
-- Lead with Discord when the clan is full.
+Tinylytics is the only analytics sink; there is no local mirror of these events.
+A `community.*` category and an `elixirdrop:funnel` counter set existed for an
+early in-app recruitment CTA. That concept was retired and removed in full — do
+not reintroduce either without the surface that justifies them.
 
 ---
 
@@ -425,28 +460,30 @@ Use this before pushing:
 npm run verify
 ```
 
-`verify` runs:
+**`CONTRIBUTING.md` → "The quality gate" is the canonical description** of what
+`verify` runs and where CI runs it. In short: the same gate runs on pull requests
+(`.github/workflows/verify.yml`) and on the push-to-`main` deploy path
+(`.github/workflows/deploy.yml`), and the Pages artifact is uploaded from
+`apps/web/dist/` only after it passes.
 
-- Prettier format check
-- Oxlint
-- Stylelint
-- TypeScript typecheck
-- Knip
-- Vitest unit tests
-- Chromium Playwright e2e tests
-- Production build
+Playwright browser/device projects are declared in
+`apps/web/playwright.config.ts` — `chromium`, `firefox`, `webkit`, and `iphone-14`,
+exactly the four the `verify` gate runs. Do not add a project the gate does not
+run; an unexercised project is a false sense of coverage.
 
-GitHub Actions runs the same verification path on push to `main`, after
-installing Chromium with Playwright. The Pages artifact is uploaded from
-`apps/web/dist/` only after verification passes.
+The e2e suite is split by concern under `apps/web/tests/e2e/`, with shared API
+stubs and helpers in `fixtures.ts`:
 
-Current e2e coverage includes:
-
-- Route accessibility smoke checks (launch five).
-- Card art fallback.
-- Trade exchange hints.
-- Settings persistence.
-- Active timed states using low chrome with visible controls.
+| Spec | Covers |
+| --- | --- |
+| `a11y.spec.ts` | Axe checks on all 14 public routes, including every game |
+| `app-shell.spec.ts` | Stale-build reload, API outage notice and recovery |
+| `auth.spec.ts` | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, auth outage |
+| `run-lifecycle.spec.ts` | Signed-run preparation, malformed-challenge rejection, completion retry, permanent rejection |
+| `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play |
+| `home.spec.ts` | Season standings, install suggestion timing, the Tinylytics hash-page/event bridge |
+| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping, public player pages, XP, settings persistence, CR tag states |
+| `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow |
 
 ---
 

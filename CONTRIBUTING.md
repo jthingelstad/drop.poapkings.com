@@ -47,17 +47,31 @@ storage is the **test suite**, which mocks the API end to end.
 
 ## The quality gate
 
-Before opening a PR, this must pass:
+**This section is the canonical description of the gate.** Other docs point here
+rather than repeating the list — if you change what `verify` runs, change it here.
+
+Before pushing, this must pass:
 
 ```bash
 npm run verify
 ```
 
 It runs, across every implemented workspace: Prettier format check, oxlint
-(warnings fail), Stylelint, TypeScript typecheck, Knip (unused code/deps),
-Vitest unit tests with coverage thresholds, Playwright e2e across
-Chromium/Firefox/WebKit/iPhone-14, and a production build. CI runs the same gate
-on every push.
+(warnings fail), the release-tooling test (`test:release`), Stylelint, TypeScript
+typecheck, Knip (unused code/deps), Vitest unit tests with coverage thresholds,
+Playwright e2e across **Chromium / Firefox / WebKit / iPhone-14**, and a
+production build.
+
+CI runs it in two places, both defined in `.github/workflows/`:
+
+- **`verify.yml`** on every pull request — the same gate, with no secrets exposed,
+  so it is fork-safe by construction.
+- **`deploy.yml`** on every push to `main` — the gate runs before anything is
+  deployed, and a failure stops the API and Pages deploys.
+
+Both workflows also run `npm audit --audit-level=high` ahead of the gate; that
+audit is not part of `npm run verify` itself (`npm run check:beta` bundles the
+two locally).
 
 Handy sub-commands while iterating:
 
@@ -78,10 +92,10 @@ npm run test:e2e           # Playwright e2e
 - `packages/game-data` — the committed `cards.json` snapshot.
 - `infra` — CloudFormation.
 
-Keep these boundaries explicit: do not import service implementation files
-across workspaces, and **only the bridge may call the Clash Royale API at
-runtime** — the browser and Lambda never do. The CR API token lives only on the
-managed host; never commit it, expose it to the browser, or put it in CI.
+These boundaries are enforced by the project's **golden rules** — the full text
+lives in [`CLAUDE.md`](./CLAUDE.md) and is the one place they are stated. The two
+that bite contributors most: do not import service implementation files across
+workspaces, and **only the bridge may call the Clash Royale API at runtime**.
 
 ## Conventions
 
@@ -96,14 +110,24 @@ managed host; never commit it, expose it to the browser, or put it in CI.
   mobile gameplay controls.
 - **Update the docs** when you make a product or architecture decision:
   `GAMES.md` for mechanics, `SPEC.md` for architecture, `CLAUDE.md` for the
-  working guide. Start from `CLAUDE.md` for the map.
+  working guide. [`AGENTS.md`](./AGENTS.md) holds the canonical doc map.
 - **No curated deck data.** New modes work from `cards.json` facts only — no
-  `decks.json`, archetype lists, or "real deck" dependencies.
+  `decks.json`, archetype lists, or "real deck" dependencies. The rationale is in
+  [`GAMES.md`](./GAMES.md) → "Current product constraint".
 
-## Pull requests
+## How changes land
 
-- Branch from `main`, keep the change focused, and describe what and why.
-- Make sure `npm run verify` is green locally — CI will run it again.
+This repository **commits directly to `main`** — no feature branches and no
+PR-based review. That is the stated convention for maintainers and for the
+scheduled `AGENT-TEAM/` roles (`AGENTS.md` → "Work tracking"), and it is what the
+history shows. `main` is protected by the gate, not by review: the push-to-main
+workflow runs `npm run verify` before it deploys anything.
+
+If you do not have push access, the fork-and-pull-request path is the way in:
+
+- Fork, branch in your fork, keep the change focused, and describe what and why.
+- `.github/workflows/verify.yml` runs the same gate on your PR, with no secrets.
+- Make sure `npm run verify` is green locally first — CI will run it again.
 - Screenshots or a short clip help for any visual change.
 
 ## Reporting bugs & ideas

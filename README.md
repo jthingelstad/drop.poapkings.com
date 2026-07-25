@@ -33,10 +33,10 @@ catalog, and a short end-of-session insight ("you bleed time on 5–6 cost
 cards") turns the game into a coach rather than a quiz. A linked Clash Royale
 collection is stored but not rendered; only the card count is shown, and it does
 not change the deal. **Elixir**, the clan's mascot, is the cosmetic face of the
-game and the voice of the Recruit call-to-action — not a runtime host.
+game — not a runtime host.
 
-It's also a quiet front door to the clan: a good run is met with an invite, not
-a banner.
+It's also a quiet front door to the clan: a persistent "Run by POAP KINGS"
+footer link and a Discord link, never a banner or a pop-up.
 
 ---
 
@@ -91,9 +91,8 @@ production API**, so signing in and recording games hit the live backend. See
 quality gate, and repo conventions.
 
 Elixir Drop intentionally does **not** maintain curated deck definitions,
-archetype data, or "real deck" dependencies. New modes should work from the
-committed card facts in `cards.json` instead of requiring a separate
-`decks.json` dataset.
+archetype data, or "real deck" dependencies — new modes work from the committed
+card facts in `cards.json`. [`GAMES.md`](GAMES.md) explains why.
 
 ---
 
@@ -147,14 +146,20 @@ fallback when the bridge clock is stale.
 
 ## Deploy
 
-GitHub Pages, custom domain `drop.poapkings.com`:
+`.github/workflows/deploy.yml` ships **both surfaces from one push to `main`**: it
+runs the quality gate, updates the API's CloudFormation stack, smokes the deployed
+API, rebuilds the web bundle against the endpoint that stack emitted, and then
+publishes GitHub Pages. A failed API update blocks the website deploy, so the web
+app and the Lambda cannot drift apart.
+
+The website is GitHub Pages on the custom domain `drop.poapkings.com`:
 
 - `apps/web/public/CNAME` contains the domain; Vite `base` is `/` (custom domain
   serves from root).
-- `.github/workflows/deploy.yml` builds and deploys on push to `main`.
 - "Enforce HTTPS" is on once the certificate provisions.
 
-The API is a separate production CloudFormation stack:
+The same deployment commands run locally for first-time setup, secret rotation, or
+recovering a deploy CI could not finish:
 
 ```bash
 npm run bootstrap:aws  # one time: IAM deploy user, role, bucket, root .env
@@ -197,11 +202,15 @@ elixir-drop/
 │  └─ game-data/             # canonical cards.json snapshot
 ├─ infra/                    # CloudFormation and SDK deployment scripts
 ├─ package.json              # npm workspace commands
-├─ .github/workflows/deploy.yml
+├─ .github/workflows/        # verify.yml (pull requests) + deploy.yml (push to main)
+├─ AGENT-TEAM/               # scheduled maintainer role prompts
+├─ AGENTS.md                 # agent entry point + the canonical doc map
+├─ CLAUDE.md                 # agent working guide: golden rules and architecture
+├─ CONTRIBUTING.md           # local dev, the quality gate, conventions
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
-├─ docs/card-rendering.md    # shared card rendering reference
-└─ CLAUDE.md                 # agent guide for future code work
+├─ RELEASES.md               # named-release history
+└─ docs/card-rendering.md    # shared card rendering reference
 ```
 
 The Clash Royale API reference under `docs/cr-agent-api-docs/` is source material

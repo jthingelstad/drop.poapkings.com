@@ -6,10 +6,10 @@ at `https://api.clashroyale.com/v1`.
 It is designed for agentic use: LLM agents, coding agents, automation workflows, and API clients that need a practical, accurate reference for live endpoint behavior rather than a thin endpoint list.
 
 In Elixir Drop, this is reference material for
-`apps/web/scripts/refresh-cards.mjs`, the future
-`services/cr-api-bridge` implementation, and Clash Royale API assumptions. It is
-not an application API design or product spec; use the root `README.md`,
-`SPEC.md`, `GAMES.md`, and `CLAUDE.md` for the product itself.
+`apps/web/scripts/refresh-cards.mjs`, the implemented `services/cr-api-bridge`
+worker, and Clash Royale API assumptions. It is not an application API design or
+product spec — `AGENTS.md` → "Doc map" points at the docs that describe the
+product itself.
 
 ## What This Provides
 

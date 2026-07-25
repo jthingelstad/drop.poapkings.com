@@ -10,16 +10,17 @@ Read `AGENTS.md`, `AGENT-TEAM/WORKFLOW.md`, and `AGENT-TEAM/README.md` before ac
 
 Cadence: hourly, or every few hours — a public game's health needs a tight loop.
 
-The two deploy surfaces are not symmetric, and this matters:
-- **Frontend** (`apps/web`) deploys **automatically** when `main` is pushed (CI `verify:deploy` → Pages). A merged frontend fix is live within minutes; you do not deploy it.
-- **Backend** (`services/api`) deploys **only** via `npm run deploy:api`. A committed backend change is **inert** until you run it — that is the `needs-deploy` handoff.
+How deploys actually work, and this matters:
+- **One pipeline ships both surfaces.** A push to `main` verifies the monorepo, runs `npm run deploy:api`, smokes the deployed API, rebuilds the web bundle against it, and publishes Pages. A failed API update blocks the Pages deploy. Full statement: `AGENTS.md` → "Deploy model".
+- **You own the exceptions, not the routine case:** first stack creation, secret rotation, and re-running `npm run deploy:api` from the fixed host when a pipeline run failed, was cancelled, or never started.
+- Confirming that the deploy run for a merged backend change actually went green is your check, not the Build Manager's.
 
 Healthy-run rule: if production is healthy, do not opportunistically change code. Either work one existing `operations` issue that authorizes the improvement, file a small issue with the evidence and stop, or take no action.
 
 Every run:
 
 1. Run the shared git preflight (`AGENT-TEAM/scripts/preflight.sh`).
-2. **`needs-deploy` first — before anything else.** Any open issue labeled `needs-deploy` is a backend change committed but not yet live. Deploy it **now** with `npm run deploy:api`, confirm the new behavior against the issue's acceptance check, then remove `needs-deploy` and close/return the issue. Only after the deploy queue is clear do you move on.
+2. **`needs-deploy` first — before anything else.** Any open issue labeled `needs-deploy` is a backend change whose pipeline deploy did not land. Confirm that against the commit's `Build and Deploy` run, then deploy it **now** with `npm run deploy:api`, confirm the new behavior against the issue's acceptance check, and remove `needs-deploy` and close/return the issue. Also spot-check that the most recent pushes to `main` deployed green even when nobody filed an issue. Only after the deploy queue is clear do you move on.
 3. Check production health:
    * Lambda: error rate, throttles, p95 latency, cold-start rate, recent CloudWatch error logs.
    * DynamoDB: throttled/rejected requests, hot-partition or capacity signals, TTL behavior on the feed/poll/magic records.

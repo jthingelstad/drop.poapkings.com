@@ -2,18 +2,12 @@
 
 Elixir Drop is a game for learning **Clash Royale elixir costs**, run by the POAP
 KINGS clan. The public Preact application is deployed to GitHub Pages at
-`drop.poapkings.com`; this monorepo includes a Lambda player API and reserves a
-boundary for a fixed-IP Clash Royale API bridge.
+`drop.poapkings.com`; this monorepo also holds the Lambda player API and the
+implemented fixed-IP Clash Royale API bridge.
 
-Doc map:
-
-- **`README.md`** is the public overview and local-development entry point.
-- **`SPEC.md`** is the current implementation spec and product constraints.
-- **`GAMES.md`** is the canonical games catalog: shipped modes, retired modes,
-  and backlog ideas.
-- **`docs/card-rendering.md`** is the Clash-style card rendering reference and
-  helper guide.
-- **`CLAUDE.md`** is the agent working guide.
+**Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
+owns. This file is the **working guide**: golden rules, architecture, and product
+decisions.
 
 ---
 
@@ -24,9 +18,10 @@ Doc map:
    fixed-IP Clash Royale access, and `infra` owns cloud definitions. Do
    not import service implementation files directly across those boundaries.
 2. **Only the bridge may call the Clash Royale API at runtime.** The browser and
-   Lambda backend must never call it directly. The current website reads the
-   committed `packages/game-data/cards.json` snapshot; future dynamic backend
-   requests go through the asynchronous SQS bridge boundary.
+   Lambda backend must never call it directly. The website reads the committed
+   `packages/game-data/cards.json` snapshot; dynamic backend requests (player
+   enrichment, the Clan Wars clock) go through the asynchronous SQS bridge
+   boundary.
 3. **The CR token lives only on the managed, allowlisted host.** It is
    gitignored. Never commit it, expose it to the browser, place it in CI, or put
    it in Lambda configuration. The static refresher and local bridge are the
@@ -65,8 +60,10 @@ Doc map:
 - `apps/web`: **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
 - `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
 - Before pushing code, run root `npm run verify`. It runs each implemented
-  workspace's verification script; today the web gates are format, lint, CSS
-  lint, typecheck, Knip, unit tests, Chromium e2e, and production build.
+  workspace's verification script. **What the gate contains is documented once, in
+  `CONTRIBUTING.md` → "The quality gate"** — don't restate it here.
+- Deploying is one pipeline off a push to `main` (web *and* Lambda API). The model
+  is stated once, in `AGENTS.md` → "Deploy model".
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 
@@ -80,11 +77,15 @@ rank-oriented fields as part of unrelated work.
 ## Architecture
 
 - **`apps/web/src/lib/storage.ts` is the local learning-data boundary.**
-  All progress reads/writes go through it (`getProfile`, `getRecords`,
-  `getCardStats`, `saveResult`, …). Authenticated identity and signed runs use
-  `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
-- **localStorage keys** use the `elixirdrop:` prefix: `profile`, `cardStats`,
-  `records`, `seasonRecords`, `funnel`, `settings`.
+  All *progress* reads/writes go through it (`getProfile`, `getRecords`,
+  `getCardStats`, `saveResult`, …) — never read or write a progress key directly.
+  It is not the only browser-storage owner: the session token, the analytics
+  login latch, and the install-prompt state are deliberately owned by
+  `account.ts`, `analytics.ts`, and `pwa-install.ts`. Authenticated identity and
+  signed runs use `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
+- **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
+  the canonical inventory of all eleven keys and which module owns each; add new
+  keys there.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
   canonical card snapshot. Claude Haiku may use community nicknames and playful
   card associations; the public name does not need the exact card title.
@@ -130,9 +131,6 @@ rank-oriented fields as part of unrelated work.
   exceptional per-card focal adjustments live in
   `apps/web/src/data/avatar-crops.ts`. Review the complete catalog at the
   development-only `#/avatar-audit` route before adding an override.
-- **`apps/web/src/lib/elixir-lines.ts`** — the host's static line table, keyed by event
-  (`correct_fast`, `wrong_close`, `recruit`, …). No LLM at runtime. Used by the
-  Recruit CTA line.
 - **`apps/web/src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
   helpers for timed modes.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
@@ -143,7 +141,8 @@ rank-oriented fields as part of unrelated work.
   See `GAMES.md` for mechanics, backlog, and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
-  committed `cards.json` facts only.
+  committed `cards.json` facts only. (Rationale and the set-aside ideas live in
+  `GAMES.md` → "Current product constraint".)
 - **CR profile snapshots are practice context, not rank context.** Store CR name,
   clan, Years Played account age, and card _count_. Do not add experience,
   arenas, trophies, wins, or card levels, and do not render the CR card
@@ -222,8 +221,12 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).
-- Recruit is **moments, not chrome**: trigger on a new PB / strong session, never
-  a load-time modal. Keep a quiet "Run by POAP KINGS" footer link always.
+- Clan presence is **chrome, not moments**: a quiet, always-present "Run by POAP
+  KINGS" footer link and the Discord link. The triggered Recruit CTA (fire on a
+  new PB / strong session) was an early Elixir concept and was **removed in
+  full** — its `community.*` analytics events, the `elixirdrop:funnel` counters,
+  and the `elixir-lines.ts` host voice table are all gone. Don't rebuild any of
+  them without the surface that justifies them, and never a load-time modal.
 
 ---
 
