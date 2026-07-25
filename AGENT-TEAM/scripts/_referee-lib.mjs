@@ -48,8 +48,58 @@ export function leaderboardPartition(seasonId, mode) {
     : `LEADERBOARD#${seasonId}#${mode}`;
 }
 
-// Sensitive attributes that must never leave these scripts.
-const FORBIDDEN_KEYS = new Set(["sub", "playerSub", "email", "pk"]);
+// Mirror of services/api/src/games.ts MODE_RULES[mode].direction — the only
+// rule the leaderboard ordering depends on. "lower" means a smaller raw score
+// is better (golf-time modes); everything else is higher-is-better and has its
+// score INVERTED into the sort key. Getting this wrong silently ranks a board
+// backwards, so it is asserted against MODE_RULES by the mirror test.
+const MODE_DIRECTION = {
+  surge: "lower",
+  practice: "higher",
+  "higher-lower": "higher",
+  trade: "lower",
+  survival: "higher",
+  rain: "higher",
+};
+
+// Mirror of services/api/src/games.ts MAX_SORT_SCORE.
+const MAX_SORT_SCORE = 999_999_999_999;
+
+// Mirror of services/api/src/games.ts isLeaderboardEligibleScore. A completed
+// ranked run with a zero score still belongs in history and earns XP, but it
+// never earned a place on a skill board — the API filters it out of every
+// leaderboard read, so the referee must too or it reviews a phantom cohort.
+export function isLeaderboardEligibleScore(score) {
+  return Number.isFinite(score) && score > 0;
+}
+
+// Mirror of services/api/src/games.ts leaderboardSortKey. The lexicographic key
+// DynamoDB orders GSI1 by. Note the score inversion for higher-is-better modes,
+// the 12-character pad, the optional 9-character ascending tiebreak (Survival's
+// cumulative time), and the trailing `#{sub}` uniqueness suffix.
+export function leaderboardSortKey(mode, score, completedAt, sub, tiebreakMs) {
+  const sortableScore =
+    MODE_DIRECTION[mode] === "lower" ? score : MAX_SORT_SCORE - score;
+  const tiebreak =
+    tiebreakMs === undefined
+      ? ""
+      : `#${String(Math.min(Math.max(0, Math.round(tiebreakMs)), 999_999_999)).padStart(9, "0")}`;
+  return `${String(sortableScore).padStart(12, "0")}${tiebreak}#${completedAt}#${sub}`;
+}
+
+// Sensitive attributes that must never leave these scripts. `owner` is the sub
+// on the ephemeral RUN#{runId} item; `GSI1SK` is the leaderboard sort key, which
+// ends in the raw sub. Both are internal identifiers wearing an innocent name.
+export const FORBIDDEN_KEYS = Object.freeze([
+  "sub",
+  "playerSub",
+  "owner",
+  "email",
+  "pk",
+  "GSI1SK",
+]);
+
+const FORBIDDEN_KEY_SET = new Set(FORBIDDEN_KEYS);
 
 let cachedDoc;
 
@@ -145,7 +195,7 @@ function stripForbidden(value) {
   if (value && typeof value === "object") {
     const output = {};
     for (const [key, inner] of Object.entries(value)) {
-      if (FORBIDDEN_KEYS.has(key)) continue;
+      if (FORBIDDEN_KEY_SET.has(key)) continue;
       output[key] = stripForbidden(inner);
     }
     return output;
@@ -243,12 +293,27 @@ export async function currentDecision(doc, runId) {
   return result.Item;
 }
 
-function rowSortKey(row) {
-  return typeof row.GSI1SK === "string"
-    ? row.GSI1SK
-    : `${String(row.score).padStart(16, "0")}#${row.completedAt}`;
+// Mirror of Repository#leaderboardItemSortKey. GSI1SK is only written for
+// leaderboard-eligible runs, so rows genuinely arrive without one (an all-time
+// row reconciled back to a player's plain history run is the common case) and
+// the fallback has to reproduce the canonical key exactly — including the score
+// inversion for higher-is-better modes. The old fallback padded to 16 and never
+// inverted, so Survival/Rain/Higher-Lower fell back to WORST-first ordering.
+export function rowSortKey(row, mode) {
+  if (typeof row.GSI1SK === "string") return row.GSI1SK;
+  return leaderboardSortKey(
+    mode,
+    Number(row.score),
+    String(row.completedAt),
+    String(row.playerSub),
+    row.timeMs === undefined ? undefined : Number(row.timeMs),
+  );
 }
 
+// Deliberately NOT a mirror: the public API slices hard at `limit`, but a
+// referee reviewing a top-N cohort must see every run tied at the cut line or
+// the judgment is arbitrary. It only ever RETURNS MORE than the API would; the
+// first `limit` entries are identical, which is what the mirror test asserts.
 function takeWithBoundaryTies(rows, limit) {
   if (rows.length <= limit) return rows;
   const boundary = rows[limit - 1];
@@ -259,7 +324,7 @@ function takeWithBoundaryTies(rows, limit) {
   return rows.slice(0, end);
 }
 
-async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
+export async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
   const runs = [];
   let lastKey;
   do {
@@ -276,8 +341,14 @@ async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
       }),
     );
     runs.push(
+      // The eligibility filter mirrors Repository#bestVisibleRun: a player's
+      // run history includes zero-score runs that never earned a board place,
+      // and without this a hidden top run could be replaced by a 0.
       ...(result.Items ?? []).filter(
-        (item) => item.mode === mode && item.runId !== hiddenRunId,
+        (item) =>
+          item.mode === mode &&
+          item.runId !== hiddenRunId &&
+          isLeaderboardEligibleScore(Number(item.score)),
       ),
     );
     lastKey = result.LastEvaluatedKey;
@@ -288,11 +359,11 @@ async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
   );
   return runs
     .filter((run) => decisions.get(String(run.runId))?.visibility !== "hidden")
-    .sort((a, b) => rowSortKey(a).localeCompare(rowSortKey(b)))[0];
+    .sort((a, b) => rowSortKey(a, mode).localeCompare(rowSortKey(b, mode)))[0];
 }
 
-async function resolveAllTimeEarningRun(doc, row, mode) {
-  if (row.runId) return row;
+export async function resolveAllTimeEarningRun(doc, row, mode) {
+  if (typeof row.runId === "string") return row;
   let lastKey;
   do {
     const result = await doc.send(
@@ -314,7 +385,7 @@ async function resolveAllTimeEarningRun(doc, row, mode) {
         item.completedAt === row.completedAt &&
         (row.timeMs === undefined || item.timeMs === row.timeMs),
     );
-    if (match?.runId) return { ...row, runId: match.runId };
+    if (typeof match?.runId === "string") return { ...row, runId: match.runId };
     lastKey = result.LastEvaluatedKey;
   } while (lastKey);
   throw new Error(
@@ -329,12 +400,18 @@ export async function visibleLeaderboardRows(
   scope,
   limit,
 ) {
-  let rows = await queryLeaderboard(doc, leaderboardPartition(seasonId, mode));
+  // Eligibility is applied to the raw partition BEFORE anything else, exactly
+  // where Repository#leaderboard / #allTimeLeaderboard apply it. Ordering
+  // matters: an ineligible all-time row must be dropped rather than sent
+  // through earning-run resolution (which would throw on it).
+  let rows = (
+    await queryLeaderboard(doc, leaderboardPartition(seasonId, mode))
+  ).filter((row) => isLeaderboardEligibleScore(Number(row.score)));
   if (scope === "all-time") {
     rows = await Promise.all(
       rows.map((row) => resolveAllTimeEarningRun(doc, row, mode)),
     );
-  } else if (rows.some((row) => !row.runId)) {
+  } else if (rows.some((row) => typeof row.runId !== "string")) {
     throw new Error(`Season ${mode} leaderboard contains a row without runId`);
   }
   const decisions = await loadDecisions(
@@ -370,7 +447,7 @@ export async function visibleLeaderboardRows(
   );
   const visible = reconciled
     .filter(Boolean)
-    .sort((a, b) => rowSortKey(a).localeCompare(rowSortKey(b)));
+    .sort((a, b) => rowSortKey(a, mode).localeCompare(rowSortKey(b, mode)));
   return { rows: takeWithBoundaryTies(visible, limit), decisions };
 }
 

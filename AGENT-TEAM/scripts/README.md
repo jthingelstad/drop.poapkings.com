@@ -28,11 +28,31 @@ node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
 
 Run under the bounded `RefereeReadRole` (the physical name is retained for host
 compatibility; it is defined in `infra/template.yaml` and exported as
-`RefereeReadRoleArn`). It grants DynamoDB `GetItem`, `BatchGetItem`, `Query`, and
-`Scan` on the game table, plus `PutItem`/`TransactWriteItems` **only when every
-target partition begins `REFEREE#`**. It cannot edit `PLAYER#`, `RUN#`,
-leaderboard, evidence, profile, XP, or score records and has no access to any
-secret. In particular it cannot access `TELEMETRY_PEPPER` (Lambda-only).
+`RefereeReadRoleArn`). Its **read** scope is bounded, not blanket:
+
+- Keyed reads (`GetItem`, `BatchGetItem`, `Query`) only inside the three partition
+  families the scripts address — `PLAYER#*` (profile, `RUN#` history, `EVIDENCE#`
+  items), `REFEREE#*`, and the `CR_WAR_CLOCK` singleton. `MAGIC#` (raw email),
+  `POLL#`, `RATE#`, `CR_PLAYER#`, and `FEED#` are out of reach.
+- Index `Query` only on **GSI1** (leaderboard partitions) and **GSI2** (sparse tag
+  clusters). GSI3 and any index added later are not granted — `LeadingKeys` cannot
+  bound an index read, so the resource itself is the bound.
+- `Scan` on the **base table only**, never an index. Four reads need it (runId →
+  evidence, playerId → owning profile, the unscored-attempt feed, the decision
+  list) and `Scan` cannot be partition-bounded.
+- An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`, or
+  `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
+  just in JS.
+
+Writes are `PutItem`/`TransactWriteItems` **only when every target partition begins
+`REFEREE#`**. The role cannot edit `PLAYER#`, `RUN#`, leaderboard, evidence,
+profile, XP, or score records and has no access to any secret. In particular it
+cannot access `TELEMETRY_PEPPER` (Lambda-only).
+
+Because reads are IAM-bounded, a script that strays outside this surface fails
+with `AccessDenied` rather than returning data — the fail-closed envelope below
+is what you will see. `infra/tests/parameters.test.mjs` asserts both the read and
+write bounds, so widening them is a deliberate, reviewed change.
 
 The scripts use the ambient AWS credential chain, so assume the role first
 (e.g. `AWS_PROFILE=referee-read`, or an `sts assume-role` session). Even though
@@ -70,6 +90,18 @@ on `r2` (clear-the-deck rework) and Rain on `r2` (2026-07-24 difficulty
 redesign: the old curve capped at 50 clears). **Keep this in sync with the API**
 — a stale mirror reads the wrong partition and silently returns an empty cohort.
 
+`_referee-lib.mjs` mirrors six conventions in all: `RANKED_MODES`,
+`BOARD_EPOCH`/`leaderboardPartition`, `MODE_DIRECTION` +
+`leaderboardSortKey`/`rowSortKey`, `isLeaderboardEligibleScore`,
+`bestVisibleRun`, and `resolveAllTimeEarningRun` — plus the `FORBIDDEN_KEYS`
+denylist that enforces Golden rule 7. Every one of them is guarded by
+`services/api/tests/referee-scripts-mirror.test.ts`, which runs both
+implementations over the same fixture table and compares the answers; drift in
+either direction fails the API build. Two silent drifts were fixed on
+2026-07-24: the sort-key fallback never inverted the score (higher-is-better
+boards ranked backwards for rows with no `GSI1SK`), and the eligibility filter
+was missing (a 0-score run could be promoted as a player's best visible run).
+
 Leaderboard cohort/feed output reconciles current decisions. A hidden seasonal
 best falls back to the player's next-best visible run. The all-time cohort does
 the same, so hiding one fabricated score does not erase the player's legitimate
@@ -93,12 +125,17 @@ Every script prints one JSON object to stdout:
 
 ## What the scripts never emit
 
-By construction (`sanitize` in `_referee-lib.mjs` deep-strips these keys):
+`sanitize` in `_referee-lib.mjs` deep-strips `FORBIDDEN_KEYS` from every item
+before it is printed: the internal subject keys `sub` / `playerSub` / `owner`, any
+`email`, and the raw key attributes `pk` / `GSI1SK` (DynamoDB needs those for
+pagination and index reads, so they are stripped on the way out rather than never
+fetched).
 
-- the internal subject key `sub` / `playerSub`,
-- any email address,
-- a raw IP address or raw user-agent,
-- the `TELEMETRY_PEPPER`.
+Three more values cannot appear because they are never stored or reachable at all:
+a raw IP address, a raw user-agent (both are hashed at the edge and discarded —
+see `SPEC.md` §11), and the `TELEMETRY_PEPPER` (Lambda env only). The identity
+half of this list is also enforced in IAM — see "Credentials" above — so a
+deliberate projection cannot route around `sanitize`.
 
 The referee sees only the pseudonymous **`playerId`**, opaque **correlation
 hashes**, a coarse **`uaFamily`**, and the **normalized, unverified `playerTag`**.
