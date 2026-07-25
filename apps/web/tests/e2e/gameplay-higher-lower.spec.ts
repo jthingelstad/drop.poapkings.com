@@ -9,8 +9,9 @@ import { cardsData, expect, test } from './fixtures'
 // So every gameplay test here installs Playwright's clock and then PAUSES it, in
 // the same shape the surge idle test uses. The page loads with time flowing
 // normally (the 3-2-1 countdown needs its timers), and from the moment the board
-// is live the round clock only advances when the test says so — `runFor` steps
-// past the reveal beats, and nothing else ages the window.
+// is live the round clock only advances when the test says so. `fastForward`
+// jumps to due timers without replaying every animation frame along the way,
+// which keeps WebKit's clock deterministic on slower CI runners.
 const CLOCK_START = new Date('2026-07-25T12:00:00.000Z')
 // The reveal beats the mode holds before dealing the next pair: 750ms after a
 // correct read, 1400ms after a miss. Both are far inside every round's window,
@@ -48,7 +49,7 @@ const livesRow = (page: Page) => page.locator('[data-testid="higher-lower-lives"
 // know exactly which virtual millisecond the round clock was armed at.
 async function runOutTheClock(page: Page) {
   for (let step = 0; step < 12; step += 1) {
-    await page.clock.runFor(1_000)
+    await page.clock.fastForward(1_000)
     // A timeout announces itself in the prompt, NOT with a wrong-card
     // highlight: the player never tapped, so no card is blamed. This used to
     // watch for `.ed-duel__card--wrong`, which existed only because the client
@@ -56,19 +57,6 @@ async function runOutTheClock(page: Page) {
     if (await page.getByTestId('higher-lower-prompt').getByText("Time's up").count()) return
   }
   throw new Error('the Higher/Lower response window never expired')
-}
-
-// Advance a paused virtual clock in small steps until the final completion
-// callback has actually rendered the summary. WebKit can schedule a timer a
-// fraction beyond a single blind jump; stepping keeps the harness moving until
-// the observable state arrives, just as a real clock would.
-async function advanceUntilSummary(page: Page) {
-  const summary = page.locator('[data-summary]')
-  for (let elapsed = 0; elapsed < 2_400; elapsed += 100) {
-    if (await summary.isVisible()) return
-    await page.clock.runFor(100)
-  }
-  await expect(summary).toBeVisible()
 }
 
 // Tap the card the player should NOT pick.
@@ -96,7 +84,7 @@ test('higher/lower: a miss costs a life and the run keeps counting', async ({ pa
   await expect(livesRow(page)).toHaveAttribute('aria-label', '3 of 3 lives left')
 
   // Step past the reveal beat: the next pair is dealt and the cards go live.
-  await page.clock.runFor(AFTER_CORRECT_MS)
+  await page.clock.fastForward(AFTER_CORRECT_MS)
   await expect(page.locator('.ed-duel__card--correct')).toHaveCount(0)
   await expect(page.locator('.ed-duel__card').first()).toBeEnabled()
 
@@ -109,7 +97,7 @@ test('higher/lower: a miss costs a life and the run keeps counting', async ({ pa
   await expect(livesRow(page)).toHaveAttribute('aria-label', '2 of 3 lives left')
 
   // Still playing — no summary — and a later correct read still adds up.
-  await page.clock.runFor(AFTER_MISS_MS)
+  await page.clock.fastForward(AFTER_MISS_MS)
   await expect(page.locator('[data-summary]')).toHaveCount(0)
   await expect(page.locator('.ed-duel__card').first()).toBeEnabled()
   await page
@@ -160,17 +148,17 @@ test('higher/lower: a timeout costs a life, and the last life ends the run', asy
   await expect(page.locator('.ed-duel__card--correct')).toBeVisible()
   await expect(livesRow(page)).toHaveAttribute('aria-label', '2 of 3 lives left')
   await expect(page.locator('[data-summary]')).toHaveCount(0)
-  await page.clock.runFor(AFTER_MISS_MS)
+  await page.clock.fastForward(AFTER_MISS_MS)
   await expect(page.locator('.ed-duel__card').first()).toBeEnabled()
 
   // Spend the last two lives by tapping the wrong card; zero lives ends it.
   await tapLower(page)
   await expect(livesRow(page)).toHaveAttribute('aria-label', '1 of 3 lives left')
-  await page.clock.runFor(AFTER_MISS_MS)
+  await page.clock.fastForward(AFTER_MISS_MS)
   await tapLower(page)
   await expect(livesRow(page)).toHaveAttribute('aria-label', '0 of 3 lives left')
 
-  await advanceUntilSummary(page)
+  await page.clock.fastForward(AFTER_MISS_MS)
   await expect(page.locator('[data-summary]')).toBeVisible()
   await expect(page.locator('.ed-duel')).toHaveCount(0)
 
@@ -217,7 +205,7 @@ test('higher/lower records once, then waits for an explicit replay while idle', 
   for (let miss = 0; miss < 3; miss += 1) {
     await tapLower(page)
     await expect(page.locator('.ed-duel__card--wrong')).toBeVisible()
-    await page.clock.runFor(AFTER_MISS_MS)
+    await page.clock.fastForward(AFTER_MISS_MS)
   }
 
   const replay = page.getByRole('button', { name: 'Play again' })
@@ -228,7 +216,7 @@ test('higher/lower records once, then waits for an explicit replay while idle', 
   // The old behavior prepared and timed out another signed run every ~6s.
   // Staying idle must leave both network counts unchanged — fast-forward ten
   // virtual seconds so every timer that was due in that window fires now.
-  await page.clock.runFor(10_000)
+  await page.clock.fastForward(10_000)
   // Round-trip the page so anything those timers kicked off has reached the
   // request listener before the counts are read.
   await expect(replay).toBeVisible()
