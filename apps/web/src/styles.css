@@ -3641,6 +3641,32 @@ html.reduce-motion .ed-gcard {
   font-size: 0.68rem;
   font-weight: 700;
 }
+
+/* Lives (Rain, Higher/Lower) — see components/LivesRow.tsx.
+   The row opts OUT of .ed-game__progress's 0.68rem muted treatment: at that
+   size a heart is ~11px and counting them is genuinely hard mid-run. Lives are
+   the one header value a player checks under pressure, so they get their own
+   size and their own color. */
+.ed-lives {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18em;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.ed-lives__heart svg {
+  /* Lucide ships outline-only; filling the same path is what separates a life
+     left from a life spent. Meaning rides on fill, not hue, so it still reads
+     for a color-blind player and in a screenshot. */
+  fill: var(--red);
+  color: var(--red);
+}
+.ed-lives__heart--spent svg {
+  fill: none;
+  color: var(--muted);
+  opacity: 0.45;
+}
+
 .ed-game__metric {
   font-family: var(--font-display);
   font-size: 1.05rem;

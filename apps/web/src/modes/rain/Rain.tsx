@@ -20,6 +20,7 @@ import GameFrame from '../../components/game/GameFrame'
 import GameLoading from '../../components/game/GameLoading'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
+import LivesRow from '../../components/LivesRow'
 import RainMilestone from './RainMilestone'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
@@ -363,16 +364,10 @@ export default function Rain() {
   if (stage.value === 'ready') return <GameLoading />
 
   const counting = stage.value !== 'running'
-  // Lives as glyphs, not hand-typed hearts (CLAUDE.md): a whole heart per life
-  // left, a cracked one per life spent. The row carries the count as its
-  // accessible name, since the icons themselves are decorative.
-  const hearts = (
-    <span role="img" aria-label={`${Math.max(0, lives.value)} of ${RAIN_LIVES} lives left`} data-testid="rain-lives">
-      {Array.from({ length: RAIN_LIVES }, (_, i) => (
-        <Icon key={i} name={i < lives.value ? 'heart' : 'heart-crack'} />
-      ))}
-    </span>
-  )
+  // Lives use the shared row, so Rain and Higher/Lower are literally the same
+  // component rather than two copies that agree today.
+  const hearts = <LivesRow lives={lives.value} max={RAIN_LIVES} testId="rain-lives" />
+
   return (
     <GameFrame
       modeName="Rain"

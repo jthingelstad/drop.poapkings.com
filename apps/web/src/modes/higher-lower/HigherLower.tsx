@@ -14,7 +14,7 @@ import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
-import Icon from '../../components/Icon'
+import LivesRow from '../../components/LivesRow'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
 import Summary from '../../components/Summary'
@@ -294,20 +294,9 @@ export default function HigherLower() {
 
   const counting = runtime.stage.value === 'ready' || runtime.stage.value === 'countdown'
   const disabled = runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value
-  // Lives as glyphs, not hand-typed hearts (CLAUDE.md), in the same shape Rain
-  // uses: a whole heart per life left, a cracked one per life spent, with the
-  // count on the row's accessible name because the icons are decorative.
-  const hearts = (
-    <span
-      role="img"
-      aria-label={`${Math.max(0, lives.value)} of ${HIGHER_LOWER_LIVES} lives left`}
-      data-testid="higher-lower-lives"
-    >
-      {Array.from({ length: HIGHER_LOWER_LIVES }, (_unused, index) => (
-        <Icon key={index} name={index < lives.value ? 'heart' : 'heart-crack'} />
-      ))}
-    </span>
-  )
+  // Lives use the shared row, so Rain and Higher/Lower are literally the same
+  // component rather than two copies that agree today.
+  const hearts = <LivesRow lives={lives.value} max={HIGHER_LOWER_LIVES} testId="higher-lower-lives" />
 
   return (
     <GameFrame
