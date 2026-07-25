@@ -1,9 +1,9 @@
 name: Verify
 
-# Pull requests get the same monorepo verification the deploy runs — literally
-# the same `npm run verify` — with no secrets exposed, fork-safe by
-# construction. Deployment still happens only on push to main, and deploy.yml
-# runs this same gate there, so a direct-to-main commit is verified too.
+# Pull requests get the same checks as the deploy gate, split into one
+# non-browser job and four parallel Playwright projects. No secrets are exposed,
+# so the workflow is fork-safe by construction. Deployment still happens only
+# on push to main, where deploy.yml requires the same five verification lanes.
 on:
   pull_request:
   workflow_dispatch:
@@ -13,8 +13,9 @@ permissions:
 
 jobs:
   verify:
+    name: Non-browser verification
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -27,6 +28,45 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify:non-browser
 
-      - run: npm run verify
+  browser:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium
+            browser: chromium
+          - project: firefox
+            browser: firefox
+          - project: webkit
+            browser: webkit
+          - project: iphone-14
+            browser: webkit
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+
+      - name: Upload Playwright report (${{ matrix.project }})
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore

@@ -69,16 +69,21 @@ typecheck, Knip (unused code/deps), Vitest unit tests with coverage thresholds,
 Playwright e2e across **Chromium / Firefox / WebKit / iPhone-14**, and a
 production build.
 
-CI runs it in two places, both defined in `.github/workflows/`:
+CI runs the same checks in two places, both defined in `.github/workflows/`.
+To keep the complete gate without serializing four browser engines on one
+runner, each workflow splits the work into one non-browser job and four
+parallel Playwright jobs (Chromium, Firefox, WebKit, and iPhone 14):
 
-- **`verify.yml`** on every pull request — the same gate, with no secrets exposed,
-  so it is fork-safe by construction.
-- **`deploy.yml`** on every push to `main` — the gate runs before anything is
-  deployed, and a failure stops the API and Pages deploys.
+- **`verify.yml`** on every pull request — all five jobs run without secrets, so
+  the gate is fork-safe by construction.
+- **`deploy.yml`** on every push to `main` — API and Pages deployment waits for
+  all five jobs, and any failure stops both surfaces from deploying.
 
 Both workflows also run `npm audit --audit-level=high` ahead of the gate; that
 audit is not part of `npm run verify` itself (`npm run check:beta` bundles the
-two locally).
+two locally). Root `npm run verify` remains the complete sequential pre-push
+command; `npm run verify:non-browser` is the fast CI/local subset when browser
+coverage is running separately.
 
 Handy sub-commands while iterating:
 
@@ -88,6 +93,7 @@ npm run lint               # oxlint only
 npm run typecheck          # types only
 npm run test:unit          # unit tests only (fast)
 npm run test:e2e           # Playwright e2e
+npm run verify:non-browser # complete gate except Playwright
 ```
 
 ## Repository layout & boundaries

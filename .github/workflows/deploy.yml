@@ -13,13 +13,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  verify:
+    name: Non-browser verification
     runs-on: ubuntu-latest
-    # This job gates AND performs the production deploy: install + audit + the
-    # full verify, then an UpdateStack that infra/scripts/deploy.mjs waits on for
-    # up to 1200s. A timeout shorter than verify + 20 minutes of stack wait can
-    # kill the job mid-update and leave the Lambda and the Pages site diverged.
-    timeout-minutes: 50
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -32,32 +29,66 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      # The browsers the root verify exercises: chromium, firefox, and webkit
-      # (which also backs the iphone-14 device project).
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify:non-browser
 
-      # The production gate is the same root verify a pull request runs — this
-      # repo works direct-to-main, so this is the only place the e2e suite and
-      # test:release can gate a deploy. Do not swap in a reduced script: the
-      # earlier verify:deploy shortcut meant the e2e tests never gated a
-      # release. Build reads only packages/game-data/cards.json — no API or mail
-      # tokens needed.
-      - run: npm run verify
+  browser:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium
+            browser: chromium
+          - project: firefox
+            browser: firefox
+          - project: webkit
+            browser: webkit
+          - project: iphone-14
+            browser: webkit
+    steps:
+      - uses: actions/checkout@v7
 
-      # Playwright records a trace on first retry, but a failed run used to throw
-      # it away — leaving a CI-only flake with nothing to diagnose from but the
-      # log tail. Keep the report whenever the gate fails so the next failure is
-      # readable instead of guessed at.
-      - name: Upload Playwright report
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+
+      - name: Upload Playwright report (${{ matrix.project }})
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
           if-no-files-found: ignore
+
+  build:
+    name: Build and deploy
+    needs: [verify, browser]
+    runs-on: ubuntu-latest
+    # Verification is complete before this job starts. The UpdateStack wait in
+    # infra/scripts/deploy.mjs can still take up to 1200s, so leave enough room
+    # for that operation plus the API smoke and final website build.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
 
       - name: Deploy API
         run: npm run deploy:api
