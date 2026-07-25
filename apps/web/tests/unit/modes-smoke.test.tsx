@@ -163,7 +163,6 @@ describe('Settings', () => {
   it('renders headings and build metadata', () => {
     const c = mount(<Settings />)
     expect(c.textContent).toContain('Settings')
-    expect(c.textContent).toContain('Release')
     expect(c.textContent).toContain('Build ID')
     expect(c.textContent).toContain('Build date')
   })

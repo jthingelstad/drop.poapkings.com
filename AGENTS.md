@@ -1,7 +1,7 @@
 # AGENTS.md — Elixir Drop
 
 Canonical entry point for any agent working this repository. Read this, then the
-doc it points you to for your task. The scheduled **AGENT-TEAM** maintainer roles
+doc it points you to for your task. The **AGENT-TEAM** maintainer roles
 continue on from here (`AGENTS.md → AGENT-TEAM/WORKFLOW.md → AGENT-TEAM/README.md → your role`).
 
 ## What Drop is
@@ -15,19 +15,18 @@ the POAP KINGS. A Preact SPA deploys to **GitHub Pages** at `drop.poapkings.com`
 
 Every other doc points back here instead of keeping its own copy of this list.
 
-| Doc | What it owns |
-| --- | --- |
-| **`CLAUDE.md`** | The working guide: golden rules, architecture, product decisions. **The primary agent doc — read it before changing anything.** |
-| **`SPEC.md`** | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence. |
-| **`GAMES.md`** | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions. |
-| **`CONTRIBUTING.md`** | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions. |
-| **`README.md`** | Public overview + local-development entry point. |
-| **`RELEASES.md`** | The named-release history (no SemVer). Written by the Release Manager. |
-| **`docs/card-rendering.md`** | Clash-style card rendering reference. |
-| **`docs/beta-readiness.md`** | Pre-invite rollout checklist: automated gate vs. real-user checks. |
-| **`infra/README.md`** | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics). |
-| **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references. |
-| **`AGENT-TEAM/`** | The scheduled maintainer roles: `WORKFLOW.md` (shared contract) → `README.md` (roster) → your role file. |
+| Doc                                                                   | What it owns                                                                                                                    |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **`CLAUDE.md`**                                                       | The working guide: golden rules, architecture, product decisions. **The primary agent doc — read it before changing anything.** |
+| **`SPEC.md`**                                                         | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.                 |
+| **`GAMES.md`**                                                        | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                                       |
+| **`CONTRIBUTING.md`**                                                 | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                                     |
+| **`README.md`**                                                       | Public overview + local-development entry point.                                                                                |
+| **`docs/card-rendering.md`**                                          | Clash-style card rendering reference.                                                                                           |
+| **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
+| **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
+| **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references.                                                                                        |
+| **`AGENT-TEAM/`**                                                     | The maintainer roles: `WORKFLOW.md` (shared contract) → `README.md` (roster) → your role file.                                  |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
 
@@ -36,7 +35,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 3. The CR token lives only on the managed, allowlisted host — never committed, never in CI or Lambda config.
 4. The public website stays GitHub Pages + hash routing; `base: '/'`; the deploy build needs no secrets.
 5. Vendor the look; don't link it. 6. Fan-content & copyright — keep the disclaimer.
-7. Referee evidence is sanitized; decisions are a bounded overlay. `TELEMETRY_PEPPER` is Lambda-only.
+6. Referee evidence is sanitized; decisions are a bounded overlay. `TELEMETRY_PEPPER` is Lambda-only.
 
 ## Stack & commands
 
@@ -67,3 +66,6 @@ GitHub Issues on this repository are the canonical work queue. **Work commits di
 `main`** — no feature branches, no PR-based review — referencing `Closes #N`. The full
 contract is `AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
+
+The user-triggered Release Manager ceremony is not queue work: it opens no tracking issue and
+makes no product commit. GitHub Releases are the named-release history.
