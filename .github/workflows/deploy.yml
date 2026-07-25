@@ -44,6 +44,21 @@ jobs:
       # tokens needed.
       - run: npm run verify
 
+      # Playwright records a trace on first retry, but a failed run used to throw
+      # it away — leaving a CI-only flake with nothing to diagnose from but the
+      # log tail. Keep the report whenever the gate fails so the next failure is
+      # readable instead of guessed at.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Deploy API
         run: npm run deploy:api
         env:
