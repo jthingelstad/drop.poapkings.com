@@ -3852,6 +3852,32 @@ html.reduce-motion .ed-gameloading__drop {
 .ed-sum__pb svg {
   fill: currentcolor;
 }
+
+/* Held-for-review is information, not a penalty: it reads calm and muted, never
+   in the error red the run-recording toast uses for a real failure. The run
+   scored and counted; only its board placement is pending. */
+.ed-sum__review {
+  margin: 12px auto 0;
+  max-width: 34rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(215, 200, 255, 0.22);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.ed-sum__review strong {
+  color: var(--ink);
+}
+.ed-sum__review .icon {
+  flex: none;
+  margin-top: 0.15em;
+  color: var(--lavender);
+}
 .ed-sum-tiles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

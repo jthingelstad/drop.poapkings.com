@@ -170,6 +170,11 @@ const runCompletionFields = {
   season: seasonSchema,
   ranked: z.optional(z.boolean()),
   completedAt: isoDateTime,
+  // The run scored and recorded, but an automatic integrity signal holds it off
+  // the public board until the Fair Play Referee decides. The API has always
+  // sent this; the browser dropped it, which left a held player watching a
+  // recorded score never reach the leaderboard with nothing to explain why.
+  underReview: z.optional(z.boolean()),
   totalGames: nonNegativeInteger,
   xp: nonNegativeInteger.default(0),
   level: safeInteger.positive(),

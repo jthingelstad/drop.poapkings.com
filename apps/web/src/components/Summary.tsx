@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import { weakestBandLabel } from '../lib/insights'
+import { heldForReview } from '../lib/use-game-run'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
 import Icon from './Icon'
@@ -95,6 +96,18 @@ export default function Summary({
         {pbCallout && (
           <div class="ed-sum__pb">
             <Icon name="star" /> {pbCallout}
+          </div>
+        )}
+        {/* Read straight from the signal rather than threaded through every
+            mode's props: six modes render this component, and none of them
+            know anything about referee state. */}
+        {heldForReview.value && (
+          <div class="ed-sum__review" role="status">
+            <Icon name="shield" />
+            <span>
+              <strong>Held for review.</strong> Your score is recorded and counted. It&rsquo;ll show on the board once a
+              referee clears it.
+            </span>
           </div>
         )}
       </div>

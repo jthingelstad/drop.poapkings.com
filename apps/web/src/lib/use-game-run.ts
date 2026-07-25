@@ -19,6 +19,13 @@ type RecordingNotice =
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 
+// The last completed run was recorded but held off the public board pending a
+// Fair Play Referee decision. This is deliberately NOT part of `recordingNotice`:
+// that toast clears itself after two seconds, and "your score is not on the
+// board" is the one thing a player must still be able to read once they stop and
+// look at their summary. Cleared when the next run is prepared.
+export const heldForReview = signal(false)
+
 let noticeTimer: number | undefined
 
 function setRecordingNotice(notice: RecordingNotice): void {
@@ -79,6 +86,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     run.current = null
     challenge.value = null
     startError.value = ''
+    heldForReview.value = false
     setRecordingNotice({ state: 'idle' })
     try {
       // No token → a guest run: the server deals the same signed challenge but
@@ -170,13 +178,20 @@ export function useGameRun<T extends GameMode>(mode: T) {
       // Practice keeps no record and earns no XP; the run exists server-side
       // only so the validated transcript can feed the learning stats. Its toast
       // says exactly that and never mentions a score or a best.
+      // A held run really did record — it scored, it kept its XP, and it counts
+      // toward the player's totals. Only its place on the public board is
+      // pending, so the toast says recorded and names the hold rather than
+      // celebrating a season best the board is not showing anyone.
+      heldForReview.value = result.underReview === true
       setRecordingNotice({
         state: 'saved',
         message: !isRecordedMode(result.mode)
           ? 'Practice session saved'
-          : seasonBest
-            ? 'Game recorded — new season best!'
-            : 'Game recorded'
+          : result.underReview
+            ? 'Game recorded — held for review'
+            : seasonBest
+              ? 'Game recorded — new season best!'
+              : 'Game recorded'
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
