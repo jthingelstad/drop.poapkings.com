@@ -1,0 +1,389 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const send = vi.hoisted(() => vi.fn());
+
+vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@aws-sdk/lib-dynamodb")>();
+  return {
+    ...actual,
+    DynamoDBDocumentClient: {
+      from: () => ({ send }),
+    },
+  };
+});
+
+import { Repository, type RunItem } from "../src/repository.js";
+
+function awsError(name: string, extra: Record<string, unknown> = {}): Error {
+  const error = new Error(name);
+  error.name = name;
+  return Object.assign(error, extra);
+}
+
+const conditionFailed = () => awsError("ConditionalCheckFailedException");
+
+const startedRun: RunItem = {
+  pk: "RUN#run-1",
+  sk: "RUN",
+  runId: "run-1",
+  owner: "player-sub",
+  mode: "surge",
+  challenge: { mode: "surge", cardIds: [26000000] },
+  state: "started",
+  startedAt: "2026-07-18T12:00:00.000Z",
+  expiresAt: 1_800_000_000,
+};
+
+// Every conditional write in the repository is load-bearing: it is what makes a
+// replayed run a no-op, a spent magic link unusable, and a concurrent write
+// safe. These cover the failure side of each condition, where the wrong mapping
+// is expensive — a retryable contention answered as "already recorded" loses a
+// player's game, and the reverse invites a double-record.
+describe("repository conditional writes", () => {
+  beforeEach(() => {
+    send.mockReset();
+  });
+
+  it("maps a failed run condition to a 409, not a retry", async () => {
+    send.mockRejectedValueOnce(
+      awsError("TransactionCanceledException", {
+        CancellationReasons: [
+          { Code: "ConditionalCheckFailed" },
+          { Code: "None" },
+        ],
+      }),
+    );
+
+    await expect(
+      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+    ).rejects.toMatchObject({ statusCode: 409, code: "run_conflict" });
+  });
+
+  it("maps transaction contention to a retryable 503", async () => {
+    // Two players finishing in the same instant collide on the shared
+    // GLOBAL#STATS item. That is contention, not a spent run.
+    send.mockRejectedValueOnce(
+      awsError("TransactionCanceledException", {
+        CancellationReasons: [{ Code: "TransactionConflict" }],
+      }),
+    );
+
+    await expect(
+      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+    ).rejects.toMatchObject({ statusCode: 503, code: "run_record_busy" });
+  });
+
+  it("rethrows an unrecognized transaction failure untranslated", async () => {
+    send.mockRejectedValueOnce(awsError("ProvisionedThroughputExceeded"));
+
+    await expect(
+      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+    ).rejects.toMatchObject({ name: "ProvisionedThroughputExceeded" });
+  });
+
+  it("fails loudly when the profile vanishes under a recorded run", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+    ).rejects.toThrow("Completed run profile could not be loaded");
+  });
+
+  it("rejects a spent or expired magic link with 401, never 500", async () => {
+    send.mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").consumeMagicLink("token-hash", 1_800_000),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      code: "invalid_magic_link",
+    });
+  });
+
+  it("refuses to redeem a link that was already used", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        pk: "MAGIC#hash",
+        sk: "MAGIC",
+        email: "player@example.com",
+        expiresAt: 1_900_000,
+        usedAt: "2026-07-18T12:00:00.000Z",
+      },
+    });
+
+    await expect(
+      new Repository("test-table").peekMagicLink("hash", 1_800_000),
+    ).rejects.toMatchObject({ statusCode: 401, code: "invalid_magic_link" });
+  });
+
+  it("refuses to redeem a link that has expired", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        pk: "MAGIC#hash",
+        sk: "MAGIC",
+        email: "player@example.com",
+        expiresAt: 1_700_000,
+      },
+    });
+
+    await expect(
+      new Repository("test-table").peekMagicLink("hash", 1_800_000),
+    ).rejects.toMatchObject({ statusCode: 401, code: "invalid_magic_link" });
+  });
+
+  it("returns a consumed link's email and poll id when it is still valid", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        pk: "MAGIC#hash",
+        sk: "MAGIC",
+        email: "player@example.com",
+        expiresAt: 1_900_000,
+        pollId: "poll-id",
+      },
+    });
+
+    await expect(
+      new Repository("test-table").peekMagicLink("hash", 1_800_000),
+    ).resolves.toEqual({ email: "player@example.com", pollId: "poll-id" });
+  });
+
+  it("treats a lost create race as a returning player, not an error", async () => {
+    send.mockRejectedValueOnce(conditionFailed()).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "existing-player",
+        email: "player@example.com",
+        totalGames: 12,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-07-01T00:00:00.000Z",
+      },
+    });
+
+    const login = await new Repository("test-table").ensureProfile(
+      "player-sub",
+      "player@example.com",
+    );
+
+    expect(login.created).toBe(false);
+    expect(login.profile.playerId).toBe("existing-player");
+  });
+
+  it("fails rather than inventing a profile when the race leaves nothing", async () => {
+    send.mockRejectedValueOnce(conditionFailed()).mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").ensureProfile(
+        "player-sub",
+        "player@example.com",
+      ),
+    ).rejects.toThrow("Player profile disappeared during login");
+  });
+
+  it("hands an expired poll session back as nothing", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        session: { token: "session-token", expiresAt: "2026-07-18" },
+        expiresAt: 1_700_000,
+      },
+    });
+
+    await expect(
+      new Repository("test-table").takePollSession("poll-id", 1_800_000),
+    ).resolves.toBeUndefined();
+  });
+
+  it("stops a request that has burned its rate-limit budget", async () => {
+    send.mockResolvedValueOnce({ Attributes: { requestCount: 6 } });
+
+    await expect(
+      new Repository("test-table").useRateLimit("magic-email", "sub", 5, 3_600),
+    ).rejects.toMatchObject({ statusCode: 429, code: "rate_limited" });
+  });
+
+  it("lets a request inside its budget through", async () => {
+    send.mockResolvedValueOnce({ Attributes: { requestCount: 5 } });
+
+    await expect(
+      new Repository("test-table").useRateLimit("magic-email", "sub", 5, 3_600),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keys the referee tag cluster by playerId and never by sub", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { playerId: "public-player-id" } })
+      .mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+
+    await new Repository("test-table").updateProfile("player-sub", {
+      playerTag: "#ABC123",
+    });
+
+    const update = send.mock.calls[1]?.[0].input;
+    expect(update.ExpressionAttributeValues[":gsi2sk"]).toBe(
+      "#ABC123#public-player-id",
+    );
+    // The referee reads GSI2; nothing it projects may carry the subject key.
+    expect(JSON.stringify(update.ExpressionAttributeValues)).not.toContain(
+      "player-sub",
+    );
+  });
+
+  it("drops the tag and its cluster membership together", async () => {
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+
+    await new Repository("test-table").updateProfile("player-sub", {
+      clearPlayerTag: true,
+    });
+
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.UpdateExpression).toContain(
+      "REMOVE #playerTag, #gsi2pk, #gsi2sk",
+    );
+  });
+
+  it("skips the cluster keys when the profile has no playerId yet", async () => {
+    send
+      .mockResolvedValueOnce({ Item: {} })
+      .mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+
+    await new Repository("test-table").updateProfile("player-sub", {
+      playerTag: "#ABC123",
+    });
+
+    const update = send.mock.calls[1]?.[0].input;
+    expect(update.ExpressionAttributeValues[":gsi2sk"]).toBeUndefined();
+    expect(update.UpdateExpression).toContain("#playerTag = :playerTag");
+  });
+
+  it("ignores a stale Clash Royale result instead of overwriting fresher data", async () => {
+    send.mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").saveCrProfileResult({
+        tag: "#ABC123",
+        status: "ready",
+        refreshRequestedAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:00:01.000Z",
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("refuses a Clash Royale result with no request timestamp to match on", async () => {
+    await expect(
+      new Repository("test-table").saveCrProfileResult({
+        tag: "#ABC123",
+        status: "ready",
+        updatedAt: "2026-07-18T12:00:01.000Z",
+      }),
+    ).rejects.toThrow("CR profile result is missing its request timestamp");
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("swallows an unavailable marker whose claim already resolved", async () => {
+    send.mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").markCrRefreshUnavailable(
+        "#ABC123",
+        "job-1",
+        "2026-07-18T12:00:00.000Z",
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("reports a refresh claim lost to a concurrent request", async () => {
+    send.mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").claimCrRefresh(
+        "#ABC123",
+        "job-1",
+        "2026-07-18T12:00:00.000Z",
+        "2026-07-18T06:00:00.000Z",
+        "2026-07-18T11:00:00.000Z",
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects a war clock save that raced another observation", async () => {
+    send
+      .mockResolvedValueOnce({
+        Item: {
+          crSeasonId: 135,
+          leaderboardSeasonId: "2026-07",
+          observedAt: "2026-07-18T12:00:00.000Z",
+          seasonStartsAt: "2026-07-01T10:00:00.000Z",
+        },
+      })
+      .mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").saveCrWarClock({
+        crSeasonId: 135,
+        sectionIndex: 2,
+        periodIndex: 10,
+        periodType: "warDay",
+        seasonStartsAt: "2026-07-01T10:00:00.000Z",
+        observedAt: "2026-07-18T13:00:00.000Z",
+        sourceClanTag: "#J2RGCRVG",
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("ignores a public player row that is not a real profile", async () => {
+    send.mockResolvedValueOnce({
+      Items: [{ pk: "PLAYER#sub", sk: "RUN#2026", playerId: "p-1" }],
+    });
+
+    await expect(
+      new Repository("test-table").getPublicPlayer("p-1"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("returns nothing when the pseudonymous id matches no one", async () => {
+    send.mockResolvedValueOnce({ Items: [] });
+
+    await expect(
+      new Repository("test-table").getPublicPlayer("missing"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("retries the deletion sweep's unprocessed items", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3, playerTag: undefined } })
+      .mockResolvedValueOnce({
+        Items: [{ pk: "PLAYER#sub", sk: "PROFILE" }],
+      })
+      .mockResolvedValueOnce({
+        UnprocessedItems: {
+          "test-table": [
+            { DeleteRequest: { Key: { pk: "PLAYER#sub", sk: "PROFILE" } } },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    const result = await new Repository("test-table").deleteAccount("sub");
+
+    expect(result).toEqual({ deletedGames: 3 });
+    // The unprocessed batch was written again before the profile delete.
+    expect(send).toHaveBeenCalledTimes(5);
+  });
+
+  it("refuses to report a half-finished deletion as done", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3 } })
+      .mockResolvedValueOnce({ Items: [{ pk: "PLAYER#sub", sk: "PROFILE" }] })
+      .mockResolvedValue({
+        UnprocessedItems: {
+          "test-table": [
+            { DeleteRequest: { Key: { pk: "PLAYER#sub", sk: "PROFILE" } } },
+          ],
+        },
+      });
+
+    await expect(
+      new Repository("test-table").deleteAccount("sub"),
+    ).rejects.toThrow("Player data deletion did not finish");
+  });
+});

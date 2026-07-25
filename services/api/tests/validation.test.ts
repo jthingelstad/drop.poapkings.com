@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GAME_MODES } from "@elixir-drop/contracts";
 import { favoriteCard } from "../src/cards.js";
 import {
   fallbackNamesForCard,
@@ -38,6 +39,17 @@ describe("player input validation", () => {
     expect(normalizeGameReturnPath("/surge")).toBe("/surge");
     expect(normalizeGameReturnPath("/leaderboards")).toBeUndefined();
     expect(normalizeGameReturnPath("https://example.com")).toBeUndefined();
+    expect(normalizeGameReturnPath("//evil.example.com")).toBeUndefined();
+    expect(normalizeGameReturnPath("/surge?next=/admin")).toBeUndefined();
+    expect(normalizeGameReturnPath(42)).toBeUndefined();
+    expect(normalizeGameReturnPath("")).toBeUndefined();
+  });
+
+  // The allowlist is derived from GAME_MODES rather than restated, so this is
+  // the guard that the derivation still covers every shipped mode: a new mode
+  // must be returnable, and a retired one must stop being.
+  it.each(GAME_MODES)("carries every shipped mode home: %s", (mode) => {
+    expect(normalizeGameReturnPath(`/${mode}`)).toBe(`/${mode}`);
   });
 
   it("allows creative card-inspired names without requiring the exact title", () => {

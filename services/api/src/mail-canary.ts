@@ -1,19 +1,17 @@
+import { emailFrom, emailFromName, required } from "./config.js";
 import { sendMailCanary } from "./jmap.js";
 
-function required(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
+// The canary deliberately reads only its own four variables (it runs on a
+// Lambda without the API's environment), but it must send from exactly the
+// same address the magic link does — so the sender defaults and the
+// missing-variable check come from config.ts rather than a private copy.
 export async function mailCanaryHandler(): Promise<{ submittedAt: string }> {
   const submittedAt = new Date().toISOString();
-  const fromEmail =
-    process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com";
+  const fromEmail = emailFrom();
   await sendMailCanary({
     token: required("FASTMAIL_JMAP_TOKEN"),
     fromEmail,
-    fromName: process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop",
+    fromName: emailFromName(),
     to: process.env.ELIXIR_DROP_CANARY_EMAIL?.trim() || fromEmail,
     observedAt: new Date(submittedAt),
   });

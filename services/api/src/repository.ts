@@ -1,10 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
-  BatchGetCommand,
   BatchWriteCommand,
   type BatchWriteCommandInput,
   DeleteCommand,
-  DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   QueryCommand,
@@ -13,6 +10,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { createHash, randomUUID } from "node:crypto";
+import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
   isGameMode,
@@ -21,8 +19,13 @@ import {
   leaderboardSortKey,
   MODE_RULES,
 } from "./games.js";
+import { allTimeLeaderboard, seasonLeaderboard } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
-import { levelForGames } from "./progression.js";
+import {
+  hydratePublicProfiles,
+  placeholderPublicProfile,
+  publicProfile,
+} from "./public-profile.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
   Correlation,
@@ -31,7 +34,6 @@ import type {
   CrProfileSnapshot,
   PlayerProfile,
   PublicProfile,
-  RefereeDecision,
   RunChallenge,
   RunRecord,
   StoredCrWarClock,
@@ -40,10 +42,6 @@ import type {
 type DocumentWriteRequest = NonNullable<
   BatchWriteCommandInput["RequestItems"]
 >[string][number];
-
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
 // Recent-run feed rows are ephemeral — they expire two days after the run.
 const FEED_TTL_SECONDS = 2 * 24 * 60 * 60;
@@ -118,10 +116,6 @@ interface CrWarClockItem extends StoredCrWarClock {
   sk: "CURRENT";
 }
 
-function profileKey(sub: string) {
-  return { pk: `PLAYER#${sub}`, sk: "PROFILE" as const };
-}
-
 function crProfileKey(tag: string) {
   return { pk: `CR_PLAYER#${tag}`, sk: "PROFILE" as const };
 }
@@ -135,29 +129,6 @@ function calendarSeasonId(startsAt: string): string {
   if (!Number.isFinite(date.getTime()))
     throw new Error("CR war clock has an invalid season start");
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-type PublicProfileSource = Pick<
-  PlayerProfile,
-  | "playerId"
-  | "publicName"
-  | "favoriteCardId"
-  | "playerTag"
-  | "totalGames"
-  | "xp"
->;
-
-function publicProfile(profile: PublicProfileSource): PublicProfile {
-  const progress = levelForGames(profile.totalGames);
-  return {
-    id: profile.playerId,
-    publicName: profile.publicName || "Elixir Player",
-    favoriteCardId: profile.favoriteCardId,
-    playerTag: profile.playerTag,
-    totalGames: profile.totalGames,
-    xp: profile.xp ?? 0,
-    ...progress,
-  };
 }
 
 export interface PublicPlayerLookup {
@@ -1185,7 +1156,7 @@ export class Repository {
       })
       .slice(0, visibleLimit);
 
-    const profiles = await this.hydratePublicProfiles([
+    const profiles = await hydratePublicProfiles(this.tableName, [
       ...new Set(groups.map((group) => group.playerSub)),
     ]);
     return groups.map((group, index) => ({
@@ -1194,13 +1165,7 @@ export class Repository {
       achievedAt: group.achievedAt,
       runCount: group.runCount,
       ...(group.timeMs !== undefined ? { timeMs: group.timeMs } : {}),
-      player: profiles.get(group.playerSub) ?? {
-        id: `player-${index + 1}`,
-        publicName: "Elixir Player",
-        totalGames: 0,
-        xp: 0,
-        ...levelForGames(0),
-      },
+      player: profiles.get(group.playerSub) ?? placeholderPublicProfile(index),
     }));
   }
 
@@ -1275,341 +1240,22 @@ export class Repository {
     }
   }
 
+  // The board read path (season + all-time reconciliation, referee
+  // visibility, profile hydration) lives in leaderboards.ts; these stay here
+  // so callers keep one repository surface.
   async leaderboard(
     mode: GameMode,
     seasonId: string,
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
-    const items: Array<Record<string, unknown>> = [];
-    const seenPlayers = new Set<string>();
-    let lastKey: Record<string, unknown> | undefined;
-    // Cap the page walk: every completed run adds a GSI row, so a handful of
-    // grinders with thousands of runs must not turn the public, unauthenticated
-    // leaderboard read into an unbounded scan. Ten 200-item pages of one
-    // player's dense run history is already an extreme board.
-    let pagesRead = 0;
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: "GSI1",
-          KeyConditionExpression: "GSI1PK = :pk",
-          ExpressionAttributeValues: {
-            ":pk": leaderboardPartition(seasonId, mode),
-          },
-          ScanIndexForward: true,
-          Limit: 200,
-          ExclusiveStartKey: lastKey,
-        }),
-      );
-      pagesRead += 1;
-      const pageItems = (
-        (result.Items ?? []) as Array<Record<string, unknown>>
-      ).filter((item) => isLeaderboardEligibleScore(Number(item.score)));
-      if (pageItems.some((item) => typeof item.runId !== "string"))
-        throw new HttpError(
-          503,
-          "Leaderboard run history is briefly unavailable. Try again.",
-          "leaderboard_history_unavailable",
-        );
-      const decisions = await this.refereeDecisions(
-        pageItems
-          .map((item) => (typeof item.runId === "string" ? item.runId : ""))
-          .filter(Boolean),
-      );
-      for (const item of pageItems) {
-        const decision = decisions.get(String(item.runId));
-        if (decision?.visibility === "hidden") continue;
-        const sub = String(item.playerSub);
-        if (!seenPlayers.has(sub)) {
-          seenPlayers.add(sub);
-          items.push(item);
-          if (items.length >= limit) break;
-        }
-      }
-      lastKey = result.LastEvaluatedKey;
-    } while (items.length < limit && lastKey && pagesRead < 10);
-
-    const profiles = await this.hydratePublicProfiles([
-      ...new Set(items.map((item) => String(item.playerSub))),
-    ]);
-    return items.map((item, index) =>
-      this.toLeaderboardRow(item, index, profiles),
-    );
+    return seasonLeaderboard(this.tableName, mode, seasonId, limit);
   }
 
-  // Best-ever board: one item per player per ranked mode already lives in the
-  // partition, so the ordered query maps straight to ranked rows — no dedup.
   async allTimeLeaderboard(
     mode: GameMode,
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
-    const reconciled: Array<Record<string, unknown>> = [];
-    let lastKey: Record<string, unknown> | undefined;
-    let pagesRead = 0;
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: "GSI1",
-          KeyConditionExpression: "GSI1PK = :pk",
-          ExpressionAttributeValues: {
-            ":pk": leaderboardPartition("ALLTIME", mode),
-          },
-          ScanIndexForward: true,
-          Limit: 200,
-          ExclusiveStartKey: lastKey,
-        }),
-      );
-      const pageItems = await Promise.all(
-        ((result.Items ?? []) as Array<Record<string, unknown>>)
-          .filter((item) => isLeaderboardEligibleScore(Number(item.score)))
-          .map((item) => this.resolveAllTimeEarningRun(item, mode)),
-      );
-      const decisions = await this.refereeDecisions(
-        pageItems
-          .map((item) => (typeof item.runId === "string" ? item.runId : ""))
-          .filter(Boolean),
-      );
-      reconciled.push(
-        ...(
-          await Promise.all(
-            pageItems.map(async (item) => {
-              const decision = decisions.get(String(item.runId));
-              if (decision?.visibility !== "hidden") return item;
-              return this.bestVisibleRun(
-                String(item.playerSub),
-                mode,
-                String(item.runId),
-              );
-            }),
-          )
-        ).filter((item): item is Record<string, unknown> => Boolean(item)),
-      );
-      reconciled.sort((a, b) =>
-        this.leaderboardItemSortKey(a, mode).localeCompare(
-          this.leaderboardItemSortKey(b, mode),
-        ),
-      );
-      lastKey = result.LastEvaluatedKey;
-      pagesRead += 1;
-      // Base all-time rows are ordered. A hidden row can only fall backward to
-      // a worse score, so once the effective cutoff is no worse than the last
-      // base row read, no unseen player can enter the requested top cohort.
-      const cutoff = reconciled[limit - 1];
-      const frontier = pageItems.at(-1);
-      if (
-        cutoff &&
-        frontier &&
-        this.leaderboardItemSortKey(cutoff, mode) <=
-          this.leaderboardItemSortKey(frontier, mode)
-      )
-        break;
-    } while (lastKey && pagesRead < 10);
-
-    const items = reconciled.slice(0, limit);
-    const profiles = await this.hydratePublicProfiles([
-      ...new Set(items.map((item) => String(item.playerSub))),
-    ]);
-    return items.map((item, index) =>
-      this.toLeaderboardRow(item, index, profiles),
-    );
-  }
-
-  private async refereeDecisions(
-    runIds: string[],
-  ): Promise<Map<string, RefereeDecision>> {
-    const decisions = new Map<string, RefereeDecision>();
-    const uniqueIds = [...new Set(runIds.filter(Boolean))];
-    for (let offset = 0; offset < uniqueIds.length; offset += 100) {
-      let keys: Array<Record<string, unknown>> = uniqueIds
-        .slice(offset, offset + 100)
-        .map((runId) => ({ pk: `REFEREE#${runId}`, sk: "CURRENT" }));
-      for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
-        if (attempt > 0)
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 * 2 ** attempt),
-          );
-        const result = await client.send(
-          new BatchGetCommand({
-            RequestItems: {
-              [this.tableName]: { Keys: keys, ConsistentRead: true },
-            },
-          }),
-        );
-        for (const item of result.Responses?.[this.tableName] ?? []) {
-          const decision = item as RefereeDecision;
-          decisions.set(decision.runId, decision);
-        }
-        keys = (result.UnprocessedKeys?.[this.tableName]?.Keys ?? []) as Array<
-          Record<string, unknown>
-        >;
-      }
-      if (keys.length)
-        throw new HttpError(
-          503,
-          "Leaderboard review status is briefly unavailable. Try again.",
-          "leaderboard_review_unavailable",
-        );
-    }
-    return decisions;
-  }
-
-  private async resolveAllTimeEarningRun(
-    item: Record<string, unknown>,
-    mode: GameMode,
-  ): Promise<Record<string, unknown>> {
-    if (typeof item.runId === "string") return item;
-    let lastKey: Record<string, unknown> | undefined;
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
-          ExpressionAttributeValues: {
-            ":pk": `PLAYER#${String(item.playerSub)}`,
-            ":prefix": "RUN#",
-          },
-          ExclusiveStartKey: lastKey,
-          Limit: 500,
-        }),
-      );
-      const match = (result.Items ?? []).find(
-        (run) =>
-          run.mode === mode &&
-          run.score === item.score &&
-          run.completedAt === item.completedAt &&
-          (item.timeMs === undefined || run.timeMs === item.timeMs),
-      );
-      if (typeof match?.runId === "string")
-        return { ...item, runId: match.runId };
-      lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
-    throw new HttpError(
-      503,
-      "Leaderboard run history is briefly unavailable. Try again.",
-      "leaderboard_history_unavailable",
-    );
-  }
-
-  private async bestVisibleRun(
-    sub: string,
-    mode: GameMode,
-    hiddenRunId: string,
-  ): Promise<Record<string, unknown> | undefined> {
-    const runs: Array<Record<string, unknown>> = [];
-    let lastKey: Record<string, unknown> | undefined;
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
-          ExpressionAttributeValues: {
-            ":pk": `PLAYER#${sub}`,
-            ":prefix": "RUN#",
-          },
-          ExclusiveStartKey: lastKey,
-          Limit: 500,
-        }),
-      );
-      runs.push(
-        ...((result.Items ?? []) as Array<Record<string, unknown>>).filter(
-          (item) =>
-            item.mode === mode &&
-            item.runId !== hiddenRunId &&
-            isLeaderboardEligibleScore(Number(item.score)),
-        ),
-      );
-      lastKey = result.LastEvaluatedKey;
-    } while (lastKey && runs.length < 2_000);
-
-    const decisions = await this.refereeDecisions(
-      runs
-        .map((item) => (typeof item.runId === "string" ? item.runId : ""))
-        .filter(Boolean),
-    );
-    return runs
-      .filter(
-        (item) => decisions.get(String(item.runId))?.visibility !== "hidden",
-      )
-      .sort((a, b) =>
-        this.leaderboardItemSortKey(a, mode).localeCompare(
-          this.leaderboardItemSortKey(b, mode),
-        ),
-      )[0];
-  }
-
-  private leaderboardItemSortKey(
-    item: Record<string, unknown>,
-    mode: GameMode,
-  ): string {
-    if (typeof item.GSI1SK === "string") return item.GSI1SK;
-    return leaderboardSortKey(
-      mode,
-      Number(item.score),
-      String(item.completedAt),
-      String(item.playerSub),
-      item.timeMs === undefined ? undefined : Number(item.timeMs),
-    );
-  }
-
-  // Shared public-profile hydration for the season and all-time boards.
-  private async hydratePublicProfiles(
-    subs: string[],
-  ): Promise<Map<string, PublicProfile>> {
-    const profiles = new Map<string, PublicProfile>();
-    if (!subs.length) return profiles;
-    // BatchGet is allowed to return unprocessed keys under throttling; without
-    // the retry, real players render as the placeholder profile.
-    let keys: Array<Record<string, unknown>> = subs.map((sub) =>
-      profileKey(sub),
-    );
-    for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
-      if (attempt > 0)
-        await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** attempt));
-      const profileResult = await client.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [this.tableName]: {
-              Keys: keys,
-              ProjectionExpression:
-                "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
-              ExpressionAttributeNames: {
-                "#sub": "sub",
-              },
-            },
-          },
-        }),
-      );
-      for (const item of profileResult.Responses?.[this.tableName] ?? []) {
-        const profile = item as PlayerProfile;
-        profiles.set(profile.sub, publicProfile(profile));
-      }
-      keys = (profileResult.UnprocessedKeys?.[this.tableName]?.Keys ??
-        []) as Array<Record<string, unknown>>;
-    }
-    return profiles;
-  }
-
-  // Shared row shape for the season and all-time boards.
-  private toLeaderboardRow(
-    item: Record<string, unknown>,
-    index: number,
-    profiles: Map<string, PublicProfile>,
-  ): Record<string, unknown> {
-    return {
-      rank: index + 1,
-      score: item.score,
-      achievedAt: item.completedAt,
-      ...(item.timeMs !== undefined ? { timeMs: item.timeMs as number } : {}),
-      player: profiles.get(String(item.playerSub)) ?? {
-        id: `player-${index + 1}`,
-        publicName: "Elixir Player",
-        totalGames: 0,
-        xp: 0,
-        ...levelForGames(0),
-      },
-    };
+    return allTimeLeaderboard(this.tableName, mode, limit);
   }
 
   async globalStats(): Promise<{

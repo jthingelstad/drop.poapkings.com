@@ -1,28 +1,16 @@
-import type {
-  ClashRoyaleAccountAge,
-  ClashRoyaleCard,
-  ClashRoyaleClan,
-  CrPlayerRefreshResult,
-  CrPlayerSnapshot,
-  CrWarClockResult,
+import {
+  CLASH_ROYALE_TAG_PATTERN,
+  type ClashRoyaleAccountAge,
+  type ClashRoyaleCard,
+  type ClashRoyaleClan,
+  type CrPlayerRefreshResult,
+  type CrPlayerSnapshot,
+  type CrWarClockResult,
 } from "@elixir-drop/contracts";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
-import { getConfig } from "./config.js";
+import { loadConfig } from "./config.js";
 import { Repository } from "./repository.js";
-
-const TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
-
-function object(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error(`${label} must be an object`);
-  return value as Record<string, unknown>;
-}
-
-function text(value: unknown, label: string, maxLength = 100): string {
-  if (typeof value !== "string" || !value.trim() || value.length > maxLength)
-    throw new Error(`${label} must be a non-empty string`);
-  return value.trim();
-}
+import { requireObject as object, requireText as text } from "./validation.js";
 
 function isoDate(value: unknown, label: string): string {
   const result = text(value, label, 40);
@@ -42,7 +30,8 @@ function parseClan(value: unknown): ClashRoyaleClan | undefined {
   if (value === undefined) return undefined;
   const source = object(value, "Clan");
   const tag = text(source.tag, "Clan tag", 20);
-  if (!TAG_PATTERN.test(tag)) throw new Error("Clan tag is invalid");
+  if (!CLASH_ROYALE_TAG_PATTERN.test(tag))
+    throw new Error("Clan tag is invalid");
   const badgeId = nonnegativeInteger(source.badgeId, "Clan badge ID");
   if (badgeId === undefined) throw new Error("Clan badge ID is required");
   return {
@@ -106,7 +95,8 @@ export function parseCrPlayerResult(value: unknown): CrPlayerRefreshResult {
   if (source.version !== 1 || source.type !== "player-result")
     throw new Error("Unsupported CR result message");
   const playerTag = text(source.playerTag, "Player tag", 20);
-  if (!TAG_PATTERN.test(playerTag)) throw new Error("Player tag is invalid");
+  if (!CLASH_ROYALE_TAG_PATTERN.test(playerTag))
+    throw new Error("Player tag is invalid");
   const base = {
     version: 1 as const,
     type: "player-result" as const,
@@ -160,7 +150,7 @@ export function parseCrWarClockResult(value: unknown): CrWarClockResult {
   if (Date.parse(seasonStartsAt) > Date.parse(observedAt))
     throw new Error("War clock season start is after its observation");
   const sourceClanTag = text(clock.sourceClanTag, "War clock clan tag", 20);
-  if (!TAG_PATTERN.test(sourceClanTag))
+  if (!CLASH_ROYALE_TAG_PATTERN.test(sourceClanTag))
     throw new Error("War clock clan tag is invalid");
   return {
     version: 1,
@@ -213,7 +203,7 @@ export async function saveCrWarClockResult(
 export async function crResultHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
-  const repository = new Repository(getConfig().tableName);
+  const repository = new Repository(loadConfig().tableName);
   const batchItemFailures: SQSBatchResponse["batchItemFailures"] = [];
   for (const record of event.Records) {
     try {

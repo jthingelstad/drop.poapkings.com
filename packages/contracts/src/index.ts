@@ -112,6 +112,13 @@ export interface SiteStats {
 
 export type ClanWarPeriodType = "training" | "warDay" | "colosseum";
 
+// The canonical Clash Royale tag shape, for players and clans alike. Supercell
+// draws tags from a fixed alphabet that excludes the letter O (a typed O reads
+// as a zero). Every surface that accepts or forwards a tag validates against
+// this one pattern; a private copy that drifts would let a tag through one
+// boundary and bounce it at the next.
+export const CLASH_ROYALE_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
+
 export type ClashRoyaleProfileStatus =
   "pending" | "ready" | "not_found" | "unavailable";
 

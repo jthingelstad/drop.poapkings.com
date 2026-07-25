@@ -19,10 +19,21 @@ export interface Config {
   webVersion?: string;
 }
 
-function required(name: string): string {
+// Shared with the entry points that read their own environment: the mail
+// canary runs with a deliberately reduced variable set and must not pull in the
+// whole API config, but it should fail on a missing variable the same way.
+export function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
+}
+
+export function emailFrom(): string {
+  return process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com";
+}
+
+export function emailFromName(): string {
+  return process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop";
 }
 
 export function getConfig(): Config {
@@ -42,10 +53,8 @@ export function getConfig(): Config {
     jmapToken: required("FASTMAIL_JMAP_TOKEN"),
     buttondownApiKey,
     buttondownNewsletterId,
-    emailFrom:
-      process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com",
-    emailFromName:
-      process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop",
+    emailFrom: emailFrom(),
+    emailFromName: emailFromName(),
     nameModelId:
       process.env.NAME_MODEL_ID?.trim() ||
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -54,4 +63,21 @@ export function getConfig(): Config {
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };
+}
+
+let cachedConfig: Config | undefined;
+
+// The API's config, resolved on the container's first request and reused for
+// every warm one after it — not re-derived per request.
+//
+// It deliberately is NOT a module-scope constant: the CR-result and mail-canary
+// Lambdas share this one bundle (infra/template.yaml, `handler.crResultHandler`
+// and `handler.mailCanaryHandler`), and the canary runs with only its four mail
+// variables. A top-level resolve would therefore fail the canary's init on
+// variables it has no business holding. Splitting the canary into its own
+// bundle is the infra-side fix that would let this become a true cold-start
+// constant.
+export function loadConfig(): Config {
+  cachedConfig ??= getConfig();
+  return cachedConfig;
 }
