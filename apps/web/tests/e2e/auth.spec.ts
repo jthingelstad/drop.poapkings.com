@@ -96,7 +96,10 @@ test('signing in from the login screen returns the player to the requested game'
   await emailInput.fill('player@example.com')
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.getByRole('button', { name: 'Email me a login link' }).click()
-  await expect(page.getByRole('status')).toContainText('Check your email')
+  // Scoped to the login form: the UpdateBanner is also role="status", and it
+  // can mount mid-test whenever the built version differs from the one /stats
+  // reports, which made a bare getByRole('status') a strict-mode violation.
+  await expect(page.locator('main').getByRole('status')).toContainText('Check your email')
   expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
