@@ -6,11 +6,18 @@ import { buildMeta } from './build'
 // update never becomes "un-shipped" within a session.
 export const updateAvailable = signal(false)
 
+// Visual QA deliberately runs against the deployed API, whose build id will
+// normally differ from a local bundle. Keep this opt-in and evaluated at call
+// time so production and the explicit stale-app tests stay enabled by default.
+export function isUpdateNoticeEnabled(): boolean {
+  return import.meta.env.VITE_DISABLE_UPDATE_NOTICE !== '1'
+}
+
 // Compare the server's current front-end build id (from /stats) against this
 // tab's. Only real CI builds carry a git-sha id, so dev/unknown builds and
 // missing server versions are ignored to avoid false prompts.
 export function noteWebVersion(serverVersion: string | undefined): void {
-  if (updateAvailable.value || !serverVersion) return
+  if (!isUpdateNoticeEnabled() || updateAvailable.value || !serverVersion) return
   if (buildMeta.id === 'dev' || !buildMeta.id) return
   if (serverVersion !== buildMeta.id) updateAvailable.value = true
 }

@@ -21,6 +21,7 @@ git clone https://github.com/jthingelstad/drop.poapkings.com.git
 cd drop.poapkings.com
 npm install
 npm run dev            # Vite dev server at http://localhost:5173
+npm run dev:qa         # same server, without production-version update notices
 ```
 
 The repo ships a committed `packages/game-data/cards.json` snapshot and mirrored
@@ -44,6 +45,12 @@ Running the API (a TypeScript Lambda + DynamoDB) fully locally is not wired up
 yet; a local emulation path (e.g. SAM + dynamodb-local) is a welcome future
 contribution. Until then, the real inner loop for game logic, scoring, and
 storage is the **test suite**, which mocks the API end to end.
+
+For visual QA against that deployed API, use `npm run dev:qa`. It sets
+`VITE_DISABLE_UPDATE_NOTICE=1` for that local Vite process so a deliberate
+local/production build mismatch does not cover or reflow the screen under test.
+The normal dev command, production builds, and the stale-installed-app tests
+leave update notices enabled.
 
 ## The quality gate
 

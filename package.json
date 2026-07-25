@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace=@elixir-drop/web",
+    "dev:qa": "npm run dev:qa --workspace=@elixir-drop/web",
     "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace=@elixir-drop/web",
     "release:cut": "node --env-file-if-exists=.env scripts/cut-release.mjs",

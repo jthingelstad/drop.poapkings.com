@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Pin this tab's build id so the comparison is deterministic (real builds carry
 // a git sha; the dev fallback is intentionally ignored by noteWebVersion).
@@ -10,6 +10,10 @@ import { latestVersionUrl, noteWebVersion, updateAvailable } from '../../src/lib
 
 beforeEach(() => {
   updateAvailable.value = false
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 describe('noteWebVersion', () => {
@@ -25,6 +29,12 @@ describe('noteWebVersion', () => {
 
   it('ignores a missing server version', () => {
     noteWebVersion(undefined)
+    expect(updateAvailable.value).toBe(false)
+  })
+
+  it('stays quiet when local visual QA explicitly disables update notices', () => {
+    vi.stubEnv('VITE_DISABLE_UPDATE_NOTICE', '1')
+    noteWebVersion('bbbbbbbbbbbb')
     expect(updateAvailable.value).toBe(false)
   })
 

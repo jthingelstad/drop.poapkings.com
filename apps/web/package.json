@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:qa": "VITE_DISABLE_UPDATE_NOTICE=1 vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:e2e -- --project=chromium --project=iphone-14",

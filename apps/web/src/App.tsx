@@ -6,7 +6,7 @@ import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game
 import ApiStatusBanner from './components/ApiStatusBanner'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
-import { updateAvailable } from './lib/version'
+import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import ReleaseNotice from './components/ReleaseNotice'
 import Screensaver from './components/Screensaver'
@@ -177,6 +177,7 @@ export default function App() {
   // check at startup, periodic poll, and refocus check catch a stale installed
   // PWA and let the player reload. Stops polling once an update is known.
   useEffect(() => {
+    if (!isUpdateNoticeEnabled()) return
     const check = () => {
       if (updateAvailable.value || document.visibilityState !== 'visible') return
       void getStats().catch(() => {})
