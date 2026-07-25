@@ -16,16 +16,51 @@ import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
+import RainMilestone from './RainMilestone'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
-// lives; spawn/fall speed ramps every 5 clears. RANKED: tiles are drawn in order
-// from the server's signed deck, and each RESOLVED card (cleared → guess=cost,
-// landed → guess=null) is recorded in the transcript the server scores.
+// lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
+// when it runs out — Rain is endless), and each RESOLVED card (cleared →
+// guess=cost, landed → guess=null) is recorded in the transcript the server scores.
+//
+// Difficulty scales with cleared count (demonstrated skill) and NEVER caps, on
+// BOTH axes: cards fall faster AND spawn closer together as you clear more. It
+// starts a touch gentler than a fixed pace and then ramps without limit, so a
+// player in flow keeps accelerating until the field outruns human reaction and
+// the run ends — you cannot play forever. Both curves key off the live score, so
+// difficulty only advances when you actually clear cards (struggling is
+// self-forgiving). See rainFallBoost / rainSpawnMs for the tuning.
 const MAX_CONCURRENT = 8
-const SPAWN_MS = 900
 const TICK_MS = 40
 const RAIN_LIVES = 3
 const COUNTDOWN_STEP_MS = 650
+
+// Fall speed = RAIN_BASE_SPEED + per-drop jitter + rainFallBoost(score), in field
+// %-per-tick. A card falls 112 units, so time ≈ 4480ms / speed. At score 0 that
+// is ~9–12s (gentler than before); the linear+quadratic boost has no ceiling, so
+// the deep game turns brutal (~0.7s/card in the high 200s ≈ impossible).
+const RAIN_BASE_SPEED = 0.36
+const RAIN_SPEED_JITTER = 0.14
+const RAIN_FALL_LINEAR = 0.011
+const RAIN_FALL_QUAD = 0.00003
+function rainFallBoost(score: number): number {
+  return score * RAIN_FALL_LINEAR + score * score * RAIN_FALL_QUAD
+}
+
+// Spawn gap tightens from RAIN_SPAWN_BASE_MS toward (never reaching) the floor as
+// score climbs: 1160ms at score 0 (gentler start than the old fixed 900ms) → ~710ms
+// by 50 → ~440ms by 200, always positive so it keeps closing without a hard limit.
+const RAIN_SPAWN_BASE_MS = 1160
+const RAIN_SPAWN_FLOOR_MS = 260
+const RAIN_SPAWN_TIGHTEN = 0.02
+
+// Progress flash: every 10th clear, the running total pulses briefly in the
+// middle of the field so the player feels the count without reading the top bar.
+const RAIN_MILESTONE_EVERY = 10
+const RAIN_MILESTONE_MS = 500
+function rainSpawnMs(score: number): number {
+  return RAIN_SPAWN_FLOOR_MS + (RAIN_SPAWN_BASE_MS - RAIN_SPAWN_FLOOR_MS) / (1 + score * RAIN_SPAWN_TIGHTEN)
+}
 
 interface Drop {
   el: HTMLDivElement
@@ -57,13 +92,15 @@ export default function Rain() {
   // Directional hint after a wrong tap (like Surge): aim higher or lower.
   const hint = useSignal<'higher' | 'lower' | null>(null)
   const hintPulse = useSignal(0)
+  // Every-10-clears progress flash in the middle of the field (null = nothing showing).
+  const milestone = useSignal<number | null>(null)
   const insights = useSignal<Insights | null>(null)
   const best = useSignal(getRecords().rainBest ?? 0)
   const isPB = useSignal(false)
 
   useEffect(() => {
     return () => {
-      if (spawnTimer.current) window.clearInterval(spawnTimer.current)
+      if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
       if (fallTimer.current) window.clearInterval(fallTimer.current)
     }
   }, [])
@@ -80,16 +117,38 @@ export default function Rain() {
   }, [gameRun.content, gameRun.assetsReady, stage])
 
   function clearLoops() {
-    if (spawnTimer.current) window.clearInterval(spawnTimer.current)
+    if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
     if (fallTimer.current) window.clearInterval(fallTimer.current)
     spawnTimer.current = undefined
     fallTimer.current = undefined
+  }
+
+  // Spawn cadence is dynamic (tightens with score), so it self-reschedules with
+  // the current gap instead of a fixed interval. Stops when the run is no longer
+  // live so a late timer never spawns onto a torn-down field.
+  function scheduleSpawn() {
+    if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
+    spawnTimer.current = window.setTimeout(() => {
+      spawnDrop()
+      if (stage.peek() === 'running') scheduleSpawn()
+    }, rainSpawnMs(score.value))
+  }
+
+  // Show the running total for RAIN_MILESTONE_MS, then get out of the way. The
+  // timer only clears the value it scheduled, so a later milestone landing inside
+  // the window is never cut short by the previous one's timeout.
+  function showMilestone(value: number) {
+    milestone.value = value
+    runtime.later(() => {
+      if (milestone.peek() === value) milestone.value = null
+    }, RAIN_MILESTONE_MS)
   }
 
   async function begin() {
     if (!(await gameRun.ensureFreshRun())) return
     lives.value = RAIN_LIVES
     score.value = 0
+    milestone.value = null
     serverAnswers.current = []
     answersLog.current = []
     recorded.current = false
@@ -98,7 +157,7 @@ export default function Rain() {
       target.current = null
       rainSpd.current = 0
       cursor.current = 0
-      spawnTimer.current = window.setInterval(spawnDrop, SPAWN_MS)
+      scheduleSpawn()
       fallTimer.current = window.setInterval(tick, TICK_MS)
     })
   }
@@ -106,8 +165,8 @@ export default function Rain() {
   // The falling-cards field only mounts on the 'running' render, which happens
   // *after* runtime.start()'s begin callback runs — so the eager first drop has
   // to wait for that mount, otherwise fieldRef is null and spawnDrop() no-ops
-  // (leaving the field empty until the first 900ms interval tick). Clear any
-  // prior run's tiles and deal the opening card as soon as the stage is live.
+  // (leaving the field empty until the first scheduled spawn ~1160ms later). Clear
+  // any prior run's tiles and deal the opening card as soon as the stage is live.
   // spawnDrop is reached through a ref so this only fires on the stage flip.
   const spawnRef = useRef<() => void>(() => {})
   spawnRef.current = spawnDrop
@@ -138,7 +197,12 @@ export default function Rain() {
       `<img src="/cards/${card.id}.png" alt="" class="ed-rain__tile-img"/>` +
       `<span class="ed-rain__tile-name">${card.name}</span>`
     field.appendChild(el)
-    drops.current.push({ el, card, y: -16, speed: 0.42 + Math.random() * 0.16 + rainSpd.current })
+    drops.current.push({
+      el,
+      card,
+      y: -16,
+      speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current
+    })
   }
 
   function tick() {
@@ -178,6 +242,10 @@ export default function Rain() {
       el.remove()
       return
     }
+    // Drop the gold "live target" ring as it leaves: a resolved tile lingers for
+    // its exit animation, and a second lit tile on the field misreads as two
+    // answerable cards.
+    el.classList.remove('ed-rain__tile--lit')
     el.classList.add(missed ? 'ed-rain__tile--miss' : 'ed-rain__tile--clear')
     el.addEventListener('animationend', () => el.remove(), { once: true })
     window.setTimeout(() => el.remove(), 500)
@@ -195,7 +263,10 @@ export default function Rain() {
       answersLog.current.push({ card: t.card, correct: true })
       const next = score.value + 1
       score.value = next
-      rainSpd.current = Math.min(0.6, Math.floor(next / 5) * 0.06)
+      // Uncapped: both fall speed (here) and spawn cadence (rainSpawnMs, read by
+      // the self-rescheduling spawn timer) keep ramping with every clear.
+      rainSpd.current = rainFallBoost(next)
+      if (next % RAIN_MILESTONE_EVERY === 0) showMilestone(next)
       hint.value = null
       playRainClear()
     } else {
@@ -306,6 +377,7 @@ export default function Rain() {
       <div class="ed-rain">
         <div ref={fieldRef} class="ed-rain__field" aria-hidden="true" />
         <div class="ed-rain__hint">Clear the lit card before it lands</div>
+        {milestone.value !== null && <RainMilestone key={milestone.value} value={milestone.value} />}
         <div class="ed-rain__cue" aria-hidden="true">
           <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="rain-hint">
             {hint.value === 'higher' && (

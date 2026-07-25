@@ -398,6 +398,33 @@ describe('Rain — gameplay', () => {
     expect(c.textContent).toContain('♥♥♥') // all three lives intact
   })
 
+  it('flashes the running total every 10 clears, then clears it', async () => {
+    // A one-card deck (cost 3) that wraps, so the lit target's cost is always 3.
+    stage([fakeCard(401, 3, 'RN-A')])
+    const c = mount(<Rain />)
+    await toRunning(c)
+
+    // Each beat waits past one spawn gap (>1160ms at low scores) so a fresh card
+    // is on the field and a tick has lit it as the target, then clears it.
+    const tap = async () => {
+      await advance(1300)
+      await click(c.querySelector('[aria-label="3 elixir"]'))
+    }
+
+    for (let i = 0; i < 9; i += 1) await tap()
+    expect(metricValue(c)).toBe('9')
+    // Nothing showing before the 10th — it is not a per-card cue.
+    expect(c.querySelector('.ed-rain__milestone')).toBeNull()
+
+    await tap()
+    expect(metricValue(c)).toBe('10')
+    expect(c.querySelector('.ed-rain__milestone-num')?.textContent).toBe('10')
+
+    // It is transient: gone after the ~0.5s window.
+    await advance(600)
+    expect(c.querySelector('.ed-rain__milestone')).toBeNull()
+  })
+
   it('losing all three lives ends the run and the summary shows the cleared count', async () => {
     const session = stage(deck())
     const c = mount(<Rain />)

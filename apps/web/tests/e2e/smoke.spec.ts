@@ -1210,6 +1210,27 @@ const a11yRoutes = [
   { hash: '#/privacy', label: 'Privacy', ready: '.ed-page--privacy' }
 ]
 
+test('rain flashes the running total every 10 clears', async ({ page }) => {
+  await page.goto('/#/rain')
+  await waitForKeypad(page)
+
+  // Clear the lit card by reading its name off the tile and tapping that cost.
+  // Rain is endless and the deck wraps, so this drives a real 10-clear streak.
+  for (let cleared = 0; cleared < 10; cleared += 1) {
+    const lit = page.locator('.ed-rain__tile--lit').first()
+    await expect(lit).toBeVisible({ timeout: 12_000 })
+    const name = await lit.locator('.ed-rain__tile-name').textContent()
+    const card = cardsData.cards.find((candidate) => candidate.name === name)
+    expect(card, `unknown rain card "${name}"`).toBeTruthy()
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+    await expect(page.locator('.ed-game__metric')).toHaveText(String(cleared + 1))
+  }
+
+  // The milestone flash appears with the running total, then clears itself.
+  await expect(page.locator('.ed-rain__milestone-num')).toHaveText('10')
+  await expect(page.locator('.ed-rain__milestone')).toHaveCount(0, { timeout: 4_000 })
+})
+
 test('About, FAQ, and Privacy share one stable responsive page layout', async ({ page, viewport }) => {
   const routes = [
     { hash: 'about', title: 'About Elixir Drop' },

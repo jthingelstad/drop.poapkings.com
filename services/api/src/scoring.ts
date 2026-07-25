@@ -29,6 +29,12 @@ export const SURGE_PENALTY_MS = 2_000;
 export const HIGHER_LOWER_PAIR_COUNT = 250;
 export const RAIN_DECK_SIZE = 250;
 export const RAIN_LIVES = 3;
+// Rain is endless: the client wraps the signed deck, so a strong run resolves
+// more cards than the deck holds. This is an anti-abuse ceiling on transcript
+// length (bounds the scorer's work), NOT a game limit — it sits far above any
+// reachable score, so no genuine run can hit it. Difficulty walls real players
+// out in the low hundreds long before this.
+export const RAIN_MAX_ANSWERS = 10_000;
 
 type RandomInt = (upperBound: number) => number;
 
@@ -166,8 +172,10 @@ export function createChallenge(
       return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
     case "rain":
       // A long draw deck of falling cards. The client spawns tiles from it in
-      // order; a deep run rarely exhausts it, and the signed deck is what the
-      // scorer validates transcript card ids against.
+      // order and WRAPS when it runs out (Rain is endless), so a deep run
+      // resolves more cards than the deck holds. The signed deck is the set of
+      // ids the scorer validates each transcript entry against — not a length
+      // limit (see scoreRain / RAIN_MAX_ANSWERS).
       return { mode, cardIds: cardSequence(RAIN_DECK_SIZE, randomInt, pool) };
     case "higher-lower":
       return { mode, pairs: higherLowerPairs(randomInt, pool) };
@@ -480,8 +488,12 @@ function scoreRain(
   transcript: RunTranscript,
 ): number {
   const answers = objectArray(transcript.answers, "Rain");
-  if (answers.length > challenge.cardIds.length)
-    throw new Error("Rain transcript is longer than the signed deck");
+  // Endless mode: the client wraps the signed deck, so a deep run legitimately
+  // resolves more cards than the deck holds. Card ids are still validated
+  // against the signed deck below (anti-injection); only the absolute anti-abuse
+  // ceiling bounds length.
+  if (answers.length > RAIN_MAX_ANSWERS)
+    throw new Error("Rain transcript exceeds the maximum answer count");
   const deck = new Set(challenge.cardIds);
   let cleared = 0;
   let misses = 0;

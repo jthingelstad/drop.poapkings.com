@@ -130,9 +130,21 @@ key's tiebreak), so once everyone can clear the deck it becomes a speedrun.
 **Rain** — `/rain` · `apps/web/src/modes/rain/`
 Cards fall through the playfield and the lowest lit card is the live target.
 Enter its elixir cost before it lands; a wrong tap gives a higher/lower hint but
-does not stop the fall. The player has three lives, with spawn and fall pressure
-ramping every five clears. The signed server deck supplies the cards, and every
-resolved card records either its correct cost or a landed miss.
+does not stop the fall. The player has three lives. Rain is **endless and
+uncapped**: difficulty scales with cleared count on **both** axes — cards fall
+faster _and_ spawn closer together the more you clear — starting a touch gentler
+than a fixed pace, then ramping with no ceiling, so a player in flow keeps
+accelerating until the field outruns human reaction and the run ends (you cannot
+play forever). Both curves key off the live score, so difficulty only advances
+when you actually clear cards. The signed server deck supplies the cards and
+**wraps** when exhausted (a deep run resolves more cards than the deck holds);
+every resolved card records either its correct cost or a landed miss. Every 10
+clears the running total flashes for ~0.5s in the middle of the field (gold
+numeral + ring, echoing the 3-2-1 countdown) so the player feels progress without
+reading the top bar; it is composited over the field and never reflows the board.
+The scorer
+validates each card id against the signed deck but does **not** cap the run at the
+deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript size.
 
 - Input: pip keypad.
 - Record: `rainBest` (cards cleared).

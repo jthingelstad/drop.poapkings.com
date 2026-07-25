@@ -204,6 +204,25 @@ describe("server-side game scoring", () => {
     expect(createChallenge("rain", randomInt).cardIds.length).toBe(250);
   });
 
+  it("scores an endless Rain run that outlasts the signed deck (wrapped cards)", () => {
+    // Rain wraps the deck client-side, so a deep run resolves more cards than the
+    // deck holds. That must score, not trip an integrity error (Tyler's 550-clear
+    // run was wrongly rejected as "longer than the signed deck").
+    const rain = createChallenge("rain", randomInt);
+    const deck = rain.cardIds;
+    const cleared = deck.length + 60; // past the 250 deck length
+    const answers = [
+      ...Array.from({ length: cleared }, (_unused, i) => ({
+        cardId: deck[i % deck.length]!,
+        guess: cost(deck[i % deck.length]!),
+      })),
+      { cardId: deck[0]!, guess: null },
+      { cardId: deck[1]!, guess: null },
+      { cardId: deck[2]!, guess: null },
+    ];
+    expect(scoreRun(rain, { answers }, 300_000)).toBe(cleared);
+  });
+
   it("sums Survival cumulative time over the surviving cards only", () => {
     const answers = [
       { cardId: 1, guess: 1, elapsedMs: 400 },
