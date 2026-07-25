@@ -44,18 +44,11 @@ export interface Records {
   bestAccuracy?: number // Practice: best round accuracy (%)
   survivalBest?: number // Survival: longest sudden-death streak
   tradeBest?: number // Trade: lowest 8-exchange read time (ms) — lower is better
-  rainBest?: number // Rain: most cards cleared (local until the ranked backend lands)
+  rainBest?: number // Rain: most cards cleared — ranked; written only on server acceptance
 }
 
 export interface Profile {
   createdAt: number
   nickname?: string
   totalSessions: number
-}
-
-export interface FunnelData {
-  recruitShown: number
-  recruitJoin: number
-  recruitDiscord: number
-  shares: number
 }

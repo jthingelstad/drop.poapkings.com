@@ -5,7 +5,6 @@
 // Everything is best-effort so analytics can never interrupt the game loop.
 
 import type { GameMode } from '@elixir-drop/contracts'
-import { getFunnel, saveFunnel } from './storage'
 
 export type TinyEvent =
   | 'game.started'
@@ -16,9 +15,6 @@ export type TinyEvent =
   | 'account.login_requested'
   | 'account.login_completed'
   | 'account.profile_completed'
-  | 'community.recruit_shown'
-  | 'community.clan_opened'
-  | 'community.discord_opened'
   | 'install.suggestion_shown'
   | 'install.suggestion_dismissed'
   | 'install.instructions_opened'
@@ -37,15 +33,6 @@ interface PendingEvent {
 const pendingEvents: PendingEvent[] = []
 const LOGIN_COMPLETE_KEY = 'elixirdrop:analyticsLoginCompleted'
 let collectorReady = false
-
-// Mirror the funnel-relevant events into local storage (SPEC §7 funnel schema).
-export function mirrorFunnel(event: TinyEvent): void {
-  const f = getFunnel()
-  if (event === 'community.recruit_shown') saveFunnel({ recruitShown: f.recruitShown + 1 })
-  else if (event === 'community.clan_opened') saveFunnel({ recruitJoin: f.recruitJoin + 1 })
-  else if (event === 'community.discord_opened') saveFunnel({ recruitDiscord: f.recruitDiscord + 1 })
-  else if (event === 'game.shared') saveFunnel({ shares: f.shares + 1 })
-}
 
 // Tinylytics' browser collector records clicks on data-tinylytics-event nodes.
 // Programmatic outcomes (a completed game, a successful login, an accepted
@@ -70,7 +57,6 @@ function fireTinylytics(event: TinyEvent, value?: TinyEventValue): void {
 
 // Programmatic track: use for events that are NOT a real user click on a DOM element.
 export function track(event: TinyEvent, value?: TinyEventValue): void {
-  mirrorFunnel(event)
   if (collectorReady) fireTinylytics(event, value)
   else pendingEvents.push({ event, value })
 }

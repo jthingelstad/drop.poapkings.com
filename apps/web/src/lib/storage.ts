@@ -1,14 +1,17 @@
-// Storage seam — ALL localStorage access goes through this module.
+// Storage seam — the learning-progress boundary. Every read/write of profile,
+// card stats, records, season records, and settings goes through here.
+// Session, analytics, and PWA-install state are deliberately owned elsewhere
+// (account.ts, analytics.ts, pwa-install.ts); SPEC.md §6 is the full key
+// inventory.
 // v2: replace the body of each function with fetch() without touching game logic.
 
-import type { CardStats, CardStat, Records, Profile, FunnelData, Settings } from '../types'
+import type { CardStats, CardStat, Records, Profile, Settings } from '../types'
 
 const K = {
   profile: 'elixirdrop:profile',
   cardStats: 'elixirdrop:cardStats',
   records: 'elixirdrop:records',
   seasonRecords: 'elixirdrop:seasonRecords',
-  funnel: 'elixirdrop:funnel',
   settings: 'elixirdrop:settings'
 } as const
 
@@ -120,14 +123,4 @@ export function getSettings(): Settings {
 
 export function saveSettings(s: Partial<Settings>): void {
   save(K.settings, { ...getSettings(), ...s })
-}
-
-// ── Funnel ────────────────────────────────────────────────────────────────────
-
-export function getFunnel(): FunnelData {
-  return load<FunnelData>(K.funnel, { recruitShown: 0, recruitJoin: 0, recruitDiscord: 0, shares: 0 })
-}
-
-export function saveFunnel(f: Partial<FunnelData>): void {
-  save(K.funnel, { ...getFunnel(), ...f })
 }

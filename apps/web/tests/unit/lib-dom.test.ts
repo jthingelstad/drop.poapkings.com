@@ -8,7 +8,7 @@ import {
   initReducedMotion
 } from '../../src/lib/motion'
 import { navigate, back, parseHash, route } from '../../src/lib/router'
-import { analyticsCollectorReady, track, mirrorFunnel } from '../../src/lib/analytics'
+import { analyticsCollectorReady, track } from '../../src/lib/analytics'
 import { analyticsPagePath, initAnalytics } from '../../src/lib/analytics-loader'
 import {
   gameDisplay,
@@ -19,7 +19,7 @@ import {
   LOWER_IS_BETTER
 } from '../../src/lib/game-metadata'
 import { tradeSummaryLine } from '../../src/lib/mode-insights'
-import { saveSettings, getFunnel } from '../../src/lib/storage'
+import { saveSettings } from '../../src/lib/storage'
 import type { Records } from '../../src/types'
 import type { GameMode } from '@elixir-drop/contracts'
 
@@ -361,19 +361,6 @@ describe('analytics', () => {
     track('game.completed', 'higher-lower')
     document.removeEventListener('click', hear)
     expect(received).toEqual([{ event: 'game.completed', value: 'higher-lower' }])
-  })
-
-  it('mirrorFunnel increments the funnel-relevant counters only', () => {
-    mirrorFunnel('community.recruit_shown')
-    mirrorFunnel('community.clan_opened')
-    mirrorFunnel('community.discord_opened')
-    mirrorFunnel('game.shared')
-    mirrorFunnel('game.started') // not a local funnel event
-    const f = getFunnel()
-    expect(f.recruitShown).toBe(1)
-    expect(f.recruitJoin).toBe(1)
-    expect(f.recruitDiscord).toBe(1)
-    expect(f.shares).toBe(1)
   })
 })
 
