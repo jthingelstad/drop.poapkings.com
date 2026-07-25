@@ -1,11 +1,12 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import type { InputStyle } from '../../types'
+import type { Card, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { pointerVerb } from '../../lib/use-layout'
 import { makeChoices } from '../../lib/choices'
-import { saveResult, getSettings, saveSettings, recordSession } from '../../lib/storage'
-import { computeInsights } from '../../lib/insights'
+import { pickPracticeCard } from '../../lib/practice-deal'
+import { saveResult, getCardStats, getSettings, saveSettings, recordSession } from '../../lib/storage'
+import { computeInsights, weakestBandLabel } from '../../lib/insights'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
@@ -23,7 +24,6 @@ import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 
-const ROUND_LEN = 15
 const ADVANCE_DELAY_CORRECT = 280
 const WRONG_BEAT_MS = 430
 
@@ -32,7 +32,27 @@ interface Props {
   onExit?: () => void
 }
 
-// The untimed quiz loop used by Practice.
+// A card on the table plus the 4-choice window rolled for it.
+interface Hand {
+  card: Card
+  choices: number[]
+}
+
+// Card stats are re-read on every draw so the answer just given already counts
+// toward the next one — a card missed right now is immediately hot again.
+function draw(deck: readonly Card[], previousId: number | undefined): Hand | null {
+  const next = pickPracticeCard(deck, getCardStats(), previousId)
+  return next ? { card: next, choices: makeChoices(next.elixir) } : null
+}
+
+// Practice: the endless, untimed, non-competitive drill.
+//
+// It has no round length, no score, no record, and earns no Player XP — it
+// touches nothing competitive or progressive on purpose, which is what buys it
+// the freedom to be endless. The signed deck is the whole catalog used as a
+// POOL: each card is drawn weighted by the player's own local card stats (see
+// lib/practice-deal.ts), so the cards they keep missing come back. The session
+// ends only when the player ends it, and closes on stats, never a result.
 export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const gameRun = useGameSession('practice', challengePreparers.practice)
   const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
@@ -40,12 +60,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const answers = useRef<Answer[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
   const recorded = useRef(false)
-  const cards = gameRun.content
-  const choiceSets = useMemo(() => cards?.map((card) => makeChoices(card.elixir)) ?? [], [cards])
+  const deck = gameRun.content
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
-  const cardIndex = useSignal(0)
+  // One hand: the card on the table and its 4-choice window, re-rolled together
+  // so a card that comes back around never reuses its old window.
+  const dealt = useSignal<Hand | null>(null)
+  const answered = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const hint = useSignal<'higher' | 'lower' | null>(null)
   const hintPulse = useSignal(0)
@@ -59,49 +81,53 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     preloadGameFx()
   }, [])
 
-  function nextCard() {
-    const nextIndex = cardIndex.value + 1
-    if (!cards?.[nextIndex]) return
-    cardIndex.value = nextIndex
+  // The opening hand is DERIVED from the deck rather than dealt in an effect: an
+  // effect would let one frame render with a resolved deck and nothing on the
+  // table. Every later hand comes from deal().
+  const opening = useMemo(() => draw(deck ?? [], undefined), [deck])
+  const hand = dealt.value ?? opening
+
+  function deal(previousId?: number): Hand | null {
+    const next = draw(deck ?? [], previousId)
+    if (!next) return null
+    dealt.value = next
     recorded.current = false
     phase.value = 'playing'
     hint.value = null
-    runtime.emitCue('round-advance', { cardId: cards[nextIndex]?.id })
+    return next
   }
 
-  function finishRound(complete: boolean) {
+  function endSession() {
     const list = answers.current
     if (list.length === 0) {
       exit()
       return
     }
-    const ins = computeInsights(list)
-    insights.value = ins
+    insights.value = computeInsights(list)
     recordSession()
-
-    if (complete) {
-      // bestAccuracy is persisted centrally when the server accepts the run.
-      void gameRun.complete({ answers: serverAnswers.current })
-    }
-
+    // The run is still completed server-side: Practice writes no score, record,
+    // or XP, but the validated transcript is what feeds the server-owned
+    // learning stats.
+    void gameRun.complete({ answers: serverAnswers.current })
     runtime.finish()
   }
 
   function handleAnswer(picked: number) {
     if (runtime.stage.value !== 'running' || phase.value !== 'playing') return
 
-    const card = cards?.[cardIndex.value]
-    if (!card) return
-    const isCorrect = picked === card.elixir
+    const current = hand?.card
+    if (!current) return
+    const isCorrect = picked === current.elixir
 
     // Practice grades the first read, like Surge, but lets the player keep
-    // trying the same card until they solve it. The server still receives one
-    // canonical answer per card, preserving the existing accuracy contract.
+    // trying the same card until they solve it. The server receives one
+    // canonical answer per question.
     if (!recorded.current) {
       recorded.current = true
-      saveResult(card.id, isCorrect)
-      answers.current.push({ card, guess: picked, correct: isCorrect })
-      serverAnswers.current.push({ cardId: card.id, guess: picked })
+      saveResult(current.id, isCorrect)
+      answers.current.push({ card: current, guess: picked, correct: isCorrect })
+      serverAnswers.current.push({ cardId: current.id, guess: picked })
+      answered.value++
 
       if (isCorrect) {
         correct.value++
@@ -116,15 +142,17 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       playCorrect()
       phase.value = 'correct'
       hint.value = null
-      runtime.emitCue('answer-correct', { cardId: card.id })
-      const isLast = cardIndex.value + 1 >= ROUND_LEN
-      runtime.later(() => (isLast ? finishRound(true) : nextCard()), ADVANCE_DELAY_CORRECT)
+      runtime.emitCue('answer-correct', { cardId: current.id })
+      runtime.later(() => {
+        const next = deal(current.id)
+        if (next) runtime.emitCue('round-advance', { cardId: next.card.id })
+      }, ADVANCE_DELAY_CORRECT)
     } else {
       playWrong()
-      hint.value = picked < card.elixir ? 'higher' : 'lower'
+      hint.value = picked < current.elixir ? 'higher' : 'lower'
       hintPulse.value++
       phase.value = 'wrong'
-      runtime.emitCue('answer-wrong', { cardId: card.id })
+      runtime.emitCue('answer-wrong', { cardId: current.id })
       runtime.later(() => (phase.value = 'playing'), WRONG_BEAT_MS)
     }
   }
@@ -134,14 +162,17 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
-    recorded.current = false
-    cardIndex.value = 0
-    void gameRun.prepare()
+    answered.value = 0
     correct.value = 0
     streak.value = 0
     insights.value = null
+    recorded.current = false
     phase.value = 'playing'
     hint.value = null
+    // Fall back to the opening hand so the board is never empty for a frame,
+    // then ask for a fresh signed run — its deck derives a new opening.
+    dealt.value = null
+    void gameRun.prepare()
   }
 
   function switchInput(style: InputStyle) {
@@ -149,47 +180,55 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     saveSettings({ inputStyle: style })
   }
 
-  if (!cards) return <GameRunGate session={gameRun} />
+  if (!deck) return <GameRunGate session={gameRun} />
 
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
+    const focus = weakestBandLabel(ins)
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow={eyebrow}
           headline={`${ins.correct} / ${ins.total} · ${ins.accuracyPct}%`}
           insights={ins}
+          // Session stats only — Practice has no score, no best, and no record
+          // to call out.
           moments={[
-            { label: 'Correct', value: `${ins.correct}/${ins.total}` },
+            { label: 'Answered', value: `${ins.total}` },
             { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' },
-            { label: 'Mode', value: 'Unranked', tone: 'purple' }
+            { label: 'Next drill', value: focus ?? 'Clean read', tone: focus ? 'purple' : 'green' }
           ]}
-          share={{ mode: 'practice', score: `${ins.accuracyPct}% accuracy` }}
+          share={{ mode: 'practice', score: `${ins.correct}/${ins.total} · ${ins.accuracyPct}%` }}
           onReplay={replay}
+          replayLabel="Practice again"
           onHome={exit}
         />
       </div>
     )
   }
 
-  const card = cards[cardIndex.value]!
+  if (!hand) return <GameRunGate session={gameRun} />
+  const current = hand.card
 
   return (
     <GameFrame
       modeName="Practice"
       counting={false}
       count={0}
-      onQuit={exit}
+      onQuit={endSession}
+      quitLabel="End session"
       cue={runtime.cue.value}
       fxParticles={6}
-      progressText={`Card ${Math.min(cardIndex.value + 1, ROUND_LEN)} / ${ROUND_LEN}`}
+      // Endless: there is no "card 7 of N" to count toward, so the bar and the
+      // progress line carry the only two live session facts instead.
+      progressText={`${answered.value} answered`}
       metric={{ value: String(correct.value), label: 'correct' }}
-      progressPct={(cardIndex.value / ROUND_LEN) * 100}
+      progressPct={answered.value > 0 ? (correct.value / answered.value) * 100 : 0}
     >
       <div class="ed-kstage ed-kstage--practice">
         <div class="ed-kstage__card">
-          <GameMotion contentKey={card.id} cue={runtime.cue.value}>
-            <CardDisplay card={card} phase={phase.value} revealCost={false} />
+          <GameMotion contentKey={current.id} cue={runtime.cue.value}>
+            <CardDisplay card={current} phase={phase.value} revealCost={false} />
           </GameMotion>
         </div>
 
@@ -215,7 +254,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing' || gameRun.preparing.value} />
         ) : (
           <MultipleChoice
-            choices={choiceSets[cardIndex.value] ?? []}
+            choices={hand.choices}
             onPick={handleAnswer}
             disabled={phase.value !== 'playing' || gameRun.preparing.value}
           />

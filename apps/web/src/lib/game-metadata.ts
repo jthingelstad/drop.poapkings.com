@@ -9,8 +9,8 @@ export interface GameInfo {
   name: string
   icon: string
   description: string
-  // Practice is true practice: runs record to history but never place on a
-  // leaderboard, and the mode has no leaderboard tab.
+  // Practice is true practice: an endless drill that touches no competitive or
+  // progression surface — no leaderboard, no leaderboard tab, no record, no XP.
   unranked?: boolean
 }
 
@@ -85,9 +85,18 @@ export const LOWER_IS_BETTER = new Set<GameMode>(['surge', 'trade'])
 
 type NumericRecordKey = Exclude<keyof Records, 'surgeBestPace'>
 
-export const RECORD_KEYS: Record<GameMode, NumericRecordKey> = {
+// Every mode that keeps a local personal best. Practice is excluded from the
+// type itself — it is an endless drill with no score and no record, and having
+// no key is what makes "write a practice best" unrepresentable rather than
+// merely discouraged.
+export type RecordedMode = Exclude<GameMode, 'practice'>
+
+export function isRecordedMode(mode: GameMode): mode is RecordedMode {
+  return mode !== 'practice'
+}
+
+export const RECORD_KEYS: Record<RecordedMode, NumericRecordKey> = {
   surge: 'surgeBest',
-  practice: 'bestAccuracy',
   'higher-lower': 'longestStreak',
   trade: 'tradeBest',
   survival: 'survivalBest',
@@ -96,13 +105,15 @@ export const RECORD_KEYS: Record<GameMode, NumericRecordKey> = {
 
 export function scoreLabel(mode: GameMode, score: number): string {
   if (LOWER_IS_BETTER.has(mode)) return `${formatSeconds(score)}s`
+  // Practice reports accuracy, but only ever as a session stat on its own
+  // summary — never as a record or a leaderboard row.
   if (mode === 'practice') return `${Math.round(score)}%`
   if (mode === 'rain') return `${Math.round(score)} cleared`
   return `${Math.round(score)} streak`
 }
 
 export function scoreFromRecords(mode: GameMode, records: Records): number | undefined {
-  return records[RECORD_KEYS[mode]] as number | undefined
+  return isRecordedMode(mode) ? (records[RECORD_KEYS[mode]] as number | undefined) : undefined
 }
 
 export function betterScore(mode: GameMode, candidate: number, current: number | undefined): boolean {

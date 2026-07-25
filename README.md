@@ -14,8 +14,9 @@ Six ways to play, one card-cost engine:
 
 - **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
   answers add a time penalty. Your score is your time, lower is better.
-- **Practice** — untimed, unranked cost recall. A card appears, you pick its
-  elixir cost. True practice: never touches a leaderboard.
+- **Practice** — untimed, endless cost recall, weighted toward the cards you keep
+  getting wrong. A card appears, you pick its elixir cost, and you stop when you
+  want. True practice: no score, no record, no XP, never a leaderboard.
 - **Higher / Lower** — two cards, pick which costs more. Trains the relative read
   that wins elixir trades.
 - **Trade** — Blue King vs. Red King elixir math across eight exchanges.
@@ -60,7 +61,8 @@ sampled run when player services are unavailable. Local display and input
 preferences stay in **localStorage**; game history, player profiles, per-player
 Player XP, and leaderboards live in DynamoDB. Player XP is an activity score
 (one point per question practiced, right or wrong) that drives a per-player
-arena; the leaderboard is ranked purely on speed. A separate global games
+arena; the leaderboard is ranked purely on speed. Practice is the one mode
+outside both systems: it earns no XP and keeps no record. A separate global games
 counter began at a one-time launch seed of 592 and advances once for every
 server-accepted completed game — shown on Home as social proof; page views and
 Tinylytics analytics never contribute to it.

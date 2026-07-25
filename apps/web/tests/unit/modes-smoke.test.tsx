@@ -216,9 +216,18 @@ describe('challengePreparers', () => {
     expect(out.assets).toHaveLength(15)
   })
 
-  it('practice resolves 15 cards', () => {
-    const out = challengePreparers.practice({ mode: 'practice', cardIds: CARD_IDS.slice(0, 15) } as never)
-    expect(out.content).toHaveLength(15)
+  it('practice resolves the full deck as a pool and preloads only a handful', () => {
+    // Practice is endless: the deck is a pool the loop draws from, so any
+    // resolvable length is valid — the old exactly-15 rule is gone.
+    const out = challengePreparers.practice({ mode: 'practice', cardIds: [...CARD_IDS] } as never)
+    expect(out.content).toHaveLength(fullDeckSize)
+    expect(out.assets).toHaveLength(14)
+    expect(
+      challengePreparers.practice({ mode: 'practice', cardIds: CARD_IDS.slice(0, 40) } as never).content
+    ).toHaveLength(40)
+    expect(() => challengePreparers.practice({ mode: 'practice', cardIds: [] } as never)).toThrow(
+      /invalid signed Practice/
+    )
   })
 
   it('survival resolves the full deck but only preloads a handful of assets', () => {

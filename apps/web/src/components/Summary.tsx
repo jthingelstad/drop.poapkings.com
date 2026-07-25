@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
+import { weakestBandLabel } from '../lib/insights'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
 import Icon from './Icon'
@@ -45,15 +46,6 @@ function strongestBand(insights: Insights): string | null {
   return `${band.label} cost`
 }
 
-function weakestBand(insights: Insights): string | null {
-  const band = [...insights.bands]
-    .filter((b) => b.total >= 2)
-    .sort((a, b) => a.correct / a.total - b.correct / b.total)[0]
-
-  if (!band || band.correct === band.total) return null
-  return `${band.label} cost`
-}
-
 function defaultMoments(insights: Insights, pbCallout?: string): SummaryMoment[] {
   const moments: SummaryMoment[] = []
 
@@ -69,7 +61,7 @@ function defaultMoments(insights: Insights, pbCallout?: string): SummaryMoment[]
   if (strength) moments.push({ label: 'Best lane', value: strength, tone: 'green' })
 
   const focus =
-    weakestBand(insights) ??
+    weakestBandLabel(insights) ??
     (insights.hasTiming && insights.slowestBandLabel ? `${insights.slowestBandLabel} cost pace` : null) ??
     (insights.weakest[0] ? insights.weakest[0].name : null)
 

@@ -164,7 +164,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | Mode           | Route            | Score / record                              |
 | -------------- | ---------------- | ------------------------------------------- |
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
-| Practice       | `#/practice`     | `bestAccuracy` — **unranked by design**     |
+| Practice       | `#/practice`     | none — **endless, unranked, unscored**      |
 | Higher / Lower | `#/higher-lower` | `longestStreak`                             |
 | Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
@@ -176,8 +176,13 @@ material rules change restarts the board rather than deleting data, and old rows
 are orphaned. Both are on `r2`.
 
 Practice runs are created `ranked: false` server-side: they record to history
-and Trophy Road but never write a leaderboard entry, and Practice has no
-leaderboard tab.
+but never write a leaderboard entry, earn no Player XP, and Practice has no
+leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
+from the type, so a Practice best is unrepresentable rather than merely
+discouraged). Because the mode is endless and the client re-orders the deck by
+weakness, `scorePractice` validates the transcript by **set membership** against
+the signed deck rather than by position — a relaxation that is safe only because
+nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
 Each ranked mode has two boards, selected by the `scope` query param on
 `GET /leaderboards` (`season`, the default, or `all-time`):
@@ -207,7 +212,8 @@ Product decisions currently in force:
 
 - Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
-- Practice defaults to the pip keypad and also offers 4-button choices.
+- Practice defaults to the pip keypad and also offers 4-button choices. The
+  keypad has one key per cost the catalog actually has (currently 1–9).
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
@@ -220,7 +226,9 @@ Important shared modules:
 - `apps/web/src/lib/storage.ts` - the learning-progress storage boundary (§6).
 - `apps/web/src/lib/game-challenge-content.ts` - resolves signed server
   challenges into playable card content (card selection is server-owned).
-- `apps/web/src/lib/choices.ts` - adjacent elixir distractors.
+- `apps/web/src/lib/choices.ts` - adjacent elixir distractors on a randomly
+  offset window (Practice's 4-choice input only).
+- `apps/web/src/lib/practice-deal.ts` - Practice's weakness-weighted card draw.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
 - `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
 - `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
@@ -235,8 +243,9 @@ Player XP and the per-player arena:
   `runXp` awards one point per question attempted in a run — right or wrong —
   with a floor of 1. It rewards practice volume so a longer session moves the
   arena more than a quick one and a beginner always progresses. Skill lives
-  entirely on the leaderboard (speed). Practice earns XP too (it is unranked,
-  not inconsequential).
+  entirely on the leaderboard (speed). **Practice earns zero XP** — the exclusion
+  is applied at the `routes/runs-complete.ts` call site, not inside `runXp` —
+  because an endless mode paying per question would make the arena farmable.
 - XP is added to the `PLAYER#/PROFILE` item inside the same `completeRun`
   transaction as the player and global counts, and is returned on `GET /me`,
   `/runs/complete`, and leaderboard rows. Rejected runs earn nothing.
@@ -285,8 +294,9 @@ Learning progress, owned by `lib/storage.ts` (`localStorage`):
 ```text
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
-elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak, bestAccuracy,
+elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak,
                               survivalBest, tradeBest, rainBest }
+                            (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)
 elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
@@ -344,7 +354,8 @@ decision before it can appear publicly. The response includes
 confirm the hide or approve a false positive by writing a new, audited visible
 decision. Only incomplete or contradictory input from which no comparable score
 can be derived returns `400`; that attempt is still retained as referee evidence
-and is not labeled fake. Practice is unranked and only feeds XP. Guest runs use
+and is not labeled fake. Practice is unranked, unscored, and XP-free — the run
+exists only to feed the server-owned learning stats. Guest runs use
 strict scoring but skip the integrity/referee path because they are never
 recorded. Completion and the public read endpoints are also IP rate-limited
 (guests included, since the per-IP

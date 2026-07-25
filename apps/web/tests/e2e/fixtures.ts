@@ -164,8 +164,11 @@ function testChallenge(mode: GameMode): RunChallenge {
 
   switch (mode) {
     case 'surge':
-    case 'practice':
       return { mode, cardIds: sequence(15) }
+    case 'practice':
+      // Practice is endless: the signed deck is the whole catalog used as a
+      // pool, which the client draws from weighted by the player's weak cards.
+      return { mode, cardIds: [...ids] }
     case 'rain':
       return { mode, cardIds: sequence(250) }
     case 'survival':

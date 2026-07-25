@@ -20,6 +20,11 @@ interface Props {
   counting: boolean
   count: number
   onQuit: () => void
+  // An endless mode has no last card, so its exit affordance IS the "I'm done"
+  // control and has to say so. Supplying a label renders the same top-left
+  // button with words beside the chevron ("End session") rather than adding a
+  // second, competing control to the bar.
+  quitLabel?: string
   cue: GameRuntimeCue | null
   // Usually a plain string ("Card 3 / 15"); Rain renders its lives as glyphs.
   progressText?: ComponentChildren
@@ -40,6 +45,7 @@ export default function GameFrame({
   counting,
   count,
   onQuit,
+  quitLabel,
   cue,
   progressText,
   metric,
@@ -65,9 +71,14 @@ export default function GameFrame({
         <>
           <div class="ed-game__top">
             <div class="ed-game__top-l">
-              <button class="ed-iconbtn tap-fx" onClick={onQuit} aria-label="Quit game">
+              <button
+                class={`ed-iconbtn tap-fx${quitLabel ? ' ed-iconbtn--labeled' : ''}`}
+                onClick={onQuit}
+                aria-label={quitLabel ?? 'Quit game'}
+              >
                 <span class="tap-face">
                   <Icon name="chevron-left" />
+                  {quitLabel && <span class="ed-iconbtn__label">{quitLabel}</span>}
                 </span>
               </button>
             </div>

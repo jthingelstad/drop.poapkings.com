@@ -122,8 +122,11 @@ rank-oriented fields as part of unrelated work.
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves
   them into playable content. The old client-side `sampling.ts` is gone.
-- **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns **adjacent** costs only
-  (a 4-cost → {3,4,5,6}), never random. Shared by all multiple-choice surfaces.
+- **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns four
+  **adjacent** costs that contain the answer, with the window's offset chosen at
+  random (a 4-cost → {1,2,3,4}, {2,3,4,5}, {3,4,5,6}, or {4,5,6,7}). The
+  near-miss window is pedagogical; the random offset is what stops the option set
+  from naming the answer. Used only by Practice's 4-choice input.
 - **`apps/web/src/lib/card-rendering.ts`** — shared rarity labels, modifier classes, and
   Clash-style card-name tone mapping. Pair it with `apps/web/src/components/CardChrome.tsx`
   instead of hand-rolling card art/name/cost UI in a mode.
@@ -134,11 +137,14 @@ rank-oriented fields as part of unrelated work.
 - **`apps/web/src/lib/run-loop.ts`** — shared countdown, timeout clearing, and elapsed-time
   helpers for timed modes.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
+- **`apps/web/src/lib/practice-deal.ts`** — Practice's weakness-weighted draw over
+  the signed deck, from local `cardStats`; uniform for a player with no stats.
 - **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines (Trade).
 - **Modes** in `apps/web/src/modes/`. The six shipped, routed modes are `surge`,
-  `practice`, `higher-lower`, `trade`, `survival`, and `rain`. Practice is unranked by design
-  (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI).
-  See `GAMES.md` for mechanics, backlog, and retired modes.
+  `practice`, `higher-lower`, `trade`, `survival`, and `rain`. Practice is an
+  endless, unranked drill that touches no competitive or progression surface
+  (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI; zero
+  XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only. (Rationale and the set-aside ideas live in
@@ -154,7 +160,9 @@ rank-oriented fields as part of unrelated work.
   a run, right or wrong; floor 1), added to the `PLAYER#/PROFILE` item inside
   the `completeRun` transaction, and returned on `GET /me`, `/runs/complete`,
   and leaderboard rows. It rewards practice volume, never correctness — a
-  beginner always progresses. XP drives the 28-tier arena in
+  beginner always progresses. **Practice earns zero XP**, excluded explicitly at
+  the `runs-complete.ts` call site: it is endless, so per-question XP would make
+  the arena farmable. XP drives the 28-tier arena in
   `apps/web/src/data/starRanks.ts` (thresholds scaled to XP), shown in the nav
   player block and profile. Leaderboards stay ranked purely on speed. The old
   games-derived "Level" is retired.
@@ -202,8 +210,10 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 
 - **Surge scoring:** golf time (elapsed + penalties; lower wins). Sprint of 15;
   +2.0s per wrong answer; the card stays until correct.
-- **Practice input:** offer both 4-button multiple choice and the 1–10 pip keypad;
-  remember the choice in settings. Default to the keypad.
+- **Practice input:** offer both 4-button multiple choice and the pip keypad;
+  remember the choice in settings. Default to the keypad. The keypad has one key
+  per cost that exists in the catalog (currently 1–9) — a dead "10" key was
+  penalty bait and stole tap-target width.
 - **Evolutions:** quiz on **base elixir only**; show Evo/Hero as flavor, not as
   part of the answer.
 - **Elixir voice:** dry, a little cocky, never mean. Short lines.

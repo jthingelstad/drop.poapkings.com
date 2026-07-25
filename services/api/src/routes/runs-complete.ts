@@ -221,7 +221,13 @@ async function recordSignedInRun(
       wallElapsedMs,
     });
   }
-  const xpAward = runXp(transcript);
+  // Practice earns NO Player XP. It is an endless, non-competitive drill, so
+  // paying one XP per question would let a player farm the 28-tier arena just by
+  // never ending the session. The run itself is still completed and recorded —
+  // that is what feeds the server-owned learning stats below — it simply moves
+  // no progression. The exclusion is stated here, at the call site, rather than
+  // buried as a mode branch inside runXp.
+  const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
   // Survival ranks equal streaks by fastest cumulative time.
   const tiebreakMs =
     run.mode === "survival" ? survivalTimeMs(transcript, score) : undefined;
@@ -302,7 +308,10 @@ async function recordSignedInRun(
       ...(automaticReviewReason ? { reviewReason: automaticReviewReason } : {}),
     },
   );
-  if (!automaticReviewReason) {
+  // Practice never reaches the clan feed. It is a private drill — no board, no
+  // XP, no record — and an endless session has no comparable number to post:
+  // one correct answer then quitting would broadcast "Practice · 100%".
+  if (!automaticReviewReason && run.mode !== "practice") {
     await publishDiscordEvent(
       config.discordWebhookUrl,
       completedGameWebhookPayload({

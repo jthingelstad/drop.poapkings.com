@@ -130,6 +130,18 @@ export function computeInsights(answers: Answer[]): Insights {
   return { total, correct, accuracyPct, bands, weakest, biasLine, hasTiming, slowestBandLabel, slowestCards }
 }
 
+// The weakest cost band worth naming, e.g. "4 cost" — the band with the lowest
+// accuracy among those the session actually tested more than once. Null when
+// nothing was missed, so callers can fall back rather than print a fake weakness.
+export function weakestBandLabel(insights: Insights): string | null {
+  const band = [...insights.bands]
+    .filter((b) => b.total >= 2)
+    .sort((a, b) => a.correct / a.total - b.correct / b.total)[0]
+
+  if (!band || band.correct === band.total) return null
+  return `${band.label} cost`
+}
+
 // The single, most-actionable insight phrase for Elixir to speak on the summary.
 export function insightPhrase(ins: Insights): string {
   const weakBand = [...ins.bands]

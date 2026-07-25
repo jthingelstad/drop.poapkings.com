@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
 import { applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
-import { betterScore, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
+import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import { navigate } from './router'
@@ -37,6 +37,8 @@ function setRecordingNotice(notice: RecordingNotice): void {
 const RUN_FRESHNESS_BUFFER_MS = 2 * 60_000
 
 function recordSeasonBest(result: { mode: GameMode; score: number; season: { id: string } }): boolean {
+  // Practice keeps no record of any kind — not seasonal, not all-time.
+  if (!isRecordedMode(result.mode)) return false
   const key = RECORD_KEYS[result.mode]
   const current = getSeasonRecords(result.season.id)[key]
   const better =
@@ -52,6 +54,7 @@ function recordSeasonBest(result: { mode: GameMode; score: number; season: { id:
 // finish(), before the server verdict) is why a rejected run still showed as a
 // personal best on that player's device.
 function recordAllTimeBest(result: { mode: GameMode; score: number }): boolean {
+  if (!isRecordedMode(result.mode)) return false
   const key = RECORD_KEYS[result.mode]
   const current = getRecords()[key] as number | undefined
   const better = betterScore(result.mode, result.score, current)
@@ -145,7 +148,11 @@ export function useGameRun<T extends GameMode>(mode: T) {
         pendingCompletion.current = null
         setRecordingNotice({
           state: 'saved',
-          message: seasonBest ? 'Local best! Sign in to save it' : 'Played as a guest — sign in to save scores'
+          message: !isRecordedMode(result.mode)
+            ? 'Practice session complete'
+            : seasonBest
+              ? 'Local best! Sign in to save it'
+              : 'Played as a guest — sign in to save scores'
         })
         onRecorded?.()
         return
@@ -160,16 +167,16 @@ export function useGameRun<T extends GameMode>(mode: T) {
       })
       run.current = null
       pendingCompletion.current = null
-      // Practice is unranked by design; its local bests still track quietly,
-      // but the toast stays plain practice language.
+      // Practice keeps no record and earns no XP; the run exists server-side
+      // only so the validated transcript can feed the learning stats. Its toast
+      // says exactly that and never mentions a score or a best.
       setRecordingNotice({
         state: 'saved',
-        message:
-          result.ranked === false
-            ? 'Practice recorded'
-            : seasonBest
-              ? 'Game recorded — new season best!'
-              : 'Game recorded'
+        message: !isRecordedMode(result.mode)
+          ? 'Practice session saved'
+          : seasonBest
+            ? 'Game recorded — new season best!'
+            : 'Game recorded'
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()

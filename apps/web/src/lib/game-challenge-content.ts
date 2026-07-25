@@ -9,7 +9,7 @@ export interface PreparedChallenge<T> {
 }
 
 type ChallengeFor<T extends GameMode> = Extract<RunChallenge, { mode: T }>
-type SequenceMode = 'surge' | 'practice' | 'survival'
+type SequenceMode = 'surge' | 'survival'
 type SequenceChallengeFor<T extends SequenceMode> = { mode: T; cardIds: number[] }
 
 function invalid(label: string): never {
@@ -36,7 +36,17 @@ function sequenceChallenge<T extends SequenceMode>(
 
 export const challengePreparers = {
   surge: sequenceChallenge<'surge'>('Surge', 15),
-  practice: sequenceChallenge<'practice'>('Practice', 15),
+  practice: (challenge: ChallengeFor<'practice'>): PreparedChallenge<Card[]> => {
+    // Practice is endless: the server deals the whole shuffled catalog as a
+    // POOL and the loop draws from it weighted by the player's own weak cards,
+    // so the deck has no fixed length and its order means nothing. Only a first
+    // handful is worth preloading — the mode is untimed, so a card that pops in
+    // costs the player nothing.
+    if (!Array.isArray(challenge.cardIds) || challenge.cardIds.length < 1) invalid('Practice')
+    const cards = challengeCards(challenge.cardIds)
+    if (cards.length !== challenge.cardIds.length) invalid('Practice')
+    return { content: cards, assets: cards.slice(0, 14) }
+  },
   survival: sequenceChallenge<'survival'>('Survival', fullDeckSize, 14),
   rain: (challenge: ChallengeFor<'rain'>): PreparedChallenge<Card[]> => {
     // A long draw deck (server RAIN_DECK_SIZE); tiles spawn from it in order. Any

@@ -7,11 +7,12 @@ reworking a mode.
 **Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
 owns.
 
-Shipped state as of July 24, 2026: **six playable modes** — Surge, Practice,
-Higher / Lower, Trade, Survival, and Rain. **Practice is true practice**: runs
-record to history and earn Player XP (activity, like every mode) but are
-unranked and have no leaderboard tab. Player XP is a per-player activity score
-(one point per question practiced, right or wrong) that drives the arena;
+Shipped state as of July 25, 2026: **six playable modes** — Surge, Practice,
+Higher / Lower, Trade, Survival, and Rain. **Practice is a pure drill**: endless,
+unranked, no score, no record, and **no Player XP** — it deliberately touches no
+competitive or progression surface, which is exactly what lets it run forever.
+Player XP is a per-player activity score (one point per question practiced, right
+or wrong) that drives the arena and is earned by the other five modes;
 leaderboards rank on speed. **Daily Ladder is not shipped and should not be
 built without a fresh product decision.**
 
@@ -21,26 +22,26 @@ the same server-signed challenge and scored the same way, but the run records
 the summary shows a "Create an account to save this score" nudge (Surge,
 Practice, Survival via the shared `Summary`; Trade on its own result screen;
 Higher / Lower shows a small persistent "Sign in to save your streak" line).
-Local personal bests still track on-device. Signing in unlocks recording and
-ranking.
+Local personal bests still track on-device — except Practice, which keeps no
+best for anyone. Signing in unlocks recording and ranking.
 
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through
 `apps/web/src/lib/storage.ts`, card selection comes from the signed server
 challenge (created in `services/api/src/scoring.ts`, resolved client-side by
-`apps/web/src/lib/game-challenge-content.ts`), elixir multiple-choice
-distractors through `apps/web/src/lib/choices.ts`, and card presentation through
+`apps/web/src/lib/game-challenge-content.ts`), and card presentation through
 `apps/web/src/lib/card-rendering.ts` plus
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
 mode-specific transcript through `apps/web/src/lib/use-game-run.ts`, which is
 also the **only** place a local personal best is written — and only for a run the
 server scored, so a rejected run can never leave a "best" on the device. No mode
-writes its own record.
+writes its own record, and Practice has no record to write.
 
 **Card pool and ranking:** every new run deals from the complete canonical card
-catalog and ranks on its seasonal leaderboard. Linked Clash Royale collections
-remain available on player profiles but do not affect game card selection.
-Historical `ranked: false` runs remain readable for compatibility only.
+catalog, and every mode but Practice ranks on its seasonal leaderboard. Linked
+Clash Royale collections remain available on player profiles but do not affect
+game card selection. Historical `ranked: false` runs remain readable for
+compatibility only.
 Ranked attempts that score zero still record to history and earn Player XP, but
 only a score above zero earns a seasonal or all-time leaderboard entry.
 
@@ -93,14 +94,30 @@ award pipeline, and one should not be built without a fresh product decision.
 ### Core drills
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
-Untimed. A card appears; name its cost. The signed challenge deals a round of
-15 from the complete canonical catalog, with end-early, closing in the shared
-summary + insights. **Unranked by design** — runs are created `ranked: false`
-server-side, never write a leaderboard entry, and Practice has no leaderboard
-tab. Local bests still track for self-paced improvement.
+Untimed and **endless**. A card appears; name its cost; repeat until you choose
+to stop, via the always-available **End session** control in the top bar (the
+same affordance that exits the other modes, given words). There is no round
+length, no score, no record, and no personal best — the session closes on the
+shared summary + insights showing **stats only**: questions answered, accuracy,
+and the weakest cost bands.
+
+The signed challenge deals the **whole shuffled catalog as a pool**, not a
+sequence; `apps/web/src/lib/practice-deal.ts` draws from it weighted by the
+player's own local `elixirdrop:cardStats`, so cards on a miss streak come back
+hardest, then shaky recall, then unseen, and well-known cards stay rare but
+possible. A player with no stats gets plain uniform random. The same card never
+lands twice in a row.
+
+**Unranked and unscored by design.** Runs are created `ranked: false`, never
+write a leaderboard entry, have no leaderboard tab, and earn **zero Player XP** —
+an endless mode paying per-question XP would make the 28-tier arena farmable.
+The run still completes server-side for one reason: the validated transcript
+feeds the server-owned learning stats (`services/api/src/learning.ts`).
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
-- Record: `bestAccuracy` (local only; not a leaderboard).
+- Record: **none.** Practice has no record key at all (see `RECORD_KEYS`).
+- Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
+  adjacent but randomly offset, so the option set never names the answer.
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
 Two cards, costs hidden; **tap the card that costs more elixir**. Endless

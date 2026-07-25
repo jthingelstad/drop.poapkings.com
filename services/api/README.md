@@ -16,7 +16,7 @@ Responsibilities in this release:
 - short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
-  arena;
+  arena (every mode but Practice, which is endless and so earns none);
 - a site-wide Trophy Road advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
   plus an all-time board of each player's best-ever score per mode; and

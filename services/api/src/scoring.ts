@@ -19,7 +19,7 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "2";
+export const SCORING_RULES_VERSION = "3";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
@@ -35,6 +35,9 @@ export const RAIN_LIVES = 3;
 // reachable score, so no genuine run can hit it. Difficulty walls real players
 // out in the low hundreds long before this.
 export const RAIN_MAX_ANSWERS = 10_000;
+// Practice is endless too (see scorePractice): same anti-abuse ceiling, same
+// reasoning — it bounds the scorer, it is not a round length.
+export const PRACTICE_MAX_ANSWERS = 10_000;
 
 type RandomInt = (upperBound: number) => number;
 
@@ -162,9 +165,15 @@ export function createChallenge(
   // snapshots remain available on player profiles but do not affect games.
   const pool = CARDS;
   switch (mode) {
-    case "practice":
     case "surge":
       return { mode, cardIds: cardSequence(15, randomInt, pool) };
+    case "practice":
+      // Practice is an endless drill, so the signed deck is a POOL, not a
+      // sequence: the whole shuffled catalog, from which the client draws in its
+      // own weakness-weighted order (and may repeat a card). Unlike Survival the
+      // deck length is not the game length — scorePractice validates by set
+      // membership, not by position.
+      return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
     case "survival":
       // Every card once, shuffled: clearing the whole deck is a WIN, then it is
       // a race on cumulative time. No repeats, so the max streak is the catalog
@@ -305,20 +314,39 @@ function scoreAnswerSprint(
   return Math.round(previousAtMs) + misses * SURGE_PENALTY_MS;
 }
 
+// Practice: an endless, non-competitive drill. The client re-orders the signed
+// deck by the cards the player struggles with and the player stops whenever they
+// like, so neither the LENGTH nor the ORDER of the transcript is fixed and the
+// same card may legitimately come up more than once. Validation is therefore set
+// membership (every answered card must come from the signed deck — the
+// anti-injection property) instead of the positional check every other mode
+// uses.
+//
+// That relaxation is safe ONLY because Practice is unranked, earns no Player XP,
+// and writes no record: the returned accuracy is a session stat, never a score,
+// so there is nothing here worth forging. Do not copy this shape into a mode
+// that scores, ranks, or progresses anything.
 function scorePractice(
   challenge: Extract<RunChallenge, { mode: "practice" }>,
   transcript: RunTranscript,
 ): number {
   const answers = objectArray(transcript.answers, "Practice");
-  if (answers.length !== challenge.cardIds.length)
-    throw new Error("A complete Practice round is required");
+  if (!answers.length)
+    throw new Error("A Practice session needs at least one answer");
+  // Endless, so length is bounded only by an anti-abuse ceiling on the scorer's
+  // work — far above any session a human would sit through.
+  if (answers.length > PRACTICE_MAX_ANSWERS)
+    throw new Error("Practice transcript exceeds the maximum answer count");
+  const deck = new Set(challenge.cardIds);
   let correct = 0;
-  answers.forEach((answer, index) => {
-    const cardId = challenge.cardIds[index]!;
-    if (answer.cardId !== cardId || !Number.isInteger(answer.guess))
+  for (const answer of answers) {
+    const cardId = Number(answer.cardId);
+    if (!deck.has(cardId))
+      throw new Error("Practice card is not from the signed deck");
+    if (!Number.isInteger(answer.guess))
       throw new Error("Practice answer is invalid");
     if (answer.guess === card(cardId).elixir) correct += 1;
-  });
+  }
   return Math.round((correct / answers.length) * 100);
 }
 

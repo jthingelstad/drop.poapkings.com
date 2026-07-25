@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { allowBlockedAssets, cardsData, expect, test, waitForKeypad } from './fixtures'
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
@@ -26,37 +27,48 @@ test('continuous play modes expose working controls with low chrome', async ({ p
   }
 })
 
+// Practice deals weighted-random from the whole catalog, so the card on the
+// table is not fixed. Open the mode until it shows one with a cost that has both
+// a lower and a higher neighbour, so the directional hint can be driven both
+// ways. 114 of the 120 cards qualify, so this lands on the first or second try.
+async function openPracticeOnMidCostCard(page: Page) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await page.goto('/#/practice')
+    await waitForKeypad(page)
+    const name = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === name)
+    if (card && card.elixir > 1 && card.elixir < 9) return card
+    await page.goto('/')
+  }
+  throw new Error('Practice never dealt a mid-cost card')
+}
+
 test('practice uses Surge feedback and keeps a missed card active until solved', async ({ page }, testInfo) => {
-  await page.goto('/#/practice')
-  await waitForKeypad(page)
+  const card = await openPracticeOnMidCostCard(page)
 
   const motion = page.locator('.game-motion')
   await expect(motion).toHaveClass(/game-motion--card/)
-  const cardName = await page.locator('.pcard__img').getAttribute('alt')
-  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
-  expect(card).toBeTruthy()
-  expect(card!.elixir).toBeGreaterThan(1)
-  expect(card!.elixir).toBeLessThan(9)
+  // Endless: the progress line counts what has been answered, not a round.
+  await expect(page.locator('.ed-game__progress')).toHaveText('0 answered')
 
-  await page.getByRole('button', { name: `${card!.elixir - 1} elixir`, exact: true }).click()
+  await page.getByRole('button', { name: `${card.elixir - 1} elixir`, exact: true }).click()
   await expect(page.getByTestId('practice-hint')).toContainText('Higher')
-  await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')
+  await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
   await expect(page.locator('.pcard__cost')).toHaveCount(0)
-  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card!.name)
+  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
 
-  await expect(page.getByRole('button', { name: `${card!.elixir + 1} elixir`, exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: `${card!.elixir + 1} elixir`, exact: true }).click()
+  await expect(page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true }).click()
   await expect(page.getByTestId('practice-hint')).toContainText('Lower')
-  await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')
-  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card!.name)
+  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
 
   await testInfo.attach('practice-wrong-feedback.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
 
-  await expect(page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+  await expect(page.getByRole('button', { name: `${card.elixir} elixir`, exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: `${card.elixir} elixir`, exact: true }).click()
   const feedback = await motion.evaluate((element) => ({
     className: element.className,
     phaseClass: element.querySelector('.pcard')?.className,
@@ -72,7 +84,35 @@ test('practice uses Surge feedback and keeps a missed card active until solved',
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
-  await expect(page.locator('.ed-game__progress')).toHaveText('Card 2 / 15')
+  // A fresh card is dealt, and it is never the one just solved.
+  await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card.name)
+  await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
+})
+
+test('practice runs until the player ends it, then closes on stats with no personal best', async ({ page }) => {
+  const card = await openPracticeOnMidCostCard(page)
+
+  // Past the retired 15-card round: answer 16 questions and the session is still
+  // live. Every card is read off the board, since the deal is weighted.
+  let live = card
+  for (let index = 0; index < 16; index += 1) {
+    await page.getByRole('button', { name: `${live.elixir} elixir`, exact: true }).click()
+    await expect(page.locator('.ed-game__progress')).toHaveText(`${index + 1} answered`)
+    // The next card lands after a short beat and is never the one just solved,
+    // so waiting for the art to change is what makes the next read safe.
+    await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', live.name)
+    const name = await page.locator('.pcard__img').getAttribute('alt')
+    const next = cardsData.cards.find((candidate) => candidate.name === name)
+    expect(next).toBeTruthy()
+    live = next!
+  }
+
+  await page.getByRole('button', { name: 'End session' }).click()
+  await expect(page.locator('[data-summary]')).toBeVisible()
+  await expect(page.locator('.ed-sum__headline')).toHaveText('16 / 16 · 100%')
+  // No score, no record, no personal best anywhere on the summary.
+  await expect(page.locator('.ed-sum__pb')).toHaveCount(0)
+  await expect(page.locator('[data-summary]')).not.toContainText(/personal best|New best/i)
 })
 
 test('card art fallback renders when card images cannot load', async ({ page }) => {

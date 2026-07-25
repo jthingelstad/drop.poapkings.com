@@ -7,7 +7,7 @@ import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import type { GameMode, Season, SiteStats } from '@elixir-drop/contracts'
 import { getLeaderboard, getStats, type LeaderboardEntry } from '../../lib/api'
-import { bestScoresFromRuns, betterScore, RANKED_GAMES, scoreFromRecords, GAMES } from '../../lib/game-metadata'
+import { bestScoresFromRuns, betterScore, RANKED_GAMES, scoreFromRecords } from '../../lib/game-metadata'
 import { getRecords, getSeasonRecords } from '../../lib/storage'
 import { player, recentRuns } from '../../lib/account'
 import type { Records } from '../../types'
@@ -39,7 +39,9 @@ function mergedBestScores(season: Season | null): Partial<Record<GameMode, numbe
   const stored: Records = season ? getSeasonRecords(season.id) : getRecords()
   const recent = bestScoresFromRuns(recentRuns.value, season?.id)
   const merged: Partial<Record<GameMode, number>> = {}
-  for (const game of GAMES) {
+  // Ranked modes only: Practice is a drill with no score and no best, so it has
+  // nothing to merge and must never surface a "best" anywhere.
+  for (const game of RANKED_GAMES) {
     const storedScore = scoreFromRecords(game.mode, stored)
     const recentScore = recent[game.mode]
     if (storedScore !== undefined) merged[game.mode] = storedScore

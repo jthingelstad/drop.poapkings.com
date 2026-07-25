@@ -24,8 +24,10 @@ vi.mock("../src/repository.js", () => ({
   },
 }));
 
+import rawCards from "@elixir-drop/game-data/cards.json";
 import { handler } from "../src/handler.js";
 
+const CATALOG_SIZE = (rawCards as { cards: unknown[] }).cards.length;
 const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1_000);
 
@@ -226,7 +228,10 @@ describe("run expiry", () => {
     // Practice is true practice: runs are born unranked and never write a
     // leaderboard entry (completeRun skips the GSI for ranked:false).
     expect(body.ranked).toBe(false);
-    expect(body.challenge.cardIds).toHaveLength(15);
+    // Practice is endless, so it is dealt the WHOLE shuffled catalog as a pool
+    // for the client to weight across — not a fixed 15-card round.
+    expect(body.challenge.cardIds).toHaveLength(CATALOG_SIZE);
+    expect(new Set(body.challenge.cardIds).size).toBe(CATALOG_SIZE);
     expect(repository.getCardStats).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(
       "player-sub",

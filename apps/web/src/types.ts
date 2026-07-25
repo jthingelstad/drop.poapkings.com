@@ -41,7 +41,8 @@ export interface Records {
   surgeBest?: number // Surge: lowest time (ms) — lower is better
   surgeBestPace?: number[] // elapsed ms at each card of the PB run (ghost pacing)
   longestStreak?: number // Higher/Lower: longest streak
-  bestAccuracy?: number // Practice: best round accuracy (%)
+  // Practice deliberately has NO record key: it is an endless, non-competitive
+  // drill with no score and no personal best (see RECORD_KEYS / RecordedMode).
   survivalBest?: number // Survival: longest sudden-death streak
   tradeBest?: number // Trade: lowest 8-exchange read time (ms) — lower is better
   rainBest?: number // Rain: most cards cleared — ranked; written only on server acceptance

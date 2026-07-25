@@ -3560,6 +3560,19 @@ html.reduce-motion .ed-gcard {
   height: 20px;
 }
 
+/* Labeled variant of the same top-bar button: endless modes need their exit to
+   read as "End session" rather than a bare chevron. */
+.ed-iconbtn--labeled {
+  width: auto;
+  padding: 0 12px;
+  font-family: var(--font-body);
+}
+.ed-iconbtn__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .ed-game__bar {
   height: 4px;
   margin: 0 0 8px;

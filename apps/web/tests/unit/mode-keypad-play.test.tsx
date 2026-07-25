@@ -50,11 +50,14 @@ vi.mock('../../src/lib/storage', () => ({
   saveRecords: vi.fn((r: Record<string, unknown>) => Object.assign(hoisted.records.current, r)),
   saveResult: vi.fn(),
   recordSession: vi.fn(),
+  // Practice's weighted deal reads card stats every deal; an empty map is the
+  // new-player case, which must fall back to uniform random.
+  getCardStats: () => ({}),
   getSettings: () => ({ inputStyle: 'keypad', sound: false, reducedMotion: false, enhancedEffects: true }),
   saveSettings: vi.fn()
 }))
 
-import { saveResult, recordSession, saveSettings } from '../../src/lib/storage'
+import { saveResult, recordSession, saveRecords, saveSettings } from '../../src/lib/storage'
 import Surge from '../../src/modes/surge/Surge'
 import Survival from '../../src/modes/survival/Survival'
 import Practice from '../../src/modes/practice/Practice'
@@ -422,9 +425,36 @@ describe('Survival gameplay', () => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Practice — untimed round of 15, unranked; keypad or 4-choice input.
+// Practice — ENDLESS, untimed, unranked; keypad or 4-choice input. There is no
+// round length: the deck is a pool the loop draws from, and the player ends the
+// session with the top-bar "End session" control. Because the deal is weighted
+// (uniform here — the mocked card stats are empty), the tests read the live card
+// off the board instead of assuming deck order.
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Practice gameplay', () => {
+  function liveCard(host: HTMLElement, deck: Card[]): Card {
+    const name = host.querySelector('.pcard__img')?.getAttribute('alt')
+    const found = deck.find((c) => c.name === name)
+    if (!found) throw new Error(`no card on the board (alt="${name}")`)
+    return found
+  }
+
+  function endSession(host: HTMLElement): void {
+    const button = host.querySelector<HTMLButtonElement>('button[aria-label="End session"]')
+    if (!button) throw new Error('no End session control')
+    void act(() => {
+      button.click()
+    })
+  }
+
+  // Answer `count` questions correctly, reading each card off the board.
+  function answerCorrectly(host: HTMLElement, deck: Card[], count: number): void {
+    for (let i = 0; i < count; i++) {
+      press(host, liveCard(host, deck).elixir)
+      advance(280) // ADVANCE_DELAY_CORRECT → the next deal
+    }
+  }
+
   it('uses the Surge card motion and no purple correct-answer treatment', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
@@ -436,16 +466,20 @@ describe('Practice gameplay', () => {
     })
 
     expect(host.querySelector('.game-motion--card')).toBeTruthy()
-    press(host, cards[0]!.elixir)
+    const first = liveCard(host, cards)
+    press(host, first.elixir)
     expect(host.querySelector('.pcard--correct')).toBeTruthy()
     expect(host.querySelector('.pcard__cost')).toBeNull()
     expect(host.querySelector('.drop-pop-wrap')).toBeNull()
 
     advance(280)
-    expect(host.textContent).toContain('Card 2 / 15')
+    expect(host.textContent).toContain('1 answered')
+    // Endless: no card counter, and never the same card twice in a row.
+    expect(host.textContent).not.toContain('/ 15')
+    expect(liveCard(host, cards).id).not.toBe(first.id)
   })
 
-  it('answers a full round on the keypad → summary + complete', () => {
+  it('runs past the old 15-card round and only ends when the player ends it', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -456,18 +490,54 @@ describe('Practice gameplay', () => {
     })
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
 
-    for (let i = 0; i < 15; i++) {
-      press(host, cards[i]!.elixir)
-      advance(280) // ADVANCE_DELAY_CORRECT → nextCard (or finishRound on the last)
-    }
+    answerCorrectly(host, cards, 23)
 
+    // Still playing after 23 — the fixed round is gone.
+    expect(session.complete).not.toHaveBeenCalled()
+    expect(host.textContent).toContain('23 answered')
+
+    endSession(host)
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0]![0] as { answers: unknown[] }
-    expect(payload.answers).toHaveLength(15)
+    expect(payload.answers).toHaveLength(23)
     expect(recordSession).toHaveBeenCalled()
-    expect(saveResult).toHaveBeenCalledTimes(15)
-    expect(host.textContent).toContain('15 / 15 · 100%')
-    expect(host.querySelector('.shareline')?.textContent).toContain('Practice · 100% accuracy')
+    expect(saveResult).toHaveBeenCalledTimes(23)
+    expect(host.textContent).toContain('23 / 23 · 100%')
+    expect(host.querySelector('.shareline')?.textContent).toContain('Practice · 23/23 · 100%')
+  })
+
+  it('closes on session stats only — no personal best, no record line', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    answerCorrectly(host, cards, 4)
+    endSession(host)
+
+    expect(tileValue(host, 'Answered')).toBe('4')
+    expect(tileValue(host, 'Accuracy')).toBe('100%')
+    expect(host.querySelector('.ed-sum__pb')).toBeNull()
+    expect(host.textContent).not.toMatch(/personal best|New best|Best:/i)
+    expect(saveRecords).not.toHaveBeenCalled()
+  })
+
+  it('ending with nothing answered leaves without submitting a transcript', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    endSession(host)
+    expect(session.complete).not.toHaveBeenCalled()
   })
 
   it('keeps a missed card active with Higher/Lower feedback and grades only the first read', () => {
@@ -480,31 +550,32 @@ describe('Practice gameplay', () => {
       host = mount(<Practice />)
     })
 
-    const correctCost = cards[0]!.elixir
+    expect(host.textContent).toContain('0 answered')
+    const missed = liveCard(host, cards)
+    const correctCost = missed.elixir
     press(host, correctCost - 1)
     expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Higher')
     expect(host.querySelector('.pcard__cost')).toBeNull()
-    expect(host.textContent).toContain('Card 1 / 15')
+    // The first read is what counts as the answer; the card stays until solved.
+    expect(host.textContent).toContain('1 answered')
 
     advance(430)
     press(host, correctCost + 1)
     expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Lower')
-    expect(host.textContent).toContain('Card 1 / 15')
+    expect(liveCard(host, cards).id).toBe(missed.id)
 
     advance(430)
     press(host, correctCost)
     advance(280)
-    expect(host.textContent).toContain('Card 2 / 15')
+    expect(host.textContent).toContain('1 answered') // still one question, now solved
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
-    for (let i = 1; i < 15; i++) {
-      press(host, cards[i]!.elixir)
-      advance(280)
-    }
+    answerCorrectly(host, cards, 14)
+    endSession(host)
     expect(host.textContent).toContain('14 / 15 · 93%')
     const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ cardId: number; guess: number }> }
     expect(payload.answers).toHaveLength(15)
-    expect(payload.answers[0]).toEqual({ cardId: cards[0]!.id, guess: correctCost - 1 })
+    expect(payload.answers[0]).toEqual({ cardId: missed.id, guess: correctCost - 1 })
     expect(saveResult).toHaveBeenCalledTimes(15)
   })
 
@@ -520,31 +591,30 @@ describe('Practice gameplay', () => {
 
     clickText(host, '.input-toggle__btn', '4 choices')
     expect(saveSettings).toHaveBeenCalledWith({ inputStyle: 'choice' })
-    const choices = host.querySelector('.mc-choices')
-    expect(choices).not.toBeNull()
+    const first = liveCard(host, cards)
+    expect(host.querySelector('.mc-choices')).not.toBeNull()
 
     // A wrong choice keeps the card active and gives the same directional cue.
-    const correct = host.querySelector<HTMLButtonElement>(`.mc-choices__btn[aria-label="${cards[0]!.elixir} elixir"]`)
+    const correct = host.querySelector<HTMLButtonElement>(`.mc-choices__btn[aria-label="${first.elixir} elixir"]`)
     expect(correct).not.toBeNull()
     const wrong = [...host.querySelectorAll<HTMLButtonElement>('.mc-choices__btn')].find((button) => button !== correct)
     expect(wrong).not.toBeNull()
     void act(() => {
       wrong!.click()
     })
-    const expectedHint =
-      Number(wrong!.getAttribute('aria-label')?.split(' ')[0]) < cards[0]!.elixir ? 'Higher' : 'Lower'
+    const expectedHint = Number(wrong!.getAttribute('aria-label')?.split(' ')[0]) < first.elixir ? 'Higher' : 'Lower'
     expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain(expectedHint)
-    expect(host.textContent).toContain('Card 1 / 15')
+    expect(liveCard(host, cards).id).toBe(first.id)
 
     advance(430)
     void act(() => {
       correct!.click()
     })
     advance(280)
-    expect(host.textContent).toContain('Card 2 / 15')
+    expect(host.textContent).toContain('1 answered')
   })
 
-  it('answers via the physical keyboard (keydown) and replays the round', () => {
+  it('answers via the physical keyboard (keydown) and starts a fresh session', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -554,18 +624,19 @@ describe('Practice gameplay', () => {
       host = mount(<Practice />)
     })
 
-    // Drive the whole round from the keyboard number keys.
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 6; i++) {
+      const live = liveCard(host, cards)
       void act(() => {
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: `${cards[i]!.elixir}` }))
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: `${live.elixir}` }))
       })
       advance(280)
     }
-    expect(host.textContent).toContain('15 / 15 · 100%')
+    endSession(host)
+    expect(host.textContent).toContain('6 / 6 · 100%')
 
-    clickText(host, 'button', 'Play again')
+    clickText(host, 'button', 'Practice again')
     expect(session.prepare).toHaveBeenCalled()
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
-    expect(host.textContent).toContain('Card 1 / 15')
+    expect(host.textContent).toContain('0 answered')
   })
 })

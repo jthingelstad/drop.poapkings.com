@@ -93,6 +93,51 @@ describe("server-side game scoring", () => {
     );
   });
 
+  // Practice is an endless, unranked drill: the client re-orders the signed deck
+  // by the player's weak cards and stops whenever the player does, so the scorer
+  // validates set membership rather than position or length.
+  it("accepts a Practice transcript of any length, in any order, with repeats", () => {
+    const deck = allCards.map((card) => card.id);
+    const first = allCards[0]!;
+    const last = allCards.at(-1)!;
+    // Three answers out of a 120-card deck, out of deck order, one repeated.
+    const answers = [
+      { cardId: last.id, guess: last.elixir },
+      { cardId: first.id, guess: first.elixir },
+      { cardId: last.id, guess: last.elixir === 1 ? 2 : 1 },
+    ];
+    expect(scoreRun({ mode: "practice", cardIds: deck }, { answers }, 0)).toBe(
+      67,
+    );
+  });
+
+  it("rejects a Practice answer for a card outside the signed deck", () => {
+    const deck = allCards.slice(0, 10).map((card) => card.id);
+    const outsider = allCards.at(-1)!;
+    expect(deck).not.toContain(outsider.id);
+    expect(() =>
+      scoreRun(
+        { mode: "practice", cardIds: deck },
+        { answers: [{ cardId: outsider.id, guess: outsider.elixir }] },
+        0,
+      ),
+    ).toThrow(/not from the signed deck/);
+  });
+
+  it("rejects an empty Practice transcript and a non-integer guess", () => {
+    const deck = allCards.map((card) => card.id);
+    expect(() =>
+      scoreRun({ mode: "practice", cardIds: deck }, { answers: [] }, 0),
+    ).toThrow(/needs at least one answer/);
+    expect(() =>
+      scoreRun(
+        { mode: "practice", cardIds: deck },
+        { answers: [{ cardId: deck[0]!, guess: "4" }] },
+        0,
+      ),
+    ).toThrow(/Practice answer is invalid/);
+  });
+
   it("ends a Higher/Lower score at the first miss", () => {
     const low = cards.find((card) => card.elixir <= 2) ?? cards[0]!;
     const high = cards.find((card) => card.elixir >= 5) ?? cards.at(-1)!;

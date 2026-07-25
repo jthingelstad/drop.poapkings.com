@@ -9,9 +9,16 @@ import { createGameRuntimeCue, transitionGameRuntimeStage } from '../../src/lib/
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { tradeSummaryLine } from '../../src/lib/mode-insights'
 import { comparableBest, pbCallout } from '../../src/lib/pb-callout'
+import { cardWeight, pickPracticeCard } from '../../src/lib/practice-deal'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
+
+// Every elixir cost that actually exists in the committed catalog (1..9).
+const CATALOG_COSTS = [...new Set((rawCards as { cards: Array<{ elixir: number }> }).cards.map((c) => c.elixir))].sort(
+  (a, b) => a - b
+)
+const MAX_COST = Math.max(...CATALOG_COSTS)
 
 function card(
   id: number,
@@ -38,14 +45,51 @@ describe('learning helpers', () => {
     vi.useRealTimers()
   })
 
-  it('builds adjacent elixir choices around the truth', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
+  it('builds a window of four adjacent costs that contains the answer', () => {
+    for (const elixir of CATALOG_COSTS) {
+      for (let sample = 0; sample < 200; sample += 1) {
+        const choices = makeChoices(elixir)
+        const sorted = [...choices].sort((a, b) => a - b)
+        expect(new Set(choices).size).toBe(4)
+        expect(sorted).toContain(elixir)
+        // Consecutive, and never offering a cost no card in the catalog has.
+        expect(sorted[3]! - sorted[0]!).toBe(3)
+        expect(sorted[0]).toBeGreaterThanOrEqual(1)
+        expect(sorted[3]).toBeLessThanOrEqual(MAX_COST)
+      }
+    }
+  })
 
-    expect(new Set(makeChoices(1))).toEqual(new Set([1, 2, 3, 4]))
-    expect(new Set(makeChoices(4))).toEqual(new Set([3, 4, 5, 6]))
-    // The window tops out at the catalog's highest cost — offering a cost no
-    // card has is a trap, not a distractor.
-    expect(new Set(makeChoices(9))).toEqual(new Set([6, 7, 8, 9]))
+  // The distractor leak. The window is a deliberate near-miss set, but if its
+  // OFFSET is fixed then the option set alone names the answer: a player could
+  // read {3,4,5,6}, answer 4 without looking at the card, and be right every
+  // time. This asserts the property that closes it — no option set may map to a
+  // single possible answer — so it fails against any fixed-offset window.
+  it('never lets the option set identify the answer', () => {
+    const answersForSet = new Map<string, Set<number>>()
+    for (const elixir of CATALOG_COSTS) {
+      for (let sample = 0; sample < 400; sample += 1) {
+        const key = [...makeChoices(elixir)].sort((a, b) => a - b).join(',')
+        const answers = answersForSet.get(key) ?? new Set<number>()
+        answers.add(elixir)
+        answersForSet.set(key, answers)
+      }
+    }
+
+    expect(answersForSet.size).toBeGreaterThan(1)
+    // Any option set with a single possible answer IS the leak; listing them
+    // makes a failure name the exact giveaway sets.
+    const leaking = [...answersForSet.entries()]
+      .filter(([, answers]) => answers.size < 2)
+      .map(([optionSet, answers]) => ({ optionSet, onlyAnswer: [...answers][0] }))
+    expect(leaking).toEqual([])
+
+    // And the offset really does move: a mid-range cost is dealt from several
+    // distinct windows, not one.
+    const windowsForFour = new Set(
+      Array.from({ length: 400 }, () => [...makeChoices(4)].sort((a, b) => a - b).join(','))
+    )
+    expect(windowsForFour).toEqual(new Set(['1,2,3,4', '2,3,4,5', '3,4,5,6', '4,5,6,7']))
   })
 
   it('maps card rarity into shared Clash-style render classes', () => {
@@ -181,6 +225,59 @@ describe('learning helpers', () => {
     expect(pickTradeHintCard(round, new Set([rocket.id]))).toBe(fireball.id)
     expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id]))).toBe(knight.id)
     expect(pickTradeHintCard(round, new Set([rocket.id, fireball.id, knight.id]))).toBeUndefined()
+  })
+})
+
+// ── Practice's weighted deal ─────────────────────────────────────────────────
+// Practice is a drill, so it must deal what the player is bad at — while still
+// behaving like plain random for someone who has never played.
+describe('practice deal weighting', () => {
+  const stat = (over: Partial<{ seen: number; correct: number; missStreak: number }> = {}) => ({
+    seen: 0,
+    correct: 0,
+    missStreak: 0,
+    lastSeen: 0,
+    ...over
+  })
+
+  it('ranks a miss streak above shaky recall, unseen, and well-known cards', () => {
+    const missing = cardWeight(stat({ seen: 4, correct: 3, missStreak: 2 }))
+    const shaky = cardWeight(stat({ seen: 10, correct: 5 }))
+    const unseen = cardWeight(undefined)
+    const known = cardWeight(stat({ seen: 10, correct: 10 }))
+
+    expect(missing).toBeGreaterThan(shaky)
+    expect(shaky).toBeGreaterThan(unseen)
+    expect(unseen).toBeGreaterThan(known)
+    // Rare, but never impossible: a solved card still has to be drawable.
+    expect(known).toBeGreaterThan(0)
+  })
+
+  it('degrades to uniform random when a new player has no card stats', () => {
+    const deck = [card(1, 'A', 3), card(2, 'B', 4), card(3, 'C', 5)]
+    // Every card weighs the same, so the roll maps to thirds of the range.
+    expect(pickPracticeCard(deck, {}, undefined, () => 0)).toBe(deck[0])
+    expect(pickPracticeCard(deck, {}, undefined, () => 0.4)).toBe(deck[1])
+    expect(pickPracticeCard(deck, {}, undefined, () => 0.9)).toBe(deck[2])
+  })
+
+  it('gives a missed card most of the range and still leaves room for the rest', () => {
+    const deck = [card(1, 'A', 3), card(2, 'B', 4)]
+    const stats = { '1': stat({ seen: 3, correct: 3 }), '2': stat({ seen: 3, correct: 2, missStreak: 1 }) }
+    // Weights: known 1, missing 12 → the missed card owns 12/13 of the range.
+    expect(pickPracticeCard(deck, stats, undefined, () => 0)).toBe(deck[0])
+    expect(pickPracticeCard(deck, stats, undefined, () => 0.5)).toBe(deck[1])
+    expect(pickPracticeCard(deck, stats, undefined, () => 0.99)).toBe(deck[1])
+  })
+
+  it('never deals the same card twice in a row', () => {
+    const deck = [card(1, 'A', 3), card(2, 'B', 4)]
+    const stats = { '2': stat({ seen: 2, correct: 0, missStreak: 2 }) }
+    // Card 2 is the heaviest by far, but it was just played.
+    expect(pickPracticeCard(deck, stats, 2, () => 0.99)).toBe(deck[0])
+    // A one-card deck has nothing else to deal, so the guard must not strand it.
+    expect(pickPracticeCard([deck[0]!], {}, 1, () => 0.5)).toBe(deck[0])
+    expect(pickPracticeCard([], {}, undefined, () => 0)).toBeUndefined()
   })
 })
 
