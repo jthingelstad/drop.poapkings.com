@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cardsData, expect, test } from './fixtures'
+import { cardsData, expect, test, testApiBaseUrl, testStats } from './fixtures'
 
 // Turn the setting on the way a player would leave it: written to the settings
 // blob before the app boots. PipKeypad reads it fresh when it mounts.
@@ -43,6 +43,76 @@ test.describe('mobile timed-mode controls', () => {
     expect(controlsFit).toBe(true)
   })
 
+  test('keeps both Higher / Lower cards usable in the first viewport', async ({ page }) => {
+    await page.goto('/#/higher-lower')
+    const cards = page.locator('.ed-duel__card')
+    await expect(cards).toHaveCount(2)
+    await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
+
+    const controlsFit = await cards.evaluateAll((elements) =>
+      elements.every((element) => {
+        const bounds = element.getBoundingClientRect()
+        const image = element.querySelector('.pcard__img')?.getBoundingClientRect()
+        return (
+          bounds.top >= 0 &&
+          bounds.bottom <= window.innerHeight + 1 &&
+          bounds.width >= window.innerWidth * 0.75 &&
+          !!image &&
+          image.width > 0 &&
+          image.height > 0
+        )
+      })
+    )
+    expect(controlsFit).toBe(true)
+  })
+
+  test('keeps the Trade board separated below the update banner', async ({ page }) => {
+    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+      })
+    )
+    await page.goto('/#/trade')
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    const trade = page.locator('.ed-trade')
+    await expect(trade).toBeVisible({ timeout: 12_000 })
+
+    const layout = await trade.evaluate((element) => {
+      const game = element.closest('.ed-game')?.getBoundingClientRect()
+      const motion = element.querySelector(':scope > .game-motion')?.getBoundingClientRect()
+      const blue = element.querySelector('.ed-trade__team--blue')?.getBoundingClientRect()
+      const red = element.querySelector('.ed-trade__team--red')?.getBoundingClientRect()
+      const prompt = element.querySelector('.ed-trade__prompt')?.getBoundingClientRect()
+      const pad = element.querySelector('.ed-trade__pad')?.getBoundingClientRect()
+      return {
+        viewportWidth: window.innerWidth,
+        gameWidth: game?.width ?? 0,
+        boardContained: !!motion && !!blue && !!red && blue.top >= motion.top - 1 && red.bottom <= motion.bottom + 1,
+        boardClearsPrompt: !!red && !!prompt && red.bottom <= prompt.top + 1,
+        padFits: !!pad && pad.left >= 0 && pad.right <= window.innerWidth + 1 && pad.bottom <= window.innerHeight + 1
+      }
+    })
+    expect(layout.gameWidth).toBeGreaterThanOrEqual(layout.viewportWidth * 0.9)
+    expect(layout.boardContained).toBe(true)
+    expect(layout.boardClearsPrompt).toBe(true)
+    expect(layout.padFits).toBe(true)
+  })
+
+  test('keeps the Rain instruction out of the falling-card field', async ({ page }) => {
+    await page.goto('/#/rain')
+    const hint = page.locator('.ed-rain__hint')
+    const field = page.locator('.ed-rain__field')
+    await expect(hint).toBeVisible({ timeout: 12_000 })
+    await expect(field).toBeVisible()
+
+    const [hintBounds, fieldBounds] = await Promise.all([hint.boundingBox(), field.boundingBox()])
+    expect(hintBounds).not.toBeNull()
+    expect(fieldBounds).not.toBeNull()
+    expect(hintBounds!.y + hintBounds!.height).toBeLessThanOrEqual(fieldBounds!.y + 1)
+  })
+
   // The Speedrun keyboard trades vertical space for tap-target width, so it is
   // the layout most likely to push its own bottom row off screen. Practice is
   // the tightest budget of the four keypad modes (it also renders the input
@@ -81,6 +151,63 @@ test.describe('low-height desktop timed controls', () => {
       })
     )
     expect(controlsFit).toBe(true)
+  })
+
+  test('keeps Higher / Lower in view below the update banner', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
+    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+      })
+    )
+    await page.goto('/#/higher-lower')
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    const cards = page.locator('.ed-duel__card')
+    await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
+
+    const controlsFit = await cards.evaluateAll((elements) =>
+      elements.every((element) => {
+        const bounds = element.getBoundingClientRect()
+        return bounds.top >= 0 && bounds.bottom <= window.innerHeight + 1
+      })
+    )
+    expect(controlsFit).toBe(true)
+  })
+
+  test('keeps the Trade board full-width below the update banner', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
+    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+      })
+    )
+    await page.goto('/#/trade')
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    const trade = page.locator('.ed-trade')
+    await expect(trade).toBeVisible({ timeout: 12_000 })
+
+    const layout = await trade.evaluate((element) => {
+      const game = element.closest('.ed-game')?.getBoundingClientRect()
+      const motion = element.querySelector(':scope > .game-motion')?.getBoundingClientRect()
+      const blue = element.querySelector('.ed-trade__team--blue')?.getBoundingClientRect()
+      const red = element.querySelector('.ed-trade__team--red')?.getBoundingClientRect()
+      const prompt = element.querySelector('.ed-trade__prompt')?.getBoundingClientRect()
+      const pad = element.querySelector('.ed-trade__pad')?.getBoundingClientRect()
+      return {
+        gameWidth: game?.width ?? 0,
+        boardContained: !!motion && !!blue && !!red && blue.top >= motion.top - 1 && red.bottom <= motion.bottom + 1,
+        boardClearsPrompt: !!red && !!prompt && red.bottom <= prompt.top + 1,
+        padFits: !!pad && pad.left >= 0 && pad.right <= window.innerWidth + 1 && pad.bottom <= window.innerHeight + 1
+      }
+    })
+    expect(layout.gameWidth).toBeGreaterThanOrEqual(500)
+    expect(layout.boardContained).toBe(true)
+    expect(layout.boardClearsPrompt).toBe(true)
+    expect(layout.padFits).toBe(true)
   })
 
   // The strict gate: fully in view, top and bottom, on the shortest desktop.

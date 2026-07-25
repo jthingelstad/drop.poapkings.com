@@ -58,6 +58,19 @@ async function runOutTheClock(page: Page) {
   throw new Error('the Higher/Lower response window never expired')
 }
 
+// Advance a paused virtual clock in small steps until the final completion
+// callback has actually rendered the summary. WebKit can schedule a timer a
+// fraction beyond a single blind jump; stepping keeps the harness moving until
+// the observable state arrives, just as a real clock would.
+async function advanceUntilSummary(page: Page) {
+  const summary = page.locator('[data-summary]')
+  for (let elapsed = 0; elapsed < 2_400; elapsed += 100) {
+    if (await summary.isVisible()) return
+    await page.clock.runFor(100)
+  }
+  await expect(summary).toBeVisible()
+}
+
 // Tap the card the player should NOT pick.
 async function tapLower(page: Page) {
   const lower = (await higherIndex(page)) === 0 ? 1 : 0
@@ -106,7 +119,7 @@ test('higher/lower: a miss costs a life and the run keeps counting', async ({ pa
   await expect(page.locator('.ed-game__metric').first()).toHaveText('2')
 })
 
-test('higher/lower stacks both choices vertically on every shell', async ({ page }) => {
+test('higher/lower stacks both choices vertically on every shell', async ({ page, isMobile }) => {
   await page.goto('/#/higher-lower')
   const choices = page.locator('.ed-duel__card')
   await expect(choices).toHaveCount(2)
@@ -121,21 +134,22 @@ test('higher/lower stacks both choices vertically on every shell', async ({ page
   expect(bounds[1]!.top).toBeGreaterThan(bounds[0]!.bottom)
   expect(Math.abs(bounds[1]!.left - bounds[0]!.left)).toBeLessThanOrEqual(1)
   expect(Math.abs(bounds[1]!.right - bounds[0]!.right)).toBeLessThanOrEqual(1)
+
+  if (isMobile) {
+    const rendered = await choices.evaluateAll((elements) => ({
+      viewportWidth: window.innerWidth,
+      choices: elements.map((element) => {
+        const card = element.getBoundingClientRect()
+        const image = element.querySelector('.pcard__img')?.getBoundingClientRect()
+        return { cardWidth: card.width, imageWidth: image?.width ?? 0, imageHeight: image?.height ?? 0 }
+      })
+    }))
+    expect(rendered.choices.every((choice) => choice.cardWidth >= rendered.viewportWidth * 0.75)).toBe(true)
+    expect(rendered.choices.every((choice) => choice.imageWidth > 0 && choice.imageHeight > 0)).toBe(true)
+  }
 })
 
-test('higher/lower: a timeout costs a life, and the last life ends the run', async ({ page, browserName }) => {
-  // QUARANTINED ON WEBKIT — this is a test-harness stall, not a product bug.
-  // Runs 30166720380 and 30168449611 both failed here on CI only, on both
-  // attempts, while passing 24/24 locally. The uploaded trace shows the board
-  // stopped at zero lives with the answer revealed: no /runs/complete request,
-  // no JS error, and no "Recording your game…" notice — so the mode's
-  // end-of-run setTimeout never fired. The clock advance below is a blind
-  // 1600ms jump at a 1400ms reveal beat, and once a paused virtual clock lands
-  // short nothing can move it again, so the web-first assertion below retries
-  // until the test times out. Real players are never on a paused clock.
-  // Chromium and Firefox still cover this path. Restore with the stepped
-  // advanceUntil helper — see task #18.
-  test.skip(browserName === 'webkit', 'CI-only virtual-clock stall; see task #18')
+test('higher/lower: a timeout costs a life, and the last life ends the run', async ({ page }) => {
   await openFrozenBoard(page)
 
   // Never tap on the opening pair: the window is run out in virtual time, so
@@ -156,7 +170,7 @@ test('higher/lower: a timeout costs a life, and the last life ends the run', asy
   await tapLower(page)
   await expect(livesRow(page)).toHaveAttribute('aria-label', '0 of 3 lives left')
 
-  await page.clock.runFor(AFTER_MISS_MS)
+  await advanceUntilSummary(page)
   await expect(page.locator('[data-summary]')).toBeVisible()
   await expect(page.locator('.ed-duel')).toHaveCount(0)
 

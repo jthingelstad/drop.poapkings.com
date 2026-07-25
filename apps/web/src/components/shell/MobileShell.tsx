@@ -39,7 +39,7 @@ export default function MobileShell({ children }: { children: ComponentChildren 
   const gaming = isGameRoute(r)
   return (
     <div class="ed-app">
-      <div class="ed-mobile">
+      <div class={`ed-mobile${gaming ? ' ed-mobile--game' : ''}`}>
         <main class={`ed-mobile__scroll${gaming ? ' ed-mobile__scroll--game' : ''}`}>{children}</main>
         {!gaming && <PillNav activeIdx={activeNavIndex(r)} />}
       </div>

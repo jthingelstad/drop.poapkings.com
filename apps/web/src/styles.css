@@ -2208,6 +2208,11 @@ html.reduce-motion .release-notice__card {
   flex-direction: column;
   padding-top: var(--ed-safe-area-top);
 }
+.ed-mobile--game {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
 .ed-mobile__scroll {
   flex: 1;
   overflow-y: auto;
@@ -3591,11 +3596,27 @@ html.reduce-motion .ed-gcard {
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
-/* The game root stretches to fill the viewport so the keypad sits at the bottom. */
-.ed-mobile__scroll--game .ed-game {
+/* Game roots fill only the space left by a status banner. A fixed-height game
+   shell keeps short Safari viewports from growing to their contents, while
+   summaries (which render as .ed-gamewrap) can still scroll normally. */
+.ed-mobile__scroll--game > .ed-game {
   flex: 1;
+  height: auto;
+  min-height: 0;
+}
+.ed-desktop--game .ed-desktop__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ed-desktop--game .ed-desktop__main > .ed-game {
+  flex: 1;
+  width: 100%;
+  height: auto;
+  min-height: 0;
 }
 
 .ed-game {
@@ -4072,6 +4093,7 @@ html.reduce-motion .ed-sum-band__fill {
 }
 .ed-duel__cards {
   flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -4347,6 +4369,49 @@ html.reduce-motion .ed-duel__card {
 .ed-desktop__main .ed-trade__card-img,
 .ed-desktop__main .ed-trade__card-fallback {
   height: 124px;
+}
+
+/* A stale-build banner leaves roughly 285px for the Trade board on a short
+   phone and 327px on a 720px desktop. Keep both teams inside GameMotion's
+   measured box instead of letting their intrinsic card height overlap the
+   header, prompt, and keypad. */
+@media (height <= 760px) {
+  .ed-trade__teams {
+    gap: 4px;
+  }
+  .ed-trade__team {
+    gap: 2px;
+    padding: 5px 10px 7px;
+    border-radius: 12px;
+  }
+  .ed-trade__team-label {
+    font-size: 0.6rem;
+    line-height: 1;
+  }
+  .ed-trade__card-art {
+    width: 76px;
+    gap: 2px;
+  }
+  .ed-trade__card-img,
+  .ed-trade__card-fallback {
+    height: 72px;
+  }
+  .ed-trade__card-name {
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+  .ed-trade__divider {
+    gap: 6px;
+    padding: 0 2px;
+    font-size: 0.58rem;
+  }
+  .ed-desktop__main .ed-trade__card-art {
+    width: 82px;
+  }
+  .ed-desktop__main .ed-trade__card-img,
+  .ed-desktop__main .ed-trade__card-fallback {
+    height: 88px;
+  }
 }
 
 /* ── Leaderboards ───────────────────────────────────────────── */
@@ -5124,21 +5189,21 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 .ed-rain__field {
   position: absolute;
-  inset: 0;
+  inset: 30px 0 0;
   z-index: 0;
   overflow: hidden;
 }
 .ed-rain__hint {
-  position: absolute;
-  top: 12px;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex: 0 0 30px;
   z-index: 1;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 700;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(180deg, rgba(11, 9, 32, 0.76), rgba(11, 9, 32, 0.2));
   pointer-events: none;
 }
 .ed-rain__pad {
