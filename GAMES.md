@@ -79,8 +79,13 @@ season pass. Two standing consequences:
 
 - **The board does not certify itself.** An automatic integrity flag
   (`automaticReviewReason` / `underReview`) is a review _signal_, never a
-  verdict — a flagged run stays on the board until a referee decides otherwise
-  (see the visibility filter in `services/api/src/leaderboards.ts`). The
+  verdict — but it does take the run off the board immediately. The flag writes
+  a `review`/`hidden` decision inside the same transaction that records the
+  score (`services/api/src/repository.ts`), so a flagged result never appears
+  publicly even briefly; the visibility filter in
+  `services/api/src/leaderboards.ts` then skips it on every read. That hide is
+  reversible and costs the player nothing else: the run still scores, still
+  records, still earns XP, and a referee can restore it at its true rank. The
   standing must be referee-reviewed before the pass is awarded; that obligation
   lives in `AGENT-TEAM/fair-play-referee.md`.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
