@@ -71,18 +71,30 @@ function pressFx(button: HTMLButtonElement): void {
 }
 
 function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean; onPick: (value: number) => void }) {
-  const ref = useRef<HTMLButtonElement>(null)
+  function activate(button: HTMLButtonElement): void {
+    playTap()
+    if (isEnhancedEffectsEnabled()) pressFx(button)
+    onPick(value)
+  }
+
   return (
     <button
-      ref={ref}
       data-pip-value={value}
       class={`pip-keypad__pip${disabled ? ' pip-keypad__pip--disabled' : ''}`}
-      onPointerDown={() => {
-        if (disabled) return
-        playTap()
-        if (isEnhancedEffectsEnabled() && ref.current) pressFx(ref.current)
+      onPointerDown={(event) => {
+        if (disabled || event.button !== 0 || event.isPrimary === false) return
+        // Accept the answer in the same event that produces the key feedback.
+        // iOS Safari can cancel the later compatibility click after a valid
+        // touch, which previously left a sparkling key but an unchanged card.
+        activate(event.currentTarget)
       }}
-      onClick={() => !disabled && onPick(value)}
+      onClick={(event) => {
+        // Pointer activation was already handled atomically above. A click with
+        // detail=0 is keyboard or assistive activation and still needs the
+        // native button path; pointer-generated clicks have a positive detail.
+        if (disabled || event.detail > 0) return
+        activate(event.currentTarget)
+      }}
       aria-label={`${value} elixir`}
       disabled={disabled}
     >

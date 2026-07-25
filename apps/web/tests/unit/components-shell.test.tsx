@@ -169,6 +169,21 @@ describe('PipKeypad', () => {
     expect(onPick).toHaveBeenCalledWith(3)
   })
 
+  it('accepts a primary touch on pointerdown without double-answering its compatibility click', () => {
+    const onPick = vi.fn()
+    draw(<PipKeypad onPick={onPick} />)
+    const key = host.querySelector<HTMLButtonElement>('[data-pip-value="6"]')!
+
+    key.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
+    expect(onPick).toHaveBeenCalledTimes(1)
+    expect(onPick).toHaveBeenLastCalledWith(6)
+
+    // iOS normally follows the pointer sequence with a synthetic click. The
+    // answer must not be recorded a second time when that click does arrive.
+    key.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, detail: 1 }))
+    expect(onPick).toHaveBeenCalledTimes(1)
+  })
+
   it('answers on a digit keydown', () => {
     const onPick = vi.fn()
     draw(<PipKeypad onPick={onPick} />)

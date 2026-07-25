@@ -1,6 +1,61 @@
 import AxeBuilder from '@axe-core/playwright'
 import { cardsData, completeSurge, expect, test, waitForKeypad } from './fixtures'
 
+for (const speedrunKeyboard of [false, true]) {
+  const layout = speedrunKeyboard ? 'speedrun' : 'normal'
+  test(`surge accepts a landed iOS touch in the ${layout} keypad without waiting for click`, async ({
+    page
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'iphone-14', 'This regression is specific to iOS touch event sequencing.')
+    await page.addInitScript((speedrun) => {
+      localStorage.setItem(
+        'elixirdrop:settings',
+        JSON.stringify({
+          inputStyle: 'keypad',
+          sound: false,
+          reducedMotion: false,
+          enhancedEffects: true,
+          speedrunKeyboard: speedrun
+        })
+      )
+    }, speedrunKeyboard)
+    await page.goto('/#/surge')
+    await waitForKeypad(page)
+
+    const cardImage = page.locator('.pcard__img')
+    const initialCardName = await cardImage.getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === initialCardName)
+    expect(card).toBeTruthy()
+
+    // This is the exact sequence seen in the field: Safari delivers the touch
+    // (and the key flourish runs), but its later compatibility click can be
+    // absent. One landed primary touch must still solve and advance the card.
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).dispatchEvent('pointerdown', {
+      pointerId: 1,
+      pointerType: 'touch',
+      isPrimary: true,
+      button: 0,
+      bubbles: true,
+      cancelable: true
+    })
+    await expect.poll(() => cardImage.getAttribute('alt')).not.toBe(initialCardName)
+
+    // Follow it with a complete emulated touchscreen tap on the next card. The
+    // pointerdown and compatibility click together must still advance exactly
+    // once, never consume the card after it.
+    const secondCardName = await cardImage.getAttribute('alt')
+    const secondCard = cardsData.cards.find((candidate) => candidate.name === secondCardName)
+    expect(secondCard).toBeTruthy()
+    const secondButton = page.getByRole('button', { name: `${secondCard!.elixir} elixir`, exact: true })
+    const bounds = await secondButton.boundingBox()
+    expect(bounds).not.toBeNull()
+    await page.touchscreen.tap(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2)
+    await expect(page.locator('.ed-game__progress')).toHaveText('Card 3 / 15')
+    await page.waitForTimeout(350)
+    await expect(page.locator('.ed-game__progress')).toHaveText('Card 3 / 15')
+  })
+}
+
 test('surge points higher or lower after a wrong guess and clears on the solve', async ({ page }) => {
   await page.goto('/#/surge')
   await waitForKeypad(page)
