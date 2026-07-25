@@ -174,124 +174,152 @@ afterEach(() => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Higher / Lower — streak, advance, reset, and the shrink-window timeout miss
+// Higher / Lower — three lives, a score that survives misses, and the
+// shrink-window timeout (which costs a life like any other miss)
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Higher / Lower — gameplay', () => {
-  // pair0: right (5) is higher; pair1: left (6) is higher; pair2 spare.
+  // Every pair's RIGHT card is the lower cost, so index 0 is always the correct
+  // tap and index 1 is always the miss — six of them, enough to spend 3 lives.
   function pairs(): Array<[Card, Card]> {
-    return [
-      [fakeCard(101, 3, 'HL-A'), fakeCard(102, 5, 'HL-B')],
-      [fakeCard(103, 6, 'HL-C'), fakeCard(104, 2, 'HL-D')],
-      [fakeCard(105, 4, 'HL-E'), fakeCard(106, 1, 'HL-F')]
-    ]
+    return Array.from(
+      { length: 6 },
+      (_unused, index) =>
+        [fakeCard(101 + index * 2, 6, `HL-${index}a`), fakeCard(102 + index * 2, 1, `HL-${index}b`)] as [Card, Card]
+    )
   }
+  const higher = (c: HTMLElement) => c.querySelectorAll('.ed-duel__cards button')[0]
+  const lower = (c: HTMLElement) => c.querySelectorAll('.ed-duel__cards button')[1]
+  const livesLabel = (c: HTMLElement) =>
+    c.querySelector('[data-testid="higher-lower-lives"]')?.getAttribute('aria-label')
 
-  it('picking the higher card increments the streak and deals the next pair', async () => {
+  it('picking the higher card scores and deals the next pair', async () => {
     stage(pairs())
     const c = mount(<HigherLower />)
     await toRunning(c)
 
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Higher / Lower')
     expect(metricValue(c)).toBe('0')
-    expect(c.textContent).toContain('HL-A')
+    expect(livesLabel(c)).toBe('3 of 3 lives left')
+    // Lives are lucide glyphs (CLAUDE.md forbids hand-typed symbols), the same
+    // heart / heart-crack row Rain uses.
+    expect(c.querySelectorAll('[data-testid="higher-lower-lives"] .icon')).toHaveLength(3)
+    expect(c.textContent).toContain('HL-0a')
 
-    // Right card (elixir 5) is the higher cost.
-    const cards = c.querySelectorAll('.ed-duel__cards button')
-    await click(cards[1])
+    await click(higher(c))
     expect(metricValue(c)).toBe('1')
-    expect(c.textContent).toContain('1 streak')
+    expect(c.textContent).toContain('1 correct')
 
     // A correct read advances after ADVANCE_DELAY_CORRECT (750ms) to pair 2.
     await advance(800)
-    expect(metricValue(c)).toBe('1') // streak carried into the next pair
-    expect(c.textContent).toContain('HL-C')
-    expect(c.textContent).not.toContain('HL-A')
+    expect(metricValue(c)).toBe('1') // the score carries into the next pair
+    expect(c.textContent).toContain('HL-1a')
+    expect(c.textContent).not.toContain('HL-0a')
   })
 
-  it('picking the lower card resets the streak and completes the run with the transcript', async () => {
+  it('a miss costs one life and the run keeps counting through it', async () => {
     const session = stage(pairs())
     const c = mount(<HigherLower />)
     await toRunning(c)
 
-    // Build a streak of 1 first, advance, then miss on pair 2.
-    await click(c.querySelectorAll('.ed-duel__cards button')[1]) // pair0 higher → streak 1
+    await click(higher(c)) // pair0 correct → 1
     await advance(800)
-    expect(metricValue(c)).toBe('1')
+    await click(lower(c)) // pair1 miss → a life, not the run
+    expect(metricValue(c)).toBe('1') // the score does NOT reset
+    expect(livesLabel(c)).toBe('2 of 3 lives left')
+    expect(c.querySelector('.ed-duel__card--wrong')).not.toBeNull()
+    expect(c.querySelector('.ed-duel__card--correct')).not.toBeNull() // the answer is revealed
 
-    // pair1: left (6) is higher, so the RIGHT card is the wrong (lower) pick.
-    await click(c.querySelectorAll('.ed-duel__cards button')[1])
-    expect(metricValue(c)).toBe('0') // streak reset
-
-    // A miss completes the run after ADVANCE_DELAY_WRONG.
-    expect(session.complete).not.toHaveBeenCalled()
+    // The run continues after ADVANCE_DELAY_WRONG — nothing is recorded yet.
     await advance(1500)
-    expect(session.complete).toHaveBeenCalledTimes(1)
-    const payload = session.complete.mock.calls[0][0] as {
-      answers: Array<{ leftId: number; rightId: number; pickedId: number }>
-    }
-    expect(payload.answers).toHaveLength(2)
-    expect(payload.answers[0].pickedId).toBe(102) // pair0: correct higher
-    expect(payload.answers[1].pickedId).toBe(104) // pair1: the lower (wrong) card
+    expect(session.complete).not.toHaveBeenCalled()
+    expect(c.textContent).toContain('HL-2a')
+
+    // A later correct read still adds to the total, so the score is every
+    // correct answer in the session and not the longest unbroken run.
+    await click(higher(c))
+    expect(metricValue(c)).toBe('2')
   })
 
-  it('shows the shared results screen with the completed streak and sharing', async () => {
+  it('the third miss ends the run and reports the total correct', async () => {
     const session = stage(pairs())
     session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
     const c = mount(<HigherLower />)
     await toRunning(c)
 
-    await click(c.querySelectorAll('.ed-duel__cards button')[1])
+    await click(higher(c)) // 1 correct
     await advance(800)
-    await click(c.querySelectorAll('.ed-duel__cards button')[1])
-    await advance(1500)
+    for (const life of [2, 1, 0]) {
+      await click(lower(c))
+      expect(livesLabel(c)).toBe(`${life} of 3 lives left`)
+      await advance(1500)
+    }
+
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const payload = session.complete.mock.calls[0][0] as {
+      answers: Array<{ leftId: number; rightId: number; pickedId: number }>
+    }
+    // One entry per pair PRESENTED — the misses are in the transcript too.
+    expect(payload.answers).toHaveLength(4)
+    expect(payload.answers[0].pickedId).toBe(101) // the higher card
+    expect(payload.answers.slice(1).map((answer) => answer.pickedId)).toEqual([104, 106, 108])
 
     expect(c.querySelector('[data-summary]')?.textContent).toContain('Higher / Lower complete')
-    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 streak')
+    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 correct')
     expect(c.querySelector('.ed-duel')).toBeNull()
     expect(c.querySelector('.shareline')?.textContent).toContain('Share score')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Play again')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Home')
   })
 
-  // All three streak/count modes read "Prev best" the same way: the record that
-  // stood BEFORE this run, with a recorded 0 treated as no best at all.
+  // All the count modes read "Prev best" the same way: the record that stood
+  // BEFORE this run, with a recorded 0 treated as no best at all.
   it('reports the standing record as the previous best, never the run just played', async () => {
-    vi.mocked(getRecords).mockReturnValue({ longestStreak: 5 })
+    vi.mocked(getRecords).mockReturnValue({ higherLowerBest: 5 })
     const session = stage(pairs())
     session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
     const c = mount(<HigherLower />)
     await toRunning(c)
 
-    await click(c.querySelectorAll('.ed-duel__cards button')[1]) // pair0 correct → streak 1
+    await click(higher(c)) // 1 correct
     await advance(800)
-    await click(c.querySelectorAll('.ed-duel__cards button')[1]) // pair1 miss → ends the run
-    await advance(1500)
+    for (let miss = 0; miss < 3; miss += 1) {
+      await click(lower(c))
+      await advance(1500)
+    }
 
-    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 streak')
-    expect(tileValue(c, 'Streak')).toBe('1')
+    expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 correct')
+    expect(tileValue(c, 'Correct')).toBe('1')
     expect(tileValue(c, 'Prev best')).toBe('5')
     expect(c.textContent).toContain('Best: 5')
   })
 
-  it('the shrink-window running out records the lower card as the miss', async () => {
+  it('the shrink-window running out costs a life and records the lower card', async () => {
     const session = stage(pairs())
     const c = mount(<HigherLower />)
     await toRunning(c)
     expect(metricValue(c)).toBe('0')
 
     // The shrink clock is a rAF loop comparing performance.now() to the round
-    // window (5000ms at streak 0). Jump the clock past it and step one frame.
-    mockNow += 6000
-    await act(async () => {
-      flushRaf()
-    })
+    // window (5000ms at round 0). Jump the clock past it and step one frame.
+    const timeOut = async () => {
+      mockNow += 6000
+      await act(async () => {
+        flushRaf()
+      })
+      await advance(1500)
+    }
 
-    // timeout() picked the lower card (id 101, elixir 3) as the miss.
-    await advance(1500)
+    await timeOut()
+    // A timeout is a miss: one life, and the run carries on.
+    expect(livesLabel(c)).toBe('2 of 3 lives left')
+    expect(session.complete).not.toHaveBeenCalled()
+
+    await timeOut()
+    await timeOut()
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0][0] as { answers: Array<{ pickedId: number }> }
-    expect(payload.answers).toHaveLength(1)
-    expect(payload.answers[0].pickedId).toBe(101)
+    // timeout() picked the lower card of each pair as the miss.
+    expect(payload.answers.map((answer) => answer.pickedId)).toEqual([102, 104, 106])
     expect(metricValue(c)).toBe('0')
   })
 })

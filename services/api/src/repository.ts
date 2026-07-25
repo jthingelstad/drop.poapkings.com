@@ -18,6 +18,8 @@ import {
   leaderboardPartition,
   leaderboardSortKey,
   MODE_RULES,
+  tiebreakAttributes,
+  tiebreakValues,
 } from "./games.js";
 import { allTimeLeaderboard, seasonLeaderboard } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
@@ -36,6 +38,7 @@ import type {
   PublicProfile,
   RunChallenge,
   RunRecord,
+  RunTiebreaks,
   StoredCrWarClock,
 } from "./types.js";
 
@@ -836,7 +839,7 @@ export class Repository {
     score: number,
     seasonId: string,
     xp: number,
-    tiebreakMs?: number,
+    tiebreaks?: RunTiebreaks,
     automaticReviewReason?: string,
   ): Promise<{
     totalGames: number;
@@ -846,6 +849,11 @@ export class Repository {
     const completedAt = new Date().toISOString();
     const ranked = run.ranked !== false;
     const leaderboardEligible = ranked && isLeaderboardEligibleScore(score);
+    // The mode's tiebreak values (Survival's cumulative time; Higher/Lower's
+    // lives lost then time) ride along on the row for display and for the
+    // GSI1SK fallback — the key below is built from the very attributes stored,
+    // so the two can never disagree.
+    const tiebreakItem = tiebreakAttributes(run.mode, tiebreaks);
     const historyItem = {
       pk: `PLAYER#${run.owner}`,
       sk: `RUN#${completedAt}#${run.runId}`,
@@ -855,9 +863,7 @@ export class Repository {
       seasonId,
       completedAt,
       playerSub: run.owner,
-      // Cumulative time (Survival) rides along for the leaderboard tiebreak and
-      // for display.
-      ...(tiebreakMs !== undefined ? { timeMs: tiebreakMs } : {}),
+      ...tiebreakItem,
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.
       ...(leaderboardEligible
@@ -868,7 +874,7 @@ export class Repository {
               score,
               completedAt,
               run.owner,
-              tiebreakMs,
+              tiebreakValues(run.mode, tiebreakItem),
             ),
           }
         : {}),
@@ -946,7 +952,7 @@ export class Repository {
             mode: run.mode,
             score,
             completedAt,
-            ...(tiebreakMs !== undefined ? { timeMs: tiebreakMs } : {}),
+            ...tiebreakItem,
             expiresAt: Math.floor(Date.now() / 1_000) + FEED_TTL_SECONDS,
           },
         },
@@ -1178,16 +1184,17 @@ export class Repository {
   async updateAllTimeBest(
     run: RunItem,
     score: number,
-    tiebreakMs: number | undefined,
+    tiebreaks: RunTiebreaks | undefined,
     completedAt: string,
   ): Promise<void> {
     if (!isLeaderboardEligibleScore(score)) return;
+    const tiebreakItem = tiebreakAttributes(run.mode, tiebreaks);
     const newSk = leaderboardSortKey(
       run.mode,
       score,
       completedAt,
       run.owner,
-      tiebreakMs,
+      tiebreakValues(run.mode, tiebreakItem),
     );
     const sets = [
       "GSI1PK = :gsi1pk",
@@ -1209,11 +1216,11 @@ export class Repository {
       ":playerSub": run.owner,
       ":runId": run.runId,
     };
-    // Survival's cumulative time rides along for display and is already folded
-    // into the sort key as the streak tiebreak.
-    if (tiebreakMs !== undefined) {
-      sets.push("timeMs = :timeMs");
-      values[":timeMs"] = tiebreakMs;
+    // The mode's tiebreak values ride along for display and are already folded
+    // into the sort key above.
+    for (const [field, value] of Object.entries(tiebreakItem)) {
+      sets.push(`${field} = :${field}`);
+      values[`:${field}`] = value;
     }
     try {
       await client.send(

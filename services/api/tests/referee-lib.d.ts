@@ -11,7 +11,7 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
     score: number,
     completedAt: string,
     sub: string,
-    tiebreakMs?: number,
+    tiebreaks?: number | readonly number[],
   ): string;
   export function isLeaderboardEligibleScore(score: number): boolean;
   export function rowSortKey(

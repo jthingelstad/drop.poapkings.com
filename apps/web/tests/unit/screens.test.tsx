@@ -288,8 +288,8 @@ describe('Leaderboards', () => {
     await flush()
 
     expect(getLeaderboard).toHaveBeenLastCalledWith('higher-lower', 'season', expect.any(AbortSignal))
-    // Higher/Lower scores read as a streak, not seconds.
-    expect(host.textContent).toContain('streak')
+    // Higher/Lower scores read as a count of correct reads, not seconds.
+    expect(host.textContent).toContain('correct')
     expect(host.textContent).not.toContain('4.20s')
   })
 

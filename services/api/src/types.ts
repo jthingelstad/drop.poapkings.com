@@ -20,6 +20,11 @@ export interface ModeRule {
   scoreUnit: "milliseconds" | "count" | "percent";
 }
 
+// The run attributes that can act as an ascending leaderboard tiebreak. The
+// per-mode ORDER lives with the sort key, in games.ts (MODE_TIEBREAKS).
+export type TiebreakField = "livesLost" | "timeMs";
+export type RunTiebreaks = Partial<Record<TiebreakField, number>>;
+
 export interface SessionClaims {
   type: "session";
   sub: string;
@@ -126,6 +131,9 @@ export interface EvidenceItem {
   // referee review. Empty/absent means no automatic flag.
   reviewSignals?: string[];
   score?: number;
+  // Ordered leaderboard tiebreak values, by field name. Evidence written before
+  // 2026-07-25 carries the older flat `tiebreakMs` instead.
+  tiebreaks?: RunTiebreaks;
   tiebreakMs?: number;
   challenge: RunChallenge;
   transcript: RunTranscript;

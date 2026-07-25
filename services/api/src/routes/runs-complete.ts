@@ -10,7 +10,12 @@ import { cardResultsFromTranscript, mergeCardStats } from "../learning.js";
 import { levelForGames } from "../progression.js";
 import { buildEvidenceItem, deriveCorrelation } from "../referee-evidence.js";
 import type { Repository, RunItem } from "../repository.js";
-import { scoreRun, scoreRunWithSignals, survivalTimeMs } from "../scoring.js";
+import {
+  higherLowerTiebreaks,
+  scoreRun,
+  scoreRunWithSignals,
+  survivalTimeMs,
+} from "../scoring.js";
 import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
 import type { Correlation, PlayerProfile, RunTranscript } from "../types.js";
@@ -190,7 +195,12 @@ async function recordSignedInRun(
   );
   const { score, transcript, scoringReviewSignals } = scored;
 
-  const integrity = assessRunIntegrity(run.mode, score, wallElapsedMs);
+  const integrity = assessRunIntegrity(
+    run.mode,
+    score,
+    wallElapsedMs,
+    Array.isArray(transcript.answers) ? transcript.answers.length : undefined,
+  );
   const automaticReviewSignals = [
     ...scoringReviewSignals,
     ...(!integrity.eligible ? [integrity.reason] : []),
@@ -228,15 +238,18 @@ async function recordSignedInRun(
   // no progression. The exclusion is stated here, at the call site, rather than
   // buried as a mode branch inside runXp.
   const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
-  // Survival ranks equal streaks by fastest cumulative time.
-  const tiebreakMs =
-    run.mode === "survival" ? survivalTimeMs(transcript, score) : undefined;
+  // Survival ranks equal streaks by fastest cumulative time; Higher/Lower ranks
+  // equal scores by fewest lives lost, and only then by cumulative time.
+  const tiebreaks =
+    run.mode === "survival"
+      ? { timeMs: survivalTimeMs(transcript, score) }
+      : higherLowerTiebreaks(run.challenge, transcript);
   const result = await repository.completeRun(
     run,
     score,
     season.id,
     xpAward,
-    tiebreakMs,
+    tiebreaks,
     automaticReviewReason,
   );
   await updateLearningStats(repository, run, transcript, result.completedAt);
@@ -248,7 +261,7 @@ async function recordSignedInRun(
       await repository.updateAllTimeBest(
         run,
         score,
-        tiebreakMs,
+        tiebreaks,
         result.completedAt,
       );
     } catch (error) {
@@ -272,7 +285,7 @@ async function recordSignedInRun(
           integrityOutcome: automaticReviewReason ?? "accepted",
           reviewSignals: automaticReviewSignals,
           score,
-          tiebreakMs,
+          tiebreaks,
           challenge: run.challenge,
           transcript,
           startedAt: run.startedAt,

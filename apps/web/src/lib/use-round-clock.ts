@@ -21,7 +21,11 @@ interface ShrinkingWindowOptions {
   windowMs: () => number
   /** Fraction of the window left (1 → 0). Drives the depleting progress bar. */
   remaining: Signal<number>
-  /** The window closed. Fires once; the loop stops instead of rescheduling. */
+  /**
+   * The window closed. Fires at most ONCE per round and re-arms when the next
+   * round is dealt — Higher/Lower survives a timeout (it costs a life, not the
+   * run), so the loop has to outlive the expiry it just reported.
+   */
   onExpire: () => void
 }
 
@@ -42,14 +46,18 @@ export function useShrinkingWindow({
   useEffect(() => {
     if (!running) return
     let raf = 0
+    // The round stamp an expiry was already reported for. Each round gets a
+    // fresh `performance.now()` stamp, so this both de-duplicates the expiry
+    // within a round and re-arms the clock for the next one.
+    let expiredAt = 0
     const loop = () => {
       const current = latest.current
-      if (current.ticking() && startedAt.current > 0) {
+      if (current.ticking() && startedAt.current > 0 && startedAt.current !== expiredAt) {
         const frac = 1 - (performance.now() - startedAt.current) / current.windowMs()
         remaining.value = Math.max(0, frac)
         if (frac <= 0) {
+          expiredAt = startedAt.current
           current.onExpire()
-          return
         }
       }
       raf = requestAnimationFrame(loop)

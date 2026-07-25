@@ -287,3 +287,44 @@ describe("leaderboard read bounds", () => {
     });
   });
 });
+
+// A board row publishes a time only where time is that board's ONLY tiebreak.
+// Higher/Lower ranks equal scores by lives lost first, so a row showing just the
+// time would order visible ties in a way the row cannot explain.
+describe("leaderboard row tiebreak display", () => {
+  beforeEach(() => {
+    send.mockReset();
+  });
+
+  function boardWith(mode: string) {
+    send.mockImplementation((command: { input: { IndexName?: string } }) => {
+      if (command.input.IndexName === "GSI1")
+        return Promise.resolve({
+          Items: [
+            {
+              runId: "run-a",
+              playerSub: "player-a",
+              mode,
+              score: 26,
+              completedAt: "2026-07-25T00:00:00.000Z",
+              livesLost: 1,
+              timeMs: 31_400,
+            },
+          ],
+        });
+      return Promise.resolve({ Responses: {} });
+    });
+    return seasonLeaderboard("test-table", mode as never, "2026-07", 50);
+  }
+
+  it("shows Survival's cumulative time, its single tiebreak", async () => {
+    expect(await boardWith("survival")).toMatchObject([{ timeMs: 31_400 }]);
+  });
+
+  it("publishes no time on the two-tiebreak Higher/Lower board", async () => {
+    const rows = await boardWith("higher-lower");
+    expect(rows[0]).toMatchObject({ rank: 1, score: 26 });
+    expect(rows[0]).not.toHaveProperty("timeMs");
+    expect(rows[0]).not.toHaveProperty("livesLost");
+  });
+});

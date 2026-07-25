@@ -165,15 +165,24 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | -------------- | ---------------- | ------------------------------------------- |
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
 | Practice       | `#/practice`     | none — **endless, unranked, unscored**      |
-| Higher / Lower | `#/higher-lower` | `longestStreak`                             |
+| Higher / Lower | `#/higher-lower` | `higherLowerBest`, total correct reads      |
 | Trade          | `#/trade`        | `tradeBest`, lowest 8-exchange time         |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
 | Rain           | `#/rain`         | `rainBest`, most cards cleared              |
 
-Survival and Rain each carry a **board epoch** (`BOARD_EPOCH` in
+Survival, Rain, and Higher / Lower each carry a **board epoch** (`BOARD_EPOCH` in
 `services/api/src/games.ts`, mirrored in `AGENT-TEAM/scripts/_referee-lib.mjs`): a
 material rules change restarts the board rather than deleting data, and old rows
-are orphaned. Both are on `r2`.
+are orphaned. All three are on `r2`.
+
+Equal scores are separated by **ordered ascending tiebreaks**
+(`MODE_TIEBREAKS`), each emitted as a 9-digit segment of the sort key in ranking
+order: Survival ranks by cumulative time; Higher / Lower ranks by fewest lives
+lost, then cumulative time. The values ride along on the run row under their own
+attribute names (`livesLost`, `timeMs`) so the GSI1SK fallback can rebuild the
+exact key. **Every row in one partition must emit the same number of segments** —
+mixing shapes compares a 9-digit number against an ISO timestamp at the same
+offset — which is why a mode gaining a second tiebreak also takes a new epoch.
 
 Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
@@ -294,7 +303,7 @@ Learning progress, owned by `lib/storage.ts` (`localStorage`):
 ```text
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
-elixirdrop:records       -> { surgeBest, surgeBestPace, longestStreak,
+elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerBest,
                               survivalBest, tradeBest, rainBest }
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
@@ -539,7 +548,8 @@ table, co-located with the player's partition so account deletion
 (`DELETE /me`) sweeps it for free. Each item carries: `runId`, `mode`,
 `seasonId`, `runType` (`ranked`/`unscored`; legacy `rejected` remains readable), `integrityOutcome` (`accepted`, an
 automatic-review reason, or an unscored reason), optional machine-readable
-`reviewSignals`, server-recomputed candidate `score` (+ Survival `tiebreakMs`),
+`reviewSignals`, server-recomputed candidate `score` (+ the mode's ordered
+`tiebreaks`; evidence written before 2026-07-25 carries a flat `tiebreakMs`),
 the full
 signed `challenge`, the full raw `transcript`, `startedAt`/`completedAt`/
 `wallElapsedMs`, a `scoringVersion` (`{ web: build sha, rules: SCORING_RULES_VERSION }`),

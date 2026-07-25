@@ -151,9 +151,12 @@ function historyRun(options: {
   score: number;
   completedAt: string;
   timeMs?: number;
+  // Higher/Lower's first tiebreak. Present only for that mode's rows.
+  livesLost?: number;
   indexed: boolean;
 }): Item {
-  const { sub, runId, mode, score, completedAt, timeMs } = options;
+  const { sub, runId, mode, score, completedAt, timeMs, livesLost } = options;
+  const tiebreaks = livesLost === undefined ? timeMs : [livesLost, timeMs ?? 0];
   return {
     pk: `PLAYER#${sub}`,
     sk: `RUN#${completedAt}#${runId}`,
@@ -163,11 +166,12 @@ function historyRun(options: {
     seasonId: SEASON_ID,
     completedAt,
     playerSub: sub,
+    ...(livesLost !== undefined ? { livesLost } : {}),
     ...(timeMs !== undefined ? { timeMs } : {}),
     ...(options.indexed
       ? {
           GSI1PK: leaderboardPartition(SEASON_ID, mode),
-          GSI1SK: leaderboardSortKey(mode, score, completedAt, sub, timeMs),
+          GSI1SK: leaderboardSortKey(mode, score, completedAt, sub, tiebreaks),
         }
       : {}),
   };
@@ -402,6 +406,9 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
     expect(scriptsLeaderboardPartition("2026-07", "rain")).toBe(
       "LEADERBOARD#2026-07#rain#r2",
     );
+    expect(scriptsLeaderboardPartition("2026-07", "higher-lower")).toBe(
+      "LEADERBOARD#2026-07#higher-lower#r2",
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -464,6 +471,41 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
         }
       }
     }
+  });
+
+  it("builds byte-identical sort keys for ordered multi-value tiebreaks", () => {
+    // Higher/Lower ranks equal scores by lives lost THEN time, so the key
+    // carries two ordered segments. A mirror that emitted them in the other
+    // order, or dropped one, would rebuild a different key for the same run.
+    const ordered = [
+      [],
+      [0, 0],
+      [1, 42_000],
+      [2, 1_234.6], // rounds
+      [3, -5], // clamps to 0
+      [0, 5_000_000_000], // clamps to 999_999_999
+      [999_999_999, 999_999_999],
+    ];
+    for (const mode of GAME_MODES) {
+      for (const score of [1, 26, 100_000]) {
+        for (const values of ordered) {
+          const completedAt = "2026-07-25T09:30:00.000Z";
+          expect(
+            scriptsLeaderboardSortKey(
+              mode,
+              score,
+              completedAt,
+              "sub-a",
+              values,
+            ),
+          ).toBe(leaderboardSortKey(mode, score, completedAt, "sub-a", values));
+        }
+      }
+    }
+    // And an empty list is the no-tiebreak key, exactly like `undefined`.
+    expect(
+      scriptsLeaderboardSortKey("surge", 5, "2026-07-25T00:00:00Z", "s", []),
+    ).toBe(leaderboardSortKey("surge", 5, "2026-07-25T00:00:00Z", "s"));
   });
 
   it("mirrors each mode's scoring direction, so no board ranks backwards", () => {
@@ -531,6 +573,21 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
           indexed: false,
         }),
       },
+      {
+        // Two ordered tiebreaks: the fallback must rebuild BOTH segments, in
+        // the mode's ranking order.
+        mode: "higher-lower",
+        row: historyRun({
+          sub: "sub-e",
+          runId: "run-5",
+          mode: "higher-lower",
+          score: 26,
+          completedAt: "2026-07-25T00:00:00.000Z",
+          livesLost: 2,
+          timeMs: 31_400,
+          indexed: false,
+        }),
+      },
     ];
     for (const { mode, row } of rows) {
       const canonical =
@@ -541,10 +598,43 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
               Number(row.score),
               String(row.completedAt),
               String(row.playerSub),
-              row.timeMs === undefined ? undefined : Number(row.timeMs),
+              mode === "higher-lower"
+                ? [Number(row.livesLost), Number(row.timeMs)]
+                : row.timeMs === undefined
+                  ? undefined
+                  : Number(row.timeMs),
             );
       expect(rowSortKey(row, mode)).toBe(canonical);
     }
+  });
+
+  it("orders Higher/Lower rows by lives lost, then time, on the fallback path", () => {
+    // Same score, no stored GSI1SK: the referee's rebuilt key has to reproduce
+    // the two-tiebreak ranking or a cohort is reviewed in the wrong order.
+    const row = (runId: string, livesLost: number, timeMs: number) =>
+      historyRun({
+        sub: `sub-${runId}`,
+        runId,
+        mode: "higher-lower",
+        score: 26,
+        completedAt: "2026-07-25T00:00:00.000Z",
+        livesLost,
+        timeMs,
+        indexed: false,
+      });
+    const clean = row("clean", 0, 90_000);
+    const oneLife = row("one-life", 1, 30_000);
+    const oneLifeSlow = row("one-life-slow", 1, 45_000);
+    const sorted = [oneLifeSlow, oneLife, clean].sort((a, b) =>
+      rowSortKey(a, "higher-lower").localeCompare(
+        rowSortKey(b, "higher-lower"),
+      ),
+    );
+    expect(sorted.map((item) => item.runId)).toEqual([
+      "clean",
+      "one-life",
+      "one-life-slow",
+    ]);
   });
 
   it("orders un-indexed rows best-first in every mode's own direction", () => {
@@ -864,7 +954,7 @@ async function itemsTheApiWrites(): Promise<Array<[string, Item]>> {
   };
   // Accepted run: history row + public feed row.
   send.mockResolvedValueOnce({}).mockResolvedValueOnce(storedProfile);
-  await repository.completeRun(run, 61, SEASON_ID, 9, 44_500);
+  await repository.completeRun(run, 61, SEASON_ID, 9, { timeMs: 44_500 });
   takePuts();
   // Quarantined run: history row + automatic referee decision rows.
   send.mockResolvedValueOnce({}).mockResolvedValueOnce(storedProfile);
@@ -873,7 +963,7 @@ async function itemsTheApiWrites(): Promise<Array<[string, Item]>> {
     61,
     SEASON_ID,
     9,
-    44_500,
+    { timeMs: 44_500 },
     "impossible_pace",
   );
   takePuts();
@@ -882,7 +972,7 @@ async function itemsTheApiWrites(): Promise<Array<[string, Item]>> {
   await repository.updateAllTimeBest(
     run,
     61,
-    44_500,
+    { timeMs: 44_500 },
     "2026-07-14T09:30:00.000Z",
   );
   takePuts();
@@ -897,7 +987,7 @@ async function itemsTheApiWrites(): Promise<Array<[string, Item]>> {
       runType: "ranked",
       integrityOutcome: "accepted",
       score: 61,
-      tiebreakMs: 44_500,
+      tiebreaks: { timeMs: 44_500 },
       challenge: { mode: "survival", cardIds: [26_000_000] },
       transcript: { answers: [] },
       startedAt: "2026-07-14T09:29:00.000Z",

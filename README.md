@@ -17,8 +17,9 @@ Six ways to play, one card-cost engine:
 - **Practice** — untimed, endless cost recall, weighted toward the cards you keep
   getting wrong. A card appears, you pick its elixir cost, and you stop when you
   want. True practice: no score, no record, no XP, never a leaderboard.
-- **Higher / Lower** — two cards, pick which costs more. Trains the relative read
-  that wins elixir trades.
+- **Higher / Lower** — two cards, pick which costs more, on three lives. The gap
+  between the two costs narrows as you go. Trains the relative read that wins
+  elixir trades.
 - **Trade** — Blue King vs. Red King elixir math across eight exchanges.
 - **Survival** — sudden death; one miss or timeout ends the run, and the clock
   tightens as your streak grows.

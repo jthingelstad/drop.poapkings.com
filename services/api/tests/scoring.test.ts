@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import {
   createChallenge,
+  higherLowerGap,
+  higherLowerTiebreaks,
   scoreRun,
   scoreRunWithSignals,
   SURGE_CARD_COUNT,
@@ -25,6 +27,44 @@ const byId = new Map(allCards.map((card) => [card.id, card]));
 
 function cost(id: number): number {
   return byId.get(id)!.elixir;
+}
+
+// ── Higher/Lower fixtures ───────────────────────────────────────────────────
+// A run of `count` alternating-side pairs of one cheap and one expensive card,
+// plus a transcript builder that says which rounds the player read correctly.
+const hlLow = allCards.find((card) => card.elixir <= 2)!;
+const hlHigh = allCards.find((card) => card.elixir >= 5)!;
+
+function higherLowerChallenge(count: number) {
+  return {
+    mode: "higher-lower" as const,
+    pairs: Array.from({ length: count }, (_unused, index) =>
+      index % 2 === 0
+        ? ([hlLow.id, hlHigh.id] as [number, number])
+        : ([hlHigh.id, hlLow.id] as [number, number]),
+    ),
+  };
+}
+
+// `reads` is one entry per round presented: true = tapped the higher card.
+// `elapsed` overrides the response time for a round, so a round can be failed
+// on the clock rather than on the pick.
+function higherLowerAnswers(
+  challenge: ReturnType<typeof higherLowerChallenge>,
+  reads: boolean[],
+  elapsed: Record<number, number> = {},
+) {
+  return reads.map((correct, index) => {
+    const pair = challenge.pairs[index]!;
+    const higherId = cost(pair[0]) > cost(pair[1]) ? pair[0] : pair[1];
+    const lowerId = higherId === pair[0] ? pair[1] : pair[0];
+    return {
+      leftId: pair[0],
+      rightId: pair[1],
+      pickedId: correct ? higherId : lowerId,
+      elapsedMs: elapsed[index] ?? 800,
+    };
+  });
 }
 
 describe("server-side game scoring", () => {
@@ -138,39 +178,126 @@ describe("server-side game scoring", () => {
     ).toThrow(/Practice answer is invalid/);
   });
 
-  it("ends a Higher/Lower score at the first miss", () => {
-    const low = cards.find((card) => card.elixir <= 2) ?? cards[0]!;
-    const high = cards.find((card) => card.elixir >= 5) ?? cards.at(-1)!;
-    const pairs: Array<[number, number]> = [
-      [low.id, high.id],
-      [high.id, low.id],
-    ];
-    const answers = [
-      // Taps the higher-cost card in time — correct.
-      { leftId: low.id, rightId: high.id, pickedId: high.id, elapsedMs: 800 },
-      // Taps the lower-cost card — the miss ends the run.
-      { leftId: high.id, rightId: low.id, pickedId: low.id, elapsedMs: 900 },
-    ];
-    expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 5_000)).toBe(
-      1,
-    );
+  it("counts every correct Higher/Lower read through one and two misses", () => {
+    // One miss: the run keeps going and the later reads still score.
+    const three = higherLowerChallenge(3);
+    expect(
+      scoreRun(
+        three,
+        { answers: higherLowerAnswers(three, [true, false, true]) },
+        20_000,
+      ),
+    ).toBe(2);
+
+    // Two misses: still alive, and the score is the TOTAL correct — not the
+    // longest unbroken streak, which would be 2 here.
+    const six = higherLowerChallenge(6);
+    expect(
+      scoreRun(
+        six,
+        {
+          answers: higherLowerAnswers(six, [
+            true,
+            false,
+            true,
+            true,
+            false,
+            true,
+          ]),
+        },
+        20_000,
+      ),
+    ).toBe(4);
   });
 
-  it("times out a Higher/Lower answer that misses the response window", () => {
-    const low = cards.find((card) => card.elixir <= 2) ?? cards[0]!;
-    const high = cards.find((card) => card.elixir >= 5) ?? cards.at(-1)!;
-    const pairs: Array<[number, number]> = [
-      [low.id, high.id],
-      [low.id, high.id],
-    ];
-    // The higher card is tapped, but slower than the 5s opening window (+250ms
-    // tolerance): the timeout ends the run at zero.
-    const answers = [
-      { leftId: low.id, rightId: high.id, pickedId: high.id, elapsedMs: 6_000 },
-    ];
-    expect(scoreRun({ mode: "higher-lower", pairs }, { answers }, 7_000)).toBe(
-      0,
+  it("ends a Higher/Lower run on the third miss and rejects a fourth", () => {
+    const challenge = higherLowerChallenge(6);
+    // Three misses is a complete run: the deck is not exhausted, but the lives
+    // are, so no "run has not ended" signal is raised.
+    expect(
+      scoreRun(
+        challenge,
+        { answers: higherLowerAnswers(challenge, [true, false, false, false]) },
+        20_000,
+      ),
+    ).toBe(1);
+
+    // A fourth failure is a transcript claiming more misses than the game allows.
+    expect(() =>
+      scoreRun(
+        challenge,
+        {
+          answers: higherLowerAnswers(challenge, [false, false, false, false]),
+        },
+        20_000,
+      ),
+    ).toThrow(/past three lives/);
+
+    // So is any round played after the third life is gone, even a correct one.
+    expect(() =>
+      scoreRun(
+        challenge,
+        { answers: higherLowerAnswers(challenge, [false, false, false, true]) },
+        20_000,
+      ),
+    ).toThrow(/past three lives/);
+  });
+
+  it("validates each Higher/Lower response against its own round's window", () => {
+    const challenge = higherLowerChallenge(6);
+    // 4.9s is inside the 5s opening window but far past round 5's 3.75s one, so
+    // the same response time passes early and fails late — one life, not the run.
+    const answers = higherLowerAnswers(
+      challenge,
+      [true, true, true, true, true, true],
+      { 0: 4_900, 5: 4_900 },
     );
+    expect(scoreRun(challenge, { answers }, 40_000)).toBe(5);
+  });
+
+  it("returns both Higher/Lower tiebreaks: lives lost, then cumulative time", () => {
+    const challenge = higherLowerChallenge(5);
+    const answers = higherLowerAnswers(
+      challenge,
+      [true, false, true, false, true],
+      { 0: 500, 1: 1_000, 2: 600, 3: 1_200, 4: 700 },
+    );
+    expect(higherLowerTiebreaks(challenge, { answers })).toEqual({
+      livesLost: 2,
+      // Every round presented counts toward the time, misses included.
+      timeMs: 4_000,
+    });
+    // Only Higher/Lower has these; every other mode reads back undefined.
+    expect(
+      higherLowerTiebreaks({ mode: "surge", cardIds }, { answers: [] }),
+    ).toBeUndefined();
+  });
+
+  it("ramps the Higher/Lower gap from wide opening pairs to 1-elixir calls", () => {
+    // The gap is randomised between the two neighbouring bands, so pin both
+    // extremes: () => 0 always rounds up, (n) => n - 1 always rounds down.
+    const widest = (round: number) => higherLowerGap(round, () => 0);
+    const tightest = (round: number) => higherLowerGap(round, (n) => n - 1);
+
+    // The opening is held fully wide — a 4+ elixir gap reads at a glance.
+    for (let round = 0; round <= 5; round += 1) {
+      expect(widest(round)).toBe(4);
+      expect(tightest(round)).toBe(4);
+    }
+    // The middle of a run blends 2s and 3s rather than stepping down a stair.
+    expect(tightest(10)).toBe(2);
+    expect(widest(10)).toBe(3);
+    expect(tightest(13)).toBe(2);
+    // Deep rounds are the hardest call the mode can ask for, and stay there.
+    for (const round of [18, 40, 249]) {
+      expect(widest(round)).toBe(1);
+      expect(tightest(round)).toBe(1);
+    }
+    // It never gets easier as the run goes on.
+    for (let round = 1; round < 60; round += 1) {
+      expect(tightest(round)).toBeLessThanOrEqual(tightest(round - 1));
+      expect(widest(round)).toBeLessThanOrEqual(widest(round - 1));
+    }
   });
 
   it("validates Trade transcripts", () => {
@@ -207,7 +334,7 @@ describe("server-side game scoring", () => {
     ).toBe(1);
   });
 
-  it("puts Survival and Rain on reset board epochs while other modes stay put", () => {
+  it("puts the reworked modes on reset board epochs while others stay put", () => {
     expect(leaderboardPartition("2026-07", "survival")).toBe(
       "LEADERBOARD#2026-07#survival#r2",
     );
@@ -218,6 +345,11 @@ describe("server-side game scoring", () => {
     );
     expect(leaderboardPartition("ALLTIME", "rain")).toBe(
       "LEADERBOARD#ALLTIME#rain#r2",
+    );
+    // Higher/Lower restarted with three lives + the gap ramp: a one-life score
+    // measured something else entirely and cannot share a board.
+    expect(leaderboardPartition("2026-07", "higher-lower")).toBe(
+      "LEADERBOARD#2026-07#higher-lower#r2",
     );
     expect(leaderboardPartition("2026-07", "surge")).toBe(
       "LEADERBOARD#2026-07#surge",
@@ -347,11 +479,13 @@ describe("server-side game scoring", () => {
 
   it("deals Higher/Lower pairs with a strictly higher card (never equal)", () => {
     const challenge = createChallenge("higher-lower", randomInt);
-    expect(challenge.pairs.length).toBeGreaterThan(0);
+    expect(challenge.pairs).toHaveLength(250);
     for (const [a, b] of challenge.pairs) {
-      // Two distinct cards whose costs always differ, so tapping "the higher
-      // card" is never ambiguous.
+      // Two distinct cards, both real catalog cards, whose costs always differ —
+      // so tapping "the higher card" is never ambiguous.
       expect(a).not.toBe(b);
+      expect(byId.has(a)).toBe(true);
+      expect(byId.has(b)).toBe(true);
       expect(cost(a)).not.toBe(cost(b));
     }
     // No card repeats from the immediately previous pair.
@@ -360,6 +494,41 @@ describe("server-side game scoring", () => {
       expect(prev.has(challenge.pairs[index]![0])).toBe(false);
       expect(prev.has(challenge.pairs[index]![1])).toBe(false);
     }
+  });
+
+  it("opens Higher/Lower on wide gaps and narrows to 1-elixir calls", () => {
+    const gaps = createChallenge("higher-lower", randomInt).pairs.map(
+      ([a, b]) => Math.abs(cost(a) - cost(b)),
+    );
+    // The opening rounds — where 4 in 10 runs used to die — are all readable.
+    // The top band is "4 or wider", so an opening pair may be wider still.
+    for (const gap of gaps.slice(0, 6)) expect(gap).toBeGreaterThanOrEqual(4);
+    // Then it narrows band by band, blending two neighbours at a time.
+    for (const gap of gaps.slice(6, 10)) expect(gap).toBeGreaterThanOrEqual(3);
+    for (const gap of gaps.slice(10, 14)) expect([2, 3]).toContain(gap);
+    for (const gap of gaps.slice(14, 18)) expect([1, 2]).toContain(gap);
+    // Past the ramp every pair is the hardest kind of call, for the whole deck.
+    for (const gap of gaps.slice(18)) expect(gap).toBe(1);
+  });
+
+  it("ranks equal Higher/Lower scores by lives lost, then cumulative time", () => {
+    const key = (
+      score: number,
+      livesLost: number,
+      timeMs: number,
+      sub: string,
+    ) =>
+      leaderboardSortKey("higher-lower", score, "2026-07-25T00:00:00Z", sub, [
+        livesLost,
+        timeMs,
+      ]);
+    // Ascending GSI order → the smaller key ranks higher.
+    // Fewer lives lost wins even when the run took longer.
+    expect(key(20, 0, 90_000, "a") < key(20, 1, 30_000, "b")).toBe(true);
+    // Same score and same lives lost → the faster run wins.
+    expect(key(20, 1, 30_000, "a") < key(20, 1, 45_000, "b")).toBe(true);
+    // Score still outranks both tiebreaks.
+    expect(key(21, 3, 90_000, "c") < key(20, 0, 1_000, "d")).toBe(true);
   });
 
   it("tightens the Survival window as the streak grows", () => {

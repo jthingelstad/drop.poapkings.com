@@ -20,8 +20,8 @@ built without a fresh product decision.**
 the same server-signed challenge and scored the same way, but the run records
 **nothing** — no leaderboard, no all-time, no XP, no history. After a guest run
 the summary shows a "Create an account to save this score" nudge (Surge,
-Practice, Survival via the shared `Summary`; Trade on its own result screen;
-Higher / Lower shows a small persistent "Sign in to save your streak" line).
+Practice, Higher / Lower, Survival, and Rain via the shared `Summary`; Trade on
+its own result screen).
 Local personal bests still track on-device — except Practice, which keeps no
 best for anyone. Signing in unlocks recording and ranking.
 
@@ -120,19 +120,48 @@ feeds the server-owned learning stats (`services/api/src/learning.ts`).
   adjacent but randomly offset, so the option set never names the answer.
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
-Two cards, costs hidden; **tap the card that costs more elixir**. Endless
-streak. Pairs are generated so the two cards **never share an elixir cost**
-(server `higherLowerPairs`), so there is always a strictly higher card and no
-"equal" option is needed — the whole card is the tap target (no separate
-controls; far easier on mobile). Each round runs a **shrinking response clock**:
-5s to read the opening pair, 250ms less every round it survives, down to a 2s
-floor (`higherLowerWindowMs`, shared by the client countdown and the server
-scorer with a 250ms boundary tolerance). A wrong tap **or a timeout** ends the
-run. Correct advances in 750ms; a miss holds 1.4s, resets the streak, and leaves
-the revealed result in place until the player explicitly starts another run.
-Trains the relative read that wins elixir trades.
+Two cards, costs hidden; **tap the card that costs more elixir**. Pairs are
+generated so the two cards **never share an elixir cost** (server
+`higherLowerPairs`), so there is always a strictly higher card and no "equal"
+option is needed — the whole card is the tap target (no separate controls; far
+easier on mobile). The player has **three lives**, rendered with the same
+heart / heart-crack row Rain uses. Trains the relative read that wins elixir
+trades.
 
-- Record: `longestStreak`.
+**Score is total correct reads across the session**, not the longest unbroken
+run — the same shape as Rain. A wrong tap **or a timeout** reveals the answer,
+costs one life, and the run **continues**; the run ends when the third life
+goes. Correct advances in 750ms; a miss holds 1.4s, and the final miss leaves
+the revealed result in place until the player explicitly starts another run.
+
+Two difficulty axes, one of which is deliberately frozen:
+
+- **The clock is unchanged.** 5s to read the opening pair, 250ms less every
+  round, down to a 2s floor (`higherLowerWindowMs`, shared by the client
+  countdown and the server scorer with a 250ms boundary tolerance). The round
+  index counts **every pair presented, missed ones included** — client and
+  server agree on that definition.
+- **The elixir gap ramps.** Gaps used to be uniformly random forever, which made
+  the hardest possible pair (a 1-elixir gap) the single most common opening.
+  Now the target gap is a pure function of the round index (`higherLowerGap`):
+  4+ elixir for the first ~6 rounds, blending down through 3s and 2s, and a
+  1-elixir call from round 18 on. The fractional part of the target is spent as
+  a weighted coin flip between neighbouring gaps, so the bands blend instead of
+  stepping. The cost pair is chosen before the cards, weighted by how many card
+  pairings each cost pair can make — the catalog has 34 four-cost cards but
+  exactly one 8 and one 9, so an unweighted draw would put Golem and Three
+  Musketeers in most wide openings.
+
+- Record: `higherLowerBest` (total correct). Renamed from `longestStreak`, which
+  orphans existing on-device bests on purpose — a 28 set under one life is not
+  the same measurement.
+- Leaderboard tiebreak: **score, then fewest lives lost, then fastest cumulative
+  time** (the sort key's first mode with two ordered tiebreaks).
+- Board epoch `r2` (2026-07-25). The one-life board is retired: 40% of runs
+  scored zero and 58% scored under 3, so those scores measured "how far before
+  the first mistake" over uniformly random pairs — not comparable to a
+  three-life run over a ramped deal. Old rows are orphaned, not deleted
+  (`BOARD_EPOCH` in `services/api/src/games.ts`).
 
 **Trade** — `/trade` · `apps/web/src/modes/trade/`
 You are always Blue King; Red is the opponent. Blue plays 1–3 dealt cards and

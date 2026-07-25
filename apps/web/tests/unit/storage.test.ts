@@ -8,12 +8,12 @@ describe('storage seam', () => {
 
     saveRecords({
       surgeBest: 28_600,
-      longestStreak: 9,
+      higherLowerBest: 9,
       tradeBest: 8_900
     })
     expect(getRecords()).toMatchObject({
       surgeBest: 28_600,
-      longestStreak: 9,
+      higherLowerBest: 9,
       tradeBest: 8_900
     })
 

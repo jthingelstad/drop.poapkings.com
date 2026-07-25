@@ -36,7 +36,7 @@ export const GAMES: GameInfo[] = [
     path: '/higher-lower',
     name: 'Higher / Lower',
     icon: '⚖️',
-    description: 'Two cards — which one costs more?'
+    description: 'Two cards — which one costs more? 3 lives.'
   },
   {
     mode: 'trade',
@@ -97,7 +97,7 @@ export function isRecordedMode(mode: GameMode): mode is RecordedMode {
 
 export const RECORD_KEYS: Record<RecordedMode, NumericRecordKey> = {
   surge: 'surgeBest',
-  'higher-lower': 'longestStreak',
+  'higher-lower': 'higherLowerBest',
   trade: 'tradeBest',
   survival: 'survivalBest',
   rain: 'rainBest'
@@ -109,6 +109,9 @@ export function scoreLabel(mode: GameMode, score: number): string {
   // summary — never as a record or a leaderboard row.
   if (mode === 'practice') return `${Math.round(score)}%`
   if (mode === 'rain') return `${Math.round(score)} cleared`
+  // Higher/Lower runs on three lives, so its score is total correct reads, not
+  // a streak. Survival is still sudden death, and still a streak.
+  if (mode === 'higher-lower') return `${Math.round(score)} correct`
   return `${Math.round(score)} streak`
 }
 

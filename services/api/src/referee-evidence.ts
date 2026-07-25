@@ -5,6 +5,7 @@ import type {
   EvidenceItem,
   GameMode,
   RunChallenge,
+  RunTiebreaks,
   RunTranscript,
 } from "./types.js";
 
@@ -102,7 +103,10 @@ export interface BuildEvidenceInput {
   integrityOutcome: string;
   reviewSignals?: string[];
   score?: number;
-  tiebreakMs?: number;
+  // The mode's ordered leaderboard tiebreaks (Survival's cumulative time;
+  // Higher/Lower's lives lost and time), kept as an object so a mode can add a
+  // second one without the evidence shape guessing what a bare number meant.
+  tiebreaks?: RunTiebreaks;
   challenge: RunChallenge;
   transcript: RunTranscript;
   startedAt: string;
@@ -133,7 +137,9 @@ export function buildEvidenceItem(input: BuildEvidenceInput): EvidenceItem {
       ? { reviewSignals: input.reviewSignals }
       : {}),
     ...(input.score !== undefined ? { score: input.score } : {}),
-    ...(input.tiebreakMs !== undefined ? { tiebreakMs: input.tiebreakMs } : {}),
+    ...(input.tiebreaks && Object.keys(input.tiebreaks).length
+      ? { tiebreaks: input.tiebreaks }
+      : {}),
     challenge: input.challenge,
     transcript: input.transcript,
     startedAt: input.startedAt,

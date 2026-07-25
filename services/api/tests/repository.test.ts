@@ -903,7 +903,7 @@ describe("repository DynamoDB requests", () => {
     await new Repository("test-table").updateAllTimeBest(
       { ...allTimeRun, mode: "survival" },
       40,
-      95_400,
+      { timeMs: 95_400 },
       "2026-07-18T12:05:00.000Z",
     );
 

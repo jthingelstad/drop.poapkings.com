@@ -86,12 +86,20 @@ skipped it; if you are reading a review older than that, Rain was not covered.
 `BOARD_EPOCH` mirrors `services/api/src/games.ts`. A mode whose rules change
 materially gets a new epoch so its board restarts without deleting data — old
 rows are orphaned, and the scripts only ever see the current epoch. Survival is
-on `r2` (clear-the-deck rework) and Rain on `r2` (2026-07-24 difficulty
-redesign: the old curve capped at 50 clears). **Keep this in sync with the API**
-— a stale mirror reads the wrong partition and silently returns an empty cohort.
+on `r2` (clear-the-deck rework), Rain on `r2` (2026-07-24 difficulty redesign:
+the old curve capped at 50 clears), and Higher/Lower on `r2` (2026-07-25: three
+lives + a gap-ramped deal, so a one-life score measures a different game).
+**Keep this in sync with the API** — a stale mirror reads the wrong partition
+and silently returns an empty cohort.
 
-`_referee-lib.mjs` mirrors six conventions in all: `RANKED_MODES`,
-`BOARD_EPOCH`/`leaderboardPartition`, `MODE_DIRECTION` +
+`MODE_TIEBREAKS` mirrors the ordered ascending tiebreaks each mode ranks equal
+scores by, named by the run attribute carrying each value: Survival `timeMs`;
+Higher/Lower `livesLost` then `timeMs`. **Array order is ranking order**, and a
+wrong order or count rebuilds a different sort key than the API wrote, which
+re-ranks a board silently rather than failing.
+
+`_referee-lib.mjs` mirrors seven conventions in all: `RANKED_MODES`,
+`BOARD_EPOCH`/`leaderboardPartition`, `MODE_DIRECTION` + `MODE_TIEBREAKS` +
 `leaderboardSortKey`/`rowSortKey`, `isLeaderboardEligibleScore`,
 `bestVisibleRun`, and `resolveAllTimeEarningRun` — plus the `FORBIDDEN_KEYS`
 denylist that enforces Golden rule 7. Every one of them is guarded by

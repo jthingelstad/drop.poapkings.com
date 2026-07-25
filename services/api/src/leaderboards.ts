@@ -5,6 +5,8 @@ import {
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
+  modeTiebreakFields,
+  tiebreakValues,
 } from "./games.js";
 import {
   hydratePublicProfiles,
@@ -91,7 +93,7 @@ export async function seasonLeaderboard(
     lastKey = result.LastEvaluatedKey;
   } while (items.length < limit && lastKey && pagesRead < MAX_BOARD_PAGES);
 
-  return withPublicProfiles(tableName, items);
+  return withPublicProfiles(tableName, mode, items);
 }
 
 // Best-ever board: one item per player per ranked mode already lives in the
@@ -161,7 +163,7 @@ export async function allTimeLeaderboard(
       break;
   } while (lastKey && pagesRead < MAX_BOARD_PAGES);
 
-  return withPublicProfiles(tableName, reconciled.slice(0, limit));
+  return withPublicProfiles(tableName, mode, reconciled.slice(0, limit));
 }
 
 function runIdsOf(items: BoardItem[]): string[] {
@@ -324,31 +326,42 @@ function leaderboardItemSortKey(item: BoardItem, mode: GameMode): string {
     Number(item.score),
     String(item.completedAt),
     String(item.playerSub),
-    item.timeMs === undefined ? undefined : Number(item.timeMs),
+    tiebreakValues(mode, item),
   );
 }
 
 async function withPublicProfiles(
   tableName: string,
+  mode: GameMode,
   items: BoardItem[],
 ): Promise<BoardItem[]> {
   const profiles = await hydratePublicProfiles(tableName, [
     ...new Set(items.map((item) => String(item.playerSub))),
   ]);
-  return items.map((item, index) => toLeaderboardRow(item, index, profiles));
+  return items.map((item, index) =>
+    toLeaderboardRow(item, mode, index, profiles),
+  );
 }
 
 // Shared row shape for the season and all-time boards.
 function toLeaderboardRow(
   item: BoardItem,
+  mode: GameMode,
   index: number,
   profiles: Map<string, PublicProfile>,
 ): BoardItem {
+  // The row shows a time only where time is the board's ONLY tiebreak, so the
+  // order the player sees always matches the numbers on the rows. Higher/Lower
+  // ranks equal scores by lives lost FIRST, so publishing just its time would
+  // render ties in an order the row itself cannot explain.
+  const showTime = modeTiebreakFields(mode).length === 1;
   return {
     rank: index + 1,
     score: item.score,
     achievedAt: item.completedAt,
-    ...(item.timeMs !== undefined ? { timeMs: item.timeMs as number } : {}),
+    ...(showTime && item.timeMs !== undefined
+      ? { timeMs: item.timeMs as number }
+      : {}),
     player:
       profiles.get(String(item.playerSub)) ?? placeholderPublicProfile(index),
   };

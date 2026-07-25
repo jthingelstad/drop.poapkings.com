@@ -1,5 +1,4 @@
 import { MODE_RULES } from "./games.js";
-import { HIGHER_LOWER_PAIR_COUNT } from "./scoring.js";
 import type { GameMode } from "./types.js";
 
 export type IntegrityReason =
@@ -19,6 +18,10 @@ export function assessRunIntegrity(
   mode: GameMode,
   score: number,
   wallElapsedMs: number,
+  // Rounds the run actually presented. Higher/Lower now survives two misses, so
+  // its score is no longer the round count and the wall-clock floor has to be
+  // measured against what the player was actually shown.
+  roundsPresented?: number,
 ): IntegrityAssessment {
   const rule = MODE_RULES[mode];
   if (
@@ -33,8 +36,14 @@ export function assessRunIntegrity(
     return { eligible: false, reason: "score_below_ui_floor" };
 
   if (mode === "higher-lower") {
-    const answered = score >= HIGHER_LOWER_PAIR_COUNT ? score : score + 1;
-    if (wallElapsedMs + 2_000 < answered * 1_000)
+    // Each pair costs the player at least ~1s of real time: the reveal beat
+    // alone holds 750ms before the next pair is dealt. Fall back to score + 1
+    // (the shape from the one-life era) when the caller has no round count.
+    const rounds =
+      roundsPresented !== undefined && Number.isFinite(roundsPresented)
+        ? roundsPresented
+        : score + 1;
+    if (wallElapsedMs + 2_000 < rounds * 1_000)
       return { eligible: false, reason: "completion_rate_above_ui_limit" };
   }
 

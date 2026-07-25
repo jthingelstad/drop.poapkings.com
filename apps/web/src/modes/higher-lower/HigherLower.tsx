@@ -14,6 +14,7 @@ import CardDisplay from '../../components/CardDisplay'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
+import Icon from '../../components/Icon'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
 import Summary from '../../components/Summary'
@@ -28,6 +29,10 @@ const ADVANCE_DELAY_WRONG = 1400
 // A 3-2-1 before each explicitly started run so the round clock never starts
 // while the player is still reading or away from the controls.
 const COUNTDOWN_STEP_MS = 650
+// Three lives, like Rain. A wrong tap OR a timeout costs one and the run keeps
+// going, so the score is every correct read in the session — not the longest
+// unbroken streak. Matches HIGHER_LOWER_LIVES in the server scorer.
+const HIGHER_LOWER_LIVES = 3
 
 export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
@@ -39,12 +44,12 @@ export default function HigherLower() {
   const picked = useSignal<number | null>(null)
   const revealed = useSignal(false)
   const awaitingReplay = useSignal(false)
-  const streak = useSignal(0)
-  const runBest = useSignal(0)
-  const streakCue = useSignal(0)
+  const lives = useSignal(HIGHER_LOWER_LIVES)
+  const score = useSignal(0)
+  const scoreCue = useSignal(0)
   // The record standing BEFORE this run — the number the summary compares
-  // against. Never overwritten with the streak just set.
-  const previousBest = useSignal(comparableBest(getRecords().longestStreak))
+  // against. Never overwritten with the score just set.
+  const previousBest = useSignal(comparableBest(getRecords().higherLowerBest))
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
@@ -82,17 +87,19 @@ export default function HigherLower() {
   }, [leftCardId, remainingFrac, stage.value])
 
   // The countdown itself: drives the depleting bar and times you out. The window
-  // tightens each round, so deep runs end at your true read speed.
+  // tightens with the ROUND INDEX — every pair presented, missed ones included —
+  // which is exactly how the server validates each response.
   useShrinkingWindow({
     running: stage.value === 'running',
     ticking: () => !revealed.value,
     startedAt: roundStart,
-    windowMs: () => higherLowerWindowMs(streak.value),
+    windowMs: () => higherLowerWindowMs(pairIndex.value),
     remaining: remainingFrac,
     onExpire: () => timeoutRef.current()
   })
 
-  // Leaving the tab is not free thinking time — it ends the round.
+  // Leaving the tab is not free thinking time — it costs a life, exactly like
+  // letting the clock run out.
   useEndRunOnHide(stage.value === 'running', () => timeoutRef.current())
 
   function next() {
@@ -116,16 +123,16 @@ export default function HigherLower() {
   async function replay() {
     track('game.replayed', 'higher-lower')
     // Carry this session's best forward so a second run compares against it,
-    // without promoting a 0-streak run into a "best" worth reporting.
-    if (runBest.value > (previousBest.value ?? 0)) previousBest.value = runBest.value
+    // without promoting a 0-score run into a "best" worth reporting.
+    if (score.value > (previousBest.value ?? 0)) previousBest.value = score.value
     awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []
     gradedAnswers.current = []
     picked.value = null
     revealed.value = false
-    streak.value = 0
-    runBest.value = 0
+    lives.value = HIGHER_LOWER_LIVES
+    score.value = 0
     remainingFrac.value = 1
     await gameRun.prepare()
     // Arm the countdown only after prepare has synchronously cleared the old
@@ -153,27 +160,29 @@ export default function HigherLower() {
     revealed.value = true
     remainingFrac.value = 0
 
+    // A miss reveals the answer and costs a life; the score keeps its total.
+    const livesLeft = correct ? lives.value : lives.value - 1
     if (correct) {
       playCorrect()
-      const s = streak.value + 1
-      streak.value = s
-      runBest.value = Math.max(runBest.value, s)
-      if (s === 3 || (s > 3 && s % 5 === 0)) streakCue.value++
+      const total = score.value + 1
+      score.value = total
+      if (total === 3 || (total > 3 && total % 5 === 0)) scoreCue.value++
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
-      streak.value = 0
+      lives.value = livesLeft
       runtime.emitCue('answer-wrong', { pairIndex: pairIndex.value })
     }
 
     runtime.later(
       () => {
-        if (correct) {
+        if (livesLeft > 0) {
           next()
         } else {
-          // Keep the revealed result in place after completion. The next signed
-          // run is prepared only after an explicit player action, so an idle
-          // screen cannot farm timed-out runs, XP, or activity events.
+          // Out of lives. Keep the revealed result in place after completion:
+          // the next signed run is prepared only after an explicit player
+          // action, so an idle screen cannot farm timed-out runs, XP, or
+          // activity events.
           void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
         }
       },
@@ -220,9 +229,9 @@ export default function HigherLower() {
       weakest: gradedAnswers.current.filter((answer) => !answer.correct).map((answer) => answer.higher),
       hasTiming: false
     }
-    const callout = pbCallout(runBest.value > (previousBest.value ?? 0), previousBest.value, {
-      first: 'First streak logged',
-      improved: (previous) => `New personal best! +${runBest.value - previous}`,
+    const callout = pbCallout(score.value > (previousBest.value ?? 0), previousBest.value, {
+      first: 'First run logged',
+      improved: (previous) => `New personal best! +${score.value - previous}`,
       standing: (previous) => `Best: ${previous}`
     })
 
@@ -230,15 +239,15 @@ export default function HigherLower() {
       <div class="ed-gamewrap">
         <Summary
           eyebrow="Higher / Lower complete"
-          headline={`${runBest.value} streak`}
+          headline={`${score.value} correct`}
           pbCallout={callout}
           insights={insights}
           moments={[
-            { label: 'Streak', value: String(runBest.value) },
+            { label: 'Correct', value: String(score.value) },
             { label: 'Prev best', value: String(previousBest.value ?? 0), tone: 'purple' },
             { label: 'Accuracy', value: `${insights.accuracyPct}%`, tone: 'green' }
           ]}
-          share={{ mode: 'higher-lower', score: `${runBest.value} streak` }}
+          share={{ mode: 'higher-lower', score: `${score.value} correct` }}
           onReplay={() => void replay()}
           onHome={() => navigate('/')}
         />
@@ -258,6 +267,20 @@ export default function HigherLower() {
 
   const counting = runtime.stage.value === 'ready' || runtime.stage.value === 'countdown'
   const disabled = runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value
+  // Lives as glyphs, not hand-typed hearts (CLAUDE.md), in the same shape Rain
+  // uses: a whole heart per life left, a cracked one per life spent, with the
+  // count on the row's accessible name because the icons are decorative.
+  const hearts = (
+    <span
+      role="img"
+      aria-label={`${Math.max(0, lives.value)} of ${HIGHER_LOWER_LIVES} lives left`}
+      data-testid="higher-lower-lives"
+    >
+      {Array.from({ length: HIGHER_LOWER_LIVES }, (_unused, index) => (
+        <Icon key={index} name={index < lives.value ? 'heart' : 'heart-crack'} />
+      ))}
+    </span>
+  )
 
   return (
     <GameFrame
@@ -267,8 +290,8 @@ export default function HigherLower() {
       onQuit={() => navigate('/')}
       cue={runtime.cue.value}
       fxParticles={6}
-      progressText="Keep the streak"
-      metric={{ value: String(streak.value), label: 'streak' }}
+      progressText={hearts}
+      metric={{ value: String(score.value), label: 'correct' }}
       progressPct={remainingFrac.value * 100}
       barTransition={false}
       barLow={remainingFrac.value <= 0.35}
@@ -289,11 +312,11 @@ export default function HigherLower() {
           </div>
         </GameMotion>
 
-        {/* Shared floating streak cue — composited, never in layout flow. */}
+        {/* Shared floating score cue — composited, never in layout flow. */}
         <div class="game-cues" aria-hidden="true">
           <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-              🔥 {streak.value} streak
+            <FloatingCue trigger={scoreCue.value} className="floating-cue--streak">
+              🔥 {score.value} correct
             </FloatingCue>
           </div>
         </div>

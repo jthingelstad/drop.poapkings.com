@@ -428,7 +428,8 @@ describe('game-metadata', () => {
     expect(scoreLabel('trade', 5000)).toBe('5.00s') // lower-is-better
     expect(scoreLabel('practice', 87.4)).toBe('87%')
     expect(scoreLabel('rain', 9.6)).toBe('10 cleared')
-    expect(scoreLabel('higher-lower', 12)).toBe('12 streak')
+    // Higher/Lower has three lives, so its score is total correct, not a streak.
+    expect(scoreLabel('higher-lower', 12)).toBe('12 correct')
     expect(scoreLabel('survival', 8)).toBe('8 streak')
   })
 

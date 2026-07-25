@@ -21,7 +21,7 @@ export const MORE_GAMES: MoreGame[] = [
   {
     key: 'higher-lower',
     name: 'Higher / Lower',
-    desc: 'Two cards, one call — which costs more elixir? Keep the streak alive.',
+    desc: 'Two cards, one call — which costs more elixir? 3 lives, and the clock tightens.',
     path: '/higher-lower',
     mode: 'higher-lower'
   },

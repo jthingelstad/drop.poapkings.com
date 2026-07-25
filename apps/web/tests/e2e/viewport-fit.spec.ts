@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { cardsData, expect, test } from './fixtures'
 
 test.describe('mobile timed-mode controls', () => {
   test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
@@ -53,7 +53,23 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps the Higher / Lower replay action in view', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
+    // Higher/Lower runs on three lives, so reaching the summary means spending
+    // all three. Freeze the round clock and tap the LOWER card three times —
+    // far quicker and steadier than running three shrinking windows out.
+    await page.clock.install({ time: new Date('2026-07-25T12:00:00.000Z') })
     await page.goto('/#/higher-lower')
+    const cards = page.locator('.ed-duel__card')
+    await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
+    await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 200))
+    for (let miss = 0; miss < 3; miss += 1) {
+      const names = await cards.locator('.pcard__img').evaluateAll((imgs) => imgs.map((img) => img.getAttribute('alt')))
+      const costs = names.map((name) => cardsData.cards.find((card) => card.name === name)?.elixir ?? 0)
+      await cards.nth(costs[0]! < costs[1]! ? 0 : 1).click()
+      await expect(page.locator('.ed-duel__card--wrong')).toBeVisible()
+      // Past the 1400ms reveal beat, which deals the next pair (or ends it).
+      await page.clock.runFor(1_600)
+    }
+
     const replay = page.getByRole('button', { name: 'Play again' })
     await expect(replay).toBeVisible({ timeout: 12_000 })
     const bounds = await replay.boundingBox()

@@ -37,9 +37,10 @@ export const RANKED_MODES = [
 ];
 
 // Mirror of services/api/src/games.ts BOARD_EPOCH: Survival's board was reset to
-// "r2" when it became a clear-the-deck, time-ranked game, and Rain's on
-// 2026-07-24 when its difficulty stopped capping.
-const BOARD_EPOCH = { survival: "r2", rain: "r2" };
+// "r2" when it became a clear-the-deck, time-ranked game, Rain's on 2026-07-24
+// when its difficulty stopped capping, and Higher/Lower's on 2026-07-25 when it
+// gained three lives and a gap-ramped deal.
+const BOARD_EPOCH = { survival: "r2", rain: "r2", "higher-lower": "r2" };
 
 export function leaderboardPartition(seasonId, mode) {
   const epoch = BOARD_EPOCH[mode];
@@ -62,8 +63,32 @@ const MODE_DIRECTION = {
   rain: "higher",
 };
 
-// Mirror of services/api/src/games.ts MAX_SORT_SCORE.
+// Mirror of services/api/src/games.ts MAX_SORT_SCORE / MAX_TIEBREAK.
 const MAX_SORT_SCORE = 999_999_999_999;
+const MAX_TIEBREAK = 999_999_999;
+
+// Mirror of services/api/src/games.ts MODE_TIEBREAKS. The ordered ascending
+// tiebreaks each mode ranks equal scores by, named by the run attribute that
+// carries the value — ARRAY ORDER IS RANKING ORDER. Getting the order or the
+// count wrong rebuilds a different sort key than the API wrote, which silently
+// re-ranks a board, so it is asserted behaviourally by the mirror test.
+const MODE_TIEBREAKS = {
+  survival: ["timeMs"],
+  "higher-lower": ["livesLost", "timeMs"],
+};
+
+// Mirror of services/api/src/games.ts tiebreakValues: the ordered tiebreak
+// values a stored row carries, stopping at the first field the row does not
+// have so a legacy row keeps producing the key it was actually written with.
+function tiebreakValues(mode, source) {
+  const values = [];
+  for (const field of MODE_TIEBREAKS[mode] ?? []) {
+    const raw = source[field];
+    if (raw === undefined) break;
+    values.push(Number(raw));
+  }
+  return values;
+}
 
 // Mirror of services/api/src/games.ts isLeaderboardEligibleScore. A completed
 // ranked run with a zero score still belongs in history and earns XP, but it
@@ -75,15 +100,24 @@ export function isLeaderboardEligibleScore(score) {
 
 // Mirror of services/api/src/games.ts leaderboardSortKey. The lexicographic key
 // DynamoDB orders GSI1 by. Note the score inversion for higher-is-better modes,
-// the 12-character pad, the optional 9-character ascending tiebreak (Survival's
-// cumulative time), and the trailing `#{sub}` uniqueness suffix.
-export function leaderboardSortKey(mode, score, completedAt, sub, tiebreakMs) {
+// the 12-character pad, the ordered 9-character ascending tiebreaks (Survival's
+// cumulative time; Higher/Lower's lives lost then time), and the trailing
+// `#{sub}` uniqueness suffix. A bare number is accepted as a single tiebreak.
+export function leaderboardSortKey(mode, score, completedAt, sub, tiebreaks) {
   const sortableScore =
     MODE_DIRECTION[mode] === "lower" ? score : MAX_SORT_SCORE - score;
-  const tiebreak =
-    tiebreakMs === undefined
-      ? ""
-      : `#${String(Math.min(Math.max(0, Math.round(tiebreakMs)), 999_999_999)).padStart(9, "0")}`;
+  const ordered =
+    tiebreaks === undefined
+      ? []
+      : typeof tiebreaks === "number"
+        ? [tiebreaks]
+        : tiebreaks;
+  const tiebreak = ordered
+    .map(
+      (value) =>
+        `#${String(Math.min(Math.max(0, Math.round(value)), MAX_TIEBREAK)).padStart(9, "0")}`,
+    )
+    .join("");
   return `${String(sortableScore).padStart(12, "0")}${tiebreak}#${completedAt}#${sub}`;
 }
 
@@ -306,7 +340,7 @@ export function rowSortKey(row, mode) {
     Number(row.score),
     String(row.completedAt),
     String(row.playerSub),
-    row.timeMs === undefined ? undefined : Number(row.timeMs),
+    tiebreakValues(mode, row),
   );
 }
 

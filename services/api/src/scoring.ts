@@ -1,6 +1,11 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { higherLowerWindowMs, survivalWindowMs } from "@elixir-drop/contracts";
-import type { GameMode, RunChallenge, RunTranscript } from "./types.js";
+import type {
+  GameMode,
+  RunChallenge,
+  RunTiebreaks,
+  RunTranscript,
+} from "./types.js";
 
 interface Card {
   id: number;
@@ -19,14 +24,18 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "3";
+export const SCORING_RULES_VERSION = "4";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
 }
 export const SURGE_CARD_COUNT = 15;
 export const SURGE_PENALTY_MS = 2_000;
-export const HIGHER_LOWER_PAIR_COUNT = 250;
+const HIGHER_LOWER_PAIR_COUNT = 250;
+// Higher/Lower runs on three lives, like Rain: a wrong tap OR a timeout costs
+// one and the run continues, so a transcript legitimately carries misses and
+// the score is the TOTAL correct reads, not the longest unbroken streak.
+const HIGHER_LOWER_LIVES = 3;
 export const RAIN_DECK_SIZE = 250;
 export const RAIN_LIVES = 3;
 // Rain is endless: the client wraps the signed deck, so a strong run resolves
@@ -115,40 +124,154 @@ function tradeRounds(
   );
 }
 
-// Independent pairs for the tap-the-higher-card game: each pair's two cards
+// ── Higher/Lower difficulty ────────────────────────────────────────────────
+// The response clock (higherLowerWindowMs) is the KNOWN axis and is deliberately
+// untouched. The elixir GAP between the two cards is the axis that ramps: a
+// 4-elixir gap reads at a glance, a 1-elixir gap is the hardest call the mode
+// can ask for, and a uniformly random draw made the hardest kind of pair the
+// single most common opening.
+const HIGHER_LOWER_GAP_MAX = 4;
+const HIGHER_LOWER_GAP_MIN = 1;
+// Opening rounds held fully wide, then the rounds spent narrowing to a 1-elixir
+// call. The ramp has to live where the runs live — most end inside the first ten
+// rounds — so it is measured in rounds, not in fractions of the 250-pair deck.
+const HIGHER_LOWER_GAP_HOLD_ROUNDS = 5;
+const HIGHER_LOWER_GAP_RAMP_ROUNDS = 13;
+
+// The elixir gap round `round` should span — a pure function of the round index,
+// where the top value means "HIGHER_LOWER_GAP_MAX or wider". The target narrows
+// continuously and the fractional part is spent as a weighted coin flip between
+// the two neighbouring gaps, so the bands BLEND: round 10 deals a mix of 2s and
+// 3s instead of the whole game stepping down a stair on one fixed round.
+export function higherLowerGap(round: number, randomInt: RandomInt): number {
+  const progress = Math.min(
+    1,
+    Math.max(
+      0,
+      (round - HIGHER_LOWER_GAP_HOLD_ROUNDS) / HIGHER_LOWER_GAP_RAMP_ROUNDS,
+    ),
+  );
+  const target =
+    HIGHER_LOWER_GAP_MAX -
+    (HIGHER_LOWER_GAP_MAX - HIGHER_LOWER_GAP_MIN) * progress;
+  const narrower = Math.floor(target);
+  const widerOdds = Math.round((target - narrower) * 100);
+  return randomInt(100) < widerOdds ? narrower + 1 : narrower;
+}
+
+interface CostPair {
+  low: number;
+  high: number;
+  // How many distinct card pairings these two costs can produce.
+  combinations: number;
+}
+
+// Every dealable cost pair, grouped by the gap band it belongs to (everything
+// at or above HIGHER_LOWER_GAP_MAX collapses into the top band — past 4 elixir
+// the read is equally free). Bands are resolved outward when the catalog cannot
+// make the requested gap: WIDER first, because a wider gap is strictly easier,
+// so degrading never hands the player a harder pair than the ramp asked for.
+function higherLowerBands(
+  byCost: Map<number, Card[]>,
+): Map<number, CostPair[]> {
+  const costs = [...byCost.keys()].sort((left, right) => left - right);
+  const raw = new Map<number, CostPair[]>();
+  for (const low of costs) {
+    for (const high of costs) {
+      if (high <= low) continue;
+      const band = Math.min(high - low, HIGHER_LOWER_GAP_MAX);
+      const entries = raw.get(band) ?? [];
+      entries.push({
+        low,
+        high,
+        combinations: byCost.get(low)!.length * byCost.get(high)!.length,
+      });
+      raw.set(band, entries);
+    }
+  }
+  const resolved = new Map<number, CostPair[]>();
+  for (let band = HIGHER_LOWER_GAP_MIN; band <= HIGHER_LOWER_GAP_MAX; band++) {
+    let entries = raw.get(band) ?? [];
+    for (
+      let wider = band + 1;
+      !entries.length && wider <= HIGHER_LOWER_GAP_MAX;
+    )
+      entries = raw.get(wider++) ?? [];
+    for (let narrower = band - 1; !entries.length && narrower >= 1;)
+      entries = raw.get(narrower--) ?? [];
+    resolved.set(band, entries);
+  }
+  return resolved;
+}
+
+// Cost counts are wildly uneven (34 four-cost cards; exactly one 8 and one 9),
+// so a band picks its cost pair weighted by how many CARD pairings it can make.
+// Picking cost pairs uniformly would put Golem and Three Musketeers in a large
+// share of every wide opening.
+function pickCostPair(options: readonly CostPair[], randomInt: RandomInt) {
+  const total = options.reduce((sum, option) => sum + option.combinations, 0);
+  let roll = randomInt(total);
+  for (const option of options) {
+    roll -= option.combinations;
+    if (roll < 0) return option;
+  }
+  return options.at(-1)!;
+}
+
+// Prefer a card that was not in the previous pair — an immediate repeat reads as
+// a bug — but degrade instead of looping: a cost with exactly one card makes
+// "avoid the previous card" occasionally impossible.
+function pickFromCost(
+  options: readonly Card[],
+  previous: ReadonlySet<number>,
+  randomInt: RandomInt,
+): Card {
+  const fresh = options.filter((card) => !previous.has(card.id));
+  const choices = fresh.length ? fresh : options;
+  return choices[randomInt(choices.length)]!;
+}
+
+// Independent pairs for the tap-the-higher-card game. Each pair's two cards
 // always differ in elixir (never equal, so there is always a strictly higher
-// card), and neither card repeats from the immediately previous pair.
+// card), neither card repeats from the immediately previous pair, and the gap
+// between them narrows as the deck goes on. The target COST PAIR is chosen
+// first and the cards second, so a wide gap is never blocked by how few cards
+// happen to sit at the far end of the catalog.
 function higherLowerPairs(
   randomInt: RandomInt,
   pool: readonly Card[],
 ): Array<[number, number]> {
   const hasTwoCosts = new Set(pool.map((card) => card.elixir)).size >= 2;
   const source = pool.length >= 2 && hasTwoCosts ? pool : CARDS;
+  const byCost = new Map<number, Card[]>();
+  for (const card of source) {
+    const cards = byCost.get(card.elixir) ?? [];
+    cards.push(card);
+    byCost.set(card.elixir, cards);
+  }
+  const bands = higherLowerBands(byCost);
   const pairs: Array<[number, number]> = [];
   let previous = new Set<number>();
-  for (let index = 0; index < HIGHER_LOWER_PAIR_COUNT; index += 1) {
-    let a = source[randomInt(source.length)]!;
-    let b = source[randomInt(source.length)]!;
-    for (
-      let attempt = 0;
-      attempt < 60 &&
-      (a.id === b.id ||
-        a.elixir === b.elixir ||
-        previous.has(a.id) ||
-        previous.has(b.id));
-      attempt += 1
-    ) {
-      a = source[randomInt(source.length)]!;
-      b = source[randomInt(source.length)]!;
-    }
-    // Guarantee a strict higher/lower even if a degenerate draw ran out of
-    // attempts: swap in the first differing-elixir card.
-    if (a.elixir === b.elixir) {
-      const alt = source.find((card) => card.elixir !== a.elixir);
-      if (alt) b = alt;
-    }
-    pairs.push([a.id, b.id]);
-    previous = new Set([a.id, b.id]);
+  for (let round = 0; round < HIGHER_LOWER_PAIR_COUNT; round += 1) {
+    const band = bands.get(higherLowerGap(round, randomInt)) ?? [];
+    // Unreachable: `source` always holds at least two distinct costs, so every
+    // band resolves to something. The guard keeps the loop total anyway.
+    if (!band.length) break;
+    // Drop the cost pairs that could only repeat a card from the last pair,
+    // which is what makes the no-repeat rule exact instead of a retry loop.
+    const fresh = band.filter(
+      (option) =>
+        byCost.get(option.low)!.some((card) => !previous.has(card.id)) &&
+        byCost.get(option.high)!.some((card) => !previous.has(card.id)),
+    );
+    const { low, high } = pickCostPair(fresh.length ? fresh : band, randomInt);
+    const lower = pickFromCost(byCost.get(low)!, previous, randomInt);
+    const higher = pickFromCost(byCost.get(high)!, previous, randomInt);
+    // Flip which side holds the higher card, or the answer is always the same tap.
+    const pair: [number, number] =
+      randomInt(2) === 0 ? [lower.id, higher.id] : [higher.id, lower.id];
+    pairs.push(pair);
+    previous = new Set(pair);
   }
   return pairs;
 }
@@ -350,23 +473,30 @@ function scorePractice(
   return Math.round((correct / answers.length) * 100);
 }
 
-function scoreHigherLower(
+interface HigherLowerRound {
+  correct: boolean;
+  elapsedMs: number;
+}
+
+// Validate and grade one Higher/Lower transcript, one entry per pair PRESENTED
+// (a miss no longer terminates the transcript — it costs a life and the run
+// carries on). Shared by the scorer and the tiebreak reader so the two can
+// never disagree about which rounds counted as misses.
+function gradeHigherLower(
   challenge: Extract<RunChallenge, { mode: "higher-lower" }>,
   transcript: RunTranscript,
-  wallElapsedMs: number,
-  reviewSignals?: ScoringReviewSignal[],
-): number {
+): HigherLowerRound[] {
   const answers = objectArray(transcript.answers, "Higher/Lower");
   if (!answers.length || answers.length > challenge.pairs.length)
     throw new Error("Higher/Lower transcript is invalid");
-  let score = 0;
-  let totalElapsed = 0;
-  let lightningTaps = 0;
-  let ended = false;
-  answers.forEach((answer, index) => {
-    if (ended)
-      throw new Error("Higher/Lower transcript continues after a miss");
-    const pair = challenge.pairs[index]!;
+  const rounds: HigherLowerRound[] = [];
+  let livesLost = 0;
+  answers.forEach((answer, roundIndex) => {
+    // The run is over the moment the third life goes; anything after it is a
+    // transcript claiming more failures than the game allows.
+    if (livesLost >= HIGHER_LOWER_LIVES)
+      throw new Error("Higher/Lower continued past three lives");
+    const pair = challenge.pairs[roundIndex]!;
     if (answer.leftId !== pair[0] || answer.rightId !== pair[1])
       throw new Error("Higher/Lower pair is invalid");
     // The player taps the card they read as higher; it must be one of the two.
@@ -376,27 +506,43 @@ function scoreHigherLower(
     const elapsedMs = Number(answer.elapsedMs);
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0)
       throw new Error("Higher/Lower answer is invalid");
-    totalElapsed += elapsedMs;
     const otherId = pickedId === pair[0] ? pair[1] : pair[0];
     // Pairs are generated with differing elixir, so the higher card is
     // unambiguous (`>=` guards a degenerate equal pair). The response also has
-    // to land inside the shrinking window; a small tolerance absorbs client
-    // timing jitter on the boundary.
+    // to land inside the shrinking window, which is keyed on the ROUND INDEX —
+    // every pair presented, missed ones included — because that is the window
+    // the client drew. A small tolerance absorbs client timing jitter.
     const correct =
       card(pickedId).elixir >= card(otherId).elixir &&
-      elapsedMs <= higherLowerWindowMs(score) + 250;
-    if (correct && elapsedMs < 100) lightningTaps += 1;
-    if (correct) score += 1;
-    else ended = true;
+      elapsedMs <= higherLowerWindowMs(roundIndex) + 250;
+    if (!correct) livesLost += 1;
+    rounds.push({ correct, elapsedMs });
   });
-  if (!ended && answers.length < challenge.pairs.length)
+  return rounds;
+}
+
+function scoreHigherLower(
+  challenge: Extract<RunChallenge, { mode: "higher-lower" }>,
+  transcript: RunTranscript,
+  wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
+): number {
+  const rounds = gradeHigherLower(challenge, transcript);
+  // Score is every correct read in the session, not the longest unbroken run.
+  const score = rounds.filter((round) => round.correct).length;
+  const livesLost = rounds.length - score;
+  const totalElapsed = rounds.reduce((sum, round) => sum + round.elapsedMs, 0);
+  const lightningTaps = rounds.filter(
+    (round) => round.correct && round.elapsedMs < 100,
+  ).length;
+  if (livesLost < HIGHER_LOWER_LIVES && rounds.length < challenge.pairs.length)
     flagOrReject(
       reviewSignals,
       "higher_lower_no_terminal_event",
       "Higher/Lower run has not ended",
     );
   // Only a sustained run of sub-100ms taps raises a review signal — a single
-  // human mash-tap must not flag an honest streak.
+  // human mash-tap must not flag an honest run.
   if (isImplausiblyFast(lightningTaps, score))
     flagOrReject(
       reviewSignals,
@@ -410,6 +556,23 @@ function scoreHigherLower(
       "Higher/Lower timing is not plausible",
     );
   return score;
+}
+
+// Higher/Lower's two ordered leaderboard tiebreaks among equal scores: fewest
+// lives lost first, then the faster cumulative time on the clock. The time
+// covers EVERY round presented — at an equal score and equal lives lost two
+// runs played exactly the same number of rounds, so the comparison is like for
+// like, and a fast wrong tap beats burning the whole window on one.
+export function higherLowerTiebreaks(
+  challenge: RunChallenge,
+  transcript: RunTranscript,
+): RunTiebreaks | undefined {
+  if (challenge.mode !== "higher-lower") return undefined;
+  const rounds = gradeHigherLower(challenge, transcript);
+  return {
+    livesLost: rounds.filter((round) => !round.correct).length,
+    timeMs: Math.round(rounds.reduce((sum, round) => sum + round.elapsedMs, 0)),
+  };
 }
 
 function tradeValue(round: { blueIds: number[]; redIds: number[] }): number {
