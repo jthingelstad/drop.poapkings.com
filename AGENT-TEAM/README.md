@@ -1,9 +1,12 @@
 # AGENT-TEAM/ — Elixir Drop product team
 
-Role-prompts for Codex/Claude agents that keep Elixir Drop healthy, fair, and growing. Most
-roles are scheduled; the Release Manager is deliberately **on demand only** and runs only
-after Jamie explicitly asks for a release. Each file is a self-contained job description: a
+Role-prompts for Codex/Claude agents that keep Elixir Drop healthy, fair, and growing. These
+roles are scheduled and burn down a queue. Each file is a self-contained job description: a
 lane, an explicit boundary, an "Every run" runbook, and a success definition.
+
+Cutting a named release is **not** one of these roles. It is a user-invoked skill in the build
+process — `.claude/skills/cut-release/` — because it runs only when Jamie explicitly asks,
+holds no lane, and burns down no queue. See "Releases" below.
 
 **The workflow these roles share** — the GitHub-Issues spine, the approval gate, the label
 taxonomy, `wip` claiming, commit lanes, the `notes/` convention, and the operating rules — is
@@ -43,14 +46,12 @@ Defects don't need approval; new product direction does.
 | Operations Manager      | `operations-manager.md` | Production health: Lambda/DynamoDB/Pages/JMAP, deploys, incidents, cost   | Yes — ops fixes + `deploy:api`      |
 | Build Manager           | `build-manager.md`      | Detect + fix bugs & regressions, maintenance, keep `cards.json` current   | **Yes — owns fix/maintenance code** |
 | Growth & Season Analyst | `growth-analyst.md`     | Get more people playing + season/leaderboard liveliness + the funnel data | No — issue-only                     |
-| Release Manager         | `release-manager.md`    | Jamie-triggered name + GitHub release + Buttondown draft                  | Tags only                           |
 | Manager                 | `manager.md`            | Weekly meta-review of the team + the approval gate                        | Own `summaries/` only               |
 
-The **Fair-Play Referee**, **Growth & Season Analyst**, and **Release Manager** are Drop's
-**domain roles**; Operations Manager, Build Manager, and Manager are the standard core (shared
-across projects). The Referee is deliberately independent — the role judging leaderboard
-fairness is never the role that builds or ships. Commit lanes and the approval gate are defined
-in `WORKFLOW.md`.
+The **Fair-Play Referee** and **Growth & Season Analyst** are Drop's **domain roles**;
+Operations Manager, Build Manager, and Manager are the standard core (shared across projects).
+The Referee is deliberately independent — the role judging leaderboard fairness is never the
+role that builds or ships. Commit lanes and the approval gate are defined in `WORKFLOW.md`.
 
 Two standard core roles are intentionally **folded, not dropped** (this is a lean run-it team,
 not a feature factory): the **Evaluator's** test/regression discipline lives inside the Build
@@ -84,17 +85,18 @@ Roles should name the layer + file that supplied every finding.
 ## Releases
 
 Drop ships as **named releases** (no SemVer — a coined name + date + build hash), modeled on
-Elixir's ceremony. The **Release Manager** owns it (`release-manager.md` → `scripts/cut-release.mjs`):
-after Jamie explicitly says it is release time, coin an alliterative **Clash Royale card**
-name, tag the already-live `origin/main` commit, publish a **GitHub release**, and create a
-**Buttondown draft** for Jamie to review and send. GitHub Releases are the release history.
-The role never decides timing, opens a tracking issue, commits product metadata, deploys, or
-sends the email.
+Elixir's ceremony. This is a **skill, not a role**: `.claude/skills/cut-release/` →
+`scripts/cut-release.mjs`. After Jamie explicitly says it is release time, coin an alliterative
+**Clash Royale card** name, tag the already-live `origin/main` commit, publish a **GitHub
+release**, and create a **Buttondown draft** for Jamie to review and send. GitHub Releases are
+the release history. The ceremony never decides timing, opens a tracking issue, commits product
+metadata, deploys, or sends the email.
 
-Because it is directly invoked by Jamie and makes no worktree commit, the Release Manager is
-the narrow project-level exception to the shared issue/`wip` ceremony and local-worktree
-preflight. Its tool fetches and validates `origin/main`, then confirms the caller's worktree is
-unchanged; unrelated local commits or edits are never tagged or pushed.
+It is a skill rather than a team role because it has no lane and no queue: it fires only on
+Jamie's explicit ask, and everything it does is one bounded, idempotent ceremony. That also
+puts it outside the shared issue/`wip` and local-worktree preflight, which only ever made sense
+for queue work. The tool fetches and validates `origin/main`, then confirms the caller's
+worktree is unchanged; unrelated local commits or edits are never tagged or pushed.
 
 ## Suggested cadence
 
@@ -106,8 +108,9 @@ Recommended defaults — actual scheduling lives in Codex/Claude routines. All t
 | Fair-Play Referee       | Daily                                       | Keep the ranked boards real                               |
 | Build Manager           | Daily                                       | Steady defect + maintenance burn-down                     |
 | Growth & Season Analyst | Weekly + at season boundaries               | Engagement reads over a wider window                      |
-| Release Manager         | On demand only, after Jamie explicitly asks | Package the already-live batch without sending email      |
 | Manager                 | Weekly                                      | Team-health review + the notes digest + the approval gate |
+
+The `cut-release` skill has no cadence by design — it runs when Jamie asks, and never otherwise.
 
 ## Label ownership notes (Drop domain labels)
 

@@ -27,6 +27,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references.                                                                                        |
 | **`AGENT-TEAM/`**                                                     | The maintainer roles: `WORKFLOW.md` (shared contract) → `README.md` (roster) → your role file.                                  |
+| **`.claude/skills/`**                                                 | User-invoked skills in the build process (`cut-release` — the named-release ceremony).                                          |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
 
@@ -67,5 +68,6 @@ GitHub Issues on this repository are the canonical work queue. **Work commits di
 contract is `AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
 
-The user-triggered Release Manager ceremony is not queue work: it opens no tracking issue and
-makes no product commit. GitHub Releases are the named-release history.
+Cutting a named release is not queue work: it opens no tracking issue and makes no product
+commit. It is a user-triggered **skill**, not a team role — `.claude/skills/cut-release/` —
+invoked only when Jamie explicitly asks. GitHub Releases are the named-release history.

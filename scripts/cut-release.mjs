@@ -14,7 +14,7 @@ const buttondownApiVersion = "2026-04-01";
 // The app's own copy of the release history, read by the in-app /releases page.
 // GitHub Releases stay the canonical history; this file exists so the website
 // can show what shipped without a network call. The tool writes it during a
-// cut — the release manager never hand-maintains it.
+// cut — the `cut-release` skill never hand-maintains it.
 export const releasesFile = "apps/web/src/data/releases.json";
 export const releasesSchemaVersion = 1;
 

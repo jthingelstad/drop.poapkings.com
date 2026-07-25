@@ -88,8 +88,11 @@ rank-oriented fields as part of unrelated work.
   keys there.
 - **Named releases have an in-app surface.** `scripts/cut-release.mjs` writes
   `apps/web/src/data/releases.json` during `npm run release:cut` (GitHub Releases
-  stay the canonical history; the release manager never hand-edits the file —
-  see `AGENT-TEAM/release-manager.md`). `apps/web/src/lib/releases.ts` is the
+  stay the canonical history; the file is never hand-edited — the ceremony is the
+  `cut-release` skill in `.claude/skills/cut-release/`). Entries flagged
+  `beta: true` are backfilled pre-1.0 history — real builds that went live but
+  were never named or mailed; a cut never sets that flag.
+  `apps/web/src/lib/releases.ts` is the
   typed view, `/releases` renders it through `MetaPage`, and
   `components/ReleaseNotice.tsx` + `lib/release-notice.ts` show it **once** when
   the newest release id differs from `elixirdrop:releaseSeen`. A first-time
