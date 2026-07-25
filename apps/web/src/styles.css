@@ -3375,6 +3375,21 @@ html.reduce-motion .ed-gcard {
   font-size: 0.72rem;
 }
 
+/* Marks the pre-1.0 entries backfilled from shipped history — they went live,
+   but were never cut as named releases. */
+.ed-release__beta {
+  display: inline-block;
+  margin-right: 0.5em;
+  padding: 0.1em 0.45em;
+  border: 1px solid rgba(215, 200, 255, 0.28);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .ed-install-steps {
   border-radius: 16px;
   border: 1px solid rgba(215, 200, 255, 0.14);

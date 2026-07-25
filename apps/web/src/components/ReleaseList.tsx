@@ -19,6 +19,7 @@ export default function ReleaseList({ entries }: { entries: ReleaseEntry[] }) {
         entries.map((entry) => (
           <MetaSection title={entry.name} key={entry.id}>
             <p class="ed-release__stamp">
+              {entry.beta && <span class="ed-release__beta">Beta</span>}
               {releaseDateLabel(entry.date)} · build <code>{entry.build}</code>
             </p>
             {entry.notes.map((note) => (

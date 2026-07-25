@@ -14,6 +14,62 @@
         "And if you need a quieter moment after the sprint, there is a card-rain screensaver hiding in plain sight.",
         "Come give Radiant Royal Giant a run — and see which elixir cost still catches you."
       ]
+    },
+    {
+      "id": "prime-phoenix",
+      "name": "Prime Phoenix",
+      "date": "2026-07-22",
+      "build": "fa1e00a15c15",
+      "beta": true,
+      "headline": "Prime Phoenix — Drop gets rebuilt around the phone",
+      "notes": [
+        "The beta that rebuilt Drop's shell from scratch. The site split into a proper mobile experience and a fixed desktop layout instead of one design stretched across both.",
+        "Rain arrived as a real ranked game rather than only a screensaver, complete with a higher/lower hint after a miss. Drop also became installable: add it to your home screen and it runs fullscreen on iOS, with signing in handled across that separate window.",
+        "About, FAQ, and Install pages showed up for the first time, score sharing moved front and centre, player profiles filled in, and desktop play picked up keyboard input.",
+        "Behind the scenes this is where the test suite went from thin to serious — automated coverage of real gameplay climbed from 30% to 83%, which is why the releases after it moved faster."
+      ]
+    },
+    {
+      "id": "valiant-valkyrie",
+      "name": "Valiant Valkyrie",
+      "date": "2026-07-19",
+      "build": "a61c8b11e8e4",
+      "beta": true,
+      "headline": "Valiant Valkyrie — competition becomes the point",
+      "notes": [
+        "The beta that made Drop competition-first. Ranked play was standardized across the games, and the lineup was cut back to the modes that earned their place — with Practice deliberately pulled out of the competition entirely so it could just be practice.",
+        "Player XP landed as a measure of how much you play rather than how well, so a beginner always moves forward, and it drives a 28-arena climb of your own. All-time leaderboards joined the seasonal boards.",
+        "Guest play arrived too: try any game without an account. Sessions stretched to 28 days so signing in stopped being a chore.",
+        "Higher / Lower got its shrinking response clock and its tap-the-higher-card shape, Survival got a real clear-the-deck win, and the Elixir Rain screensaver appeared as an Easter egg for anyone who found it."
+      ]
+    },
+    {
+      "id": "gallant-golden-knight",
+      "name": "Gallant Golden Knight",
+      "date": "2026-07-18",
+      "build": "0eccaaa5c327",
+      "beta": true,
+      "headline": "Gallant Golden Knight — accounts, leaderboards, and the clan beta",
+      "notes": [
+        "The beta that turned Drop from a solo drill into something the clan could actually compete on. Sign in with a magic link, pick a favorite card, and keep a profile that follows you between devices.",
+        "Leaderboards went live, wired to the real Clan Wars clock so seasons line up with the game. Every run now comes from a signed server challenge, which is what makes a posted score mean anything — and implausible results get held back for review rather than sitting on the board.",
+        "Your Clash Royale profile can be linked for context, and account deletion and a plain-spoken privacy commitment shipped in the same stretch, because asking for an email means owing you a way out.",
+        "The learning stats that track which costs catch you moved to the server, and the interface picked up a consistent icon set."
+      ]
+    },
+    {
+      "id": "humble-hog-rider",
+      "name": "Humble Hog Rider",
+      "date": "2026-06-15",
+      "build": "e87d678be4e9",
+      "beta": true,
+      "headline": "Humble Hog Rider — the first playable Drop",
+      "notes": [
+        "Where Drop started: a browser game for learning Clash Royale elixir costs, built around the real card catalog.",
+        "Practice came first, then Surge as a timed sprint, then Higher / Lower, Trade, and Survival. Several other experiments rode along in this stretch and were later retired once it was clear which ones were actually fun.",
+        "Everything lived on your own device — no accounts, no leaderboards, no scores to defend. Just the cards, a summary at the end of each run, and a read on which costs you kept missing.",
+        "Sound, reduced-motion support, and settings were in from the start."
+      ]
     }
   ]
 }

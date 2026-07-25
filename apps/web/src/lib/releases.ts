@@ -20,6 +20,12 @@ export interface ReleaseEntry {
   headline: string
   // Short player-facing paragraphs, flattened from the same player tier.
   notes: string[]
+  // True only for the pre-1.0 entries backfilled from shipped history. Those
+  // builds really did go live on those dates (every push to main deploys), but
+  // they were never named, tagged, or mailed at the time — so the page labels
+  // them rather than letting them pose as cut releases. `cut-release.mjs` never
+  // sets this, so every real cut is unmarked.
+  beta?: boolean
 }
 
 interface ReleasesFile {
