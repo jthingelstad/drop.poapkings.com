@@ -1,14 +1,14 @@
 # AGENT-TEAM/ — Elixir Drop product team
 
-Role-prompts, each meant to run as a **scheduled Codex/Claude agent** that keeps Elixir
-Drop healthy, fair, and growing. Each file is a self-contained job description: a lane, an
-explicit boundary, an "Every run" runbook, and a success definition. Point a scheduled agent
-at one file and let it run.
+Role-prompts for Codex/Claude agents that keep Elixir Drop healthy, fair, and growing. Most
+roles are scheduled; the Release Manager is deliberately **on demand only** and runs only
+after Jamie explicitly asks for a release. Each file is a self-contained job description: a
+lane, an explicit boundary, an "Every run" runbook, and a success definition.
 
 **The workflow these roles share** — the GitHub-Issues spine, the approval gate, the label
 taxonomy, `wip` claiming, commit lanes, the `notes/` convention, and the operating rules — is
 defined once in **[`WORKFLOW.md`](WORKFLOW.md)** and is identical across all of Jamie's
-projects. This README covers only what's specific to *this* project. Every role reads
+projects. This README covers only what's specific to _this_ project. Every role reads
 `AGENTS.md` → `WORKFLOW.md` → this file → its role file, then acts.
 
 ```
@@ -24,8 +24,8 @@ AGENT-TEAM/
 
 ## North star + the hard boundary
 
-**Elixir Drop's team RUNS Drop — it does not rebuild it.** The default verb is *operate,
-detect, and fix*: keep the game up, correct, and fair; make it easy for more people to play;
+**Elixir Drop's team RUNS Drop — it does not rebuild it.** The default verb is _operate,
+detect, and fix_: keep the game up, correct, and fair; make it easy for more people to play;
 ship what's shipped as a named release. The team is empowered to **detect → fix → test →
 commit → deploy** for bugs, regressions, ops incidents, card-catalog drift, and small quality
 fixes.
@@ -37,14 +37,14 @@ Defects don't need approval; new product direction does.
 
 ## The team
 
-| Role | File | Lane | Commits? |
-|------|------|------|----------|
-| Fair-Play Referee | `fair-play-referee.md` | Competitive integrity — independent run review + visibility decisions | Referee decision partitions only |
-| Operations Manager | `operations-manager.md` | Production health: Lambda/DynamoDB/Pages/JMAP, deploys, incidents, cost | Yes — ops fixes + `deploy:api` |
-| Build Manager | `build-manager.md` | Detect + fix bugs & regressions, maintenance, keep `cards.json` current | **Yes — owns fix/maintenance code** |
-| Growth & Season Analyst | `growth-analyst.md` | Get more people playing + season/leaderboard liveliness + the funnel data | No — issue-only |
-| Release Manager | `release-manager.md` | The named-release ceremony (coined name, notes, GitHub release, player email) | `RELEASES.md` + tags |
-| Manager | `manager.md` | Weekly meta-review of the team + the approval gate | Own `summaries/` only |
+| Role                    | File                    | Lane                                                                      | Commits?                            |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------- | ----------------------------------- |
+| Fair-Play Referee       | `fair-play-referee.md`  | Competitive integrity — independent run review + visibility decisions     | Referee decision partitions only    |
+| Operations Manager      | `operations-manager.md` | Production health: Lambda/DynamoDB/Pages/JMAP, deploys, incidents, cost   | Yes — ops fixes + `deploy:api`      |
+| Build Manager           | `build-manager.md`      | Detect + fix bugs & regressions, maintenance, keep `cards.json` current   | **Yes — owns fix/maintenance code** |
+| Growth & Season Analyst | `growth-analyst.md`     | Get more people playing + season/leaderboard liveliness + the funnel data | No — issue-only                     |
+| Release Manager         | `release-manager.md`    | Jamie-triggered name + GitHub release + Buttondown draft                  | Tags only                           |
+| Manager                 | `manager.md`            | Weekly meta-review of the team + the approval gate                        | Own `summaries/` only               |
 
 The **Fair-Play Referee**, **Growth & Season Analyst**, and **Release Manager** are Drop's
 **domain roles**; Operations Manager, Build Manager, and Manager are the standard core (shared
@@ -85,27 +85,33 @@ Roles should name the layer + file that supplied every finding.
 
 Drop ships as **named releases** (no SemVer — a coined name + date + build hash), modeled on
 Elixir's ceremony. The **Release Manager** owns it (`release-manager.md` → `scripts/cut-release.mjs`):
-coin an alliterative **Clash Royale card** name, generate the notes, publish a **GitHub
-release**, prepend `RELEASES.md`, and **email players** through Buttondown. The Manager
-triggers a cut when enough has shipped; the in-app "what's new" rides the existing
-`lib/version.ts` + `UpdateBanner`.
+after Jamie explicitly says it is release time, coin an alliterative **Clash Royale card**
+name, tag the already-live `origin/main` commit, publish a **GitHub release**, and create a
+**Buttondown draft** for Jamie to review and send. GitHub Releases are the release history.
+The role never decides timing, opens a tracking issue, commits product metadata, deploys, or
+sends the email.
+
+Because it is directly invoked by Jamie and makes no worktree commit, the Release Manager is
+the narrow project-level exception to the shared issue/`wip` ceremony and local-worktree
+preflight. Its tool fetches and validates `origin/main`, then confirms the caller's worktree is
+unchanged; unrelated local commits or edits are never tagged or pushed.
 
 ## Suggested cadence
 
 Recommended defaults — actual scheduling lives in Codex/Claude routines. All times America/Chicago.
 
-| Role | Cadence | Why |
-|------|---------|-----|
-| Operations Manager | Hourly (or every few hours) | Public prod needs a tight loop |
-| Fair-Play Referee | Daily | Keep the ranked boards real |
-| Build Manager | Daily | Steady defect + maintenance burn-down |
-| Growth & Season Analyst | Weekly + at season boundaries | Engagement reads over a wider window |
-| Release Manager | Per cut (~weekly/biweekly), after the Manager review | Batch shipped work into one named release |
-| Manager | Weekly | Team-health review + the notes digest + the approval gate |
+| Role                    | Cadence                                     | Why                                                       |
+| ----------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| Operations Manager      | Hourly (or every few hours)                 | Public prod needs a tight loop                            |
+| Fair-Play Referee       | Daily                                       | Keep the ranked boards real                               |
+| Build Manager           | Daily                                       | Steady defect + maintenance burn-down                     |
+| Growth & Season Analyst | Weekly + at season boundaries               | Engagement reads over a wider window                      |
+| Release Manager         | On demand only, after Jamie explicitly asks | Package the already-live batch without sending email      |
+| Manager                 | Weekly                                      | Team-health review + the notes digest + the approval gate |
 
 ## Label ownership notes (Drop domain labels)
 
-Beyond the shared taxonomy in `WORKFLOW.md`, Drop adds `integrity`, `growth`, and `release`
+Beyond the shared taxonomy in `WORKFLOW.md`, Drop adds `integrity` and `growth`
 (see `scripts/setup-labels.sh` → PROJECT EXTENSIONS):
 
 - `integrity` — competitive-fairness findings from the Fair-Play Referee. A defect the Referee
@@ -114,5 +120,3 @@ Beyond the shared taxonomy in `WORKFLOW.md`, Drop adds `integrity`, `growth`, an
   liveliness. It is **not** a build-ready work order: the Manager weighs it and, if there's a
   clear next action, it becomes a `proposal` (new direction, needs Jamie) or a `bug`/`enhancement`.
   Build Manager skips bare `growth` issues.
-- `release` — tracks a release cut and its follow-ups (email/GitHub/RELEASES.md), owned by the
-  Release Manager.

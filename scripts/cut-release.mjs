@@ -8,24 +8,19 @@ import { parseArgs } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const releasesPath = resolve(repoRoot, "RELEASES.md");
-const stampPath = resolve(repoRoot, "apps/web/src/data/release.json");
-const releaseHeading = "# Elixir Drop Releases";
-const manifestPrefix = "elixir-drop-release:";
 const channels = ["github", "email"];
+const buttondownApiVersion = "2026-04-01";
 
 export function optionsFor(argv) {
   const { values } = parseArgs({
     args: argv,
     allowPositionals: false,
     options: {
-      "announce-only": { type: "string" },
       channel: { type: "string", multiple: true },
       days: { type: "string" },
       draft: { type: "string" },
       "dry-run": { type: "boolean" },
       help: { type: "boolean", short: "h" },
-      "no-email": { type: "boolean" },
       prepare: { type: "boolean" },
       since: { type: "string" },
     },
@@ -44,26 +39,11 @@ export function optionsFor(argv) {
   if (selectedChannels.some((channel) => !channels.includes(channel))) {
     throw new Error("--channel must be github or email");
   }
-  if (values.channel && !values["announce-only"]) {
-    throw new Error("--channel is only valid with --announce-only");
-  }
-  if (
-    values["announce-only"] &&
-    (days || values.since || values.draft || values.prepare)
-  ) {
-    throw new Error("--announce-only cannot select or draft a new release");
-  }
-  if (
-    values.prepare &&
-    (values.draft || values["dry-run"] || values["no-email"])
-  ) {
+  if (values.prepare && (values.draft || values["dry-run"] || values.channel)) {
     throw new Error("--prepare cannot be combined with release actions");
   }
   return {
-    announceOnly: values["announce-only"],
-    channels: selectedChannels.filter(
-      (channel) => !(values["no-email"] && channel === "email"),
-    ),
+    channels: [...new Set(selectedChannels)],
     days,
     draft: values.draft,
     dryRun: Boolean(values["dry-run"]),
@@ -134,17 +114,15 @@ export function validateDraft(draft, material, cards, date) {
   const email = draft.email;
   const subject = requiredString(email, "subject");
   const body = requiredString(email, "body");
-  const inApp = requiredString(draft, "inApp");
-  if (inApp.length > 160) {
-    throw new Error("LLM in-app blurb must be 160 characters or fewer");
-  }
   const build = material.head.slice(0, 12);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ...named,
     date,
     build,
+    sourceHead: material.head,
     range: material.range,
+    repository: material.repository,
     detailed: [
       `## ${named.name} — ${date} (${build})`,
       "",
@@ -153,13 +131,12 @@ export function validateDraft(draft, material, cards, date) {
       `_Release range: ${material.range}._`,
     ].join("\n"),
     email: { subject, body },
-    inApp,
   };
 }
 
 export function preparePayload(material, cards) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceHead: material.head,
     range: material.range,
     repository: material.repository,
@@ -167,7 +144,7 @@ export function preparePayload(material, cards) {
     issues: material.issues,
     canonicalCards: cards.map((card) => card.name),
     instruction:
-      "In one LLM call, coin an apt alliterative name ending in a canonical Clash Royale card and write honest detailed, player-email, and in-app tiers. Return only the output schema.",
+      "In one LLM call, coin an apt alliterative name ending in a canonical Clash Royale card and write honest detailed GitHub notes plus a warm player-facing Buttondown draft. Return only the output schema.",
     outputSchema: {
       sourceHead: material.head,
       range: material.range,
@@ -178,84 +155,60 @@ export function preparePayload(material, cards) {
         subject: "Player-facing subject",
         body: "Warm player-facing Markdown",
       },
-      inApp: "At most 160 characters",
     },
   };
-}
-
-function embedManifest(existing, manifest) {
-  if (!existing.startsWith(releaseHeading)) {
-    throw new Error("RELEASES.md is missing its canonical heading");
-  }
-  const encoded = Buffer.from(JSON.stringify(manifest)).toString("base64url");
-  return `${releaseHeading}\n\n<!-- ${manifestPrefix}${encoded} -->\n${manifest.detailed}\n\n${existing.slice(releaseHeading.length).trim()}\n`;
-}
-
-function storedManifests(existing) {
-  const pattern = new RegExp(
-    `<!--\\s*${manifestPrefix}([A-Za-z0-9_-]+)\\s*-->`,
-    "g",
-  );
-  return [...existing.matchAll(pattern)].map((match) =>
-    JSON.parse(Buffer.from(match[1], "base64url").toString("utf8")),
-  );
 }
 
 function printPlan(manifest, selectedChannels, output) {
   output(`${manifest.detailed}\n`);
   output(
-    `=== Player email ===\n${manifest.email.subject}\n\n${manifest.email.body}\n`,
+    `=== Buttondown draft ===\n${manifest.email.subject}\n\n${manifest.email.body}\n`,
   );
-  output(`=== In-app ===\n${manifest.inApp}\n`);
+  output(`=== Target ===\n${manifest.sourceHead}\n`);
   output(
-    `=== Actions ===\n${selectedChannels.map((channel) => `- ${channel}`).join("\n")}`,
+    `=== Actions ===\n- annotated tag ${manifest.tag}\n${selectedChannels
+      .map((channel) =>
+        channel === "github"
+          ? "- GitHub release"
+          : "- Buttondown draft (never sent)",
+      )
+      .join("\n")}`,
   );
 }
 
 export async function runRelease(options, actions) {
   if (options.help) return actions.output(help());
-  await actions.preflight();
-  if (!options.channels.length)
-    throw new Error("No announcement channel selected");
+  if (!options.channels.length) throw new Error("No release channel selected");
 
-  if (options.announceOnly) {
-    const manifest = storedManifests(await actions.readReleases()).find(
-      (item) => item.tag === options.announceOnly,
-    );
-    if (!manifest) throw new Error("Release manifest not found");
-    await actions.assertTag(manifest.tag);
-    printPlan(manifest, options.channels, actions.output);
-    if (!options.dryRun) await actions.announce(manifest, options.channels);
-    return { manifest, dryRun: options.dryRun };
-  }
-
-  const material = await actions.gather(options);
+  const target = await actions.preflight();
+  const material = await actions.gather(options, target);
   if (!material.commits.length) throw new Error("Release range has no commits");
+
   if (options.prepare) {
     const cards = await actions.readCards();
     actions.output(
       JSON.stringify(preparePayload(material, cards.cards), null, 2),
     );
-    return { prepared: true };
+    return { prepared: true, target };
   }
   if (!options.draft) {
     throw new Error(
       "Run --prepare, make one LLM call, then pass --draft <file>",
     );
   }
+
   const [draft, cards] = await Promise.all([
     actions.readDraft(options.draft),
     actions.readCards(),
   ]);
   const manifest = validateDraft(draft, material, cards.cards, actions.date());
-  await actions.assertUnusedTag(manifest.tag);
   printPlan(manifest, options.channels, actions.output);
   if (options.dryRun) return { manifest, dryRun: true };
-  const head = await actions.commit(manifest);
-  await actions.tag(manifest);
-  await actions.waitUntilLive(head);
-  await actions.announce(manifest, options.channels);
-  return { manifest, released: true };
+
+  await actions.confirmTarget(material.head);
+  await actions.ensureTag(manifest, material.head);
+  const announced = await actions.announce(manifest, options.channels);
+  return { manifest, released: true, announced };
 }
 
 function command(
@@ -279,6 +232,19 @@ function command(
   }
 }
 
+function commandOk(executable, args) {
+  try {
+    execFileSync(executable, args, {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function assertLive(head) {
   const runs = JSON.parse(
     command("gh", [
@@ -289,7 +255,7 @@ async function assertLive(head) {
       "--branch",
       "main",
       "--limit",
-      "30",
+      "100",
       "--json",
       "headSha,status,conclusion,databaseId",
     ]),
@@ -309,8 +275,9 @@ async function assertLive(head) {
 
 export function rangeFor(
   options,
+  target,
   latestTag = () =>
-    command("git", ["describe", "--tags", "--abbrev=0"], {
+    command("git", ["describe", "--tags", "--abbrev=0", target], {
       allowFailure: true,
     }),
   refExists = (ref) =>
@@ -319,30 +286,42 @@ export function rangeFor(
         allowFailure: true,
       }),
     ),
+  isAncestor = (ref) =>
+    commandOk("git", ["merge-base", "--is-ancestor", ref, target]),
 ) {
+  const shortTarget = target.slice(0, 12);
   if (options.since) {
     if (!refExists(options.since)) {
       throw new Error(`Unknown --since ref: ${options.since}`);
     }
+    if (!isAncestor(options.since)) {
+      throw new Error(`--since ref is not an ancestor of ${shortTarget}`);
+    }
     return {
-      label: `${options.since}..HEAD`,
-      args: [`${options.since}..HEAD`],
+      label: `${options.since}..${shortTarget}`,
+      args: [`${options.since}..${target}`],
     };
   }
   if (options.days) {
     return {
-      label: `last ${options.days} days`,
-      args: [`--since=${options.days} days ago`, "HEAD"],
+      label: `last ${options.days} days through ${shortTarget}`,
+      args: [`--since=${options.days} days ago`, target],
     };
   }
   const tag = latestTag();
   return tag
-    ? { label: `${tag}..HEAD`, args: [`${tag}..HEAD`] }
-    : { label: "repository history through HEAD", args: ["HEAD"] };
+    ? {
+        label: `${tag}..${shortTarget}`,
+        args: [`${tag}..${target}`],
+      }
+    : {
+        label: `repository history through ${shortTarget}`,
+        args: [target],
+      };
 }
 
-async function gather(options) {
-  const range = rangeFor(options);
+async function gather(options, target) {
+  const range = rangeFor(options, target);
   const records = command("git", [
     "log",
     ...range.args,
@@ -376,7 +355,7 @@ async function gather(options) {
     })
     .filter(Boolean);
   return {
-    head: command("git", ["rev-parse", "HEAD"]),
+    head: target,
     range: range.label,
     repository: command("gh", [
       "repo",
@@ -402,7 +381,7 @@ function buttondownBody(manifest) {
   ].join("\n");
 }
 
-export async function publishButtondown(
+export async function createButtondownDraft(
   manifest,
   {
     apiKey = process.env.BUTTONDOWN_API_KEY,
@@ -411,7 +390,7 @@ export async function publishButtondown(
   } = {},
 ) {
   if (!apiKey?.trim()) {
-    throw new Error("BUTTONDOWN_API_KEY is required for release email");
+    throw new Error("BUTTONDOWN_API_KEY is required for the release draft");
   }
   if (
     !newsletterId?.match(
@@ -428,62 +407,92 @@ export async function publishButtondown(
       Authorization: `Token ${apiKey.trim()}`,
       "Buttondown-Context": newsletterId,
       "Content-Type": "application/json",
-      "X-Idempotency-Key": `elixir-drop-release-email-${manifest.tag}`,
+      "X-API-Version": buttondownApiVersion,
+      "X-Idempotency-Key": `elixir-drop-release-draft-${manifest.tag}`,
     },
     body: JSON.stringify({
       subject: manifest.email.subject,
       body: buttondownBody(manifest),
       slug: manifest.tag,
-      status: "about_to_send",
-      canonical_url: `https://github.com/jthingelstad/drop.poapkings.com/releases/tag/${manifest.tag}`,
+      status: "draft",
+      canonical_url: `https://github.com/${manifest.repository}/releases/tag/${manifest.tag}`,
       metadata: { elixir_drop_release: manifest.tag },
     }),
   });
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 500);
     throw new Error(
-      `Buttondown release email failed (${response.status})${detail ? `: ${detail}` : ""}`,
+      `Buttondown release draft failed (${response.status})${detail ? `: ${detail}` : ""}`,
     );
   }
   const email = await response.json();
-  if (typeof email.id !== "string") {
-    throw new Error("Buttondown response is missing the email id");
+  if (typeof email.id !== "string" || email.status !== "draft") {
+    throw new Error("Buttondown response is not a draft email");
   }
   return email;
 }
 
+function remoteTagCommit(tag) {
+  const refs = command(
+    "git",
+    [
+      "ls-remote",
+      "--tags",
+      "origin",
+      `refs/tags/${tag}`,
+      `refs/tags/${tag}^{}`,
+    ],
+    { allowFailure: true },
+  );
+  if (!refs) return undefined;
+  const lines = refs.split("\n");
+  const peeled = lines.find((line) => line.endsWith(`refs/tags/${tag}^{}`));
+  const direct = lines.find((line) => line.endsWith(`refs/tags/${tag}`));
+  return (peeled ?? direct)?.split(/\s+/)[0];
+}
+
 async function announce(manifest, selectedChannels) {
+  const result = {};
   const temp = await mkdtemp(resolve(tmpdir(), "elixir-drop-release-"));
   try {
     if (selectedChannels.includes("github")) {
-      const exists = command(
+      const existing = command(
         "gh",
-        ["release", "view", manifest.tag, "--json", "tagName"],
+        ["release", "view", manifest.tag, "--json", "url", "--jq", ".url"],
         { allowFailure: true },
       );
-      if (!exists) {
+      if (existing) {
+        result.github = existing;
+      } else {
         const notes = resolve(temp, "notes.md");
         await writeFile(notes, `${manifest.detailed}\n`);
-        command(
-          "gh",
-          [
-            "release",
-            "create",
-            manifest.tag,
-            "--verify-tag",
-            "--title",
-            `${manifest.name} (${manifest.date})`,
-            "--notes-file",
-            notes,
-          ],
-          { inherit: true },
-        );
+        command("gh", [
+          "release",
+          "create",
+          manifest.tag,
+          "--verify-tag",
+          "--title",
+          `${manifest.name} (${manifest.date})`,
+          "--notes-file",
+          notes,
+        ]);
+        result.github = command("gh", [
+          "release",
+          "view",
+          manifest.tag,
+          "--json",
+          "url",
+          "--jq",
+          ".url",
+        ]);
       }
     }
     if (selectedChannels.includes("email")) {
-      const email = await publishButtondown(manifest);
-      console.log(`Buttondown release email queued (${email.id})`);
+      const email = await createButtondownDraft(manifest);
+      result.emailDraftId = email.id;
+      console.log(`Buttondown release draft created (${email.id})`);
     }
+    return result;
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
@@ -500,21 +509,10 @@ export function systemActions(output = console.log) {
         day: "2-digit",
       }).format(new Date()),
     async preflight() {
-      if (command("git", ["branch", "--show-current"]) !== "main")
-        throw new Error("Release requires main");
-      if (command("git", ["status", "--porcelain"]))
-        throw new Error("Release requires a clean worktree");
-      if (
-        command("git", [
-          "rev-list",
-          "--left-right",
-          "--count",
-          "HEAD...@{upstream}",
-        ]) !== "0\t0"
-      ) {
-        throw new Error("Release requires HEAD even with upstream");
-      }
-      await assertLive(command("git", ["rev-parse", "HEAD"]));
+      command("git", ["fetch", "origin", "main", "--tags"]);
+      const head = command("git", ["rev-parse", "origin/main"]);
+      await assertLive(head);
+      return head;
     },
     gather,
     readCards: async () =>
@@ -526,83 +524,43 @@ export function systemActions(output = console.log) {
       ),
     readDraft: async (path) =>
       JSON.parse(await readFile(resolve(repoRoot, path), "utf8")),
-    readReleases: () => readFile(releasesPath, "utf8"),
-    assertTag: async (tag) => {
-      if (
-        !command(
-          "git",
-          ["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`],
-          { allowFailure: true },
-        )
-      ) {
-        throw new Error(`Tag ${tag} is not published`);
+    async confirmTarget(head) {
+      command("git", ["fetch", "origin", "main", "--tags"]);
+      const current = command("git", ["rev-parse", "origin/main"]);
+      if (current !== head) {
+        throw new Error(
+          `origin/main moved from ${head.slice(0, 12)} to ${current.slice(0, 12)}; prepare a new draft`,
+        );
       }
-    },
-    assertUnusedTag: async (tag) => {
-      if (
-        command(
-          "git",
-          ["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`],
-          { allowFailure: true },
-        )
-      ) {
-        throw new Error(`Tag ${tag} already exists`);
-      }
-    },
-    async commit(manifest) {
-      const existing = await readFile(releasesPath, "utf8");
-      await Promise.all([
-        writeFile(releasesPath, embedManifest(existing, manifest)),
-        writeFile(
-          stampPath,
-          `${JSON.stringify(
-            {
-              name: manifest.name,
-              tag: manifest.tag,
-              releasedAt: manifest.date,
-              build: manifest.build,
-              blurb: manifest.inApp,
-            },
-            null,
-            2,
-          )}\n`,
-        ),
-      ]);
-      command("git", ["add", "RELEASES.md", "apps/web/src/data/release.json"]);
-      command("git", ["commit", "-m", `Release ${manifest.name}`]);
-      command("git", ["push", "origin", "main"], { inherit: true });
-      return command("git", ["rev-parse", "HEAD"]);
-    },
-    async waitUntilLive(head) {
-      const runs = JSON.parse(
-        command("gh", [
-          "run",
-          "list",
-          "--workflow",
-          "deploy.yml",
-          "--branch",
-          "main",
-          "--limit",
-          "30",
-          "--json",
-          "headSha,databaseId",
-        ]),
-      );
-      const run = runs.find((item) => item.headSha === head);
-      if (!run) throw new Error("Deploy run has not started; retry shortly");
-      command("gh", ["run", "watch", String(run.databaseId), "--exit-status"], {
-        inherit: true,
-      });
       await assertLive(head);
     },
-    tag: async (manifest) => {
-      command("git", [
-        "tag",
-        "-a",
-        manifest.tag,
-        "-m",
-        `${manifest.name} (${manifest.date})`,
-      ]);
+    async ensureTag(manifest, head) {
+      const remote = remoteTagCommit(manifest.tag);
+      if (remote && remote !== head) {
+        throw new Error(`Tag ${manifest.tag} points to a different commit`);
+      }
+      if (remote === head) return;
+
+      const local = command(
+        "git",
+        ["rev-parse", "--verify", `refs/tags/${manifest.tag}^{commit}`],
+        { allowFailure: true },
+      );
+      if (local && local !== head) {
+        throw new Error(
+          `Local tag ${manifest.tag} points to a different commit`,
+        );
+      }
+      if (!local) {
+        command("git", [
+          "tag",
+          "-a",
+          manifest.tag,
+          head,
+          "-m",
+          `${manifest.name} (${manifest.date})`,
+        ]);
+      }
       command("git", ["push", "origin", `refs/tags/${manifest.tag}`]);
     },
     announce,
@@ -612,9 +570,8 @@ export function systemActions(output = console.log) {
 export function help() {
   return `Usage:
   node scripts/cut-release.mjs --prepare [--since <ref> | --days <n>]
-  node scripts/cut-release.mjs --draft <llm-output.json> --dry-run [--no-email]
-  node scripts/cut-release.mjs --draft <llm-output.json> [--no-email]
-  node scripts/cut-release.mjs --announce-only <tag> [--channel github|email] [--dry-run]`;
+  node scripts/cut-release.mjs --draft <llm-output.json> --dry-run [--since <ref> | --days <n>]
+  node scripts/cut-release.mjs --draft <llm-output.json> [--since <ref> | --days <n>] [--channel github|email]`;
 }
 
 export async function main(argv = process.argv.slice(2)) {

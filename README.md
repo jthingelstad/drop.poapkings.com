@@ -203,13 +203,12 @@ elixir-drop/
 ├─ infra/                    # CloudFormation and SDK deployment scripts
 ├─ package.json              # npm workspace commands
 ├─ .github/workflows/        # verify.yml (pull requests) + deploy.yml (push to main)
-├─ AGENT-TEAM/               # scheduled maintainer role prompts
+├─ AGENT-TEAM/               # scheduled and on-demand maintainer role prompts
 ├─ AGENTS.md                 # agent entry point + the canonical doc map
 ├─ CLAUDE.md                 # agent working guide: golden rules and architecture
 ├─ CONTRIBUTING.md           # local dev, the quality gate, conventions
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
-├─ RELEASES.md               # named-release history
 └─ docs/card-rendering.md    # shared card rendering reference
 ```
 

@@ -74,7 +74,6 @@ upsert "generated"    "FEF2C0" "Filed by an automated agent (not a human)"
 echo "==> PROJECT: Elixir Drop domain labels"
 upsert "integrity" "B60205" "Competitive-fairness finding — Fair-Play Referee (a game defect it spots -> bug for Build Manager)"
 upsert "growth"    "0E8A16" "Playerbase / season-liveliness signal — Growth & Season Analyst -> Manager weighs it"
-upsert "release"   "5319E7" "A named-release cut and its follow-ups (email / GitHub / RELEASES.md) — Release Manager"
 
 echo "==> PROJECT: label cleanup"
 remove "good first issue"; remove "help wanted"
