@@ -35,17 +35,20 @@ test('a stale installed app checks immediately and cache-busts its reload', asyn
 test('shows a friendly API outage notice and recovers in place', async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let available = false
+  let unavailableStatsResponses = 0
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/stats') {
+      const wasAvailable = available
       await route.fulfill({
-        status: available ? 200 : 503,
+        status: wasAvailable ? 200 : 503,
         contentType: 'application/json',
         body: JSON.stringify(
-          available ? testStats : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
+          wasAvailable ? testStats : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
         )
       })
+      if (!wasAvailable) unavailableStatsResponses += 1
       return
     }
     if (path === '/leaderboards') {
@@ -79,6 +82,11 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
   await expect(page.getByRole('heading', { name: 'Drop is taking a quick elixir break' })).toBeVisible()
   await expect(outage).toContainText('Your account and recorded games are safe.')
 
+  // App's stale-build check and Home's view-model both request /stats during
+  // startup. Let both failed responses settle before clicking: otherwise the
+  // second response can rerender the banner while Playwright is checking the
+  // button's stability, which made isolated Firefox lanes time out.
+  await expect.poll(() => unavailableStatsResponses).toBeGreaterThanOrEqual(2)
   available = true
   await page.getByRole('button', { name: 'Try reconnecting' }).click()
   await expect(outage).toHaveCount(0)
