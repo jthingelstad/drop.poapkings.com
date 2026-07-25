@@ -148,6 +148,10 @@ deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript siz
 
 - Input: pip keypad.
 - Record: `rainBest` (cards cleared).
+- Board epoch `r2` (2026-07-24). The pre-redesign board is retired: the old curve
+  capped at 50 clears, so deep scores came off a materially easier game and are
+  not comparable to runs on the uncapped curve. Old rows are orphaned, not
+  deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
 
 ### Easter egg: "Elixir Rain" screensaver
 

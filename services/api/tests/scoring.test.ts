@@ -162,9 +162,17 @@ describe("server-side game scoring", () => {
     ).toBe(1);
   });
 
-  it("puts Survival on a reset board epoch while other modes stay put", () => {
+  it("puts Survival and Rain on reset board epochs while other modes stay put", () => {
     expect(leaderboardPartition("2026-07", "survival")).toBe(
       "LEADERBOARD#2026-07#survival#r2",
+    );
+    // Rain restarted when its difficulty stopped capping — pre-redesign scores
+    // came off an easier game and are retired with the old partition.
+    expect(leaderboardPartition("2026-07", "rain")).toBe(
+      "LEADERBOARD#2026-07#rain#r2",
+    );
+    expect(leaderboardPartition("ALLTIME", "rain")).toBe(
+      "LEADERBOARD#ALLTIME#rain#r2",
     );
     expect(leaderboardPartition("2026-07", "surge")).toBe(
       "LEADERBOARD#2026-07#surge",

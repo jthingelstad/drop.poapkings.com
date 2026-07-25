@@ -55,6 +55,21 @@ Configuration:
 | `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
 | `referee-decide.mjs`    | `<runId> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text>` | Atomically writes the current decision and immutable audit event. `hidden` requires `review`; `visible` restores a scored run; `not_ranked` records judgment when no candidate score exists. |
 
+## Ranked modes and board epochs
+
+`RANKED_MODES` in `_referee-lib.mjs` is `surge`, `higher-lower`, `trade`,
+`survival`, and `rain` — the modes that write leaderboard rows. Practice is
+unranked and guest runs are never recorded, so neither has a partition. Rain was
+missing from this list until 2026-07-24, so cohort and feed reviews silently
+skipped it; if you are reading a review older than that, Rain was not covered.
+
+`BOARD_EPOCH` mirrors `services/api/src/games.ts`. A mode whose rules change
+materially gets a new epoch so its board restarts without deleting data — old
+rows are orphaned, and the scripts only ever see the current epoch. Survival is
+on `r2` (clear-the-deck rework) and Rain on `r2` (2026-07-24 difficulty
+redesign: the old curve capped at 50 clears). **Keep this in sync with the API**
+— a stale mirror reads the wrong partition and silently returns an empty cohort.
+
 Leaderboard cohort/feed output reconciles current decisions. A hidden seasonal
 best falls back to the player's next-best visible run. The all-time cohort does
 the same, so hiding one fabricated score does not erase the player's legitimate

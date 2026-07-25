@@ -25,12 +25,21 @@ export const TABLE_NAME =
   process.env.DROP_TABLE_NAME || process.env.TABLE_NAME || "elixir-drop";
 
 // The live ranked modes. Practice is unranked and guest runs are never
-// recorded, so neither has a leaderboard partition.
-export const RANKED_MODES = ["surge", "higher-lower", "trade", "survival"];
+// recorded, so neither has a leaderboard partition. Rain is ranked and writes
+// leaderboard rows like the rest — it was missing here, so its scores could not
+// be reviewed at all.
+export const RANKED_MODES = [
+  "surge",
+  "higher-lower",
+  "trade",
+  "survival",
+  "rain",
+];
 
-// Mirror of services/api/src/games.ts BOARD_EPOCH: Survival's board was reset
-// to "r2" when it became a clear-the-deck, time-ranked game.
-const BOARD_EPOCH = { survival: "r2" };
+// Mirror of services/api/src/games.ts BOARD_EPOCH: Survival's board was reset to
+// "r2" when it became a clear-the-deck, time-ranked game, and Rain's on
+// 2026-07-24 when its difficulty stopped capping.
+const BOARD_EPOCH = { survival: "r2", rain: "r2" };
 
 export function leaderboardPartition(seasonId, mode) {
   const epoch = BOARD_EPOCH[mode];

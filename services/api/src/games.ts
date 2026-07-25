@@ -58,8 +58,14 @@ const MAX_SORT_SCORE = 999_999_999_999;
 // deleting data: new runs write to (and reads query) the new partition, so
 // older entries are simply orphaned. Survival moved to "r2" when it became a
 // clear-the-deck, time-ranked game — its pre-change scores are retired.
+// Rain moved to "r2" on 2026-07-24 when its difficulty stopped capping: the old
+// curve flatlined at 50 clears, so a player in flow could clear indefinitely and
+// deep scores came off a materially easier game. Post-redesign runs are not
+// comparable to them, so the board restarts rather than freezing an old record
+// behind a much harder climb.
 const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
   survival: "r2",
+  rain: "r2",
 };
 
 export function leaderboardPartition(seasonId: string, mode: GameMode): string {
