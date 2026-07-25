@@ -204,6 +204,13 @@ describe('Settings', () => {
     byLabel(c, 'Enhance effects').click()
     expect(getSettings().enhancedEffects).toBe(false)
   })
+
+  it('toggling the speedrun keyboard persists (default off → on)', () => {
+    const c = mount(<Settings />)
+    expect(getSettings().speedrunKeyboard ?? false).toBe(false)
+    byLabel(c, 'Speedrun keyboard').click()
+    expect(getSettings().speedrunKeyboard).toBe(true)
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════

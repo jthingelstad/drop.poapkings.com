@@ -3,16 +3,25 @@ import { useRef } from 'preact/hooks'
 import { allCards } from '../lib/card-catalog'
 import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
+import { getSettings } from '../lib/storage'
 import { useGameKeys } from '../lib/use-game-keys'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
 const MAX_ELIXIR = Math.max(...allCards.map((card) => card.elixir))
 
-// Locked single row, 1..N ascending — the one keypad layout in the redesign
-// (design-ref/SPEC-EXTRACT.md). Fixed positions across every device mean muscle
-// memory holds in a speed game.
+// 1..N ascending. Fixed positions across every device mean muscle memory holds
+// in a speed game — which is why the ORDER never varies, only how many rows it
+// is dealt across.
 const KEY_ORDER = Array.from({ length: MAX_ELIXIR }, (_, i) => i + 1)
+
+// Speedrun keyboard: 1-5 over 6-9, each row filling the full width, so a key is
+// roughly twice as wide as the single row's. Drop's fastest Surge players asked
+// for it — mistaps happen sideways, between neighbours, so width is the axis
+// that matters. Splitting after 5 rather than halving means a future 10-cost
+// card lands on the bottom row instead of shifting 1-5 out from under a thumb
+// that has learned where they are.
+const SPEEDRUN_TOP_ROW = 5
 
 interface Props {
   onPick: (value: number) => void
@@ -100,11 +109,32 @@ export default function PipKeypad({ onPick, disabled }: Props) {
     onPick(value)
   })
 
+  // Read fresh at render, the way sound and motion read their settings — the
+  // keypad is only ever mounted at the start of a run, so there is nothing to
+  // subscribe to.
+  const speedrun = getSettings().speedrunKeyboard ?? false
+  const rows = speedrun ? [KEY_ORDER.slice(0, SPEEDRUN_TOP_ROW), KEY_ORDER.slice(SPEEDRUN_TOP_ROW)] : [KEY_ORDER]
+
+  // The default layout keeps its flat DOM: one row means no wrapper, so nothing
+  // about the shipped keypad moves for a player who never turns this on.
   return (
-    <div ref={groupRef} class="pip-keypad" role="group" aria-label="Elixir cost keypad">
-      {KEY_ORDER.map((n) => (
-        <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />
-      ))}
+    <div
+      ref={groupRef}
+      class={`pip-keypad${speedrun ? ' pip-keypad--speedrun' : ''}`}
+      role="group"
+      aria-label="Elixir cost keypad"
+    >
+      {rows.map((row, index) =>
+        speedrun ? (
+          <div class="pip-keypad__row" key={`row-${index}`}>
+            {row.map((n) => (
+              <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />
+            ))}
+          </div>
+        ) : (
+          row.map((n) => <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />)
+        )
+      )}
     </div>
   )
 }

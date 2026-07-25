@@ -53,7 +53,15 @@ vi.mock('../../src/lib/storage', () => ({
   // Practice's weighted deal reads card stats every deal; an empty map is the
   // new-player case, which must fall back to uniform random.
   getCardStats: () => ({}),
-  getSettings: () => ({ inputStyle: 'keypad', sound: false, reducedMotion: false, enhancedEffects: true }),
+  getSettings: () => ({
+    inputStyle: 'keypad',
+    sound: false,
+    reducedMotion: false,
+    enhancedEffects: true,
+    // These drive the single-row keypad on purpose; the two-row Speedrun
+    // layout has its own coverage in speedrun-keyboard.test.tsx.
+    speedrunKeyboard: false
+  }),
   saveSettings: vi.fn()
 }))
 

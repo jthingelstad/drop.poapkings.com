@@ -70,7 +70,7 @@ ghost-pace checkpoint shows the delta against the recorded best run. The
 sprint's images preload before the timer starts; Elixir stays silent during
 the run and reacts on the summary. Produces one clean, shareable number.
 
-- Input: pip keypad.
+- Input: pip keypad (one row, or two wide rows with the Speedrun keyboard setting).
 - Record: `surgeBest` (lowest time).
 
 **Season competition — the Free Pass.** Surge carries a real prize: the player
@@ -120,6 +120,7 @@ The run still completes server-side for one reason: the validated transcript
 feeds the server-owned learning stats (`services/api/src/learning.ts`).
 
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
+  The Speedrun keyboard setting deals the keypad as two wide rows.
 - Record: **none.** Practice has no record key at all (see `RECORD_KEYS`).
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
   adjacent but randomly offset, so the option set never names the answer.
@@ -130,7 +131,7 @@ generated so the two cards **never share an elixir cost** (server
 `higherLowerPairs`), so there is always a strictly higher card and no "equal"
 option is needed — the whole card is the tap target (no separate controls; far
 easier on mobile). The player has **three lives**, rendered with the same
-heart / heart-crack row Rain uses. Trains the relative read that wins elixir
+filled / open heart row Rain uses. Trains the relative read that wins elixir
 trades.
 
 **Score is total correct reads across the session**, not the longest unbroken
@@ -262,7 +263,7 @@ The scorer
 validates each card id against the signed deck but does **not** cap the run at the
 deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript size.
 
-- Input: pip keypad.
+- Input: pip keypad (one row, or two wide rows with the Speedrun keyboard setting).
 - Record: `rainBest` (cards cleared).
 - Leaderboard tiebreak: **fewest wrong guesses, then lowest average clear
   latency** (`MODE_TIEBREAKS`). Wrong guesses count every wrong tap in the run,

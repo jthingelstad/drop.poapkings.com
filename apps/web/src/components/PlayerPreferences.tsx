@@ -22,6 +22,7 @@ export default function PlayerPreferences() {
   const sound = useSignal(settings.sound)
   const reducedMotion = useSignal(Boolean(settings.reducedMotion))
   const enhancedEffects = useSignal(settings.enhancedEffects ?? true)
+  const speedrunKeyboard = useSignal(settings.speedrunKeyboard ?? false)
 
   function toggleSound() {
     const on = !sound.value
@@ -42,6 +43,12 @@ export default function PlayerPreferences() {
     const on = !enhancedEffects.value
     enhancedEffects.value = on
     saveSettings({ enhancedEffects: on })
+  }
+
+  function toggleSpeedrunKeyboard() {
+    const on = !speedrunKeyboard.value
+    speedrunKeyboard.value = on
+    saveSettings({ speedrunKeyboard: on })
   }
 
   return (
@@ -70,6 +77,17 @@ export default function PlayerPreferences() {
           </div>
         </div>
         <Toggle on={enhancedEffects.value} onToggle={toggleEnhanced} label="Enhance effects" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-row__text">
+          <div class="setting-row__name">Speedrun keyboard</div>
+          <div class="setting-row__desc">
+            Two wide rows &mdash; 1&ndash;5 over 6&ndash;9 &mdash; instead of one row of nine. Bigger keys, fewer
+            mistaps. Off by default.
+          </div>
+        </div>
+        <Toggle on={speedrunKeyboard.value} onToggle={toggleSpeedrunKeyboard} label="Speedrun keyboard" />
       </div>
     </div>
   )

@@ -229,6 +229,14 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   remember the choice in settings. Default to the keypad. The keypad has one key
   per cost that exists in the catalog (currently 1–9) — a dead "10" key was
   penalty bait and stole tap-target width.
+- **Speedrun keyboard:** an off-by-default setting that deals the pip keypad as
+  two full-width rows (1–5 over 6–9) instead of one row of nine, roughly doubling
+  key width because mistaps happen sideways. Asked for by Drop's fastest Surge
+  players. It applies everywhere the pip keypad renders (Surge, Practice,
+  Survival, Rain) so muscle memory is the same in drill and in competition;
+  Trade's swing pad is a different control and is untouched. The two-row layout
+  **must not** keep the single row's `aspect-ratio`, or it blows through the
+  viewport-fit gates — see `.pip-keypad--speedrun` in `styles.css`.
 - **Evolutions:** quiz on **base elixir only**; show Evo/Hero as flavor, not as
   part of the answer.
 - **Elixir voice:** dry, a little cocky, never mean. Short lines.

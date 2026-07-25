@@ -25,6 +25,10 @@ export interface Settings {
   reducedMotion?: boolean
   // Richer particle FX across the games. On by default; reduced motion overrides.
   enhancedEffects?: boolean
+  // Deal the pip keypad as two wide rows (1-5 over 6-9) instead of one row of
+  // nine. Off by default: the single row is still the layout every player
+  // learned, and this one trades vertical space for tap-target width.
+  speedrunKeyboard?: boolean
 }
 
 export interface CardStat {

@@ -1116,12 +1116,26 @@ a {
 
 /* ── Pip keypad ───────────────────────────────────────────── */
 
-/* Fixed 3×3 numpad — same layout in every mode that answers by elixir cost, so
-   a number is always in the same place (muscle memory). */
-
-/* Locked single-row keypad (redesign). One key per cost, purple keycap with a
-   solid bottom wall that collapses on press. */
+/* Default: one row, one key per cost, purple keycap with a solid bottom wall
+   that collapses on press. Same layout in every mode that answers by elixir
+   cost, so a number is always in the same place (muscle memory).
+   The Speedrun keyboard setting deals the same keys across two rows instead —
+   see .pip-keypad--speedrun below. */
 .pip-keypad {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+/* Speedrun keyboard: 1-5 over 6-9, each row filling the width on its own, so a
+   key is about twice as wide as the single row's. Mistaps happen sideways,
+   between neighbours, so width is what this buys. Key height is handled at
+   .pip-keypad--speedrun .pip-keypad__pip below, and it matters. */
+.pip-keypad--speedrun {
+  flex-direction: column;
+}
+
+.pip-keypad__row {
   display: flex;
   gap: 6px;
   width: 100%;
@@ -1167,6 +1181,16 @@ a {
 .pip-keypad__pip--disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* Speedrun keys MUST drop `aspect-ratio`: at 0.66 a twice-as-wide key is also
+   twice as tall, and two such rows stack to roughly four times the single row's
+   height — straight through the gates in tests/e2e/viewport-fit.spec.ts. The
+   clamp keeps the pair only modestly taller than the row it replaces while
+   still scaling with the screen. */
+.pip-keypad--speedrun .pip-keypad__pip {
+  aspect-ratio: auto;
+  height: clamp(42px, 12vw, 60px);
 }
 
 .pip-keypad__face {

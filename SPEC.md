@@ -238,7 +238,11 @@ Product decisions currently in force:
 - Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
 - Practice defaults to the pip keypad and also offers 4-button choices. The
-  keypad has one key per cost the catalog actually has (currently 1–9).
+  keypad has one key per cost the catalog actually has (currently 1–9), dealt as
+  one row. The **Speedrun keyboard** setting (`speedrunKeyboard`, off by
+  default) deals the same keys as two full-width rows instead — 1–5 over 6–9 —
+  for roughly double the tap-target width. It applies everywhere the pip keypad
+  renders (Surge, Practice, Survival, Rain), never to Trade's swing pad.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
@@ -324,7 +328,8 @@ elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerBest,
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)
-elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
+elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects?,
+                              speedrunKeyboard? }
 ```
 
 Session, analytics, install, and release-notice state, owned by their own modules:
