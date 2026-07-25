@@ -15,7 +15,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # This job gates AND performs the production deploy: install + audit + the
+    # full verify, then an UpdateStack that infra/scripts/deploy.mjs waits on for
+    # up to 1200s. A timeout shorter than verify + 20 minutes of stack wait can
+    # kill the job mid-update and leave the Lambda and the Pages site diverged.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
 
@@ -28,11 +32,17 @@ jobs:
 
       - run: npm audit --audit-level=high
 
-      # Deploy gate skips the multi-browser Playwright e2e (slow to install + run);
-      # the full 4-browser suite runs locally before pushing. Post-deploy smoke
-      # checks below still validate the live API and website. Build reads only
-      # packages/game-data/cards.json — no API or mail tokens needed.
-      - run: npm run verify:deploy
+      # The browsers the root verify exercises: chromium, firefox, and webkit
+      # (which also backs the iphone-14 device project).
+      - run: npx playwright install --with-deps chromium firefox webkit
+
+      # The production gate is the same root verify a pull request runs — this
+      # repo works direct-to-main, so this is the only place the e2e suite and
+      # test:release can gate a deploy. Do not swap in a reduced script: the
+      # earlier verify:deploy shortcut meant the e2e tests never gated a
+      # release. Build reads only packages/game-data/cards.json — no API or mail
+      # tokens needed.
+      - run: npm run verify
 
       - name: Deploy API
         run: npm run deploy:api

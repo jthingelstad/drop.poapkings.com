@@ -17,26 +17,151 @@ const bootstrap = readFileSync(
   "utf8",
 );
 
-void describe("deployment parameters", () => {
-  void it("uses Claude Haiku for creative player names by default", () => {
-    const parameters = deploymentParameters({ ...base, stackExists: true });
+// Every parameter template.yaml declares, read straight out of the Parameters
+// block (top-level two-space keys, up to the next column-zero section).
+const declaredParameters = (() => {
+  const block = template.match(/^Parameters:\n([\s\S]*?)(?=^\S)/m)?.[1];
+  assert.ok(block, "template.yaml has no Parameters block to check against");
+  return [...block.matchAll(/^ {2}([A-Za-z0-9]+):$/gm)].map(
+    (match) => match[1],
+  );
+})();
 
+function parameterDefault(name) {
+  return template
+    .match(new RegExp(`^ {2}${name}:\\n(?: {4}.*\\n)*`, "m"))?.[0]
+    .match(/^ {4}Default: (.*)$/m)?.[1];
+}
+
+void describe("deployment parameters", () => {
+  // The guard for the parameter-wipe class. CloudFormation resets every
+  // parameter that an UpdateStack request omits back to its template Default,
+  // so a parameter declared here but never sent is a silent production-config
+  // wipe on the next push to main. Adding a parameter to template.yaml without
+  // wiring it into parameters.mjs must break the build.
+  void it("supplies or preserves every parameter the template declares", () => {
+    assert.ok(
+      declaredParameters.includes("CodeBucket") &&
+        declaredParameters.includes("AllowedOrigins"),
+      "the Parameters block parse is broken, so this guard would pass vacuously",
+    );
+
+    const parameters = deploymentParameters({ ...base, stackExists: true });
+    const sent = new Map(
+      parameters.map((parameter) => [parameter.ParameterKey, parameter]),
+    );
+
+    for (const name of declaredParameters) {
+      const parameter = sent.get(name);
+      assert.ok(
+        parameter,
+        `template.yaml declares the ${name} parameter but deploymentParameters() never sends it. CloudFormation resets omitted parameters to their Default on UpdateStack, so every deploy would wipe the deployed ${name}. Wire it into infra/scripts/parameters.mjs (explicit env value, else UsePreviousValue when the stack exists).`,
+      );
+      assert.ok(
+        typeof parameter.ParameterValue === "string" ||
+          parameter.UsePreviousValue === true,
+        `${name} is sent without a ParameterValue and without UsePreviousValue`,
+      );
+    }
+
+    for (const parameter of parameters) {
+      assert.ok(
+        declaredParameters.includes(parameter.ParameterKey),
+        `deploymentParameters() sends ${parameter.ParameterKey}, which template.yaml does not declare; CloudFormation rejects unknown parameters and the deploy fails.`,
+      );
+    }
+  });
+
+  void it("uses Claude Haiku for creative player names by default", () => {
+    assert.equal(
+      parameterDefault("NameModelId"),
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    );
+    // Creating a stack without an override falls through to that Default.
+    assert.equal(
+      deploymentParameters({
+        ...base,
+        environment: {
+          SESSION_SECRET: "session-secret",
+          TELEMETRY_PEPPER: "telemetry-pepper",
+          FASTMAIL_JMAP_TOKEN: "jmap-token",
+          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+        },
+        stackExists: false,
+      }).some((parameter) => parameter.ParameterKey === "NameModelId"),
+      false,
+    );
     assert.deepEqual(
-      parameters.find((parameter) => parameter.ParameterKey === "NameModelId"),
+      deploymentParameters({
+        ...base,
+        environment: { NAME_MODEL_ID: "us.anthropic.claude-other-v1:0" },
+        stackExists: true,
+      }).find((parameter) => parameter.ParameterKey === "NameModelId"),
       {
         ParameterKey: "NameModelId",
-        ParameterValue: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        ParameterValue: "us.anthropic.claude-other-v1:0",
       },
     );
   });
 
-  void it("passes the front-end build version through, empty when unset", () => {
-    assert.deepEqual(
-      deploymentParameters({ ...base, stackExists: true }).find(
-        (parameter) => parameter.ParameterKey === "WebVersion",
-      ),
-      { ParameterKey: "WebVersion", ParameterValue: "" },
+  void it("preserves operator-owned configuration on env-less CI updates", () => {
+    // CI sets none of these. Sending the in-code literal instead would
+    // overwrite an operator's change (a new alarm address, an extra CORS
+    // origin) on every push to main — the same wipe as omitting the parameter.
+    const parameters = deploymentParameters({ ...base, stackExists: true });
+
+    for (const parameterKey of [
+      "AppUrl",
+      "EmailFrom",
+      "AlarmEmail",
+      "MailCanaryEmail",
+      "NameModelId",
+      "AllowedOrigins",
+    ]) {
+      assert.deepEqual(
+        parameters.find((parameter) => parameter.ParameterKey === parameterKey),
+        { ParameterKey: parameterKey, UsePreviousValue: true },
+      );
+    }
+  });
+
+  void it("keeps the CORS origin list templated on create and overridable", () => {
+    assert.equal(
+      parameterDefault("AllowedOrigins"),
+      "https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
     );
+    assert.match(template, /AllowOrigins: !Ref AllowedOrigins/);
+    assert.equal(
+      deploymentParameters({
+        ...base,
+        environment: {
+          SESSION_SECRET: "session-secret",
+          TELEMETRY_PEPPER: "telemetry-pepper",
+          FASTMAIL_JMAP_TOKEN: "jmap-token",
+          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+        },
+        stackExists: false,
+      }).some((parameter) => parameter.ParameterKey === "AllowedOrigins"),
+      false,
+    );
+    assert.deepEqual(
+      deploymentParameters({
+        ...base,
+        environment: {
+          ELIXIR_DROP_ALLOWED_ORIGINS:
+            "https://drop.poapkings.com,https://staging.example",
+        },
+        stackExists: true,
+      }).find((parameter) => parameter.ParameterKey === "AllowedOrigins"),
+      {
+        ParameterKey: "AllowedOrigins",
+        ParameterValue: "https://drop.poapkings.com,https://staging.example",
+      },
+    );
+  });
+
+  void it("passes the front-end build version through, preserving it when unset", () => {
+    // CI always supplies it, so this is the authoritative path.
     assert.deepEqual(
       deploymentParameters({
         ...base,
@@ -44,6 +169,29 @@ void describe("deployment parameters", () => {
         stackExists: true,
       }).find((parameter) => parameter.ParameterKey === "WebVersion"),
       { ParameterKey: "WebVersion", ParameterValue: "abc123def456" },
+    );
+    // An API-only deploy leaves the live Pages build untouched, so the deployed
+    // version is unchanged rather than unknown. Blanking it would strip the
+    // `web` provenance field from later referee evidence items.
+    assert.deepEqual(
+      deploymentParameters({ ...base, stackExists: true }).find(
+        (parameter) => parameter.ParameterKey === "WebVersion",
+      ),
+      { ParameterKey: "WebVersion", UsePreviousValue: true },
+    );
+    // On create there is no previous value; the template Default applies.
+    assert.equal(
+      deploymentParameters({
+        ...base,
+        environment: {
+          SESSION_SECRET: "session-secret",
+          TELEMETRY_PEPPER: "telemetry-pepper",
+          FASTMAIL_JMAP_TOKEN: "jmap-token",
+          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+        },
+        stackExists: false,
+      }).find((parameter) => parameter.ParameterKey === "WebVersion"),
+      undefined,
     );
   });
 
@@ -169,22 +317,17 @@ void describe("deployment parameters", () => {
   });
 
   void it("sends the mail canary to Elixir by default or an explicit override", () => {
-    const defaults = deploymentParameters({ ...base, stackExists: true });
+    // The default lives in the template (it applies on create); an env-less
+    // update preserves whatever address is deployed, asserted above.
+    assert.equal(parameterDefault("MailCanaryEmail"), "elixir@poapkings.com");
+    assert.equal(parameterDefault("AlarmEmail"), "elixir@poapkings.com");
+    assert.equal(parameterDefault("EmailFrom"), "elixir@poapkings.com");
+
     const overridden = deploymentParameters({
       ...base,
       environment: { ELIXIR_DROP_CANARY_EMAIL: "canary@example.com" },
       stackExists: true,
     });
-
-    assert.deepEqual(
-      defaults.find(
-        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
-      ),
-      {
-        ParameterKey: "MailCanaryEmail",
-        ParameterValue: "elixir@poapkings.com",
-      },
-    );
     assert.deepEqual(
       overridden.find(
         (parameter) => parameter.ParameterKey === "MailCanaryEmail",
@@ -194,6 +337,19 @@ void describe("deployment parameters", () => {
         ParameterValue: "canary@example.com",
       },
     );
+
+    // The canary and the alarms follow an explicit sending address.
+    const fromOnly = deploymentParameters({
+      ...base,
+      environment: { ELIXIR_DROP_EMAIL_FROM: "drop@example.com" },
+      stackExists: true,
+    });
+    for (const parameterKey of ["EmailFrom", "AlarmEmail", "MailCanaryEmail"]) {
+      assert.deepEqual(
+        fromOnly.find((parameter) => parameter.ParameterKey === parameterKey),
+        { ParameterKey: parameterKey, ParameterValue: "drop@example.com" },
+      );
+    }
   });
 
   void it("alarms on observable API 5xx responses and retains structured logs", () => {
@@ -232,6 +388,49 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /PolicyName: "elixir-drop-referee-assume"/);
     assert.match(bootstrap, /Action: "sts:AssumeRole"/);
     assert.match(bootstrap, /role\/elixir-drop-referee-read/);
+  });
+
+  void it("bounds referee reads to the partitions and indexes it reviews", () => {
+    const refereeRole = template.match(
+      /  RefereeReadRole:[\s\S]*?\n  LeaderboardMaintenanceRole:/,
+    )?.[0];
+    assert.ok(refereeRole);
+
+    // Keyed reads only reach the profile/run/evidence, decision, and war-clock
+    // partitions. MAGIC# items carry a raw email and POLL# items carry session
+    // envelopes; neither is addressable.
+    assert.match(
+      refereeRole,
+      /- dynamodb:GetItem\s+- dynamodb:BatchGetItem\s+- dynamodb:Query\s+Resource: !GetAtt DataTable\.Arn\s+Condition:\s+ForAllValues:StringLike:\s+dynamodb:LeadingKeys:\s+- PLAYER#\*\s+- REFEREE#\*\s+- CR_WAR_CLOCK/,
+    );
+
+    // Index reads name the two indexes the scripts query. The public-profile
+    // GSI3 and any future index are not granted.
+    assert.match(refereeRole, /index\/GSI1/);
+    assert.match(refereeRole, /index\/GSI2/);
+    assert.doesNotMatch(refereeRole, /index\/GSI3/);
+    // The one remaining wildcard is the Deny below, never an Allow.
+    assert.doesNotMatch(
+      refereeRole,
+      /Effect: Allow[\s\S]*?index\/\*[\s\S]*?Effect: Deny/,
+    );
+
+    // Scan cannot take a LeadingKeys condition, so it is bounded to the base
+    // table: no index scan, and no read may name an identity attribute.
+    assert.match(
+      refereeRole,
+      /Action: dynamodb:Scan\s+Resource: !GetAtt DataTable\.Arn/,
+    );
+    assert.match(
+      refereeRole,
+      /Effect: Deny[\s\S]*?ForAnyValue:StringEquals:\s+dynamodb:Attributes:\s+- sub\s+- playerSub\s+- owner\s+- email/,
+    );
+
+    // Nothing here may mutate canonical data.
+    assert.doesNotMatch(
+      refereeRole,
+      /dynamodb:(?:UpdateItem|DeleteItem|BatchWriteItem)/,
+    );
   });
 
   void it("bounds leaderboard maintenance to sparse index attributes", () => {

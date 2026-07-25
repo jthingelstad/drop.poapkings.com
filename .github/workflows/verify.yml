@@ -1,10 +1,12 @@
 name: Verify
 
-# Pull requests get the same monorepo verification the deploy runs, with no
-# secrets exposed — fork-safe by construction. Deployment still happens only
-# on push to main.
+# Pull requests get the same monorepo verification the deploy runs — literally
+# the same `npm run verify` — with no secrets exposed, fork-safe by
+# construction. Deployment still happens only on push to main, and deploy.yml
+# runs this same gate there, so a direct-to-main commit is verified too.
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

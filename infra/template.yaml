@@ -281,7 +281,8 @@ Resources:
                 Resource: !GetAtt MailCanaryLogGroup.Arn
 
   # Referee identity for evidence review and reversible run judgments. It reads
-  # the canonical evidence surface and may write only REFEREE# decision
+  # the canonical evidence surface — bounded to the partitions and indexes the
+  # AGENT-TEAM referee scripts address — and may write only REFEREE# decision
   # partitions; it cannot alter players, runs, scores, evidence, or leaderboard
   # index rows, and has NO access to any secret (the pepper is Lambda-only).
   # The physical name is retained for compatibility with the managed host's
@@ -302,7 +303,56 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # Keyed reads stay inside the three partition families the referee
+              # scripts actually address: PLAYER# (the profile's playerId, RUN#
+              # history, EVIDENCE# items), REFEREE# (its own decisions), and the
+              # CR_WAR_CLOCK singleton that carries the current leaderboard
+              # season. MAGIC# (raw email), POLL# (session envelopes), RATE#,
+              # RUN#, CR_PLAYER#, and FEED# are out of reach.
               - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:Query
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - PLAYER#*
+                      - REFEREE#*
+                      - CR_WAR_CLOCK
+              # Index reads: the GSI1 leaderboard partitions and the sparse GSI2
+              # tag clusters (playerId-only projection). dynamodb:LeadingKeys
+              # cannot bound these — an index query keys on the index's own
+              # partition key, not the table's — so the bound is the resource
+              # itself: GSI3 (the public profile lookup) and any index added
+              # later are not granted.
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource:
+                  - !Sub "${DataTable.Arn}/index/GSI1"
+                  - !Sub "${DataTable.Arn}/index/GSI2"
+              # Scan cannot be partition-bounded: it returns items regardless of
+              # the leading key, so DynamoDB does not evaluate
+              # dynamodb:LeadingKeys for it. Four referee reads need it (runId ->
+              # evidence, playerId -> owning profile, the unscored-attempt feed,
+              # and the decision list), so it is granted on the base table only —
+              # never an index — and paired with the attribute Deny below.
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !GetAtt DataTable.Arn
+              # Golden rule 7 in IAM rather than in JS: no referee read may name
+              # a subject or email attribute in a projection, filter, or key —
+              # the identity half of the scripts' own forbidden-key list. Key
+              # attributes (pk, GSI1SK) are deliberately absent: DynamoDB needs
+              # them for pagination and index reads, and the scripts strip them
+              # from output instead. This closes the deliberate-projection path.
+              # A Query/Scan that supplies no ProjectionExpression still returns
+              # whole items, so stripForbidden() remains the other half of the
+              # guarantee; requiring dynamodb:Select SPECIFIC_ATTRIBUTES would
+              # close that too, but every referee Scan today reads whole
+              # evidence items.
+              - Effect: Deny
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:BatchGetItem
@@ -311,6 +361,13 @@ Resources:
                 Resource:
                   - !GetAtt DataTable.Arn
                   - !Sub "${DataTable.Arn}/index/*"
+                Condition:
+                  ForAnyValue:StringEquals:
+                    dynamodb:Attributes:
+                      - sub
+                      - playerSub
+                      - owner
+                      - email
               - Effect: Allow
                 Action:
                   - dynamodb:PutItem
