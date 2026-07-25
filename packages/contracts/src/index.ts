@@ -86,6 +86,44 @@ export function higherLowerWindowMs(round: number): number {
   );
 }
 
+// Rain's spawn cadence: the gap between falling tiles tightens as the cleared
+// count climbs, from RAIN_SPAWN_BASE_MS toward (never reaching) the floor —
+// 1,160ms at 0 clears, ~710ms by 50, ~440ms by 200. Always positive, so it keeps
+// closing without a hard limit.
+//
+// One curve, shared by the browser's spawn timer and the server's integrity
+// floor below. Rain has no round length and no clock, so this curve is the ONLY
+// thing that bounds the mode: a private copy on either side would silently
+// un-bound it the moment the two drifted.
+export const RAIN_SPAWN_BASE_MS = 1_160;
+export const RAIN_SPAWN_FLOOR_MS = 260;
+export const RAIN_SPAWN_TIGHTEN = 0.02;
+
+export function rainSpawnIntervalMs(cleared: number): number {
+  return (
+    RAIN_SPAWN_FLOOR_MS +
+    (RAIN_SPAWN_BASE_MS - RAIN_SPAWN_FLOOR_MS) /
+      (1 + Math.max(0, cleared) * RAIN_SPAWN_TIGHTEN)
+  );
+}
+
+// The cumulative spawn floor: the first `gaps` spawn intervals added up. Because
+// difficulty is a deterministic function of the cleared count and the count can
+// only rise by one per clear, the n-th gap is never shorter than
+// rainSpawnIntervalMs(n) — so this sum is the earliest elapsed moment at which
+// `gaps` spawn gaps can have passed, i.e. the earliest the tile at index `gaps`
+// can appear (tile 0 spawns at 0).
+//
+// That makes it a real lower bound on the time behind a score: you cannot clear
+// a tile that has not spawned. 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
+// 124.8s for 200. Only the SPAWN curve belongs here — fall speed carries a random
+// per-tile component (see Rain.tsx) and can never be part of a floor.
+export function rainSpawnFloorMs(gaps: number): number {
+  let total = 0;
+  for (let gap = 0; gap < gaps; gap += 1) total += rainSpawnIntervalMs(gap);
+  return Math.round(total);
+}
+
 // Trade's difficulty ladder: the board shape of every exchange, fixed and
 // identical on every run — only the cards change. Three 1v1 openers establish
 // the fundamental read (two cards, one subtraction) before anything is added,

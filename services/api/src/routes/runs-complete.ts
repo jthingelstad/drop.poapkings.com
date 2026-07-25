@@ -12,13 +12,19 @@ import { buildEvidenceItem, deriveCorrelation } from "../referee-evidence.js";
 import type { Repository, RunItem } from "../repository.js";
 import {
   higherLowerTiebreaks,
+  rainTiebreaks,
   scoreRun,
   scoreRunWithSignals,
   survivalTimeMs,
 } from "../scoring.js";
 import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
-import type { Correlation, PlayerProfile, RunTranscript } from "../types.js";
+import type {
+  Correlation,
+  PlayerProfile,
+  RunTiebreaks,
+  RunTranscript,
+} from "../types.js";
 import { requireObject } from "../validation.js";
 import { runXp } from "../xp.js";
 import {
@@ -238,12 +244,7 @@ async function recordSignedInRun(
   // no progression. The exclusion is stated here, at the call site, rather than
   // buried as a mode branch inside runXp.
   const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
-  // Survival ranks equal streaks by fastest cumulative time; Higher/Lower ranks
-  // equal scores by fewest lives lost, and only then by cumulative time.
-  const tiebreaks =
-    run.mode === "survival"
-      ? { timeMs: survivalTimeMs(transcript, score) }
-      : higherLowerTiebreaks(run.challenge, transcript);
+  const tiebreaks = modeTiebreaks(run, transcript, score);
   const result = await repository.completeRun(
     run,
     score,
@@ -351,6 +352,28 @@ async function recordSignedInRun(
     xp: result.profile.xp ?? 0,
     ...levelForGames(result.totalGames),
   });
+}
+
+// The mode's ordered leaderboard tiebreaks, read off the same validated
+// transcript the score came from: Survival ranks equal streaks by fastest
+// cumulative time; Higher/Lower ranks equal scores by fewest lives lost, then by
+// cumulative time; Rain by fewest wrong guesses, then by lower average clear
+// latency. Every other mode ranks on score alone.
+function modeTiebreaks(
+  run: RunItem,
+  transcript: RunTranscript,
+  score: number,
+): RunTiebreaks | undefined {
+  switch (run.mode) {
+    case "survival":
+      return { timeMs: survivalTimeMs(transcript, score) };
+    case "higher-lower":
+      return higherLowerTiebreaks(run.challenge, transcript);
+    case "rain":
+      return rainTiebreaks(run.challenge, transcript);
+    default:
+      return undefined;
+  }
 }
 
 // Score the submitted transcript. A scorer rejection is itself referee

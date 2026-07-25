@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { higherLowerWindowMs, survivalWindowMs } from "@elixir-drop/contracts";
+import {
+  higherLowerWindowMs,
+  rainSpawnFloorMs,
+  rainSpawnIntervalMs,
+  survivalWindowMs,
+} from "@elixir-drop/contracts";
 
 // The shared difficulty curves drive the browser clock, the server scorer, and
 // every mechanic claim in GAMES.md. Nothing pinned them before, which is how the
@@ -46,5 +51,41 @@ describe("shared mode difficulty curves", () => {
     // Difficulty past this point comes from the pair-gap ramp, not the clock.
     expect(floored).toBe(12);
     expect(higherLowerWindowMs(250)).toBe(2_000);
+  });
+
+  it("matches Rain's documented spawn cadence", () => {
+    expect(Math.round(rainSpawnIntervalMs(0))).toBe(1_160);
+    expect(Math.round(rainSpawnIntervalMs(50))).toBe(710);
+    expect(Math.round(rainSpawnIntervalMs(200))).toBe(440);
+
+    // Always positive and always tightening: the gap closes forever without ever
+    // reaching its floor, which is what makes Rain endless but not survivable.
+    for (let cleared = 1; cleared <= 1_000; cleared += 1) {
+      expect(rainSpawnIntervalMs(cleared)).toBeLessThan(
+        rainSpawnIntervalMs(cleared - 1),
+      );
+      expect(rainSpawnIntervalMs(cleared)).toBeGreaterThan(260);
+    }
+  });
+
+  it("computes Rain's minimum-time floor from the spawn curve alone", () => {
+    // Hand-checked against sum(260 + 900 / (1 + 0.02n)) for n = 0 … N-1. These
+    // are the numbers GAMES.md quotes, and they are the whole reason Rain is
+    // bounded: below them, a score is not a thing a human could have played.
+    expect(rainSpawnFloorMs(0)).toBe(0);
+    expect(rainSpawnFloorMs(1)).toBe(1_160);
+    expect(rainSpawnFloorMs(10)).toBe(10_880);
+    expect(rainSpawnFloorMs(50)).toBe(44_418);
+    expect(rainSpawnFloorMs(100)).toBe(75_739);
+    expect(rainSpawnFloorMs(200)).toBe(124_786);
+
+    // It is exactly the running sum of the shared curve — the scorer walks the
+    // transcript accumulating the same additions in the same order rather than
+    // re-summing per answer, so the two must agree to the millisecond.
+    let running = 0;
+    for (let gaps = 0; gaps <= 300; gaps += 1) {
+      expect(rainSpawnFloorMs(gaps)).toBe(Math.round(running));
+      running += rainSpawnIntervalMs(gaps);
+    }
   });
 });

@@ -1,4 +1,6 @@
+import { rainSpawnFloorMs } from "@elixir-drop/contracts";
 import { MODE_RULES } from "./games.js";
+import { RAIN_FLOOR_TOLERANCE_MS } from "./scoring.js";
 import type { GameMode } from "./types.js";
 
 export type IntegrityReason =
@@ -40,6 +42,18 @@ export function assessRunIntegrity(
   const scoreFloor = MIN_TIMED_SCORES[mode];
   if (scoreFloor !== undefined && score < scoreFloor)
     return { eligible: false, reason: "score_below_ui_floor" };
+
+  if (mode === "rain") {
+    // Rain's difficulty is a deterministic function of the cleared count, so the
+    // first `score` spawn gaps are time the run cannot have skipped: a tile that
+    // has not spawned cannot be cleared. This is the same floor the scorer
+    // checks the transcript's own stamps against, measured here against the
+    // server's wall clock instead — the one number in a completion that no
+    // client can write. It is why the mode is bounded at all: nothing else about
+    // Rain has a round length, a clock, or an end.
+    if (wallElapsedMs + RAIN_FLOOR_TOLERANCE_MS < rainSpawnFloorMs(score))
+      return { eligible: false, reason: "completion_rate_above_ui_limit" };
+  }
 
   if (mode === "higher-lower") {
     // Each pair costs the player at least ~1s of real time: the reveal beat

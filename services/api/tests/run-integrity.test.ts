@@ -57,7 +57,18 @@ const profile = {
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
 
-function completionEvent(runToken: string): APIGatewayProxyEventV2 {
+const surgeTranscript = {
+  answers: cards.map((card, index) => ({
+    cardId: card.id,
+    guesses: [card.elixir],
+    atMs: 1_000 + index * 100,
+  })),
+};
+
+function completionEvent(
+  runToken: string,
+  transcript: Record<string, unknown> = surgeTranscript,
+): APIGatewayProxyEventV2 {
   const session = signToken(
     {
       type: "session",
@@ -94,16 +105,7 @@ function completionEvent(runToken: string): APIGatewayProxyEventV2 {
       time: "18/Jul/2026:12:05:00 +0000",
       timeEpoch: nowSeconds * 1_000,
     },
-    body: JSON.stringify({
-      runToken,
-      transcript: {
-        answers: cards.map((card, index) => ({
-          cardId: card.id,
-          guesses: [card.elixir],
-          atMs: 1_000 + index * 100,
-        })),
-      },
-    }),
+    body: JSON.stringify({ runToken, transcript }),
     isBase64Encoded: false,
   };
 }
@@ -178,6 +180,74 @@ describe("run integrity rejection", () => {
         runType: "ranked",
         integrityOutcome: "score_below_ui_floor",
       }),
+    );
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
+  });
+
+  it("records a Rain run under the spawn-curve floor, scored and quarantined", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-rain",
+        owner: profile.sub,
+        mode: "rain",
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-rain",
+      sk: "RUN",
+      runId: "run-rain",
+      owner: profile.sub,
+      mode: "rain",
+      challenge: { mode: "rain", cardIds: cards.map((card) => card.id) },
+      state: "started",
+      startedAt: new Date(Date.now() - 10_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-25T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5, xp: 45 },
+    });
+    // Twenty clears (the deck wraps) plus the three landed cards that end the
+    // run, resolved 70ms apart — a shape the spawn curve says takes ~21s, filed
+    // ten seconds after the run started.
+    const answers = Array.from({ length: 23 }, (_unused, index) => {
+      const card = cards[index % cards.length]!;
+      return {
+        cardId: card.id,
+        guess: index < 20 ? card.elixir : null,
+        atMs: index * 70,
+        wrongGuesses: index === 3 ? 2 : 0,
+      };
+    });
+
+    const response = (await handler(
+      completionEvent(runToken, { answers }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    // Scored, recorded, and held for a referee — never rejected. The score is
+    // real; what is in doubt is whether a human produced it.
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({
+      accepted: true,
+      score: 20,
+      underReview: true,
+    });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-rain" }),
+      20,
+      expect.any(String),
+      expect.any(Number),
+      // The tiebreaks still ride onto the row: derived, not reported.
+      { wrongGuesses: 2, avgLatencyMs: 0 },
+      "rain_answers_outrun_spawn_curve,completion_rate_above_ui_limit",
     );
     expect(publishDiscordEvent).not.toHaveBeenCalled();
   });

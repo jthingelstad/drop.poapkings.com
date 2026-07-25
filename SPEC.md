@@ -173,7 +173,8 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
 (`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
 `AGENT-TEAM/scripts/_referee-lib.mjs`): a material rules change restarts the
-board rather than deleting data, and old rows are orphaned. All four are on
+board rather than deleting data, and old rows are orphaned. Rain is on `r3`
+(it gained tiebreaks its old rows cannot carry); the other three are on
 `r2`. A mode whose scoring shape changes usually renames its local record key in
 the same move (`longestStreak` → `higherLowerBest`, `tradeBest` →
 `tradeLadderBest`), so an on-device best from the retired rules orphans the same
@@ -186,11 +187,18 @@ neither side carries its own exchange count.
 Equal scores are separated by **ordered ascending tiebreaks**
 (`MODE_TIEBREAKS`), each emitted as a 9-digit segment of the sort key in ranking
 order: Survival ranks by cumulative time; Higher / Lower ranks by fewest lives
-lost, then cumulative time. The values ride along on the run row under their own
-attribute names (`livesLost`, `timeMs`) so the GSI1SK fallback can rebuild the
+lost, then cumulative time; Rain ranks by fewest wrong guesses, then lowest
+average clear latency. The values ride along on the run row under their own
+attribute names (`livesLost`, `timeMs`, `wrongGuesses`, `avgLatencyMs`) so the
+GSI1SK fallback can rebuild the
 exact key. **Every row in one partition must emit the same number of segments** —
 mixing shapes compares a 9-digit number against an ISO timestamp at the same
 offset — which is why a mode gaining a second tiebreak also takes a new epoch.
+A tiebreak value is always **derived from the validated transcript**, never
+reported by the client: Rain's average clear latency, for instance, is each
+clear's `atMs` minus the earliest moment that tile could have spawned, so the
+number that has to clear the integrity floor is the same number that ranks the
+tie and there is nothing extra to forge.
 
 Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
@@ -364,8 +372,12 @@ session that owns the run.
 Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
 transcript consistency produce a deterministic candidate score; timing limits,
 terminal-state expectations, score floors, completion-rate ceilings, and other
-product assumptions produce machine-readable review signals. A scoreable ranked
-run with any such signal is atomically recorded with a `review`/`hidden`
+product assumptions produce machine-readable review signals. A signal derived
+from a mode's own **difficulty curve** — Rain's minimum-time floor, the sum of
+the spawn gaps a score of N cannot have skipped — is review-only on _both_ paths
+and never rejects, not even the strict guest one: a difficulty model is the
+assumption most likely to be wrong about an exceptional player. A scoreable
+ranked run with any such signal is atomically recorded with a `review`/`hidden`
 decision before it can appear publicly. The response includes
 `underReview: true`; Discord promotion is suppressed. The Fair Play Referee can
 confirm the hide or approve a false positive by writing a new, audited visible

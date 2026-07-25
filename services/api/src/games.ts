@@ -40,7 +40,12 @@ export const MODE_RULES: Record<GameMode, ModeRule> = {
   rain: {
     direction: "higher",
     minScore: 0,
-    maxScore: 100_000,
+    // Pinned to RAIN_MAX_ANSWERS in scoring.ts: the scorer refuses a longer
+    // transcript than that, and the score can never exceed the number of cards
+    // resolved, so a 100,000 ceiling here could not fire on any transcript the
+    // scorer would accept. Guarded by a test rather than imported, because
+    // games.ts must not depend on the scorer (which loads the card catalog).
+    maxScore: 10_000,
     scoreUnit: "count",
   },
 };
@@ -81,9 +86,15 @@ const MAX_TIEBREAK = 999_999_999;
 // those exchanges ask: three 1v1 openers and 3v3 only at the end, instead of
 // randomly sized boards that reached 3v3 by round 8. Ten rounds on a gentler,
 // deterministic ramp are not comparable to eight on a random one.
+// Rain moved to "r3" on 2026-07-25 when it gained two tiebreaks. Its "r2" rows
+// carry no tiebreak segment at all and cannot be backfilled — those transcripts
+// hold no timing whatsoever — so an old row and a new one would emit different
+// key shapes inside one partition, and a new row could outrank an equal-scoring
+// old one purely on where its segments fall in the byte order. The board has to
+// restart for the ranking to mean anything.
 const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
   survival: "r2",
-  rain: "r2",
+  rain: "r3",
   "higher-lower": "r2",
   trade: "r2",
 };
@@ -91,10 +102,12 @@ const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
 // The ordered ascending tiebreaks a mode ranks equal scores by, named by the
 // run attribute that carries each value. ARRAY ORDER IS RANKING ORDER:
 // Higher/Lower separates equal scores by fewest lives lost first, and only then
-// by the faster cumulative time.
+// by the faster cumulative time; Rain by fewest wrong guesses first, and only
+// then by the lower average clear latency.
 const MODE_TIEBREAKS: Partial<Record<GameMode, readonly TiebreakField[]>> = {
   survival: ["timeMs"],
   "higher-lower": ["livesLost", "timeMs"],
+  rain: ["wrongGuesses", "avgLatencyMs"],
 };
 
 export function modeTiebreakFields(mode: GameMode): readonly TiebreakField[] {
@@ -153,7 +166,8 @@ export function leaderboardSortKey(
     MODE_RULES[mode].direction === "lower" ? score : MAX_SORT_SCORE - score;
   // Zero or more ascending tiebreaks, applied in order: among equal scores the
   // smaller first value sorts first, ties there fall to the second, and so on
-  // (Survival's cumulative time; Higher/Lower's lives lost, then time).
+  // (Survival's cumulative time; Higher/Lower's lives lost, then time; Rain's
+  // wrong guesses, then average clear latency).
   //
   // Every row inside ONE leaderboard partition must emit the same number of
   // segments — mixing shapes breaks the lexicographic order, because a 9-digit

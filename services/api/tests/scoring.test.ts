@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import {
+  rainSpawnFloorMs,
   TRADE_LADDER,
   TRADE_ROUNDS,
   type TradeBoard,
@@ -10,6 +11,8 @@ import {
   createChallenge,
   higherLowerGap,
   higherLowerTiebreaks,
+  RAIN_FLOOR_TOLERANCE_MS,
+  rainTiebreaks,
   scoreRun,
   scoreRunWithSignals,
   SURGE_CARD_COUNT,
@@ -71,6 +74,35 @@ function higherLowerAnswers(
       elapsedMs: elapsed[index] ?? 800,
     };
   });
+}
+
+// ── Rain fixtures ───────────────────────────────────────────────────────────
+// A run paced honestly: every card resolved `reactionMs` after the earliest
+// moment its tile could have spawned, which is the shape of a very good human
+// run and sits just above the spawn-curve floor.
+const RAIN_REACTION_MS = 600;
+
+function rainAtMs(index: number, reactionMs = RAIN_REACTION_MS): number {
+  return Math.max(0, rainSpawnFloorMs(index) + reactionMs);
+}
+
+// `cleared` clean clears followed by three landed cards (the terminal event).
+function rainRun(
+  challenge: Extract<ReturnType<typeof createChallenge>, { mode: "rain" }>,
+  cleared: number,
+  options: {
+    reactionMs?: number;
+    wrongGuesses?: (index: number) => number;
+  } = {},
+) {
+  const deck = challenge.cardIds;
+  const cardAt = (index: number) => deck[index % deck.length]!;
+  return Array.from({ length: cleared + 3 }, (_unused, index) => ({
+    cardId: cardAt(index),
+    guess: index < cleared ? cost(cardAt(index)) : null,
+    atMs: rainAtMs(index, options.reactionMs),
+    wrongGuesses: options.wrongGuesses?.(index) ?? 0,
+  }));
 }
 
 // ── Trade fixtures ──────────────────────────────────────────────────────────
@@ -427,13 +459,15 @@ describe("server-side game scoring", () => {
     expect(leaderboardPartition("2026-07", "survival")).toBe(
       "LEADERBOARD#2026-07#survival#r2",
     );
-    // Rain restarted when its difficulty stopped capping — pre-redesign scores
-    // came off an easier game and are retired with the old partition.
+    // Rain restarted at r2 when its difficulty stopped capping, then at r3 when
+    // it gained two tiebreaks: an r2 row carries no tiebreak segment and its
+    // transcript holds no timing to backfill one from, so the two key shapes
+    // cannot share a partition.
     expect(leaderboardPartition("2026-07", "rain")).toBe(
-      "LEADERBOARD#2026-07#rain#r2",
+      "LEADERBOARD#2026-07#rain#r3",
     );
     expect(leaderboardPartition("ALLTIME", "rain")).toBe(
-      "LEADERBOARD#ALLTIME#rain#r2",
+      "LEADERBOARD#ALLTIME#rain#r3",
     );
     // Higher/Lower restarted with three lives + the gap ramp: a one-life score
     // measured something else entirely and cannot share a board.
@@ -458,23 +492,19 @@ describe("server-side game scoring", () => {
 
   it("scores Rain as cleared cards and caps the run at three misses", () => {
     const rain = createChallenge("rain", randomInt);
-    const deck = rain.cardIds;
-    const answers = [
-      ...Array.from({ length: 5 }, (_unused, i) => ({
-        cardId: deck[i]!,
-        guess: cost(deck[i]!),
-      })),
-      { cardId: deck[5]!, guess: null },
-      { cardId: deck[6]!, guess: null },
-      { cardId: deck[7]!, guess: null },
-    ];
-    expect(scoreRun(rain, { answers }, 12_000)).toBe(5);
+    const answers = rainRun(rain, 5);
+    expect(scoreRun(rain, { answers }, 30_000)).toBe(5);
     // A fourth miss is impossible — the run ends when the third life is lost.
     expect(() =>
       scoreRun(
         rain,
-        { answers: [...answers, { cardId: deck[8]!, guess: null }] },
-        12_000,
+        {
+          answers: [
+            ...answers,
+            { cardId: rain.cardIds[8]!, guess: null, atMs: rainAtMs(8) },
+          ],
+        },
+        30_000,
       ),
     ).toThrow(/three lives/);
   });
@@ -488,18 +518,133 @@ describe("server-side game scoring", () => {
     // deck holds. That must score, not trip an integrity error (Tyler's 550-clear
     // run was wrongly rejected as "longer than the signed deck").
     const rain = createChallenge("rain", randomInt);
-    const deck = rain.cardIds;
-    const cleared = deck.length + 60; // past the 250 deck length
-    const answers = [
-      ...Array.from({ length: cleared }, (_unused, i) => ({
-        cardId: deck[i % deck.length]!,
-        guess: cost(deck[i % deck.length]!),
-      })),
-      { cardId: deck[0]!, guess: null },
-      { cardId: deck[1]!, guess: null },
-      { cardId: deck[2]!, guess: null },
-    ];
-    expect(scoreRun(rain, { answers }, 300_000)).toBe(cleared);
+    const cleared = rain.cardIds.length + 60; // past the 250 deck length
+    const answers = rainRun(rain, cleared);
+    expect(scoreRun(rain, { answers }, 400_000)).toBe(cleared);
+  });
+
+  // ── Rain's minimum-time floor ─────────────────────────────────────────────
+  // Rain has no round length and no clock: before the floor, a transcript of
+  // deck-valid card ids scored up to RAIN_MAX_ANSWERS instantly and clean.
+  it("clears the fastest run the spawn curve allows, and the tolerance below it", () => {
+    const rain = createChallenge("rain", randomInt);
+    const scored = (reactionMs: number) =>
+      scoreRunWithSignals(
+        rain,
+        { answers: rainRun(rain, 40, { reactionMs }) },
+        120_000,
+      );
+    // Every card answered the instant its tile could have spawned: the fastest
+    // run physically available, and it must come back clean.
+    expect(scored(0)).toEqual({ score: 40, reviewSignals: [] });
+    // The tolerance is exact rather than a gesture. A full 2s inside the curve
+    // on every card is still clean; one millisecond further is not.
+    expect(scored(-RAIN_FLOOR_TOLERANCE_MS).reviewSignals).toEqual([]);
+    expect(scored(-RAIN_FLOOR_TOLERANCE_MS - 1).reviewSignals).toEqual([
+      "rain_answers_outrun_spawn_curve",
+    ]);
+  });
+
+  it("quarantines a Rain run below the spawn-curve floor without rejecting it", () => {
+    const rain = createChallenge("rain", randomInt);
+    // 100 clears is 75.7s of spawn gaps at the very least; this run claims them
+    // in a tenth of that. It still scores, still records, and goes to a referee.
+    const answers = rainRun(rain, 100).map((answer, index) => ({
+      ...answer,
+      atMs: index * 70,
+    }));
+    const scored = scoreRunWithSignals(rain, { answers }, 30_000);
+    expect(scored.score).toBe(100);
+    expect(scored.reviewSignals).toContain("rain_answers_outrun_spawn_curve");
+    // The floor NEVER rejects, on either path: a difficulty model is exactly the
+    // kind of thing that false-positives on an exceptional player.
+    expect(scoreRun(rain, { answers }, 30_000)).toBe(100);
+  });
+
+  it("rejects a Rain transcript whose timestamps run backwards", () => {
+    const rain = createChallenge("rain", randomInt);
+    const answers = rainRun(rain, 6);
+    answers[4]!.atMs = answers[3]!.atMs - 1;
+    expect(() => scoreRun(rain, { answers }, 30_000)).toThrow(
+      /timing is invalid/,
+    );
+    // Two tiles CAN land on the same animation tick, so an equal stamp is
+    // ordinary play, not a broken transcript.
+    answers[4]!.atMs = answers[3]!.atMs;
+    expect(scoreRun(rain, { answers }, 30_000)).toBe(6);
+  });
+
+  it("rejects a Rain transcript with missing or impossible answer timing", () => {
+    const rain = createChallenge("rain", randomInt);
+    const missing = rainRun(rain, 4).map((answer) => ({
+      cardId: answer.cardId,
+      guess: answer.guess,
+    }));
+    expect(() => scoreRun(rain, { answers: missing }, 30_000)).toThrow(
+      /timing is invalid/,
+    );
+    const negative = rainRun(rain, 4);
+    negative[0]!.atMs = -1;
+    expect(() => scoreRun(rain, { answers: negative }, 30_000)).toThrow(
+      /timing is invalid/,
+    );
+  });
+
+  it("rejects a Rain wrong-guess count that is not a plausible tap count", () => {
+    const rain = createChallenge("rain", randomInt);
+    for (const wrong of [-1, 61, 2.5]) {
+      const answers = rainRun(rain, 4, { wrongGuesses: () => wrong });
+      expect(() => scoreRun(rain, { answers }, 30_000)).toThrow(
+        /wrong-guess count is invalid/,
+      );
+    }
+  });
+
+  // ── Rain's tiebreaks ──────────────────────────────────────────────────────
+  it("counts every wrong tap in Rain's first tiebreak, landed cards included", () => {
+    const rain = createChallenge("rain", randomInt);
+    // Two wrong taps on the second card, one on a card that then landed.
+    const answers = rainRun(rain, 4, {
+      wrongGuesses: (index) => (index === 1 ? 2 : index === 5 ? 1 : 0),
+    });
+    expect(rainTiebreaks(rain, { answers })?.wrongGuesses).toBe(3);
+  });
+
+  it("derives Rain's clear latency from the spawn curve, never from the client", () => {
+    const rain = createChallenge("rain", randomInt);
+    // A steady 900ms after each tile's earliest spawn — and nothing in the
+    // transcript says "900": the number is atMs minus the curve.
+    const answers = rainRun(rain, 12, { reactionMs: 900 });
+    expect(rainTiebreaks(rain, { answers })?.avgLatencyMs).toBe(900);
+    // Landed cards are not clears and do not drag the average, even though a
+    // tile that falls the whole way is the slowest thing in a run.
+    const slowMisses = answers.map((answer, index) =>
+      index < 12 ? answer : { ...answer, atMs: answer.atMs + 60_000 },
+    );
+    expect(rainTiebreaks(rain, { answers: slowMisses })?.avgLatencyMs).toBe(
+      900,
+    );
+  });
+
+  it("ranks equal Rain scores by wrong guesses first, then average latency", () => {
+    const key = (wrongGuesses: number, avgLatencyMs: number) =>
+      leaderboardSortKey("rain", 120, "2026-07-25T00:00:00Z", "a", [
+        wrongGuesses,
+        avgLatencyMs,
+      ]);
+    // Fewer wrong guesses wins, even against a much faster run.
+    expect(key(1, 4_000) < key(4, 400)).toBe(true);
+    // Equal wrong guesses fall to the faster average clear.
+    expect(key(2, 900) < key(2, 1_400)).toBe(true);
+    // And a deeper run outranks both regardless.
+    const deeper = leaderboardSortKey(
+      "rain",
+      121,
+      "2026-07-25T00:00:00Z",
+      "b",
+      [9, 9_000],
+    );
+    expect(deeper < key(0, 0)).toBe(true);
   });
 
   it("sums Survival cumulative time over the surviving cards only", () => {

@@ -1,6 +1,8 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
 import {
   higherLowerWindowMs,
+  rainSpawnFloorMs,
+  rainSpawnIntervalMs,
   survivalWindowMs,
   TRADE_LADDER,
   type TradeBoard,
@@ -29,7 +31,7 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "4";
+export const SCORING_RULES_VERSION = "5";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
@@ -49,6 +51,21 @@ export const RAIN_LIVES = 3;
 // reachable score, so no genuine run can hit it. Difficulty walls real players
 // out in the low hundreds long before this.
 export const RAIN_MAX_ANSWERS = 10_000;
+// Wrong taps one falling card may carry. A wrong tap gives a higher/lower hint
+// and does NOT stop the fall, so several on one tile is ordinary play; this
+// bounds payload size, not honest play (the client stops counting at the same
+// limit). Same shape and same number as Surge's per-card guesses cap.
+const RAIN_MAX_WRONG_PER_CARD = 60;
+// Slack allowed against Rain's spawn-curve floor before a run is held for
+// review. The same 2s this file already allows every other mode's timing, and
+// the right size here for three reasons: the floor sums ONE spawn gap more than
+// the strictly unavoidable minimum (a player who cleared every tile the instant
+// it appeared would still owe the last gap, ≤1,160ms and shrinking with score);
+// the wall clock it is checked against also carries the ~1.95s 3-2-1 countdown
+// and the round trip, which no in-game timing can spend; and the outcome is
+// quarantine rather than rejection, so buying certainty with a larger tolerance
+// would only cost the referee the very cases worth looking at.
+export const RAIN_FLOOR_TOLERANCE_MS = 2_000;
 // Practice is endless too (see scorePractice): same anti-abuse ceiling, same
 // reasoning — it bounds the scorer, it is not a round length.
 export const PRACTICE_MAX_ANSWERS = 10_000;
@@ -383,6 +400,7 @@ export type ScoringReviewSignal =
   | "higher_lower_no_terminal_event"
   | "higher_lower_timing_implausibly_fast"
   | "higher_lower_time_outside_wall_clock"
+  | "rain_answers_outrun_spawn_curve"
   | "survival_no_terminal_event"
   | "survival_timing_implausibly_fast"
   | "survival_time_outside_wall_clock";
@@ -399,6 +417,19 @@ function flagOrReject(
 ): void {
   if (!reviewSignals) throw new Error(strictMessage);
   if (!reviewSignals.includes(signal)) reviewSignals.push(signal);
+}
+
+// A review signal that is NEVER a rejection, on either path. Used for Rain's
+// spawn-curve floor: the floor is derived from a difficulty model, so a run
+// under it is quarantined for a referee and stays fully scored — including on
+// the strict (guest) path, where there is nothing to protect but also nothing
+// to gain from throwing away a scored game.
+function flagForReview(
+  reviewSignals: ScoringReviewSignal[] | undefined,
+  signal: ScoringReviewSignal,
+): void {
+  if (reviewSignals && !reviewSignals.includes(signal))
+    reviewSignals.push(signal);
 }
 
 function verifyPlausibleEnd(
@@ -697,17 +728,32 @@ function scoreSurvival(
   return score;
 }
 
+interface RainCard {
+  cleared: boolean;
+  wrongGuesses: number;
+  // How long after this tile could EARLIEST have spawned the player resolved
+  // it. Derived here from `atMs` and the shared spawn curve — the client never
+  // reports a latency, so there is no separate number to forge: the same stamp
+  // that has to clear the floor is the one that ranks the tie.
+  latencyMs: number;
+}
+
 // Rain: cards fall; the player clears (correctly names the cost of) each lit
 // card before it lands, with three lives. The transcript records one entry per
-// RESOLVED card in resolution order — { cardId, guess } where guess is the cost
-// on a clear and null on a landed (missed) card. Score is the cleared count.
-// Card ids are validated against the signed deck (anti-injection); the falling
-// timing itself is client-owned (like the other modes' timing), with the run
-// capped at three misses.
-function scoreRain(
+// RESOLVED card in resolution order — { cardId, guess, atMs, wrongGuesses },
+// where guess is the cost on a clear and null on a landed (missed) card, atMs is
+// the elapsed run time at resolution, and wrongGuesses is how many wrong taps
+// that card cost (a wrong tap hints higher/lower and does NOT stop the fall).
+// Score is the cleared count. Card ids are validated against the signed deck
+// (anti-injection) and the run is capped at three misses.
+//
+// Shared by the scorer and the tiebreak reader so the two can never disagree
+// about what a transcript says.
+function gradeRain(
   challenge: Extract<RunChallenge, { mode: "rain" }>,
   transcript: RunTranscript,
-): number {
+  reviewSignals?: ScoringReviewSignal[],
+): { cards: RainCard[]; lastAtMs: number } {
   const answers = objectArray(transcript.answers, "Rain");
   // Endless mode: the client wraps the signed deck, so a deep run legitimately
   // resolves more cards than the deck holds. Card ids are still validated
@@ -716,23 +762,110 @@ function scoreRain(
   if (answers.length > RAIN_MAX_ANSWERS)
     throw new Error("Rain transcript exceeds the maximum answer count");
   const deck = new Set(challenge.cardIds);
-  let cleared = 0;
+  const cards: RainCard[] = [];
   let misses = 0;
-  for (const answer of answers) {
+  let previousAtMs = 0;
+  // rainSpawnFloorMs(index), accumulated as we go rather than re-summed per
+  // answer (the ceiling is 10,000 answers, and the quadratic version of this
+  // loop would be the slowest thing in the scorer). Same additions in the same
+  // order as the exported helper, so rounding it lands on exactly the same
+  // millisecond — asserted in mode-curves.test.ts.
+  let spawnFloorMs = 0;
+  answers.forEach((answer, index) => {
     if (misses >= RAIN_LIVES)
       throw new Error("Rain continued past three lives");
     const cardId = Number(answer.cardId);
     if (!deck.has(cardId))
       throw new Error("Rain card is not from the signed deck");
+    const atMs = Number(answer.atMs);
+    if (!Number.isFinite(atMs) || atMs < 0)
+      throw new Error("Rain answer timing is invalid");
+    // Cards resolve in order, so the stamps only move forward. Two tiles CAN
+    // land on the same animation tick, so equal stamps are ordinary play and
+    // only a backwards one is a broken transcript.
+    if (atMs < previousAtMs)
+      flagOrReject(
+        reviewSignals,
+        "answer_timestamps_not_increasing",
+        "Rain answer timing is invalid",
+      );
+    const wrongGuesses =
+      answer.wrongGuesses === undefined ? 0 : Number(answer.wrongGuesses);
+    if (
+      !Number.isSafeInteger(wrongGuesses) ||
+      wrongGuesses < 0 ||
+      wrongGuesses > RAIN_MAX_WRONG_PER_CARD
+    )
+      throw new Error("Rain wrong-guess count is invalid");
+    // Resolving the (index + 1)-th card means at least index + 1 tiles have
+    // spawned, so this answer cannot land before the tile at `index` could —
+    // and how far past that it landed is the clear latency.
+    const latencyMs = atMs - Math.round(spawnFloorMs);
+    if (latencyMs + RAIN_FLOOR_TOLERANCE_MS < 0)
+      flagForReview(reviewSignals, "rain_answers_outrun_spawn_curve");
+    spawnFloorMs += rainSpawnIntervalMs(index);
+    previousAtMs = Math.max(previousAtMs, atMs);
     const guess = answer.guess;
-    if (guess === null || guess === undefined) {
-      misses += 1;
-      continue;
-    }
-    if (Number(guess) === card(cardId).elixir) cleared += 1;
-    else misses += 1;
-  }
+    const cleared =
+      guess !== null &&
+      guess !== undefined &&
+      Number(guess) === card(cardId).elixir;
+    if (!cleared) misses += 1;
+    cards.push({ cleared, wrongGuesses, latencyMs: Math.max(0, latencyMs) });
+  });
+  return { cards, lastAtMs: previousAtMs };
+}
+
+function scoreRain(
+  challenge: Extract<RunChallenge, { mode: "rain" }>,
+  transcript: RunTranscript,
+  wallElapsedMs: number,
+  reviewSignals?: ScoringReviewSignal[],
+): number {
+  const { cards, lastAtMs } = gradeRain(challenge, transcript, reviewSignals);
+  const cleared = cards.filter((entry) => entry.cleared).length;
+  if (!cards.length) return cleared;
+  // The minimum-time floor. Rain has no round length and no clock, so before
+  // this its only ceiling was the anti-abuse transcript cap: a list of
+  // deck-valid card ids scored ten thousand, instantly and clean. Difficulty is
+  // a deterministic function of the cleared count, so the elapsed time behind a
+  // score of N is bounded from below by the first N spawn gaps — you cannot
+  // clear a tile that has not spawned. A run under that floor is HELD FOR
+  // REFEREE REVIEW, never rejected: the floor comes from a difficulty model, and
+  // a model is exactly the kind of thing that produces a false positive on an
+  // exceptional player.
+  if (lastAtMs + RAIN_FLOOR_TOLERANCE_MS < rainSpawnFloorMs(cleared))
+    flagForReview(reviewSignals, "rain_answers_outrun_spawn_curve");
+  verifyPlausibleEnd(lastAtMs, wallElapsedMs, reviewSignals);
   return cleared;
+}
+
+// Rain's two ordered leaderboard tiebreaks among equal cleared counts: fewest
+// wrong guesses first, then the lower average clear latency. Wrong guesses count
+// across every card the run resolved, landed ones included — a wrong tap is a
+// wrong tap whether or not the card was saved. Latency is measured from the
+// earliest moment each tile could have spawned, so it reads as "how quickly did
+// this player answer what the game gave them", not "how fast did the game go".
+export function rainTiebreaks(
+  challenge: RunChallenge,
+  transcript: RunTranscript,
+): RunTiebreaks | undefined {
+  if (challenge.mode !== "rain") return undefined;
+  // Deliberately lenient: whether this transcript is acceptable was already
+  // decided by the scorer, and reading a tiebreak off an already-recorded run
+  // must never turn it into a 500.
+  const { cards } = gradeRain(challenge, transcript, []);
+  const clears = cards.filter((entry) => entry.cleared);
+  const totalLatencyMs = clears.reduce(
+    (sum, entry) => sum + entry.latencyMs,
+    0,
+  );
+  return {
+    wrongGuesses: cards.reduce((sum, entry) => sum + entry.wrongGuesses, 0),
+    avgLatencyMs: clears.length
+      ? Math.round(totalLatencyMs / clears.length)
+      : 0,
+  };
 }
 
 // Cumulative response time across the surviving (correct) Survival cards — the
@@ -767,7 +900,7 @@ export function scoreRun(
     case "survival":
       return scoreSurvival(challenge, transcript, wallElapsedMs);
     case "rain":
-      return scoreRain(challenge, transcript);
+      return scoreRain(challenge, transcript, wallElapsedMs);
   }
 }
 
@@ -815,7 +948,7 @@ export function scoreRunWithSignals(
       );
       break;
     case "rain":
-      score = scoreRain(challenge, transcript);
+      score = scoreRain(challenge, transcript, wallElapsedMs, reviewSignals);
       break;
   }
   return { score, reviewSignals };

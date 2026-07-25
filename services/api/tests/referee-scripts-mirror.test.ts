@@ -144,19 +144,38 @@ function profileItem(sub: string): Item {
 // fixture can never disagree with production about what a row looks like.
 // `indexed: false` is the real "no GSI1SK" case: a zero score, or a historical
 // `ranked: false` run in a ranked mode, never gets the sparse index attributes.
-function historyRun(options: {
-  sub: string;
-  runId: string;
-  mode: GameMode;
-  score: number;
-  completedAt: string;
+interface RunTiebreakFixture {
   timeMs?: number;
   // Higher/Lower's first tiebreak. Present only for that mode's rows.
   livesLost?: number;
-  indexed: boolean;
-}): Item {
-  const { sub, runId, mode, score, completedAt, timeMs, livesLost } = options;
-  const tiebreaks = livesLost === undefined ? timeMs : [livesLost, timeMs ?? 0];
+  // Rain's ordered pair. Present only for that mode's rows.
+  wrongGuesses?: number;
+  avgLatencyMs?: number;
+}
+
+// The ordered values the mode's sort key carries, in ranking order.
+function orderedTiebreaks(
+  fixture: RunTiebreakFixture,
+): number | number[] | undefined {
+  if (fixture.wrongGuesses !== undefined)
+    return [fixture.wrongGuesses, fixture.avgLatencyMs ?? 0];
+  if (fixture.livesLost !== undefined)
+    return [fixture.livesLost, fixture.timeMs ?? 0];
+  return fixture.timeMs;
+}
+
+function historyRun(
+  options: RunTiebreakFixture & {
+    sub: string;
+    runId: string;
+    mode: GameMode;
+    score: number;
+    completedAt: string;
+    indexed: boolean;
+  },
+): Item {
+  const { sub, runId, mode, score, completedAt } = options;
+  const { timeMs, livesLost, wrongGuesses, avgLatencyMs } = options;
   return {
     pk: `PLAYER#${sub}`,
     sk: `RUN#${completedAt}#${runId}`,
@@ -168,10 +187,18 @@ function historyRun(options: {
     playerSub: sub,
     ...(livesLost !== undefined ? { livesLost } : {}),
     ...(timeMs !== undefined ? { timeMs } : {}),
+    ...(wrongGuesses !== undefined ? { wrongGuesses } : {}),
+    ...(avgLatencyMs !== undefined ? { avgLatencyMs } : {}),
     ...(options.indexed
       ? {
           GSI1PK: leaderboardPartition(SEASON_ID, mode),
-          GSI1SK: leaderboardSortKey(mode, score, completedAt, sub, tiebreaks),
+          GSI1SK: leaderboardSortKey(
+            mode,
+            score,
+            completedAt,
+            sub,
+            orderedTiebreaks(options),
+          ),
         }
       : {}),
   };
@@ -404,7 +431,7 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
       "LEADERBOARD#2026-07#survival#r2",
     );
     expect(scriptsLeaderboardPartition("2026-07", "rain")).toBe(
-      "LEADERBOARD#2026-07#rain#r2",
+      "LEADERBOARD#2026-07#rain#r3",
     );
     expect(scriptsLeaderboardPartition("2026-07", "higher-lower")).toBe(
       "LEADERBOARD#2026-07#higher-lower#r2",
@@ -591,6 +618,20 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
           indexed: false,
         }),
       },
+      {
+        // Rain's own ordered pair, under different attribute names.
+        mode: "rain",
+        row: historyRun({
+          sub: "sub-f",
+          runId: "run-6",
+          mode: "rain",
+          score: 88,
+          completedAt: "2026-07-25T00:00:00.000Z",
+          wrongGuesses: 5,
+          avgLatencyMs: 940,
+          indexed: false,
+        }),
+      },
     ];
     for (const { mode, row } of rows) {
       const canonical =
@@ -603,9 +644,13 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
               String(row.playerSub),
               mode === "higher-lower"
                 ? [Number(row.livesLost), Number(row.timeMs)]
-                : row.timeMs === undefined
-                  ? undefined
-                  : Number(row.timeMs),
+                : // A Rain row written before the tiebreaks existed carries
+                  // neither attribute and must keep producing a bare key.
+                  mode === "rain" && row.wrongGuesses !== undefined
+                  ? [Number(row.wrongGuesses), Number(row.avgLatencyMs)]
+                  : row.timeMs === undefined
+                    ? undefined
+                    : Number(row.timeMs),
             );
       expect(rowSortKey(row, mode)).toBe(canonical);
     }
@@ -637,6 +682,35 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
       "clean",
       "one-life",
       "one-life-slow",
+    ]);
+  });
+
+  it("orders Rain rows by wrong guesses, then latency, on the fallback path", () => {
+    // Same cleared count, no stored GSI1SK. Rain's attributes are named nothing
+    // like Survival's or Higher/Lower's, so a mirror that carried the old field
+    // names would rebuild a key with no tiebreak segments at all and rank a
+    // whole cohort by completion time.
+    const row = (runId: string, wrongGuesses: number, avgLatencyMs: number) =>
+      historyRun({
+        sub: `sub-${runId}`,
+        runId,
+        mode: "rain",
+        score: 120,
+        completedAt: "2026-07-25T00:00:00.000Z",
+        wrongGuesses,
+        avgLatencyMs,
+        indexed: false,
+      });
+    const clean = row("clean", 0, 1_400);
+    const oneWrong = row("one-wrong", 1, 600);
+    const oneWrongSlow = row("one-wrong-slow", 1, 900);
+    const sorted = [oneWrongSlow, oneWrong, clean].sort((a, b) =>
+      rowSortKey(a, "rain").localeCompare(rowSortKey(b, "rain")),
+    );
+    expect(sorted.map((item) => item.runId)).toEqual([
+      "clean",
+      "one-wrong",
+      "one-wrong-slow",
     ]);
   });
 

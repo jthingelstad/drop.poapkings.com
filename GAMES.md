@@ -248,7 +248,8 @@ accelerating until the field outruns human reaction and the run ends (you cannot
 play forever). Both curves key off the live score, so difficulty only advances
 when you actually clear cards. The signed server deck supplies the cards and
 **wraps** when exhausted (a deep run resolves more cards than the deck holds);
-every resolved card records either its correct cost or a landed miss. Every 10
+every resolved card records its correct cost or a landed miss, the elapsed time
+at resolution, and the wrong taps it cost. Every 10
 clears the running total flashes for ~0.5s in the middle of the field (gold
 numeral + ring, echoing the 3-2-1 countdown) so the player feels progress without
 reading the top bar; it is composited over the field and never reflows the board.
@@ -258,10 +259,37 @@ deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript siz
 
 - Input: pip keypad.
 - Record: `rainBest` (cards cleared).
-- Board epoch `r2` (2026-07-24). The pre-redesign board is retired: the old curve
-  capped at 50 clears, so deep scores came off a materially easier game and are
-  not comparable to runs on the uncapped curve. Old rows are orphaned, not
-  deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
+- Leaderboard tiebreak: **fewest wrong guesses, then lowest average clear
+  latency** (`MODE_TIEBREAKS`). Wrong guesses count every wrong tap in the run,
+  landed cards included. Latency is **derived server-side**, never reported: it
+  is each clear's `atMs` minus the earliest moment that tile could have spawned,
+  so it measures the player's answer rather than the pace the game happened to
+  run at, and there is no separate number a client could inflate.
+- Board epoch `r3` (2026-07-25). `r2` is retired because it carries no tiebreak
+  segment and cannot be backfilled — those transcripts hold no timing at all —
+  and two key shapes in one partition would let a new row outrank an equal
+  old one purely on segment ordering. (`r2` itself retired the pre-redesign
+  board on 2026-07-24, whose curve capped at 50 clears.) Old rows are orphaned,
+  not deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
+
+**The minimum-time floor.** Rain has no round length and no clock, so nothing
+about its shape bounded a run: a transcript of deck-valid card ids scored up to
+the 10,000 anti-abuse ceiling, instantly and clean. It is bounded now by the one
+thing that is deterministic — the spawn curve. Difficulty is a function of the
+cleared count and the count only rises by one per clear, so the n-th spawn gap is
+never shorter than `rainSpawnIntervalMs(n)`, and **a score of N needs at least the
+first N gaps of elapsed time**: 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
+124.8s for 200 (`rainSpawnFloorMs`, with the curve, in `packages/contracts` —
+shared with the browser so the floor always describes the game actually being
+played). The fall speed is deliberately **not** part of it; it carries a random
+per-tile component.
+
+The floor is checked twice: against the transcript's own `atMs` stamps per card,
+and against the server's wall clock, which no client can write. A run under it,
+by more than a 2s tolerance, is **quarantined for referee review — never
+rejected**. It still scores, still records, still earns XP; it is held off the
+public board until a referee decides. The floor is a difficulty model, and a
+model is exactly the kind of thing that false-positives on an exceptional player.
 
 ### "Elixir Rain" screensaver
 

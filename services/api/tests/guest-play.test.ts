@@ -224,4 +224,59 @@ describe("guest play", () => {
     expect(repository.getProfile).not.toHaveBeenCalled();
     expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
+
+  it("completes a guest Rain run, floor and all, and records NOTHING", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-guest-rain",
+        owner: "guest",
+        mode: "rain",
+        guest: true,
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-guest-rain",
+      sk: "RUN",
+      runId: "run-guest-rain",
+      owner: "guest",
+      mode: "rain",
+      challenge: { mode: "rain", cardIds: cards.map((c) => c.id) },
+      state: "started",
+      startedAt: new Date(Date.now() - 10_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+      guest: true,
+    });
+    // Faster than the spawn curve allows. A guest run has no board to protect
+    // and no referee to review it, so the floor must not turn into a rejection
+    // on this path either — the guest still gets their score.
+    const answers = Array.from({ length: 13 }, (_unused, index) => {
+      const card = cards[index % cards.length]!;
+      return {
+        cardId: card.id,
+        guess: index < 10 ? card.elixir : null,
+        atMs: index * 60,
+      };
+    });
+
+    const response = (await handler(
+      guestEvent("/runs/complete", { runToken, transcript: { answers } }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(200);
+    expect(body).toMatchObject({
+      accepted: true,
+      guest: true,
+      mode: "rain",
+      score: 10,
+    });
+    expect(repository.completeRun).not.toHaveBeenCalled();
+    expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
+  });
 });

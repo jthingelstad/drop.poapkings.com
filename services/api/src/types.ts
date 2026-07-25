@@ -22,7 +22,8 @@ export interface ModeRule {
 
 // The run attributes that can act as an ascending leaderboard tiebreak. The
 // per-mode ORDER lives with the sort key, in games.ts (MODE_TIEBREAKS).
-export type TiebreakField = "livesLost" | "timeMs";
+export type TiebreakField =
+  "avgLatencyMs" | "livesLost" | "timeMs" | "wrongGuesses";
 export type RunTiebreaks = Partial<Record<TiebreakField, number>>;
 
 export interface SessionClaims {

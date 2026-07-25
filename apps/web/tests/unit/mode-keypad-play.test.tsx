@@ -57,10 +57,12 @@ vi.mock('../../src/lib/storage', () => ({
   saveSettings: vi.fn()
 }))
 
+import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
 import { saveResult, recordSession, saveRecords, saveSettings } from '../../src/lib/storage'
 import Surge from '../../src/modes/surge/Surge'
 import Survival from '../../src/modes/survival/Survival'
 import Practice from '../../src/modes/practice/Practice'
+import Rain from '../../src/modes/rain/Rain'
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 function fakeCard(i: number): Card {
@@ -638,5 +640,87 @@ describe('Practice gameplay', () => {
     expect(session.prepare).toHaveBeenCalled()
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
     expect(host.textContent).toContain('0 answered')
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Rain — falling cards, three lives, a wrong tap hints instead of resolving. The
+// mode is endless and has no clock, so the SPAWN CURVE is the only thing that
+// bounds it: the server derives a minimum-time floor and the clear-latency
+// tiebreak from the very same curve this field spawns on. Both halves are
+// checked here — that the browser really does use the shared curve, and that the
+// transcript carries the timing the server needs.
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Rain gameplay', () => {
+  // Mount and run the countdown out to the exact millisecond the run begins, so
+  // spawn timings can be measured against the curve without slack.
+  async function startRain(cards: Card[]): Promise<HTMLElement> {
+    session = makeSession(cards)
+    hoisted.session.current = session
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Rain />)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    advance(3 * 650) // three countdown steps → begin()
+    return host
+  }
+
+  const tileCount = (host: HTMLElement): number => host.querySelectorAll('.ed-rain__tile').length
+
+  it('spawns on the curve shared with the server, not a private copy', async () => {
+    const host = await startRain(fakeCards(20))
+
+    // The opening tile is dealt with the run; the next one is exactly one
+    // contract spawn interval later. If this file ever grows its own copy of the
+    // curve, the scorer's floor stops describing the game and Rain is unbounded
+    // again — so the cadence is asserted against the imported symbol itself.
+    expect(tileCount(host)).toBe(1)
+    advance(rainSpawnIntervalMs(0) - 1)
+    expect(tileCount(host)).toBe(1)
+    advance(1)
+    expect(tileCount(host)).toBe(2)
+  })
+
+  it('stamps every resolved card with its elapsed time and wrong-tap count', async () => {
+    const cards = fakeCards(20)
+    const host = await startRain(cards)
+    advance(40) // one fall tick: the lowest tile becomes the live target
+
+    // Two wrong taps: each hints, neither resolves the card.
+    press(host, wrongFor(cards[0]!.elixir))
+    press(host, wrongFor(cards[0]!.elixir))
+    expect(host.querySelector('.sr-only')?.textContent).toBe('Higher')
+    expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0')
+
+    press(host, cards[0]!.elixir)
+    expect(host.querySelector('.ed-game__metric')?.textContent).toBe('1')
+
+    advance(20_000) // every other tile lands: three lives gone, run over
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const { answers } = session.complete.mock.calls[0]![0] as {
+      answers: Array<{ cardId: number; guess: number | null; atMs: number; wrongGuesses: number }>
+    }
+
+    expect(answers[0]).toMatchObject({
+      cardId: cards[0]!.id,
+      guess: cards[0]!.elixir,
+      wrongGuesses: 2
+    })
+    expect(answers.slice(1).every((answer) => answer.wrongGuesses === 0)).toBe(true)
+    // Landed cards are recorded too, with the same stamp — and the stamps only
+    // move forward, which is what the scorer validates before ranking on them.
+    expect(answers.filter((answer) => answer.guess === null).length).toBe(3)
+    // Stamped from the run start, which is also when the first tile spawns — the
+    // origin the server's spawn floor assumes. Counting from the mount instead
+    // would hand every run a free 1,950ms of countdown.
+    expect(answers[0]!.atMs).toBeLessThan(3 * 650)
+    expect(answers.at(-1)!.atMs).toBeGreaterThan(10_000)
+    expect([...answers].sort((a, b) => a.atMs - b.atMs).map((answer) => answer.cardId)).toEqual(
+      answers.map((answer) => answer.cardId)
+    )
   })
 })

@@ -37,13 +37,14 @@ export const RANKED_MODES = [
 ];
 
 // Mirror of services/api/src/games.ts BOARD_EPOCH: Survival's board was reset to
-// "r2" when it became a clear-the-deck, time-ranked game, Rain's on 2026-07-24
-// when its difficulty stopped capping, Higher/Lower's on 2026-07-25 when it
-// gained three lives and a gap-ramped deal, and Trade's on 2026-07-25 when it
-// went to ten exchanges on a fixed board ladder.
+// "r2" when it became a clear-the-deck, time-ranked game, Rain's to "r2" on
+// 2026-07-24 when its difficulty stopped capping and to "r3" on 2026-07-25 when
+// it gained two tiebreaks its old rows carry no segments for, Higher/Lower's on
+// 2026-07-25 when it gained three lives and a gap-ramped deal, and Trade's on
+// 2026-07-25 when it went to ten exchanges on a fixed board ladder.
 const BOARD_EPOCH = {
   survival: "r2",
-  rain: "r2",
+  rain: "r3",
   "higher-lower": "r2",
   trade: "r2",
 };
@@ -81,6 +82,7 @@ const MAX_TIEBREAK = 999_999_999;
 const MODE_TIEBREAKS = {
   survival: ["timeMs"],
   "higher-lower": ["livesLost", "timeMs"],
+  rain: ["wrongGuesses", "avgLatencyMs"],
 };
 
 // Mirror of services/api/src/games.ts tiebreakValues: the ordered tiebreak
@@ -107,7 +109,8 @@ export function isLeaderboardEligibleScore(score) {
 // Mirror of services/api/src/games.ts leaderboardSortKey. The lexicographic key
 // DynamoDB orders GSI1 by. Note the score inversion for higher-is-better modes,
 // the 12-character pad, the ordered 9-character ascending tiebreaks (Survival's
-// cumulative time; Higher/Lower's lives lost then time), and the trailing
+// cumulative time; Higher/Lower's lives lost then time; Rain's wrong guesses
+// then average clear latency), and the trailing
 // `#{sub}` uniqueness suffix. A bare number is accepted as a single tiebreak.
 export function leaderboardSortKey(mode, score, completedAt, sub, tiebreaks) {
   const sortableScore =

@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import { computeInsights, type Insights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -24,7 +25,8 @@ import RainMilestone from './RainMilestone'
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
 // when it runs out — Rain is endless), and each RESOLVED card (cleared →
-// guess=cost, landed → guess=null) is recorded in the transcript the server scores.
+// guess=cost, landed → guess=null) is recorded in the transcript the server
+// scores, stamped with the elapsed time at resolution and the wrong taps it cost.
 //
 // Difficulty scales with cleared count (demonstrated skill) and NEVER caps, on
 // BOTH axes: cards fall faster AND spawn closer together as you clear more. It
@@ -42,6 +44,11 @@ const COUNTDOWN_STEP_MS = 650
 // %-per-tick. A card falls 112 units, so time ≈ 4480ms / speed. At score 0 that
 // is ~9–12s (gentler than before); the linear+quadratic boost has no ceiling, so
 // the deep game turns brutal (~0.7s/card in the high 200s ≈ impossible).
+//
+// This axis stays local on purpose: the jitter makes it non-deterministic, so it
+// can play no part in the server's minimum-time floor. The SPAWN axis is shared —
+// `rainSpawnIntervalMs` comes from packages/contracts, which is what the scorer
+// computes that floor from.
 const RAIN_BASE_SPEED = 0.36
 const RAIN_SPEED_JITTER = 0.14
 const RAIN_FALL_LINEAR = 0.011
@@ -50,26 +57,24 @@ function rainFallBoost(score: number): number {
   return score * RAIN_FALL_LINEAR + score * score * RAIN_FALL_QUAD
 }
 
-// Spawn gap tightens from RAIN_SPAWN_BASE_MS toward (never reaching) the floor as
-// score climbs: 1160ms at score 0 (gentler start than the old fixed 900ms) → ~710ms
-// by 50 → ~440ms by 200, always positive so it keeps closing without a hard limit.
-const RAIN_SPAWN_BASE_MS = 1160
-const RAIN_SPAWN_FLOOR_MS = 260
-const RAIN_SPAWN_TIGHTEN = 0.02
-
 // Progress flash: every 10th clear, the running total pulses briefly in the
 // middle of the field so the player feels the count without reading the top bar.
 const RAIN_MILESTONE_EVERY = 10
 const RAIN_MILESTONE_MS = 500
-function rainSpawnMs(score: number): number {
-  return RAIN_SPAWN_FLOOR_MS + (RAIN_SPAWN_BASE_MS - RAIN_SPAWN_FLOOR_MS) / (1 + score * RAIN_SPAWN_TIGHTEN)
-}
+
+// Wrong taps recorded per card. A wrong tap does not resolve the card, so a
+// single tile can legitimately take several — but the transcript is not a place
+// to mash without limit, and the scorer rejects a higher count.
+const MAX_WRONG_PER_CARD = 60
 
 interface Drop {
   el: HTMLDivElement
   card: Card
   y: number
   speed: number
+  // Wrong taps spent on this card so far; rides into the transcript when it
+  // resolves and feeds the leaderboard's first tiebreak.
+  wrong: number
 }
 
 export default function Rain() {
@@ -83,8 +88,11 @@ export default function Rain() {
   const cursor = useRef(0)
   const spawnTimer = useRef<number | undefined>(undefined)
   const fallTimer = useRef<number | undefined>(undefined)
-  // Server transcript: one entry per resolved card, in resolution order.
-  const serverAnswers = useRef<Array<{ cardId: number; guess: number | null }>>([])
+  // Server transcript: one entry per resolved card, in resolution order, each
+  // stamped with the elapsed time at resolution. `atMs` is what lets the scorer
+  // check the run against the shared spawn curve (a tile cannot be answered
+  // before it can spawn) and derive the clear-latency tiebreak.
+  const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; atMs: number; wrongGuesses: number }>>([])
   // Display insights (accuracy by cost) for the summary.
   const answersLog = useRef<Array<{ card: Card; correct: boolean }>>([])
   const recorded = useRef(false)
@@ -126,7 +134,7 @@ export default function Rain() {
     spawnTimer.current = window.setTimeout(() => {
       spawnDrop()
       if (stage.peek() === 'running') scheduleSpawn()
-    }, rainSpawnMs(score.value))
+    }, rainSpawnIntervalMs(score.value))
   }
 
   // Show the running total for RAIN_MILESTONE_MS, then get out of the way. The
@@ -196,8 +204,21 @@ export default function Rain() {
       el,
       card,
       y: -16,
-      speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current
+      speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current,
+      wrong: 0
     })
+  }
+
+  // Elapsed run time at the moment a card resolves. The clock starts when the
+  // countdown ends (runtime.start), which is the same instant the first tile
+  // spawns — so these stamps share an origin with the server's spawn floor.
+  function atMs(): number {
+    return Math.round(runtime.currentElapsed())
+  }
+
+  function recordResolved(d: Drop, guess: number | null): void {
+    serverAnswers.current.push({ cardId: d.card.id, guess, atMs: atMs(), wrongGuesses: d.wrong })
+    answersLog.current.push({ card: d.card, correct: guess !== null })
   }
 
   function tick() {
@@ -208,8 +229,7 @@ export default function Rain() {
       d.y += d.speed
       if (d.y >= 96) {
         popTile(d, true)
-        serverAnswers.current.push({ cardId: d.card.id, guess: null })
-        answersLog.current.push({ card: d.card, correct: false })
+        recordResolved(d, null)
         lost++
         continue
       }
@@ -254,19 +274,20 @@ export default function Rain() {
       popTile(t, false)
       drops.current = drops.current.filter((x) => x !== t)
       target.current = null
-      serverAnswers.current.push({ cardId: t.card.id, guess: t.card.elixir })
-      answersLog.current.push({ card: t.card, correct: true })
+      recordResolved(t, t.card.elixir)
       const next = score.value + 1
       score.value = next
-      // Uncapped: both fall speed (here) and spawn cadence (rainSpawnMs, read by
-      // the self-rescheduling spawn timer) keep ramping with every clear.
+      // Uncapped: both fall speed (here) and spawn cadence (rainSpawnIntervalMs,
+      // read by the self-rescheduling spawn timer) keep ramping with every clear.
       rainSpd.current = rainFallBoost(next)
       if (next % RAIN_MILESTONE_EVERY === 0) showMilestone(next)
       hint.value = null
       playRainClear()
     } else {
       // A wrong tap does not resolve the card — it stays and keeps falling. Nudge
-      // the player toward the right cost.
+      // the player toward the right cost, and count the miss against this card:
+      // fewest wrong guesses is how the board separates equal scores.
+      if (t.wrong < MAX_WRONG_PER_CARD) t.wrong += 1
       hint.value = value < t.card.elixir ? 'higher' : 'lower'
       hintPulse.value += 1
       t.el.classList.remove('ed-rain__shake')
