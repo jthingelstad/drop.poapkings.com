@@ -8,9 +8,11 @@ import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
+import ReleaseNotice from './components/ReleaseNotice'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
+import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import DesktopShell from './components/shell/DesktopShell'
@@ -60,6 +62,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/settings', label: 'Settings' },
   { match: '/privacy', label: 'Privacy' },
   { match: '/about', label: 'About' },
+  { match: '/releases', label: 'Releases' },
   { match: '/faq', label: 'FAQ' },
   { match: '/install', label: 'Install' },
   { match: '/login', label: 'Sign in' },
@@ -142,6 +145,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/leaderboards')) return <Leaderboards />
   if (r.startsWith('/privacy')) return <Privacy />
   if (r.startsWith('/about')) return <MetaPage kind="about" />
+  if (r.startsWith('/releases')) return <MetaPage kind="releases" />
   if (r.startsWith('/faq')) return <MetaPage kind="faq" />
   if (r.startsWith('/install')) return <MetaPage kind="install" />
   return <Home />
@@ -164,6 +168,9 @@ export default function App() {
   useEffect(() => {
     void initializeAccount()
     initInstallPrompt()
+    // Decides once per load whether a named release is worth announcing. A
+    // first-time visitor is recorded and never interrupted.
+    initReleaseNotice()
   }, [])
 
   // Watch for a newer front-end build: /stats reports the current version, so a
@@ -212,6 +219,7 @@ export default function App() {
     <>
       {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
       <RunRecordingNotice />
+      <ReleaseNotice />
       {screensaverActive.value && <Screensaver />}
     </>
   )

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "releases": [
+    {
+      "id": "radiant-royal-giant",
+      "name": "Radiant Royal Giant",
+      "date": "2026-07-24",
+      "build": "f4209ccfb7e9",
+      "headline": "Meet Radiant Royal Giant — Drop's first named release",
+      "notes": [
+        "Drop has its first named release: Radiant Royal Giant.",
+        "What began as a quick way to drill card costs is now a full game with six ways to play: Surge, Practice, Higher / Lower, Trade, Survival, and Rain. Sign in with a magic link to keep your progress, earn Player XP, climb a 28-arena journey, chase season bests, and see how your ranked runs stack up.",
+        "This release also brings a cleaner mobile and desktop experience, install support for your phone, keyboard controls on desktop, easier score sharing, and a long list of gameplay fixes and polish. Practice stays unranked and focused on learning; the other modes are ready when you want to race the board.",
+        "And if you need a quieter moment after the sprint, there is a card-rain screensaver hiding in plain sight.",
+        "Come give Radiant Royal Giant a run — and see which elixir cost still catches you."
+      ]
+    }
+  ]
+}

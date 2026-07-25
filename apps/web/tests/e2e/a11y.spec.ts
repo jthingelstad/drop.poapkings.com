@@ -4,6 +4,7 @@ import { expect, test } from './fixtures'
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
   { hash: '#/about', label: 'About', ready: '.ed-page' },
+  { hash: '#/releases', label: 'Releases', ready: '.ed-page' },
   { hash: '#/faq', label: 'FAQ', ready: '.ed-page' },
   { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
@@ -35,3 +36,18 @@ for (const route of a11yRoutes) {
     expect(serious).toEqual([])
   })
 }
+
+// The release notice is the app's only modal dialog, so it never appears on a
+// route walk above (a first visit records the release and shows nothing).
+test('renders the release notice without serious accessibility issues', async ({ page }, testInfo) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.setItem('elixirdrop:releaseSeen', 'ancient-arrows'))
+  await page.reload()
+  await expect(page.locator('[data-testid="release-notice"]')).toBeVisible()
+
+  await testInfo.attach('release-notice.png', { body: await page.screenshot(), contentType: 'image/png' })
+
+  const results = await new AxeBuilder({ page }).analyze()
+  const serious = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))
+  expect(serious).toEqual([])
+})

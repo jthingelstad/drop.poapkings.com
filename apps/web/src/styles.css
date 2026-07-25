@@ -1774,6 +1774,107 @@ body.modal-open {
 }
 
 
+/* ── New named release notice ─────────────────────────────── */
+
+/* One-time overlay for a named release (components/ReleaseNotice.tsx). Sits
+   above the recording notice (1200) and below the screensaver (1300); it never
+   renders on a game route. */
+.release-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 6, 16, 0.72);
+  backdrop-filter: blur(2px);
+  animation: release-notice-fade 180ms ease-out;
+}
+.release-notice__card {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 22px 20px 20px;
+  border: 1px solid rgba(245, 200, 76, 0.45);
+  border-radius: var(--r-lg);
+  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.14), transparent 55%), rgba(18, 13, 40, 0.98);
+  box-shadow: var(--shadow);
+  animation: release-notice-rise 220ms var(--ease-drop);
+}
+.release-notice__card:focus {
+  outline: none;
+}
+.release-notice__x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+.release-notice__x:hover {
+  color: var(--ink);
+}
+.release-notice__eyebrow {
+  color: var(--lavender);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.release-notice__title {
+  margin: 4px 0 0;
+  padding-right: 30px;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--gold);
+}
+.release-notice__lede {
+  margin: 10px 0 0;
+  color: #d9d1f5;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.release-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@keyframes release-notice-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes release-notice-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .release-notice,
+  .release-notice__card {
+    animation: none;
+  }
+}
+html.reduce-motion .release-notice,
+html.reduce-motion .release-notice__card {
+  animation: none;
+}
+
+
 /* ── Rank card ────────────────────────────────────────────── */
 
 .rank-card {
@@ -3263,6 +3364,15 @@ html.reduce-motion .ed-gcard {
 .ed-meta-section--muted .ed-meta-section__title,
 .ed-meta-section--muted .ed-meta-section__body {
   color: var(--faint);
+}
+
+/* Date + build line under a release name on /releases. */
+.ed-release__stamp {
+  color: var(--faint);
+  font-size: 0.74rem;
+}
+.ed-release__stamp code {
+  font-size: 0.72rem;
 }
 
 .ed-install-steps {

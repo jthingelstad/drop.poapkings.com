@@ -1,13 +1,16 @@
-// Static meta pages (About / FAQ / Install), rendered from the single content
-// module (data/meta-content.ts). Same component on both shells: mobile shows it
-// as a full sub-screen with a back arrow; desktop renders it in the center
-// stage. No game, auth, or leaderboard logic here.
+// Static meta pages (About / Releases / FAQ / Install), rendered from the single
+// content module (data/meta-content.ts). Same component on both shells: mobile
+// shows it as a full sub-screen with a back arrow; desktop renders it in the
+// center stage. No game, auth, or leaderboard logic here. Releases adds one
+// data source — the tool-written history in lib/releases.ts.
 
 import MetaPageHead from '../components/MetaPageHead'
 import MetaSection from '../components/MetaSection'
-import { ABOUT, FAQ, INSTALL } from '../data/meta-content'
+import ReleaseList from '../components/ReleaseList'
+import { ABOUT, FAQ, INSTALL, RELEASES } from '../data/meta-content'
+import { releases } from '../lib/releases'
 
-export type MetaPageKind = 'about' | 'faq' | 'install'
+export type MetaPageKind = 'about' | 'releases' | 'faq' | 'install'
 
 function AboutBody() {
   return (
@@ -63,12 +66,15 @@ function InstallBody() {
   )
 }
 
+const CONTENT = { about: ABOUT, releases: RELEASES, faq: FAQ, install: INSTALL }
+
 export default function MetaPage({ kind }: { kind: MetaPageKind }) {
-  const meta = kind === 'about' ? ABOUT : kind === 'faq' ? FAQ : INSTALL
+  const meta = CONTENT[kind]
   return (
     <article class="ed-page">
       <MetaPageHead eyebrow={meta.eyebrow} title={meta.title} />
       {kind === 'about' && <AboutBody />}
+      {kind === 'releases' && <ReleaseList entries={releases} />}
       {kind === 'faq' && <FaqBody />}
       {kind === 'install' && <InstallBody />}
     </article>

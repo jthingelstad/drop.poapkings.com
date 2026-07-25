@@ -311,7 +311,7 @@ Active-play layout:
 **This section is the canonical inventory of every browser-storage key.** Every
 key uses the `elixirdrop:` prefix. `apps/web/src/lib/storage.ts` is the boundary
 for **learning progress** — game code must never touch those keys directly — but
-it is not the only owner: three other modules own their own narrow state, and
+it is not the only owner: four other modules own their own narrow state, and
 that is deliberate, not drift.
 
 Learning progress, owned by `lib/storage.ts` (`localStorage`):
@@ -327,7 +327,7 @@ elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
 elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
 ```
 
-Session, analytics, and install state, owned by their own modules:
+Session, analytics, install, and release-notice state, owned by their own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
@@ -339,6 +339,10 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
+elixirdrop:releaseSeen              -> lib/release-notice.ts localStorage the release id (tag
+                                       slug) the player has already been shown, written on a
+                                       first visit so the one-time notice never greets a
+                                       newcomer, and again on dismissal
 ```
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is

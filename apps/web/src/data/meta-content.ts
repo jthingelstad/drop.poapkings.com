@@ -1,8 +1,10 @@
-// Single source of truth for the static meta pages (About / FAQ / Install),
-// read by both the mobile and desktop shells. Mirrors the design's
+// Single source of truth for the static meta pages (About / Releases / FAQ /
+// Install), read by both the mobile and desktop shells. Mirrors the design's
 // `meta-content.js` → `window.DROP_META`, but as a typed module. Privacy keeps
 // its own richer screen (screens/Privacy.tsx) with the real, sectioned copy.
 // Discord is an external link — see ELIXIR_DROP_DISCORD_URL in lib/links.ts.
+// Releases keeps only its page chrome here — the entries themselves come from
+// the tool-written `data/releases.json` (see lib/releases.ts).
 
 export interface FaqItem {
   q: string
@@ -29,6 +31,14 @@ export interface FaqContent {
   eyebrow: string
   title: string
   items: FaqItem[]
+}
+
+export interface ReleasesContent {
+  eyebrow: string
+  title: string
+  intro: string
+  // Shown when no release has been cut yet (an empty releases.json).
+  empty: string
 }
 
 export interface InstallContent {
@@ -60,6 +70,16 @@ export const ABOUT: AboutContent = {
     'This fan community is not affiliated with Supercell. Clash Royale is a trademark of its respective owner. Card data and artwork © Supercell, used under Supercell’s Fan Content Policy.',
   policyNotice:
     'This material is unofficial and is not endorsed by Supercell. For more information see Supercell’s Fan Content Policy: www.supercell.com/fan-content-policy.'
+}
+
+export const RELEASES: ReleasesContent = {
+  eyebrow: 'What shipped',
+  // Distinct from the '/releases' screen title in App.tsx's ROUTE_LABELS, the
+  // same way About and FAQ are — two identical top-level headings on one screen
+  // read as a duplicate to a screen reader.
+  title: 'Release history',
+  intro: 'Every named Elixir Drop release, newest first — what changed and when it landed.',
+  empty: 'No named release yet. The first one will show up here the day it ships.'
 }
 
 export const FAQ: FaqContent = {

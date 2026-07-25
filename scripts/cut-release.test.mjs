@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  appendRelease,
   createButtondownDraft,
   optionsFor,
+  playerNotes,
   preparePayload,
   rangeFor,
+  releaseEntry,
+  releasesFile,
   runRelease,
   validateDraft,
 } from "./cut-release.mjs";
@@ -192,6 +196,9 @@ function fakeActions(overrides = {}) {
     ensureTag: async () => {
       throw new Error("unexpected tag");
     },
+    recordRelease: async () => {
+      throw new Error("unexpected in-app release record");
+    },
     announce: async () => {
       throw new Error("unexpected announcement");
     },
@@ -209,17 +216,25 @@ void test("dry-run prints both tiers and exact actions without mutation", async 
   assert.match(output.join("\n"), /=== Buttondown draft ===/);
   assert.match(output.join("\n"), /=== Target ===/);
   assert.match(output.join("\n"), /annotated tag mighty-musketeer/);
+  assert.match(
+    output.join("\n"),
+    /apps\/web\/src\/data\/releases\.json entry mighty-musketeer/,
+  );
   assert.match(output.join("\n"), /GitHub release/);
   assert.match(output.join("\n"), /Buttondown draft \(never sent\)/);
 });
 
-void test("real cut confirms the live target, tags it, and creates both channels", async () => {
+void test("real cut confirms the live target, tags it, records it in-app, and creates both channels", async () => {
   const calls = [];
   const result = await runRelease(
     optionsFor(["--draft", "draft.json"]),
     fakeActions({
       confirmTarget: async (head) => calls.push(["confirm", head]),
       ensureTag: async (stored, head) => calls.push(["tag", stored.tag, head]),
+      recordRelease: async (stored) => {
+        calls.push(["record", stored.tag]);
+        return releasesFile;
+      },
       announce: async (stored, selected) => {
         calls.push(["announce", stored.tag, selected]);
         return { github: "https://example.test/release", emailDraftId: "em_1" };
@@ -227,9 +242,13 @@ void test("real cut confirms the live target, tags it, and creates both channels
     }),
   );
   assert.equal(result.released, true);
+  assert.equal(result.recorded, releasesFile);
+  // The app's copy is written once the tag exists, before any channel that
+  // might need a retry.
   assert.deepEqual(calls, [
     ["confirm", material.head],
     ["tag", manifest.tag, material.head],
+    ["record", manifest.tag],
     ["announce", manifest.tag, ["github", "email"]],
   ]);
 });
@@ -241,10 +260,63 @@ void test("a saved draft can retry only one failed channel", async () => {
     fakeActions({
       confirmTarget: async () => {},
       ensureTag: async () => {},
+      recordRelease: async () => releasesFile,
       announce: async (_stored, selected) => calls.push(selected),
     }),
   );
   assert.deepEqual(calls, [["email"]]);
+});
+
+void test("the in-app entry reuses the authored name and player-facing notes", () => {
+  assert.deepEqual(releaseEntry(manifest), {
+    id: "mighty-musketeer",
+    name: "Mighty Musketeer",
+    date: "2026-07-23",
+    build: material.head.slice(0, 12),
+    headline: "Mighty Musketeer is live",
+    notes: ["Drop now has named releases with friendly notes."],
+  });
+  // The player tier is Markdown for Buttondown; the page prints plain
+  // paragraphs, so emphasis, links, and code are flattened.
+  assert.deepEqual(
+    playerNotes(
+      "Meet **Mighty Musketeer**.\n\n## Heading\n\nRead the *notes* or\nvisit [Drop](https://drop.poapkings.com/) and run `surge`.\n\n",
+    ),
+    [
+      "Meet Mighty Musketeer.",
+      "Heading",
+      "Read the notes or visit Drop and run surge.",
+    ],
+  );
+});
+
+void test("appending the in-app history is newest-first and idempotent", () => {
+  const older = {
+    id: "radiant-royal-giant",
+    name: "Radiant Royal Giant",
+    date: "2026-07-24",
+    build: "f4209ccfb7e9",
+    headline: "Meet Radiant Royal Giant",
+    notes: ["Drop's first named release."],
+  };
+  const seeded = appendRelease({ schemaVersion: 1, releases: [] }, older);
+  assert.deepEqual(seeded, { schemaVersion: 1, releases: [older] });
+
+  const entry = releaseEntry(manifest);
+  const cut = appendRelease(seeded, entry);
+  assert.deepEqual(
+    cut.releases.map((release) => release.id),
+    ["mighty-musketeer", "radiant-royal-giant"],
+  );
+
+  // Re-running the same draft rewrites the same entry in place.
+  assert.deepEqual(appendRelease(cut, entry), cut);
+  assert.deepEqual(appendRelease(appendRelease(cut, entry), entry), cut);
+  // A first cut into a file that does not exist yet still produces the schema.
+  assert.deepEqual(appendRelease(undefined, entry), {
+    schemaVersion: 1,
+    releases: [entry],
+  });
 });
 
 void test("creates one idempotent Buttondown draft in the explicit newsletter", async () => {

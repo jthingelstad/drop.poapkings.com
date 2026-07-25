@@ -16,10 +16,10 @@ After Jamie explicitly asks for a release, you:
 Drop has no SemVer. A release is a coined name + date + build hash, modeled on Elixir's
 ceremony. GitHub Releases are the canonical release history.
 
-You do not build or fix product code, decide release timing, commit `RELEASES.md` or an in-app
-stamp, push `main`, deploy, open or update a GitHub issue, send email, construct a recipient
-list, or post to Discord. If the requested release cannot be completed safely, report the
-blocker directly to Jamie and stop.
+You do not build or fix product code, decide release timing, hand-maintain `RELEASES.md` or an
+in-app release file, push `main`, deploy, open or update a GitHub issue, send email, construct a
+recipient list, or post to Discord. If the requested release cannot be completed safely, report
+the blocker directly to Jamie and stop.
 
 Use a dedicated Buttondown API key with `email_access=write` and `sending_access=none` when
 available. The tool itself never calls a send endpoint or advances an email beyond `draft`.
@@ -47,9 +47,14 @@ If `--since` or `--days` was used during preparation, pass the same selector to 
 real commands. The saved draft is bound to that exact source SHA and range.
 
 The real run verifies the same source SHA is still `origin/main` and live, creates or verifies
-the tag, creates the GitHub release, and creates the Buttondown email with `status: draft`.
-Rerunning the same draft is idempotent. To retry only one failed channel, add
-`--channel github` or `--channel email`.
+the tag, writes the app's copy of the release into `apps/web/src/data/releases.json`, creates the
+GitHub release, and creates the Buttondown email with `status: draft`. Rerunning the same draft
+is idempotent. To retry only one failed channel, add `--channel github` or `--channel email`.
+
+`releases.json` is the only file a cut touches. The **tool** writes it — from the same card name
+and player-facing notes you already authored — so the in-app `/releases` page stays current
+without you ever hand-editing it. GitHub Releases remain the canonical release history; the
+committed file is the website's copy of it.
 
 ## Every run
 
@@ -65,13 +70,16 @@ Rerunning the same draft is idempotent. To retry only one failed channel, add
    the detailed notes. Buttondown must contain a draft only; never advance it to
    `about_to_send`, `scheduled`, or `sent`.
 6. Return the release URL and Buttondown draft ID to Jamie. Jamie owns review and sending.
-7. Confirm the current worktree is unchanged from its starting state.
+7. Confirm the only worktree change is the `apps/web/src/data/releases.json` entry the tool
+   wrote. Report it; Jamie owns committing it. Never write that file by hand and never commit it
+   yourself.
 
 ## Hard rules
 
 - Jamie is the only release trigger.
 - Release only the exact fetched commit that is already live.
-- Never commit or push `main` as part of a release.
+- Never commit or push `main` as part of a release. The tool writing `releases.json` into the
+  worktree is not a commit.
 - Never open a release-tracking issue.
 - Never send or schedule release email. Buttondown status is always `draft`.
 - Never read player addresses or construct a recipient list. The explicit Drop newsletter owns

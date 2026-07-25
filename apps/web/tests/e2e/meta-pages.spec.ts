@@ -1,8 +1,9 @@
 import { expect, isDesktopViewport, test } from './fixtures'
 
-test('About, FAQ, and Privacy share one stable responsive page layout', async ({ page, viewport }) => {
+test('About, Releases, FAQ, and Privacy share one stable responsive page layout', async ({ page, viewport }) => {
   const routes = [
     { hash: 'about', title: 'About Elixir Drop' },
+    { hash: 'releases', title: 'Release history' },
     { hash: 'faq', title: 'Frequently asked' },
     { hash: 'privacy', title: 'What Drop keeps—and why' }
   ] as const

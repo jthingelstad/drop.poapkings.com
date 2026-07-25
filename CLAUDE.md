@@ -86,6 +86,18 @@ rank-oriented fields as part of unrelated work.
 - **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
   the canonical inventory of all eleven keys and which module owns each; add new
   keys there.
+- **Named releases have an in-app surface.** `scripts/cut-release.mjs` writes
+  `apps/web/src/data/releases.json` during `npm run release:cut` (GitHub Releases
+  stay the canonical history; the release manager never hand-edits the file —
+  see `AGENT-TEAM/release-manager.md`). `apps/web/src/lib/releases.ts` is the
+  typed view, `/releases` renders it through `MetaPage`, and
+  `components/ReleaseNotice.tsx` + `lib/release-notice.ts` show it **once** when
+  the newest release id differs from `elixirdrop:releaseSeen`. A first-time
+  visitor is recorded and shown nothing, and the notice never renders on a game
+  route — the "never a load-time modal" rule below still binds for anything the
+  player has not already been playing through. It is **not** the `UpdateBanner`:
+  that one says "this tab is stale, reload"; this one says "a named release
+  shipped, here's what changed". Keep them separate.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
   canonical card snapshot. Claude Haiku may use community nicknames and playful
   card associations; the public name does not need the exact card title.

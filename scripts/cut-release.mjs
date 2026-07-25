@@ -11,6 +11,13 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const channels = ["github", "email"];
 const buttondownApiVersion = "2026-04-01";
 
+// The app's own copy of the release history, read by the in-app /releases page.
+// GitHub Releases stay the canonical history; this file exists so the website
+// can show what shipped without a network call. The tool writes it during a
+// cut — the release manager never hand-maintains it.
+export const releasesFile = "apps/web/src/data/releases.json";
+export const releasesSchemaVersion = 1;
+
 export function optionsFor(argv) {
   const { values } = parseArgs({
     args: argv,
@@ -159,6 +166,50 @@ export function preparePayload(material, cards) {
   };
 }
 
+// The player-facing tier is already authored for the Buttondown draft, so the
+// in-app notes reuse it rather than asking for a third set of prose. Markdown
+// the newsletter renders is flattened here because the page prints plain
+// paragraphs.
+export function playerNotes(body) {
+  return body
+    .split(/\n{2,}/)
+    .map((paragraph) =>
+      paragraph
+        .replace(/\s+/g, " ")
+        .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^#{1,6}\s+/, "")
+        .trim(),
+    )
+    .filter(Boolean);
+}
+
+export function releaseEntry(manifest) {
+  return {
+    id: manifest.tag,
+    name: manifest.name,
+    date: manifest.date,
+    build: manifest.build,
+    headline: manifest.email.subject,
+    notes: playerNotes(manifest.email.body),
+  };
+}
+
+// Newest first, keyed by tag slug. Re-running the same draft rewrites that one
+// entry in place instead of appending a second copy, so a retried cut leaves a
+// byte-identical file.
+export function appendRelease(document, entry) {
+  const existing = Array.isArray(document?.releases) ? document.releases : [];
+  const index = existing.findIndex((item) => item?.id === entry.id);
+  const releases =
+    index === -1
+      ? [entry, ...existing]
+      : existing.map((item, at) => (at === index ? entry : item));
+  return { schemaVersion: releasesSchemaVersion, releases };
+}
+
 function printPlan(manifest, selectedChannels, output) {
   output(`${manifest.detailed}\n`);
   output(
@@ -166,7 +217,7 @@ function printPlan(manifest, selectedChannels, output) {
   );
   output(`=== Target ===\n${manifest.sourceHead}\n`);
   output(
-    `=== Actions ===\n- annotated tag ${manifest.tag}\n${selectedChannels
+    `=== Actions ===\n- annotated tag ${manifest.tag}\n- ${releasesFile} entry ${manifest.tag}\n${selectedChannels
       .map((channel) =>
         channel === "github"
           ? "- GitHub release"
@@ -207,8 +258,12 @@ export async function runRelease(options, actions) {
 
   await actions.confirmTarget(material.head);
   await actions.ensureTag(manifest, material.head);
+  // The tag is the release's identity, so the app's copy is written as soon as
+  // it exists — a channel that has to be retried does not leave the in-app
+  // history behind.
+  const recorded = await actions.recordRelease(manifest);
   const announced = await actions.announce(manifest, options.channels);
-  return { manifest, released: true, announced };
+  return { manifest, released: true, recorded, announced };
 }
 
 function command(
@@ -432,6 +487,22 @@ export async function createButtondownDraft(
   return email;
 }
 
+async function recordRelease(manifest) {
+  const path = resolve(repoRoot, releasesFile);
+  let current = { schemaVersion: releasesSchemaVersion, releases: [] };
+  try {
+    current = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    // A missing file is the first cut; anything else means the committed copy
+    // is unreadable and must not be silently replaced.
+    if (error.code !== "ENOENT") throw error;
+  }
+  const next = appendRelease(current, releaseEntry(manifest));
+  await writeFile(path, `${JSON.stringify(next, null, 2)}\n`);
+  console.log(`Wrote ${releasesFile} (${next.releases.length} releases)`);
+  return releasesFile;
+}
+
 function remoteTagCommit(tag) {
   const refs = command(
     "git",
@@ -563,6 +634,7 @@ export function systemActions(output = console.log) {
       }
       command("git", ["push", "origin", `refs/tags/${manifest.tag}`]);
     },
+    recordRelease,
     announce,
   };
 }

@@ -1,6 +1,6 @@
-// The mobile "More" list at the bottom of Profile: About, FAQ, Install app,
-// Discord (external), Privacy. Desktop uses the left-rail footer cluster
-// instead, so this renders on the mobile shell only.
+// The mobile "More" list at the bottom of Profile: About, Releases, FAQ,
+// Install app, Discord (external), Privacy. Desktop uses the left-rail footer
+// cluster instead, so this renders on the mobile shell only.
 
 import { navigate } from '../lib/router'
 import { ELIXIR_DROP_DISCORD_URL } from '../lib/links'
@@ -16,6 +16,7 @@ interface Row {
 
 const ROWS: Row[] = [
   { key: 'about', label: 'About', icon: 'info', to: '/about' },
+  { key: 'releases', label: 'Releases', icon: 'sparkles', to: '/releases' },
   { key: 'faq', label: 'FAQ', icon: 'circle-help', to: '/faq' },
   { key: 'install', label: 'Install app', icon: 'download', to: '/install' },
   { key: 'discord', label: 'Discord', icon: 'message-circle', href: ELIXIR_DROP_DISCORD_URL },
