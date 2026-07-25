@@ -262,6 +262,54 @@ describe("server-side game scoring", () => {
     ).toBe(4);
   });
 
+  // A timeout is its own outcome, not a synthesized tap. The client used to send
+  // the LOWER card when the clock ran out so this scored a miss — which put a tap
+  // the player never made into the transcript and the referee evidence, and made
+  // "you ran out of time" indistinguishable from "you picked wrong".
+  it("accepts a timed-out Higher/Lower round with no pick and counts it as a lost life", () => {
+    const challenge = higherLowerChallenge(3);
+    const answers = higherLowerAnswers(challenge, [true, true, true]);
+    // Round 1 ended on the clock: no pickedId at all.
+    const timedOut = [
+      answers[0]!,
+      {
+        leftId: answers[1]!.leftId,
+        rightId: answers[1]!.rightId,
+        timedOut: true,
+        elapsedMs: 5_200,
+      },
+      answers[2]!,
+    ];
+
+    // Two reads scored, the timeout cost a life and scored nothing.
+    expect(scoreRun(challenge, { answers: timedOut }, 20_000)).toBe(2);
+    expect(
+      higherLowerTiebreaks(challenge, { answers: timedOut }),
+    ).toMatchObject({ livesLost: 1 });
+
+    // A timeout is still a real round: its elapsed time counts toward the
+    // cumulative-time tiebreak like any other.
+    const tiebreaks = higherLowerTiebreaks(challenge, { answers: timedOut });
+    expect(tiebreaks!.timeMs).toBeGreaterThanOrEqual(5_200);
+  });
+
+  it("still rejects a Higher/Lower answer that is neither a valid pick nor a timeout", () => {
+    const challenge = higherLowerChallenge(2);
+    const answers = higherLowerAnswers(challenge, [true, true]);
+    const bogus = [
+      answers[0]!,
+      {
+        leftId: answers[1]!.leftId,
+        rightId: answers[1]!.rightId,
+        pickedId: 999_999,
+        elapsedMs: 800,
+      },
+    ];
+    expect(() => scoreRun(challenge, { answers: bogus }, 20_000)).toThrow(
+      /pick is invalid/,
+    );
+  });
+
   it("ends a Higher/Lower run on the third miss and rejects a fourth", () => {
     const challenge = higherLowerChallenge(6);
     // Three misses is a complete run: the deck is not exhausted, but the lives

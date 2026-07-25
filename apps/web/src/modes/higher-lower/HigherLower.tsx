@@ -38,10 +38,19 @@ export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, guardActiveRun: false, trackElapsed: false })
   const pairIndex = useSignal(0)
-  const serverAnswers = useRef<Array<{ leftId: number; rightId: number; pickedId: number; elapsedMs: number }>>([])
+  // A round ends EITHER with a tap (pickedId) or on the clock (timedOut). The
+  // two are distinct on the wire so the server never has to infer one from the
+  // other, and so a timeout is never recorded as a tap the player didn't make.
+  const serverAnswers = useRef<
+    Array<{ leftId: number; rightId: number; pickedId?: number; timedOut?: boolean; elapsedMs: number }>
+  >([])
   const gradedAnswers = useRef<Array<{ correct: boolean; higher: Card }>>([])
   // The card the player tapped as higher (for reveal highlighting).
   const picked = useSignal<number | null>(null)
+  // The round ended on the clock rather than a tap. Kept apart from `picked` so
+  // the reveal can say "time's up" instead of blaming a card the player never
+  // touched.
+  const timedOut = useSignal(false)
   const revealed = useSignal(false)
   const awaitingReplay = useSignal(false)
   const lives = useSignal(HIGHER_LOWER_LIVES)
@@ -111,6 +120,14 @@ export default function HigherLower() {
     }
     pairIndex.value = nextIndex
     picked.value = null
+    timedOut.value = false
+    // Disarm the clock BEFORE unfreezing it. `revealed = false` resumes ticking
+    // immediately, but roundStart is only restamped by an effect, which runs
+    // after render — so the rAF loop could get a frame that measured the NEW
+    // round against the PREVIOUS round's start, find it long expired, and fire a
+    // timeout the player never earned. Zero means "not dealt yet" and the loop
+    // already skips it, so the gap is simply not tickable.
+    roundStart.current = 0
     revealed.value = false
     runtime.emitCue('round-advance', { pairIndex: nextIndex })
   }
@@ -130,6 +147,10 @@ export default function HigherLower() {
     serverAnswers.current = []
     gradedAnswers.current = []
     picked.value = null
+    timedOut.value = false
+    // Disarm before unfreezing, same reason as next(): a replay must not be
+    // measured against the finished run's last round.
+    roundStart.current = 0
     revealed.value = false
     lives.value = HIGHER_LOWER_LIVES
     score.value = 0
@@ -140,7 +161,9 @@ export default function HigherLower() {
     runtime.reset('ready')
   }
 
-  function choose(pickedId: number) {
+  // One settle path for both ways a round can end. `pickedId` is null when the
+  // clock ran out: a timeout is NOT a tap, and must never be recorded as one.
+  function settle(pickedId: number | null) {
     const activePair = gameRun.content?.[pairIndex.value]
     if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
@@ -151,12 +174,13 @@ export default function HigherLower() {
     serverAnswers.current.push({
       leftId: left.id,
       rightId: right.id,
-      pickedId,
+      ...(pickedId === null ? { timedOut: true } : { pickedId }),
       elapsedMs
     })
     gradedAnswers.current.push({ correct, higher: left.id === higherId ? left : right })
 
     picked.value = pickedId
+    timedOut.value = pickedId === null
     revealed.value = true
     remainingFrac.value = 0
 
@@ -190,13 +214,16 @@ export default function HigherLower() {
     )
   }
 
-  // The clock ran out: record the lower card so the server reads it as the miss.
+  function choose(pickedId: number) {
+    settle(pickedId)
+  }
+
+  // The clock ran out. This used to call choose() with the LOWER card so the
+  // server would read a miss — which recorded a tap the player never made,
+  // highlighted that card as their wrong answer, and left them watching the game
+  // lose a life on their behalf. A timeout is its own outcome now.
   function timeout() {
-    const activePair = gameRun.content?.[pairIndex.value]
-    if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
-    const [left, right] = activePair
-    const lowerId = left.elixir > right.elixir ? right.id : left.id
-    choose(lowerId)
+    settle(null)
   }
   timeoutRef.current = timeout
 
@@ -297,7 +324,9 @@ export default function HigherLower() {
       barLow={remainingFrac.value <= 0.35}
     >
       <div class="ed-duel">
-        <div class="ed-duel__prompt">Which costs more?</div>
+        <div class="ed-duel__prompt" data-testid="higher-lower-prompt">
+          {timedOut.value ? "Time's up" : 'Which costs more?'}
+        </div>
         <GameMotion contentKey={counting ? 'ready' : pairIndex.value} cue={runtime.cue.value} preset="pair">
           <div class="ed-duel__cards" role="group" aria-label="Tap the higher-cost card">
             <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>

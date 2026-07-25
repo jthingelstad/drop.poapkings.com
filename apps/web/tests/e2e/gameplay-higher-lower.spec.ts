@@ -49,7 +49,11 @@ const livesRow = (page: Page) => page.locator('[data-testid="higher-lower-lives"
 async function runOutTheClock(page: Page) {
   for (let step = 0; step < 12; step += 1) {
     await page.clock.runFor(1_000)
-    if (await page.locator('.ed-duel__card--wrong').count()) return
+    // A timeout announces itself in the prompt, NOT with a wrong-card
+    // highlight: the player never tapped, so no card is blamed. This used to
+    // watch for `.ed-duel__card--wrong`, which existed only because the client
+    // synthesized a pick on the player's behalf when the clock ran out.
+    if (await page.getByTestId('higher-lower-prompt').getByText("Time's up").count()) return
   }
   throw new Error('the Higher/Lower response window never expired')
 }

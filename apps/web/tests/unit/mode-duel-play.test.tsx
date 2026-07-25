@@ -294,7 +294,12 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.textContent).toContain('Best: 5')
   })
 
-  it('the shrink-window running out costs a life and records the lower card', async () => {
+  // This test previously asserted that a timeout "records the lower card", which
+  // is exactly the bug it was meant to guard: the client synthesized a tap on the
+  // player's behalf, so the reveal blamed a card they never touched and the
+  // transcript could not tell a timeout from a wrong answer. A timeout carries no
+  // pick at all.
+  it('the shrink-window running out costs a life and records a timeout, not a pick', async () => {
     const session = stage(pairs())
     const c = mount(<HigherLower />)
     await toRunning(c)
@@ -318,10 +323,29 @@ describe('Higher / Lower — gameplay', () => {
     await timeOut()
     await timeOut()
     expect(session.complete).toHaveBeenCalledTimes(1)
-    const payload = session.complete.mock.calls[0][0] as { answers: Array<{ pickedId: number }> }
-    // timeout() picked the lower card of each pair as the miss.
-    expect(payload.answers.map((answer) => answer.pickedId)).toEqual([102, 104, 106])
+    const payload = session.complete.mock.calls[0][0] as {
+      answers: Array<{ pickedId?: number; timedOut?: boolean }>
+    }
+    // Every round ended on the clock: flagged as a timeout, with NO pickedId.
+    expect(payload.answers.map((answer) => answer.timedOut)).toEqual([true, true, true])
+    expect(payload.answers.every((answer) => answer.pickedId === undefined)).toBe(true)
     expect(metricValue(c)).toBe('0')
+  })
+
+  it('a timeout says "Time\'s up" instead of blaming a card the player never tapped', async () => {
+    stage(pairs())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+    expect(c.querySelector('[data-testid="higher-lower-prompt"]')?.textContent).toContain('Which costs more?')
+
+    mockNow += 6000
+    await act(async () => {
+      flushRaf()
+    })
+
+    expect(c.querySelector('[data-testid="higher-lower-prompt"]')?.textContent).toContain("Time's up")
+    // No card is marked as the player's wrong pick, because there wasn't one.
+    expect(c.querySelector('.ed-duel__card--wrong')).toBeNull()
   })
 })
 

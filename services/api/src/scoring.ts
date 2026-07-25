@@ -560,13 +560,24 @@ function gradeHigherLower(
     const pair = challenge.pairs[roundIndex]!;
     if (answer.leftId !== pair[0] || answer.rightId !== pair[1])
       throw new Error("Higher/Lower pair is invalid");
-    // The player taps the card they read as higher; it must be one of the two.
-    const pickedId = answer.pickedId;
-    if (pickedId !== pair[0] && pickedId !== pair[1])
-      throw new Error("Higher/Lower pick is invalid");
+    // A round ends either with a tap or on the clock, and the two are distinct
+    // on the wire. The client used to synthesize the LOWER card on a timeout so
+    // this path would read a miss — which recorded a tap the player never made,
+    // blamed that card in the reveal, and left a timeout indistinguishable from
+    // a genuine wrong answer here and in the referee evidence.
     const elapsedMs = Number(answer.elapsedMs);
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0)
       throw new Error("Higher/Lower answer is invalid");
+    if (answer.timedOut === true) {
+      // Out of time is always a lost life and never a scored read.
+      livesLost += 1;
+      rounds.push({ correct: false, elapsedMs });
+      return;
+    }
+    // Only a tap carries a pick, and it must be one of the two cards.
+    const pickedId = answer.pickedId;
+    if (pickedId !== pair[0] && pickedId !== pair[1])
+      throw new Error("Higher/Lower pick is invalid");
     const otherId = pickedId === pair[0] ? pair[1] : pair[0];
     // Pairs are generated with differing elixir, so the higher card is
     // unambiguous (`>=` guards a degenerate equal pair). The response also has

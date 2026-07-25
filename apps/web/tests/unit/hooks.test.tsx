@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
+import { signal } from '@preact/signals'
+import { useShrinkingWindow } from '../../src/lib/use-round-clock'
 
 // --- Collaborator mocks (nothing hits the network) ---------------------------
 vi.mock('../../src/lib/api', async (importActual) => {
@@ -678,5 +680,80 @@ describe('useGameSession', () => {
     await flush()
     expect(api().content).toBeNull()
     expect(api().error).toMatch(/Card art could not be loaded/)
+  })
+})
+
+// The disarm guard the round-advance fix depends on. A round is "not dealt yet"
+// while its start stamp is 0, and the clock must stay silent through that gap.
+//
+// Higher/Lower shipped a phantom timeout because next() unfroze the clock by
+// clearing `revealed` while roundStart still pointed at the PREVIOUS round: one
+// frame measured the new round against an old stamp, found it long expired, and
+// took a life nobody spent. The mode now zeroes the stamp before unfreezing, so
+// this guard is what makes that safe — remove it and the bug returns.
+let nowMs = 1_000
+let frameCb: FrameRequestCallback | null = null
+function flushFrame(): void {
+  const cb = frameCb
+  frameCb = null
+  if (cb) cb(nowMs)
+}
+
+describe('useShrinkingWindow disarm', () => {
+  beforeEach(() => {
+    nowMs = 1_000
+    frameCb = null
+    vi.spyOn(performance, 'now').mockImplementation(() => nowMs)
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      frameCb = cb
+      return 1
+    })
+    vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {
+      frameCb = null
+    })
+  })
+
+  function probe(startedAt: { current: number }, onExpire: () => void) {
+    function Probe() {
+      useShrinkingWindow({
+        running: true,
+        ticking: () => true,
+        startedAt,
+        windowMs: () => 2_000,
+        remaining: signal(1),
+        onExpire
+      })
+      return null
+    }
+    const host = makeHost()
+    void act(() => render(<Probe />, host))
+  }
+
+  it('never expires a round whose start stamp is still zero', () => {
+    const onExpire = vi.fn()
+    const startedAt = { current: nowMs }
+    probe(startedAt, onExpire)
+
+    // Round 1 genuinely runs out. This is what arms the trap: the loop now
+    // remembers a non-zero stamp as "already expired".
+    nowMs += 2_500
+    void act(() => flushFrame())
+    expect(onExpire).toHaveBeenCalledTimes(1)
+
+    // The mode advances: the stamp is zeroed BEFORE the clock is unfrozen, and
+    // wall time keeps moving while the next round is dealt. Without the
+    // not-dealt-yet guard this frame measures the new round against zero, finds
+    // it expired by the entire uptime of the page, and steals a life.
+    startedAt.current = 0
+    nowMs += 900
+    void act(() => flushFrame())
+    void act(() => flushFrame())
+    expect(onExpire).toHaveBeenCalledTimes(1)
+
+    // Stamped for the round that is actually live — the clock arms again.
+    startedAt.current = nowMs
+    nowMs += 2_500
+    void act(() => flushFrame())
+    expect(onExpire).toHaveBeenCalledTimes(2)
   })
 })
