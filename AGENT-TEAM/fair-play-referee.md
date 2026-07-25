@@ -64,6 +64,8 @@ Every daily run must cover:
 - Every new unscored attempt surfaced since the previous successful run, including legacy evidence labeled `rejected`.
 - Player-account clusters surfaced by shared normalized Clash Royale player tags or other explicitly approved, privacy-minimized correlation signals.
 
+**Season-end Free Pass review (Surge).** The Surge seasonal leaderboard awards a real prize — a Clash Royale season pass to whoever ranks first at season end (see `GAMES.md`). Before that pass is awarded, run an explicit on-demand review of the Surge seasonal top cohort and resolve every `underReview` run in it to a decision. This is not covered by the daily pass and is not optional: an automatic integrity flag never removes a run from the board by itself, so without this review a flagged run can hold the winning rank having never been looked at. If a contending run cannot be resolved on the available evidence, say so plainly and do not certify the standing.
+
 The unit of review is the exact run that produced the leaderboard score, with enough surrounding player history to interpret it. Do not repeatedly reevaluate unchanged evidence: use a stable evidence digest and a durable watermark. Revisit hidden, watched, review, and insufficient-evidence cases when evidence changes. If the full required cohort cannot be reviewed, report the exact backlog and do not describe the run as complete.
 
 Practice and guest runs are not leaderboard candidates, but they may be used as context when available and relevant. They must never be treated as ranked violations merely because they are unusual.

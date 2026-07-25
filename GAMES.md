@@ -72,6 +72,24 @@ the run and reacts on the summary. Produces one clean, shareable number.
 - Input: pip keypad.
 - Record: `surgeBest` (lowest time).
 
+**Season competition — the Free Pass.** Surge carries a real prize: the player
+ranked first on its seasonal leaderboard at season end wins a Clash Royale
+season pass. Two standing consequences:
+
+- **The board does not certify itself.** An automatic integrity flag
+  (`automaticReviewReason` / `underReview`) is a review _signal_, never a
+  verdict — a flagged run stays on the board until a referee decides otherwise
+  (see the visibility filter in `services/api/src/leaderboards.ts`). The
+  standing must be referee-reviewed before the pass is awarded; that obligation
+  lives in `AGENT-TEAM/fair-play-referee.md`.
+- **Attempt volume is legitimate and stays that way.** Best-single-run scoring
+  means more attempts yield a better best. That is accepted on purpose:
+  grinding Surge _is_ drilling elixir costs, which is the whole product. Do not
+  cap ranked attempts or move the board to recent-form ranking to "fix" it.
+
+The winner is picked manually at season end. There is no automated snapshot or
+award pipeline, and one should not be built without a fresh product decision.
+
 ### Core drills
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
