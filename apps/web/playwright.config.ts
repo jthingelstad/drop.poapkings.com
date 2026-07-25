@@ -4,6 +4,17 @@ export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
   expect: { timeout: 5_000 },
+  // Tests are independent (each one mocks the API on its own page), so run them
+  // in parallel within a file as well as across files.
+  fullyParallel: true,
+  // Half the cores locally; a fixed two on CI, where the runner also hosts the
+  // Vite dev server and over-subscribing browsers reads back as flake.
+  workers: process.env.CI ? 2 : '50%',
+  // One retry on CI absorbs genuine infrastructure blips (and is what makes the
+  // `on-first-retry` trace below actually get recorded); locally a failure
+  // should fail immediately.
+  retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env.CI,
   use: {
     baseURL: 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
@@ -14,13 +25,15 @@ export default defineConfig({
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI
   },
+  // Only the projects a script actually runs live here: `npm test` uses
+  // chromium + iphone-14, `npm run verify` adds firefox + webkit. The former
+  // pixel-7 / ipad-portrait / ipad-landscape entries were referenced by no
+  // script or workflow, so they never ran — carrying them just invited someone
+  // to triple the deploy gate's runtime by accident.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
-    { name: 'iphone-14', use: { ...devices['iPhone 14'] } },
-    { name: 'ipad-portrait', use: { ...devices['iPad (gen 7)'] } },
-    { name: 'ipad-landscape', use: { ...devices['iPad (gen 7) landscape'] } }
+    { name: 'iphone-14', use: { ...devices['iPhone 14'] } }
   ]
 })

@@ -1,0 +1,141 @@
+import { cardsById, cardsData, expect, test, waitForKeypad } from './fixtures'
+
+test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
+  test.setTimeout(60_000)
+  const activeModes = [
+    { hash: '#/surge', control: '.pip-keypad' },
+    { hash: '#/survival', control: '.pip-keypad' },
+    { hash: '#/trade', control: '.ed-trade__pad' }
+  ]
+
+  for (const mode of activeModes) {
+    await page.goto('/')
+    await page.goto(`/${mode.hash}`)
+    // Game routes render the play area full-bleed — the footer never mounts.
+    await expect(page.locator('.site-foot')).toHaveCount(0)
+
+    await expect(page.locator(mode.control)).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-game')).toBeVisible()
+    await expect(page.locator('.game-motion')).toBeVisible()
+    await expect(page.locator('.game-fx-layer')).toHaveCount(1)
+    if (testInfo.project.name === 'chromium') {
+      await expect(page.locator('.game-fx-layer canvas')).toHaveCount(1)
+    }
+
+    if (mode.hash === '#/surge') {
+      const artChrome = await page
+        .locator('.cr-card-art')
+        .first()
+        .evaluate((element) => ({
+          before: getComputedStyle(element, '::before').content,
+          after: getComputedStyle(element, '::after').content
+        }))
+      const cardPanel = await page
+        .locator('.pcard')
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element)
+          return {
+            backgroundImage: style.backgroundImage,
+            borderStyle: style.borderStyle,
+            borderWidth: style.borderWidth
+          }
+        })
+
+      expect(artChrome).toEqual({ before: 'none', after: 'none' })
+      expect(cardPanel).toEqual({ backgroundImage: 'none', borderStyle: 'none', borderWidth: '0px' })
+    }
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 1
+    )
+    expect(hasHorizontalOverflow).toBe(false)
+
+    const screenshot = await page.screenshot({ fullPage: false })
+    await testInfo.attach(`${mode.hash.slice(2).replaceAll('/', '-')}-running.png`, {
+      body: screenshot,
+      contentType: 'image/png'
+    })
+  }
+})
+
+test('rain flashes the running total every 10 clears', async ({ page }) => {
+  await page.goto('/#/rain')
+  await waitForKeypad(page)
+
+  // Clear the lit card by reading its name off the tile and tapping that cost.
+  // Rain is endless and the deck wraps, so this drives a real 10-clear streak.
+  for (let cleared = 0; cleared < 10; cleared += 1) {
+    const lit = page.locator('.ed-rain__tile--lit').first()
+    await expect(lit).toBeVisible({ timeout: 12_000 })
+    const name = await lit.locator('.ed-rain__tile-name').textContent()
+    const card = cardsData.cards.find((candidate) => candidate.name === name)
+    expect(card, `unknown rain card "${name}"`).toBeTruthy()
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+    await expect(page.locator('.ed-game__metric')).toHaveText(String(cleared + 1))
+  }
+
+  // The milestone flash appears with the running total, then clears itself.
+  await expect(page.locator('.ed-rain__milestone-num')).toHaveText('10')
+  await expect(page.locator('.ed-rain__milestone')).toHaveCount(0, { timeout: 4_000 })
+})
+
+test('trade auto-advances eight exchanges with one cost hint per wrong guess', async ({ page }) => {
+  await page.goto('/#/trade')
+  const teams = page.locator('.ed-trade__teams')
+  await expect(teams).toBeVisible({ timeout: 12_000 })
+  await expect(page.locator('.ed-trade__pad')).toBeVisible()
+
+  const readSideIds = async (selector: string) =>
+    page
+      .locator(`${selector} [data-card-id]`)
+      .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
+  const total = (ids: number[]) => ids.reduce((sum, id) => sum + (cardsById.get(id)?.elixir ?? 0), 0)
+  const answers = [-4, -3, -2, -1, 0, 1, 2, 3, 4]
+  const format = (value: number) => (value === 0 ? 'Even trade' : `${value > 0 ? `+${value}` : value} trade`)
+  const seenIds: number[] = []
+
+  for (let trade = 1; trade <= 8; trade += 1) {
+    await expect(teams).toHaveAttribute('data-trade-index', String(trade))
+    const blueIds = await readSideIds('.ed-trade__team--blue')
+    const redIds = await readSideIds('.ed-trade__team--red')
+    const roundIds = [...blueIds, ...redIds]
+    expect(new Set(roundIds).size).toBe(roundIds.length)
+    seenIds.push(...roundIds)
+
+    const answer = total(redIds) - total(blueIds)
+    expect(answer).toBeGreaterThanOrEqual(-4)
+    expect(answer).toBeLessThanOrEqual(4)
+
+    if (trade === 1) {
+      const wrong = answers.find((value) => value !== answer)
+      expect(wrong).toBeDefined()
+      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(0)
+      // The cue flips back to "Try again" after the wrong-beat, so arm an
+      // in-page watcher before the click: it polls inside the browser and
+      // cannot miss the window if the test worker is momentarily busy.
+      const costRevealed = page.waitForFunction(() =>
+        document.querySelector('[data-testid="trade-hint"]')?.textContent?.includes('Cost revealed')
+      )
+      await page.getByRole('button', { name: format(wrong!) }).click()
+      await costRevealed
+      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(1)
+    }
+
+    await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
+    await page.getByRole('button', { name: format(answer) }).click()
+    await expect(page.getByRole('button', { name: 'Next trade' })).toHaveCount(0)
+
+    if (trade < 8) {
+      await page.waitForFunction(
+        (expected) => document.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index') === String(expected),
+        trade + 1
+      )
+    }
+  }
+
+  // The Trade summary is now the shared summary card.
+  await expect(page.locator('.ed-sum')).toBeVisible()
+  await expect(page.getByText('Trade complete')).toBeVisible()
+  expect(new Set(seenIds).size).toBe(seenIds.length)
+})
