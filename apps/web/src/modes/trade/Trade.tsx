@@ -80,7 +80,7 @@ function TradeSide({
   revealedIds: Set<number>
 }) {
   return (
-    <section class={`ed-trade__team ed-trade__team--${side}`}>
+    <section class={`ed-trade__team ed-trade__team--${side}`} data-card-count={cards.length}>
       <span class="ed-trade__team-label">{label}</span>
       <ol class="ed-trade__cards">
         {cards.map((card) => (

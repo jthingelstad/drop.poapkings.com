@@ -109,6 +109,31 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
     const board = TRADE_LADDER[trade - 1]!
     expect({ blue: blueIds.length, red: redIds.length }).toEqual(board)
 
+    // Notice-free play scales the art to the current rung instead of making
+    // the simple opening as small as the 3v3 finish. Both ends of the ladder
+    // still keep every card inside its team panel.
+    if (trade === 1 || trade === TRADE_ROUNDS) {
+      const art = await teams.locator('.ed-trade__card-art').evaluateAll((elements) =>
+        elements.map((element) => {
+          const bounds = element.getBoundingClientRect()
+          const team = element.closest('.ed-trade__team')?.getBoundingClientRect()
+          return {
+            width: bounds.width,
+            height: bounds.height,
+            contained:
+              !!team &&
+              bounds.left >= team.left - 1 &&
+              bounds.right <= team.right + 1 &&
+              bounds.top >= team.top - 1 &&
+              bounds.bottom <= team.bottom + 1
+          }
+        })
+      )
+      const minWidth = trade === 1 ? 104 : 82
+      const minHeight = trade === 1 ? 122 : 96
+      expect(art.every((card) => card.width >= minWidth && card.height >= minHeight && card.contained)).toBe(true)
+    }
+
     // Every run now ends on the widest board the mode can draw, so six cards on
     // a phone is no longer a rare deal — it is the finish line of every run.
     if (board.blue === 3 && board.red === 3) {

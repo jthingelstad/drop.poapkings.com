@@ -4371,6 +4371,41 @@ html.reduce-motion .ed-duel__card {
   height: 124px;
 }
 
+/* Trade opens with simple 1v1 reads and grows to 3v3. Let the cards own the
+   space the current rung actually has instead of sizing every round for the
+   densest finish. The stale-build banner is the exception: its compact layout
+   below remains the safety budget until the player reloads. */
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='1']
+  .ed-trade__card-art {
+  width: clamp(104px, min(30vw, 16vh), 136px);
+}
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='1']
+  :is(.ed-trade__card-img, .ed-trade__card-fallback) {
+  height: clamp(122px, min(36vw, 19vh), 164px);
+}
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='2']
+  .ed-trade__card-art {
+  width: clamp(92px, min(25vw, 14vh), 116px);
+}
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='2']
+  :is(.ed-trade__card-img, .ed-trade__card-fallback) {
+  height: clamp(108px, min(30vw, 16.5vh), 140px);
+}
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='3']
+  .ed-trade__card-art {
+  width: clamp(82px, min(24vw, 13vh), 100px);
+}
+:is(.ed-mobile__scroll--game, .ed-desktop__main):not(:has(> .update-banner))
+  .ed-trade__team[data-card-count='3']
+  :is(.ed-trade__card-img, .ed-trade__card-fallback) {
+  height: clamp(96px, min(28vw, 15.5vh), 122px);
+}
+
 /* A stale-build banner leaves roughly 285px for the Trade board on a short
    phone and 327px on a 720px desktop. Keep both teams inside GameMotion's
    measured box instead of letting their intrinsic card height overlap the
