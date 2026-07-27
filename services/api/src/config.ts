@@ -36,6 +36,19 @@ export function emailFromName(): string {
   return process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop";
 }
 
+/**
+ * Child mailbox of Sent that Drop files its outbound mail into.
+ *
+ * The Fastmail account is shared by several agents and uses a per-agent scheme
+ * (Elixir-Sent, Oliver-Sent, Otto-Sent, Thingy-Sent). Only the top-level Sent
+ * carries the JMAP `sent` role, so resolving by role alone dumps Drop's magic
+ * links into the shared Sent folder. Default is correct on its own — no
+ * CloudFormation parameter is needed (and adding one risks the param-wipe trap).
+ */
+export function emailSentFolder(): string {
+  return process.env.ELIXIR_DROP_EMAIL_SENT_FOLDER?.trim() || "Elixir-Sent";
+}
+
 export function getConfig(): Config {
   const buttondownApiKey = process.env.BUTTONDOWN_API_KEY?.trim() || undefined;
   const buttondownNewsletterId =

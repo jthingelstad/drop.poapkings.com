@@ -4,7 +4,48 @@ import {
   magicLinkEmailHtml,
   magicLinkEmailSubject,
   magicLinkEmailText,
+  pickSentMailbox,
 } from "../src/jmap.js";
+
+describe("sent mailbox selection", () => {
+  // The Fastmail account is shared by several agents. Only the top-level Sent
+  // carries the JMAP "sent" role; each agent has a plain named child under it.
+  const mailboxes = [
+    { id: "sent-root", name: "Sent", parentId: null, role: "sent" },
+    { id: "drafts", name: "Drafts", parentId: null, role: "drafts" },
+    { id: "elixir-sent", name: "Elixir-Sent", parentId: "sent-root" },
+    { id: "thingy-sent", name: "Thingy-Sent", parentId: "sent-root" },
+  ];
+
+  it("files into Drop's own child of Sent, not the shared Sent", () => {
+    expect(pickSentMailbox(mailboxes, "sent-root", "Elixir-Sent")?.id).toBe(
+      "elixir-sent",
+    );
+  });
+
+  it("does not pick another agent's folder", () => {
+    expect(pickSentMailbox(mailboxes, "sent-root", "Elixir-Sent")?.id).not.toBe(
+      "thingy-sent",
+    );
+  });
+
+  it("falls back to the shared Sent rather than failing to send", () => {
+    expect(pickSentMailbox(mailboxes, "sent-root", "Missing-Sent")?.id).toBe(
+      "sent-root",
+    );
+  });
+
+  it("ignores a same-named folder under a different parent", () => {
+    const decoys = [
+      ...mailboxes,
+      { id: "archive-root", name: "Archive", parentId: null, role: "archive" },
+      { id: "decoy", name: "Elixir-Sent", parentId: "archive-root" },
+    ];
+    expect(pickSentMailbox(decoys, "sent-root", "Elixir-Sent")?.id).toBe(
+      "elixir-sent",
+    );
+  });
+});
 
 describe("magic-link email", () => {
   const magicLink =

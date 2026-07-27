@@ -1,3 +1,5 @@
+import { emailSentFolder } from "./config.js";
+
 const SESSION_URL = "https://api.fastmail.com/jmap/session";
 const CORE = "urn:ietf:params:jmap:core";
 const MAIL = "urn:ietf:params:jmap:mail";
@@ -104,6 +106,34 @@ function responseFor(
   return response[1];
 }
 
+export interface JmapMailbox {
+  id?: string;
+  name?: string;
+  parentId?: string | null;
+  role?: string;
+}
+
+/**
+ * Pick the mailbox Drop files sent mail into.
+ *
+ * Only the account's top-level Sent carries the JMAP `sent` role; the per-agent
+ * folders (Elixir-Sent, Thingy-Sent, ...) are plain named children of it. So a
+ * role-only lookup silently files Drop's magic links into the folder shared with
+ * every other agent. Prefer our named child; fall back to the role parent so a
+ * renamed folder degrades to "misfiled" rather than "magic link never sent".
+ */
+export function pickSentMailbox(
+  mailboxes: JmapMailbox[],
+  sentRootId: string,
+  folderName: string,
+): JmapMailbox | undefined {
+  const child = mailboxes.find(
+    (item) => item.parentId === sentRootId && item.name === folderName,
+  );
+  if (child?.id) return child;
+  return mailboxes.find((item) => item.id === sentRootId);
+}
+
 async function context(token: string, fromEmail: string): Promise<SendContext> {
   const session = await jmapFetch<JmapSession>(SESSION_URL, token);
   const mailAccountId = session.primaryAccounts?.[MAIL];
@@ -114,7 +144,17 @@ async function context(token: string, fromEmail: string): Promise<SendContext> {
 
   const responses = await call(session.apiUrl, token, [
     ["Identity/get", { accountId: submissionAccountId, ids: null }, "identity"],
-    ["Mailbox/get", { accountId: mailAccountId, ids: null }, "mailboxes"],
+    [
+      "Mailbox/get",
+      {
+        accountId: mailAccountId,
+        ids: null,
+        // name + parentId are required to find our own child of Sent; without
+        // them only role matching is possible, which lands mail in shared Sent.
+        properties: ["id", "name", "parentId", "role"],
+      },
+      "mailboxes",
+    ],
   ]);
   const identities = (responseFor(responses, "Identity/get", "identity").list ??
     []) as Array<{
@@ -124,6 +164,8 @@ async function context(token: string, fromEmail: string): Promise<SendContext> {
   const mailboxes = (responseFor(responses, "Mailbox/get", "mailboxes").list ??
     []) as Array<{
     id?: string;
+    name?: string;
+    parentId?: string | null;
     role?: string;
   }>;
   const identity =
@@ -131,11 +173,18 @@ async function context(token: string, fromEmail: string): Promise<SendContext> {
       (item) => item.email?.toLowerCase() === fromEmail.toLowerCase(),
     ) ?? identities[0];
   const drafts = mailboxes.find((item) => item.role === "drafts");
-  const sent = mailboxes.find((item) => item.role === "sent");
+  const sentRoot = mailboxes.find((item) => item.role === "sent");
   if (!identity?.id)
     throw new Error(`No JMAP identity is available for ${fromEmail}`);
-  if (!drafts?.id || !sent?.id)
+  if (!drafts?.id || !sentRoot?.id)
     throw new Error("JMAP Drafts or Sent mailbox is missing");
+  const sentFolderName = emailSentFolder();
+  const sent = pickSentMailbox(mailboxes, sentRoot.id, sentFolderName);
+  if (!sent?.id) throw new Error("JMAP Sent mailbox is missing");
+  if (sent.id === sentRoot.id)
+    console.warn(
+      `JMAP: no "${sentFolderName}" under Sent; filing into the shared Sent folder`,
+    );
   return {
     apiUrl: session.apiUrl,
     mailAccountId,
