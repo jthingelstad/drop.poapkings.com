@@ -94,6 +94,12 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeFocused()
+
+  await page.getByRole('button', { name: 'Reps, 100' }).click()
+  const reps = page.getByRole('dialog', { name: 'Reps' })
+  await expect(reps).toBeVisible()
+  await expect(reps).toContainText('Current: 175 · 75 to next rung')
+  await expect(reps.getByRole('progressbar', { name: 'Reps progress' })).toHaveAttribute('aria-valuenow', '50')
 })
 
 test('earned badge sharing includes its artwork, rung, player, and public profile link', async ({ page }, testInfo) => {
@@ -197,7 +203,7 @@ test('public profiles display earned badges prominently', async ({ page }, testI
 
   const badgeWall = page.locator('.ed-profile__badges')
   const stats = page.locator('.ed-profile__stats')
-  await expect(badgeWall).toContainText('2 earned')
+  await expect(badgeWall).toContainText('3 earned')
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
   expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)

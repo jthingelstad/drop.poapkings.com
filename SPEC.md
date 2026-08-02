@@ -361,7 +361,10 @@ card-recall modes fold per-card outcomes (derived from the validated
 transcript) into a per-player CARDSTATS item. GET /me retains a learning
 summary (weak cards + per-cost accuracy) for possible future coaching, and
 account deletion sweeps it. Learning telemetry does not affect challenge card
-selection. The localStorage copy is a display cache only.
+selection. The localStorage copy is a display cache only. Immutable run history
+also retains the validated `answerCount` (not the raw transcript), so Practice
+volume can be rebuilt without storing a second copy of a player's guesses;
+legacy history created before that field cannot be inferred from accuracy.
 
 Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
 item holds the monotonic counters, per-rung `time` run counts, the distinct-mode
@@ -376,8 +379,9 @@ tells the browser to show one summary instead of queueing celebrations.
 profile, where only earned medallions are shown. Missing or stale counters take
 the same history-backed rebuild path, so another player never sees an empty wall
 merely because the owner has not opened Profile since badges shipped.
-`/runs/complete` returns `earnedBadges`, the rungs that run cleared, so the
-summary can celebrate exactly those. Awarding is a pure function of the counters
+`/runs/complete` returns `earnedBadges`, the rungs that run cleared, plus the
+current badge summary so the in-memory Profile updates without another request.
+Awarding is a pure function of the counters
 (`services/api/src/badges.ts`), badges award no XP, and nothing earned is ever
 revoked. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.

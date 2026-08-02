@@ -14,9 +14,11 @@ const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   getCrWarClock: vi.fn(),
+  getBadges: vi.fn(),
   getProfile: vi.fn(),
   getRun: vi.fn(),
   putRefereeEvidence: vi.fn(),
+  saveBadges: vi.fn(),
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
   useRateLimit: vi.fn(),
@@ -28,9 +30,11 @@ vi.mock("../src/repository.js", () => ({
     completeRun = repository.completeRun;
     getCardStats = repository.getCardStats;
     getCrWarClock = repository.getCrWarClock;
+    getBadges = repository.getBadges;
     getProfile = repository.getProfile;
     getRun = repository.getRun;
     putRefereeEvidence = repository.putRefereeEvidence;
+    saveBadges = repository.saveBadges;
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
     useRateLimit = repository.useRateLimit;
@@ -158,7 +162,11 @@ describe("Practice completion", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.getBadges.mockImplementation(
+      async () => repository.saveBadges.mock.calls.at(-1)?.[1],
+    );
     repository.putRefereeEvidence.mockResolvedValue(undefined);
+    repository.saveBadges.mockResolvedValue(undefined);
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
@@ -199,6 +207,25 @@ describe("Practice completion", () => {
     // The run still completes server-side — that is what feeds the server-owned
     // learning stats.
     expect(repository.saveCardStats).toHaveBeenCalled();
+  });
+
+  it("accumulates Reps across sessions and returns the current ladder", async () => {
+    const answers = (count: number) =>
+      Array.from({ length: count }, (_, index) => {
+        const card = allCards[index % allCards.length]!;
+        return { cardId: card.id, guess: card.elixir };
+      });
+
+    const first = await completePractice(answers(40));
+    const second = await completePractice(answers(75));
+    const reps = (result: typeof first) =>
+      result.body.badges.badges.find(
+        (badge: { slug: string }) => badge.slug === "reps",
+      );
+
+    expect(reps(first)).toMatchObject({ value: 40, rungIndex: -1 });
+    expect(reps(second)).toMatchObject({ value: 115, rungIndex: 0 });
+    expect(repository.saveBadges).toHaveBeenCalledTimes(2);
   });
 
   it("never writes a leaderboard best or referee evidence", async () => {

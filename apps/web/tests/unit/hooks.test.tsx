@@ -20,6 +20,7 @@ vi.mock('../../src/lib/account', async (importActual) => {
     ...actual,
     sessionToken: vi.fn(() => 'session-token'),
     signOut: vi.fn(),
+    applyBadgeSummary: vi.fn(),
     applyRunProgress: vi.fn(),
     recordRecentRun: vi.fn()
   }
@@ -36,7 +37,7 @@ vi.mock('../../src/lib/analytics', () => ({
 }))
 
 import { ApiError, startRun, completeRun } from '../../src/lib/api'
-import { signOut, applyRunProgress, recordRecentRun } from '../../src/lib/account'
+import { signOut, applyBadgeSummary, applyRunProgress, recordRecentRun } from '../../src/lib/account'
 import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
@@ -533,7 +534,10 @@ describe('useGameRun', () => {
       xp: 12,
       level: 2,
       levelStartGames: 0,
-      nextLevelGames: 10
+      nextLevelGames: 10,
+      badges: {
+        badges: [{ slug: 'reps', value: 115, rungIndex: 0, earnedAt: ['2026-07-21T00:00:00.000Z'] }]
+      }
     } as never)
     const { api } = mountRun()
     await flush()
@@ -542,6 +546,9 @@ describe('useGameRun', () => {
       await api().complete({ answers: [1] }, onRecorded)
     })
     expect(applyRunProgress).toHaveBeenCalledTimes(1)
+    expect(applyBadgeSummary).toHaveBeenCalledWith({
+      badges: [{ slug: 'reps', value: 115, rungIndex: 0, earnedAt: ['2026-07-21T00:00:00.000Z'] }]
+    })
     expect(recordRecentRun).toHaveBeenCalledTimes(1)
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(recordingNotice.value.state).toBe('saved')

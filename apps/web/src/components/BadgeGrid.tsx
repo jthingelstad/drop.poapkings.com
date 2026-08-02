@@ -157,6 +157,24 @@ function BadgeSheet({
               </span>
             </div>
           )}
+          {badge.nextRung !== undefined && (
+            <span class="ed-badges__next">Next: {formatRungValue(badge.nextRung, definition.unit)}</span>
+          )}
+          {(badge.value > 0 || definition.kind !== 'time') && (
+            <div class="ed-badges__progress-wrap">
+              <span class="ed-badges__progress-label">{progressLabel(badge)}</span>
+              <span
+                class="ed-badges__progress"
+                role="progressbar"
+                aria-label={`${badge.name} progress`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(badge.progress * 100)}
+              >
+                <span class="ed-badges__progress-fill" style={{ width: `${badge.progress * 100}%` }} />
+              </span>
+            </div>
+          )}
           <div class="ed-badges__ladder">
             {definition.rungs.map((rung, index) => (
               <div key={rung} class={`ed-badges__rung${index <= badge.rungIndex ? ' ed-badges__rung--cleared' : ''}`}>
@@ -173,11 +191,20 @@ function BadgeSheet({
               </div>
             ))}
           </div>
-          {badge.nextRung !== undefined && (
-            <span class="ed-badges__next">Next: {formatRungValue(badge.nextRung, definition.unit)}</span>
-          )}
         </>
       )}
     </DetailModal>
   )
+}
+
+function progressLabel(badge: BadgeView): string {
+  const current = formatRungValue(badge.value, badge.definition.unit)
+  if (badge.nextRung === undefined)
+    return `${badge.definition.kind === 'time' ? 'Best' : 'Current'}: ${current} · ladder complete`
+  const remaining = badge.definition.kind === 'time' ? badge.value - badge.nextRung : badge.nextRung - badge.value
+  const toNext = formatRungValue(Math.max(0, remaining), badge.definition.unit)
+  if (badge.definition.kind === 'time') {
+    return `Best: ${current} · ${toNext} faster to ${formatRungValue(badge.nextRung, badge.definition.unit)}`
+  }
+  return `Current: ${current} · ${toNext} to next rung`
 }

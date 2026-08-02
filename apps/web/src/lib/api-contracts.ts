@@ -219,7 +219,10 @@ const runCompletionFields = {
         at: isoDateTime
       })
     )
-  )
+  ),
+  // The complete server-owned ladder snapshot after this run. Applying it
+  // immediately keeps Profile in sync without a second /me round trip.
+  badges: z.optional(badgeSummarySchema)
 }
 
 // A recorded (signed-in) completion carries the full progress payload; a guest

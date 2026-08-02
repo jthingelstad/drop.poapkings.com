@@ -101,6 +101,16 @@ describe("advanceBadges", () => {
     expect(stateOf(counters, "clockbreaker").value).toBe(19);
   });
 
+  it("accumulates Reps across Practice sessions", () => {
+    const counters = play([
+      { mode: "practice", answered: 40 },
+      { mode: "practice", answered: 75 },
+    ]);
+    const reps = stateOf(counters, "reps");
+    expect(reps.value).toBe(115);
+    expect(reps.rungIndex).toBe(0);
+  });
+
   it("keeps the best time, not the latest", () => {
     const counters = play([
       { mode: "surge", score: 19_000 },
@@ -277,6 +287,37 @@ describe("recomputeCounters", () => {
     expect(stateOf(counters, "spellcaster").value).toBe(12);
     expect(stateOf(counters, "tower-watch").value).toBe(4);
     expect(stateOf(counters, "catalog").value).toBe(2);
+  });
+
+  it("rebuilds Reps from Practice history with validated answer counts", () => {
+    const counters = recomputeCounters(
+      [
+        {
+          mode: "practice",
+          score: 90,
+          completedAt: "2026-08-03T12:00:00.000Z",
+          answerCount: 40,
+        },
+        {
+          mode: "practice",
+          score: 80,
+          completedAt: "2026-08-04T12:00:00.000Z",
+          answerCount: 75,
+        },
+        // Legacy rows have no answer count and cannot safely be guessed from
+        // their accuracy score.
+        {
+          mode: "practice",
+          score: 100,
+          completedAt: "2026-08-05T12:00:00.000Z",
+        },
+      ],
+      {},
+      { totalGames: 3, xp: 0 },
+      arenaForXp,
+      "2026-08-06T00:00:00.000Z",
+    );
+    expect(stateOf(counters, "reps").value).toBe(115);
   });
 
   it("leaves the transcript-derived badges at zero — they are forward-only", () => {

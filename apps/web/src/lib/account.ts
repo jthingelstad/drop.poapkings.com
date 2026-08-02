@@ -80,7 +80,7 @@ async function initializeAccountOnce(): Promise<void> {
     const response = await getMe(refreshed.session.token)
     player.value = response.player
     recentRuns.value = response.recentRuns
-    applyBadges(response.badges)
+    applyBadgeSummary(response.badges)
     accountStatus.value = 'authenticated'
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
@@ -101,7 +101,7 @@ async function hydrateSession(newSession: StoredSession): Promise<Player> {
   const me = await getMe(newSession.token)
   player.value = me.player
   recentRuns.value = me.recentRuns
-  applyBadges(me.badges)
+  applyBadgeSummary(me.badges)
   accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
@@ -136,7 +136,7 @@ export async function refreshAccount(): Promise<void> {
     const response = await getMe(session.token)
     player.value = response.player
     recentRuns.value = response.recentRuns
-    applyBadges(response.badges)
+    applyBadgeSummary(response.badges)
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) signOut()
     throw error
@@ -180,7 +180,7 @@ export function signOut(): void {
   accountStatus.value = 'anonymous'
 }
 
-function applyBadges(summary: { badges: BadgeState[]; backfilled?: boolean } | undefined): void {
+export function applyBadgeSummary(summary: { badges: BadgeState[]; backfilled?: boolean } | undefined): void {
   badges.value = summary?.badges ?? []
   // Latches on: the flag only rides the one response that did the rebuild, and
   // the UI needs it to survive until it has been shown.

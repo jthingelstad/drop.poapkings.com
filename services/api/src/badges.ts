@@ -424,18 +424,19 @@ export function hiddenSignals(
 
 // ── Retroactive backfill ─────────────────────────────────────────────────────
 //
-// Run history items carry mode, score, seasonId and completedAt — but NOT the
-// transcript, which is why this cannot rebuild every counter. The split:
+// Run history items carry mode, score, seasonId and completedAt, plus the
+// validated answer count on newly recorded runs — but NOT the transcript,
+// which is why this cannot rebuild every counter. The split:
 //
 //   Recomputable here — the volume ladders, all five skill ladders, Drop
 //   Regular, Arena Climber, All Six, Daily Drop, Marathon, Night Shift, and the
 //   four card-knowledge badges (from the CARDSTATS item's per-card correct
 //   counts, which the learning path has been writing all along).
 //
-//   Forward-only — Reps (practice run history stores accuracy, not the answer
-//   count), Clean Sweep (needs the session's card total), Podium (needs season
-//   standings), and the five transcript-derived hidden badges. Those start
-//   accruing from the player's next run.
+//   Partially recomputable — Reps includes every run recorded after answerCount
+//   was added. Older Practice history stores only accuracy, so legacy sessions
+//   cannot be inferred. Clean Sweep, Podium, and the transcript-derived hidden
+//   badges remain forward-only.
 //
 // Two approximations, both deliberate: history has no timezone, so day
 // boundaries and Night Shift's hour are resolved in UTC here and in local time
@@ -445,6 +446,7 @@ export interface HistoricalRun {
   mode: GameMode;
   score: number;
   completedAt: string;
+  answerCount?: number;
 }
 
 export interface BackfillCardStat {
@@ -490,6 +492,7 @@ export function recomputeCounters(
       bump(values, "stormchaser", run.score);
       raise(values, "downpour", run.score);
     }
+    if (run.mode === "practice") bump(values, "reps", run.answerCount ?? 0);
     if (!aux.modes.includes(run.mode)) aux.modes.push(run.mode);
     const stamp = new Date(run.completedAt);
     if (stamp.getUTCHours() < 5) raise(values, "night-shift", 1);

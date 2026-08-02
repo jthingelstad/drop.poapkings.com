@@ -1,7 +1,7 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
-import { applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
+import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
@@ -174,6 +174,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
         return
       }
       applyRunProgress(result)
+      if (result.badges) applyBadgeSummary(result.badges)
       recordRecentRun({
         runId: result.runId,
         mode: result.mode,

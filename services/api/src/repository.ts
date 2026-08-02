@@ -96,6 +96,10 @@ export interface RunItem {
   // A guest run (no session, owner "guest"): scored on completion but never
   // recorded. Absent/false on ordinary signed-in runs.
   guest?: boolean;
+  // Validated answers folded into this completion. It is added to the in-memory
+  // run at completion time and copied to history; the started RUN# item never
+  // trusts or stores a client-reported aggregate.
+  answerCount?: number;
   completedAt?: string;
   score?: number;
   seasonId?: string;
@@ -787,6 +791,7 @@ export class Repository {
       new GetCommand({
         TableName: this.tableName,
         Key: { pk: `PLAYER#${sub}`, sk: "CARDSTATS" },
+        ConsistentRead: true,
       }),
     );
     return (result.Item?.stats ?? {}) as CardStatsMap;
@@ -819,6 +824,7 @@ export class Repository {
       new GetCommand({
         TableName: this.tableName,
         Key: { pk: `PLAYER#${sub}`, sk: "BADGES" },
+        ConsistentRead: true,
       }),
     );
     const item = result.Item;
@@ -870,6 +876,7 @@ export class Repository {
       score: number;
       seasonId: string;
       completedAt: string;
+      answerCount?: number;
     }>
   > {
     const runs: Array<{
@@ -878,6 +885,7 @@ export class Repository {
       score: number;
       seasonId: string;
       completedAt: string;
+      answerCount?: number;
     }> = [];
     let startKey: Record<string, unknown> | undefined;
     do {
@@ -889,7 +897,8 @@ export class Repository {
             ":pk": `PLAYER#${sub}`,
             ":sk": "RUN#",
           },
-          ProjectionExpression: "runId, #mode, score, seasonId, completedAt",
+          ProjectionExpression:
+            "runId, #mode, score, seasonId, completedAt, answerCount",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -909,6 +918,9 @@ export class Repository {
             score: item.score,
             seasonId: item.seasonId,
             completedAt: item.completedAt,
+            ...(typeof item.answerCount === "number"
+              ? { answerCount: item.answerCount }
+              : {}),
           });
         }
       }
@@ -921,11 +933,21 @@ export class Repository {
   // listRecentRuns caps at 20 for the profile feed; this deliberately walks
   // the whole RUN# range instead, because a partial history would compute
   // wrong counters and then store them as if they were complete.
-  async listAllRuns(
-    sub: string,
-  ): Promise<Array<{ mode: string; score: number; completedAt: string }>> {
+  async listAllRuns(sub: string): Promise<
+    Array<{
+      mode: string;
+      score: number;
+      completedAt: string;
+      answerCount?: number;
+    }>
+  > {
     return (await this.listRunHistory(sub)).map(
-      ({ mode, score, completedAt }) => ({ mode, score, completedAt }),
+      ({ mode, score, completedAt, answerCount }) => ({
+        mode,
+        score,
+        completedAt,
+        ...(answerCount !== undefined ? { answerCount } : {}),
+      }),
     );
   }
 
@@ -983,6 +1005,9 @@ export class Repository {
       seasonId,
       completedAt,
       playerSub: run.owner,
+      ...(run.answerCount !== undefined
+        ? { answerCount: run.answerCount }
+        : {}),
       ...tiebreakItem,
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.

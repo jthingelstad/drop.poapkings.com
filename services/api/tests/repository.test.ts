@@ -100,7 +100,8 @@ describe("repository DynamoDB requests", () => {
     expect(send.mock.calls[0]?.[0].input).toMatchObject({
       TableName: "test-table",
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ProjectionExpression: "runId, #mode, score, seasonId, completedAt",
+      ProjectionExpression:
+        "runId, #mode, score, seasonId, completedAt, answerCount",
       ScanIndexForward: false,
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
@@ -663,12 +664,13 @@ describe("repository DynamoDB requests", () => {
       sk: "RUN",
       runId: "run-practice",
       owner: "player-sub",
-      mode: "surge",
-      challenge: { mode: "surge", cardIds: [26000000] },
+      mode: "practice",
+      challenge: { mode: "practice", cardIds: [26000000] },
       state: "started",
       startedAt: "2026-07-18T12:00:00.000Z",
       expiresAt: 1_800_000_000,
       ranked: false,
+      answerCount: 37,
     };
 
     await new Repository("test-table").completeRun(run, 12.3, "2026-07", 20);
@@ -677,6 +679,7 @@ describe("repository DynamoDB requests", () => {
     const history = transaction.input.TransactItems[2]?.Put?.Item;
     // History, totals, and Trophy Road still record; only ranking is skipped.
     expect(history?.score).toBe(12.3);
+    expect(history?.answerCount).toBe(37);
     expect(history?.GSI1PK).toBeUndefined();
     expect(history?.GSI1SK).toBeUndefined();
     const globalUpdate = transaction.input.TransactItems[1]?.Update;

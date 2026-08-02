@@ -3,10 +3,10 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import {
   advanceBadges,
   BADGE_COUNTERS_VERSION,
+  badgeStates,
   emptyCounters,
   hiddenSignals,
   localStamp,
-  type EarnedRung,
 } from "../badges.js";
 import {
   completedGameWebhookPayload,
@@ -254,8 +254,11 @@ async function recordSignedInRun(
   // buried as a mode branch inside runXp.
   const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
   const tiebreaks = modeTiebreaks(run, transcript, score);
+  const answerCount = Array.isArray(transcript.answers)
+    ? transcript.answers.length
+    : 0;
   const result = await repository.completeRun(
-    run,
+    { ...run, answerCount },
     score,
     season.id,
     xpAward,
@@ -322,7 +325,7 @@ async function recordSignedInRun(
   // Practice counts here even though it earns no XP — Reps and Clean Sweep are
   // Practice badges, and badges reward the drill that the arena deliberately
   // does not.
-  const newlyEarned = await updateBadges(repository, run, transcript, {
+  const badgeUpdate = await updateBadges(repository, run, transcript, {
     score,
     completedAt: result.completedAt,
     totalGames: result.totalGames,
@@ -376,7 +379,10 @@ async function recordSignedInRun(
     totalGames: result.totalGames,
     xp: result.profile.xp ?? 0,
     ...levelForGames(result.totalGames),
-    ...(newlyEarned.length ? { earnedBadges: newlyEarned } : {}),
+    ...(badgeUpdate.newlyEarned.length
+      ? { earnedBadges: badgeUpdate.newlyEarned }
+      : {}),
+    ...(badgeUpdate.badges ? { badges: { badges: badgeUpdate.badges } } : {}),
   });
 }
 
@@ -396,7 +402,10 @@ async function updateBadges(
     tzOffsetMinutes: unknown;
     personalBest: { improved: boolean; previousScore?: number };
   },
-): Promise<EarnedRung[]> {
+): Promise<{
+  newlyEarned: ReturnType<typeof advanceBadges>["newlyEarned"];
+  badges?: ReturnType<typeof badgeStates>;
+}> {
   try {
     const stored = (await repository.getBadges(run.owner)) ?? emptyCounters();
     const counters =
@@ -446,13 +455,13 @@ async function updateBadges(
       ...hiddenSignals(run.mode, transcript),
     });
     await repository.saveBadges(run.owner, advanced, context.completedAt);
-    return newlyEarned;
+    return { newlyEarned, badges: badgeStates(advanced) };
   } catch (error) {
     console.warn("Badge update failed", {
       runId: run.runId,
       error: error instanceof Error ? error.name : "unknown",
     });
-    return [];
+    return { newlyEarned: [] };
   }
 }
 

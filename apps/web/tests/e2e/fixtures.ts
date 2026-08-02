@@ -71,6 +71,12 @@ export const testBadges = [
     value: 1,
     rungIndex: 0,
     earnedAt: ['2026-07-18T03:00:00.000Z']
+  },
+  {
+    slug: 'reps',
+    value: 175,
+    rungIndex: 0,
+    earnedAt: ['2026-07-20T18:00:00.000Z']
   }
 ] as const
 export const testSeasonHistory = {

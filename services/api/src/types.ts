@@ -98,6 +98,9 @@ export interface RunRecord {
   score: number;
   seasonId: string;
   completedAt: string;
+  // Stored for server-side badge recovery and aggregate analysis. Deliberately
+  // omitted by runRecordResponse, so it is not part of public run history.
+  answerCount?: number;
 }
 
 // Non-reversible connection-correlation signals derived from a request's IP and

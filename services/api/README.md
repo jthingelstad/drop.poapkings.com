@@ -68,6 +68,12 @@ A `/runs/complete` presenting a non-guest run token still requires a session
 that owns the run. The public site and leaderboards remain browsable without an
 account.
 
+Signed-in completions aggregate validated card outcomes into the player's
+server-owned `CARDSTATS` item and copy only the validated answer count—not the
+raw transcript—onto immutable run history. Practice therefore retains the
+per-card learning signal used by `/me` coaching summaries while giving the Reps
+badge a history-backed recovery path for newly recorded sessions.
+
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse
 `GSI3` index and returns only public identity, progress, the already-public

@@ -5822,6 +5822,29 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--lavender);
   font-size: 0.74rem;
 }
+.ed-badges__progress-wrap {
+  width: min(100%, 320px);
+  display: grid;
+  gap: 6px;
+}
+.ed-badges__progress-label {
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+.ed-badges__progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(215, 200, 255, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.ed-badges__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--progress-grad);
+}
 
 /* ── Badge earn moment ────────────────────────────────────── */
 
