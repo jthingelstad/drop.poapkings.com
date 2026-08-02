@@ -13,9 +13,9 @@ export default defineConfig({
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/main.tsx', 'src/vite-env.d.ts'],
-      // Floor locked in after the two coverage passes (actuals ~83% stmts /
-      // 79% br / 79% fn / 85% ln). A few points of headroom so unrelated changes
-      // aren't blocked by minor drift; ratchet these up as coverage grows.
+      // Current actuals are ~81% stmts / 79% br / 81% fn / 83% ln. Keep a few
+      // points of headroom so unrelated changes aren't blocked by minor drift;
+      // ratchet these up as coverage grows.
       thresholds: {
         statements: 78,
         branches: 73,
