@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
   getPublicPlayer: vi.fn(),
+  getBadges: vi.fn(),
+  getCardStats: vi.fn(),
   listRecentRuns: vi.fn(),
   useRateLimit: vi.fn(),
 }));
@@ -10,6 +12,8 @@ const repository = vi.hoisted(() => ({
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getPublicPlayer = repository.getPublicPlayer;
+    getBadges = repository.getBadges;
+    getCardStats = repository.getCardStats;
     listRecentRuns = repository.listRecentRuns;
     useRateLimit = repository.useRateLimit;
   },
@@ -57,6 +61,16 @@ describe("GET /players/:id", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getCardStats.mockResolvedValue({});
+    repository.getBadges.mockResolvedValue({
+      version: 1,
+      values: { clockbreaker: 49 },
+      runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
+      earned: {
+        clockbreaker: ["2026-07-21T17:00:00.000Z", "2026-07-22T17:00:00.000Z"],
+      },
+    });
     repository.listRecentRuns.mockResolvedValue([
       {
         runId: "run-1",
@@ -116,6 +130,9 @@ describe("GET /players/:id", () => {
     });
     expect(body.player).not.toHaveProperty("email");
     expect(body.player).not.toHaveProperty("sub");
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({ slug: "clockbreaker", rungIndex: 1 }),
+    );
     expect(body.recentRuns).toEqual([
       {
         runId: "run-1",

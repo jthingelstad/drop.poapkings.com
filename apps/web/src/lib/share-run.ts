@@ -11,14 +11,21 @@ export interface RunSharePayload {
 
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
 
-export function runSharePayload(mode: GameMode, score: string, href = window.location.href): RunSharePayload {
+export function runSharePayload(
+  mode: GameMode,
+  score: string,
+  href = window.location.href,
+  playerName?: string
+): RunSharePayload {
   const game = gameDisplay(mode)
   const url = new URL(href)
   url.search = ''
   url.hash = `/${mode}`
-  const text = `I scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
+  const text = playerName
+    ? `${playerName} scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
+    : `I scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
   return {
-    title: `${game.name}: ${score} | Elixir Drop`,
+    title: `${playerName ? `${playerName} · ` : ''}${game.name}: ${score} | Elixir Drop`,
     text,
     url: url.toString(),
     copyText: `${text}\n${url.toString()}`

@@ -17,6 +17,7 @@ import {
   createNameOptions,
   deleteMe,
   getMe,
+  getMySeasons,
   getPublicPlayer,
   patchMe,
 } from "./routes/me.js";
@@ -56,6 +57,7 @@ async function route(event: APIGatewayProxyEventV2) {
     return refreshSession(context);
 
   if (method === "GET" && path === "/me") return getMe(context);
+  if (method === "GET" && path === "/me/seasons") return getMySeasons(context);
   const publicPlayerMatch =
     method === "GET" ? PUBLIC_PLAYER_PATH.exec(path) : null;
   if (publicPlayerMatch)

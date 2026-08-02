@@ -141,6 +141,23 @@ describe('api.ts request helpers', () => {
     expect(headers.get('authorization')).toBe('Bearer tok')
   })
 
+  it('getSeasonHistory validates the full season drill-down response', async () => {
+    const run = {
+      runId: 'run-1',
+      mode: 'surge',
+      score: 21_000,
+      seasonId: '2026-07',
+      completedAt: ISO
+    }
+    const fetchMock = stubFetch(json({ seasons: [{ id: '2026-07', games: 1, runs: [run] }] }))
+    const { getSeasonHistory } = await import('../../src/lib/api')
+
+    await expect(getSeasonHistory('tok')).resolves.toEqual({ seasons: [{ id: '2026-07', games: 1, runs: [run] }] })
+    const { url, headers } = endpointCall(fetchMock)
+    expect(url).toBe(`${API_BASE}/me/seasons`)
+    expect(headers.get('authorization')).toBe('Bearer tok')
+  })
+
   it('getNameOptions POSTs the favorite card to /me/name-options', async () => {
     const fetchMock = stubFetch(json({ favoriteCardId: 26000000, names: ['Ace'], nameToken: 'nt' }))
     const { getNameOptions } = await import('../../src/lib/api')

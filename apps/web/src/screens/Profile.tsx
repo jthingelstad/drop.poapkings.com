@@ -17,6 +17,7 @@ import {
   updateAccount
 } from '../lib/account'
 import { getNameOptions } from '../lib/api'
+import { getSeasonHistory, type SeasonHistory } from '../lib/api'
 import { allCards } from '../lib/card-catalog'
 import { challengeCard } from '../lib/challenge-cards'
 import { badgeViews, earnedCount } from '../lib/badges'
@@ -30,6 +31,7 @@ import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
 import PlayerPreferences from '../components/PlayerPreferences'
 import { track } from '../lib/analytics'
+import DetailModal from '../components/DetailModal'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
 
@@ -81,6 +83,11 @@ export default function Profile() {
   const deletionError = useSignal('')
   const syncedPlayerId = useRef<string | undefined>(undefined)
   const pollingCrStatus = player.value?.clashRoyale?.status
+  const seasonHistory = useSignal<SeasonHistory[]>([])
+  const seasonHistoryStatus = useSignal<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const openSeasonId = useSignal<string | null>(null)
+  const seasonTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const profilePlayerId = player.value?.id
 
   useEffect(() => {
     const authenticatedPlayer = player.value
@@ -103,6 +110,25 @@ export default function Profile() {
     if (pollingCrStatus === 'not_found') message.value = 'Player tag was not found.'
     if (pollingCrStatus === 'unavailable') message.value = 'Profile refresh delayed. Drop will retry automatically.'
   }, [message.value, pollingCrStatus])
+
+  useEffect(() => {
+    if (accountStatus.value !== 'authenticated' || !profilePlayerId) return
+    const token = sessionToken()
+    if (!token) return
+    const controller = new AbortController()
+    seasonHistory.value = []
+    openSeasonId.value = null
+    seasonHistoryStatus.value = 'loading'
+    void getSeasonHistory(token, controller.signal)
+      .then((response) => {
+        seasonHistory.value = response.seasons
+        seasonHistoryStatus.value = 'ready'
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) seasonHistoryStatus.value = 'error'
+      })
+    return () => controller.abort()
+  }, [profilePlayerId, seasonHistory, seasonHistoryStatus, openSeasonId])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -406,22 +432,10 @@ export default function Profile() {
     )
   }
 
-  // Seasons the player has actually appeared in, newest first, read off the
-  // run history the profile already loaded. There is no separate seasons
-  // endpoint — a season is just a bucket runs fall into, so the runs are the
-  // source. That means this reflects the recent-runs window, not all time.
   // Hidden badges are never counted separately — no "3 of 7 found" — but the
   // overall earned tally is fine: it is the whole set, not a hidden checklist.
   const earnedBadges = earnedCount(badgeViews(badges.value))
-
-  const seasons = Object.entries(
-    recentRuns.value.reduce<Record<string, number>>((counts, run) => {
-      counts[run.seasonId] = (counts[run.seasonId] ?? 0) + 1
-      return counts
-    }, {})
-  )
-    .map(([id, games]) => ({ id, games }))
-    .sort((left, right) => right.id.localeCompare(left.id))
+  const selectedSeason = seasonHistory.value.find((season) => season.id === openSeasonId.value)
 
   // ── Profile view ────────────────────────────────────────────────────────
   return (
@@ -445,6 +459,18 @@ export default function Profile() {
         </div>
       </div>
 
+      <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
+        <div class="ed-profile__recent-head">
+          <span class="ed-profile__recent-title">Badges</span>
+          {earnedBadges > 0 && (
+            <span class="ed-profile__recent-score">
+              {earnedBadges} of {BADGE_LIST.length}
+            </span>
+          )}
+        </div>
+        <BadgeGrid states={badges.value} />
+      </section>
+
       <div class="ed-profile__stats profile-xp">
         <div class="ed-profile__stat-row">
           <div class="ed-profile__stat">
@@ -458,13 +484,6 @@ export default function Profile() {
         </div>
         <ArenaProgress xp={current.xp ?? 0} />
       </div>
-
-      <section class="ed-profile__preferences" aria-labelledby="game-settings-title">
-        <h2 id="game-settings-title" class="ed-profile__recent-title">
-          Game settings
-        </h2>
-        <PlayerPreferences />
-      </section>
 
       <section class="ed-profile__recent ed-profile__games">
         <div class="ed-profile__recent-head">
@@ -501,33 +520,39 @@ export default function Profile() {
         )}
       </section>
 
-      <section class="ed-profile__recent ed-profile__badges">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Badges</span>
-          {earnedBadges > 0 && (
-            <span class="ed-profile__recent-score">
-              {earnedBadges} of {BADGE_LIST.length}
-            </span>
-          )}
-        </div>
-        <BadgeGrid states={badges.value} />
-      </section>
-
       <section class="ed-profile__recent ed-profile__seasons">
         <div class="ed-profile__recent-head">
           <span class="ed-profile__recent-title">Seasons</span>
         </div>
-        {seasons.length ? (
+        {seasonHistory.value.length ? (
           <ul class="ed-profile__recent-list">
-            {seasons.map((season) => (
-              <li key={season.id}>
+            {seasonHistory.value.map((season) => (
+              <li key={season.id} class="ed-profile__season-row">
                 <span class="ed-profile__recent-name">{season.id}</span>
                 <span class="ed-profile__recent-score">
                   {season.games} {season.games === 1 ? 'game' : 'games'}
                 </span>
+                <button
+                  class="ed-profile__season-open"
+                  aria-label={`View ${season.id} games`}
+                  onClick={(event) => {
+                    seasonTriggerRef.current = event.currentTarget
+                    openSeasonId.value = season.id
+                  }}
+                >
+                  <Icon name="chevron-right" />
+                </button>
               </li>
             ))}
           </ul>
+        ) : seasonHistoryStatus.value === 'loading' || seasonHistoryStatus.value === 'idle' ? (
+          <p class="ed-profile__recent-empty" role="status">
+            Loading season history…
+          </p>
+        ) : seasonHistoryStatus.value === 'error' ? (
+          <p class="ed-profile__recent-empty" role="alert">
+            Season history is temporarily unavailable.
+          </p>
         ) : (
           <EmptyState
             art="empty-season"
@@ -608,6 +633,13 @@ export default function Profile() {
         </section>
       )}
 
+      <section class="ed-profile__preferences" aria-labelledby="game-settings-title">
+        <h2 id="game-settings-title" class="ed-profile__recent-title">
+          Game settings
+        </h2>
+        <PlayerPreferences />
+      </section>
+
       {message.value && (
         <div class="ed-edit__msg" role="status">
           {message.value}
@@ -630,6 +662,52 @@ export default function Profile() {
       </div>
 
       {layout.value === 'mobile' && <MetaMoreList />}
+
+      {selectedSeason && (
+        <SeasonGamesModal
+          season={selectedSeason}
+          onClose={() => (openSeasonId.value = null)}
+          returnFocus={seasonTriggerRef.current}
+        />
+      )}
     </div>
+  )
+}
+
+function SeasonGamesModal({
+  season,
+  onClose,
+  returnFocus
+}: {
+  season: SeasonHistory
+  onClose: () => void
+  returnFocus: HTMLElement | null
+}) {
+  return (
+    <DetailModal label={`${season.id} games`} onClose={onClose} className="ed-season-modal" returnFocus={returnFocus}>
+      <div class="ed-season-modal__head">
+        <div class="ed-eyebrow">Season history</div>
+        <h2 class="ed-season-modal__title">{season.id}</h2>
+        <p>
+          {season.games} {season.games === 1 ? 'game' : 'games'} played
+        </p>
+      </div>
+      <ul class="ed-profile__recent-list ed-season-modal__runs">
+        {season.runs.map((run) => {
+          const game = gameDisplay(run.mode)
+          return (
+            <li key={run.runId}>
+              <span class="ed-profile__recent-name">
+                <ModeIcon mode={run.mode} size={24} /> {game.name}
+              </span>
+              <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
+              <time dateTime={run.completedAt}>
+                {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </time>
+            </li>
+          )
+        })}
+      </ul>
+    </DetailModal>
   )
 }

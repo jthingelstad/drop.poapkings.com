@@ -20,7 +20,8 @@ remains the canonical source for shipped modes and game ideas.
   credit and a Discord link, not a triggered pitch.
 - **Host / mascot:** none. The Elixir mascot emote set was removed from the app;
   the remaining brand marks are the Drop app icon (`assets/icon/`) and the
-  crowned-drop OG art (`assets/elixir-og.png`, still the input to `npm run og`).
+  text-composited social card (`assets/og-image.png`, rebuilt by `npm run og`
+  over the text-safe `assets/share/og-default.png` backdrop).
 
 The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
@@ -371,11 +372,22 @@ sweeps it with the rest of the player partition. `GET /me` returns a `badges`
 summary (`{ badges: BadgeState[], backfilled?: true }`), rebuilding the counters
 from run history plus CARDSTATS the first time a player is read; `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
+`GET /players/{playerId}` returns the same badge summary for the read-only public
+profile, where only earned medallions are shown. Missing or stale counters take
+the same history-backed rebuild path, so another player never sees an empty wall
+merely because the owner has not opened Profile since badges shipped.
 `/runs/complete` returns `earnedBadges`, the rungs that run cleared, so the
 summary can celebrate exactly those. Awarding is a pure function of the counters
 (`services/api/src/badges.ts`), badges award no XP, and nothing earned is ever
 revoked. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.
+
+Profile history has two deliberately different reads. `GET /me` keeps the
+20-row recent feed used across the app; `GET /me/seasons` paginates the player's
+complete `RUN#` range, filters retired modes, and groups every current-mode run
+by `seasonId`. The Profile screen calls the heavier endpoint only when it mounts,
+then opens a season's complete game list in a modal. A recent-feed cap must never
+be used as a season total.
 
 The run share card is composited in the browser
 (`apps/web/src/lib/share-card.ts`): a 1080×1350 canvas over

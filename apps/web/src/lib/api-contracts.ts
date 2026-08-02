@@ -157,6 +157,16 @@ export const meResponseSchema = z.object({
   badges: z.optional(badgeSummarySchema)
 })
 
+export const seasonHistorySchema = z.object({
+  id: nonEmptyString,
+  games: nonNegativeInteger,
+  runs: z.array(recentRunSchema)
+})
+
+export const seasonHistoryResponseSchema = z.object({
+  seasons: z.array(seasonHistorySchema)
+})
+
 export const nameOptionsResponseSchema = z.object({
   favoriteCardId: cardId,
   names: z.array(nonEmptyString).min(1),
@@ -255,7 +265,9 @@ export const publicPlayerSchema = publicPlayerSummarySchema.extend({
 
 export const publicPlayerResponseSchema = z.object({
   player: publicPlayerSchema,
-  recentRuns: z.array(recentRunSchema)
+  recentRuns: z.array(recentRunSchema),
+  // Optional through the API-first half of a rolling deploy.
+  badges: z.optional(badgeSummarySchema)
 })
 
 export const leaderboardEntrySchema = z.object({
@@ -296,6 +308,7 @@ export const activityResponseSchema = z.object({
 })
 
 export type RecentRun = z.infer<typeof recentRunSchema>
+export type SeasonHistory = z.infer<typeof seasonHistorySchema>
 export type PublicPlayerSummary = z.infer<typeof publicPlayerSummarySchema>
 export type PublicPlayer = z.infer<typeof publicPlayerSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>

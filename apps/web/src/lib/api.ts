@@ -12,6 +12,7 @@ import {
   nameOptionsResponseSchema,
   playerResponseSchema,
   publicPlayerResponseSchema,
+  seasonHistoryResponseSchema,
   sessionResponseSchema,
   siteStatsSchema,
   startedRunSchema
@@ -231,6 +232,10 @@ export function getNameOptions(sessionToken: string, favoriteCardId: number) {
   })
 }
 
+export function getSeasonHistory(sessionToken: string, signal?: AbortSignal) {
+  return apiRequest('/me/seasons', seasonHistoryResponseSchema, { sessionToken, signal })
+}
+
 export function patchMe(
   sessionToken: string,
   updates: {
@@ -299,5 +304,5 @@ export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
 export type { ActivityEntry } from './api-contracts'
-export type { LeaderboardEntry, RecentRun } from './api-contracts'
+export type { LeaderboardEntry, RecentRun, SeasonHistory } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'

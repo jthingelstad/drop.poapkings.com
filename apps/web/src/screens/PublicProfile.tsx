@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
 import ArenaProgress from '../components/ArenaProgress'
+import BadgeGrid from '../components/BadgeGrid'
 import Icon from '../components/Icon'
 import PlayerAvatar from '../components/PlayerAvatar'
 import { rankFor } from '../data/starRanks'
@@ -10,12 +11,14 @@ import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { playerIdFromRoute, publicPlayerPreview } from '../lib/public-player'
 import { back, navigate, route } from '../lib/router'
+import { badgeViews, earnedCount, type BadgeState } from '../lib/badges'
 
 export default function PublicProfile() {
   const playerId = playerIdFromRoute(route.value)
   const cached = publicPlayerPreview.value?.id === playerId ? publicPlayerPreview.value : null
   const viewedPlayer = useSignal<PublicPlayerData | typeof cached>(cached)
   const runs = useSignal<RecentRun[]>([])
+  const publicBadges = useSignal<BadgeState[]>([])
   const loading = useSignal(true)
   const error = useSignal('')
 
@@ -24,6 +27,7 @@ export default function PublicProfile() {
     const preview = publicPlayerPreview.value?.id === playerId ? publicPlayerPreview.value : null
     viewedPlayer.value = preview
     runs.value = []
+    publicBadges.value = []
     error.value = ''
     loading.value = true
     if (!playerId) {
@@ -36,6 +40,7 @@ export default function PublicProfile() {
         viewedPlayer.value = response.player
         publicPlayerPreview.value = response.player
         runs.value = response.recentRuns
+        publicBadges.value = response.badges?.badges ?? []
       })
       .catch((reason: unknown) => {
         if (reason instanceof ApiError && reason.code === 'request_cancelled') return
@@ -48,7 +53,7 @@ export default function PublicProfile() {
         if (!controller.signal.aborted) loading.value = false
       })
     return () => controller.abort()
-  }, [playerId, viewedPlayer, runs, loading, error])
+  }, [playerId, viewedPlayer, runs, publicBadges, loading, error])
 
   const current = viewedPlayer.value
   if (!current) {
@@ -66,6 +71,7 @@ export default function PublicProfile() {
 
   const favorite = current.favoriteCardId ? challengeCard(current.favoriteCardId) : undefined
   const arena = rankFor(current.xp).current
+  const badgeCount = earnedCount(badgeViews(publicBadges.value))
 
   return (
     <div class="ed-profile ed-public-profile">
@@ -84,6 +90,14 @@ export default function PublicProfile() {
           </div>
         </div>
       </div>
+
+      <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
+        <div class="ed-profile__recent-head">
+          <span class="ed-profile__recent-title">Badges</span>
+          {badgeCount > 0 && <span class="ed-profile__recent-score">{badgeCount} earned</span>}
+        </div>
+        <BadgeGrid states={publicBadges.value} earnedOnly />
+      </section>
 
       <div class="ed-profile__stats profile-xp">
         <div class="ed-profile__stat-row">

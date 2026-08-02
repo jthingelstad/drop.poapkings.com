@@ -47,6 +47,15 @@ function StandingsPeek({ data }: { data: HomeData }) {
           Full board <Icon name="arrow-right" />
         </span>
       </span>
+      <span class="ed-standpeek__callout" data-leading={data.surgeCallout.leading ? '' : undefined}>
+        <span class="ed-standpeek__callout-icon">
+          <Icon name="trophy" />
+        </span>
+        <span>
+          <strong>{data.surgeCallout.title}</strong>
+          <small>{data.surgeCallout.detail}</small>
+        </span>
+      </span>
       {list.map((e) => {
         const you = e.player.id === meId
         return (

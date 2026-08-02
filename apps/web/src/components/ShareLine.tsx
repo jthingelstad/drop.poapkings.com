@@ -37,7 +37,11 @@ export default function ShareLine({ mode, score, compact = false, card }: Props)
     if (sharing.value) return
     sharing.value = true
     outcome.value = null
-    const result = await shareRunCard(runSharePayload(mode, score), { mode, score, ...card })
+    const result = await shareRunCard(runSharePayload(mode, score, window.location.href, card?.playerName), {
+      mode,
+      score,
+      ...card
+    })
     sharing.value = false
     outcome.value = result === 'cancelled' ? null : result
     if (result === 'shared' || result === 'copied') {

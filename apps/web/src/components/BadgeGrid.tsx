@@ -1,20 +1,27 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useRef, useState } from 'preact/hooks'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
 import BadgeMedallion from './BadgeMedallion'
+import DetailModal from './DetailModal'
 import EmptyState from './EmptyState'
 
-// The badge wall: 29 medallions, then a detail sheet for whichever one you tap.
+// The badge wall: medallions open a real modal, so a tap never changes content
+// several screens below the pressed badge.
 //
 // Grid uses -192 at 74px, the sheet the same file at 84px. -384 is reserved for
 // the earn celebration, which is the only place a badge gets big enough to need
 // it.
-export default function BadgeGrid({ states }: { states: BadgeState[] }) {
+export default function BadgeGrid({ states, earnedOnly = false }: { states: BadgeState[]; earnedOnly?: boolean }) {
   const [openSlug, setOpenSlug] = useState<string | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
   const views = badgeViews(states)
   const earned = earnedCount(views)
-  const open = views.find((view) => view.slug === openSlug)
+  const visible = earnedOnly ? views.filter((view) => view.earned) : views
+  const open = visible.find((view) => view.slug === openSlug)
 
   if (!earned) {
+    if (earnedOnly) {
+      return <p class="ed-profile__recent-empty">No badges earned yet.</p>
+    }
     return (
       <EmptyState
         art="empty-badges"
@@ -29,11 +36,14 @@ export default function BadgeGrid({ states }: { states: BadgeState[] }) {
   return (
     <>
       <div class="ed-badges__grid">
-        {sortForGrid(views).map((view) => (
+        {sortForGrid(visible).map((view) => (
           <button
             key={view.slug}
             class="ed-badges__cell"
-            onClick={() => setOpenSlug(view.slug)}
+            onClick={(event) => {
+              triggerRef.current = event.currentTarget
+              setOpenSlug(view.slug)
+            }}
             aria-label={view.concealed ? 'Hidden badge' : `${view.name}${view.chip ? `, ${view.chip}` : ''}`}
           >
             <BadgeMedallion badge={view} size={74} />
@@ -41,41 +51,34 @@ export default function BadgeGrid({ states }: { states: BadgeState[] }) {
           </button>
         ))}
       </div>
-      {open && <BadgeSheet badge={open} onClose={() => setOpenSlug(null)} />}
+      {open && <BadgeSheet badge={open} onClose={() => setOpenSlug(null)} returnFocus={triggerRef.current} />}
     </>
   )
 }
 
-function BadgeSheet({ badge, onClose }: { badge: BadgeView; onClose: () => void }) {
+function BadgeSheet({
+  badge,
+  onClose,
+  returnFocus
+}: {
+  badge: BadgeView
+  onClose: () => void
+  returnFocus: HTMLElement | null
+}) {
   const { definition } = badge
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  // The sheet follows all 29 cells in document order. Without moving it into
-  // view, tapping a badge near the top only changes the cell's focus outline;
-  // the new detail can be several screens below and looks like a dead tap.
-  // Focus announces the named group to assistive tech, while scrollIntoView
-  // handles both the document scroller on mobile and the centre-column
-  // scroller on desktop.
-  useEffect(() => {
-    const sheet = sheetRef.current
-    if (!sheet) return
-    sheet.focus({ preventScroll: true })
-    sheet.scrollIntoView({ block: 'start' })
-  }, [badge.slug])
 
   return (
-    <div
-      ref={sheetRef}
-      class="ed-badges__sheet"
-      role="group"
-      aria-label={badge.concealed ? 'Hidden badge' : badge.name}
-      tabIndex={-1}
+    <DetailModal
+      label={badge.concealed ? 'Hidden badge' : badge.name}
+      onClose={onClose}
+      className="ed-badges__sheet"
+      returnFocus={returnFocus}
     >
       <BadgeMedallion badge={badge} size={84} />
       <span class="ed-badges__sheet-name">{badge.concealed ? 'Hidden badge' : badge.name}</span>
       {/* A hidden badge gives away nothing: no name, no requirement, no
-          progress bar — and never a "3 of 7 found" count, which would turn the
-          mystery into a checklist and make players feel behind. */}
+            progress bar — and never a "3 of 7 found" count, which would turn the
+            mystery into a checklist and make players feel behind. */}
       {badge.concealed ? (
         <span class="ed-badges__sheet-req">Something you have not done yet.</span>
       ) : (
@@ -86,8 +89,8 @@ function BadgeSheet({ badge, onClose }: { badge: BadgeView; onClose: () => void 
               <div key={rung} class={`ed-badges__rung${index <= badge.rungIndex ? ' ed-badges__rung--cleared' : ''}`}>
                 <span>{formatRungValue(rung, definition.unit)}</span>
                 {/* A time ladder's per-rung run count is the interesting stat:
-                    "sub-20s: 14 runs, sub-19s: 9" tells a player exactly where
-                    their ceiling is, and makes a fast rung feel earned. */}
+                      "sub-20s: 14 runs, sub-19s: 9" tells a player exactly where
+                      their ceiling is, and makes a fast rung feel earned. */}
                 <span class="ed-badges__rung-runs">
                   {badge.runsAtRung?.[index]
                     ? `${badge.runsAtRung[index]} ${badge.runsAtRung[index] === 1 ? 'run' : 'runs'}`
@@ -102,9 +105,6 @@ function BadgeSheet({ badge, onClose }: { badge: BadgeView; onClose: () => void 
           )}
         </>
       )}
-      <button class="ed-textlink" onClick={onClose}>
-        Close
-      </button>
-    </div>
+    </DetailModal>
   )
 }

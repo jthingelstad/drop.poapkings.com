@@ -8,6 +8,8 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
     // Season standings live in the desktop right rail.
     await expect(page.locator('.ed-rail-standings')).toContainText('Royal Ghosted')
     await expect(page.locator('.ed-rail-standings')).toContainText('You')
+    await expect(page.locator('.ed-rail-this')).toContainText('Get 8.9s faster to take the lead')
+    await expect(page.locator('.ed-rail-this')).toContainText('next season’s free pass')
     // Repeated activity is grouped into one recent-runs row.
     await expect(page.locator('.ed-rail-live__head')).toContainText('Recent runs')
     await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.80s')
@@ -17,6 +19,8 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
     // Season standings surface as the mobile peek.
     await expect(page.locator('.ed-standpeek')).toContainText('Royal Ghosted')
     await expect(page.locator('.ed-standpeek')).toContainText('You')
+    await expect(page.locator('.ed-standpeek')).toContainText('Get 8.9s faster to take the lead')
+    await expect(page.locator('.ed-standpeek')).toContainText('next season’s free pass')
   }
 
   // The player's Surge best (from recent runs) leads the hero.

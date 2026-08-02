@@ -21,6 +21,35 @@ export interface HomeData {
   championFor: (mode: GameMode) => LeaderboardEntry | undefined
   surgeStandings: LeaderboardEntry[]
   surgeRank: number | undefined
+  surgeCallout: SurgeSeasonCallout
+}
+
+export interface SurgeSeasonCallout {
+  title: string
+  detail: string
+  leading: boolean
+}
+
+function gapLabel(milliseconds: number): string {
+  const seconds = Math.max(0.1, milliseconds / 1_000)
+  return `${seconds.toFixed(1).replace(/\.0$/, '')}s`
+}
+
+export function surgeSeasonCallout(
+  standings: LeaderboardEntry[],
+  playerBest: number | undefined,
+  playerId: string | undefined
+): SurgeSeasonCallout {
+  const leader = standings[0]
+  const detail = '#1 in Surge wins next season’s free pass.'
+  if (!leader) return { title: 'Set the first Surge time of the season', detail, leading: false }
+  if (playerId && leader.player.id === playerId) {
+    return { title: 'You lead the race for the free pass', detail: 'Hold #1 through the season finish.', leading: true }
+  }
+  if (playerBest === undefined) return { title: 'Post a Surge time to join the pass race', detail, leading: false }
+  const gap = playerBest - leader.score
+  if (gap <= 0) return { title: 'Your best is fast enough for the lead', detail, leading: true }
+  return { title: `Get ${gapLabel(gap)} faster to take the lead`, detail, leading: false }
 }
 
 // "Season ends in 6d 04h" style pill copy. Falls back gracefully with no season.
@@ -83,15 +112,17 @@ export function useHomeData(): HomeData {
   const surgeStandings = boards.value.surge ?? []
   const meId = player.value?.id
   const surgeRank = meId ? surgeStandings.find((e) => e.player.id === meId)?.rank : undefined
+  const bestScores = mergedBestScores(season)
 
   return {
     loading: loading.value,
     stats: stats.value,
     season,
-    bestScores: mergedBestScores(season),
+    bestScores,
     boards: boards.value,
     championFor: (mode) => boards.value[mode]?.[0],
     surgeStandings,
-    surgeRank
+    surgeRank,
+    surgeCallout: surgeSeasonCallout(surgeStandings, bestScores.surge, meId)
   }
 }

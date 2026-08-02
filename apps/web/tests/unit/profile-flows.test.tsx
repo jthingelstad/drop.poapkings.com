@@ -626,14 +626,14 @@ describe('Profile interactive flows', () => {
 
   // --- Profile view: recent games / sign out / CR status -------------------
 
-  it('shows global game settings between Arena progress and recent games and persists each toggle', async () => {
+  it('shows global game settings near the bottom of the profile and persists each toggle', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
 
     const preferences = container.querySelector('.ed-profile__preferences') as HTMLElement
     expect(preferences).not.toBeNull()
-    expect(preferences.previousElementSibling?.classList.contains('ed-profile__stats')).toBe(true)
-    expect(preferences.nextElementSibling?.classList.contains('ed-profile__recent')).toBe(true)
+    expect(preferences.previousElementSibling?.classList.contains('ed-profile__seasons')).toBe(true)
+    expect(preferences.nextElementSibling?.classList.contains('ed-profile__actions')).toBe(true)
     expect(preferences.textContent).toContain('Game settings')
 
     const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
@@ -681,7 +681,7 @@ describe('Profile interactive flows', () => {
     // Art, a heading, a line, and a button that actually goes somewhere.
     expect(container.textContent).toContain('Nothing played yet')
     expect(container.textContent).toContain('Your finished games land here, newest first.')
-    const art = container.querySelector<HTMLImageElement>('.ed-empty__art')
+    const art = container.querySelector<HTMLImageElement>('.ed-profile__games .ed-empty__art')
     expect(art?.getAttribute('src')).toBe('/assets/empty/empty-runs-512.png')
     expect(byText(container, 'Play Surge')).toBeTruthy()
   })

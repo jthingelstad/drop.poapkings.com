@@ -73,6 +73,22 @@ export const testBadges = [
     earnedAt: ['2026-07-18T03:00:00.000Z']
   }
 ] as const
+export const testSeasonHistory = {
+  seasons: [
+    {
+      id: '2026-07',
+      // Deliberately greater than the old 20-row profile feed cap.
+      games: 27,
+      runs: Array.from({ length: 27 }, (_, index) => ({
+        runId: `season-run-${index + 1}`,
+        mode: index % 2 === 0 ? ('surge' as const) : ('trade' as const),
+        score: index % 2 === 0 ? 67_299 - index * 100 : 91_000 - index * 250,
+        seasonId: '2026-07',
+        completedAt: `2026-07-${String(28 - index).padStart(2, '0')}T18:00:00.000Z`
+      }))
+    }
+  ]
+}
 
 export function leaderboardEntries(mode: GameMode) {
   const scores = mode === 'surge' ? [58_410, 61_220, 64_805, 67_299] : [42, 36, 29, 24]
@@ -129,7 +145,8 @@ function publicPlayerResponse(playerId: string) {
       levelStartGames: Math.max(0, summary.totalGames - 10),
       nextLevelGames: summary.totalGames + 15
     },
-    recentRuns: testRecentRuns
+    recentRuns: testRecentRuns,
+    badges: { badges: testBadges }
   }
 }
 
@@ -163,6 +180,10 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
   }
   if (path === '/activity') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
+    return true
+  }
+  if (path === '/me/seasons') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testSeasonHistory) })
     return true
   }
   if (path.startsWith('/players/')) {
@@ -370,6 +391,14 @@ export const test = base.extend({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ player: testPlayer, recentRuns: testRecentRuns, badges: { badges: testBadges } })
+        })
+        return
+      }
+      if (path === '/me/seasons') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(testSeasonHistory)
         })
         return
       }

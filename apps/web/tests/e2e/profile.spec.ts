@@ -27,20 +27,30 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.getByLabel('Build information')).toContainText('Build date')
 })
 
-test('profile restores global game preferences between arena progress and recent games', async ({ page }) => {
+test('profile leads with badges and keeps settings near the bottom', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
   const arena = page.locator('.ed-profile__stats')
+  const badgeWall = page.locator('.ed-profile__badges')
   const preferences = page.locator('.ed-profile__preferences')
   // The profile now stacks three cards that share this styling; this is the
   // recent-games one specifically.
   const recent = page.locator('.ed-profile__games')
   await expect(preferences.getByRole('heading', { name: 'Game settings' })).toBeVisible()
 
-  const positions = await Promise.all([arena, preferences, recent].map((surface) => surface.boundingBox()))
+  const seasons = page.locator('.ed-profile__seasons')
+  const positions = await Promise.all(
+    [badgeWall, arena, recent, seasons, preferences].map((surface) => surface.boundingBox())
+  )
   expect(positions.every(Boolean)).toBe(true)
   expect(positions[1]!.y).toBeGreaterThan(positions[0]!.y + positions[0]!.height)
   expect(positions[2]!.y).toBeGreaterThan(positions[1]!.y + positions[1]!.height)
+  expect(positions[3]!.y).toBeGreaterThan(positions[2]!.y + positions[2]!.height)
+  expect(positions[4]!.y).toBeGreaterThan(positions[3]!.y + positions[3]!.height)
+  await testInfo.attach('profile-hierarchy.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
 
   const sound = preferences.getByRole('switch', { name: 'Sound effects' })
   const motion = preferences.getByRole('switch', { name: 'Reduce motion' })
@@ -68,22 +78,52 @@ test('profile restores global game preferences between arena progress and recent
   ).toHaveAttribute('aria-checked', 'false')
 })
 
-test('opening a badge brings its detail sheet into view and accessible focus', async ({ page }) => {
+test('opening a badge uses a focused modal instead of changing the badge wall', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
   await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
-  const sheet = page.getByRole('group', { name: 'Clockbreaker' })
+  const sheet = page.getByRole('dialog', { name: 'Clockbreaker' })
   await expect(sheet).toBeFocused()
   await expect(sheet).toContainText('Fastest Surge run')
   await expect(sheet).toContainText('Next: 30s')
-
-  const position = await sheet.evaluate((element) => {
-    const box = element.getBoundingClientRect()
-    return { top: box.top, bottom: box.bottom, viewportHeight: window.innerHeight }
+  await testInfo.attach('badge-modal.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
   })
-  expect(position.top).toBeGreaterThanOrEqual(0)
-  expect(position.top).toBeLessThan(position.viewportHeight)
-  expect(position.bottom).toBeGreaterThan(0)
+
+  await page.keyboard.press('Escape')
+  await expect(sheet).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeFocused()
+})
+
+test('season totals use full history and open every game in a modal', async ({ page }, testInfo) => {
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+
+  const seasons = page.locator('.ed-profile__seasons')
+  await expect(seasons).toContainText('27 games')
+  await page.getByRole('button', { name: 'View 2026-07 games' }).click()
+  const modal = page.getByRole('dialog', { name: '2026-07 games' })
+  await expect(modal).toContainText('27 games played')
+  await expect(modal.locator('li')).toHaveCount(27)
+  await testInfo.attach('season-games-modal.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+})
+
+test('public profiles display earned badges prominently', async ({ page }, testInfo) => {
+  await page.goto('/#/players/player-2', { waitUntil: 'domcontentloaded' })
+
+  const badgeWall = page.locator('.ed-profile__badges')
+  const stats = page.locator('.ed-profile__stats')
+  await expect(badgeWall).toContainText('2 earned')
+  await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
+  await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
+  expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)
+  await testInfo.attach('public-profile-badges.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {

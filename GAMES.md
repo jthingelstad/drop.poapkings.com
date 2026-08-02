@@ -390,8 +390,9 @@ A long ladder always has a next rung visible, so rung one can land in a first
 session *and* the top rung can take a year.
 
 **Rungs are calibrated against real data, not feel.** Measured on 2026-08-02:
-Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Trade n=1, Higher/Lower n=5,
-Survival n=4, Rain n=4. The design draft's Clockbreaker ladder put five
+Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Trade's current 10-exchange
+board n=1 (best 67.1s) plus a 77.6s median on the preceding 8-exchange board,
+Higher/Lower n=5, Survival n=4, Rain n=4. The design draft's Clockbreaker ladder put five
 consecutive rungs (13–17s) above a 4.7s gap in the real field, so four of them
 separated nobody, while its entry rung excluded 31% of players outright. Ladders
 with no live data behind them are marked "scaled" in the table and should be

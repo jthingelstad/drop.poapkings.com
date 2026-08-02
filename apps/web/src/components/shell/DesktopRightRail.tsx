@@ -12,6 +12,7 @@ import { player } from '../../lib/account'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
 import Icon from '../Icon'
+import { surgeSeasonCallout } from '../../screens/home/home-data'
 
 const RAIL_MODE = 'surge' as const
 const standings = signal<LeaderboardEntry[] | null>(null)
@@ -38,7 +39,7 @@ export default function DesktopRightRail() {
     if (!standings.value) {
       getLeaderboard(RAIL_MODE, 'season', ctrl.signal)
         .then((res) => {
-          standings.value = res.entries.slice(0, 5)
+          standings.value = res.entries
           standingsFailed.value = false
         })
         .catch(() => {
@@ -60,7 +61,8 @@ export default function DesktopRightRail() {
 
   const rows = standings.value
   const meId = player.value?.id
-  const myRank = meId ? rows?.find((r) => r.player.id === meId)?.rank : undefined
+  const myStanding = meId ? rows?.find((r) => r.player.id === meId) : undefined
+  const callout = surgeSeasonCallout(rows ?? [], myStanding?.score, meId)
   const feed = activity.value
 
   return (
@@ -74,7 +76,7 @@ export default function DesktopRightRail() {
           {rows === null && !standingsFailed.value && <div class="ed-rail-empty">Loading…</div>}
           {standingsFailed.value && <div class="ed-rail-empty">Standings unavailable</div>}
           {rows?.length === 0 && <div class="ed-rail-empty">No runs yet this season</div>}
-          {rows?.map((r) => {
+          {rows?.slice(0, 5).map((r) => {
             const you = r.player.id === meId
             return (
               <button
@@ -95,19 +97,23 @@ export default function DesktopRightRail() {
       </section>
 
       {player.value && (
-        <section class="ed-rail-this">
-          <div class="ed-rail-this__label">This season</div>
-          <div class="ed-rail-this__stats">
-            <div>
-              <div class="ed-rail-this__val">{myRank ? `#${myRank}` : '—'}</div>
-              <div class="ed-rail-this__sub">Surge rank</div>
-            </div>
-            <div>
-              <div class="ed-rail-this__val ed-rail-this__val--ink">{player.value.totalGames.toLocaleString()}</div>
-              <div class="ed-rail-this__sub">runs</div>
-            </div>
-          </div>
-        </section>
+        <button class="ed-rail-this tap-fx" onClick={() => navigate('/leaderboards')}>
+          <span class="ed-rail-this__label">Your Surge season</span>
+          <strong class="ed-rail-this__headline">{callout.title}</strong>
+          <span class="ed-rail-this__detail">{callout.detail}</span>
+          <span class="ed-rail-this__stats">
+            <span>
+              <span class="ed-rail-this__val">{myStanding ? `#${myStanding.rank}` : '—'}</span>
+              <span class="ed-rail-this__sub">rank</span>
+            </span>
+            <span>
+              <span class="ed-rail-this__val ed-rail-this__val--ink">
+                {myStanding ? scoreLabel(RAIL_MODE, myStanding.score) : '—'}
+              </span>
+              <span class="ed-rail-this__sub">best</span>
+            </span>
+          </span>
+        </button>
       )}
 
       <section class="ed-rail-block">

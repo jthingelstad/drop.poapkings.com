@@ -859,15 +859,26 @@ export class Repository {
     );
   }
 
-  // Every recorded run for one player, oldest first — the input to a badge
-  // backfill. listRecentRuns caps at 20 for the profile feed; this deliberately
-  // walks the whole RUN# range instead, because a partial history would
-  // compute wrong counters and then store them as if they were complete.
-  async listAllRuns(
-    sub: string,
-  ): Promise<Array<{ mode: string; score: number; completedAt: string }>> {
-    const runs: Array<{ mode: string; score: number; completedAt: string }> =
-      [];
+  // Every recorded run for one player, newest first. This is the authoritative
+  // history behind the profile's season drill-down; unlike listRecentRuns it
+  // walks every page, so a busy player's season never flattens to the feed's
+  // 20-row cap.
+  async listRunHistory(sub: string): Promise<
+    Array<{
+      runId: string;
+      mode: string;
+      score: number;
+      seasonId: string;
+      completedAt: string;
+    }>
+  > {
+    const runs: Array<{
+      runId: string;
+      mode: string;
+      score: number;
+      seasonId: string;
+      completedAt: string;
+    }> = [];
     let startKey: Record<string, unknown> | undefined;
     do {
       const page = await client.send(
@@ -878,18 +889,25 @@ export class Repository {
             ":pk": `PLAYER#${sub}`,
             ":sk": "RUN#",
           },
+          ProjectionExpression: "runId, #mode, score, seasonId, completedAt",
+          ExpressionAttributeNames: { "#mode": "mode" },
+          ScanIndexForward: false,
           ExclusiveStartKey: startKey,
         }),
       );
       for (const item of page.Items ?? []) {
         if (
+          typeof item.runId === "string" &&
           typeof item.mode === "string" &&
           typeof item.score === "number" &&
+          typeof item.seasonId === "string" &&
           typeof item.completedAt === "string"
         ) {
           runs.push({
+            runId: item.runId,
             mode: item.mode,
             score: item.score,
+            seasonId: item.seasonId,
             completedAt: item.completedAt,
           });
         }
@@ -897,6 +915,18 @@ export class Repository {
       startKey = page.LastEvaluatedKey;
     } while (startKey);
     return runs;
+  }
+
+  // Every recorded run for one player — the input to a badge backfill.
+  // listRecentRuns caps at 20 for the profile feed; this deliberately walks
+  // the whole RUN# range instead, because a partial history would compute
+  // wrong counters and then store them as if they were complete.
+  async listAllRuns(
+    sub: string,
+  ): Promise<Array<{ mode: string; score: number; completedAt: string }>> {
+    return (await this.listRunHistory(sub)).map(
+      ({ mode, score, completedAt }) => ({ mode, score, completedAt }),
+    );
   }
 
   async getRun(runId: string): Promise<RunItem | undefined> {

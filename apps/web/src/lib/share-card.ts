@@ -62,6 +62,15 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.closePath()
 }
 
+function playerNameFont(ctx: CanvasRenderingContext2D, name: string): string {
+  for (let size = 58; size >= 36; size -= 2) {
+    const font = `700 ${size}px "Clash Royale", system-ui, sans-serif`
+    ctx.font = font
+    if (ctx.measureText(name).width <= 700) return font
+  }
+  return '700 36px "Clash Royale", system-ui, sans-serif'
+}
+
 export async function renderShareCard(input: ShareCardInput): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
   canvas.width = SHARE_WIDTH
@@ -100,9 +109,18 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
   ctx.fillText(input.score, centreX, 730)
 
   if (input.playerName) {
-    ctx.fillStyle = '#f7f4ff'
-    ctx.font = '600 42px Inter, system-ui, sans-serif'
-    ctx.fillText(input.playerName, centreX, 800)
+    roundedRect(ctx, 150, 766, 780, 112, 30)
+    ctx.fillStyle = 'rgba(7, 6, 16, 0.72)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(245, 200, 76, 0.72)'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.fillStyle = '#d7c8ff'
+    ctx.font = '700 24px Inter, system-ui, sans-serif'
+    ctx.fillText('PLAYED BY', centreX, 803)
+    ctx.fillStyle = '#f5c84c'
+    ctx.font = playerNameFont(ctx, input.playerName)
+    ctx.fillText(input.playerName, centreX, 854)
   }
 
   // Cost-band squares: one per band, filled in proportion to accuracy. The
@@ -114,7 +132,7 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     const gap = 18
     const totalWidth = bands.length * box + (bands.length - 1) * gap
     let x = centreX - totalWidth / 2
-    const y = 880
+    const y = 914
     for (const band of bands) {
       const ratio = band.correct / band.total
       ctx.fillStyle = 'rgba(215, 200, 255, 0.16)'

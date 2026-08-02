@@ -5,6 +5,7 @@ import { signToken } from "../src/signing.js";
 const repository = vi.hoisted(() => ({
   getProfile: vi.fn(),
   listRecentRuns: vi.fn(),
+  listRunHistory: vi.fn(),
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("../src/repository.js", () => ({
   Repository: class {
     getProfile = repository.getProfile;
     listRecentRuns = repository.listRecentRuns;
+    listRunHistory = repository.listRunHistory;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
@@ -26,7 +28,7 @@ const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1_000);
 const sub = "player-sub";
 
-function meEvent(): APIGatewayProxyEventV2 {
+function meEvent(path = "/me"): APIGatewayProxyEventV2 {
   const session = signToken(
     { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3_600 },
     secret,
@@ -34,7 +36,7 @@ function meEvent(): APIGatewayProxyEventV2 {
   return {
     version: "2.0",
     routeKey: "$default",
-    rawPath: "/me",
+    rawPath: path,
     rawQueryString: "",
     headers: { authorization: `Bearer ${session}` },
     requestContext: {
@@ -44,7 +46,7 @@ function meEvent(): APIGatewayProxyEventV2 {
       domainPrefix: "test",
       http: {
         method: "GET",
-        path: "/me",
+        path,
         protocol: "HTTP/1.1",
         sourceIp: "127.0.0.1",
         userAgent: "vitest",
@@ -123,6 +125,72 @@ describe("GET /me recent runs", () => {
     expect(body.recentRuns.map((run: { mode: string }) => run.mode)).toEqual([
       "surge",
       "survival",
+    ]);
+  });
+});
+
+describe("GET /me/seasons", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+  });
+
+  it("groups the full paginated history instead of the recent-run window", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "new-1",
+        mode: "trade",
+        score: 91_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+      {
+        runId: "old-1",
+        mode: "surge",
+        score: 22_000,
+        seasonId: "2026-07",
+        completedAt: "2026-07-20T18:00:00.000Z",
+      },
+      {
+        runId: "old-2",
+        mode: "practice",
+        score: 0,
+        seasonId: "2026-07",
+        completedAt: "2026-07-19T18:00:00.000Z",
+      },
+      {
+        runId: "retired",
+        mode: "identify",
+        score: 8,
+        seasonId: "2025-10",
+        completedAt: "2025-10-01T00:00:00.000Z",
+      },
+    ]);
+
+    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    expect(result.statusCode).toBe(200);
+    expect(repository.listRunHistory).toHaveBeenCalledWith(sub);
+    expect(JSON.parse(result.body ?? "{}").seasons).toEqual([
+      {
+        id: "2026-08",
+        games: 1,
+        runs: [expect.objectContaining({ runId: "new-1", mode: "trade" })],
+      },
+      {
+        id: "2026-07",
+        games: 2,
+        runs: [
+          expect.objectContaining({ runId: "old-1", mode: "surge" }),
+          expect.objectContaining({ runId: "old-2", mode: "practice" }),
+        ],
+      },
     ]);
   });
 });

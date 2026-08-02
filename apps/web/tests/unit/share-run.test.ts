@@ -29,6 +29,13 @@ describe('run sharing', () => {
     expect(payload.copyText).toBe(`${payload.text}\n${payload.url}`)
   })
 
+  it('puts the public player name in both share-sheet fields', () => {
+    const payload = runSharePayload('surge', '15.04s', 'https://drop.poapkings.com/', 'Knight Main')
+
+    expect(payload.title).toBe('Knight Main · Surge: 15.04s | Elixir Drop')
+    expect(payload.text).toBe('Knight Main scored 15.04s in Surge on Elixir Drop. Can you beat it?')
+  })
+
   it('uses the native browser share feature when available', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     const writeText = vi.fn()

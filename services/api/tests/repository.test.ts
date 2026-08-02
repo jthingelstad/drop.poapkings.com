@@ -66,6 +66,49 @@ describe("repository DynamoDB requests", () => {
     expect(result?.player).not.toHaveProperty("sub");
   });
 
+  it("paginates the complete player run history newest first", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "new",
+            mode: "trade",
+            score: 91_000,
+            seasonId: "2026-08",
+            completedAt: "2026-08-02T18:00:00.000Z",
+          },
+        ],
+        LastEvaluatedKey: { pk: "PLAYER#private-sub", sk: "RUN#cursor" },
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "old",
+            mode: "surge",
+            score: 22_000,
+            seasonId: "2026-07",
+            completedAt: "2026-07-20T18:00:00.000Z",
+          },
+          { runId: "partial", mode: "surge" },
+        ],
+      });
+
+    await expect(
+      new Repository("test-table").listRunHistory("private-sub"),
+    ).resolves.toMatchObject([{ runId: "new" }, { runId: "old" }]);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+      ProjectionExpression: "runId, #mode, score, seasonId, completedAt",
+      ScanIndexForward: false,
+    });
+    expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
+      pk: "PLAYER#private-sub",
+      sk: "RUN#cursor",
+    });
+  });
+
   it("groups recent activity by player and mode before applying diversity limits", async () => {
     vi.spyOn(Date, "now").mockReturnValue(
       new Date("2026-07-22T15:00:00.000Z").getTime(),

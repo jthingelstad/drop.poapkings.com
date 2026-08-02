@@ -82,6 +82,16 @@ describe("rung derivation", () => {
     expect(rungIndexFor(clockbreaker, 12.861)).toBe(10);
     expect(clockbreaker.rungs.length - 1).toBe(11);
   });
+
+  it("gives a typical Trade learner an early rung and keeps the live best below the ceiling", () => {
+    const sharpTrade = BADGE_LIST.find((b) => b.slug === "sharp-trade")!;
+    // ~97s is the old 8-exchange median scaled to the current 10 reads.
+    expect(rungIndexFor(sharpTrade, 97)).toBe(4);
+    // The only current-board best (67.1s) clears through 72s, with six harder
+    // milestones still visible down to the 40s ceiling.
+    expect(rungIndexFor(sharpTrade, 67.1)).toBe(7);
+    expect(sharpTrade.rungs.at(-1)).toBe(40);
+  });
 });
 
 describe("advanceBadges", () => {

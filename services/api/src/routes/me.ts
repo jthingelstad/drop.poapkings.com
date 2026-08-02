@@ -75,6 +75,40 @@ export async function getMe({ event, config, repository }: RouteContext) {
   });
 }
 
+// GET /me/seasons — every current-mode run grouped by its authoritative season.
+// This is intentionally separate from /me: the global app shell refreshes /me,
+// while the full paginated history is only useful on the profile screen.
+export async function getMySeasons({
+  event,
+  config,
+  repository,
+}: RouteContext) {
+  const session = sessionFor(event, config.sessionSecret, true);
+  const runs = (await repository.listRunHistory(session.sub))
+    .filter((run): run is typeof run & { mode: GameMode } =>
+      isGameMode(run.mode),
+    )
+    .map(runRecordResponse);
+  const grouped = new Map<string, typeof runs>();
+  for (const run of runs) {
+    const season = grouped.get(run.seasonId) ?? [];
+    season.push(run);
+    grouped.set(run.seasonId, season);
+  }
+  console.info("Player season history read", {
+    requestId: event.requestContext.requestId,
+    seasons: grouped.size,
+    runs: runs.length,
+  });
+  return json(200, {
+    seasons: [...grouped.entries()].map(([id, seasonRuns]) => ({
+      id,
+      games: seasonRuns.length,
+      runs: seasonRuns,
+    })),
+  });
+}
+
 // The player's badge ladders, backfilling once from history if they have never
 // been computed (or the counter shape has moved on).
 //
@@ -90,20 +124,25 @@ async function badgeSummary(
   { event, repository }: RouteContext,
   sub: string,
   profile: { totalGames: number; xp?: number },
-  cardStats: Record<string, { correct: number }>,
+  cardStats?: Record<string, { correct: number }>,
 ) {
   try {
     const stored = await repository.getBadges(sub);
     if (stored && stored.version === BADGE_COUNTERS_VERSION) {
       return { badges: badgeStates(stored) };
     }
-    const runs = await repository.listAllRuns(sub);
+    const [runs, backfillCardStats] = await Promise.all([
+      repository.listAllRuns(sub),
+      cardStats
+        ? Promise.resolve(cardStats)
+        : repository.getCardStats(sub).catch(() => ({})),
+    ]);
     const at = new Date().toISOString();
     const counters = recomputeCounters(
       runs.filter((run): run is typeof run & { mode: GameMode } =>
         isGameMode(run.mode),
       ),
-      cardStats,
+      backfillCardStats,
       { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
       arenaForXp,
       at,
@@ -125,7 +164,7 @@ async function badgeSummary(
 
 // GET /players/{playerId} — the public, pseudonymous view of a player.
 export async function getPublicPlayer(
-  { event, repository }: RouteContext,
+  { event, config, repository }: RouteContext,
   rawPlayerId: string,
 ) {
   let playerId: string;
@@ -145,8 +184,14 @@ export async function getPublicPlayer(
       "player_not_found",
     );
   const recentRuns = await repository.listRecentRuns(lookup.sub, 10);
+  const badges = await badgeSummary(
+    { event, config, repository },
+    lookup.sub,
+    lookup.player,
+  );
   return json(200, {
     player: lookup.player,
+    badges,
     recentRuns: recentRuns
       .filter((run) => isGameMode(run.mode) && run.mode !== "practice")
       .map(runRecordResponse),

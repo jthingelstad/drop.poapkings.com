@@ -1,6 +1,14 @@
 import AxeBuilder from '@axe-core/playwright'
 import { cardsData, completeSurge, expect, test, waitForKeypad } from './fixtures'
 
+test('countdown artwork is dimmed behind the number', async ({ page }) => {
+  await page.goto('/#/surge')
+
+  const activeFrame = page.locator('.run-count__frame--on')
+  await expect(activeFrame).toBeVisible()
+  await expect(activeFrame).toHaveCSS('opacity', '0.3')
+})
+
 for (const speedrunKeyboard of [false, true]) {
   const layout = speedrunKeyboard ? 'speedrun' : 'normal'
   test(`surge accepts a landed iOS touch in the ${layout} keypad without waiting for click`, async ({
@@ -144,23 +152,31 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
     const shared = (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload
     const file = shared?.files?.[0]
     let dimensions: { width: number; height: number } | undefined
+    let imageBase64: string | undefined
     if (file) {
       // PNG stores its big-endian width/height in the IHDR header. Reading the
       // bytes avoids loading a blob: URL, which the production img-src CSP
       // deliberately disallows.
       const header = new DataView(await file.slice(0, 24).arrayBuffer())
       dimensions = { width: header.getUint32(16), height: header.getUint32(20) }
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      let binary = ''
+      for (let offset = 0; offset < bytes.length; offset += 16_384) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384))
+      }
+      imageBase64 = btoa(binary)
     }
     return {
       title: shared?.title,
       text: shared?.text,
       url: shared?.url,
-      file: file ? { name: file.name, type: file.type, size: file.size, ...dimensions } : undefined
+      file: file ? { name: file.name, type: file.type, size: file.size, ...dimensions } : undefined,
+      imageBase64
     }
   })
   expect(payload).toMatchObject({
-    title: expect.stringContaining('Surge:'),
-    text: expect.stringMatching(/I scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
+    title: expect.stringContaining('Knight Main · Surge:'),
+    text: expect.stringMatching(/Knight Main scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
     url: expect.stringMatching(/#\/surge$/),
     file: {
       name: 'elixir-drop.png',
@@ -171,6 +187,10 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
     }
   })
   expect(payload.file!.size).toBeGreaterThan(50_000)
+  await testInfo.attach('share-card.png', {
+    body: Buffer.from(payload.imageBase64!, 'base64'),
+    contentType: 'image/png'
+  })
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {

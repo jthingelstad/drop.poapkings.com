@@ -497,15 +497,19 @@ export const BADGES = [
     requirement: "Fastest Surge run",
   },
   {
-    // Only one recorded Trade best exists (67.1s), so the designed 30->7s ladder
-    // would have awarded nothing to anybody. Entry moved to 90s.
+    // The only current 10-exchange best is 67.1s; the preceding 8-exchange
+    // player cohort had a 77.6s median (~9.7s/read), which scales to ~97s before
+    // accounting for the new ladder's larger boards. A 90s entry would still
+    // make a first rung an above-median performance, and a 20s ceiling required
+    // two seconds per exchange. Start at a learnable 18s/read, tighten through
+    // the observed field, and leave 4s/read as the aspirational ceiling.
     slug: "sharp-trade",
     name: "Sharp Trade",
     group: "mode-skill",
     kind: "time",
-    rungs: [90, 75, 60, 50, 42, 35, 30, 25, 20],
+    rungs: [180, 150, 130, 115, 100, 90, 80, 72, 65, 60, 55, 50, 45, 40],
     unit: "seconds",
-    requirement: "Fastest correct Trade read",
+    requirement: "Fastest 10-exchange Trade run",
   },
   {
     // Measured: best single run 38.

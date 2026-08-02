@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'public/assets/og-image.png')
-const elixir = await readFile(path.join(root, 'public/assets/elixir-og.png'))
+const template = await readFile(path.join(root, 'public/assets/share/og-default.png'))
 const font = await readFile(path.join(root, 'public/assets/fonts/Clash_Regular.otf'))
 
 const browser = await chromium.launch()
@@ -20,37 +20,31 @@ await page.setContent(`
       body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #070610; font-family: "Clash Royale", system-ui, sans-serif; color: #f7f4ff; }
       .card {
         position: relative; width: 1200px; height: 630px; overflow: hidden;
-        background:
-          radial-gradient(900px 560px at 12% 0%, rgba(109, 40, 217, 0.55), transparent 60%),
-          radial-gradient(760px 480px at 92% 18%, rgba(245, 200, 76, 0.26), transparent 58%),
-          radial-gradient(850px 540px at 50% 100%, rgba(109, 40, 217, 0.25), transparent 65%),
-          linear-gradient(180deg, #070610, #0b0920);
       }
-      .frame { position: absolute; inset: 54px; border: 6px solid rgba(255,255,255,0.10); border-radius: 30px; box-shadow: 0 24px 80px rgba(0,0,0,0.45); }
-      h1 { position: absolute; left: 84px; top: 138px; margin: 0; font-size: 78px; letter-spacing: 0; text-shadow: 0 10px 40px rgba(0,0,0,0.5); }
-      p { position: absolute; left: 88px; margin: 0; color: #d7c8ff; font-size: 34px; line-height: 1.35; }
-      .sub { top: 274px; max-width: 570px; }
-      .by { top: 382px; color: #f5c84c; font-size: 31px; }
-      img { position: absolute; right: 112px; top: 110px; width: 390px; height: 390px; object-fit: contain; filter: drop-shadow(0 24px 42px rgba(0,0,0,0.45)); }
-      .drop { position: absolute; right: 464px; top: 116px; width: 52px; height: 70px; background: linear-gradient(180deg, #f5c84c, #c98c10); border-radius: 50% 50% 55% 55%; transform: rotate(180deg); box-shadow: 0 0 34px rgba(245,200,76,0.42); }
-      .drop::before { content: ""; position: absolute; left: 0; top: -31px; border-left: 26px solid transparent; border-right: 26px solid transparent; border-bottom: 38px solid #f5c84c; }
+      .bg { position: absolute; inset: 0; width: 1200px; height: 630px; object-fit: cover; }
+      .copy { position: absolute; left: 72px; top: 88px; width: 650px; }
+      .eyebrow { margin: 0 0 22px; color: #f5c84c; font-family: Inter, system-ui, sans-serif; font-size: 24px; font-weight: 800; letter-spacing: 0.13em; }
+      h1 { margin: 0; color: #f7f4ff; font-size: 100px; line-height: 0.88; text-shadow: 0 10px 42px rgba(0,0,0,0.8); }
+      .sub { margin: 34px 0 0; color: #d7c8ff; font-size: 41px; line-height: 1.18; text-shadow: 0 6px 26px rgba(0,0,0,0.9); }
+      .url { display: inline-block; margin-top: 38px; padding: 13px 20px 11px; border: 2px solid rgba(245,200,76,0.62); border-radius: 18px; background: rgba(7,6,16,0.74); color: #f5c84c; font-family: Inter, system-ui, sans-serif; font-size: 21px; font-weight: 800; letter-spacing: 0.06em; }
     </style>
   </head>
   <body>
     <main class="card">
-      <div class="frame"></div>
-      <span class="drop"></span>
-      <h1>Elixir Drop</h1>
-      <p class="sub">learn Clash Royale elixir costs</p>
-      <p class="by">run by POAP KINGS</p>
-      <img src="data:image/png;base64,${elixir.toString('base64')}" alt="">
+      <img class="bg" src="data:image/png;base64,${template.toString('base64')}" alt="">
+      <div class="copy">
+        <p class="eyebrow">A CLASH ROYALE ELIXIR GAME</p>
+        <h1>ELIXIR<br>DROP</h1>
+        <p class="sub">Know the cost.<br>Own the clock.</p>
+        <span class="url">FREE TO PLAY · DROP.POAPKINGS.COM</span>
+      </div>
     </main>
   </body>
 </html>`)
 // Ensure the @font-face is actually loaded before capturing, otherwise the
 // headline silently falls back to system-ui.
 await page.evaluate(async () => {
-  await document.fonts.load('78px "Clash Royale"')
+  await document.fonts.load('100px "Clash Royale"')
   await document.fonts.ready
 })
 await page.screenshot({ path: out, type: 'png' })

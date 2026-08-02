@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
-import { seasonEndsLabel } from '../../src/screens/home/home-data'
+import { seasonEndsLabel, surgeSeasonCallout } from '../../src/screens/home/home-data'
 import { scoreLabel, gameDisplay, RANKED_GAMES, GAMES } from '../../src/lib/game-metadata'
 import { installMode, installDismissed, dismissInstall } from '../../src/lib/pwa-install'
 import type { Season } from '@elixir-drop/contracts'
@@ -48,6 +48,31 @@ describe('season-ends label', () => {
     const soon = new Date(Date.now() + (3 * 3_600_000 + 30 * 60_000)).toISOString()
     expect(seasonEndsLabel(season(soon))).toBe('Season ends in 3h')
     expect(seasonEndsLabel(null)).toBe('Season in progress')
+  })
+})
+
+describe('Surge season callout', () => {
+  const leader = {
+    rank: 1,
+    score: 12_800,
+    achievedAt: '2026-08-02T00:00:00.000Z',
+    player: { id: 'leader', publicName: 'Leader', totalGames: 10, xp: 100, level: 2 }
+  }
+
+  it('turns the score gap into an actionable free-pass message', () => {
+    expect(surgeSeasonCallout([leader], 20_000, 'me')).toEqual({
+      title: 'Get 7.2s faster to take the lead',
+      detail: '#1 in Surge wins next season’s free pass.',
+      leading: false
+    })
+  })
+
+  it('recognizes the current leader', () => {
+    expect(surgeSeasonCallout([leader], 12_800, 'leader')).toEqual({
+      title: 'You lead the race for the free pass',
+      detail: 'Hold #1 through the season finish.',
+      leading: true
+    })
   })
 })
 
