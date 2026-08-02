@@ -1,0 +1,7 @@
+# Elixir Drop — https://drop.poapkings.com
+# A Clash Royale elixir-cost trainer, run by the POAP KINGS clan.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://drop.poapkings.com/sitemap.xml

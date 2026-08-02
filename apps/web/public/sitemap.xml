@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deliberately ONE url.
+
+  Drop is a hash-routed SPA (golden rule #4 — see CLAUDE.md), so every in-app
+  route is a fragment: #/surge, #/faq, #/leaderboards. Crawlers strip fragments
+  before requesting a URL, which means all ~18 routes resolve to this single
+  document. Listing them here would not add pages; it would submit eighteen
+  duplicates of "/" and hand Google a duplicate-content signal about our own
+  site.
+
+  Add entries here when a route is backed by a REAL file the server can return
+  on its own (a prerendered page, a generated card page) — not before.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://drop.poapkings.com/</loc>
+    <lastmod>2026-08-02</lastmod>
+  </url>
+</urlset>
