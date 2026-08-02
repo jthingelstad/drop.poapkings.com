@@ -9,6 +9,7 @@ import { player, accountStatus, signOut } from '../../lib/account'
 import { startScreensaver } from '../../lib/screensaver'
 import { rankFor } from '../../data/starRanks'
 import Icon from '../Icon'
+import ModeIcon from '../ModeIcon'
 import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
 import DesktopRightRail from './DesktopRightRail'
@@ -41,7 +42,7 @@ function LeftRail() {
           aria-current={r.startsWith('/practice') ? 'page' : undefined}
           onClick={() => navigate('/practice')}
         >
-          <Icon name="target" />
+          <ModeIcon mode="practice" size={24} />
           Practice
           <span class="ed-nav__badge">Unranked</span>
         </button>
