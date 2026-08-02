@@ -6,6 +6,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import { rankFor } from '../data/starRanks'
 import { ApiError, getPublicPlayer, type PublicPlayer as PublicPlayerData, type RecentRun } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
+import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { playerIdFromRoute, publicPlayerPreview } from '../lib/public-player'
 import { back, navigate, route } from '../lib/router'
@@ -112,7 +113,7 @@ export default function PublicProfile() {
               return (
                 <li key={run.runId}>
                   <span class="ed-profile__recent-name">
-                    <span aria-hidden="true">{game.icon}</span> {game.name}
+                    <ModeIcon mode={run.mode} size={24} /> {game.name}
                   </span>
                   <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
                   <time dateTime={run.completedAt}>

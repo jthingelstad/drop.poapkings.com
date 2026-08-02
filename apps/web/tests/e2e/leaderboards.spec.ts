@@ -102,6 +102,6 @@ test('an empty leaderboard offers a play call-to-action', async ({ page }) => {
   })
 
   await page.goto('/#/leaderboards')
-  await expect(page.locator('.ed-board__empty')).toContainText('No scores yet.')
+  await expect(page.locator('.ed-board__empty')).toContainText('Nobody has posted')
   await expect(page.getByRole('button', { name: /Play Surge/ })).toBeVisible()
 })

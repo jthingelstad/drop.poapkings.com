@@ -34,7 +34,7 @@ const SURGE = {
 
 const CORRECT_BEAT_MS = 280
 const WRONG_BEAT_MS = 430
-const COUNTDOWN_STEP_MS = 650
+const COUNTDOWN_STEP_MS = 700
 
 export default function Surge() {
   const gameRun = useGameSession('surge', challengePreparers.surge)

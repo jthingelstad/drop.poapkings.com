@@ -415,12 +415,26 @@ describe('analytics loader', () => {
 
 describe('game-metadata', () => {
   it('gameDisplay returns name + icon for every mode incl. rain', () => {
-    expect(gameDisplay('surge')).toEqual({ name: 'Surge', icon: '⚡' })
+    // The emoji stays alongside the painted art — it is still what plain-text
+    // surfaces (share text, document.title) render.
+    expect(gameDisplay('surge')).toEqual({
+      name: 'Surge',
+      icon: '⚡',
+      art: '/assets/modes/surge-192.png'
+    })
     expect(gameDisplay('practice').name).toBe('Practice')
     expect(gameDisplay('higher-lower').name).toBe('Higher / Lower')
-    expect(gameDisplay('trade')).toEqual({ name: 'Trade', icon: '👑' })
+    expect(gameDisplay('trade')).toEqual({
+      name: 'Trade',
+      icon: '👑',
+      art: '/assets/modes/trade-192.png'
+    })
     expect(gameDisplay('survival').icon).toBe('💀')
-    expect(gameDisplay('rain')).toEqual({ name: 'Rain', icon: '🌧️' })
+    expect(gameDisplay('rain')).toEqual({
+      name: 'Rain',
+      icon: '🌧️',
+      art: '/assets/modes/rain-192.png'
+    })
   })
 
   it('scoreLabel formats per mode', () => {

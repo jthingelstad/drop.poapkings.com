@@ -2,14 +2,18 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { track } from '../lib/analytics'
 import { gameDisplay } from '../lib/game-metadata'
-import { runSharePayload, shareRun, type RunShareOutcome } from '../lib/share-run'
+import { runSharePayload, shareRunCard, type RunShareOutcome } from '../lib/share-run'
 import Icon from './Icon'
 import type { GameMode } from '@elixir-drop/contracts'
+import type { ShareCardInput } from '../lib/share-card'
 
 interface Props {
   mode: GameMode
   score: string
   compact?: boolean
+  // Everything the composited share card draws on top of the backdrop. Absent
+  // for surfaces that only have a mode and a score, which share as text.
+  card?: Omit<ShareCardInput, 'mode' | 'score'>
 }
 
 function buttonLabel(outcome: RunShareOutcome | null, sharing: boolean): string {
@@ -19,7 +23,7 @@ function buttonLabel(outcome: RunShareOutcome | null, sharing: boolean): string 
   return 'Share score'
 }
 
-export default function ShareLine({ mode, score, compact = false }: Props) {
+export default function ShareLine({ mode, score, compact = false, card }: Props) {
   const outcome = useSignal<RunShareOutcome | null>(null)
   const sharing = useSignal(false)
   const game = gameDisplay(mode)
@@ -33,7 +37,7 @@ export default function ShareLine({ mode, score, compact = false }: Props) {
     if (sharing.value) return
     sharing.value = true
     outcome.value = null
-    const result = await shareRun(runSharePayload(mode, score))
+    const result = await shareRunCard(runSharePayload(mode, score), { mode, score, ...card })
     sharing.value = false
     outcome.value = result === 'cancelled' ? null : result
     if (result === 'shared' || result === 'copied') {

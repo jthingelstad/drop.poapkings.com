@@ -70,7 +70,9 @@ describe("magic-link email", () => {
 
     expect(html).toContain("Ready to drop some elixir?");
     expect(html).toContain("Let's drop!");
-    expect(html).toContain("https://drop.poapkings.com/assets/elixir-hype.png");
+    expect(html).toContain(
+      "https://drop.poapkings.com/assets/icon/drop-icon-512.png",
+    );
     expect(html).toContain("Button being stubborn?");
     expect(html).toContain("&amp;unsafe=&lt;script&gt;");
     expect(html).not.toContain("<script>");

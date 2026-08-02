@@ -3,6 +3,7 @@
 // identical across layouts — only the surrounding container/grid differs).
 
 import Icon from '../../components/Icon'
+import ModeIcon from '../../components/ModeIcon'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
@@ -46,6 +47,7 @@ export function SurgeHero({ data, withHours = false }: { data: HomeData; withHou
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
         <span class="ed-pill ed-pill--gold">{seasonEndsLabel(data.season, withHours)}</span>
+        <ModeIcon mode="surge" size={60} className="ed-hero__art" />
         <div class="ed-hero__wordmark">SURGE</div>
         <p class="ed-hero__desc">15 cards. Name each elixir cost against the clock.</p>
         <div class="ed-hero__cta">
@@ -84,6 +86,7 @@ export function MoreGameCard({
       <GameMotes dense={!!game.accent} />
       <div class="ed-gcard__body">
         <div class="ed-gcard__title">
+          {game.mode && <ModeIcon mode={game.mode} size={50} className="ed-gcard__art" />}
           {game.name}
           {game.badge && <span class="ed-gcard__badge">{game.badge}</span>}
         </div>

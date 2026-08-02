@@ -13,8 +13,10 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
+  getBadges: vi.fn(),
   getRun: vi.fn(),
   putRefereeEvidence: vi.fn(),
+  saveBadges: vi.fn(),
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
   useRateLimit: vi.fn(),
@@ -28,8 +30,10 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
+    getBadges = repository.getBadges;
     getRun = repository.getRun;
     putRefereeEvidence = repository.putRefereeEvidence;
+    saveBadges = repository.saveBadges;
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
     useRateLimit = repository.useRateLimit;
@@ -152,7 +156,9 @@ describe("run completion side effects are best effort", () => {
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
     repository.putRefereeEvidence.mockResolvedValue(undefined);
-    repository.updateAllTimeBest.mockResolvedValue(undefined);
+    repository.updateAllTimeBest.mockResolvedValue({ improved: false });
+    repository.getBadges.mockResolvedValue(undefined);
+    repository.saveBadges.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getRun.mockResolvedValue({
       pk: "RUN#run-1",
@@ -180,6 +186,45 @@ describe("run completion side effects are best effort", () => {
     expect(result.statusCode).toBe(201);
     expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
     expect(publishDiscordEvent).toHaveBeenCalledOnce();
+  });
+
+  it("records the run when the badge write fails", async () => {
+    repository.saveBadges.mockRejectedValue(new Error("badge table down"));
+
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
+    // No rungs come back, but the game itself is untouched.
+    expect(result.body.earnedBadges).toBeUndefined();
+    expect(publishDiscordEvent).toHaveBeenCalledOnce();
+  });
+
+  it("records the run when the badge read fails", async () => {
+    repository.getBadges.mockRejectedValue(new Error("throttled"));
+
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    expect(repository.saveBadges).not.toHaveBeenCalled();
+  });
+
+  it("returns the rungs a run cleared so the summary can celebrate them", async () => {
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    const earned = result.body.earnedBadges as Array<{ slug: string }>;
+    const slugs = earned.map((rung) => rung.slug);
+    // A fast, clean 15-card sprint climbs several Clockbreaker rungs at once
+    // and takes Full Cup, whose 6+ cost cards were all named first try.
+    expect(slugs).toContain("clockbreaker");
+    expect(slugs).toContain("full-cup");
+    // But one run is one run: the volume and habit ladders open at 10 Surge
+    // runs, a 3-day streak and 5 games in a day, so none of them move yet.
+    expect(slugs).not.toContain("surge-runner");
+    expect(slugs).not.toContain("daily-drop");
+    expect(slugs).not.toContain("marathon");
+    expect(repository.saveBadges).toHaveBeenCalledOnce();
   });
 
   it("records the run when the all-time projection fails", async () => {

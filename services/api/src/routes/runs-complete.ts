@@ -1,4 +1,13 @@
+import { arenaForXp } from "@elixir-drop/contracts";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import {
+  advanceBadges,
+  BADGE_COUNTERS_VERSION,
+  emptyCounters,
+  hiddenSignals,
+  localStamp,
+  type EarnedRung,
+} from "../badges.js";
 import {
   completedGameWebhookPayload,
   publishDiscordEvent,
@@ -257,9 +266,12 @@ async function recordSignedInRun(
   // Best-effort all-time best per mode, outside the completeRun transaction so
   // a "not a new best" no-op can never roll back the recorded run. Ranked
   // only; Practice keeps no board.
+  let personalBest: { improved: boolean; previousScore?: number } = {
+    improved: false,
+  };
   if (run.ranked !== false) {
     try {
-      await repository.updateAllTimeBest(
+      personalBest = await repository.updateAllTimeBest(
         run,
         score,
         tiebreaks,
@@ -305,6 +317,19 @@ async function recordSignedInRun(
       });
     }
   }
+  // Badges fold in after the run is recorded, on the same best-effort contract
+  // as learning stats: a badge failure must never roll back a recorded game.
+  // Practice counts here even though it earns no XP — Reps and Clean Sweep are
+  // Practice badges, and badges reward the drill that the arena deliberately
+  // does not.
+  const newlyEarned = await updateBadges(repository, run, transcript, {
+    score,
+    completedAt: result.completedAt,
+    totalGames: result.totalGames,
+    xp: result.profile.xp ?? 0,
+    tzOffsetMinutes: body.tzOffsetMinutes,
+    personalBest,
+  });
   const crProfile = await completedGameCrProfile(
     repository,
     result.profile,
@@ -351,7 +376,84 @@ async function recordSignedInRun(
     totalGames: result.totalGames,
     xp: result.profile.xp ?? 0,
     ...levelForGames(result.totalGames),
+    ...(newlyEarned.length ? { earnedBadges: newlyEarned } : {}),
   });
+}
+
+// Fold the completed run into the player's badge counters. Best-effort, exactly
+// like updateLearningStats below: a badge write that fails leaves the run
+// recorded and simply means the rung is picked up on the next completion, since
+// counters are derived from history rather than accumulated blindly.
+async function updateBadges(
+  repository: Repository,
+  run: RunItem,
+  transcript: RunTranscript,
+  context: {
+    score: number;
+    completedAt: string;
+    totalGames: number;
+    xp: number;
+    tzOffsetMinutes: unknown;
+    personalBest: { improved: boolean; previousScore?: number };
+  },
+): Promise<EarnedRung[]> {
+  try {
+    const stored = (await repository.getBadges(run.owner)) ?? emptyCounters();
+    const counters =
+      stored.version === BADGE_COUNTERS_VERSION ? stored : emptyCounters();
+    const { localDay, localHour } = localStamp(
+      context.completedAt,
+      context.tzOffsetMinutes,
+    );
+    const answers = Array.isArray(transcript.answers)
+      ? transcript.answers.length
+      : 0;
+    // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
+    // meaning on a streak or a cleared count, so it is scoped to the two modes
+    // whose score IS a duration in milliseconds.
+    const isTimed = run.mode === "surge" || run.mode === "trade";
+    const improvementMs =
+      context.personalBest.previousScore !== undefined
+        ? context.personalBest.previousScore - context.score
+        : undefined;
+    const photoFinish =
+      isTimed &&
+      context.personalBest.improved &&
+      improvementMs !== undefined &&
+      improvementMs > 0 &&
+      improvementMs < 100;
+    // Cold Open: the first run of your local day is a personal best. The stored
+    // counters still hold the PREVIOUS run's day, which is what makes "first
+    // today" answerable without another read.
+    const coldOpen =
+      context.personalBest.improved && counters.aux.lastDay !== localDay;
+    const { counters: advanced, newlyEarned } = advanceBadges(counters, {
+      mode: run.mode,
+      score: context.score,
+      completedAt: context.completedAt,
+      localDay,
+      localHour,
+      answered: answers,
+      correctCards: cardResultsFromTranscript(run.challenge, transcript)
+        .filter((result) => result.correct)
+        .map((result) => result.cardId),
+      totalGames: context.totalGames,
+      arena: arenaForXp(context.xp),
+      practiceClean:
+        run.mode === "practice" && context.score === 100 && answers >= 20,
+      ...(photoFinish ? { photoFinish: true } : {}),
+      ...(coldOpen ? { coldOpen: true } : {}),
+      ...hiddenSignals(run.mode, transcript),
+    });
+    await repository.saveBadges(run.owner, advanced, context.completedAt);
+    return newlyEarned;
+  } catch (error) {
+    console.warn("Badge update failed", {
+      runId: run.runId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return [];
+  }
 }
 
 // The mode's ordered leaderboard tiebreaks, read off the same validated

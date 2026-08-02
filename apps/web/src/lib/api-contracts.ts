@@ -132,11 +132,29 @@ export const learningSummarySchema = z.object({
   costAccuracy: z.record(z.string(), z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger }))
 })
 
+export const badgeStateSchema = z.object({
+  slug: nonEmptyString,
+  value: z.number().finite(),
+  // -1 when no rung is cleared yet.
+  rungIndex: safeInteger.min(-1),
+  earnedAt: z.array(isoDateTime),
+  // `time` ladders only: runs landed at or under each rung.
+  runsAtRung: z.optional(z.array(nonNegativeInteger))
+})
+
+export const badgeSummarySchema = z.object({
+  badges: z.array(badgeStateSchema),
+  // Set once, on the response that first rebuilt a player's ladders from
+  // history — the client shows a single summary instead of celebrating.
+  backfilled: z.optional(z.boolean())
+})
+
 export const meResponseSchema = z.object({
   player: playerSchema,
   recentRuns: z.array(recentRunSchema),
   // Absent from older responses.
-  learning: z.optional(learningSummarySchema)
+  learning: z.optional(learningSummarySchema),
+  badges: z.optional(badgeSummarySchema)
 })
 
 export const nameOptionsResponseSchema = z.object({
@@ -179,7 +197,19 @@ const runCompletionFields = {
   xp: nonNegativeInteger.default(0),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
-  nextLevelGames: nonNegativeInteger
+  nextLevelGames: nonNegativeInteger,
+  // Rungs this run cleared, so the summary can celebrate exactly those. Absent
+  // when the run moved nothing.
+  earnedBadges: z.optional(
+    z.array(
+      z.object({
+        slug: nonEmptyString,
+        rungIndex: nonNegativeInteger,
+        value: z.number().finite(),
+        at: isoDateTime
+      })
+    )
+  )
 }
 
 // A recorded (signed-in) completion carries the full progress payload; a guest

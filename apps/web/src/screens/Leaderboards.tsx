@@ -7,6 +7,8 @@ import { player } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { formatSeconds } from '../lib/format'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
+import EmptyState from '../components/EmptyState'
+import ModeIcon from '../components/ModeIcon'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
 
@@ -148,7 +150,7 @@ export default function Leaderboards() {
               onClick={() => (mode.value = game.mode)}
               key={game.mode}
             >
-              <span aria-hidden="true">{game.icon}</span> {game.name}
+              <ModeIcon mode={game.mode} size={44} /> {game.name}
             </button>
           ))}
         </div>
@@ -167,11 +169,13 @@ export default function Leaderboards() {
             ))}
             {!entries.value.length && (
               <li class="ed-board__empty">
-                <strong>No scores yet.</strong>
-                <span>First run gets the crown.</span>
-                <button class="ed-textlink" onClick={() => navigate(selectedGame.path)}>
-                  Play {selectedGame.name} <Icon name="arrow-right" />
-                </button>
+                <EmptyState
+                  art="empty-board"
+                  heading="Nobody has posted"
+                  line="First run on this board takes the crown."
+                  actionLabel={`Play ${selectedGame.name}`}
+                  href={selectedGame.path}
+                />
               </li>
             )}
           </ol>

@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
+import type { BadgeState } from './badges'
 import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin, type RecentRun } from './api'
 
 interface StoredSession {
@@ -11,6 +12,13 @@ const SESSION_KEY = 'elixirdrop:session:v1'
 
 export const player = signal<Player | null>(null)
 export const recentRuns = signal<RecentRun[]>([])
+// Server-owned badge ladders, refreshed with the rest of /me. Empty for a
+// signed-out player: badges are per-account and there is nothing to show.
+export const badges = signal<BadgeState[]>([])
+// True on the one response that rebuilt a player's ladders from history, so the
+// UI can show a single "here's what you've already earned" summary instead of
+// queueing forty celebrations.
+export const badgesBackfilled = signal(false)
 export type AccountStatus = 'loading' | 'anonymous' | 'authenticated' | 'unavailable'
 export const accountStatus = signal<AccountStatus>('loading')
 export const accountError = signal('')
@@ -62,6 +70,7 @@ async function initializeAccountOnce(): Promise<void> {
   if (!session) {
     player.value = null
     recentRuns.value = []
+    badges.value = []
     accountStatus.value = 'anonymous'
     return
   }
@@ -71,12 +80,14 @@ async function initializeAccountOnce(): Promise<void> {
     const response = await getMe(refreshed.session.token)
     player.value = response.player
     recentRuns.value = response.recentRuns
+    applyBadges(response.badges)
     accountStatus.value = 'authenticated'
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       saveSession(undefined)
       player.value = null
       recentRuns.value = []
+      badges.value = []
       accountStatus.value = 'anonymous'
       return
     }
@@ -90,6 +101,7 @@ async function hydrateSession(newSession: StoredSession): Promise<Player> {
   const me = await getMe(newSession.token)
   player.value = me.player
   recentRuns.value = me.recentRuns
+  applyBadges(me.badges)
   accountError.value = ''
   accountStatus.value = 'authenticated'
   return me.player
@@ -124,6 +136,7 @@ export async function refreshAccount(): Promise<void> {
     const response = await getMe(session.token)
     player.value = response.player
     recentRuns.value = response.recentRuns
+    applyBadges(response.badges)
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) signOut()
     throw error
@@ -162,6 +175,14 @@ export function signOut(): void {
   saveSession(undefined)
   player.value = null
   recentRuns.value = []
+  badges.value = []
   accountError.value = ''
   accountStatus.value = 'anonymous'
+}
+
+function applyBadges(summary: { badges: BadgeState[]; backfilled?: boolean } | undefined): void {
+  badges.value = summary?.badges ?? []
+  // Latches on: the flag only rides the one response that did the rebuild, and
+  // the UI needs it to survive until it has been shown.
+  if (summary?.backfilled) badgesBackfilled.value = true
 }

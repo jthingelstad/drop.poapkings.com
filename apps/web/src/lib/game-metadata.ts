@@ -7,7 +7,11 @@ export interface GameInfo {
   mode: GameMode
   path: GamePath
   name: string
+  // The emoji stays alongside the painted art: it is still the right thing in
+  // plain-text contexts (the share text block, document.title, notifications)
+  // where an <img> cannot go. `art` is what every VISUAL surface renders.
   icon: string
+  art: string
   description: string
   // Practice is true practice: an endless drill that touches no competitive or
   // progression surface — no leaderboard, no leaderboard tab, no record, no XP.
@@ -21,6 +25,7 @@ export const GAMES: GameInfo[] = [
     path: '/surge',
     name: 'Surge',
     icon: '⚡',
+    art: '/assets/modes/surge-192.png',
     description: '15 cards. Name each elixir cost against the clock.'
   },
   {
@@ -28,6 +33,7 @@ export const GAMES: GameInfo[] = [
     path: '/practice',
     name: 'Practice',
     icon: '🎯',
+    art: '/assets/modes/practice-192.png',
     description: 'Learn elixir costs at your own pace — no clock, no rankings.',
     unranked: true
   },
@@ -36,6 +42,7 @@ export const GAMES: GameInfo[] = [
     path: '/higher-lower',
     name: 'Higher / Lower',
     icon: '⚖️',
+    art: '/assets/modes/higher-lower-192.png',
     description: 'Two cards — which one costs more? 3 lives.'
   },
   {
@@ -43,6 +50,7 @@ export const GAMES: GameInfo[] = [
     path: '/trade',
     name: 'Trade',
     icon: '👑',
+    art: '/assets/modes/trade-192.png',
     description: 'Read the elixir trade from Blue King side.'
   },
   {
@@ -50,6 +58,7 @@ export const GAMES: GameInfo[] = [
     path: '/survival',
     name: 'Survival',
     icon: '💀',
+    art: '/assets/modes/survival-192.png',
     description: 'Sudden death — one miss ends the run.'
   },
   {
@@ -57,6 +66,7 @@ export const GAMES: GameInfo[] = [
     path: '/rain',
     name: 'Rain',
     icon: '🌧️',
+    art: '/assets/modes/rain-192.png',
     description: 'Cards fall from the sky — clear each cost before it lands. 3 lives.'
   }
 ]
@@ -65,18 +75,18 @@ export const RANKED_GAMES = GAMES.filter((game) => !game.unranked)
 
 // Display names/icons for every launched mode, so runs render consistently in
 // activity lists and profiles.
-const ALL_MODE_DISPLAY: Record<GameMode, { name: string; icon: string }> = {
-  surge: { name: 'Surge', icon: '⚡' },
-  practice: { name: 'Practice', icon: '🎯' },
-  'higher-lower': { name: 'Higher / Lower', icon: '⚖️' },
-  trade: { name: 'Trade', icon: '👑' },
-  survival: { name: 'Survival', icon: '💀' },
-  rain: { name: 'Rain', icon: '🌧️' }
+const ALL_MODE_DISPLAY: Record<GameMode, { name: string; icon: string; art: string }> = {
+  surge: { name: 'Surge', icon: '⚡', art: '/assets/modes/surge-192.png' },
+  practice: { name: 'Practice', icon: '🎯', art: '/assets/modes/practice-192.png' },
+  'higher-lower': { name: 'Higher / Lower', icon: '⚖️', art: '/assets/modes/higher-lower-192.png' },
+  trade: { name: 'Trade', icon: '👑', art: '/assets/modes/trade-192.png' },
+  survival: { name: 'Survival', icon: '💀', art: '/assets/modes/survival-192.png' },
+  rain: { name: 'Rain', icon: '🌧️', art: '/assets/modes/rain-192.png' }
 }
 
-export function gameDisplay(mode: GameMode): { name: string; icon: string } {
+export function gameDisplay(mode: GameMode): { name: string; icon: string; art: string } {
   const game = GAME_BY_MODE.get(mode)
-  return game ? { name: game.name, icon: game.icon } : ALL_MODE_DISPLAY[mode]
+  return game ? { name: game.name, icon: game.icon, art: game.art } : ALL_MODE_DISPLAY[mode]
 }
 
 export const GAME_BY_MODE = new Map(GAMES.map((game) => [game.mode, game]))

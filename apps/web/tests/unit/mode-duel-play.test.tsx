@@ -128,7 +128,8 @@ async function click(el: Element | null | undefined): Promise<void> {
   })
 }
 
-// Walk the real 3-2-1 countdown (COUNTDOWN_STEP_MS = 650) to the running board.
+// Walk the real 3 · 2 · 1 · GO countdown (700ms a numeral, 250ms on GO) to the
+// running board.
 // Small steps interleave the async start()'s microtasks with the countdown
 // timers and stop the moment the board appears (minimal overshoot into play).
 async function toRunning(root: HTMLElement): Promise<void> {

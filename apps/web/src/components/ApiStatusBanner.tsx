@@ -2,6 +2,7 @@ import { useSignal } from '@preact/signals'
 import { accountStatus, initializeAccount } from '../lib/account'
 import { getStats } from '../lib/api'
 import { apiAvailability, apiUnavailableReason } from '../lib/api-availability'
+import Icon from './Icon'
 
 export default function ApiStatusBanner() {
   const reconnecting = useSignal(false)
@@ -24,7 +25,7 @@ export default function ApiStatusBanner() {
 
   return (
     <aside class="api-status" role="alert" aria-live="polite">
-      <img src="/assets/emoji/elixir_time.png" alt="" class="api-status__icon" aria-hidden="true" />
+      <Icon name="clock" className="api-status__icon" />
       <div class="api-status__copy">
         <h2>{offline ? 'Drop can’t reach the internet' : 'Drop is taking a quick elixir break'}</h2>
         <p>

@@ -28,7 +28,7 @@ const ADVANCE_DELAY_CORRECT = 750
 const ADVANCE_DELAY_WRONG = 1400
 // A 3-2-1 before each explicitly started run so the round clock never starts
 // while the player is still reading or away from the controls.
-const COUNTDOWN_STEP_MS = 650
+const COUNTDOWN_STEP_MS = 700
 // Three lives, like Rain. A wrong tap OR a timeout costs one and the run keeps
 // going, so the score is every correct read in the session — not the longest
 // unbroken streak. Matches HIGHER_LOWER_LIVES in the server scorer.

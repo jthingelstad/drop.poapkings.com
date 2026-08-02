@@ -32,9 +32,9 @@ decisions.
    is in `apps/web/public/CNAME`; Vite uses `base: '/'`; history routing will 404
    on Pages. The deploy build needs no secrets.
 5. **Vendor the look; don't link it.** Copy POAP KINGS design tokens, fonts, and
-   reused component CSS into `apps/web/src/styles.css` and its assets. Bundle a
-   copy of the Elixir avatar in `apps/web/public/assets`. No runtime asset link to
-   the clan site.
+   reused component CSS into `apps/web/src/styles.css` and its assets. No runtime
+   asset link to the clan site. (The Elixir mascot emote set that this rule used
+   to bundle was removed; the app icon in `assets/icon/` is the brand mark now.)
 6. **Fan-content & copyright.** Card art is used under Supercell's Fan Content
    Policy: non-commercial, attributed, keep the footer disclaimer. Don't reproduce
    other copyrighted text.
@@ -170,6 +170,21 @@ rank-oriented fields as part of unrelated work.
   collection (removed — it has no use in Drop; the count stays). Player tags
   remain unverified ownership. Drop's own arena (below) is a native construct
   from Player XP — unrelated to CR arenas.
+- **Badges are ladders, and awarding is a pure function of counters.** A badge is
+  ONE monotonic counter plus an ordered rung list (`BADGES` in
+  `packages/contracts`) — not three tiers. Three counter kinds: `count` and
+  `best` clear on `value >= rung`, `time` clears on `value <= rung` and also
+  keeps a per-rung run count. `services/api/src/badges.ts` is the whole engine
+  and is pure — no I/O — so counters can be recomputed from history, which is
+  what makes a badge added later retroactive. Two invariants: counters only move
+  favourably, and **nothing earned is ever revoked** (a broken daily streak
+  lowers no badge). Storage is one `PLAYER#{sub}/BADGES` item, written
+  best-effort *outside* the `completeRun` transaction exactly like learning
+  stats — a badge failure must never roll back a recorded run. **Badges award no
+  XP**: they stand alone, so a retroactive backfill cannot jump a player several
+  arenas. Rungs were calibrated against the live boards on 2026-08-02, not
+  copied from the design draft; the ladders with no live data behind them are
+  marked "scaled" in the table and want a re-check.
 - **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is
   server-computed in `services/api/src/xp.ts` (`runXp` = questions attempted in
   a run, right or wrong; floor 1), added to the `PLAYER#/PROFILE` item inside

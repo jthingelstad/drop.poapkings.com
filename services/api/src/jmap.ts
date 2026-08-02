@@ -203,13 +203,18 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
+// The sign-in email's hero image. This was the Elixir mascot until the emote
+// set was retired; the app icon is the remaining brand mark that is safe to
+// hotlink from an inbox.
 function defaultImageUrl(magicLink: string): string {
   try {
-    return new URL("/assets/elixir-hype.png", magicLink).toString();
+    return new URL(DEFAULT_IMAGE_PATH, magicLink).toString();
   } catch {
-    return "https://drop.poapkings.com/assets/elixir-hype.png";
+    return `https://drop.poapkings.com${DEFAULT_IMAGE_PATH}`;
   }
 }
+
+const DEFAULT_IMAGE_PATH = "/assets/icon/drop-icon-512.png";
 
 export function magicLinkEmailSubject(): string {
   return "Your Elixir Drop sign-in link";

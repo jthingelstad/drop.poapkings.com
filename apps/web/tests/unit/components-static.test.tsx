@@ -493,7 +493,7 @@ describe('PlayerAvatar', () => {
     const html = await render(<PlayerAvatar />)
     expect(html).toContain('player-avatar--fallback')
     expect(html).toContain('player-avatar--medium')
-    expect(html).toContain('/assets/emoji/elixir.png')
+    expect(html).toContain('/assets/icon/drop-icon-192.png')
     expect(html).toContain('alt="Elixir Drop player"')
   })
 
@@ -510,7 +510,7 @@ describe('PlayerAvatar', () => {
   it('falls back when the favorite card id is not in the catalog', async () => {
     const html = await render(<PlayerAvatar favoriteCardId={123} />)
     expect(html).toContain('player-avatar--fallback')
-    expect(html).toContain('/assets/emoji/elixir.png')
+    expect(html).toContain('/assets/icon/drop-icon-192.png')
   })
 })
 

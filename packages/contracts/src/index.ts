@@ -351,3 +351,395 @@ export interface GuestRunCompletion {
 }
 
 export type RunCompletion = CompletedRun | GuestRunCompletion;
+
+// Lifetime Player XP required to reach each of the 28 arenas. XP is an activity
+// score — one point per question practiced — so early arenas fall inside a
+// session and the summit is a genuine long-haul.
+//
+// This lives in contracts because BOTH surfaces need it and neither may import
+// the other: apps/web renders the arena (names and art stay client-side, in
+// data/starRanks.ts, which derives its thresholds from this array), and the
+// Arena Climber badge resolves a player's tier server-side.
+export const ARENA_XP_THRESHOLDS: readonly number[] = [
+  0, 40, 100, 200, 350, 550, 800, 1_100, 1_500, 2_000, 2_600, 3_300, 4_200,
+  5_300, 6_600, 8_100, 9_900, 12_000, 14_500, 17_400, 20_800, 24_800, 29_500,
+  35_000, 41_500, 49_000, 58_000, 68_000,
+];
+
+// The arena number (1-28) for a lifetime XP total.
+export function arenaForXp(xp: number): number {
+  let arena = 1;
+  for (let i = 0; i < ARENA_XP_THRESHOLDS.length; i += 1) {
+    const threshold = ARENA_XP_THRESHOLDS[i];
+    if (threshold === undefined || xp < threshold) break;
+    arena = i + 1;
+  }
+  return arena;
+}
+
+// ── Badges ───────────────────────────────────────────────────────────────────
+//
+// A badge is ONE monotonic counter and an ordered list of rungs — not three
+// tiers. A long ladder always has a next rung visible, so the badge keeps
+// motivating the player who cared most, and rung one can land in a first session
+// while the top rung takes a year.
+//
+// Three counter kinds cover all 29 badges:
+//   count — events, only ever climbs;      rung clears at value >= rung
+//   best  — personal best, higher better;  rung clears at value >= rung
+//   time  — personal best in seconds, LOWER better; rung clears at value <= rung
+//
+// Two invariants the engine must never break: counters only move in their
+// favourable direction, and **nothing earned is ever revoked** (a broken daily
+// streak cannot take a badge back). Awarding is therefore a pure function of the
+// counters, which is what makes badges recomputable from history.
+//
+// The rungs below were calibrated against Drop's live leaderboards on
+// 2026-08-02, NOT copied from the design-time proposal in the Claude Design
+// project's `Badge Set.md`. That draft assumed thousands of players; Drop had 16
+// with a recorded Surge best. Its Clockbreaker ladder put five consecutive rungs
+// (13-17s) above a 4.7s gap in the real field, so four of them separated nobody,
+// while its entry rung excluded 31% of players outright. Where a ladder is
+// marked "scaled", no live data existed for that counter and the rungs are a
+// proportional reduction against the observed activity ceiling — re-check those
+// once badge counters have a month of real data behind them.
+
+export type BadgeCounterKind = "count" | "best" | "time";
+
+export type BadgeGroup =
+  | "mode-mastery"
+  | "mode-skill"
+  | "progression"
+  | "card-knowledge"
+  | "habit"
+  | "hidden";
+
+export interface BadgeDefinition {
+  slug: string;
+  name: string;
+  group: BadgeGroup;
+  kind: BadgeCounterKind;
+  // Ascending for count/best, DESCENDING for time (each rung is harder).
+  rungs: readonly number[];
+  // What the medallion chip shows: "18s", "150", "2.5K" — never a roman numeral.
+  unit?: "seconds" | "plain";
+  // Hidden badges render as a black silhouette until earned: no name, no
+  // requirement, no progress bar, and never a "3 of 7 found" count.
+  hidden?: true;
+  // One line shown on the detail sheet. Omitted for hidden badges by design.
+  requirement?: string;
+}
+
+// `as const satisfies` rather than a plain annotation: the annotation alone
+// would widen every `slug` to `string` and BadgeSlug would stop being a union.
+export const BADGES = [
+  // ── Mode mastery — volume, one per game (6). Scaled. ──────────────────────
+  {
+    slug: "surge-runner",
+    name: "Surge Runner",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [10, 25, 50, 75, 125, 200, 300, 450, 650],
+    requirement: "Surge runs finished",
+  },
+  {
+    slug: "bridge-read",
+    name: "Bridge Read",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000, 6_000, 9_000],
+    requirement: "Correct reads in Higher / Lower",
+  },
+  {
+    slug: "trade-reader",
+    name: "Trade Reader",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [5, 10, 25, 50, 75, 125, 200, 300, 450],
+    requirement: "Trade runs finished",
+  },
+  {
+    slug: "last-stand",
+    name: "Last Stand",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [5, 10, 25, 50, 75, 125, 200, 300, 450],
+    requirement: "Survival runs finished",
+  },
+  {
+    slug: "stormchaser",
+    name: "Stormchaser",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [100, 250, 600, 1_200, 2_500, 4_500, 7_000, 11_000, 16_000],
+    requirement: "Cards cleared in Rain",
+  },
+  {
+    slug: "reps",
+    name: "Reps",
+    group: "mode-mastery",
+    kind: "count",
+    rungs: [100, 250, 500, 1_000, 2_000, 4_000, 7_000, 12_000, 20_000],
+    requirement: "Questions answered in Practice",
+  },
+
+  // ── Mode skill — proof, one per game (6). Calibrated against live boards. ──
+  {
+    // Measured: n=16, best 12.861s, median 25.4s, worst 67.3s. Entry rung 60s
+    // catches 94% of the field; the 12s ceiling sits just past the record so
+    // even the two sub-13s players still have a rung to chase.
+    slug: "clockbreaker",
+    name: "Clockbreaker",
+    group: "mode-skill",
+    kind: "time",
+    rungs: [60, 50, 42, 35, 30, 26, 22, 19, 17, 15, 13, 12],
+    unit: "seconds",
+    requirement: "Fastest Surge run",
+  },
+  {
+    // Only one recorded Trade best exists (67.1s), so the designed 30->7s ladder
+    // would have awarded nothing to anybody. Entry moved to 90s.
+    slug: "sharp-trade",
+    name: "Sharp Trade",
+    group: "mode-skill",
+    kind: "time",
+    rungs: [90, 75, 60, 50, 42, 35, 30, 25, 20],
+    unit: "seconds",
+    requirement: "Fastest correct Trade read",
+  },
+  {
+    // Measured: best single run 38.
+    slug: "coin-flip-killer",
+    name: "Coin Flip Killer",
+    group: "mode-skill",
+    kind: "best",
+    rungs: [10, 15, 20, 25, 30, 40, 55, 75],
+    requirement: "Best single Higher / Lower run",
+  },
+  {
+    // Measured: best streak 105 — this ladder was already well calibrated.
+    slug: "unbroken",
+    name: "Unbroken",
+    group: "mode-skill",
+    kind: "best",
+    rungs: [15, 25, 40, 60, 80, 100, 150, 200],
+    requirement: "Longest Survival streak",
+  },
+  {
+    // Measured: best single run 90.
+    slug: "downpour",
+    name: "Downpour",
+    group: "mode-skill",
+    kind: "best",
+    rungs: [25, 40, 55, 70, 90, 120, 160, 220],
+    requirement: "Most cleared in one Rain run",
+  },
+  {
+    slug: "clean-sweep",
+    name: "Clean Sweep",
+    group: "mode-skill",
+    kind: "count",
+    rungs: [1, 3, 5, 10, 25, 50],
+    requirement: "Practice sessions of 20+ cards at 100%",
+  },
+
+  // ── Progression — the whole game (4) ──────────────────────────────────────
+  {
+    // Measured: highest observed totalGames 304.
+    slug: "drop-regular",
+    name: "Drop Regular",
+    group: "progression",
+    kind: "count",
+    rungs: [25, 50, 100, 200, 350, 500, 750, 1_000, 1_500],
+    requirement: "Total games, all modes",
+  },
+  {
+    // Bounded by the 28-tier arena, so self-calibrating.
+    slug: "arena-climber",
+    name: "Arena Climber",
+    group: "progression",
+    kind: "best",
+    rungs: [4, 7, 10, 14, 18, 21, 24, 28],
+    requirement: "Arena reached",
+  },
+  {
+    slug: "all-six",
+    name: "All Six",
+    group: "progression",
+    kind: "best",
+    rungs: [3, 4, 5, 6],
+    requirement: "Distinct modes played",
+  },
+  {
+    slug: "podium",
+    name: "Podium",
+    group: "progression",
+    kind: "count",
+    rungs: [1, 2, 3, 5, 10],
+    requirement: "Top-three season finishes",
+  },
+
+  // ── Card knowledge (4). Scaled, except Catalog. ───────────────────────────
+  {
+    // Bounded by the catalog itself (120 cards), so self-calibrating.
+    slug: "catalog",
+    name: "Catalog",
+    group: "card-knowledge",
+    kind: "best",
+    rungs: [25, 50, 75, 100, 110, 120],
+    requirement: "Unique cards read correctly",
+  },
+  {
+    slug: "spellcaster",
+    name: "Spellcaster",
+    group: "card-knowledge",
+    kind: "count",
+    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000],
+    requirement: "Correct reads on spells",
+  },
+  {
+    // Buildings are a much smaller slice of the pool, so identical rungs would
+    // make this three times harder than Spellcaster for no reason.
+    slug: "tower-watch",
+    name: "Tower Watch",
+    group: "card-knowledge",
+    kind: "count",
+    rungs: [25, 60, 150, 300, 600, 1_200, 2_000],
+    requirement: "Correct reads on buildings",
+  },
+  {
+    slug: "big-spender",
+    name: "Big Spender",
+    group: "card-knowledge",
+    kind: "count",
+    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000],
+    requirement: "Correct reads on 6+ cost cards",
+  },
+
+  // ── Habit (2). Both record a BEST, never current state — a broken streak
+  // must not take a badge away. ─────────────────────────────────────────────
+  {
+    slug: "daily-drop",
+    name: "Daily Drop",
+    group: "habit",
+    kind: "best",
+    rungs: [3, 7, 14, 30, 60, 100, 180, 365],
+    requirement: "Longest consecutive-day streak",
+  },
+  {
+    slug: "marathon",
+    name: "Marathon",
+    group: "habit",
+    kind: "best",
+    rungs: [5, 10, 15, 25, 40, 60, 100],
+    requirement: "Most games in a single day",
+  },
+
+  // ── Hidden — one rung, silhouette until earned (7). Six of the seven are
+  // earnable in a single run: they are moments, not grinds. Only Collector is a
+  // long game, and it is the only badge that requires all the others. ────────
+  {
+    slug: "night-shift",
+    name: "Night Shift",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "photo-finish",
+    name: "Photo Finish",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "full-cup",
+    name: "Full Cup",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "zero-hesitation",
+    name: "Zero Hesitation",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "comeback",
+    name: "Comeback",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "cold-open",
+    name: "Cold Open",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+  {
+    slug: "collector",
+    name: "Collector",
+    group: "hidden",
+    kind: "count",
+    rungs: [1],
+    hidden: true,
+  },
+] as const satisfies readonly BadgeDefinition[];
+
+export type BadgeSlug = (typeof BADGES)[number]["slug"];
+
+// `BADGES` keeps its literal types so BadgeSlug is a real union — but that makes
+// the optional fields (`hidden`, `unit`, `requirement`) absent from the members
+// that omit them, so iterating it and reading `badge.hidden` will not compile.
+// Iterate this widened view instead; use BADGES only where the literal slug
+// union matters.
+export const BADGE_LIST: readonly BadgeDefinition[] = BADGES;
+
+export const BADGE_BY_SLUG = new Map(
+  BADGE_LIST.map((badge) => [badge.slug, badge]),
+);
+
+// The player's position on one ladder. `rungIndex` is -1 when no rung is
+// cleared; otherwise it is the index of the highest cleared rung.
+export interface BadgeState {
+  slug: string;
+  value: number;
+  rungIndex: number;
+  // ISO timestamp per cleared rung, parallel to rungs[0..rungIndex].
+  earnedAt: string[];
+  // `time` ladders only: how many runs have landed at or under each rung. This
+  // is the interesting stat — "sub-20s: 14 runs, sub-19s: 9" tells a player
+  // exactly where their ceiling is and makes a fast rung feel earned.
+  runsAtRung?: number[];
+}
+
+// Rim metal by ladder position, so a 12-rung and a 6-rung badge still read at a
+// glance. Derived, never stored — there is no art variant per rung.
+export type BadgeTier = "unlit" | "copper" | "silver" | "gold" | "prismatic";
+
+export function badgeTier(rungIndex: number, rungCount: number): BadgeTier {
+  if (rungIndex < 0) return "unlit";
+  if (rungIndex >= rungCount - 1) return "prismatic";
+  const progress = (rungIndex + 1) / rungCount;
+  if (progress <= 1 / 3) return "copper";
+  if (progress <= 2 / 3) return "silver";
+  return "gold";
+}
+
+export interface BadgeSummary {
+  badges: BadgeState[];
+  // True on the response that first backfilled a player's history, so the client
+  // shows a one-time "here's what you've already earned" summary instead of
+  // queueing forty celebrations.
+  backfilled?: boolean;
+}

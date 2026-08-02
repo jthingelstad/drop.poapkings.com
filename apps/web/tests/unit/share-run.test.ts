@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GameMode } from '@elixir-drop/contracts'
-import { runSharePayload, shareRun } from '../../src/lib/share-run'
+import { runSharePayload, shareRun, shareRunCard } from '../../src/lib/share-run'
 
 function setNavigatorMethod(name: 'share' | 'clipboard', value: unknown): void {
   Object.defineProperty(navigator, name, { value, configurable: true })
@@ -59,5 +59,61 @@ describe('run sharing', () => {
 
     await expect(shareRun(payload)).resolves.toBe('cancelled')
     expect(writeText).not.toHaveBeenCalled()
+  })
+})
+
+// The composited card is strictly an upgrade over the text share. Every one of
+// these paths must land on the text share rather than leaving the player with a
+// button that did nothing.
+describe('share card fallback', () => {
+  function setCanShare(value: unknown): void {
+    Object.defineProperty(navigator, 'canShare', { value, configurable: true })
+  }
+
+  afterEach(() => {
+    setCanShare(undefined)
+  })
+
+  it('shares text when the browser cannot share files at all', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigatorMethod('share', share)
+    setCanShare(() => false)
+
+    const outcome = await shareRunCard(runSharePayload('surge', '15.04s'), {
+      mode: 'surge',
+      score: '15.04s'
+    })
+
+    expect(outcome).toBe('shared')
+    // Text share: no files key on the payload.
+    expect(share.mock.calls[0]?.[0]).not.toHaveProperty('files')
+  })
+
+  it('falls back to text when the card cannot be rendered', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigatorMethod('share', share)
+    setCanShare(() => true)
+    // jsdom has no canvas, so renderShareCard returns null via getContext.
+    const outcome = await shareRunCard(runSharePayload('rain', '27 cleared'), {
+      mode: 'rain',
+      score: '27 cleared'
+    })
+
+    expect(outcome).toBe('shared')
+    expect(share.mock.calls[0]?.[0]).not.toHaveProperty('files')
+  })
+
+  it('copies when nothing can share at all', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    setNavigatorMethod('clipboard', { writeText })
+    setCanShare(() => true)
+
+    const outcome = await shareRunCard(runSharePayload('trade', '9.42s'), {
+      mode: 'trade',
+      score: '9.42s'
+    })
+
+    expect(outcome).toBe('copied')
+    expect(writeText).toHaveBeenCalledOnce()
   })
 })

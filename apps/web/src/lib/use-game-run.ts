@@ -6,6 +6,7 @@ import { ApiError, completeRun, startRun } from './api'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
+import type { EarnedRung } from '../components/BadgeEarned'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
 import { track } from './analytics'
@@ -25,6 +26,12 @@ export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 // board" is the one thing a player must still be able to read once they stop and
 // look at their summary. Cleared when the next run is prepared.
 export const heldForReview = signal(false)
+
+// Rungs the last completed run cleared. Read straight from here by Summary, for
+// the same reason heldForReview is: six modes render that component and none of
+// them know anything about badges. Cleared when the next run is prepared, so a
+// replay never re-celebrates the previous run's badges.
+export const earnedBadges = signal<EarnedRung[]>([])
 
 let noticeTimer: number | undefined
 
@@ -87,6 +94,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     challenge.value = null
     startError.value = ''
     heldForReview.value = false
+    earnedBadges.value = []
     setRecordingNotice({ state: 'idle' })
     try {
       // No token → a guest run: the server deals the same signed challenge but
@@ -183,6 +191,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       // pending, so the toast says recorded and names the hold rather than
       // celebrating a season best the board is not showing anyone.
       heldForReview.value = result.underReview === true
+      earnedBadges.value = result.earnedBadges ?? []
       setRecordingNotice({
         state: 'saved',
         message: !isRecordedMode(result.mode)

@@ -1,4 +1,5 @@
 import { useSignal } from '@preact/signals'
+import { BADGE_LIST } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
 import ArenaProgress from '../components/ArenaProgress'
@@ -6,6 +7,7 @@ import Icon from '../components/Icon'
 import { rankFor } from '../data/starRanks'
 import {
   accountStatus,
+  badges,
   deleteAccount,
   player,
   recentRuns,
@@ -17,6 +19,10 @@ import {
 import { getNameOptions } from '../lib/api'
 import { allCards } from '../lib/card-catalog'
 import { challengeCard } from '../lib/challenge-cards'
+import { badgeViews, earnedCount } from '../lib/badges'
+import BadgeGrid from '../components/BadgeGrid'
+import EmptyState from '../components/EmptyState'
+import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
@@ -400,6 +406,23 @@ export default function Profile() {
     )
   }
 
+  // Seasons the player has actually appeared in, newest first, read off the
+  // run history the profile already loaded. There is no separate seasons
+  // endpoint — a season is just a bucket runs fall into, so the runs are the
+  // source. That means this reflects the recent-runs window, not all time.
+  // Hidden badges are never counted separately — no "3 of 7 found" — but the
+  // overall earned tally is fine: it is the whole set, not a hidden checklist.
+  const earnedBadges = earnedCount(badgeViews(badges.value))
+
+  const seasons = Object.entries(
+    recentRuns.value.reduce<Record<string, number>>((counts, run) => {
+      counts[run.seasonId] = (counts[run.seasonId] ?? 0) + 1
+      return counts
+    }, {})
+  )
+    .map(([id, games]) => ({ id, games }))
+    .sort((left, right) => right.id.localeCompare(left.id))
+
   // ── Profile view ────────────────────────────────────────────────────────
   return (
     <div class="ed-profile">
@@ -443,7 +466,7 @@ export default function Profile() {
         <PlayerPreferences />
       </section>
 
-      <section class="ed-profile__recent">
+      <section class="ed-profile__recent ed-profile__games">
         <div class="ed-profile__recent-head">
           <span class="ed-profile__recent-title">Recent games</span>
           <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
@@ -457,7 +480,7 @@ export default function Profile() {
               return (
                 <li key={run.runId}>
                   <span class="ed-profile__recent-name">
-                    <span aria-hidden="true">{game.icon}</span> {game.name}
+                    <ModeIcon mode={run.mode} size={24} /> {game.name}
                   </span>
                   <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
                   <time dateTime={run.completedAt}>
@@ -468,7 +491,51 @@ export default function Profile() {
             })}
           </ul>
         ) : (
-          <p class="ed-profile__recent-empty">Finish a game and your recent scores will appear here.</p>
+          <EmptyState
+            art="empty-runs"
+            heading="Nothing played yet"
+            line="Your finished games land here, newest first."
+            actionLabel="Play Surge"
+            href="/surge"
+          />
+        )}
+      </section>
+
+      <section class="ed-profile__recent ed-profile__badges">
+        <div class="ed-profile__recent-head">
+          <span class="ed-profile__recent-title">Badges</span>
+          {earnedBadges > 0 && (
+            <span class="ed-profile__recent-score">
+              {earnedBadges} of {BADGE_LIST.length}
+            </span>
+          )}
+        </div>
+        <BadgeGrid states={badges.value} />
+      </section>
+
+      <section class="ed-profile__recent ed-profile__seasons">
+        <div class="ed-profile__recent-head">
+          <span class="ed-profile__recent-title">Seasons</span>
+        </div>
+        {seasons.length ? (
+          <ul class="ed-profile__recent-list">
+            {seasons.map((season) => (
+              <li key={season.id}>
+                <span class="ed-profile__recent-name">{season.id}</span>
+                <span class="ed-profile__recent-score">
+                  {season.games} {season.games === 1 ? 'game' : 'games'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            art="empty-season"
+            heading="No seasons yet"
+            line="Seasons you have played in will be listed here."
+            actionLabel="Play this season"
+            href="/surge"
+          />
         )}
       </section>
 

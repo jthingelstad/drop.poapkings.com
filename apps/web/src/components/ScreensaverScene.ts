@@ -12,8 +12,6 @@ const PALETTE = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
 // rain starts immediately; the rest streams in behind it for full variety.
 const INITIAL_CAST_SIZE = 30
 const FLIP_DURATION_MS = 620
-const MASCOT_INTERVAL_MS = 45_000
-const MASCOT_TEXTURE_URL = '/assets/emoji/elixir_hype.png'
 
 interface RainCard {
   sprite: Sprite
@@ -86,13 +84,6 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
       .catch(() => undefined)
   }
 
-  let mascotTexture: Texture | undefined
-  try {
-    mascotTexture = await Assets.load<Texture>(MASCOT_TEXTURE_URL)
-  } catch {
-    // The cameo is optional garnish.
-  }
-
   const small = app.screen.width < 600
   const randomTexture = () => textures[Math.floor(Math.random() * textures.length)]!
 
@@ -147,17 +138,9 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
     }
   }
 
-  // Mascot cameo: glides across every ~45s with a gentle bob.
-  let mascot: Sprite | undefined
-  let mascotTimerMs = MASCOT_INTERVAL_MS * 0.6
-  let mascotActive = false
-  if (mascotTexture) {
-    mascot = new PixiSprite(mascotTexture)
-    mascot.anchor.set(0.5)
-    mascot.scale.set(0.9)
-    mascot.visible = false
-    app.stage.addChild(mascot)
-  }
+  // The Elixir mascot cameo glided across here every ~45s until the emote set
+  // was retired. The scene rotates the whole card catalog, which is what the
+  // screensaver is actually for.
 
   let elapsedS = 0
   const update = (ticker: Ticker) => {
@@ -204,25 +187,6 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
         card.sprite.y = -margin
         card.baseX = Math.random() * width
         card.sprite.texture = randomTexture()
-      }
-    }
-
-    if (mascot) {
-      if (mascotActive) {
-        mascot.x += 90 * deltaS
-        mascot.y += Math.sin(elapsedS * 2.2) * 0.6
-        if (mascot.x > width + mascot.width) {
-          mascotActive = false
-          mascot.visible = false
-          mascotTimerMs = MASCOT_INTERVAL_MS
-        }
-      } else {
-        mascotTimerMs -= ticker.deltaMS
-        if (mascotTimerMs <= 0) {
-          mascotActive = true
-          mascot.visible = true
-          mascot.position.set(-mascot.width, between(height * 0.15, height * 0.7))
-        }
       }
     }
   }

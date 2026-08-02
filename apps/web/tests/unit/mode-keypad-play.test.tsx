@@ -125,6 +125,10 @@ function advance(ms: number): void {
   })
 }
 
+// Every mode holds each numeral for COUNTDOWN_STEP_MS (700) and then the GO
+// frame for GO_HOLD_MS (250) before the run begins.
+const COUNTDOWN_TOTAL_MS = 3 * 700 + 250
+
 function press(host: HTMLElement, value: number): void {
   const btn = host.querySelector<HTMLButtonElement>(`[data-pip-value="${value}"]`)
   if (!btn) throw new Error(`no keypad key for ${value}`)
@@ -160,7 +164,7 @@ async function startTimed(vnode: preact.ComponentChild): Promise<HTMLElement> {
     await Promise.resolve()
     await Promise.resolve()
   })
-  advance(3 * 650 + 100) // three countdown steps (650ms each) → begin()
+  advance(COUNTDOWN_TOTAL_MS + 100) // 3 · 2 · 1 · GO → begin()
   return host
 }
 
@@ -673,7 +677,7 @@ describe('Rain gameplay', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    advance(3 * 650) // three countdown steps → begin()
+    advance(COUNTDOWN_TOTAL_MS) // 3 · 2 · 1 · GO → begin()
     return host
   }
 
@@ -724,8 +728,8 @@ describe('Rain gameplay', () => {
     expect(answers.filter((answer) => answer.guess === null).length).toBe(3)
     // Stamped from the run start, which is also when the first tile spawns — the
     // origin the server's spawn floor assumes. Counting from the mount instead
-    // would hand every run a free 1,950ms of countdown.
-    expect(answers[0]!.atMs).toBeLessThan(3 * 650)
+    // would hand every run a free countdown's worth of head start.
+    expect(answers[0]!.atMs).toBeLessThan(COUNTDOWN_TOTAL_MS)
     expect(answers.at(-1)!.atMs).toBeGreaterThan(10_000)
     expect([...answers].sort((a, b) => a.atMs - b.atMs).map((answer) => answer.cardId)).toEqual(
       answers.map((answer) => answer.cardId)

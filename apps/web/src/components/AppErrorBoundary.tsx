@@ -1,5 +1,6 @@
 import { Component, type ComponentChildren } from 'preact'
 import { navigate } from '../lib/router'
+import Icon from './Icon'
 
 interface Props {
   children: ComponentChildren
@@ -31,7 +32,7 @@ export default class AppErrorBoundary extends Component<Props, State> {
       <main>
         <div class="main-content account-screen">
           <div class="account-card" role="alert">
-            <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+            <Icon name="loader-circle" className="route-loading__spinner" />
             <div class="eyebrow">Drop hit a snag</div>
             <h1>This screen could not load</h1>
             <p class="lede">Your account and recorded games are safe. Return home or reload Drop to try again.</p>

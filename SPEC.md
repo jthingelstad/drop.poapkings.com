@@ -18,7 +18,9 @@ remains the canonical source for shipped modes and game ideas.
   costs and elixir trades.
 - **Secondary goal:** be a quiet, persistent front door to POAP KINGS — a footer
   credit and a Discord link, not a triggered pitch.
-- **Host / mascot:** Elixir, bundled as local assets in this repo.
+- **Host / mascot:** none. The Elixir mascot emote set was removed from the app;
+  the remaining brand marks are the Drop app icon (`assets/icon/`) and the
+  crowned-drop OG art (`assets/elixir-og.png`, still the input to `npm run og`).
 
 The public website remains a static GitHub Pages app, but it now uses a separate
 Lambda API for email magic-link accounts, profiles, signed runs, progression,
@@ -360,6 +362,28 @@ summary (weak cards + per-cost accuracy) for possible future coaching, and
 account deletion sweeps it. Learning telemetry does not affect challenge card
 selection. The localStorage copy is a display cache only.
 
+Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
+item holds the monotonic counters, per-rung `time` run counts, the distinct-mode
+and distinct-card sets, day-streak bookkeeping, and an ISO stamp per cleared
+rung. It is written best-effort *after* `completeRun` succeeds — never inside its
+transaction — so a badge failure leaves the run recorded, and account deletion
+sweeps it with the rest of the player partition. `GET /me` returns a `badges`
+summary (`{ badges: BadgeState[], backfilled?: true }`), rebuilding the counters
+from run history plus CARDSTATS the first time a player is read; `backfilled`
+tells the browser to show one summary instead of queueing celebrations.
+`/runs/complete` returns `earnedBadges`, the rungs that run cleared, so the
+summary can celebrate exactly those. Awarding is a pure function of the counters
+(`services/api/src/badges.ts`), badges award no XP, and nothing earned is ever
+revoked. The ladder table and the 28 arena XP thresholds both live in
+`packages/contracts` because the browser and the Lambda cannot import each other.
+
+The run share card is composited in the browser
+(`apps/web/src/lib/share-card.ts`): a 1080×1350 canvas over
+`assets/share/share-backdrop.png` with the mode emblem, score, cost-band squares,
+arena and sticker drawn on top, handed to `navigator.share({ files })`. Every
+source is same-origin so the canvas never taints; every failure path falls back
+to the existing text share.
+
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
 owns the challenge, validates the submitted transcript, and recomputes the
@@ -413,7 +437,7 @@ Authenticated public identity is centered on one favorite card:
   accepts the card and selected name together and persists them atomically.
 - Changing a favorite card requires choosing a new card-derived name in the
   same flow. Existing profiles without a favorite card remain readable and use
-  the Elixir avatar until the player chooses one.
+  the Drop app icon until the player chooses one.
 - Clash Royale player tags are separate and unverified. Saving or reading a
   stale tag queues a refresh; snapshots are fresh for six hours and shared by
   tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
@@ -468,8 +492,10 @@ not reintroduce either without the surface that justifies them.
 Elixir Drop vendors its own visual layer:
 
 - `apps/web/src/styles.css` contains the local tokens and components.
-- `apps/web/public/assets/` contains Elixir art, emoji states, arena images, fonts, OG
-  image, favicon, and star asset.
+- `apps/web/public/assets/` contains the app icon set (`icon/`), badge art
+  (`badges/`), mode emblems (`modes/`), empty-state art (`empty/`), run-start
+  charge frames (`start/`), share furniture (`share/`), arena images, fonts, OG
+  art, and the star asset.
 - Card art is mirrored same-origin under `apps/web/public/cards/` (refresh
   always runs with `MIRROR_IMAGES=true`). The "Elixir Rain" screensaver
   Easter egg (see GAMES.md) draws this art as WebGL textures via pixi.js;

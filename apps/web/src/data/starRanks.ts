@@ -6,6 +6,12 @@ export interface StarRank {
   // one point per question practiced (a Surge sprint ≈ 15, a game averages
   // ~12), so early arenas fall within a session and the summit (~5,000 games)
   // is a genuine long-haul. Per-player, and only ever climbs.
+  //
+  // These values are mirrored by `ARENA_XP_THRESHOLDS` in
+  // `@elixir-drop/contracts`, which the server reads to resolve the Arena
+  // Climber badge — the browser and the Lambda cannot import each other, so the
+  // ladder exists in both places. `tests/unit/trophy-road.test.tsx` asserts the
+  // two stay identical; if that test fails, these are the numbers that moved.
   threshold: number
   image: string
 }

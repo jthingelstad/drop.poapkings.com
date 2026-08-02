@@ -39,7 +39,7 @@ import RainMilestone from './RainMilestone'
 const MAX_CONCURRENT = 8
 const TICK_MS = 40
 const RAIN_LIVES = 3
-const COUNTDOWN_STEP_MS = 650
+const COUNTDOWN_STEP_MS = 700
 
 // Fall speed = RAIN_BASE_SPEED + per-drop jitter + rainFallBoost(score), in field
 // %-per-tick. A card falls 112 units, so time ≈ 4480ms / speed. At score 0 that

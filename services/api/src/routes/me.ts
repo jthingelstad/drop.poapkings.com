@@ -1,3 +1,9 @@
+import { arenaForXp, type GameMode } from "@elixir-drop/contracts";
+import {
+  BADGE_COUNTERS_VERSION,
+  badgeStates,
+  recomputeCounters,
+} from "../badges.js";
 import { deleteButtondownSubscriber } from "../buttondown.js";
 import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
@@ -44,6 +50,12 @@ export async function getMe({ event, config, repository }: RouteContext) {
       return {};
     }),
   ]);
+  const badges = await badgeSummary(
+    { event, config, repository },
+    session.sub,
+    profile,
+    cardStats,
+  );
   return json(200, {
     player: profileResponse(profile, crProfile),
     // Retain server-owned learning history for possible future coaching.
@@ -52,6 +64,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
       weakCardIds: weakCardIds(cardStats, 8),
       costAccuracy: costAccuracy(cardStats),
     },
+    badges,
     // Drop runs whose mode is no longer a live game — retired modes (e.g. the
     // vaulted five) still sit in a player's history, and the client validates
     // each run's mode against the current GAME_MODES enum, so an unfiltered
@@ -60,6 +73,54 @@ export async function getMe({ event, config, repository }: RouteContext) {
       .filter((run) => isGameMode(run.mode))
       .map(runRecordResponse),
   });
+}
+
+// The player's badge ladders, backfilling once from history if they have never
+// been computed (or the counter shape has moved on).
+//
+// The backfill is deliberately silent: `backfilled` tells the client to show a
+// single "here's what you've already earned" summary rather than queue forty
+// celebrations. It also cannot be complete — run history carries no transcripts,
+// so Reps, Clean Sweep, Podium and the transcript-derived hidden badges start
+// from the player's next run. See recomputeCounters for the full split.
+//
+// Best-effort, like every other side lookup on this route: a badge failure
+// returns an empty ladder set rather than 500-ing a profile load.
+async function badgeSummary(
+  { event, repository }: RouteContext,
+  sub: string,
+  profile: { totalGames: number; xp?: number },
+  cardStats: Record<string, { correct: number }>,
+) {
+  try {
+    const stored = await repository.getBadges(sub);
+    if (stored && stored.version === BADGE_COUNTERS_VERSION) {
+      return { badges: badgeStates(stored) };
+    }
+    const runs = await repository.listAllRuns(sub);
+    const at = new Date().toISOString();
+    const counters = recomputeCounters(
+      runs.filter((run): run is typeof run & { mode: GameMode } =>
+        isGameMode(run.mode),
+      ),
+      cardStats,
+      { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+      arenaForXp,
+      at,
+    );
+    await repository.saveBadges(sub, counters, at);
+    console.info("Badges backfilled from history", {
+      requestId: event.requestContext.requestId,
+      runs: runs.length,
+    });
+    return { badges: badgeStates(counters), backfilled: true };
+  } catch (error) {
+    console.warn("Badge lookup failed", {
+      requestId: event.requestContext.requestId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return { badges: [] };
+  }
 }
 
 // GET /players/{playerId} — the public, pseudonymous view of a player.

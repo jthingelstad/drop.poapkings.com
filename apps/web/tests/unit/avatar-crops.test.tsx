@@ -39,7 +39,7 @@ describe('player avatar crops', () => {
     expect(html).toContain(`${canonicalCardCount} cards · 52px`)
   })
 
-  it('falls back to Elixir when a card image cannot load', async () => {
+  it('falls back to the app drop mark when a card image cannot load', async () => {
     const container = document.createElement('div')
     render(<PlayerAvatar favoriteCardId={26000037} size="medium" />, container)
     const image = container.querySelector('img')
@@ -49,7 +49,7 @@ describe('player avatar crops', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(container.querySelector('.player-avatar--fallback')).not.toBeNull()
-    expect(container.querySelector('img')?.getAttribute('src')).toBe('/assets/emoji/elixir.png')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('/assets/icon/drop-icon-192.png')
     render(<></>, container)
   })
 })

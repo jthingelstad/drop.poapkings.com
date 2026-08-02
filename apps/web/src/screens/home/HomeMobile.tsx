@@ -1,4 +1,5 @@
 import Icon from '../../components/Icon'
+import ModeIcon from '../../components/ModeIcon'
 import PlayerAvatar from '../../components/PlayerAvatar'
 import Wordmark from '../../components/brand/Wordmark'
 import { navigate } from '../../lib/router'
@@ -87,9 +88,7 @@ export default function HomeMobile({ data }: { data: HomeData }) {
       </section>
 
       <button class="ed-practice tap-fx" onClick={() => navigate('/practice')}>
-        <span class="ed-practice__icon">
-          <Icon name="target" />
-        </span>
+        <ModeIcon mode="practice" size={38} className="ed-practice__art" />
         <span class="ed-practice__text">
           <span class="ed-practice__name">Practice</span>
           <span class="ed-practice__sub">No clock, no ranks — learn at your pace.</span>

@@ -3,6 +3,7 @@ import { redeemAccount } from '../lib/account'
 import { gameReturnPathFromRoute, profileRouteForGame } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import { flushLoginCompleted, queueLoginCompleted } from '../lib/analytics'
+import Icon from '../components/Icon'
 
 export default function AuthRedeem() {
   const error = useSignal('')
@@ -39,7 +40,7 @@ export default function AuthRedeem() {
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
-        <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" />
+        <Icon name="loader-circle" className="route-loading__spinner" />
         <h1>{error.value ? 'Login link failed' : token ? 'Almost signed in' : 'Login link failed'}</h1>
         {!token && <p class="account-message account-message--error">This login link is missing its token.</p>}
         {token && !error.value && (

@@ -921,6 +921,8 @@ describe("repository DynamoDB requests", () => {
     conditionFailed.name = "ConditionalCheckFailedException";
     send.mockRejectedValueOnce(conditionFailed);
 
+    // Not a new best is the normal case, reported rather than thrown — the
+    // hidden badges (Photo Finish, Cold Open) read this flag.
     await expect(
       new Repository("test-table").updateAllTimeBest(
         allTimeRun,
@@ -928,7 +930,34 @@ describe("repository DynamoDB requests", () => {
         undefined,
         "2026-07-18T12:05:00.000Z",
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ improved: false });
+  });
+
+  it("reports the displaced score when a run becomes the new best", async () => {
+    send.mockResolvedValueOnce({ Attributes: { score: 19_000 } });
+
+    await expect(
+      new Repository("test-table").updateAllTimeBest(
+        allTimeRun,
+        18_950,
+        undefined,
+        "2026-07-18T12:05:00.000Z",
+      ),
+    ).resolves.toEqual({ improved: true, previousScore: 19_000 });
+    expect(send.mock.calls[0]?.[0].input.ReturnValues).toBe("ALL_OLD");
+  });
+
+  it("reports a first-ever score as improved with nothing displaced", async () => {
+    send.mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").updateAllTimeBest(
+        allTimeRun,
+        30_000,
+        undefined,
+        "2026-07-18T12:05:00.000Z",
+      ),
+    ).resolves.toEqual({ improved: true });
   });
 
   it("ranks the all-time board one row per player with no dedup", async () => {

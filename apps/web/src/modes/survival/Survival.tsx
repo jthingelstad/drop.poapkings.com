@@ -34,7 +34,7 @@ const DEATH_BEAT_MS = 1100
 // A 3-2-1 before the first card so the per-card clock never starts while the
 // player is still orienting — the sudden-death clock only begins once counting
 // ends. Matches Surge's cadence.
-const COUNTDOWN_STEP_MS = 650
+const COUNTDOWN_STEP_MS = 700
 
 export default function Survival() {
   const gameRun = useGameSession('survival', challengePreparers.survival)

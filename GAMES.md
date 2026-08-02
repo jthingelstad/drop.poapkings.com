@@ -303,8 +303,8 @@ Three doors in (`apps/web/src/lib/screensaver.ts`): the **nav launcher** — a
 visible feature now, not only an egg — five quick taps on the ELIXIR DROP hero
 logo (1.5s per tap), or two idle minutes on Home. The site dims into an ambient
 WebGL scene: a fresh random cast of ~24 cards drifts down through elixir droplets
-in three parallax layers, occasionally flipping into other cards, with the mascot
-gliding through every so often. Any tap or key exits. It never triggers on a
+in three parallax layers, occasionally flipping into other cards. Any tap or key
+exits. It never triggers on a
 gameplay route, pauses while the tab is hidden, and under reduced motion it simply
 does not exist. Deliberate opens fire `easter_egg.screensaver_opened` with the
 source as the value (`nav` or `tap`); idle attract is untracked. Purely cosmetic —
@@ -374,3 +374,38 @@ unless it is re-approved.
   set aside because each depends on authentic decks or archetype coherence.
 - **Standalone Focus** — fold into Practice if the need returns.
 - **Deck Budget / Average 3.4** — removed with no planned rework.
+
+
+---
+
+## Badges
+
+29 badges over 182 rungs, backed by `BADGES` in `packages/contracts` and the pure
+engine in `services/api/src/badges.ts`. 22 visible badges on long ladders plus 7
+hidden single-rung badges.
+
+**Why ladders, not tiers.** Three tiers means a player who clears tier III is done
+with that badge forever — it stops motivating exactly the player who cared most.
+A long ladder always has a next rung visible, so rung one can land in a first
+session *and* the top rung can take a year.
+
+**Rungs are calibrated against real data, not feel.** Measured on 2026-08-02:
+Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Trade n=1, Higher/Lower n=5,
+Survival n=4, Rain n=4. The design draft's Clockbreaker ladder put five
+consecutive rungs (13–17s) above a 4.7s gap in the real field, so four of them
+separated nobody, while its entry rung excluded 31% of players outright. Ladders
+with no live data behind them are marked "scaled" in the table and should be
+re-checked once badge counters have a month of history.
+
+**Hidden badges.** Shown as a flat black silhouette of the real glyph — the shape
+teases, the subject stays unreadable. **Never show a hidden count**: "3 of 7
+found" turns mystery into a checklist and makes players feel behind. Six of the
+seven are earnable in a single run; only Collector is a long game.
+
+**What backfills and what does not.** Run history stores mode, score, seasonId and
+completedAt — not transcripts. So the volume and skill ladders, Drop Regular,
+Arena Climber, All Six, Daily Drop, Marathon, Night Shift and the four
+card-knowledge badges rebuild from history plus the `CARDSTATS` item; Reps, Clean
+Sweep, Podium and the five transcript-derived hidden badges are forward-only.
+Podium additionally needs season standings, which no job computes yet —
+`recordPodiumFinish` is the seam.

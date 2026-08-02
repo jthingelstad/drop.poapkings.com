@@ -102,21 +102,41 @@ describe('run-loop helpers', () => {
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
-  it('startCountdown steps 3 -> 2 -> 1 then begins', () => {
+  it('startCountdown steps 3 -> 2 -> 1 -> GO then begins', () => {
     vi.useFakeTimers()
     const timers: number[] = []
     const count = { value: 0 }
     const begin = vi.fn()
-    startCountdown(count, begin, timers, 100)
+    startCountdown(count, begin, timers, 100, 40)
     expect(count.value).toBe(3)
     vi.advanceTimersByTime(100)
     expect(count.value).toBe(2)
     vi.advanceTimersByTime(100)
     expect(count.value).toBe(1)
     expect(begin).not.toHaveBeenCalled()
+    // GO is a frame of its own (count 0), not a hand-off: the run begins under
+    // it, so the first card lands on the beat.
     vi.advanceTimersByTime(100)
+    expect(count.value).toBe(0)
+    expect(begin).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(40)
     expect(begin).toHaveBeenCalledTimes(1)
-    expect(count.value).toBe(1)
+  })
+
+  it('startCountdown collapses to a single GO frame under reduced motion', () => {
+    vi.useFakeTimers()
+    document.documentElement.classList.add('reduce-motion')
+    const timers: number[] = []
+    const count = { value: 9 }
+    const begin = vi.fn()
+    startCountdown(count, begin, timers, 100, 40)
+    // No 3-2-1 at all: straight to GO, held briefly.
+    expect(count.value).toBe(0)
+    vi.advanceTimersByTime(399)
+    expect(begin).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(begin).toHaveBeenCalledTimes(1)
+    document.documentElement.classList.remove('reduce-motion')
   })
 
   it('elapsedWithPenalty measures monotonic time plus penalty', () => {
@@ -259,8 +279,15 @@ describe('useGameRuntime', () => {
     expect(api().count.value).toBe(1)
     expect(api().stage.value).toBe('countdown')
 
+    // 1 -> GO. Still counting down; the run starts under the GO frame.
     void act(() => {
       vi.advanceTimersByTime(100)
+    })
+    expect(api().count.value).toBe(0)
+    expect(api().stage.value).toBe('countdown')
+
+    void act(() => {
+      vi.advanceTimersByTime(250)
     })
     expect(api().stage.value).toBe('running')
     expect(onBegin).toHaveBeenCalledTimes(1)

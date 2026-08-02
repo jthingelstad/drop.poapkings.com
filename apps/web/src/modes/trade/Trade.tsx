@@ -37,7 +37,7 @@ const TRADE = {
 // Keep the same brief correct-answer beat as Surge, then deal automatically.
 // Trade is timed, so advancing must never depend on another player action.
 const CORRECT_BEAT_MS = 280
-const COUNTDOWN_STEP_MS = 650
+const COUNTDOWN_STEP_MS = 700
 const WRONG_BEAT_MS = 720
 
 type Feedback = 'idle' | 'wrong' | 'correct'

@@ -10,6 +10,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { createHash, randomUUID } from "node:crypto";
+import type { BadgeCounters } from "./badges.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
@@ -809,6 +810,95 @@ export class Repository {
     );
   }
 
+  // Badge counters live beside the learning stats in the player partition, so
+  // account deletion sweeps them with everything else, and are written
+  // best-effort after completions. One item per player: the whole ladder set is
+  // derived from these counters, so there is nothing per-badge to store.
+  async getBadges(sub: string): Promise<BadgeCounters | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "BADGES" },
+      }),
+    );
+    const item = result.Item;
+    if (!item || typeof item.version !== "number") return undefined;
+    return {
+      version: item.version,
+      values: (item.values ?? {}) as Record<string, number>,
+      runsAtRung: (item.runsAtRung ?? {}) as Record<string, number[]>,
+      aux: (item.aux ?? {
+        modes: [],
+        cards: [],
+        dayStreak: 0,
+        dayRuns: 0,
+      }) as BadgeCounters["aux"],
+      earned: (item.earned ?? {}) as Record<string, string[]>,
+    };
+  }
+
+  async saveBadges(
+    sub: string,
+    counters: BadgeCounters,
+    updatedAt: string,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `PLAYER#${sub}`,
+          sk: "BADGES",
+          version: counters.version,
+          values: counters.values,
+          runsAtRung: counters.runsAtRung,
+          aux: counters.aux,
+          earned: counters.earned,
+          updatedAt,
+        },
+      }),
+    );
+  }
+
+  // Every recorded run for one player, oldest first — the input to a badge
+  // backfill. listRecentRuns caps at 20 for the profile feed; this deliberately
+  // walks the whole RUN# range instead, because a partial history would
+  // compute wrong counters and then store them as if they were complete.
+  async listAllRuns(
+    sub: string,
+  ): Promise<Array<{ mode: string; score: number; completedAt: string }>> {
+    const runs: Array<{ mode: string; score: number; completedAt: string }> =
+      [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const page = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":sk": "RUN#",
+          },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const item of page.Items ?? []) {
+        if (
+          typeof item.mode === "string" &&
+          typeof item.score === "number" &&
+          typeof item.completedAt === "string"
+        ) {
+          runs.push({
+            mode: item.mode,
+            score: item.score,
+            completedAt: item.completedAt,
+          });
+        }
+      }
+      startKey = page.LastEvaluatedKey;
+    } while (startKey);
+    return runs;
+  }
+
   async getRun(runId: string): Promise<RunItem | undefined> {
     const result = await client.send(
       new GetCommand({
@@ -1181,13 +1271,17 @@ export class Repository {
   // the recorded run. Keyed PLAYER#/ALLTIME#mode so there is exactly one row per
   // player per mode (no dedup on read), indexed into the shared leaderboard GSI
   // under the literal "ALLTIME" season id.
+  //
+  // Returns whether this run became the new best and what it displaced, because
+  // two hidden badges (Photo Finish, Cold Open) turn on exactly that — and this
+  // conditional write is the only place that already knows it.
   async updateAllTimeBest(
     run: RunItem,
     score: number,
     tiebreaks: RunTiebreaks | undefined,
     completedAt: string,
-  ): Promise<void> {
-    if (!isLeaderboardEligibleScore(score)) return;
+  ): Promise<{ improved: boolean; previousScore?: number }> {
+    if (!isLeaderboardEligibleScore(score)) return { improved: false };
     const tiebreakItem = tiebreakAttributes(run.mode, tiebreaks);
     const newSk = leaderboardSortKey(
       run.mode,
@@ -1223,7 +1317,7 @@ export class Repository {
       values[`:${field}`] = value;
     }
     try {
-      await client.send(
+      const result = await client.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { pk: `PLAYER#${run.owner}`, sk: `ALLTIME#${run.mode}` },
@@ -1234,15 +1328,22 @@ export class Repository {
             "attribute_not_exists(GSI1SK) OR :newSk < GSI1SK",
           ExpressionAttributeNames: { "#mode": "mode" },
           ExpressionAttributeValues: values,
+          // The displaced row, so the caller can measure the improvement.
+          ReturnValues: "ALL_OLD",
         }),
       );
+      const previous = result.Attributes?.score;
+      return {
+        improved: true,
+        ...(typeof previous === "number" ? { previousScore: previous } : {}),
+      };
     } catch (error) {
       // Not a new best is the normal case, not an error — swallow it.
       if (
         error instanceof Error &&
         error.name === "ConditionalCheckFailedException"
       )
-        return;
+        return { improved: false };
       throw error;
     }
   }

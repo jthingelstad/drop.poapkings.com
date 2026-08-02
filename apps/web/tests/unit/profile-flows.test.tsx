@@ -660,7 +660,9 @@ describe('Profile interactive flows', () => {
     ]
     await mount()
 
-    const items = container.querySelectorAll('.ed-profile__recent-list li')
+    // Scoped to the first list: the profile now renders a Seasons list with the
+    // same row markup underneath Recent games.
+    const items = container.querySelectorAll('.ed-profile__recent-list')[0]!.querySelectorAll('li')
     expect(items).toHaveLength(2)
     expect(container.textContent).toContain('Surge')
     expect(container.textContent).toContain('12.50s')
@@ -676,7 +678,12 @@ describe('Profile interactive flows', () => {
     await mount()
 
     expect(container.querySelector('.ed-profile__recent-list')).toBeNull()
-    expect(container.textContent).toContain('Finish a game and your recent scores will appear here.')
+    // Art, a heading, a line, and a button that actually goes somewhere.
+    expect(container.textContent).toContain('Nothing played yet')
+    expect(container.textContent).toContain('Your finished games land here, newest first.')
+    const art = container.querySelector<HTMLImageElement>('.ed-empty__art')
+    expect(art?.getAttribute('src')).toBe('/assets/empty/empty-runs-512.png')
+    expect(byText(container, 'Play Surge')).toBeTruthy()
   })
 
   it('renders each Clash Royale status branch', async () => {

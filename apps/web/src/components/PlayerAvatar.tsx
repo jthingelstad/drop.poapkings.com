@@ -3,6 +3,9 @@ import { useState } from 'preact/hooks'
 import { avatarCrop } from '../data/avatar-crops'
 import { challengeCard } from '../lib/challenge-cards'
 
+// The app's own drop mark, shown when a player's favorite card art is missing.
+const DROP_ICON = '/assets/icon/drop-icon-192.png'
+
 interface PlayerAvatarProps {
   favoriteCardId?: number
   size?: 'small' | 'medium' | 'large'
@@ -28,7 +31,7 @@ export default function PlayerAvatar({ favoriteCardId, size = 'medium', class: c
       style={style}
     >
       <img
-        src={useFallback ? '/assets/emoji/elixir.png' : card.icon}
+        src={useFallback ? DROP_ICON : card.icon}
         alt={card ? `${card.name} favorite card` : 'Elixir Drop player'}
         loading="lazy"
         onError={card && !imageFailed ? () => setFailedCardId(card.id) : undefined}

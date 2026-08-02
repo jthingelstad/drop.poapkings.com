@@ -183,7 +183,10 @@ describe('learning helpers', () => {
     expect(count.value).toBe(2)
     vi.advanceTimersByTime(100)
     expect(count.value).toBe(1)
+    // 1 -> GO (count 0), then the GO hold before the run begins.
     vi.advanceTimersByTime(100)
+    expect(count.value).toBe(0)
+    vi.advanceTimersByTime(250)
     expect(begin).toHaveBeenCalledTimes(1)
 
     const scheduled = vi.fn()

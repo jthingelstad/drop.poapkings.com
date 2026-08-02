@@ -32,7 +32,9 @@ test('profile restores global game preferences between arena progress and recent
 
   const arena = page.locator('.ed-profile__stats')
   const preferences = page.locator('.ed-profile__preferences')
-  const recent = page.locator('.ed-profile__recent')
+  // The profile now stacks three cards that share this styling; this is the
+  // recent-games one specifically.
+  const recent = page.locator('.ed-profile__games')
   await expect(preferences.getByRole('heading', { name: 'Game settings' })).toBeVisible()
 
   const positions = await Promise.all([arena, preferences, recent].map((surface) => surface.boundingBox()))

@@ -1,4 +1,5 @@
 import type { Signal } from '@preact/signals'
+import Icon from './Icon'
 
 // The gate every mode renders while it has no playable content: either the
 // signed run is still being prepared, or preparing it failed. It takes the game
@@ -17,7 +18,7 @@ export default function GameRunGate({ session }: GameRunGateProps) {
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
-        <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+        <Icon name="loader-circle" className="route-loading__spinner" />
         <div class="eyebrow">Recorded game</div>
         <h1>{preparing ? 'Preparing your game…' : 'This game could not start'}</h1>
         {preparing ? (

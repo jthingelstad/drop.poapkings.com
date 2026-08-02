@@ -2,10 +2,14 @@ import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import { weakestBandLabel } from '../lib/insights'
-import { heldForReview } from '../lib/use-game-run'
+import { earnedBadges, heldForReview } from '../lib/use-game-run'
+import { player } from '../lib/account'
+import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
 import Icon from './Icon'
+import BadgeEarned from './BadgeEarned'
+import ModeIcon from './ModeIcon'
 import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
 
@@ -84,6 +88,9 @@ export default function Summary({
   onHome
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
+  // The arena the player is standing in, for the share card's footer. Derived
+  // from XP exactly as the profile does it.
+  const shareArena = player.value ? rankFor(player.value.xp ?? 0).current : undefined
   const runMoments = moments ?? defaultMoments(insights, pbCallout)
   // Modes without per-card cost answers (Trade, Higher/Lower) have no bands.
   const hasBands = bands.some((b) => b.total > 0)
@@ -91,7 +98,10 @@ export default function Summary({
   return (
     <div class="ed-sum" data-summary>
       <div class="ed-sum__head">
-        <div class="ed-eyebrow">{eyebrow}</div>
+        <div class="ed-eyebrow">
+          <ModeIcon mode={share.mode} size={44} className="ed-sum__art" />
+          {eyebrow}
+        </div>
         <div class="ed-sum__headline">{headline}</div>
         {pbCallout && (
           <div class="ed-sum__pb">
@@ -112,8 +122,22 @@ export default function Summary({
         )}
       </div>
 
-      {/* A scored result cannot omit or bury its browser-share action. */}
-      <ShareLine mode={share.mode} score={share.score} />
+      {/* Rungs this run cleared, read from the signal for the same reason the
+          review notice is. */}
+      {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}
+
+      {/* A scored result cannot omit or bury its browser-share action. The
+          composited card gets the run's own cost bands and the player's arena;
+          everything it cannot resolve simply is not drawn. */}
+      <ShareLine
+        mode={share.mode}
+        score={share.score}
+        card={{
+          bands: bands.filter((band) => band.total > 0),
+          ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
+          ...(shareArena ? { arenaImage: shareArena.image, arenaName: shareArena.name } : {})
+        }}
+      />
 
       {runMoments.length > 0 && (
         <div class="ed-sum-tiles" aria-label="Run highlights">

@@ -24,6 +24,7 @@ import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
 import MetaPage from './screens/MetaPage'
+import Icon from './components/Icon'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -74,7 +75,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
 function RouteFallback() {
   return (
     <div class="main-content route-loading" aria-live="polite">
-      <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+      <Icon name="loader-circle" className="route-loading__spinner" />
       <div class="route-loading__text">Loading game…</div>
     </div>
   )
@@ -99,7 +100,7 @@ function AccountUnavailable() {
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
-        <img src="/assets/emoji/elixir_time.png" alt="" class="route-loading__img" aria-hidden="true" />
+        <Icon name="loader-circle" className="route-loading__spinner" />
         <div class="eyebrow">Login safely kept</div>
         <h1>Player services are reconnecting</h1>
         <p class="account-message account-message--error">

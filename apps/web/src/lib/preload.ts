@@ -5,7 +5,13 @@ import type { Card } from '../types'
 // reports how many images actually loaded so a mode that needs the art to be
 // playable can refuse to start the clock against gray boxes.
 export function preloadImages(cards: Card[], done: (loadedCount: number) => void, timeoutMs = 2500): void {
-  const urls = cards.map((c) => c.icon).filter(Boolean)
+  preloadUrls(cards.map((c) => c.icon).filter(Boolean), done, timeoutMs)
+}
+
+// The same settle-or-timeout behaviour for plain URLs — countdown frames, mode
+// emblems, share furniture — rather than bending the card-shaped signature
+// above into carrying fake Card objects.
+export function preloadUrls(urls: string[], done: (loadedCount: number) => void, timeoutMs = 2500): void {
   if (urls.length === 0) {
     done(0)
     return

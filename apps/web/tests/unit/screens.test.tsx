@@ -300,7 +300,10 @@ describe('Leaderboards', () => {
     await click(buttonWithText(host, '.ed-board__modes button', 'Survival'))
     await flush()
 
-    expect(host.textContent).toContain('No scores yet.')
+    expect(host.textContent).toContain('Nobody has posted')
+    expect(host.querySelector<HTMLImageElement>('.ed-empty__art')?.getAttribute('src')).toBe(
+      '/assets/empty/empty-board-512.png'
+    )
     const play = buttonWithText(host, '.ed-board__empty button', 'Play')
     await click(play)
     expect(navigate).toHaveBeenCalledWith('/survival')
