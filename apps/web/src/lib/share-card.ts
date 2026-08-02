@@ -1,7 +1,7 @@
-import type { GameMode } from '@elixir-drop/contracts'
+import type { BadgeTier, GameMode } from '@elixir-drop/contracts'
 import { gameDisplay } from './game-metadata'
 
-// The 1080×1350 run share card.
+// The 1080×1350 share cards.
 //
 // `share-backdrop.png` is the fixed background and everything else is composited
 // on top at export. The centre of the backdrop is intentionally dark and flat,
@@ -29,6 +29,15 @@ export interface ShareCardInput {
   arenaImage?: string
   arenaName?: string
   rank?: number
+}
+
+export interface BadgeShareCardInput {
+  slug: string
+  name: string
+  chip: string
+  tier: BadgeTier
+  requirement?: string
+  playerName: string
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -69,6 +78,39 @@ function playerNameFont(ctx: CanvasRenderingContext2D, name: string): string {
     if (ctx.measureText(name).width <= 700) return font
   }
   return '700 36px "Clash Royale", system-ui, sans-serif'
+}
+
+function badgeRim(ctx: CanvasRenderingContext2D, tier: BadgeTier): CanvasGradient {
+  if (tier === 'prismatic' && 'createConicGradient' in ctx) {
+    const gradient = ctx.createConicGradient(Math.PI * 1.15, SHARE_WIDTH / 2, 490)
+    gradient.addColorStop(0, '#f5c84c')
+    gradient.addColorStop(0.25, '#8b5cf6')
+    gradient.addColorStop(0.5, '#3b82f6')
+    gradient.addColorStop(0.75, '#22c55e')
+    gradient.addColorStop(1, '#f5c84c')
+    return gradient
+  }
+  const gradient = ctx.createLinearGradient(365, 320, 715, 660)
+  const colors: Record<BadgeTier, [string, string]> = {
+    unlit: ['#37324f', '#1d1930'],
+    copper: ['#d08a52', '#7a4520'],
+    silver: ['#dfe4f2', '#8a92ad'],
+    gold: ['#ffe189', '#b77513'],
+    prismatic: ['#f5c84c', '#8b5cf6']
+  }
+  gradient.addColorStop(0, colors[tier][0])
+  gradient.addColorStop(1, colors[tier][1])
+  return gradient
+}
+
+function badgeChip(ctx: CanvasRenderingContext2D, chip: string, tier: BadgeTier, y: number): void {
+  ctx.font = '700 42px "Clash Royale", system-ui, sans-serif'
+  const width = Math.max(126, ctx.measureText(chip).width + 58)
+  roundedRect(ctx, SHARE_WIDTH / 2 - width / 2, y, width, 68, 34)
+  ctx.fillStyle = badgeRim(ctx, tier)
+  ctx.fill()
+  ctx.fillStyle = '#211100'
+  ctx.fillText(chip, SHARE_WIDTH / 2, y + 49)
 }
 
 export async function renderShareCard(input: ShareCardInput): Promise<Blob | null> {
@@ -168,6 +210,84 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     ctx.font = '700 44px "Clash Royale", system-ui, sans-serif'
     ctx.fillText(`#${input.rank}`, centreX, 1278)
   }
+
+  if (sticker) {
+    const size = Math.round(SHARE_WIDTH * STICKER_RATIO)
+    const margin = 44
+    ctx.drawImage(sticker, SHARE_WIDTH - size - margin, SHARE_HEIGHT - size - margin, size, size)
+  }
+
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
+}
+
+export async function renderBadgeShareCard(input: BadgeShareCardInput): Promise<Blob | null> {
+  const canvas = document.createElement('canvas')
+  canvas.width = SHARE_WIDTH
+  canvas.height = SHARE_HEIGHT
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  const [backdrop, sticker, art] = await Promise.all([
+    loadImage('/assets/share/share-backdrop.png'),
+    loadImage('/assets/share/share-sticker.png'),
+    loadImage(`/assets/badges/${input.slug}-384.png`)
+  ])
+  await readyFonts()
+  if (!backdrop || !art) return null
+
+  ctx.drawImage(backdrop, 0, 0, SHARE_WIDTH, SHARE_HEIGHT)
+  const centreX = SHARE_WIDTH / 2
+  ctx.textAlign = 'center'
+
+  ctx.fillStyle = '#d7c8ff'
+  ctx.font = '700 44px "Clash Royale", system-ui, sans-serif'
+  ctx.fillText('EARNED BADGE', centreX, 206)
+
+  ctx.save()
+  ctx.shadowColor = 'rgba(139, 92, 246, 0.56)'
+  ctx.shadowBlur = 54
+  ctx.beginPath()
+  ctx.arc(centreX, 490, 188, 0, Math.PI * 2)
+  ctx.fillStyle = badgeRim(ctx, input.tier)
+  ctx.fill()
+  ctx.restore()
+
+  const plate = ctx.createRadialGradient(centreX, 430, 24, centreX, 490, 164)
+  plate.addColorStop(0, '#402f74')
+  plate.addColorStop(1, '#0c091e')
+  ctx.beginPath()
+  ctx.arc(centreX, 490, 162, 0, Math.PI * 2)
+  ctx.fillStyle = plate
+  ctx.fill()
+  ctx.drawImage(art, centreX - 130, 360, 260, 260)
+  if (input.chip) badgeChip(ctx, input.chip, input.tier, 624)
+
+  ctx.fillStyle = '#f5c84c'
+  ctx.font = '700 82px "Clash Royale", system-ui, sans-serif'
+  ctx.fillText(input.name, centreX, 820)
+
+  if (input.requirement) {
+    ctx.fillStyle = '#c8c1e6'
+    ctx.font = '600 34px Inter, system-ui, sans-serif'
+    ctx.fillText(input.requirement, centreX, 880)
+  }
+
+  roundedRect(ctx, 150, 930, 780, 142, 30)
+  ctx.fillStyle = 'rgba(7, 6, 16, 0.72)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(245, 200, 76, 0.72)'
+  ctx.lineWidth = 3
+  ctx.stroke()
+  ctx.fillStyle = '#d7c8ff'
+  ctx.font = '700 24px Inter, system-ui, sans-serif'
+  ctx.fillText('EARNED BY', centreX, 974)
+  ctx.fillStyle = '#f5c84c'
+  ctx.font = playerNameFont(ctx, input.playerName)
+  ctx.fillText(input.playerName, centreX, 1045)
+
+  ctx.fillStyle = '#c8c1e6'
+  ctx.font = '600 30px Inter, system-ui, sans-serif'
+  ctx.fillText('drop.poapkings.com', centreX, 1190)
 
   if (sticker) {
     const size = Math.round(SHARE_WIDTH * STICKER_RATIO)

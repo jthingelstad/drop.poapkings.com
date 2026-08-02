@@ -12,6 +12,7 @@ export type TinyEvent =
   | 'game.replayed'
   | 'game.personal_best'
   | 'game.shared'
+  | 'badge.shared'
   | 'account.login_requested'
   | 'account.login_completed'
   | 'account.profile_completed'

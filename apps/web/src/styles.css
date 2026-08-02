@@ -5763,6 +5763,32 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 0.78rem;
 }
+.ed-badges__share {
+  width: min(100%, 320px);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ed-badges__share-btn {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-color: rgba(245, 200, 76, 0.48);
+  color: var(--gold);
+}
+.ed-badges__share-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+.ed-badges__share-status {
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
 .ed-badges__ladder {
   width: 100%;
   max-width: 320px;

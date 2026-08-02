@@ -1,8 +1,12 @@
-import { useRef, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { track } from '../lib/analytics'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
+import { shareBadge } from '../lib/share-badge'
+import type { RunShareOutcome } from '../lib/share-run'
 import BadgeMedallion from './BadgeMedallion'
 import DetailModal from './DetailModal'
 import EmptyState from './EmptyState'
+import Icon from './Icon'
 
 // The badge wall: medallions open a real modal, so a tap never changes content
 // several screens below the pressed badge.
@@ -10,7 +14,17 @@ import EmptyState from './EmptyState'
 // Grid uses -192 at 74px, the sheet the same file at 84px. -384 is reserved for
 // the earn celebration, which is the only place a badge gets big enough to need
 // it.
-export default function BadgeGrid({ states, earnedOnly = false }: { states: BadgeState[]; earnedOnly?: boolean }) {
+export default function BadgeGrid({
+  states,
+  earnedOnly = false,
+  playerId,
+  playerName
+}: {
+  states: BadgeState[]
+  earnedOnly?: boolean
+  playerId?: string
+  playerName?: string
+}) {
   const [openSlug, setOpenSlug] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const views = badgeViews(states)
@@ -51,21 +65,67 @@ export default function BadgeGrid({ states, earnedOnly = false }: { states: Badg
           </button>
         ))}
       </div>
-      {open && <BadgeSheet badge={open} onClose={() => setOpenSlug(null)} returnFocus={triggerRef.current} />}
+      {open && (
+        <BadgeSheet
+          badge={open}
+          playerId={playerId}
+          playerName={playerName}
+          onClose={() => setOpenSlug(null)}
+          returnFocus={triggerRef.current}
+        />
+      )}
     </>
   )
 }
 
 function BadgeSheet({
   badge,
+  playerId,
+  playerName,
   onClose,
   returnFocus
 }: {
   badge: BadgeView
+  playerId?: string
+  playerName?: string
   onClose: () => void
   returnFocus: HTMLElement | null
 }) {
   const { definition } = badge
+  const [sharing, setSharing] = useState(false)
+  const [outcome, setOutcome] = useState<RunShareOutcome | null>(null)
+  const resetTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(resetTimer.current), [])
+
+  async function share() {
+    if (!playerId || !playerName || sharing) return
+    setSharing(true)
+    setOutcome(null)
+    const result = await shareBadge({
+      slug: badge.slug,
+      name: badge.name,
+      chip: badge.chip,
+      tier: badge.tier,
+      requirement: definition.requirement,
+      playerId,
+      playerName
+    })
+    setSharing(false)
+    setOutcome(result === 'cancelled' ? null : result)
+    if (result === 'shared' || result === 'copied') {
+      track('badge.shared')
+      window.clearTimeout(resetTimer.current)
+      resetTimer.current = window.setTimeout(() => setOutcome(null), 1800)
+    }
+  }
+
+  const shareLabel = sharing
+    ? 'Opening…'
+    : outcome === 'shared'
+      ? 'Shared'
+      : outcome === 'copied'
+        ? 'Copied'
+        : 'Share badge'
 
   return (
     <DetailModal
@@ -84,6 +144,19 @@ function BadgeSheet({
       ) : (
         <>
           {definition.requirement && <span class="ed-badges__sheet-req">{definition.requirement}</span>}
+          {badge.earned && playerId && playerName && (
+            <div class="ed-badges__share">
+              <button class="ed-btn ed-btn--ghost ed-badges__share-btn" disabled={sharing} onClick={() => void share()}>
+                <Icon name={outcome === 'shared' || outcome === 'copied' ? 'check' : 'share'} />
+                {shareLabel}
+              </button>
+              <span class="ed-badges__share-status" aria-live="polite">
+                {outcome === 'copied' && 'Native sharing is unavailable, so the badge was copied.'}
+                {outcome === 'unavailable' && 'Sharing is unavailable in this browser.'}
+                {outcome === 'shared' && 'Badge shared.'}
+              </span>
+            </div>
+          )}
           <div class="ed-badges__ladder">
             {definition.rungs.map((rung, index) => (
               <div key={rung} class={`ed-badges__rung${index <= badge.rungIndex ? ' ed-badges__rung--cleared' : ''}`}>

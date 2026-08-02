@@ -96,7 +96,7 @@ export default function PublicProfile() {
           <span class="ed-profile__recent-title">Badges</span>
           {badgeCount > 0 && <span class="ed-profile__recent-score">{badgeCount} earned</span>}
         </div>
-        <BadgeGrid states={publicBadges.value} earnedOnly />
+        <BadgeGrid states={publicBadges.value} earnedOnly playerId={current.id} playerName={current.publicName} />
       </section>
 
       <div class="ed-profile__stats profile-xp">

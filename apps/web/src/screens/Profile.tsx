@@ -468,7 +468,7 @@ export default function Profile() {
             </span>
           )}
         </div>
-        <BadgeGrid states={badges.value} />
+        <BadgeGrid states={badges.value} playerId={current.id} playerName={current.publicName} />
       </section>
 
       <div class="ed-profile__stats profile-xp">

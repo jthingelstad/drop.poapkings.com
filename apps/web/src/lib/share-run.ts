@@ -41,12 +41,23 @@ export function runSharePayload(
 // A share button that does nothing because the compositor had a bad day is
 // worse than a plain text share.
 export async function shareRunCard(payload: RunSharePayload, card: ShareCardInput): Promise<RunShareOutcome> {
+  return shareImage(payload, () => renderShareCard(card), 'elixir-drop.png')
+}
+
+// Common image-share upgrade used by score cards and badge cards. The caller
+// only owns rendering; capability checks, cancellation, and the text/clipboard
+// fallback stay identical on every share surface.
+export async function shareImage(
+  payload: RunSharePayload,
+  render: () => Promise<Blob | null>,
+  filename: string
+): Promise<RunShareOutcome> {
   if (!canShareImage()) return shareRun(payload)
   let file: File
   try {
-    const blob = await renderShareCard(card)
+    const blob = await render()
     if (!blob) return shareRun(payload)
-    file = new File([blob], 'elixir-drop.png', { type: 'image/png' })
+    file = new File([blob], filename, { type: 'image/png' })
     if (!navigator.canShare?.({ files: [file] })) return shareRun(payload)
   } catch {
     return shareRun(payload)

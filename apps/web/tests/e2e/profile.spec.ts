@@ -96,6 +96,78 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   await expect(page.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeFocused()
 })
 
+test('earned badge sharing includes its artwork, rung, player, and public profile link', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: (payload: ShareData) => Boolean(payload.files?.length)
+    })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        ;(window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload = payload
+      }
+    })
+  })
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Clockbreaker' })
+  const axe = await new AxeBuilder({ page }).analyze()
+  expect(
+    axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+  ).toEqual([])
+  await dialog.getByRole('button', { name: 'Share badge' }).click()
+  await expect(dialog.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+
+  const payload = await page.evaluate(async () => {
+    const shared = (window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload
+    const file = shared?.files?.[0]
+    let dimensions: { width: number; height: number } | undefined
+    let imageBase64: string | undefined
+    if (file) {
+      const header = new DataView(await file.slice(0, 24).arrayBuffer())
+      dimensions = { width: header.getUint32(16), height: header.getUint32(20) }
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      let binary = ''
+      for (let offset = 0; offset < bytes.length; offset += 16_384) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384))
+      }
+      imageBase64 = btoa(binary)
+    }
+    return {
+      title: shared?.title,
+      text: shared?.text,
+      url: shared?.url,
+      file: file ? { name: file.name, type: file.type, size: file.size, ...dimensions } : undefined,
+      imageBase64
+    }
+  })
+  expect(payload).toMatchObject({
+    title: 'Knight Main earned Clockbreaker | Elixir Drop',
+    text: 'Knight Main earned the Clockbreaker badge on Elixir Drop — 35s.',
+    url: expect.stringMatching(/#\/players\/player-1$/),
+    file: {
+      name: 'elixir-drop-clockbreaker.png',
+      type: 'image/png',
+      size: expect.any(Number),
+      width: 1080,
+      height: 1350
+    }
+  })
+  expect(payload.file!.size).toBeGreaterThan(50_000)
+  await testInfo.attach('badge-share-card.png', {
+    body: Buffer.from(payload.imageBase64!, 'base64'),
+    contentType: 'image/png'
+  })
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'All Six' }).click()
+  await expect(page.getByRole('dialog', { name: 'All Six' }).getByRole('button', { name: 'Share badge' })).toHaveCount(
+    0
+  )
+})
+
 test('season totals use full history and open every game in a modal', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
@@ -112,6 +184,15 @@ test('season totals use full history and open every game in a modal', async ({ p
 })
 
 test('public profiles display earned badges prominently', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => false })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        ;(window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload = payload
+      }
+    })
+  })
   await page.goto('/#/players/player-2', { waitUntil: 'domcontentloaded' })
 
   const badgeWall = page.locator('.ed-profile__badges')
@@ -120,6 +201,18 @@ test('public profiles display earned badges prominently', async ({ page }, testI
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
   expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)
+  await badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+  await expect(
+    page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'Share badge' })
+  ).toBeVisible()
+  await page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'Share badge' }).click()
+  await expect(page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'Shared' })).toBeVisible()
+  expect(
+    await page.evaluate(() => (window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload)
+  ).toMatchObject({
+    title: 'Royal Ghosted earned Clockbreaker | Elixir Drop',
+    url: expect.stringMatching(/#\/players\/player-2$/)
+  })
   await testInfo.attach('public-profile-badges.png', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png'
