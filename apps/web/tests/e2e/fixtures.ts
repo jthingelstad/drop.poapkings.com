@@ -342,12 +342,18 @@ export const allowExpectedApiErrors = new WeakSet<Page>()
 export const test = base.extend({
   // `provide` is Playwright's `use` callback, renamed so the lint rule that
   // guards React hook naming does not read it as a misplaced hook call.
-  page: async ({ page }, provide) => {
+  page: async ({ page, browserName }, provide) => {
     const errors: string[] = []
     page.on('console', (msg) => {
       const text = msg.text()
+      // Firefox 153 reports its own in-flight document cancellation as a
+      // console error when a test intentionally reloads. It has no page URL or
+      // application stack and is safe to exclude from the app-error guard.
+      const firefoxNavigationCancellation =
+        browserName === 'firefox' && text === '[JavaScript Error: "InvalidStateError: Navigated away from page"]'
       if (
         msg.type() === 'error' &&
+        !firefoxNavigationCancellation &&
         !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED')) &&
         !(allowExpectedApiErrors.has(page) && (text.includes('status of 400') || text.includes('status of 503')))
       ) {
