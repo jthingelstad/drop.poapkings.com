@@ -33,8 +33,11 @@ npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
 
 The launchd installer builds the worker, writes
 `~/Library/LaunchAgents/com.poapkings.elixir-drop-cr-bridge.plist`, and keeps the
-process alive on the required Node 24 runtime. Logs go to
-`~/Library/Logs/elixir-drop-cr-bridge.log`.
+process alive on the required Node 24 runtime. Application events go to
+`~/Library/Logs/elixir-drop-cr-bridge.log` as timestamped, one-line JSON. The
+bridge rotates that file at 1 MiB and retains three numbered archives. launchd
+captures unexpected runtime stdout/stderr separately in
+`~/Library/Logs/elixir-drop-cr-bridge-runtime.log`.
 The worker publishes a one-minute process heartbeat and a separate successful
 war-clock heartbeat. Production alarms notify `ELIXIR_DROP_ALARM_EMAIL` if the
 process stops, no clock reaches AWS for fifteen minutes, requests back up, or a

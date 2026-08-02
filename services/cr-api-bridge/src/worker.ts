@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-sqs";
 import { fetchPlayer } from "./clash-royale.js";
 import { publishPlayerPulledEvent } from "./discord.js";
+import { bridgeLogger } from "./logger.js";
 import { parseRefreshRequest } from "./messages.js";
 
 export interface WorkerConfig {
@@ -73,7 +74,7 @@ export async function pollOnce(
         ReceiptHandle: message.ReceiptHandle,
       }),
     );
-    console.info("CR player refresh duplicate dropped", {
+    bridgeLogger.info("CR player refresh duplicate dropped", {
       jobId: request.jobId,
       playerTag: request.playerTag,
     });
@@ -99,7 +100,7 @@ export async function pollOnce(
     result,
     Date.now() - startedAt,
   );
-  console.info("CR player refresh completed", {
+  bridgeLogger.info("CR player refresh completed", {
     jobId: request.jobId,
     playerTag: request.playerTag,
     outcome: result.outcome,
@@ -122,7 +123,7 @@ export async function runWorker(
       try {
         await config.publishHeartbeat();
       } catch (error) {
-        console.warn("CR bridge heartbeat failed", {
+        bridgeLogger.warn("CR bridge heartbeat failed", {
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -132,7 +133,7 @@ export async function runWorker(
       try {
         await config.publishWarClock();
       } catch (error) {
-        console.warn("CR bridge war clock refresh failed", {
+        bridgeLogger.warn("CR bridge war clock refresh failed", {
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -141,7 +142,7 @@ export async function runWorker(
     try {
       await pollOnce(sqs, config);
     } catch (error) {
-      console.error("CR bridge poll failed", {
+      bridgeLogger.error("CR bridge poll failed", {
         error: error instanceof Error ? error.message : "Unknown error",
       });
       await retryDelay(signal);

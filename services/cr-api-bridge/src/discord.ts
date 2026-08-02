@@ -1,4 +1,5 @@
 import type { CrPlayerRefreshResult } from "@elixir-drop/contracts";
+import { bridgeLogger } from "./logger.js";
 
 interface DiscordPayload {
   username: string;
@@ -83,11 +84,13 @@ export async function publishPlayerPulledEvent(
       signal: AbortSignal.timeout(3_000),
     });
     if (!response.ok)
-      console.warn(`Discord bridge event failed with HTTP ${response.status}.`);
+      bridgeLogger.warn("Discord bridge event failed", {
+        status: response.status,
+      });
   } catch (error) {
-    console.warn(
-      `Discord bridge event failed with ${error instanceof Error ? error.name : "UnknownError"}.`,
-    );
+    bridgeLogger.warn("Discord bridge event failed", {
+      error: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 
@@ -105,12 +108,12 @@ export async function publishBridgeStartedEvent(
       signal: AbortSignal.timeout(3_000),
     });
     if (!response.ok)
-      console.warn(
-        `Discord bridge startup event failed with HTTP ${response.status}.`,
-      );
+      bridgeLogger.warn("Discord bridge startup event failed", {
+        status: response.status,
+      });
   } catch (error) {
-    console.warn(
-      `Discord bridge startup event failed with ${error instanceof Error ? error.name : "UnknownError"}.`,
-    );
+    bridgeLogger.warn("Discord bridge startup event failed", {
+      error: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }

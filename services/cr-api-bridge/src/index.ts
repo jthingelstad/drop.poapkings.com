@@ -5,6 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { getBridgeConfig } from "./config.js";
 import { publishBridgeStartedEvent } from "./discord.js";
+import { bridgeLogger } from "./logger.js";
 import { pollOnce, runWorker } from "./worker.js";
 import {
   publishBridgeHeartbeat,
@@ -37,7 +38,7 @@ async function shouldAnnounceStart(now = Date.now()): Promise<boolean> {
   try {
     await writeFile(path, String(now), "utf8");
   } catch (error) {
-    console.warn("CR bridge start stamp could not be written", {
+    bridgeLogger.warn("CR bridge start stamp could not be written", {
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
@@ -85,7 +86,7 @@ async function main(): Promise<void> {
         config.crApiKey,
       );
       await publishWarClockHeartbeat(cloudWatch);
-      console.info("CR war clock relayed", {
+      bridgeLogger.info("CR war clock relayed", {
         crSeasonId: result.clock.crSeasonId,
         sectionIndex: result.clock.sectionIndex,
         periodIndex: result.clock.periodIndex,
@@ -103,10 +104,10 @@ async function main(): Promise<void> {
     if (await shouldAnnounceStart())
       await publishBridgeStartedEvent(config.discordWebhookUrl, process.pid);
     else
-      console.info("CR bridge start event suppressed (recent restart)", {
+      bridgeLogger.info("CR bridge start event suppressed (recent restart)", {
         cooldownMs: START_EVENT_COOLDOWN_MS,
       });
-    console.info("Elixir Drop CR bridge started", {
+    bridgeLogger.info("Elixir Drop CR bridge started", {
       region: config.region,
       requestQueue: config.requestQueueName,
       resultQueue: config.resultQueueName,
@@ -116,7 +117,7 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  console.error("Elixir Drop CR bridge could not start", {
+  bridgeLogger.error("Elixir Drop CR bridge could not start", {
     error: error instanceof Error ? error.message : "Unknown error",
   });
   process.exitCode = 1;

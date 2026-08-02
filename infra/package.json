@@ -15,9 +15,9 @@
     "verify:non-browser": "npm run verify"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudformation": "^3.1090.0",
-    "@aws-sdk/client-iam": "^3.1090.0",
-    "@aws-sdk/client-s3": "^3.1090.0",
-    "@aws-sdk/client-sts": "^3.1090.0"
+    "@aws-sdk/client-cloudformation": "^3.1101.0",
+    "@aws-sdk/client-iam": "^3.1101.0",
+    "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/client-sts": "^3.1101.0"
   }
 }

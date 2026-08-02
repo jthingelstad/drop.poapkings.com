@@ -6,6 +6,7 @@ import type {
   CrPlayerRefreshResult,
   CrPlayerSnapshot,
 } from "@elixir-drop/contracts";
+import { bridgeLogger } from "./logger.js";
 
 type BridgeFetch = typeof fetch;
 
@@ -159,7 +160,7 @@ export async function fetchPlayer(
         await delay(retryDelayMs(response, attempt));
         continue;
       }
-      console.warn("Clash Royale player fetch gave up", {
+      bridgeLogger.warn("Clash Royale player fetch gave up", {
         playerTag: request.playerTag,
         status: response.status,
       });
@@ -174,7 +175,7 @@ export async function fetchPlayer(
     } catch (error) {
       // A 200 with an unusable payload is CR-side weirdness, not a poison
       // message; resolve the job instead of dead-lettering it.
-      console.warn("Clash Royale player payload was unusable", {
+      bridgeLogger.warn("Clash Royale player payload was unusable", {
         playerTag: request.playerTag,
         error: error instanceof Error ? error.message : "Unknown error",
       });

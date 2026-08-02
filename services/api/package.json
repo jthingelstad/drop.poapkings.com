@@ -20,18 +20,18 @@
     "verify:non-browser": "npm run verify"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1090.0",
-    "@aws-sdk/client-dynamodb": "^3.1090.0",
-    "@aws-sdk/client-sqs": "^3.1090.0",
-    "@aws-sdk/client-sts": "^3.1090.0",
-    "@aws-sdk/lib-dynamodb": "^3.1090.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1101.0",
+    "@aws-sdk/client-dynamodb": "^3.1101.0",
+    "@aws-sdk/client-sqs": "^3.1101.0",
+    "@aws-sdk/client-sts": "^3.1101.0",
+    "@aws-sdk/lib-dynamodb": "^3.1101.0",
     "@aws-sdk/util-dynamodb": "^3.996.7",
     "@elixir-drop/contracts": "*",
     "@elixir-drop/game-data": "^0.1.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.162",
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "esbuild": "^0.28.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

@@ -4,6 +4,7 @@ import {
   ReceiveMessageCommand,
   SendMessageCommand,
 } from "@aws-sdk/client-sqs";
+import { bridgeLogger } from "../src/logger.js";
 import { pollOnce, runWorker } from "../src/worker.js";
 
 const playerBody = {
@@ -55,7 +56,7 @@ describe("CR bridge worker", () => {
           }),
       ),
     );
-    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(bridgeLogger, "info").mockImplementation(() => undefined);
     const message = refreshMessage("job-dedupe");
     const sqs = stubSqs(message);
     const config = {

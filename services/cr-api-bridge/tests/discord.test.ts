@@ -5,6 +5,7 @@ import {
   publishBridgeStartedEvent,
   publishPlayerPulledEvent,
 } from "../src/discord.js";
+import { bridgeLogger } from "../src/logger.js";
 
 const result = {
   version: 1 as const,
@@ -50,7 +51,9 @@ describe("CR bridge Discord event", () => {
   });
 
   it("does not let webhook delivery block the bridge", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warn = vi
+      .spyOn(bridgeLogger, "warn")
+      .mockImplementation(() => undefined);
     await expect(
       publishPlayerPulledEvent(
         "https://discord.example/webhook",
@@ -59,14 +62,16 @@ describe("CR bridge Discord event", () => {
         async () => ({ ok: false, status: 429 }),
       ),
     ).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      "Discord bridge event failed with HTTP 429.",
-    );
+    expect(warn).toHaveBeenCalledWith("Discord bridge event failed", {
+      status: 429,
+    });
     warn.mockRestore();
   });
 
   it("does not let startup event delivery block the bridge", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warn = vi
+      .spyOn(bridgeLogger, "warn")
+      .mockImplementation(() => undefined);
     await expect(
       publishBridgeStartedEvent(
         "https://discord.example/webhook",
@@ -74,9 +79,9 @@ describe("CR bridge Discord event", () => {
         async () => ({ ok: false, status: 429 }),
       ),
     ).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(
-      "Discord bridge startup event failed with HTTP 429.",
-    );
+    expect(warn).toHaveBeenCalledWith("Discord bridge startup event failed", {
+      status: 429,
+    });
     warn.mockRestore();
   });
 });

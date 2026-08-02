@@ -11,6 +11,7 @@ const agentsDir = resolve(homedir(), "Library", "LaunchAgents");
 const logsDir = resolve(homedir(), "Library", "Logs");
 const plistPath = resolve(agentsDir, `${label}.plist`);
 const logPath = resolve(logsDir, "elixir-drop-cr-bridge.log");
+const fallbackLogPath = resolve(logsDir, "elixir-drop-cr-bridge-runtime.log");
 
 function isNode24(path) {
   if (!existsSync(path)) return false;
@@ -59,10 +60,15 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
   <true/>
   <key>ThrottleInterval</key>
   <integer>10</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ELIXIR_DROP_LOG_PATH</key>
+    <string>${xml(logPath)}</string>
+  </dict>
   <key>StandardOutPath</key>
-  <string>${xml(logPath)}</string>
+  <string>${xml(fallbackLogPath)}</string>
   <key>StandardErrorPath</key>
-  <string>${xml(logPath)}</string>
+  <string>${xml(fallbackLogPath)}</string>
 </dict>
 </plist>
 `;
@@ -92,3 +98,4 @@ execFileSync("launchctl", ["kickstart", "-k", `${domain}/${label}`], {
 console.log(`Installed and started ${label}.`);
 console.log(`Runtime: ${nodePath}`);
 console.log(`Logs: ${logPath}`);
+console.log(`Runtime fallback logs: ${fallbackLogPath}`);
