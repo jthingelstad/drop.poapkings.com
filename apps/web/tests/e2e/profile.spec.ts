@@ -85,7 +85,9 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   const sheet = page.getByRole('dialog', { name: 'Clockbreaker' })
   await expect(sheet).toBeFocused()
   await expect(sheet).toContainText('Fastest Surge run')
-  await expect(sheet).toContainText('Next: 30s')
+  await expect(sheet).toContainText('Next milestone')
+  await expect(sheet).toContainText('Best: 34.2s · 4.2s faster to go')
+  await expect(sheet.locator('.ed-badges__ladder')).toHaveCount(0)
   await testInfo.attach('badge-modal.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
@@ -98,8 +100,26 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   await page.getByRole('button', { name: 'Reps, 100' }).click()
   const reps = page.getByRole('dialog', { name: 'Reps' })
   await expect(reps).toBeVisible()
-  await expect(reps).toContainText('Current: 175 · 75 to next rung')
-  await expect(reps.getByRole('progressbar', { name: 'Reps progress' })).toHaveAttribute('aria-valuenow', '50')
+  await expect(reps).toContainText('Current: 175 · 75 to go')
+  await expect(reps.getByRole('progressbar', { name: 'Reps progress' })).toHaveAttribute('aria-valuenow', '70')
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Marathon, 5' }).click()
+  const marathon = page.getByRole('dialog', { name: 'Marathon' })
+  await expect(marathon).toContainText('Next milestone')
+  await expect(marathon).toContainText('10')
+  await expect(marathon).toContainText('Best: 7 · 3 to go')
+  const marathonProgress = marathon.getByRole('progressbar', { name: 'Marathon progress' })
+  await expect(marathonProgress).toHaveAttribute('aria-valuenow', '70')
+  await expect(marathonProgress).toHaveAttribute('aria-valuetext', 'Best: 7 · 3 to go')
+  await expect(marathon.locator('.ed-badges__rung')).toHaveCount(0)
+  await marathon.evaluate(async (element) => {
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished))
+  })
+  await testInfo.attach('badge-marathon-modal.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
 })
 
 test('earned badge sharing includes its artwork, rung, player, and public profile link', async ({ page }, testInfo) => {
@@ -203,7 +223,7 @@ test('public profiles display earned badges prominently', async ({ page }, testI
 
   const badgeWall = page.locator('.ed-profile__badges')
   const stats = page.locator('.ed-profile__stats')
-  await expect(badgeWall).toContainText('3 earned')
+  await expect(badgeWall).toContainText('4 earned')
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
   expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)

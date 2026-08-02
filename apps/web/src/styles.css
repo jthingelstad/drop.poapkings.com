@@ -1848,7 +1848,7 @@ body.modal-open {
   overflow: hidden;
 }
 
-/* Shared profile-detail modal (badge ladders and season run history). */
+/* Shared profile-detail modal (badge milestones and season run history). */
 .ed-detail-modal {
   position: fixed;
   inset: 0;
@@ -5789,47 +5789,38 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 0.68rem;
 }
-.ed-badges__ladder {
-  width: 100%;
-  max-width: 320px;
-  display: grid;
-  gap: 3px;
-  margin-top: 4px;
-}
-
-/* Every rung is a row, cleared or not — an unstyled future rung reads as an
-   orphaned label rather than the next step on the same ladder. */
-.ed-badges__rung {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(215, 200, 255, 0.05);
-  font-size: 0.72rem;
-  color: var(--faint);
-}
-.ed-badges__rung--cleared {
-  background: rgba(139, 92, 246, 0.14);
-  color: var(--lavender-2);
-}
-.ed-badges__rung-runs {
-  color: var(--faint);
-  font-size: 0.66rem;
-}
-.ed-badges__next {
-  color: var(--lavender);
-  font-size: 0.74rem;
-}
-.ed-badges__progress-wrap {
+.ed-badges__milestone {
   width: min(100%, 320px);
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.1);
+}
+.ed-badges__milestone-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ed-badges__milestone-kicker {
+  color: var(--lavender-2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ed-badges__milestone-value {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
 }
 .ed-badges__progress-label {
-  color: var(--ink);
+  color: var(--muted);
   font-size: 0.72rem;
+  text-align: left;
 }
 .ed-badges__progress {
   width: 100%;

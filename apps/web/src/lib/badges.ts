@@ -23,7 +23,9 @@ export interface BadgeView {
   // "2.5K" — never a roman numeral. Empty until a rung is cleared.
   chip: string
   nextRung: number | undefined
-  // 0..1 toward the next rung, for the progress bar. 1 when the ladder is done.
+  // 0..1 toward the next milestone, for the progress bar. Count/best badges
+  // use the visible current/target ratio; descending time badges use the span
+  // between the last cleared milestone and the next one.
   progress: number
   runsAtRung: number[] | undefined
 }
@@ -45,10 +47,11 @@ export function formatRungValue(value: number, unit: BadgeDefinition['unit']): s
 function progressToward(definition: BadgeDefinition, value: number, rungIndex: number): number {
   const next = definition.rungs[rungIndex + 1]
   if (next === undefined) return 1
-  const from = definition.rungs[rungIndex] ?? (definition.kind === 'time' ? value : 0)
-  const span = definition.kind === 'time' ? from - next : next - from
+  if (definition.kind !== 'time') return Math.max(0, Math.min(1, value / next))
+  const from = definition.rungs[rungIndex] ?? value
+  const span = from - next
   if (span <= 0) return 0
-  const travelled = definition.kind === 'time' ? from - value : value - from
+  const travelled = from - value
   return Math.max(0, Math.min(1, travelled / span))
 }
 

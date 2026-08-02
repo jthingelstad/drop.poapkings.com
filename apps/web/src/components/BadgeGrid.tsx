@@ -157,39 +157,31 @@ function BadgeSheet({
               </span>
             </div>
           )}
-          {badge.nextRung !== undefined && (
-            <span class="ed-badges__next">Next: {formatRungValue(badge.nextRung, definition.unit)}</span>
-          )}
-          {(badge.value > 0 || definition.kind !== 'time') && (
-            <div class="ed-badges__progress-wrap">
-              <span class="ed-badges__progress-label">{progressLabel(badge)}</span>
-              <span
-                class="ed-badges__progress"
-                role="progressbar"
-                aria-label={`${badge.name} progress`}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(badge.progress * 100)}
-              >
-                <span class="ed-badges__progress-fill" style={{ width: `${badge.progress * 100}%` }} />
+          <div class="ed-badges__milestone">
+            <div class="ed-badges__milestone-head">
+              <span class="ed-badges__milestone-kicker">
+                {badge.nextRung === undefined ? 'Milestones complete' : 'Next milestone'}
               </span>
+              <strong class="ed-badges__milestone-value">
+                {formatRungValue(badge.nextRung ?? badge.value, definition.unit)}
+              </strong>
             </div>
-          )}
-          <div class="ed-badges__ladder">
-            {definition.rungs.map((rung, index) => (
-              <div key={rung} class={`ed-badges__rung${index <= badge.rungIndex ? ' ed-badges__rung--cleared' : ''}`}>
-                <span>{formatRungValue(rung, definition.unit)}</span>
-                {/* A time ladder's per-rung run count is the interesting stat:
-                      "sub-20s: 14 runs, sub-19s: 9" tells a player exactly where
-                      their ceiling is, and makes a fast rung feel earned. */}
-                <span class="ed-badges__rung-runs">
-                  {badge.runsAtRung?.[index]
-                    ? `${badge.runsAtRung[index]} ${badge.runsAtRung[index] === 1 ? 'run' : 'runs'}`
-                    : ''}
+            {(badge.value > 0 || definition.kind !== 'time') && (
+              <>
+                <span
+                  class="ed-badges__progress"
+                  role="progressbar"
+                  aria-label={`${badge.name} progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(badge.progress * 100)}
+                  aria-valuetext={progressLabel(badge)}
+                >
+                  <span class="ed-badges__progress-fill" style={{ width: `${badge.progress * 100}%` }} />
                 </span>
-                <span>{index <= badge.rungIndex ? '✓' : ''}</span>
-              </div>
-            ))}
+                <span class="ed-badges__progress-label">{progressLabel(badge)}</span>
+              </>
+            )}
           </div>
         </>
       )}
@@ -199,12 +191,12 @@ function BadgeSheet({
 
 function progressLabel(badge: BadgeView): string {
   const current = formatRungValue(badge.value, badge.definition.unit)
-  if (badge.nextRung === undefined)
-    return `${badge.definition.kind === 'time' ? 'Best' : 'Current'}: ${current} · ladder complete`
+  const valueLabel = badge.definition.kind === 'count' ? 'Current' : 'Best'
+  if (badge.nextRung === undefined) return `${valueLabel}: ${current} · all milestones achieved`
   const remaining = badge.definition.kind === 'time' ? badge.value - badge.nextRung : badge.nextRung - badge.value
   const toNext = formatRungValue(Math.max(0, remaining), badge.definition.unit)
   if (badge.definition.kind === 'time') {
-    return `Best: ${current} · ${toNext} faster to ${formatRungValue(badge.nextRung, badge.definition.unit)}`
+    return `Best: ${current} · ${toNext} faster to go`
   }
-  return `Current: ${current} · ${toNext} to next rung`
+  return `${valueLabel}: ${current} · ${toNext} to go`
 }
