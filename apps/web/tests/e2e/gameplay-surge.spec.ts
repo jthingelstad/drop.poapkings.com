@@ -101,8 +101,14 @@ test('surge summary shows cost accuracy bars', async ({ page }, testInfo) => {
   })
 })
 
-test('completed runs use native browser sharing with game, score, and Elixir Drop link', async ({ page }, testInfo) => {
+test('completed runs share a 1080x1350 score card with game, score, and Elixir Drop link', async ({
+  page
+}, testInfo) => {
   await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: (payload: ShareData) => Boolean(payload.files?.length)
+    })
     Object.defineProperty(navigator, 'share', {
       configurable: true,
       value: async (payload: ShareData) => {
@@ -133,13 +139,38 @@ test('completed runs use native browser sharing with game, score, and Elixir Dro
     })
   }
   await shareButton.click()
-  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible()
-  const payload = await page.evaluate(() => (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload)
+  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  const payload = await page.evaluate(async () => {
+    const shared = (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload
+    const file = shared?.files?.[0]
+    let dimensions: { width: number; height: number } | undefined
+    if (file) {
+      // PNG stores its big-endian width/height in the IHDR header. Reading the
+      // bytes avoids loading a blob: URL, which the production img-src CSP
+      // deliberately disallows.
+      const header = new DataView(await file.slice(0, 24).arrayBuffer())
+      dimensions = { width: header.getUint32(16), height: header.getUint32(20) }
+    }
+    return {
+      title: shared?.title,
+      text: shared?.text,
+      url: shared?.url,
+      file: file ? { name: file.name, type: file.type, size: file.size, ...dimensions } : undefined
+    }
+  })
   expect(payload).toMatchObject({
     title: expect.stringContaining('Surge:'),
     text: expect.stringMatching(/I scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
-    url: expect.stringMatching(/#\/surge$/)
+    url: expect.stringMatching(/#\/surge$/),
+    file: {
+      name: 'elixir-drop.png',
+      type: 'image/png',
+      size: expect.any(Number),
+      width: 1080,
+      height: 1350
+    }
   })
+  expect(payload.file!.size).toBeGreaterThan(50_000)
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {

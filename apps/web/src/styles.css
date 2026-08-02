@@ -5586,6 +5586,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   justify-items: center;
   gap: 10px;
   padding: 16px 14px 20px;
+  scroll-margin-block-start: 12px;
   text-align: center;
 }
 .ed-badges__sheet-name {

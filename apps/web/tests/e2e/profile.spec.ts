@@ -68,6 +68,24 @@ test('profile restores global game preferences between arena progress and recent
   ).toHaveAttribute('aria-checked', 'false')
 })
 
+test('opening a badge brings its detail sheet into view and accessible focus', async ({ page }) => {
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+
+  await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+  const sheet = page.getByRole('group', { name: 'Clockbreaker' })
+  await expect(sheet).toBeFocused()
+  await expect(sheet).toContainText('Fastest Surge run')
+  await expect(sheet).toContainText('Next: 30s')
+
+  const position = await sheet.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    return { top: box.top, bottom: box.bottom, viewportHeight: window.innerHeight }
+  })
+  expect(position.top).toBeGreaterThanOrEqual(0)
+  expect(position.top).toBeLessThan(position.viewportHeight)
+  expect(position.bottom).toBeGreaterThan(0)
+})
+
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
   // The mocked CR profile carries CDN-shaped iconUrls (as the bridge relays);
   // serve them a pixel so no browser logs a 404.

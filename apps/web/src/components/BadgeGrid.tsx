@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
 import BadgeMedallion from './BadgeMedallion'
 import EmptyState from './EmptyState'
@@ -48,8 +48,29 @@ export default function BadgeGrid({ states }: { states: BadgeState[] }) {
 
 function BadgeSheet({ badge, onClose }: { badge: BadgeView; onClose: () => void }) {
   const { definition } = badge
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  // The sheet follows all 29 cells in document order. Without moving it into
+  // view, tapping a badge near the top only changes the cell's focus outline;
+  // the new detail can be several screens below and looks like a dead tap.
+  // Focus announces the named group to assistive tech, while scrollIntoView
+  // handles both the document scroller on mobile and the centre-column
+  // scroller on desktop.
+  useEffect(() => {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    sheet.focus({ preventScroll: true })
+    sheet.scrollIntoView({ block: 'start' })
+  }, [badge.slug])
+
   return (
-    <div class="ed-badges__sheet" role="group" aria-label={badge.concealed ? 'Hidden badge' : badge.name}>
+    <div
+      ref={sheetRef}
+      class="ed-badges__sheet"
+      role="group"
+      aria-label={badge.concealed ? 'Hidden badge' : badge.name}
+      tabIndex={-1}
+    >
       <BadgeMedallion badge={badge} size={84} />
       <span class="ed-badges__sheet-name">{badge.concealed ? 'Hidden badge' : badge.name}</span>
       {/* A hidden badge gives away nothing: no name, no requirement, no

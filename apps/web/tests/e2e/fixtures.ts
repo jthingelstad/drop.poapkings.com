@@ -53,6 +53,26 @@ export const testRecentRuns = [
     completedAt: '2026-07-17T20:00:00.000Z'
   }
 ] as const
+export const testBadges = [
+  {
+    slug: 'clockbreaker',
+    value: 34.2,
+    rungIndex: 3,
+    earnedAt: [
+      '2026-07-10T12:00:00.000Z',
+      '2026-07-12T12:00:00.000Z',
+      '2026-07-15T12:00:00.000Z',
+      '2026-07-18T12:00:00.000Z'
+    ],
+    runsAtRung: [12, 9, 5, 2, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  {
+    slug: 'night-shift',
+    value: 1,
+    rungIndex: 0,
+    earnedAt: ['2026-07-18T03:00:00.000Z']
+  }
+] as const
 
 export function leaderboardEntries(mode: GameMode) {
   const scores = mode === 'surge' ? [58_410, 61_220, 64_805, 67_299] : [42, 36, 29, 24]
@@ -349,7 +369,7 @@ export const test = base.extend({
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ player: testPlayer, recentRuns: testRecentRuns })
+          body: JSON.stringify({ player: testPlayer, recentRuns: testRecentRuns, badges: { badges: testBadges } })
         })
         return
       }
