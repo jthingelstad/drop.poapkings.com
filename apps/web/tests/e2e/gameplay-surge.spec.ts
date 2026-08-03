@@ -14,10 +14,19 @@ test('preparing, loading, and countdown keep one stable game stage', async ({ pa
   await page.goto('/#/surge')
   const startStage = page.locator('[data-game-start-phase]')
   const modeName = page.locator('.ed-game__count-mode')
+  const renderedStageBounds = async () => {
+    let bounds = await startStage.boundingBox()
+    await expect
+      .poll(async () => {
+        bounds = await startStage.boundingBox()
+        return bounds !== null
+      })
+      .toBe(true)
+    return bounds!
+  }
   await expect(startStage).toHaveAttribute('data-game-start-phase', 'preparing')
   await expect(modeName).toHaveText('Surge')
-  const preparingBounds = await startStage.boundingBox()
-  expect(preparingBounds).not.toBeNull()
+  const preparingBounds = await renderedStageBounds()
 
   let releaseAssets!: () => void
   const assetGate = new Promise<void>((resolve) => {
@@ -31,7 +40,7 @@ test('preparing, loading, and countdown keep one stable game stage', async ({ pa
   releaseStart()
   await expect(startStage).toHaveAttribute('data-game-start-phase', 'loading')
   await expect(modeName).toHaveText('Surge')
-  const loadingBounds = await startStage.boundingBox()
+  const loadingBounds = await renderedStageBounds()
   expect(loadingBounds).toEqual(preparingBounds)
   await testInfo.attach('pre-run-loading.png', {
     body: await page.screenshot({ fullPage: false }),
@@ -41,7 +50,7 @@ test('preparing, loading, and countdown keep one stable game stage', async ({ pa
   releaseAssets()
   await expect(startStage).toHaveAttribute('data-game-start-phase', 'countdown')
   await expect(modeName).toHaveText('Surge')
-  const countdownBounds = await startStage.boundingBox()
+  const countdownBounds = await renderedStageBounds()
   expect(countdownBounds).toEqual(preparingBounds)
   await expect(page.locator('.ed-gameloading')).toHaveCount(0)
   await expect(page.locator('.route-loading__spinner')).toHaveCount(0)
