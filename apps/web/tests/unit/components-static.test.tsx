@@ -455,6 +455,14 @@ describe('RunCountdown', () => {
     expect(html).toContain('run-count')
     expect(html).toContain('aria-label="Starting in 3"')
     expect(html).toContain('>3<')
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('run-count__ring')
+  })
+
+  it('renders the final GO beat instead of zero', async () => {
+    const html = await render(<RunCountdown count={0} />)
+    expect(html).toContain('aria-label="Go"')
+    expect(html).toContain('>GO<')
   })
 })
 

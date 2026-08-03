@@ -256,8 +256,8 @@ when you actually clear cards. The signed server deck supplies the cards and
 **wraps** when exhausted (a deep run resolves more cards than the deck holds);
 every resolved card records its correct cost or a landed miss, the elapsed time
 at resolution, and the wrong taps it cost. Every 10
-clears the running total flashes for ~0.5s in the middle of the field (gold
-numeral + ring, echoing the 3-2-1 countdown) so the player feels progress without
+clears the running total flashes for ~0.5s in the middle of the field (a gold
+numeral echoing the 3-2-1 countdown) so the player feels progress without
 reading the top bar; it is composited over the field and never reflows the board.
 The scorer
 validates each card id against the signed deck but does **not** cap the run at the

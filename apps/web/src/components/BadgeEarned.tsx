@@ -11,11 +11,6 @@ export interface EarnedRung {
 
 // The earn moment: the rungs a single run cleared, shown on its summary.
 //
-// The burst behind the medallion is `charge-go` — the same file the countdown
-// ends on. That reuse is deliberate and it is the only place the run-start art
-// appears outside a run start: the two moments should feel related, one opening
-// the run and one paying it off.
-//
 // Uses the -384 file: 172px is the only place a badge is rendered large enough
 // to need it.
 export default function BadgeEarned({ earned }: { earned: EarnedRung[] }) {
@@ -49,9 +44,6 @@ export default function BadgeEarned({ earned }: { earned: EarnedRung[] }) {
       <div class="ed-earned__row">
         {views.map((view) => (
           <div class="ed-earned__item" key={`${view.slug}-${view.rungIndex}`}>
-            <span class="ed-earned__burst" aria-hidden="true">
-              <img src="/assets/start/charge-go-512.png" alt="" width={344} height={344} />
-            </span>
             <BadgeMedallion badge={view} size={172} file={384} />
             <span class="ed-earned__name">{view.name}</span>
           </div>

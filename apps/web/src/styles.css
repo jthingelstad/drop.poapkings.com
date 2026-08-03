@@ -1541,37 +1541,7 @@ html.reduce-motion .game-motion {
   pointer-events: none;
 }
 
-/* Painted charge frames behind the numeral. All four are mounted on the same
-   centre and only opacity moves, so the sequence cannot jump between frames and
-   every image has decoded long before the beat that needs it. */
-.run-count__art {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: clamp(190px, 58vw, 300px);
-  aspect-ratio: 1;
-  pointer-events: none;
-}
-.run-count__frame {
-  grid-area: 1 / 1;
-  width: 100%;
-  height: auto;
-  opacity: 0;
-  transition: opacity 120ms linear;
-}
-.run-count__frame--on {
-  opacity: 0.3;
-}
-@media (prefers-reduced-motion: reduce) {
-  .run-count__frame {
-    transition: none;
-  }
-}
-html.reduce-motion .run-count__frame {
-  transition: none;
-}
 .run-count__num {
-  position: relative;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(5rem, 24vw, 9rem);
@@ -1581,34 +1551,9 @@ html.reduce-motion .run-count__frame {
   will-change: transform, opacity;
 }
 
-/* "GO" is three glyphs where the numerals were one, so it needs its own size
-   or it overruns the art on a narrow phone. */
+/* "GO" is wider than a numeral, so keep it comfortably inside the game slot. */
 .run-count__num--go {
-  font-size: clamp(3.2rem, 15vw, 5.6rem);
   letter-spacing: 0.04em;
-}
-.run-count__ring {
-  position: absolute;
-  width: clamp(120px, 34vw, 168px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 3px solid rgba(245, 200, 76, 0.55);
-  animation: run-count-ring 0.6s ease-out forwards;
-}
-@keyframes run-count-ring {
-  0% {
-    transform: scale(0.45);
-    opacity: 0.75;
-  }
-  100% {
-    transform: scale(1.85);
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .run-count__ring {
-    display: none;
-  }
 }
 
 
@@ -1816,12 +1761,6 @@ html.reduce-motion .penalty-flash__chip {
 .switch--on .switch__knob {
   transform: translateX(28px);
   background: var(--ink);
-}
-
-/* ── Reduced motion (settings override; OS preference handled above) ───────── */
-
-.reduce-motion .run-count__ring {
-  display: none;
 }
 
 /* ── Responsive ───────────────────────────────────────────── */
@@ -5865,41 +5804,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   gap: 12px;
 }
 
-/* charge-go at 2x behind the medallion, fading out over 600ms. The same file
-   the countdown lands on — the run's opening beat paying the run off. */
-.ed-earned__burst {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 344px;
-  height: 344px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  animation: ed-earned-burst 600ms ease-out forwards;
-}
-.ed-earned__burst img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-@keyframes ed-earned-burst {
-  0% {
-    opacity: 0.85;
-    transform: translate(-50%, -50%) scale(0.7);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ed-earned__burst {
-    display: none;
-  }
-}
-html.reduce-motion .ed-earned__burst {
-  display: none;
-}
 .ed-earned__name {
   font-family: var(--font-display);
   font-size: 0.82rem;

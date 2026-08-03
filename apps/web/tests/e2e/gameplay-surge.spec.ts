@@ -1,12 +1,14 @@
 import AxeBuilder from '@axe-core/playwright'
 import { cardsData, completeSurge, expect, test, waitForKeypad } from './fixtures'
 
-test('countdown artwork is dimmed behind the number', async ({ page }) => {
+test('countdown uses standalone gold display text', async ({ page }) => {
   await page.goto('/#/surge')
 
-  const activeFrame = page.locator('.run-count__frame--on')
-  await expect(activeFrame).toBeVisible()
-  await expect(activeFrame).toHaveCSS('opacity', '0.3')
+  const numeral = page.locator('.run-count__num')
+  await expect(numeral).toBeVisible()
+  await expect(numeral).toHaveCSS('color', 'rgb(245, 200, 76)')
+  await expect(page.locator('.run-count img')).toHaveCount(0)
+  await expect(page.locator('.run-count__ring')).toHaveCount(0)
 })
 
 for (const speedrunKeyboard of [false, true]) {

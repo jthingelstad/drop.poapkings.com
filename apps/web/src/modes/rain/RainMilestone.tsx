@@ -4,8 +4,8 @@ import { isReducedMotionEnabled } from '../../lib/motion'
 
 // Rain milestone flash: every 10 clears the running total pulses once in the
 // middle of the field and is gone in ~0.5s. Deliberately echoes the 3-2-1
-// RunCountdown look (gold display numeral + expanding ring) so it reads as the
-// same voice, but it is purely informational — the authoritative count already
+// RunCountdown look (gold display numeral) so it reads as the same voice, but
+// it is purely informational — the authoritative count already
 // lives in the top-bar metric, so this is aria-hidden and never announced.
 //
 // Composited over the falling field, never in layout flow (see CLAUDE.md), so a
