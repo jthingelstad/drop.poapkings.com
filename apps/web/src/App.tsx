@@ -25,6 +25,8 @@ import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
 import MetaPage from './screens/MetaPage'
 import Icon from './components/Icon'
+import GameStartScreen from './components/game/GameStart'
+import { GAMES } from './lib/game-metadata'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -72,7 +74,11 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-function RouteFallback() {
+function RouteFallback({ r }: { r: string }) {
+  const gamePath = gamePathForRoute(r)
+  const game = gamePath ? GAMES.find((candidate) => candidate.path === gamePath) : undefined
+  if (game) return <GameStartScreen modeName={game.name} phase="preparing" routePending />
+
   return (
     <div class="main-content route-loading" aria-live="polite">
       <Icon name="loader-circle" className="route-loading__spinner" />
@@ -120,7 +126,7 @@ function AccountUnavailable() {
 
 function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
-  if (gamePath && accountStatus.value === 'loading') return <RouteFallback />
+  if (gamePath && accountStatus.value === 'loading') return <RouteFallback r={r} />
   if ((gamePath || r.startsWith('/profile')) && accountStatus.value === 'unavailable') return <AccountUnavailable />
   // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
   // player who has not finished profile setup is routed to it first.
@@ -154,7 +160,7 @@ function ScreenContent({ r }: { r: string }) {
 
 function Screen({ r }: { r: string }) {
   return (
-    <Suspense fallback={<RouteFallback />}>
+    <Suspense fallback={<RouteFallback r={r} />}>
       <ScreenContent r={r} />
     </Suspense>
   )

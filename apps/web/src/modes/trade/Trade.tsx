@@ -21,7 +21,7 @@ import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
-import GameLoading from '../../components/game/GameLoading'
+import GameStartScreen from '../../components/game/GameStart'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -260,7 +260,7 @@ export default function Trade() {
     }
   })
 
-  if (!rounds) return <GameRunGate session={gameRun} />
+  if (!rounds) return <GameRunGate modeName="Trade" session={gameRun} />
 
   const round = rounds[index.value]!
 
@@ -299,7 +299,7 @@ export default function Trade() {
     )
   }
 
-  if (stage.value === 'ready') return <GameLoading label="Loading exchange…" />
+  if (stage.value === 'ready') return <GameStartScreen modeName="Trade" phase="loading" />
 
   const counting = stage.value === 'countdown'
   const solved = feedback.value === 'correct'

@@ -356,7 +356,9 @@ describe('mode smoke — Surge', () => {
   it('shows the loading screen before assets are ready', () => {
     stageSession(fakeCards(15), 'ready', { assetsReady: false })
     const c = mount(<Surge />)
-    expect(c.textContent).toContain('Loading cards…')
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('LOADING')
+    expect(c.textContent).toContain('Surge')
   })
 
   it('renders the countdown chrome', () => {
@@ -384,11 +386,19 @@ describe('mode smoke — Surge', () => {
     hoisted.session.current = makeSession(null, { preparing: true })
     hoisted.runtime.current = makeRuntime('ready')
     const c = mount(<Surge />)
-    expect(c.textContent).toContain('Preparing your game…')
+    expect(c.querySelector('[data-game-start-phase="preparing"]')).not.toBeNull()
+    expect(c.textContent).toContain('PREPARING')
   })
 })
 
 describe('mode smoke — Practice', () => {
+  it('uses the shared loading stage while card art is prepared', () => {
+    stageSession(fakeCards(15), 'running', { assetsReady: false })
+    const c = mount(<Practice />)
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('Practice')
+  })
+
   it('renders the running board', () => {
     stageSession(fakeCards(15), 'running')
     const c = mount(<Practice />)
@@ -401,7 +411,8 @@ describe('mode smoke — Survival', () => {
   it('shows the loading screen', () => {
     stageSession(fakeCards(20), 'ready', { assetsReady: false })
     const c = mount(<Survival />)
-    expect(c.textContent).toContain('Loading cards…')
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('Survival')
   })
 
   it('renders the running board (sudden death)', () => {
@@ -413,6 +424,14 @@ describe('mode smoke — Survival', () => {
 })
 
 describe('mode smoke — Higher / Lower', () => {
+  it('uses the shared loading stage before its countdown', () => {
+    const pairs: Array<[Card, Card]> = [[fakeCard(1, 3), fakeCard(2, 5)]]
+    stageSession(pairs, 'ready', { assetsReady: false })
+    const c = mount(<HigherLower />)
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('Higher / Lower')
+  })
+
   it('renders the duel prompt while running', () => {
     const pairs: Array<[Card, Card]> = [
       [fakeCard(1, 3), fakeCard(2, 5)],
@@ -426,6 +445,14 @@ describe('mode smoke — Higher / Lower', () => {
 })
 
 describe('mode smoke — Trade', () => {
+  it('uses the shared loading stage before its countdown', () => {
+    const rounds = [{ blue: [fakeCard(1, 3)], red: [fakeCard(2, 5)] }]
+    stageSession(rounds, 'ready', { assetsReady: false })
+    const c = mount(<Trade />)
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('Trade')
+  })
+
   it('renders the exchange prompt while running', () => {
     const rounds = [
       { blue: [fakeCard(1, 3), fakeCard(2, 4)], red: [fakeCard(3, 5)] },
@@ -442,7 +469,8 @@ describe('mode smoke — Rain', () => {
   it('shows the loading screen', () => {
     stageSession(fakeCards(30), 'ready', { assetsReady: false })
     const c = mount(<Rain />)
-    expect(c.textContent).toContain('Loading cards…')
+    expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(c.textContent).toContain('Rain')
   })
 
   it('renders the falling field while running', () => {

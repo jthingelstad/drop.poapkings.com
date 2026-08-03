@@ -22,7 +22,7 @@ import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
-import GameLoading from '../../components/game/GameLoading'
+import GameStartScreen from '../../components/game/GameStart'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -193,7 +193,7 @@ export default function Survival() {
   }
 
   // ── Game over ──────────────────────────────────────────────────────────────
-  if (!gameRun.content) return <GameRunGate session={gameRun} />
+  if (!gameRun.content) return <GameRunGate modeName="Survival" session={gameRun} />
 
   if (stage.value === 'over' && insights.value) {
     const winTime = `${formatSeconds(finishTimeMs.value)}s`
@@ -235,7 +235,7 @@ export default function Survival() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') return <GameLoading />
+  if (stage.value === 'ready') return <GameStartScreen modeName="Survival" phase="loading" />
 
   // ── Countdown + Running ──────────────────────────────────────────────────
   const counting = stage.value === 'countdown'

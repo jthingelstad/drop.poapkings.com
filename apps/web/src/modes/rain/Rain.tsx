@@ -17,7 +17,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
-import GameLoading from '../../components/game/GameLoading'
+import GameStartScreen from '../../components/game/GameStart'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import LivesRow from '../../components/LivesRow'
@@ -330,7 +330,7 @@ export default function Rain() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.content) return <GameRunGate session={gameRun} />
+  if (!gameRun.content) return <GameRunGate modeName="Rain" session={gameRun} />
 
   // ── Summary ───────────────────────────────────────────────────────────────
   if (stage.value === 'over' && insights.value) {
@@ -361,7 +361,7 @@ export default function Rain() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') return <GameLoading />
+  if (stage.value === 'ready') return <GameStartScreen modeName="Rain" phase="loading" />
 
   const counting = stage.value !== 'running'
   // Lives use the shared row, so Rain and Higher/Lower are literally the same

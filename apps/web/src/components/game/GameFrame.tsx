@@ -7,8 +7,8 @@
 import type { ComponentChildren } from 'preact'
 import Icon from '../Icon'
 import GameFxLayer from '../GameFxLayer'
-import RunCountdown from '../RunCountdown'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
+import { GameStartStage } from './GameStart'
 
 export interface GameMetric {
   value: string
@@ -61,12 +61,7 @@ export default function GameFrame({
       <GameFxLayer cue={cue} particleCount={fxParticles} />
 
       {counting ? (
-        <div class="ed-game__count">
-          <div class="ed-game__count-mode">{modeName}</div>
-          <div class="ed-game__count-num">
-            <RunCountdown count={count} />
-          </div>
-        </div>
+        <GameStartStage modeName={modeName} phase="countdown" count={count} />
       ) : (
         <>
           <div class="ed-game__top">

@@ -23,9 +23,11 @@ test('a stale installed app checks immediately and cache-busts its reload', asyn
   await page.goto('/#/higher-lower')
   const reload = page.getByRole('button', { name: 'Reload' })
   await expect(reload).toBeVisible()
-  // Let WebKit finish the lazy route import before replacing the document;
-  // otherwise its discarded page reports the intentional abort as an error.
+  // Let WebKit finish the lazy route import before replacing the document.
+  // The route fallback intentionally looks identical to the game start stage,
+  // so its nonvisual marker is the synchronization boundary here.
   await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
+  await expect(page.locator('[data-game-route-loading]')).toHaveCount(0, { timeout: 12_000 })
   await reload.click()
 
   await expect.poll(() => new URL(page.url()).searchParams.get('drop-refresh')).toMatch(/^\d+$/)

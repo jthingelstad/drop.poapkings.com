@@ -17,6 +17,7 @@ import GameMotion from '../../components/GameMotion'
 import LivesRow from '../../components/LivesRow'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
+import GameStartScreen from '../../components/game/GameStart'
 import Summary from '../../components/Summary'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -243,7 +244,7 @@ export default function HigherLower() {
   })
 
   const pair = gameRun.content?.[pairIndex.value]
-  if (!pair) return <GameRunGate session={gameRun} />
+  if (!pair) return <GameRunGate modeName="Higher / Lower" session={gameRun} />
 
   if (awaitingReplay.value) {
     const total = gradedAnswers.current.length
@@ -292,7 +293,9 @@ export default function HigherLower() {
     return 'ed-duel__card ed-duel__card--dim'
   }
 
-  const counting = runtime.stage.value === 'ready' || runtime.stage.value === 'countdown'
+  if (runtime.stage.value === 'ready') return <GameStartScreen modeName="Higher / Lower" phase="loading" />
+
+  const counting = runtime.stage.value === 'countdown'
   const disabled = runtime.stage.value !== 'running' || revealed.value || gameRun.preparing.value
   // Lives use the shared row, so Rain and Higher/Lower are literally the same
   // component rather than two copies that agree today.

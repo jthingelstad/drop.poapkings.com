@@ -18,6 +18,7 @@ import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
+import GameStartScreen from '../../components/game/GameStart'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -180,7 +181,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     saveSettings({ inputStyle: style })
   }
 
-  if (!deck) return <GameRunGate session={gameRun} />
+  if (!deck) return <GameRunGate modeName="Practice" session={gameRun} />
 
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
@@ -207,7 +208,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     )
   }
 
-  if (!hand) return <GameRunGate session={gameRun} />
+  if (!gameRun.assetsReady) return <GameStartScreen modeName="Practice" phase="loading" />
+  if (!hand) return <GameRunGate modeName="Practice" session={gameRun} />
   const current = hand.card
 
   return (

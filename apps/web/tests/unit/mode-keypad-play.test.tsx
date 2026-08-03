@@ -299,7 +299,7 @@ describe('Surge gameplay', () => {
 
     clickText(host, 'button', 'Play again')
     expect(session.prepare).toHaveBeenCalled()
-    expect(host.textContent).toContain('Loading cards…')
+    expect(host.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
   })
 })
 
@@ -434,7 +434,7 @@ describe('Survival gameplay', () => {
 
     clickText(host, 'button', 'Play again')
     expect(session.prepare).toHaveBeenCalled()
-    expect(host.textContent).toContain('Loading cards…')
+    expect(host.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
   })
 })
 

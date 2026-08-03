@@ -20,7 +20,7 @@ import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
-import GameLoading from '../../components/game/GameLoading'
+import GameStartScreen from '../../components/game/GameStart'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 
@@ -194,7 +194,7 @@ export default function Surge() {
     void gameRun.prepare()
   }
 
-  if (!gameRun.content) return <GameRunGate session={gameRun} />
+  if (!gameRun.content) return <GameRunGate modeName="Surge" session={gameRun} />
 
   // ── Summary ──────────────────────────────────────────────────────────────
   if (stage.value === 'summary' && insights.value) {
@@ -227,7 +227,7 @@ export default function Surge() {
   }
 
   // ── Loading (pre-countdown) ───────────────────────────────────────────────
-  if (stage.value === 'ready') return <GameLoading />
+  if (stage.value === 'ready') return <GameStartScreen modeName="Surge" phase="loading" />
 
   // ── Countdown + Running ──────────────────────────────────────────────────
   const counting = stage.value === 'countdown'

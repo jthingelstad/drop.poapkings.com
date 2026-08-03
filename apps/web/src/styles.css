@@ -3805,6 +3805,18 @@ html.reduce-motion .ed-gcard {
 .ed-desktop__main .ed-game__count-num .run-count__num {
   font-size: 7rem;
 }
+.ed-game__count-num--status {
+  width: min(100%, 460px);
+}
+.ed-game__count-num .run-count__num--status,
+.ed-desktop__main .ed-game__count-num .run-count__num--status {
+  max-width: 100%;
+  padding-inline: 8px;
+  font-size: clamp(2.2rem, 10vw, 3.25rem);
+  letter-spacing: 0.035em;
+  text-align: center;
+  white-space: nowrap;
+}
 
 .ed-game__top {
   display: flex;
@@ -3981,26 +3993,6 @@ html.reduce-motion .ed-game__bar-fill {
 .ed-desktop__main .ed-gamewrap {
   padding: 30px 0 40px;
 }
-.ed-gameloading {
-  min-height: 50vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: var(--muted);
-  font-weight: 700;
-}
-.ed-gameloading__drop {
-  width: 34px;
-  height: 44px;
-  background: linear-gradient(180deg, rgba(215, 200, 255, 0.9), rgba(139, 92, 246, 0.6));
-  animation: ed-bob 1.4s ease-in-out infinite;
-}
-html.reduce-motion .ed-gameloading__drop {
-  animation: none;
-}
-
 .ed-sum {
   display: flex;
   flex-direction: column;

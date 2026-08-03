@@ -1,5 +1,55 @@
 import AxeBuilder from '@axe-core/playwright'
-import { cardsData, completeSurge, expect, test, waitForKeypad } from './fixtures'
+import { cardsData, completeSurge, expect, fulfillTestRun, test, testApiBaseUrl, waitForKeypad } from './fixtures'
+
+test('preparing, loading, and countdown keep one stable game stage', async ({ page }, testInfo) => {
+  let releaseStart!: () => void
+  const startGate = new Promise<void>((resolve) => {
+    releaseStart = resolve
+  })
+  await page.route(`${testApiBaseUrl}/runs/start`, async (route) => {
+    await startGate
+    await fulfillTestRun(route)
+  })
+
+  await page.goto('/#/surge')
+  const startStage = page.locator('[data-game-start-phase]')
+  const modeName = page.locator('.ed-game__count-mode')
+  await expect(startStage).toHaveAttribute('data-game-start-phase', 'preparing')
+  await expect(modeName).toHaveText('Surge')
+  const preparingBounds = await startStage.boundingBox()
+  expect(preparingBounds).not.toBeNull()
+
+  let releaseAssets!: () => void
+  const assetGate = new Promise<void>((resolve) => {
+    releaseAssets = resolve
+  })
+  await page.route('**/cards/*.png', async (route) => {
+    await assetGate
+    await route.continue()
+  })
+
+  releaseStart()
+  await expect(startStage).toHaveAttribute('data-game-start-phase', 'loading')
+  await expect(modeName).toHaveText('Surge')
+  const loadingBounds = await startStage.boundingBox()
+  expect(loadingBounds).toEqual(preparingBounds)
+  await testInfo.attach('pre-run-loading.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+
+  releaseAssets()
+  await expect(startStage).toHaveAttribute('data-game-start-phase', 'countdown')
+  await expect(modeName).toHaveText('Surge')
+  const countdownBounds = await startStage.boundingBox()
+  expect(countdownBounds).toEqual(preparingBounds)
+  await expect(page.locator('.ed-gameloading')).toHaveCount(0)
+  await expect(page.locator('.route-loading__spinner')).toHaveCount(0)
+  await testInfo.attach('pre-run-countdown.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+})
 
 test('countdown uses standalone gold display text', async ({ page }) => {
   await page.goto('/#/surge')

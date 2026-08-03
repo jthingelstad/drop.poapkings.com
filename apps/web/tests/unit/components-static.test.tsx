@@ -12,6 +12,7 @@ import CardDisplay from '../../src/components/CardDisplay'
 import SignInToSave from '../../src/components/SignInToSave'
 import ShareLine from '../../src/components/ShareLine'
 import GameRunGate from '../../src/components/GameRunGate'
+import GameStartScreen from '../../src/components/game/GameStart'
 import RunCountdown from '../../src/components/RunCountdown'
 import MultipleChoice from '../../src/components/MultipleChoice'
 import PenaltyFlash from '../../src/components/PenaltyFlash'
@@ -430,22 +431,37 @@ describe('GameRunGate', () => {
   }
 
   it('shows the preparing state', async () => {
-    const html = await render(<GameRunGate session={gateSession(true, '')} />)
-    expect(html).toContain('Preparing your game')
-    expect(html).toContain('signed run')
+    const html = await render(<GameRunGate modeName="Surge" session={gateSession(true, '')} />)
+    expect(html).toContain('data-game-start-phase="preparing"')
+    expect(html).toContain('aria-label="Preparing game"')
+    expect(html).toContain('>PREPARING<')
+    expect(html).toContain('>Surge<')
     expect(html).not.toContain('Try again')
   })
 
   it('shows the error state with a retry button and the given message', async () => {
-    const html = await render(<GameRunGate session={gateSession(false, 'Boom happened')} />)
+    const html = await render(<GameRunGate modeName="Surge" session={gateSession(false, 'Boom happened')} />)
     expect(html).toContain('This game could not start')
     expect(html).toContain('Boom happened')
     expect(html).toContain('Try again')
+    expect(html).not.toContain('route-loading__spinner')
   })
 
   it('falls back to a default error message when none is given', async () => {
-    const html = await render(<GameRunGate session={gateSession(false, '')} />)
+    const html = await render(<GameRunGate modeName="Surge" session={gateSession(false, '')} />)
     expect(html).toContain('Player services are temporarily unavailable')
+  })
+})
+
+describe('GameStartScreen', () => {
+  it('renders asset loading in the same game and countdown shell', async () => {
+    const html = await render(<GameStartScreen modeName="Trade" phase="loading" />)
+    expect(html).toContain('class="ed-game ed-game--starting"')
+    expect(html).toContain('data-game-start-phase="loading"')
+    expect(html).toContain('aria-label="Loading cards"')
+    expect(html).toContain('run-count__num--status')
+    expect(html).toContain('>LOADING<')
+    expect(html).toContain('>Trade<')
   })
 })
 

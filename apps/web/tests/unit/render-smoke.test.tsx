@@ -6,12 +6,12 @@ import { route } from '../../src/lib/router'
 
 const CASES = [
   ['/', 'Elixir Drop'],
-  ['/practice', 'Preparing your game…'],
-  ['/surge', 'Preparing your game…'],
-  ['/higher-lower', 'Preparing your game…'],
-  ['/trade', 'Preparing your game…'],
-  ['/survival', 'Preparing your game…'],
-  ['/rain', 'Preparing your game…'],
+  ['/practice', 'PREPARING'],
+  ['/surge', 'PREPARING'],
+  ['/higher-lower', 'PREPARING'],
+  ['/trade', 'PREPARING'],
+  ['/survival', 'PREPARING'],
+  ['/rain', 'PREPARING'],
   ['/settings', 'Settings'],
   ['/about', 'About Elixir Drop'],
   ['/faq', 'Frequently asked'],
