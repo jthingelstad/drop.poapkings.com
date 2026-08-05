@@ -271,10 +271,9 @@ export function advanceBadges(
   };
 }
 
-// Podium needs season standings, which are resolved at season rollover — a job
-// that does not exist yet. The seam is here so the counter has exactly one
-// writer when that job lands; nothing calls it today, and Podium therefore
-// stays at zero rungs for every player.
+// Podium needs referee-visible season standings, so the result-queue consumer
+// calls this once per top-three mode finish when a newer CR season arrives.
+// The repository pairs it with a season+mode marker, making redelivery a no-op.
 export function recordPodiumFinish(
   input: BadgeCounters,
   at: string,

@@ -407,55 +407,67 @@ async function updateBadges(
   badges?: ReturnType<typeof badgeStates>;
 }> {
   try {
-    const stored = (await repository.getBadges(run.owner)) ?? emptyCounters();
-    const counters =
-      stored.version === BADGE_COUNTERS_VERSION ? stored : emptyCounters();
-    const { localDay, localHour } = localStamp(
-      context.completedAt,
-      context.tzOffsetMinutes,
-    );
-    const answers = Array.isArray(transcript.answers)
-      ? transcript.answers.length
-      : 0;
-    // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
-    // meaning on a streak or a cleared count, so it is scoped to the two modes
-    // whose score IS a duration in milliseconds.
-    const isTimed = run.mode === "surge" || run.mode === "trade";
-    const improvementMs =
-      context.personalBest.previousScore !== undefined
-        ? context.personalBest.previousScore - context.score
-        : undefined;
-    const photoFinish =
-      isTimed &&
-      context.personalBest.improved &&
-      improvementMs !== undefined &&
-      improvementMs > 0 &&
-      improvementMs < 100;
-    // Cold Open: the first run of your local day is a personal best. The stored
-    // counters still hold the PREVIOUS run's day, which is what makes "first
-    // today" answerable without another read.
-    const coldOpen =
-      context.personalBest.improved && counters.aux.lastDay !== localDay;
-    const { counters: advanced, newlyEarned } = advanceBadges(counters, {
-      mode: run.mode,
-      score: context.score,
-      completedAt: context.completedAt,
-      localDay,
-      localHour,
-      answered: answers,
-      correctCards: cardResultsFromTranscript(run.challenge, transcript)
-        .filter((result) => result.correct)
-        .map((result) => result.cardId),
-      totalGames: context.totalGames,
-      arena: arenaForXp(context.xp),
-      practiceClean:
-        run.mode === "practice" && context.score === 100 && answers >= 20,
-      ...(photoFinish ? { photoFinish: true } : {}),
-      ...(coldOpen ? { coldOpen: true } : {}),
-      ...hiddenSignals(run.mode, transcript),
-    });
-    await repository.saveBadges(run.owner, advanced, context.completedAt);
-    return { newlyEarned, badges: badgeStates(advanced) };
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const stored = await repository.getBadges(run.owner);
+      const counters =
+        stored?.version === BADGE_COUNTERS_VERSION ? stored : emptyCounters();
+      const { localDay, localHour } = localStamp(
+        context.completedAt,
+        context.tzOffsetMinutes,
+      );
+      const answers = Array.isArray(transcript.answers)
+        ? transcript.answers.length
+        : 0;
+      // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
+      // meaning on a streak or a cleared count, so it is scoped to the two modes
+      // whose score IS a duration in milliseconds.
+      const isTimed = run.mode === "surge" || run.mode === "trade";
+      const improvementMs =
+        context.personalBest.previousScore !== undefined
+          ? context.personalBest.previousScore - context.score
+          : undefined;
+      const photoFinish =
+        isTimed &&
+        context.personalBest.improved &&
+        improvementMs !== undefined &&
+        improvementMs > 0 &&
+        improvementMs < 100;
+      // Cold Open: the first run of your local day is a personal best. The stored
+      // counters still hold the PREVIOUS run's day, which is what makes "first
+      // today" answerable without another read.
+      const coldOpen =
+        context.personalBest.improved && counters.aux.lastDay !== localDay;
+      const { counters: advanced, newlyEarned } = advanceBadges(counters, {
+        mode: run.mode,
+        score: context.score,
+        completedAt: context.completedAt,
+        localDay,
+        localHour,
+        answered: answers,
+        correctCards: cardResultsFromTranscript(run.challenge, transcript)
+          .filter((result) => result.correct)
+          .map((result) => result.cardId),
+        totalGames: context.totalGames,
+        arena: arenaForXp(context.xp),
+        practiceClean:
+          run.mode === "practice" && context.score === 100 && answers >= 20,
+        ...(photoFinish ? { photoFinish: true } : {}),
+        ...(coldOpen ? { coldOpen: true } : {}),
+        ...hiddenSignals(run.mode, transcript),
+      });
+      if (
+        await repository.saveBadges(
+          run.owner,
+          advanced,
+          context.completedAt,
+          stored
+            ? { version: stored.version, updatedAt: stored.updatedAt }
+            : undefined,
+        )
+      )
+        return { newlyEarned, badges: badgeStates(advanced) };
+    }
+    throw new Error("Badge update remained busy after retries");
   } catch (error) {
     console.warn("Badge update failed", {
       runId: run.runId,

@@ -407,6 +407,7 @@ seven are earnable in a single run; only Collector is a long game.
 completedAt — not transcripts. So the volume and skill ladders, Drop Regular,
 Arena Climber, All Six, Daily Drop, Marathon, Night Shift and the four
 card-knowledge badges rebuild from history plus the `CARDSTATS` item; Reps, Clean
-Sweep, Podium and the five transcript-derived hidden badges are forward-only.
-Podium additionally needs season standings, which no job computes yet —
-`recordPodiumFinish` is the seam.
+Sweep and the five transcript-derived hidden badges are forward-only. Podium is
+resolved from the referee-visible top three in every ranked mode when the first
+newer Clan Wars clock arrives. Each season+mode finish has a durable marker, so
+queue redelivery or an explicit historical finalization cannot double-count it.

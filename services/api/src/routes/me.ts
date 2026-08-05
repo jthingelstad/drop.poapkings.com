@@ -147,7 +147,19 @@ async function badgeSummary(
       arenaForXp,
       at,
     );
-    await repository.saveBadges(sub, counters, at);
+    const saved = await repository.saveBadges(
+      sub,
+      counters,
+      at,
+      stored
+        ? { version: stored.version, updatedAt: stored.updatedAt }
+        : undefined,
+    );
+    if (!saved) {
+      const concurrent = await repository.getBadges(sub);
+      if (concurrent?.version === BADGE_COUNTERS_VERSION)
+        return { badges: badgeStates(concurrent) };
+    }
     console.info("Badges backfilled from history", {
       requestId: event.requestContext.requestId,
       runs: runs.length,

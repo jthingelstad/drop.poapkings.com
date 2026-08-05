@@ -13,7 +13,11 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
 });
 
 import { HttpError } from "../src/errors.js";
-import { allTimeLeaderboard, seasonLeaderboard } from "../src/leaderboards.js";
+import {
+  allTimeLeaderboard,
+  seasonLeaderboard,
+  seasonPodiumFinishers,
+} from "../src/leaderboards.js";
 
 // GET /leaderboards is public and unauthenticated, so no read on that path may
 // walk a partition without a bound. These are the guards for that: a player
@@ -285,6 +289,38 @@ describe("leaderboard read bounds", () => {
       statusCode: 503,
       code: "leaderboard_history_unavailable",
     });
+  });
+
+  it("returns referee-visible podium subjects without profile hydration", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-a",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-06-01T00:00:00.000Z",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 11_000,
+            completedAt: "2026-06-01T00:00:01.000Z",
+          },
+          {
+            runId: "run-c",
+            playerSub: "player-c",
+            score: 12_000,
+            completedAt: "2026-06-01T00:00:02.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Responses: {} });
+
+    await expect(
+      seasonPodiumFinishers("test-table", "surge", "2026-06"),
+    ).resolves.toEqual(["player-a", "player-b", "player-c"]);
+    expect(send).toHaveBeenCalledTimes(2);
   });
 });
 

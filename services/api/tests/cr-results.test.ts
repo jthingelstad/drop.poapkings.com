@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseCrPlayerResult,
+  parsePodiumFinalizeResult,
   parseCrWarClockResult,
 } from "../src/cr-results.js";
 
@@ -97,5 +98,29 @@ describe("CR bridge results", () => {
         sourceClanTag: "#J2RGCRVG",
       },
     });
+  });
+
+  it("accepts a bounded historical podium finalization contract", () => {
+    expect(
+      parsePodiumFinalizeResult({
+        version: 1,
+        type: "podium-finalize",
+        seasonId: "2026-07-134",
+        finalizedAt: "2026-08-03T10:12:48.768Z",
+      }),
+    ).toEqual({
+      version: 1,
+      type: "podium-finalize",
+      seasonId: "2026-07-134",
+      finalizedAt: "2026-08-03T10:12:48.768Z",
+    });
+    expect(() =>
+      parsePodiumFinalizeResult({
+        version: 1,
+        type: "podium-finalize",
+        seasonId: "../../etc",
+        finalizedAt: "2026-08-03T10:12:48.768Z",
+      }),
+    ).toThrow("Season ID is invalid");
   });
 });

@@ -23,6 +23,7 @@ import {
   tiebreakValues,
 } from "./games.js";
 import { allTimeLeaderboard, seasonLeaderboard } from "./leaderboards.js";
+import { seasonPodiumFinishers } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
 import {
   hydratePublicProfiles,
@@ -122,6 +123,10 @@ interface CrProfileItem extends CrProfileSnapshot {
 interface CrWarClockItem extends StoredCrWarClock {
   pk: "CR_WAR_CLOCK";
   sk: "CURRENT";
+}
+
+export interface StoredBadgeCounters extends BadgeCounters {
+  updatedAt?: string;
 }
 
 function crProfileKey(tag: string) {
@@ -819,7 +824,7 @@ export class Repository {
   // account deletion sweeps them with everything else, and are written
   // best-effort after completions. One item per player: the whole ladder set is
   // derived from these counters, so there is nothing per-badge to store.
-  async getBadges(sub: string): Promise<BadgeCounters | undefined> {
+  async getBadges(sub: string): Promise<StoredBadgeCounters | undefined> {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -840,6 +845,9 @@ export class Repository {
         dayRuns: 0,
       }) as BadgeCounters["aux"],
       earned: (item.earned ?? {}) as Record<string, string[]>,
+      ...(typeof item.updatedAt === "string"
+        ? { updatedAt: item.updatedAt }
+        : {}),
     };
   }
 
@@ -847,22 +855,136 @@ export class Repository {
     sub: string,
     counters: BadgeCounters,
     updatedAt: string,
-  ): Promise<void> {
-    await client.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: {
-          pk: `PLAYER#${sub}`,
-          sk: "BADGES",
-          version: counters.version,
-          values: counters.values,
-          runsAtRung: counters.runsAtRung,
-          aux: counters.aux,
-          earned: counters.earned,
-          updatedAt,
-        },
-      }),
-    );
+    expected?: { version: number; updatedAt?: string },
+  ): Promise<boolean> {
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: `PLAYER#${sub}`,
+            sk: "BADGES",
+            version: counters.version,
+            values: counters.values,
+            runsAtRung: counters.runsAtRung,
+            aux: counters.aux,
+            earned: counters.earned,
+            updatedAt,
+          },
+          ConditionExpression: expected
+            ? expected.updatedAt
+              ? "#version = :expectedVersion AND updatedAt = :expectedUpdatedAt"
+              : "#version = :expectedVersion AND attribute_not_exists(updatedAt)"
+            : "attribute_not_exists(pk)",
+          ...(expected
+            ? {
+                ExpressionAttributeNames: { "#version": "version" },
+                ExpressionAttributeValues: {
+                  ":expectedVersion": expected.version,
+                  ...(expected.updatedAt
+                    ? { ":expectedUpdatedAt": expected.updatedAt }
+                    : {}),
+                },
+              }
+            : {}),
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  // Atomically records one mode's podium finish and replaces the player's
+  // badge bag. The marker makes SQS redelivery and partial season retries a
+  // no-op; the badge condition prevents a concurrent run completion from being
+  // overwritten by the season job.
+  async savePodiumAward(
+    sub: string,
+    seasonId: string,
+    mode: GameMode,
+    counters: BadgeCounters,
+    awardedAt: string,
+    updatedAt: string,
+    expected?: { version: number; updatedAt?: string },
+  ): Promise<boolean> {
+    const badgeCondition = expected
+      ? expected.updatedAt
+        ? "#version = :expectedVersion AND updatedAt = :expectedUpdatedAt"
+        : "#version = :expectedVersion AND attribute_not_exists(updatedAt)"
+      : "attribute_not_exists(pk)";
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  pk: `PLAYER#${sub}`,
+                  sk: `PODIUM#${seasonId}#${mode}`,
+                  seasonId,
+                  mode,
+                  awardedAt,
+                  processedAt: updatedAt,
+                },
+                ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  pk: `PLAYER#${sub}`,
+                  sk: "BADGES",
+                  version: counters.version,
+                  values: counters.values,
+                  runsAtRung: counters.runsAtRung,
+                  aux: counters.aux,
+                  earned: counters.earned,
+                  updatedAt,
+                },
+                ConditionExpression: badgeCondition,
+                ...(expected
+                  ? {
+                      ExpressionAttributeNames: { "#version": "version" },
+                      ExpressionAttributeValues: {
+                        ":expectedVersion": expected.version,
+                        ...(expected.updatedAt
+                          ? { ":expectedUpdatedAt": expected.updatedAt }
+                          : {}),
+                      },
+                    }
+                  : {}),
+              },
+            },
+          ],
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (!(
+        error instanceof Error && error.name === "TransactionCanceledException"
+      ))
+        throw error;
+      const marker = await client.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            pk: `PLAYER#${sub}`,
+            sk: `PODIUM#${seasonId}#${mode}`,
+          },
+          ConsistentRead: true,
+        }),
+      );
+      if (marker.Item) return false;
+      throw error;
+    }
   }
 
   // Every recorded run for one player, newest first. This is the authoritative
@@ -1412,6 +1534,10 @@ export class Repository {
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
     return seasonLeaderboard(this.tableName, mode, seasonId, limit);
+  }
+
+  async podiumFinishers(mode: GameMode, seasonId: string): Promise<string[]> {
+    return seasonPodiumFinishers(this.tableName, mode, seasonId);
   }
 
   async allTimeLeaderboard(

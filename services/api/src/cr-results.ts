@@ -6,10 +6,15 @@ import {
   type CrPlayerRefreshResult,
   type CrPlayerSnapshot,
   type CrWarClockResult,
+  type PodiumFinalizeResult,
 } from "@elixir-drop/contracts";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { loadConfig } from "./config.js";
 import { Repository } from "./repository.js";
+import {
+  finalizePodiumBadges,
+  finalizePreviousSeasonIfNeeded,
+} from "./podium.js";
 import { requireObject as object, requireText as text } from "./validation.js";
 
 function isoDate(value: unknown, label: string): string {
@@ -87,6 +92,25 @@ function parsePlayer(value: unknown): CrPlayerSnapshot {
     clan: parseClan(source.clan),
     accountAge: parseAccountAge(source.accountAge),
     cards,
+  };
+}
+
+const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
+
+export function parsePodiumFinalizeResult(
+  value: unknown,
+): PodiumFinalizeResult {
+  const source = object(value, "Result");
+  if (source.version !== 1 || source.type !== "podium-finalize")
+    throw new Error("Unsupported podium finalization message");
+  const seasonId = text(source.seasonId, "Season ID", 30);
+  if (!SEASON_ID_PATTERN.test(seasonId))
+    throw new Error("Season ID is invalid");
+  return {
+    version: 1,
+    type: "podium-finalize",
+    seasonId,
+    finalizedAt: isoDate(source.finalizedAt, "Finalized at"),
   };
 }
 
@@ -197,6 +221,7 @@ export async function saveCrWarClockResult(
   repository: Repository,
   result: CrWarClockResult,
 ): Promise<boolean> {
+  await finalizePreviousSeasonIfNeeded(repository, result.clock);
   return repository.saveCrWarClock(result.clock);
 }
 
@@ -218,6 +243,10 @@ export async function crResultHandler(
           periodIndex: result.clock.periodIndex,
           saved,
         });
+      } else if (type === "podium-finalize") {
+        const result = parsePodiumFinalizeResult(value);
+        const summary = await finalizePodiumBadges(repository, result);
+        console.info("Podium season finalized", summary);
       } else {
         const result = parseCrPlayerResult(value);
         const saved = await saveCrPlayerResult(repository, result);

@@ -283,6 +283,17 @@ export interface CrWarClockResult {
   clock: CrWarClock;
 }
 
+// Internal result-queue command used by the API consumer to finalize one
+// historical Drop season. It shares the consumer with bridge results so the
+// same retry and dead-letter behavior protects both automatic rollovers and
+// explicit historical repairs.
+export interface PodiumFinalizeResult {
+  version: 1;
+  type: "podium-finalize";
+  seasonId: string;
+  finalizedAt: string;
+}
+
 export interface Player {
   id: string;
   email: string;

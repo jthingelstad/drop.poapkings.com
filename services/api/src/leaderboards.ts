@@ -51,6 +51,36 @@ export async function seasonLeaderboard(
   seasonId: string,
   limit = 50,
 ): Promise<BoardItem[]> {
+  return withPublicProfiles(
+    tableName,
+    mode,
+    await seasonLeaderboardItems(tableName, mode, seasonId, limit),
+  );
+}
+
+// Internal season-finalization read. It deliberately returns only subjects,
+// never hydrated public rows, while reusing the exact referee-aware ranking
+// path players see. Keeping this separate prevents an internal subject key
+// from leaking into GET /leaderboards.
+export async function seasonPodiumFinishers(
+  tableName: string,
+  mode: GameMode,
+  seasonId: string,
+): Promise<string[]> {
+  return (await seasonLeaderboardItems(tableName, mode, seasonId, 3)).flatMap(
+    (item) =>
+      typeof item.playerSub === "string" && item.playerSub
+        ? [item.playerSub]
+        : [],
+  );
+}
+
+async function seasonLeaderboardItems(
+  tableName: string,
+  mode: GameMode,
+  seasonId: string,
+  limit: number,
+): Promise<BoardItem[]> {
   const items: BoardItem[] = [];
   const seenPlayers = new Set<string>();
   let lastKey: Record<string, unknown> | undefined;
@@ -93,7 +123,7 @@ export async function seasonLeaderboard(
     lastKey = result.LastEvaluatedKey;
   } while (items.length < limit && lastKey && pagesRead < MAX_BOARD_PAGES);
 
-  return withPublicProfiles(tableName, mode, items);
+  return items;
 }
 
 // Best-ever board: one item per player per ranked mode already lives in the

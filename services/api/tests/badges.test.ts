@@ -4,8 +4,10 @@ import {
   advanceBadges,
   badgeStates,
   emptyCounters,
+  hiddenSignals,
   localStamp,
   recomputeCounters,
+  recordPodiumFinish,
   rungIndexFor,
   type BadgeCounters,
   type RunFacts,
@@ -95,6 +97,53 @@ describe("rung derivation", () => {
 });
 
 describe("advanceBadges", () => {
+  it("has an executable writer for every catalog badge", () => {
+    let counters = emptyCounters();
+    const runs: Array<Partial<RunFacts>> = [
+      {
+        mode: "surge",
+        score: 11_000,
+        correctCards: [26000009, 27000000, 28000000],
+        totalGames: 10_000,
+        arena: 28,
+        localHour: 2,
+        photoFinish: true,
+        fullCup: true,
+        coldOpen: true,
+      },
+      { mode: "trade", score: 39_000 },
+      { mode: "higher-lower", score: 10_000 },
+      { mode: "survival", score: 10_000, zeroHesitation: true },
+      { mode: "rain", score: 10_000, comeback: true },
+      {
+        mode: "practice",
+        answered: 21_000,
+        practiceClean: true,
+      },
+    ];
+    for (const run of runs)
+      counters = advanceBadges(counters, facts(run)).counters;
+    counters = recordPodiumFinish(
+      counters,
+      "2026-08-03T10:12:48.768Z",
+    ).counters;
+
+    const missingWriters = BADGE_LIST.filter(
+      (badge) =>
+        badge.slug !== "collector" && counters.values[badge.slug] === undefined,
+    ).map((badge) => badge.slug);
+    expect(missingWriters).toEqual([]);
+
+    // Collector is a derived writer: once every other badge has rung one, a
+    // normal settle pass activates it too.
+    const forged = emptyCounters();
+    for (const badge of BADGE_LIST) {
+      if (badge.slug !== "collector")
+        forged.earned[badge.slug] = ["2026-08-03T10:12:48.768Z"];
+    }
+    expect(advanceBadges(forged, facts()).counters.values.collector).toBe(1);
+  });
+
   it("counts a Surge run toward volume and speed at once", () => {
     const counters = play([{ mode: "surge", score: 19_000 }]);
     expect(stateOf(counters, "surge-runner").value).toBe(1);
@@ -237,6 +286,47 @@ describe("localStamp", () => {
       15,
     );
     expect(localStamp("2026-08-02T15:00:00.000Z", 99_999).localHour).toBe(1);
+  });
+});
+
+describe("hidden badge signals", () => {
+  it("derives Full Cup from a complete Surge transcript with one guess per expensive card", () => {
+    expect(
+      hiddenSignals("surge", {
+        answers: Array.from({ length: 15 }, () => ({
+          cardId: 26000009,
+          guesses: [8],
+        })),
+      }),
+    ).toEqual({ fullCup: true });
+  });
+
+  it("derives Zero Hesitation only when every Survival answer is under one second", () => {
+    expect(
+      hiddenSignals("survival", {
+        answers: [{ elapsedMs: 999 }, { elapsedMs: 500 }],
+      }),
+    ).toEqual({ zeroHesitation: true });
+    expect(
+      hiddenSignals("survival", {
+        answers: [{ elapsedMs: 1_000 }],
+      }),
+    ).toEqual({});
+  });
+
+  it("derives Comeback after twenty Rain clears on the last life", () => {
+    expect(
+      hiddenSignals("rain", {
+        answers: [
+          { cardId: 26000000, guess: null },
+          { cardId: 26000000, guess: null },
+          ...Array.from({ length: 20 }, () => ({
+            cardId: 26000000,
+            guess: 3,
+          })),
+        ],
+      }),
+    ).toEqual({ comeback: true });
   });
 });
 

@@ -158,7 +158,7 @@ describe("run completion side effects are best effort", () => {
     repository.putRefereeEvidence.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue({ improved: false });
     repository.getBadges.mockResolvedValue(undefined);
-    repository.saveBadges.mockResolvedValue(undefined);
+    repository.saveBadges.mockResolvedValue(true);
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getRun.mockResolvedValue({
       pk: "RUN#run-1",

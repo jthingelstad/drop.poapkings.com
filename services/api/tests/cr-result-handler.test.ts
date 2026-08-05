@@ -5,6 +5,10 @@ const repository = vi.hoisted(() => ({
   saveCrProfileResult: vi.fn(),
   saveCrWarClock: vi.fn(),
 }));
+const podium = vi.hoisted(() => ({
+  finalizePodiumBadges: vi.fn(),
+  finalizePreviousSeasonIfNeeded: vi.fn(),
+}));
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -12,6 +16,8 @@ vi.mock("../src/repository.js", () => ({
     saveCrWarClock = repository.saveCrWarClock;
   },
 }));
+
+vi.mock("../src/podium.js", () => podium);
 
 import { crResultHandler } from "../src/cr-results.js";
 
@@ -25,6 +31,13 @@ describe("CR result queue handler", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.saveCrWarClock.mockResolvedValue(true);
+    podium.finalizePreviousSeasonIfNeeded.mockResolvedValue(undefined);
+    podium.finalizePodiumBadges.mockResolvedValue({
+      seasonId: "2026-07",
+      finishes: 3,
+      awarded: 3,
+      duplicates: 0,
+    });
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
@@ -53,6 +66,52 @@ describe("CR result queue handler", () => {
 
     expect(response.batchItemFailures).toEqual([]);
     expect(repository.saveCrWarClock).toHaveBeenCalledWith(body.clock);
+    expect(podium.finalizePreviousSeasonIfNeeded).toHaveBeenCalledWith(
+      expect.anything(),
+      body.clock,
+    );
     expect(repository.saveCrProfileResult).not.toHaveBeenCalled();
+  });
+
+  it("routes an explicit historical podium finalization through the same retrying consumer", async () => {
+    const body = {
+      version: 1,
+      type: "podium-finalize",
+      seasonId: "2026-07",
+      finalizedAt: "2026-08-03T10:12:48.768Z",
+    };
+    const response = await crResultHandler({
+      Records: [{ messageId: "message-2", body: JSON.stringify(body) }],
+    } as SQSEvent);
+
+    expect(response.batchItemFailures).toEqual([]);
+    expect(podium.finalizePodiumBadges).toHaveBeenCalledWith(
+      expect.anything(),
+      body,
+    );
+    expect(repository.saveCrWarClock).not.toHaveBeenCalled();
+  });
+
+  it("returns a failed message id when podium finalization needs an SQS retry", async () => {
+    podium.finalizePodiumBadges.mockRejectedValueOnce(new Error("throttled"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await crResultHandler({
+      Records: [
+        {
+          messageId: "message-3",
+          body: JSON.stringify({
+            version: 1,
+            type: "podium-finalize",
+            seasonId: "2026-07",
+            finalizedAt: "2026-08-03T10:12:48.768Z",
+          }),
+        },
+      ],
+    } as SQSEvent);
+
+    expect(response.batchItemFailures).toEqual([
+      { itemIdentifier: "message-3" },
+    ]);
   });
 });

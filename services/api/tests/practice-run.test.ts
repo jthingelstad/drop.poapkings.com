@@ -166,7 +166,7 @@ describe("Practice completion", () => {
       async () => repository.saveBadges.mock.calls.at(-1)?.[1],
     );
     repository.putRefereeEvidence.mockResolvedValue(undefined);
-    repository.saveBadges.mockResolvedValue(undefined);
+    repository.saveBadges.mockResolvedValue(true);
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
