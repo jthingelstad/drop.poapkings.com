@@ -69,7 +69,7 @@ describe("GET /players/:id", () => {
     repository.listAllRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 2,
+      version: 3,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
@@ -211,7 +211,7 @@ describe("GET /players/:id", () => {
     );
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
-      expect.objectContaining({ version: 2 }),
+      expect.objectContaining({ version: 3 }),
       expect.any(String),
       {
         version: 1,

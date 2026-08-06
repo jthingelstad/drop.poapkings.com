@@ -92,18 +92,43 @@ const MAX_TIEBREAK = 999_999_999;
 // key shapes inside one partition, and a new row could outrank an equal-scoring
 // old one purely on where its segments fall in the byte order. The board has to
 // restart for the ranking to mean anything.
-const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
-  survival: "r2",
-  rain: "r3",
-  "higher-lower": "r2",
-  trade: "r2",
+interface BoardEpoch {
+  id: string;
+  // First successful production deploy of this board. Runs written during the
+  // brief period before history carried boardEpoch use this verified boundary.
+  startedAt: string;
+}
+
+const BOARD_EPOCH: Partial<Record<GameMode, BoardEpoch>> = {
+  survival: { id: "r2", startedAt: "2026-07-19T18:00:58.000Z" },
+  rain: { id: "r3", startedAt: "2026-07-25T15:45:05.000Z" },
+  "higher-lower": { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
+  trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };
 
 // Stamp the mode definition that dealt a run onto its immutable history row.
 // Leaderboard partitions already carry this epoch; exposing it here lets
 // derived systems such as badges reject retired, incomparable boards too.
 export function boardEpochFor(mode: GameMode): string | undefined {
-  return BOARD_EPOCH[mode];
+  return BOARD_EPOCH[mode]?.id;
+}
+
+// Derived systems must compare only scores earned under the board players can
+// play now. Explicit history always wins; the timestamp fallback exists solely
+// for the small set of current-board rows written before boardEpoch was copied
+// into immutable run history.
+export function isCurrentBoardRun(run: {
+  mode: GameMode;
+  boardEpoch?: string;
+  completedAt: string;
+}): boolean {
+  const current = BOARD_EPOCH[run.mode];
+  if (!current) return true;
+  if (run.boardEpoch !== undefined) return run.boardEpoch === current.id;
+  const completedAt = Date.parse(run.completedAt);
+  return (
+    Number.isFinite(completedAt) && completedAt >= Date.parse(current.startedAt)
+  );
 }
 
 // The ordered ascending tiebreaks a mode ranks equal scores by, named by the
@@ -155,8 +180,12 @@ export function tiebreakValues(
   return values;
 }
 
-export function leaderboardPartition(seasonId: string, mode: GameMode): string {
-  const epoch = boardEpochFor(mode);
+export function leaderboardPartition(
+  seasonId: string,
+  mode: GameMode,
+  dealtEpoch?: string,
+): string {
+  const epoch = dealtEpoch ?? boardEpochFor(mode);
   return epoch
     ? `LEADERBOARD#${seasonId}#${mode}#${epoch}`
     : `LEADERBOARD#${seasonId}#${mode}`;

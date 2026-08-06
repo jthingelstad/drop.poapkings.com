@@ -43,7 +43,7 @@ async function baselineCounters(
   const currentRuns = runs.filter(
     (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
   );
-  return stored?.version === 1
+  return stored
     ? migrateBadgeCounters(stored, currentRuns, at)
     : recomputeCounters(
         currentRuns,

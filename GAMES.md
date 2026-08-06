@@ -380,7 +380,7 @@ unless it is re-approved.
 
 ## Badges
 
-29 badges over 187 rungs, backed by `BADGES` in `packages/contracts` and the pure
+29 badges over 188 rungs, backed by `BADGES` in `packages/contracts` and the pure
 engine in `services/api/src/badges.ts`. 22 visible badges on long ladders plus 7
 hidden single-rung badges.
 
@@ -411,9 +411,12 @@ completedAt, and the board epoch that dealt new runs — not transcripts. So the
 volume and skill ladders, Drop Regular, Arena Climber, All Six, Daily Drop,
 Marathon, Night Shift and the four card-knowledge badges rebuild from history
 plus the `CARDSTATS` item; Reps, Clean Sweep and the five transcript-derived
-hidden badges are forward-only. Trade Reader counts every completed Trade
-format, while Sharp Trade accepts only the current 10-exchange `r2` board;
-legacy rows without an epoch use the verified production cutover. Podium is
-resolved from the referee-visible top three in every ranked mode when the first
-newer Clan Wars clock arrives. Each season+mode finish has a durable marker, so
-queue redelivery or an explicit historical finalization cannot double-count it.
+hidden badges are forward-only. Mode-mastery ladders keep legitimate historical
+activity across formats, while the four format-comparable skill badges — Sharp
+Trade, Coin Flip Killer, Unbroken, and Downpour — accept only their current
+board epoch; legacy rows without an epoch use the verified production cutover.
+Unbroken ends at 120 because Survival deals the catalog once and a full clear
+ends the run. Podium is resolved from the referee-visible top three in every
+ranked mode when the first newer Clan Wars clock arrives. Each season+mode
+finish has a durable marker, so queue redelivery or an explicit historical
+finalization cannot double-count it.

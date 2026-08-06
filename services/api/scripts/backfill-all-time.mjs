@@ -6,7 +6,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
-  ScanCommand,
+  paginateScan,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
@@ -20,24 +20,58 @@ if (!REGION) throw new Error("Set AWS_REGION before running the backfill");
 if (!TABLE_NAME || TABLE_NAME.startsWith("--"))
   throw new Error("--table requires a table name");
 
-const RANKED_MODES = new Set(["surge", "higher-lower", "trade", "survival"]);
+const RANKED_MODES = new Set([
+  "surge",
+  "higher-lower",
+  "trade",
+  "survival",
+  "rain",
+]);
 const LOWER_IS_BETTER = new Set(["surge", "trade"]);
 const MAX_SORT_SCORE = 999_999_999_999;
+const MAX_TIEBREAK = 999_999_999;
+const BOARD_EPOCH = {
+  survival: "r2",
+  rain: "r3",
+  "higher-lower": "r2",
+  trade: "r2",
+};
+const MODE_TIEBREAKS = {
+  survival: ["timeMs"],
+  "higher-lower": ["livesLost", "timeMs"],
+  rain: ["wrongGuesses", "avgLatencyMs"],
+};
+const ALL_TIEBREAK_FIELDS = [
+  "timeMs",
+  "livesLost",
+  "wrongGuesses",
+  "avgLatencyMs",
+];
 
 function leaderboardPartition(seasonId, mode) {
-  return mode === "survival"
-    ? `LEADERBOARD#${seasonId}#survival#r2`
-    : `LEADERBOARD#${seasonId}#${mode}`;
+  const epoch = BOARD_EPOCH[mode];
+  return `LEADERBOARD#${seasonId}#${mode}${epoch ? `#${epoch}` : ""}`;
 }
 
-function leaderboardSortKey(mode, score, completedAt, sub, timeMs) {
+function tiebreakValues(mode, source) {
+  const values = [];
+  for (const field of MODE_TIEBREAKS[mode] ?? []) {
+    if (!Number.isFinite(source[field])) break;
+    values.push(source[field]);
+  }
+  return values;
+}
+
+function leaderboardSortKey(mode, score, completedAt, sub, tiebreaks = []) {
   const sortableScore = LOWER_IS_BETTER.has(mode)
     ? score
     : MAX_SORT_SCORE - score;
-  const tiebreak =
-    timeMs === undefined
-      ? ""
-      : `#${String(Math.min(Math.max(0, Math.round(timeMs)), 999_999_999)).padStart(9, "0")}`;
+  const tiebreak = tiebreaks
+    .map(
+      (value) =>
+        `#${String(Math.min(Math.max(0, Math.round(value)), MAX_TIEBREAK)).padStart(9, "0")}`,
+    )
+    .join("");
   return `${String(sortableScore).padStart(12, "0")}${tiebreak}#${completedAt}#${sub}`;
 }
 
@@ -72,20 +106,16 @@ const doc = DynamoDBDocumentClient.from(
 );
 
 const items = [];
-let lastKey;
-do {
-  const result = await doc.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      ProjectionExpression:
-        "pk, sk, runId, #mode, score, seasonId, completedAt, playerSub, timeMs, GSI1PK, GSI1SK",
-      ExpressionAttributeNames: { "#mode": "mode" },
-      ExclusiveStartKey: lastKey,
-    }),
-  );
-  items.push(...(result.Items ?? []));
-  lastKey = result.LastEvaluatedKey;
-} while (lastKey);
+for await (const page of paginateScan(
+  { client: doc },
+  {
+    TableName: TABLE_NAME,
+    ProjectionExpression:
+      "pk, sk, runId, #mode, score, seasonId, completedAt, playerSub, boardEpoch, timeMs, livesLost, wrongGuesses, avgLatencyMs, GSI1PK, GSI1SK",
+    ExpressionAttributeNames: { "#mode": "mode" },
+  },
+))
+  items.push(...(page.Items ?? []));
 
 const desired = new Map();
 const current = new Map();
@@ -110,14 +140,17 @@ for (const item of items) {
     score: item.score,
     completedAt: item.completedAt,
     runId: item.runId,
-    ...(Number.isFinite(item.timeMs) ? { timeMs: item.timeMs } : {}),
+    ...(BOARD_EPOCH[item.mode] ? { boardEpoch: BOARD_EPOCH[item.mode] } : {}),
   };
+  for (const field of MODE_TIEBREAKS[item.mode] ?? []) {
+    if (Number.isFinite(item[field])) candidate[field] = item[field];
+  }
   candidate.GSI1SK = leaderboardSortKey(
     candidate.mode,
     candidate.score,
     candidate.completedAt,
     candidate.sub,
-    candidate.timeMs,
+    tiebreakValues(candidate.mode, candidate),
   );
   const key = projectionKey(sub, item.mode);
   const previous = desired.get(key);
@@ -128,16 +161,25 @@ for (const item of items) {
 const plan = [];
 for (const [key, candidate] of desired) {
   const existing = current.get(key);
+  const candidatePartition = leaderboardPartition("ALLTIME", candidate.mode);
+  const sameProjection =
+    existing?.GSI1PK === candidatePartition &&
+    existing.GSI1SK === candidate.GSI1SK &&
+    existing.runId === candidate.runId &&
+    ALL_TIEBREAK_FIELDS.every((field) => existing[field] === candidate[field]);
+  if (sameProjection) continue;
   if (
-    existing?.GSI1SK < candidate.GSI1SK ||
-    (existing?.GSI1SK === candidate.GSI1SK &&
-      existing.runId === candidate.runId &&
-      existing.timeMs === candidate.timeMs)
+    existing?.GSI1PK === candidatePartition &&
+    existing.GSI1SK < candidate.GSI1SK
   )
     continue;
   plan.push({
     ...candidate,
-    action: existing ? "repair_or_improve" : "create",
+    action: existing
+      ? existing.GSI1PK === candidatePartition
+        ? "repair_or_improve"
+        : "reset_retired_epoch"
+      : "create",
   });
 }
 
@@ -161,12 +203,25 @@ const result = {
   ...(DETAILS
     ? {
         updates: plan.map(
-          ({ mode, score, completedAt, runId, timeMs, action }) => ({
+          ({
             mode,
             score,
             completedAt,
             runId,
-            ...(timeMs !== undefined ? { timeMs } : {}),
+            boardEpoch,
+            action,
+            ...fields
+          }) => ({
+            mode,
+            score,
+            completedAt,
+            runId,
+            ...(boardEpoch ? { boardEpoch } : {}),
+            ...Object.fromEntries(
+              ALL_TIEBREAK_FIELDS.filter(
+                (field) => fields[field] !== undefined,
+              ).map((field) => [field, fields[field]]),
+            ),
             action,
           }),
         ),
@@ -184,9 +239,6 @@ if (APPLY) {
       ":completedAt": candidate.completedAt,
       ":playerSub": candidate.sub,
       ":runId": candidate.runId,
-      ...(candidate.timeMs !== undefined
-        ? { ":timeMs": candidate.timeMs }
-        : {}),
     };
     const sets = [
       "GSI1PK = :gsi1pk",
@@ -196,7 +248,19 @@ if (APPLY) {
       "completedAt = :completedAt",
       "playerSub = :playerSub",
       "runId = :runId",
-      ...(candidate.timeMs !== undefined ? ["timeMs = :timeMs"] : []),
+    ];
+    if (candidate.boardEpoch) {
+      sets.push("boardEpoch = :boardEpoch");
+      values[":boardEpoch"] = candidate.boardEpoch;
+    }
+    for (const field of ALL_TIEBREAK_FIELDS) {
+      if (candidate[field] === undefined) continue;
+      sets.push(`${field} = :${field}`);
+      values[`:${field}`] = candidate[field];
+    }
+    const removes = [
+      ...(candidate.boardEpoch ? [] : ["boardEpoch"]),
+      ...ALL_TIEBREAK_FIELDS.filter((field) => candidate[field] === undefined),
     ];
     try {
       await doc.send(
@@ -206,9 +270,9 @@ if (APPLY) {
             pk: `PLAYER#${candidate.sub}`,
             sk: `ALLTIME#${candidate.mode}`,
           },
-          UpdateExpression: `SET ${sets.join(", ")}${candidate.timeMs === undefined ? " REMOVE timeMs" : ""}`,
+          UpdateExpression: `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`,
           ConditionExpression:
-            "attribute_not_exists(GSI1SK) OR :newSk <= GSI1SK",
+            "attribute_not_exists(GSI1SK) OR GSI1PK <> :gsi1pk OR :newSk <= GSI1SK",
           ExpressionAttributeNames: { "#mode": "mode" },
           ExpressionAttributeValues: values,
         }),

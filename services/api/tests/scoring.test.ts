@@ -20,6 +20,7 @@ import {
   tradeRounds,
 } from "../src/scoring.js";
 import {
+  isCurrentBoardRun,
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
@@ -530,6 +531,47 @@ describe("server-side game scoring", () => {
     expect(leaderboardPartition("2026-07", "surge")).toBe(
       "LEADERBOARD#2026-07#surge",
     );
+    // An already-open retired run stays on the board that dealt it even when
+    // it completes after a deploy changes the current epoch.
+    expect(leaderboardPartition("2026-07", "rain", "r2")).toBe(
+      "LEADERBOARD#2026-07#rain#r2",
+    );
+  });
+
+  it("recognizes current-board history without accepting retired scores", () => {
+    expect(
+      isCurrentBoardRun({
+        mode: "survival",
+        boardEpoch: "r1",
+        completedAt: "2026-08-01T00:00:00.000Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "survival",
+        boardEpoch: "r2",
+        completedAt: "2026-07-01T00:00:00.000Z",
+      }),
+    ).toBe(true);
+    // Legacy rows around the production cutover have no explicit epoch.
+    expect(
+      isCurrentBoardRun({
+        mode: "survival",
+        completedAt: "2026-07-19T17:00:35.000Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "survival",
+        completedAt: "2026-07-19T18:00:58.000Z",
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentBoardRun({
+        mode: "rain",
+        completedAt: "2026-07-25T15:45:05.000Z",
+      }),
+    ).toBe(true);
   });
 
   it("deals Survival as the whole deck once (no repeats) so it can be cleared", () => {

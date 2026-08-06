@@ -613,7 +613,7 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
   });
 
-  it("copies the dealt board epoch into immutable run history", async () => {
+  it("keeps an already-dealt epoch on its immutable leaderboard history", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {
         sub: "player-sub",
@@ -634,7 +634,7 @@ describe("repository DynamoDB requests", () => {
       state: "started",
       startedAt: "2026-08-06T12:00:00.000Z",
       expiresAt: 1_800_000_000,
-      boardEpoch: "r2",
+      boardEpoch: "r1",
     };
 
     await new Repository("test-table").completeRun(run, 67_126, "2026-08", 10);
@@ -643,7 +643,8 @@ describe("repository DynamoDB requests", () => {
     expect(transaction.input.TransactItems[2]?.Put?.Item).toMatchObject({
       runId: "run-trade",
       mode: "trade",
-      boardEpoch: "r2",
+      boardEpoch: "r1",
+      GSI1PK: "LEADERBOARD#2026-08#trade#r1",
     });
   });
 
@@ -967,7 +968,7 @@ describe("repository DynamoDB requests", () => {
       sk: "ALLTIME#surge",
     });
     expect(update.ConditionExpression).toBe(
-      "attribute_not_exists(GSI1SK) OR :newSk < GSI1SK",
+      "attribute_not_exists(GSI1SK) OR GSI1PK <> :gsi1pk OR :newSk < GSI1SK",
     );
     expect(update.ExpressionAttributeValues[":gsi1pk"]).toBe(
       "LEADERBOARD#ALLTIME#surge",
@@ -1003,7 +1004,7 @@ describe("repository DynamoDB requests", () => {
     send.mockResolvedValueOnce({});
 
     await new Repository("test-table").updateAllTimeBest(
-      { ...allTimeRun, mode: "survival" },
+      { ...allTimeRun, mode: "survival", boardEpoch: "r2" },
       40,
       { timeMs: 95_400 },
       "2026-07-18T12:05:00.000Z",
@@ -1015,7 +1016,45 @@ describe("repository DynamoDB requests", () => {
       "LEADERBOARD#ALLTIME#survival#r2",
     );
     expect(update.ExpressionAttributeValues[":timeMs"]).toBe(95_400);
+    expect(update.ExpressionAttributeValues[":boardEpoch"]).toBe("r2");
     expect(update.UpdateExpression).toContain("timeMs = :timeMs");
+  });
+
+  it("does not project a run dealt by a retired board epoch", async () => {
+    await expect(
+      new Repository("test-table").updateAllTimeBest(
+        { ...allTimeRun, mode: "rain", boardEpoch: "r2" },
+        110,
+        { wrongGuesses: 2, avgLatencyMs: 700 },
+        "2026-08-01T12:05:00.000Z",
+      ),
+    ).resolves.toEqual({ improved: false });
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("resets a retired all-time partition without comparing its score", async () => {
+    send.mockResolvedValueOnce({
+      Attributes: {
+        GSI1PK: "LEADERBOARD#ALLTIME#rain#r2",
+        score: 110,
+      },
+    });
+
+    await expect(
+      new Repository("test-table").updateAllTimeBest(
+        { ...allTimeRun, mode: "rain", boardEpoch: "r3" },
+        102,
+        { wrongGuesses: 1, avgLatencyMs: 650 },
+        "2026-08-01T12:05:00.000Z",
+      ),
+    ).resolves.toEqual({ improved: true });
+
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.ExpressionAttributeValues[":gsi1pk"]).toBe(
+      "LEADERBOARD#ALLTIME#rain#r3",
+    );
+    expect(update.ConditionExpression).toContain("GSI1PK <> :gsi1pk");
   });
 
   it("swallows a worse run that fails the all-time condition", async () => {
@@ -1036,7 +1075,12 @@ describe("repository DynamoDB requests", () => {
   });
 
   it("reports the displaced score when a run becomes the new best", async () => {
-    send.mockResolvedValueOnce({ Attributes: { score: 19_000 } });
+    send.mockResolvedValueOnce({
+      Attributes: {
+        GSI1PK: "LEADERBOARD#ALLTIME#surge",
+        score: 19_000,
+      },
+    });
 
     await expect(
       new Repository("test-table").updateAllTimeBest(

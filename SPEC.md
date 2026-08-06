@@ -224,11 +224,13 @@ Each ranked mode has two boards, selected by the `scope` query param on
   `pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`, indexed into the same GSI1 under
   `LEADERBOARD#ALLTIME#{mode}` with the identical sort-key encoding (better
   score/tiebreak → smaller key). A completion updates it best-effort after
-  `completeRun`, guarded by `attribute_not_exists(GSI1SK) OR :newSk < GSI1SK`;
-  a run that is not a new best fails the condition and is silently skipped, so
-  the recorded run never rolls back. Because there is one item per player, the
-  read needs no dedup. The web Leaderboards screen offers a Season / All-time
-  toggle; the all-time view shows no season-reset line.
+  `completeRun`. Versioned modes reject runs from retired board epochs; the
+  conditional write resets when the stored GSI partition belongs to a retired
+  epoch, otherwise only a better current-board sort key wins. A run that is not
+  a new best is silently skipped, so the recorded run never rolls back. Because
+  there is one item per player, the read needs no dedup. The web Leaderboards
+  screen offers a Season / All-time toggle; the all-time view shows no
+  season-reset line.
 
 Leaderboard eligibility is stricter than run acceptance: a ranked completion
 must score **above zero** to receive a seasonal or all-time index projection.

@@ -142,16 +142,15 @@ async function badgeSummary(
     const currentRuns = runs.filter(
       (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
     );
-    const counters =
-      stored?.version === 1
-        ? migrateBadgeCounters(stored, currentRuns, at)
-        : recomputeCounters(
-            currentRuns,
-            backfillCardStats,
-            { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
-            arenaForXp,
-            at,
-          );
+    const counters = stored
+      ? migrateBadgeCounters(stored, currentRuns, at)
+      : recomputeCounters(
+          currentRuns,
+          backfillCardStats,
+          { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+          arenaForXp,
+          at,
+        );
     const saved = await repository.saveBadges(
       sub,
       counters,

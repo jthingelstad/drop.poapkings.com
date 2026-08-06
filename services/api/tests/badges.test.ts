@@ -94,6 +94,14 @@ describe("rung derivation", () => {
     expect(rungIndexFor(sharpTrade, 67.126)).toBe(10);
     expect(sharpTrade.rungs.at(-1)).toBe(45);
   });
+
+  it("ends Unbroken at Survival's reachable 120-card clear", () => {
+    const unbroken = BADGE_LIST.find((b) => b.slug === "unbroken")!;
+    expect(unbroken.rungs).toEqual([10, 15, 25, 40, 60, 80, 100, 110, 120]);
+    // The current 117-card best has one real milestone left: clear the deck.
+    expect(rungIndexFor(unbroken, 117)).toBe(7);
+    expect(unbroken.rungs.at(rungIndexFor(unbroken, 117) + 1)).toBe(120);
+  });
 });
 
 describe("advanceBadges", () => {
@@ -180,6 +188,29 @@ describe("advanceBadges", () => {
     });
   });
 
+  it("keeps retired board scores out of every format-comparable skill badge", () => {
+    const counters = play([
+      { mode: "higher-lower", boardEpoch: "r1", score: 75 },
+      { mode: "higher-lower", boardEpoch: "r2", score: 45 },
+      { mode: "survival", boardEpoch: "r1", score: 167 },
+      { mode: "survival", boardEpoch: "r2", score: 117 },
+      { mode: "rain", boardEpoch: "r2", score: 110 },
+      { mode: "rain", boardEpoch: "r3", score: 102 },
+    ]);
+
+    // Mastery still credits real historical activity across formats.
+    expect(stateOf(counters, "bridge-read").value).toBe(120);
+    expect(stateOf(counters, "last-stand").value).toBe(2);
+    expect(stateOf(counters, "stormchaser").value).toBe(212);
+    // Skill proof is comparable only inside the current board definition.
+    expect(stateOf(counters, "coin-flip-killer").value).toBe(45);
+    expect(stateOf(counters, "unbroken")).toMatchObject({
+      value: 117,
+      rungIndex: 7,
+    });
+    expect(stateOf(counters, "downpour").value).toBe(102);
+  });
+
   it("counts every run at or under each time rung, not just the best", () => {
     const counters = play([
       { mode: "surge", score: 34_000 },
@@ -216,8 +247,8 @@ describe("advanceBadges", () => {
     ]);
     const unbroken = stateOf(counters, "unbroken");
     expect(unbroken.value).toBe(60);
-    expect(unbroken.rungIndex).toBe(3); // 15·25·40·60 -> index 3
-    expect(unbroken.earnedAt).toHaveLength(4);
+    expect(unbroken.rungIndex).toBe(4); // 10·15·25·40·60 -> index 4
+    expect(unbroken.earnedAt).toHaveLength(5);
   });
 
   it("records a daily streak as a best, so breaking it takes nothing away", () => {
@@ -356,6 +387,7 @@ describe("recomputeCounters", () => {
     },
     {
       mode: "rain" as const,
+      boardEpoch: "r3",
       score: 40,
       completedAt: "2026-07-03T12:00:00.000Z",
     },
@@ -470,12 +502,20 @@ describe("recomputeCounters", () => {
     });
   });
 
-  it("migrates only Sharp Trade and preserves forward-only badge state", () => {
+  it("migrates every versioned skill badge and preserves forward-only state", () => {
     const stored = emptyCounters();
-    stored.version = 1;
+    stored.version = 2;
     stored.values["sharp-trade"] = 55.639;
+    stored.values["coin-flip-killer"] = 75;
+    stored.values.unbroken = 167;
+    stored.values.downpour = 110;
     stored.runsAtRung["sharp-trade"] = [6, 6, 3, 1, 1, 1, 1, 0, 0];
     stored.earned["sharp-trade"] = Array(10).fill("2026-08-02T17:25:31.817Z");
+    stored.earned["coin-flip-killer"] = Array(8).fill(
+      "2026-08-02T17:25:31.817Z",
+    );
+    stored.earned.unbroken = Array(7).fill("2026-08-02T17:25:31.817Z");
+    stored.earned.downpour = Array(5).fill("2026-08-02T17:25:31.817Z");
     stored.values.podium = 5;
     stored.earned.podium = Array(4).fill("2026-08-03T10:12:48.768Z");
 
@@ -492,16 +532,58 @@ describe("recomputeCounters", () => {
           score: 67_126,
           completedAt: "2026-07-25T16:02:56.616Z",
         },
+        {
+          mode: "higher-lower",
+          boardEpoch: "r1",
+          score: 75,
+          completedAt: "2026-07-24T12:00:00.000Z",
+        },
+        {
+          mode: "higher-lower",
+          boardEpoch: "r2",
+          score: 45,
+          completedAt: "2026-07-26T12:00:00.000Z",
+        },
+        {
+          mode: "survival",
+          boardEpoch: "r1",
+          score: 167,
+          completedAt: "2026-07-19T17:00:35.000Z",
+        },
+        {
+          mode: "survival",
+          boardEpoch: "r2",
+          score: 117,
+          completedAt: "2026-08-02T12:00:00.000Z",
+        },
+        {
+          mode: "rain",
+          boardEpoch: "r2",
+          score: 110,
+          completedAt: "2026-07-25T14:00:00.000Z",
+        },
+        {
+          mode: "rain",
+          boardEpoch: "r3",
+          score: 102,
+          completedAt: "2026-08-02T12:00:00.000Z",
+        },
       ],
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
       runsAtRung: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
     });
+    expect(stateOf(migrated, "coin-flip-killer").value).toBe(45);
+    expect(stateOf(migrated, "unbroken")).toMatchObject({
+      value: 117,
+      rungIndex: 7,
+    });
+    expect(stateOf(migrated, "downpour").value).toBe(102);
     expect(migrated.values.podium).toBe(5);
     expect(migrated.earned.podium).toEqual(stored.earned.podium);
   });

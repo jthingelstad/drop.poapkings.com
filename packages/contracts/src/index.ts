@@ -533,12 +533,14 @@ export const BADGES = [
     requirement: "Best single Higher / Lower run",
   },
   {
-    // Measured: best streak 105 — this ladder was already well calibrated.
+    // Survival deals the 120-card catalog once and ends in a win when it is
+    // cleared, so the ladder must end there. Measured current-board best: 117;
+    // 110 recognizes that near-clear while leaving the real win to chase.
     slug: "unbroken",
     name: "Unbroken",
     group: "mode-skill",
     kind: "best",
-    rungs: [15, 25, 40, 60, 80, 100, 150, 200],
+    rungs: [10, 15, 25, 40, 60, 80, 100, 110, 120],
     requirement: "Longest Survival streak",
   },
   {

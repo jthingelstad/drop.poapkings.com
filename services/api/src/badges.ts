@@ -1,4 +1,5 @@
 import { BADGE_LIST, type BadgeDefinition } from "@elixir-drop/contracts";
+import { isCurrentBoardRun } from "./games.js";
 import { cardElixir } from "./scoring.js";
 import type { GameMode } from "./types.js";
 
@@ -13,16 +14,10 @@ import type { GameMode } from "./types.js";
 // Because awarding is a pure function of the counters, badges can be recomputed
 // from run history — which is what makes adding a badge later retroactive.
 
-// Bump when the counter SHAPE changes in a way that makes stored values
-// unreadable. Version 2 makes Sharp Trade board-epoch-aware and rebuilds its
-// per-rung array for the 16-rung ladder without disturbing unrelated badges.
-export const BADGE_COUNTERS_VERSION = 2;
-
-const SHARP_TRADE_BOARD_EPOCH = "r2";
-// The first deploy containing Trade r2 completed at this verified GitHub
-// Actions timestamp. History written before boardEpoch was stored uses this
-// boundary; all new rows carry the explicit epoch dealt at run start.
-const SHARP_TRADE_R2_STARTED_AT = Date.parse("2026-07-25T15:45:05.000Z");
+// Bump when a stored counter must be rebuilt. Version 3 makes every mode-skill
+// score board-epoch-aware and replaces Unbroken's unreachable 150/200 tail
+// with milestones ending at Survival's 120-card clear.
+export const BADGE_COUNTERS_VERSION = 3;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -216,6 +211,7 @@ export function advanceBadges(
 ): { counters: BadgeCounters; newlyEarned: EarnedRung[] } {
   const counters = cloneCounters(input);
   const { values, aux } = counters;
+  const currentBoard = isCurrentBoardRun(facts);
 
   // ── Mode mastery — volume ─────────────────────────────────────────────────
   if (facts.mode === "surge") bump(values, "surge-runner", 1);
@@ -233,15 +229,17 @@ export function advanceBadges(
     lower(values, "clockbreaker", seconds);
     countRunAtRungs(counters, "clockbreaker", seconds);
   }
-  if (facts.mode === "trade" && facts.boardEpoch === SHARP_TRADE_BOARD_EPOCH) {
+  if (facts.mode === "trade" && currentBoard) {
     const seconds = facts.score / 1_000;
     lower(values, "sharp-trade", seconds);
     countRunAtRungs(counters, "sharp-trade", seconds);
   }
-  if (facts.mode === "higher-lower")
+  if (facts.mode === "higher-lower" && currentBoard)
     raise(values, "coin-flip-killer", facts.score);
-  if (facts.mode === "survival") raise(values, "unbroken", facts.score);
-  if (facts.mode === "rain") raise(values, "downpour", facts.score);
+  if (facts.mode === "survival" && currentBoard)
+    raise(values, "unbroken", facts.score);
+  if (facts.mode === "rain" && currentBoard)
+    raise(values, "downpour", facts.score);
 
   // ── Progression ───────────────────────────────────────────────────────────
   raise(values, "drop-regular", facts.totalGames);
@@ -476,6 +474,7 @@ export function recomputeCounters(
   );
 
   for (const run of ordered) {
+    const currentBoard = isCurrentBoardRun(run);
     if (run.mode === "surge") {
       bump(values, "surge-runner", 1);
       const seconds = run.score / 1_000;
@@ -484,7 +483,7 @@ export function recomputeCounters(
     }
     if (run.mode === "trade") {
       bump(values, "trade-reader", 1);
-      if (isSharpTradeHistoryRun(run)) {
+      if (currentBoard) {
         const seconds = run.score / 1_000;
         lower(values, "sharp-trade", seconds);
         countRunAtRungs(counters, "sharp-trade", seconds);
@@ -492,15 +491,15 @@ export function recomputeCounters(
     }
     if (run.mode === "survival") {
       bump(values, "last-stand", 1);
-      raise(values, "unbroken", run.score);
+      if (currentBoard) raise(values, "unbroken", run.score);
     }
     if (run.mode === "higher-lower") {
       bump(values, "bridge-read", run.score);
-      raise(values, "coin-flip-killer", run.score);
+      if (currentBoard) raise(values, "coin-flip-killer", run.score);
     }
     if (run.mode === "rain") {
       bump(values, "stormchaser", run.score);
-      raise(values, "downpour", run.score);
+      if (currentBoard) raise(values, "downpour", run.score);
     }
     if (run.mode === "practice") bump(values, "reps", run.answerCount ?? 0);
     if (!aux.modes.includes(run.mode)) aux.modes.push(run.mode);
@@ -529,40 +528,44 @@ export function recomputeCounters(
   return settle(counters, at);
 }
 
-function isSharpTradeHistoryRun(run: HistoricalRun): boolean {
-  if (run.mode !== "trade") return false;
-  if (run.boardEpoch !== undefined)
-    return run.boardEpoch === SHARP_TRADE_BOARD_EPOCH;
-  const completedAt = Date.parse(run.completedAt);
-  return (
-    Number.isFinite(completedAt) && completedAt >= SHARP_TRADE_R2_STARTED_AT
-  );
-}
+const VERSIONED_SKILL_BADGES = [
+  "sharp-trade",
+  "coin-flip-killer",
+  "unbroken",
+  "downpour",
+] as const;
 
-// Version 1 mixed retired 8-exchange Trade scores into Sharp Trade and kept a
-// nine-element runsAtRung array after the ladder changed. Rebuild only that
-// badge from current-board history: every other stored counter includes
-// forward-only facts (Podium, Clean Sweep, hidden badges, local-day context)
-// that history cannot reproduce. Invalid retired-board rungs are the one
-// exception to the normal no-revocation rule — they were never 10-exchange
-// achievements.
+// Versions 1 and 2 can contain incomparable skill scores from retired boards.
+// Rebuild only those four badges from current-board history: every other stored
+// counter includes forward-only facts (Podium, Clean Sweep, hidden badges,
+// local-day context) that history cannot reproduce. Invalid retired-board
+// rungs are the one exception to the no-revocation rule — they never met the
+// current badge requirement.
 export function migrateBadgeCounters(
   input: BadgeCounters,
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (input.version !== 1)
+  if (input.version !== 1 && input.version !== 2)
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
-  delete counters.values["sharp-trade"];
-  delete counters.runsAtRung["sharp-trade"];
-  delete counters.earned["sharp-trade"];
+  for (const slug of VERSIONED_SKILL_BADGES) {
+    delete counters.values[slug];
+    delete counters.runsAtRung[slug];
+    delete counters.earned[slug];
+  }
 
   for (const run of runs) {
-    if (!isSharpTradeHistoryRun(run)) continue;
-    const seconds = run.score / 1_000;
-    lower(counters.values, "sharp-trade", seconds);
-    countRunAtRungs(counters, "sharp-trade", seconds);
+    if (!isCurrentBoardRun(run)) continue;
+    if (run.mode === "trade") {
+      const seconds = run.score / 1_000;
+      lower(counters.values, "sharp-trade", seconds);
+      countRunAtRungs(counters, "sharp-trade", seconds);
+    }
+    if (run.mode === "higher-lower")
+      raise(counters.values, "coin-flip-killer", run.score);
+    if (run.mode === "survival") raise(counters.values, "unbroken", run.score);
+    if (run.mode === "rain") raise(counters.values, "downpour", run.score);
   }
   return settle(counters, at);
 }

@@ -16,6 +16,7 @@ import { HttpError } from "./errors.js";
 import {
   boardEpochFor,
   isGameMode,
+  isCurrentBoardRun,
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
@@ -1151,7 +1152,10 @@ export class Repository {
       // count for history, totals, and Trophy Road.
       ...(leaderboardEligible
         ? {
-            GSI1PK: leaderboardPartition(seasonId, run.mode),
+            // Keep a run on the board definition that dealt it. This matters
+            // during an epoch deploy: an already-open retired run may finish
+            // after the new board becomes current, but it must stay orphaned.
+            GSI1PK: leaderboardPartition(seasonId, run.mode, run.boardEpoch),
             GSI1SK: leaderboardSortKey(
               run.mode,
               score,
@@ -1474,8 +1478,17 @@ export class Repository {
     tiebreaks: RunTiebreaks | undefined,
     completedAt: string,
   ): Promise<{ improved: boolean; previousScore?: number }> {
-    if (!isLeaderboardEligibleScore(score)) return { improved: false };
+    if (
+      !isLeaderboardEligibleScore(score) ||
+      !isCurrentBoardRun({
+        mode: run.mode,
+        boardEpoch: run.boardEpoch,
+        completedAt,
+      })
+    )
+      return { improved: false };
     const tiebreakItem = tiebreakAttributes(run.mode, tiebreaks);
+    const currentPartition = leaderboardPartition("ALLTIME", run.mode);
     const newSk = leaderboardSortKey(
       run.mode,
       score,
@@ -1495,7 +1508,7 @@ export class Repository {
       "runId = :runId",
     ];
     const values: Record<string, unknown> = {
-      ":gsi1pk": leaderboardPartition("ALLTIME", run.mode),
+      ":gsi1pk": currentPartition,
       ":newSk": newSk,
       ":mode": run.mode,
       ":score": score,
@@ -1503,6 +1516,11 @@ export class Repository {
       ":playerSub": run.owner,
       ":runId": run.runId,
     };
+    const boardEpoch = boardEpochFor(run.mode);
+    if (boardEpoch) {
+      sets.push("boardEpoch = :boardEpoch");
+      values[":boardEpoch"] = boardEpoch;
+    }
     // The mode's tiebreak values ride along for display and are already folded
     // into the sort key above.
     for (const [field, value] of Object.entries(tiebreakItem)) {
@@ -1515,17 +1533,21 @@ export class Repository {
           TableName: this.tableName,
           Key: { pk: `PLAYER#${run.owner}`, sk: `ALLTIME#${run.mode}` },
           UpdateExpression: `SET ${sets.join(", ")}`,
-          // A better run produces a lexicographically smaller sort key; only
-          // then does it overwrite the stored best. Absent row = first score.
+          // A retired board's projection may contain a numerically "better"
+          // but incomparable score. Crossing partitions resets the comparison;
+          // within the current partition only a genuinely better key wins.
           ConditionExpression:
-            "attribute_not_exists(GSI1SK) OR :newSk < GSI1SK",
+            "attribute_not_exists(GSI1SK) OR GSI1PK <> :gsi1pk OR :newSk < GSI1SK",
           ExpressionAttributeNames: { "#mode": "mode" },
           ExpressionAttributeValues: values,
           // The displaced row, so the caller can measure the improvement.
           ReturnValues: "ALL_OLD",
         }),
       );
-      const previous = result.Attributes?.score;
+      const previous =
+        result.Attributes?.GSI1PK === currentPartition
+          ? result.Attributes.score
+          : undefined;
       return {
         improved: true,
         ...(typeof previous === "number" ? { previousScore: previous } : {}),
