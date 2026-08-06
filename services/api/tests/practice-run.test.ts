@@ -228,6 +228,32 @@ describe("Practice completion", () => {
     expect(repository.saveBadges).toHaveBeenCalledTimes(2);
   });
 
+  it("requires exact first-read accuracy for Clean Sweep, not a rounded 100% score", async () => {
+    const answers = Array.from({ length: 200 }, (_, index) => {
+      const card = allCards[index % allCards.length]!;
+      return { cardId: card.id, guess: card.elixir };
+    });
+    const missed = answers[0]!;
+    const rounded = await completePractice([
+      {
+        ...missed,
+        guess: missed.guess === 1 ? 2 : 1,
+      },
+      ...answers.slice(1),
+    ]);
+    const cleanSweep = (result: typeof rounded) =>
+      result.body.badges.badges.find(
+        (badge: { slug: string }) => badge.slug === "clean-sweep",
+      );
+
+    // 199 / 200 rounds to 100 for the session display, but it is not perfect.
+    expect(rounded.body.score).toBe(100);
+    expect(cleanSweep(rounded)).toMatchObject({ rungIndex: -1 });
+
+    const perfect = await completePractice(answers.slice(0, 20));
+    expect(cleanSweep(perfect)).toMatchObject({ value: 1, rungIndex: 0 });
+  });
+
   it("never writes a leaderboard best or referee evidence", async () => {
     const card = allCards[3]!;
     await completePractice([{ cardId: card.id, guess: card.elixir }]);

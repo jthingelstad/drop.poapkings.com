@@ -435,6 +435,7 @@ async function updateBadges(
       const answers = Array.isArray(transcript.answers)
         ? transcript.answers.length
         : 0;
+      const cardResults = cardResultsFromTranscript(run.challenge, transcript);
       // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
       // meaning on a streak or a cleared count, so it is scoped to the two modes
       // whose score IS a duration in milliseconds.
@@ -462,13 +463,16 @@ async function updateBadges(
         localDay,
         localHour,
         answered: answers,
-        correctCards: cardResultsFromTranscript(run.challenge, transcript)
+        correctCards: cardResults
           .filter((result) => result.correct)
           .map((result) => result.cardId),
         totalGames: context.totalGames,
         arena: arenaForXp(context.xp),
         practiceClean:
-          run.mode === "practice" && context.score === 100 && answers >= 20,
+          run.mode === "practice" &&
+          answers >= 20 &&
+          cardResults.length === answers &&
+          cardResults.every((result) => result.correct),
         ...(photoFinish ? { photoFinish: true } : {}),
         ...(coldOpen ? { coldOpen: true } : {}),
         ...hiddenSignals(run.mode, transcript),
