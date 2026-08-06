@@ -373,7 +373,11 @@ rung. It is written best-effort *after* `completeRun` succeeds — never inside 
 transaction — so a badge failure leaves the run recorded, and account deletion
 sweeps it with the rest of the player partition. `GET /me` returns a `badges`
 summary (`{ badges: BadgeState[], backfilled?: true }`), rebuilding the counters
-from run history plus CARDSTATS the first time a player is read; `backfilled`
+from run history plus CARDSTATS the first time a player is read; new history
+rows retain the board epoch that dealt them so a mode-skill badge cannot mix
+retired, incomparable formats. Sharp Trade's version-2 migration rebuilds only
+that badge from 10-exchange `r2` history and preserves forward-only state such
+as Podium, Reps, Clean Sweep, and hidden badges. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Missing or stale counters take
@@ -382,8 +386,9 @@ merely because the owner has not opened Profile since badges shipped.
 `/runs/complete` returns `earnedBadges`, the rungs that run cleared, plus the
 current badge summary so the in-memory Profile updates without another request.
 Awarding is a pure function of the counters
-(`services/api/src/badges.ts`), badges award no XP, and nothing earned is ever
-revoked. The ladder table and the 28 arena XP thresholds both live in
+(`services/api/src/badges.ts`), badges award no XP, and no valid achievement is
+ever revoked; a versioned correction may remove a retired-board result that
+never met the badge's stated requirement. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.
 
 Profile history has two deliberately different reads. `GET /me` keeps the

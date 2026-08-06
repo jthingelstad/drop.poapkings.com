@@ -99,6 +99,13 @@ const BOARD_EPOCH: Partial<Record<GameMode, string>> = {
   trade: "r2",
 };
 
+// Stamp the mode definition that dealt a run onto its immutable history row.
+// Leaderboard partitions already carry this epoch; exposing it here lets
+// derived systems such as badges reject retired, incomparable boards too.
+export function boardEpochFor(mode: GameMode): string | undefined {
+  return BOARD_EPOCH[mode];
+}
+
 // The ordered ascending tiebreaks a mode ranks equal scores by, named by the
 // run attribute that carries each value. ARRAY ORDER IS RANKING ORDER:
 // Higher/Lower separates equal scores by fewest lives lost first, and only then
@@ -149,7 +156,7 @@ export function tiebreakValues(
 }
 
 export function leaderboardPartition(seasonId: string, mode: GameMode): string {
-  const epoch = BOARD_EPOCH[mode];
+  const epoch = boardEpochFor(mode);
   return epoch
     ? `LEADERBOARD#${seasonId}#${mode}#${epoch}`
     : `LEADERBOARD#${seasonId}#${mode}`;

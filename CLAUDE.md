@@ -177,13 +177,16 @@ rank-oriented fields as part of unrelated work.
   keeps a per-rung run count. `services/api/src/badges.ts` is the whole engine
   and is pure — no I/O — so counters can be recomputed from history, which is
   what makes a badge added later retroactive. Two invariants: counters only move
-  favourably, and **nothing earned is ever revoked** (a broken daily streak
-  lowers no badge). Storage is one `PLAYER#{sub}/BADGES` item, written
+  favourably, and **no valid achievement is ever revoked** (a broken daily
+  streak lowers no badge; a versioned migration may remove a retired-board
+  result that never met the badge requirement). Storage is one
+  `PLAYER#{sub}/BADGES` item, written
   best-effort *outside* the `completeRun` transaction exactly like learning
   stats — a badge failure must never roll back a recorded run. **Badges award no
   XP**: they stand alone, so a retroactive backfill cannot jump a player several
-  arenas. Rungs were calibrated against the live boards on 2026-08-02, not
-  copied from the design draft; the ladders with no live data behind them are
+  arenas. Rungs were calibrated against the live boards on 2026-08-02, with
+  Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06,
+  not copied from the design draft; ladders with no live data behind them are
   marked "scaled" in the table and want a re-check.
 - **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is
   server-computed in `services/api/src/xp.ts` (`runXp` = questions attempted in

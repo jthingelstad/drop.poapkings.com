@@ -6,6 +6,7 @@ import {
   emptyCounters,
   hiddenSignals,
   localStamp,
+  migrateBadgeCounters,
   recomputeCounters,
   recordPodiumFinish,
   rungIndexFor,
@@ -85,14 +86,13 @@ describe("rung derivation", () => {
     expect(clockbreaker.rungs.length - 1).toBe(11);
   });
 
-  it("gives a typical Trade learner an early rung and keeps the live best below the ceiling", () => {
+  it("gives both observed Trade players a next milestone", () => {
     const sharpTrade = BADGE_LIST.find((b) => b.slug === "sharp-trade")!;
-    // ~97s is the old 8-exchange median scaled to the current 10 reads.
-    expect(rungIndexFor(sharpTrade, 97)).toBe(4);
-    // The only current-board best (67.1s) clears through 72s, with six harder
-    // milestones still visible down to the 40s ceiling.
-    expect(rungIndexFor(sharpTrade, 67.1)).toBe(7);
-    expect(sharpTrade.rungs.at(-1)).toBe(40);
+    // The 266.570s learner opens at 300s with 240s next.
+    expect(rungIndexFor(sharpTrade, 266.57)).toBe(0);
+    // Tyler's current-board best clears 72s with 65s next.
+    expect(rungIndexFor(sharpTrade, 67.126)).toBe(10);
+    expect(sharpTrade.rungs.at(-1)).toBe(45);
   });
 });
 
@@ -111,7 +111,7 @@ describe("advanceBadges", () => {
         fullCup: true,
         coldOpen: true,
       },
-      { mode: "trade", score: 39_000 },
+      { mode: "trade", boardEpoch: "r2", score: 39_000 },
       { mode: "higher-lower", score: 10_000 },
       { mode: "survival", score: 10_000, zeroHesitation: true },
       { mode: "rain", score: 10_000, comeback: true },
@@ -166,6 +166,18 @@ describe("advanceBadges", () => {
       { mode: "surge", score: 44_000 },
     ]);
     expect(stateOf(counters, "clockbreaker").value).toBe(19);
+  });
+
+  it("counts every Trade run for mastery but only r2 for Sharp Trade", () => {
+    const counters = play([
+      { mode: "trade", boardEpoch: "r1", score: 55_639 },
+      { mode: "trade", boardEpoch: "r2", score: 67_126 },
+    ]);
+    expect(stateOf(counters, "trade-reader").value).toBe(2);
+    expect(stateOf(counters, "sharp-trade")).toMatchObject({
+      value: 67.126,
+      rungIndex: 10,
+    });
   });
 
   it("counts every run at or under each time rung, not just the best", () => {
@@ -408,6 +420,90 @@ describe("recomputeCounters", () => {
       "2026-08-06T00:00:00.000Z",
     );
     expect(stateOf(counters, "reps").value).toBe(115);
+  });
+
+  it("keeps retired Trade runs in mastery without using them for Sharp Trade", () => {
+    const counters = recomputeCounters(
+      [
+        {
+          mode: "trade",
+          boardEpoch: "r1",
+          score: 55_639,
+          completedAt: "2026-07-23T02:10:32.373Z",
+        },
+        // Legacy history has no epoch. The verified deploy boundary keeps an
+        // old row out and recognizes a current row written before epoch stamps.
+        {
+          mode: "trade",
+          score: 56_621,
+          completedAt: "2026-07-24T18:36:56.415Z",
+        },
+        {
+          mode: "trade",
+          boardEpoch: "r2",
+          score: 73_795,
+          completedAt: "2026-07-25T15:55:27.273Z",
+        },
+        {
+          mode: "trade",
+          score: 67_126,
+          completedAt: "2026-07-25T16:02:56.616Z",
+        },
+        // An explicit retired epoch wins over timestamp fallback.
+        {
+          mode: "trade",
+          boardEpoch: "r1",
+          score: 40_000,
+          completedAt: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+      {},
+      { totalGames: 5, xp: 0 },
+      arenaForXp,
+      "2026-08-06T00:00:00.000Z",
+    );
+    expect(stateOf(counters, "trade-reader").value).toBe(5);
+    expect(stateOf(counters, "sharp-trade")).toMatchObject({
+      value: 67.126,
+      rungIndex: 10,
+      runsAtRung: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0],
+    });
+  });
+
+  it("migrates only Sharp Trade and preserves forward-only badge state", () => {
+    const stored = emptyCounters();
+    stored.version = 1;
+    stored.values["sharp-trade"] = 55.639;
+    stored.runsAtRung["sharp-trade"] = [6, 6, 3, 1, 1, 1, 1, 0, 0];
+    stored.earned["sharp-trade"] = Array(10).fill("2026-08-02T17:25:31.817Z");
+    stored.values.podium = 5;
+    stored.earned.podium = Array(4).fill("2026-08-03T10:12:48.768Z");
+
+    const migrated = migrateBadgeCounters(
+      stored,
+      [
+        {
+          mode: "trade",
+          score: 55_639,
+          completedAt: "2026-07-23T02:10:32.373Z",
+        },
+        {
+          mode: "trade",
+          score: 67_126,
+          completedAt: "2026-07-25T16:02:56.616Z",
+        },
+      ],
+      "2026-08-06T12:00:00.000Z",
+    );
+
+    expect(migrated.version).toBe(2);
+    expect(stateOf(migrated, "sharp-trade")).toMatchObject({
+      value: 67.126,
+      rungIndex: 10,
+      runsAtRung: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    });
+    expect(migrated.values.podium).toBe(5);
+    expect(migrated.earned.podium).toEqual(stored.earned.podium);
   });
 
   it("leaves the transcript-derived badges at zero — they are forward-only", () => {

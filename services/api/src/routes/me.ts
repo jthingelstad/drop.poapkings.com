@@ -2,6 +2,7 @@ import { arenaForXp, type GameMode } from "@elixir-drop/contracts";
 import {
   BADGE_COUNTERS_VERSION,
   badgeStates,
+  migrateBadgeCounters,
   recomputeCounters,
 } from "../badges.js";
 import { deleteButtondownSubscriber } from "../buttondown.js";
@@ -138,15 +139,19 @@ async function badgeSummary(
         : repository.getCardStats(sub).catch(() => ({})),
     ]);
     const at = new Date().toISOString();
-    const counters = recomputeCounters(
-      runs.filter((run): run is typeof run & { mode: GameMode } =>
-        isGameMode(run.mode),
-      ),
-      backfillCardStats,
-      { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
-      arenaForXp,
-      at,
+    const currentRuns = runs.filter(
+      (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
     );
+    const counters =
+      stored?.version === 1
+        ? migrateBadgeCounters(stored, currentRuns, at)
+        : recomputeCounters(
+            currentRuns,
+            backfillCardStats,
+            { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+            arenaForXp,
+            at,
+          );
     const saved = await repository.saveBadges(
       sub,
       counters,

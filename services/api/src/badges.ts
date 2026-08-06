@@ -14,9 +14,15 @@ import type { GameMode } from "./types.js";
 // from run history — which is what makes adding a badge later retroactive.
 
 // Bump when the counter SHAPE changes in a way that makes stored values
-// unreadable. A bump triggers a recompute-from-history on next read, so it is
-// not free: prefer additive fields.
-export const BADGE_COUNTERS_VERSION = 1;
+// unreadable. Version 2 makes Sharp Trade board-epoch-aware and rebuilds its
+// per-rung array for the 16-rung ladder without disturbing unrelated badges.
+export const BADGE_COUNTERS_VERSION = 2;
+
+const SHARP_TRADE_BOARD_EPOCH = "r2";
+// The first deploy containing Trade r2 completed at this verified GitHub
+// Actions timestamp. History written before boardEpoch was stored uses this
+// boundary; all new rows carry the explicit epoch dealt at run start.
+const SHARP_TRADE_R2_STARTED_AT = Date.parse("2026-07-25T15:45:05.000Z");
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -46,6 +52,7 @@ export interface BadgeCounters {
 // except the timezone offset (see localStamp below).
 export interface RunFacts {
   mode: GameMode;
+  boardEpoch?: string;
   score: number;
   completedAt: string;
   localDay: string;
@@ -226,7 +233,7 @@ export function advanceBadges(
     lower(values, "clockbreaker", seconds);
     countRunAtRungs(counters, "clockbreaker", seconds);
   }
-  if (facts.mode === "trade") {
+  if (facts.mode === "trade" && facts.boardEpoch === SHARP_TRADE_BOARD_EPOCH) {
     const seconds = facts.score / 1_000;
     lower(values, "sharp-trade", seconds);
     countRunAtRungs(counters, "sharp-trade", seconds);
@@ -442,10 +449,12 @@ export function hiddenSignals(
 // going forward; and rungs stamped by a backfill all carry the same timestamp,
 // because the moment a rung was really cleared is not recoverable.
 export interface HistoricalRun {
+  runId?: string;
   mode: GameMode;
   score: number;
   completedAt: string;
   answerCount?: number;
+  boardEpoch?: string;
 }
 
 export interface BackfillCardStat {
@@ -475,9 +484,11 @@ export function recomputeCounters(
     }
     if (run.mode === "trade") {
       bump(values, "trade-reader", 1);
-      const seconds = run.score / 1_000;
-      lower(values, "sharp-trade", seconds);
-      countRunAtRungs(counters, "sharp-trade", seconds);
+      if (isSharpTradeHistoryRun(run)) {
+        const seconds = run.score / 1_000;
+        lower(values, "sharp-trade", seconds);
+        countRunAtRungs(counters, "sharp-trade", seconds);
+      }
     }
     if (run.mode === "survival") {
       bump(values, "last-stand", 1);
@@ -515,6 +526,44 @@ export function recomputeCounters(
   }
   raise(values, "catalog", aux.cards.length);
 
+  return settle(counters, at);
+}
+
+function isSharpTradeHistoryRun(run: HistoricalRun): boolean {
+  if (run.mode !== "trade") return false;
+  if (run.boardEpoch !== undefined)
+    return run.boardEpoch === SHARP_TRADE_BOARD_EPOCH;
+  const completedAt = Date.parse(run.completedAt);
+  return (
+    Number.isFinite(completedAt) && completedAt >= SHARP_TRADE_R2_STARTED_AT
+  );
+}
+
+// Version 1 mixed retired 8-exchange Trade scores into Sharp Trade and kept a
+// nine-element runsAtRung array after the ladder changed. Rebuild only that
+// badge from current-board history: every other stored counter includes
+// forward-only facts (Podium, Clean Sweep, hidden badges, local-day context)
+// that history cannot reproduce. Invalid retired-board rungs are the one
+// exception to the normal no-revocation rule — they were never 10-exchange
+// achievements.
+export function migrateBadgeCounters(
+  input: BadgeCounters,
+  runs: HistoricalRun[],
+  at: string,
+): BadgeCounters {
+  if (input.version !== 1)
+    throw new Error(`Unsupported badge counter version ${input.version}`);
+  const counters = cloneCounters(input);
+  delete counters.values["sharp-trade"];
+  delete counters.runsAtRung["sharp-trade"];
+  delete counters.earned["sharp-trade"];
+
+  for (const run of runs) {
+    if (!isSharpTradeHistoryRun(run)) continue;
+    const seconds = run.score / 1_000;
+    lower(counters.values, "sharp-trade", seconds);
+    countRunAtRungs(counters, "sharp-trade", seconds);
+  }
   return settle(counters, at);
 }
 

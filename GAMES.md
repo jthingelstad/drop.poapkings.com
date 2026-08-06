@@ -380,7 +380,7 @@ unless it is re-approved.
 
 ## Badges
 
-29 badges over 182 rungs, backed by `BADGES` in `packages/contracts` and the pure
+29 badges over 187 rungs, backed by `BADGES` in `packages/contracts` and the pure
 engine in `services/api/src/badges.ts`. 22 visible badges on long ladders plus 7
 hidden single-rung badges.
 
@@ -390,24 +390,30 @@ A long ladder always has a next rung visible, so rung one can land in a first
 session *and* the top rung can take a year.
 
 **Rungs are calibrated against real data, not feel.** Measured on 2026-08-02:
-Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Trade's current 10-exchange
-board n=1 (best 67.1s) plus a 77.6s median on the preceding 8-exchange board,
-Higher/Lower n=5, Survival n=4, Rain n=4. The design draft's Clockbreaker ladder put five
-consecutive rungs (13–17s) above a 4.7s gap in the real field, so four of them
-separated nobody, while its entry rung excluded 31% of players outright. Ladders
-with no live data behind them are marked "scaled" in the table and should be
-re-checked once badge counters have a month of history.
+Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Higher/Lower n=5, Survival
+n=4, and Rain n=4. Sharp Trade was rechecked on 2026-08-06 against four accepted
+10-exchange runs across two visible players (best 67.126s, median 75.591s,
+slowest 266.570s): its 300s opener gives that learning run a first milestone,
+240s is the next step, Tyler's best clears 72s with 65s next, and 45s is the
+aspirational ceiling. The design draft's Clockbreaker ladder put five consecutive
+rungs (13–17s) above a 4.7s gap in the real field, so four of them separated
+nobody, while its entry rung excluded 31% of players outright. Ladders with no
+live data behind them are marked "scaled" in the table and should be re-checked
+once badge counters have a month of history.
 
 **Hidden badges.** Shown as a flat black silhouette of the real glyph — the shape
 teases, the subject stays unreadable. **Never show a hidden count**: "3 of 7
 found" turns mystery into a checklist and makes players feel behind. Six of the
 seven are earnable in a single run; only Collector is a long game.
 
-**What backfills and what does not.** Run history stores mode, score, seasonId and
-completedAt — not transcripts. So the volume and skill ladders, Drop Regular,
-Arena Climber, All Six, Daily Drop, Marathon, Night Shift and the four
-card-knowledge badges rebuild from history plus the `CARDSTATS` item; Reps, Clean
-Sweep and the five transcript-derived hidden badges are forward-only. Podium is
+**What backfills and what does not.** Run history stores mode, score, seasonId,
+completedAt, and the board epoch that dealt new runs — not transcripts. So the
+volume and skill ladders, Drop Regular, Arena Climber, All Six, Daily Drop,
+Marathon, Night Shift and the four card-knowledge badges rebuild from history
+plus the `CARDSTATS` item; Reps, Clean Sweep and the five transcript-derived
+hidden badges are forward-only. Trade Reader counts every completed Trade
+format, while Sharp Trade accepts only the current 10-exchange `r2` board;
+legacy rows without an epoch use the verified production cutover. Podium is
 resolved from the referee-visible top three in every ranked mode when the first
 newer Clan Wars clock arrives. Each season+mode finish has a durable marker, so
 queue redelivery or an explicit historical finalization cannot double-count it.

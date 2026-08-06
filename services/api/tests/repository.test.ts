@@ -76,6 +76,7 @@ describe("repository DynamoDB requests", () => {
             score: 91_000,
             seasonId: "2026-08",
             completedAt: "2026-08-02T18:00:00.000Z",
+            boardEpoch: "r2",
           },
         ],
         LastEvaluatedKey: { pk: "PLAYER#private-sub", sk: "RUN#cursor" },
@@ -95,18 +96,39 @@ describe("repository DynamoDB requests", () => {
 
     await expect(
       new Repository("test-table").listRunHistory("private-sub"),
-    ).resolves.toMatchObject([{ runId: "new" }, { runId: "old" }]);
+    ).resolves.toMatchObject([
+      { runId: "new", boardEpoch: "r2" },
+      { runId: "old" },
+    ]);
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]?.[0].input).toMatchObject({
       TableName: "test-table",
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
       ProjectionExpression:
-        "runId, #mode, score, seasonId, completedAt, answerCount",
+        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch",
       ScanIndexForward: false,
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
       pk: "PLAYER#private-sub",
       sk: "RUN#cursor",
+    });
+  });
+
+  it("stamps the current board epoch when a run is dealt", async () => {
+    send.mockResolvedValueOnce({});
+
+    const run = await new Repository("test-table").createRun(
+      "private-sub",
+      "trade",
+      { mode: "trade", rounds: [] },
+      1_800_000_000,
+    );
+
+    expect(run.boardEpoch).toBe("r2");
+    expect(send.mock.calls[0]?.[0].input.Item).toMatchObject({
+      runId: run.runId,
+      mode: "trade",
+      boardEpoch: "r2",
     });
   });
 
@@ -589,6 +611,40 @@ describe("repository DynamoDB requests", () => {
       592,
     );
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
+  });
+
+  it("copies the dealt board epoch into immutable run history", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 5,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:01:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#run-trade",
+      sk: "RUN",
+      runId: "run-trade",
+      owner: "player-sub",
+      mode: "trade",
+      challenge: { mode: "trade", rounds: [] },
+      state: "started",
+      startedAt: "2026-08-06T12:00:00.000Z",
+      expiresAt: 1_800_000_000,
+      boardEpoch: "r2",
+    };
+
+    await new Repository("test-table").completeRun(run, 67_126, "2026-08", 10);
+
+    const transaction = send.mock.calls[0]?.[0];
+    expect(transaction.input.TransactItems[2]?.Put?.Item).toMatchObject({
+      runId: "run-trade",
+      mode: "trade",
+      boardEpoch: "r2",
+    });
   });
 
   it("atomically hides an integrity-flagged ranked run for referee review", async () => {

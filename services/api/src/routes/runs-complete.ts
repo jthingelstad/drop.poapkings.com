@@ -7,12 +7,14 @@ import {
   emptyCounters,
   hiddenSignals,
   localStamp,
+  migrateBadgeCounters,
 } from "../badges.js";
 import {
   completedGameWebhookPayload,
   publishDiscordEvent,
 } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
+import { isGameMode } from "../games.js";
 import { json } from "../http.js";
 import { assessRunIntegrity } from "../integrity.js";
 import { cardResultsFromTranscript, mergeCardStats } from "../learning.js";
@@ -409,8 +411,23 @@ async function updateBadges(
   try {
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const stored = await repository.getBadges(run.owner);
-      const counters =
-        stored?.version === BADGE_COUNTERS_VERSION ? stored : emptyCounters();
+      let counters;
+      if (!stored) counters = emptyCounters();
+      else if (stored.version === BADGE_COUNTERS_VERSION) counters = stored;
+      else if (stored.version === 1) {
+        // completeRun already wrote this run to history. Migrate from every
+        // prior row, then fold the current transcript exactly once below so
+        // its forward-only signals can still celebrate normally.
+        const priorRuns = (await repository.listAllRuns(run.owner)).filter(
+          (
+            historical,
+          ): historical is typeof historical & { mode: typeof run.mode } =>
+            historical.runId !== run.runId && isGameMode(historical.mode),
+        );
+        counters = migrateBadgeCounters(stored, priorRuns, context.completedAt);
+      } else {
+        throw new Error(`Unsupported badge counter version ${stored.version}`);
+      }
       const { localDay, localHour } = localStamp(
         context.completedAt,
         context.tzOffsetMinutes,
@@ -439,6 +456,7 @@ async function updateBadges(
         context.personalBest.improved && counters.aux.lastDay !== localDay;
       const { counters: advanced, newlyEarned } = advanceBadges(counters, {
         mode: run.mode,
+        boardEpoch: run.boardEpoch,
         score: context.score,
         completedAt: context.completedAt,
         localDay,

@@ -14,6 +14,7 @@ import type { BadgeCounters } from "./badges.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
+  boardEpochFor,
   isGameMode,
   isLeaderboardEligibleScore,
   leaderboardPartition,
@@ -104,6 +105,9 @@ export interface RunItem {
   completedAt?: string;
   score?: number;
   seasonId?: string;
+  // The mode definition that dealt this challenge. Stored at start rather than
+  // inferred at completion so an in-flight run cannot cross a deploy boundary.
+  boardEpoch?: string;
   // Correlation hashes derived from the request at /runs/start. Stored on the
   // ephemeral RUN# row so the completion evidence can compare start vs complete
   // (a mismatch is itself a signal). No raw IP/user-agent is ever kept.
@@ -765,6 +769,7 @@ export class Repository {
     startCorrelation?: Correlation,
   ): Promise<RunItem> {
     const runId = randomUUID();
+    const boardEpoch = boardEpochFor(mode);
     const item: RunItem = {
       pk: `RUN#${runId}`,
       sk: "RUN",
@@ -777,6 +782,7 @@ export class Repository {
       expiresAt,
       ranked,
       guest,
+      ...(boardEpoch ? { boardEpoch } : {}),
       ...(startCorrelation ? { startCorrelation } : {}),
     };
     await client.send(
@@ -999,6 +1005,7 @@ export class Repository {
       seasonId: string;
       completedAt: string;
       answerCount?: number;
+      boardEpoch?: string;
     }>
   > {
     const runs: Array<{
@@ -1008,6 +1015,7 @@ export class Repository {
       seasonId: string;
       completedAt: string;
       answerCount?: number;
+      boardEpoch?: string;
     }> = [];
     let startKey: Record<string, unknown> | undefined;
     do {
@@ -1020,7 +1028,7 @@ export class Repository {
             ":sk": "RUN#",
           },
           ProjectionExpression:
-            "runId, #mode, score, seasonId, completedAt, answerCount",
+            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -1043,6 +1051,9 @@ export class Repository {
             ...(typeof item.answerCount === "number"
               ? { answerCount: item.answerCount }
               : {}),
+            ...(typeof item.boardEpoch === "string"
+              ? { boardEpoch: item.boardEpoch }
+              : {}),
           });
         }
       }
@@ -1061,14 +1072,18 @@ export class Repository {
       score: number;
       completedAt: string;
       answerCount?: number;
+      runId: string;
+      boardEpoch?: string;
     }>
   > {
     return (await this.listRunHistory(sub)).map(
-      ({ mode, score, completedAt, answerCount }) => ({
+      ({ runId, mode, score, completedAt, answerCount, boardEpoch }) => ({
+        runId,
         mode,
         score,
         completedAt,
         ...(answerCount !== undefined ? { answerCount } : {}),
+        ...(boardEpoch !== undefined ? { boardEpoch } : {}),
       }),
     );
   }
@@ -1127,6 +1142,7 @@ export class Repository {
       seasonId,
       completedAt,
       playerSub: run.owner,
+      ...(run.boardEpoch ? { boardEpoch: run.boardEpoch } : {}),
       ...(run.answerCount !== undefined
         ? { answerCount: run.answerCount }
         : {}),

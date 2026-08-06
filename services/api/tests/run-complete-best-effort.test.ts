@@ -14,6 +14,7 @@ const repository = vi.hoisted(() => ({
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
   getBadges: vi.fn(),
+  listAllRuns: vi.fn(),
   getRun: vi.fn(),
   putRefereeEvidence: vi.fn(),
   saveBadges: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("../src/repository.js", () => ({
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
     getBadges = repository.getBadges;
+    listAllRuns = repository.listAllRuns;
     getRun = repository.getRun;
     putRefereeEvidence = repository.putRefereeEvidence;
     saveBadges = repository.saveBadges;
@@ -158,6 +160,7 @@ describe("run completion side effects are best effort", () => {
     repository.putRefereeEvidence.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue({ improved: false });
     repository.getBadges.mockResolvedValue(undefined);
+    repository.listAllRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getRun.mockResolvedValue({
@@ -225,6 +228,52 @@ describe("run completion side effects are best effort", () => {
     expect(slugs).not.toContain("daily-drop");
     expect(slugs).not.toContain("marathon");
     expect(repository.saveBadges).toHaveBeenCalledOnce();
+  });
+
+  it("migrates stale badge counters before folding the current run", async () => {
+    repository.getBadges.mockResolvedValue({
+      version: 1,
+      values: { "sharp-trade": 55.639, podium: 5 },
+      runsAtRung: { "sharp-trade": [6, 6, 3, 1, 1, 1, 1, 0, 0] },
+      aux: { modes: ["trade"], cards: [], dayStreak: 1, dayRuns: 1 },
+      earned: {
+        "sharp-trade": Array(10).fill("2026-08-02T17:25:31.817Z"),
+        podium: Array(4).fill("2026-08-03T10:12:48.768Z"),
+      },
+      updatedAt: "2026-08-05T21:35:48.609Z",
+    });
+    repository.listAllRuns.mockResolvedValue([
+      {
+        runId: "old-trade",
+        mode: "trade",
+        score: 55_639,
+        completedAt: "2026-07-23T02:10:32.373Z",
+      },
+      {
+        runId: "current-trade",
+        mode: "trade",
+        score: 67_126,
+        completedAt: "2026-07-25T16:02:56.616Z",
+      },
+      // The just-recorded run must be excluded before advanceBadges folds it.
+      {
+        runId: "run-1",
+        mode: "surge",
+        score: 20_000,
+        completedAt: "2026-07-18T12:01:00.000Z",
+      },
+    ]);
+
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    const saved = repository.saveBadges.mock.calls[0]?.[1];
+    expect(saved).toMatchObject({
+      version: 2,
+      values: { "sharp-trade": 67.126, podium: 5 },
+    });
+    expect(saved.runsAtRung["sharp-trade"]).toHaveLength(16);
+    expect(repository.listAllRuns).toHaveBeenCalledWith("player-sub");
   });
 
   it("records the run when the all-time projection fails", async () => {

@@ -508,17 +508,18 @@ export const BADGES = [
     requirement: "Fastest Surge run",
   },
   {
-    // The only current 10-exchange best is 67.1s; the preceding 8-exchange
-    // player cohort had a 77.6s median (~9.7s/read), which scales to ~97s before
-    // accounting for the new ladder's larger boards. A 90s entry would still
-    // make a first rung an above-median performance, and a 20s ceiling required
-    // two seconds per exchange. Start at a learnable 18s/read, tighten through
-    // the observed field, and leave 4s/read as the aspirational ceiling.
+    // Current 10-exchange evidence on 2026-08-06: four accepted runs across two
+    // visible players, 67.126s best / 75.591s median / 266.570s slowest. The
+    // 300s opener lets that learning run land, 240s is its credible next step,
+    // Tyler's best clears 72s with 65s next, and 45s stays aspirational without
+    // requiring the previous four-seconds-per-exchange ceiling.
     slug: "sharp-trade",
     name: "Sharp Trade",
     group: "mode-skill",
     kind: "time",
-    rungs: [180, 150, 130, 115, 100, 90, 80, 72, 65, 60, 55, 50, 45, 40],
+    rungs: [
+      300, 240, 200, 170, 145, 125, 110, 95, 85, 78, 72, 65, 60, 55, 50, 45,
+    ],
     unit: "seconds",
     requirement: "Fastest 10-exchange Trade run",
   },

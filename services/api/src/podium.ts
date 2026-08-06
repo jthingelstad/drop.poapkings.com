@@ -1,6 +1,7 @@
 import { arenaForXp, GAME_MODES } from "@elixir-drop/contracts";
 import {
   BADGE_COUNTERS_VERSION,
+  migrateBadgeCounters,
   recomputeCounters,
   recordPodiumFinish,
   type BadgeCounters,
@@ -39,15 +40,18 @@ async function baselineCounters(
     repository.getCardStats(sub),
   ]);
   if (!profile) throw new Error("Podium finisher has no player profile");
-  return recomputeCounters(
-    runs.filter((run): run is typeof run & { mode: GameMode } =>
-      isGameMode(run.mode),
-    ),
-    cardStats,
-    { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
-    arenaForXp,
-    at,
+  const currentRuns = runs.filter(
+    (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
   );
+  return stored?.version === 1
+    ? migrateBadgeCounters(stored, currentRuns, at)
+    : recomputeCounters(
+        currentRuns,
+        cardStats,
+        { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+        arenaForXp,
+        at,
+      );
 }
 
 async function awardFinish(

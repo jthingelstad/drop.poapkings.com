@@ -5,7 +5,9 @@ const repository = vi.hoisted(() => ({
   getPublicPlayer: vi.fn(),
   getBadges: vi.fn(),
   getCardStats: vi.fn(),
+  listAllRuns: vi.fn(),
   listRecentRuns: vi.fn(),
+  saveBadges: vi.fn(),
   useRateLimit: vi.fn(),
 }));
 
@@ -14,7 +16,9 @@ vi.mock("../src/repository.js", () => ({
     getPublicPlayer = repository.getPublicPlayer;
     getBadges = repository.getBadges;
     getCardStats = repository.getCardStats;
+    listAllRuns = repository.listAllRuns;
     listRecentRuns = repository.listRecentRuns;
+    saveBadges = repository.saveBadges;
     useRateLimit = repository.useRateLimit;
   },
 }));
@@ -62,8 +66,10 @@ describe("GET /players/:id", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
+    repository.listAllRuns.mockResolvedValue([]);
+    repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 1,
+      version: 2,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
@@ -155,5 +161,62 @@ describe("GET /players/:id", () => {
       error: { code: "player_not_found" },
     });
     expect(repository.listRecentRuns).not.toHaveBeenCalled();
+  });
+
+  it("migrates retired Trade times without losing unrelated badges", async () => {
+    repository.getBadges.mockResolvedValue({
+      version: 1,
+      values: { "sharp-trade": 55.639, podium: 5 },
+      runsAtRung: { "sharp-trade": [6, 6, 3, 1, 1, 1, 1, 0, 0] },
+      aux: { modes: ["trade"], cards: [], dayStreak: 1, dayRuns: 1 },
+      earned: {
+        "sharp-trade": Array(10).fill("2026-08-02T17:25:31.817Z"),
+        podium: Array(4).fill("2026-08-03T10:12:48.768Z"),
+      },
+      updatedAt: "2026-08-05T21:35:48.609Z",
+    });
+    repository.listAllRuns.mockResolvedValue([
+      {
+        runId: "old-trade",
+        mode: "trade",
+        score: 55_639,
+        completedAt: "2026-07-23T02:10:32.373Z",
+      },
+      {
+        runId: "current-trade",
+        mode: "trade",
+        score: 67_126,
+        completedAt: "2026-07-25T16:02:56.616Z",
+      },
+    ]);
+
+    const result = await handler(
+      playerEvent("player-2"),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    const body = JSON.parse(result.body ?? "{}");
+    expect(body.badges.backfilled).toBe(true);
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({
+        slug: "sharp-trade",
+        value: 67.126,
+        rungIndex: 10,
+      }),
+    );
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({ slug: "podium", value: 5, rungIndex: 3 }),
+    );
+    expect(repository.saveBadges).toHaveBeenCalledWith(
+      "private-sub",
+      expect.objectContaining({ version: 2 }),
+      expect.any(String),
+      {
+        version: 1,
+        updatedAt: "2026-08-05T21:35:48.609Z",
+      },
+    );
   });
 });
