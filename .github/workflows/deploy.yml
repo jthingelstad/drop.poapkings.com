@@ -134,7 +134,10 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Pages normally publishes quickly, but its deployment service can spend
+    # more than ten minutes processing an otherwise healthy artifact. Keep the
+    # job and action ceilings aligned so the runner does not cancel it first.
+    timeout-minutes: 20
     permissions:
       pages: write
       id-token: write
@@ -144,6 +147,8 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          timeout: 1200000
 
       - name: Verify deployed website
         run: |
