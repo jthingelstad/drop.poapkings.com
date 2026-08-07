@@ -29,6 +29,13 @@ export const testPlayer = {
   email: 'player@example.com',
   publicName: 'Knight Main',
   favoriteCardId: 26000000,
+  playerTag: '#20JJJ2CCRU',
+  clashRoyale: {
+    tag: '#20JJJ2CCRU',
+    status: 'ready' as const,
+    name: 'King Thing',
+    clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000, role: 'leader' }
+  },
   totalGames: 12,
   xp: 480,
   level: 2,
@@ -188,13 +195,15 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
   }
   if (path === '/leaderboards') {
     const mode = (url.searchParams.get('mode') ?? 'surge') as GameMode
+    const scope = url.searchParams.get('scope')
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         mode,
-        scope: url.searchParams.get('scope') === 'all-time' ? 'all-time' : 'season',
-        seasonId: testSeason.id,
+        scope: scope === 'all-time' || scope === 'clan' ? scope : 'season',
+        ...(scope === 'clan' ? { clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' } } : {}),
+        ...(scope === 'all-time' || scope === 'clan' ? {} : { seasonId: testSeason.id }),
         currentSeason: testSeason,
         entries: leaderboardEntries(mode)
       })
@@ -442,7 +451,7 @@ export const test = base.extend({
       if (path === '/leaderboards') {
         const params = new URL(route.request().url()).searchParams
         const mode = (params.get('mode') ?? 'surge') as GameMode
-        const allTime = params.get('scope') === 'all-time'
+        const scope = params.get('scope')
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -454,20 +463,23 @@ export const test = base.extend({
             vary: 'Origin'
           },
           body: JSON.stringify(
-            allTime
-              ? {
-                  mode,
-                  scope: 'all-time',
-                  currentSeason: testSeason,
-                  entries: leaderboardEntries(mode)
-                }
-              : {
-                  mode,
-                  scope: 'season',
-                  seasonId: '2026-07',
-                  currentSeason: testSeason,
-                  entries: leaderboardEntries(mode)
-                }
+            scope === 'all-time'
+              ? { mode, scope: 'all-time', currentSeason: testSeason, entries: leaderboardEntries(mode) }
+              : scope === 'clan'
+                ? {
+                    mode,
+                    scope: 'clan',
+                    clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' },
+                    currentSeason: testSeason,
+                    entries: leaderboardEntries(mode)
+                  }
+                : {
+                    mode,
+                    scope: 'season',
+                    seasonId: '2026-07',
+                    currentSeason: testSeason,
+                    entries: leaderboardEntries(mode)
+                  }
           )
         })
         return

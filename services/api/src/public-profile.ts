@@ -1,7 +1,61 @@
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb";
 import { client, profileKey } from "./dynamo.js";
 import { levelForGames } from "./progression.js";
-import type { PlayerProfile, PublicProfile } from "./types.js";
+import type {
+  CrProfileSnapshot,
+  PlayerProfile,
+  PublicProfile,
+} from "./types.js";
+
+const BATCH_GET_SIZE = 100;
+
+async function batchGet(
+  tableName: string,
+  requestedKeys: Array<Record<string, unknown>>,
+  projection?: {
+    expression: string;
+    names?: Record<string, string>;
+  },
+): Promise<Array<Record<string, unknown>>> {
+  const items: Array<Record<string, unknown>> = [];
+  for (
+    let offset = 0;
+    offset < requestedKeys.length;
+    offset += BATCH_GET_SIZE
+  ) {
+    let keys = requestedKeys.slice(offset, offset + BATCH_GET_SIZE);
+    for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
+      if (attempt > 0)
+        await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** attempt));
+      const result = await client.send(
+        new BatchGetCommand({
+          RequestItems: {
+            [tableName]: {
+              Keys: keys,
+              ...(projection
+                ? {
+                    ProjectionExpression: projection.expression,
+                    ...(projection.names
+                      ? { ExpressionAttributeNames: projection.names }
+                      : {}),
+                  }
+                : {}),
+            },
+          },
+        }),
+      );
+      items.push(
+        ...((result.Responses?.[tableName] ?? []) as Array<
+          Record<string, unknown>
+        >),
+      );
+      keys = (result.UnprocessedKeys?.[tableName]?.Keys ?? []) as Array<
+        Record<string, unknown>
+      >;
+    }
+  }
+  return items;
+}
 
 export type PublicProfileSource = Pick<
   PlayerProfile,
@@ -46,33 +100,43 @@ export async function hydratePublicProfiles(
 ): Promise<Map<string, PublicProfile>> {
   const profiles = new Map<string, PublicProfile>();
   if (!subs.length) return profiles;
-  // BatchGet is allowed to return unprocessed keys under throttling; without
-  // the retry, real players render as the placeholder profile.
-  let keys: Array<Record<string, unknown>> = subs.map((sub) => profileKey(sub));
-  for (let attempt = 0; keys.length && attempt < 4; attempt += 1) {
-    if (attempt > 0)
-      await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** attempt));
-    const profileResult = await client.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [tableName]: {
-            Keys: keys,
-            ProjectionExpression:
-              "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
-            ExpressionAttributeNames: {
-              "#sub": "sub",
-            },
-          },
-        },
-      }),
-    );
-    for (const item of profileResult.Responses?.[tableName] ?? []) {
-      const profile = item as PlayerProfile;
-      profiles.set(profile.sub, publicProfile(profile));
-    }
-    keys = (profileResult.UnprocessedKeys?.[tableName]?.Keys ?? []) as Array<
-      Record<string, unknown>
-    >;
+  // BatchGet is allowed to return unprocessed keys under throttling and has a
+  // hard 100-key ceiling. Chunking here keeps the clan board's 200-row page
+  // legal while retaining the existing retry behavior.
+  const items = await batchGet(
+    tableName,
+    [...new Set(subs)].map((sub) => profileKey(sub)),
+    {
+      expression:
+        "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
+      names: { "#sub": "sub" },
+    },
+  );
+  for (const item of items) {
+    const profile = item as unknown as PlayerProfile;
+    profiles.set(profile.sub, publicProfile(profile));
   }
   return profiles;
+}
+
+// Current clan membership is resolved from the latest stored CR snapshots.
+// This is intentionally a storage-only read: only the bridge may call the
+// Clash Royale API at runtime.
+export async function hydrateCrProfiles(
+  tableName: string,
+  tags: string[],
+): Promise<Map<string, CrProfileSnapshot>> {
+  const snapshots = new Map<string, CrProfileSnapshot>();
+  const items = await batchGet(
+    tableName,
+    [...new Set(tags)].map((tag) => ({
+      pk: `CR_PLAYER#${tag}`,
+      sk: "PROFILE",
+    })),
+  );
+  for (const item of items) {
+    const snapshot = item as unknown as CrProfileSnapshot;
+    if (snapshot.tag) snapshots.set(snapshot.tag, snapshot);
+  }
+  return snapshots;
 }

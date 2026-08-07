@@ -286,11 +286,16 @@ export function getStats(signal?: AbortSignal) {
   })
 }
 
-export type LeaderboardScope = 'season' | 'all-time'
+export type LeaderboardScope = 'season' | 'all-time' | 'clan'
 
-export function getLeaderboard(mode: GameMode, scope: LeaderboardScope = 'season', signal?: AbortSignal) {
-  const query = `/leaderboards?mode=${encodeURIComponent(mode)}` + (scope === 'all-time' ? '&scope=all-time' : '')
-  return apiRequest(query, leaderboardResponseSchema, { signal })
+export function getLeaderboard(
+  mode: GameMode,
+  scope: LeaderboardScope = 'season',
+  signal?: AbortSignal,
+  sessionToken?: string
+) {
+  const query = `/leaderboards?mode=${encodeURIComponent(mode)}` + (scope === 'season' ? '' : `&scope=${scope}`)
+  return apiRequest(query, leaderboardResponseSchema, { signal, sessionToken })
 }
 
 export function getActivity(limit = 8, signal?: AbortSignal) {

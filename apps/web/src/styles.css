@@ -165,7 +165,6 @@ body {
 
 /* ── Layout ───────────────────────────────────────────────── */
 
-
 .main-content {
   flex: 1;
   display: flex;
@@ -231,7 +230,6 @@ html.reduce-motion .route-loading__spinner {
   color: var(--ink);
 }
 
-
 h1,
 .h1 {
   font-family: var(--font-display);
@@ -260,7 +258,6 @@ a {
 }
 
 /* ── Accounts and leaderboards ───────────────────────────── */
-
 
 .api-status {
   position: relative;
@@ -342,7 +339,6 @@ a {
   font-size: 0.82rem;
 }
 
-
 .player-avatar {
   display: inline-flex;
   flex: 0 0 auto;
@@ -419,7 +415,6 @@ a {
   text-underline-offset: 2px;
 }
 
-
 .account-form {
   display: grid;
   gap: 10px;
@@ -436,7 +431,6 @@ a {
   padding: 13px 14px;
   font: inherit;
 }
-
 
 .account-message {
   margin: 18px 0;
@@ -629,7 +623,6 @@ a {
   cursor: pointer;
 }
 
-
 .cr-profile__state {
   display: flex;
   align-items: center;
@@ -719,13 +712,11 @@ a {
   overscroll-behavior: contain;
 }
 
-
 .leaderboard-list {
   width: 100%;
   padding: 0;
   margin: 0;
 }
-
 
 .avatar-audit {
   width: min(100%, 1180px);
@@ -860,7 +851,6 @@ a {
 
 /* ── Elixir drop shape ────────────────────────────────────── */
 
-
 /* Real elixir-drop image pip — replaces CSS teardrop in game UI */
 .elixir-pip {
   display: inline-block;
@@ -870,7 +860,6 @@ a {
   height: 13px;
   vertical-align: middle;
 }
-
 
 /* ── Buttons ──────────────────────────────────────────────── */
 
@@ -933,7 +922,6 @@ a {
   border-color: rgba(215, 200, 255, 0.5);
   color: var(--ink);
 }
-
 
 .btn--sm {
   padding: 9px 18px;
@@ -1045,7 +1033,6 @@ a {
   height: 15px;
 }
 
-
 /* ── Player card ──────────────────────────────────────────── */
 
 .pcard {
@@ -1097,7 +1084,6 @@ a {
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.38));
   transition: filter 0.2s ease;
 }
-
 
 .pcard__fallback {
   width: 100%;
@@ -1304,7 +1290,6 @@ a {
   padding-bottom: 56px;
 }
 
-
 .competition-panel {
   min-width: 0;
   padding: 4px 0 16px;
@@ -1355,7 +1340,6 @@ a {
 .signin-save--line:hover {
   color: var(--ink);
 }
-
 
 /* ── Shared floating feedback (all modes) ─────────────────── */
 
@@ -1428,7 +1412,6 @@ a {
   color: var(--gold);
   text-transform: uppercase;
 }
-
 
 .game-motion {
   display: grid;
@@ -1531,7 +1514,6 @@ html.reduce-motion .game-motion {
 
 /* ── Surge ────────────────────────────────────────────────── */
 
-
 .run-count {
   position: absolute;
   inset: 0;
@@ -1555,7 +1537,6 @@ html.reduce-motion .game-motion {
 .run-count__num--go {
   letter-spacing: 0.04em;
 }
-
 
 /* "Elixir Rain" screensaver overlay. Opaque backdrop so a WebGL failure
    still yields a dismissible dark room; z-index above the trophy modal
@@ -1642,13 +1623,11 @@ html.reduce-motion .penalty-flash__chip {
   }
 }
 
-
 /* ── Trade ───────────────────────────────────────────────── */
 
 .trade {
   width: 100%;
 }
-
 
 /* ── Settings ─────────────────────────────────────────────── */
 
@@ -1765,7 +1744,6 @@ html.reduce-motion .penalty-flash__chip {
 
 /* ── Responsive ───────────────────────────────────────────── */
 
-
 @media (width <= 480px) {
   .main-content {
     padding: 24px 16px 48px;
@@ -1777,9 +1755,7 @@ html.reduce-motion .penalty-flash__chip {
   .pcard__name {
     font-size: 1.06rem;
   }
-
 }
-
 
 /* ── Trophy Modal ─────────────────────────────────────────── */
 
@@ -1836,6 +1812,52 @@ body.modal-open {
   height: 17px;
 }
 
+.player-tag-nudge {
+  width: min(100%, 420px);
+  padding: 30px 24px 24px;
+  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.15), transparent 55%), rgba(18, 13, 40, 0.99);
+}
+.player-tag-nudge__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(245, 200, 76, 0.38);
+  border-radius: 15px;
+  background: rgba(109, 40, 217, 0.32);
+  color: var(--gold);
+}
+.player-tag-nudge__icon .icon {
+  width: 23px;
+  height: 23px;
+}
+.player-tag-nudge__title {
+  margin: 5px 0 0;
+  padding-right: 28px;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+.player-tag-nudge__copy {
+  margin: 11px 0 0;
+  color: #d9d1f5;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.player-tag-nudge__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+@media (width <= 480px) {
+  .player-tag-nudge__actions .ed-btn {
+    flex: 1 1 100%;
+  }
+}
 
 /* ── New named release notice ─────────────────────────────── */
 
@@ -1937,7 +1959,6 @@ html.reduce-motion .release-notice__card {
   animation: none;
 }
 
-
 /* ── Rank card ────────────────────────────────────────────── */
 
 .rank-card {
@@ -1967,7 +1988,6 @@ html.reduce-motion .release-notice__card {
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
   transition: transform 0.3s ease;
 }
-
 
 .rank-card__meta {
   flex: 1 1 auto;

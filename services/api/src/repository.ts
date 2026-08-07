@@ -24,7 +24,11 @@ import {
   tiebreakAttributes,
   tiebreakValues,
 } from "./games.js";
-import { allTimeLeaderboard, seasonLeaderboard } from "./leaderboards.js";
+import {
+  allTimeLeaderboard,
+  clanAllTimeLeaderboard,
+  seasonLeaderboard,
+} from "./leaderboards.js";
 import { seasonPodiumFinishers } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
 import {
@@ -1747,6 +1751,14 @@ export class Repository {
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
     return allTimeLeaderboard(this.tableName, mode, limit);
+  }
+
+  async clanAllTimeLeaderboard(
+    mode: GameMode,
+    clanTag: string,
+    limit = 50,
+  ): Promise<Array<Record<string, unknown>>> {
+    return clanAllTimeLeaderboard(this.tableName, mode, clanTag, limit);
   }
 
   async globalStats(): Promise<{

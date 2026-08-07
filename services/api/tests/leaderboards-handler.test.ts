@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const repository = vi.hoisted(() => ({
   leaderboard: vi.fn(),
   allTimeLeaderboard: vi.fn(),
+  clanAllTimeLeaderboard: vi.fn(),
+  getProfile: vi.fn(),
+  getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   useRateLimit: vi.fn(),
 }));
@@ -12,22 +15,41 @@ vi.mock("../src/repository.js", () => ({
   Repository: class {
     leaderboard = repository.leaderboard;
     allTimeLeaderboard = repository.allTimeLeaderboard;
+    clanAllTimeLeaderboard = repository.clanAllTimeLeaderboard;
+    getProfile = repository.getProfile;
+    getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     useRateLimit = repository.useRateLimit;
   },
 }));
 
 import { handler } from "../src/handler.js";
+import { signToken } from "../src/signing.js";
 
 const nowSeconds = Math.floor(Date.now() / 1_000);
 
-function leaderboardEvent(query: string): APIGatewayProxyEventV2 {
+function leaderboardEvent(
+  query: string,
+  authenticated = false,
+): APIGatewayProxyEventV2 {
   return {
     version: "2.0",
     routeKey: "$default",
     rawPath: "/leaderboards",
     rawQueryString: query,
-    headers: {},
+    headers: authenticated
+      ? {
+          authorization: `Bearer ${signToken(
+            {
+              type: "session",
+              sub: "clan-player-sub",
+              iat: nowSeconds,
+              exp: nowSeconds + 3_600,
+            },
+            "test-session-secret",
+          )}`,
+        }
+      : {},
     queryStringParameters: Object.fromEntries(new URLSearchParams(query)),
     requestContext: {
       accountId: "test",
@@ -79,6 +101,22 @@ describe("GET /leaderboards scope", () => {
     repository.getCrWarClock.mockResolvedValue(undefined);
     repository.leaderboard.mockResolvedValue(sampleRows);
     repository.allTimeLeaderboard.mockResolvedValue(sampleRows);
+    repository.clanAllTimeLeaderboard.mockResolvedValue(sampleRows);
+    repository.getProfile.mockResolvedValue({
+      sub: "clan-player-sub",
+      playerId: "clan-player",
+      email: "clan@example.com",
+      playerTag: "#PLAYER",
+      totalGames: 4,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+    repository.getCrProfile.mockResolvedValue({
+      tag: "#PLAYER",
+      status: "ready",
+      clan: { tag: "#CLAN", name: "POAP KINGS", badgeId: 16000000 },
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
   });
 
   it("returns the all-time board when scope=all-time", async () => {
@@ -111,5 +149,81 @@ describe("GET /leaderboards scope", () => {
     expect(repository.allTimeLeaderboard).not.toHaveBeenCalled();
     expect(body.scope).toBe("season");
     expect(typeof body.seasonId).toBe("string");
+  });
+
+  it("requires authentication for the clan board", async () => {
+    const result = await handler(
+      leaderboardEvent("mode=surge&scope=clan"),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(result.statusCode).toBe(401);
+    expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it("returns current-clan all-time rows to the linked player", async () => {
+    const result = await handler(
+      leaderboardEvent("mode=surge&scope=clan", true),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    const body = JSON.parse(result.body ?? "{}");
+    expect(result.statusCode).toBe(200);
+    expect(repository.getProfile).toHaveBeenCalledWith("clan-player-sub");
+    expect(repository.getCrProfile).toHaveBeenCalledWith("#PLAYER");
+    expect(repository.clanAllTimeLeaderboard).toHaveBeenCalledWith(
+      "surge",
+      "#CLAN",
+    );
+    expect(body).toMatchObject({
+      scope: "clan",
+      clan: { tag: "#CLAN", name: "POAP KINGS" },
+      entries: sampleRows,
+    });
+    expect(body.seasonId).toBeUndefined();
+  });
+
+  it("guides a player without a tag instead of querying a clan", async () => {
+    repository.getProfile.mockResolvedValue({
+      sub: "clan-player-sub",
+      playerId: "clan-player",
+      email: "clan@example.com",
+      totalGames: 4,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+    const result = await handler(
+      leaderboardEvent("mode=surge&scope=clan", true),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(result.statusCode).toBe(409);
+    expect(JSON.parse(result.body ?? "{}")).toMatchObject({
+      error: { code: "player_tag_required" },
+    });
+    expect(repository.getCrProfile).not.toHaveBeenCalled();
+    expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it("guides a linked player who is not currently in a clan", async () => {
+    repository.getCrProfile.mockResolvedValue({
+      tag: "#PLAYER",
+      status: "ready",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+    const result = await handler(
+      leaderboardEvent("mode=surge&scope=clan", true),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(result.statusCode).toBe(409);
+    expect(JSON.parse(result.body ?? "{}")).toMatchObject({
+      error: { code: "clan_membership_required" },
+    });
+    expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
   });
 });

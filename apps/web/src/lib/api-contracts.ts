@@ -292,10 +292,12 @@ export const leaderboardEntrySchema = z.object({
 
 export const leaderboardResponseSchema = z.object({
   mode: gameModeSchema,
-  // 'season' (default) is the per-season board; 'all-time' ranks best-ever
-  // scores. seasonId is present only for the season board.
-  scope: z.optional(z.enum(['season', 'all-time'])),
+  // 'season' (default) is the per-season board; 'all-time' ranks best-ever;
+  // 'clan' ranks best-ever among the signed-in player's current clanmates.
+  // seasonId is present only for the season board.
+  scope: z.optional(z.enum(['season', 'all-time', 'clan'])),
   seasonId: z.optional(nonEmptyString),
+  clan: z.optional(z.object({ tag: nonEmptyString, name: nonEmptyString })),
   currentSeason: seasonSchema,
   entries: z.array(leaderboardEntrySchema)
 })

@@ -220,6 +220,7 @@ describe('Leaderboards', () => {
     return {
       mode,
       scope,
+      ...(scope === 'clan' ? { clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' } } : {}),
       seasonId: 'season-60',
       currentSeason: {
         id: 'season-60',
@@ -291,6 +292,29 @@ describe('Leaderboards', () => {
     // Higher/Lower scores read as a count of correct reads, not seconds.
     expect(host.textContent).toContain('correct')
     expect(host.textContent).not.toContain('4.20s')
+  })
+
+  it('switches to current-clan all-time rankings for a linked player', async () => {
+    accountStatus.value = 'authenticated'
+    player.value = {
+      id: 'p1',
+      playerTag: '#PLAYER',
+      clashRoyale: {
+        tag: '#PLAYER',
+        status: 'ready',
+        clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 1 }
+      }
+    } as never
+    const host = await mount(<Leaderboards />)
+    await flush()
+
+    await click(buttonWithText(host, '.ed-board__scopes button', 'Clan'))
+    await flush()
+
+    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'clan', expect.any(AbortSignal), undefined)
+    expect(host.textContent).toContain('POAP KINGS rankings')
+    expect(host.textContent).toContain('All-time bests among current clanmates')
+    expect(host.textContent).toContain('#J2RGCRVG')
   })
 
   it('renders the empty state and its Play link when a mode has no scores', async () => {

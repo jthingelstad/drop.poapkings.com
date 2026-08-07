@@ -3,7 +3,7 @@ import { useSignal } from '@preact/signals'
 import type { GameMode, Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
-import { player } from '../lib/account'
+import { accountStatus, player, refreshAccount, sessionToken } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { formatSeconds } from '../lib/format'
 import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
@@ -73,25 +73,64 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
 
 const SCOPES: Array<{ scope: LeaderboardScope; label: string }> = [
   { scope: 'season', label: 'Season' },
-  { scope: 'all-time', label: 'All-time' }
+  { scope: 'all-time', label: 'All-time' },
+  { scope: 'clan', label: 'Clan' }
 ]
+
+type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
 
 export default function Leaderboards() {
   const mode = useSignal<GameMode>('surge')
   const scope = useSignal<LeaderboardScope>('season')
   const entries = useSignal<LeaderboardEntry[]>([])
   const season = useSignal<Season | null>(null)
+  const activeClan = useSignal<{ tag: string; name: string } | null>(null)
+  const clanGate = useSignal<ClanGate>(null)
   const loading = useSignal(true)
   const error = useSignal('')
 
+  const currentPlayer = player.value
+  const currentAccountStatus = accountStatus.value
+  const currentClan = currentPlayer?.clashRoyale?.clan
+  const crStatus = currentPlayer?.clashRoyale?.status
+
   useEffect(() => {
     const controller = new AbortController()
+    entries.value = []
+    activeClan.value = null
+    clanGate.value = null
     loading.value = true
     error.value = ''
-    void getLeaderboard(mode.value, scope.value, controller.signal)
+
+    if (scope.value === 'clan') {
+      if (currentAccountStatus === 'loading') return () => controller.abort()
+      if (currentAccountStatus !== 'authenticated' || !currentPlayer) {
+        clanGate.value = 'signed-out'
+        loading.value = false
+        return () => controller.abort()
+      }
+      if (!currentPlayer.playerTag) {
+        clanGate.value = 'tag-required'
+        loading.value = false
+        return () => controller.abort()
+      }
+      if (!currentClan) {
+        clanGate.value =
+          crStatus === 'pending' ? 'profile-pending' : crStatus === 'not_found' ? 'profile-missing' : 'no-clan'
+        loading.value = false
+        return () => controller.abort()
+      }
+    }
+
+    const request =
+      scope.value === 'clan'
+        ? getLeaderboard(mode.value, scope.value, controller.signal, sessionToken())
+        : getLeaderboard(mode.value, scope.value, controller.signal)
+    void request
       .then((response) => {
         entries.value = response.entries
         season.value = response.currentSeason
+        activeClan.value = response.clan ?? null
       })
       .catch((reason: unknown) => {
         if (reason instanceof ApiError && reason.code === 'request_cancelled') return
@@ -101,16 +140,81 @@ export default function Leaderboards() {
         if (!controller.signal.aborted) loading.value = false
       })
     return () => controller.abort()
-  }, [mode.value, scope.value, entries, error, loading, season])
+  }, [
+    mode.value,
+    scope.value,
+    currentAccountStatus,
+    currentPlayer,
+    currentClan,
+    crStatus,
+    entries,
+    activeClan,
+    clanGate,
+    error,
+    loading,
+    season
+  ])
+
+  useEffect(() => {
+    if (scope.value !== 'clan' || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
+    const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
+    return () => window.clearInterval(interval)
+  }, [scope.value, currentPlayer?.playerTag, currentClan, crStatus])
 
   const isAllTime = scope.value === 'all-time'
+  const isClan = scope.value === 'clan'
   const selectedGame = GAME_BY_MODE.get(mode.value)!
+
+  const clanEmptyState = (() => {
+    if (clanGate.value === 'signed-out')
+      return {
+        heading: 'Sign in for clan rankings',
+        line: 'Connect your Drop player to see how you rank against clanmates.',
+        actionLabel: 'Sign in',
+        href: '/login'
+      }
+    if (clanGate.value === 'tag-required')
+      return {
+        heading: 'Add your player tag',
+        line: 'Drop uses your public Clash Royale profile to find your current clan.',
+        actionLabel: 'Add player tag',
+        href: '/profile?edit=player-tag'
+      }
+    if (clanGate.value === 'profile-pending')
+      return {
+        heading: 'Loading your clan',
+        line: 'Your player tag is saved. Drop is fetching its public Clash Royale profile.',
+        actionLabel: 'View profile',
+        href: '/profile'
+      }
+    if (clanGate.value === 'profile-missing')
+      return {
+        heading: 'Player tag not found',
+        line: 'Check the tag on your profile, then try Clan rankings again.',
+        actionLabel: 'Edit player tag',
+        href: '/profile?edit=player-tag'
+      }
+    return {
+      heading: 'No clan connected',
+      line: 'Your linked Clash Royale profile is not currently in a clan.',
+      actionLabel: 'View profile',
+      href: '/profile'
+    }
+  })()
 
   return (
     <div class="ed-board leaderboard-screen">
       <header class="ed-board__head">
         <div class="ed-eyebrow">Every run counts</div>
-        {isAllTime ? (
+        {isClan ? (
+          <>
+            <h1 class="ed-h1">{activeClan.value?.name ?? currentClan?.name ?? 'Clan'} rankings</h1>
+            <p class="ed-board__timing">
+              All-time bests among current clanmates
+              {(activeClan.value?.tag ?? currentClan?.tag) ? ` · ${activeClan.value?.tag ?? currentClan?.tag}` : '.'}
+            </p>
+          </>
+        ) : isAllTime ? (
           <>
             <h1 class="ed-h1">All-time leaderboards</h1>
             <p class="ed-board__timing">Your best-ever score in each mode, across every season.</p>
@@ -162,7 +266,12 @@ export default function Leaderboards() {
         </h2>
         {loading.value && <div class="ed-rail-empty">Loading leaderboard…</div>}
         {error.value && <div class="ed-board__error">{error.value}</div>}
-        {!loading.value && !error.value && (
+        {!loading.value && !error.value && isClan && clanGate.value && (
+          <div class="ed-board__empty">
+            <EmptyState art="empty-board" {...clanEmptyState} />
+          </div>
+        )}
+        {!loading.value && !error.value && (!isClan || !clanGate.value) && (
           <ol class="ed-board__rows">
             {entries.value.map((entry) => (
               <LeaderboardRow entry={entry} mode={mode.value} key={entry.player.id} />
@@ -171,8 +280,12 @@ export default function Leaderboards() {
               <li class="ed-board__empty">
                 <EmptyState
                   art="empty-board"
-                  heading="Nobody has posted"
-                  line="First run on this board takes the crown."
+                  heading={isClan ? 'No clanmates have posted' : 'Nobody has posted'}
+                  line={
+                    isClan
+                      ? 'First clan run on this board takes the crown.'
+                      : 'First run on this board takes the crown.'
+                  }
                   actionLabel={`Play ${selectedGame.name}`}
                   href={selectedGame.path}
                 />

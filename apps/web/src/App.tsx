@@ -9,6 +9,7 @@ import { getStats } from './lib/api'
 import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import ReleaseNotice from './components/ReleaseNotice'
+import PlayerTagNudge from './components/PlayerTagNudge'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
@@ -230,6 +231,7 @@ export default function App() {
       {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
       <RunRecordingNotice />
       <ReleaseNotice />
+      <PlayerTagNudge />
       {screensaverActive.value && <Screensaver />}
     </>
   )

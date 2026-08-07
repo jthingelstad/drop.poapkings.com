@@ -68,7 +68,8 @@ function fetchedText(value: string | undefined): string | undefined {
 const CR_LOADING_MESSAGE = 'Player tag saved. Loading its public Clash Royale profile…'
 
 export default function Profile() {
-  const returnTo = gameReturnPathFromRoute(route.value)
+  const profileRoute = route.value
+  const returnTo = gameReturnPathFromRoute(profileRoute)
   const tag = useSignal(player.value?.playerTag || '')
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
@@ -82,6 +83,8 @@ export default function Profile() {
   const deletingAccount = useSignal(false)
   const deletionError = useSignal('')
   const syncedPlayerId = useRef<string | undefined>(undefined)
+  const tagInputRef = useRef<HTMLInputElement | null>(null)
+  const handledTagEditRequest = useRef(false)
   const pollingCrStatus = player.value?.clashRoyale?.status
   const seasonHistory = useSignal<SeasonHistory[]>([])
   const seasonHistoryStatus = useSignal<'idle' | 'loading' | 'ready' | 'error'>('idle')
@@ -97,6 +100,18 @@ export default function Profile() {
     selectedCardId.value = authenticatedPlayer.favoriteCardId ?? null
     editingIdentity.value = authenticatedPlayer.favoriteCardId === undefined
   })
+
+  useEffect(() => {
+    const query = profileRoute.split('?', 2)[1]
+    if (handledTagEditRequest.current || new URLSearchParams(query).get('edit') !== 'player-tag') return
+    handledTagEditRequest.current = true
+    editingIdentity.value = true
+    const frame = window.requestAnimationFrame(() => {
+      tagInputRef.current?.scrollIntoView({ block: 'center' })
+      tagInputRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [profileRoute, editingIdentity])
 
   useEffect(() => {
     if (pollingCrStatus !== 'pending') return
@@ -343,6 +358,9 @@ export default function Profile() {
           <p class="ed-edit__section-sub">Points at a public CR profile (not ownership). Drop loads it when saved.</p>
           <form class="ed-edit__tagform" onSubmit={saveTag}>
             <input
+              id="clash-player-tag"
+              ref={tagInputRef}
+              aria-label="Clash Royale player tag"
               value={tag.value}
               placeholder="#PLAYER_TAG"
               onInput={(event) => (tag.value = event.currentTarget.value)}

@@ -1,7 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import { expect, test, testApiRoute, testPlayer, testSeason, testSession, testStats } from './fixtures'
 
-test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
+test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
 
   await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
@@ -39,6 +39,17 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }) => {
   // And back to Season restores the season heading.
   await page.getByRole('button', { name: 'Season', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
+
+  // Clan is an all-time board scoped to the signed-in player's current CR
+  // clan, with ranks recalculated inside that clan.
+  await page.getByRole('button', { name: 'Clan', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'POAP KINGS rankings' })).toBeVisible()
+  await expect(page.locator('.ed-board__timing')).toContainText('All-time bests among current clanmates · #J2RGCRVG')
+  await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await page.waitForTimeout(250)
+  const clanScreenshot = testInfo.outputPath('clan-rankings.png')
+  await page.screenshot({ path: clanScreenshot })
+  await testInfo.attach('clan-rankings.png', { path: clanScreenshot, contentType: 'image/png' })
 })
 
 test('leaderboard and recent-run entries open the selected public player', async ({ page }) => {

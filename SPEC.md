@@ -212,8 +212,8 @@ weakness, `scorePractice` validates the transcript by **set membership** against
 the signed deck rather than by position — a relaxation that is safe only because
 nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
-Each ranked mode has two boards, selected by the `scope` query param on
-`GET /leaderboards` (`season`, the default, or `all-time`):
+Each ranked mode has three boards, selected by the `scope` query param on
+`GET /leaderboards` (`season`, the default, `all-time`, or `clan`):
 
 - **Season** is the existing per-season board: every positive-scoring completed
   ranked run writes a history row into GSI1 under
@@ -229,8 +229,14 @@ Each ranked mode has two boards, selected by the `scope` query param on
   epoch, otherwise only a better current-board sort key wins. A run that is not
   a new best is silently skipped, so the recorded run never rolls back. Because
   there is one item per player, the read needs no dedup. The web Leaderboards
-  screen offers a Season / All-time toggle; the all-time view shows no
+  screen offers a Season / All-time / Clan toggle; the all-time view shows no
   season-reset line.
+- **Clan** is an authenticated view of that same all-time partition, filtered
+  by each Drop player's latest stored Clash Royale clan snapshot and reranked
+  within the signed-in player's current clan. The bounded read may page beyond
+  the global top results so a clanmate is not omitted merely for ranking lower
+  globally. Lambda never refreshes CR data on this route; only the bridge owns
+  live Clash Royale ingress.
 
 Leaderboard eligibility is stricter than run acceptance: a ranked completion
 must score **above zero** to receive a seasonal or all-time index projection.
@@ -353,6 +359,8 @@ elixirdrop:releaseSeen              -> lib/release-notice.ts localStorage the re
                                        slug) the player has already been shown, written on a
                                        first visit so the one-time notice never greets a
                                        newcomer, and again on dismissal
+elixirdrop:playerTagNudge           -> lib/player-tag-nudge.ts localStorage per-player timestamps
+                                       for the weekly missing-tag reminder
 ```
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
@@ -471,6 +479,9 @@ Authenticated public identity is centered on one favorite card:
   the card collection grid are excluded — the grid has no use in Drop, only the
   count is shown. Drop's own arena (per-player, from Player XP) is native and
   unrelated to CR arenas.
+- A signed-in player without a player tag is prompted at most once every seven
+  days on that device. The reminder never appears during active play, does not
+  stack over a release notice, and opens Profile directly at the tag field.
 - Every game uses the complete canonical card catalog; ranked runs place on the
   seasonal leaderboard while Practice is unranked. The attached collection
   remains loaded and stored, but is not used for challenge generation and is not
@@ -583,7 +594,7 @@ stubs and helpers in `fixtures.ts`:
 | `run-lifecycle.spec.ts` | Signed-run preparation, malformed-challenge rejection, completion retry, permanent rejection |
 | `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play |
 | `home.spec.ts` | Season standings, install suggestion timing, the Tinylytics hash-page/event bridge |
-| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping, public player pages, XP, settings persistence, CR tag states |
+| `leaderboards.spec.ts` · `profile.spec.ts` · `player-tag-nudge.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, weekly reminder timing |
 | `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow |
 
 ---

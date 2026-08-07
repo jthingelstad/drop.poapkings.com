@@ -9,6 +9,7 @@ import {
   tiebreakValues,
 } from "./games.js";
 import {
+  hydrateCrProfiles,
   hydratePublicProfiles,
   placeholderPublicProfile,
 } from "./public-profile.js";
@@ -194,6 +195,106 @@ export async function allTimeLeaderboard(
   } while (lastKey && pagesRead < MAX_BOARD_PAGES);
 
   return withPublicProfiles(tableName, mode, reconciled.slice(0, limit));
+}
+
+// Best-ever rows scoped to players whose latest stored Clash Royale snapshot
+// places them in the requested clan. This walks the ordered all-time
+// partition instead of filtering the global top 50: a clanmate ranked 300th
+// globally must still be eligible to rank first inside a small clan.
+export async function clanAllTimeLeaderboard(
+  tableName: string,
+  mode: GameMode,
+  clanTag: string,
+  limit = 50,
+): Promise<BoardItem[]> {
+  const reconciled: BoardItem[] = [];
+  const clanProfiles = new Map<string, PublicProfile>();
+  let lastKey: Record<string, unknown> | undefined;
+  let pagesRead = 0;
+  do {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: "GSI1",
+        KeyConditionExpression: "GSI1PK = :pk",
+        ExpressionAttributeValues: {
+          ":pk": leaderboardPartition("ALLTIME", mode),
+        },
+        ScanIndexForward: true,
+        Limit: BOARD_PAGE_SIZE,
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    const baseItems = ((result.Items ?? []) as BoardItem[]).filter((item) =>
+      isLeaderboardEligibleScore(Number(item.score)),
+    );
+    const pageProfiles = await hydratePublicProfiles(
+      tableName,
+      baseItems.map((item) => String(item.playerSub)),
+    );
+    const crProfiles = await hydrateCrProfiles(
+      tableName,
+      [...pageProfiles.values()].flatMap((profile) =>
+        profile.playerTag ? [profile.playerTag] : [],
+      ),
+    );
+    const clanItems = baseItems.filter((item) => {
+      const profile = pageProfiles.get(String(item.playerSub));
+      return (
+        profile?.playerTag !== undefined &&
+        crProfiles.get(profile.playerTag)?.clan?.tag === clanTag
+      );
+    });
+    for (const item of clanItems) {
+      const profile = pageProfiles.get(String(item.playerSub));
+      if (profile) clanProfiles.set(String(item.playerSub), profile);
+    }
+
+    const pageItems = await Promise.all(
+      clanItems.map((item) => resolveAllTimeEarningRun(tableName, item, mode)),
+    );
+    const decisions = await refereeDecisions(tableName, runIdsOf(pageItems));
+    reconciled.push(
+      ...(
+        await Promise.all(
+          pageItems.map(async (item) => {
+            const decision = decisions.get(String(item.runId));
+            if (decision?.visibility !== "hidden") return item;
+            return bestVisibleRun(
+              tableName,
+              String(item.playerSub),
+              mode,
+              String(item.runId),
+            );
+          }),
+        )
+      ).filter((item): item is BoardItem => Boolean(item)),
+    );
+    reconciled.sort((a, b) =>
+      leaderboardItemSortKey(a, mode).localeCompare(
+        leaderboardItemSortKey(b, mode),
+      ),
+    );
+    lastKey = result.LastEvaluatedKey;
+    pagesRead += 1;
+
+    // The partition is globally ordered. Once the clan's effective cutoff is
+    // no worse than the final global row read, no unseen global row can enter
+    // this clan's requested top cohort either.
+    const cutoff = reconciled[limit - 1];
+    const frontier = baseItems.at(-1);
+    if (
+      cutoff &&
+      frontier &&
+      leaderboardItemSortKey(cutoff, mode) <=
+        leaderboardItemSortKey(frontier, mode)
+    )
+      break;
+  } while (lastKey && pagesRead < MAX_BOARD_PAGES);
+
+  return reconciled
+    .slice(0, limit)
+    .map((item, index) => toLeaderboardRow(item, mode, index, clanProfiles));
 }
 
 function runIdsOf(items: BoardItem[]): string[] {

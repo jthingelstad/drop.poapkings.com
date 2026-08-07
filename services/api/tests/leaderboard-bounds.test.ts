@@ -15,6 +15,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
 import { HttpError } from "../src/errors.js";
 import {
   allTimeLeaderboard,
+  clanAllTimeLeaderboard,
   seasonLeaderboard,
   seasonPodiumFinishers,
 } from "../src/leaderboards.js";
@@ -104,6 +105,96 @@ describe("leaderboard read bounds", () => {
     });
     // One board query plus exactly four capped history pages.
     expect(send).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps paging past global leaders to find a clan's own leaders", async () => {
+    let boardPages = 0;
+    send.mockImplementation((command) => {
+      const input = command.input as {
+        IndexName?: string;
+        RequestItems?: Record<string, { Keys?: Array<{ pk: string }> }>;
+      };
+      if (input.IndexName === "GSI1") {
+        boardPages += 1;
+        return Promise.resolve(
+          boardPages === 1
+            ? queryPage([
+                {
+                  runId: "global-run",
+                  playerSub: "global-player",
+                  score: 10_000,
+                  completedAt: "2026-07-01T00:00:00.000Z",
+                },
+              ])
+            : queryPage(
+                [
+                  {
+                    runId: "clan-run",
+                    playerSub: "clan-player",
+                    score: 20_000,
+                    completedAt: "2026-07-02T00:00:00.000Z",
+                  },
+                ],
+                false,
+              ),
+        );
+      }
+      const keys = input.RequestItems?.["test-table"]?.Keys ?? [];
+      if (keys.every((key) => key.pk.startsWith("PLAYER#"))) {
+        const sub = keys[0]?.pk.slice("PLAYER#".length);
+        return Promise.resolve({
+          Responses: {
+            "test-table": [
+              {
+                sub,
+                playerId: sub,
+                publicName: sub === "clan-player" ? "Clan Ace" : "Global Ace",
+                playerTag:
+                  sub === "clan-player" ? "#CLANPLAYER" : "#GLOBALPLAYER",
+                totalGames: 10,
+                xp: 100,
+              },
+            ],
+          },
+        });
+      }
+      if (keys.every((key) => key.pk.startsWith("CR_PLAYER#"))) {
+        const tag = keys[0]?.pk.slice("CR_PLAYER#".length);
+        return Promise.resolve({
+          Responses: {
+            "test-table": [
+              {
+                tag,
+                status: "ready",
+                ...(tag === "#CLANPLAYER"
+                  ? { clan: { tag: "#OURCLAN", name: "Our Clan", badgeId: 1 } }
+                  : {
+                      clan: { tag: "#OTHER", name: "Other Clan", badgeId: 2 },
+                    }),
+                updatedAt: "2026-07-02T00:00:00.000Z",
+              },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ Responses: { "test-table": [] } });
+    });
+
+    const entries = await clanAllTimeLeaderboard(
+      "test-table",
+      "surge",
+      "#OURCLAN",
+      1,
+    );
+
+    expect(boardPages).toBe(2);
+    expect(entries).toMatchObject([
+      {
+        rank: 1,
+        score: 20_000,
+        player: { id: "clan-player", publicName: "Clan Ace" },
+      },
+    ]);
   });
 
   it("resolves a legacy all-time row that appears on the last allowed page", async () => {
