@@ -508,15 +508,15 @@ describe('Rain — gameplay', () => {
     for (let i = 0; i < 9; i += 1) await tap()
     expect(metricValue(c)).toBe('9')
     // Nothing showing before the 10th — it is not a per-card cue.
-    expect(c.querySelector('.ed-rain__milestone')).toBeNull()
+    expect(c.querySelector('.game-milestone')).toBeNull()
 
     await tap()
     expect(metricValue(c)).toBe('10')
-    expect(c.querySelector('.ed-rain__milestone-num')?.textContent).toBe('10')
+    expect(c.querySelector('.game-milestone__num')?.textContent).toBe('10')
 
     // It is transient: gone after the ~0.5s window.
     await advance(600)
-    expect(c.querySelector('.ed-rain__milestone')).toBeNull()
+    expect(c.querySelector('.game-milestone')).toBeNull()
   })
 
   // Regression: Rain used to call saveRecords({ rainBest }) inside finish(),

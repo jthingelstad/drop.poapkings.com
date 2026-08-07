@@ -37,3 +37,24 @@ export function preloadUrls(urls: string[], done: (loadedCount: number) => void,
   }
   setTimeout(finish, timeoutMs)
 }
+
+// Build a monotonic look-ahead cursor for long, ordered decks. The caller can
+// gate startup on a small first slice, then ask for only the newly exposed tail
+// as play advances. Marking the tail requested before returning keeps repeated
+// renders or input events from issuing duplicate image work.
+export function createProgressivePreloadPlan(cards: Card[], initiallyRequested: number, lookahead: number) {
+  let requestedThrough = Math.min(cards.length, Math.max(0, Math.floor(initiallyRequested)))
+  const ahead = Math.max(0, Math.floor(lookahead))
+
+  return {
+    next(activeIndex: number): Card[] {
+      const active = Math.max(0, Math.floor(activeIndex))
+      const nextThrough = Math.min(cards.length, active + 1 + ahead)
+      if (nextThrough <= requestedThrough) return []
+
+      const batch = cards.slice(requestedThrough, nextThrough)
+      requestedThrough = nextThrough
+      return batch
+    }
+  }
+}

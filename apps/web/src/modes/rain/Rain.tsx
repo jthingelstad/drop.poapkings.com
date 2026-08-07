@@ -21,7 +21,7 @@ import GameStartScreen from '../../components/game/GameStart'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import LivesRow from '../../components/LivesRow'
-import RainMilestone from './RainMilestone'
+import GameMilestone from '../../components/GameMilestone'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
@@ -392,7 +392,7 @@ export default function Rain() {
       <div class="ed-rain">
         <div ref={fieldRef} class="ed-rain__field" aria-hidden="true" />
         <div class="ed-rain__hint">Clear the lit card before it lands</div>
-        {milestone.value !== null && <RainMilestone key={milestone.value} value={milestone.value} />}
+        {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
         <div class="ed-rain__cue" aria-hidden="true">
           <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="rain-hint">
             {hint.value === 'higher' && (

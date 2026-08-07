@@ -9,20 +9,20 @@ import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
-import { preloadImages } from '../../lib/preload'
+import { createProgressivePreloadPlan, preloadImages } from '../../lib/preload'
 import { formatSeconds } from '../../lib/format'
 import { comparableBest, pbCallout } from '../../lib/pb-callout'
 import { useAutoStart } from '../../lib/use-auto-start'
 import { useEndRunOnHide, useShrinkingWindow } from '../../lib/use-round-clock'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
-import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
+import GameMilestone from '../../components/GameMilestone'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -35,6 +35,12 @@ const DEATH_BEAT_MS = 1100
 // player is still orienting — the sudden-death clock only begins once counting
 // ends. Matches Surge's cadence.
 const COUNTDOWN_STEP_MS = 700
+// The signed deck is the whole catalog. Gate startup on only this first slice,
+// then keep the same number of future cards warm as the player advances.
+const STARTUP_ART_COUNT = 14
+const ART_LOOKAHEAD = 14
+const MILESTONE_EVERY = 10
+const MILESTONE_MS = 500
 
 export default function Survival() {
   const gameRun = useGameSession('survival', challengePreparers.survival)
@@ -43,11 +49,13 @@ export default function Survival() {
   const dead = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
+  const preloadContent = useRef<Card[] | null>(null)
+  const progressiveArt = useRef<ReturnType<typeof createProgressivePreloadPlan> | null>(null)
 
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, later } = runtime
   const streak = useSignal(0)
-  const streakCue = useSignal(0)
+  const milestone = useSignal<number | null>(null)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the streak just set.
   const prevBest = useSignal(comparableBest(getRecords().survivalBest))
@@ -85,14 +93,37 @@ export default function Survival() {
     onExpire: () => dieRef.current(current.value, undefined)
   })
 
+  function warmCardArt(activeIndex: number) {
+    const content = gameRun.content
+    if (!content) return
+    if (preloadContent.current !== content) {
+      preloadContent.current = content
+      progressiveArt.current = createProgressivePreloadPlan(content, STARTUP_ART_COUNT, ART_LOOKAHEAD)
+    }
+    const nextBatch = progressiveArt.current?.next(activeIndex) ?? []
+    if (nextBatch.length > 0) preloadImages(nextBatch, () => {})
+  }
+
+  function showMilestone(value: number) {
+    milestone.value = value
+    later(() => {
+      if (milestone.peek() === value) milestone.value = null
+    }, MILESTONE_MS)
+  }
+
   async function begin() {
     if (!(await gameRun.ensureFreshRun())) return
+    // Top up the first card's look-ahead before the countdown begins. From
+    // here on, each advance adds one distant card instead of loading the whole
+    // catalog or waiting until that card is already against the clock.
+    warmCardArt(0)
     runtime.start((startedAt) => {
       dead.current = false
       won.current = false
       answers.current = []
       serverAnswers.current = []
       streak.value = 0
+      milestone.value = null
       current.value = gameRun.content?.[0] ?? null
       serverCardIndex.current = current.value ? 1 : 0
       cardStart.current = startedAt
@@ -103,19 +134,20 @@ export default function Survival() {
 
   function nextCard() {
     if (stage.value !== 'running' || dead.current) return
-    const c = gameRun.content?.[serverCardIndex.current]
+    const nextIndex = serverCardIndex.current
+    const c = gameRun.content?.[nextIndex]
     if (!c) {
       // Cleared the whole deck — a win.
       won.current = true
       finish()
       return
     }
+    warmCardArt(nextIndex)
     serverCardIndex.current += 1
     current.value = c
     cardStart.current = performance.now()
     remainingFrac.value = 1
     cardPhase.value = 'playing'
-    preloadImages([c], () => {})
     runtime.emitCue('round-advance', { cardId: c.id })
   }
 
@@ -167,7 +199,7 @@ export default function Survival() {
       answers.current.push({ card, guess: picked, correct: true, ms })
       saveResult(card.id, true, ms)
       streak.value += 1
-      if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value += 1
+      if (streak.value % MILESTONE_EVERY === 0) showMilestone(streak.value)
       cardPhase.value = 'correct'
       runtime.emitCue('answer-correct', { cardId: card.id })
       later(nextCard, 230)
@@ -188,6 +220,7 @@ export default function Survival() {
     serverAnswers.current = []
     cardPhase.value = 'playing'
     streak.value = 0
+    milestone.value = null
     remainingFrac.value = 1
     void gameRun.prepare()
   }
@@ -265,15 +298,7 @@ export default function Survival() {
         </div>
         <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
-
-        {/* Shared floating streak cue — composited, never in layout flow. */}
-        <div class="game-cues" aria-hidden="true">
-          <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-              🔥 {streak.value} streak
-            </FloatingCue>
-          </div>
-        </div>
+        {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>
     </GameFrame>
   )

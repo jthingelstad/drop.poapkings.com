@@ -307,6 +307,25 @@ describe('Surge gameplay', () => {
 // Survival — sudden death. Correct builds a streak; a miss or timeout ends it.
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Survival gameplay', () => {
+  it('flashes the running total at every ten-card milestone', async () => {
+    const cards = fakeCards(20)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    const host = await startTimed(<Survival />)
+    for (let index = 0; index < 9; index += 1) {
+      press(host, cards[index]!.elixir)
+      advance(230)
+    }
+    expect(host.querySelector('.game-milestone')).toBeNull()
+
+    press(host, cards[9]!.elixir)
+    expect(host.querySelector('.game-milestone__num')?.textContent).toBe('10')
+
+    advance(600)
+    expect(host.querySelector('.game-milestone')).toBeNull()
+  })
+
   it('builds a streak then dies on a wrong tap (new personal best)', async () => {
     const cards = fakeCards(20)
     session = makeSession(cards)

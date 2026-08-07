@@ -6,4 +6,7 @@ import type { CardsData } from '../types'
 // here so every catalog reader — choices, the keypad, signed-challenge
 // resolution, the favorite-card picker, the avatar audit, the screensaver —
 // shares a single typed view instead of repeating `rawCards as CardsData`.
-export const allCards = (rawCards as CardsData).cards
+const cardCatalog = rawCards as CardsData
+
+export const allCards = cardCatalog.cards
+export const cardCatalogVersion = cardCatalog.version

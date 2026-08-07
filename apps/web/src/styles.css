@@ -5477,10 +5477,10 @@ html.reduce-motion .ed-profile-guest__halo::before {
   pointer-events: none;
 }
 
-/* Every-10-clears progress flash, centered in the field above the keypad. Echoes
-   the 3-2-1 countdown (gold display numeral + expanding ring); composited over
-   the falling tiles so it never reflows the board. */
-.ed-rain__milestone {
+/* Shared every-10 progress flash, centered above the keypad. Echoes the 3-2-1
+   countdown (gold display numeral + expanding ring); composited over play so it
+   never reflows the board. */
+.game-milestone {
   position: absolute;
   inset: 0 0 120px;
   z-index: 2;
@@ -5488,7 +5488,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   place-items: center;
   pointer-events: none;
 }
-.ed-rain__milestone-num {
+.game-milestone__num {
   grid-area: 1 / 1;
   font-family: var(--font-display);
   font-weight: 700;
@@ -5498,15 +5498,15 @@ html.reduce-motion .ed-profile-guest__halo::before {
   filter: drop-shadow(0 0 32px rgba(245, 200, 76, 0.55));
   will-change: transform, opacity;
 }
-.ed-rain__milestone-ring {
+.game-milestone__ring {
   grid-area: 1 / 1;
   width: clamp(96px, 26vw, 132px);
   aspect-ratio: 1;
   border-radius: 50%;
   border: 3px solid rgba(245, 200, 76, 0.5);
-  animation: ed-rain-milestone-ring 0.5s ease-out forwards;
+  animation: game-milestone-ring 0.5s ease-out forwards;
 }
-@keyframes ed-rain-milestone-ring {
+@keyframes game-milestone-ring {
   0% {
     transform: scale(0.5);
     opacity: 0.7;
@@ -5517,7 +5517,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ed-rain__milestone-ring {
+  .game-milestone__ring {
     display: none;
   }
 }

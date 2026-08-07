@@ -5,10 +5,11 @@ let pixiModule: Promise<typeof import('pixi.js')> | undefined
 
 export function loadPixi(): Promise<typeof import('pixi.js')> {
   pixiModule ??= Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(([, pixi]) => {
-    // The page CSP sets worker-src 'none'. Assets is a Pixi-wide singleton, so
-    // the preference belongs here rather than in one surface's init: otherwise
-    // whichever of the game-effects layer or the screensaver mounts first
-    // decides whether the other gets a blob worker and a CSP violation.
+    // The page CSP permits the same-origin card-cache worker but not Pixi's blob
+    // workers. Assets is a Pixi-wide singleton, so the preference belongs here
+    // rather than in one surface's init: otherwise whichever of the game-effects
+    // layer or screensaver mounts first decides whether the other gets a CSP
+    // violation.
     pixi.Assets.setPreferences({ preferWorkers: false })
     return pixi
   })

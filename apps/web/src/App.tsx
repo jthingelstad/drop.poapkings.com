@@ -12,6 +12,7 @@ import ReleaseNotice from './components/ReleaseNotice'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
+import { initCardArtCache } from './lib/card-art-cache'
 import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
@@ -175,6 +176,7 @@ export default function App() {
   useEffect(() => {
     void initializeAccount()
     initInstallPrompt()
+    void initCardArtCache()
     // Decides once per load whether a named release is worth announcing. A
     // first-time visitor is recorded and never interrupted.
     initReleaseNotice()

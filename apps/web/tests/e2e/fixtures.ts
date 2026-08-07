@@ -446,6 +446,13 @@ export const test = base.extend({
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
+          // WebKit can enforce CORS on fulfilled cross-origin routes. Mirror
+          // the deployed API instead of relying on interception to bypass it.
+          headers: {
+            'access-control-allow-origin': 'http://127.0.0.1:5173',
+            'access-control-allow-credentials': 'true',
+            vary: 'Origin'
+          },
           body: JSON.stringify(
             allTime
               ? {

@@ -48,7 +48,7 @@ import { setSoundEnabled, playCorrect } from '../../src/lib/sound'
 import { getSettings } from '../../src/lib/storage'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { challengeCard, challengeCards, fullDeckSize } from '../../src/lib/challenge-cards'
-import { preloadImages } from '../../src/lib/preload'
+import { createProgressivePreloadPlan, preloadImages } from '../../src/lib/preload'
 
 import Settings from '../../src/modes/settings/Settings'
 import Surge from '../../src/modes/surge/Surge'
@@ -340,6 +340,19 @@ describe('preloadImages', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('createProgressivePreloadPlan', () => {
+  it('tops up a bounded look-ahead without repeating requested cards', () => {
+    const cards = fakeCards(20)
+    const plan = createProgressivePreloadPlan(cards, 14, 14)
+
+    expect(plan.next(0)).toEqual([cards[14]])
+    expect(plan.next(0)).toEqual([])
+    expect(plan.next(1)).toEqual([cards[15]])
+    expect(plan.next(10)).toEqual(cards.slice(16))
+    expect(plan.next(19)).toEqual([])
   })
 })
 

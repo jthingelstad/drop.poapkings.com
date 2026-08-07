@@ -1,6 +1,53 @@
 import { TRADE_LADDER, TRADE_ROUNDS } from '@elixir-drop/contracts'
 import { cardsById, cardsData, expect, test, waitForKeypad } from './fixtures'
 
+test('survival progressively tops up its card-art look-ahead', async ({ page }) => {
+  const requestedCards = new Set<string>()
+  await page.route('**/cards/*.png', async (route) => {
+    requestedCards.add(new URL(route.request().url()).pathname)
+    await route.continue()
+  })
+
+  await page.goto('/#/survival')
+
+  const cardPath = (index: number) => `/cards/${cardsData.cards[index]!.id}.png`
+  // Fourteen images gate startup. The first progressive top-up is requested
+  // during the countdown, while the rest of the 175-card deck stays untouched.
+  await expect.poll(() => requestedCards.has(cardPath(14))).toBe(true)
+  expect(requestedCards.has(cardPath(15))).toBe(false)
+  expect(requestedCards.has(cardPath(cardsData.cards.length - 1))).toBe(false)
+
+  await waitForKeypad(page)
+  const first = cardsData.cards[0]!
+  await page.getByRole('button', { name: `${first.elixir} elixir`, exact: true }).click()
+
+  // Advancing one card adds exactly the next distant card to the warm window;
+  // it does not fan out across the remaining catalog.
+  await expect.poll(() => requestedCards.has(cardPath(15))).toBe(true)
+  expect(requestedCards.has(cardPath(16))).toBe(false)
+})
+
+test('survival flashes the same every-10 counter as Rain', async ({ page }, testInfo) => {
+  await page.goto('/#/survival')
+  await waitForKeypad(page)
+
+  const cardImage = page.locator('.pcard__img')
+  for (let cleared = 0; cleared < 10; cleared += 1) {
+    const name = await cardImage.getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === name)
+    expect(card, `unknown survival card "${name}"`).toBeTruthy()
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+    if (cleared < 9) await expect(cardImage).not.toHaveAttribute('alt', name!)
+  }
+
+  await expect(page.locator('.game-milestone__num')).toHaveText('10')
+  await testInfo.attach('survival-10-milestone.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  await expect(page.locator('.game-milestone')).toHaveCount(0)
+})
+
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)
   const activeModes = [
@@ -77,8 +124,8 @@ test('rain flashes the running total every 10 clears', async ({ page }) => {
   }
 
   // The milestone flash appears with the running total, then clears itself.
-  await expect(page.locator('.ed-rain__milestone-num')).toHaveText('10')
-  await expect(page.locator('.ed-rain__milestone')).toHaveCount(0, { timeout: 4_000 })
+  await expect(page.locator('.game-milestone__num')).toHaveText('10')
+  await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
 })
 
 test('trade auto-advances the ten-exchange ladder with one cost hint per wrong guess', async ({ page }) => {
