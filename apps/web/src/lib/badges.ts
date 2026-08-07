@@ -16,8 +16,8 @@ export interface BadgeView {
   rungIndex: number
   tier: BadgeTier
   earned: boolean
-  // Hidden AND unearned: renders as a black silhouette, with no name and no
-  // requirement. A hidden badge the player HAS earned is fully revealed.
+  // Hidden AND unearned: renders as a black silhouette and keeps its earning
+  // condition secret. The name is always visible; earning reveals everything.
   concealed: boolean
   // The chip label: the rung reached in the badge's own units — "18s", "150",
   // "2.5K" — never a roman numeral. Empty until a rung is cleared.

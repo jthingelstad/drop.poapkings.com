@@ -1,7 +1,15 @@
+import { BADGE_LIST } from '@elixir-drop/contracts'
 import { describe, expect, it } from 'vitest'
 import { badgeViews } from '../../src/lib/badges'
 
 describe('badge milestone progress', () => {
+  it('gives every secret badge an earned-by explanation', () => {
+    const secrets = BADGE_LIST.filter((badge) => badge.hidden)
+
+    expect(secrets).toHaveLength(7)
+    for (const badge of secrets) expect(badge.requirement).toMatch(/^Earned by .+\.$/)
+  })
+
   it('measures count and best badges against the visible next milestone', () => {
     const views = badgeViews([
       {

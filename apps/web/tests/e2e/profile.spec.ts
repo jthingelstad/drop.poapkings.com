@@ -120,6 +120,17 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Night Shift, 1' }).click()
+  const earnedSecret = page.getByRole('dialog', { name: 'Night Shift' })
+  await expect(earnedSecret).toContainText('Earned by completing a game between midnight and 5:00 a.m. local time.')
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Cold Open' }).click()
+  const lockedSecret = page.getByRole('dialog', { name: 'Cold Open' })
+  await expect(lockedSecret).toContainText('Secret badge — earn it to reveal how.')
+  await expect(lockedSecret).not.toContainText('new all-time best')
 })
 
 test('earned badge sharing includes its artwork, rung, player, and public profile link', async ({ page }, testInfo) => {

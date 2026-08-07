@@ -58,10 +58,10 @@ export default function BadgeGrid({
               triggerRef.current = event.currentTarget
               setOpenSlug(view.slug)
             }}
-            aria-label={view.concealed ? 'Hidden badge' : `${view.name}${view.chip ? `, ${view.chip}` : ''}`}
+            aria-label={`${view.name}${view.chip ? `, ${view.chip}` : ''}`}
           >
             <BadgeMedallion badge={view} size={74} />
-            <span class="ed-badges__cell-name">{view.concealed ? 'Hidden badge' : view.name}</span>
+            <span class="ed-badges__cell-name">{view.name}</span>
           </button>
         ))}
       </div>
@@ -128,19 +128,14 @@ function BadgeSheet({
         : 'Share badge'
 
   return (
-    <DetailModal
-      label={badge.concealed ? 'Hidden badge' : badge.name}
-      onClose={onClose}
-      className="ed-badges__sheet"
-      returnFocus={returnFocus}
-    >
+    <DetailModal label={badge.name} onClose={onClose} className="ed-badges__sheet" returnFocus={returnFocus}>
       <BadgeMedallion badge={badge} size={84} />
-      <span class="ed-badges__sheet-name">{badge.concealed ? 'Hidden badge' : badge.name}</span>
-      {/* A hidden badge gives away nothing: no name, no requirement, no
-            progress bar — and never a "3 of 7 found" count, which would turn the
-            mystery into a checklist and make players feel behind. */}
+      <span class="ed-badges__sheet-name">{badge.name}</span>
+      {/* A locked secret reveals its name, but not the earning condition or
+          progress. It also never exposes a "3 of 7 found" count, which would
+          turn discovery into a checklist and make players feel behind. */}
       {badge.concealed ? (
-        <span class="ed-badges__sheet-req">Something you have not done yet.</span>
+        <span class="ed-badges__sheet-req">Secret badge — earn it to reveal how.</span>
       ) : (
         <>
           {definition.requirement && <span class="ed-badges__sheet-req">{definition.requirement}</span>}

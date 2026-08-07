@@ -204,12 +204,13 @@ describe('BadgeGrid', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
-  it('keeps concealed badges mysterious and hides time progress before the first run', async () => {
+  it('names locked secret badges while keeping their condition hidden', async () => {
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} />)
 
-    await click(buttonNamed('Hidden badge'))
-    expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Hidden badge')
-    expect(host.textContent).toContain('Something you have not done yet.')
+    await click(buttonNamed('Night Shift'))
+    expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Night Shift')
+    expect(host.textContent).toContain('Secret badge — earn it to reveal how.')
+    expect(host.textContent).not.toContain('between midnight and 5:00 a.m.')
     expect(host.querySelector('[role="progressbar"]')).toBeNull()
     await click(buttonNamed('Close'))
 
@@ -217,6 +218,15 @@ describe('BadgeGrid', () => {
     expect(host.textContent).toContain('Fastest Surge run')
     expect(host.textContent).toContain('60s')
     expect(host.querySelector('[role="progressbar"]')).toBeNull()
+  })
+
+  it('explains exactly how an earned secret badge was triggered', async () => {
+    draw(<BadgeGrid states={[badgeState('night-shift', 1, 0)]} />)
+
+    await click(buttonNamed('Night Shift, 1'))
+    expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Night Shift')
+    expect(host.textContent).toContain('Earned by completing a game between midnight and 5:00 a.m. local time.')
+    expect(host.textContent).not.toContain('Secret badge — earn it to reveal how.')
   })
 
   it('describes descending time progress and a completed milestone ladder', async () => {

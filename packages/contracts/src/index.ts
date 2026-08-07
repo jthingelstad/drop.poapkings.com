@@ -434,10 +434,12 @@ export interface BadgeDefinition {
   rungs: readonly number[];
   // What the medallion chip shows: "18s", "150", "2.5K" — never a roman numeral.
   unit?: "seconds" | "plain";
-  // Hidden badges render as a black silhouette until earned: no name, no
-  // requirement, no progress bar, and never a "3 of 7 found" count.
+  // Hidden badges render as a black silhouette until earned. Their names stay
+  // visible, but the earning condition, progress bar, and aggregate hidden
+  // count remain secret until the badge is earned.
   hidden?: true;
-  // One line shown on the detail sheet. Omitted for hidden badges by design.
+  // One line shown on the detail sheet. Hidden-badge requirements are revealed
+  // only after earning them.
   requirement?: string;
 }
 
@@ -663,6 +665,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by completing a game between midnight and 5:00 a.m. local time.",
   },
   {
     slug: "photo-finish",
@@ -671,6 +675,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by setting a new Surge or Trade best by less than one tenth of a second.",
   },
   {
     slug: "full-cup",
@@ -679,6 +685,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by clearing every 6+ elixir card on the first guess in one Surge run.",
   },
   {
     slug: "zero-hesitation",
@@ -687,6 +695,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by responding to every card in a Survival run in under one second.",
   },
   {
     slug: "comeback",
@@ -695,6 +705,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by clearing 20 cards in Rain after falling to your final life.",
   },
   {
     slug: "cold-open",
@@ -703,6 +715,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by setting a new all-time best on your first completed game of the local day.",
   },
   {
     slug: "collector",
@@ -711,6 +725,8 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    requirement:
+      "Earned by unlocking at least one milestone in every other badge.",
   },
 ] as const satisfies readonly BadgeDefinition[];
 

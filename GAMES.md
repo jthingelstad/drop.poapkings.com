@@ -401,10 +401,12 @@ nobody, while its entry rung excluded 31% of players outright. Ladders with no
 live data behind them are marked "scaled" in the table and should be re-checked
 once badge counters have a month of history.
 
-**Hidden badges.** Shown as a flat black silhouette of the real glyph — the shape
-teases, the subject stays unreadable. **Never show a hidden count**: "3 of 7
-found" turns mystery into a checklist and makes players feel behind. Six of the
-seven are earnable in a single run; only Collector is a long game.
+**Hidden badges.** Shown as a flat black silhouette of the real glyph until
+earned. The badge name stays visible, but its art and earning condition are the
+mystery; once earned, the detail sheet explains exactly what triggered it.
+**Never show a hidden count**: "3 of 7 found" turns discovery into a checklist
+and makes players feel behind. Six of the seven are earnable in a single run;
+only Collector is a long game.
 
 **What backfills and what does not.** Run history stores mode, score, seasonId,
 completedAt, and the board epoch that dealt new runs — not transcripts. So the
