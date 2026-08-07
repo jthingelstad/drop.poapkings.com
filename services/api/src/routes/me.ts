@@ -199,6 +199,17 @@ export async function getPublicPlayer(
       "Player profile was not found.",
       "player_not_found",
     );
+  const crProfile = lookup.player.playerTag
+    ? await repository.getCrProfile(lookup.player.playerTag)
+    : undefined;
+  const clashRoyale = lookup.player.playerTag
+    ? {
+        tag: lookup.player.playerTag,
+        status: crProfile?.status ?? ("pending" as const),
+        ...(crProfile?.name ? { name: crProfile.name } : {}),
+        ...(crProfile?.clan ? { clan: crProfile.clan } : {}),
+      }
+    : undefined;
   const recentRuns = await repository.listRecentRuns(lookup.sub, 10);
   const badges = await badgeSummary(
     { event, config, repository },
@@ -206,7 +217,10 @@ export async function getPublicPlayer(
     lookup.player,
   );
   return json(200, {
-    player: lookup.player,
+    player: {
+      ...lookup.player,
+      ...(clashRoyale ? { clashRoyale } : {}),
+    },
     badges,
     recentRuns: recentRuns
       .filter((run) => isGameMode(run.mode) && run.mode !== "practice")

@@ -321,6 +321,13 @@ describe('PublicProfile', () => {
         id: 'p2',
         publicName: 'Royal Ghosted',
         favoriteCardId: 26000050,
+        playerTag: '#UL2V9QRGO',
+        clashRoyale: {
+          tag: '#UL2V9QRGO',
+          status: 'ready',
+          name: 'King Thing',
+          clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000 }
+        },
         totalGames: 42,
         xp: 900,
         level: 4,
@@ -343,6 +350,10 @@ describe('PublicProfile', () => {
 
     expect(getPublicPlayer).toHaveBeenCalledWith('p2', expect.any(AbortSignal))
     expect(host.querySelector('h1')?.textContent).toBe('Royal Ghosted')
+    expect(host.textContent).toContain('King Thing')
+    expect(host.textContent).toContain('Clan POAP KINGS · #J2RGCRVG')
+    expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/player/UL2V9QRGO"]')).not.toBeNull()
+    expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/clan/J2RGCRVG"]')).not.toBeNull()
     expect(host.textContent).toContain('52.00s')
     expect(host.textContent).not.toContain('player@example.com')
     expect(host.textContent).not.toContain('Edit')

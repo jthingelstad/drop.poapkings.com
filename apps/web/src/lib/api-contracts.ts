@@ -68,6 +68,13 @@ const clashRoyaleProfileSchema = z.object({
   refreshRequestedAt: z.optional(isoDateTime)
 })
 
+const publicClashRoyaleProfileSchema = clashRoyaleProfileSchema.pick({
+  tag: true,
+  status: true,
+  name: true,
+  clan: true
+})
+
 export const playerSchema = z.object({
   id: nonEmptyString,
   email: z.string().email(),
@@ -262,6 +269,7 @@ export const publicPlayerSummarySchema = z.object({
 })
 
 export const publicPlayerSchema = publicPlayerSummarySchema.extend({
+  clashRoyale: z.optional(publicClashRoyaleProfileSchema),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger
 })

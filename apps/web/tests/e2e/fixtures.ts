@@ -154,6 +154,17 @@ function publicPlayerResponse(playerId: string) {
   return {
     player: {
       ...summary,
+      ...(playerId === 'player-2'
+        ? {
+            playerTag: '#UL2V9QRGO',
+            clashRoyale: {
+              tag: '#UL2V9QRGO',
+              status: 'ready' as const,
+              name: 'King Thing',
+              clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000 }
+            }
+          }
+        : {}),
       levelStartGames: Math.max(0, summary.totalGames - 10),
       nextLevelGames: summary.totalGames + 15
     },

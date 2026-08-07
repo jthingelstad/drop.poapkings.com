@@ -4924,9 +4924,46 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.78rem;
   margin-top: 2px;
 }
-.ed-profile__email {
+.ed-profile__email,
+.ed-profile__clash-link {
   color: var(--muted);
   font-size: 0.72rem;
+}
+.ed-profile__clash {
+  display: flex;
+  min-width: 0;
+  margin-top: 5px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.ed-profile__clash-name {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.ed-profile__clash-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.3;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.ed-profile__clash-link--clan {
+  color: var(--lavender-2);
+}
+.ed-profile__clash-link:hover,
+.ed-profile__clash-link:focus-visible {
+  color: var(--gold);
+  text-decoration: underline;
+}
+.ed-profile__clash-link .icon {
+  flex: 0 0 auto;
+  font-size: 0.85em;
 }
 .ed-profile__edit {
   flex: 0 0 auto;

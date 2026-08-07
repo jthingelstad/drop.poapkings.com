@@ -7,6 +7,7 @@ import type {
   ClashRoyaleAccountAge,
   ClashRoyaleCard,
   ClashRoyaleClan,
+  ClashRoyaleProfile,
   CrWarClock,
   GameMode,
   RunChallenge,
@@ -84,6 +85,9 @@ export interface PublicProfile {
   publicName: string;
   favoriteCardId?: number;
   playerTag?: string;
+  // Public profiles expose identity only; owner-only CR context such as
+  // account age and collection data stays on GET /me.
+  clashRoyale?: Pick<ClashRoyaleProfile, "tag" | "status" | "name" | "clan">;
   totalGames: number;
   // Lifetime Player XP; drives the player's arena tier.
   xp: number;

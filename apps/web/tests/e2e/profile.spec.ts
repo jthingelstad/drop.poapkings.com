@@ -223,6 +223,15 @@ test('public profiles display earned badges prominently', async ({ page }, testI
 
   const badgeWall = page.locator('.ed-profile__badges')
   const stats = page.locator('.ed-profile__stats')
+  await expect(page.locator('.ed-profile__clash')).toContainText('King Thing')
+  await expect(page.getByRole('link', { name: 'View King Thing on RoyaleAPI' })).toHaveAttribute(
+    'href',
+    'https://royaleapi.com/player/UL2V9QRGO'
+  )
+  await expect(page.getByRole('link', { name: 'View clan POAP KINGS on RoyaleAPI' })).toHaveAttribute(
+    'href',
+    'https://royaleapi.com/clan/J2RGCRVG'
+  )
   await expect(badgeWall).toContainText('4 earned')
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()

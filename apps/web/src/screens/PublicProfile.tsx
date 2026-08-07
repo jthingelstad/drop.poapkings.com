@@ -10,6 +10,7 @@ import { challengeCard } from '../lib/challenge-cards'
 import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { playerIdFromRoute, publicPlayerPreview } from '../lib/public-player'
+import { royaleApiClanUrl, royaleApiPlayerUrl } from '../lib/royale-api'
 import { back, navigate, route } from '../lib/router'
 import { badgeViews, earnedCount, type BadgeState } from '../lib/badges'
 
@@ -72,6 +73,7 @@ export default function PublicProfile() {
   const favorite = current.favoriteCardId ? challengeCard(current.favoriteCardId) : undefined
   const arena = rankFor(current.xp).current
   const badgeCount = earnedCount(badgeViews(publicBadges.value))
+  const clashRoyale = 'clashRoyale' in current ? current.clashRoyale : undefined
 
   return (
     <div class="ed-profile ed-public-profile">
@@ -86,7 +88,31 @@ export default function PublicProfile() {
           <div class="ed-profile__ident">
             <h1 class="ed-profile__name">{current.publicName}</h1>
             <div class="ed-profile__card">{favorite ? `${favorite.name} · Player Card` : 'Drop Player'}</div>
-            {current.playerTag && <div class="ed-profile__email">Clash Royale {current.playerTag}</div>}
+            {current.playerTag && (
+              <div class="ed-profile__clash" aria-label="Clash Royale identity">
+                {clashRoyale?.name && <div class="ed-profile__clash-name">{clashRoyale.name}</div>}
+                <a
+                  class="ed-profile__clash-link"
+                  href={royaleApiPlayerUrl(current.playerTag)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View ${clashRoyale?.name ?? current.playerTag} on RoyaleAPI`}
+                >
+                  Clash Royale {current.playerTag} <Icon name="external-link" />
+                </a>
+                {clashRoyale?.clan && (
+                  <a
+                    class="ed-profile__clash-link ed-profile__clash-link--clan"
+                    href={royaleApiClanUrl(clashRoyale.clan.tag)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`View clan ${clashRoyale.clan.name} on RoyaleAPI`}
+                  >
+                    Clan {clashRoyale.clan.name} · {clashRoyale.clan.tag} <Icon name="external-link" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

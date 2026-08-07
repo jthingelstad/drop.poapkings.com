@@ -382,7 +382,10 @@ that badge from 10-exchange `r2` history and preserves forward-only state such
 as Podium, Reps, Clean Sweep, and hidden badges. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
-profile, where only earned medallions are shown. Missing or stale counters take
+profile, where only earned medallions are shown. Its identity projection also
+includes the unverified Clash player tag plus CR name and clan when the shared
+snapshot has them; account age and collection context remain owner-only.
+Missing or stale counters take
 the same history-backed rebuild path, so another player never sees an empty wall
 merely because the owner has not opened Profile since badges shipped.
 `/runs/complete` returns `earnedBadges`, the rungs that run cleared, plus the

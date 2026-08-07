@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
+  getCrProfile: vi.fn(),
   getPublicPlayer: vi.fn(),
   getBadges: vi.fn(),
   getCardStats: vi.fn(),
@@ -13,6 +14,7 @@ const repository = vi.hoisted(() => ({
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    getCrProfile = repository.getCrProfile;
     getPublicPlayer = repository.getPublicPlayer;
     getBadges = repository.getBadges;
     getCardStats = repository.getCardStats;
@@ -65,6 +67,7 @@ describe("GET /players/:id", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getCrProfile.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
     repository.listAllRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
@@ -148,6 +151,60 @@ describe("GET /players/:id", () => {
         completedAt: "2026-07-22T17:00:00.000Z",
       },
     ]);
+  });
+
+  it("returns Clash player and clan identity without owner-only snapshot data", async () => {
+    repository.getPublicPlayer.mockResolvedValue({
+      sub: "private-sub",
+      player: {
+        id: "player-2",
+        publicName: "Royal Ghosted",
+        playerTag: "#UL2V9QRGO",
+        totalGames: 42,
+        xp: 900,
+        level: 4,
+        levelStartGames: 25,
+        nextLevelGames: 50,
+      },
+    });
+    repository.getCrProfile.mockResolvedValue({
+      tag: "#UL2V9QRGO",
+      status: "ready",
+      name: "King Thing",
+      clan: {
+        tag: "#J2RGCRVG",
+        name: "POAP KINGS",
+        badgeId: 16000000,
+        role: "leader",
+      },
+      accountAge: { days: 2_000, years: 5 },
+      cards: [{ id: 26000000, name: "Knight" }],
+      fetchedAt: "2026-08-07T12:00:00.000Z",
+      updatedAt: "2026-08-07T12:00:00.000Z",
+    });
+
+    const result = await handler(
+      playerEvent("player-2"),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    expect(repository.getCrProfile).toHaveBeenCalledWith("#UL2V9QRGO");
+    const body = JSON.parse(result.body ?? "{}");
+    expect(body.player.clashRoyale).toEqual({
+      tag: "#UL2V9QRGO",
+      status: "ready",
+      name: "King Thing",
+      clan: {
+        tag: "#J2RGCRVG",
+        name: "POAP KINGS",
+        badgeId: 16000000,
+        role: "leader",
+      },
+    });
+    expect(body.player.clashRoyale).not.toHaveProperty("accountAge");
+    expect(body.player.clashRoyale).not.toHaveProperty("cards");
   });
 
   it("returns 404 when the public player id is unknown", async () => {

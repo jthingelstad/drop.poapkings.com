@@ -279,6 +279,13 @@ describe('api.ts request helpers', () => {
       json({
         player: {
           ...publicPlayer,
+          playerTag: '#UL2V9QRGO',
+          clashRoyale: {
+            tag: '#UL2V9QRGO',
+            status: 'ready',
+            name: 'King Thing',
+            clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000 }
+          },
           levelStartGames: 0,
           nextLevelGames: 20
         },
@@ -289,6 +296,8 @@ describe('api.ts request helpers', () => {
 
     const result = await getPublicPlayer('player/id')
     expect(result.player.publicName).toBe('Ace')
+    expect(result.player.clashRoyale?.name).toBe('King Thing')
+    expect(result.player.clashRoyale?.clan?.name).toBe('POAP KINGS')
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/players/player%2Fid`)
   })
 
