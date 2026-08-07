@@ -226,12 +226,20 @@ export default function Rain() {
     if (stage.value !== 'running') return
     const survivors: Drop[] = []
     let lost = 0
+    const remainingLives = Math.max(0, lives.value)
     for (const d of drops.current) {
       d.y += d.speed
       if (d.y >= 96) {
         popTile(d, true)
-        recordResolved(d, null)
-        lost++
+        // Several accelerated cards can reach the floor on the same 40ms
+        // tick. Remove every landed tile from the field, but stop the signed
+        // transcript exactly when the remaining lives are spent: recording a
+        // fourth miss makes an honest run look as though it continued after
+        // game over, which the server correctly rejects.
+        if (lost < remainingLives) {
+          recordResolved(d, null)
+          lost++
+        }
         continue
       }
       d.el.style.top = `${d.y}%`

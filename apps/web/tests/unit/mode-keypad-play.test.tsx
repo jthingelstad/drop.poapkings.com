@@ -735,4 +735,33 @@ describe('Rain gameplay', () => {
       answers.map((answer) => answer.cardId)
     )
   })
+
+  it('stops resolving landed cards when simultaneous drops spend the final lives', async () => {
+    // Four drops converge on the same 40ms fall tick. Their speeds compensate
+    // for the 1160ms spawn gaps: this is the deep-game shape that can occur as
+    // Rain accelerates and several cards reach the floor together.
+    const randomValues = [
+      0,
+      0, // drop 1: left, minimum speed
+      0,
+      0.25, // drop 2
+      0,
+      0.585_714, // drop 3
+      0,
+      0.985_714 // drop 4
+    ]
+    let randomIndex = 0
+    const random = vi.spyOn(Math, 'random').mockImplementation(() => randomValues[randomIndex++] ?? 0)
+
+    const host = await startRain(fakeCards(20))
+    advance(12_800) // four land together; finish waits 200ms before submitting
+    random.mockRestore()
+
+    expect(host.textContent).toContain('The rain stopped')
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const { answers } = session.complete.mock.calls[0]![0] as {
+      answers: Array<{ cardId: number; guess: number | null; atMs: number }>
+    }
+    expect(answers.filter((answer) => answer.guess === null)).toHaveLength(3)
+  })
 })
