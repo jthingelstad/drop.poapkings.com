@@ -26,6 +26,7 @@ import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
 import MetaPage from './screens/MetaPage'
+import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
@@ -70,6 +71,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/releases', label: 'Releases' },
   { match: '/faq', label: 'FAQ' },
   { match: '/install', label: 'Install' },
+  { match: '/app-info', label: 'App info' },
   { match: '/login', label: 'Sign in' },
   { match: '/auth', label: 'Signing in' }
 ]
@@ -157,6 +159,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/releases')) return <MetaPage kind="releases" />
   if (r.startsWith('/faq')) return <MetaPage kind="faq" />
   if (r.startsWith('/install')) return <MetaPage kind="install" />
+  if (r.startsWith('/app-info')) return <AppInfo />
   return <Home />
 }
 

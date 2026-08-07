@@ -1,5 +1,13 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, fulfillSupportData, isDesktopViewport, test, testApiBaseUrl, testApiRoute } from './fixtures'
+import {
+  cardsData,
+  expect,
+  fulfillSupportData,
+  isDesktopViewport,
+  test,
+  testApiBaseUrl,
+  testApiRoute
+} from './fixtures'
 
 test('the profile is reachable from the shell and shows Player XP', async ({ page, viewport }) => {
   await page.goto('/')
@@ -25,6 +33,78 @@ test('settings persist input and motion preferences across reload', async ({ pag
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
   await expect(page.getByLabel('Build information')).toContainText('Build ID')
   await expect(page.getByLabel('Build information')).toContainText('Build date')
+})
+
+test('an installed PWA replaces Install app with live App Info diagnostics', async ({ page, viewport }, testInfo) => {
+  test.skip(isDesktopViewport(viewport), 'the Profile More list is a mobile-shell surface')
+  await page.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window)
+    window.matchMedia = (query: string) => {
+      if (query === '(display-mode: standalone)') {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false
+        }
+      }
+      return nativeMatchMedia(query)
+    }
+  })
+
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  const appInfo = page.getByRole('button', { name: 'App Info' })
+  await expect(appInfo).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Install app' })).toHaveCount(0)
+
+  const totalArt = new Set(
+    cardsData.cards.flatMap((card) => [card.icon, card.iconEvo, card.iconHero].filter((url): url is string => !!url))
+  ).size
+  await page.evaluate(
+    async ({ cacheName, cardUrl }) => {
+      const cache = await caches.open(cacheName)
+      await cache.put(cardUrl, new Response(new Uint8Array([1]), { status: 200 }))
+    },
+    { cacheName: `elixir-drop-card-art-${cardsData.version}`, cardUrl: cardsData.cards[0]!.icon }
+  )
+  await appInfo.click()
+
+  await expect(page).toHaveURL(/#\/app-info$/)
+  await expect(page.getByRole('heading', { name: 'App Info', exact: true })).toBeVisible()
+  const details = page.getByLabel('App information')
+  await expect(details).toContainText('Installed app')
+  await expect(details).toContainText('Build ID')
+  await expect(details).toContainText('Build date')
+  await expect(details).toContainText(testApiBaseUrl)
+  await expect(details.locator('.settings-meta__row').filter({ hasText: 'API latency' })).toContainText(/\d+ ms/)
+  await expect(details).toContainText(`${cardsData.version} · ${cardsData.cards.length} cards`)
+  await expect(page.getByRole('heading', { name: 'Online' })).toBeVisible()
+  await expect(page.locator('.ed-appinfo__latency')).toContainText(/\d+ms/)
+  const speedrun = page.getByRole('switch', { name: 'Speedrun keyboard' })
+  await expect(speedrun).toHaveAttribute('aria-checked', 'false')
+  await speedrun.click()
+  await expect(speedrun).toHaveAttribute('aria-checked', 'true')
+  const cacheProgress = page.getByRole('progressbar', { name: 'Card art cache progress' })
+  await expect(cacheProgress).toHaveAttribute('aria-valuenow', '1')
+  await expect(cacheProgress).toHaveAttribute('aria-valuemax', String(totalArt))
+  await expect(page.getByText(`1 of ${totalArt} images cached`)).toHaveCount(2)
+
+  const accessibilityScanResults = await new AxeBuilder({ page }).analyze()
+  expect(accessibilityScanResults.violations.filter((violation) => violation.impact === 'serious')).toEqual([])
+  await testInfo.attach('app-info.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
+
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/profile$/)
+  await expect(
+    page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Speedrun keyboard' })
+  ).toHaveAttribute('aria-checked', 'true')
 })
 
 test('profile leads with badges and keeps settings near the bottom', async ({ page }, testInfo) => {

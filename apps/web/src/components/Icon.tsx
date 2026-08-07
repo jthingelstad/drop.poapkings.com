@@ -23,6 +23,7 @@ import messageCircle from 'lucide-static/icons/message-circle.svg?raw'
 import logOut from 'lucide-static/icons/log-out.svg?raw'
 import pencil from 'lucide-static/icons/pencil.svg?raw'
 import play from 'lucide-static/icons/play.svg?raw'
+import refreshCw from 'lucide-static/icons/refresh-cw.svg?raw'
 import scanEye from 'lucide-static/icons/scan-eye.svg?raw'
 import search from 'lucide-static/icons/search.svg?raw'
 import share from 'lucide-static/icons/share.svg?raw'
@@ -69,6 +70,7 @@ const ICONS = {
   'log-out': logOut,
   pencil,
   play,
+  'refresh-cw': refreshCw,
   'scan-eye': scanEye,
   search,
   share,

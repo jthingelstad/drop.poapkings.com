@@ -645,6 +645,7 @@ describe('pwa-install', () => {
     stubMatchMedia(true) // display-mode: standalone matches
     const mod = await loadPwa()
     mod.initInstallPrompt()
+    expect(mod.standaloneApp.value).toBe(true)
     // no listener registered → a beforeinstallprompt does not flip the mode
     window.dispatchEvent(new Event('beforeinstallprompt'))
     expect(mod.installMode.value).toBe('none')

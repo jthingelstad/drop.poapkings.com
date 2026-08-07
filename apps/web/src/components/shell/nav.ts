@@ -41,7 +41,7 @@ const GAME_PREFIXES = ['/surge', '/practice', '/higher-lower', '/trade', '/survi
 // The meta pages reached from Profile's "More" list (and Settings, reached from
 // the same screen). They belong to the You tab: the pill has to stay where the
 // player came from, or reading About looks like it navigated them into Games.
-const MORE_PREFIXES = ['/about', '/releases', '/faq', '/install', '/privacy', '/settings']
+const MORE_PREFIXES = ['/about', '/releases', '/faq', '/install', '/app-info', '/privacy', '/settings']
 
 export function isMoreRoute(r: string): boolean {
   return MORE_PREFIXES.some((p) => r.startsWith(p))

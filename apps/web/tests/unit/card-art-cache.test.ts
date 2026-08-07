@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { allCardArtUrls, cardArtBatches, initCardArtCache } from '../../src/lib/card-art-cache'
+import {
+  allCardArtUrls,
+  cardArtBatches,
+  cardArtCacheName,
+  getCardArtCacheInfo,
+  initCardArtCache
+} from '../../src/lib/card-art-cache'
 import { allCards, cardCatalogVersion } from '../../src/lib/card-catalog'
 
 describe('card art cache', () => {
   const serviceWorkerDescriptor = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker')
   const matchMedia = window.matchMedia
   const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState')
+  const cachesDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches')
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -20,6 +27,8 @@ describe('card art cache', () => {
     else Reflect.deleteProperty(navigator, 'serviceWorker')
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia })
     if (visibilityDescriptor) Object.defineProperty(document, 'visibilityState', visibilityDescriptor)
+    if (cachesDescriptor) Object.defineProperty(globalThis, 'caches', cachesDescriptor)
+    else Reflect.deleteProperty(globalThis, 'caches')
   })
 
   it('packs every unique base, Evolution, and Hero image from the catalog', () => {
@@ -83,6 +92,51 @@ describe('card art cache', () => {
     expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
     vi.advanceTimersByTime(750)
     expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(4, 8) })
+  })
+
+  it('reports the active worker and only current-catalog card images in the cache', async () => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: vi.fn(async () => ({ active: { state: 'activated' } }))
+      }
+    })
+    Object.defineProperty(globalThis, 'caches', {
+      configurable: true,
+      value: {
+        keys: vi.fn(async () => [cardArtCacheName]),
+        open: vi.fn(async () => ({
+          keys: vi.fn(async () => [
+            { url: `https://drop.poapkings.com${allCardArtUrls[0]}` },
+            { url: `https://drop.poapkings.com${allCardArtUrls[1]}` },
+            { url: 'https://drop.poapkings.com/cards/99999999.png' },
+            { url: 'https://drop.poapkings.com/assets/index.js' }
+          ])
+        }))
+      }
+    })
+
+    await expect(getCardArtCacheInfo()).resolves.toEqual({
+      supported: true,
+      workerState: 'activated',
+      cacheName: cardArtCacheName,
+      cachedCount: 2,
+      totalCount: allCardArtUrls.length,
+      ready: false
+    })
+  })
+
+  it('reports unsupported diagnostics without creating a cache', async () => {
+    Reflect.deleteProperty(navigator, 'serviceWorker')
+    Reflect.deleteProperty(globalThis, 'caches')
+
+    await expect(getCardArtCacheInfo()).resolves.toMatchObject({
+      supported: false,
+      workerState: 'unsupported',
+      cachedCount: 0,
+      totalCount: allCardArtUrls.length,
+      ready: false
+    })
   })
 
   it('ships a card-only service worker with runtime and background cache paths', () => {

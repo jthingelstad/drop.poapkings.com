@@ -22,7 +22,6 @@ export default function PlayerPreferences() {
   const sound = useSignal(settings.sound)
   const reducedMotion = useSignal(Boolean(settings.reducedMotion))
   const enhancedEffects = useSignal(settings.enhancedEffects ?? true)
-  const speedrunKeyboard = useSignal(settings.speedrunKeyboard ?? false)
 
   function toggleSound() {
     const on = !sound.value
@@ -43,12 +42,6 @@ export default function PlayerPreferences() {
     const on = !enhancedEffects.value
     enhancedEffects.value = on
     saveSettings({ enhancedEffects: on })
-  }
-
-  function toggleSpeedrunKeyboard() {
-    const on = !speedrunKeyboard.value
-    speedrunKeyboard.value = on
-    saveSettings({ speedrunKeyboard: on })
   }
 
   return (
@@ -79,16 +72,32 @@ export default function PlayerPreferences() {
         <Toggle on={enhancedEffects.value} onToggle={toggleEnhanced} label="Enhance effects" />
       </div>
 
-      <div class="setting-row">
-        <div class="setting-row__text">
-          <div class="setting-row__name">Speedrun keyboard</div>
-          <div class="setting-row__desc">
-            Two wide rows &mdash; 1&ndash;5 over 6&ndash;9 &mdash; instead of one row of nine. Bigger keys, fewer
-            mistaps. Off by default.
-          </div>
+      <SpeedrunKeyboardPreference />
+    </div>
+  )
+}
+
+// Exported so App Info can mirror the exact same persisted performance
+// preference without growing a second source of truth.
+export function SpeedrunKeyboardPreference() {
+  const speedrunKeyboard = useSignal(getSettings().speedrunKeyboard ?? false)
+
+  function toggleSpeedrunKeyboard() {
+    const on = !speedrunKeyboard.value
+    speedrunKeyboard.value = on
+    saveSettings({ speedrunKeyboard: on })
+  }
+
+  return (
+    <div class="setting-row setting-row--speedrun">
+      <div class="setting-row__text">
+        <div class="setting-row__name">Speedrun keyboard</div>
+        <div class="setting-row__desc">
+          Two wide rows &mdash; 1&ndash;5 over 6&ndash;9 &mdash; instead of one row of nine. Bigger keys, fewer mistaps.
+          Off by default.
         </div>
-        <Toggle on={speedrunKeyboard.value} onToggle={toggleSpeedrunKeyboard} label="Speedrun keyboard" />
       </div>
+      <Toggle on={speedrunKeyboard.value} onToggle={toggleSpeedrunKeyboard} label="Speedrun keyboard" />
     </div>
   )
 }

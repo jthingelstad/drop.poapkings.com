@@ -6,6 +6,7 @@ import Summary from '../../src/components/Summary'
 import MetaPage from '../../src/screens/MetaPage'
 import Privacy from '../../src/screens/Privacy'
 import MetaMoreList from '../../src/components/MetaMoreList'
+import AppInfo from '../../src/screens/AppInfo'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
 import { ElixirCostBadge, CardName, CardArt } from '../../src/components/CardChrome'
 import CardDisplay from '../../src/components/CardDisplay'
@@ -21,7 +22,7 @@ import ApiStatusBanner from '../../src/components/ApiStatusBanner'
 import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
-import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
+import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
 import { apiAvailability, apiUnavailableReason } from '../../src/lib/api-availability'
 import { recordingNotice } from '../../src/lib/use-game-run'
 import { ABOUT, FAQ, INSTALL } from '../../src/data/meta-content'
@@ -77,6 +78,7 @@ afterEach(() => {
   installMode.value = 'none'
   installEligible.value = false
   installDismissed.value = false
+  standaloneApp.value = false
   apiAvailability.value = 'checking'
   apiUnavailableReason.value = 'service'
   recordingNotice.value = { state: 'idle' }
@@ -271,6 +273,34 @@ describe('MetaMoreList', () => {
     expect(html).toContain('rel="noopener noreferrer"')
     // Non-external rows are buttons.
     expect(html).toContain('<button')
+  })
+
+  it('replaces Install app with App Info while running standalone', async () => {
+    standaloneApp.value = true
+    const html = await render(<MetaMoreList />)
+
+    expect(html).toContain('App Info')
+    expect(html).not.toContain('Install app')
+  })
+})
+
+describe('AppInfo', () => {
+  it('renders build and card-library diagnostics before the browser status resolves', async () => {
+    standaloneApp.value = true
+    const html = await render(<AppInfo />)
+
+    expect(html).toContain('App Info')
+    expect(html).toContain('Installed app')
+    expect(html).toContain('Build ID')
+    expect(html).toContain('Build date')
+    expect(html).toContain('Player API')
+    expect(html).toContain('API endpoint')
+    expect(html).toContain('API latency')
+    expect(html).toContain('Card catalog')
+    expect(html).toContain('Service worker')
+    expect(html).toContain('Card cache')
+    expect(html).toContain('Card art')
+    expect(html).toContain('Speedrun keyboard')
   })
 })
 

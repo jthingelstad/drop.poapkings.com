@@ -28,6 +28,12 @@ export const installEligible = signal(false)
 // stays in Profile → More. Persisted so the banner doesn't nag on every visit.
 export const installDismissed = signal<boolean>(dismissed())
 
+// The Profile "More" list uses the current display mode, not whether some
+// copy of Drop happens to be installed elsewhere on the device. Initializing
+// this at module load avoids flashing "Install app" before App's effects run
+// when a player launches from their home screen.
+export const standaloneApp = signal(isStandaloneApp())
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
@@ -39,7 +45,8 @@ function analyticsValue(mode: InstallMode = installMode.value): TinyEventValue {
   return mode === 'ios' ? 'ios' : 'browser'
 }
 
-function isStandalone(): boolean {
+export function isStandaloneApp(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
   return (
     window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as unknown as { standalone?: boolean }).standalone === true
@@ -82,9 +89,10 @@ function recordBrowserSession(): void {
 export function initInstallPrompt(): void {
   if (typeof window === 'undefined') return
   recordBrowserSession()
+  standaloneApp.value = isStandaloneApp()
   // Already installed → no install UI at all. A prior dismiss no longer stops
   // capability detection; it only collapses the banner (see installDismissed).
-  if (isStandalone()) {
+  if (standaloneApp.value) {
     installEligible.value = false
     return
   }

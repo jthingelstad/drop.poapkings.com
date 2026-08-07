@@ -15,7 +15,8 @@ const CASES = [
   ['/settings', 'Settings'],
   ['/about', 'About Elixir Drop'],
   ['/faq', 'Frequently asked'],
-  ['/install', 'Install Elixir Drop']
+  ['/install', 'Install Elixir Drop'],
+  ['/app-info', 'App Info']
 ] as const
 
 describe('SSR render smoke', () => {
@@ -61,6 +62,7 @@ describe('SSR render smoke', () => {
     ['/about', 'About'],
     ['/faq', 'FAQ'],
     ['/install', 'Install'],
+    ['/app-info', 'App info'],
     ['/login', 'Sign in']
   ])('announces %s as its own screen title', async (path, label) => {
     route.value = path

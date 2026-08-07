@@ -286,6 +286,32 @@ export function getStats(signal?: AbortSignal) {
   })
 }
 
+export interface ApiDiagnostics {
+  endpoint: string
+  latencyMs: number
+  webVersion?: string
+}
+
+// A single uncached round trip for App Info. Challenge preparation completes
+// before any game clock starts, so this is connection readiness—not a score
+// adjustment or an estimate of in-game timing accuracy.
+export async function getApiDiagnostics(signal?: AbortSignal): Promise<ApiDiagnostics> {
+  const { apiBaseUrl } = await config()
+  const startedAt = performance.now()
+  const stats = await apiRequest(`/stats?diagnostic=${Date.now()}`, siteStatsSchema, {
+    signal,
+    retry: false,
+    timeoutMs: 5_000,
+    cache: 'no-store'
+  })
+  noteWebVersion(stats.webVersion)
+  return {
+    endpoint: apiBaseUrl,
+    latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    webVersion: stats.webVersion
+  }
+}
+
 export type LeaderboardScope = 'season' | 'all-time' | 'clan'
 
 export function getLeaderboard(

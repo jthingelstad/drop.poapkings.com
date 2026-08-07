@@ -4,6 +4,7 @@ import { allCards, cardCatalogVersion } from './card-catalog'
 const CARD_ART_BATCH_SIZE = 4
 const CARD_ART_BATCH_DELAY_MS = 750
 const CACHE_MESSAGE = 'cache-card-art'
+const CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
@@ -15,6 +16,16 @@ type IdleWindow = Window & {
 export const allCardArtUrls = [
   ...new Set(allCards.flatMap((card) => [card.icon, card.iconEvo, card.iconHero].filter((url): url is string => !!url)))
 ]
+export const cardArtCacheName = `${CARD_CACHE_PREFIX}${cardCatalogVersion}`
+
+export interface CardArtCacheInfo {
+  supported: boolean
+  workerState: ServiceWorkerState | 'missing' | 'unsupported'
+  cacheName: string
+  cachedCount: number
+  totalCount: number
+  ready: boolean
+}
 
 function isStandalone(): boolean {
   return (
@@ -28,6 +39,51 @@ export function cardArtBatches(urls: readonly string[], size = CARD_ART_BATCH_SI
   const batches: string[][] = []
   for (let index = 0; index < urls.length; index += batchSize) batches.push(urls.slice(index, index + batchSize))
   return batches
+}
+
+// Read-only diagnostics for the installed-app information screen. Cache keys
+// are counted against the current catalog so stale or unrelated responses can
+// never make the pack look complete.
+export async function getCardArtCacheInfo(): Promise<CardArtCacheInfo> {
+  const unsupported: CardArtCacheInfo = {
+    supported: false,
+    workerState: 'unsupported',
+    cacheName: cardArtCacheName,
+    cachedCount: 0,
+    totalCount: allCardArtUrls.length,
+    ready: false
+  }
+  if (
+    typeof navigator === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    typeof navigator.serviceWorker.getRegistration !== 'function' ||
+    typeof caches === 'undefined'
+  ) {
+    return unsupported
+  }
+
+  const registration = await navigator.serviceWorker.getRegistration('/')
+  const worker = registration?.active ?? registration?.waiting ?? registration?.installing
+  const names = await caches.keys()
+  let cachedCount = 0
+
+  if (names.includes(cardArtCacheName)) {
+    const cache = await caches.open(cardArtCacheName)
+    const expectedPaths = new Set(allCardArtUrls)
+    const requests = await cache.keys()
+    cachedCount = new Set(
+      requests.map((request) => new URL(request.url).pathname).filter((pathname) => expectedPaths.has(pathname))
+    ).size
+  }
+
+  return {
+    supported: true,
+    workerState: worker?.state ?? 'missing',
+    cacheName: cardArtCacheName,
+    cachedCount,
+    totalCount: allCardArtUrls.length,
+    ready: cachedCount >= allCardArtUrls.length
+  }
 }
 
 function scheduleIdle(callback: () => void): void {
