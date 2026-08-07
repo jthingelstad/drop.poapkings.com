@@ -346,7 +346,7 @@ describe("server-side game scoring", () => {
 
   it("validates each Higher/Lower response against its own round's window", () => {
     const challenge = higherLowerChallenge(6);
-    // 4.9s is inside the 5s opening window but far past round 5's 3.75s one, so
+    // 4.9s is inside the 5s opening window but far past round 5's 3.6s one, so
     // the same response time passes early and fails late — one life, not the run.
     const answers = higherLowerAnswers(
       challenge,
@@ -354,6 +354,19 @@ describe("server-side game scoring", () => {
       { 0: 4_900, 5: 4_900 },
     );
     expect(scoreRun(challenge, { answers }, 40_000)).toBe(5);
+  });
+
+  it("keeps tightening Higher/Lower validation beyond the former 2s floor", () => {
+    const challenge = higherLowerChallenge(41);
+    const answers = higherLowerAnswers(
+      challenge,
+      Array.from({ length: 41 }, () => true),
+      // This would have cleared the old 2s floor plus its 250ms boundary
+      // tolerance. On round 40 the shared curve is already below 1.7s, so the
+      // server grades it as the run's one miss.
+      { 40: 2_100 },
+    );
+    expect(scoreRun(challenge, { answers }, 40_000)).toBe(40);
   });
 
   it("returns both Higher/Lower tiebreaks: lives lost, then cumulative time", () => {

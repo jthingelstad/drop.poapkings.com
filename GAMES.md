@@ -140,13 +140,16 @@ costs one life, and the run **continues**; the run ends when the third life
 goes. Correct advances in 750ms; a miss holds 1.4s, and the final miss leaves
 the revealed result in place until the player explicitly starts another run.
 
-Two difficulty axes, one of which is deliberately frozen:
+Two difficulty axes, both of which tighten:
 
-- **The clock is unchanged.** 5s to read the opening pair, 250ms less every
-  round, down to a 2s floor (`higherLowerWindowMs`, shared by the client
-  countdown and the server scorer with a 250ms boundary tolerance). The round
-  index counts **every pair presented, missed ones included** — client and
-  server agree on that definition.
+- **The clock keeps accelerating.** It uses Survival's hyperbolic curve: 5s to
+  read the opening pair, below 3s by round 10, below 2s by round 26, and always
+  tightening toward an 800ms asymptote (`higherLowerWindowMs`, shared by the
+  client countdown and the server scorer with a 250ms boundary tolerance). The
+  round index counts **every pair presented, missed ones included** — client
+  and server agree on that definition. This replaces the old 2s floor without
+  resetting or forking the leaderboard: score, tiebreaks, and board epoch `r2`
+  stay exactly as they are.
 - **The elixir gap ramps.** Gaps used to be uniformly random forever, which made
   the hardest possible pair (a 1-elixir gap) the single most common opening.
   Now the target gap is a pure function of the round index (`higherLowerGap`):

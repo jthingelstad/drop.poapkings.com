@@ -72,18 +72,14 @@ export function survivalWindowMs(streak: number): number {
   );
 }
 
-// Higher/Lower's response clock: 5s to read the first pair, 250ms less each
-// round it survives, down to a 2s floor (reached at round 12). One curve shared
-// by the browser countdown and the server scorer (small boundary tolerance).
-export const HIGHER_LOWER_BASE_WINDOW_MS = 5_000;
-export const HIGHER_LOWER_SHRINK_PER_ROUND_MS = 250;
-export const HIGHER_LOWER_MIN_WINDOW_MS = 2_000;
-
+// Higher/Lower deliberately uses Survival's continuously tightening response
+// curve. Keeping this as a direct call instead of a second copy makes the
+// browser countdown and server scorer share not only one Higher/Lower function,
+// but the exact tension curve the two modes promise players: 5s at the opening,
+// below 3s by round 10, below 2s by round 26, and always approaching (never
+// reaching) 800ms.
 export function higherLowerWindowMs(round: number): number {
-  return Math.max(
-    HIGHER_LOWER_MIN_WINDOW_MS,
-    HIGHER_LOWER_BASE_WINDOW_MS - HIGHER_LOWER_SHRINK_PER_ROUND_MS * round,
-  );
+  return survivalWindowMs(round);
 }
 
 // Rain's spawn cadence: the gap between falling tiles tightens as the cleared

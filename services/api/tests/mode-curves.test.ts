@@ -37,20 +37,28 @@ describe("shared mode difficulty curves", () => {
     }
   });
 
-  it("matches Higher/Lower's documented clock, including where it floors", () => {
+  it("keeps Higher/Lower on Survival's tightening curve without a plateau", () => {
+    for (const round of [0, 4, 10, 25, 26, 119, 249]) {
+      expect(higherLowerWindowMs(round)).toBe(survivalWindowMs(round));
+    }
     expect(higherLowerWindowMs(0)).toBe(5_000);
-    expect(higherLowerWindowMs(4)).toBe(4_000);
+    expect(higherLowerWindowMs(25)).toBe(2_000);
+    expect(higherLowerWindowMs(26)).toBeLessThan(2_000);
+    expect(higherLowerWindowMs(249)).toBeGreaterThan(800);
 
-    const floored = (() => {
-      for (let round = 0; round <= 250; round += 1) {
-        if (higherLowerWindowMs(round) === 2_000) return round;
-      }
-      return undefined;
-    })();
-    // The clock stops tightening at round 12 and holds its 2s floor from there.
-    // Difficulty past this point comes from the pair-gap ramp, not the clock.
-    expect(floored).toBe(12);
-    expect(higherLowerWindowMs(250)).toBe(2_000);
+    // Higher/Lower can present all 250 signed pairs. Millisecond rounding can
+    // make two adjacent deep rounds equal, but the window never grows and keeps
+    // dropping across the full deal instead of settling on the old 2s floor.
+    for (let round = 1; round < 250; round += 1) {
+      expect(higherLowerWindowMs(round)).toBeLessThanOrEqual(
+        higherLowerWindowMs(round - 1),
+      );
+    }
+    for (let round = 10; round < 250; round += 10) {
+      expect(higherLowerWindowMs(round)).toBeLessThan(
+        higherLowerWindowMs(round - 10),
+      );
+    }
   });
 
   it("matches Rain's documented spawn cadence", () => {

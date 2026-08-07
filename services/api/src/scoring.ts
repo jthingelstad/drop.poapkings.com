@@ -172,11 +172,11 @@ export function tradeRounds(
 }
 
 // ── Higher/Lower difficulty ────────────────────────────────────────────────
-// The response clock (higherLowerWindowMs) is the KNOWN axis and is deliberately
-// untouched. The elixir GAP between the two cards is the axis that ramps: a
-// 4-elixir gap reads at a glance, a 1-elixir gap is the hardest call the mode
-// can ask for, and a uniformly random draw made the hardest kind of pair the
-// single most common opening.
+// Both axes ramp. The response clock uses Survival's continuously tightening
+// shared curve (higherLowerWindowMs); the deal independently narrows the elixir
+// GAP between the two cards. A 4-elixir gap reads at a glance, a 1-elixir gap is
+// the hardest call the mode can ask for, and a uniformly random draw made the
+// hardest kind of pair the single most common opening.
 const HIGHER_LOWER_GAP_MAX = 4;
 const HIGHER_LOWER_GAP_MIN = 1;
 // Opening rounds held fully wide, then the rounds spent narrowing to a 1-elixir

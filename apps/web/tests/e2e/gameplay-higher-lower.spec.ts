@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test'
 import { cardsData, expect, test } from './fixtures'
 
-// Higher/Lower drives a real shrinking response clock (5s on the opening pair,
-// 250ms less each round). Racing that clock from the test runner is what made
-// this file flake under full parallel load: the page can lose several hundred ms
-// to a busy machine between "read the two card names" and "click one".
+// Higher/Lower drives a real response clock (5s on the opening pair, then the
+// same continuously tightening hyperbolic curve as Survival). Racing that clock
+// from the test runner is what made this file flake under full parallel load:
+// the page can lose several hundred ms to a busy machine between "read the two
+// card names" and "click one".
 //
 // So every gameplay test here installs Playwright's clock and then PAUSES it, in
 // the same shape the surge idle test uses. The page loads with time flowing
