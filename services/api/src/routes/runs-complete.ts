@@ -392,7 +392,7 @@ async function recordSignedInRun(
 // like updateLearningStats below: a badge write that fails leaves the run
 // recorded and simply means the rung is picked up on the next completion, since
 // counters are derived from history rather than accumulated blindly.
-async function updateBadges(
+export async function updateBadges(
   repository: Repository,
   run: RunItem,
   transcript: RunTranscript,
@@ -404,9 +404,17 @@ async function updateBadges(
     tzOffsetMinutes: unknown;
     personalBest: { improved: boolean; previousScore?: number };
   },
+  save: (
+    sub: string,
+    counters: ReturnType<typeof advanceBadges>["counters"],
+    updatedAt: string,
+    expected?: { version: number; updatedAt?: string },
+  ) => Promise<boolean> = (sub, counters, updatedAt, expected) =>
+    repository.saveBadges(sub, counters, updatedAt, expected),
 ): Promise<{
   newlyEarned: ReturnType<typeof advanceBadges>["newlyEarned"];
   badges?: ReturnType<typeof badgeStates>;
+  applied: boolean;
 }> {
   try {
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -478,7 +486,7 @@ async function updateBadges(
         ...hiddenSignals(run.mode, transcript),
       });
       if (
-        await repository.saveBadges(
+        await save(
           run.owner,
           advanced,
           context.completedAt,
@@ -487,7 +495,11 @@ async function updateBadges(
             : undefined,
         )
       )
-        return { newlyEarned, badges: badgeStates(advanced) };
+        return {
+          newlyEarned,
+          badges: badgeStates(advanced),
+          applied: true,
+        };
     }
     throw new Error("Badge update remained busy after retries");
   } catch (error) {
@@ -495,7 +507,7 @@ async function updateBadges(
       runId: run.runId,
       error: error instanceof Error ? error.name : "unknown",
     });
-    return { newlyEarned: [] };
+    return { newlyEarned: [], applied: false };
   }
 }
 

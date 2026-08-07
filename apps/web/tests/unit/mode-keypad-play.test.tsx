@@ -783,4 +783,32 @@ describe('Rain gameplay', () => {
     }
     expect(answers.filter((answer) => answer.guess === null)).toHaveLength(3)
   })
+
+  it('locks input synchronously when the third life is spent', async () => {
+    const host = await startRain(fakeCards(20))
+
+    // Stop on the exact 40ms tick that spends the final life. Rain deliberately
+    // holds this frame for another 200ms before the summary, which used to leave
+    // the keypad and the next surviving target live during that window.
+    for (let i = 0; i < 500; i += 1) {
+      if (host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label') === '0 of 3 lives left') break
+      advance(40)
+    }
+    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('0 of 3 lives left')
+    expect(host.textContent).not.toContain('The rain stopped')
+    expect(host.querySelector('.ed-rain__tile--lit')).toBeNull()
+
+    const keypad = [...host.querySelectorAll<HTMLButtonElement>('.ed-rain__pad button')]
+    expect(keypad.length).toBeGreaterThan(0)
+    expect(keypad.every((button) => button.disabled)).toBe(true)
+    for (const button of keypad) press(host, Number(button.getAttribute('aria-label')?.split(' ')[0]))
+
+    advance(200)
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const { answers } = session.complete.mock.calls[0]![0] as {
+      answers: Array<{ guess: number | null }>
+    }
+    expect(answers.filter((answer) => answer.guess === null)).toHaveLength(3)
+    expect(answers.at(-1)?.guess).toBeNull()
+  })
 })

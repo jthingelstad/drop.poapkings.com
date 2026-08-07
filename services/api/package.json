@@ -9,6 +9,7 @@
   "scripts": {
     "backfill:all-time": "node scripts/backfill-all-time.mjs",
     "cleanup:zero-leaderboards": "node scripts/cleanup-zero-leaderboards.mjs",
+    "recover:rain-runs": "esbuild src/maintenance/recover-rain-runs.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-rain-runs.cjs && node dist/recover-rain-runs.cjs",
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/handler.cjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

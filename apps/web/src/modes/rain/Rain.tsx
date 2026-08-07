@@ -100,6 +100,11 @@ export default function Rain() {
 
   const lives = useSignal(RAIN_LIVES)
   const score = useSignal(0)
+  // The runtime intentionally holds the final frame for 200ms before showing
+  // the summary. Stage remains `running` during that beat, so input needs its
+  // own synchronous terminal lock: otherwise a tap after the third miss can be
+  // appended to the signed transcript and the strict server rejects the run.
+  const inputLocked = useSignal(false)
   // Directional hint after a wrong tap (like Surge): aim higher or lower.
   const hint = useSignal<'higher' | 'lower' | null>(null)
   const hintPulse = useSignal(0)
@@ -153,6 +158,7 @@ export default function Rain() {
     lives.value = RAIN_LIVES
     score.value = 0
     milestone.value = null
+    inputLocked.value = false
     serverAnswers.current = []
     answersLog.current = []
     recorded.current = false
@@ -223,7 +229,7 @@ export default function Rain() {
   }
 
   function tick() {
-    if (stage.value !== 'running') return
+    if (stage.value !== 'running' || inputLocked.value) return
     const survivors: Drop[] = []
     let lost = 0
     const remainingLives = Math.max(0, lives.value)
@@ -276,7 +282,7 @@ export default function Rain() {
   }
 
   function answer(value: number) {
-    if (stage.value !== 'running') return
+    if (stage.value !== 'running' || inputLocked.value) return
     const t = target.current
     if (!t) return
     if (value === t.card.elixir) {
@@ -306,6 +312,10 @@ export default function Rain() {
   }
 
   function endRain() {
+    if (inputLocked.value) return
+    inputLocked.value = true
+    target.current = null
+    for (const d of drops.current) d.el.classList.remove('ed-rain__tile--lit')
     clearLoops()
     runtime.later(finish, 200)
   }
@@ -332,6 +342,7 @@ export default function Rain() {
   function replay() {
     track('game.replayed', 'rain')
     clearLoops()
+    inputLocked.value = false
     rearmAutoStart()
     insights.value = null
     runtime.reset('ready')
@@ -408,7 +419,7 @@ export default function Rain() {
           </FloatingCue>
         </div>
         <div class="ed-rain__pad">
-          <PipKeypad onPick={answer} disabled={counting} />
+          <PipKeypad onPick={answer} disabled={counting || inputLocked.value} />
         </div>
         <span class="sr-only" aria-live="assertive">
           {hint.value === 'higher' ? 'Higher' : hint.value === 'lower' ? 'Lower' : ''}

@@ -613,6 +613,165 @@ describe("repository DynamoDB requests", () => {
     expect(globalUpdate?.UpdateExpression).not.toContain("authenticatedGames");
   });
 
+  it("records a historical recovery without publishing it as recent activity", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 7,
+        xp: 84,
+        createdAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-08-07T18:00:00.000Z",
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#recovered-rain",
+      sk: "RUN",
+      runId: "recovered-rain",
+      owner: "player-sub",
+      mode: "rain",
+      challenge: { mode: "rain", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-08-07T01:59:23.889Z",
+      expiresAt: 1_800_000_000,
+      boardEpoch: "r3",
+    };
+
+    await new Repository("test-table").completeRun(
+      run,
+      81,
+      "2026-08",
+      84,
+      { wrongGuesses: 8, avgLatencyMs: 700 },
+      undefined,
+      {
+        completedAt: "2026-08-07T02:00:36.821Z",
+        recoveredAt: "2026-08-07T18:00:00.000Z",
+        evidenceSk: "EVIDENCE#original",
+        reason: "rain_final_life_input_race",
+      },
+    );
+
+    const items = send.mock.calls[0]?.[0].input.TransactItems;
+    expect(items).toHaveLength(5);
+    expect(
+      items.some((item: { Put?: { Item?: { pk?: string } } }) =>
+        item.Put?.Item?.pk?.startsWith("FEED#"),
+      ),
+    ).toBe(false);
+    expect(items[0]?.Update?.ExpressionAttributeValues).toMatchObject({
+      ":completedAt": "2026-08-07T02:00:36.821Z",
+      ":score": 81,
+    });
+    expect(items[1]?.Update?.ExpressionAttributeValues[":updatedAt"]).toBe(
+      "2026-08-07T18:00:00.000Z",
+    );
+    expect(items[2]?.Put?.Item).toMatchObject({
+      runId: "recovered-rain",
+      completedAt: "2026-08-07T02:00:36.821Z",
+      GSI1PK: "LEADERBOARD#2026-08#rain#r3",
+    });
+    expect(items[3]?.Update?.ExpressionAttributeValues[":updatedAt"]).toBe(
+      "2026-08-07T18:00:00.000Z",
+    );
+    expect(items[4]?.Put?.Item).toMatchObject({
+      pk: "RECOVERY#recovered-rain",
+      sk: "RECOVERY",
+      score: 81,
+      evidenceSk: "EVIDENCE#original",
+      reason: "rain_final_life_input_race",
+    });
+  });
+
+  it("reconstructs an expired challenge row inside the recovery transaction", async () => {
+    send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        sub: "player-sub",
+        playerId: "player-1",
+        email: "player@example.com",
+        totalGames: 7,
+        xp: 84,
+      },
+    });
+    const run: RunItem = {
+      pk: "RUN#expired-rain",
+      sk: "RUN",
+      runId: "expired-rain",
+      owner: "player-sub",
+      mode: "rain",
+      challenge: { mode: "rain", cardIds: [26000000] },
+      state: "started",
+      startedAt: "2026-08-07T01:59:23.889Z",
+      expiresAt: 1_810_000_000,
+      boardEpoch: "r3",
+    };
+
+    await new Repository("test-table").completeRun(
+      run,
+      81,
+      "2026-08",
+      84,
+      { wrongGuesses: 8, avgLatencyMs: 700 },
+      undefined,
+      {
+        completedAt: "2026-08-07T02:00:36.821Z",
+        recoveredAt: "2026-08-07T18:00:00.000Z",
+        evidenceSk: "EVIDENCE#original",
+        reason: "rain_final_life_input_race",
+        createRun: true,
+      },
+    );
+
+    expect(send.mock.calls[0]?.[0].input.TransactItems[0]?.Put).toMatchObject({
+      ConditionExpression: "attribute_not_exists(pk)",
+      Item: {
+        pk: "RUN#expired-rain",
+        state: "completed",
+        score: 81,
+        seasonId: "2026-08",
+        completedAt: "2026-08-07T02:00:36.821Z",
+      },
+    });
+  });
+
+  it("pairs recovered badge counters with the recovery checkpoint", async () => {
+    send.mockResolvedValueOnce({});
+    const counters = {
+      version: 3,
+      values: { stormchaser: 81 },
+      runsAtRung: {},
+      aux: {
+        modes: ["rain"],
+        cards: [],
+        dayStreak: 1,
+        dayRuns: 1,
+      },
+      earned: {},
+    };
+
+    await expect(
+      new Repository("test-table").saveRecoveredBadges(
+        "player-sub",
+        "recovered-rain",
+        counters,
+        "2026-08-07T18:00:00.000Z",
+        { version: 3, updatedAt: "2026-08-07T17:00:00.000Z" },
+      ),
+    ).resolves.toBe(true);
+
+    const items = send.mock.calls[0]?.[0].input.TransactItems;
+    expect(items[0]?.Put?.Item).toMatchObject({
+      pk: "PLAYER#player-sub",
+      sk: "BADGES",
+      values: { stormchaser: 81 },
+    });
+    expect(items[1]?.Update).toMatchObject({
+      Key: { pk: "RECOVERY#recovered-rain", sk: "RECOVERY" },
+      UpdateExpression: "SET badgesAppliedAt = :updatedAt",
+    });
+  });
+
   it("keeps an already-dealt epoch on its immutable leaderboard history", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {

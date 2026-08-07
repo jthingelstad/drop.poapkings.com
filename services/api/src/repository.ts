@@ -115,6 +115,28 @@ export interface RunItem {
   startCorrelation?: Correlation;
 }
 
+export interface RunRecoveryOptions {
+  completedAt: string;
+  recoveredAt: string;
+  evidenceSk: string;
+  reason: string;
+  createRun?: boolean;
+}
+
+export interface RunRecoveryMarker {
+  pk: string;
+  sk: "RECOVERY";
+  runId: string;
+  mode: GameMode;
+  score: number;
+  seasonId: string;
+  evidenceSk: string;
+  reason: string;
+  recoveredAt: string;
+  badgesAppliedAt?: string;
+  recoveryCompletedAt?: string;
+}
+
 interface ProfileItem extends PlayerProfile {
   pk: string;
   sk: "PROFILE";
@@ -1121,12 +1143,14 @@ export class Repository {
     xp: number,
     tiebreaks?: RunTiebreaks,
     automaticReviewReason?: string,
+    recovery?: RunRecoveryOptions,
   ): Promise<{
     totalGames: number;
     completedAt: string;
     profile: PlayerProfile;
   }> {
-    const completedAt = new Date().toISOString();
+    const completedAt = recovery?.completedAt ?? new Date().toISOString();
+    const writeAt = recovery?.recoveredAt ?? completedAt;
     const ranked = run.ranked !== false;
     const leaderboardEligible = ranked && isLeaderboardEligibleScore(score);
     // The mode's tiebreak values (Survival's cumulative time; Higher/Lower's
@@ -1166,27 +1190,47 @@ export class Repository {
           }
         : {}),
     };
+    const runWrite: NonNullable<
+      TransactWriteCommandInput["TransactItems"]
+    >[number] = recovery?.createRun
+      ? {
+          Put: {
+            TableName: this.tableName,
+            Item: {
+              ...run,
+              state: "completed",
+              completedAt,
+              score,
+              seasonId,
+            },
+            ConditionExpression: "attribute_not_exists(pk)",
+          },
+        }
+      : {
+          Update: {
+            TableName: this.tableName,
+            Key: { pk: run.pk, sk: run.sk },
+            UpdateExpression:
+              "SET #state = :completed, completedAt = :completedAt, score = :score, seasonId = :seasonId",
+            ConditionExpression: "#state = :started AND #owner = :owner",
+            ExpressionAttributeNames: {
+              "#state": "state",
+              "#owner": "owner",
+            },
+            ExpressionAttributeValues: {
+              ":completed": "completed",
+              ":started": "started",
+              ":owner": run.owner,
+              ":completedAt": completedAt,
+              ":score": score,
+              ":seasonId": seasonId,
+            },
+          },
+        };
     const transactionItems: NonNullable<
       TransactWriteCommandInput["TransactItems"]
     > = [
-      {
-        Update: {
-          TableName: this.tableName,
-          Key: { pk: run.pk, sk: run.sk },
-          UpdateExpression:
-            "SET #state = :completed, completedAt = :completedAt, score = :score, seasonId = :seasonId",
-          ConditionExpression: "#state = :started AND #owner = :owner",
-          ExpressionAttributeNames: { "#state": "state", "#owner": "owner" },
-          ExpressionAttributeValues: {
-            ":completed": "completed",
-            ":started": "started",
-            ":owner": run.owner,
-            ":completedAt": completedAt,
-            ":score": score,
-            ":seasonId": seasonId,
-          },
-        },
-      },
+      runWrite,
       {
         Update: {
           TableName: this.tableName,
@@ -1196,7 +1240,7 @@ export class Repository {
           ExpressionAttributeValues: {
             ":one": 1,
             ":trophyRoadStart": TROPHY_ROAD_STARTING_GAMES,
-            ":updatedAt": completedAt,
+            ":updatedAt": writeAt,
           },
         },
       },
@@ -1217,7 +1261,7 @@ export class Repository {
           ExpressionAttributeValues: {
             ":one": 1,
             ":xp": xp,
-            ":updatedAt": completedAt,
+            ":updatedAt": writeAt,
           },
         },
       },
@@ -1228,7 +1272,7 @@ export class Repository {
     // ISO ts). Quarantined runs (automaticReviewReason set → hidden) never hit the
     // public feed. The history Put's idempotency condition makes the whole
     // transaction — feed row included — safe to replay. Name/card resolve on read.
-    if (ranked && !automaticReviewReason) {
+    if (ranked && !automaticReviewReason && !recovery) {
       transactionItems.push({
         Put: {
           TableName: this.tableName,
@@ -1300,6 +1344,30 @@ export class Repository {
       );
     }
 
+    // A repair is deliberately absent from the public activity feed and gets
+    // a non-identifying audit marker in the same transaction as the canonical
+    // run record. The marker makes every follow-up resumable without ever
+    // counting the game twice.
+    if (recovery) {
+      transactionItems.push({
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            pk: `RECOVERY#${run.runId}`,
+            sk: "RECOVERY",
+            runId: run.runId,
+            mode: run.mode,
+            score,
+            seasonId,
+            evidenceSk: recovery.evidenceSk,
+            reason: recovery.reason,
+            recoveredAt: recovery.recoveredAt,
+          } satisfies RunRecoveryMarker,
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      });
+    }
+
     try {
       await client.send(
         new TransactWriteCommand({ TransactItems: transactionItems }),
@@ -1337,6 +1405,102 @@ export class Repository {
     const profile = await this.getProfile(run.owner);
     if (!profile) throw new Error("Completed run profile could not be loaded");
     return { totalGames: profile.totalGames, completedAt, profile };
+  }
+
+  async getRunRecovery(runId: string): Promise<RunRecoveryMarker | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `RECOVERY#${runId}`, sk: "RECOVERY" },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as RunRecoveryMarker | undefined;
+  }
+
+  // Badge counters are the only non-idempotent post-completion effect for a
+  // Rain recovery. Pair their optimistic write with the recovery marker so a
+  // rerun after interruption can prove whether this exact game was folded in.
+  async saveRecoveredBadges(
+    sub: string,
+    runId: string,
+    counters: BadgeCounters,
+    updatedAt: string,
+    expected?: { version: number; updatedAt?: string },
+  ): Promise<boolean> {
+    const badgeCondition = expected
+      ? expected.updatedAt
+        ? "#version = :expectedVersion AND updatedAt = :expectedUpdatedAt"
+        : "#version = :expectedVersion AND attribute_not_exists(updatedAt)"
+      : "attribute_not_exists(pk)";
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  pk: `PLAYER#${sub}`,
+                  sk: "BADGES",
+                  version: counters.version,
+                  values: counters.values,
+                  runsAtRung: counters.runsAtRung,
+                  aux: counters.aux,
+                  earned: counters.earned,
+                  updatedAt,
+                },
+                ConditionExpression: badgeCondition,
+                ...(expected
+                  ? {
+                      ExpressionAttributeNames: { "#version": "version" },
+                      ExpressionAttributeValues: {
+                        ":expectedVersion": expected.version,
+                        ...(expected.updatedAt
+                          ? { ":expectedUpdatedAt": expected.updatedAt }
+                          : {}),
+                      },
+                    }
+                  : {}),
+              },
+            },
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: { pk: `RECOVERY#${runId}`, sk: "RECOVERY" },
+                UpdateExpression: "SET badgesAppliedAt = :updatedAt",
+                ConditionExpression:
+                  "attribute_exists(pk) AND attribute_not_exists(badgesAppliedAt)",
+                ExpressionAttributeValues: { ":updatedAt": updatedAt },
+              },
+            },
+          ],
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (!(
+        error instanceof Error && error.name === "TransactionCanceledException"
+      ))
+        throw error;
+      const marker = await this.getRunRecovery(runId);
+      if (marker?.badgesAppliedAt) return true;
+      return false;
+    }
+  }
+
+  async finishRunRecovery(runId: string, recoveredAt: string): Promise<void> {
+    await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: `RECOVERY#${runId}`, sk: "RECOVERY" },
+        UpdateExpression:
+          "SET recoveryCompletedAt = if_not_exists(recoveryCompletedAt, :recoveredAt)",
+        ConditionExpression:
+          "attribute_exists(pk) AND attribute_exists(badgesAppliedAt)",
+        ExpressionAttributeValues: { ":recoveredAt": recoveredAt },
+      }),
+    );
   }
 
   async listRecentRuns(sub: string, limit = 20): Promise<RunRecord[]> {
