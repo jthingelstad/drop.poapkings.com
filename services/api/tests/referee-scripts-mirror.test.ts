@@ -434,7 +434,7 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
       "LEADERBOARD#2026-07#rain#r3",
     );
     expect(scriptsLeaderboardPartition("2026-07", "higher-lower")).toBe(
-      "LEADERBOARD#2026-07#higher-lower#r2",
+      "LEADERBOARD#2026-07#higher-lower#r3",
     );
     expect(scriptsLeaderboardPartition("2026-07", "trade")).toBe(
       "LEADERBOARD#2026-07#trade#r2",

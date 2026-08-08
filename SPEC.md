@@ -168,7 +168,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | -------------- | ---------------- | ------------------------------------------- |
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
 | Practice       | `#/practice`     | none — **endless, unranked, unscored**      |
-| Higher / Lower | `#/higher-lower` | `higherLowerBest`, total correct reads      |
+| Higher / Lower | `#/higher-lower` | `higherLowerContinuousBest`, total correct |
 | Trade          | `#/trade`        | `tradeLadderBest`, lowest 10-exchange time  |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
 | Rain           | `#/rain`         | `rainBest`, most cards cleared              |
@@ -177,11 +177,13 @@ Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
 (`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
 `AGENT-TEAM/scripts/_referee-lib.mjs`): a material rules change restarts the
 board rather than deleting data, and old rows are orphaned. Rain is on `r3`
-(it gained tiebreaks its old rows cannot carry); the other three are on
-`r2`. A mode whose scoring shape changes usually renames its local record key in
-the same move (`longestStreak` → `higherLowerBest`, `tradeBest` →
-`tradeLadderBest`), so an on-device best from the retired rules orphans the same
-way the board did instead of standing as an unbeatable target.
+(it gained tiebreaks its old rows cannot carry), Higher / Lower is on `r3`
+(its clock now tightens continuously instead of flattening at 2s), and Survival
+and Trade are on `r2`. A mode whose scoring shape or attainable distribution
+changes usually renames its local record key in the same move (`longestStreak`
+→ `higherLowerBest` → `higherLowerContinuousBest`, `tradeBest` →
+`tradeLadderBest`), so an on-device best from retired rules orphans the same way
+the board did instead of standing as an unbeatable target.
 
 Trade's run length is the length of `TRADE_LADDER` in `packages/contracts`
 (`TRADE_ROUNDS`), the fixed board ladder the server deals and the browser plays;
@@ -334,7 +336,7 @@ Learning progress, owned by `lib/storage.ts` (`localStorage`):
 ```text
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
-elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerBest,
+elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBest,
                               survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new

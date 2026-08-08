@@ -119,16 +119,16 @@ describe("repository DynamoDB requests", () => {
 
     const run = await new Repository("test-table").createRun(
       "private-sub",
-      "trade",
-      { mode: "trade", rounds: [] },
+      "higher-lower",
+      { mode: "higher-lower", pairs: [] },
       1_800_000_000,
     );
 
-    expect(run.boardEpoch).toBe("r2");
+    expect(run.boardEpoch).toBe("r3");
     expect(send.mock.calls[0]?.[0].input.Item).toMatchObject({
       runId: run.runId,
-      mode: "trade",
-      boardEpoch: "r2",
+      mode: "higher-lower",
+      boardEpoch: "r3",
     });
   });
 
@@ -738,7 +738,7 @@ describe("repository DynamoDB requests", () => {
   it("pairs recovered badge counters with the recovery checkpoint", async () => {
     send.mockResolvedValueOnce({});
     const counters = {
-      version: 3,
+      version: 4,
       values: { stormchaser: 81 },
       runsAtRung: {},
       aux: {
@@ -756,7 +756,7 @@ describe("repository DynamoDB requests", () => {
         "recovered-rain",
         counters,
         "2026-08-07T18:00:00.000Z",
-        { version: 3, updatedAt: "2026-08-07T17:00:00.000Z" },
+        { version: 4, updatedAt: "2026-08-07T17:00:00.000Z" },
       ),
     ).resolves.toBe(true);
 

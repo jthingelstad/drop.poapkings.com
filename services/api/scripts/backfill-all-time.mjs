@@ -33,7 +33,7 @@ const MAX_TIEBREAK = 999_999_999;
 const BOARD_EPOCH = {
   survival: "r2",
   rain: "r3",
-  "higher-lower": "r2",
+  "higher-lower": "r3",
   trade: "r2",
 };
 const MODE_TIEBREAKS = {

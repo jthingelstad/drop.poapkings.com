@@ -147,9 +147,9 @@ Two difficulty axes, both of which tighten:
   tightening toward an 800ms asymptote (`higherLowerWindowMs`, shared by the
   client countdown and the server scorer with a 250ms boundary tolerance). The
   round index counts **every pair presented, missed ones included** — client
-  and server agree on that definition. This replaces the old 2s floor without
-  resetting or forking the leaderboard: score, tiebreaks, and board epoch `r2`
-  stay exactly as they are.
+  and server agree on that definition. This replaces the old 2s floor and starts
+  board epoch `r3`: the same player's production best fell from 87 to 35 across
+  the change, so the score populations are demonstrably not comparable.
 - **The elixir gap ramps.** Gaps used to be uniformly random forever, which made
   the hardest possible pair (a 1-elixir gap) the single most common opening.
   Now the target gap is a pure function of the round index (`higherLowerGap`):
@@ -161,16 +161,16 @@ Two difficulty axes, both of which tighten:
   exactly one 8 and one 9, so an unweighted draw would put Golem and Three
   Musketeers in most wide openings.
 
-- Record: `higherLowerBest` (total correct). Renamed from `longestStreak`, which
-  orphans existing on-device bests on purpose — a 28 set under one life is not
-  the same measurement.
+- Record: `higherLowerContinuousBest` (total correct). Renamed from r2's
+  `higherLowerBest`, which itself replaced `longestStreak`; each rename orphans
+  an on-device target earned under materially different rules.
 - Leaderboard tiebreak: **score, then fewest lives lost, then fastest cumulative
   time** (the sort key's first mode with two ordered tiebreaks).
-- Board epoch `r2` (2026-07-25). The one-life board is retired: 40% of runs
-  scored zero and 58% scored under 3, so those scores measured "how far before
-  the first mistake" over uniformly random pairs — not comparable to a
-  three-life run over a ramped deal. Old rows are orphaned, not deleted
-  (`BOARD_EPOCH` in `services/api/src/games.ts`).
+- Board epoch `r3` (2026-08-08). `r2` introduced three lives and the gap-ramped
+  deal on 2026-07-25, retiring the one-life board. It is now retired in turn
+  because its response clock flattened at 2s while r3 keeps tightening toward
+  800ms. Old rows are orphaned, not deleted (`BOARD_EPOCH` in
+  `services/api/src/games.ts`).
 
 **Trade** — `/trade` · `apps/web/src/modes/trade/`
 You are always Blue King; Red is the opponent. Blue plays 1–3 dealt cards and
@@ -402,7 +402,10 @@ aspirational ceiling. The design draft's Clockbreaker ladder put five consecutiv
 rungs (13–17s) above a 4.7s gap in the real field, so four of them separated
 nobody, while its entry rung excluded 31% of players outright. Ladders with no
 live data behind them are marked "scaled" in the table and should be re-checked
-once badge counters have a month of history.
+once badge counters have a month of history. Coin Flip Killer was recalibrated
+on 2026-08-08 when Higher/Lower moved to r3: the same player's best fell from 87
+to 35, so its ladder now runs 5–50, with 35 recognized, 40 next, and 50 as the
+stretch target.
 
 **Hidden badges.** Shown as a flat black silhouette of the real glyph until
 earned. The badge name stays visible, but its art and earning condition are the

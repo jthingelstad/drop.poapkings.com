@@ -14,10 +14,11 @@ import type { GameMode } from "./types.js";
 // Because awarding is a pure function of the counters, badges can be recomputed
 // from run history — which is what makes adding a badge later retroactive.
 
-// Bump when a stored counter must be rebuilt. Version 3 makes every mode-skill
-// score board-epoch-aware and replaces Unbroken's unreachable 150/200 tail
-// with milestones ending at Survival's 120-card clear.
-export const BADGE_COUNTERS_VERSION = 3;
+// Bump when a stored counter must be rebuilt. Version 3 made every mode-skill
+// score board-epoch-aware and replaced Unbroken's unreachable 150/200 tail.
+// Version 4 moves Coin Flip Killer to Higher/Lower's continuously tightening
+// r3 board and its recalibrated ladder, excluding r2's 2s-floor scores.
+export const BADGE_COUNTERS_VERSION = 4;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -535,7 +536,7 @@ const VERSIONED_SKILL_BADGES = [
   "downpour",
 ] as const;
 
-// Versions 1 and 2 can contain incomparable skill scores from retired boards.
+// Older versions can contain incomparable skill scores from retired boards.
 // Rebuild only those four badges from current-board history: every other stored
 // counter includes forward-only facts (Podium, Clean Sweep, hidden badges,
 // local-day context) that history cannot reproduce. Invalid retired-board
@@ -546,7 +547,7 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (input.version !== 1 && input.version !== 2)
+  if (input.version !== 1 && input.version !== 2 && input.version !== 3)
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
   for (const slug of VERSIONED_SKILL_BADGES) {

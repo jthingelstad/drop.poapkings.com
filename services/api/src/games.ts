@@ -77,9 +77,12 @@ const MAX_TIEBREAK = 999_999_999;
 // behind a much harder climb.
 // Higher/Lower moved to "r2" on 2026-07-25 when it gained three lives and a
 // gap-ramped deal: a one-life score was "how far before the first mistake" over
-// uniformly random pairs, and the score is now total correct reads across a
-// whole session that survives two misses. The two numbers are not the same
-// measurement, so they cannot share a board.
+// uniformly random pairs, and the score became total correct reads across a
+// whole session that survives two misses. It moved again to "r3" on 2026-08-08
+// when its clock stopped flattening at 2s and began tightening continuously
+// toward 800ms. The same player's production best fell from 87 to 35 across
+// that change, direct evidence that the two score populations are not
+// comparable.
 // Trade moved to "r2" on 2026-07-25 when it went to ten exchanges on a fixed
 // board ladder. Its score is golf time over the whole run, so two more
 // exchanges alone make every old time unbeatable, and the ladder changed what
@@ -94,15 +97,15 @@ const MAX_TIEBREAK = 999_999_999;
 // restart for the ranking to mean anything.
 interface BoardEpoch {
   id: string;
-  // First successful production deploy of this board. Runs written during the
-  // brief period before history carried boardEpoch use this verified boundary.
+  // Verified cutover boundary for legacy history rows that predate the
+  // boardEpoch stamp. Explicitly stamped history always uses its epoch instead.
   startedAt: string;
 }
 
 const BOARD_EPOCH: Partial<Record<GameMode, BoardEpoch>> = {
   survival: { id: "r2", startedAt: "2026-07-19T18:00:58.000Z" },
   rain: { id: "r3", startedAt: "2026-07-25T15:45:05.000Z" },
-  "higher-lower": { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
+  "higher-lower": { id: "r3", startedAt: "2026-08-08T09:05:51.000Z" },
   trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };
 

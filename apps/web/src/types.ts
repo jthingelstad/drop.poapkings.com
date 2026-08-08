@@ -44,11 +44,10 @@ export type CardStats = Record<string, CardStat>
 export interface Records {
   surgeBest?: number // Surge: lowest time (ms) — lower is better
   surgeBestPace?: number[] // elapsed ms at each card of the PB run (ghost pacing)
-  // Higher/Lower: total correct reads in a run — NOT a streak, since the run
-  // now survives two misses. Renamed from the one-life era's `longestStreak`,
-  // which deliberately orphans old on-device bests: a 28 set under one life
-  // measured a different game (see the r2 board epoch).
-  higherLowerBest?: number
+  // Higher/Lower r3: total correct reads while the response clock tightens
+  // continuously. Renamed from r2's `higherLowerBest` so its 2s-floor records
+  // cannot remain as unreachable on-device targets.
+  higherLowerContinuousBest?: number
   // Practice deliberately has NO record key: it is an endless, non-competitive
   // drill with no score and no personal best (see RECORD_KEYS / RecordedMode).
   survivalBest?: number // Survival: longest sudden-death streak

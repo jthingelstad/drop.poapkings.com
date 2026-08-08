@@ -422,7 +422,11 @@ export async function updateBadges(
       let counters;
       if (!stored) counters = emptyCounters();
       else if (stored.version === BADGE_COUNTERS_VERSION) counters = stored;
-      else if (stored.version === 1 || stored.version === 2) {
+      else if (
+        stored.version === 1 ||
+        stored.version === 2 ||
+        stored.version === 3
+      ) {
         // completeRun already wrote this run to history. Migrate from every
         // prior row, then fold the current transcript exactly once below so
         // its forward-only signals can still celebrate normally.

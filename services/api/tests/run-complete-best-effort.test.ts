@@ -269,7 +269,7 @@ describe("run completion side effects are best effort", () => {
     expect(result.statusCode).toBe(201);
     const saved = repository.saveBadges.mock.calls[0]?.[1];
     expect(saved).toMatchObject({
-      version: 3,
+      version: 4,
       values: { "sharp-trade": 67.126, podium: 5 },
     });
     expect(saved.runsAtRung["sharp-trade"]).toHaveLength(16);

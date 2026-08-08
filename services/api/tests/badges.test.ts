@@ -95,6 +95,16 @@ describe("rung derivation", () => {
     expect(sharpTrade.rungs.at(-1)).toBe(45);
   });
 
+  it("gives the observed Higher/Lower r3 result a next milestone", () => {
+    const coinFlip = BADGE_LIST.find((b) => b.slug === "coin-flip-killer")!;
+    expect(coinFlip.rungs).toEqual([5, 10, 15, 20, 25, 30, 35, 40, 45, 50]);
+    // The first continuously tightening production run scored 35 after the
+    // same player had reached 87 on r2's retired 2s-floor clock.
+    expect(rungIndexFor(coinFlip, 35)).toBe(6);
+    expect(coinFlip.rungs[rungIndexFor(coinFlip, 35) + 1]).toBe(40);
+    expect(coinFlip.rungs.at(-1)).toBe(50);
+  });
+
   it("ends Unbroken at Survival's reachable 120-card clear", () => {
     const unbroken = BADGE_LIST.find((b) => b.slug === "unbroken")!;
     expect(unbroken.rungs).toEqual([10, 15, 25, 40, 60, 80, 100, 110, 120]);
@@ -120,7 +130,7 @@ describe("advanceBadges", () => {
         coldOpen: true,
       },
       { mode: "trade", boardEpoch: "r2", score: 39_000 },
-      { mode: "higher-lower", score: 10_000 },
+      { mode: "higher-lower", boardEpoch: "r3", score: 10_000 },
       { mode: "survival", score: 10_000, zeroHesitation: true },
       { mode: "rain", score: 10_000, comeback: true },
       {
@@ -190,8 +200,8 @@ describe("advanceBadges", () => {
 
   it("keeps retired board scores out of every format-comparable skill badge", () => {
     const counters = play([
-      { mode: "higher-lower", boardEpoch: "r1", score: 75 },
-      { mode: "higher-lower", boardEpoch: "r2", score: 45 },
+      { mode: "higher-lower", boardEpoch: "r2", score: 87 },
+      { mode: "higher-lower", boardEpoch: "r3", score: 35 },
       { mode: "survival", boardEpoch: "r1", score: 167 },
       { mode: "survival", boardEpoch: "r2", score: 117 },
       { mode: "rain", boardEpoch: "r2", score: 110 },
@@ -199,11 +209,14 @@ describe("advanceBadges", () => {
     ]);
 
     // Mastery still credits real historical activity across formats.
-    expect(stateOf(counters, "bridge-read").value).toBe(120);
+    expect(stateOf(counters, "bridge-read").value).toBe(122);
     expect(stateOf(counters, "last-stand").value).toBe(2);
     expect(stateOf(counters, "stormchaser").value).toBe(212);
     // Skill proof is comparable only inside the current board definition.
-    expect(stateOf(counters, "coin-flip-killer").value).toBe(45);
+    expect(stateOf(counters, "coin-flip-killer")).toMatchObject({
+      value: 35,
+      rungIndex: 6,
+    });
     expect(stateOf(counters, "unbroken")).toMatchObject({
       value: 117,
       rungIndex: 7,
@@ -504,7 +517,7 @@ describe("recomputeCounters", () => {
 
   it("migrates every versioned skill badge and preserves forward-only state", () => {
     const stored = emptyCounters();
-    stored.version = 2;
+    stored.version = 3;
     stored.values["sharp-trade"] = 55.639;
     stored.values["coin-flip-killer"] = 75;
     stored.values.unbroken = 167;
@@ -534,15 +547,15 @@ describe("recomputeCounters", () => {
         },
         {
           mode: "higher-lower",
-          boardEpoch: "r1",
-          score: 75,
-          completedAt: "2026-07-24T12:00:00.000Z",
+          boardEpoch: "r2",
+          score: 87,
+          completedAt: "2026-08-07T15:28:12.066Z",
         },
         {
           mode: "higher-lower",
-          boardEpoch: "r2",
-          score: 45,
-          completedAt: "2026-07-26T12:00:00.000Z",
+          boardEpoch: "r3",
+          score: 35,
+          completedAt: "2026-08-08T09:10:00.000Z",
         },
         {
           mode: "survival",
@@ -572,13 +585,16 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(3);
+    expect(migrated.version).toBe(4);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
       runsAtRung: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
     });
-    expect(stateOf(migrated, "coin-flip-killer").value).toBe(45);
+    expect(stateOf(migrated, "coin-flip-killer")).toMatchObject({
+      value: 35,
+      rungIndex: 6,
+    });
     expect(stateOf(migrated, "unbroken")).toMatchObject({
       value: 117,
       rungIndex: 7,

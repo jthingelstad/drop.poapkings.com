@@ -276,7 +276,7 @@ describe('Higher / Lower — gameplay', () => {
   // All the count modes read "Prev best" the same way: the record that stood
   // BEFORE this run, with a recorded 0 treated as no best at all.
   it('reports the standing record as the previous best, never the run just played', async () => {
-    vi.mocked(getRecords).mockReturnValue({ higherLowerBest: 5 })
+    vi.mocked(getRecords).mockReturnValue({ higherLowerContinuousBest: 5 })
     const session = stage(pairs())
     session.complete.mockImplementation(async (_payload, onOk: () => void) => onOk())
     const c = mount(<HigherLower />)

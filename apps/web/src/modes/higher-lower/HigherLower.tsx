@@ -59,7 +59,7 @@ export default function HigherLower() {
   const scoreCue = useSignal(0)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the score just set.
-  const previousBest = useSignal(comparableBest(getRecords().higherLowerBest))
+  const previousBest = useSignal(comparableBest(getRecords().higherLowerContinuousBest))
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)

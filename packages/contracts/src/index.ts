@@ -402,14 +402,15 @@ export function arenaForXp(xp: number): number {
 // counters, which is what makes badges recomputable from history.
 //
 // The rungs below were calibrated against Drop's live leaderboards on
-// 2026-08-02, NOT copied from the design-time proposal in the Claude Design
-// project's `Badge Set.md`. That draft assumed thousands of players; Drop had 16
-// with a recorded Surge best. Its Clockbreaker ladder put five consecutive rungs
-// (13-17s) above a 4.7s gap in the real field, so four of them separated nobody,
-// while its entry rung excluded 31% of players outright. Where a ladder is
-// marked "scaled", no live data existed for that counter and the rungs are a
-// proportional reduction against the observed activity ceiling — re-check those
-// once badge counters have a month of real data behind them.
+// 2026-08-02, then rechecked when a mode's format changed. They are NOT copied
+// from the design-time proposal in the Claude Design project's `Badge Set.md`.
+// That draft assumed thousands of players; Drop had 16 with a recorded Surge
+// best. Its Clockbreaker ladder put five consecutive rungs (13-17s) above a 4.7s
+// gap in the real field, so four of them separated nobody, while its entry rung
+// excluded 31% of players outright. Where a ladder is marked "scaled", no live
+// data existed for that counter and the rungs are a proportional reduction
+// against the observed activity ceiling — re-check those once badge counters
+// have a month of real data behind them.
 
 export type BadgeCounterKind = "count" | "best" | "time";
 
@@ -522,12 +523,15 @@ export const BADGES = [
     requirement: "Fastest 10-exchange Trade run",
   },
   {
-    // Measured: best single run 38.
+    // Recalibrated for Higher/Lower r3 on 2026-08-08. The same player's best
+    // fell from 87 on the retired 2s-floor clock to 35 on the continuously
+    // tightening clock. Five opens the ladder, the observed 35 earns its own
+    // rung with 40 next, and 50 is the evidence-based stretch target.
     slug: "coin-flip-killer",
     name: "Coin Flip Killer",
     group: "mode-skill",
     kind: "best",
-    rungs: [10, 15, 20, 25, 30, 40, 55, 75],
+    rungs: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
     requirement: "Best single Higher / Lower run",
   },
   {

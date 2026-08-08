@@ -89,12 +89,12 @@ rows are orphaned, and the scripts only ever see the current epoch. Survival is
 on `r2` (clear-the-deck rework), Rain on `r3` (2026-07-25: it gained two
 tiebreaks, and its `r2` rows carry no tiebreak segment and no timing to backfill
 one from; `r2` itself was the 2026-07-24 difficulty redesign, whose old curve
-capped at 50 clears), Higher/Lower on `r2` (2026-07-25: three
-lives + a gap-ramped deal, so a one-life score measures a different game), and
-Trade on `r2` (2026-07-25: ten exchanges on a fixed board ladder, so an
-eight-exchange time is both shorter and easier). **Keep this in sync with the
-API** — a stale mirror reads the wrong partition and silently returns an empty
-cohort.
+capped at 50 clears), Higher/Lower on `r3` (`r2` introduced three lives and a
+gap-ramped deal on 2026-07-25; `r3` replaced its 2s clock floor with continuous
+tightening on 2026-08-08), and Trade on `r2` (2026-07-25: ten exchanges on a
+fixed board ladder, so an eight-exchange time is both shorter and easier).
+**Keep this in sync with the API** — a stale mirror reads the wrong partition
+and silently returns an empty cohort.
 
 `MODE_TIEBREAKS` mirrors the ordered ascending tiebreaks each mode ranks equal
 scores by, named by the run attribute carrying each value: Survival `timeMs`;

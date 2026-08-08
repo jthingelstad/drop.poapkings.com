@@ -531,10 +531,11 @@ describe("server-side game scoring", () => {
     expect(leaderboardPartition("ALLTIME", "rain")).toBe(
       "LEADERBOARD#ALLTIME#rain#r3",
     );
-    // Higher/Lower restarted with three lives + the gap ramp: a one-life score
-    // measured something else entirely and cannot share a board.
+    // Higher/Lower restarted at r2 with three lives + the gap ramp, then at r3
+    // when its clock stopped flattening at 2s. Production showed the same
+    // player's best falling from 87 to 35, so those boards cannot mix.
     expect(leaderboardPartition("2026-07", "higher-lower")).toBe(
-      "LEADERBOARD#2026-07#higher-lower#r2",
+      "LEADERBOARD#2026-07#higher-lower#r3",
     );
     // Trade restarted at ten exchanges on a fixed ladder: two more exchanges
     // alone make every eight-exchange time unbeatable.
@@ -552,6 +553,20 @@ describe("server-side game scoring", () => {
   });
 
   it("recognizes current-board history without accepting retired scores", () => {
+    expect(
+      isCurrentBoardRun({
+        mode: "higher-lower",
+        boardEpoch: "r2",
+        completedAt: "2026-08-08T09:06:00.000Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "higher-lower",
+        boardEpoch: "r3",
+        completedAt: "2026-08-01T00:00:00.000Z",
+      }),
+    ).toBe(true);
     expect(
       isCurrentBoardRun({
         mode: "survival",
@@ -583,6 +598,18 @@ describe("server-side game scoring", () => {
       isCurrentBoardRun({
         mode: "rain",
         completedAt: "2026-07-25T15:45:05.000Z",
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentBoardRun({
+        mode: "higher-lower",
+        completedAt: "2026-08-08T09:05:50.999Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "higher-lower",
+        completedAt: "2026-08-08T09:05:51.000Z",
       }),
     ).toBe(true);
   });
