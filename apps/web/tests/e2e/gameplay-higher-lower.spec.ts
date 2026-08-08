@@ -207,6 +207,10 @@ test('higher/lower records once, then waits for an explicit replay while idle', 
     await tapLower(page)
     await expect(page.locator('.ed-duel__card--wrong')).toBeVisible()
     await page.clock.fastForward(AFTER_MISS_MS)
+    if (miss < 2) {
+      await expect(page.locator('.ed-duel__card--wrong')).toHaveCount(0)
+      await expect(page.locator('.ed-duel__card').first()).toBeEnabled()
+    }
   }
 
   const replay = page.getByRole('button', { name: 'Play again' })

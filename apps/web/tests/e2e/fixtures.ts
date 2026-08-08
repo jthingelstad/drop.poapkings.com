@@ -460,6 +460,8 @@ export const test = base.extend({
           headers: {
             'access-control-allow-origin': 'http://127.0.0.1:5173',
             'access-control-allow-credentials': 'true',
+            'access-control-allow-headers': 'authorization,content-type',
+            'access-control-allow-methods': 'GET,OPTIONS',
             vary: 'Origin'
           },
           body: JSON.stringify(

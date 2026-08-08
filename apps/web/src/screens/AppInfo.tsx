@@ -30,7 +30,7 @@ function cacheHeadline(info: CardArtCacheInfo | null, failed: boolean): string {
 function cacheDetail(info: CardArtCacheInfo | null, failed = false): string {
   if (failed) return 'Could not read this device’s cache'
   if (!info) return 'Reading this device’s cache…'
-  return `${info.cachedCount} of ${info.totalCount} images cached`
+  return `${info.cachedCount} of ${info.totalCount} card images cached`
 }
 
 function readiness(

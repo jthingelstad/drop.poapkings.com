@@ -31,18 +31,13 @@ describe('card art cache', () => {
     else Reflect.deleteProperty(globalThis, 'caches')
   })
 
-  it('packs every unique base, Evolution, and Hero image from the catalog', () => {
-    const expected = [
-      ...new Set(
-        allCards.flatMap((card) =>
-          [card.icon, card.iconEvo, card.iconHero].filter((url): url is string => Boolean(url))
-        )
-      )
-    ]
+  it('packs exactly one unique base image per catalog card', () => {
+    const expected = [...new Set(allCards.map((card) => card.icon))]
 
     expect(allCardArtUrls).toEqual(expected)
-    expect(allCardArtUrls.length).toBeGreaterThan(allCards.length)
-    expect(allCardArtUrls.every((url) => /^\/cards\/\d+(?:_(?:evo|hero))?\.png$/.test(url))).toBe(true)
+    expect(allCardArtUrls).toHaveLength(allCards.length)
+    expect(allCardArtUrls.every((url) => /^\/cards\/\d+\.png$/.test(url))).toBe(true)
+    expect(allCardArtUrls.some((url) => /_(?:evo|hero)\.png$/.test(url))).toBe(false)
   })
 
   it('splits the offline pack into bounded ordered batches', () => {
@@ -144,5 +139,8 @@ describe('card art cache', () => {
     expect(source).toContain('const cardPath = /^\\/cards\\/')
     expect(source).toContain('event.respondWith(fetchAndCache(event.request))')
     expect(source).toContain("event.data?.type !== 'cache-card-art'")
+    expect(source).toContain("const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'")
+    expect(source).toContain('name.startsWith(LEGACY_CARD_CACHE_PREFIX)')
+    expect(cardArtCacheName).toBe(`elixir-drop-card-art-base-${cardCatalogVersion}`)
   })
 })

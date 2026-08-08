@@ -61,15 +61,13 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   await expect(appInfo).toBeVisible()
   await expect(page.getByRole('button', { name: 'Install app' })).toHaveCount(0)
 
-  const totalArt = new Set(
-    cardsData.cards.flatMap((card) => [card.icon, card.iconEvo, card.iconHero].filter((url): url is string => !!url))
-  ).size
+  const totalArt = new Set(cardsData.cards.map((card) => card.icon)).size
   await page.evaluate(
     async ({ cacheName, cardUrl }) => {
       const cache = await caches.open(cacheName)
       await cache.put(cardUrl, new Response(new Uint8Array([1]), { status: 200 }))
     },
-    { cacheName: `elixir-drop-card-art-${cardsData.version}`, cardUrl: cardsData.cards[0]!.icon }
+    { cacheName: `elixir-drop-card-art-base-${cardsData.version}`, cardUrl: cardsData.cards[0]!.icon }
   )
   await appInfo.click()
 
@@ -91,7 +89,7 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   const cacheProgress = page.getByRole('progressbar', { name: 'Card art cache progress' })
   await expect(cacheProgress).toHaveAttribute('aria-valuenow', '1')
   await expect(cacheProgress).toHaveAttribute('aria-valuemax', String(totalArt))
-  await expect(page.getByText(`1 of ${totalArt} images cached`)).toHaveCount(2)
+  await expect(page.getByText(`1 of ${totalArt} card images cached`)).toHaveCount(2)
 
   const accessibilityScanResults = await new AxeBuilder({ page }).analyze()
   expect(accessibilityScanResults.violations.filter((violation) => violation.impact === 'serious')).toEqual([])

@@ -4,18 +4,16 @@ import { allCards, cardCatalogVersion } from './card-catalog'
 const CARD_ART_BATCH_SIZE = 4
 const CARD_ART_BATCH_DELAY_MS = 750
 const CACHE_MESSAGE = 'cache-card-art'
-const CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
+const CARD_CACHE_PREFIX = 'elixir-drop-card-art-base-'
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
 }
 
-// Include base, Evolution, and Hero art. Game modes currently draw the base
-// URLs, while profile/avatar surfaces can grow into the variants without
-// needing a second offline pack later.
-export const allCardArtUrls = [
-  ...new Set(allCards.flatMap((card) => [card.icon, card.iconEvo, card.iconHero].filter((url): url is string => !!url)))
-]
+// Every current Drop surface renders the base art. Keep Evolution and Hero
+// files available in /cards, but do not make installed apps download unused
+// variants as part of the offline pack.
+export const allCardArtUrls = [...new Set(allCards.map((card) => card.icon))]
 export const cardArtCacheName = `${CARD_CACHE_PREFIX}${cardCatalogVersion}`
 
 export interface CardArtCacheInfo {

@@ -1,6 +1,7 @@
 /* Elixir Drop card-art service worker. This deliberately owns only /cards/*;
    navigation, API, scripts, and release updates stay network-controlled. */
-const CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
+const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
+const CARD_CACHE_PREFIX = 'elixir-drop-card-art-base-'
 const params = new URL(self.location.href).searchParams
 const cardCacheName = `${CARD_CACHE_PREFIX}${params.get('catalog') || 'unknown'}`
 const cardPath = /^\/cards\/\d+(?:_(?:evo|hero))?\.png$/
@@ -45,7 +46,9 @@ self.addEventListener('activate', (event) => {
       .then((names) =>
         Promise.all(
           names
-            .filter((name) => name.startsWith(CARD_CACHE_PREFIX) && name !== cardCacheName)
+            // The broad legacy prefix also matches base-only caches, removing
+            // both the old variant pack and superseded catalog versions.
+            .filter((name) => name.startsWith(LEGACY_CARD_CACHE_PREFIX) && name !== cardCacheName)
             .map((name) => caches.delete(name))
         )
       )
