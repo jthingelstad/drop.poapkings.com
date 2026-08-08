@@ -975,6 +975,14 @@ a {
   z-index: 0;
 }
 
+/* Keep a real card-shaped surface in place until the browser has decoded the
+   next image. Cached response bytes alone do not guarantee a painted frame. */
+.cr-card-art__img--loading {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
 .cr-card-name {
   color: var(--cr-name-color);
   font-family: var(--font-display);

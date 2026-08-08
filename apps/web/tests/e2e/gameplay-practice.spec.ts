@@ -89,6 +89,52 @@ test('practice uses Surge feedback and keeps a missed card active until solved',
   await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
 })
 
+test('practice never exposes the next hand before its image decode completes', async ({ page }) => {
+  await page.addInitScript(() => {
+    const testWindow = window as unknown as {
+      holdCardDecode: boolean
+      releaseCardDecodes: () => void
+    }
+    let releases: Array<() => void> = []
+    HTMLImageElement.prototype.decode = function () {
+      if (!testWindow.holdCardDecode) return Promise.resolve()
+      return new Promise<void>((resolve) => releases.push(resolve))
+    }
+    testWindow.releaseCardDecodes = () => {
+      const pending = releases
+      releases = []
+      for (const release of pending) release()
+    }
+  })
+
+  await page.goto('/#/practice')
+  await waitForKeypad(page)
+  const image = page.locator('.pcard__img')
+  const firstName = await image.getAttribute('alt')
+  const first = cardsData.cards.find((card) => card.name === firstName)
+  expect(first).toBeTruthy()
+
+  await page.evaluate(() => {
+    ;(window as unknown as { holdCardDecode: boolean }).holdCardDecode = true
+  })
+  await page.getByRole('button', { name: `${first!.elixir} elixir`, exact: true }).click()
+  await page.waitForTimeout(400)
+
+  // The feedback beat has elapsed, but the next hand remains entirely hidden
+  // behind the solved one until its exact art can paint.
+  await expect(image).toHaveAttribute('alt', first!.name)
+  await expect(page.locator('.pcard')).toHaveClass(/pcard--correct/)
+
+  await page.evaluate(() => {
+    const testWindow = window as unknown as { holdCardDecode: boolean; releaseCardDecodes: () => void }
+    testWindow.holdCardDecode = false
+    testWindow.releaseCardDecodes()
+  })
+  await expect(image).not.toHaveAttribute('alt', first!.name)
+  await expect(image).toHaveJSProperty('complete', true)
+  expect(await image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+})
+
 test('practice runs until the player ends it, then closes on stats with no personal best', async ({ page }) => {
   const card = await openPracticeOnMidCostCard(page)
 

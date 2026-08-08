@@ -374,7 +374,7 @@ describe('CardChrome', () => {
     expect(rare).toContain('chip')
   })
 
-  it('CardArt renders the image, optional cost and name', async () => {
+  it('CardArt renders the image behind a decode-time fallback, plus optional cost and name', async () => {
     const html = await render(
       <CardArt card={KNIGHT} className="a" imgClassName="b" fallbackClassName="c" showCost showName alt="Knight" />
     )
@@ -382,7 +382,8 @@ describe('CardChrome', () => {
     expect(html).toContain('src="/cards/26000000.png"')
     expect(html).toContain('cr-elixir-badge') // showCost
     expect(html).toContain('cr-card-name') // showName
-    expect(html).not.toContain('cr-card-art__fallback')
+    expect(html).toContain('cr-card-art__fallback')
+    expect(html).toContain('cr-card-art__img--loading')
   })
 
   it('CardArt falls back to a placeholder when the card has no icon', async () => {

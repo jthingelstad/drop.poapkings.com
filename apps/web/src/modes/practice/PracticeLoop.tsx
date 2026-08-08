@@ -24,6 +24,7 @@ import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
+import { preloadImages } from '../../lib/preload'
 
 const ADVANCE_DELAY_CORRECT = 280
 const WRONG_BEAT_MS = 430
@@ -61,6 +62,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const answers = useRef<Answer[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
   const recorded = useRef(false)
+  // Invalidates an art handoff when the session ends, replays, or unmounts.
+  // A late image callback must never deal into a different run.
+  const handoffGeneration = useRef(0)
   const deck = gameRun.content
 
   const settings = getSettings()
@@ -68,6 +72,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   // One hand: the card on the table and its 4-choice window, re-rolled together
   // so a card that comes back around never reuses its old window.
   const dealt = useSignal<Hand | null>(null)
+  const openingReadyId = useSignal<number | null>(null)
   const answered = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const hint = useSignal<'higher' | 'lower' | null>(null)
@@ -80,6 +85,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
   useEffect(() => {
     preloadGameFx()
+    return () => {
+      handoffGeneration.current += 1
+    }
   }, [])
 
   // The opening hand is DERIVED from the deck rather than dealt in an effect: an
@@ -88,17 +96,32 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const opening = useMemo(() => draw(deck ?? [], undefined), [deck])
   const hand = dealt.value ?? opening
 
-  function deal(previousId?: number): Hand | null {
-    const next = draw(deck ?? [], previousId)
-    if (!next) return null
+  // The opening draw is weighted from the whole catalog, not just the bounded
+  // startup slice. Keep the unified loading surface up until that exact random
+  // card is decoded; otherwise Practice can begin with the same pop-in that a
+  // later random draw used to have.
+  const openingCard = opening?.card
+  const openingCardId = openingCard?.id
+  useEffect(() => {
+    if (!openingCard) return
+    let active = true
+    preloadImages([openingCard], () => {
+      if (active) openingReadyId.value = openingCard.id
+    })
+    return () => {
+      active = false
+    }
+  }, [openingCard, openingReadyId])
+
+  function showHand(next: Hand): void {
     dealt.value = next
     recorded.current = false
     phase.value = 'playing'
     hint.value = null
-    return next
   }
 
   function endSession() {
+    handoffGeneration.current += 1
     const list = answers.current
     if (list.length === 0) {
       exit()
@@ -144,9 +167,29 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       phase.value = 'correct'
       hint.value = null
       runtime.emitCue('answer-correct', { cardId: current.id })
+      // The next weighted draw is unknowable at startup, so prepare it now and
+      // keep the solved hand on screen until BOTH the feedback beat and browser
+      // image decode have finished. This makes the name/art swap atomic even
+      // when the service worker already had the response bytes cached.
+      const next = draw(deck ?? [], current.id)
+      const generation = ++handoffGeneration.current
+      let beatReady = false
+      let artReady = false
+      const advance = () => {
+        if (!next || !beatReady || !artReady || generation !== handoffGeneration.current) return
+        if (runtime.stage.value !== 'running') return
+        showHand(next)
+        runtime.emitCue('round-advance', { cardId: next.card.id })
+      }
+      if (next) {
+        preloadImages([next.card], () => {
+          artReady = true
+          advance()
+        })
+      }
       runtime.later(() => {
-        const next = deal(current.id)
-        if (next) runtime.emitCue('round-advance', { cardId: next.card.id })
+        beatReady = true
+        advance()
       }, ADVANCE_DELAY_CORRECT)
     } else {
       playWrong()
@@ -170,6 +213,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     recorded.current = false
     phase.value = 'playing'
     hint.value = null
+    handoffGeneration.current += 1
     // Fall back to the opening hand so the board is never empty for a frame,
     // then ask for a fresh signed run — its deck derives a new opening.
     dealt.value = null
@@ -208,7 +252,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     )
   }
 
-  if (!gameRun.assetsReady) return <GameStartScreen modeName="Practice" phase="loading" />
+  if (!gameRun.assetsReady || (dealt.value === null && openingReadyId.value !== openingCardId)) {
+    return <GameStartScreen modeName="Practice" phase="loading" />
+  }
   if (!hand) return <GameRunGate modeName="Practice" session={gameRun} />
   const current = hand.card
 

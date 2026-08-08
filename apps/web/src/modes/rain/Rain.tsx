@@ -22,6 +22,7 @@ import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import LivesRow from '../../components/LivesRow'
 import GameMilestone from '../../components/GameMilestone'
+import { preloadImages } from '../../lib/preload'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
@@ -89,6 +90,7 @@ export default function Rain() {
   const cursor = useRef(0)
   const spawnTimer = useRef<number | undefined>(undefined)
   const fallTimer = useRef<number | undefined>(undefined)
+  const spawnGeneration = useRef(0)
   // Server transcript: one entry per resolved card, in resolution order, each
   // stamped with the elapsed time at resolution. `atMs` is what lets the scorer
   // check the run against the shared spawn curve (a tile cannot be answered
@@ -118,6 +120,7 @@ export default function Rain() {
 
   useEffect(() => {
     return () => {
+      spawnGeneration.current += 1
       if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
       if (fallTimer.current) window.clearInterval(fallTimer.current)
     }
@@ -138,8 +141,9 @@ export default function Rain() {
   function scheduleSpawn() {
     if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
     spawnTimer.current = window.setTimeout(() => {
-      spawnDrop()
-      if (stage.peek() === 'running') scheduleSpawn()
+      spawnDrop(() => {
+        if (stage.peek() === 'running') scheduleSpawn()
+      })
     }, rainSpawnIntervalMs(score.value))
   }
 
@@ -163,11 +167,11 @@ export default function Rain() {
     answersLog.current = []
     recorded.current = false
     runtime.start(() => {
+      spawnGeneration.current += 1
       drops.current = []
       target.current = null
       rainSpd.current = 0
       cursor.current = 0
-      scheduleSpawn()
       fallTimer.current = window.setInterval(tick, TICK_MS)
     })
   }
@@ -178,12 +182,14 @@ export default function Rain() {
   // (leaving the field empty until the first scheduled spawn ~1160ms later). Clear
   // any prior run's tiles and deal the opening card as soon as the stage is live.
   // spawnDrop is reached through a ref so this only fires on the stage flip.
-  const spawnRef = useRef<() => void>(() => {})
+  const spawnRef = useRef<(onSpawned?: () => void) => void>(() => {})
+  const scheduleSpawnRef = useRef<() => void>(() => {})
   spawnRef.current = spawnDrop
+  scheduleSpawnRef.current = scheduleSpawn
   useEffect(() => {
     if (stage.value !== 'running') return
     if (fieldRef.current) fieldRef.current.innerHTML = ''
-    spawnRef.current()
+    spawnRef.current(scheduleSpawnRef.current)
   }, [stage.value])
 
   function nextCard(): Card | null {
@@ -194,25 +200,39 @@ export default function Rain() {
     return c
   }
 
-  function spawnDrop() {
+  function spawnDrop(onSpawned: () => void = () => {}) {
     const field = fieldRef.current
-    if (!field || drops.current.length > MAX_CONCURRENT) return
+    if (!field || drops.current.length > MAX_CONCURRENT) {
+      onSpawned()
+      return
+    }
     const card = nextCard()
-    if (!card) return
-    const el = document.createElement('div')
-    el.className = 'ed-rain__tile'
-    el.style.left = `${6 + Math.random() * 72}%`
-    el.style.top = '-16%'
-    el.innerHTML =
-      `<img src="/cards/${card.id}.png" alt="" class="ed-rain__tile-img"/>` +
-      `<span class="ed-rain__tile-name">${card.name}</span>`
-    field.appendChild(el)
-    drops.current.push({
-      el,
-      card,
-      y: -16,
-      speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current,
-      wrong: 0
+    if (!card) {
+      onSpawned()
+      return
+    }
+    const generation = spawnGeneration.current
+    // A Rain tile enters the timed field only after its exact art has decoded.
+    // Chaining the next spawn from this callback preserves signed deck order;
+    // two slow decodes can never race and put later cards onto the field first.
+    preloadImages([card], () => {
+      if (generation !== spawnGeneration.current || stage.peek() !== 'running' || !field.isConnected) return
+      const el = document.createElement('div')
+      el.className = 'ed-rain__tile'
+      el.style.left = `${6 + Math.random() * 72}%`
+      el.style.top = '-16%'
+      el.innerHTML =
+        `<img src="${card.icon}" alt="" class="ed-rain__tile-img" loading="eager" decoding="sync"/>` +
+        `<span class="ed-rain__tile-name">${card.name}</span>`
+      field.appendChild(el)
+      drops.current.push({
+        el,
+        card,
+        y: -16,
+        speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current,
+        wrong: 0
+      })
+      onSpawned()
     })
   }
 
@@ -314,6 +334,7 @@ export default function Rain() {
   function endRain() {
     if (inputLocked.value) return
     inputLocked.value = true
+    spawnGeneration.current += 1
     target.current = null
     for (const d of drops.current) d.el.classList.remove('ed-rain__tile--lit')
     clearLoops()
@@ -342,6 +363,7 @@ export default function Rain() {
   function replay() {
     track('game.replayed', 'rain')
     clearLoops()
+    spawnGeneration.current += 1
     inputLocked.value = false
     rearmAutoStart()
     insights.value = null

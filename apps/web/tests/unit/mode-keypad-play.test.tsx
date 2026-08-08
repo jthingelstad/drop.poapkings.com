@@ -14,13 +14,18 @@ import type { Card } from '../../src/types'
 
 const hoisted = vi.hoisted(() => ({
   session: { current: null as unknown },
-  records: { current: {} as Record<string, unknown> }
+  records: { current: {} as Record<string, unknown> },
+  preloadImages: vi.fn()
 }))
 
 // Mock the session hook only — the runtime hook is left real on purpose.
 vi.mock('../../src/lib/use-game-session', () => ({
   useGameSession: () => hoisted.session.current
 }))
+vi.mock('../../src/lib/preload', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/preload')>()
+  return { ...actual, preloadImages: hoisted.preloadImages }
+})
 
 // No audio, analytics, animation, or WebGL in unit tests.
 vi.mock('../../src/lib/sound', () => ({
@@ -184,6 +189,7 @@ beforeEach(() => {
     vi.fn(() => {})
   )
   hoisted.records.current = {}
+  hoisted.preloadImages.mockImplementation((cards: Card[], done: (loaded: number) => void) => done(cards.length))
 })
 
 afterEach(() => {
@@ -307,6 +313,33 @@ describe('Surge gameplay', () => {
 // Survival — sudden death. Correct builds a streak; a miss or timeout ends it.
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Survival gameplay', () => {
+  it('does not start the next sudden-death clock before its card art is decoded', async () => {
+    const cards = fakeCards(20)
+    session = makeSession(cards)
+    hoisted.session.current = session
+    let releaseArt: (() => void) | undefined
+    hoisted.preloadImages
+      // begin() tops up the progressive look-ahead first.
+      .mockImplementationOnce((warmCards: Card[], done: (loaded: number) => void) => done(warmCards.length))
+      // nextCard() extends that look-ahead by one more distant card.
+      .mockImplementationOnce((warmCards: Card[], done: (loaded: number) => void) => done(warmCards.length))
+      // nextCard() then verifies the exact active card before exposing it.
+      .mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {
+        releaseArt = () => done(1)
+      })
+
+    const host = await startTimed(<Survival />)
+    press(host, cards[0]!.elixir)
+    advance(230)
+
+    expect(host.querySelector('.pcard__img')?.getAttribute('alt')).toBe(cards[0]!.name)
+    expect(host.querySelector('.pcard--correct')).toBeTruthy()
+
+    void act(() => releaseArt?.())
+    expect(host.querySelector('.pcard__img')?.getAttribute('alt')).toBe(cards[1]!.name)
+    expect(host.querySelector('.pcard--correct')).toBeNull()
+  })
+
   it('flashes the running total at every ten-card milestone', async () => {
     const cards = fakeCards(20)
     session = makeSession(cards)
@@ -488,6 +521,28 @@ describe('Practice gameplay', () => {
     }
   }
 
+  it('holds the loading surface until its random opening card is decoded', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+    let releaseArt: (() => void) | undefined
+    hoisted.preloadImages.mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {
+      releaseArt = () => done(1)
+    })
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    expect(host.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
+    expect(host.querySelector('.pcard')).toBeNull()
+
+    void act(() => releaseArt?.())
+    expect(host.querySelector('[data-game-start-phase="loading"]')).toBeNull()
+    expect(host.querySelector('.pcard__img')).not.toBeNull()
+  })
+
   it('uses the Surge card motion and no purple correct-answer treatment', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
@@ -510,6 +565,35 @@ describe('Practice gameplay', () => {
     // Endless: no card counter, and never the same card twice in a row.
     expect(host.textContent).not.toContain('/ 15')
     expect(liveCard(host, cards).id).not.toBe(first.id)
+  })
+
+  it('keeps the solved hand visible until the next card art is decoded', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+    let releaseArt: (() => void) | undefined
+    hoisted.preloadImages
+      .mockImplementationOnce((openingCards: Card[], done: (loaded: number) => void) => done(openingCards.length))
+      .mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {
+        releaseArt = () => done(1)
+      })
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    const first = liveCard(host, cards)
+    press(host, first.elixir)
+    advance(280)
+
+    expect(liveCard(host, cards).id).toBe(first.id)
+    expect(host.querySelector('.pcard--correct')).toBeTruthy()
+    expect(releaseArt).toBeTypeOf('function')
+
+    void act(() => releaseArt?.())
+    expect(liveCard(host, cards).id).not.toBe(first.id)
+    expect(host.querySelector('.pcard--correct')).toBeNull()
   })
 
   it('runs past the old 15-card round and only ends when the player ends it', () => {

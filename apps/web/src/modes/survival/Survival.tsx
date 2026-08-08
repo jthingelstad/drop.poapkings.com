@@ -51,6 +51,7 @@ export default function Survival() {
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
   const preloadContent = useRef<Card[] | null>(null)
   const progressiveArt = useRef<ReturnType<typeof createProgressivePreloadPlan> | null>(null)
+  const handoffGeneration = useRef(0)
 
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, later } = runtime
@@ -73,6 +74,9 @@ export default function Survival() {
 
   useEffect(() => {
     preloadGameFx()
+    return () => {
+      handoffGeneration.current += 1
+    }
   }, [])
 
   const rearmAutoStart = useAutoStart(Boolean(gameRun.content) && gameRun.assetsReady, stage, () => void begin())
@@ -143,18 +147,26 @@ export default function Survival() {
       return
     }
     warmCardArt(nextIndex)
-    serverCardIndex.current += 1
-    current.value = c
-    cardStart.current = performance.now()
-    remainingFrac.value = 1
-    cardPhase.value = 'playing'
-    runtime.emitCue('round-advance', { cardId: c.id })
+    const generation = ++handoffGeneration.current
+    // Look-ahead normally makes this an immediate cache/decode hit, but the
+    // active-card gate is the guarantee: the sudden-death clock and new hand do
+    // not start until this exact card is paint-ready.
+    preloadImages([c], () => {
+      if (generation !== handoffGeneration.current || stage.value !== 'running' || dead.current) return
+      serverCardIndex.current += 1
+      current.value = c
+      cardStart.current = performance.now()
+      remainingFrac.value = 1
+      cardPhase.value = 'playing'
+      runtime.emitCue('round-advance', { cardId: c.id })
+    })
   }
 
   // death by a wrong guess (picked set) or a timeout (picked undefined)
   function die(card: Card | null, picked: number | undefined) {
     if (dead.current) return
     dead.current = true
+    handoffGeneration.current += 1
     playWrong()
     if (card) {
       serverAnswers.current.push({
@@ -222,6 +234,7 @@ export default function Survival() {
     streak.value = 0
     milestone.value = null
     remainingFrac.value = 1
+    handoffGeneration.current += 1
     void gameRun.prepare()
   }
 

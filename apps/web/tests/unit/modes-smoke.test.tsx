@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render } from 'preact'
+import { act } from 'preact/test-utils'
 import { signal } from '@preact/signals'
 import rawCards from '@elixir-drop/game-data/cards.json'
 import { TRADE_LADDER, TRADE_ROUNDS } from '@elixir-drop/contracts'
@@ -48,7 +49,7 @@ import { setSoundEnabled, playCorrect } from '../../src/lib/sound'
 import { getSettings } from '../../src/lib/storage'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { challengeCard, challengeCards, fullDeckSize } from '../../src/lib/challenge-cards'
-import { createProgressivePreloadPlan, preloadImages } from '../../src/lib/preload'
+import { createProgressivePreloadPlan, preloadImages, preloadUrls } from '../../src/lib/preload'
 
 import Settings from '../../src/modes/settings/Settings'
 import Surge from '../../src/modes/surge/Surge'
@@ -341,6 +342,32 @@ describe('preloadImages', () => {
       vi.useRealTimers()
     }
   })
+
+  it('does not report a loaded image until browser decode completes', async () => {
+    let finishDecode: (() => void) | undefined
+    class DecodingImage {
+      static latest: DecodingImage | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      src = ''
+      decode = () => new Promise<void>((resolve) => (finishDecode = resolve))
+
+      constructor() {
+        DecodingImage.latest = this
+      }
+    }
+    vi.stubGlobal('Image', DecodingImage)
+    const done = vi.fn()
+
+    preloadUrls(['/cards/guards.png'], done)
+    DecodingImage.latest?.onload?.()
+    expect(done).not.toHaveBeenCalled()
+
+    finishDecode?.()
+    await Promise.resolve()
+    expect(done).toHaveBeenCalledWith(1)
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('createProgressivePreloadPlan', () => {
@@ -413,10 +440,21 @@ describe('mode smoke — Practice', () => {
   })
 
   it('renders the running board', () => {
-    stageSession(fakeCards(15), 'running')
-    const c = mount(<Practice />)
-    expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
-    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
+    vi.useFakeTimers()
+    try {
+      stageSession(fakeCards(15), 'running')
+      let c!: HTMLElement
+      void act(() => {
+        c = mount(<Practice />)
+      })
+      void act(() => {
+        vi.advanceTimersByTime(2500)
+      })
+      expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
+      expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

@@ -56,23 +56,36 @@ export function CardArt({
   showName = false,
   nameClassName
 }: CardArtProps) {
-  const [imageState, setImageState] = useState({ cardId: card.id, failed: false })
-  const imgFailed = imageState.cardId === card.id && imageState.failed
+  const [imageState, setImageState] = useState<{ cardId: number; status: 'loading' | 'ready' | 'failed' }>({
+    cardId: card.id,
+    status: 'loading'
+  })
+  const status = imageState.cardId === card.id ? imageState.status : 'loading'
+  const imgFailed = status === 'failed'
+  const imgReady = status === 'ready'
   const showImage = card.icon && !imgFailed
 
   return (
     <span class={classNames('cr-card-art', className)}>
-      {showImage ? (
+      {!imgReady && <span class={classNames('cr-card-art__fallback', fallbackClassName)} aria-hidden="true" />}
+      {showImage && (
         <img
           key={card.id}
-          class={classNames('cr-card-art__img', imgClassName)}
+          class={classNames('cr-card-art__img', !imgReady && 'cr-card-art__img--loading', imgClassName)}
           src={card.icon}
           alt={alt}
           loading={loading}
-          onError={() => setImageState({ cardId: card.id, failed: true })}
+          onLoad={(event) => {
+            const image = event.currentTarget
+            const markReady = () => setImageState({ cardId: card.id, status: 'ready' })
+            if (typeof image.decode !== 'function') {
+              markReady()
+              return
+            }
+            void image.decode().then(markReady, () => setImageState({ cardId: card.id, status: 'failed' }))
+          }}
+          onError={() => setImageState({ cardId: card.id, status: 'failed' })}
         />
-      ) : (
-        <span class={classNames('cr-card-art__fallback', fallbackClassName)} aria-hidden="true" />
       )}
       {showCost && <ElixirCostBadge elixir={card.elixir} className={costClassName} tone={costTone} />}
       {showName && <CardName card={card} className={nameClassName} />}

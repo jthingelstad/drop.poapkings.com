@@ -22,6 +22,7 @@ import Summary from '../../components/Summary'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
+import { preloadImages } from '../../lib/preload'
 
 // A correct read earns a quick beat; a miss keeps the longer one — that's the
 // learning moment.
@@ -63,11 +64,15 @@ export default function HigherLower() {
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
+  const handoffGeneration = useRef(0)
   const timeoutRef = useRef<() => void>(() => {})
   const stage = runtime.stage
 
   useEffect(() => {
     preloadGameFx()
+    return () => {
+      handoffGeneration.current += 1
+    }
   }, [])
 
   // Play the 3-2-1 once an explicitly requested run is loaded. Unlike the other
@@ -112,13 +117,7 @@ export default function HigherLower() {
   // letting the clock run out.
   useEndRunOnHide(stage.value === 'running', () => timeoutRef.current())
 
-  function next() {
-    const nextIndex = pairIndex.value + 1
-    const nextPair = gameRun.content?.[nextIndex]
-    if (!nextPair) {
-      void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
-      return
-    }
+  function showNext(nextIndex: number) {
     pairIndex.value = nextIndex
     picked.value = null
     timedOut.value = false
@@ -156,6 +155,7 @@ export default function HigherLower() {
     lives.value = HIGHER_LOWER_LIVES
     score.value = 0
     remainingFrac.value = 1
+    handoffGeneration.current += 1
     await gameRun.prepare()
     // Arm the countdown only after prepare has synchronously cleared the old
     // challenge and resolved the replacement, avoiding a stale-pair start.
@@ -199,20 +199,40 @@ export default function HigherLower() {
       runtime.emitCue('answer-wrong', { pairIndex: pairIndex.value })
     }
 
-    runtime.later(
-      () => {
-        if (livesLeft > 0) {
-          next()
-        } else {
-          // Out of lives. Keep the revealed result in place after completion:
-          // the next signed run is prepared only after an explicit player
-          // action, so an idle screen cannot farm timed-out runs, XP, or
-          // activity events.
-          void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
-        }
-      },
-      correct ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
-    )
+    const delay = correct ? ADVANCE_DELAY_CORRECT : ADVANCE_DELAY_WRONG
+    if (livesLeft <= 0) {
+      runtime.later(() => {
+        // Out of lives. Keep the revealed result in place after completion: the
+        // next signed run is prepared only after an explicit player action, so
+        // an idle screen cannot farm timed-out runs, XP, or activity events.
+        void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
+      }, delay)
+      return
+    }
+
+    const nextIndex = pairIndex.value + 1
+    const nextPair = gameRun.content?.[nextIndex]
+    const generation = ++handoffGeneration.current
+    let beatReady = false
+    let artReady = !nextPair
+    const advance = () => {
+      if (!beatReady || !artReady || generation !== handoffGeneration.current || stage.value !== 'running') return
+      if (nextPair) showNext(nextIndex)
+      else void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
+    }
+    // Decode during the result reveal, not after it. The player always gets the
+    // full learning beat, while a cache/decode hiccup can only extend that beat
+    // with the complete old pair still visible.
+    if (nextPair) {
+      preloadImages([...nextPair], () => {
+        artReady = true
+        advance()
+      })
+    }
+    runtime.later(() => {
+      beatReady = true
+      advance()
+    }, delay)
   }
 
   function choose(pickedId: number) {

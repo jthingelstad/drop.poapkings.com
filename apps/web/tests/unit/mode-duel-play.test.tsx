@@ -8,10 +8,14 @@ import type { Card } from '../../src/types'
 // tests drive the actual countdown → running → gameplay flow (fake timers step
 // the 3-2-1). Each mode calls useGameSession once; the mock returns whatever the
 // test staged in this holder before mounting. ──────────────────────────────────
-const hoisted = vi.hoisted(() => ({ session: { current: null as unknown } }))
+const hoisted = vi.hoisted(() => ({ session: { current: null as unknown }, preloadImages: vi.fn() }))
 vi.mock('../../src/lib/use-game-session', () => ({
   useGameSession: () => hoisted.session.current
 }))
+vi.mock('../../src/lib/preload', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/preload')>()
+  return { ...actual, preloadImages: hoisted.preloadImages }
+})
 
 // No audio, no animation, no analytics, no WebGL.
 vi.mock('../../src/lib/sound', () => ({
@@ -153,6 +157,7 @@ function tileValue(root: HTMLElement, label: string): string | undefined {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  hoisted.preloadImages.mockImplementation((cards: Card[], done: (loaded: number) => void) => done(cards.length))
   mockNow = 1000
   rafCb = null
   vi.spyOn(performance, 'now').mockImplementation(() => mockNow)
@@ -214,6 +219,25 @@ describe('Higher / Lower — gameplay', () => {
     // A correct read advances after ADVANCE_DELAY_CORRECT (750ms) to pair 2.
     await advance(800)
     expect(metricValue(c)).toBe('1') // the score carries into the next pair
+    expect(c.textContent).toContain('HL-1a')
+    expect(c.textContent).not.toContain('HL-0a')
+  })
+
+  it('keeps the revealed pair until both next-card images are decoded', async () => {
+    let releaseArt: (() => void) | undefined
+    hoisted.preloadImages.mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {
+      releaseArt = () => done(2)
+    })
+    stage(pairs())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    await click(higher(c))
+    await advance(800)
+    expect(c.textContent).toContain('HL-0a')
+    expect(c.querySelector('.ed-duel__card--correct')).not.toBeNull()
+
+    await act(async () => releaseArt?.())
     expect(c.textContent).toContain('HL-1a')
     expect(c.textContent).not.toContain('HL-0a')
   })
@@ -456,6 +480,21 @@ describe('Rain — gameplay', () => {
       fakeCard(406, 1, 'RN-F')
     ]
   }
+
+  it('does not put a Rain tile into play before its art is decoded', async () => {
+    let releaseArt: (() => void) | undefined
+    hoisted.preloadImages.mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {
+      releaseArt = () => done(1)
+    })
+    stage(deck())
+    const c = mount(<Rain />)
+    await toRunning(c)
+
+    expect(c.querySelectorAll('.ed-rain__tile')).toHaveLength(0)
+    await act(async () => releaseArt?.())
+    expect(c.querySelectorAll('.ed-rain__tile')).toHaveLength(1)
+    expect(c.textContent).toContain('RN-A')
+  })
 
   it('tapping the lit card cost clears it and scores', async () => {
     stage(deck())

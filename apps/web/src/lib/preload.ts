@@ -1,9 +1,10 @@
 import type { Card } from '../types'
 
-// Preload card art so nothing pops in mid-run. Resolves on load OR error, and
-// never hangs (a blocked/slow CDN still settles via the timeout). The callback
-// reports how many images actually loaded so a mode that needs the art to be
-// playable can refuse to start the clock against gray boxes.
+// Preload card art so nothing pops in mid-run. A service-worker hit only proves
+// the response bytes are local; the browser can still need another frame (or
+// longer on a busy phone) to decode those bytes. Count an image as ready only
+// after decode() settles successfully. Errors and the timeout still settle the
+// batch so a bad asset can fall back instead of hanging a run forever.
 export function preloadImages(cards: Card[], done: (loadedCount: number) => void, timeoutMs = 2500): void {
   preloadUrls(cards.map((c) => c.icon).filter(Boolean), done, timeoutMs)
 }
@@ -31,7 +32,13 @@ export function preloadUrls(urls: string[], done: (loadedCount: number) => void,
   }
   for (const u of urls) {
     const img = new Image()
-    img.onload = tick(true)
+    img.onload = () => {
+      if (typeof img.decode !== 'function') {
+        tick(true)()
+        return
+      }
+      void img.decode().then(tick(true), tick(false))
+    }
     img.onerror = tick(false)
     img.src = u
   }
