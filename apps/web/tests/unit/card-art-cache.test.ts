@@ -15,6 +15,19 @@ describe('card art cache', () => {
   const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState')
   const cachesDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches')
 
+  function activeRegistration(workerUrl: string, postMessage: ReturnType<typeof vi.fn>) {
+    const worker = Object.assign(new EventTarget(), {
+      scriptURL: new URL(workerUrl, window.location.href).href,
+      state: 'activated' as ServiceWorkerState,
+      postMessage
+    }) as unknown as ServiceWorker
+    return Object.assign(new EventTarget(), {
+      active: worker,
+      waiting: null,
+      installing: null
+    }) as unknown as ServiceWorkerRegistration
+  }
+
   beforeEach(() => {
     vi.useFakeTimers()
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
@@ -46,10 +59,10 @@ describe('card art cache', () => {
 
   it('registers the runtime cache for web visits without filling the full catalog', async () => {
     const postMessage = vi.fn()
-    const register = vi.fn(async () => ({}))
+    const register = vi.fn(async (workerUrl: string) => activeRegistration(workerUrl, postMessage))
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: { register, ready: Promise.resolve({ active: { postMessage } }) }
+      value: { register }
     })
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -71,8 +84,7 @@ describe('card art cache', () => {
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
       value: {
-        register: vi.fn(async () => ({})),
-        ready: Promise.resolve({ active: { postMessage } })
+        register: vi.fn(async (workerUrl: string) => activeRegistration(workerUrl, postMessage))
       }
     })
     Object.defineProperty(window, 'matchMedia', {
@@ -87,6 +99,54 @@ describe('card art cache', () => {
     expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
     vi.advanceTimersByTime(750)
     expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(4, 8) })
+  })
+
+  it('waits for the newly registered worker instead of filling through the retiring worker', async () => {
+    const oldPostMessage = vi.fn()
+    const newPostMessage = vi.fn()
+    let newState: ServiceWorkerState = 'installing'
+    let newWorkerUrl = ''
+    const oldWorker = Object.assign(new EventTarget(), {
+      scriptURL: 'https://drop.poapkings.com/card-art-sw.js?build=previous&catalog=previous',
+      state: 'activated' as ServiceWorkerState,
+      postMessage: oldPostMessage
+    }) as unknown as ServiceWorker
+    const newWorker = new EventTarget() as ServiceWorker
+    Object.defineProperties(newWorker, {
+      scriptURL: { configurable: true, get: () => new URL(newWorkerUrl, window.location.href).href },
+      state: { configurable: true, get: () => newState },
+      postMessage: { configurable: true, value: newPostMessage }
+    })
+    const registration = new EventTarget() as ServiceWorkerRegistration
+    Object.defineProperties(registration, {
+      active: { configurable: true, get: () => (newState === 'activated' ? newWorker : oldWorker) },
+      waiting: { configurable: true, get: () => null },
+      installing: { configurable: true, get: () => (newState === 'activated' ? null : newWorker) }
+    })
+    const register = vi.fn(async (workerUrl: string) => {
+      newWorkerUrl = workerUrl
+      return registration
+    })
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { register, ready: Promise.resolve({ active: oldWorker }) }
+    })
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn(() => ({ matches: true }))
+    })
+
+    const initialization = initCardArtCache(true)
+    await Promise.resolve()
+    expect(oldPostMessage).not.toHaveBeenCalled()
+
+    newState = 'activated'
+    newWorker.dispatchEvent(new Event('statechange'))
+    await initialization
+    vi.advanceTimersByTime(750)
+
+    expect(oldPostMessage).not.toHaveBeenCalled()
+    expect(newPostMessage).toHaveBeenCalledWith({ type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
   })
 
   it('reports the active worker and only current-catalog card images in the cache', async () => {
