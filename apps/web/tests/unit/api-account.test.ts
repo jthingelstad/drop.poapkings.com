@@ -38,6 +38,10 @@ function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 }
 
+function requestUrl(input: string | URL | Request): string {
+  return typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+}
+
 // ===========================================================================
 // api.ts — fetch is mocked; the real module is exercised.
 // ===========================================================================
@@ -259,6 +263,45 @@ describe('api.ts request helpers', () => {
 
     await getLeaderboard('surge', 'all-time')
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/leaderboards?mode=surge&scope=all-time`)
+  })
+
+  it('bounds leaderboard fan-out to two requests while all boards still resolve', async () => {
+    const releases: Array<() => void> = []
+    let active = 0
+    let maxActive = 0
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = requestUrl(input)
+      if (url.endsWith('/api-config.json')) return Promise.resolve(json({ apiBaseUrl: API_BASE }))
+      const mode = new URL(url).searchParams.get('mode')
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      return new Promise<Response>((resolve) => {
+        releases.push(() => {
+          active -= 1
+          resolve(json({ mode, currentSeason: season, entries: [] }))
+        })
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { getLeaderboard } = await import('../../src/lib/api')
+
+    const requests = ['surge', 'higher-lower', 'trade', 'survival', 'rain'].map((mode) =>
+      getLeaderboard(mode as 'surge' | 'higher-lower' | 'trade' | 'survival' | 'rain')
+    )
+    const endpointCalls = () =>
+      fetchMock.mock.calls.filter(([url]) => !requestUrl(url).endsWith('/api-config.json')).length
+
+    await vi.waitFor(() => expect(endpointCalls()).toBe(2))
+    releases.shift()?.()
+    await vi.waitFor(() => expect(endpointCalls()).toBe(3))
+    releases.shift()?.()
+    await vi.waitFor(() => expect(endpointCalls()).toBe(4))
+    releases.shift()?.()
+    await vi.waitFor(() => expect(endpointCalls()).toBe(5))
+    for (const release of releases.splice(0)) release()
+
+    await expect(Promise.all(requests)).resolves.toHaveLength(5)
+    expect(maxActive).toBe(2)
   })
 
   it('getActivity requests the given limit', async () => {

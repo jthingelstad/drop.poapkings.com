@@ -1274,6 +1274,40 @@ Resources:
               "type": "metric",
               "x": 0,
               "y": 11,
+              "width": 24,
+              "height": 7,
+              "properties": {
+                "title": "Requests by API route",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [{"expression": "SEARCH('{AWS/ApiGateway,ApiId,Stage,Method,Resource} MetricName=\"Count\" ApiId=\"${HttpApi}\" Stage=\"$default\"', 'Sum', 300)", "id": "route_requests"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 18,
+              "width": 24,
+              "height": 7,
+              "properties": {
+                "title": "p95 latency by API route",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [{"expression": "SEARCH('{AWS/ApiGateway,ApiId,Stage,Method,Resource} MetricName=\"Latency\" ApiId=\"${HttpApi}\" Stage=\"$default\"', 'p95', 300)", "id": "route_latency"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 25,
               "width": 12,
               "height": 6,
               "properties": {
@@ -1291,7 +1325,7 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 11,
+              "y": 25,
               "width": 12,
               "height": 6,
               "properties": {
@@ -1309,7 +1343,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 17,
+              "y": 31,
               "width": 12,
               "height": 6,
               "properties": {
@@ -1326,7 +1360,7 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 17,
+              "y": 31,
               "width": 12,
               "height": 6,
               "properties": {

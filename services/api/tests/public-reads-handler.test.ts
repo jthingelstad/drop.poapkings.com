@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
@@ -92,6 +92,10 @@ describe("public read routes", () => {
     repository.globalStats.mockResolvedValue({ trophyRoadGames: 640 });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("answers the health check without touching config or storage", async () => {
     const result = await call(request("GET", "/health"));
 
@@ -112,10 +116,36 @@ describe("public read routes", () => {
   });
 
   it("answers an unknown path with a 404 code, not a 500", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const result = await call(request("GET", "/nope"));
 
     expect(result.statusCode).toBe(404);
     expect(result.body).toMatchObject({ error: { code: "not_found" } });
+    expect(warn).toHaveBeenCalledWith(
+      "API request rejected",
+      expect.objectContaining({ statusCode: 404, code: "not_found" }),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("keeps unexpected server failures at error severity", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    repository.globalStats.mockRejectedValue(new Error("storage failed"));
+
+    const result = await call(request("GET", "/stats"));
+
+    expect(result.statusCode).toBe(500);
+    expect(error).toHaveBeenCalledWith(
+      "API request failed",
+      expect.objectContaining({ statusCode: 500, code: "internal_error" }),
+    );
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("serves the site stats with the deployed web build id", async () => {

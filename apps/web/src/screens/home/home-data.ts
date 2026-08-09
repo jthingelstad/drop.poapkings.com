@@ -90,21 +90,18 @@ export function useHomeData(): HomeData {
     void getStats(controller.signal)
       .then((value) => (stats.value = value))
       .catch(() => undefined)
-    void Promise.all(
-      RANKED_GAMES.map((game) =>
-        getLeaderboard(game.mode, 'season', controller.signal)
-          .then((value) => ({ mode: game.mode, entries: value.entries }))
-          .catch(() => null)
-      )
-    )
-      .then((results) => {
-        const next: Partial<Record<GameMode, LeaderboardEntry[]>> = {}
-        for (const result of results) if (result) next[result.mode] = result.entries
-        boards.value = next
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) loading.value = false
-      })
+    let remainingBoards = RANKED_GAMES.length
+    for (const game of RANKED_GAMES) {
+      void getLeaderboard(game.mode, 'season', controller.signal)
+        .then((value) => {
+          if (!controller.signal.aborted) boards.value = { ...boards.value, [game.mode]: value.entries }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          remainingBoards -= 1
+          if (!controller.signal.aborted && remainingBoards === 0) loading.value = false
+        })
+    }
     return () => controller.abort()
   }, [boards, loading, stats])
 

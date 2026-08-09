@@ -33,8 +33,14 @@ interface ApiRequestOptions extends RequestInit {
 const REQUEST_TIMEOUT_MS = 8_000
 const SAFE_RETRY_DELAY_MS = 180
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
+// Home needs every ranked board, but sending them all at once creates a burst
+// of parallel Lambda cold starts. Two concurrent boards keep progressive UI
+// updates quick without turning one page load into a server-side fan-out.
+const MAX_CONCURRENT_LEADERBOARDS = 2
 
 let configPromise: Promise<{ apiBaseUrl: string }> | undefined
+let activeLeaderboardRequests = 0
+const leaderboardQueue: Array<() => void> = []
 
 export class ApiError extends Error {
   constructor(
@@ -45,6 +51,42 @@ export class ApiError extends Error {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+function drainLeaderboardQueue(): void {
+  while (activeLeaderboardRequests < MAX_CONCURRENT_LEADERBOARDS) {
+    const start = leaderboardQueue.shift()
+    if (!start) return
+    start()
+  }
+}
+
+function scheduleLeaderboardRequest<T>(request: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) return Promise.reject(new ApiError(0, 'request_cancelled', 'The request was cancelled.'))
+
+  return new Promise<T>((resolve, reject) => {
+    let started = false
+    const start = () => {
+      started = true
+      signal?.removeEventListener('abort', cancel)
+      activeLeaderboardRequests += 1
+      void request()
+        .then(resolve, reject)
+        .finally(() => {
+          activeLeaderboardRequests -= 1
+          drainLeaderboardQueue()
+        })
+    }
+    const cancel = () => {
+      if (started) return
+      const queuedIndex = leaderboardQueue.indexOf(start)
+      if (queuedIndex >= 0) leaderboardQueue.splice(queuedIndex, 1)
+      reject(new ApiError(0, 'request_cancelled', 'The request was cancelled.'))
+    }
+    signal?.addEventListener('abort', cancel, { once: true })
+    leaderboardQueue.push(start)
+    drainLeaderboardQueue()
+  })
 }
 
 function contractIssueCount(error: unknown): number | undefined {
@@ -321,7 +363,10 @@ export function getLeaderboard(
   sessionToken?: string
 ) {
   const query = `/leaderboards?mode=${encodeURIComponent(mode)}` + (scope === 'season' ? '' : `&scope=${scope}`)
-  return apiRequest(query, leaderboardResponseSchema, { signal, sessionToken })
+  return scheduleLeaderboardRequest(
+    () => apiRequest(query, leaderboardResponseSchema, { signal, sessionToken }),
+    signal
+  )
 }
 
 export function getActivity(limit = 8, signal?: AbortSignal) {

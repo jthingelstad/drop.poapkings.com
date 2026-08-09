@@ -426,7 +426,24 @@ void describe("deployment parameters", () => {
     assert.equal(dashboard.start, "-PT8H");
     assert.equal(dashboard.periodOverride, "inherit");
     assert.equal(dashboard.widgets[0].type, "alarm");
-    assert.equal(dashboard.widgets.length, 7);
+    assert.equal(dashboard.widgets.length, 9);
+
+    const routeRequests = dashboard.widgets.find(
+      (widget) => widget.properties?.title === "Requests by API route",
+    );
+    const routeLatency = dashboard.widgets.find(
+      (widget) => widget.properties?.title === "p95 latency by API route",
+    );
+    assert.ok(routeRequests);
+    assert.ok(routeLatency);
+    assert.match(
+      routeRequests.properties.metrics[0][0].expression,
+      /AWS\/ApiGateway,ApiId,Stage,Method,Resource.*MetricName="Count".*'Sum'/,
+    );
+    assert.match(
+      routeLatency.properties.metrics[0][0].expression,
+      /AWS\/ApiGateway,ApiId,Stage,Method,Resource.*MetricName="Latency".*'p95'/,
+    );
 
     assert.match(template, /PolicyName: elixir-drop-dashboard-management/);
     assert.match(template, /- cloudwatch:PutDashboard/);

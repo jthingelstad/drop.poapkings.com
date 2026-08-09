@@ -92,7 +92,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
             "The API could not complete the request.",
             "internal_error",
           );
-    console.error("API request failed", {
+    const logContext = {
       requestId: event.requestContext.requestId,
       method: event.requestContext.http.method,
       path: event.rawPath,
@@ -100,7 +100,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       code: safeError.code,
       error: error instanceof Error ? error.name : "unknown",
       reason: error instanceof HttpError ? error.message : undefined,
-    });
+    };
+    if (safeError.statusCode >= 500) {
+      console.error("API request failed", logContext);
+    } else {
+      console.warn("API request rejected", logContext);
+    }
     return json(safeError.statusCode, {
       error: { code: safeError.code, message: safeError.message },
     });

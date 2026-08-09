@@ -42,10 +42,12 @@ strings, concrete paths, and authorization data. The gateway declares each
 application endpoint with a parameterized route template (plus a `$default`
 404 fallback), so the access logs and detailed metrics remain route-aware
 without recording player IDs. The `elixir-drop-operations` CloudWatch dashboard
-puts alarm state, API tail latency, Lambda health and concurrency, and DynamoDB
-capacity and failures in one view. Alarms cover API p95/p99 latency, 80% of the
-API Lambda's reserved concurrency, DynamoDB throttle events, and DynamoDB
-service errors.
+puts alarm state, aggregate and per-route request volume and p95 latency, Lambda
+health and concurrency, and DynamoDB capacity and failures in one view. The
+route charts discover the detailed API Gateway metrics dynamically, so newly
+declared routes appear without another dashboard edit. Alarms cover API p95/p99
+latency, 80% of the API Lambda's reserved concurrency, DynamoDB throttle events,
+and DynamoDB service errors.
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, the
