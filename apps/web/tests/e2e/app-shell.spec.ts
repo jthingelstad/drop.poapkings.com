@@ -85,12 +85,13 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
   await expect(outage).toContainText('Your account and recorded games are safe.')
 
   // App's stale-build check and Home's view-model both request /stats during
-  // startup. Let both failed responses settle before clicking: otherwise the
-  // second response can rerender the banner while Playwright is checking the
-  // button's stability, which made isolated Firefox lanes time out.
+  // startup. Let both failed responses settle before reconnecting. Queued Home
+  // reads may recover the app as soon as availability flips, so use a
+  // synchronous DOM click when the button still exists instead of waiting for
+  // Playwright's stability checks on a banner that is correctly disappearing.
   await expect.poll(() => unavailableStatsResponses).toBeGreaterThanOrEqual(2)
   available = true
-  await page.getByRole('button', { name: 'Try reconnecting' }).click()
+  await page.evaluate(() => document.querySelector<HTMLButtonElement>('.api-status__retry')?.click())
   await expect(outage).toHaveCount(0)
   // Recovers in place: the Home surface renders (the Surge hero + PLAY button).
   await expect(page.locator('.ed-hero')).toBeVisible()
