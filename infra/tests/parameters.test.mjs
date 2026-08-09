@@ -365,6 +365,92 @@ void describe("deployment parameters", () => {
     assert.match(template, /- DELETE/);
   });
 
+  void it("records privacy-conscious route timing and detailed HTTP API metrics", () => {
+    assert.match(
+      template,
+      /LogGroupName: \/elixir-drop\/api-access\s+RetentionInDays: 30/,
+    );
+    const accessLogFormat = template.match(
+      /AccessLogSettings:[\s\S]*?Format: >-\s+([^\n]+)/,
+    )?.[1];
+    assert.ok(accessLogFormat);
+    for (const field of [
+      "$context.requestId",
+      "$context.routeKey",
+      "$context.status",
+      "$context.responseLatency",
+      "$context.integrationLatency",
+      "$context.integration.status",
+      "$context.responseLength",
+    ]) {
+      assert.match(accessLogFormat, new RegExp(field.replaceAll("$", "\\$")));
+    }
+    assert.doesNotMatch(
+      accessLogFormat,
+      /identity|authorizer|sourceIp|userAgent|queryString|path/,
+    );
+    assert.match(template, /DetailedMetricsEnabled: true/);
+
+    const routeKeys = [...template.matchAll(/^ {6}RouteKey: (.+)$/gm)].map(
+      (match) => match[1],
+    );
+    assert.deepEqual(routeKeys, [
+      "$default",
+      "GET /health",
+      "POST /auth/request",
+      "POST /auth/poll",
+      "POST /auth/redeem",
+      "POST /auth/refresh",
+      "GET /me",
+      "GET /me/seasons",
+      "GET /players/{playerId}",
+      "POST /me/name-options",
+      "DELETE /me",
+      "PATCH /me",
+      "POST /runs/start",
+      "POST /runs/complete",
+      "GET /leaderboards",
+      "GET /seasons",
+      "GET /activity",
+      "GET /stats",
+    ]);
+  });
+
+  void it("defines a valid operations dashboard and baseline-backed alarms", () => {
+    const dashboardBody = template
+      .match(/DashboardBody: !Sub \|\n((?: {8}.*\n)+)/)?.[1]
+      .replaceAll(/^ {8}/gm, "")
+      .replaceAll(/\$\{[^}]+\}/g, "placeholder");
+    assert.ok(dashboardBody);
+    const dashboard = JSON.parse(dashboardBody);
+    assert.equal(dashboard.start, "-PT8H");
+    assert.equal(dashboard.periodOverride, "inherit");
+    assert.equal(dashboard.widgets[0].type, "alarm");
+    assert.equal(dashboard.widgets.length, 7);
+
+    assert.match(template, /PolicyName: elixir-drop-dashboard-management/);
+    assert.match(template, /- cloudwatch:PutDashboard/);
+    assert.match(
+      template,
+      /OperationsDashboard:[\s\S]*?DependsOn: CloudFormationDashboardPolicy/,
+    );
+
+    assert.match(template, /AlarmName: elixir-drop-api-latency-p95/);
+    assert.match(template, /ExtendedStatistic: p95[\s\S]*?Threshold: 1200/);
+    assert.match(template, /AlarmName: elixir-drop-api-latency-p99/);
+    assert.match(template, /ExtendedStatistic: p99[\s\S]*?Threshold: 2000/);
+    assert.match(template, /AlarmName: elixir-drop-api-concurrency/);
+    assert.match(
+      template,
+      /MetricName: ConcurrentExecutions[\s\S]*?Threshold: 20/,
+    );
+    assert.match(template, /AlarmName: elixir-drop-dynamodb-throttles/);
+    assert.match(template, /MetricName: ReadThrottleEvents/);
+    assert.match(template, /MetricName: WriteThrottleEvents/);
+    assert.match(template, /AlarmName: elixir-drop-dynamodb-system-errors/);
+    assert.match(template, /Expression: SUM\(METRICS\(\)\)/);
+  });
+
   void it("indexes public profile UUIDs without projecting email", () => {
     const publicProfileIndex = template.match(
       /- IndexName: GSI3[\s\S]*?(?=\n      PointInTimeRecoverySpecification:)/,
@@ -379,6 +465,10 @@ void describe("deployment parameters", () => {
   void it("allows CloudFormation to manage scheduled structured logs", () => {
     assert.match(bootstrap, /"events:\*"/);
     assert.match(bootstrap, /"logs:\*"/);
+    assert.match(
+      bootstrap,
+      /arn:aws:cloudwatch::\$\{accountId\}:dashboard\/elixir-drop-\*/,
+    );
   });
 
   void it("bounds referee writes to its independent decision partitions", () => {

@@ -34,6 +34,19 @@ message each day through the same Fastmail JMAP path as player magic links and
 alarms on both delivery failure and a missing scheduled run. It targets
 `elixir@poapkings.com` unless `ELIXIR_DROP_CANARY_EMAIL` overrides it.
 
+The HTTP API also writes privacy-conscious JSON access logs to the 30-day
+`/elixir-drop/api-access` log group. Each record includes the request ID, route
+template, response and integration status, response and integration latency,
+and response size; it deliberately omits IP addresses, user agents, query
+strings, concrete paths, and authorization data. The gateway declares each
+application endpoint with a parameterized route template (plus a `$default`
+404 fallback), so the access logs and detailed metrics remain route-aware
+without recording player IDs. The `elixir-drop-operations` CloudWatch dashboard
+puts alarm state, API tail latency, Lambda health and concurrency, and DynamoDB
+capacity and failures in one view. Alarms cover API p95/p99 latency, 80% of the
+API Lambda's reserved concurrency, DynamoDB throttle events, and DynamoDB
+service errors.
+
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, the
 queue-only `elixir-drop-cr-bridge` user, a CloudFormation execution role, a

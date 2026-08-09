@@ -185,10 +185,37 @@ Resources:
         - Protocol: email
           Endpoint: !Ref AlarmEmail
 
+  # The execution role is bootstrap-owned rather than stack-owned. Its current
+  # policy already permits bounded iam:PutRolePolicy calls on elixir-drop-*
+  # roles, so an existing production stack can grant this new dashboard-only
+  # capability before CloudFormation creates the dashboard below. Fresh
+  # environments also receive the same permission directly from bootstrap.mjs.
+  CloudFormationDashboardPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: elixir-drop-dashboard-management
+      Roles:
+        - elixir-drop-cloudformation-execution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cloudwatch:DeleteDashboards
+              - cloudwatch:GetDashboard
+              - cloudwatch:PutDashboard
+            Resource: !Sub arn:${AWS::Partition}:cloudwatch::${AWS::AccountId}:dashboard/elixir-drop-*
+
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /elixir-drop/api
+      RetentionInDays: 30
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/api-access
       RetentionInDays: 30
 
   CrResultLogGroup:
@@ -595,6 +622,237 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
+  ApiLatencyP95Alarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-api-latency-p95
+      AlarmDescription: Elixir Drop API p95 response latency exceeded 1.2 seconds in two of three five-minute windows.
+      Namespace: AWS/ApiGateway
+      MetricName: Latency
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1200
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  ApiLatencyP99Alarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-api-latency-p99
+      AlarmDescription: Elixir Drop API p99 response latency exceeded 2 seconds in two of three five-minute windows.
+      Namespace: AWS/ApiGateway
+      MetricName: Latency
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      ExtendedStatistic: p99
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 2000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  ApiFunctionConcurrencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-api-concurrency
+      AlarmDescription: Elixir Drop API used at least 20 of its 25 reserved concurrent executions in two of three minutes.
+      Namespace: AWS/Lambda
+      MetricName: ConcurrentExecutions
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 20
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  DataTableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-dynamodb-throttles
+      AlarmDescription: Elixir Drop DynamoDB reads or writes were throttled in two of three minutes.
+      Metrics:
+        - Id: readthrottles
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: ReadThrottleEvents
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: writethrottles
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: WriteThrottleEvents
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: throttles
+          Expression: readthrottles + writethrottles
+          Label: DynamoDB throttle events
+          ReturnData: true
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  DataTableSystemErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: AlarmTopic
+    Properties:
+      AlarmName: elixir-drop-dynamodb-system-errors
+      AlarmDescription: DynamoDB returned service errors for Elixir Drop in two of three minutes.
+      Metrics:
+        - Id: batchget
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: BatchGetItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: batchwrite
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: BatchWriteItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: deleteitem
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: DeleteItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: getitem
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: GetItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: putitem
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: PutItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: query
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: Query
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: transactwrite
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: TransactWriteItems
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: updateitem
+          MetricStat:
+            Metric:
+              Namespace: AWS/DynamoDB
+              MetricName: SystemErrors
+              Dimensions:
+                - Name: TableName
+                  Value: !Ref DataTable
+                - Name: Operation
+                  Value: UpdateItem
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: systemerrors
+          Expression: SUM(METRICS())
+          Label: DynamoDB system errors
+          ReturnData: true
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
   ApiFunctionThrottleAlarm:
     Type: AWS::CloudWatch::Alarm
     DependsOn: AlarmTopic
@@ -809,18 +1067,285 @@ Resources:
       RouteKey: $default
       Target: !Sub integrations/${ApiIntegration}
 
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /health
+      Target: !Sub integrations/${ApiIntegration}
+
+  AuthRequestRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /auth/request
+      Target: !Sub integrations/${ApiIntegration}
+
+  AuthPollRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /auth/poll
+      Target: !Sub integrations/${ApiIntegration}
+
+  AuthRedeemRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /auth/redeem
+      Target: !Sub integrations/${ApiIntegration}
+
+  AuthRefreshRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /auth/refresh
+      Target: !Sub integrations/${ApiIntegration}
+
+  MeGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /me
+      Target: !Sub integrations/${ApiIntegration}
+
+  MeSeasonsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /me/seasons
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublicPlayerRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /players/{playerId}
+      Target: !Sub integrations/${ApiIntegration}
+
+  MeNameOptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /me/name-options
+      Target: !Sub integrations/${ApiIntegration}
+
+  MeDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: DELETE /me
+      Target: !Sub integrations/${ApiIntegration}
+
+  MePatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PATCH /me
+      Target: !Sub integrations/${ApiIntegration}
+
+  RunStartRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /runs/start
+      Target: !Sub integrations/${ApiIntegration}
+
+  RunCompleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /runs/complete
+      Target: !Sub integrations/${ApiIntegration}
+
+  LeaderboardsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /leaderboards
+      Target: !Sub integrations/${ApiIntegration}
+
+  SeasonsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /seasons
+      Target: !Sub integrations/${ApiIntegration}
+
+  ActivityRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /activity
+      Target: !Sub integrations/${ApiIntegration}
+
+  StatsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /stats
+      Target: !Sub integrations/${ApiIntegration}
+
   DefaultStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref HttpApi
       StageName: $default
       AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLatency":"$context.responseLatency","integrationLatency":"$context.integrationLatency","integrationStatus":"$context.integration.status","responseLength":"$context.responseLength"}
       # A hard ceiling on request volume: beta-scale traffic sits far below
       # this, and a script hammering the unauthenticated routes hits the
       # throttle instead of an unbounded Lambda + DynamoDB bill.
       DefaultRouteSettings:
+        DetailedMetricsEnabled: true
         ThrottlingRateLimit: 50
         ThrottlingBurstLimit: 100
+
+  OperationsDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    DependsOn: CloudFormationDashboardPolicy
+    Properties:
+      DashboardName: elixir-drop-operations
+      DashboardBody: !Sub |
+        {
+          "start": "-PT8H",
+          "periodOverride": "inherit",
+          "widgets": [
+            {
+              "type": "alarm",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 5,
+              "properties": {
+                "title": "Elixir Drop service alarms",
+                "sortBy": "stateUpdatedTimestamp",
+                "alarms": [
+                  "${ApiFunctionErrorAlarm.Arn}",
+                  "${ApiFunctionThrottleAlarm.Arn}",
+                  "${ApiLatencyP95Alarm.Arn}",
+                  "${ApiLatencyP99Alarm.Arn}",
+                  "${ApiFunctionConcurrencyAlarm.Arn}",
+                  "${DataTableThrottleAlarm.Arn}",
+                  "${DataTableSystemErrorAlarm.Arn}"
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 5,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "API requests and responses",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "stat": "Sum",
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiId", "${HttpApi}", "Stage", "$default", {"label": "Requests"}],
+                  [".", "4xx", ".", ".", ".", ".", {"label": "4xx"}],
+                  [".", "5xx", ".", ".", ".", ".", {"label": "5xx"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 5,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "API response latency",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "metrics": [
+                  ["AWS/ApiGateway", "Latency", "ApiId", "${HttpApi}", "Stage", "$default", {"stat": "p50", "label": "p50"}],
+                  [".", ".", ".", ".", ".", ".", {"stat": "p95", "label": "p95"}],
+                  [".", ".", ".", ".", ".", ".", {"stat": "p99", "label": "p99"}],
+                  [".", "IntegrationLatency", ".", ".", ".", ".", {"stat": "p95", "label": "Integration p95"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 11,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Lambda request health",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "stat": "Sum",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}", {"label": "Invocations"}],
+                  [".", "Errors", ".", ".", {"label": "Errors"}],
+                  [".", "Throttles", ".", ".", {"label": "Throttles"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 11,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Lambda duration and concurrency",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}", {"stat": "p50", "label": "Duration p50"}],
+                  [".", ".", ".", ".", {"stat": "p95", "label": "Duration p95"}],
+                  [".", ".", ".", ".", {"stat": "p99", "label": "Duration p99"}],
+                  [".", "ConcurrentExecutions", ".", ".", {"stat": "Maximum", "label": "Concurrency", "yAxis": "right"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 17,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "DynamoDB consumed capacity",
+                "region": "${AWS::Region}",
+                "period": 300,
+                "stat": "Sum",
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", {"label": "Read units"}],
+                  [".", "ConsumedWriteCapacityUnits", ".", ".", {"label": "Write units"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 17,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "DynamoDB failures",
+                "region": "${AWS::Region}",
+                "period": 60,
+                "stat": "Sum",
+                "metrics": [
+                  ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${DataTable}", {"label": "Read throttles"}],
+                  [".", "WriteThrottleEvents", ".", ".", {"label": "Write throttles"}],
+                  [".", "SystemErrors", ".", ".", "Operation", "GetItem", {"label": "Get errors"}],
+                  [".", ".", ".", ".", ".", "Query", {"label": "Query errors"}],
+                  [".", ".", ".", ".", ".", "UpdateItem", {"label": "Update errors"}],
+                  [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]
+                ]
+              }
+            }
+          ]
+        }
 
   ApiInvokePermission:
     Type: AWS::Lambda::Permission

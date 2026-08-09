@@ -102,6 +102,7 @@ async function ensureRole(accountId, bucketName) {
             Action: ["cloudwatch:*"],
             Resource: [
               `arn:aws:cloudwatch:${region}:${accountId}:alarm:elixir-drop-*`,
+              `arn:aws:cloudwatch::${accountId}:dashboard/elixir-drop-*`,
             ],
           },
           {
