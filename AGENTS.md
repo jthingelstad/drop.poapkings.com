@@ -26,7 +26,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references.                                                                                        |
-| **`AGENT-TEAM/`**                                                     | The maintainer roles: `WORKFLOW.md` (shared contract) → `README.md` (roster) → your role file.                                  |
+| **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
 | **`.claude/skills/`**                                                 | User-invoked skills in the build process (`cut-release` — the named-release ceremony).                                          |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
@@ -55,17 +55,18 @@ A failed API update blocks the website deploy, so web and Lambda cannot diverge.
 
 - There is **no manual handoff for an ordinary backend change** — the same push that
   commits it deploys it.
-- `npm run deploy:api` stays the **Operations Manager's** out-of-band tool: first stack
+- `npm run deploy:api` stays **Run Drop's** out-of-band tool: first stack
   creation, secret rotation, and re-running a deploy that CI could not complete. It is
   run from the fixed host with the mode-0600 root `.env`.
-- `needs-deploy` therefore means "the pipeline did not run or did not finish" — not
-  "backend changes always wait for a human". See `infra/README.md` for the CD mechanics.
+- A pipeline that did not run or finish is a Run Drop finding, not a routine manual
+  handoff. See `infra/README.md` for the CD mechanics.
 
 ## Work tracking
 
-GitHub Issues on this repository are the canonical work queue. **Work commits directly to
-`main`** — no feature branches, no PR-based review — referencing `Closes #N`. The full
-contract is `AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
+GitHub Issues are the durable exception ledger for multi-run work, external blockers,
+and Jamie decisions. Objective owners fix clear same-run gaps directly. **Work commits
+directly to `main`** — no feature branches or PR-based review. The full contract is
+`AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
 
 Cutting a named release is not queue work: it opens no tracking issue and makes no product

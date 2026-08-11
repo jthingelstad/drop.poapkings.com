@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 #
-# Shared git preflight for AGENT-TEAM roles. Run from the repo root at the start
+# Git preflight for AGENT-TEAM objective owners. Run from the repo root at the start
 # of every run. Prints the working-tree state and a verdict; exits non-zero when
 # the tree is in a state an automated run should NOT act on (dirty / behind /
-# diverged). An automated agent should stop and report (file an issue) on a
+# diverged). An automated agent should stop and report on a
 # non-zero exit rather than pull/merge/rebase/stash.
 #
-# This file is byte-identical across every project's AGENT-TEAM/scripts/.
-
 set -euo pipefail
 
 command -v git >/dev/null 2>&1 || { echo "git not found"; exit 2; }
@@ -22,7 +20,7 @@ verdict=0
 
 # Dirty worktree?
 if [ -n "$(git status --porcelain)" ]; then
-  echo "  ✗ worktree is DIRTY — stop and report (do not act on unexpected local changes)."
+  echo "  ✗ worktree is DIRTY — stop mutation (do not act on unexpected local changes)."
   verdict=1
 fi
 

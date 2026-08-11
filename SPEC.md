@@ -621,8 +621,8 @@ workspace READMEs.
 
 ## 11. Referee Evidence And Retention
 
-Drop durably persists **referee-grade evidence** so the external Fair Play
-Referee (`AGENT-TEAM/fair-play-referee.md`) can review leaderboard integrity
+Drop durably persists **referee-grade evidence** so Protect Fair Play
+(`AGENT-TEAM/protect-fair-play.md`) can review leaderboard integrity
 against exact server-side facts and make reversible run-visibility decisions.
 The agent owns its judgment; Drop stores the audited decision overlay and
 reconciles it into public leaderboards.

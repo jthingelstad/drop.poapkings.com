@@ -87,7 +87,7 @@ season pass. Two standing consequences:
   reversible and costs the player nothing else: the run still scores, still
   records, still earns XP, and a referee can restore it at its true rank. The
   standing must be referee-reviewed before the pass is awarded; that obligation
-  lives in `AGENT-TEAM/fair-play-referee.md`.
+  lives in `AGENT-TEAM/protect-fair-play.md`.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
   means more attempts yield a better best. That is accepted on purpose:
   grinding Surge _is_ drilling elixir costs, which is the whole product. Do not

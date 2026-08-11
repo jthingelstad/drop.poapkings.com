@@ -1,7 +1,7 @@
 # Fair Play Referee — evidence and decision scripts
 
 These standalone Node ESM scripts are the **only sanctioned data and decision
-path** for the Fair Play Referee (`AGENT-TEAM/fair-play-referee.md`). Read
+path** for Protect Fair Play (`AGENT-TEAM/protect-fair-play.md`). Read
 scripts encapsulate documented DynamoDB queries and print sanitized, annotated
 JSON. `referee-decide.mjs` is the one write path: it stores an independent,
 audited visibility decision without editing a run, score, transcript, player, or

@@ -21,7 +21,7 @@ The Fair Play Referee is one of Drop's best features and no player has ever seen
 it. This proposal makes it visible without turning it into an accusation
 machine.
 
-Read `SPEC.md` §11 and `AGENT-TEAM/fair-play-referee.md` first — they own the
+Read `SPEC.md` §11 and `AGENT-TEAM/protect-fair-play.md` first — they own the
 evidence model and the referee's authority. This doc only covers what a *player*
 sees.
 
@@ -55,7 +55,7 @@ looks good.
 
 1. **Only ever mark the positive.** Show that a run was reviewed and stands.
    Never show `watch`, never show `hidden`, never show a `reason`.
-   `AGENT-TEAM/fair-play-referee.md` forbids public accusation and forbids the
+   `AGENT-TEAM/protect-fair-play.md` forbids public accusation and forbids the
    referee contacting a player; `reason` is private by construction.
 2. **Expose a boolean, never a disposition.** The API sends `reviewed: true`.
    It never sends `clear`, `watch`, `review`, or `insufficient_evidence`.
@@ -177,7 +177,7 @@ table below is kept as the record of what was wrong.
 | File | Says | Reality |
 |---|---|---|
 | `GAMES.md:80-83` | "a flagged run stays on the board until a referee decides otherwise" | `repository.ts:962-1015` writes `review`/`hidden` inside the completion transaction; `leaderboards.ts:83` filters it out immediately |
-| `AGENT-TEAM/fair-play-referee.md:67` | "an automatic integrity flag never removes a run from the board by itself" | same — and this contradicts :152 in the same file |
+| Retired referee role contract (Git history, 2026-07-25) | "an automatic integrity flag never removes a run from the board by itself" | same — and the retired file contradicted itself later |
 
 `SPEC.md:386` and `services/api/README.md:155-157` already describe the
 hide-first behaviour correctly.
