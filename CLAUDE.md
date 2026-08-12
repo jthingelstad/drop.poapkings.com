@@ -205,8 +205,11 @@ rank-oriented fields as part of unrelated work.
   Stable launch seed of 592, increments atomically with every server-accepted
   run; surfaced on Home as "games played across Drop". It is NOT the arena/XP
   progression (that is per-player). Tinylytics is analytics only.
-- **Surge timing** uses `performance.now()` (monotonic), not `Date.now()`.
-  Preload the sprint's card images before the clock starts.
+- **Competitive timing** uses `performance.now()` (monotonic), not `Date.now()`.
+  Ranked clients attach privacy-minimized prompt-enabled/input stamps, coarse
+  input kind, and `isTrusted`; never collect coordinates, pressure, pointer
+  identity, or key codes. Active response time excludes forced reveal and
+  card-transition waits. Preload timed card art before the clock starts.
 
 ---
 

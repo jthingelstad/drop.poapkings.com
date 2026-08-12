@@ -183,6 +183,32 @@ export function tiebreakValues(
   return values;
 }
 
+// Compare only the competitive performance, not the timestamp/player suffix
+// that breaks exact ties. A later identical result does not displace the
+// existing leader, while every mode's ordered tiebreaks remain authoritative.
+export function isStrictlyBetterPerformance(
+  mode: GameMode,
+  score: number,
+  tiebreaks: RunTiebreaks | undefined,
+  current: Record<string, unknown>,
+): boolean {
+  const candidateKey = leaderboardSortKey(
+    mode,
+    score,
+    "",
+    "",
+    tiebreakValues(mode, tiebreaks ?? {}),
+  );
+  const currentKey = leaderboardSortKey(
+    mode,
+    Number(current.score),
+    "",
+    "",
+    tiebreakValues(mode, current),
+  );
+  return candidateKey < currentKey;
+}
+
 export function leaderboardPartition(
   seasonId: string,
   mode: GameMode,

@@ -5,6 +5,7 @@ import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
 import { getSettings } from '../lib/storage'
 import { useGameKeys } from '../lib/use-game-keys'
+import { observeInput, type InputObservation } from '../lib/input-evidence'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
@@ -24,7 +25,7 @@ const KEY_ORDER = Array.from({ length: MAX_ELIXIR }, (_, i) => i + 1)
 const SPEEDRUN_TOP_ROW = 5
 
 interface Props {
-  onPick: (value: number) => void
+  onPick: (value: number, observation: InputObservation) => void
   disabled?: boolean
 }
 
@@ -70,11 +71,19 @@ function pressFx(button: HTMLButtonElement): void {
   }
 }
 
-function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean; onPick: (value: number) => void }) {
-  function activate(button: HTMLButtonElement): void {
+function PipKey({
+  value,
+  disabled,
+  onPick
+}: {
+  value: number
+  disabled?: boolean
+  onPick: (value: number, observation: InputObservation) => void
+}) {
+  function activate(button: HTMLButtonElement, event: Event): void {
     playTap()
     if (isEnhancedEffectsEnabled()) pressFx(button)
-    onPick(value)
+    onPick(value, observeInput(event))
   }
 
   return (
@@ -86,14 +95,14 @@ function PipKey({ value, disabled, onPick }: { value: number; disabled?: boolean
         // Accept the answer in the same event that produces the key feedback.
         // iOS Safari can cancel the later compatibility click after a valid
         // touch, which previously left a sparkling key but an unchanged card.
-        activate(event.currentTarget)
+        activate(event.currentTarget, event)
       }}
       onClick={(event) => {
         // Pointer activation was already handled atomically above. A click with
         // detail=0 is keyboard or assistive activation and still needs the
         // native button path; pointer-generated clicks have a positive detail.
         if (disabled || event.detail > 0) return
-        activate(event.currentTarget)
+        activate(event.currentTarget, event)
       }}
       aria-label={`${value} elixir`}
       disabled={disabled}
@@ -118,7 +127,7 @@ export default function PipKeypad({ onPick, disabled }: Props) {
     const button = groupRef.current?.querySelector<HTMLButtonElement>(`[data-pip-value="${value}"]`)
     playTap()
     if (button && isEnhancedEffectsEnabled()) pressFx(button)
-    onPick(value)
+    onPick(value, observeInput(event))
   })
 
   // Read fresh at render, the way sound and motion read their settings — the

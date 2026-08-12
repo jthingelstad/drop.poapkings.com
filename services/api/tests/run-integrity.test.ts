@@ -16,6 +16,7 @@ const repository = vi.hoisted(() => ({
   putRefereeEvidence: vi.fn(),
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
+  wouldLeadAllTime: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
@@ -30,6 +31,7 @@ vi.mock("../src/repository.js", () => ({
     putRefereeEvidence = repository.putRefereeEvidence;
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
+    wouldLeadAllTime = repository.wouldLeadAllTime;
     useRateLimit = repository.useRateLimit;
   },
 }));

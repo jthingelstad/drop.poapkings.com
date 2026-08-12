@@ -21,6 +21,8 @@ const repository = vi.hoisted(() => ({
   savePollSession: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
+  wouldLeadAllTime: vi.fn(async () => false),
+  refereeDecisions: vi.fn(async () => new Map()),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
@@ -42,6 +44,8 @@ vi.mock("../src/repository.js", () => ({
     savePollSession = repository.savePollSession;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
+    wouldLeadAllTime = repository.wouldLeadAllTime;
+    refereeDecisions = repository.refereeDecisions;
   },
 }));
 

@@ -131,7 +131,8 @@ export const recentRunSchema = z.object({
   mode: gameModeSchema,
   score: z.number().finite(),
   seasonId: nonEmptyString,
-  completedAt: isoDateTime
+  completedAt: isoDateTime,
+  reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded']))
 })
 
 export const learningSummarySchema = z.object({
@@ -285,6 +286,7 @@ export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
   achievedAt: isoDateTime,
+  refereeReviewed: z.optional(z.boolean()),
   // Survival: cumulative time (ms) — the tiebreak among equal streaks.
   timeMs: z.optional(nonNegativeInteger),
   player: publicPlayerSummarySchema

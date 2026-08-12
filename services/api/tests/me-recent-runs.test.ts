@@ -9,6 +9,7 @@ const repository = vi.hoisted(() => ({
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
+  refereeDecisions: vi.fn(async () => new Map()),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -19,6 +20,7 @@ vi.mock("../src/repository.js", () => ({
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
+    refereeDecisions = repository.refereeDecisions;
   },
 }));
 
@@ -126,6 +128,76 @@ describe("GET /me recent runs", () => {
       "surge",
       "survival",
     ]);
+  });
+
+  it("shows review state only to the run owner", async () => {
+    repository.listRecentRuns.mockResolvedValue([
+      {
+        runId: "pending-run",
+        mode: "surge",
+        score: 9_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-12T17:00:00.000Z",
+      },
+      {
+        runId: "reviewed-run",
+        mode: "trade",
+        score: 50_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-12T16:00:00.000Z",
+      },
+      {
+        runId: "excluded-run",
+        mode: "survival",
+        score: 80,
+        seasonId: "2026-08",
+        completedAt: "2026-08-12T15:00:00.000Z",
+      },
+    ]);
+    repository.refereeDecisions.mockResolvedValueOnce(
+      new Map([
+        [
+          "pending-run",
+          {
+            runId: "pending-run",
+            decidedBy: "integrity-gate",
+            visibility: "hidden",
+            reason: "private automatic reason",
+          },
+        ],
+        [
+          "reviewed-run",
+          {
+            runId: "reviewed-run",
+            decidedBy: "fair-play-referee",
+            visibility: "visible",
+            disposition: "clear",
+            reason: "private referee reason",
+          },
+        ],
+        [
+          "excluded-run",
+          {
+            runId: "excluded-run",
+            decidedBy: "fair-play-referee",
+            visibility: "hidden",
+            disposition: "review",
+            reason: "private referee reason",
+          },
+        ],
+      ]),
+    );
+
+    const result = await handler(meEvent(), {} as never, () => {});
+    if (!result || typeof result === "string") throw new Error("no result");
+    const body = JSON.parse(result.body ?? "{}");
+
+    expect(body.recentRuns).toMatchObject([
+      { runId: "pending-run", reviewStatus: "pending" },
+      { runId: "reviewed-run", reviewStatus: "reviewed" },
+      { runId: "excluded-run", reviewStatus: "excluded" },
+    ]);
+    expect(JSON.stringify(body.recentRuns)).not.toContain("private");
   });
 });
 

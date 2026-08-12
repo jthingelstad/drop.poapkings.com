@@ -17,6 +17,7 @@ import {
   boardEpochFor,
   isGameMode,
   isCurrentBoardRun,
+  isStrictlyBetterPerformance,
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
@@ -25,8 +26,10 @@ import {
   tiebreakValues,
 } from "./games.js";
 import {
+  allTimeLeaderboardLeader,
   allTimeLeaderboard,
   clanAllTimeLeaderboard,
+  refereeDecisions as loadRefereeDecisions,
   seasonLeaderboard,
 } from "./leaderboards.js";
 import { seasonPodiumFinishers } from "./leaderboards.js";
@@ -46,6 +49,7 @@ import type {
   PublicProfile,
   RunChallenge,
   RunRecord,
+  RefereeDecision,
   RunTiebreaks,
   StoredCrWarClock,
 } from "./types.js";
@@ -1729,6 +1733,24 @@ export class Repository {
         return { improved: false };
       throw error;
     }
+  }
+
+  async wouldLeadAllTime(
+    mode: GameMode,
+    score: number,
+    tiebreaks: RunTiebreaks | undefined,
+  ): Promise<boolean> {
+    if (!isLeaderboardEligibleScore(score)) return false;
+    const leader = await allTimeLeaderboardLeader(this.tableName, mode);
+    return (
+      !leader || isStrictlyBetterPerformance(mode, score, tiebreaks, leader)
+    );
+  }
+
+  async refereeDecisions(
+    runIds: string[],
+  ): Promise<Map<string, RefereeDecision>> {
+    return loadRefereeDecisions(this.tableName, runIds);
   }
 
   // The board read path (season + all-time reconciliation, referee

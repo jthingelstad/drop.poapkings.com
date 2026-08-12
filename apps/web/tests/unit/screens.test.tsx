@@ -214,7 +214,7 @@ describe('Leaderboards', () => {
     }
   }
 
-  const ROWS = [entry('p1', 1, 'Alice', 4_200), entry('p2', 2, 'Bob', 5_000)]
+  const ROWS = [{ ...entry('p1', 1, 'Alice', 4_200), refereeReviewed: true }, entry('p2', 2, 'Bob', 5_000)]
 
   function build(mode: GameMode, scope: LeaderboardScope) {
     return {
@@ -253,6 +253,7 @@ describe('Leaderboards', () => {
     // The player's own row is flagged.
     expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
     expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
+    expect(host.querySelector('[aria-label="Referee reviewed"]')).not.toBeNull()
   })
 
   it('opens the selected player and keeps the signed-in player on the private profile route', async () => {

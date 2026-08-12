@@ -15,6 +15,7 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   completeRun: vi.fn(),
   updateAllTimeBest: vi.fn(),
+  wouldLeadAllTime: vi.fn(async () => false),
   saveCardStats: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   putRefereeEvidence: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     completeRun = repository.completeRun;
     updateAllTimeBest = repository.updateAllTimeBest;
+    wouldLeadAllTime = repository.wouldLeadAllTime;
     saveCardStats = repository.saveCardStats;
     getCardStats = repository.getCardStats;
     putRefereeEvidence = repository.putRefereeEvidence;
@@ -181,6 +183,7 @@ describe("referee evidence write path", () => {
       runId: "run-accepted",
       runType: "ranked",
       integrityOutcome: "accepted",
+      timing: { model: "inferred-v1", inputCount: 15 },
       playerTag: "#2PYQ0",
       schemaVersion: "1",
     });
@@ -196,6 +199,61 @@ describe("referee evidence write path", () => {
     expect(serialized).not.toContain("203.0.113.7");
     expect(serialized).not.toContain("Mozilla");
     expect(serialized).not.toContain("player@example.com");
+  });
+
+  it("holds a new all-time leader until the referee reviews it", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-new-leader",
+        owner: profile.sub,
+        mode: "surge",
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-new-leader",
+      sk: "RUN",
+      runId: "run-new-leader",
+      owner: profile.sub,
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
+      state: "started",
+      startedAt: new Date(Date.now() - 30_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5 },
+    });
+    repository.wouldLeadAllTime.mockResolvedValueOnce(true);
+
+    const response = (await handler(
+      signedInEvent({ runToken, transcript: surgeTranscript(350) }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-new-leader" }),
+      expect.any(Number),
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      "new_all_time_leader_pending_review",
+    );
+    expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-new-leader",
+        reviewSignals: ["new_all_time_leader_pending_review"],
+      }),
+    );
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("writes NO evidence for a guest completion", async () => {

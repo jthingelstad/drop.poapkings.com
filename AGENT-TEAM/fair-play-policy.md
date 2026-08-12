@@ -68,6 +68,13 @@ or reduce it, and whether the weakness is player-specific or systemic.
 
 ## Visibility
 
+Before a referee judgment, the integrity gate may create a neutral
+`review`/`hidden` pending hold for a strong automatic signal or a strict new
+all-time leader. This is an administrative queue state, not an adverse finding:
+the run remains intact and owner-visible, receives no placement, and must be
+promptly reviewed. The strong-evidence threshold below applies to the referee's
+decision to keep it hidden, not to the temporary queue hold.
+
 - `visible`: the scored run remains eligible for public boards. This includes normal
   `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
   remain visible while evidence is gathered when the hidden threshold is not met.

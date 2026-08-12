@@ -12,7 +12,7 @@ Read completely: `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, this file, and
 `AGENT-TEAM/fair-play-policy.md`, and `AGENT-TEAM/scripts/README.md`.
 
-Cadence: weekly, when evidence changes, and before a leaderboard result is promoted or
+Cadence: daily, when evidence changes, and before a leaderboard result is promoted or
 used for the Surge Free Pass or another external decision.
 
 ## Evidence and authority
@@ -32,12 +32,18 @@ used for the Surge Free Pass or another external decision.
 ## Every run
 
 1. Run preflight and load the durable watermark, evidence digests, unresolved cases,
-   and current scoring versions.
-2. Enumerate required cohorts and resolve each entry to its exact earning run.
+   and current scoring versions. Process automatic `review`/`hidden` decisions first;
+   they are player-visible pending results with no public placement until this review.
+2. Enumerate the current-season and all-time top 25 for every ranked mode, deduplicate
+   the earning run IDs across scopes, and resolve each entry to its exact earning run.
+   Give every previously unreviewed top result an evidence-grounded referee decision,
+   even when the correct outcome is the quiet `clear`/`visible` no-op.
 3. Review exact evidence, benign explanations, progression, cross-mode consistency,
    volume, and approved correlation signals. Never fill gaps with assumptions.
 4. Persist disposition, visibility, concise rationale, digest, and timestamp through
-   the sanctioned decision script. Advance the watermark only after full coverage.
+   the sanctioned decision script. A `clear`/`visible` or `watch`/`visible` result is
+   publicly marked only as referee reviewed; private distinctions and reasons never
+   leave the referee surface. Advance the watermark only after full coverage.
 5. When exact evidence exposes a systemic tooling, retention, or scoring defect,
    reproduce it with sanitized synthetic data. After the case disposition is safely
    recorded, fix the source and regression, run `npm run verify`, and verify naturally.

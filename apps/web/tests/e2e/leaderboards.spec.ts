@@ -13,6 +13,7 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
+  await expect(page.getByLabel('Referee reviewed').first()).toBeVisible()
 
   const firstRow = page.locator('.ed-lbrow').first()
   const firstName = firstRow.locator('.ed-lbrow__name')

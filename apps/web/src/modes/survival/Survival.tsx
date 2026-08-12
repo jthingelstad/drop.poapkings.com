@@ -26,6 +26,7 @@ import GameMilestone from '../../components/GameMilestone'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import { runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
 
 // Survival = sudden death. Each card has a short clock that tightens as the
 // streak grows (shared curve with the server scorer); a miss OR a timeout ends
@@ -46,9 +47,11 @@ export default function Survival() {
   const gameRun = useGameSession('survival', challengePreparers.survival)
   const answers = useRef<Answer[]>([])
   const cardStart = useRef(0)
+  const runStartedAt = useRef(0)
   const dead = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
+  const inputEvents = useRef<RunInputEvidence[]>([])
   const preloadContent = useRef<Card[] | null>(null)
   const progressiveArt = useRef<ReturnType<typeof createProgressivePreloadPlan> | null>(null)
   const handoffGeneration = useRef(0)
@@ -122,10 +125,12 @@ export default function Survival() {
     // catalog or waiting until that card is already against the clock.
     warmCardArt(0)
     runtime.start((startedAt) => {
+      runStartedAt.current = startedAt
       dead.current = false
       won.current = false
       answers.current = []
       serverAnswers.current = []
+      inputEvents.current = []
       streak.value = 0
       milestone.value = null
       current.value = gameRun.content?.[0] ?? null
@@ -163,12 +168,17 @@ export default function Survival() {
   }
 
   // death by a wrong guess (picked set) or a timeout (picked undefined)
-  function die(card: Card | null, picked: number | undefined) {
+  function die(card: Card | null, picked: number | undefined, observation?: InputObservation) {
     if (dead.current) return
     dead.current = true
     handoffGeneration.current += 1
     playWrong()
     if (card) {
+      if (picked !== undefined && observation) {
+        inputEvents.current.push(
+          runInputEvidence(observation, runStartedAt.current, cardStart.current, streak.value, picked)
+        )
+      }
       serverAnswers.current.push({
         cardId: card.id,
         guess: picked ?? null,
@@ -196,15 +206,18 @@ export default function Survival() {
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
     // survivalBest is persisted centrally when the server accepts the run.
     runtime.finish('over')
-    void gameRun.complete({ answers: serverAnswers.current })
+    void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
   }
 
-  function answer(picked: number) {
+  function answer(picked: number, observation: InputObservation) {
     if (stage.value !== 'running' || cardPhase.value !== 'playing' || dead.current) return
     const card = current.value
     if (!card) return
 
     if (picked === card.elixir) {
+      inputEvents.current.push(
+        runInputEvidence(observation, runStartedAt.current, cardStart.current, streak.value, picked)
+      )
       playCorrect()
       const ms = performance.now() - cardStart.current
       serverAnswers.current.push({ cardId: card.id, guess: picked, elapsedMs: ms })
@@ -216,7 +229,7 @@ export default function Survival() {
       runtime.emitCue('answer-correct', { cardId: card.id })
       later(nextCard, 230)
     } else {
-      die(card, picked)
+      die(card, picked, observation)
     }
   }
 
@@ -230,6 +243,7 @@ export default function Survival() {
     current.value = null
     serverCardIndex.current = 0
     serverAnswers.current = []
+    inputEvents.current = []
     cardPhase.value = 'playing'
     streak.value = 0
     milestone.value = null

@@ -67,6 +67,12 @@ export default function Privacy() {
             are used only to review competitive integrity, never for advertising or tracking, and they are removed with
             the rest of your data when you delete your account.
           </p>
+          <p>
+            Ranked games also record coarse input evidence: when each answer became available, when it was submitted,
+            whether it came from a pointer or keyboard-like action, and whether the browser marked the event as trusted.
+            Drop does <strong>not</strong> record pointer coordinates, pressure, pointer identity, or the key you
+            pressed. This evidence is used only for competitive review and is removed when you delete your account.
+          </p>
         </MetaSection>
 
         <MetaSection title="Retention and deletion">
@@ -89,7 +95,7 @@ export default function Privacy() {
         </MetaSection>
       </div>
 
-      <p class="ed-page__updated">Last updated July 23, 2026.</p>
+      <p class="ed-page__updated">Last updated August 12, 2026.</p>
     </article>
   )
 }

@@ -23,6 +23,8 @@ node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
 node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
   --disposition clear --visibility not_ranked \
   --reason "Play appears genuine; candidate score needs product reconciliation"
+node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+  --pending --reason "Existing top result queued for referee review"
 ```
 
 ## Credentials (least privilege)
@@ -74,7 +76,7 @@ Configuration:
 | `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |
 | `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                       |
 | `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
-| `referee-decide.mjs`    | `<runId> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text>` | Atomically writes the current decision and immutable audit event. `hidden` requires `review`; `visible` restores a scored run; `not_ranked` records judgment when no candidate score exists. |
+| `referee-decide.mjs`    | `<runId> (--pending \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text>` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment; `hidden` otherwise requires `review`; `visible` restores a scored run. |
 
 ## Ranked modes and board epochs
 

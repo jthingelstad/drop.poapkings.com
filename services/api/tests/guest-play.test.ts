@@ -15,6 +15,7 @@ const repository = vi.hoisted(() => ({
   getCrWarClock: vi.fn(),
   completeRun: vi.fn(),
   updateAllTimeBest: vi.fn(),
+  wouldLeadAllTime: vi.fn(async () => false),
   saveCardStats: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
 }));
@@ -29,6 +30,7 @@ vi.mock("../src/repository.js", () => ({
     getCrWarClock = repository.getCrWarClock;
     completeRun = repository.completeRun;
     updateAllTimeBest = repository.updateAllTimeBest;
+    wouldLeadAllTime = repository.wouldLeadAllTime;
     saveCardStats = repository.saveCardStats;
     getCardStats = repository.getCardStats;
   },

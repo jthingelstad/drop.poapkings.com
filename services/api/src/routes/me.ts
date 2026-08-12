@@ -18,6 +18,7 @@ import { normalizePlayerTag } from "../validation.js";
 import {
   bodyOf,
   clientIpHash,
+  ownerRunReviewStatus,
   profileResponse,
   refreshedCrProfile,
   type RouteContext,
@@ -57,6 +58,9 @@ export async function getMe({ event, config, repository }: RouteContext) {
     profile,
     cardStats,
   );
+  const recentDecisions = await repository.refereeDecisions(
+    recentRuns.map((run) => run.runId),
+  );
   return json(200, {
     player: profileResponse(profile, crProfile),
     // Retain server-owned learning history for possible future coaching.
@@ -72,7 +76,12 @@ export async function getMe({ event, config, repository }: RouteContext) {
     // retired-mode row would fail the whole /me response.
     recentRuns: recentRuns
       .filter((run) => isGameMode(run.mode))
-      .map(runRecordResponse),
+      .map((run) =>
+        runRecordResponse(
+          run,
+          ownerRunReviewStatus(recentDecisions.get(run.runId)),
+        ),
+      ),
   });
 }
 
@@ -85,11 +94,15 @@ export async function getMySeasons({
   repository,
 }: RouteContext) {
   const session = sessionFor(event, config.sessionSecret, true);
-  const runs = (await repository.listRunHistory(session.sub))
-    .filter((run): run is typeof run & { mode: GameMode } =>
-      isGameMode(run.mode),
-    )
-    .map(runRecordResponse);
+  const history = (await repository.listRunHistory(session.sub)).filter(
+    (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
+  );
+  const decisions = await repository.refereeDecisions(
+    history.map((run) => run.runId),
+  );
+  const runs = history.map((run) =>
+    runRecordResponse(run, ownerRunReviewStatus(decisions.get(run.runId))),
+  );
   const grouped = new Map<string, typeof runs>();
   for (const run of runs) {
     const season = grouped.get(run.seasonId) ?? [];
@@ -211,6 +224,9 @@ export async function getPublicPlayer(
       }
     : undefined;
   const recentRuns = await repository.listRecentRuns(lookup.sub, 10);
+  const decisions = await repository.refereeDecisions(
+    recentRuns.map((run) => run.runId),
+  );
   const badges = await badgeSummary(
     { event, config, repository },
     lookup.sub,
@@ -223,8 +239,13 @@ export async function getPublicPlayer(
     },
     badges,
     recentRuns: recentRuns
-      .filter((run) => isGameMode(run.mode) && run.mode !== "practice")
-      .map(runRecordResponse),
+      .filter(
+        (run) =>
+          isGameMode(run.mode) &&
+          run.mode !== "practice" &&
+          decisions.get(run.runId)?.visibility !== "hidden",
+      )
+      .map((run) => runRecordResponse(run)),
   });
 }
 

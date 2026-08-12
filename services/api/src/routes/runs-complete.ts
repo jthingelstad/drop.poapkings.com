@@ -30,6 +30,7 @@ import {
 } from "../scoring.js";
 import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
+import { analyzeTimingEvidence } from "../timing-evidence.js";
 import type {
   Correlation,
   PlayerProfile,
@@ -212,6 +213,23 @@ async function recordSignedInRun(
   );
   const { score, transcript, scoringReviewSignals } = scored;
 
+  const timing = analyzeTimingEvidence(run.mode, transcript);
+  const tiebreaks = modeTiebreaks(run, transcript, score);
+  const leaderReviewSignals: string[] = [];
+  if (run.ranked !== false) {
+    try {
+      if (await repository.wouldLeadAllTime(run.mode, score, tiebreaks))
+        leaderReviewSignals.push("new_all_time_leader_pending_review");
+    } catch (error) {
+      console.warn("All-time leader review check failed closed", {
+        runId: run.runId,
+        mode: run.mode,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+      leaderReviewSignals.push("all_time_leader_check_unavailable");
+    }
+  }
+
   const integrity = assessRunIntegrity(
     run.mode,
     score,
@@ -220,6 +238,8 @@ async function recordSignedInRun(
   );
   const automaticReviewSignals = [
     ...scoringReviewSignals,
+    ...timing.reviewSignals,
+    ...leaderReviewSignals,
     ...(!integrity.eligible ? [integrity.reason] : []),
   ];
   const automaticReviewReason =
@@ -255,7 +275,6 @@ async function recordSignedInRun(
   // no progression. The exclusion is stated here, at the call site, rather than
   // buried as a mode branch inside runXp.
   const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
-  const tiebreaks = modeTiebreaks(run, transcript, score);
   const answerCount = Array.isArray(transcript.answers)
     ? transcript.answers.length
     : 0;
@@ -302,6 +321,7 @@ async function recordSignedInRun(
           runType: "ranked",
           integrityOutcome: automaticReviewReason ?? "accepted",
           reviewSignals: automaticReviewSignals,
+          timing: timing.evidence,
           score,
           tiebreaks,
           challenge: run.challenge,

@@ -88,6 +88,11 @@ season pass. Two standing consequences:
   records, still earns XP, and a referee can restore it at its true rank. The
   standing must be referee-reviewed before the pass is awarded; that obligation
   lives in `AGENT-TEAM/protect-fair-play.md`.
+- **A strict new all-time leader waits for review.** The completion is recorded,
+  retains XP and history, and remains visible to its owner as pending, but it
+  receives no public placement until a referee writes an audited decision.
+  Forced 280ms correct-card transitions are excluded from the active response
+  budget, so reduced motion does not make an honest run look mechanically fast.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
   means more attempts yield a better best. That is accepted on purpose:
   grinding Surge _is_ drilling elixir costs, which is the whole product. Do not

@@ -7,6 +7,7 @@ import type {
   RunChallenge,
   RunTiebreaks,
   RunTranscript,
+  TimingEvidence,
 } from "./types.js";
 
 // Default retention: 180 days from completion (active season + human review
@@ -102,6 +103,7 @@ export interface BuildEvidenceInput {
   runType: "ranked" | "unscored" | "rejected";
   integrityOutcome: string;
   reviewSignals?: string[];
+  timing?: TimingEvidence;
   score?: number;
   // The mode's ordered leaderboard tiebreaks (Survival's cumulative time;
   // Higher/Lower's lives lost and time), kept as an object so a mode can add a
@@ -136,6 +138,7 @@ export function buildEvidenceItem(input: BuildEvidenceInput): EvidenceItem {
     ...(input.reviewSignals?.length
       ? { reviewSignals: input.reviewSignals }
       : {}),
+    ...(input.timing ? { timing: input.timing } : {}),
     ...(input.score !== undefined ? { score: input.score } : {}),
     ...(input.tiebreaks && Object.keys(input.tiebreaks).length
       ? { tiebreaks: input.tiebreaks }

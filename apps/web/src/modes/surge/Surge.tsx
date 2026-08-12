@@ -23,6 +23,7 @@ import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import { runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
 
 // Surge tunables — one config object (SPEC §9).
 const SURGE = {
@@ -44,8 +45,10 @@ export default function Surge() {
   const firstCorrect = useRef(false)
   const recorded = useRef(false)
   const runStartedAt = useRef(0)
+  const inputEnabledAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ cardId: number; guesses: number[]; atMs: number }>>([])
+  const inputEvents = useRef<RunInputEvidence[]>([])
 
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = runtime
@@ -72,9 +75,11 @@ export default function Surge() {
     runtime.start((startedAt) => {
       cardStart.current = startedAt
       runStartedAt.current = startedAt
+      inputEnabledAt.current = startedAt
       recorded.current = false
       currentGuesses.current = []
       serverAnswers.current = []
+      inputEvents.current = []
       index.value = 0
       cardPhase.value = 'playing'
       hint.value = null
@@ -89,6 +94,7 @@ export default function Surge() {
     }
     index.value = nextIdx
     cardStart.current = performance.now()
+    inputEnabledAt.current = cardStart.current
     recorded.current = false
     currentGuesses.current = []
     cardPhase.value = 'playing'
@@ -116,12 +122,12 @@ export default function Surge() {
       return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
     })
     runtime.finish()
-    void gameRun.complete({ answers: serverAnswers.current }, () => {
+    void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current }, () => {
       if (pb) saveRecords({ surgeBestPace: bestPace })
     })
   }
 
-  function answer(picked: number) {
+  function answer(picked: number, observation: InputObservation) {
     if (stage.value !== 'running' || cardPhase.value !== 'playing') return
     const card = gameRun.content?.[index.value]
     if (!card) return
@@ -129,7 +135,12 @@ export default function Surge() {
     // Mirror the server's transcript cap: wrong taps beyond it still penalize
     // locally but are no longer recorded, so a mashing beginner cannot push
     // the transcript past what the server accepts.
-    if (correct || currentGuesses.current.length < 59) currentGuesses.current.push(picked)
+    if (correct || currentGuesses.current.length < 59) {
+      currentGuesses.current.push(picked)
+      inputEvents.current.push(
+        runInputEvidence(observation, runStartedAt.current, inputEnabledAt.current, index.value, picked)
+      )
+    }
 
     if (!recorded.current) {
       recorded.current = true
@@ -175,7 +186,10 @@ export default function Surge() {
       hint.value = picked < card.elixir ? 'higher' : 'lower'
       cardPhase.value = 'wrong'
       runtime.emitCue('answer-wrong', { cardId: card.id })
-      later(() => (cardPhase.value = 'playing'), WRONG_BEAT_MS)
+      later(() => {
+        inputEnabledAt.current = performance.now()
+        cardPhase.value = 'playing'
+      }, WRONG_BEAT_MS)
     }
   }
 
@@ -184,6 +198,7 @@ export default function Surge() {
     runtime.reset('ready')
     answers.current = []
     serverAnswers.current = []
+    inputEvents.current = []
     currentGuesses.current = []
     recorded.current = false
     rearmAutoStart()

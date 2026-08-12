@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
+import ReviewStatusMark from '../components/ReviewStatus'
 
 // The leaderboards are season-scoped, not week-scoped: drop the Clan-Wars
 // weekly clock entirely and speak only to the season boundary.
@@ -64,6 +65,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
         </span>
         <span class="ed-lbrow__score">
           {scoreLabel(mode, entry.score)}
+          {entry.refereeReviewed && <ReviewStatusMark status="reviewed" />}
           {entry.timeMs !== undefined && <small class="ed-lbrow__time">{formatSeconds(entry.timeMs)}s</small>}
         </span>
       </button>

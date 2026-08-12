@@ -12,6 +12,7 @@ import BadgeEarned from './BadgeEarned'
 import ModeIcon from './ModeIcon'
 import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
+import ReviewStatusMark from './ReviewStatus'
 
 export interface SummaryMoment {
   label: string
@@ -113,10 +114,10 @@ export default function Summary({
             know anything about referee state. */}
         {heldForReview.value && (
           <div class="ed-sum__review" role="status">
-            <Icon name="shield" />
+            <ReviewStatusMark status="pending" />
             <span>
-              <strong>Held for review.</strong> Your score is recorded and counted. It&rsquo;ll show on the board once a
-              referee clears it.
+              <strong>Review pending.</strong> Your score is recorded, but it won&rsquo;t receive a leaderboard
+              placement until a referee reviews it.
             </span>
           </div>
         )}

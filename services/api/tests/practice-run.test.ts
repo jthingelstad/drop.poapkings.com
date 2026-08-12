@@ -21,6 +21,7 @@ const repository = vi.hoisted(() => ({
   saveBadges: vi.fn(),
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
+  wouldLeadAllTime: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
@@ -37,6 +38,7 @@ vi.mock("../src/repository.js", () => ({
     saveBadges = repository.saveBadges;
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
+    wouldLeadAllTime = repository.wouldLeadAllTime;
     useRateLimit = repository.useRateLimit;
   },
 }));

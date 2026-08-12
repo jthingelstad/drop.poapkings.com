@@ -314,6 +314,8 @@ export interface LearningSummary {
   costAccuracy: Record<string, { seen: number; correct: number }>;
 }
 
+export type RunReviewStatus = "pending" | "reviewed" | "excluded";
+
 export interface StartedRun {
   runId: string;
   runToken: string;

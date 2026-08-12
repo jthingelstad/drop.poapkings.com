@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
 import ArenaProgress from '../components/ArenaProgress'
 import Icon from '../components/Icon'
+import ReviewStatusMark from '../components/ReviewStatus'
 import { rankFor } from '../data/starRanks'
 import {
   accountStatus,
@@ -519,7 +520,10 @@ export default function Profile() {
                   <span class="ed-profile__recent-name">
                     <ModeIcon mode={run.mode} size={24} /> {game.name}
                   </span>
-                  <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
+                  <span class="ed-profile__recent-score">
+                    {scoreLabel(run.mode, run.score)}
+                    {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} />}
+                  </span>
                   <time dateTime={run.completedAt}>
                     {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </time>
@@ -718,7 +722,10 @@ function SeasonGamesModal({
               <span class="ed-profile__recent-name">
                 <ModeIcon mode={run.mode} size={24} /> {game.name}
               </span>
-              <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
+              <span class="ed-profile__recent-score">
+                {scoreLabel(run.mode, run.score)}
+                {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} />}
+              </span>
               <time dateTime={run.completedAt}>
                 {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </time>

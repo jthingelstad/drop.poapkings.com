@@ -52,11 +52,8 @@ export async function seasonLeaderboard(
   seasonId: string,
   limit = 50,
 ): Promise<BoardItem[]> {
-  return withPublicProfiles(
-    tableName,
-    mode,
-    await seasonLeaderboardItems(tableName, mode, seasonId, limit),
-  );
+  const items = await seasonLeaderboardItems(tableName, mode, seasonId, limit);
+  return withPublicProfiles(tableName, mode, items);
 }
 
 // Internal season-finalization read. It deliberately returns only subjects,
@@ -117,7 +114,7 @@ async function seasonLeaderboardItems(
       const sub = String(item.playerSub);
       if (!seenPlayers.has(sub)) {
         seenPlayers.add(sub);
-        items.push(item);
+        items.push(reviewedItem(item, decision));
         if (items.length >= limit) break;
       }
     }
@@ -133,6 +130,25 @@ export async function allTimeLeaderboard(
   tableName: string,
   mode: GameMode,
   limit = 50,
+): Promise<BoardItem[]> {
+  const items = await allTimeLeaderboardItems(tableName, mode, limit);
+  return withPublicProfiles(tableName, mode, items);
+}
+
+// Completion-time eligibility check for a strict new all-time leader. It uses
+// the same referee-aware fallback as the public board, but returns the raw
+// earning run so every mode's ordered tiebreaks remain available.
+export async function allTimeLeaderboardLeader(
+  tableName: string,
+  mode: GameMode,
+): Promise<BoardItem | undefined> {
+  return (await allTimeLeaderboardItems(tableName, mode, 1))[0];
+}
+
+async function allTimeLeaderboardItems(
+  tableName: string,
+  mode: GameMode,
+  limit: number,
 ): Promise<BoardItem[]> {
   const reconciled: BoardItem[] = [];
   let lastKey: Record<string, unknown> | undefined;
@@ -162,7 +178,8 @@ export async function allTimeLeaderboard(
         await Promise.all(
           pageItems.map(async (item) => {
             const decision = decisions.get(String(item.runId));
-            if (decision?.visibility !== "hidden") return item;
+            if (decision?.visibility !== "hidden")
+              return reviewedItem(item, decision);
             return bestVisibleRun(
               tableName,
               String(item.playerSub),
@@ -194,7 +211,7 @@ export async function allTimeLeaderboard(
       break;
   } while (lastKey && pagesRead < MAX_BOARD_PAGES);
 
-  return withPublicProfiles(tableName, mode, reconciled.slice(0, limit));
+  return reconciled.slice(0, limit);
 }
 
 // Best-ever rows scoped to players whose latest stored Clash Royale snapshot
@@ -259,7 +276,8 @@ export async function clanAllTimeLeaderboard(
         await Promise.all(
           pageItems.map(async (item) => {
             const decision = decisions.get(String(item.runId));
-            if (decision?.visibility !== "hidden") return item;
+            if (decision?.visibility !== "hidden")
+              return reviewedItem(item, decision);
             return bestVisibleRun(
               tableName,
               String(item.playerSub),
@@ -303,7 +321,7 @@ function runIdsOf(items: BoardItem[]): string[] {
     .filter(Boolean);
 }
 
-async function refereeDecisions(
+export async function refereeDecisions(
   tableName: string,
   runIds: string[],
 ): Promise<Map<string, RefereeDecision>> {
@@ -343,6 +361,16 @@ async function refereeDecisions(
       );
   }
   return decisions;
+}
+
+function reviewedItem(
+  item: BoardItem,
+  decision: RefereeDecision | undefined,
+): BoardItem {
+  return decision?.decidedBy === "fair-play-referee" &&
+    decision.visibility === "visible"
+    ? { ...item, refereeReviewed: true }
+    : item;
 }
 
 async function resolveAllTimeEarningRun(
@@ -445,7 +473,8 @@ async function bestVisibleRun(
     const visible = window.find(
       (item) => decisions.get(String(item.runId))?.visibility !== "hidden",
     );
-    if (visible) return visible;
+    if (visible)
+      return reviewedItem(visible, decisions.get(String(visible.runId)));
   }
   return undefined;
 }
@@ -490,6 +519,7 @@ function toLeaderboardRow(
     rank: index + 1,
     score: item.score,
     achievedAt: item.completedAt,
+    ...(item.refereeReviewed === true ? { refereeReviewed: true } : {}),
     ...(showTime && item.timeMs !== undefined
       ? { timeMs: item.timeMs as number }
       : {}),

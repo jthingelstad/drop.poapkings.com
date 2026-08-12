@@ -180,7 +180,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
         mode: result.mode,
         score: result.score,
         seasonId: result.season.id,
-        completedAt: result.completedAt
+        completedAt: result.completedAt,
+        ...(result.underReview ? { reviewStatus: 'pending' } : {})
       })
       run.current = null
       pendingCompletion.current = null

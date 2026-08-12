@@ -54,14 +54,16 @@ export const testRecentRuns = [
     mode: 'surge',
     score: 67_299,
     seasonId: '2026-07',
-    completedAt: '2026-07-18T18:42:00.000Z'
+    completedAt: '2026-07-18T18:42:00.000Z',
+    reviewStatus: 'pending'
   },
   {
     runId: 'recent-trade',
     mode: 'trade',
     score: 11_800,
     seasonId: '2026-07',
-    completedAt: '2026-07-17T20:00:00.000Z'
+    completedAt: '2026-07-17T20:00:00.000Z',
+    reviewStatus: 'excluded'
   }
 ] as const
 export const testBadges = [
@@ -124,6 +126,7 @@ export function leaderboardEntries(mode: GameMode) {
     rank: index + 1,
     score: scores[index]!,
     achievedAt: `2026-07-${18 - index}T18:00:00.000Z`,
+    ...(index === 0 ? { refereeReviewed: true } : {}),
     player: {
       id: entry.id,
       publicName: entry.name,
@@ -368,6 +371,10 @@ export const test = base.extend({
   // guards React hook naming does not read it as a misplaced hook call.
   page: async ({ page, browserName }, provide) => {
     const errors: string[] = []
+    const isWebkitMockNavigationCancellation = (text: string) =>
+      browserName === 'webkit' &&
+      text.endsWith(' due to access control checks.') &&
+      /127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text)
     page.on('console', (msg) => {
       const text = msg.text()
       // Firefox 153 reports its own in-flight document cancellation as a
@@ -379,14 +386,10 @@ export const test = base.extend({
       // error during deliberate reloads and page.goto() calls. These mocks are
       // same-origin, so restrict the exclusion to that exact engine, host,
       // local API path, and message suffix; genuine HTTP/CORS errors still fail.
-      const webkitMockNavigationCancellation =
-        browserName === 'webkit' &&
-        text.endsWith(' due to access control checks.') &&
-        /127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text)
       if (
         msg.type() === 'error' &&
         !firefoxNavigationCancellation &&
-        !webkitMockNavigationCancellation &&
+        !isWebkitMockNavigationCancellation(text) &&
         !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED')) &&
         !(allowExpectedApiErrors.has(page) && (text.includes('status of 400') || text.includes('status of 503')))
       ) {
@@ -394,7 +397,9 @@ export const test = base.extend({
         errors.push(sourceUrl ? `${text} (${sourceUrl})` : text)
       }
     })
-    page.on('pageerror', (err) => errors.push(err.message))
+    page.on('pageerror', (err) => {
+      if (!isWebkitMockNavigationCancellation(err.message)) errors.push(err.message)
+    })
     await page.route('https://tinylytics.app/embed/**', (route) =>
       route.fulfill({
         status: 200,

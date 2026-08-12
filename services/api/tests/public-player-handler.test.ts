@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   listRecentRuns: vi.fn(),
   saveBadges: vi.fn(),
   useRateLimit: vi.fn(),
+  refereeDecisions: vi.fn(async () => new Map()),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -22,6 +23,7 @@ vi.mock("../src/repository.js", () => ({
     listRecentRuns = repository.listRecentRuns;
     saveBadges = repository.saveBadges;
     useRateLimit = repository.useRateLimit;
+    refereeDecisions = repository.refereeDecisions;
   },
 }));
 
@@ -205,6 +207,34 @@ describe("GET /players/:id", () => {
     });
     expect(body.player.clashRoyale).not.toHaveProperty("accountAge");
     expect(body.player.clashRoyale).not.toHaveProperty("cards");
+  });
+
+  it("does not expose another player's pending or excluded runs", async () => {
+    repository.refereeDecisions.mockResolvedValueOnce(
+      new Map([
+        [
+          "run-1",
+          {
+            runId: "run-1",
+            decidedBy: "integrity-gate",
+            visibility: "hidden",
+            reason: "private review evidence",
+          },
+        ],
+      ]),
+    );
+
+    const result = await handler(
+      playerEvent("player-2"),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body ?? "{}");
+    expect(body.recentRuns).toEqual([]);
+    expect(JSON.stringify(body)).not.toContain("private review evidence");
   });
 
   it("returns 404 when the public player id is unknown", async () => {

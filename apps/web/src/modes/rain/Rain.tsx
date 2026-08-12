@@ -23,6 +23,7 @@ import Icon from '../../components/Icon'
 import LivesRow from '../../components/LivesRow'
 import GameMilestone from '../../components/GameMilestone'
 import { preloadImages } from '../../lib/preload'
+import { runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
@@ -77,6 +78,8 @@ interface Drop {
   // Wrong taps spent on this card so far; rides into the transcript when it
   // resolves and feeds the leaderboard's first tiebreak.
   wrong: number
+  inputRound: number
+  inputEnabledAt: number
 }
 
 export default function Rain() {
@@ -95,7 +98,12 @@ export default function Rain() {
   // stamped with the elapsed time at resolution. `atMs` is what lets the scorer
   // check the run against the shared spawn curve (a tile cannot be answered
   // before it can spawn) and derive the clear-latency tiebreak.
-  const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; atMs: number; wrongGuesses: number }>>([])
+  const serverAnswers = useRef<
+    Array<{ cardId: number; guess: number | null; atMs: number; wrongGuesses: number; inputRound: number }>
+  >([])
+  const inputEvents = useRef<RunInputEvidence[]>([])
+  const runStartedAt = useRef(0)
+  const nextInputRound = useRef(0)
   // Display insights (accuracy by cost) for the summary.
   const answersLog = useRef<Array<{ card: Card; correct: boolean }>>([])
   const recorded = useRef(false)
@@ -164,9 +172,12 @@ export default function Rain() {
     milestone.value = null
     inputLocked.value = false
     serverAnswers.current = []
+    inputEvents.current = []
+    nextInputRound.current = 0
     answersLog.current = []
     recorded.current = false
-    runtime.start(() => {
+    runtime.start((startedAt) => {
+      runStartedAt.current = startedAt
       spawnGeneration.current += 1
       drops.current = []
       target.current = null
@@ -230,7 +241,9 @@ export default function Rain() {
         card,
         y: -16,
         speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current,
-        wrong: 0
+        wrong: 0,
+        inputRound: nextInputRound.current++,
+        inputEnabledAt: performance.now()
       })
       onSpawned()
     })
@@ -244,7 +257,13 @@ export default function Rain() {
   }
 
   function recordResolved(d: Drop, guess: number | null): void {
-    serverAnswers.current.push({ cardId: d.card.id, guess, atMs: atMs(), wrongGuesses: d.wrong })
+    serverAnswers.current.push({
+      cardId: d.card.id,
+      guess,
+      atMs: atMs(),
+      wrongGuesses: d.wrong,
+      inputRound: d.inputRound
+    })
     answersLog.current.push({ card: d.card, correct: guess !== null })
   }
 
@@ -275,6 +294,7 @@ export default function Rain() {
     // The lowest card (largest y) is the live target.
     let t: Drop | null = null
     for (const d of drops.current) if (!t || d.y > t.y) t = d
+    if (target.current !== t && t) t.inputEnabledAt = performance.now()
     target.current = t
     for (const d of drops.current) d.el.classList.toggle('ed-rain__tile--lit', d === t)
     if (lost) {
@@ -301,10 +321,15 @@ export default function Rain() {
     window.setTimeout(() => el.remove(), 500)
   }
 
-  function answer(value: number) {
+  function answer(value: number, observation: InputObservation) {
     if (stage.value !== 'running' || inputLocked.value) return
     const t = target.current
     if (!t) return
+    const recordInput = value === t.card.elixir || t.wrong < MAX_WRONG_PER_CARD
+    if (recordInput)
+      inputEvents.current.push(
+        runInputEvidence(observation, runStartedAt.current, t.inputEnabledAt, t.inputRound, value)
+      )
     if (value === t.card.elixir) {
       popTile(t, false)
       drops.current = drops.current.filter((x) => x !== t)
@@ -323,6 +348,7 @@ export default function Rain() {
       // the player toward the right cost, and count the miss against this card:
       // fewest wrong guesses is how the board separates equal scores.
       if (t.wrong < MAX_WRONG_PER_CARD) t.wrong += 1
+      t.inputEnabledAt = observation.inputAt
       hint.value = value < t.card.elixir ? 'higher' : 'lower'
       hintPulse.value += 1
       t.el.classList.remove('ed-rain__shake')
@@ -357,7 +383,7 @@ export default function Rain() {
     // local rainBest is written centrally, and ONLY when the server accepts the
     // run (see recordAllTimeBest) — writing it here would leave a rejected run
     // showing as a personal best on this device.
-    void gameRun.complete({ answers: serverAnswers.current })
+    void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
   }
 
   function replay() {

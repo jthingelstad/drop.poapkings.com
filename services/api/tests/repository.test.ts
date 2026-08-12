@@ -445,6 +445,7 @@ describe("repository DynamoDB requests", () => {
               runId: "run-approved",
               disposition: "clear",
               visibility: "visible",
+              decidedBy: "fair-play-referee",
             },
           ],
         },
@@ -475,7 +476,12 @@ describe("repository DynamoDB requests", () => {
     );
 
     expect(entries).toMatchObject([
-      { rank: 1, score: 10_000, player: { publicName: "Ace" } },
+      {
+        rank: 1,
+        score: 10_000,
+        refereeReviewed: true,
+        player: { publicName: "Ace" },
+      },
       { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
     ]);
   });

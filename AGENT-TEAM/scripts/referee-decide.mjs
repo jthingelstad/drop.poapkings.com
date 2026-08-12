@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // referee-decide.mjs <runId> --disposition clear|watch|review|insufficient_evidence
 //   --visibility visible|hidden|not_ranked --reason <private concise rationale>
+// referee-decide.mjs <runId> --pending --reason <private concise rationale>
 //
 // The only sanctioned referee write path. It never edits a score, transcript,
 // player, or leaderboard row. It writes an independent current decision and an
@@ -30,14 +31,20 @@ const VISIBILITIES = new Set(["visible", "hidden", "not_ranked"]);
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
 const runId = positional[0];
-const disposition = flags.disposition;
-const visibility = flags.visibility;
+const pending = flags.pending === true;
+const disposition = pending ? "review" : flags.disposition;
+const visibility = pending ? "hidden" : flags.visibility;
 const reason = typeof flags.reason === "string" ? flags.reason.trim() : "";
 
 if (!runId)
   failClosed(
     "missing_run_id",
-    "usage: referee-decide.mjs <runId> --disposition <value> --visibility <value> --reason <text>",
+    "usage: referee-decide.mjs <runId> (--pending | --disposition <value> --visibility <value>) --reason <text>",
+  );
+if (pending && (flags.disposition || flags.visibility))
+  failClosed(
+    "invalid_pending_flags",
+    "--pending cannot be combined with --disposition or --visibility",
   );
 if (!DISPOSITIONS.has(disposition))
   failClosed(
@@ -70,6 +77,11 @@ try {
 }
 if (!evidence)
   failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
+if (pending && previous?.decidedBy === "fair-play-referee")
+  failClosed(
+    "referee_decision_is_authoritative",
+    "An automatic pending hold cannot replace an existing referee decision",
+  );
 const subjectType =
   evidence.runType === "ranked" && Number.isFinite(evidence.score)
     ? "ranked_run"
@@ -108,7 +120,7 @@ const fields = {
   reason,
   evidenceDigest,
   decidedAt,
-  decidedBy: "fair-play-referee",
+  decidedBy: pending ? "integrity-gate" : "fair-play-referee",
   schemaVersion: "1",
 };
 const current = { pk: `REFEREE#${runId}`, sk: "CURRENT", ...fields };

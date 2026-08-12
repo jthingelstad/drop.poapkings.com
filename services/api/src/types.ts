@@ -27,6 +27,19 @@ export type TiebreakField =
   "avgLatencyMs" | "livesLost" | "timeMs" | "wrongGuesses";
 export type RunTiebreaks = Partial<Record<TiebreakField, number>>;
 
+export interface TimingEvidence {
+  model: "inferred-v1" | "observed-v2" | "invalid-v2";
+  inputCount: number;
+  activeTotalMs?: number;
+  activeMedianMs?: number;
+  activeP10Ms?: number;
+  under100MsCount?: number;
+  under150MsCount?: number;
+  longestUnder200MsStreak?: number;
+  inputKindCounts?: Record<string, number>;
+  untrustedInputCount?: number;
+}
+
 export interface SessionClaims {
   type: "session";
   sub: string;
@@ -107,6 +120,8 @@ export interface RunRecord {
   answerCount?: number;
 }
 
+export type RunReviewStatus = "pending" | "reviewed" | "excluded";
+
 // Non-reversible connection-correlation signals derived from a request's IP and
 // user-agent. The raw IP/user-agent are NEVER stored — only these peppered
 // HMACs and a coarse UA family string. See referee-evidence.ts.
@@ -138,6 +153,7 @@ export interface EvidenceItem {
   // Machine-readable assumptions that sent a deterministically scored run to
   // referee review. Empty/absent means no automatic flag.
   reviewSignals?: string[];
+  timing?: TimingEvidence;
   score?: number;
   // Ordered leaderboard tiebreak values, by field name. Evidence written before
   // 2026-07-25 carries the older flat `tiebreakMs` instead.

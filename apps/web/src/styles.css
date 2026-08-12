@@ -4278,10 +4278,9 @@ html.reduce-motion .ed-game__bar-fill {
 .ed-sum__review strong {
   color: var(--ink);
 }
-.ed-sum__review .icon {
+.ed-sum__review .ed-review-status {
   flex: none;
   margin-top: 0.15em;
-  color: var(--lavender);
 }
 .ed-sum-tiles {
   display: grid;
@@ -5023,6 +5022,14 @@ html.reduce-motion .ed-duel__card {
   font-size: 0.9rem;
   color: var(--gold);
   text-align: right;
+}
+
+.ed-review-status {
+  display: inline-flex;
+  margin-inline-start: 0.35rem;
+  font-size: 0.82em;
+  line-height: 1;
+  vertical-align: 0.08em;
 }
 .ed-lbrow__time {
   display: block;

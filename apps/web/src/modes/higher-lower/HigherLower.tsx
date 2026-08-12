@@ -23,6 +23,7 @@ import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { preloadImages } from '../../lib/preload'
+import { observeInput, runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
 
 // A correct read earns a quick beat; a miss keeps the longer one — that's the
 // learning moment.
@@ -64,6 +65,8 @@ export default function HigherLower() {
   // Shrinking response clock: fraction of the current round's window remaining.
   const remainingFrac = useSignal(1)
   const roundStart = useRef(0)
+  const runStartedAt = useRef(0)
+  const inputEvents = useRef<RunInputEvidence[]>([])
   const handoffGeneration = useRef(0)
   const timeoutRef = useRef<() => void>(() => {})
   const stage = runtime.stage
@@ -83,7 +86,9 @@ export default function HigherLower() {
   // depending on it would re-run this effect on every single render.
   const startRun = useRef<() => void>(() => {})
   startRun.current = () =>
-    runtime.start(() => {
+    runtime.start((startedAt) => {
+      runStartedAt.current = startedAt
+      inputEvents.current = []
       remainingFrac.value = 1
     })
   useEffect(() => {
@@ -145,6 +150,7 @@ export default function HigherLower() {
     awaitingReplay.value = false
     pairIndex.value = 0
     serverAnswers.current = []
+    inputEvents.current = []
     gradedAnswers.current = []
     picked.value = null
     timedOut.value = false
@@ -164,13 +170,18 @@ export default function HigherLower() {
 
   // One settle path for both ways a round can end. `pickedId` is null when the
   // clock ran out: a timeout is NOT a tap, and must never be recorded as one.
-  function settle(pickedId: number | null) {
+  function settle(pickedId: number | null, observation?: InputObservation) {
     const activePair = gameRun.content?.[pairIndex.value]
     if (runtime.stage.value !== 'running' || revealed.value || !activePair) return
     const [left, right] = activePair
     // Pairs never tie, so exactly one card is the higher cost.
     const higherId = left.elixir > right.elixir ? left.id : right.id
     const correct = pickedId === higherId
+    if (pickedId !== null && observation) {
+      inputEvents.current.push(
+        runInputEvidence(observation, runStartedAt.current, roundStart.current, pairIndex.value, pickedId)
+      )
+    }
     const elapsedMs = Math.round(performance.now() - roundStart.current)
     serverAnswers.current.push({
       leftId: left.id,
@@ -205,7 +216,11 @@ export default function HigherLower() {
         // Out of lives. Keep the revealed result in place after completion: the
         // next signed run is prepared only after an explicit player action, so
         // an idle screen cannot farm timed-out runs, XP, or activity events.
-        void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
+        void gameRun.complete(
+          { answers: serverAnswers.current, inputEvents: inputEvents.current },
+          offerReplay,
+          offerReplay
+        )
       }, delay)
       return
     }
@@ -218,7 +233,12 @@ export default function HigherLower() {
     const advance = () => {
       if (!beatReady || !artReady || generation !== handoffGeneration.current || stage.value !== 'running') return
       if (nextPair) showNext(nextIndex)
-      else void gameRun.complete({ answers: serverAnswers.current }, offerReplay, offerReplay)
+      else
+        void gameRun.complete(
+          { answers: serverAnswers.current, inputEvents: inputEvents.current },
+          offerReplay,
+          offerReplay
+        )
     }
     // Decode during the result reveal, not after it. The player always gets the
     // full learning beat, while a cache/decode hiccup can only extend that beat
@@ -235,8 +255,8 @@ export default function HigherLower() {
     }, delay)
   }
 
-  function choose(pickedId: number) {
-    settle(pickedId)
+  function choose(pickedId: number, observation: InputObservation) {
+    settle(pickedId, observation)
   }
 
   // The clock ran out. This used to call choose() with the LOWER card so the
@@ -256,10 +276,10 @@ export default function HigherLower() {
     if (!active) return
     if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
       event.preventDefault()
-      choose(active[0].id)
+      choose(active[0].id, observeInput(event))
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       event.preventDefault()
-      choose(active[1].id)
+      choose(active[1].id, observeInput(event))
     }
   })
 
@@ -341,13 +361,23 @@ export default function HigherLower() {
         </div>
         <GameMotion contentKey={counting ? 'ready' : pairIndex.value} cue={runtime.cue.value} preset="pair">
           <div class="ed-duel__cards" role="group" aria-label="Tap the higher-cost card">
-            <button type="button" class={cardClass(left.id)} onClick={() => choose(left.id)} disabled={disabled}>
+            <button
+              type="button"
+              class={cardClass(left.id)}
+              onClick={(event) => choose(left.id, observeInput(event))}
+              disabled={disabled}
+            >
               <CardDisplay card={left} phase="playing" forceReveal={revealed.value} />
             </button>
             <div class="ed-duel__vs" aria-hidden="true">
               VS
             </div>
-            <button type="button" class={cardClass(right.id)} onClick={() => choose(right.id)} disabled={disabled}>
+            <button
+              type="button"
+              class={cardClass(right.id)}
+              onClick={(event) => choose(right.id, observeInput(event))}
+              disabled={disabled}
+            >
               <CardDisplay card={right} phase="playing" forceReveal={revealed.value} />
             </button>
           </div>

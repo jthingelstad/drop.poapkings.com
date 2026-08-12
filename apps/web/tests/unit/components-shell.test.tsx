@@ -166,7 +166,7 @@ describe('PipKeypad', () => {
     expect(keys.length).toBe(9)
 
     host.querySelector<HTMLButtonElement>('[data-pip-value="3"]')!.click()
-    expect(onPick).toHaveBeenCalledWith(3)
+    expect(onPick).toHaveBeenCalledWith(3, expect.objectContaining({ inputAt: expect.any(Number), trusted: false }))
   })
 
   it('accepts a primary touch on pointerdown without double-answering its compatibility click', () => {
@@ -176,7 +176,7 @@ describe('PipKeypad', () => {
 
     key.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
     expect(onPick).toHaveBeenCalledTimes(1)
-    expect(onPick).toHaveBeenLastCalledWith(6)
+    expect(onPick).toHaveBeenLastCalledWith(6, expect.objectContaining({ inputKind: 'pointer', trusted: false }))
 
     // iOS normally follows the pointer sequence with a synthetic click. The
     // answer must not be recorded a second time when that click does arrive.
@@ -188,7 +188,7 @@ describe('PipKeypad', () => {
     const onPick = vi.fn()
     draw(<PipKeypad onPick={onPick} />)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }))
-    expect(onPick).toHaveBeenCalledWith(4)
+    expect(onPick).toHaveBeenCalledWith(4, expect.objectContaining({ inputKind: 'keyboard', trusted: false }))
   })
 
   it('ignores modifier chords, repeats, out-of-range and typing in inputs', () => {

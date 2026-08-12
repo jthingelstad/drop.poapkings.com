@@ -10,6 +10,8 @@ import { signToken, verifyToken } from "../signing.js";
 import type {
   CrProfileSnapshot,
   RunRecord,
+  RefereeDecision,
+  RunReviewStatus,
   SessionClaims,
   StoredCrWarClock,
 } from "../types.js";
@@ -136,13 +138,39 @@ export function profileResponse(
 // Map storage run rows onto the RunRecord contract: raw history rows carry
 // table keys, GSI keys, and the email-hash sub, none of which belong on the
 // wire.
-export function runRecordResponse(run: RunRecord) {
+export function ownerRunReviewStatus(
+  decision: RefereeDecision | undefined,
+): RunReviewStatus | undefined {
+  if (!decision) return undefined;
+  if (
+    decision.visibility === "hidden" &&
+    decision.decidedBy === "integrity-gate"
+  )
+    return "pending";
+  if (
+    decision.visibility === "hidden" &&
+    decision.decidedBy === "fair-play-referee"
+  )
+    return "excluded";
+  if (
+    decision.visibility === "visible" &&
+    decision.decidedBy === "fair-play-referee"
+  )
+    return "reviewed";
+  return undefined;
+}
+
+export function runRecordResponse(
+  run: RunRecord,
+  reviewStatus?: RunReviewStatus,
+) {
   return {
     runId: run.runId,
     mode: run.mode,
     score: run.score,
     seasonId: run.seasonId,
     completedAt: run.completedAt,
+    ...(reviewStatus ? { reviewStatus } : {}),
   };
 }
 

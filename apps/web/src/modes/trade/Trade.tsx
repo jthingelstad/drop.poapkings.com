@@ -25,6 +25,7 @@ import GameStartScreen from '../../components/game/GameStart'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
+import { observeInput, runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
 
 // Trade tunables — one config object (SPEC §9). The exchange count is NOT a
 // tunable here: it is the length of the shared board ladder the server deals,
@@ -96,8 +97,10 @@ export default function Trade() {
   const rounds = gameRun.content
   const roundMisses = useRef(0)
   const runStartedAt = useRef(0)
+  const inputEnabledAt = useRef(0)
   const currentGuesses = useRef<number[]>([])
   const serverAnswers = useRef<Array<{ guesses: number[]; atMs: number }>>([])
+  const inputEvents = useRef<RunInputEvidence[]>([])
 
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = runtime
@@ -124,9 +127,11 @@ export default function Trade() {
     if (!(await gameRun.ensureFreshRun())) return
     runtime.start((startedAt) => {
       runStartedAt.current = startedAt
+      inputEnabledAt.current = startedAt
       roundMisses.current = 0
       currentGuesses.current = []
       serverAnswers.current = []
+      inputEvents.current = []
       index.value = 0
       wrongGuesses.value = 0
       cleanTrades.value = 0
@@ -142,6 +147,7 @@ export default function Trade() {
     roundMisses.current = 0
     currentGuesses.current = []
     index.value += 1
+    inputEnabledAt.current = performance.now()
     feedback.value = 'idle'
     hintedOnLastGuess.value = false
     picked.value = null
@@ -168,15 +174,18 @@ export default function Trade() {
       lastTrade: lastTrade.value
     })
     runtime.finish()
-    void gameRun.complete({ answers: serverAnswers.current })
+    void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }
 
-  function guess(value: number) {
+  function guess(value: number, observation: InputObservation) {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
 
     const round = rounds?.[index.value]
     if (!round) return
+    inputEvents.current.push(
+      runInputEvidence(observation, runStartedAt.current, inputEnabledAt.current, index.value, value)
+    )
     picked.value = value
     currentGuesses.current.push(value)
     const answer = tradeValue(round)
@@ -196,6 +205,7 @@ export default function Trade() {
       feedback.value = 'wrong'
       runtime.emitCue('answer-wrong', { roundIndex: index.value })
       later(() => {
+        inputEnabledAt.current = performance.now()
         feedback.value = 'idle'
         hintedOnLastGuess.value = false
         picked.value = null
@@ -228,6 +238,7 @@ export default function Trade() {
     runtime.reset('ready')
     rearmAutoStart()
     serverAnswers.current = []
+    inputEvents.current = []
     currentGuesses.current = []
     index.value = 0
     wrongGuesses.value = 0
@@ -250,13 +261,13 @@ export default function Trade() {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
     if (event.key === '0') {
       event.preventDefault()
-      guess(0)
+      guess(0, observeInput(event))
       return
     }
     const slot = Number(event.key)
     if (Number.isInteger(slot) && slot >= 1 && slot <= TRADE_ANSWERS.length) {
       event.preventDefault()
-      guess(TRADE_ANSWERS[slot - 1]!)
+      guess(TRADE_ANSWERS[slot - 1]!, observeInput(event))
     }
   })
 
@@ -357,7 +368,7 @@ export default function Trade() {
                 <button
                   key={value}
                   class={answerClass(value, 'ed-trade__ans ed-trade__ans--neg')}
-                  onClick={() => guess(value)}
+                  onClick={(event) => guess(value, observeInput(event))}
                   disabled={counting || feedback.value !== 'idle'}
                   aria-label={`${formatTrade(value)} trade`}
                 >
@@ -370,7 +381,7 @@ export default function Trade() {
             <div class="ed-trade__pad-label">Wash</div>
             <button
               class={answerClass(0, 'ed-trade__ans ed-trade__ans--even')}
-              onClick={() => guess(0)}
+              onClick={(event) => guess(0, observeInput(event))}
               disabled={counting || feedback.value !== 'idle'}
               aria-label="Even trade"
             >
@@ -384,7 +395,7 @@ export default function Trade() {
                 <button
                   key={value}
                   class={answerClass(value, 'ed-trade__ans ed-trade__ans--pos')}
-                  onClick={() => guess(value)}
+                  onClick={(event) => guess(value, observeInput(event))}
                   disabled={counting || feedback.value !== 'idle'}
                   aria-label={`${formatTrade(value)} trade`}
                 >

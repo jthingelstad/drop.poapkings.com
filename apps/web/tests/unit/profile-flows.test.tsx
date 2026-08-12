@@ -655,8 +655,22 @@ describe('Profile interactive flows', () => {
   it('lists recent games and signs out from the profile view', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     account.recentRuns.value = [
-      { runId: 'r1', mode: 'surge', score: 12_500, seasonId: '2026-07', completedAt: '2026-07-19T00:00:00.000Z' },
-      { runId: 'r2', mode: 'survival', score: 8, seasonId: '2026-07', completedAt: '2026-07-18T00:00:00.000Z' }
+      {
+        runId: 'r1',
+        mode: 'surge',
+        score: 12_500,
+        seasonId: '2026-07',
+        completedAt: '2026-07-19T00:00:00.000Z',
+        reviewStatus: 'pending'
+      },
+      {
+        runId: 'r2',
+        mode: 'survival',
+        score: 8,
+        seasonId: '2026-07',
+        completedAt: '2026-07-18T00:00:00.000Z',
+        reviewStatus: 'excluded'
+      }
     ]
     await mount()
 
@@ -666,6 +680,8 @@ describe('Profile interactive flows', () => {
     expect(items).toHaveLength(2)
     expect(container.textContent).toContain('Surge')
     expect(container.textContent).toContain('12.50s')
+    expect(container.querySelector('[aria-label="Review pending"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Not included in rankings"]')).not.toBeNull()
 
     await fire(byText(container, 'Sign out') as Element)
     expect(account.accountStatus.value).toBe('anonymous')

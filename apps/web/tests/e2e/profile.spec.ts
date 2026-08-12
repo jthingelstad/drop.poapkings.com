@@ -21,6 +21,8 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
 
   await expect(page.locator('.profile-xp')).toContainText('Player XP')
   await expect(page.locator('.profile-xp')).toContainText('480')
+  await expect(page.getByLabel('Review pending').first()).toBeVisible()
+  await expect(page.getByLabel('Not included in rankings').first()).toBeVisible()
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {

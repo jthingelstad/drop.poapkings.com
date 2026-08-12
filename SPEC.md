@@ -310,6 +310,15 @@ Global games counter (site social proof):
 Timing rules:
 
 - Use `performance.now()` for elapsed-time math.
+- Ranked clients attach one coarse input observation per scored tap or key
+  action: round/value, prompt-enabled time, input time, broad input kind, and
+  the browser's `isTrusted` bit. They never attach coordinates, pressure,
+  pointer identity, or key codes. The API verifies that this sidecar matches the
+  scored transcript before summarizing it into referee evidence.
+- Competitive active time is prompt-enabled to answer, so forced correct/wrong
+  reveal beats and card-transition waits do not count as player response time.
+  Legacy transcripts retain an inferred active-time summary for context, but
+  only current observed timing can trigger the new timing holds.
 - Clear all scheduled timers when a timed mode unmounts.
 - Preload timed-run card art before the countdown begins.
 
@@ -441,7 +450,12 @@ session that owns the run.
 Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
 transcript consistency produce a deterministic candidate score; timing limits,
 terminal-state expectations, score floors, completion-rate ceilings, and other
-product assumptions produce machine-readable review signals. A signal derived
+product assumptions produce machine-readable review signals. Current clients
+also provide verified display-to-input observations, allowing the gate to
+detect sustained subhuman response patterns without counting forced reveal or
+card-transition time. A strict new all-time number one is held as a neutral
+review queue entry even when no anomaly fired; an exact performance tie is not
+a new leader. A signal derived
 from a mode's own **difficulty curve** — Rain's minimum-time floor, the sum of
 the spawn gaps a score of N cannot have skipped — is review-only on _both_ paths
 and never rejects, not even the strict guest one: a difficulty model is the
@@ -450,7 +464,10 @@ ranked run with any such signal is atomically recorded with a `review`/`hidden`
 decision before it can appear publicly. The response includes
 `underReview: true`; Discord promotion is suppressed. The Fair Play Referee can
 confirm the hide or approve a false positive by writing a new, audited visible
-decision. Only incomplete or contradictory input from which no comparable score
+decision. Pending and excluded runs are visible only to their owner in Profile
+and never receive a public placement; referee-approved rows carry a public
+reviewed mark, but the decision category and private rationale remain private.
+Only incomplete or contradictory input from which no comparable score
 can be derived returns `400`; that attempt is still retained as referee evidence
 and is not labeled fake. Practice is unranked, unscored, and XP-free — the run
 exists only to feed the server-owned learning stats. Guest runs use
@@ -644,7 +661,8 @@ table, co-located with the player's partition so account deletion
 automatic-review reason, or an unscored reason), optional machine-readable
 `reviewSignals`, server-recomputed candidate `score` (+ the mode's ordered
 `tiebreaks`; evidence written before 2026-07-25 carries a flat `tiebreakMs`),
-the full
+the coarse timing summary (`inferred-v1`, `observed-v2`, or an invalid-sidecar
+marker), the full
 signed `challenge`, the full raw `transcript`, `startedAt`/`completedAt`/
 `wallElapsedMs`, a `scoringVersion` (`{ web: build sha, rules: SCORING_RULES_VERSION }`),
 the normalized unverified `playerTag`, a `schemaVersion`, and an `expiresAt` TTL
@@ -693,7 +711,10 @@ evidence. Each current decision records disposition, `visible`/`hidden`, a
 private reason, evidence digest, and timestamp, with immutable decision history.
 Season and all-time reads omit hidden runs; if a hidden run was a player's best,
 the board uses that player's next-best visible run. Approval restores the run at
-its correct rank.
+its correct rank. An automatic hold is owner-visible as pending; a referee hide
+is owner-visible as excluded; and a referee-visible result is owner-visible and
+publicly marked as reviewed. No public endpoint returns a hidden run or its
+private rationale.
 
 ---
 
