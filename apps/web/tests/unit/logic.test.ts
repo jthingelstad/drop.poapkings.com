@@ -14,10 +14,9 @@ import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../..
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
 
+const CATALOG_CARDS = (rawCards as { cards: Array<{ id: number; name: string; elixir: number }> }).cards
 // Every elixir cost that actually exists in the committed catalog (1..9).
-const CATALOG_COSTS = [...new Set((rawCards as { cards: Array<{ elixir: number }> }).cards.map((c) => c.elixir))].sort(
-  (a, b) => a - b
-)
+const CATALOG_COSTS = [...new Set(CATALOG_CARDS.map((c) => c.elixir))].sort((a, b) => a - b)
 const MAX_COST = Math.max(...CATALOG_COSTS)
 
 function card(
@@ -43,6 +42,13 @@ describe('learning helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.useRealTimers()
+  })
+
+  it('keeps Void aligned with its live five-elixir rework', () => {
+    expect(CATALOG_CARDS.find((candidate) => candidate.id === 28000023)).toMatchObject({
+      name: 'Void',
+      elixir: 5
+    })
   })
 
   it('builds a window of four adjacent costs that contains the answer', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-19",
+  "version": "2026-08-12",
   "count": 120,
   "cards": [
     {
@@ -1230,7 +1230,7 @@
     {
       "id": 28000023,
       "name": "Void",
-      "elixir": 3,
+      "elixir": 5,
       "rarity": "epic",
       "type": "spell",
       "evo": false,
