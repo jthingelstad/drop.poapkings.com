@@ -5,8 +5,8 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import { accountStatus, player, refreshAccount, sessionToken } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
-import { formatSeconds } from '../lib/format'
-import { GAME_BY_MODE, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
+import { formatLeaderboardSeconds } from '../lib/format'
+import { GAME_BY_MODE, LOWER_IS_BETTER, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import { navigate } from '../lib/router'
@@ -39,6 +39,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
   const isPlayer = entry.player.id === player.value?.id
   const games = entry.player.totalGames
   const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
+  const score = LOWER_IS_BETTER.has(mode) ? `${formatLeaderboardSeconds(entry.score)}s` : scoreLabel(mode, entry.score)
   return (
     <li class={`ed-lbrow${entry.rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}`}>
       <button
@@ -64,9 +65,11 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
           </small>
         </span>
         <span class="ed-lbrow__score">
-          {scoreLabel(mode, entry.score)}
+          {score}
           {entry.refereeReviewed && <ReviewStatusMark status="reviewed" />}
-          {entry.timeMs !== undefined && <small class="ed-lbrow__time">{formatSeconds(entry.timeMs)}s</small>}
+          {entry.timeMs !== undefined && (
+            <small class="ed-lbrow__time">{formatLeaderboardSeconds(entry.timeMs)}s</small>
+          )}
         </span>
       </button>
     </li>

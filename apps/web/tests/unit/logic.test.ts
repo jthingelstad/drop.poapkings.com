@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cardNameToneClass, cardRarityLabel, cardRarityModifier } from '../../src/lib/card-rendering'
 import { makeChoices } from '../../src/lib/choices'
-import { formatSeconds } from '../../src/lib/format'
+import { formatLeaderboardSeconds, formatSeconds } from '../../src/lib/format'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { fullDeckSize } from '../../src/lib/challenge-cards'
 import rawCards from '@elixir-drop/game-data/cards.json'
@@ -109,6 +109,11 @@ describe('learning helpers', () => {
   it('formats timed scores to the hundredth of a second', () => {
     expect(formatSeconds(28_600)).toBe('28.60')
     expect(formatSeconds(14_432)).toBe('14.43')
+  })
+
+  it('formats leaderboard times to the millisecond', () => {
+    expect(formatLeaderboardSeconds(28_600)).toBe('28.600')
+    expect(formatLeaderboardSeconds(14_432)).toBe('14.432')
   })
 
   it('accepts a full-catalog Survival deck and rejects the wrong length', () => {

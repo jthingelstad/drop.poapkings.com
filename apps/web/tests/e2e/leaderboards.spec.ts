@@ -19,6 +19,7 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   const firstName = firstRow.locator('.ed-lbrow__name')
   const firstScore = firstRow.locator('.ed-lbrow__score')
   await expect(firstName).toBeVisible()
+  await expect(firstScore).toContainText('58.410s')
   const [nameBounds, scoreBounds] = await Promise.all([firstName.boundingBox(), firstScore.boundingBox()])
   expect(nameBounds).not.toBeNull()
   expect(scoreBounds).not.toBeNull()
@@ -29,6 +30,7 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()
   await expect(page.locator('.ed-modetab--active')).toContainText('Survival')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-lbrow__time').first()).toHaveText('61.317s')
 
   // Toggling to All-time switches the board to the best-ever heading and drops
   // the season-reset line, while the ranked player rows still render.

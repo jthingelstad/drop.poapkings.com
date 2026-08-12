@@ -230,7 +230,12 @@ describe('Leaderboards', () => {
         source: 'clash-royale',
         crSeasonId: 60
       },
-      entries: mode === 'survival' ? [] : ROWS
+      entries:
+        mode === 'survival'
+          ? []
+          : mode === 'higher-lower'
+            ? ROWS.map((row, index) => ({ ...row, timeMs: 61_317 + index }))
+            : ROWS
     }
   }
 
@@ -249,7 +254,7 @@ describe('Leaderboards', () => {
     expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'season', expect.any(AbortSignal))
     expect(host.textContent).toContain('Season 60 leaderboards')
     expect(host.textContent).toContain('Alice')
-    expect(host.textContent).toContain('4.20s') // surge = golf seconds
+    expect(host.textContent).toContain('4.200s') // leaderboard preserves millisecond ordering
     // The player's own row is flagged.
     expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
     expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
@@ -292,7 +297,8 @@ describe('Leaderboards', () => {
     expect(getLeaderboard).toHaveBeenLastCalledWith('higher-lower', 'season', expect.any(AbortSignal))
     // Higher/Lower scores read as a count of correct reads, not seconds.
     expect(host.textContent).toContain('correct')
-    expect(host.textContent).not.toContain('4.20s')
+    expect(host.textContent).toContain('61.317s')
+    expect(host.textContent).not.toContain('4.200s')
   })
 
   it('switches to current-clan all-time rankings for a linked player', async () => {

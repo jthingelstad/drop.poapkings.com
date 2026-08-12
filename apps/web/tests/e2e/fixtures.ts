@@ -127,6 +127,7 @@ export function leaderboardEntries(mode: GameMode) {
     score: scores[index]!,
     achievedAt: `2026-07-${18 - index}T18:00:00.000Z`,
     ...(index === 0 ? { refereeReviewed: true } : {}),
+    ...(mode === 'survival' || mode === 'higher-lower' ? { timeMs: 61_317 + index } : {}),
     player: {
       id: entry.id,
       publicName: entry.name,
