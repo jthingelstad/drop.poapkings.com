@@ -264,7 +264,7 @@ void test("preflight fails for every unsafe publication state", async (t) => {
   });
 });
 
-void test("automation registry contains exactly the three paused objective owners", () => {
+void test("automation registry contains exactly the three active objective owners", () => {
   const source = readFileSync(
     path.join(ROOT, "AGENT-TEAM/automations.toml"),
     "utf8",
@@ -283,8 +283,14 @@ void test("automation registry contains exactly the three paused objective owner
     "grow",
     "run",
   ]);
+  const expectedSchedules = {
+    "fair-play": "RRULE:FREQ=DAILY;BYHOUR=18;BYMINUTE=30",
+    grow: "RRULE:FREQ=DAILY;BYHOUR=12;BYMINUTE=30",
+    run: "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30",
+  };
   for (const entry of entries) {
-    assert.equal(entry.status, "PAUSED");
+    assert.equal(entry.status, "ACTIVE");
+    assert.equal(entry.rrule, expectedSchedules[entry.objective]);
     assert.doesNotThrow(() =>
       readFileSync(path.join(ROOT, entry.objective_file), "utf8"),
     );

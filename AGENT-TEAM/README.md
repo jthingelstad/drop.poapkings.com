@@ -8,9 +8,9 @@ product acceptance. There is no Build Manager, Team Manager, or routing pipeline
 
 | Objective | File | Cadence | Primary question |
 |---|---|---|---|
-| **Run Drop** | `run-drop.md` | Weekly and after incidents/deploys | Is the public game healthy, correct, current, observable, and inexpensive to run? |
-| **Grow Drop** | `grow-drop.md` | Weekly and at season boundaries | Are more people reaching a first run, returning, and finding the seasons worth playing? |
-| **Protect Fair Play** | `protect-fair-play.md` | Weekly and before prize/result decisions | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
+| **Run Drop** | `run-drop.md` | Daily and after incidents/deploys | Is the public game healthy, correct, current, observable, and inexpensive to run? |
+| **Grow Drop** | `grow-drop.md` | Daily and at season boundaries | Are more people reaching a first run, returning, and finding the seasons worth playing? |
+| **Protect Fair Play** | `protect-fair-play.md` | Daily and before prize/result decisions | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
 
 Building and testing are capabilities of every objective owner. New modes, material
 scoring or season changes, privacy-affecting signals, public accusations, prize
