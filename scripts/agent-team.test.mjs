@@ -269,6 +269,7 @@ void test("automation registry contains exactly the three paused objective owner
     path.join(ROOT, "AGENT-TEAM/automations.toml"),
     "utf8",
   );
+  assert.match(source, /^repo = "\."$/m);
   const entries = source
     .split("[[automation]]")
     .slice(1)
