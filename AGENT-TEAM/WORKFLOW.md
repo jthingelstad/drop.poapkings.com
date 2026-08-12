@@ -9,22 +9,19 @@ objective file before acting.
 
 ## Operating loop
 
-1. Claim the checkout with
-   `node AGENT-TEAM/scripts/objective-lease.mjs claim <run|grow|fair-play>`. The
-   lease is atomic and lives inside `.git`, so only one objective can mutate this
-   checkout at a time. Retain the returned `leaseId` only for this run. If another
-   run holds the lease, stop read-only. Release your own lease with
-   `node AGENT-TEAM/scripts/objective-lease.mjs release <objective> <leaseId>` on
-   every exit, including `Healthy` and `Needs decision`; never release another
-   run's lease. A lease older than eight hours may be cleared only with the script's
-   `clear-stale` command and only when the worktree is clean.
-2. Run `AGENT-TEAM/scripts/preflight.sh`. A dirty, behind, diverged, detached, or
+1. Run `AGENT-TEAM/scripts/preflight.sh`. A dirty, behind, diverged, detached, or
    unexpectedly ahead checkout makes the run read-only. Never publish a pre-existing
    commit.
-3. Measure current state from the public site/API, exact AWS/CI evidence, retained
+2. Measure current state from the public site/API, exact AWS/CI evidence, retained
    product data, sanctioned referee tools, or the active issue as appropriate.
-4. Decide whether a real objective gap exists. Healthy is a complete result.
-5. If the gap is safe and authorized, fix it at the source in the same run. Add the
+3. Decide whether a real objective gap exists. Healthy is a complete result.
+4. Only when a safe authorized gap requires mutation, claim the checkout with
+   `node AGENT-TEAM/scripts/objective-lease.mjs claim <run|grow|fair-play>`. Retain
+   the returned `leaseId` for this run. A held lease leaves the run read-only. Never
+   clear one merely because it looks old: automatic clearing also requires the same
+   host, a dead recorded process, an unchanged starting commit, and a clean worktree;
+   otherwise inspect it and use the exact holder identity for a confirmed manual clear.
+5. Fix the gap at the source in the same run. Add the
    business-rule regression; do not substitute a warning, guard, or ticket chain.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
    recheck the branch, upstream, and worktree immediately before the first edit and
@@ -35,6 +32,9 @@ objective file before acting.
    Use `npm run deploy:api` only for the documented out-of-band exception.
 9. Verify semantic success from natural product evidence. Do not create guest runs,
    player accounts, leaderboard entries, email, or referee cases merely for acceptance.
+10. Release only this run's token with
+    `node AGENT-TEAM/scripts/objective-lease.mjs release <objective> <leaseId>` after
+    the repository is clean. If safe cleanup is impossible, leave the lease and report it.
 
 ## Ownership and acceptance
 
@@ -75,7 +75,18 @@ records, and product/referee ledgers hold history.
 
 ## Reporting
 
-End as `Healthy`, `Changed`, or `Needs decision`. Report the measured outcome and
-remaining risk, not workflow ceremony. A monthly Grow Drop pass may recommend one
-specific contract correction when evidence shows duplicated work, collisions,
-manufactured findings, or stalled acceptance; there is no separate Team Manager.
+End as `HEALTHY`, `CHANGED`, `WATCHING`, `BLOCKED`, or `NEEDS JAMIE`:
+
+```text
+Outcome: HEALTHY | CHANGED | WATCHING | BLOCKED | NEEDS JAMIE
+Objective: <objective name>
+Evidence: <most decision-relevant facts>
+Action: <what changed, or None>
+Next check: <natural event/date, or None>
+Jamie: <one yes/no question, or None>
+```
+
+Report the measured outcome and remaining risk, not workflow ceremony. A monthly Grow
+Drop pass may recommend one specific contract correction when evidence shows duplicated
+work, collisions, manufactured findings, or stalled acceptance; there is no separate
+Team Manager.

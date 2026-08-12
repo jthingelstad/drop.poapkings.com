@@ -2,6 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import {
   closeSync,
   constants,
@@ -52,7 +53,23 @@ export function claimLease(objective, options = {}) {
   const now = options.now ?? new Date();
   const leaseId = options.leaseId ?? randomUUID();
   if (!leaseId) throw new Error("leaseId must not be empty");
-  const payload = { objective, leaseId, claimedAt: now.toISOString() };
+  const payload = {
+    objective,
+    leaseId,
+    claimedAt: now.toISOString(),
+    holderId:
+      options.holderId ??
+      process.env.CODEX_THREAD_ID ??
+      "untracked-manual-holder",
+    holderPid: options.holderPid ?? process.ppid,
+    hostname: options.hostname ?? hostname(),
+    startingHead:
+      options.startingHead ??
+      execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: options.repoRoot ?? REPO_ROOT,
+        encoding: "utf8",
+      }).trim(),
+  };
   let descriptor;
   try {
     descriptor = openSync(
@@ -97,12 +114,19 @@ export function releaseLease(
   objective,
   leaseId,
   leasePath = DEFAULT_LEASE_PATH,
+  repoRoot = REPO_ROOT,
 ) {
   assertObjective(objective);
   if (!leaseId) throw new Error("leaseId is required");
   const current = readLease(leasePath);
   if (!current) return null;
   assertLeaseOwner(objective, leaseId, leasePath);
+  const dirty = execFileSync("git", ["status", "--porcelain"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (dirty)
+    throw new Error("refusing to release a lease while the worktree is dirty");
   unlinkSync(leasePath);
   return current;
 }
@@ -131,12 +155,63 @@ export function clearStaleLease(options = {}) {
     throw new Error(
       "refusing to clear a stale lease while the worktree is dirty",
     );
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim();
+  if (current.startingHead !== currentHead)
+    throw new Error(
+      "refusing automatic stale clear because HEAD changed; inspect and clear manually",
+    );
+  const currentHostname = options.hostname ?? hostname();
+  if (current.hostname !== currentHostname)
+    throw new Error(
+      "cannot prove a lease holder on another host is inactive; inspect and clear manually",
+    );
+  if (!Number.isInteger(current.holderPid))
+    throw new Error(
+      "lease has no durable holder process; inspect and clear manually",
+    );
+  const processExists =
+    options.processExists ??
+    ((pid) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch (error) {
+        if (error?.code === "ESRCH") return false;
+        throw error;
+      }
+    });
+  if (!processExists(current.holderPid)) {
+    unlinkSync(leasePath);
+    return current;
+  }
+  throw new Error(`lease holder process ${current.holderPid} is still active`);
+}
+
+export function clearManualLease(options = {}) {
+  const leasePath = options.leasePath ?? DEFAULT_LEASE_PATH;
+  const repoRoot = options.repoRoot ?? REPO_ROOT;
+  const current = readLease(leasePath);
+  if (!current) throw new Error("no checkout lease exists");
+  if (!options.confirmInactive)
+    throw new Error("manual clear requires --confirm-inactive");
+  const recorded = current.holderId ?? "legacy-unidentified";
+  if (recorded !== options.holderId)
+    throw new Error(`lease holder is ${JSON.stringify(recorded)}`);
+  const dirty = execFileSync("git", ["status", "--porcelain"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (dirty)
+    throw new Error("refusing to clear a lease while the worktree is dirty");
   unlinkSync(leasePath);
   return current;
 }
 
 function usage() {
-  return "usage: objective-lease.mjs claim <objective> | check|release <objective> <leaseId> | status | clear-stale --hours <n>";
+  return "usage: objective-lease.mjs claim <objective> | check|release <objective> <leaseId> | status | clear-stale --hours <n> | clear-manual --holder-id <id> --confirm-inactive";
 }
 
 function main(argv) {
@@ -150,6 +225,13 @@ function main(argv) {
   else if (command === "status" && !objective) result = readLease();
   else if (command === "clear-stale" && objective === "--hours" && token) {
     result = clearStaleLease({ hours: Number(token) });
+  } else if (
+    command === "clear-manual" &&
+    objective === "--holder-id" &&
+    token &&
+    argv[3] === "--confirm-inactive"
+  ) {
+    result = clearManualLease({ holderId: token, confirmInactive: true });
   } else throw new Error(usage());
   process.stdout.write(`${JSON.stringify({ status: "ok", lease: result })}\n`);
 }

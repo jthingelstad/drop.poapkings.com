@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   assertLeaseOwner,
   claimLease,
+  clearManualLease,
   clearStaleLease,
   releaseLease,
 } from "../AGENT-TEAM/scripts/objective-lease.mjs";
@@ -60,19 +61,28 @@ function pushRemoteCommit(root, remote, name) {
 }
 
 void test("objective lease is atomic, private, and owner-scoped", (t) => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "drop-objective-lease-"));
+  const { repo, root } = repositoryFixture(t);
   const leasePath = path.join(root, "lease.json");
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const startingHead = git(repo, "rev-parse", "HEAD").trim();
 
   const claimed = claimLease("run", {
     leasePath,
+    repoRoot: repo,
     leaseId: "lease-run-1",
     now: new Date("2026-08-12T12:00:00.000Z"),
+    holderId: "thread-1",
+    holderPid: 4242,
+    hostname: "test-host",
+    startingHead,
   });
   assert.deepEqual(claimed, {
     objective: "run",
     leaseId: "lease-run-1",
     claimedAt: "2026-08-12T12:00:00.000Z",
+    holderId: "thread-1",
+    holderPid: 4242,
+    hostname: "test-host",
+    startingHead,
   });
   assert.equal(statSync(leasePath).mode & 0o777, 0o600);
   assert.throws(() => claimLease("grow", { leasePath }), /already held/);
@@ -81,20 +91,29 @@ void test("objective lease is atomic, private, and owner-scoped", (t) => {
     /another run/,
   );
   assert.throws(
-    () => releaseLease("run", "another-run", leasePath),
+    () => releaseLease("run", "another-run", leasePath, repo),
     /another run/,
   );
-  assert.deepEqual(releaseLease("run", "lease-run-1", leasePath), claimed);
-  assert.equal(releaseLease("run", "lease-run-1", leasePath), null);
+  assert.deepEqual(
+    releaseLease("run", "lease-run-1", leasePath, repo),
+    claimed,
+  );
+  assert.equal(releaseLease("run", "lease-run-1", leasePath, repo), null);
 });
 
-void test("a stale lease can be cleared only after its age threshold and on a clean tree", (t) => {
+void test("stale clearing requires age plus proof that the holder is inactive", (t) => {
   const { repo, root } = repositoryFixture(t);
   const leasePath = path.join(root, "lease.json");
+  const startingHead = git(repo, "rev-parse", "HEAD").trim();
   claimLease("grow", {
     leasePath,
+    repoRoot: repo,
     leaseId: "lease-grow-1",
     now: new Date("2026-08-12T00:00:00.000Z"),
+    holderId: "thread-2",
+    holderPid: 4242,
+    hostname: "test-host",
+    startingHead,
   });
   assert.throws(
     () =>
@@ -114,9 +133,65 @@ void test("a stale lease can be cleared only after its age threshold and on a cl
         repoRoot: repo,
         hours: 8,
         now: new Date("2026-08-12T09:00:00.000Z"),
+        hostname: "test-host",
+        processExists: () => false,
       }),
     /worktree is dirty/,
   );
+  rmSync(path.join(repo, "dirty.txt"));
+  assert.throws(
+    () =>
+      clearStaleLease({
+        leasePath,
+        repoRoot: repo,
+        hours: 8,
+        now: new Date("2026-08-12T09:00:00.000Z"),
+        hostname: "test-host",
+        processExists: () => true,
+      }),
+    /still active/,
+  );
+  const cleared = clearStaleLease({
+    leasePath,
+    repoRoot: repo,
+    hours: 8,
+    now: new Date("2026-08-12T09:00:00.000Z"),
+    hostname: "test-host",
+    processExists: () => false,
+  });
+  assert.equal(cleared.leaseId, "lease-grow-1");
+});
+
+void test("manual clearing requires exact holder confirmation and a clean tree", (t) => {
+  const { repo, root } = repositoryFixture(t);
+  const leasePath = path.join(root, "lease.json");
+  claimLease("fair-play", {
+    leasePath,
+    repoRoot: repo,
+    leaseId: "lease-fair-play-1",
+    holderId: "thread-3",
+  });
+  assert.throws(
+    () => clearManualLease({ leasePath, repoRoot: repo }),
+    /confirm-inactive/,
+  );
+  assert.throws(
+    () =>
+      clearManualLease({
+        leasePath,
+        repoRoot: repo,
+        holderId: "another-thread",
+        confirmInactive: true,
+      }),
+    /lease holder/,
+  );
+  const cleared = clearManualLease({
+    leasePath,
+    repoRoot: repo,
+    holderId: "thread-3",
+    confirmInactive: true,
+  });
+  assert.equal(cleared.leaseId, "lease-fair-play-1");
 });
 
 void test("preflight passes only for a clean synchronized branch", (t) => {
@@ -195,7 +270,7 @@ void test("automation registry contains exactly the three paused objective owner
     "utf8",
   );
   const entries = source
-    .split("[[activities]]")
+    .split("[[automation]]")
     .slice(1)
     .map((block) =>
       Object.fromEntries(
@@ -210,7 +285,7 @@ void test("automation registry contains exactly the three paused objective owner
   for (const entry of entries) {
     assert.equal(entry.status, "PAUSED");
     assert.doesNotThrow(() =>
-      readFileSync(path.join(ROOT, entry.role), "utf8"),
+      readFileSync(path.join(ROOT, entry.objective_file), "utf8"),
     );
   }
   assert.notEqual(
@@ -225,13 +300,22 @@ void test("objective contract requires the lease and contains no retired queue l
     path.join(ROOT, "AGENT-TEAM/WORKFLOW.md"),
     "utf8",
   );
+  const readme = readFileSync(path.join(ROOT, "AGENT-TEAM/README.md"), "utf8");
   const setup = readFileSync(
     path.join(ROOT, "AGENT-TEAM/scripts/setup-labels.sh"),
     "utf8",
   );
   assert.match(workflow, /objective-lease\.mjs claim/);
-  assert.match(workflow, /Release your own lease[\s\S]+on\s+every exit/);
+  assert.match(workflow, /Only when a safe authorized gap requires mutation/);
   assert.match(workflow, /release <objective> <leaseId>/);
+  assert.match(
+    workflow,
+    /Outcome: HEALTHY \| CHANGED \| WATCHING \| BLOCKED \| NEEDS JAMIE/,
+  );
+  assert.match(
+    readme,
+    /Run <objective> now and own the highest-impact measured gap\./,
+  );
   assert.match(
     setup,
     /approved needs-deploy needs-design proposal ready release wip/,
@@ -245,4 +329,14 @@ void test("objective contract requires the lease and contains no retired queue l
     "utf8",
   );
   assert.match(fairPlay, /fair-play-policy\.md/);
+});
+
+void test("automation registry passes the common contract audit", () => {
+  const result = spawnSync(
+    "python3",
+    ["AGENT-TEAM/scripts/automation_audit.py", "--registry-only"],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /OK\s+registry\s+3 objective owners/);
 });

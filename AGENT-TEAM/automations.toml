@@ -1,33 +1,34 @@
-version = 1
+version = 2
+repo = "/Users/otto/Projects/drop.poapkings.com"
 timezone = "America/Chicago"
 
-# These definitions preserve the existing Codex automation ids and paused state.
+# Stable ids preserve Codex task history. All three are installed but intentionally paused.
 
-[[activities]]
+[[automation]]
 id = "drop-operations-manager"
 name = "Run Drop"
 objective = "run"
-role = "AGENT-TEAM/run-drop.md"
+objective_file = "AGENT-TEAM/run-drop.md"
 status = "PAUSED"
 rrule = "RRULE:FREQ=WEEKLY;BYHOUR=11;BYMINUTE=0;BYDAY=SA"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
 
-[[activities]]
+[[automation]]
 id = "drop-growth-and-season-analyst"
 name = "Grow Drop"
 objective = "grow"
-role = "AGENT-TEAM/grow-drop.md"
+objective_file = "AGENT-TEAM/grow-drop.md"
 status = "PAUSED"
 rrule = "RRULE:FREQ=WEEKLY;BYHOUR=7;BYMINUTE=15;BYDAY=SA"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
 
-[[activities]]
+[[automation]]
 id = "drop-fair-play-referee"
 name = "Protect Fair Play"
 objective = "fair-play"
-role = "AGENT-TEAM/protect-fair-play.md"
+objective_file = "AGENT-TEAM/protect-fair-play.md"
 status = "PAUSED"
 rrule = "RRULE:FREQ=WEEKLY;BYHOUR=6;BYMINUTE=30;BYDAY=SA"
 model = "gpt-5.6-sol"

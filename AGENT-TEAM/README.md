@@ -22,6 +22,21 @@ bounded: it may repair established tooling or scoring defects from sanitized,
 synthetic evidence, but it may never alter a live case, canonical run, or threshold
 to obtain a preferred verdict.
 
+## How Jamie engages the team
+
+Jamie can start with the outcome instead of choosing a role or preparing a ticket:
+
+- `Run <objective> now and own the highest-impact measured gap.`
+- `Investigate <symptom>; choose the owner by the failed outcome, not the file.`
+- `Show me team status only; make no changes.`
+- `What across this team needs Jamie?`
+- `Resume the active watch for <objective or issue>.`
+
+Choose **Run Drop** for availability, execution, deploys, persistence, ordinary defects,
+recovery, or cost; **Grow Drop** for acquisition, activation, retention, onboarding, and
+season value; and **Protect Fair Play** for evidence integrity, referee coverage, and
+reversible visibility decisions. Cross-cutting work keeps one originating owner.
+
 ## Project map
 
 - `AGENTS.md` and `CLAUDE.md` are the repository and architecture sources of truth.
@@ -30,6 +45,8 @@ to obtain a preferred verdict.
 - `npm run verify` is the canonical source gate.
 - `AGENT-TEAM/scripts/objective-lease.mjs` serializes mutating objective runs in the
   shared checkout.
+- `python3 AGENT-TEAM/scripts/automation_audit.py` verifies the registry against installed
+  Codex tasks; use `--registry-only` in source-only checks.
 - `.github/workflows/deploy.yml` ships Lambda and Pages together from `main`.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
