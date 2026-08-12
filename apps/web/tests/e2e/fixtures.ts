@@ -9,8 +9,12 @@ export const cardsData = JSON.parse(
 ) as CardsData
 export const cardsById = new Map(cardsData.cards.map((card) => [card.id, card]))
 export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
-export const testApiBaseUrl = 'https://fhmql8x10m.execute-api.us-east-1.amazonaws.com'
-export const testApiRoute = `${testApiBaseUrl}/**`
+// Keep browser tests fully local. A production-shaped cross-origin base makes
+// WebKit apply CORS to fulfilled Playwright routes under parallel load even
+// though no request reaches AWS.
+export const testApiBaseUrl = 'http://127.0.0.1:5173'
+export const testApiRoute =
+  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|$)/
 export const testSeason = {
   id: '2026-07',
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -371,13 +375,23 @@ export const test = base.extend({
       // application stack and is safe to exclude from the app-error guard.
       const firefoxNavigationCancellation =
         browserName === 'firefox' && text === '[JavaScript Error: "InvalidStateError: Navigated away from page"]'
+      // WebKit reports an interrupted fulfilled fetch as an access-control
+      // error during deliberate reloads and page.goto() calls. These mocks are
+      // same-origin, so restrict the exclusion to that exact engine, host,
+      // local API path, and message suffix; genuine HTTP/CORS errors still fail.
+      const webkitMockNavigationCancellation =
+        browserName === 'webkit' &&
+        text.endsWith(' due to access control checks.') &&
+        /127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text)
       if (
         msg.type() === 'error' &&
         !firefoxNavigationCancellation &&
+        !webkitMockNavigationCancellation &&
         !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED')) &&
         !(allowExpectedApiErrors.has(page) && (text.includes('status of 400') || text.includes('status of 503')))
       ) {
-        errors.push(text)
+        const sourceUrl = msg.location().url
+        errors.push(sourceUrl ? `${text} (${sourceUrl})` : text)
       }
     })
     page.on('pageerror', (err) => errors.push(err.message))
@@ -455,15 +469,6 @@ export const test = base.extend({
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          // WebKit can enforce CORS on fulfilled cross-origin routes. Mirror
-          // the deployed API instead of relying on interception to bypass it.
-          headers: {
-            'access-control-allow-origin': 'http://127.0.0.1:5173',
-            'access-control-allow-credentials': 'true',
-            'access-control-allow-headers': 'authorization,content-type',
-            'access-control-allow-methods': 'GET,OPTIONS',
-            vary: 'Origin'
-          },
           body: JSON.stringify(
             scope === 'all-time'
               ? { mode, scope: 'all-time', currentSeason: testSeason, entries: leaderboardEntries(mode) }

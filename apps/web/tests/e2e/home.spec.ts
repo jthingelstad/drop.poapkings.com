@@ -109,6 +109,11 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
   await expect.poll(() => pageRequests.length).toBe(2)
   expect(new URL(pageRequests[1]).searchParams.get('path')).toBe('/leaderboards')
 
+  // Let the leaderboard screen's mocked support requests finish before the
+  // deliberate document navigation below. WebKit reports an interrupted
+  // fulfilled fetch as an access-control console error under parallel load.
+  await page.waitForLoadState('networkidle')
+
   await page.goto('/#/surge')
   await waitForKeypad(page)
   await expect

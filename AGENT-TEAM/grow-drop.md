@@ -23,8 +23,9 @@ Cadence: weekly, at season boundaries, and after a meaningful growth change ship
    that it helped.
 4. Inspect open `objective:grow` issues and discard ideas that lack a measured need.
 5. For a clear, bounded improvement, fix the source, add the product/e2e regression,
-   run `npm run verify`, push, and retain the semantic acceptance watch after Run Drop
-   confirms deployment.
+   run `npm run verify`, push, verify the normal deployment yourself, and retain the
+   semantic acceptance watch until natural evidence resolves it. Route only a failed
+   pipeline or continuing technical-health problem to Run Drop.
 
 Ask Jamie before a new mode, material scoring or season change, new notification or
 email surface, privacy-affecting measurement, or other large member-visible direction.

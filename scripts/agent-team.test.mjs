@@ -1,0 +1,248 @@
+import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import {
+  assertLeaseOwner,
+  claimLease,
+  clearStaleLease,
+  releaseLease,
+} from "../AGENT-TEAM/scripts/objective-lease.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
+
+function git(cwd, ...args) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+}
+
+function repositoryFixture(t) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "drop-agent-team-"));
+  const remote = path.join(root, "origin.git");
+  const repo = path.join(root, "repo");
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  git(root, "init", "--bare", remote);
+  git(root, "init", repo);
+  git(repo, "config", "user.email", "agent-team@example.test");
+  git(repo, "config", "user.name", "Agent Team Test");
+  writeFileSync(path.join(repo, "README.md"), "fixture\n");
+  git(repo, "add", "README.md");
+  git(repo, "commit", "-m", "Initial");
+  git(repo, "branch", "-M", "main");
+  git(repo, "remote", "add", "origin", remote);
+  git(repo, "push", "-u", "origin", "main");
+  return { remote, repo, root };
+}
+
+function preflight(repo) {
+  return spawnSync("bash", [PREFLIGHT], { cwd: repo, encoding: "utf8" });
+}
+
+function pushRemoteCommit(root, remote, name) {
+  const writer = path.join(root, `writer-${name}`);
+  git(root, "clone", "--branch", "main", remote, writer);
+  git(writer, "config", "user.email", "agent-team@example.test");
+  git(writer, "config", "user.name", "Agent Team Test");
+  writeFileSync(path.join(writer, `${name}.txt`), `${name}\n`);
+  git(writer, "add", `${name}.txt`);
+  git(writer, "commit", "-m", name);
+  git(writer, "push", "origin", "main");
+}
+
+void test("objective lease is atomic, private, and owner-scoped", (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "drop-objective-lease-"));
+  const leasePath = path.join(root, "lease.json");
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const claimed = claimLease("run", {
+    leasePath,
+    leaseId: "lease-run-1",
+    now: new Date("2026-08-12T12:00:00.000Z"),
+  });
+  assert.deepEqual(claimed, {
+    objective: "run",
+    leaseId: "lease-run-1",
+    claimedAt: "2026-08-12T12:00:00.000Z",
+  });
+  assert.equal(statSync(leasePath).mode & 0o777, 0o600);
+  assert.throws(() => claimLease("grow", { leasePath }), /already held/);
+  assert.throws(
+    () => assertLeaseOwner("run", "another-run", leasePath),
+    /another run/,
+  );
+  assert.throws(
+    () => releaseLease("run", "another-run", leasePath),
+    /another run/,
+  );
+  assert.deepEqual(releaseLease("run", "lease-run-1", leasePath), claimed);
+  assert.equal(releaseLease("run", "lease-run-1", leasePath), null);
+});
+
+void test("a stale lease can be cleared only after its age threshold and on a clean tree", (t) => {
+  const { repo, root } = repositoryFixture(t);
+  const leasePath = path.join(root, "lease.json");
+  claimLease("grow", {
+    leasePath,
+    leaseId: "lease-grow-1",
+    now: new Date("2026-08-12T00:00:00.000Z"),
+  });
+  assert.throws(
+    () =>
+      clearStaleLease({
+        leasePath,
+        repoRoot: repo,
+        hours: 8,
+        now: new Date("2026-08-12T07:59:00.000Z"),
+      }),
+    /not yet 8 hours old/,
+  );
+  writeFileSync(path.join(repo, "dirty.txt"), "dirty\n");
+  assert.throws(
+    () =>
+      clearStaleLease({
+        leasePath,
+        repoRoot: repo,
+        hours: 8,
+        now: new Date("2026-08-12T09:00:00.000Z"),
+      }),
+    /worktree is dirty/,
+  );
+});
+
+void test("preflight passes only for a clean synchronized branch", (t) => {
+  const { repo } = repositoryFixture(t);
+  const result = preflight(repo);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /clean and in sync/);
+});
+
+void test("preflight fails for every unsafe publication state", async (t) => {
+  await t.test("dirty", (t) => {
+    const { repo } = repositoryFixture(t);
+    writeFileSync(path.join(repo, "dirty.txt"), "dirty\n");
+    assert.notEqual(preflight(repo).status, 0);
+  });
+  await t.test("ahead", (t) => {
+    const { repo } = repositoryFixture(t);
+    writeFileSync(path.join(repo, "ahead.txt"), "ahead\n");
+    git(repo, "add", "ahead.txt");
+    git(repo, "commit", "-m", "Ahead");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /AHEAD/);
+  });
+  await t.test("behind", (t) => {
+    const { remote, repo, root } = repositoryFixture(t);
+    pushRemoteCommit(root, remote, "behind");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /BEHIND/);
+  });
+  await t.test("diverged", (t) => {
+    const { remote, repo, root } = repositoryFixture(t);
+    writeFileSync(path.join(repo, "local.txt"), "local\n");
+    git(repo, "add", "local.txt");
+    git(repo, "commit", "-m", "Local");
+    pushRemoteCommit(root, remote, "remote");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /DIVERGED/);
+  });
+  await t.test("detached", (t) => {
+    const { repo } = repositoryFixture(t);
+    git(repo, "checkout", "--detach", "HEAD");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /DETACHED/);
+  });
+  await t.test("non-main branch", (t) => {
+    const { repo } = repositoryFixture(t);
+    git(repo, "checkout", "-b", "feature");
+    git(repo, "push", "-u", "origin", "feature");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /only from main/);
+  });
+  await t.test("missing upstream", (t) => {
+    const { repo } = repositoryFixture(t);
+    git(repo, "branch", "--unset-upstream");
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /no upstream/);
+  });
+  await t.test("fetch failed", (t) => {
+    const { repo, root } = repositoryFixture(t);
+    git(repo, "remote", "set-url", "origin", path.join(root, "missing.git"));
+    const result = preflight(repo);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /fetch origin failed/);
+  });
+});
+
+void test("automation registry contains exactly the three paused objective owners", () => {
+  const source = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/automations.toml"),
+    "utf8",
+  );
+  const entries = source
+    .split("[[activities]]")
+    .slice(1)
+    .map((block) =>
+      Object.fromEntries(
+        [...block.matchAll(/^(\w+) = "([^"]+)"$/gm)].map((m) => [m[1], m[2]]),
+      ),
+    );
+  assert.deepEqual(entries.map((entry) => entry.objective).sort(), [
+    "fair-play",
+    "grow",
+    "run",
+  ]);
+  for (const entry of entries) {
+    assert.equal(entry.status, "PAUSED");
+    assert.doesNotThrow(() =>
+      readFileSync(path.join(ROOT, entry.role), "utf8"),
+    );
+  }
+  assert.notEqual(
+    statSync(path.join(ROOT, "AGENT-TEAM/scripts/objective-lease.mjs")).mode &
+      0o111,
+    0,
+  );
+});
+
+void test("objective contract requires the lease and contains no retired queue labels", () => {
+  const workflow = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/WORKFLOW.md"),
+    "utf8",
+  );
+  const setup = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/scripts/setup-labels.sh"),
+    "utf8",
+  );
+  assert.match(workflow, /objective-lease\.mjs claim/);
+  assert.match(workflow, /Release your own lease[\s\S]+on\s+every exit/);
+  assert.match(workflow, /release <objective> <leaseId>/);
+  assert.match(
+    setup,
+    /approved needs-deploy needs-design proposal ready release wip/,
+  );
+  assert.doesNotMatch(
+    setup,
+    /upsert "(?:approved|needs-deploy|needs-design|proposal|ready|release|wip)"/,
+  );
+  const fairPlay = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/protect-fair-play.md"),
+    "utf8",
+  );
+  assert.match(fairPlay, /fair-play-policy\.md/);
+});

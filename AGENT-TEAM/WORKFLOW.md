@@ -9,26 +9,40 @@ objective file before acting.
 
 ## Operating loop
 
-1. Run `AGENT-TEAM/scripts/preflight.sh`. A dirty, behind, diverged, detached, or
+1. Claim the checkout with
+   `node AGENT-TEAM/scripts/objective-lease.mjs claim <run|grow|fair-play>`. The
+   lease is atomic and lives inside `.git`, so only one objective can mutate this
+   checkout at a time. Retain the returned `leaseId` only for this run. If another
+   run holds the lease, stop read-only. Release your own lease with
+   `node AGENT-TEAM/scripts/objective-lease.mjs release <objective> <leaseId>` on
+   every exit, including `Healthy` and `Needs decision`; never release another
+   run's lease. A lease older than eight hours may be cleared only with the script's
+   `clear-stale` command and only when the worktree is clean.
+2. Run `AGENT-TEAM/scripts/preflight.sh`. A dirty, behind, diverged, detached, or
    unexpectedly ahead checkout makes the run read-only. Never publish a pre-existing
    commit.
-2. Measure current state from the public site/API, exact AWS/CI evidence, retained
+3. Measure current state from the public site/API, exact AWS/CI evidence, retained
    product data, sanctioned referee tools, or the active issue as appropriate.
-3. Decide whether a real objective gap exists. Healthy is a complete result.
-4. If the gap is safe and authorized, fix it at the source in the same run. Add the
+4. Decide whether a real objective gap exists. Healthy is a complete result.
+5. If the gap is safe and authorized, fix it at the source in the same run. Add the
    business-rule regression; do not substitute a warning, guard, or ticket chain.
-5. Recheck branch, upstream, worktree, and other active work immediately before the
-   first edit and before push. Stop if the state changed.
-6. Run focused checks while iterating and `npm run verify` before commit. Commit and
+6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
+   recheck the branch, upstream, and worktree immediately before the first edit and
+   before push. Stop if the state changed.
+7. Run focused checks while iterating and `npm run verify` before commit. Commit and
    push only current-run work directly to `main`.
-7. Verify the `Build and Deploy` workflow and live API/site when the change ships.
+8. Verify the `Build and Deploy` workflow and live API/site when the change ships.
    Use `npm run deploy:api` only for the documented out-of-band exception.
-8. Verify semantic success from natural product evidence. Do not create guest runs,
+9. Verify semantic success from natural product evidence. Do not create guest runs,
    player accounts, leaderboard entries, email, or referee cases merely for acceptance.
 
 ## Ownership and acceptance
 
-- Run Drop owns deployment and technical-health acceptance for every shipped change.
+- The originating objective verifies the normal `Build and Deploy` run and live
+  surface for its own commit; it does not wait for a separate Run Drop confirmation.
+- Run Drop owns failed-pipeline recovery and continuing system-health acceptance.
+  A failure that spans runs becomes an `objective:run` issue; normal deployment is
+  not a handoff.
 - The originating objective owns semantic acceptance. Grow Drop proves a product
   outcome moved; Protect Fair Play proves coverage or adjudication behavior is sound.
 - A clean deploy never substitutes for the originating objective's natural evidence.

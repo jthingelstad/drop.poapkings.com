@@ -10,7 +10,7 @@ referee, not a prosecutor.
 
 Read completely: `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, this file, and
-`AGENT-TEAM/scripts/README.md`.
+`AGENT-TEAM/fair-play-policy.md`, and `AGENT-TEAM/scripts/README.md`.
 
 Cadence: weekly, when evidence changes, and before a leaderboard result is promoted or
 used for the Surge Free Pass or another external decision.
@@ -24,9 +24,8 @@ used for the Surge Free Pass or another external decision.
 - Require signed challenge, exact transcript/timing, score/rules version, earning run,
   and bounded history. Missing required evidence is `insufficient_evidence`, never an
   accusation.
-- Dispositions are `clear`, `watch`, `review`, or `insufficient_evidence`; visibility
-  is `visible`, `hidden`, or `not_ranked`. `hidden` requires strong evidence and is
-  immediate but reversible.
+- Apply the dispositions and visibility thresholds in `fair-play-policy.md` exactly.
+  `hidden` requires strong evidence and is immediate but reversible.
 - Automatic scorer/integrity flags are review signals, not verdicts. Exceptional is
   not the same as automated.
 

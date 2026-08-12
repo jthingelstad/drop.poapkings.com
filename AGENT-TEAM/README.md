@@ -28,8 +28,11 @@ to obtain a preferred verdict.
 - `SPEC.md` owns the implemented product/data contract; `GAMES.md` owns mode and
   scoring decisions.
 - `npm run verify` is the canonical source gate.
+- `AGENT-TEAM/scripts/objective-lease.mjs` serializes mutating objective runs in the
+  shared checkout.
 - `.github/workflows/deploy.yml` ships Lambda and Pages together from `main`.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
+- `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
 - `.claude/skills/cut-release/` is a user-triggered named-release ceremony, not an
   objective or scheduled activity.
 

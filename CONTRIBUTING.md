@@ -64,10 +64,10 @@ npm run verify
 ```
 
 It runs, across every implemented workspace: Prettier format check, oxlint
-(warnings fail), the release-tooling test (`test:release`), Stylelint, TypeScript
-typecheck, Knip (unused code/deps), Vitest unit tests with coverage thresholds,
-Playwright e2e across **Chromium / Firefox / WebKit / iPhone-14**, and a
-production build.
+(warnings fail), the release-tooling test (`test:release`), the objective-team
+contract test (`test:agent-team`), Stylelint, TypeScript typecheck, Knip (unused
+code/deps), Vitest unit tests with coverage thresholds, Playwright e2e across
+**Chromium / Firefox / WebKit / iPhone-14**, and a production build.
 
 CI runs the same checks in two places, both defined in `.github/workflows/`.
 To keep the complete gate without serializing four browser engines on one

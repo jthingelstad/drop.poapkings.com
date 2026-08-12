@@ -27,6 +27,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references.                                                                                        |
 | **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
+| **`AGENT-TEAM/fair-play-policy.md`**                                 | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
 | **`.claude/skills/`**                                                 | User-invoked skills in the build process (`cut-release` — the named-release ceremony).                                          |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)

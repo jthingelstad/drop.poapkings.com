@@ -50,8 +50,6 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
 })
 
 test('signing in from the login screen returns the player to the requested game', async ({ page }) => {
-  await useSignedOutState(page, '/login?returnTo=%2Fsurge')
-
   let loginBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
@@ -85,6 +83,10 @@ test('signing in from the login screen returns the player to the requested game'
     if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
+
+  // Install the test-specific handler before the first document load. Loading
+  // first leaves shell support requests racing the route replacement below.
+  await useSignedOutState(page, '/login?returnTo=%2Fsurge')
 
   const emailInput = page.getByLabel('Email address')
   await emailInput.fill('e***@p***.com')
