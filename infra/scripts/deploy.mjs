@@ -15,6 +15,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.mjs";
 import { deploymentParameters } from "./parameters.mjs";
+import { deploymentTemplateSource } from "./template-source.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
@@ -77,13 +78,18 @@ try {
       ServerSideEncryption: "AES256",
     }),
   );
+  const template = deploymentTemplateSource({
+    body: await readFile(resolve(repoRoot, "infra/template.yaml"), "utf8"),
+    bucket,
+    region,
+  });
+  if (template.upload) {
+    await s3.send(new PutObjectCommand(template.upload));
+  }
 
   const common = {
     StackName: stackName,
-    TemplateBody: await readFile(
-      resolve(repoRoot, "infra/template.yaml"),
-      "utf8",
-    ),
+    ...template.request,
     Parameters: parameters,
     Capabilities: ["CAPABILITY_NAMED_IAM"],
     RoleARN: process.env.ELIXIR_DROP_CFN_ROLE_ARN,
