@@ -26,6 +26,9 @@ node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --reason "Play appears genuine; candidate score needs product reconciliation"
 node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --pending --reason "Existing top result queued for referee review"
+node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+  --reopen --approved-by jamie \
+  --reason "Player-level evidence changed; prior judgment reopened for review"
 node AGENT-TEAM/scripts/referee-ranked-access.mjs <playerId> \
   --restrict --approved-by jamie \
   --reason "Repeated confirmed automation across reviewed ranked runs"
@@ -88,7 +91,7 @@ Configuration:
 | `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |
 | `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                       |
 | `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
-| `referee-decide.mjs`    | `<runId-or-#Dreference> (--pending \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment; a referee `hidden` decision requires a safe player-reason code; `visible` restores a scored run. |
+| `referee-decide.mjs`    | `<runId-or-#Dreference> (--pending \| --reopen --approved-by jamie \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment. `--reopen` turns an existing judgment back into a neutral pending hold when the current task contains Jamie's approval. A referee exclusion requires a safe player-reason code; `visible` restores a scored run. |
 | `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>` | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence. |
 
 ## Ranked modes and board epochs

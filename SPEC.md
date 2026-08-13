@@ -487,6 +487,12 @@ recorded. Completion and the public read endpoints are also IP rate-limited
 at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
 
+With Jamie's explicit approval, materially changed player-level evidence can
+reopen an earlier referee judgment as a neutral hidden queue state. The owner
+sees `🔎 Pending`, the run receives no placement, and the previous judgment
+remains in immutable decision history; reopening does not label the run
+excluded.
+
 Authenticated public identity is centered on one favorite card:
 
 - The player chooses a card from the canonical committed snapshot; its ID is

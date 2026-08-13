@@ -149,6 +149,13 @@ describe("GET /me recent runs", () => {
         completedAt: "2026-08-12T16:00:00.000Z",
       },
       {
+        runId: "reopened-run",
+        mode: "surge",
+        score: 10_230,
+        seasonId: "2026-08",
+        completedAt: "2026-08-12T15:30:00.000Z",
+      },
+      {
         runId: "excluded-run",
         mode: "survival",
         score: 80,
@@ -178,6 +185,17 @@ describe("GET /me recent runs", () => {
           },
         ],
         [
+          "reopened-run",
+          {
+            runId: "reopened-run",
+            decidedBy: "fair-play-referee",
+            visibility: "hidden",
+            disposition: "review",
+            queueState: "pending",
+            reason: "private player-pattern re-review reason",
+          },
+        ],
+        [
           "excluded-run",
           {
             runId: "excluded-run",
@@ -198,6 +216,7 @@ describe("GET /me recent runs", () => {
     expect(body.recentRuns).toMatchObject([
       { runId: "pending-run", reviewStatus: "pending" },
       { runId: "reviewed-run", reviewStatus: "reviewed" },
+      { runId: "reopened-run", reviewStatus: "pending" },
       {
         runId: "excluded-run",
         reviewStatus: "excluded",

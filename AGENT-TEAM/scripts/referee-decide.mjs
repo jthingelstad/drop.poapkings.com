@@ -3,6 +3,8 @@
 //   --visibility visible|hidden|not_ranked --reason <private concise rationale>
 //   [--player-reason <safe categorical explanation>]
 // referee-decide.mjs <runId-or-reference> --pending --reason <private concise rationale>
+// referee-decide.mjs <runId-or-reference> --reopen --approved-by jamie
+//   --reason <private concise rationale>
 //
 // The only sanctioned referee write path. It never edits a score, transcript,
 // player, or leaderboard row. It writes an independent current decision and an
@@ -40,7 +42,9 @@ const PLAYER_EXPLANATION_CODES = new Set([
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
 const runIdentifier = positional[0];
-const pending = flags.pending === true;
+const automaticPending = flags.pending === true;
+const reopening = flags.reopen === true;
+const pending = automaticPending || reopening;
 const disposition = pending ? "review" : flags.disposition;
 const visibility = pending ? "hidden" : flags.visibility;
 const reason = typeof flags.reason === "string" ? flags.reason.trim() : "";
@@ -52,12 +56,27 @@ const playerExplanationCode =
 if (!runIdentifier)
   failClosed(
     "missing_run_id",
-    "usage: referee-decide.mjs <runId-or-reference> (--pending | --disposition <value> --visibility <value>) --reason <text> [--player-reason <code>]",
+    "usage: referee-decide.mjs <runId-or-reference> (--pending | --reopen --approved-by jamie | --disposition <value> --visibility <value>) --reason <text> [--player-reason <code>]",
+  );
+if (automaticPending && reopening)
+  failClosed(
+    "conflicting_pending_flags",
+    "--pending and --reopen are mutually exclusive",
   );
 if (pending && (flags.disposition || flags.visibility))
   failClosed(
     "invalid_pending_flags",
-    "--pending cannot be combined with --disposition or --visibility",
+    "--pending/--reopen cannot be combined with --disposition or --visibility",
+  );
+if (reopening && flags["approved-by"] !== "jamie")
+  failClosed(
+    "approval_required",
+    "--reopen requires --approved-by jamie from the current task",
+  );
+if (!reopening && flags["approved-by"])
+  failClosed(
+    "unexpected_approval",
+    "--approved-by is only valid with --reopen",
   );
 if (!DISPOSITIONS.has(disposition))
   failClosed(
@@ -110,10 +129,19 @@ try {
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
-if (pending && previous?.decidedBy === "fair-play-referee")
+if (automaticPending && previous?.decidedBy === "fair-play-referee")
   failClosed(
     "referee_decision_is_authoritative",
     "An automatic pending hold cannot replace an existing referee decision",
+  );
+if (
+  reopening &&
+  (previous?.decidedBy !== "fair-play-referee" ||
+    previous.queueState === "pending")
+)
+  failClosed(
+    "referee_decision_not_reopenable",
+    "--reopen requires an existing completed referee judgment that is not already pending",
   );
 const subjectType =
   evidence.runType === "ranked" && Number.isFinite(evidence.score)
@@ -152,9 +180,10 @@ const fields = {
   visibility,
   reason,
   ...(playerExplanationCode ? { playerExplanationCode } : {}),
+  ...(reopening ? { queueState: "pending" } : {}),
   evidenceDigest,
   decidedAt,
-  decidedBy: pending ? "integrity-gate" : "fair-play-referee",
+  decidedBy: automaticPending ? "integrity-gate" : "fair-play-referee",
   schemaVersion: "1",
 };
 const current = { pk: `REFEREE#${runId}`, sk: "CURRENT", ...fields };

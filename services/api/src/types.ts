@@ -214,6 +214,9 @@ export interface RefereeDecision {
   // Safe, categorical owner explanation. The detailed reason above stays on
   // the private referee surface and is never copied into player responses.
   playerExplanationCode?: PlayerExplanationCode;
+  // A referee can reopen an earlier judgment as a neutral queue hold. This
+  // remains distinct from an excluded run even though both are hidden.
+  queueState?: "pending";
   evidenceDigest: string;
   decidedAt: string;
   decidedBy: "fair-play-referee" | "integrity-gate";

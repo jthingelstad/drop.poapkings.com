@@ -144,6 +144,8 @@ export function ownerRunReviewStatus(
   decision: RefereeDecision | undefined,
 ): RunReviewStatus | undefined {
   if (!decision) return undefined;
+  if (decision.visibility === "hidden" && decision.queueState === "pending")
+    return "pending";
   if (
     decision.visibility === "hidden" &&
     decision.decidedBy === "integrity-gate"
@@ -180,7 +182,8 @@ export function ownerRunReviewExplanation(
 ): string | undefined {
   if (
     decision?.visibility !== "hidden" ||
-    decision.decidedBy !== "fair-play-referee"
+    decision.decidedBy !== "fair-play-referee" ||
+    decision.queueState === "pending"
   )
     return undefined;
   return decision.playerExplanationCode

@@ -82,6 +82,13 @@ the run remains intact and owner-visible, receives no placement, and must be
 promptly reviewed. The strong-evidence threshold below applies to the referee's
 decision to keep it hidden, not to the temporary queue hold.
 
+When materially new player-level evidence changes the context of an earlier
+judgment, Jamie may explicitly reopen that judgment through the sanctioned
+decision script. The reopened run returns to the same neutral pending state,
+loses public placement, and retains both the old judgment and the new queue event
+in its audit history. Reopening is not an exclusion and carries no player-facing
+accusation.
+
 - `visible`: the scored run remains eligible for public boards. This includes normal
   `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
   remain visible while evidence is gathered when the hidden threshold is not met.
