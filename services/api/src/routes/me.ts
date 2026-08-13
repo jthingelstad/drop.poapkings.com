@@ -2,19 +2,27 @@ import { arenaForXp, type GameMode } from "@elixir-drop/contracts";
 import {
   BADGE_COUNTERS_VERSION,
   badgeStates,
-  migrateBadgeCounters,
-  recomputeCounters,
+  reconcileBadgeCounters,
 } from "../badges.js";
 import { deleteButtondownSubscriber } from "../buttondown.js";
 import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
-import { costAccuracy, weakCardIds } from "../learning.js";
+import {
+  cardResultsFromTranscript,
+  costAccuracy,
+  weakCardIds,
+} from "../learning.js";
 import { generateNameOptions, isSafeGeneratedName } from "../names.js";
 import { signToken, verifyToken } from "../signing.js";
-import type { CrProfileSnapshot, NameClaims } from "../types.js";
+import type {
+  CrProfileSnapshot,
+  NameClaims,
+  RefereeDecision,
+} from "../types.js";
 import { normalizePlayerTag } from "../validation.js";
+import { runXp } from "../xp.js";
 import {
   bodyOf,
   clientIpHash,
@@ -57,6 +65,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
   const badges = await badgeSummary(
     { event, config, repository },
     session.sub,
+    profile.playerId,
     profile,
     cardStats,
   );
@@ -132,8 +141,9 @@ export async function getMySeasons({
   });
 }
 
-// The player's badge ladders, backfilling once from history if they have never
-// been computed (or the counter shape has moved on).
+// The player's badge ladders, rebuilding from history when they have never been
+// computed, the counter shape moved on, or a ranked-run referee decision
+// invalidated the derived bag.
 //
 // The backfill is deliberately silent: `backfilled` tells the client to show a
 // single "here's what you've already earned" summary rather than queue forty
@@ -142,16 +152,27 @@ export async function getMySeasons({
 // from the player's next run. See recomputeCounters for the full split.
 //
 // Best-effort, like every other side lookup on this route: a badge failure
-// returns an empty ladder set rather than 500-ing a profile load.
+// returns an empty ladder set rather than 500-ing a profile load. A missing
+// excluded-run evidence item fails closed because subtracting only part of the
+// retained card contribution would publish badges we cannot justify.
 async function badgeSummary(
   { event, repository }: RouteContext,
   sub: string,
+  playerId: string,
   profile: { totalGames: number; xp?: number },
   cardStats?: Record<string, { correct: number }>,
 ) {
   try {
-    const stored = await repository.getBadges(sub);
-    if (stored && stored.version === BADGE_COUNTERS_VERSION) {
+    const [stored, badgeDecisionRevision] = await Promise.all([
+      repository.getBadges(sub),
+      repository.badgeDecisionRevision(playerId),
+    ]);
+    if (
+      stored &&
+      stored.version === BADGE_COUNTERS_VERSION &&
+      stored.refereeReconciled === true &&
+      stored.refereeDecisionRevision === badgeDecisionRevision
+    ) {
       return { badges: badgeStates(stored) };
     }
     const [runs, backfillCardStats] = await Promise.all([
@@ -164,15 +185,49 @@ async function badgeSummary(
     const currentRuns = runs.filter(
       (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
     );
-    const counters = stored
-      ? migrateBadgeCounters(stored, currentRuns, at)
-      : recomputeCounters(
-          currentRuns,
-          backfillCardStats,
-          { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
-          arenaForXp,
-          at,
-        );
+    const decisions = await repository.refereeDecisions(
+      currentRuns.flatMap((run) => (run.runId ? [run.runId] : [])),
+    );
+    const excluded = currentRuns.filter(
+      (run) => run.runId && isFinalBadgeExclusion(decisions.get(run.runId)),
+    );
+    const excludedRunIds = excluded.flatMap((run) =>
+      run.runId ? [run.runId] : [],
+    );
+    const evidence = await repository.refereeEvidenceForRuns(
+      sub,
+      excludedRunIds,
+    );
+    if (evidence.length !== excludedRunIds.length)
+      throw new Error("Excluded run evidence is unavailable for badge repair");
+    const evidenceByRun = new Map(
+      evidence.map((item) => [item.runId, item] as const),
+    );
+    const counters = reconcileBadgeCounters(
+      stored,
+      currentRuns,
+      backfillCardStats,
+      { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+      excluded.flatMap((run) => {
+        if (!run.runId) return [];
+        const item = evidenceByRun.get(run.runId);
+        return [
+          {
+            runId: run.runId,
+            completedAt: run.completedAt,
+            xp: item ? runXp(item.transcript) : 0,
+            correctCards: item
+              ? cardResultsFromTranscript(item.challenge, item.transcript)
+                  .filter((result) => result.correct)
+                  .map((result) => result.cardId)
+              : [],
+          },
+        ];
+      }),
+      arenaForXp,
+      at,
+      badgeDecisionRevision,
+    );
     const saved = await repository.saveBadges(
       sub,
       counters,
@@ -186,9 +241,10 @@ async function badgeSummary(
       if (concurrent?.version === BADGE_COUNTERS_VERSION)
         return { badges: badgeStates(concurrent) };
     }
-    console.info("Badges backfilled from history", {
+    console.info("Badges reconciled from eligible history", {
       requestId: event.requestContext.requestId,
       runs: runs.length,
+      excludedRuns: excluded.length,
     });
     return { badges: badgeStates(counters), backfilled: true };
   } catch (error) {
@@ -198,6 +254,14 @@ async function badgeSummary(
     });
     return { badges: [] };
   }
+}
+
+function isFinalBadgeExclusion(decision: RefereeDecision | undefined): boolean {
+  return (
+    decision?.decidedBy === "fair-play-referee" &&
+    decision.visibility === "hidden" &&
+    decision.queueState !== "pending"
+  );
 }
 
 // GET /players/{playerId} — the public, pseudonymous view of a player.
@@ -239,6 +303,7 @@ export async function getPublicPlayer(
   const badges = await badgeSummary(
     { event, config, repository },
     lookup.sub,
+    playerId,
     lookup.player,
   );
   return json(200, {

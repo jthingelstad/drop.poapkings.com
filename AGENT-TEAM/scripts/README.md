@@ -6,7 +6,12 @@ path** for Protect Fair Play (`AGENT-TEAM/protect-fair-play.md`). Read
 scripts encapsulate documented DynamoDB queries and print sanitized, annotated
 JSON. `referee-decide.mjs` is the one write path: it stores an independent,
 audited visibility decision without editing a run, score, transcript, player, or
-leaderboard row. The scripts import nothing from `services/api`
+leaderboard row. Ranked-run decisions also append a non-identifying player
+badge marker and atomically increment a player-scoped badge decision revision
+under `REFEREE#`; the API compares that revision with its derived
+badge bag and rebuilds from referee-eligible history after an exclusion or
+restoration. The script still never edits badge counters. The scripts import
+nothing from `services/api`
 (workspace-boundary rule); key conventions live in `_referee-lib.mjs`.
 
 The tailnet-only Control Room also has account-support scripts under

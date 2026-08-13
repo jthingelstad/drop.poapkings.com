@@ -76,6 +76,15 @@ raw transcript—onto immutable run history. Practice therefore retains the
 per-card learning signal used by `/me` coaching summaries while giving the Reps
 badge a history-backed recovery path for newly recorded sessions.
 
+Badge bags are referee-aware derived projections. A final excluded ranked run
+is removed from history-backed counters, exact card-knowledge contributions,
+and run-timestamped hidden awards on the next owner or public profile read.
+Every ranked-run decision atomically increments a player-scoped revision in the
+`REFEREE#` partition, so bulk decisions cannot leave a seemingly current stale
+bag. Pending holds do not remove badges. A later audited restoration rebuilds
+again and restores the run's contribution; canonical run, XP, learning, and
+evidence records remain unchanged.
+
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse
 `GSI3` index and returns only public identity, progress, the already-public

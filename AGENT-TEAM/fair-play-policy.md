@@ -101,7 +101,11 @@ accusation.
 
 Hiding is immediate but reversible. It never deletes or changes a run, score,
 transcript, evidence, unrelated result, or account. A later audited `visible` decision
-restores the exact run at its correct rank.
+restores the exact run at its correct rank. A final referee exclusion also makes
+the run ineligible for derived badges: the API lazily reconciles the player's
+badge bag from eligible history after the audited decision, while leaving
+canonical XP and learning records intact. Pending holds do not remove badges,
+and a later audited restoration restores the run's badge contribution.
 
 Player-visible status uses explicit text with the agreed marks: `🔎 Pending`, `✅
 Reviewed`, and `🚫 Excluded`. Pending and excluded runs stay private to their owner;

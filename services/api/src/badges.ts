@@ -9,7 +9,9 @@ import type { GameMode } from "./types.js";
 //
 // Two invariants hold everywhere in this file:
 //   1. Counters only ever move in their favourable direction.
-//   2. Nothing earned is ever revoked. A broken daily streak lowers no badge.
+//   2. No valid achievement is ever revoked. A broken daily streak lowers no
+//      badge, while a referee-excluded run is removed because it never
+//      represented an eligible achievement.
 //
 // Because awarding is a pure function of the counters, badges can be recomputed
 // from run history — which is what makes adding a badge later retroactive.
@@ -18,7 +20,10 @@ import type { GameMode } from "./types.js";
 // score board-epoch-aware and replaced Unbroken's unreachable 150/200 tail.
 // Version 4 moves Coin Flip Killer to Higher/Lower's continuously tightening
 // r3 board and its recalibrated ladder, excluding r2's 2s-floor scores.
-export const BADGE_COUNTERS_VERSION = 4;
+// Version 5 makes the counter bag referee-aware: final excluded runs are
+// removed from every history-backed counter, with the latest referee marker
+// retained so a later exclusion or restoration invalidates the bag again.
+export const BADGE_COUNTERS_VERSION = 5;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -34,6 +39,21 @@ export interface BadgeAux {
 
 export interface BadgeCounters {
   version: number;
+  // Set only after the bag has been rebuilt against current referee decisions.
+  // Older version-5 bags produced by a concurrent completion migration remain
+  // false/absent and are reconciled on the next profile read.
+  refereeReconciled?: boolean;
+  refereeDecisionRevision?: number;
+  // Forward-only badge facts removed with an excluded run are retained here
+  // so a later audited restoration can put the exact achievement back.
+  refereeExcludedForward?: Record<
+    string,
+    {
+      values: Record<string, number>;
+      runsAtRung: Record<string, number[]>;
+      earned: Record<string, string[]>;
+    }
+  >;
   // slug -> counter value. A `time` slug is absent until the player records one.
   values: Record<string, number>;
   // `time` slugs only: runs landed at or under each rung, parallel to rungs[].
@@ -85,6 +105,36 @@ export function emptyCounters(): BadgeCounters {
 function cloneCounters(input: BadgeCounters): BadgeCounters {
   return {
     version: BADGE_COUNTERS_VERSION,
+    ...(input.refereeReconciled ? { refereeReconciled: true } : {}),
+    ...(input.refereeDecisionRevision !== undefined
+      ? { refereeDecisionRevision: input.refereeDecisionRevision }
+      : {}),
+    ...(input.refereeExcludedForward
+      ? {
+          refereeExcludedForward: Object.fromEntries(
+            Object.entries(input.refereeExcludedForward).map(
+              ([runId, state]) => [
+                runId,
+                {
+                  values: { ...state.values },
+                  runsAtRung: Object.fromEntries(
+                    Object.entries(state.runsAtRung).map(([slug, counts]) => [
+                      slug,
+                      [...counts],
+                    ]),
+                  ),
+                  earned: Object.fromEntries(
+                    Object.entries(state.earned).map(([slug, stamps]) => [
+                      slug,
+                      [...stamps],
+                    ]),
+                  ),
+                },
+              ],
+            ),
+          ),
+        }
+      : {}),
     values: { ...input.values },
     runsAtRung: Object.fromEntries(
       Object.entries(input.runsAtRung).map(([slug, counts]) => [
@@ -529,6 +579,183 @@ export function recomputeCounters(
   return settle(counters, at);
 }
 
+const FORWARD_ONLY_BADGES = [
+  "clean-sweep",
+  "podium",
+  "photo-finish",
+  "full-cup",
+  "zero-hesitation",
+  "comeback",
+  "cold-open",
+] as const;
+
+export interface ExcludedBadgeRun {
+  runId: string;
+  completedAt: string;
+  xp: number;
+  correctCards: number[];
+}
+
+// Rebuild the history-backed badge bag after a final referee exclusion or
+// restoration. Canonical runs, XP, learning history, and referee evidence stay
+// immutable; this is only the derived award projection.
+export function reconcileBadgeCounters(
+  input: BadgeCounters | undefined,
+  runs: HistoricalRun[],
+  cardStats: Record<string, BackfillCardStat>,
+  profile: { totalGames: number; xp: number },
+  excludedRuns: ExcludedBadgeRun[],
+  arenaFor: (xp: number) => number,
+  at: string,
+  refereeDecisionRevision?: number,
+): BadgeCounters {
+  const excludedIds = new Set(excludedRuns.map((run) => run.runId));
+  const excludedStamps = new Set(excludedRuns.map((run) => run.completedAt));
+  const eligibleRuns = runs.filter(
+    (run) => !run.runId || !excludedIds.has(run.runId),
+  );
+  const adjustedCardStats = Object.fromEntries(
+    Object.entries(cardStats).map(([cardId, stat]) => [
+      cardId,
+      { correct: Math.max(0, stat.correct) },
+    ]),
+  );
+  for (const run of excludedRuns) {
+    for (const cardId of run.correctCards) {
+      const key = String(cardId);
+      const stat = adjustedCardStats[key];
+      if (stat) stat.correct = Math.max(0, stat.correct - 1);
+    }
+  }
+  const excludedXp = excludedRuns.reduce(
+    (total, run) => total + Math.max(0, run.xp),
+    0,
+  );
+  const counters = recomputeCounters(
+    eligibleRuns,
+    adjustedCardStats,
+    {
+      totalGames: Math.max(0, profile.totalGames - excludedRuns.length),
+      xp: Math.max(0, profile.xp - excludedXp),
+    },
+    arenaFor,
+    at,
+  );
+
+  if (input) {
+    const forwardOnly = new Set<string>(FORWARD_ONLY_BADGES);
+    const forwardValues = { ...input.values };
+    const forwardRunsAtRung = Object.fromEntries(
+      Object.entries(input.runsAtRung).map(([slug, counts]) => [
+        slug,
+        [...counts],
+      ]),
+    );
+    const forwardEarned = Object.fromEntries(
+      Object.entries(input.earned).map(([slug, stamps]) => [slug, [...stamps]]),
+    );
+    const excludedForward = Object.fromEntries(
+      Object.entries(input.refereeExcludedForward ?? {}).map(
+        ([runId, state]) => [
+          runId,
+          {
+            values: { ...state.values },
+            runsAtRung: Object.fromEntries(
+              Object.entries(state.runsAtRung).map(([slug, counts]) => [
+                slug,
+                [...counts],
+              ]),
+            ),
+            earned: Object.fromEntries(
+              Object.entries(state.earned).map(([slug, stamps]) => [
+                slug,
+                [...stamps],
+              ]),
+            ),
+          },
+        ],
+      ),
+    );
+    for (const [runId, state] of Object.entries(excludedForward)) {
+      if (excludedIds.has(runId)) continue;
+      for (const [slug, value] of Object.entries(state.values))
+        forwardValues[slug] = value;
+      for (const [slug, counts] of Object.entries(state.runsAtRung))
+        forwardRunsAtRung[slug] = [...counts];
+      for (const [slug, stamps] of Object.entries(state.earned))
+        forwardEarned[slug] = [...stamps];
+      delete excludedForward[runId];
+    }
+    for (const definition of BADGE_LIST) {
+      const slug = definition.slug;
+      if (slug === "collector") continue;
+      const previousStamps = forwardEarned[slug] ?? [];
+      if (forwardOnly.has(slug)) {
+        // Practice-only Clean Sweep and season-finalized Podium are not earned
+        // by an excludable ranked run. The five run moments carry the exact
+        // completion stamp, so remove them only when that earning run was
+        // excluded.
+        const removed = previousStamps.filter((stamp) =>
+          excludedStamps.has(stamp),
+        );
+        for (const excluded of excludedRuns) {
+          if (!removed.includes(excluded.completedAt)) continue;
+          const archive = (excludedForward[excluded.runId] ??= {
+            values: {},
+            runsAtRung: {},
+            earned: {},
+          });
+          const previousValue = forwardValues[slug];
+          if (previousValue !== undefined) archive.values[slug] = previousValue;
+          const previousRuns = forwardRunsAtRung[slug];
+          if (previousRuns) archive.runsAtRung[slug] = [...previousRuns];
+          archive.earned[slug] = [...previousStamps];
+        }
+        const retained =
+          slug === "clean-sweep" || slug === "podium"
+            ? previousStamps
+            : previousStamps.filter((stamp) => !excludedStamps.has(stamp));
+        if (retained.length) {
+          counters.earned[slug] = [...retained];
+          const previousValue = forwardValues[slug];
+          if (previousValue !== undefined)
+            counters.values[slug] = previousValue;
+          const previousRuns = forwardRunsAtRung[slug];
+          if (previousRuns) counters.runsAtRung[slug] = [...previousRuns];
+        } else {
+          delete counters.earned[slug];
+          delete counters.values[slug];
+          delete counters.runsAtRung[slug];
+        }
+        continue;
+      }
+
+      // Keep original award dates for rungs that remain valid. Any missing
+      // historical date is stamped at reconciliation time rather than
+      // retaining the timestamp of an excluded earning run.
+      const desired = counters.earned[slug]?.length ?? 0;
+      const retained = previousStamps
+        .filter((stamp) => !excludedStamps.has(stamp))
+        .slice(0, desired);
+      while (retained.length < desired) retained.push(at);
+      if (retained.length) counters.earned[slug] = retained;
+      else delete counters.earned[slug];
+    }
+    if (Object.keys(excludedForward).length)
+      counters.refereeExcludedForward = excludedForward;
+  }
+
+  delete counters.values.collector;
+  delete counters.earned.collector;
+  delete counters.runsAtRung.collector;
+  settle(counters, at);
+  counters.refereeReconciled = true;
+  if (refereeDecisionRevision !== undefined)
+    counters.refereeDecisionRevision = refereeDecisionRevision;
+  else delete counters.refereeDecisionRevision;
+  return counters;
+}
+
 const VERSIONED_SKILL_BADGES = [
   "sharp-trade",
   "coin-flip-killer",
@@ -547,7 +774,12 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (input.version !== 1 && input.version !== 2 && input.version !== 3)
+  if (
+    input.version !== 1 &&
+    input.version !== 2 &&
+    input.version !== 3 &&
+    input.version !== 4
+  )
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
   for (const slug of VERSIONED_SKILL_BADGES) {

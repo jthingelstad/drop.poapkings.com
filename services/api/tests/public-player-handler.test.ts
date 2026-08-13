@@ -6,11 +6,13 @@ const repository = vi.hoisted(() => ({
   getPublicPlayer: vi.fn(),
   getBadges: vi.fn(),
   getCardStats: vi.fn(),
+  badgeDecisionRevision: vi.fn(),
   listAllRuns: vi.fn(),
   listRecentRuns: vi.fn(),
+  refereeEvidenceForRuns: vi.fn(),
   saveBadges: vi.fn(),
   useRateLimit: vi.fn(),
-  refereeDecisions: vi.fn(async () => new Map()),
+  refereeDecisions: vi.fn(async (_runIds?: string[]) => new Map()),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -19,8 +21,10 @@ vi.mock("../src/repository.js", () => ({
     getPublicPlayer = repository.getPublicPlayer;
     getBadges = repository.getBadges;
     getCardStats = repository.getCardStats;
+    badgeDecisionRevision = repository.badgeDecisionRevision;
     listAllRuns = repository.listAllRuns;
     listRecentRuns = repository.listRecentRuns;
+    refereeEvidenceForRuns = repository.refereeEvidenceForRuns;
     saveBadges = repository.saveBadges;
     useRateLimit = repository.useRateLimit;
     refereeDecisions = repository.refereeDecisions;
@@ -71,10 +75,13 @@ describe("GET /players/:id", () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
+    repository.badgeDecisionRevision.mockResolvedValue(undefined);
     repository.listAllRuns.mockResolvedValue([]);
+    repository.refereeEvidenceForRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 4,
+      version: 5,
+      refereeReconciled: true,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
@@ -298,11 +305,118 @@ describe("GET /players/:id", () => {
     );
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
-      expect.objectContaining({ version: 4 }),
+      expect.objectContaining({ version: 5, refereeReconciled: true }),
       expect.any(String),
       {
         version: 1,
         updatedAt: "2026-08-05T21:35:48.609Z",
+      },
+    );
+  });
+
+  it("reconciles badge counters when a referee excludes an earning run", async () => {
+    const excludedAt = "2026-08-12T18:00:00.000Z";
+    repository.badgeDecisionRevision.mockResolvedValue(2);
+    repository.getBadges.mockResolvedValue({
+      version: 5,
+      refereeReconciled: true,
+      refereeDecisionRevision: 1,
+      values: { clockbreaker: 7, "tower-watch": 25 },
+      runsAtRung: { clockbreaker: Array(12).fill(1) },
+      aux: { modes: ["surge"], cards: [27000000], dayStreak: 2, dayRuns: 1 },
+      earned: {
+        clockbreaker: Array(12).fill(excludedAt),
+        "tower-watch": [excludedAt],
+      },
+      updatedAt: excludedAt,
+    });
+    repository.getCardStats.mockResolvedValue({
+      "27000000": {
+        seen: 25,
+        correct: 25,
+        missStreak: 0,
+        lastSeenAt: excludedAt,
+      },
+    });
+    repository.listAllRuns.mockResolvedValue([
+      {
+        runId: "visible-run",
+        mode: "surge",
+        score: 20_000,
+        completedAt: "2026-08-11T18:00:00.000Z",
+        answerCount: 15,
+      },
+      {
+        runId: "excluded-run",
+        mode: "surge",
+        score: 7_000,
+        completedAt: excludedAt,
+        answerCount: 15,
+      },
+    ]);
+    repository.refereeDecisions.mockImplementation(
+      async (runIds?: string[]) =>
+        new Map(
+          runIds?.includes("excluded-run")
+            ? [
+                [
+                  "excluded-run",
+                  {
+                    runId: "excluded-run",
+                    decidedBy: "fair-play-referee",
+                    disposition: "review",
+                    visibility: "hidden",
+                    decidedAt: "2026-08-13T15:00:00.000Z",
+                  },
+                ],
+              ]
+            : [],
+        ),
+    );
+    repository.refereeEvidenceForRuns.mockResolvedValue([
+      {
+        runId: "excluded-run",
+        challenge: { mode: "surge" },
+        transcript: {
+          answers: [{ cardId: 27000000, guesses: [4] }],
+        },
+      },
+    ]);
+
+    const result = await handler(
+      playerEvent("player-2"),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    const body = JSON.parse(result.body ?? "{}");
+    expect(body.badges.backfilled).toBe(true);
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({
+        slug: "clockbreaker",
+        value: 20,
+        rungIndex: 6,
+      }),
+    );
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({ slug: "tower-watch", rungIndex: -1 }),
+    );
+    expect(repository.refereeEvidenceForRuns).toHaveBeenCalledWith(
+      "private-sub",
+      ["excluded-run"],
+    );
+    expect(repository.saveBadges).toHaveBeenCalledWith(
+      "private-sub",
+      expect.objectContaining({
+        version: 5,
+        refereeReconciled: true,
+        refereeDecisionRevision: 2,
+      }),
+      expect.any(String),
+      {
+        version: 5,
+        updatedAt: excludedAt,
       },
     );
   });

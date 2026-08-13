@@ -902,6 +902,17 @@ export class Repository {
         dayRuns: 0,
       }) as BadgeCounters["aux"],
       earned: (item.earned ?? {}) as Record<string, string[]>,
+      ...(item.refereeReconciled === true ? { refereeReconciled: true } : {}),
+      ...(typeof item.refereeDecisionRevision === "number"
+        ? { refereeDecisionRevision: item.refereeDecisionRevision }
+        : {}),
+      ...(item.refereeExcludedForward &&
+      typeof item.refereeExcludedForward === "object"
+        ? {
+            refereeExcludedForward:
+              item.refereeExcludedForward as BadgeCounters["refereeExcludedForward"],
+          }
+        : {}),
       ...(typeof item.updatedAt === "string"
         ? { updatedAt: item.updatedAt }
         : {}),
@@ -926,6 +937,15 @@ export class Repository {
             runsAtRung: counters.runsAtRung,
             aux: counters.aux,
             earned: counters.earned,
+            ...(counters.refereeReconciled ? { refereeReconciled: true } : {}),
+            ...(counters.refereeDecisionRevision !== undefined
+              ? {
+                  refereeDecisionRevision: counters.refereeDecisionRevision,
+                }
+              : {}),
+            ...(counters.refereeExcludedForward
+              ? { refereeExcludedForward: counters.refereeExcludedForward }
+              : {}),
             updatedAt,
           },
           ConditionExpression: expected
@@ -1004,6 +1024,20 @@ export class Repository {
                   runsAtRung: counters.runsAtRung,
                   aux: counters.aux,
                   earned: counters.earned,
+                  ...(counters.refereeReconciled
+                    ? { refereeReconciled: true }
+                    : {}),
+                  ...(counters.refereeDecisionRevision !== undefined
+                    ? {
+                        refereeDecisionRevision:
+                          counters.refereeDecisionRevision,
+                      }
+                    : {}),
+                  ...(counters.refereeExcludedForward
+                    ? {
+                        refereeExcludedForward: counters.refereeExcludedForward,
+                      }
+                    : {}),
                   updatedAt,
                 },
                 ConditionExpression: badgeCondition,
@@ -1160,6 +1194,50 @@ export class Repository {
     );
     const decision = result.Item as RankedAccessDecision | undefined;
     return decision?.status === "restricted" ? "restricted" : "allowed";
+  }
+
+  async badgeDecisionRevision(playerId: string): Promise<number | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `REFEREE#PLAYER#${playerId}`, sk: "BADGES" },
+        ProjectionExpression: "decisionRevision",
+        ConsistentRead: true,
+      }),
+    );
+    const revision = result.Item?.decisionRevision;
+    return typeof revision === "number" ? revision : undefined;
+  }
+
+  async refereeEvidenceForRuns(
+    sub: string,
+    runIds: string[],
+  ): Promise<EvidenceItem[]> {
+    const wanted = new Set(runIds);
+    if (!wanted.size) return [];
+    const evidence: EvidenceItem[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":prefix": "EVIDENCE#",
+          },
+          ExclusiveStartKey: startKey,
+          ConsistentRead: true,
+        }),
+      );
+      for (const item of result.Items ?? []) {
+        if (typeof item.runId === "string" && wanted.has(item.runId))
+          evidence.push(item as EvidenceItem);
+      }
+      if (evidence.length === wanted.size) break;
+      startKey = result.LastEvaluatedKey;
+    } while (startKey);
+    return evidence;
   }
 
   // Referee-grade evidence, written best-effort by the caller after a recorded
@@ -1488,6 +1566,20 @@ export class Repository {
                   runsAtRung: counters.runsAtRung,
                   aux: counters.aux,
                   earned: counters.earned,
+                  ...(counters.refereeReconciled
+                    ? { refereeReconciled: true }
+                    : {}),
+                  ...(counters.refereeDecisionRevision !== undefined
+                    ? {
+                        refereeDecisionRevision:
+                          counters.refereeDecisionRevision,
+                      }
+                    : {}),
+                  ...(counters.refereeExcludedForward
+                    ? {
+                        refereeExcludedForward: counters.refereeExcludedForward,
+                      }
+                    : {}),
                   updatedAt,
                 },
                 ConditionExpression: badgeCondition,

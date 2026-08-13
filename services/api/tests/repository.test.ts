@@ -91,6 +91,26 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
+  it("reads the atomic badge decision revision for cache invalidation", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { decisionRevision: 17 } })
+      .mockResolvedValueOnce({});
+
+    const repository = new Repository("test-table");
+    await expect(
+      repository.badgeDecisionRevision("player-public-id"),
+    ).resolves.toBe(17);
+    await expect(
+      repository.badgeDecisionRevision("another-player"),
+    ).resolves.toBeUndefined();
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      Key: { pk: "REFEREE#PLAYER#player-public-id", sk: "BADGES" },
+      ProjectionExpression: "decisionRevision",
+      ConsistentRead: true,
+    });
+  });
+
   it("paginates the complete player run history newest first", async () => {
     send
       .mockResolvedValueOnce({

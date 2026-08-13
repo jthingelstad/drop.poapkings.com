@@ -7,6 +7,7 @@ import {
   hiddenSignals,
   localStamp,
   migrateBadgeCounters,
+  reconcileBadgeCounters,
   recomputeCounters,
   recordPodiumFinish,
   rungIndexFor,
@@ -585,7 +586,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -645,5 +646,98 @@ describe("recomputeCounters", () => {
       "2026-08-02T00:00:00.000Z",
     );
     expect(reversed.values).toEqual(forward.values);
+  });
+
+  it("removes excluded run contributions and restores them reversibly", () => {
+    const excludedAt = "2026-08-12T18:00:00.000Z";
+    const visibleAt = "2026-08-11T18:00:00.000Z";
+    const stored = play([
+      {
+        mode: "surge",
+        score: 20_000,
+        completedAt: visibleAt,
+        correctCards: [27000000],
+        totalGames: 1,
+        arena: 5,
+      },
+      {
+        mode: "surge",
+        score: 7_000,
+        completedAt: excludedAt,
+        correctCards: [27000000],
+        totalGames: 2,
+        arena: 6,
+        fullCup: true,
+      },
+    ]);
+    stored.values["tower-watch"] = 25;
+    stored.earned["tower-watch"] = [excludedAt];
+
+    const runs = [
+      {
+        runId: "visible-run",
+        mode: "surge" as const,
+        score: 20_000,
+        completedAt: visibleAt,
+        answerCount: 15,
+      },
+      {
+        runId: "excluded-run",
+        mode: "surge" as const,
+        score: 7_000,
+        completedAt: excludedAt,
+        answerCount: 15,
+      },
+    ];
+    const reconciled = reconcileBadgeCounters(
+      stored,
+      runs,
+      { "27000000": { correct: 25 } },
+      { totalGames: 2, xp: 30 },
+      [
+        {
+          runId: "excluded-run",
+          completedAt: excludedAt,
+          xp: 15,
+          correctCards: [27000000],
+        },
+      ],
+      arenaForXp,
+      "2026-08-13T15:00:00.000Z",
+      1,
+    );
+
+    expect(stateOf(reconciled, "clockbreaker")).toMatchObject({
+      value: 20,
+      rungIndex: 6,
+      runsAtRung: [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    });
+    expect(stateOf(reconciled, "surge-runner").value).toBe(1);
+    expect(stateOf(reconciled, "drop-regular").value).toBe(1);
+    expect(stateOf(reconciled, "tower-watch").rungIndex).toBe(-1);
+    expect(stateOf(reconciled, "full-cup").rungIndex).toBe(-1);
+    expect(reconciled.refereeExcludedForward?.["excluded-run"]?.earned).toEqual(
+      { "full-cup": [excludedAt] },
+    );
+    expect(reconciled).toMatchObject({
+      version: 5,
+      refereeReconciled: true,
+      refereeDecisionRevision: 1,
+    });
+
+    const restored = reconcileBadgeCounters(
+      reconciled,
+      runs,
+      { "27000000": { correct: 25 } },
+      { totalGames: 2, xp: 30 },
+      [],
+      arenaForXp,
+      "2026-08-13T16:00:00.000Z",
+      2,
+    );
+    expect(stateOf(restored, "clockbreaker").value).toBe(7);
+    expect(stateOf(restored, "tower-watch").rungIndex).toBe(0);
+    expect(stateOf(restored, "full-cup").rungIndex).toBe(0);
+    expect(restored.refereeExcludedForward).toBeUndefined();
   });
 });

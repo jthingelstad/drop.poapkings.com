@@ -192,7 +192,11 @@ rank-oriented fields as part of unrelated work.
   what makes a badge added later retroactive. Two invariants: counters only move
   favourably, and **no valid achievement is ever revoked** (a broken daily
   streak lowers no badge; a versioned migration may remove a retired-board
-  result that never met the badge requirement). Mode mastery credits legitimate
+  result that never met the badge requirement, and a final referee exclusion
+  removes that ineligible run from the derived badge bag). Referee decisions
+  append an invalidation marker; the next owner or public profile read rebuilds
+  against eligible history, and a later audited restoration restores the run's
+  contributions. Mode mastery credits legitimate
   historical activity, but format-comparable skill badges accept only the
   current board epoch. Storage is one
   `PLAYER#{sub}/BADGES` item, written

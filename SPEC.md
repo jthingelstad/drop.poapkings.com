@@ -418,7 +418,15 @@ current badge summary so the in-memory Profile updates without another request.
 Awarding is a pure function of the counters
 (`services/api/src/badges.ts`), badges award no XP, and no valid achievement is
 ever revoked; a versioned correction may remove a retired-board result that
-never met the badge's stated requirement. The ladder table and the 28 arena XP thresholds both live in
+never met the badge's stated requirement, and a final referee exclusion removes
+that ineligible run from the derived award projection. Every ranked-run referee
+decision appends a player-scoped badge invalidation marker and increments an
+atomic revision under `REFEREE#`. The next owner or public profile read rebuilds history-backed counters without final
+excluded runs, subtracts their exact retained card outcomes, removes
+run-timestamped forward-only achievements, and preserves canonical runs, XP,
+learning history, and evidence. A later audited restoration invalidates the bag
+again and restores the run's contributions, including archived forward-only
+badge facts. Pending holds do not revoke badges. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.
 
 Profile history has two deliberately different reads. `GET /me` keeps the

@@ -18,6 +18,7 @@ import {
   failClosed,
   findEvidenceByRunId,
   parseFlags,
+  playerIdForSub,
   print,
   runReference,
   sanitizeRecord,
@@ -113,6 +114,7 @@ if ((pending || visibility !== "hidden") && playerExplanationCode)
 const doc = client();
 let evidence;
 let previous;
+let playerId;
 try {
   evidence = await findEvidenceByRunId(doc, runIdentifier);
 } catch (error) {
@@ -147,6 +149,32 @@ const subjectType =
   evidence.runType === "ranked" && Number.isFinite(evidence.score)
     ? "ranked_run"
     : "unscored_attempt";
+if (subjectType === "ranked_run") {
+  const sub =
+    typeof evidence.playerSub === "string"
+      ? evidence.playerSub
+      : typeof evidence.pk === "string" && evidence.pk.startsWith("PLAYER#")
+        ? evidence.pk.slice("PLAYER#".length)
+        : undefined;
+  if (!sub)
+    failClosed(
+      "player_not_found",
+      "The ranked run evidence has no owning player",
+    );
+  try {
+    playerId = await playerIdForSub(doc, sub);
+  } catch (error) {
+    failClosed(
+      "read_failed",
+      error instanceof Error ? error.message : "unknown",
+    );
+  }
+  if (!playerId)
+    failClosed(
+      "player_not_found",
+      "The ranked run no longer resolves to a player profile",
+    );
+}
 if (subjectType === "ranked_run" && visibility === "not_ranked")
   failClosed(
     "invalid_ranked_visibility",
@@ -192,6 +220,18 @@ const history = {
   sk: `DECISION#${decidedAt}`,
   ...fields,
 };
+const badgeMarker = playerId
+  ? {
+      pk: `REFEREE#PLAYER#${playerId}`,
+      sk: `BADGE#DECISION#${decidedAt}#${runId}`,
+      runId,
+      decidedAt,
+      visibility,
+      ...(reopening ? { queueState: "pending" } : {}),
+      decidedBy: fields.decidedBy,
+      schemaVersion: "1",
+    }
+  : undefined;
 
 try {
   await doc.send(
@@ -205,6 +245,32 @@ try {
           },
         },
         { Put: { TableName: TABLE_NAME, Item: current } },
+        ...(badgeMarker
+          ? [
+              {
+                Put: {
+                  TableName: TABLE_NAME,
+                  Item: badgeMarker,
+                  ConditionExpression: "attribute_not_exists(pk)",
+                },
+              },
+              {
+                Update: {
+                  TableName: TABLE_NAME,
+                  Key: {
+                    pk: `REFEREE#PLAYER#${playerId}`,
+                    sk: "BADGES",
+                  },
+                  UpdateExpression:
+                    "SET updatedAt = :updatedAt ADD decisionRevision :one",
+                  ExpressionAttributeValues: {
+                    ":updatedAt": decidedAt,
+                    ":one": 1,
+                  },
+                },
+              },
+            ]
+          : []),
       ],
     }),
   );
