@@ -1,6 +1,7 @@
 import MetaPageHead from '../components/MetaPageHead'
 import MetaSection from '../components/MetaSection'
 import ReviewStatusMark from '../components/ReviewStatus'
+import { contactEmailHref, ELIXIR_DROP_CONTACT_EMAIL } from '../lib/links'
 
 export default function FairPlay() {
   return (
@@ -68,7 +69,8 @@ export default function FairPlay() {
           <p>
             Review evidence stays private. Drop does not publish accusations, answer transcripts, connection
             fingerprints, or private reasons. If you believe a result or ranked-access decision is wrong, email{' '}
-            <a href="mailto:elixir@poapkings.com">elixir@poapkings.com</a> and ask for re-review.
+            <a href={contactEmailHref('Elixir Drop Fair Play re-review')}>{ELIXIR_DROP_CONTACT_EMAIL}</a> and ask for
+            re-review. Include the run tag shown in your game history when the request concerns a specific result.
           </p>
         </MetaSection>
       </div>

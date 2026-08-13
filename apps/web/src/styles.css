@@ -5431,6 +5431,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.76rem;
   line-height: 1.45;
 }
+.ed-review-details .ed-textlink {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0;
+}
 .ed-profile__recent-empty {
   color: var(--muted);
   font-size: 0.8rem;

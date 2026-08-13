@@ -4,6 +4,7 @@ import { act } from 'preact/test-utils'
 import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { seasonEndsLabel } from '../../src/screens/home/home-data'
 import type { Card } from '../../src/types'
+import { runReference } from '@elixir-drop/contracts'
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -682,6 +683,10 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('12.50s')
     expect(container.querySelector('[aria-label="Review pending"]')).not.toBeNull()
     expect(container.querySelector('[aria-label="Not included in rankings"]')).not.toBeNull()
+    const dispute = byText(container, 'Dispute this result') as HTMLAnchorElement
+    expect(dispute.getAttribute('href')).toBe(
+      `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('r2')}`)}`
+    )
 
     await fire(byText(container, 'Sign out') as Element)
     expect(account.accountStatus.value).toBe('anonymous')

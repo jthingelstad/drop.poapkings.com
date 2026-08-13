@@ -31,6 +31,20 @@ describe("mail delivery canary", () => {
     expect(Date.parse(result.submittedAt)).not.toBeNaN();
   });
 
+  it("keeps the Drop admin recipient independent of the magic-link sender", async () => {
+    delete process.env.ELIXIR_DROP_CANARY_EMAIL;
+    sendMailCanary.mockResolvedValue(undefined);
+
+    await mailCanaryHandler();
+
+    expect(sendMailCanary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromEmail: "elixir@poapkings.com",
+        to: "drop@poapkings.com",
+      }),
+    );
+  });
+
   it("fails the Lambda invocation when JMAP submission fails", async () => {
     sendMailCanary.mockRejectedValue(new Error("JMAP unavailable"));
 

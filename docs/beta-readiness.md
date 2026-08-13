@@ -50,8 +50,9 @@ state. Do not delete the DynamoDB table or CloudFormation stack as a rollback.
 - Confirm the private Discord `#drop-log` received the latest bridge start or
   restart message and is receiving compact player-login and completed-game
   events.
-- Confirm the daily mail canary arrived at `elixir@poapkings.com`. The alarm is a
-  failure signal, but seeing a recent message proves the mailbox side too.
+- Confirm the daily mail canary arrived at `drop@poapkings.com` from
+  `elixir@poapkings.com`. The alarm is a failure signal, but seeing a recent
+  message proves the mailbox side and the player-mail sender too.
 - Confirm DynamoDB point-in-time recovery remains enabled. This protects the
   service data; it is not a reason to skip account-deletion testing.
 

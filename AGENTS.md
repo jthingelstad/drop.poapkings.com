@@ -44,7 +44,12 @@ Every other doc points back here instead of keeping its own copy of this list.
 - npm workspaces at the root; **Node 24**. `apps/web` = Preact + @preact/signals + Vite + TS.
 - `npm run dev` · `npm run build` · **`npm run verify`** — run before pushing. What the gate
   actually runs is documented once, in `CONTRIBUTING.md` → "The quality gate".
-- Transactional player email (magic links and the delivery canary) sends through **Fastmail JMAP** in `services/api/src/jmap.ts`. Bulk release notes publish through the dedicated **Buttondown** newsletter; neither path uses SES.
+- Transactional player email sends from `elixir@poapkings.com` through **Fastmail
+  JMAP** in `services/api/src/jmap.ts`; magic links keep that recognizable sender.
+  `drop@poapkings.com` is the monitored administrative/general-contact address
+  for alarms, the delivery-canary recipient, privacy questions, and Fair Play
+  disputes. Bulk release notes publish through the dedicated **Buttondown**
+  newsletter; none of these paths uses SES.
 
 ## Deploy model (canonical)
 

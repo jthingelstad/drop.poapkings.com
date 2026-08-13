@@ -6,6 +6,10 @@ as a static single-page app in the Elixir Drop monorepo.
 
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
+**Contact:** [drop@poapkings.com](mailto:drop@poapkings.com) for questions,
+privacy requests, and Fair Play re-review. Player magic links are sent from
+`elixir@poapkings.com`.
+
 ---
 
 ## What it is

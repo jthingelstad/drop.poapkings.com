@@ -27,7 +27,11 @@ import { installMode, installEligible, installDismissed, standaloneApp } from '.
 import { apiAvailability, apiUnavailableReason } from '../../src/lib/api-availability'
 import { recordingNotice } from '../../src/lib/use-game-run'
 import { ABOUT, FAQ, INSTALL } from '../../src/data/meta-content'
-import { ELIXIR_DROP_DISCORD_URL } from '../../src/lib/links'
+import {
+  ELIXIR_DROP_CONTACT_EMAIL,
+  ELIXIR_DROP_DISCORD_URL,
+  ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL
+} from '../../src/lib/links'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
 
@@ -226,6 +230,9 @@ describe('MetaPage', () => {
     expect(html).toContain('ed-meta-section--muted')
     expect(html).toContain(ABOUT.sections[0]!.title)
     expect(html).toContain(ABOUT.sections[0]!.body)
+    expect(html).toContain('Contact Drop')
+    expect(html).toContain(`href="mailto:${ELIXIR_DROP_CONTACT_EMAIL}"`)
+    expect(html).toContain(ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL)
     // FAQ / install specific markup absent.
     expect(html).not.toContain('ed-install-steps')
   })
@@ -256,6 +263,7 @@ describe('MetaPage', () => {
     expect(html).toContain('Reviewed')
     expect(html).toContain('Excluded')
     expect(html).toContain('Practice remains available')
+    expect(html).toContain(`mailto:${ELIXIR_DROP_CONTACT_EMAIL}?subject=Elixir%20Drop%20Fair%20Play%20re-review`)
   })
 
   it('renders the Install page with numbered iOS and Android steps', async () => {

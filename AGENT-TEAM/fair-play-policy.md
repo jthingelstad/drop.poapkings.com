@@ -121,7 +121,7 @@ account access, history, and the evidence required for re-review remain availabl
 
 Do not delete an account as enforcement. Deletion destroys the active evidence and audit
 context and makes reversal impossible. A player may request re-review through
-`elixir@poapkings.com`; a later approved `visible` decision restores the run, and a
+`drop@poapkings.com`; a later approved `visible` decision restores the run, and a
 separate approved `allowed` decision restores ranked access. Public surfaces describe the
 status and process without publishing accusations or private evidence.
 

@@ -5,8 +5,10 @@ Lambda artifact and uses one DynamoDB table.
 
 Responsibilities in this release:
 
-- 15-minute, single-use email magic links sent through Fastmail JMAP;
-- a daily Fastmail JMAP delivery canary using the same submission path as magic links;
+- 15-minute, single-use email magic links sent from `elixir@poapkings.com`
+  through Fastmail JMAP;
+- a daily Fastmail JMAP delivery canary using the same submission path as magic
+  links, sent to the monitored `drop@poapkings.com` administrative mailbox;
 - Buttondown enrollment only after successful magic-link redemption, with
   matching removal on account deletion;
 - renewable 28-day sliding HMAC bearer sessions;

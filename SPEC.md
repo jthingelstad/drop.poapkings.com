@@ -40,6 +40,10 @@ The only outbound ties are ordinary links:
 - Clan invite:
   `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA`
+- General contact, privacy requests, and Fair Play disputes:
+  `drop@poapkings.com`
+- Transactional player-mail sender (including magic links):
+  `elixir@poapkings.com`
 - Supercell / fan-policy attribution links
 
 Hard product constraints:
@@ -471,7 +475,8 @@ and never receive a public placement; referee-approved rows carry a public
 reviewed mark, but the decision category and private rationale remain private.
 The UI renders the status words alongside `🔎`, `✅`, and `🚫`; title/hover
 text is supplemental only. The public Fair Play page defines prohibited
-automation, allowed settings/accessibility tools, review, and re-review.
+automation, allowed settings/accessibility tools, review, and re-review through
+`drop@poapkings.com`. A dispute should include the player-visible `#D…` run tag.
 Only incomplete or contradictory input from which no comparable score
 can be derived returns `400`; that attempt is still retained as referee evidence
 under the canonical server-issued run UUID and is not labeled fake. The client

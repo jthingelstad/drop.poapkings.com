@@ -76,3 +76,17 @@ test('the meta entry points link to the Elixir Drop Discord', async ({ page, vie
   await expect(discord).toHaveAttribute('target', '_blank')
   await expect(discord).toHaveAttribute('rel', 'noopener noreferrer')
 })
+
+test('contact and Fair Play review mail go to the Drop mailbox', async ({ page }) => {
+  await page.goto('/#/about')
+  const generalContact = page.getByRole('link', { name: 'drop@poapkings.com' })
+  await expect(generalContact).toHaveAttribute('href', 'mailto:drop@poapkings.com')
+  await expect(page.getByText(/Sign-in magic links still come from elixir@poapkings.com/)).toBeVisible()
+
+  await page.goto('/#/fair-play')
+  const reviewContact = page.getByRole('link', { name: 'drop@poapkings.com' })
+  await expect(reviewContact).toHaveAttribute(
+    'href',
+    'mailto:drop@poapkings.com?subject=Elixir%20Drop%20Fair%20Play%20re-review'
+  )
+})

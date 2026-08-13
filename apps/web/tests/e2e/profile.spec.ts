@@ -33,6 +33,11 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
   await expect(page.getByText(`Run ${runReference('recent-trade')}`).first()).toBeVisible()
   await expect(page.getByText(`Run ${runReference('recent-practice')}`).first()).toBeVisible()
   await expect(page.getByText(/recorded response timing was not consistent with human play/).first()).toBeVisible()
+  const dispute = page.getByRole('link', { name: 'Dispute this result' }).first()
+  await expect(dispute).toHaveAttribute(
+    'href',
+    `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('recent-trade')}`)}`
+  )
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {

@@ -31,6 +31,7 @@ import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
+import { contactEmailHref } from './lib/links'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -123,6 +124,9 @@ function RankedAccessRestricted() {
         <button class="btn btn--ghost btn--sm" onClick={() => navigate('/fair-play')}>
           Read Fair Play
         </button>
+        <a class="btn btn--ghost btn--sm" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
+          Request re-review
+        </a>
       </div>
     </div>
   )

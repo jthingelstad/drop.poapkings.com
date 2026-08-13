@@ -32,7 +32,11 @@ five-minute Clan Wars clock relays. The API, result consumer, and daily mail
 canary write JSON logs to dedicated 30-day log groups. The canary submits one
 message each day through the same Fastmail JMAP path as player magic links and
 alarms on both delivery failure and a missing scheduled run. It targets
-`elixir@poapkings.com` unless `ELIXIR_DROP_CANARY_EMAIL` overrides it.
+`drop@poapkings.com` unless `ELIXIR_DROP_CANARY_EMAIL` overrides it, while the
+message itself still sends from `elixir@poapkings.com`. Operational alarms also
+target `drop@poapkings.com` by default. The recipient parameters are independent
+of `ELIXIR_DROP_EMAIL_FROM`, so rotating the magic-link sender cannot silently
+retarget administrative mail.
 
 The HTTP API also writes privacy-conscious JSON access logs to the 30-day
 `/elixir-drop/api-access` log group. Each record includes the request ID, route

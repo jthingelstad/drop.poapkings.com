@@ -1,5 +1,6 @@
 import MetaPageHead from '../components/MetaPageHead'
 import MetaSection from '../components/MetaSection'
+import { contactEmailHref, ELIXIR_DROP_CONTACT_EMAIL } from '../lib/links'
 
 export default function Privacy() {
   return (
@@ -19,6 +20,7 @@ export default function Privacy() {
             recorded games (used only to deal you better practice rounds — never shown to other players), and optional
             Clash Royale player tag. All of it is removed when you delete your account.
           </p>
+          <p>Magic-link messages come from elixir@poapkings.com.</p>
         </MetaSection>
 
         <MetaSection title="Your email address">
@@ -98,12 +100,13 @@ export default function Privacy() {
 
         <MetaSection title="Questions">
           <p>
-            Email <a href="mailto:elixir@poapkings.com">elixir@poapkings.com</a> or ask in the Elixir Drop Discord.
+            Email <a href={contactEmailHref('Elixir Drop question')}>{ELIXIR_DROP_CONTACT_EMAIL}</a> or ask in the
+            Elixir Drop Discord.
           </p>
         </MetaSection>
       </div>
 
-      <p class="ed-page__updated">Last updated August 12, 2026.</p>
+      <p class="ed-page__updated">Last updated August 13, 2026.</p>
     </article>
   )
 }

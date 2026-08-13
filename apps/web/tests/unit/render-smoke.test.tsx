@@ -90,6 +90,7 @@ describe('SSR render smoke', () => {
     expect(rankedHtml).toContain('Ranked access restricted')
     expect(rankedHtml).toContain('Practice')
     expect(rankedHtml).toContain('Fair Play')
+    expect(rankedHtml).toContain('mailto:drop@poapkings.com?subject=Elixir%20Drop%20ranked-access%20re-review')
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)

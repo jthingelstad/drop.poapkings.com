@@ -39,7 +39,8 @@ bridge rotates that file at 1 MiB and retains three numbered archives. launchd
 captures unexpected runtime stdout/stderr separately in
 `~/Library/Logs/elixir-drop-cr-bridge-runtime.log`.
 The worker publishes a one-minute process heartbeat and a separate successful
-war-clock heartbeat. Production alarms notify `ELIXIR_DROP_ALARM_EMAIL` if the
+war-clock heartbeat. Production alarms notify `ELIXIR_DROP_ALARM_EMAIL`
+(`drop@poapkings.com` by default) if the
 process stops, no clock reaches AWS for fifteen minutes, requests back up, or a
 request/result reaches a dead-letter queue.
 

@@ -8,6 +8,7 @@ import MetaPageHead from '../components/MetaPageHead'
 import MetaSection from '../components/MetaSection'
 import ReleaseList from '../components/ReleaseList'
 import { ABOUT, FAQ, INSTALL, RELEASES } from '../data/meta-content'
+import { contactEmailHref, ELIXIR_DROP_CONTACT_EMAIL, ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL } from '../lib/links'
 import { releases } from '../lib/releases'
 
 export type MetaPageKind = 'about' | 'releases' | 'faq' | 'install'
@@ -20,6 +21,13 @@ function AboutBody() {
           <p>{section.body}</p>
         </MetaSection>
       ))}
+      <MetaSection title="Contact Drop">
+        <p>
+          Questions, feedback, privacy requests, or help with a result? Email{' '}
+          <a href={contactEmailHref()}>{ELIXIR_DROP_CONTACT_EMAIL}</a>. Sign-in magic links still come from{' '}
+          {ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL}.
+        </p>
+      </MetaSection>
       <MetaSection title="Fan content" muted>
         <p>{ABOUT.disclaimer}</p>
         <p>{ABOUT.policyNotice}</p>

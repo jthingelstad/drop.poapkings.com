@@ -17,10 +17,11 @@ const SECRET_PARAMETERS = [
 const PRESERVED_PARAMETERS = [
   ["AppUrl", ["APP_URL"]],
   ["EmailFrom", ["ELIXIR_DROP_EMAIL_FROM"]],
-  // Alarms and the mail canary follow the sending address unless they are
-  // addressed explicitly.
-  ["AlarmEmail", ["ELIXIR_DROP_ALARM_EMAIL", "ELIXIR_DROP_EMAIL_FROM"]],
-  ["MailCanaryEmail", ["ELIXIR_DROP_CANARY_EMAIL", "ELIXIR_DROP_EMAIL_FROM"]],
+  // Administrative delivery is deliberately independent of the player-mail
+  // sender. Changing elixir@ (magic links) must never retarget alarms or the
+  // canary away from the monitored drop@ mailbox.
+  ["AlarmEmail", ["ELIXIR_DROP_ALARM_EMAIL"]],
+  ["MailCanaryEmail", ["ELIXIR_DROP_CANARY_EMAIL"]],
   ["NameModelId", ["NAME_MODEL_ID"]],
   // The front-end build sha. CI always supplies it (deploy.yml sets
   // WEB_VERSION: github.sha), so preserving only affects an API-only deploy —

@@ -316,11 +316,11 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("sends the mail canary to Elixir by default or an explicit override", () => {
+  void it("separates Drop admin recipients from the Elixir magic-link sender", () => {
     // The default lives in the template (it applies on create); an env-less
     // update preserves whatever address is deployed, asserted above.
-    assert.equal(parameterDefault("MailCanaryEmail"), "elixir@poapkings.com");
-    assert.equal(parameterDefault("AlarmEmail"), "elixir@poapkings.com");
+    assert.equal(parameterDefault("MailCanaryEmail"), "drop@poapkings.com");
+    assert.equal(parameterDefault("AlarmEmail"), "drop@poapkings.com");
     assert.equal(parameterDefault("EmailFrom"), "elixir@poapkings.com");
 
     const overridden = deploymentParameters({
@@ -338,18 +338,27 @@ void describe("deployment parameters", () => {
       },
     );
 
-    // The canary and the alarms follow an explicit sending address.
+    // The sender is independent: changing it must not retarget administrative
+    // mail, so only EmailFrom is present in this update.
     const fromOnly = deploymentParameters({
       ...base,
       environment: { ELIXIR_DROP_EMAIL_FROM: "drop@example.com" },
       stackExists: true,
     });
-    for (const parameterKey of ["EmailFrom", "AlarmEmail", "MailCanaryEmail"]) {
-      assert.deepEqual(
-        fromOnly.find((parameter) => parameter.ParameterKey === parameterKey),
-        { ParameterKey: parameterKey, ParameterValue: "drop@example.com" },
-      );
-    }
+    assert.deepEqual(
+      fromOnly.find((parameter) => parameter.ParameterKey === "EmailFrom"),
+      { ParameterKey: "EmailFrom", ParameterValue: "drop@example.com" },
+    );
+    assert.deepEqual(
+      fromOnly.find((parameter) => parameter.ParameterKey === "AlarmEmail"),
+      { ParameterKey: "AlarmEmail", UsePreviousValue: true },
+    );
+    assert.deepEqual(
+      fromOnly.find(
+        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
+      ),
+      { ParameterKey: "MailCanaryEmail", UsePreviousValue: true },
+    );
   });
 
   void it("alarms on observable API 5xx responses and retains structured logs", () => {

@@ -92,7 +92,7 @@ export const FAQ: FaqContent = {
     },
     {
       q: 'How does sign-in work?',
-      a: 'There’s no password. Enter your email and we send a one-tap magic link. Open it and you’re in.'
+      a: 'There’s no password. Enter your email and we send a one-tap magic link from elixir@poapkings.com. Open it and you’re in.'
     },
     {
       q: 'Are the elixir costs official?',
@@ -105,6 +105,10 @@ export const FAQ: FaqContent = {
     {
       q: 'What do the Fair Play marks mean?',
       a: '🔎 Pending has no placement yet. ✅ Reviewed remains eligible. 🚫 Excluded is not ranked, so the player’s next eligible result may appear instead. The run owner also sees its reference and a brief explanation for an exclusion. Automatic checks start review but do not decide it.'
+    },
+    {
+      q: 'How do I contact Drop or dispute a run?',
+      a: 'Email drop@poapkings.com for questions, feedback, privacy requests, or a Fair Play re-review. Include the run tag shown in your game history when asking about a result.'
     },
     {
       q: 'Is Elixir Drop made by Supercell?',

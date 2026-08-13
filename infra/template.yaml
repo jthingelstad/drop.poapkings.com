@@ -34,10 +34,10 @@ Parameters:
     Default: elixir@poapkings.com
   AlarmEmail:
     Type: String
-    Default: elixir@poapkings.com
+    Default: drop@poapkings.com
   MailCanaryEmail:
     Type: String
-    Default: elixir@poapkings.com
+    Default: drop@poapkings.com
   NameModelId:
     Type: String
     Default: us.anthropic.claude-haiku-4-5-20251001-v1:0

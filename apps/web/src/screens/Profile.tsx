@@ -27,6 +27,7 @@ import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
+import { contactEmailHref } from '../lib/links'
 import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
@@ -488,6 +489,9 @@ export default function Profile() {
           <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
             Read Fair Play
           </button>
+          <a class="ed-textlink" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
+            Request re-review
+          </a>
         </aside>
       )}
 
@@ -545,6 +549,14 @@ export default function Profile() {
                   <div class="ed-review-details">
                     <small class="ed-review-reference">Run {runReference(run.runId)}</small>
                     {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+                    {run.reviewStatus === 'excluded' && (
+                      <a
+                        class="ed-textlink"
+                        href={contactEmailHref(`Elixir Drop run review ${runReference(run.runId)}`)}
+                      >
+                        Dispute this result
+                      </a>
+                    )}
                   </div>
                 </li>
               )
@@ -753,6 +765,11 @@ function SeasonGamesModal({
               <div class="ed-review-details">
                 <small class="ed-review-reference">Run {runReference(run.runId)}</small>
                 {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+                {run.reviewStatus === 'excluded' && (
+                  <a class="ed-textlink" href={contactEmailHref(`Elixir Drop run review ${runReference(run.runId)}`)}>
+                    Dispute this result
+                  </a>
+                )}
               </div>
             </li>
           )
