@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -107,4 +107,13 @@ it("rejects writes without same-origin CSRF proof", async () => {
   });
   expect(response.status).toBe(403);
   expect(runner).not.toHaveBeenCalled();
+});
+
+it("gives launchd the executable path required by the AWS credential process", async () => {
+  const installer = await readFile(
+    new URL("../scripts/install-launchd.mjs", import.meta.url),
+    "utf8",
+  );
+  expect(installer).toContain("<key>PATH</key>");
+  expect(installer).toContain("${dirname(node)}:/opt/homebrew/bin");
 });

@@ -27,6 +27,7 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <key>WorkingDirectory</key><string>${escape(repoRoot)}</string>
 <key>EnvironmentVariables</key><dict>
 <key>NODE_ENV</key><string>production</string>
+<key>PATH</key><string>${escape(`${dirname(node)}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`)}</string>
 <key>AWS_PROFILE</key><string>referee-read</string>
 <key>AWS_REGION</key><string>us-east-1</string>
 <key>DROP_ADMIN_HOST</key><string>127.0.0.1</string>

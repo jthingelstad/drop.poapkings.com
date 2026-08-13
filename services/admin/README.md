@@ -34,6 +34,8 @@ the Vite dev server on `8781` proxies `/api` to it.
 - The launch agent uses `AWS_PROFILE=referee-read`; the role and scripts keep
   email, raw account subjects, IP addresses, raw user agents, and the telemetry
   pepper out of the admin response.
+- Its explicit `PATH` includes the installed Node 24 directory so the AWS
+  profile's credential process works in launchd's otherwise minimal environment.
 - Private rationales remain in referee partitions and never become public
   player copy. Player-visible exclusion language continues to come from the
   approved categorical reason codes in the public API.
