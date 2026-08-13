@@ -1,4 +1,9 @@
-import type { Overview, PlayerDetail, RunDetail } from "./types";
+import type {
+  BulkDecisionResult,
+  Overview,
+  PlayerDetail,
+  RunDetail,
+} from "./types";
 
 let csrfToken = "";
 
@@ -47,6 +52,21 @@ export function decideRun(
   return request<RunDetail>(`/runs/${encodeURIComponent(runId)}/decision`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function decideRuns(
+  runIds: string[],
+  body: {
+    action: string;
+    reason: string;
+    playerReason?: string;
+    visibility?: string;
+  },
+): Promise<BulkDecisionResult> {
+  return request<BulkDecisionResult>("/runs/decisions", {
+    method: "POST",
+    body: JSON.stringify({ runIds, ...body }),
   });
 }
 

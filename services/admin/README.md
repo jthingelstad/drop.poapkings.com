@@ -8,6 +8,13 @@ route.
 The center column is a searchable player directory. The wide workspace on the
 right holds filterable run history, full retained submission/evidence JSON,
 profile and Clash context, badges, referee decisions, and ranked-access state.
+Run rows support individual or select-filtered bulk review. The bulk tray uses
+the same decision and player-reason vocabulary as the single-run inspector,
+requires a second confirmation, caps one request at 200 unique runs, and invokes
+`referee-decide.mjs` separately for every run. Successful and failed items are
+reported independently; failed items remain selected for correction or retry.
+Practice rows are intentionally not selectable because no referee evidence is
+retained for them.
 
 Two deliberately separate AWS capabilities feed it:
 

@@ -15,7 +15,7 @@ function response(value: unknown): Response {
 }
 
 function fixtureFetch() {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path =
       typeof input === "string"
         ? input
@@ -126,23 +126,31 @@ function fixtureFetch() {
         },
         decision: { queueState: "pending", reason: "Leading score" },
       });
+    if (path === "/api/runs/decisions" && init?.method === "POST")
+      return response({
+        status: "ok",
+        requested: 1,
+        succeeded: [{ runId: "run-1", runReference: "#D1234567890" }],
+        failed: [],
+      });
     throw new Error(`Unexpected fetch ${path}`);
   });
 }
 
 async function renderApp() {
-  vi.stubGlobal("fetch", fixtureFetch());
+  const fetchMock = fixtureFetch();
+  vi.stubGlobal("fetch", fetchMock);
   const host = document.createElement("div");
   document.body.append(host);
   await act(async () => {
     render(<App />, host);
     await new Promise((resolve) => setTimeout(resolve, 25));
   });
-  return host;
+  return { host, fetchMock };
 }
 
 it("keeps the searchable player directory open beside filterable run history", async () => {
-  const host = await renderApp();
+  const { host } = await renderApp();
   await vi.waitFor(() => expect(host.textContent).toContain("Knight Main"));
   expect(host.textContent).toContain("player@example.com");
   expect(host.textContent).toContain("#P1234567890");
@@ -161,7 +169,7 @@ it("keeps the searchable player directory open beside filterable run history", a
 });
 
 it("shows private account context and drills through to retained submission JSON", async () => {
-  const host = await renderApp();
+  const { host } = await renderApp();
   await vi.waitFor(() => expect(host.textContent).toContain("#D1234567890"));
 
   const runButton = [...host.querySelectorAll("button")].find((button) =>
@@ -197,5 +205,59 @@ it("shows private account context and drills through to retained submission JSON
   expect(host.textContent).toContain("POAP KINGS");
   expect(host.textContent).toContain("Edit profile");
   expect(host.textContent).toContain("authentication key");
+  render(null, host);
+});
+
+it("selects runs and requires confirmation before a bulk status change", async () => {
+  const { host, fetchMock } = await renderApp();
+  await vi.waitFor(() => expect(host.textContent).toContain("#D1234567890"));
+
+  const checkbox = host.querySelector<HTMLInputElement>(
+    'input[aria-label="Select #D1234567890"]',
+  );
+  await act(async () => checkbox?.click());
+  expect(host.textContent).toContain("1 selected");
+  expect(host.textContent).toContain(
+    "Each run receives its own immutable audit",
+  );
+
+  const reason = host.querySelector<HTMLTextAreaElement>(
+    'textarea[placeholder="Evidence-based reason applied to every selected run"]',
+  );
+  await act(async () => {
+    if (reason) reason.value = "Evidence supports normal human play.";
+    reason?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  });
+  const apply = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Apply to 1 run"),
+  );
+  await act(async () => apply?.click());
+  expect(host.textContent).toContain("Confirm 1 decision");
+  expect(
+    fetchMock.mock.calls.some(([input]) => input === "/api/runs/decisions"),
+  ).toBe(false);
+
+  const confirm = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Confirm 1 decision"),
+  );
+  await act(async () => {
+    confirm?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+  await vi.waitFor(() =>
+    expect(host.textContent).toContain("1 audited decision recorded"),
+  );
+  const bulkCall = fetchMock.mock.calls.find(
+    ([input]) => input === "/api/runs/decisions",
+  );
+  const bulkBody = bulkCall?.[1]?.body;
+  expect(typeof bulkBody).toBe("string");
+  if (typeof bulkBody !== "string")
+    throw new Error("Missing bulk request body");
+  expect(JSON.parse(bulkBody)).toEqual({
+    runIds: ["run-1"],
+    action: "clear",
+    reason: "Evidence supports normal human play.",
+  });
   render(null, host);
 });

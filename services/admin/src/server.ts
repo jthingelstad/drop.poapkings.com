@@ -12,6 +12,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const JSON_LIMIT = 16_384;
+const BULK_DECISION_LIMIT = 200;
 const IDENTIFIER = /^[#A-Za-z0-9-]{3,128}$/;
 const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -279,6 +280,34 @@ function decisionArguments(
   throw new Error("Invalid decision action");
 }
 
+function bulkIdentifiers(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length < 1)
+    throw new Error("runIds must contain at least one identifier");
+  if (value.length > BULK_DECISION_LIMIT)
+    throw new Error(
+      `runIds must contain no more than ${BULK_DECISION_LIMIT} identifiers`,
+    );
+  return [...new Set(value.map((runId) => identifier(String(runId))))];
+}
+
+async function mapConcurrent<T, U>(
+  values: T[],
+  limit: number,
+  worker: (value: T) => Promise<U>,
+): Promise<U[]> {
+  const results = new Array<U>(values.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, values.length) }, async () => {
+      while (next < values.length) {
+        const index = next++;
+        results[index] = await worker(values[index]!);
+      }
+    }),
+  );
+  return results;
+}
+
 function accessArguments(
   playerId: string,
   input: Record<string, unknown>,
@@ -389,6 +418,47 @@ export function createAdminServer(options: AdminServerOptions): Server {
       const decisionMatch = url.pathname.match(
         /^\/api\/runs\/([^/]+)\/decision$/,
       );
+      if (request.method === "POST" && url.pathname === "/api/runs/decisions") {
+        const input = await body(request);
+        const runIds = bulkIdentifiers(input.runIds);
+        // Validate the shared decision before the first write. Each run still
+        // goes through the sanctioned, independently audited referee command.
+        decisionArguments(runIds[0]!, input);
+        const outcomes = await mapConcurrent(runIds, 4, async (runId) => {
+          try {
+            const result = await run(
+              "referee-decide.mjs",
+              decisionArguments(runId, input),
+            );
+            return {
+              ok: true as const,
+              runId,
+              ...(typeof result.runReference === "string"
+                ? { runReference: result.runReference }
+                : {}),
+            };
+          } catch (error) {
+            return {
+              ok: false as const,
+              runId,
+              detail:
+                error instanceof Error ? error.message : "Decision failed",
+            };
+          }
+        });
+        const succeeded = outcomes
+          .filter((outcome) => outcome.ok)
+          .map(({ ok: _ok, ...outcome }) => outcome);
+        const failed = outcomes
+          .filter((outcome) => !outcome.ok)
+          .map(({ ok: _ok, ...outcome }) => outcome);
+        return json(response, 200, {
+          status: failed.length ? "partial" : "ok",
+          requested: runIds.length,
+          succeeded,
+          failed,
+        });
+      }
       if (request.method === "POST" && decisionMatch?.[1]) {
         const runId = identifier(decodeURIComponent(decisionMatch[1]));
         await run(

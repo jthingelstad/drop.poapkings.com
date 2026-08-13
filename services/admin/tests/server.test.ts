@@ -141,6 +141,71 @@ it("maps a verified exclusion to the sanctioned referee command", async () => {
   ]);
 });
 
+it("applies a bounded bulk decision through one audited command per run", async () => {
+  const runner = vi.fn(async (script: string, args: string[] = []) => {
+    if (script === "referee-players.mjs") return { status: "ok" };
+    if (args[0] === "run-2") throw new Error("Retained evidence expired");
+    return { status: "ok", runReference: "#DONE" };
+  });
+  const base = await fixture(runner);
+  const overview = (await (await fetch(`${base}/api/overview`)).json()) as {
+    csrfToken: string;
+  };
+  const response = await fetch(`${base}/api/runs/decisions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: base,
+      "X-Drop-Admin-CSRF": overview.csrfToken,
+    },
+    body: JSON.stringify({
+      runIds: ["run-1", "run-2", "run-1"],
+      action: "clear",
+      reason: "Evidence supports normal human play.",
+    }),
+  });
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({
+    status: "partial",
+    requested: 2,
+    succeeded: [{ runId: "run-1", runReference: "#DONE" }],
+    failed: [{ runId: "run-2", detail: "Retained evidence expired" }],
+  });
+  expect(runner).toHaveBeenCalledWith("referee-decide.mjs", [
+    "run-1",
+    "--disposition",
+    "clear",
+    "--visibility",
+    "visible",
+    "--reason",
+    "Evidence supports normal human play.",
+  ]);
+});
+
+it("rejects an oversized bulk decision before any referee write", async () => {
+  const runner = vi.fn(async () => ({ status: "ok" }));
+  const base = await fixture(runner);
+  const overview = (await (await fetch(`${base}/api/overview`)).json()) as {
+    csrfToken: string;
+  };
+  runner.mockClear();
+  const response = await fetch(`${base}/api/runs/decisions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: base,
+      "X-Drop-Admin-CSRF": overview.csrfToken,
+    },
+    body: JSON.stringify({
+      runIds: Array.from({ length: 201 }, (_, index) => `run-${index}`),
+      action: "clear",
+      reason: "Evidence supports normal human play.",
+    }),
+  });
+  expect(response.status).toBe(400);
+  expect(runner).not.toHaveBeenCalled();
+});
+
 it("rejects writes without same-origin CSRF proof", async () => {
   const runner = vi.fn(async () => ({ status: "ok" }));
   const base = await fixture(runner);

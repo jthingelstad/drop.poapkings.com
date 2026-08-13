@@ -130,3 +130,10 @@ export type RunDetail = {
   };
   decision?: Record<string, unknown>;
 };
+
+export type BulkDecisionResult = {
+  status: "ok" | "partial";
+  requested: number;
+  succeeded: Array<{ runId: string; runReference?: string }>;
+  failed: Array<{ runId: string; detail: string }>;
+};

@@ -4,18 +4,31 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
   decideRun,
+  decideRuns,
   getOverview,
   getPlayer,
   getRun,
   setRankedAccess,
   updatePlayerProfile,
 } from "./api";
-import type { Overview, PlayerDetail, PlayerSummary, RunDetail } from "./types";
+import type {
+  BulkDecisionResult,
+  Overview,
+  PlayerDetail,
+  PlayerSummary,
+  RunDetail,
+} from "./types";
 
 type Cohort = "all" | "pending" | "restricted";
 type WorkspaceTab = "runs" | "profile" | "badges";
 type PlayerRun = PlayerDetail["progression"][string][number] & {
   mode: string;
+};
+type DecisionInput = {
+  action: string;
+  reason: string;
+  playerReason?: string;
+  visibility?: string;
 };
 
 const MODE_NAMES: Record<string, string> = {
@@ -26,6 +39,7 @@ const MODE_NAMES: Record<string, string> = {
   "higher-lower": "Higher / Lower",
   practice: "Practice",
 };
+const BULK_SELECTION_LIMIT = 200;
 const CARDS = [...cardCatalog.cards].sort((left, right) =>
   left.name.localeCompare(right.name),
 );
@@ -339,6 +353,13 @@ export default function App() {
               if (selectedPlayerId)
                 setPlayerDetail(await getPlayer(selectedPlayerId));
             }}
+            onBulkDecide={async (runIds, body) => {
+              const result = await decideRuns(runIds, body);
+              await refresh();
+              if (selectedPlayerId)
+                setPlayerDetail(await getPlayer(selectedPlayerId));
+              return result;
+            }}
             onAccess={async (body) => {
               setPlayerDetail(await setRankedAccess(selectedPlayerId, body));
               await refresh();
@@ -437,6 +458,7 @@ function PlayerWorkspace({
   onOpenRun,
   onCloseRun,
   onDecide,
+  onBulkDecide,
   onAccess,
   onProfile,
 }: {
@@ -447,12 +469,11 @@ function PlayerWorkspace({
   runError: string;
   onOpenRun: (runId: string) => void;
   onCloseRun: () => void;
-  onDecide: (body: {
-    action: string;
-    reason: string;
-    playerReason?: string;
-    visibility?: string;
-  }) => Promise<void>;
+  onDecide: (body: DecisionInput) => Promise<void>;
+  onBulkDecide: (
+    runIds: string[],
+    body: DecisionInput,
+  ) => Promise<BulkDecisionResult>;
   onAccess: (body: {
     status: "allowed" | "restricted";
     reason: string;
@@ -529,7 +550,11 @@ function PlayerWorkspace({
       {!detail ? (
         <Loading />
       ) : tab === "runs" ? (
-        <RunsPanel detail={detail} onOpenRun={onOpenRun} />
+        <RunsPanel
+          detail={detail}
+          onOpenRun={onOpenRun}
+          onBulkDecide={onBulkDecide}
+        />
       ) : tab === "profile" ? (
         <ProfilePanel
           detail={detail}
@@ -562,9 +587,14 @@ function TabButton({
 function RunsPanel({
   detail,
   onOpenRun,
+  onBulkDecide,
 }: {
   detail: PlayerDetail;
   onOpenRun: (runId: string) => void;
+  onBulkDecide: (
+    runIds: string[],
+    body: DecisionInput,
+  ) => Promise<BulkDecisionResult>;
 }) {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("all");
@@ -575,6 +605,16 @@ function RunsPanel({
   const [maximum, setMaximum] = useState("");
   const [maxSeconds, setMaxSeconds] = useState("");
   const [sort, setSort] = useState("newest");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState("clear");
+  const [bulkPlayerReason, setBulkPlayerReason] = useState("combined_evidence");
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkArmed, setBulkArmed] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [bulkFailures, setBulkFailures] = useState<
+    BulkDecisionResult["failed"]
+  >([]);
   const allRuns = useMemo(
     () =>
       Object.entries(detail.progression).flatMap(([runMode, entries]) =>
@@ -635,6 +675,100 @@ function RunsPanel({
     maxSeconds,
     sort,
   ]);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const selectableRuns = runs.filter((run) => run.mode !== "practice");
+  const filteredSelectedCount = selectableRuns.filter((run) =>
+    selectedSet.has(run.runId),
+  ).length;
+  const selectedRuns = allRuns.filter((run) => selectedSet.has(run.runId));
+  const allFilteredSelected =
+    selectableRuns.length > 0 &&
+    selectableRuns.every((run) => selectedSet.has(run.runId));
+  const reopenBlocked =
+    bulkAction === "reopen" &&
+    selectedRuns.some((run) => {
+      const status = runStatus(run);
+      return status === "pending" || status === "unreviewed";
+    });
+
+  useEffect(() => {
+    const available = new Set(allRuns.map((run) => run.runId));
+    setSelected((current) => current.filter((runId) => available.has(runId)));
+  }, [allRuns]);
+
+  const changeSelection = (runId: string, checked: boolean) => {
+    if (checked && selected.length >= BULK_SELECTION_LIMIT) {
+      setBulkMessage(
+        `A batch can contain at most ${BULK_SELECTION_LIMIT} runs. Narrow the filters for the next batch.`,
+      );
+      return;
+    }
+    setSelected((current) =>
+      checked
+        ? current.includes(runId)
+          ? current
+          : [...current, runId]
+        : current.filter((candidate) => candidate !== runId),
+    );
+    setBulkArmed(false);
+    setBulkMessage("");
+    setBulkFailures([]);
+  };
+
+  const toggleFiltered = () => {
+    const visible = new Set(selectableRuns.map((run) => run.runId));
+    if (allFilteredSelected || selected.length >= BULK_SELECTION_LIMIT) {
+      setSelected((current) => current.filter((runId) => !visible.has(runId)));
+      setBulkMessage("");
+    } else {
+      const capacity = BULK_SELECTION_LIMIT - selected.length;
+      const additions = selectableRuns
+        .filter((run) => !selectedSet.has(run.runId))
+        .slice(0, capacity)
+        .map((run) => run.runId);
+      setSelected((current) => [...current, ...additions]);
+      setBulkMessage(
+        additions.length < selectableRuns.length - filteredSelectedCount
+          ? `Selected ${BULK_SELECTION_LIMIT} runs. Narrow the filters for another batch.`
+          : "",
+      );
+    }
+    setBulkArmed(false);
+    setBulkFailures([]);
+  };
+
+  const submitBulk = () => {
+    if (!bulkArmed) {
+      setBulkArmed(true);
+      return;
+    }
+    setBulkBusy(true);
+    setBulkMessage("");
+    void onBulkDecide(selected, {
+      action: bulkAction,
+      reason: bulkReason,
+      playerReason: bulkAction === "exclude" ? bulkPlayerReason : undefined,
+    })
+      .then((result) => {
+        setSelected(result.failed.map((failure) => failure.runId));
+        setBulkFailures(result.failed);
+        setBulkArmed(false);
+        setBulkReason("");
+        setBulkMessage(
+          result.failed.length
+            ? `${result.succeeded.length} updated; ${result.failed.length} still selected after failing.`
+            : `${result.succeeded.length} audited ${result.succeeded.length === 1 ? "decision" : "decisions"} recorded.`,
+        );
+      })
+      .catch((error) => {
+        setBulkArmed(false);
+        setBulkFailures([]);
+        setBulkMessage(
+          error instanceof Error ? error.message : "Bulk decision failed.",
+        );
+      })
+      .finally(() => setBulkBusy(false));
+  };
 
   const clear = () => {
     setQuery("");
@@ -748,11 +882,162 @@ function RunsPanel({
         </div>
       </div>
       <div class="cr-result-count">
-        <strong>{runs.length}</strong> of {allRuns.length} runs
-        {allRuns.length >= 2_000 && <span> · history capped at 2,000</span>}
+        <span>
+          <strong>{runs.length}</strong> of {allRuns.length} runs
+          {allRuns.length >= 2_000 && <span> · history capped at 2,000</span>}
+        </span>
+        {selected.length > 0 && (
+          <button
+            class="cr-link-button"
+            onClick={() => {
+              setSelected([]);
+              setBulkArmed(false);
+              setBulkMessage("");
+              setBulkFailures([]);
+            }}
+          >
+            Clear {selected.length} selected
+          </button>
+        )}
       </div>
+      {selected.length > 0 && (
+        <form
+          class={`cr-bulk-action${bulkArmed ? " armed" : ""}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitBulk();
+          }}
+        >
+          <div class="cr-bulk-action__summary">
+            <strong>{selected.length} selected</strong>
+            <span>Each run receives its own immutable audit event.</span>
+          </div>
+          <label>
+            Apply status
+            <select
+              value={bulkAction}
+              onChange={(event) => {
+                setBulkAction(event.currentTarget.value);
+                setBulkArmed(false);
+              }}
+            >
+              <option value="clear">✅ Reviewed — clear and rank</option>
+              <option value="watch">✅ Reviewed — watch player</option>
+              <option value="exclude">🚫 Excluded</option>
+              <option value="insufficient">
+                ✅ Reviewed — insufficient evidence
+              </option>
+              <option value="reopen">🔎 Pending — reopen review</option>
+            </select>
+          </label>
+          {bulkAction === "exclude" && (
+            <label>
+              Player-visible category
+              <select
+                value={bulkPlayerReason}
+                onChange={(event) => {
+                  setBulkPlayerReason(event.currentTarget.value);
+                  setBulkArmed(false);
+                }}
+              >
+                <option value="automated_input">Automated input</option>
+                <option value="response_timing">
+                  Impossible response timing
+                </option>
+                <option value="altered_play_record">Altered play record</option>
+                <option value="ranked_rules">Ranked rules violation</option>
+                <option value="combined_evidence">Combined evidence</option>
+              </select>
+            </label>
+          )}
+          <label class="cr-bulk-action__reason">
+            Private rationale
+            <textarea
+              required
+              minLength={8}
+              maxLength={1000}
+              value={bulkReason}
+              onInput={(event) => {
+                setBulkReason(event.currentTarget.value);
+                setBulkArmed(false);
+              }}
+              placeholder="Evidence-based reason applied to every selected run"
+            />
+          </label>
+          {reopenBlocked && (
+            <p class="cr-form-message cr-form-message--error">
+              Reopen can only target completed reviewed or excluded decisions.
+              Remove pending and unreviewed runs first.
+            </p>
+          )}
+          {bulkArmed && (
+            <p class="cr-bulk-action__confirm" role="alert">
+              Confirm this status for all {selected.length} selected runs. This
+              creates {selected.length} separate audited decisions.
+            </p>
+          )}
+          <div class="cr-bulk-action__buttons">
+            <button
+              class={bulkArmed ? "cr-button cr-button--danger" : "cr-button"}
+              disabled={
+                bulkBusy || bulkReason.trim().length < 8 || reopenBlocked
+              }
+            >
+              {bulkBusy
+                ? "Applying…"
+                : bulkArmed
+                  ? `Confirm ${selected.length} ${selected.length === 1 ? "decision" : "decisions"}`
+                  : `Apply to ${selected.length} ${selected.length === 1 ? "run" : "runs"}`}
+            </button>
+            {bulkArmed && (
+              <button
+                type="button"
+                class="cr-button cr-button--ghost"
+                onClick={() => setBulkArmed(false)}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+      {bulkMessage && (
+        <div
+          class={`cr-bulk-notice${bulkFailures.length ? " danger" : ""}`}
+          role="status"
+        >
+          <p>{bulkMessage}</p>
+          {bulkFailures.length > 0 && (
+            <ul>
+              {bulkFailures.map((failure) => (
+                <li key={failure.runId}>
+                  <code>
+                    {allRuns.find((run) => run.runId === failure.runId)
+                      ?.runReference ?? failure.runId}
+                  </code>{" "}
+                  {failure.detail}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div class="cr-run-table">
         <div class="cr-run-table__head">
+          <label
+            class={
+              filteredSelectedCount > 0 && !allFilteredSelected ? "partial" : ""
+            }
+            title={`Select up to ${BULK_SELECTION_LIMIT} currently filtered ranked runs`}
+          >
+            <input
+              type="checkbox"
+              aria-label="Select all filtered runs"
+              checked={allFilteredSelected}
+              disabled={selectableRuns.length === 0}
+              onChange={toggleFiltered}
+            />
+          </label>
           <span>Run</span>
           <span>Status</span>
           <span>Completed</span>
@@ -760,20 +1045,53 @@ function RunsPanel({
         </div>
         {runs.length ? (
           runs.map((run) => (
-            <button key={run.runId} onClick={() => onOpenRun(run.runId)}>
-              <span class="cr-run-table__run">
-                <img src={modeIcon(run.mode)} alt="" />
-                <span>
-                  <strong>{modeName(run.mode)}</strong>
-                  <code>{run.runReference}</code>
+            <div
+              key={run.runId}
+              class={`cr-run-table__row${selectedSet.has(run.runId) ? " selected" : ""}`}
+            >
+              <label
+                class="cr-run-table__select"
+                title={
+                  run.mode === "practice"
+                    ? "Practice runs do not retain referee evidence"
+                    : selected.length >= BULK_SELECTION_LIMIT &&
+                        !selectedSet.has(run.runId)
+                      ? `A batch can contain at most ${BULK_SELECTION_LIMIT} runs`
+                      : `Select ${run.runReference}`
+                }
+              >
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${run.runReference}`}
+                  checked={selectedSet.has(run.runId)}
+                  disabled={
+                    run.mode === "practice" ||
+                    (selected.length >= BULK_SELECTION_LIMIT &&
+                      !selectedSet.has(run.runId))
+                  }
+                  onChange={(event) =>
+                    changeSelection(run.runId, event.currentTarget.checked)
+                  }
+                />
+              </label>
+              <button
+                class="cr-run-table__open"
+                onClick={() => onOpenRun(run.runId)}
+              >
+                <span class="cr-run-table__run">
+                  <img src={modeIcon(run.mode)} alt="" />
+                  <span>
+                    <strong>{modeName(run.mode)}</strong>
+                    <code>{run.runReference}</code>
+                  </span>
                 </span>
-              </span>
-              <span class={`cr-run-status ${runStatus(run)}`}>
-                {statusLabel(runStatus(run))}
-              </span>
-              <span>{formatDate(run.completedAt)}</span>
-              <b>{formatScore(run.mode, run.score)}</b>
-            </button>
+                <span class={`cr-run-status ${runStatus(run)}`}>
+                  {statusLabel(runStatus(run))}
+                </span>
+                <span>{formatDate(run.completedAt)}</span>
+                <b>{formatScore(run.mode, run.score)}</b>
+              </button>
+            </div>
           ))
         ) : (
           <Empty

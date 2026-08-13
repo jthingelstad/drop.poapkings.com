@@ -750,10 +750,17 @@ searchable player directory (including email, Drop/Clash tags, and clan); the
 wide player workspace exposes filterable run history, profile/CR details,
 badges, ranked access, and deep run evidence. Run filters cover mode, review
 state, completion date, native result, active time, season/tag/UUID, and sort
-order. A run drill-down renders the exact retained transcript as client
-submission JSON plus the complete sanitized evidence envelope. The verified
-run token, authorization, raw IP, and raw user-agent are intentionally never
-retained.
+order. Operators can select individual ranked runs or all ranked runs in the
+current filter and apply one reviewed, excluded, insufficient-evidence, or
+reopened-pending decision to the selection. A second explicit confirmation is
+required; the service then invokes the sanctioned decision command once per run
+so every result keeps its own immutable audit event. Batches are bounded to 200,
+and a partial failure returns the failed run IDs for selection and retry rather
+than claiming the whole batch succeeded. Practice is not selectable because it
+does not retain referee evidence. A run drill-down renders the exact retained
+transcript as client submission JSON plus the complete sanitized evidence
+envelope. The verified run token, authorization, raw IP, and raw user-agent are
+intentionally never retained.
 
 Referee reads and decisions remain adapters over the sanctioned
 `AGENT-TEAM/scripts` and the pseudonymous `RefereeReadRole`. Account support is
