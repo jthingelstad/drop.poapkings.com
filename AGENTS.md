@@ -25,7 +25,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`docs/card-rendering.md`**                                          | Clash-style card rendering reference.                                                                                           |
 | **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
-| **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** | Backend and bridge workspace references.                                                                                        |
+| **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** · **`services/admin/README.md`** | Backend, bridge, and private Control Room service references.                                                                    |
 | **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
 | **`AGENT-TEAM/fair-play-policy.md`**                                 | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
 | **`.claude/skills/`**                                                 | User-invoked skills in the build process (`cut-release` — the named-release ceremony).                                          |

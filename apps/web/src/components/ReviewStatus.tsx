@@ -12,12 +12,18 @@ const LABELS: Record<ReviewStatus, { visible: string; accessible: string }> = {
   excluded: { visible: 'Excluded', accessible: 'Not included in rankings' }
 }
 
-export default function ReviewStatusMark({ status }: { status: ReviewStatus }) {
+export default function ReviewStatusMark({ status, compact = false }: { status: ReviewStatus; compact?: boolean }) {
   const label = LABELS[status]
   return (
-    <span class={`ed-review-status ed-review-status--${status}`} aria-label={label.accessible} title={label.accessible}>
-      <span aria-hidden="true">{GLYPHS[status]}</span>
-      <span class="ed-review-status__label">{label.visible}</span>
+    <span class={`ed-review-status ed-review-status--${status}`} title={label.accessible}>
+      <span role="img" aria-label={label.accessible}>
+        {GLYPHS[status]}
+      </span>
+      {!compact && (
+        <span class="ed-review-status__label" aria-hidden="true">
+          {label.visible}
+        </span>
+      )}
     </span>
   )
 }

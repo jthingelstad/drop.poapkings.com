@@ -321,13 +321,10 @@ export type RunReviewStatus = "pending" | "reviewed" | "excluded";
 
 const RUN_REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-// A compact, read-aloud reference for a canonical run UUID. It is an
-// identifier, not an authenticator: referee lookup detects ambiguity and fails
-// closed, while the UUID remains the storage and decision key.
-export function runReference(runId: string): string {
+function compactReference(id: string, prefix: "D" | "P"): string {
   let hash = 14_695_981_039_346_656_037n;
-  for (let index = 0; index < runId.length; index += 1) {
-    hash ^= BigInt(runId.charCodeAt(index));
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= BigInt(id.charCodeAt(index));
     hash = BigInt.asUintN(64, hash * 1_099_511_628_211n);
   }
   let value = hash & ((1n << 50n) - 1n);
@@ -336,7 +333,21 @@ export function runReference(runId: string): string {
     code = RUN_REFERENCE_ALPHABET[Number(value & 31n)] + code;
     value >>= 5n;
   }
-  return `#D${code}`;
+  return `#${prefix}${code}`;
+}
+
+// A compact, read-aloud reference for a canonical run UUID. It is an
+// identifier, not an authenticator: referee lookup detects ambiguity and fails
+// closed, while the UUID remains the storage and decision key.
+export function runReference(runId: string): string {
+  return compactReference(runId, "D");
+}
+
+// Player tags are the human-facing counterpart to run references. Like run
+// references they are deterministic lookup aids, not authenticators; the
+// canonical player UUID remains the API and storage identity.
+export function playerReference(playerId: string): string {
+  return compactReference(playerId, "P");
 }
 
 export interface StartedRun {

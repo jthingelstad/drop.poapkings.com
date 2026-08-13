@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { runReference } from '@elixir-drop/contracts'
+import { playerReference, runReference } from '@elixir-drop/contracts'
 import {
   cardsData,
   expect,
@@ -22,12 +22,16 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
 
   await expect(page.locator('.profile-xp')).toContainText('Player XP')
   await expect(page.locator('.profile-xp')).toContainText('480')
-  await expect(page.getByLabel('Review pending').first()).toBeVisible()
-  await expect(page.getByLabel('Review pending').first()).toContainText('Pending')
-  await expect(page.getByText(`Reference: ${runReference('recent-surge')}`).first()).toBeVisible()
-  await expect(page.getByLabel('Not included in rankings').first()).toBeVisible()
-  await expect(page.getByLabel('Not included in rankings').first()).toContainText('Excluded')
-  await expect(page.getByText(`Reference: ${runReference('recent-trade')}`).first()).toBeVisible()
+  await expect(page.getByLabel(`Player tag ${playerReference('player-1')}`)).toBeVisible()
+  const pending = page.locator('.ed-review-status--pending').first()
+  await expect(pending).toContainText('Pending')
+  await expect(pending.getByRole('img', { name: 'Review pending' })).toBeVisible()
+  await expect(page.getByText(`Run ${runReference('recent-surge')}`).first()).toBeVisible()
+  const excluded = page.locator('.ed-review-status--excluded').first()
+  await expect(excluded).toContainText('Excluded')
+  await expect(excluded.getByRole('img', { name: 'Not included in rankings' })).toBeVisible()
+  await expect(page.getByText(`Run ${runReference('recent-trade')}`).first()).toBeVisible()
+  await expect(page.getByText(`Run ${runReference('recent-practice')}`).first()).toBeVisible()
   await expect(page.getByText(/recorded response timing was not consistent with human play/).first()).toBeVisible()
 })
 

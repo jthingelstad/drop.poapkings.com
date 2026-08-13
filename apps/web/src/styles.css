@@ -5235,6 +5235,14 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.78rem;
   margin-top: 2px;
 }
+.ed-profile__reference {
+  margin-top: 4px;
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
 .ed-profile__email,
 .ed-profile__clash-link {
   color: var(--muted);

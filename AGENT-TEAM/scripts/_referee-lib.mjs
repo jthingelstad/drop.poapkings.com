@@ -26,10 +26,10 @@ export const TABLE_NAME =
 
 const RUN_REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-export function runReference(runId) {
+function compactReference(id, prefix) {
   let hash = 14_695_981_039_346_656_037n;
-  for (let index = 0; index < runId.length; index += 1) {
-    hash ^= BigInt(runId.charCodeAt(index));
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= BigInt(id.charCodeAt(index));
     hash = BigInt.asUintN(64, hash * 1_099_511_628_211n);
   }
   let value = hash & ((1n << 50n) - 1n);
@@ -38,7 +38,15 @@ export function runReference(runId) {
     code = RUN_REFERENCE_ALPHABET[Number(value & 31n)] + code;
     value >>= 5n;
   }
-  return `#D${code}`;
+  return `#${prefix}${code}`;
+}
+
+export function runReference(runId) {
+  return compactReference(runId, "D");
+}
+
+export function playerReference(playerId) {
+  return compactReference(playerId, "P");
 }
 
 // The live ranked modes. Practice is unranked and guest runs are never

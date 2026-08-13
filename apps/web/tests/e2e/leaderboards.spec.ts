@@ -14,7 +14,7 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
   await expect(page.getByLabel('Referee reviewed').first()).toBeVisible()
-  await expect(page.getByLabel('Referee reviewed').first()).toContainText('Reviewed')
+  await expect(page.getByLabel('Referee reviewed').first()).toHaveText('✅')
   await expect(page.getByRole('button', { name: 'How Fair Play works' })).toBeVisible()
 
   const firstRow = page.locator('.ed-lbrow').first()

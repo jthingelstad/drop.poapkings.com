@@ -66,7 +66,7 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
         </span>
         <span class="ed-lbrow__score">
           {score}
-          {entry.refereeReviewed && <ReviewStatusMark status="reviewed" />}
+          {entry.refereeReviewed && <ReviewStatusMark status="reviewed" compact />}
           {entry.timeMs !== undefined && (
             <small class="ed-lbrow__time">{formatLeaderboardSeconds(entry.timeMs)}s</small>
           )}
@@ -235,7 +235,7 @@ export default function Leaderboards() {
       </header>
 
       <aside class="ed-board__review-key" aria-label="Fair Play review status">
-        <ReviewStatusMark status="reviewed" />
+        <ReviewStatusMark status="reviewed" compact />
         <span>marks referee-reviewed results.</span>
         <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
           How Fair Play works

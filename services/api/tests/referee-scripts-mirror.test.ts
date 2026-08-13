@@ -25,6 +25,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   GAME_MODES,
+  playerReference as contractPlayerReference,
   runReference as contractRunReference,
   type GameMode,
 } from "@elixir-drop/contracts";
@@ -64,6 +65,7 @@ import {
   leaderboardPartition as scriptsLeaderboardPartition,
   leaderboardSortKey as scriptsLeaderboardSortKey,
   resolveAllTimeEarningRun,
+  playerReference as scriptsPlayerReference,
   runReference as scriptsRunReference,
   rowSortKey,
   sanitize,
@@ -83,6 +85,14 @@ it("keeps player-facing run references stable across the app and referee tools",
   expect(reference).toMatch(/^#D[0-9A-HJKMNP-TV-Z]{10}$/);
   expect(scriptsRunReference(runId)).toBe(reference);
   expect(contractRunReference(runId)).toBe(reference);
+});
+
+it("keeps player-facing player tags stable across the app and referee tools", () => {
+  const playerId = "9c50b73b-39c2-45b3-8756-4c326d28f127";
+  const reference = contractPlayerReference(playerId);
+  expect(reference).toMatch(/^#P[0-9A-HJKMNP-TV-Z]{10}$/);
+  expect(scriptsPlayerReference(playerId)).toBe(reference);
+  expect(contractPlayerReference(playerId)).toBe(reference);
 });
 
 it("resolves a player-facing run reference back to retained evidence", async () => {

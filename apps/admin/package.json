@@ -1,0 +1,36 @@
+{
+  "name": "@elixir-drop/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8781",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{ts,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{ts,json}\"",
+    "lint": "oxlint --config ../../.oxlintrc.json --type-aware --type-check --deny-warnings .",
+    "lint:css": "stylelint \"src/styles.css\" --config ../web/.stylelintrc.json",
+    "verify": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run test && npm run build",
+    "verify:non-browser": "npm run verify"
+  },
+  "dependencies": {
+    "@elixir-drop/contracts": "*",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "jsdom": "^30.0.1",
+    "oxlint": "^1.76.0",
+    "prettier": "^3.9.6",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

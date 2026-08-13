@@ -99,7 +99,9 @@ npm run verify:non-browser # complete gate except Playwright
 ## Repository layout & boundaries
 
 - `apps/web` — the Preact + Vite browser game (GitHub Pages, hash routing).
+- `apps/admin` — the desktop-first private Control Room (managed host + tailnet).
 - `services/api` — the TypeScript Lambda backend (DynamoDB, API Gateway).
+- `services/admin` — the loopback-only adapter over sanctioned referee scripts.
 - `services/cr-api-bridge` — the fixed-IP Clash Royale API worker.
 - `packages/contracts` — shared request/response types.
 - `packages/game-data` — the committed `cards.json` snapshot.

@@ -15,6 +15,7 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
   ): string;
   export function isLeaderboardEligibleScore(score: number): boolean;
   export function runReference(runId: string): string;
+  export function playerReference(playerId: string): string;
   export function findEvidenceByRunId(
     doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
     runIdentifier: string,

@@ -60,7 +60,9 @@ The repository uses npm workspaces:
 | Workspace / directory    | Responsibility                               | Status      |
 | ------------------------ | -------------------------------------------- | ----------- |
 | `apps/web`               | Public Preact game                           | Implemented |
+| `apps/admin`             | Private tailnet-only Control Room UI         | Implemented |
 | `services/api`           | TypeScript Lambda player and game API        | Implemented |
+| `services/admin`         | Loopback Control Room and referee adapter    | Implemented |
 | `services/cr-api-bridge` | Fixed-IP Clash Royale API worker             | Implemented |
 | `packages/contracts`     | Shared browser/server TypeScript contracts   | Implemented |
 | `packages/game-data`     | Canonical card facts                         | Implemented |
@@ -730,6 +732,22 @@ its correct rank. An automatic hold is owner-visible as pending; a referee hide
 is owner-visible as excluded; and a referee-visible result is owner-visible and
 publicly marked as reviewed. No public endpoint returns a hidden run or its
 private rationale.
+
+The private **Drop Control Room** is a separate Preact app in `apps/admin`,
+served by the loopback-only `services/admin` process on the managed host and
+published only through Tailscale Serve. It provides the review backlog, player
+directory, complete sanitized run history, badges, current decisions, and
+ranked-access state. It does not access DynamoDB directly: reads and actions are
+adapters over the same referee scripts, so command validation and immutable
+audit history remain the sole decision path. Production requires the exact
+`Tailscale-User-Login`, and writes additionally require same-origin and CSRF
+proof. The public Pages deployment contains none of this admin bundle.
+
+Both subjects have deterministic read-aloud lookup aids: run UUIDs render as
+`#D` plus ten Crockford Base32 characters and player UUIDs as `#P` plus ten.
+These tags are identifiers, not authenticators; canonical UUID lookup fails
+closed if a short tag is ever ambiguous. Player history displays the run tag
+for every recorded game, regardless of review state.
 
 A separately approved player-level item at
 `REFEREE#PLAYER#{playerId}/CURRENT` can set ranked access to `restricted` or

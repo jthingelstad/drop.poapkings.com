@@ -13,9 +13,10 @@ decisions.
 
 ## Golden rules (do not violate)
 
-1. **Keep workspace boundaries explicit.** `apps/web` owns the browser product,
-   `services/api` owns the TypeScript Lambda backend, `services/cr-api-bridge` owns
-   fixed-IP Clash Royale access, and `infra` owns cloud definitions. Do
+1. **Keep workspace boundaries explicit.** `apps/web` owns the public browser product,
+   `apps/admin` owns the private Control Room UI, `services/admin` owns its
+   loopback referee adapter, `services/api` owns the TypeScript Lambda backend,
+   `services/cr-api-bridge` owns fixed-IP Clash Royale access, and `infra` owns cloud definitions. Do
    not import service implementation files directly across those boundaries.
 2. **Only the bridge may call the Clash Royale API at runtime.** The browser and
    Lambda backend must never call it directly. The website reads the committed
@@ -61,6 +62,8 @@ decisions.
 
 - npm workspaces at the repository root; Node 24 is authoritative.
 - `apps/web`: **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
+- `apps/admin`: **Preact** + Vite, served only through `services/admin` and
+  Tailscale on the managed host; never include it in the Pages artifact.
 - `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
 - Before pushing code, run root `npm run verify`. It runs each implemented
   workspace's verification script. **What the gate contains is documented once, in

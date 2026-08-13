@@ -8,10 +8,13 @@
 import {
   client,
   failClosed,
+  GetCommand,
   loadDecisions,
   parseFlags,
   print,
+  playerReference,
   QueryCommand,
+  runReference,
   sanitize,
   sanitizeRecord,
   subForPlayerId,
@@ -59,11 +62,45 @@ try {
 }
 
 let decisions;
+let profile;
+let badgeCounters;
+let rankedAccess;
 try {
-  decisions = await loadDecisions(
-    doc,
-    runs.map((run) => String(run.runId ?? "")).filter(Boolean),
-  );
+  [decisions, profile, badgeCounters, rankedAccess] = await Promise.all([
+    loadDecisions(
+      doc,
+      runs.map((run) => String(run.runId ?? "")).filter(Boolean),
+    ),
+    doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `PLAYER#${sub}`, sk: "PROFILE" },
+        ProjectionExpression:
+          "playerId, publicName, favoriteCardId, playerTag, totalGames, xp, createdAt, updatedAt",
+        ConsistentRead: true,
+      }),
+    ),
+    doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `PLAYER#${sub}`, sk: "BADGES" },
+        ProjectionExpression:
+          "#version, #values, runsAtRung, aux, earned, updatedAt",
+        ExpressionAttributeNames: {
+          "#version": "version",
+          "#values": "values",
+        },
+        ConsistentRead: true,
+      }),
+    ),
+    doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `REFEREE#PLAYER#${playerId}`, sk: "CURRENT" },
+        ConsistentRead: true,
+      }),
+    ),
+  ]);
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
@@ -75,6 +112,7 @@ for (const run of runs) {
   const decision = decisions.get(String(run.runId));
   (byMode[mode] ??= []).push({
     runId: run.runId,
+    runReference: runReference(String(run.runId)),
     score: run.score,
     seasonId: run.seasonId,
     completedAt: run.completedAt,
@@ -87,6 +125,12 @@ print(
   sanitize(
     {
       status: "ok",
+      playerReference: playerReference(playerId),
+      player: sanitizeRecord(profile.Item ?? {}),
+      badges: sanitizeRecord(badgeCounters.Item ?? {}),
+      rankedAccess: rankedAccess.Item
+        ? sanitizeRecord(rankedAccess.Item)
+        : { status: "allowed" },
       totalRuns: runs.length,
       firstSeen: runs[0]?.completedAt,
       lastSeen: runs.at(-1)?.completedAt,

@@ -52,6 +52,8 @@ automation, private review, and re-review.
 
 - `apps/web` — the current **Preact** + **@preact/signals** website, built with
   **Vite** and TypeScript and deployed to GitHub Pages.
+- `apps/admin` + `services/admin` — the private, tailnet-only **Drop Control
+  Room** and its loopback referee adapter. It is never deployed to Pages.
 - `services/api` — the TypeScript Lambda backend for email authentication,
   player profiles, signed game runs, progression, seasonal leaderboards, and
   notable Discord events.
@@ -87,6 +89,7 @@ npm run dev       # Vite dev server
 npm run verify    # verify every implemented workspace
 npm run build     # build every implemented workspace
 npm run preview   # serve the build locally
+npm run build:admin # build the private Control Room and its local service
 npm run check:beta # full quality gate plus production API smoke
 ```
 

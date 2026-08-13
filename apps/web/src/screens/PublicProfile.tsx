@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
+import { playerReference, runReference } from '@elixir-drop/contracts'
 import ArenaProgress from '../components/ArenaProgress'
 import BadgeGrid from '../components/BadgeGrid'
 import Icon from '../components/Icon'
@@ -88,6 +89,9 @@ export default function PublicProfile() {
           <div class="ed-profile__ident">
             <h1 class="ed-profile__name">{current.publicName}</h1>
             <div class="ed-profile__card">{favorite ? `${favorite.name} · Player Card` : 'Drop Player'}</div>
+            <div class="ed-profile__reference" aria-label={`Player tag ${playerReference(current.id)}`}>
+              Player {playerReference(current.id)}
+            </div>
             {current.playerTag && (
               <div class="ed-profile__clash" aria-label="Clash Royale identity">
                 {clashRoyale?.name && <div class="ed-profile__clash-name">{clashRoyale.name}</div>}
@@ -159,6 +163,9 @@ export default function PublicProfile() {
                   <time dateTime={run.completedAt}>
                     {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </time>
+                  <div class="ed-review-details">
+                    <small class="ed-review-reference">Run {runReference(run.runId)}</small>
+                  </div>
                 </li>
               )
             })}

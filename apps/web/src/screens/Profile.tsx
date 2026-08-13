@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { BADGE_LIST, runReference } from '@elixir-drop/contracts'
+import { BADGE_LIST, playerReference, runReference } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
 import ArenaProgress from '../components/ArenaProgress'
@@ -468,6 +468,9 @@ export default function Profile() {
             <div class="ed-profile__card">
               {currentCard ? `${currentCard.name} · Player Card` : 'Pick a Player Card'}
             </div>
+            <div class="ed-profile__reference" aria-label={`Player tag ${playerReference(current.id)}`}>
+              Player {playerReference(current.id)}
+            </div>
             <div class="ed-profile__email">{current.email}</div>
           </div>
           <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
@@ -532,17 +535,17 @@ export default function Profile() {
                   </span>
                   <span class="ed-profile__recent-score">
                     {scoreLabel(run.mode, run.score)}
-                    {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} />}
+                    {run.reviewStatus && (
+                      <ReviewStatusMark status={run.reviewStatus} compact={run.reviewStatus === 'reviewed'} />
+                    )}
                   </span>
                   <time dateTime={run.completedAt}>
                     {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </time>
-                  {run.reviewStatus && (
-                    <div class="ed-review-details">
-                      <small class="ed-review-reference">Reference: {runReference(run.runId)}</small>
-                      {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
-                    </div>
-                  )}
+                  <div class="ed-review-details">
+                    <small class="ed-review-reference">Run {runReference(run.runId)}</small>
+                    {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+                  </div>
                 </li>
               )
             })}
@@ -740,17 +743,17 @@ function SeasonGamesModal({
               </span>
               <span class="ed-profile__recent-score">
                 {scoreLabel(run.mode, run.score)}
-                {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} />}
+                {run.reviewStatus && (
+                  <ReviewStatusMark status={run.reviewStatus} compact={run.reviewStatus === 'reviewed'} />
+                )}
               </span>
               <time dateTime={run.completedAt}>
                 {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </time>
-              {run.reviewStatus && (
-                <div class="ed-review-details">
-                  <small class="ed-review-reference">Reference: {runReference(run.runId)}</small>
-                  {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
-                </div>
-              )}
+              <div class="ed-review-details">
+                <small class="ed-review-reference">Run {runReference(run.runId)}</small>
+                {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+              </div>
             </li>
           )
         })}

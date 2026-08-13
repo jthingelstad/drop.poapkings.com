@@ -14,6 +14,10 @@
   "scripts": {
     "dev": "npm run dev --workspace=@elixir-drop/web",
     "dev:qa": "npm run dev:qa --workspace=@elixir-drop/web",
+    "dev:admin": "npm run dev --workspace=@elixir-drop/admin",
+    "build:admin": "npm run build --workspace=@elixir-drop/admin && npm run build --workspace=@elixir-drop/admin-service",
+    "start:admin": "npm run start --workspace=@elixir-drop/admin-service",
+    "install:admin": "npm run build:admin && npm run install:launchd --workspace=@elixir-drop/admin-service",
     "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace=@elixir-drop/web",
     "release:cut": "node --env-file-if-exists=.env scripts/cut-release.mjs",
