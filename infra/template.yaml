@@ -405,6 +405,117 @@ Resources:
                     dynamodb:LeadingKeys:
                       - REFEREE#*
 
+  # Private account-administration identity for the tailnet-only Drop Control
+  # service. This is deliberately separate from RefereeReadRole: referee
+  # evidence remains pseudonymous, while this role can project the small set of
+  # account and CR snapshot fields Jamie needs for support. It cannot read
+  # magic links, sessions, run/evidence bodies, scores, or secrets, and its only
+  # write is an atomic public-profile correction plus an immutable CONTROL#
+  # audit event. Email is readable for support but absent from the write list.
+  DropControlRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-control
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-control-bounded
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - playerId
+                      - email
+                      - publicName
+                      - favoriteCardId
+                      - playerTag
+                      - totalGames
+                      - xp
+                      - createdAt
+                      - updatedAt
+                      - lastLoginAt
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:BatchGetItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - CR_PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - tag
+                      - status
+                      - name
+                      - clan
+                      - accountAge
+                      - cards
+                      - fetchedAt
+                      - refreshRequestedAt
+                      - updatedAt
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - CONTROL#PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - playerId
+                      - changedFields
+                      - before
+                      - after
+                      - reason
+                      - operator
+                      - changedAt
+                      - schemaVersion
+              - Effect: Allow
+                Action: dynamodb:TransactWriteItems
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - PLAYER#*
+                      - CONTROL#PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - playerId
+                      - publicName
+                      - favoriteCardId
+                      - playerTag
+                      - GSI2PK
+                      - GSI2SK
+                      - updatedAt
+                      - changedFields
+                      - before
+                      - after
+                      - reason
+                      - operator
+                      - changedAt
+                      - schemaVersion
+
   # Narrow write identity for leaderboard projection repair. It may scan the
   # table and update only the sparse GSI attributes on PLAYER# items; canonical
   # runs, scores, profiles, XP, and referee evidence are outside its attribute
@@ -1405,6 +1516,9 @@ Outputs:
   RefereeReadRoleArn:
     Value: !GetAtt RefereeReadRole.Arn
     Description: Bounded referee role for evidence reads and REFEREE# decision writes.
+  DropControlRoleArn:
+    Value: !GetAtt DropControlRole.Arn
+    Description: Tailnet-only account support role with audited public-profile corrections.
   LeaderboardMaintenanceRoleArn:
     Value: !GetAtt LeaderboardMaintenanceRole.Arn
     Description: Bounded role for sparse leaderboard projection repair.

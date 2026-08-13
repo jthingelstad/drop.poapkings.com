@@ -18,6 +18,11 @@ export type PlayerSummary = {
   publicName?: string;
   favoriteCardId?: number;
   playerTag?: string;
+  email?: string;
+  lastLoginAt?: string;
+  clashName?: string;
+  clanName?: string;
+  clanTag?: string;
   totalGames: number;
   xp: number;
   createdAt?: string;
@@ -55,6 +60,38 @@ export type PlayerDetail = {
   playerId: string;
   playerReference: string;
   player: Record<string, unknown>;
+  account: {
+    playerId?: string;
+    email?: string;
+    publicName?: string;
+    favoriteCardId?: number;
+    playerTag?: string;
+    totalGames?: number;
+    xp?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    lastLoginAt?: string;
+  };
+  clashRoyale?: {
+    tag: string;
+    status: string;
+    name?: string;
+    clan?: { tag?: string; name?: string; role?: string };
+    accountAge?: { days?: number; years?: number };
+    cardCount?: number;
+    fetchedAt?: string;
+    refreshRequestedAt?: string;
+    updatedAt?: string;
+  };
+  changes: Array<{
+    playerId?: string;
+    changedFields?: string[];
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+    reason?: string;
+    operator?: string;
+    changedAt?: string;
+  }>;
   badges: {
     earned?: Record<string, string[]>;
     values?: Record<string, number>;
@@ -74,6 +111,7 @@ export type PlayerDetail = {
       runReference: string;
       score: number;
       completedAt: string;
+      seasonId?: string;
       timeMs?: number;
       decision?: Record<string, unknown>;
     }>

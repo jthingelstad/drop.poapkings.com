@@ -358,6 +358,7 @@ export class Repository {
       totalGames: 0,
       createdAt: now,
       updatedAt: now,
+      lastLoginAt: now,
     };
     try {
       await client.send(
@@ -380,7 +381,23 @@ export class Repository {
     }
     const existing = await this.getProfile(sub);
     if (!existing) throw new Error("Player profile disappeared during login");
-    return { profile: existing, created: false };
+    const result = await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression: "SET lastLoginAt = :lastLoginAt",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeValues: { ":lastLoginAt": now },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return {
+      profile: (result.Attributes as ProfileItem | undefined) ?? {
+        ...existing,
+        lastLoginAt: now,
+      },
+      created: false,
+    };
   }
 
   async getProfile(sub: string): Promise<PlayerProfile | undefined> {

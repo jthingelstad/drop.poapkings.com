@@ -9,6 +9,11 @@ audited visibility decision without editing a run, score, transcript, player, or
 leaderboard row. The scripts import nothing from `services/api`
 (workspace-boundary rule); key conventions live in `_referee-lib.mjs`.
 
+The tailnet-only Control Room also has account-support scripts under
+`services/admin/scripts/`. Those run under a different IAM role and are not a
+Fair Play evidence or decision path. Never import their email/profile output
+into these scripts or use private account identity as adjudication evidence.
+
 Run them from the repository root, e.g.:
 
 ```

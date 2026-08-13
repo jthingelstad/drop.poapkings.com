@@ -428,6 +428,11 @@ by `seasonId`. The Profile screen calls the heavier endpoint only when it mounts
 then opens a season's complete game list in a modal. A recent-feed cap must never
 be used as a season total.
 
+The private profile also records `lastLoginAt` when a magic link is successfully
+redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
+activity, so Drop Control never presents a guess as a login time. Profiles that
+predate the field show no recorded login until their next redemption.
+
 The run share card is composited in the browser
 (`apps/web/src/lib/share-card.ts`): a 1080×1350 canvas over
 `assets/share/share-backdrop.png` with the mode emblem, score, cost-band squares,
@@ -740,12 +745,27 @@ private rationale.
 
 The private **Drop Control Room** is a separate Preact app in `apps/admin`,
 served by the loopback-only `services/admin` process on the managed host and
-published only through Tailscale Serve. It provides the review backlog, player
-directory, complete sanitized run history, badges, current decisions, and
-ranked-access state. It does not access DynamoDB directly: reads and actions are
-adapters over the same referee scripts, so command validation and immutable
-audit history remain the sole decision path. Production requires the exact
-`Tailscale-User-Login`, and writes additionally require same-origin and CSRF
+published only through Tailscale Serve. Its middle column is a persistent
+searchable player directory (including email, Drop/Clash tags, and clan); the
+wide player workspace exposes filterable run history, profile/CR details,
+badges, ranked access, and deep run evidence. Run filters cover mode, review
+state, completion date, native result, active time, season/tag/UUID, and sort
+order. A run drill-down renders the exact retained transcript as client
+submission JSON plus the complete sanitized evidence envelope. The verified
+run token, authorization, raw IP, and raw user-agent are intentionally never
+retained.
+
+Referee reads and decisions remain adapters over the sanctioned
+`AGENT-TEAM/scripts` and the pseudonymous `RefereeReadRole`. Account support is
+a distinct child-process path in `services/admin/scripts/control-*.mjs`, run
+under `DropControlRole`: it can project only account/profile and CR snapshot
+fields, and can atomically correct `publicName` + `favoriteCardId` and/or the
+unverified `playerTag` while writing an immutable
+`CONTROL#PLAYER#{playerId}/CHANGE#...` audit item. Email is visible but is the
+authentication key and therefore read-only; the role cannot read magic links,
+poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
+scores, evidence, XP, or delete data. Production requires the exact
+`Tailscale-User-Login`; every write additionally requires same-origin and CSRF
 proof. The public Pages deployment contains none of this admin bundle.
 
 Both subjects have deterministic read-aloud lookup aids: run UUIDs render as

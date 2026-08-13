@@ -9,7 +9,16 @@ let close: (() => Promise<void>) | undefined;
 beforeEach(() => vi.clearAllMocks());
 afterEach(async () => close?.());
 
-async function fixture(runner: ScriptRunner, bypass = true) {
+async function fixture(
+  runner: ScriptRunner,
+  bypass = true,
+  accountRunner: ScriptRunner = vi.fn(async () => ({
+    status: "ok",
+    accounts: [],
+    account: {},
+    changes: [],
+  })),
+) {
   const staticRoot = await mkdtemp(join(tmpdir(), "drop-admin-"));
   await writeFile(join(staticRoot, "index.html"), "<h1>Control Room</h1>");
   const server = createAdminServer({
@@ -18,6 +27,7 @@ async function fixture(runner: ScriptRunner, bypass = true) {
     allowedLogin: "jamie@example.com",
     devBypassIdentity: bypass,
     runner,
+    accountRunner,
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -54,6 +64,39 @@ it("composes the overview from sanitized referee scripts", async () => {
   });
   expect(runner).toHaveBeenCalledTimes(1);
   expect(typeof body.csrfToken).toBe("string");
+});
+
+it("joins least-privilege account context into the player directory", async () => {
+  const runner = vi.fn(async () => ({
+    status: "ok",
+    totals: { players: 1 },
+    players: [{ playerId: "player-1", playerReference: "#PONE" }],
+  }));
+  const accountRunner = vi.fn(async () => ({
+    status: "ok",
+    accounts: [
+      {
+        playerId: "player-1",
+        email: "player@example.com",
+        clashName: "King Thing",
+        clanName: "POAP KINGS",
+      },
+    ],
+  }));
+  const base = await fixture(runner, true, accountRunner);
+  const response = await fetch(`${base}/api/overview`);
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toMatchObject({
+    players: [
+      {
+        playerId: "player-1",
+        playerReference: "#PONE",
+        email: "player@example.com",
+        clanName: "POAP KINGS",
+      },
+    ],
+  });
+  expect(accountRunner).toHaveBeenCalledWith("control-players.mjs");
 });
 
 it("maps a verified exclusion to the sanctioned referee command", async () => {
@@ -109,6 +152,57 @@ it("rejects writes without same-origin CSRF proof", async () => {
   expect(runner).not.toHaveBeenCalled();
 });
 
+it("maps a profile correction to the separate audited account command", async () => {
+  const runner = vi.fn(async (script: string) =>
+    script === "referee-players.mjs"
+      ? { status: "ok", players: [] }
+      : { status: "ok", playerId: "player-1", player: {} },
+  );
+  const accountRunner = vi.fn<ScriptRunner>(
+    async (script: string, _args?: string[]) =>
+      script === "control-players.mjs"
+        ? { status: "ok", accounts: [] }
+        : {
+            status: "ok",
+            account: { email: "player@example.com" },
+            changes: [],
+          },
+  );
+  const base = await fixture(runner, true, accountRunner);
+  const overview = (await (await fetch(`${base}/api/overview`)).json()) as {
+    csrfToken: string;
+  };
+  const response = await fetch(`${base}/api/players/player-1/profile`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: base,
+      "X-Drop-Admin-CSRF": overview.csrfToken,
+    },
+    body: JSON.stringify({
+      publicName: "Knight Main",
+      favoriteCardId: 26000000,
+      playerTag: "#2PYQ0",
+      reason: "Correcting the linked player profile.",
+    }),
+  });
+  expect(response.status).toBe(200);
+  const updateCall = accountRunner.mock.calls.find(
+    ([script]) => script === "control-player-update.mjs",
+  );
+  expect(updateCall).toBeDefined();
+  const encoded = updateCall?.[1]?.[2];
+  expect(
+    JSON.parse(Buffer.from(String(encoded), "base64url").toString("utf8")),
+  ).toEqual({
+    publicName: "Knight Main",
+    favoriteCardId: 26000000,
+    playerTag: "#2PYQ0",
+    reason: "Correcting the linked player profile.",
+    operator: "local-development",
+  });
+});
+
 it("gives launchd the executable path required by the AWS credential process", async () => {
   const installer = await readFile(
     new URL("../scripts/install-launchd.mjs", import.meta.url),
@@ -116,4 +210,5 @@ it("gives launchd the executable path required by the AWS credential process", a
   );
   expect(installer).toContain("<key>PATH</key>");
   expect(installer).toContain("${dirname(node)}:/opt/homebrew/bin");
+  expect(installer).toContain("DROP_ADMIN_ACCOUNT_PROFILE");
 });

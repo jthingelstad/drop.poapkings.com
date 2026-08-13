@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@elixir-drop/contracts": "*",
+    "@elixir-drop/game-data": "*",
     "preact": "^10.29.8"
   },
   "devDependencies": {

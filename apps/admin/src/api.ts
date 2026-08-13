@@ -62,3 +62,21 @@ export function setRankedAccess(
     },
   );
 }
+
+export function updatePlayerProfile(
+  playerId: string,
+  body: {
+    publicName?: string;
+    favoriteCardId?: number;
+    playerTag?: string;
+    reason: string;
+  },
+): Promise<PlayerDetail> {
+  return request<PlayerDetail>(
+    `/players/${encodeURIComponent(playerId)}/profile`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}

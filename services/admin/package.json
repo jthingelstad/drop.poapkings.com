@@ -18,7 +18,10 @@
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
     "verify:non-browser": "npm run verify"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1101.0",
+    "@aws-sdk/lib-dynamodb": "^3.1101.0"
+  },
   "devDependencies": {
     "@types/node": "^26.1.2",
     "esbuild": "^0.28.1",

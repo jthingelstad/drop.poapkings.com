@@ -91,6 +91,9 @@ export interface PlayerProfile {
   xp?: number;
   createdAt: string;
   updatedAt: string;
+  // Successful magic-link redemption, kept separate from profile mutation and
+  // gameplay activity so private account administration can distinguish them.
+  lastLoginAt?: string;
 }
 
 export type RankedAccessStatus = "allowed" | "restricted";

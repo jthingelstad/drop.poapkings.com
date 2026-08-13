@@ -37,6 +37,7 @@ export type AdminServerOptions = {
   allowedLogin: string;
   devBypassIdentity?: boolean;
   runner?: ScriptRunner;
+  accountRunner?: ScriptRunner;
 };
 
 function json(response: ServerResponse, status: number, body: unknown): void {
@@ -149,6 +150,79 @@ export function defaultScriptRunner(repoRoot: string): ScriptRunner {
   };
 }
 
+export function defaultAccountScriptRunner(repoRoot: string): ScriptRunner {
+  return async (script, args = []) => {
+    const path = join(repoRoot, "services", "admin", "scripts", script);
+    try {
+      const result = await execFileAsync(process.execPath, [path, ...args], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          AWS_PROFILE: process.env.DROP_ADMIN_ACCOUNT_PROFILE ?? "drop-control",
+        },
+        timeout: 45_000,
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return JSON.parse(result.stdout) as Record<string, unknown>;
+    } catch (error) {
+      const failure = error as Error & { stdout?: string; stderr?: string };
+      if (failure.stdout) {
+        try {
+          const envelope = JSON.parse(failure.stdout) as {
+            detail?: string;
+            reason?: string;
+          };
+          throw new Error(
+            envelope.detail ?? envelope.reason ?? "Account command failed",
+          );
+        } catch (parseError) {
+          if (parseError instanceof SyntaxError)
+            throw new Error("Account command returned invalid output");
+          throw parseError;
+        }
+      }
+      throw new Error(
+        failure.stderr?.trim() || failure.message || "Account command failed",
+      );
+    }
+  };
+}
+
+function mergeOverviewAccounts(
+  directory: Record<string, unknown>,
+  accountDirectory: Record<string, unknown>,
+): Record<string, unknown> {
+  const accounts = Array.isArray(accountDirectory.accounts)
+    ? (accountDirectory.accounts as Array<Record<string, unknown>>)
+    : [];
+  const byPlayerId = new Map(
+    accounts
+      .filter((account) => typeof account.playerId === "string")
+      .map((account) => [String(account.playerId), account]),
+  );
+  const players = Array.isArray(directory.players)
+    ? (directory.players as Array<Record<string, unknown>>).map((player) => ({
+        ...player,
+        ...(typeof player.playerId === "string"
+          ? (byPlayerId.get(player.playerId) ?? {})
+          : {}),
+      }))
+    : [];
+  return { ...directory, players };
+}
+
+function mergePlayerAccount(
+  player: Record<string, unknown>,
+  account: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...player,
+    account: account.account ?? {},
+    clashRoyale: account.clashRoyale,
+    changes: account.changes ?? [],
+  };
+}
+
 function decisionArguments(
   runId: string,
   input: Record<string, unknown>,
@@ -226,6 +300,8 @@ function accessArguments(
 export function createAdminServer(options: AdminServerOptions): Server {
   const csrfToken = randomBytes(32).toString("base64url");
   const run = options.runner ?? defaultScriptRunner(options.repoRoot);
+  const runAccount =
+    options.accountRunner ?? defaultAccountScriptRunner(options.repoRoot);
 
   return createServer(async (request, response) => {
     try {
@@ -251,23 +327,54 @@ export function createAdminServer(options: AdminServerOptions): Server {
       }
 
       if (request.method === "GET" && url.pathname === "/api/overview") {
-        const directory = await run("referee-players.mjs", ["--limit", "1000"]);
+        const [directory, accountDirectory] = await Promise.all([
+          run("referee-players.mjs", ["--limit", "1000"]),
+          runAccount("control-players.mjs"),
+        ]);
         return json(response, 200, {
-          ...directory,
+          ...mergeOverviewAccounts(directory, accountDirectory),
           operator,
           csrfToken,
         });
       }
 
       const playerMatch = url.pathname.match(/^\/api\/players\/([^/]+)$/);
-      if (request.method === "GET" && playerMatch?.[1])
-        return json(
-          response,
-          200,
-          await run("referee-player.mjs", [
-            identifier(decodeURIComponent(playerMatch[1])),
-          ]),
-        );
+      if (request.method === "GET" && playerMatch?.[1]) {
+        const playerId = identifier(decodeURIComponent(playerMatch[1]));
+        const [player, account] = await Promise.all([
+          run("referee-player.mjs", [playerId]),
+          runAccount("control-player.mjs", [playerId]),
+        ]);
+        return json(response, 200, mergePlayerAccount(player, account));
+      }
+
+      const profileMatch = url.pathname.match(
+        /^\/api\/players\/([^/]+)\/profile$/,
+      );
+      if (request.method === "POST" && profileMatch?.[1]) {
+        const playerId = identifier(decodeURIComponent(profileMatch[1]));
+        const input = await body(request);
+        const patch = {
+          ...(Object.hasOwn(input, "publicName")
+            ? { publicName: input.publicName }
+            : {}),
+          ...(Object.hasOwn(input, "favoriteCardId")
+            ? { favoriteCardId: input.favoriteCardId }
+            : {}),
+          ...(Object.hasOwn(input, "playerTag")
+            ? { playerTag: input.playerTag }
+            : {}),
+          reason: stringField(input.reason, "reason", 8, 1_000),
+          operator,
+        };
+        const account = await runAccount("control-player-update.mjs", [
+          playerId,
+          "--patch",
+          Buffer.from(JSON.stringify(patch)).toString("base64url"),
+        ]);
+        const player = await run("referee-player.mjs", [playerId]);
+        return json(response, 200, mergePlayerAccount(player, account));
+      }
 
       const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
       if (request.method === "GET" && runMatch?.[1])
@@ -300,7 +407,11 @@ export function createAdminServer(options: AdminServerOptions): Server {
           "referee-ranked-access.mjs",
           accessArguments(playerId, await body(request)),
         );
-        return json(response, 200, await run("referee-player.mjs", [playerId]));
+        const [player, account] = await Promise.all([
+          run("referee-player.mjs", [playerId]),
+          runAccount("control-player.mjs", [playerId]),
+        ]);
+        return json(response, 200, mergePlayerAccount(player, account));
       }
 
       if (request.method === "GET" || request.method === "HEAD") {
@@ -336,9 +447,12 @@ export function createAdminServer(options: AdminServerOptions): Server {
       return json(response, 404, { error: "not_found" });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
-      const status = /Invalid|must|required|JSON|too large/.test(detail)
-        ? 400
-        : 502;
+      const status =
+        /Invalid|must|required|JSON|too large|No profile|not in the current catalog/.test(
+          detail,
+        )
+          ? 400
+          : 502;
       return json(response, status, {
         error: status === 400 ? "invalid_request" : "referee_unavailable",
         detail,

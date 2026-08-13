@@ -508,7 +508,7 @@ void describe("deployment parameters", () => {
 
   void it("bounds referee reads to the partitions and indexes it reviews", () => {
     const refereeRole = template.match(
-      /  RefereeReadRole:[\s\S]*?\n  LeaderboardMaintenanceRole:/,
+      /  RefereeReadRole:[\s\S]*?\n  DropControlRole:/,
     )?.[0];
     assert.ok(refereeRole);
 
@@ -547,6 +547,30 @@ void describe("deployment parameters", () => {
       refereeRole,
       /dynamodb:(?:UpdateItem|DeleteItem|BatchWriteItem)/,
     );
+  });
+
+  void it("separates account support from pseudonymous referee evidence", () => {
+    const controlRole = template.match(
+      /  DropControlRole:[\s\S]*?\n  LeaderboardMaintenanceRole:/,
+    )?.[0];
+    assert.ok(controlRole);
+    assert.match(controlRole, /RoleName: elixir-drop-control/);
+    assert.match(
+      controlRole,
+      /Action: dynamodb:Scan[\s\S]*dynamodb:Select: SPECIFIC_ATTRIBUTES/,
+    );
+    assert.match(controlRole, /- email/);
+    assert.match(controlRole, /Action: dynamodb:TransactWriteItems/);
+    assert.match(controlRole, /- CONTROL#PLAYER#\*/);
+    assert.doesNotMatch(
+      controlRole,
+      /dynamodb:(?:DeleteItem|PutItem|UpdateItem|BatchWriteItem)/,
+    );
+    assert.doesNotMatch(
+      controlRole.match(/dynamodb:TransactWriteItems[\s\S]*$/)?.[0] ?? "",
+      /- email/,
+    );
+    assert.match(bootstrap, /role\/elixir-drop-control/);
   });
 
   void it("bounds leaderboard maintenance to sparse index attributes", () => {

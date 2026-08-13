@@ -328,7 +328,10 @@ await iam.send(
         {
           Effect: "Allow",
           Action: "sts:AssumeRole",
-          Resource: `arn:aws:iam::${accountId}:role/elixir-drop-referee-read`,
+          Resource: [
+            `arn:aws:iam::${accountId}:role/elixir-drop-referee-read`,
+            `arn:aws:iam::${accountId}:role/elixir-drop-control`,
+          ],
         },
       ],
     }),

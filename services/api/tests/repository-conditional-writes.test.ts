@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const send = vi.hoisted(() => vi.fn());
 
@@ -148,16 +149,29 @@ describe("repository conditional writes", () => {
   });
 
   it("treats a lost create race as a returning player, not an error", async () => {
-    send.mockRejectedValueOnce(conditionFailed()).mockResolvedValueOnce({
-      Item: {
-        sub: "player-sub",
-        playerId: "existing-player",
-        email: "player@example.com",
-        totalGames: 12,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-07-01T00:00:00.000Z",
-      },
-    });
+    send
+      .mockRejectedValueOnce(conditionFailed())
+      .mockResolvedValueOnce({
+        Item: {
+          sub: "player-sub",
+          playerId: "existing-player",
+          email: "player@example.com",
+          totalGames: 12,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      })
+      .mockResolvedValueOnce({
+        Attributes: {
+          sub: "player-sub",
+          playerId: "existing-player",
+          email: "player@example.com",
+          totalGames: 12,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+          lastLoginAt: "2026-08-13T00:00:00.000Z",
+        },
+      });
 
     const login = await new Repository("test-table").ensureProfile(
       "player-sub",
@@ -166,6 +180,13 @@ describe("repository conditional writes", () => {
 
     expect(login.created).toBe(false);
     expect(login.profile.playerId).toBe("existing-player");
+    const loginUpdate = send.mock.calls[2]?.[0];
+    expect(loginUpdate).toBeInstanceOf(UpdateCommand);
+    if (!(loginUpdate instanceof UpdateCommand))
+      throw new Error("Expected the returning-player login timestamp update");
+    expect(loginUpdate.input.UpdateExpression).toBe(
+      "SET lastLoginAt = :lastLoginAt",
+    );
   });
 
   it("fails rather than inventing a profile when the race leaves nothing", async () => {

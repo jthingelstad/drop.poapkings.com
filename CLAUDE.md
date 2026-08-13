@@ -55,6 +55,13 @@ decisions.
    Player-level ranked-access enforcement is a separate `REFEREE#PLAYER#`
    overlay: it requires explicit Jamie approval, blocks only future ranked
    starts, remains reversible, and never deletes the account or evidence.
+   Drop Control's account-support data is a separate capability again: the
+   tailnet-only `services/admin/scripts/control-*.mjs` run as
+   `elixir-drop-control`, may project email/profile/CR snapshot fields, and may
+   atomically correct only public profile identity fields with a `CONTROL#`
+   audit event. They are never an input to the referee scripts, cannot edit
+   email, runs, scores, evidence, XP, sessions, or magic links, and do not weaken
+   the pseudonymous referee role.
 
 ---
 
