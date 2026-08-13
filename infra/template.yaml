@@ -399,6 +399,7 @@ Resources:
                 Action:
                   - dynamodb:PutItem
                   - dynamodb:TransactWriteItems
+                  - dynamodb:UpdateItem
                 Resource: !GetAtt DataTable.Arn
                 Condition:
                   ForAllValues:StringLike:

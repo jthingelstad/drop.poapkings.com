@@ -498,9 +498,15 @@ void describe("deployment parameters", () => {
   });
 
   void it("bounds referee writes to its independent decision partitions", () => {
-    assert.match(template, /PolicyName: elixir-drop-referee-bounded/);
-    assert.match(template, /- dynamodb:TransactWriteItems/);
-    assert.match(template, /dynamodb:LeadingKeys:[\s\S]*- REFEREE#\*/);
+    const refereeRole = template.match(
+      /  RefereeReadRole:[\s\S]*?\n  DropControlRole:/,
+    )?.[0];
+    assert.ok(refereeRole);
+    assert.match(refereeRole, /PolicyName: elixir-drop-referee-bounded/);
+    assert.match(
+      refereeRole,
+      /- Effect: Allow\s+Action:\s+- dynamodb:PutItem\s+- dynamodb:TransactWriteItems\s+- dynamodb:UpdateItem\s+Resource: !GetAtt DataTable\.Arn\s+Condition:\s+ForAllValues:StringLike:\s+dynamodb:LeadingKeys:\s+- REFEREE#\*/,
+    );
     assert.match(bootstrap, /PolicyName: "elixir-drop-referee-assume"/);
     assert.match(bootstrap, /Action: "sts:AssumeRole"/);
     assert.match(bootstrap, /role\/elixir-drop-referee-read/);
@@ -542,11 +548,9 @@ void describe("deployment parameters", () => {
       /Effect: Deny[\s\S]*?ForAnyValue:StringEquals:\s+dynamodb:Attributes:\s+- sub\s+- playerSub\s+- owner\s+- email/,
     );
 
-    // Nothing here may mutate canonical data.
-    assert.doesNotMatch(
-      refereeRole,
-      /dynamodb:(?:UpdateItem|DeleteItem|BatchWriteItem)/,
-    );
+    // The only direct mutation is the badge-revision update inside a bounded
+    // transaction; the REFEREE# LeadingKeys condition keeps canonical data out.
+    assert.doesNotMatch(refereeRole, /dynamodb:(?:DeleteItem|BatchWriteItem)/);
   });
 
   void it("separates account support from pseudonymous referee evidence", () => {

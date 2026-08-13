@@ -72,10 +72,10 @@ compatibility; it is defined in `infra/template.yaml` and exported as
   `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
   just in JS.
 
-Writes are `PutItem`/`TransactWriteItems` **only when every target partition begins
-`REFEREE#`**. The role cannot edit `PLAYER#`, `RUN#`, leaderboard, evidence,
-profile, XP, or score records and has no access to any secret. In particular it
-cannot access `TELEMETRY_PEPPER` (Lambda-only).
+Writes are `PutItem`/`UpdateItem`/`TransactWriteItems` **only when every target
+partition begins `REFEREE#`**. The role cannot edit `PLAYER#`, `RUN#`, leaderboard,
+evidence, profile, XP, or score records and has no access to any secret. In
+particular it cannot access `TELEMETRY_PEPPER` (Lambda-only).
 
 Because reads are IAM-bounded, a script that strays outside this surface fails
 with `AccessDenied` rather than returning data — the fail-closed envelope below
