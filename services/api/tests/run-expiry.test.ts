@@ -12,6 +12,7 @@ const repository = vi.hoisted(() => ({
   getCardStats: vi.fn(async () => ({})),
   createRun: vi.fn(),
   useRateLimit: vi.fn(),
+  rankedAccess: vi.fn(async (): Promise<"allowed" | "restricted"> => "allowed"),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -21,6 +22,7 @@ vi.mock("../src/repository.js", () => ({
     getCardStats = repository.getCardStats;
     createRun = repository.createRun;
     useRateLimit = repository.useRateLimit;
+    rankedAccess = repository.rankedAccess;
   },
 }));
 
@@ -88,6 +90,7 @@ describe("run expiry", () => {
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.rankedAccess.mockReset().mockResolvedValue("allowed");
   });
 
   it("returns 410 run_expired (not 401) for a run completed after its window", async () => {
@@ -198,6 +201,7 @@ describe("run expiry", () => {
         lastSeenAt: "2026-07-18T12:00:00.000Z",
       },
     });
+    repository.rankedAccess.mockResolvedValue("restricted");
     repository.createRun.mockImplementation(
       (
         owner: string,
@@ -233,6 +237,7 @@ describe("run expiry", () => {
     expect(body.challenge.cardIds).toHaveLength(CATALOG_SIZE);
     expect(new Set(body.challenge.cardIds).size).toBe(CATALOG_SIZE);
     expect(repository.getCardStats).not.toHaveBeenCalled();
+    expect(repository.rankedAccess).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(
       "player-sub",
       "practice",
@@ -243,6 +248,32 @@ describe("run expiry", () => {
       // The derived start-time correlation hashes ride along on every run.
       expect.any(Object),
     );
+  });
+
+  it("blocks a restricted player from starting a ranked run", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "player-1",
+      email: "player@example.com",
+      publicName: "Knight Main",
+      favoriteCardId: 26000000,
+      totalGames: 12,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-18T12:01:00.000Z",
+    });
+    repository.rankedAccess.mockResolvedValue("restricted");
+
+    const response = (await handler(
+      event("/runs/start", { mode: "surge" }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(403);
+    expect(body.error.code).toBe("ranked_access_restricted");
+    expect(repository.createRun).not.toHaveBeenCalled();
   });
 
   it("starts every non-practice mode ranked", async () => {

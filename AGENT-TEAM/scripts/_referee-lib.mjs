@@ -24,6 +24,23 @@ import {
 export const TABLE_NAME =
   process.env.DROP_TABLE_NAME || process.env.TABLE_NAME || "elixir-drop";
 
+const RUN_REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+export function runReference(runId) {
+  let hash = 14_695_981_039_346_656_037n;
+  for (let index = 0; index < runId.length; index += 1) {
+    hash ^= BigInt(runId.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 1_099_511_628_211n);
+  }
+  let value = hash & ((1n << 50n) - 1n);
+  let code = "";
+  for (let index = 0; index < 10; index += 1) {
+    code = RUN_REFERENCE_ALPHABET[Number(value & 31n)] + code;
+    value >>= 5n;
+  }
+  return `#D${code}`;
+}
+
 // The live ranked modes. Practice is unranked and guest runs are never
 // recorded, so neither has a leaderboard partition. Rain is ranked and writes
 // leaderboard rows like the rest — it was missing here, so its scores could not
@@ -275,25 +292,38 @@ export async function queryLeaderboard(doc, partition, maxPages = 10) {
   return rows;
 }
 
-export async function findEvidenceByRunId(doc, runId) {
+export async function findEvidenceByRunId(doc, runIdentifier) {
+  const referenceLookup = /^#D[0-9A-HJKMNP-TV-Z]{10}$/i.test(runIdentifier);
+  const normalizedReference = runIdentifier.toUpperCase();
+  const matches = [];
   let lastKey;
   do {
     const result = await doc.send(
       new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: "begins_with(sk, :evidence) AND runId = :runId",
-        ExpressionAttributeValues: {
-          ":evidence": "EVIDENCE#",
-          ":runId": runId,
-        },
+        FilterExpression: referenceLookup
+          ? "begins_with(sk, :evidence)"
+          : "begins_with(sk, :evidence) AND runId = :runId",
+        ExpressionAttributeValues: referenceLookup
+          ? { ":evidence": "EVIDENCE#" }
+          : { ":evidence": "EVIDENCE#", ":runId": runIdentifier },
         ExclusiveStartKey: lastKey,
       }),
     );
-    const evidence = (result.Items ?? [])[0];
-    if (evidence) return evidence;
+    for (const evidence of result.Items ?? []) {
+      if (
+        !referenceLookup ||
+        (typeof evidence.runId === "string" &&
+          runReference(evidence.runId) === normalizedReference)
+      )
+        matches.push(evidence);
+    }
+    if (!referenceLookup && matches.length) return matches[0];
     lastKey = result.LastEvaluatedKey;
   } while (lastKey);
-  return undefined;
+  if (matches.length > 1)
+    throw new Error(`Run reference ${normalizedReference} is ambiguous`);
+  return matches[0];
 }
 
 export async function loadDecisions(doc, runIds) {

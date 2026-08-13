@@ -18,7 +18,7 @@ export default function SignInToSave({ variant = 'panel' }: { variant?: 'panel' 
 
   return (
     <div class="competition-panel competition-panel--join signin-save">
-      <p>Create an account to save this score to the leaderboard — forever.</p>
+      <p>Create an account to save this score and make it eligible for the leaderboard.</p>
       <button class="btn btn--gold" onClick={() => navigate('/login')}>
         Sign in to save
       </button>

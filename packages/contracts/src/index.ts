@@ -305,6 +305,9 @@ export interface Player {
   nextLevelGames: number;
   createdAt: string;
   updatedAt: string;
+  // Owner-only enforcement state. Restriction blocks ranked starts while
+  // leaving Practice, account access, history, and appeal available.
+  rankedAccess?: "allowed" | "restricted";
 }
 
 // Server-derived learning history from validated run transcripts. It remains
@@ -315,6 +318,26 @@ export interface LearningSummary {
 }
 
 export type RunReviewStatus = "pending" | "reviewed" | "excluded";
+
+const RUN_REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+// A compact, read-aloud reference for a canonical run UUID. It is an
+// identifier, not an authenticator: referee lookup detects ambiguity and fails
+// closed, while the UUID remains the storage and decision key.
+export function runReference(runId: string): string {
+  let hash = 14_695_981_039_346_656_037n;
+  for (let index = 0; index < runId.length; index += 1) {
+    hash ^= BigInt(runId.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 1_099_511_628_211n);
+  }
+  let value = hash & ((1n << 50n) - 1n);
+  let code = "";
+  for (let index = 0; index < 10; index += 1) {
+    code = RUN_REFERENCE_ALPHABET[Number(value & 31n)] + code;
+    value >>= 5n;
+  }
+  return `#D${code}`;
+}
 
 export interface StartedRun {
   runId: string;

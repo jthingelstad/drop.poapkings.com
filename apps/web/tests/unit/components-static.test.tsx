@@ -5,6 +5,7 @@ import { signal } from '@preact/signals'
 import Summary from '../../src/components/Summary'
 import MetaPage from '../../src/screens/MetaPage'
 import Privacy from '../../src/screens/Privacy'
+import FairPlay from '../../src/screens/FairPlay'
 import MetaMoreList from '../../src/components/MetaMoreList'
 import AppInfo from '../../src/screens/AppInfo'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
@@ -248,6 +249,15 @@ describe('MetaPage', () => {
     expect(html).not.toContain('main-content privacy-screen')
   })
 
+  it('renders the Fair Play rules and visible review-status words', async () => {
+    const html = await render(<FairPlay />)
+    expect(html).toContain('Play as a person')
+    expect(html).toContain('Pending')
+    expect(html).toContain('Reviewed')
+    expect(html).toContain('Excluded')
+    expect(html).toContain('Practice remains available')
+  })
+
   it('renders the Install page with numbered iOS and Android steps', async () => {
     const html = await render(<MetaPage kind="install" />)
     expect(html).toContain(INSTALL.title)
@@ -264,6 +274,7 @@ describe('MetaMoreList', () => {
     const html = await render(<MetaMoreList />)
     expect(html).toContain('About')
     expect(html).toContain('FAQ')
+    expect(html).toContain('Fair Play')
     expect(html).toContain('Install app')
     expect(html).toContain('Privacy')
     expect(html).toContain('Discord')
@@ -600,10 +611,11 @@ describe('RunRecordingNotice', () => {
   })
 
   it('shows a non-blocking saved notice', async () => {
-    recordingNotice.value = { state: 'saved', message: 'Score saved' }
+    recordingNotice.value = { state: 'saved', message: 'Score saved', detail: 'Reference: run-1' }
     const html = await render(<RunRecordingNotice />)
     expect(html).toContain('run-recording__card--saved')
     expect(html).toContain('Score saved')
+    expect(html).toContain('Reference: run-1')
     expect(html).not.toContain('run-recording--blocking')
   })
 

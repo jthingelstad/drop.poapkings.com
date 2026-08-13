@@ -66,6 +66,31 @@ describe("repository DynamoDB requests", () => {
     expect(result?.player).not.toHaveProperty("sub");
   });
 
+  it("reads a reversible referee overlay for ranked access", async () => {
+    send
+      .mockResolvedValueOnce({
+        Item: {
+          pk: "REFEREE#PLAYER#player-public-id",
+          sk: "CURRENT",
+          status: "restricted",
+        },
+      })
+      .mockResolvedValueOnce({});
+
+    const repository = new Repository("test-table");
+    await expect(repository.rankedAccess("player-public-id")).resolves.toBe(
+      "restricted",
+    );
+    await expect(repository.rankedAccess("another-player")).resolves.toBe(
+      "allowed",
+    );
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      Key: { pk: "REFEREE#PLAYER#player-public-id", sk: "CURRENT" },
+      ConsistentRead: true,
+    });
+  });
+
   it("paginates the complete player run history newest first", async () => {
     send
       .mockResolvedValueOnce({

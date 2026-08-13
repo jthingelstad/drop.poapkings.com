@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// referee-run.mjs <runId>
+// referee-run.mjs <runId-or-reference>
 //
 // Full annotated, sanitized evidence for one run: challenge, transcript, timing,
 // recomputed score, scoring version, integrity outcome, and the opaque
@@ -7,8 +7,9 @@
 //
 // Resolution: evidence is keyed PLAYER#{sub}/EVIDENCE#{completedAt}#{runId}, so
 // there is no direct GetItem by runId alone. We scan for the EVIDENCE# item whose
-// `runId` attribute matches (bounded at beta scale; the read role has Scan), then
-// map its owning sub -> playerId and strip every internal identifier.
+// `runId` attribute matches the UUID or derives the requested #D tag (bounded at
+// beta scale; the read role has Scan), then map its owning sub -> playerId and
+// strip every internal identifier.
 
 import {
   client,
@@ -18,25 +19,32 @@ import {
   parseFlags,
   playerIdForSub,
   print,
+  runReference,
   sanitize,
   sanitizeRecord,
 } from "./_referee-lib.mjs";
 
 const { positional } = parseFlags(process.argv.slice(2));
-const runId = positional[0];
-if (!runId) failClosed("missing_run_id", "usage: referee-run.mjs <runId>");
+const runIdentifier = positional[0];
+if (!runIdentifier)
+  failClosed("missing_run_id", "usage: referee-run.mjs <runId-or-reference>");
 
 const doc = client();
 
 let evidence;
 try {
-  evidence = await findEvidenceByRunId(doc, runId);
+  evidence = await findEvidenceByRunId(doc, runIdentifier);
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
 
 if (!evidence)
-  failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
+  failClosed(
+    "evidence_not_found",
+    `No retained evidence for run ${runIdentifier}`,
+  );
+
+const runId = String(evidence.runId);
 
 let playerId;
 let decision;
@@ -56,6 +64,7 @@ if (!playerId) {
 
 print({
   status: "ok",
+  runReference: runReference(runId),
   run: sanitize(evidence, playerId),
   ...(decision ? { decision: sanitizeRecord(decision) } : {}),
 });

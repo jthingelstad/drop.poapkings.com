@@ -62,16 +62,24 @@ export default function Privacy() {
           <p>
             To keep leaderboards honest, Drop derives non-reversible fraud-prevention signals from the connection
             metadata on a recorded game—so we can tell when different accounts share one source. We do
-            <strong> not</strong> store your IP address or your browser&apos;s user-agent: they are converted into
-            one-way, salted fingerprints the moment a game is recorded and the originals are discarded. These signals
-            are used only to review competitive integrity, never for advertising or tracking, and they are removed with
-            the rest of your data when you delete your account.
+            <strong> not</strong> store your IP address or full browser user-agent: they are converted into one-way,
+            salted fingerprints the moment a game is recorded and the originals are discarded. Evidence retains only a
+            coarse browser and operating-system family such as Chrome/macOS. These signals are used only to review
+            competitive integrity, never for advertising or tracking, and they are removed with the rest of your data
+            when you delete your account.
           </p>
           <p>
             Ranked games also record coarse input evidence: when each answer became available, when it was submitted,
             whether it came from a pointer or keyboard-like action, and whether the browser marked the event as trusted.
             Drop does <strong>not</strong> record pointer coordinates, pressure, pointer identity, or the key you
             pressed. This evidence is used only for competitive review and is removed when you delete your account.
+          </p>
+          <p>
+            Automatic checks may temporarily withhold a leading or technically unusual result from placement while it is
+            reviewed. The result and its review status remain visible to you. Confirmed automation can exclude the
+            affected result; repeated or decisive abuse may lead to a separate restriction on future ranked play. Review
+            evidence and private reasons are never published. The player receives only a brief, categorical explanation
+            for an excluded run.
           </p>
         </MetaSection>
 

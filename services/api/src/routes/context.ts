@@ -117,6 +117,7 @@ export function profileResponse(
     updatedAt: string;
   },
   crProfile?: CrProfileSnapshot,
+  rankedAccess: "allowed" | "restricted" = "allowed",
 ) {
   return {
     id: profile.playerId,
@@ -131,6 +132,7 @@ export function profileResponse(
     xp: profile.xp ?? 0,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
+    rankedAccess,
     ...levelForGames(profile.totalGames),
   };
 }
@@ -160,9 +162,36 @@ export function ownerRunReviewStatus(
   return undefined;
 }
 
+const PLAYER_REVIEW_EXPLANATIONS = {
+  automated_input:
+    "This run was excluded because its answer pattern was consistent with automated input rather than a person choosing each answer.",
+  response_timing:
+    "This run was excluded because its recorded response timing was not consistent with human play.",
+  altered_play_record:
+    "This run was excluded because its submitted play record was consistent with replay or programmatic alteration.",
+  ranked_rules:
+    "This run was excluded because the recorded play did not follow the ranked game rules.",
+  combined_evidence:
+    "This run was excluded because multiple parts of its timing and answer record were not consistent with human play.",
+} as const;
+
+export function ownerRunReviewExplanation(
+  decision: RefereeDecision | undefined,
+): string | undefined {
+  if (
+    decision?.visibility !== "hidden" ||
+    decision.decidedBy !== "fair-play-referee"
+  )
+    return undefined;
+  return decision.playerExplanationCode
+    ? PLAYER_REVIEW_EXPLANATIONS[decision.playerExplanationCode]
+    : "This run was excluded after Fair Play review because it did not meet the requirements for human ranked play.";
+}
+
 export function runRecordResponse(
   run: RunRecord,
   reviewStatus?: RunReviewStatus,
+  reviewExplanation?: string,
 ) {
   return {
     runId: run.runId,
@@ -171,6 +200,7 @@ export function runRecordResponse(
     seasonId: run.seasonId,
     completedAt: run.completedAt,
     ...(reviewStatus ? { reviewStatus } : {}),
+    ...(reviewExplanation ? { reviewExplanation } : {}),
   };
 }
 

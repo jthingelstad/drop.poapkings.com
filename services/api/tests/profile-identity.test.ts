@@ -11,6 +11,7 @@ const repository = vi.hoisted(() => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
+  rankedAccess: vi.fn(async () => "allowed" as const),
 }));
 const generateNameOptions = vi.hoisted(() => vi.fn());
 
@@ -20,6 +21,7 @@ vi.mock("../src/repository.js", () => ({
     getProfile = repository.getProfile;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
+    rankedAccess = repository.rankedAccess;
   },
 }));
 

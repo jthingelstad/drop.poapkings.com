@@ -14,6 +14,7 @@ import {
   playerIdForSub,
   print,
   RANKED_MODES,
+  runReference,
   sanitizeRecord,
   visibleLeaderboardRows,
 } from "./_referee-lib.mjs";
@@ -71,6 +72,7 @@ try {
       rank: entries.length + 1,
       playerId,
       runId: row.runId,
+      runReference: runReference(String(row.runId)),
       score: row.score,
       completedAt: row.completedAt,
       ...(row.timeMs !== undefined ? { timeMs: row.timeMs } : {}),

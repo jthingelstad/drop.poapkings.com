@@ -46,6 +46,15 @@ export async function startRun({ event, config, repository }: RouteContext) {
         "Choose a favorite card and player name before starting a game.",
         "profile_setup_required",
       );
+    if (
+      body.mode !== "practice" &&
+      (await repository.rankedAccess(profile.playerId)) === "restricted"
+    )
+      throw new HttpError(
+        403,
+        "Ranked access is restricted. You can still use Practice and request a review from the Fair Play page.",
+        "ranked_access_restricted",
+      );
   }
   // Practice is true practice: signed-in runs record to the player's history
   // and Trophy Road but never write a leaderboard entry. Guest runs are never

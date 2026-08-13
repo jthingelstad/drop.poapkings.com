@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// referee-decide.mjs <runId> --disposition clear|watch|review|insufficient_evidence
+// referee-decide.mjs <runId-or-reference> --disposition clear|watch|review|insufficient_evidence
 //   --visibility visible|hidden|not_ranked --reason <private concise rationale>
-// referee-decide.mjs <runId> --pending --reason <private concise rationale>
+//   [--player-reason <safe categorical explanation>]
+// referee-decide.mjs <runId-or-reference> --pending --reason <private concise rationale>
 //
 // The only sanctioned referee write path. It never edits a score, transcript,
 // player, or leaderboard row. It writes an independent current decision and an
@@ -16,6 +17,7 @@ import {
   findEvidenceByRunId,
   parseFlags,
   print,
+  runReference,
   sanitizeRecord,
   TABLE_NAME,
   TransactWriteCommand,
@@ -28,18 +30,29 @@ const DISPOSITIONS = new Set([
   "insufficient_evidence",
 ]);
 const VISIBILITIES = new Set(["visible", "hidden", "not_ranked"]);
+const PLAYER_EXPLANATION_CODES = new Set([
+  "automated_input",
+  "response_timing",
+  "altered_play_record",
+  "ranked_rules",
+  "combined_evidence",
+]);
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
-const runId = positional[0];
+const runIdentifier = positional[0];
 const pending = flags.pending === true;
 const disposition = pending ? "review" : flags.disposition;
 const visibility = pending ? "hidden" : flags.visibility;
 const reason = typeof flags.reason === "string" ? flags.reason.trim() : "";
+const playerExplanationCode =
+  typeof flags["player-reason"] === "string"
+    ? flags["player-reason"].trim()
+    : "";
 
-if (!runId)
+if (!runIdentifier)
   failClosed(
     "missing_run_id",
-    "usage: referee-decide.mjs <runId> (--pending | --disposition <value> --visibility <value>) --reason <text>",
+    "usage: referee-decide.mjs <runId-or-reference> (--pending | --disposition <value> --visibility <value>) --reason <text> [--player-reason <code>]",
   );
 if (pending && (flags.disposition || flags.visibility))
   failClosed(
@@ -63,20 +76,40 @@ if (visibility === "hidden" && disposition !== "review")
   );
 if (reason.length < 8 || reason.length > 1_000)
   failClosed("invalid_reason", "--reason must contain 8..1000 characters");
+if (
+  visibility === "hidden" &&
+  !pending &&
+  !PLAYER_EXPLANATION_CODES.has(playerExplanationCode)
+)
+  failClosed(
+    "player_reason_required",
+    "A referee-excluded run requires --player-reason automated_input, response_timing, altered_play_record, ranked_rules, or combined_evidence",
+  );
+if ((pending || visibility !== "hidden") && playerExplanationCode)
+  failClosed(
+    "unexpected_player_reason",
+    "--player-reason is only valid for a referee-excluded hidden run",
+  );
 
 const doc = client();
 let evidence;
 let previous;
 try {
-  [evidence, previous] = await Promise.all([
-    findEvidenceByRunId(doc, runId),
-    currentDecision(doc, runId),
-  ]);
+  evidence = await findEvidenceByRunId(doc, runIdentifier);
 } catch (error) {
   failClosed("read_failed", error instanceof Error ? error.message : "unknown");
 }
 if (!evidence)
-  failClosed("evidence_not_found", `No retained evidence for run ${runId}`);
+  failClosed(
+    "evidence_not_found",
+    `No retained evidence for run ${runIdentifier}`,
+  );
+const runId = String(evidence.runId);
+try {
+  previous = await currentDecision(doc, runId);
+} catch (error) {
+  failClosed("read_failed", error instanceof Error ? error.message : "unknown");
+}
 if (pending && previous?.decidedBy === "fair-play-referee")
   failClosed(
     "referee_decision_is_authoritative",
@@ -118,6 +151,7 @@ const fields = {
   disposition,
   visibility,
   reason,
+  ...(playerExplanationCode ? { playerExplanationCode } : {}),
   evidenceDigest,
   decidedAt,
   decidedBy: pending ? "integrity-gate" : "fair-play-referee",
@@ -154,6 +188,7 @@ try {
 
 print({
   status: "ok",
+  runReference: runReference(runId),
   decision: sanitizeRecord(current),
   ...(previous ? { previous: sanitizeRecord(previous) } : {}),
 });

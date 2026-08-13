@@ -453,9 +453,9 @@ terminal-state expectations, score floors, completion-rate ceilings, and other
 product assumptions produce machine-readable review signals. Current clients
 also provide verified display-to-input observations, allowing the gate to
 detect sustained subhuman response patterns without counting forced reveal or
-card-transition time. A strict new all-time number one is held as a neutral
-review queue entry even when no anomaly fired; an exact performance tie is not
-a new leader. A signal derived
+card-transition time. A strict new season or all-time number one is held as a
+neutral review queue entry even when no anomaly fired; an exact performance tie
+is not a new leader. A signal derived
 from a mode's own **difficulty curve** — Rain's minimum-time floor, the sum of
 the spawn gaps a score of N cannot have skipped — is review-only on _both_ paths
 and never rejects, not even the strict guest one: a difficulty model is the
@@ -467,9 +467,18 @@ confirm the hide or approve a false positive by writing a new, audited visible
 decision. Pending and excluded runs are visible only to their owner in Profile
 and never receive a public placement; referee-approved rows carry a public
 reviewed mark, but the decision category and private rationale remain private.
+The UI renders the status words alongside `🔎`, `✅`, and `🚫`; title/hover
+text is supplemental only. The public Fair Play page defines prohibited
+automation, allowed settings/accessibility tools, review, and re-review.
 Only incomplete or contradictory input from which no comparable score
 can be derived returns `400`; that attempt is still retained as referee evidence
-and is not labeled fake. Practice is unranked, unscored, and XP-free — the run
+under the canonical server-issued run UUID and is not labeled fake. The client
+shows only its deterministic `#D…` Drop run tag. Scoreable holds use that tag to
+join the immediate pending notice and owner history to the UUID-keyed evidence and
+referee decision. The referee tools accept either form and fail closed if a short
+tag is ever ambiguous. An unscored attempt has no
+history row or review-status badge because no ranked result exists. Practice is
+unranked, unscored, and XP-free — the run
 exists only to feed the server-owned learning stats. Guest runs use
 strict scoring but skip the integrity/referee path because they are never
 recorded. Completion and the public read endpoints are also IP rate-limited
@@ -715,6 +724,14 @@ its correct rank. An automatic hold is owner-visible as pending; a referee hide
 is owner-visible as excluded; and a referee-visible result is owner-visible and
 publicly marked as reviewed. No public endpoint returns a hidden run or its
 private rationale.
+
+A separately approved player-level item at
+`REFEREE#PLAYER#{playerId}/CURRENT` can set ranked access to `restricted` or
+`allowed`. `/runs/start` checks it for signed-in ranked modes; Practice remains
+available. `referee-ranked-access.mjs` requires explicit Jamie approval and
+writes immutable decision history under the same partition. This overlay never
+edits or deletes the profile, history, scores, or evidence and is not implied by
+any run-level decision.
 
 ---
 

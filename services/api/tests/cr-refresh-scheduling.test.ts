@@ -22,6 +22,8 @@ const repository = vi.hoisted(() => ({
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
+  wouldLeadSeason: vi.fn(async () => false),
+  rankedAccess: vi.fn(async () => "allowed" as const),
   refereeDecisions: vi.fn(async () => new Map()),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
@@ -45,6 +47,8 @@ vi.mock("../src/repository.js", () => ({
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
     wouldLeadAllTime = repository.wouldLeadAllTime;
+    wouldLeadSeason = repository.wouldLeadSeason;
+    rankedAccess = repository.rankedAccess;
     refereeDecisions = repository.refereeDecisions;
   },
 }));

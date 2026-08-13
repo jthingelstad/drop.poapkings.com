@@ -89,7 +89,8 @@ export const playerSchema = z.object({
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger,
   createdAt: isoDateTime,
-  updatedAt: isoDateTime
+  updatedAt: isoDateTime,
+  rankedAccess: z.optional(z.enum(['allowed', 'restricted']))
 })
 
 const sessionSchema = z.object({
@@ -132,7 +133,8 @@ export const recentRunSchema = z.object({
   score: z.number().finite(),
   seasonId: nonEmptyString,
   completedAt: isoDateTime,
-  reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded']))
+  reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
+  reviewExplanation: z.optional(nonEmptyString)
 })
 
 export const learningSummarySchema = z.object({

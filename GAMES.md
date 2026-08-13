@@ -44,6 +44,11 @@ game card selection. Historical `ranked: false` runs remain readable for
 compatibility only.
 Ranked attempts that score zero still record to history and earn Player XP, but
 only a score above zero earns a seasonal or all-time leaderboard entry.
+A strict new season or all-time leader is recorded under neutral Fair Play hold
+and receives no placement until reviewed; exact ties do not trigger that leader
+hold. Technical integrity signals use the same reversible path. Repeated
+confirmed automation can separately restrict future ranked starts after Jamie's
+explicit approval, while Practice and account access remain available.
 
 Card art and names should follow the shared rendering reference in
 `docs/card-rendering.md`. New modes should use `CardArt`, `CardName`, and
@@ -88,7 +93,7 @@ season pass. Two standing consequences:
   records, still earns XP, and a referee can restore it at its true rank. The
   standing must be referee-reviewed before the pass is awarded; that obligation
   lives in `AGENT-TEAM/protect-fair-play.md`.
-- **A strict new all-time leader waits for review.** The completion is recorded,
+- **A strict new season or all-time leader waits for review.** The completion is recorded,
   retains XP and history, and remains visible to its owner as pending, but it
   receives no public placement until a referee writes an audited decision.
   Forced 280ms correct-card transitions are excluded from the active response

@@ -17,6 +17,7 @@ const repository = vi.hoisted(() => ({
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
+  wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
@@ -32,6 +33,7 @@ vi.mock("../src/repository.js", () => ({
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
     wouldLeadAllTime = repository.wouldLeadAllTime;
+    wouldLeadSeason = repository.wouldLeadSeason;
     useRateLimit = repository.useRateLimit;
   },
 }));

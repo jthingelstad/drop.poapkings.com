@@ -43,15 +43,20 @@ used for the Surge Free Pass or another external decision.
 4. Persist disposition, visibility, concise rationale, digest, and timestamp through
    the sanctioned decision script. A `clear`/`visible` or `watch`/`visible` result is
    publicly marked only as referee reviewed; private distinctions and reasons never
-   leave the referee surface. Advance the watermark only after full coverage.
+   leave the referee surface. A referee `hidden` decision must also select the bounded
+   player-reason category that explains the exclusion in the owner's game history.
+   Advance the watermark only after full coverage.
 5. When exact evidence exposes a systemic tooling, retention, or scoring defect,
    reproduce it with sanitized synthetic data. After the case disposition is safely
    recorded, fix the source and regression, run `npm run verify`, and verify naturally.
    Never change a threshold, canonical run, transcript, or score to influence a case.
 
-Never publish player identities or evidence, contact or ban a player, make a public
-accusation, decide a prize winner, collect a new privacy signal, or delete canonical
-data. Those actions require Jamie and may still be out of scope.
+Never publish player identities or evidence, contact a player, make a public accusation,
+decide a prize winner, collect a new privacy signal, delete canonical data, or apply a
+ranked-access restriction without Jamie's explicit approval. A run decision never implies
+account enforcement. The separately sanctioned ranked-access script may be used only when
+the current task contains that approval; it remains reversible and never deletes the
+account.
 
 ## Success
 

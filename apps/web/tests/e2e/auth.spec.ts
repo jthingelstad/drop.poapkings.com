@@ -44,7 +44,9 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
   const summary = page.locator('.ed-sum')
   await expect(summary).toBeVisible()
   await expect(summary.getByRole('button', { name: 'Play again' })).toBeVisible()
-  await expect(page.getByText('Create an account to save this score to the leaderboard — forever.')).toBeVisible()
+  await expect(
+    page.getByText('Create an account to save this score and make it eligible for the leaderboard.')
+  ).toBeVisible()
   await summary.getByRole('button', { name: 'Sign in to save' }).click()
   await expect(page).toHaveURL(/#\/login$/)
 })

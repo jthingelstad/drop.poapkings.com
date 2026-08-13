@@ -41,7 +41,8 @@ import { signOut, applyBadgeSummary, applyRunProgress, recordRecentRun } from '.
 import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
-import { useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { runReference } from '@elixir-drop/contracts'
+import { heldForReviewReference, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
 import { getRecords, saveRecords } from '../../src/lib/storage'
@@ -552,6 +553,31 @@ describe('useGameRun', () => {
     expect(recordRecentRun).toHaveBeenCalledTimes(1)
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(recordingNotice.value.state).toBe('saved')
+  })
+
+  it('joins a held-run notice and history status with the server run ID', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun).mockResolvedValue({
+      ...acceptedResult('surge', 3_100),
+      runId: 'review-run-uuid',
+      underReview: true
+    } as never)
+    const { api } = mountRun()
+    await flush()
+
+    await act(async () => {
+      await api().complete({ answers: [1] })
+    })
+
+    expect(recordRecentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: 'review-run-uuid', reviewStatus: 'pending' })
+    )
+    expect(recordingNotice.value).toMatchObject({
+      state: 'saved',
+      message: 'Game recorded — held for review',
+      detail: `Reference: ${runReference('review-run-uuid')}`
+    })
+    expect(heldForReviewReference.value).toBe(runReference('review-run-uuid'))
   })
 
   it('an expired (410) completion settles unrecorded and calls onUnrecorded', async () => {

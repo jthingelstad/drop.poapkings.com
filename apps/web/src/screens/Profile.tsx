@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { BADGE_LIST } from '@elixir-drop/contracts'
+import { BADGE_LIST, runReference } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
 import ArenaProgress from '../components/ArenaProgress'
@@ -478,6 +478,16 @@ export default function Profile() {
         </div>
       </div>
 
+      {current.rankedAccess === 'restricted' && (
+        <aside class="ed-profile__ranked-restriction" role="status">
+          <strong>Ranked access restricted</strong>
+          <span>Practice and your account remain available. You may request a re-review.</span>
+          <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+            Read Fair Play
+          </button>
+        </aside>
+      )}
+
       <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
         <div class="ed-profile__recent-head">
           <span class="ed-profile__recent-title">Badges</span>
@@ -527,6 +537,12 @@ export default function Profile() {
                   <time dateTime={run.completedAt}>
                     {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </time>
+                  {run.reviewStatus && (
+                    <div class="ed-review-details">
+                      <small class="ed-review-reference">Reference: {runReference(run.runId)}</small>
+                      {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+                    </div>
+                  )}
                 </li>
               )
             })}
@@ -729,6 +745,12 @@ function SeasonGamesModal({
               <time dateTime={run.completedAt}>
                 {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </time>
+              {run.reviewStatus && (
+                <div class="ed-review-details">
+                  <small class="ed-review-reference">Reference: {runReference(run.runId)}</small>
+                  {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
+                </div>
+              )}
             </li>
           )
         })}

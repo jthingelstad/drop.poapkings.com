@@ -14,6 +14,7 @@ const CASES = [
   ['/rain', 'PREPARING'],
   ['/settings', 'Settings'],
   ['/about', 'About Elixir Drop'],
+  ['/fair-play', 'Fair Play'],
   ['/faq', 'Frequently asked'],
   ['/install', 'Install Elixir Drop'],
   ['/app-info', 'App Info']
@@ -60,6 +61,7 @@ describe('SSR render smoke', () => {
     ['/settings', 'Settings'],
     ['/privacy', 'Privacy'],
     ['/about', 'About'],
+    ['/fair-play', 'Fair Play'],
     ['/faq', 'FAQ'],
     ['/install', 'Install'],
     ['/app-info', 'App info'],
@@ -78,6 +80,21 @@ describe('SSR render smoke', () => {
 
     expect(html).toContain('Build ID')
     expect(html).toContain('Build date')
+  })
+
+  it('keeps a restricted player in Practice while blocking ranked routes', async () => {
+    player.value = { ...player.value!, rankedAccess: 'restricted' }
+
+    route.value = '/surge'
+    const rankedHtml = await renderToStringAsync(<App />)
+    expect(rankedHtml).toContain('Ranked access restricted')
+    expect(rankedHtml).toContain('Practice')
+    expect(rankedHtml).toContain('Fair Play')
+
+    route.value = '/practice'
+    const practiceHtml = await renderToStringAsync(<App />)
+    expect(practiceHtml).toContain('PREPARING')
+    expect(practiceHtml).not.toContain('Ranked access restricted')
   })
 
   it('links to the Elixir Drop Discord from the desktop rail cluster', async () => {

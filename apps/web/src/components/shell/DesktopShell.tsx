@@ -103,6 +103,9 @@ function LeftRail() {
         <button class="ed-railfoot__link" onClick={() => navigate('/faq')}>
           FAQ
         </button>
+        <button class="ed-railfoot__link" onClick={() => navigate('/fair-play')}>
+          Fair Play
+        </button>
         <button class="ed-railfoot__link" onClick={() => navigate('/privacy')}>
           Privacy
         </button>

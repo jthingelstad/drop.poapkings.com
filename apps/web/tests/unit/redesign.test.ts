@@ -22,7 +22,7 @@ describe('shell nav model', () => {
   // while they are read. They matched no tab before, and activeNavIndex falls
   // back to 0, so opening About from the You tab slid the pill to Games.
   it('keeps the pill on You for every page reached from the More list', () => {
-    for (const route of ['/about', '/releases', '/faq', '/install', '/privacy', '/settings']) {
+    for (const route of ['/about', '/releases', '/faq', '/fair-play', '/install', '/privacy', '/settings']) {
       expect(activeNavIndex(route)).toBe(2)
     }
     // The fallback still belongs to Games for genuinely unclaimed routes.

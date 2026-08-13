@@ -6,6 +6,7 @@ const a11yRoutes = [
   { hash: '#/about', label: 'About', ready: '.ed-page' },
   { hash: '#/releases', label: 'Releases', ready: '.ed-page' },
   { hash: '#/faq', label: 'FAQ', ready: '.ed-page' },
+  { hash: '#/fair-play', label: 'Fair Play', ready: '.ed-page--fair-play' },
   { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },

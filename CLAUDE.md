@@ -51,6 +51,9 @@ decisions.
    pseudonymous `playerId`, never `sub` or email, and fail closed. The role may
    write only `REFEREE#` decision partitions. Leaderboards honor a reversible
    `hidden`/`visible` decision without changing canonical runs or scores.
+   Player-level ranked-access enforcement is a separate `REFEREE#PLAYER#`
+   overlay: it requires explicit Jamie approval, blocks only future ranked
+   starts, remains reversible, and never deletes the account or evidence.
 
 ---
 
@@ -210,6 +213,11 @@ rank-oriented fields as part of unrelated work.
   input kind, and `isTrusted`; never collect coordinates, pressure, pointer
   identity, or key codes. Active response time excludes forced reveal and
   card-transition waits. Preload timed card art before the clock starts.
+- **Leading results wait for review.** A strict new season or all-time leader
+  receives no placement until the Fair Play Referee decides it. Automatic
+  timing/scoring signals use the same neutral hold. The UI renders status as
+  visible text—`🔎 Pending`, `✅ Reviewed`, or `🚫 Excluded`—rather than relying
+  on hover text.
 
 ---
 

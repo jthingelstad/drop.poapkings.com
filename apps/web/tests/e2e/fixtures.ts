@@ -63,7 +63,8 @@ export const testRecentRuns = [
     score: 11_800,
     seasonId: '2026-07',
     completedAt: '2026-07-17T20:00:00.000Z',
-    reviewStatus: 'excluded'
+    reviewStatus: 'excluded',
+    reviewExplanation: 'This run was excluded because its recorded response timing was not consistent with human play.'
   }
 ] as const
 export const testBadges = [

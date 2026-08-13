@@ -234,6 +234,14 @@ export default function Leaderboards() {
         )}
       </header>
 
+      <aside class="ed-board__review-key" aria-label="Fair Play review status">
+        <ReviewStatusMark status="reviewed" />
+        <span>marks referee-reviewed results.</span>
+        <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+          How Fair Play works
+        </button>
+      </aside>
+
       <div class="ed-board__scopes" aria-label="Choose a leaderboard scope">
         {SCOPES.map((option) => (
           <button

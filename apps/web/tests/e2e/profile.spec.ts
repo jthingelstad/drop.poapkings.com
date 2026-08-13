@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
+import { runReference } from '@elixir-drop/contracts'
 import {
   cardsData,
   expect,
@@ -22,7 +23,12 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
   await expect(page.locator('.profile-xp')).toContainText('Player XP')
   await expect(page.locator('.profile-xp')).toContainText('480')
   await expect(page.getByLabel('Review pending').first()).toBeVisible()
+  await expect(page.getByLabel('Review pending').first()).toContainText('Pending')
+  await expect(page.getByText(`Reference: ${runReference('recent-surge')}`).first()).toBeVisible()
   await expect(page.getByLabel('Not included in rankings').first()).toBeVisible()
+  await expect(page.getByLabel('Not included in rankings').first()).toContainText('Excluded')
+  await expect(page.getByText(`Reference: ${runReference('recent-trade')}`).first()).toBeVisible()
+  await expect(page.getByText(/recorded response timing was not consistent with human play/).first()).toBeVisible()
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
-import type { GameMode, RunChallenge, StartedRun } from '@elixir-drop/contracts'
+import { runReference, type GameMode, type RunChallenge, type StartedRun } from '@elixir-drop/contracts'
 import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
@@ -15,7 +15,7 @@ type RecordingNotice =
   | { state: 'idle' }
   | { state: 'scoring'; message: string }
   | { state: 'saving'; message: string }
-  | { state: 'saved'; message: string }
+  | { state: 'saved'; message: string; detail?: string }
   | { state: 'error'; message: string; detail: string; actionLabel: string; action: () => void }
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
@@ -26,6 +26,9 @@ export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 // board" is the one thing a player must still be able to read once they stop and
 // look at their summary. Cleared when the next run is prepared.
 export const heldForReview = signal(false)
+// The server-issued run UUID is the join between the immediate recording
+// notice, owner history, retained evidence, and the referee decision.
+export const heldForReviewReference = signal<string | null>(null)
 
 // Rungs the last completed run cleared. Read straight from here by Summary, for
 // the same reason heldForReview is: six modes render that component and none of
@@ -94,6 +97,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     challenge.value = null
     startError.value = ''
     heldForReview.value = false
+    heldForReviewReference.value = null
     earnedBadges.value = []
     setRecordingNotice({ state: 'idle' })
     try {
@@ -193,6 +197,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       // pending, so the toast says recorded and names the hold rather than
       // celebrating a season best the board is not showing anyone.
       heldForReview.value = result.underReview === true
+      heldForReviewReference.value = result.underReview ? runReference(result.runId) : null
       earnedBadges.value = result.earnedBadges ?? []
       setRecordingNotice({
         state: 'saved',
@@ -202,7 +207,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
             ? 'Game recorded — held for review'
             : seasonBest
               ? 'Game recorded — new season best!'
-              : 'Game recorded'
+              : 'Game recorded',
+        ...(result.underReview ? { detail: `Reference: ${runReference(result.runId)}` } : {})
       })
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
       onRecorded?.()
@@ -232,14 +238,14 @@ export function useGameRun<T extends GameMode>(mode: T) {
             ? {
                 state: 'error',
                 message: 'This game ran past its signed time window and was not recorded.',
-                detail: `You are still signed in and your local result is visible. Close this message, then start a new game. Reference: ${active.runId}`,
+                detail: `You are still signed in and your local result is visible. Close this message, then start a new game. Reference: ${runReference(active.runId)}`,
                 actionLabel: 'Close',
                 action: () => setRecordingNotice({ state: 'idle' })
               }
             : {
                 state: 'error',
                 message: 'This game could not be verified and was not recorded.',
-                detail: `Your result is still visible, but this run cannot be retried. Close this message, then start a new game. Reference: ${active.runId}`,
+                detail: `Your result is still visible, but this run cannot be retried. Close this message, then start a new game. Reference: ${runReference(active.runId)}`,
                 actionLabel: 'Close',
                 action: () => setRecordingNotice({ state: 'idle' })
               }

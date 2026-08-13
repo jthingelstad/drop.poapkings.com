@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import { weakestBandLabel } from '../lib/insights'
-import { earnedBadges, heldForReview } from '../lib/use-game-run'
+import { earnedBadges, heldForReview, heldForReviewReference } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -118,6 +118,9 @@ export default function Summary({
             <span>
               <strong>Review pending.</strong> Your score is recorded, but it won&rsquo;t receive a leaderboard
               placement until a referee reviews it.
+              {heldForReviewReference.value && (
+                <small class="ed-sum__review-reference">Reference: {heldForReviewReference.value}</small>
+              )}
             </span>
           </div>
         )}

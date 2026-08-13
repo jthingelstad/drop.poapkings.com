@@ -13,19 +13,31 @@ Run them from the repository root, e.g.:
 
 ```
 node AGENT-TEAM/scripts/referee-cohort.mjs --mode surge --scope season
-node AGENT-TEAM/scripts/referee-run.mjs <runId>
-node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+node AGENT-TEAM/scripts/referee-run.mjs <runId-or-#Dreference>
+node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition review --visibility hidden \
-  --reason "Multiple independent timing and transcript signals"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+  --reason "Multiple independent timing and transcript signals" \
+  --player-reason combined_evidence
+node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition clear --visibility visible \
   --reason "Approved after comparison with complete retained evidence"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition clear --visibility not_ranked \
   --reason "Play appears genuine; candidate score needs product reconciliation"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId> \
+node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
   --pending --reason "Existing top result queued for referee review"
+node AGENT-TEAM/scripts/referee-ranked-access.mjs <playerId> \
+  --restrict --approved-by jamie \
+  --reason "Repeated confirmed automation across reviewed ranked runs"
+node AGENT-TEAM/scripts/referee-ranked-access.mjs <playerId> \
+  --restore --approved-by jamie \
+  --reason "Operator approved the player's re-review and restored ranked play"
 ```
+
+For a referee-excluded scored run, `--player-reason` is required and accepts only
+`automated_input`, `response_timing`, `altered_play_record`, `ranked_rules`, or
+`combined_evidence`. The API maps that code to fixed owner-facing copy; the private
+`--reason` is never returned to the player.
 
 ## Credentials (least privilege)
 
@@ -70,13 +82,14 @@ Configuration:
 
 | Script                  | Arguments                                                                | Returns                                                                                                                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `referee-run.mjs`       | `<runId>`                                                                | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves `runId` by scanning for the `EVIDENCE#` item. |
-| `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <id>]`       | Ranked top cohort: `{ rank, playerId, runId, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                                            |
+| `referee-run.mjs`       | `<runId-or-#Dreference>`                                                  | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves the UUID or player-facing Drop run tag by scanning for the `EVIDENCE#` item. |
+| `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <id>]`       | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                              |
 | `referee-player.mjs`    | `<playerId>`                                                             | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                               |
 | `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |
 | `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                       |
 | `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
-| `referee-decide.mjs`    | `<runId> (--pending \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text>` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment; `hidden` otherwise requires `review`; `visible` restores a scored run. |
+| `referee-decide.mjs`    | `<runId-or-#Dreference> (--pending \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment; a referee `hidden` decision requires a safe player-reason code; `visible` restores a scored run. |
+| `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>` | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence. |
 
 ## Ranked modes and board epochs
 

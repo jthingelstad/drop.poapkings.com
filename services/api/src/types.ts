@@ -93,6 +93,21 @@ export interface PlayerProfile {
   updatedAt: string;
 }
 
+export type RankedAccessStatus = "allowed" | "restricted";
+
+// Player-level enforcement is a separate, reversible overlay. It can stop
+// future ranked play without deleting the account, its history, or evidence.
+export interface RankedAccessDecision {
+  pk: string; // REFEREE#PLAYER#{playerId}
+  sk: "CURRENT" | `DECISION#${string}`;
+  playerId: string;
+  status: RankedAccessStatus;
+  reason: string;
+  decidedAt: string;
+  decidedBy: "jamie";
+  schemaVersion: "1";
+}
+
 export interface PublicProfile {
   id: string;
   publicName: string;
@@ -177,6 +192,13 @@ export type RefereeDisposition =
 
 export type RefereeVisibility = "visible" | "hidden" | "not_ranked";
 
+export type PlayerExplanationCode =
+  | "automated_input"
+  | "response_timing"
+  | "altered_play_record"
+  | "ranked_rules"
+  | "combined_evidence";
+
 // Independent referee judgment for a ranked run or unscored attempt. The
 // current item controls public leaderboard visibility when a candidate score
 // exists; `not_ranked` records an authoritative judgment without inventing a
@@ -189,6 +211,9 @@ export interface RefereeDecision {
   disposition: RefereeDisposition;
   visibility: RefereeVisibility;
   reason: string;
+  // Safe, categorical owner explanation. The detailed reason above stays on
+  // the private referee surface and is never copied into player responses.
+  playerExplanationCode?: PlayerExplanationCode;
   evidenceDigest: string;
   decidedAt: string;
   decidedBy: "fair-play-referee" | "integrity-gate";

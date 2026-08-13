@@ -259,6 +259,8 @@ describe('Leaderboards', () => {
     expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
     expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
     expect(host.querySelector('[aria-label="Referee reviewed"]')).not.toBeNull()
+    expect(host.querySelector('[aria-label="Referee reviewed"]')?.textContent).toContain('Reviewed')
+    expect(host.textContent).toContain('How Fair Play works')
   })
 
   it('opens the selected player and keeps the signed-in player on the private profile route', async () => {

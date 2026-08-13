@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   refereeDecisions: vi.fn(async () => new Map()),
+  rankedAccess: vi.fn(async () => "allowed" as const),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -21,6 +22,7 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     refereeDecisions = repository.refereeDecisions;
+    rankedAccess = repository.rankedAccess;
   },
 }));
 
@@ -183,6 +185,7 @@ describe("GET /me recent runs", () => {
             visibility: "hidden",
             disposition: "review",
             reason: "private referee reason",
+            playerExplanationCode: "response_timing",
           },
         ],
       ]),
@@ -195,7 +198,12 @@ describe("GET /me recent runs", () => {
     expect(body.recentRuns).toMatchObject([
       { runId: "pending-run", reviewStatus: "pending" },
       { runId: "reviewed-run", reviewStatus: "reviewed" },
-      { runId: "excluded-run", reviewStatus: "excluded" },
+      {
+        runId: "excluded-run",
+        reviewStatus: "excluded",
+        reviewExplanation:
+          "This run was excluded because its recorded response timing was not consistent with human play.",
+      },
     ]);
     expect(JSON.stringify(body.recentRuns)).not.toContain("private");
   });

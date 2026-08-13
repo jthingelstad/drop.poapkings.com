@@ -25,6 +25,7 @@ import Profile from './screens/Profile'
 import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import Privacy from './screens/Privacy'
+import FairPlay from './screens/FairPlay'
 import MetaPage from './screens/MetaPage'
 import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
@@ -67,6 +68,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/players', label: 'Player profile' },
   { match: '/settings', label: 'Settings' },
   { match: '/privacy', label: 'Privacy' },
+  { match: '/fair-play', label: 'Fair Play' },
   { match: '/about', label: 'About' },
   { match: '/releases', label: 'Releases' },
   { match: '/faq', label: 'FAQ' },
@@ -100,6 +102,26 @@ function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
         <p class="lede">Pick a favorite card and one of its generated names before your first recorded game.</p>
         <button class="btn btn--gold" onClick={() => navigate(profileRouteForGame(returnTo))}>
           Choose favorite card
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RankedAccessRestricted() {
+  return (
+    <div class="main-content account-screen">
+      <div class="account-card">
+        <div class="eyebrow">Fair Play decision</div>
+        <h1>Ranked access restricted</h1>
+        <p class="lede">
+          You can still use Practice and view your account. Read how decisions work or request a re-review.
+        </p>
+        <button class="btn btn--gold" onClick={() => navigate('/practice')}>
+          Open Practice
+        </button>
+        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/fair-play')}>
+          Read Fair Play
         </button>
       </div>
     </div>
@@ -141,6 +163,9 @@ function ScreenContent({ r }: { r: string }) {
   ) {
     return <ProfileRequired returnTo={gamePath} />
   }
+  if (gamePath && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
+    return <RankedAccessRestricted />
+  }
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
@@ -155,6 +180,7 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/profile')) return <Profile />
   if (r.startsWith('/leaderboards')) return <Leaderboards />
   if (r.startsWith('/privacy')) return <Privacy />
+  if (r.startsWith('/fair-play')) return <FairPlay />
   if (r.startsWith('/about')) return <MetaPage kind="about" />
   if (r.startsWith('/releases')) return <MetaPage kind="releases" />
   if (r.startsWith('/faq')) return <MetaPage kind="faq" />

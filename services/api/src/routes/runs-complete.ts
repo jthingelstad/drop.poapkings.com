@@ -218,15 +218,19 @@ async function recordSignedInRun(
   const leaderReviewSignals: string[] = [];
   if (run.ranked !== false) {
     try {
+      if (
+        await repository.wouldLeadSeason(run.mode, season.id, score, tiebreaks)
+      )
+        leaderReviewSignals.push("new_season_leader_pending_review");
       if (await repository.wouldLeadAllTime(run.mode, score, tiebreaks))
         leaderReviewSignals.push("new_all_time_leader_pending_review");
     } catch (error) {
-      console.warn("All-time leader review check failed closed", {
+      console.warn("Leader review check failed closed", {
         runId: run.runId,
         mode: run.mode,
         error: error instanceof Error ? error.name : "unknown",
       });
-      leaderReviewSignals.push("all_time_leader_check_unavailable");
+      leaderReviewSignals.push("leader_review_check_unavailable");
     }
   }
 

@@ -19,10 +19,15 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { GAME_MODES, type GameMode } from "@elixir-drop/contracts";
+import {
+  GAME_MODES,
+  runReference as contractRunReference,
+  type GameMode,
+} from "@elixir-drop/contracts";
 import {
   MODE_RULES,
   isLeaderboardEligibleScore,
@@ -54,10 +59,12 @@ import {
   RANKED_MODES,
   TABLE_NAME,
   bestVisibleRun,
+  findEvidenceByRunId,
   isLeaderboardEligibleScore as scriptsIsLeaderboardEligibleScore,
   leaderboardPartition as scriptsLeaderboardPartition,
   leaderboardSortKey as scriptsLeaderboardSortKey,
   resolveAllTimeEarningRun,
+  runReference as scriptsRunReference,
   rowSortKey,
   sanitize,
   sanitizeRecord,
@@ -68,6 +75,32 @@ import {
 const UNRANKED_MODES = new Set(["practice"]);
 
 const SEASON_ID = "2026-07";
+
+it("keeps player-facing run references stable across the app and referee tools", () => {
+  const runId = "7b89d7fa-3ad6-4fa8-9048-2f7a96d85488";
+  const reference = contractRunReference(runId);
+  expect(reference).toBe("#DN928DNM1CQ");
+  expect(reference).toMatch(/^#D[0-9A-HJKMNP-TV-Z]{10}$/);
+  expect(scriptsRunReference(runId)).toBe(reference);
+  expect(contractRunReference(runId)).toBe(reference);
+});
+
+it("resolves a player-facing run reference back to retained evidence", async () => {
+  const runId = "7b89d7fa-3ad6-4fa8-9048-2f7a96d85488";
+  const evidence = { runId, sk: `EVIDENCE#2026-08-12#${runId}` };
+  const referenceSend = vi.fn(async (command: unknown) => {
+    expect(command).toBeInstanceOf(ScanCommand);
+    return { Items: [evidence] };
+  });
+
+  await expect(
+    findEvidenceByRunId({ send: referenceSend }, contractRunReference(runId)),
+  ).resolves.toEqual(evidence);
+  const scan = referenceSend.mock.calls[0]?.[0] as ScanCommand;
+  expect(scan.input).toMatchObject({
+    FilterExpression: "begins_with(sk, :evidence)",
+  });
+});
 
 type Item = Record<string, unknown>;
 

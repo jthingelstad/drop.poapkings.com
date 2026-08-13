@@ -73,6 +73,16 @@ export async function seasonPodiumFinishers(
   );
 }
 
+// Completion-time eligibility check for a strict new season leader. It reuses
+// the same referee-aware, per-player ranking path as the public board.
+export async function seasonLeaderboardLeader(
+  tableName: string,
+  mode: GameMode,
+  seasonId: string,
+): Promise<BoardItem | undefined> {
+  return (await seasonLeaderboardItems(tableName, mode, seasonId, 1))[0];
+}
+
 async function seasonLeaderboardItems(
   tableName: string,
   mode: GameMode,

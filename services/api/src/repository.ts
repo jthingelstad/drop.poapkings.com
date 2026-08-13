@@ -31,6 +31,7 @@ import {
   clanAllTimeLeaderboard,
   refereeDecisions as loadRefereeDecisions,
   seasonLeaderboard,
+  seasonLeaderboardLeader,
 } from "./leaderboards.js";
 import { seasonPodiumFinishers } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
@@ -47,6 +48,8 @@ import type {
   CrProfileSnapshot,
   PlayerProfile,
   PublicProfile,
+  RankedAccessDecision,
+  RankedAccessStatus,
   RunChallenge,
   RunRecord,
   RefereeDecision,
@@ -1130,6 +1133,18 @@ export class Repository {
     return result.Item as RunItem | undefined;
   }
 
+  async rankedAccess(playerId: string): Promise<RankedAccessStatus> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `REFEREE#PLAYER#${playerId}`, sk: "CURRENT" },
+        ConsistentRead: true,
+      }),
+    );
+    const decision = result.Item as RankedAccessDecision | undefined;
+    return decision?.status === "restricted" ? "restricted" : "allowed";
+  }
+
   // Referee-grade evidence, written best-effort by the caller after a recorded
   // ranked completion (accepted or quarantined) or an unscored signed-in
   // attempt. A plain put (no condition): the evidence sk embeds
@@ -1742,6 +1757,23 @@ export class Repository {
   ): Promise<boolean> {
     if (!isLeaderboardEligibleScore(score)) return false;
     const leader = await allTimeLeaderboardLeader(this.tableName, mode);
+    return (
+      !leader || isStrictlyBetterPerformance(mode, score, tiebreaks, leader)
+    );
+  }
+
+  async wouldLeadSeason(
+    mode: GameMode,
+    seasonId: string,
+    score: number,
+    tiebreaks: RunTiebreaks | undefined,
+  ): Promise<boolean> {
+    if (!isLeaderboardEligibleScore(score)) return false;
+    const leader = await seasonLeaderboardLeader(
+      this.tableName,
+      mode,
+      seasonId,
+    );
     return (
       !leader || isStrictlyBetterPerformance(mode, score, tiebreaks, leader)
     );

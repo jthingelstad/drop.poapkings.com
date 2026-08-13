@@ -9,6 +9,13 @@ the exact backlog and do not call the review complete.
 Practice and guest play can provide benign context but can never be ranked violations.
 Top players are expected to look exceptional. Exceptional is not the same as automated.
 
+Ranked play requires a person to deliberately choose each answer through Drop's game
+controls. Reading or modifying the open-source client is not itself a violation. Scripts,
+bots, automatic answer selection, direct API play, replayed requests, and falsified timing
+evidence are ineligible for rankings. Built-in settings, including Reduce motion and
+Speedrun keyboard, and ordinary accessibility tools remain allowed when the player makes
+each choice.
+
 ## Required evidence
 
 A responsible decision requires exact server-side evidence, never a reconstructed
@@ -89,9 +96,36 @@ Hiding is immediate but reversible. It never deletes or changes a run, score,
 transcript, evidence, unrelated result, or account. A later audited `visible` decision
 restores the exact run at its correct rank.
 
+Player-visible status uses explicit text with the agreed marks: `🔎 Pending`, `✅
+Reviewed`, and `🚫 Excluded`. Pending and excluded runs stay private to their owner;
+only a reviewed visible run carries a public status. Private dispositions, signals, and
+reasons never leave the referee surface. Every referee-excluded run also requires one
+approved player-reason category. The API turns that category into a concise owner-only
+sentence beneath the run; arbitrary referee notes are never exposed.
+
+## Ranked-access enforcement and re-review
+
+Run adjudication and account enforcement are separate decisions. A hidden run never
+restricts an account by itself. Repeated confirmed automation across reviewed runs, or
+one decisive case of challenge/timing tampering, may justify a reversible restriction on
+future ranked starts. That action requires Jamie's explicit approval through the
+sanctioned ranked-access script; the scheduled referee may not infer or apply it. Practice,
+account access, history, and the evidence required for re-review remain available.
+
+Do not delete an account as enforcement. Deletion destroys the active evidence and audit
+context and makes reversal impossible. A player may request re-review through
+`elixir@poapkings.com`; a later approved `visible` decision restores the run, and a
+separate approved `allowed` decision restores ranked access. Public surfaces describe the
+status and process without publishing accusations or private evidence.
+
 Automatic scorer or integrity output is triage, not authority. A flagged run with a
 deterministic score can be retained under hidden review and then confirmed or restored
 from exact evidence. An unscoreable attempt can be judged without inventing a rank.
+Both mechanisms use the server-issued run UUID internally and its deterministic `#D…`
+Drop run tag on player surfaces. A scoreable hold joins its immediate pending notice,
+history row, evidence, and decision; an unscoreable attempt joins the unrecorded notice
+to retained evidence but has no scored history row or leaderboard status. Referee tools
+accept either identifier and fail closed on an ambiguous short tag.
 Never treat words such as “invalid,” “impossible,” or “implausible” as a verdict.
 
 When a case exposes a systemic defect, persist its evidence-grounded decision first.

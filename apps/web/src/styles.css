@@ -4278,6 +4278,13 @@ html.reduce-motion .ed-game__bar-fill {
 .ed-sum__review strong {
   color: var(--ink);
 }
+.ed-sum__review-reference {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+}
 .ed-sum__review .ed-review-status {
   flex: none;
   margin-top: 0.15em;
@@ -5026,10 +5033,77 @@ html.reduce-motion .ed-duel__card {
 
 .ed-review-status {
   display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
   margin-inline-start: 0.35rem;
-  font-size: 0.82em;
-  line-height: 1;
-  vertical-align: 0.08em;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.15;
+  vertical-align: 0.06em;
+  white-space: nowrap;
+}
+.ed-review-status__label {
+  color: var(--muted);
+}
+.ed-review-status--reviewed .ed-review-status__label {
+  color: var(--green);
+}
+.ed-review-status--excluded .ed-review-status__label {
+  color: var(--red-3);
+}
+.ed-board__review-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 9px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(18, 13, 40, 0.48);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.ed-board__review-key .ed-review-status {
+  margin-inline-start: 0;
+}
+.ed-board__review-key .ed-textlink {
+  margin-inline-start: auto;
+}
+.ed-fair-play-statuses {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+.ed-fair-play-statuses li {
+  display: grid;
+  grid-template-columns: minmax(5.8rem, auto) 1fr;
+  align-items: start;
+  gap: 0.75rem;
+}
+.ed-fair-play-statuses .ed-review-status {
+  margin-inline-start: 0;
+  padding-top: 0.15rem;
+  font-size: 0.72rem;
+}
+.ed-profile__ranked-restriction {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 117, 117, 0.34);
+  border-radius: 14px;
+  background: rgba(92, 24, 45, 0.34);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.ed-profile__ranked-restriction strong {
+  color: var(--ink);
+}
+.ed-profile__ranked-restriction .ed-textlink {
+  justify-self: start;
+  padding: 0;
 }
 .ed-lbrow__time {
   display: block;
@@ -5330,6 +5404,24 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 700;
+}
+.ed-review-details {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  border-top: 1px solid rgba(215, 200, 255, 0.1);
+}
+.ed-review-reference {
+  display: block;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+  overflow-wrap: anywhere;
+}
+.ed-review-explanation {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 .ed-profile__recent-empty {
   color: var(--muted);

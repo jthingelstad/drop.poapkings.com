@@ -1,10 +1,14 @@
 import { expect, isDesktopViewport, test } from './fixtures'
 
-test('About, Releases, FAQ, and Privacy share one stable responsive page layout', async ({ page, viewport }) => {
+test('About, Releases, FAQ, Fair Play, and Privacy share one stable responsive page layout', async ({
+  page,
+  viewport
+}) => {
   const routes = [
     { hash: 'about', title: 'About Elixir Drop' },
     { hash: 'releases', title: 'Release history' },
     { hash: 'faq', title: 'Frequently asked' },
+    { hash: 'fair-play', title: 'Fair Play' },
     { hash: 'privacy', title: 'What Drop keeps—and why' }
   ] as const
   let referencePage: { left: number; width: number } | null = null
@@ -51,8 +55,8 @@ test('About, Releases, FAQ, and Privacy share one stable responsive page layout'
   }
 
   await page.getByRole('button', { name: 'Back', exact: true }).click()
-  await expect(page).toHaveURL(/\/#\/faq$/)
-  await expect(page.getByRole('heading', { name: 'Frequently asked', exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/#\/fair-play$/)
+  await expect(page.getByRole('article').getByRole('heading', { name: 'Fair Play', exact: true })).toBeVisible()
 })
 
 test('the meta entry points link to the Elixir Drop Discord', async ({ page, viewport }) => {

@@ -14,6 +14,11 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
     tiebreaks?: number | readonly number[],
   ): string;
   export function isLeaderboardEligibleScore(score: number): boolean;
+  export function runReference(runId: string): string;
+  export function findEvidenceByRunId(
+    doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
+    runIdentifier: string,
+  ): Promise<Record<string, unknown> | undefined>;
   export function rowSortKey(
     row: Record<string, unknown>,
     mode: string,

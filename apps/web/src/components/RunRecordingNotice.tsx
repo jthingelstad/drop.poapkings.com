@@ -23,7 +23,7 @@ export default function RunRecordingNotice() {
         </span>
         <div>
           <strong>{notice.message}</strong>
-          {notice.state === 'error' && <small>{notice.detail}</small>}
+          {'detail' in notice && notice.detail && <small>{notice.detail}</small>}
         </div>
         {notice.state === 'error' && (
           <button class="btn btn--gold btn--sm" onClick={notice.action}>

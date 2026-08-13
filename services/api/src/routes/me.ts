@@ -18,6 +18,7 @@ import { normalizePlayerTag } from "../validation.js";
 import {
   bodyOf,
   clientIpHash,
+  ownerRunReviewExplanation,
   ownerRunReviewStatus,
   profileResponse,
   refreshedCrProfile,
@@ -38,7 +39,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
       "Player profile was not found.",
       "profile_not_found",
     );
-  const [recentRuns, crProfile, cardStats] = await Promise.all([
+  const [recentRuns, crProfile, cardStats, rankedAccess] = await Promise.all([
     repository.listRecentRuns(session.sub),
     profile.playerTag ? repository.getCrProfile(profile.playerTag) : undefined,
     // Best-effort like every other side lookup here — but logged, so a
@@ -51,6 +52,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
       });
       return {};
     }),
+    repository.rankedAccess(profile.playerId),
   ]);
   const badges = await badgeSummary(
     { event, config, repository },
@@ -62,7 +64,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
     recentRuns.map((run) => run.runId),
   );
   return json(200, {
-    player: profileResponse(profile, crProfile),
+    player: profileResponse(profile, crProfile, rankedAccess),
     // Retain server-owned learning history for possible future coaching.
     // It is derived from validated transcripts and does not affect deals.
     learning: {
@@ -76,12 +78,14 @@ export async function getMe({ event, config, repository }: RouteContext) {
     // retired-mode row would fail the whole /me response.
     recentRuns: recentRuns
       .filter((run) => isGameMode(run.mode))
-      .map((run) =>
-        runRecordResponse(
+      .map((run) => {
+        const decision = recentDecisions.get(run.runId);
+        return runRecordResponse(
           run,
-          ownerRunReviewStatus(recentDecisions.get(run.runId)),
-        ),
-      ),
+          ownerRunReviewStatus(decision),
+          ownerRunReviewExplanation(decision),
+        );
+      }),
   });
 }
 
@@ -100,9 +104,14 @@ export async function getMySeasons({
   const decisions = await repository.refereeDecisions(
     history.map((run) => run.runId),
   );
-  const runs = history.map((run) =>
-    runRecordResponse(run, ownerRunReviewStatus(decisions.get(run.runId))),
-  );
+  const runs = history.map((run) => {
+    const decision = decisions.get(run.runId);
+    return runRecordResponse(
+      run,
+      ownerRunReviewStatus(decision),
+      ownerRunReviewExplanation(decision),
+    );
+  });
   const grouped = new Map<string, typeof runs>();
   for (const run of runs) {
     const season = grouped.get(run.seasonId) ?? [];
@@ -384,5 +393,8 @@ export async function patchMe({ event, config, repository }: RouteContext) {
         )
       : await repository.getCrProfile(profile.playerTag)
     : undefined;
-  return json(200, { player: profileResponse(profile, crProfile) });
+  const rankedAccess = await repository.rankedAccess(profile.playerId);
+  return json(200, {
+    player: profileResponse(profile, crProfile, rankedAccess),
+  });
 }

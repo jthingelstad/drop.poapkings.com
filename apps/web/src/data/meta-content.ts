@@ -63,7 +63,7 @@ export const ABOUT: AboutContent = {
     },
     {
       title: 'Play, improve, compete',
-      body: 'Every ranked run is scored and stacked against the seasonal leaderboards. It’s free, it runs in your browser, and it plays best installed to your home screen.'
+      body: 'Eligible ranked scores compete on seasonal and all-time leaderboards. Leading or technically unusual results may wait for Fair Play review before receiving a placement. It’s free, it runs in your browser, and it plays best installed to your home screen.'
     }
   ],
   disclaimer:
@@ -100,7 +100,11 @@ export const FAQ: FaqContent = {
     },
     {
       q: 'What counts for the leaderboards?',
-      a: 'Every ranked mode has its own board, split by season and all-time. Practice runs never count.'
+      a: 'Signed-in scores from ranked modes are eligible for season and all-time boards. Guest and Practice runs never rank. Leading or technically unusual results can wait for Fair Play review before placement.'
+    },
+    {
+      q: 'What do the Fair Play marks mean?',
+      a: '🔎 Pending has no placement yet. ✅ Reviewed remains eligible. 🚫 Excluded is not ranked, so the player’s next eligible result may appear instead. The run owner also sees its reference and a brief explanation for an exclusion. Automatic checks start review but do not decide it.'
     },
     {
       q: 'Is Elixir Drop made by Supercell?',

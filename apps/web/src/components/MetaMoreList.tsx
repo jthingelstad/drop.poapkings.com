@@ -19,6 +19,7 @@ const ROWS: Row[] = [
   { key: 'about', label: 'About', icon: 'info', to: '/about' },
   { key: 'releases', label: 'Releases', icon: 'sparkles', to: '/releases' },
   { key: 'faq', label: 'FAQ', icon: 'circle-help', to: '/faq' },
+  { key: 'fair-play', label: 'Fair Play', icon: 'scan-eye', to: '/fair-play' },
   { key: 'discord', label: 'Discord', icon: 'message-circle', href: ELIXIR_DROP_DISCORD_URL },
   { key: 'privacy', label: 'Privacy', icon: 'shield', to: '/privacy' }
 ]
@@ -27,7 +28,7 @@ export default function MetaMoreList() {
   const installRow: Row = standaloneApp.value
     ? { key: 'app-info', label: 'App Info', icon: 'info', to: '/app-info' }
     : { key: 'install', label: 'Install app', icon: 'download', to: '/install' }
-  const rows = [...ROWS.slice(0, 3), installRow, ...ROWS.slice(3)]
+  const rows = [...ROWS.slice(0, 4), installRow, ...ROWS.slice(4)]
 
   return (
     <div class="ed-morelist">

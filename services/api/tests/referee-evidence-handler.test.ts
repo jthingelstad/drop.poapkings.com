@@ -16,6 +16,7 @@ const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   updateAllTimeBest: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
+  wouldLeadSeason: vi.fn(async () => false),
   saveCardStats: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   putRefereeEvidence: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("../src/repository.js", () => ({
     completeRun = repository.completeRun;
     updateAllTimeBest = repository.updateAllTimeBest;
     wouldLeadAllTime = repository.wouldLeadAllTime;
+    wouldLeadSeason = repository.wouldLeadSeason;
     saveCardStats = repository.saveCardStats;
     getCardStats = repository.getCardStats;
     putRefereeEvidence = repository.putRefereeEvidence;
@@ -136,6 +138,8 @@ describe("referee evidence write path", () => {
     repository.getCrProfile.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.putRefereeEvidence.mockResolvedValue(undefined);
+    repository.wouldLeadAllTime.mockResolvedValue(false);
+    repository.wouldLeadSeason.mockResolvedValue(false);
   });
 
   it("writes ranked evidence for an accepted ranked completion", async () => {
@@ -251,6 +255,61 @@ describe("referee evidence write path", () => {
       expect.objectContaining({
         runId: "run-new-leader",
         reviewSignals: ["new_all_time_leader_pending_review"],
+      }),
+    );
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
+  });
+
+  it("holds a new season leader until the referee reviews it", async () => {
+    const runToken = signToken(
+      {
+        type: "run",
+        runId: "run-new-season-leader",
+        owner: profile.sub,
+        mode: "surge",
+        iat: nowSeconds - 60,
+        exp: nowSeconds + 1_800,
+      },
+      secret,
+    );
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-new-season-leader",
+      sk: "RUN",
+      runId: "run-new-season-leader",
+      owner: profile.sub,
+      mode: "surge",
+      challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
+      state: "started",
+      startedAt: new Date(Date.now() - 30_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-18T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5 },
+    });
+    repository.wouldLeadSeason.mockResolvedValueOnce(true);
+
+    const response = (await handler(
+      signedInEvent({ runToken, transcript: surgeTranscript(350) }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-new-season-leader" }),
+      expect.any(Number),
+      expect.any(String),
+      expect.any(Number),
+      undefined,
+      "new_season_leader_pending_review",
+    );
+    expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-new-season-leader",
+        reviewSignals: ["new_season_leader_pending_review"],
       }),
     );
     expect(publishDiscordEvent).not.toHaveBeenCalled();
