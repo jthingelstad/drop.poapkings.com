@@ -19,6 +19,10 @@ import {
   clearStaleLease,
   releaseLease,
 } from "../AGENT-TEAM/scripts/objective-lease.mjs";
+import {
+  createVerifiedDocumentClient,
+  REFEREE_ROLE_NAME,
+} from "../AGENT-TEAM/scripts/_referee-lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
@@ -346,4 +350,43 @@ void test("automation registry passes the common contract audit", () => {
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /OK\s+registry\s+3 objective owners/);
+});
+
+void test("referee data clients require the bounded assumed role", async () => {
+  let dataClientCreated = false;
+  const createDataClient = () => {
+    dataClientCreated = true;
+    return { verified: true };
+  };
+
+  await assert.rejects(
+    createVerifiedDocumentClient({
+      region: "us-east-1",
+      identityClient: {
+        send: async () => ({
+          Account: "999153317627",
+          Arn: "arn:aws:iam::999153317627:user/deploy",
+        }),
+      },
+      documentClientFactory: createDataClient,
+    }),
+    new RegExp(`assumed-role session for ${REFEREE_ROLE_NAME}`),
+  );
+  assert.equal(dataClientCreated, false);
+
+  const dataClient = await createVerifiedDocumentClient({
+    region: "us-east-1",
+    identityClient: {
+      send: async (command) => {
+        assert.equal(command.constructor.name, "GetCallerIdentityCommand");
+        return {
+          Account: "999153317627",
+          Arn: `arn:aws:sts::999153317627:assumed-role/${REFEREE_ROLE_NAME}/test-session`,
+        };
+      },
+    },
+    documentClientFactory: createDataClient,
+  });
+  assert.deepEqual(dataClient, { verified: true });
+  assert.equal(dataClientCreated, true);
 });

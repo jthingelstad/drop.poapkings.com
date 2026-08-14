@@ -29,7 +29,7 @@ const sinceTime = Date.parse(since);
 if (Number.isNaN(sinceTime))
   failClosed("invalid_since", "--since must be an ISO timestamp");
 
-const doc = client();
+const doc = await client();
 const seasonId = await currentSeasonId(doc);
 
 const entries = [];

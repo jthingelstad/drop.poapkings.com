@@ -41,7 +41,7 @@ if (approvedBy !== "jamie")
 if (reason.length < 12 || reason.length > 1_000)
   failClosed("invalid_reason", "--reason must contain 12..1000 characters");
 
-const doc = client();
+const doc = await client();
 let subject;
 let previous;
 const key = { pk: `REFEREE#PLAYER#${playerId}`, sk: "CURRENT" };

@@ -34,7 +34,7 @@ if (scope !== "season" && scope !== "all-time")
 if (!Number.isInteger(limit) || limit < 1 || limit > 200)
   failClosed("invalid_limit", "--limit must be 1..200");
 
-const doc = client();
+const doc = await client();
 
 const seasonId =
   scope === "all-time"

@@ -12,6 +12,7 @@
 //     `{ "status": "insufficient_evidence", ... }` object and exit non-zero.
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import {
   BatchGetCommand,
   DynamoDBDocumentClient,
@@ -186,17 +187,53 @@ const FORBIDDEN_KEY_SET = new Set(FORBIDDEN_KEYS);
 
 let cachedDoc;
 
+export const REFEREE_ROLE_NAME = "elixir-drop-referee-read";
+
+function isExpectedRefereeIdentity(identity) {
+  const arn = typeof identity?.Arn === "string" ? identity.Arn : "";
+  const account = typeof identity?.Account === "string" ? identity.Account : "";
+  const match = arn.match(
+    /^arn:(?:aws|aws-cn|aws-us-gov):sts::(\d{12}):assumed-role\/([^/]+)\/[^/]+$/,
+  );
+  return Boolean(
+    match && match[1] === account && match[2] === REFEREE_ROLE_NAME,
+  );
+}
+
+export async function createVerifiedDocumentClient({
+  region,
+  identityClient = new STSClient({ region }),
+  documentClientFactory = () =>
+    DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
+      marshallOptions: { removeUndefinedValues: true },
+    }),
+} = {}) {
+  const identity = await identityClient.send(new GetCallerIdentityCommand({}));
+  if (!isExpectedRefereeIdentity(identity)) {
+    throw new Error(
+      `AWS caller must be an assumed-role session for ${REFEREE_ROLE_NAME}`,
+    );
+  }
+  return documentClientFactory();
+}
+
 // A DynamoDB document client using the ambient AWS credential chain (the host
-// is expected to have assumed the bounded RefereeReadRole). Fails closed if no
-// region is configured.
-export function client() {
+// must have assumed the bounded RefereeReadRole). The caller identity is
+// verified before the DynamoDB client is created. Fails closed if the role or
+// region cannot be verified.
+export async function client() {
   if (cachedDoc) return cachedDoc;
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
   if (!region)
     failClosed("no_aws_region", "Set AWS_REGION for the referee host");
-  cachedDoc = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
-    marshallOptions: { removeUndefinedValues: true },
-  });
+  try {
+    cachedDoc = await createVerifiedDocumentClient({ region });
+  } catch (error) {
+    failClosed(
+      "untrusted_aws_identity",
+      error instanceof Error ? error.message : "Unable to verify AWS caller",
+    );
+  }
   return cachedDoc;
 }
 

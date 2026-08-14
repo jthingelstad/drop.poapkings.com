@@ -20,7 +20,7 @@ const limit = Number(flags.limit || 200);
 if (!Number.isInteger(limit) || limit < 1 || limit > 1_000)
   failClosed("invalid_limit", "--limit must be 1..1000");
 
-const doc = client();
+const doc = await client();
 const decisions = [];
 let lastKey;
 try {

@@ -111,7 +111,7 @@ if ((pending || visibility !== "hidden") && playerExplanationCode)
     "--player-reason is only valid for a referee-excluded hidden run",
   );
 
-const doc = client();
+const doc = await client();
 let evidence;
 let previous;
 let playerId;

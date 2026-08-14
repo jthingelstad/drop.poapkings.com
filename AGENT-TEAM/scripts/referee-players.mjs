@@ -42,7 +42,7 @@ async function scan(filter, names, values, projection) {
   return rows;
 }
 
-const doc = client();
+const doc = await client();
 let profiles;
 let runs;
 let badges;

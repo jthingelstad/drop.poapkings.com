@@ -29,7 +29,7 @@ const runIdentifier = positional[0];
 if (!runIdentifier)
   failClosed("missing_run_id", "usage: referee-run.mjs <runId-or-reference>");
 
-const doc = client();
+const doc = await client();
 
 let evidence;
 try {

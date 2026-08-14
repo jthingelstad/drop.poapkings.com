@@ -83,9 +83,12 @@ is what you will see. `infra/tests/parameters.test.mjs` asserts both the read an
 write bounds, so widening them is a deliberate, reviewed change.
 
 The scripts use the ambient AWS credential chain, so assume the role first
-(e.g. `AWS_PROFILE=referee-read`, or an `sts assume-role` session). Even though
-the managed host has broader access, assuming the bounded identity means a
-script bug cannot write outside the referee-owned decision partitions.
+(e.g. `AWS_PROFILE=referee-read`, or an `sts assume-role` session). Every
+entrypoint calls `sts:GetCallerIdentity` before creating its DynamoDB client and
+fails closed unless the caller is an assumed-role session for
+`elixir-drop-referee-read`. Even though the managed host has broader access,
+assuming and verifying the bounded identity means a script bug cannot write
+outside the referee-owned decision partitions.
 Configuration:
 
 - `AWS_REGION` (required — fails closed if unset).

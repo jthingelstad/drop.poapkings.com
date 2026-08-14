@@ -26,7 +26,7 @@ const playerId = positional[0];
 if (!playerId)
   failClosed("missing_player_id", "usage: referee-player.mjs <playerId>");
 
-const doc = client();
+const doc = await client();
 
 let sub;
 try {

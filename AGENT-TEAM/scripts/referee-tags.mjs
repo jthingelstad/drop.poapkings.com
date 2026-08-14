@@ -15,7 +15,7 @@ import {
   TABLE_NAME,
 } from "./_referee-lib.mjs";
 
-const doc = client();
+const doc = await client();
 
 const byTag = new Map();
 let lastKey;
