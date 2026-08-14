@@ -3967,9 +3967,22 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   min-height: 0;
 }
 
+/* Active play needs the fixed inner viewport below; completed summaries do
+   not. Let the document own result-page scrolling so standalone iOS WebKit
+   cannot retain a stale nested scroll range until the PWA is resumed. */
+.ed-mobile--game:has(> .ed-mobile__scroll--game > .ed-gamewrap) {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.ed-mobile__scroll--game:has(> .ed-gamewrap) {
+  flex: 0 0 auto;
+  overflow-y: visible;
+}
+
 /* Game roots fill only the space left by a status banner. A fixed-height game
-   shell keeps short Safari viewports from growing to their contents, while
-   summaries (which render as .ed-gamewrap) can still scroll normally. */
+   shell keeps short Safari viewports from growing to their contents; the rule
+   above returns completed summaries to document flow. */
 .ed-mobile__scroll--game > .ed-game {
   flex: 1;
   height: auto;

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cardsData, expect, test, testApiBaseUrl, testStats } from './fixtures'
+import { cardsData, expect, test, testApiBaseUrl, testStats, waitForKeypad } from './fixtures'
 
 // Turn the setting on the way a player would leave it: written to the settings
 // blob before the app boots. PipKeypad reads it fresh when it mounts.
@@ -131,6 +131,63 @@ test.describe('mobile timed-mode controls', () => {
         )
       )
       expect(controlsFit, `speedrun keypad overflows on ${hash}`).toBe(true)
+    }
+  })
+
+  test('keeps completed summary actions reachable in an installed-app viewport', async ({ page }, testInfo) => {
+    await page.goto('/#/surge')
+    // Standalone iPhones reserve the status-bar inset inside the fixed game
+    // shell. The CSS token is the existing deterministic seam for that space.
+    await page.evaluate(() => document.documentElement.style.setProperty('--ed-safe-area-top', '47px'))
+    await waitForKeypad(page)
+    // Use the supported number-key path to reach the summary. Pointer/touch
+    // sequencing has its own regression coverage; this test owns layout only.
+    for (let index = 0; index < 15; index += 1) {
+      const cardName = await page.locator('.pcard__img').getAttribute('alt')
+      const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+      expect(card).toBeTruthy()
+      await page.keyboard.press(String(card!.elixir))
+      if (index < 14) {
+        await expect(page.locator('.ed-game__progress')).toHaveText(`Card ${index + 2} / 15`)
+      }
+    }
+    await expect(page.locator('.ed-sum')).toBeVisible()
+
+    const summary = page.locator('.ed-gamewrap')
+    const actions = summary.locator('.ed-sum__actions')
+    const replay = actions.getByRole('button', { name: 'Play again' })
+    const home = actions.getByRole('button', { name: 'Home' })
+    const geometry = await summary.evaluate((element) => {
+      const scroller = element.parentElement
+      const actionBlock = element.querySelector<HTMLElement>('.ed-sum__actions')
+      const wrapperBounds = element.getBoundingClientRect()
+      const actionBounds = actionBlock?.getBoundingClientRect()
+      return {
+        containsActions: !!actionBounds && actionBounds.bottom <= wrapperBounds.bottom + 1,
+        nestedScrollRange: Math.max(0, (scroller?.scrollHeight ?? 0) - (scroller?.clientHeight ?? 0)),
+        documentScrollRange: Math.max(0, (document.scrollingElement?.scrollHeight ?? 0) - window.innerHeight)
+      }
+    })
+
+    // Active play needs a fixed nested shell, but a completed summary does not.
+    // iOS standalone WebKit can leave a dynamically populated nested scroll
+    // range stale until the PWA is suspended and resumed, hiding these actions.
+    expect(geometry.containsActions).toBe(true)
+    expect(geometry.nestedScrollRange).toBeLessThanOrEqual(1)
+    expect(geometry.documentScrollRange).toBeGreaterThan(0)
+
+    await actions.scrollIntoViewIfNeeded()
+    const actionBounds = await actions.boundingBox()
+    expect(actionBounds).not.toBeNull()
+    expect(actionBounds!.y).toBeGreaterThanOrEqual(0)
+    expect(actionBounds!.y + actionBounds!.height).toBeLessThanOrEqual(665)
+    await expect(replay).toBeVisible()
+    await expect(home).toBeVisible()
+    if (testInfo.project.name === 'iphone-14') {
+      await testInfo.attach('completed-summary-actions.png', {
+        body: await page.screenshot({ fullPage: false }),
+        contentType: 'image/png'
+      })
     }
   })
 })
