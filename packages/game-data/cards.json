@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-12",
+  "version": "2026-08-14",
   "count": 120,
   "cards": [
     {
@@ -129,9 +129,10 @@
       "rarity": "rare",
       "type": "troop",
       "evo": true,
-      "hero": false,
+      "hero": true,
       "icon": "/cards/26000011.png",
-      "iconEvo": "/cards/26000011_evo.png"
+      "iconEvo": "/cards/26000011_evo.png",
+      "iconHero": "/cards/26000011_hero.png"
     },
     {
       "id": 26000012,
@@ -883,8 +884,9 @@
       "rarity": "common",
       "type": "troop",
       "evo": false,
-      "hero": false,
-      "icon": "/cards/26000102.png"
+      "hero": true,
+      "icon": "/cards/26000102.png",
+      "iconHero": "/cards/26000102_hero.png"
     },
     {
       "id": 26000103,

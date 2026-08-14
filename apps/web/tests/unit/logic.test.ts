@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { cardNameToneClass, cardRarityLabel, cardRarityModifier } from '../../src/lib/card-rendering'
 import { makeChoices } from '../../src/lib/choices'
 import { formatLeaderboardSeconds, formatSeconds } from '../../src/lib/format'
@@ -49,6 +51,20 @@ describe('learning helpers', () => {
       name: 'Void',
       elixir: 5
     })
+  })
+
+  it('keeps evolution and Hero flags aligned with their committed artwork', () => {
+    const cards = (rawCards as { cards: Card[] }).cards
+
+    for (const catalogCard of cards) {
+      expect(Boolean(catalogCard.iconEvo), `${catalogCard.name} evolution artwork`).toBe(catalogCard.evo)
+      expect(Boolean(catalogCard.iconHero), `${catalogCard.name} Hero artwork`).toBe(catalogCard.hero)
+
+      for (const icon of [catalogCard.icon, catalogCard.iconEvo, catalogCard.iconHero].filter(Boolean) as string[]) {
+        expect(icon, `${catalogCard.name} same-origin artwork`).toMatch(/^\/cards\/\d+(?:_(?:evo|hero))?\.png$/)
+        expect(existsSync(resolve(process.cwd(), 'public', icon.slice(1))), `${catalogCard.name} ${icon}`).toBe(true)
+      }
+    }
   })
 
   it('builds a window of four adjacent costs that contains the answer', () => {
