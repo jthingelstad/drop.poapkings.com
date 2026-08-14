@@ -31,6 +31,8 @@ import {
 } from "@elixir-drop/contracts";
 import {
   MODE_RULES,
+  boardEpochFor,
+  isCurrentBoardRun,
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
@@ -61,6 +63,7 @@ import {
   TABLE_NAME,
   bestVisibleRun,
   findEvidenceByRunId,
+  isCurrentBoardRun as scriptsIsCurrentBoardRun,
   isLeaderboardEligibleScore as scriptsIsLeaderboardEligibleScore,
   leaderboardPartition as scriptsLeaderboardPartition,
   leaderboardSortKey as scriptsLeaderboardSortKey,
@@ -188,6 +191,7 @@ function profileItem(sub: string): Item {
 // `indexed: false` is the real "no GSI1SK" case: a zero score, or a historical
 // `ranked: false` run in a ranked mode, never gets the sparse index attributes.
 interface RunTiebreakFixture {
+  boardEpoch?: string | null;
   timeMs?: number;
   // Higher/Lower's first tiebreak. Present only for that mode's rows.
   livesLost?: number;
@@ -219,6 +223,10 @@ function historyRun(
 ): Item {
   const { sub, runId, mode, score, completedAt } = options;
   const { timeMs, livesLost, wrongGuesses, avgLatencyMs } = options;
+  const boardEpoch =
+    options.boardEpoch === null
+      ? undefined
+      : (options.boardEpoch ?? boardEpochFor(mode));
   return {
     pk: `PLAYER#${sub}`,
     sk: `RUN#${completedAt}#${runId}`,
@@ -228,6 +236,7 @@ function historyRun(
     seasonId: SEASON_ID,
     completedAt,
     playerSub: sub,
+    ...(boardEpoch !== undefined ? { boardEpoch } : {}),
     ...(livesLost !== undefined ? { livesLost } : {}),
     ...(timeMs !== undefined ? { timeMs } : {}),
     ...(wrongGuesses !== undefined ? { wrongGuesses } : {}),
@@ -482,6 +491,36 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
     expect(scriptsLeaderboardPartition("2026-07", "trade")).toBe(
       "LEADERBOARD#2026-07#trade#r2",
     );
+  });
+
+  it("agrees with the API on current-board history across epoch cutovers", () => {
+    const samples = [
+      {
+        mode: "higher-lower" as GameMode,
+        boardEpoch: "r3",
+        completedAt: "2026-08-01T00:00:00.000Z",
+      },
+      {
+        mode: "higher-lower" as GameMode,
+        boardEpoch: "r2",
+        completedAt: "2026-08-14T00:00:00.000Z",
+      },
+      {
+        mode: "higher-lower" as GameMode,
+        completedAt: "2026-08-07T23:59:59.999Z",
+      },
+      {
+        mode: "higher-lower" as GameMode,
+        completedAt: "2026-08-08T09:05:51.000Z",
+      },
+      {
+        mode: "surge" as GameMode,
+        completedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    for (const sample of samples) {
+      expect(scriptsIsCurrentBoardRun(sample)).toBe(isCurrentBoardRun(sample));
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -815,6 +854,63 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
       expect(best?.score).toBe(fallback);
     },
   );
+
+  it("does not promote a retired ruleset when a current all-time best is hidden", async () => {
+    const mode = "higher-lower" as GameMode;
+    const table: Item[] = [
+      profileItem("alpha"),
+      allTimeBest({
+        sub: "alpha",
+        mode,
+        score: 60,
+        completedAt: "2026-08-14T12:00:00.000Z",
+        runId: "current-best",
+      }),
+      historyRun({
+        sub: "alpha",
+        runId: "current-best",
+        mode,
+        score: 60,
+        completedAt: "2026-08-14T12:00:00.000Z",
+        indexed: true,
+      }),
+      historyRun({
+        sub: "alpha",
+        runId: "current-fallback",
+        mode,
+        score: 53,
+        completedAt: "2026-08-12T12:00:00.000Z",
+        indexed: true,
+      }),
+      historyRun({
+        sub: "alpha",
+        runId: "retired-rules",
+        mode,
+        score: 87,
+        completedAt: "2026-08-07T12:00:00.000Z",
+        boardEpoch: "r2",
+        indexed: false,
+      }),
+      hiddenDecision("current-best"),
+    ];
+
+    const { api, referee } = await boardAgreement({
+      table,
+      mode,
+      scope: "all-time",
+      seasonId: "ALLTIME",
+      limit: 5,
+    });
+
+    expect(referee).toEqual(api);
+    expect(api).toEqual([
+      {
+        score: 53,
+        achievedAt: "2026-08-12T12:00:00.000Z",
+        playerId: "player-alpha",
+      },
+    ]);
+  });
 
   // -------------------------------------------------------------------------
   // 7. resolveAllTimeEarningRun

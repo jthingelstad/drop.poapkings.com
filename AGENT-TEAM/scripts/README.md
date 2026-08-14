@@ -126,6 +126,12 @@ fixed board ladder, so an eight-exchange time is both shorter and easier).
 **Keep this in sync with the API** — a stale mirror reads the wrong partition
 and silently returns an empty cohort.
 
+All-time visibility reconciliation also applies `isCurrentBoardRun` before it
+promotes a player's next-best history row. That history spans every ruleset, so
+an explicit `boardEpoch` must match the current epoch; legacy unstamped rows use
+the same verified cutover timestamp as the API. Without this filter, hiding a
+current leader can resurrect a stronger-looking score from a retired game.
+
 `MODE_TIEBREAKS` mirrors the ordered ascending tiebreaks each mode ranks equal
 scores by, named by the run attribute carrying each value: Survival `timeMs`;
 Higher/Lower `livesLost` then `timeMs`; Rain `wrongGuesses` then `avgLatencyMs`
@@ -134,10 +140,10 @@ against Rain's shared spawn curve — the client never reports it). **Array orde
 is ranking order**, and a wrong order or count rebuilds a different sort key than
 the API wrote, which re-ranks a board silently rather than failing.
 
-`_referee-lib.mjs` mirrors seven conventions in all: `RANKED_MODES`,
+`_referee-lib.mjs` mirrors eight conventions in all: `RANKED_MODES`,
 `BOARD_EPOCH`/`leaderboardPartition`, `MODE_DIRECTION` + `MODE_TIEBREAKS` +
 `leaderboardSortKey`/`rowSortKey`, `isLeaderboardEligibleScore`,
-`bestVisibleRun`, and `resolveAllTimeEarningRun` — plus the `FORBIDDEN_KEYS`
+`isCurrentBoardRun`, `bestVisibleRun`, and `resolveAllTimeEarningRun` — plus the `FORBIDDEN_KEYS`
 denylist that enforces Golden rule 7. Every one of them is guarded by
 `services/api/tests/referee-scripts-mirror.test.ts`, which runs both
 implementations over the same fixture table and compares the answers; drift in

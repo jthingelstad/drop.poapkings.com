@@ -2,6 +2,7 @@ import { BatchGetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { client } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
+  isCurrentBoardRun,
   isLeaderboardEligibleScore,
   leaderboardPartition,
   leaderboardSortKey,
@@ -453,6 +454,13 @@ async function bestVisibleRun(
         (item) =>
           item.mode === mode &&
           item.runId !== hiddenRunId &&
+          isCurrentBoardRun({
+            mode,
+            boardEpoch:
+              typeof item.boardEpoch === "string" ? item.boardEpoch : undefined,
+            completedAt:
+              typeof item.completedAt === "string" ? item.completedAt : "",
+          }) &&
           isLeaderboardEligibleScore(Number(item.score)),
       ),
     );

@@ -69,17 +69,31 @@ export const RANKED_MODES = [
 // "r3" on 2026-08-08 when its clock began tightening continuously, and Trade's
 // on 2026-07-25 when it went to ten exchanges on a fixed board ladder.
 const BOARD_EPOCH = {
-  survival: "r2",
-  rain: "r3",
-  "higher-lower": "r3",
-  trade: "r2",
+  survival: { id: "r2", startedAt: "2026-07-19T18:00:58.000Z" },
+  rain: { id: "r3", startedAt: "2026-07-25T15:45:05.000Z" },
+  "higher-lower": { id: "r3", startedAt: "2026-08-08T09:05:51.000Z" },
+  trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };
 
 export function leaderboardPartition(seasonId, mode) {
-  const epoch = BOARD_EPOCH[mode];
+  const epoch = BOARD_EPOCH[mode]?.id;
   return epoch
     ? `LEADERBOARD#${seasonId}#${mode}#${epoch}`
     : `LEADERBOARD#${seasonId}#${mode}`;
+}
+
+// Mirror of services/api/src/games.ts isCurrentBoardRun. Hidden all-time rows
+// are reconciled from immutable run history, which spans retired rule sets; a
+// fallback must remain on the board players can enter today. Explicit stamps
+// win, with the verified cutover used only for legacy unstamped history.
+export function isCurrentBoardRun(run) {
+  const current = BOARD_EPOCH[run.mode];
+  if (!current) return true;
+  if (run.boardEpoch !== undefined) return run.boardEpoch === current.id;
+  const completedAt = Date.parse(String(run.completedAt ?? ""));
+  return (
+    Number.isFinite(completedAt) && completedAt >= Date.parse(current.startedAt)
+  );
 }
 
 // Mirror of services/api/src/games.ts MODE_RULES[mode].direction — the only
@@ -430,6 +444,7 @@ export async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
         (item) =>
           item.mode === mode &&
           item.runId !== hiddenRunId &&
+          isCurrentBoardRun(item) &&
           isLeaderboardEligibleScore(Number(item.score)),
       ),
     );

@@ -14,6 +14,11 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
     tiebreaks?: number | readonly number[],
   ): string;
   export function isLeaderboardEligibleScore(score: number): boolean;
+  export function isCurrentBoardRun(run: {
+    mode: string;
+    boardEpoch?: string;
+    completedAt: string;
+  }): boolean;
   export function runReference(runId: string): string;
   export function playerReference(playerId: string): string;
   export function findEvidenceByRunId(
