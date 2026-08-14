@@ -331,6 +331,7 @@ describe('Profile interactive flows', () => {
         }
       },
       getNameOptions: vi.fn(),
+      getSeasonHistory: vi.fn(),
       patchMe: vi.fn(),
       deleteMe: vi.fn(),
       getMe: vi.fn(),
@@ -364,6 +365,7 @@ describe('Profile interactive flows', () => {
   // then overlay the desired player shape.
   async function signIn(overrides: Record<string, unknown> = {}): Promise<void> {
     vi.mocked(api.getMe).mockResolvedValue({ player: basePlayer, recentRuns: [] })
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({ index: [], seasons: [] })
     await act(async () => {
       await account.applyPolledSession({ token: 'live', expiresAt: FUTURE() })
     })
@@ -582,7 +584,6 @@ describe('Profile interactive flows', () => {
     vi.mocked(api.deleteMe).mockResolvedValue({ ok: true })
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
 
     await fire(container.querySelector('.ed-danger__open') as Element)
     const confirm = container.querySelector('#delete-confirmation') as HTMLInputElement
@@ -603,7 +604,6 @@ describe('Profile interactive flows', () => {
   it('cancels the delete flow with Keep my account', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     expect(container.querySelector('#delete-confirmation')).not.toBeNull()
 
@@ -616,7 +616,6 @@ describe('Profile interactive flows', () => {
     vi.mocked(api.deleteMe).mockRejectedValue(new Error('server refused'))
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     await typeInto(container.querySelector('#delete-confirmation') as HTMLInputElement, 'DELETE')
     await fire(container.querySelector('.ed-danger__confirm') as Element, 'submit')
@@ -633,8 +632,8 @@ describe('Profile interactive flows', () => {
 
     const preferences = container.querySelector('.ed-profile__preferences') as HTMLElement
     expect(preferences).not.toBeNull()
-    expect(preferences.previousElementSibling?.classList.contains('ed-profile__seasons')).toBe(true)
-    expect(preferences.nextElementSibling?.classList.contains('ed-profile__actions')).toBe(true)
+    expect(preferences.previousElementSibling?.classList.contains('ed-games')).toBe(true)
+    expect(preferences.nextElementSibling?.classList.contains('ed-profile__account')).toBe(true)
     expect(preferences.textContent).toContain('Game settings')
 
     const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
@@ -653,56 +652,122 @@ describe('Profile interactive flows', () => {
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(true)
   })
 
-  it('lists recent games and signs out from the profile view', async () => {
+  const historyRuns = [
+    {
+      runId: 'r1',
+      mode: 'surge' as const,
+      score: 12_500,
+      seasonId: '2026-07',
+      completedAt: '2026-07-19T00:00:00.000Z',
+      reviewStatus: 'pending' as const
+    },
+    {
+      runId: 'r2',
+      mode: 'survival' as const,
+      score: 8,
+      seasonId: '2026-07',
+      completedAt: '2026-07-18T00:00:00.000Z',
+      reviewStatus: 'excluded' as const
+    },
+    {
+      runId: 'r3',
+      mode: 'surge' as const,
+      score: 9_900,
+      seasonId: '2026-07',
+      completedAt: '2026-07-17T00:00:00.000Z'
+    }
+  ]
+
+  it('groups your games by month, seals each row, and signs out from the profile view', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    account.recentRuns.value = [
-      {
-        runId: 'r1',
-        mode: 'surge',
-        score: 12_500,
-        seasonId: '2026-07',
-        completedAt: '2026-07-19T00:00:00.000Z',
-        reviewStatus: 'pending'
-      },
-      {
-        runId: 'r2',
-        mode: 'survival',
-        score: 8,
-        seasonId: '2026-07',
-        completedAt: '2026-07-18T00:00:00.000Z',
-        reviewStatus: 'excluded'
-      }
-    ]
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: historyRuns.length }],
+      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+    })
     await mount()
 
-    // Scoped to the first list: the profile now renders a Seasons list with the
-    // same row markup underneath Recent games.
-    const items = container.querySelectorAll('.ed-profile__recent-list')[0]!.querySelectorAll('li')
-    expect(items).toHaveLength(2)
-    expect(container.textContent).toContain('Surge')
+    const rows = container.querySelectorAll('.ed-games__row')
+    expect(rows).toHaveLength(3)
+    expect(container.querySelector('.ed-games__month-head')?.textContent).toContain('3 games')
     expect(container.textContent).toContain('12.50s')
-    expect(container.querySelector('[aria-label="Review pending"]')).not.toBeNull()
-    expect(container.querySelector('[aria-label="Not included in rankings"]')).not.toBeNull()
-    const dispute = byText(container, 'Dispute this result') as HTMLAnchorElement
-    expect(dispute.getAttribute('href')).toBe(
-      `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('r2')}`)}`
-    )
+    // A run no referee touched wears no seal at all; only the held and the
+    // excluded run are marked.
+    expect(container.querySelectorAll('[aria-label="Referee cleared"]')).toHaveLength(0)
+    expect(container.querySelector('[aria-label="Awaiting referee"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Not ranked"]')).not.toBeNull()
+    expect(container.textContent).toContain('AWAITING')
+    expect(container.textContent).toContain('EXCLUDED')
 
     await fire(byText(container, 'Sign out') as Element)
     expect(account.accountStatus.value).toBe('anonymous')
     expect(container.textContent).toContain('Player profile')
   })
 
-  it('shows the empty recent-games hint when there are no runs', async () => {
+  it('counts each status in the tiles and toggles the filter from one', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    account.recentRuns.value = []
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: historyRuns.length }],
+      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+    })
     await mount()
 
-    expect(container.querySelector('.ed-profile__recent-list')).toBeNull()
+    const tiles = [...container.querySelectorAll('.ed-games__tile')]
+    // Cleared counts referee clearances only — the third run is unreviewed and
+    // belongs to none of the three tiles.
+    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+
+    const awaiting = container.querySelector('.ed-games__tile--pending') as HTMLButtonElement
+    await fire(awaiting)
+    expect(awaiting.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(1)
+    // Counts stay scoped to season and mode, never to the status being filtered.
+    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+
+    await fire(awaiting)
+    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(3)
+  })
+
+  it('opens a run detail with its reference and the dispute link for an excluded run', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: historyRuns.length }],
+      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+    })
+    await mount()
+
+    const excludedRow = [...container.querySelectorAll('.ed-games__row')].find((row) =>
+      row.textContent?.includes('EXCLUDED')
+    ) as HTMLButtonElement
+    await fire(excludedRow)
+
+    expect(container.textContent).toContain(`Run ${runReference('r2')}`)
+    const dispute = byText(container, 'Dispute this result') as HTMLAnchorElement
+    expect(dispute.getAttribute('href')).toBe(
+      `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('r2')}`)}`
+    )
+  })
+
+  it('leaves the run reference off a game no referee has touched', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: 1 }],
+      seasons: [{ id: '2026-07', games: 1, runs: [historyRuns[2]] }]
+    })
+    await mount()
+
+    await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
+    expect(container.textContent).not.toContain(`Run ${runReference('r3')}`)
+  })
+
+  it('shows the empty games hint when there are no runs', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    await mount()
+
+    expect(container.querySelector('.ed-games__row')).toBeNull()
     // Art, a heading, a line, and a button that actually goes somewhere.
     expect(container.textContent).toContain('Nothing played yet')
     expect(container.textContent).toContain('Your finished games land here, newest first.')
-    const art = container.querySelector<HTMLImageElement>('.ed-profile__games .ed-empty__art')
+    const art = container.querySelector<HTMLImageElement>('.ed-games .ed-empty__art')
     expect(art?.getAttribute('src')).toBe('/assets/empty/empty-runs-512.png')
     expect(byText(container, 'Play Surge')).toBeTruthy()
   })

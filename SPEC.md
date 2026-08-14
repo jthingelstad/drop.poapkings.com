@@ -430,11 +430,23 @@ badge facts. Pending holds do not revoke badges. The ladder table and the 28 are
 `packages/contracts` because the browser and the Lambda cannot import each other.
 
 Profile history has two deliberately different reads. `GET /me` keeps the
-20-row recent feed used across the app; `GET /me/seasons` paginates the player's
-complete `RUN#` range, filters retired modes, and groups every current-mode run
-by `seasonId`. The Profile screen calls the heavier endpoint only when it mounts,
-then opens a season's complete game list in a modal. A recent-feed cap must never
-be used as a season total.
+20-row recent feed used across the app; `GET /me/seasons` walks the player's
+complete `RUN#` range and filters retired modes, but its **response is bounded**:
+`index` lists every season the player has runs in with a game count (one row
+each), while `seasons` carries the runs for a single season. `season=<id>` picks
+one, `season=all` is an explicit opt-in to the whole career, and omitting it
+returns the most recent season. `mode` and `status` narrow further; `status`
+takes `pending`, `reviewed`, `excluded`, or `unreviewed` — the last of which is
+the absence of a decision, which is what most runs are. A recent-feed cap must
+never be used as a season total.
+
+The bound is the point: players are into the hundreds of games, and the old
+read shipped every one of them to render a single month. The You page's single
+**Your games** panel (which replaced the split recent-games list, Seasons
+section, and season modal) loads the current season, then fetches one older
+season per press of its paging control. Its three status count tiles double as
+the status filter, so counts are computed in the browser over the loaded,
+status-unfiltered rows; season and mode scope them.
 
 The private profile also records `lastLoginAt` when a magic link is successfully
 redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
@@ -483,11 +495,24 @@ ranked run with any such signal is atomically recorded with a `review`/`hidden`
 decision before it can appear publicly. The response includes
 `underReview: true`; Discord promotion is suppressed. The Fair Play Referee can
 confirm the hide or approve a false positive by writing a new, audited visible
-decision. Pending and excluded runs are visible only to their owner in Profile
-and never receive a public placement; referee-approved rows carry a public
-reviewed mark, but the decision category and private rationale remain private.
-The UI renders the status words alongside `🔎`, `✅`, and `🚫`; title/hover
-text is supplemental only. The public Fair Play page defines prohibited
+decision. A run awaiting that decision **ranks provisionally**: the board shows
+it in rank order with an Awaiting seal and the row says so in place of its
+XP/games meta. Only an excluded run leaves the board, and only its owner sees
+the explanation; the decision category and private rationale stay private. The
+board row carries `reviewStatus: 'pending' | 'reviewed'` — `excluded` never
+ships in a board response — and the superseded `refereeReviewed` boolean keeps
+its narrower meaning (an actual referee clear) for one release so a browser on
+the previous build marks the same rows it always did. The exception is
+`seasonPodiumFinishers`, which still withholds a pending run: a provisional
+placement is reversible, a finalized podium is not.
+The three statuses are named **Cleared**, **Awaiting**, and **Excluded**, drawn
+as the CSS struck-wax seal in `components/ReviewStatus.tsx` (no emoji, no art
+file); `title`/`aria-label` carry the accessible name. A run no referee has
+touched has **no status and no seal** — neither `reviewStatus` nor
+`refereeReviewed` ships for it. Cleared means a referee examined that exact run,
+so it must never be the default for an unexamined one.
+`services/api/src/referee-status.ts` is the one classifier both the owner's
+history and the public boards read, and its hidden branch fails closed. The public Fair Play page defines prohibited
 automation, allowed settings/accessibility tools, review, and re-review through
 `drop@poapkings.com`. A dispute should include the player-visible `#D…` run tag.
 Only incomplete or contradictory input from which no comparable score
@@ -509,8 +534,8 @@ at 300/hour; the shared
 
 With Jamie's explicit approval, materially changed player-level evidence can
 reopen an earlier referee judgment as a neutral hidden queue state. The owner
-sees `🔎 Pending`, the run receives no placement, and the previous judgment
-remains in immutable decision history; reopening does not label the run
+sees the Awaiting seal, the run keeps ranking provisionally, and the previous
+judgment remains in immutable decision history; reopening does not label the run
 excluded.
 
 Authenticated public identity is centered on one favorite card:
@@ -744,12 +769,13 @@ way out (pseudonymous `playerId`, opaque hashes, normalized tag — never `sub`,
 email, a raw IP, or the pepper) and **fail closed** on missing or incomplete
 evidence. Each current decision records disposition, `visible`/`hidden`, a
 private reason, evidence digest, and timestamp, with immutable decision history.
-Season and all-time reads omit hidden runs; if a hidden run was a player's best,
-the board uses that player's next-best visible run. Approval restores the run at
-its correct rank. An automatic hold is owner-visible as pending; a referee hide
-is owner-visible as excluded; and a referee-visible result is owner-visible and
-publicly marked as reviewed. No public endpoint returns a hidden run or its
-private rationale.
+Season and all-time reads omit only excluded runs; if an excluded run was a
+player's best, the board uses that player's next-best rankable run. A run held
+for review still ranks. Approval restores an excluded run at its correct rank.
+An automatic hold is pending on both the owner's page and the board; a referee
+hide is owner-visible as excluded and appears on no board; and a referee-visible
+result is publicly marked as cleared. No public endpoint returns an excluded run
+or any private rationale.
 
 The private **Drop Control Room** is a separate Preact app in `apps/admin`,
 served by the loopback-only `services/admin` process on the managed host and

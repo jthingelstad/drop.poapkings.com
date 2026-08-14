@@ -623,84 +623,6 @@ a {
   cursor: pointer;
 }
 
-.cr-profile__state {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.cr-profile__state h2,
-.cr-profile__state p {
-  margin: 0;
-}
-.cr-profile__state p {
-  margin-top: 5px;
-}
-.cr-profile__pulse {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--purple);
-  box-shadow: 0 0 0 0 rgba(109, 40, 217, 0.65);
-  animation: cr-profile-pulse 1.5s ease-out infinite;
-}
-@keyframes cr-profile-pulse {
-  70%,
-  100% {
-    box-shadow: 0 0 0 13px rgba(109, 40, 217, 0);
-  }
-}
-.cr-profile__head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-.cr-profile__head h2 {
-  margin: 3px 0;
-  font-size: clamp(1.45rem, 5vw, 2rem);
-}
-.cr-profile__head small {
-  color: var(--muted);
-  text-align: right;
-}
-.cr-profile__tag {
-  margin: 0;
-  color: var(--gold) !important;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-.cr-profile__facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 20px;
-}
-.cr-profile__facts > div {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  min-width: 0;
-  padding: 14px;
-  border-radius: var(--r-md);
-  background: rgba(7, 6, 16, 0.52);
-}
-.cr-profile__facts span,
-.cr-profile__facts small {
-  color: var(--muted);
-}
-.cr-profile__facts span {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.cr-profile__facts strong {
-  line-height: 1.2;
-}
-.cr-profile__facts small {
-  line-height: 1.25;
-}
 .cr-card-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -811,9 +733,6 @@ a {
   .favorite-card-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .cr-profile__facts {
-    grid-template-columns: 1fr;
-  }
   .cr-card-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -832,20 +751,8 @@ a {
   .favorite-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .cr-profile__head {
-    display: grid;
-  }
-  .cr-profile__head small {
-    text-align: left;
-  }
   .cr-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cr-profile__pulse {
-    animation: none;
   }
 }
 
@@ -4841,14 +4748,32 @@ html.reduce-motion .ed-duel__card {
 .ed-desktop__main .ed-board {
   padding: 0 0 40px;
 }
-.ed-board__head .ed-h1 {
-  margin: 6px 0 4px;
-  font-size: 1.5rem;
+.ed-board__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 0;
 }
-.ed-board__timing {
+.ed-board__title {
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+.ed-board__clock {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  align-items: flex-end;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: right;
+}
+.ed-board__clock strong {
+  color: var(--ink);
+  font-weight: 800;
 }
 .ed-board__scopes {
   display: flex;
@@ -4870,77 +4795,48 @@ html.reduce-motion .ed-duel__card {
   padding: 9px 18px;
 }
 .ed-scope--active {
-  background: rgba(109, 40, 217, 0.28);
-  border-color: rgba(245, 200, 76, 0.4);
-  color: var(--ink);
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #2a1500;
 }
+
+/* Six 34px emblems fit the narrowest phone with room to spare, so the strip no
+   longer scrolls — and the scroll affordances it used to need (the right-edge
+   fade and the "Swipe for every mode" guide) went with it. The fade over an
+   icon-only strip read as a black block covering the last mode. */
 .ed-board__modes {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  flex-wrap: nowrap;
-  scroll-padding-inline: 8px 32px;
-  padding-right: 26px;
-}
-.ed-board__modes::-webkit-scrollbar {
-  height: 0;
-}
-.ed-desktop__main .ed-board__modes {
   flex-wrap: wrap;
-  padding-right: 0;
-}
-.ed-board__mode-guide {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  margin-bottom: -4px;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-.ed-board__mode-guide .icon {
-  width: 14px;
-  height: 14px;
+  gap: 8px;
 }
 .ed-board__mode-strip {
-  position: relative;
   min-width: 0;
 }
-.ed-board__mode-strip::after {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 30px;
-  background: linear-gradient(90deg, transparent, var(--bg0));
-  pointer-events: none;
-}
-.ed-desktop__main .ed-board__mode-guide,
-.ed-desktop__main .ed-board__mode-strip::after {
-  display: none;
-}
+
+/* The mode's own painted art is the tab. It reads faster than its name at this
+   size, and dropping the label is what buys the strip its own band instead of
+   a second row of text. */
 .ed-modetab {
   flex: 0 0 auto;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 13px;
-  border-radius: 12px;
-  border: 1px solid var(--hairline);
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 0.76rem;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
   background: transparent;
-  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.4;
+}
+.ed-modetab .mode-icon {
+  display: block;
+  border-radius: 10px;
 }
 .ed-modetab--active {
-  background: rgba(245, 200, 76, 0.14);
-  border-color: rgba(245, 200, 76, 0.5);
-  color: var(--gold);
+  opacity: 1;
+  box-shadow: 0 0 0 2px #f5c84c;
+}
+.ed-modetab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .ed-board__list {
   border-radius: 18px;
@@ -5037,6 +4933,24 @@ html.reduce-motion .ed-duel__card {
   color: var(--gold);
   font-size: 0.7rem;
 }
+.ed-lbrow__meta--awaiting {
+  color: #ffe99a;
+}
+.ed-lbrow__result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ed-lbrow__result .ed-review-status {
+  margin-inline-start: 0;
+}
+
+/* Holds the seal's column on an unreviewed row so scores stay in one line. */
+.ed-lbrow__seal-slot {
+  display: block;
+  flex: none;
+  width: 26px;
+}
 .ed-lbrow__score {
   font-family: var(--font-display);
   font-size: 0.9rem;
@@ -5047,41 +4961,125 @@ html.reduce-motion .ed-duel__card {
 .ed-review-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.35rem;
   margin-inline-start: 0.35rem;
+  vertical-align: 0.06em;
+  white-space: nowrap;
+}
+.ed-review-status__word {
+  color: var(--muted);
   font-family: var(--font-body);
   font-size: 0.62rem;
   font-weight: 800;
   line-height: 1.15;
-  vertical-align: 0.06em;
-  white-space: nowrap;
 }
-.ed-review-status__label {
-  color: var(--muted);
+
+/* ── The referee seal ────────────────────────────────────────────
+   Struck wax, built from gradients and borders — no art file, and it scales
+   from the 18px history row to the 92px Fair Play specimen off one custom
+   property. Cleared is a filled disc, awaiting is an unlanded ring, excluded
+   is a barred disc. */
+.ed-seal {
+  position: relative;
+  flex: none;
+  display: inline-block;
+  width: var(--seal-size, 26px);
+  height: var(--seal-size, 26px);
+  border-radius: 50%;
+  transform: rotate(var(--seal-rotation, 0deg));
 }
-.ed-review-status--reviewed .ed-review-status__label {
-  color: var(--green);
+.ed-seal--reviewed {
+  border: 2px solid rgba(245, 200, 76, 0.9);
+  background: radial-gradient(circle at 36% 28%, #6ee7a0, #16a34a 56%, #0d5227 100%);
+  box-shadow:
+    inset 0 0 0 1.4px rgba(255, 255, 255, 0.22),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.45);
 }
-.ed-review-status--excluded .ed-review-status__label {
-  color: var(--red-3);
+
+/* The check is pressed into the wax rather than drawn on it: two borders of a
+   rotated box, with the stroke weight scaled off the seal's own size so it
+   stays legible at 18px and does not turn into a slab at 92px. */
+.ed-seal--reviewed::after {
+  content: '';
+  position: absolute;
+  top: 24%;
+  left: 34%;
+  width: 24%;
+  height: 46%;
+  border: solid #07300f;
+  border-width: 0 calc(var(--seal-size, 26px) / 11) calc(var(--seal-size, 26px) / 11) 0;
+  transform: rotate(42deg);
 }
-.ed-board__review-key {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 9px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: rgba(18, 13, 40, 0.48);
-  color: var(--muted);
-  font-size: 0.72rem;
+.ed-seal--pending {
+  border: 2px dashed rgba(245, 200, 76, 0.82);
+  background: none;
+  animation: ed-seal-pulse 2.4s ease-in-out infinite;
 }
-.ed-board__review-key .ed-review-status {
-  margin-inline-start: 0;
+.ed-seal--pending::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: #f5c84c;
+  transform: translate(-50%, -50%);
 }
-.ed-board__review-key .ed-textlink {
-  margin-inline-start: auto;
+.ed-seal--excluded {
+  border: 1.8px solid rgba(252, 165, 165, 0.75);
+  background: radial-gradient(circle at 36% 28%, #b8354a, #7f1d29 60%);
+}
+.ed-seal--excluded::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 12%;
+  width: 76%;
+  height: 2px;
+  background: #fca5a5;
+  transform: translateY(-50%) rotate(-45deg);
+}
+@keyframes ed-seal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+.ed-seal--struck {
+  animation: ed-seal-strike 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 1;
+}
+
+/* The summary's seal is both: it lands once, then keeps waiting. */
+.ed-seal--pending.ed-seal--struck {
+  animation:
+    ed-seal-strike 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 1,
+    ed-seal-pulse 2.4s ease-in-out 320ms infinite;
+}
+@keyframes ed-seal-strike {
+  from {
+    opacity: 0;
+    transform: rotate(var(--seal-rotation, 0deg)) scale(1.5);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--seal-rotation, 0deg)) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-seal--pending,
+  .ed-seal--struck,
+  .ed-seal--pending.ed-seal--struck {
+    animation: none;
+  }
+}
+html.reduce-motion .ed-seal--pending,
+html.reduce-motion .ed-seal--struck,
+html.reduce-motion .ed-seal--pending.ed-seal--struck {
+  animation: none;
 }
 .ed-fair-play-statuses {
   display: grid;
@@ -5091,13 +5089,15 @@ html.reduce-motion .ed-duel__card {
 }
 .ed-fair-play-statuses li {
   display: grid;
-  grid-template-columns: minmax(5.8rem, auto) 1fr;
+  grid-template-columns: minmax(6.4rem, auto) 1fr;
   align-items: start;
   gap: 0.75rem;
 }
 .ed-fair-play-statuses .ed-review-status {
   margin-inline-start: 0;
   padding-top: 0.15rem;
+}
+.ed-fair-play-statuses .ed-review-status__word {
   font-size: 0.72rem;
 }
 .ed-profile__ranked-restriction {
@@ -5122,7 +5122,99 @@ html.reduce-motion .ed-duel__card {
   display: block;
   color: var(--muted);
   font-family: var(--font-body);
-  font-size: 0.62rem;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Rank 1 gets a watermark ring that bleeds off the right edge — a crown that
+   cannot push the row's own grid around, because it sits behind it. */
+.ed-lbrow--crown {
+  position: relative;
+  overflow: hidden;
+}
+.ed-lbrow--crown::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: -16px;
+  width: 86px;
+  height: 86px;
+  border: 6px solid rgba(74, 222, 128, 0.13);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ed-lbrow--crown .ed-lbrow__button {
+  position: relative;
+  z-index: 1;
+}
+.ed-board__clan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: rgba(18, 13, 40, 0.48);
+}
+.ed-board__crest {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(245, 200, 76, 0.4);
+  border-radius: 9px;
+  background: rgba(109, 40, 217, 0.28);
+  color: var(--gold);
+}
+.ed-board__crest .icon {
+  font-size: 0.85rem;
+}
+.ed-board__clan-ident {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ed-board__clan-ident strong {
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-board__clan-ident small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* The whole review key in one line, marks inline with the words they define.
+   It is the last thing on the page, so on the mobile shell it has to clear the
+   floating pill nav — text tucked under that nav reads as a rendering bug. */
+.ed-board__key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-bottom: 64px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.ed-desktop__main .ed-board__key {
+  padding-bottom: 0;
+}
+.ed-board__key .ed-review-status {
+  margin-inline-start: 0;
+}
+
+/* The link rides inline at the end of the sentence. Pushing it right with an
+   auto margin stranded it in the corner the floating pill nav occupies. */
+.ed-board__key .ed-textlink {
+  padding: 0;
+  font-size: 10.5px;
 }
 .ed-board__empty {
   display: flex;
@@ -5397,21 +5489,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   border: 1px solid rgba(215, 200, 255, 0.12);
   background: rgba(18, 13, 40, 0.5);
 }
-.ed-profile__season-open {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid rgba(215, 200, 255, 0.16);
-  border-radius: 10px;
-  background: rgba(109, 40, 217, 0.2);
-  color: var(--lavender-2);
-  cursor: pointer;
-}
-.ed-profile__season-open svg {
-  width: 16px;
-  height: 16px;
-}
 .ed-profile__recent-name {
   font-weight: 700;
   font-size: 0.82rem;
@@ -5437,17 +5514,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.66rem;
   overflow-wrap: anywhere;
-}
-.ed-review-explanation {
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
-.ed-review-details .ed-textlink {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 0;
 }
 .ed-profile__recent-empty {
   color: var(--muted);
@@ -5487,24 +5553,287 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-weight: 800;
   cursor: pointer;
 }
-.ed-season-modal__head {
-  padding: 0 42px 16px 2px;
+
+/* ── You page: arena line, Your games, CR row, account ───────── */
+
+.ed-profile__arena {
+  position: relative;
+  margin-top: 14px;
 }
-.ed-season-modal__title {
-  margin: 4px 0 2px;
+.ed-profile__arena-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ed-profile__arena-name {
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: 0.86rem;
 }
-.ed-season-modal__head p {
+.ed-profile__arena-xp {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+}
+.ed-profile__arena-note {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.ed-games__filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ed-games__filters select {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 11px;
+  background: rgba(18, 13, 40, 0.6);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.ed-games__tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ed-games__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(18, 13, 40, 0.5);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ed-games__tile strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.ed-games__tile span {
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+.ed-games__tile--reviewed strong {
+  color: var(--green);
+}
+.ed-games__tile--pending strong {
+  color: #ffe99a;
+}
+.ed-games__tile--excluded strong {
+  color: var(--red-3);
+}
+.ed-games__tile--on {
+  border-color: rgba(245, 200, 76, 0.6);
+  background: rgba(245, 200, 76, 0.12);
+  color: var(--ink);
+}
+.ed-games__month + .ed-games__month {
+  margin-top: 12px;
+}
+.ed-games__month-head {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 2px;
+  background: var(--bg0);
+}
+.ed-games__month-head strong {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+}
+.ed-games__month-head small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.ed-games__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One line, always. The note column is the flexible one, so a long status
+   never pushes the score or the seal onto a second row. */
+.ed-games__row {
+  display: grid;
+  grid-template-columns: 24px 22px auto minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid rgba(215, 200, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 13, 40, 0.5);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-games__row:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+.ed-games__day {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+.ed-games__score {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: var(--gold);
+}
+.ed-games__note {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-games__note--pending {
+  color: #ffe99a;
+}
+.ed-games__note--excluded {
+  color: var(--red-3);
+}
+.ed-games__row .ed-review-status {
+  margin-inline-start: 0;
+}
+.ed-games__more {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--lavender-2);
+  font-weight: 800;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+.ed-run-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 42px 12px 2px;
+}
+.ed-run-modal__head > div {
+  flex: 1;
+  min-width: 0;
+}
+.ed-run-modal__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+.ed-run-modal__head p {
+  margin: 2px 0 0;
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 700;
 }
-.ed-season-modal__runs {
-  max-height: min(62dvh, 560px);
-  overflow-y: auto;
-  padding-right: 3px;
+.ed-run-modal__reference {
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.ed-run-modal__note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.ed-profile__cr {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: rgba(18, 13, 40, 0.6);
+}
+.ed-profile__cr-crest {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(245, 200, 76, 0.4);
+  border-radius: 10px;
+  background: rgba(109, 40, 217, 0.28);
+  color: var(--gold);
+}
+.ed-profile__cr-ident {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ed-profile__cr-ident strong {
+  overflow: hidden;
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-profile__cr-ident small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-profile__account {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: rgba(18, 13, 40, 0.6);
+}
+.ed-profile__account-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ed-profile__account-row > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.ed-profile__account-row > strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-profile__account .ed-profile__reference {
+  margin-top: 0;
 }
 
 /* ── Profile (edit) ─────────────────────────────────────────── */

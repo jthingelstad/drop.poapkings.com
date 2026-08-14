@@ -463,6 +463,114 @@ describe("repository DynamoDB requests", () => {
     ]);
   });
 
+  it("ranks a run awaiting the referee and marks it pending", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-held",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-18T12:01:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              pk: "REFEREE#run-held",
+              sk: "CURRENT",
+              runId: "run-held",
+              visibility: "hidden",
+              decidedBy: "integrity-gate",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 9,
+            },
+            {
+              sub: "player-b",
+              playerId: "p-b",
+              publicName: "Bolt",
+              totalGames: 4,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").leaderboard(
+      "surge",
+      "2026-07",
+      10,
+    );
+
+    // The held run keeps its place; only its status says it is still waiting.
+    expect(entries).toMatchObject([
+      { rank: 1, score: 10_000, reviewStatus: "pending" },
+      { rank: 2, score: 12_000 },
+    ]);
+    // The pending row never claims a referee cleared it, and the ordinary row
+    // carries no status at all — no referee has looked at it.
+    expect(entries[0]?.refereeReviewed).toBeUndefined();
+    expect(entries[1]?.reviewStatus).toBeUndefined();
+    expect(entries[1]?.refereeReviewed).toBeUndefined();
+  });
+
+  it("withholds a pending run from the season podium it could not take back", async () => {
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "run-held",
+            playerSub: "player-a",
+            score: 10_000,
+            completedAt: "2026-07-18T12:00:00.000Z",
+          },
+          {
+            runId: "run-b",
+            playerSub: "player-b",
+            score: 12_000,
+            completedAt: "2026-07-18T12:01:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              pk: "REFEREE#run-held",
+              sk: "CURRENT",
+              runId: "run-held",
+              visibility: "hidden",
+              decidedBy: "integrity-gate",
+            },
+          ],
+        },
+      });
+
+    const finishers = await new Repository("test-table").podiumFinishers(
+      "surge",
+      "2026-07",
+    );
+
+    expect(finishers).toEqual(["player-b"]);
+  });
+
   it("restores an approved run to its correct leaderboard rank", async () => {
     send
       .mockResolvedValueOnce({

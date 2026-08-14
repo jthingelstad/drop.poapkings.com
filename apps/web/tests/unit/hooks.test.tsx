@@ -574,7 +574,7 @@ describe('useGameRun', () => {
     )
     expect(recordingNotice.value).toMatchObject({
       state: 'saved',
-      message: 'Game recorded — held for review',
+      message: 'Game recorded — awaiting the referee',
       detail: `Reference: ${runReference('review-run-uuid')}`
     })
     expect(heldForReviewReference.value).toBe(runReference('review-run-uuid'))

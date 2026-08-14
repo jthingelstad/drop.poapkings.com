@@ -227,11 +227,27 @@ rank-oriented fields as part of unrelated work.
   input kind, and `isTrusted`; never collect coordinates, pressure, pointer
   identity, or key codes. Active response time excludes forced reveal and
   card-transition waits. Preload timed card art before the clock starts.
-- **Leading results wait for review.** A strict new season or all-time leader
-  receives no placement until the Fair Play Referee decides it. Automatic
-  timing/scoring signals use the same neutral hold. The UI renders status as
-  visible text—`🔎 Pending`, `✅ Reviewed`, or `🚫 Excluded`—rather than relying
-  on hover text.
+- **Leading results rank while they wait.** A strict new season or all-time
+  leader still goes to the Fair Play Referee, and automatic timing/scoring
+  signals use the same neutral hold — but a held run now **ranks provisionally**
+  on the public board instead of disappearing from it. Only an `excluded` run
+  leaves a board. The one read that still withholds a pending run is
+  `seasonPodiumFinishers`: a provisional placement is reversible, a finalized
+  podium is not.
+- **The vocabulary is Cleared / Awaiting / Excluded**, and the mark is the
+  struck-wax seal in `components/ReviewStatus.tsx` — CSS only, no emoji, no art
+  file. "Pending", "Reviewed", and "Not included in rankings" are retired from
+  the UI; the API enum `pending | reviewed | excluded` is unchanged.
+  `services/api/src/referee-status.ts` is the single classifier both the owner's
+  history and the public boards read, so the two surfaces cannot disagree about
+  the same run. Its hidden branch fails closed.
+- **An unreviewed run wears no seal.** Most runs are never reviewed; they carry
+  no `reviewStatus` on any surface. Cleared means a referee examined that exact
+  run, so it is never the default for a run nobody examined — on a board, in
+  history, or in the status counts.
+- **`GET /me/seasons` is bounded.** It returns a one-row-per-season `index` plus
+  a single season's runs (`season=all` is an explicit opt-in). Never reintroduce
+  a read that ships a player's whole career to render one month.
 
 ---
 

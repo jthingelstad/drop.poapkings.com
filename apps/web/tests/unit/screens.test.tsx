@@ -214,7 +214,10 @@ describe('Leaderboards', () => {
     }
   }
 
-  const ROWS = [{ ...entry('p1', 1, 'Alice', 4_200), refereeReviewed: true }, entry('p2', 2, 'Bob', 5_000)]
+  const ROWS = [
+    { ...entry('p1', 1, 'Alice', 4_200), reviewStatus: 'reviewed' as const, refereeReviewed: true },
+    entry('p2', 2, 'Bob', 5_000)
+  ]
 
   function build(mode: GameMode, scope: LeaderboardScope) {
     return {
@@ -252,15 +255,46 @@ describe('Leaderboards', () => {
     await flush()
 
     expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'season', expect.any(AbortSignal))
-    expect(host.textContent).toContain('Season 60 leaderboards')
+    // One fixed title on every scope; the season now labels the scope segment.
+    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
+    expect(host.querySelector('.ed-board__clock')?.textContent).toContain('Season ends')
+    expect(buttonWithText(host, '.ed-board__scopes button', 'Season 60')).toBeTruthy()
     expect(host.textContent).toContain('Alice')
     expect(host.textContent).toContain('4.200s') // leaderboard preserves millisecond ordering
     // The player's own row is flagged.
     expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
     expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
-    expect(host.querySelector('[aria-label="Referee reviewed"]')).not.toBeNull()
-    expect(host.querySelector('[aria-label="Referee reviewed"]')?.textContent).toBe('✅')
-    expect(host.textContent).toContain('How Fair Play works')
+    // The seal is CSS, not a glyph, and rank 1 gets the watermark ring.
+    expect(host.querySelector('[aria-label="Referee cleared"]')).not.toBeNull()
+    expect(host.querySelector('[aria-label="Referee cleared"]')?.textContent).toBe('')
+    // Bob's run was never reviewed, so it wears no seal — exactly one row does.
+    expect(host.querySelectorAll('.ed-lbrow [aria-label="Referee cleared"]')).toHaveLength(1)
+    expect(host.querySelectorAll('.ed-lbrow__seal-slot')).toHaveLength(1)
+    expect(host.querySelector('.ed-lbrow--crown')).not.toBeNull()
+    expect(host.querySelector('.ed-board__review-key')).toBeNull()
+    expect(host.querySelector('.ed-board__key')?.textContent).toContain('ranks while it is checked')
+  })
+
+  it('ranks a run that is awaiting the referee and says so on its row', async () => {
+    vi.mocked(getLeaderboard).mockImplementation(((mode: GameMode, scope: LeaderboardScope) => {
+      const board = build(mode, scope)
+      return Promise.resolve({
+        ...board,
+        entries: board.entries.map((row, index) =>
+          index === 0 ? { ...row, reviewStatus: 'pending' as const, refereeReviewed: undefined } : row
+        )
+      })
+    }) as never)
+
+    const host = await mount(<Leaderboards />)
+    await flush()
+
+    const top = host.querySelector('.ed-lbrow')!
+    expect(top.textContent).toContain('Alice')
+    expect(top.querySelector('[aria-label="Awaiting referee"]')).not.toBeNull()
+    expect(top.querySelector('.ed-lbrow__meta--awaiting')?.textContent).toBe('Awaiting the referee')
+    // A held row trades its XP/games meta for the reason it is held.
+    expect(top.textContent).not.toContain('1,200 XP')
   })
 
   it('opens the selected player and keeps the signed-in player on the private profile route', async () => {
@@ -285,15 +319,16 @@ describe('Leaderboards', () => {
     await flush()
 
     expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'all-time', expect.any(AbortSignal))
-    expect(host.textContent).toContain('All-time leaderboards')
-    expect(host.textContent).toContain('Your best-ever score')
+    // The header is fixed now: only the pressed scope changes.
+    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
+    expect(buttonWithText(host, '.ed-board__scopes button', 'All-time').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('switches the mode tab, re-queries, and re-renders rows for the new mode', async () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(buttonWithText(host, '.ed-board__modes button', 'Higher / Lower'))
+    await click(host.querySelector('.ed-board__modes button[aria-label="Higher / Lower"]')!)
     await flush()
 
     expect(getLeaderboard).toHaveBeenLastCalledWith('higher-lower', 'season', expect.any(AbortSignal))
@@ -321,16 +356,21 @@ describe('Leaderboards', () => {
     await flush()
 
     expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'clan', expect.any(AbortSignal), undefined)
-    expect(host.textContent).toContain('POAP KINGS rankings')
-    expect(host.textContent).toContain('All-time bests among current clanmates')
-    expect(host.textContent).toContain('#J2RGCRVG')
+    // The clan identity moved into its own strip under the tabs; the header
+    // and scope row are the same ones the season board rendered.
+    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
+    const strip = host.querySelector('.ed-board__clan')!
+    expect(strip.textContent).toContain('POAP KINGS')
+    expect(strip.textContent).toContain('#J2RGCRVG')
+    expect(strip.textContent).toContain('2 on this board')
+    expect(buttonWithText(host, '.ed-board__clan button', 'Change')).toBeTruthy()
   })
 
   it('renders the empty state and its Play link when a mode has no scores', async () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(buttonWithText(host, '.ed-board__modes button', 'Survival'))
+    await click(host.querySelector('.ed-board__modes button[aria-label="Survival"]')!)
     await flush()
 
     expect(host.textContent).toContain('Nobody has posted')

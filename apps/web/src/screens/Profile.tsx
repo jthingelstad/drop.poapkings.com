@@ -1,31 +1,30 @@
 import { useSignal } from '@preact/signals'
 import { BADGE_LIST, playerReference, runReference } from '@elixir-drop/contracts'
+import type { GameMode } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
-import ArenaProgress from '../components/ArenaProgress'
+import { arenaProgress, ArenaProgressBar } from '../components/ArenaProgress'
 import Icon from '../components/Icon'
-import ReviewStatusMark from '../components/ReviewStatus'
-import { rankFor } from '../data/starRanks'
+import ReviewStatusMark, { type ReviewStatus } from '../components/ReviewStatus'
 import {
   accountStatus,
   badges,
   deleteAccount,
   player,
-  recentRuns,
   refreshAccount,
   sessionToken,
   signOut,
   updateAccount
 } from '../lib/account'
 import { getNameOptions } from '../lib/api'
-import { getSeasonHistory, type SeasonHistory } from '../lib/api'
+import { getSeasonHistory, type RecentRun, type SeasonIndexEntry } from '../lib/api'
 import { allCards } from '../lib/card-catalog'
 import { challengeCard } from '../lib/challenge-cards'
 import { badgeViews, earnedCount } from '../lib/badges'
 import BadgeGrid from '../components/BadgeGrid'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
-import { gameDisplay, scoreLabel } from '../lib/game-metadata'
+import { GAMES, gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
 import { navigate, route } from '../lib/router'
@@ -40,31 +39,15 @@ const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompar
 function accountAgeText(years: number | undefined, days: number | undefined): string {
   if (days !== undefined) {
     const fullYears = Math.floor(days / 365)
-    const remainingDays = days % 365
-    const parts = [
-      ...(fullYears ? [`${fullYears} ${fullYears === 1 ? 'year' : 'years'}`] : []),
-      ...(remainingDays || !fullYears ? [`${remainingDays} ${remainingDays === 1 ? 'day' : 'days'}`] : [])
-    ]
-    return `${parts.join(', ')} in Clash Royale`
+    return fullYears ? `${fullYears} ${fullYears === 1 ? 'year' : 'years'} played` : `${days} days played`
   }
-  if (years !== undefined) return years === 1 ? 'About 1 year in Clash Royale' : `About ${years} years in Clash Royale`
+  if (years !== undefined) return years === 1 ? 'About 1 year played' : `About ${years} years played`
   return 'Account age unavailable'
 }
 
 function roleText(role: string | undefined): string | undefined {
   if (!role) return undefined
   return role.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase())
-}
-
-function fetchedText(value: string | undefined): string | undefined {
-  if (!value) return undefined
-  return `${new Date(value).toLocaleString('en-US', {
-    timeZone: 'UTC',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  })} UTC`
 }
 
 const CR_LOADING_MESSAGE = 'Player tag saved. Loading its public Clash Royale profile…'
@@ -88,11 +71,6 @@ export default function Profile() {
   const tagInputRef = useRef<HTMLInputElement | null>(null)
   const handledTagEditRequest = useRef(false)
   const pollingCrStatus = player.value?.clashRoyale?.status
-  const seasonHistory = useSignal<SeasonHistory[]>([])
-  const seasonHistoryStatus = useSignal<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const openSeasonId = useSignal<string | null>(null)
-  const seasonTriggerRef = useRef<HTMLButtonElement | null>(null)
-  const profilePlayerId = player.value?.id
 
   useEffect(() => {
     const authenticatedPlayer = player.value
@@ -127,25 +105,6 @@ export default function Profile() {
     if (pollingCrStatus === 'not_found') message.value = 'Player tag was not found.'
     if (pollingCrStatus === 'unavailable') message.value = 'Profile refresh delayed. Drop will retry automatically.'
   }, [message.value, pollingCrStatus])
-
-  useEffect(() => {
-    if (accountStatus.value !== 'authenticated' || !profilePlayerId) return
-    const token = sessionToken()
-    if (!token) return
-    const controller = new AbortController()
-    seasonHistory.value = []
-    openSeasonId.value = null
-    seasonHistoryStatus.value = 'loading'
-    void getSeasonHistory(token, controller.signal)
-      .then((response) => {
-        seasonHistory.value = response.seasons
-        seasonHistoryStatus.value = 'ready'
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) seasonHistoryStatus.value = 'error'
-      })
-    return () => controller.abort()
-  }, [profilePlayerId, seasonHistory, seasonHistoryStatus, openSeasonId])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -265,9 +224,7 @@ export default function Profile() {
     }
   }
 
-  const arena = rankFor(current.xp ?? 0).current
-
-  // ── Edit mode: identity (card + name) + player tag + delete ──────────────
+  // ── Edit mode: identity (card + name) + player tag ───────────────────────
   if (editingIdentity.value) {
     return (
       <div class="ed-edit">
@@ -393,8 +350,168 @@ export default function Profile() {
             </button>
           </div>
         )}
+      </div>
+    )
+  }
 
-        <section class="ed-danger">
+  // Hidden badges are never counted separately — no "3 of 7 found" — but the
+  // overall earned tally is fine: it is the whole set, not a hidden checklist.
+  const earnedBadges = earnedCount(badgeViews(badges.value))
+  const arena = arenaProgress(current.xp ?? 0)
+  const clan = current.clashRoyale?.clan
+
+  // ── Profile view ────────────────────────────────────────────────────────
+  return (
+    <div class="ed-profile">
+      <div class="ed-profile__banner">
+        <div
+          class="ed-profile__banner-bg"
+          style={{ backgroundImage: `url('${arena.current.image}')` }}
+          aria-hidden="true"
+        />
+        <div class="ed-profile__banner-row">
+          <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
+          <div class="ed-profile__ident">
+            <div class="ed-profile__name">{current.publicName || 'Choose a favorite card'}</div>
+            <div class="ed-profile__card">
+              {currentCard ? `${currentCard.name} · Player Card` : 'Pick a Player Card'}
+            </div>
+          </div>
+          <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
+            <span class="tap-face">
+              <Icon name="pencil" /> Edit
+            </span>
+          </button>
+        </div>
+        {/* The arena line the stats row used to duplicate: name and XP sit on
+            the bar itself, and everything else fits on one line under it. */}
+        <div class="ed-profile__arena">
+          <div class="ed-profile__arena-row">
+            <span class="ed-profile__arena-name">{arena.current.name}</span>
+            <span class="ed-profile__arena-xp">{(current.xp ?? 0).toLocaleString()} XP</span>
+          </div>
+          <ArenaProgressBar xp={current.xp ?? 0} />
+          <div class="ed-profile__arena-note">
+            {arena.toGoLabel} · {current.totalGames.toLocaleString()} lifetime games
+          </div>
+        </div>
+      </div>
+
+      {current.rankedAccess === 'restricted' && (
+        <aside class="ed-profile__ranked-restriction" role="status">
+          <strong>Ranked access restricted</strong>
+          <span>Practice and your account remain available. You may request a re-review.</span>
+          <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+            Read Fair Play
+          </button>
+          <a class="ed-textlink" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
+            Request re-review
+          </a>
+        </aside>
+      )}
+
+      <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
+        <div class="ed-profile__recent-head">
+          <span class="ed-profile__recent-title">Badges</span>
+          {earnedBadges > 0 && (
+            <span class="ed-profile__recent-score">
+              {earnedBadges} of {BADGE_LIST.length}
+            </span>
+          )}
+        </div>
+        <BadgeGrid states={badges.value} playerId={current.id} playerName={current.publicName} />
+      </section>
+
+      <YourGames playerId={current.id} />
+
+      {current.clashRoyale && (
+        <section class="ed-profile__cr" aria-live="polite">
+          <span class="ed-profile__cr-crest" aria-hidden="true">
+            <Icon name="shield" />
+          </span>
+          {current.clashRoyale.status === 'ready' ? (
+            <>
+              <span class="ed-profile__cr-ident">
+                <strong>{clan?.name ?? current.clashRoyale.name ?? 'No clan'}</strong>
+                <small>
+                  {[
+                    roleText(clan?.role),
+                    current.clashRoyale.tag,
+                    accountAgeText(current.clashRoyale.accountAge?.years, current.clashRoyale.accountAge?.days)
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </small>
+              </span>
+              <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
+                Clan board
+              </button>
+            </>
+          ) : (
+            <span class="ed-profile__cr-ident">
+              <strong>
+                {current.clashRoyale.status === 'pending'
+                  ? 'Loading Clash Royale profile'
+                  : current.clashRoyale.status === 'not_found'
+                    ? 'Player tag not found'
+                    : 'Profile refresh delayed'}
+              </strong>
+              <small>
+                {current.clashRoyale.status === 'pending'
+                  ? `Fetching ${current.clashRoyale.tag}. This updates automatically.`
+                  : current.clashRoyale.status === 'not_found'
+                    ? `Clash Royale could not find ${current.clashRoyale.tag}. Check the tag and save it again.`
+                    : 'The saved tag is safe. Drop will retry automatically.'}
+              </small>
+            </span>
+          )}
+        </section>
+      )}
+
+      <section class="ed-profile__preferences" aria-labelledby="game-settings-title">
+        <h2 id="game-settings-title" class="ed-profile__recent-title">
+          Game settings
+        </h2>
+        <PlayerPreferences />
+      </section>
+
+      {message.value && (
+        <div class="ed-edit__msg" role="status">
+          {message.value}
+        </div>
+      )}
+
+      {/* Account ends the page. Deleting an account used to hide inside the
+          identity editor, which is the last place someone looking for it
+          would open. */}
+      <section class="ed-profile__account" aria-labelledby="account-title">
+        <h2 id="account-title" class="ed-profile__recent-title">
+          Account
+        </h2>
+        <div class="ed-profile__account-row">
+          <span>Email</span>
+          <strong>{current.email}</strong>
+        </div>
+        <div class="ed-profile__account-row">
+          <span>Player reference</span>
+          <strong class="ed-profile__reference">{playerReference(current.id)}</strong>
+        </div>
+        <div class="ed-profile__actions">
+          <button class="ed-btn ed-btn--ghost tap-fx" onClick={() => navigate('/')}>
+            <span class="tap-face">Back to Games</span>
+          </button>
+          <button
+            class="ed-profile__signout tap-fx"
+            onClick={() => {
+              signOut()
+              navigate('/')
+            }}
+          >
+            <span class="tap-face">Sign out</span>
+          </button>
+        </div>
+
+        <div class="ed-danger">
           <div class="ed-danger__title">Delete account</div>
           <p class="ed-danger__sub">
             Removes your email, Drop identity, saved player tag, game history, and leaderboard entries. This can&rsquo;t
@@ -447,334 +564,360 @@ export default function Profile() {
               </div>
             </form>
           )}
-        </section>
-      </div>
-    )
-  }
-
-  // Hidden badges are never counted separately — no "3 of 7 found" — but the
-  // overall earned tally is fine: it is the whole set, not a hidden checklist.
-  const earnedBadges = earnedCount(badgeViews(badges.value))
-  const selectedSeason = seasonHistory.value.find((season) => season.id === openSeasonId.value)
-
-  // ── Profile view ────────────────────────────────────────────────────────
-  return (
-    <div class="ed-profile">
-      <div class="ed-profile__banner">
-        <div class="ed-profile__banner-bg" style={{ backgroundImage: `url('${arena.image}')` }} aria-hidden="true" />
-        <div class="ed-profile__banner-row">
-          <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
-          <div class="ed-profile__ident">
-            <div class="ed-profile__name">{current.publicName || 'Choose a favorite card'}</div>
-            <div class="ed-profile__card">
-              {currentCard ? `${currentCard.name} · Player Card` : 'Pick a Player Card'}
-            </div>
-            <div class="ed-profile__reference" aria-label={`Player tag ${playerReference(current.id)}`}>
-              Player {playerReference(current.id)}
-            </div>
-            <div class="ed-profile__email">{current.email}</div>
-          </div>
-          <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
-            <span class="tap-face">
-              <Icon name="pencil" /> Edit
-            </span>
-          </button>
         </div>
-      </div>
-
-      {current.rankedAccess === 'restricted' && (
-        <aside class="ed-profile__ranked-restriction" role="status">
-          <strong>Ranked access restricted</strong>
-          <span>Practice and your account remain available. You may request a re-review.</span>
-          <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
-            Read Fair Play
-          </button>
-          <a class="ed-textlink" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
-            Request re-review
-          </a>
-        </aside>
-      )}
-
-      <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Badges</span>
-          {earnedBadges > 0 && (
-            <span class="ed-profile__recent-score">
-              {earnedBadges} of {BADGE_LIST.length}
-            </span>
-          )}
-        </div>
-        <BadgeGrid states={badges.value} playerId={current.id} playerName={current.publicName} />
       </section>
-
-      <div class="ed-profile__stats profile-xp">
-        <div class="ed-profile__stat-row">
-          <div class="ed-profile__stat">
-            <div class="ed-profile__stat-val ed-profile__stat-val--gold">{(current.xp ?? 0).toLocaleString()}</div>
-            <div class="ed-profile__stat-label">Player XP</div>
-          </div>
-          <div class="ed-profile__stat">
-            <div class="ed-profile__stat-val">{current.totalGames.toLocaleString()}</div>
-            <div class="ed-profile__stat-label">lifetime games</div>
-          </div>
-        </div>
-        <ArenaProgress xp={current.xp ?? 0} />
-      </div>
-
-      <section class="ed-profile__recent ed-profile__games">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Recent games</span>
-          <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-            Leaderboards <Icon name="arrow-right" />
-          </button>
-        </div>
-        {recentRuns.value.length ? (
-          <ul class="ed-profile__recent-list">
-            {recentRuns.value.slice(0, 5).map((run) => {
-              const game = gameDisplay(run.mode)
-              return (
-                <li key={run.runId}>
-                  <span class="ed-profile__recent-name">
-                    <ModeIcon mode={run.mode} size={24} /> {game.name}
-                  </span>
-                  <span class="ed-profile__recent-score">
-                    {scoreLabel(run.mode, run.score)}
-                    {run.reviewStatus && (
-                      <ReviewStatusMark status={run.reviewStatus} compact={run.reviewStatus === 'reviewed'} />
-                    )}
-                  </span>
-                  <time dateTime={run.completedAt}>
-                    {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </time>
-                  <div class="ed-review-details">
-                    <small class="ed-review-reference">Run {runReference(run.runId)}</small>
-                    {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
-                    {run.reviewStatus === 'excluded' && (
-                      <a
-                        class="ed-textlink"
-                        href={contactEmailHref(`Elixir Drop run review ${runReference(run.runId)}`)}
-                      >
-                        Dispute this result
-                      </a>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        ) : (
-          <EmptyState
-            art="empty-runs"
-            heading="Nothing played yet"
-            line="Your finished games land here, newest first."
-            actionLabel="Play Surge"
-            href="/surge"
-          />
-        )}
-      </section>
-
-      <section class="ed-profile__recent ed-profile__seasons">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Seasons</span>
-        </div>
-        {seasonHistory.value.length ? (
-          <ul class="ed-profile__recent-list">
-            {seasonHistory.value.map((season) => (
-              <li key={season.id} class="ed-profile__season-row">
-                <span class="ed-profile__recent-name">{season.id}</span>
-                <span class="ed-profile__recent-score">
-                  {season.games} {season.games === 1 ? 'game' : 'games'}
-                </span>
-                <button
-                  class="ed-profile__season-open"
-                  aria-label={`View ${season.id} games`}
-                  onClick={(event) => {
-                    seasonTriggerRef.current = event.currentTarget
-                    openSeasonId.value = season.id
-                  }}
-                >
-                  <Icon name="chevron-right" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : seasonHistoryStatus.value === 'loading' || seasonHistoryStatus.value === 'idle' ? (
-          <p class="ed-profile__recent-empty" role="status">
-            Loading season history…
-          </p>
-        ) : seasonHistoryStatus.value === 'error' ? (
-          <p class="ed-profile__recent-empty" role="alert">
-            Season history is temporarily unavailable.
-          </p>
-        ) : (
-          <EmptyState
-            art="empty-season"
-            heading="No seasons yet"
-            line="Seasons you have played in will be listed here."
-            actionLabel="Play this season"
-            href="/surge"
-          />
-        )}
-      </section>
-
-      {current.clashRoyale && (
-        <section class="profile-section cr-profile" aria-live="polite">
-          {current.clashRoyale.status === 'pending' && (
-            <div class="cr-profile__state">
-              <div class="cr-profile__pulse" aria-hidden="true" />
-              <div>
-                <h2>Loading Clash Royale profile</h2>
-                <p>The fixed-IP helper is fetching {current.clashRoyale.tag}. This page will update automatically.</p>
-              </div>
-            </div>
-          )}
-          {current.clashRoyale.status === 'not_found' && (
-            <div class="cr-profile__state">
-              <div>
-                <h2>Player tag not found</h2>
-                <p>Clash Royale could not find {current.clashRoyale.tag}. Check the tag and save it again.</p>
-              </div>
-            </div>
-          )}
-          {current.clashRoyale.status === 'unavailable' && (
-            <div class="cr-profile__state">
-              <div>
-                <h2>Profile refresh delayed</h2>
-                <p>The saved tag is safe. Save it again or sign in later to retry.</p>
-              </div>
-            </div>
-          )}
-          {current.clashRoyale.status === 'ready' && (
-            <>
-              <div class="cr-profile__head">
-                <div>
-                  <div class="eyebrow">Clash Royale profile</div>
-                  <h2>{current.clashRoyale.name}</h2>
-                  <p class="cr-profile__tag">{current.clashRoyale.tag}</p>
-                </div>
-                {fetchedText(current.clashRoyale.fetchedAt) && (
-                  <small>Updated {fetchedText(current.clashRoyale.fetchedAt)}</small>
-                )}
-              </div>
-              <div class="cr-profile__facts">
-                <div>
-                  <span>Clan</span>
-                  <strong>{current.clashRoyale.clan?.name || 'No clan'}</strong>
-                  {roleText(current.clashRoyale.clan?.role) && (
-                    <small>{roleText(current.clashRoyale.clan?.role)}</small>
-                  )}
-                </div>
-                <div>
-                  <span>Account age</span>
-                  <strong>
-                    {accountAgeText(current.clashRoyale.accountAge?.years, current.clashRoyale.accountAge?.days)}
-                  </strong>
-                  <small>
-                    {current.clashRoyale.accountAge
-                      ? 'Calculated from the Years Played badge’s day count'
-                      : 'Years Played badge not returned by Clash Royale'}
-                  </small>
-                </div>
-                <div>
-                  <span>Collection</span>
-                  <strong>{current.clashRoyale.cards?.length || 0} cards</strong>
-                  <small>Not used in Drop — your games deal the full catalog</small>
-                </div>
-              </div>
-            </>
-          )}
-        </section>
-      )}
-
-      <section class="ed-profile__preferences" aria-labelledby="game-settings-title">
-        <h2 id="game-settings-title" class="ed-profile__recent-title">
-          Game settings
-        </h2>
-        <PlayerPreferences />
-      </section>
-
-      {message.value && (
-        <div class="ed-edit__msg" role="status">
-          {message.value}
-        </div>
-      )}
-
-      <div class="ed-profile__actions">
-        <button class="ed-btn ed-btn--ghost tap-fx" onClick={() => navigate('/')}>
-          <span class="tap-face">Back to Games</span>
-        </button>
-        <button
-          class="ed-profile__signout tap-fx"
-          onClick={() => {
-            signOut()
-            navigate('/')
-          }}
-        >
-          <span class="tap-face">Sign out</span>
-        </button>
-      </div>
 
       {layout.value === 'mobile' && <MetaMoreList />}
-
-      {selectedSeason && (
-        <SeasonGamesModal
-          season={selectedSeason}
-          onClose={() => (openSeasonId.value = null)}
-          returnFocus={seasonTriggerRef.current}
-        />
-      )}
     </div>
   )
 }
 
-function SeasonGamesModal({
-  season,
+// ── Your games ────────────────────────────────────────────────────────────
+
+type StatusFilter = 'any' | ReviewStatus
+
+const STATUS_TILES: Array<{ key: ReviewStatus; label: string }> = [
+  { key: 'reviewed', label: 'Cleared' },
+  { key: 'pending', label: 'Awaiting' },
+  { key: 'excluded', label: 'Excluded' }
+]
+
+function monthKey(iso: string): string {
+  return iso.slice(0, 7)
+}
+
+function monthLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
+function dayLabel(iso: string): string {
+  return String(new Date(iso).getDate()).padStart(2, '0')
+}
+
+function bestOf(runs: RecentRun[], mode: GameMode): number | undefined {
+  const scores = runs.filter((run) => run.mode === mode).map((run) => run.score)
+  if (!scores.length) return undefined
+  return LOWER_IS_BETTER.has(mode) ? Math.min(...scores) : Math.max(...scores)
+}
+
+function YourGames({ playerId }: { playerId: string }) {
+  // Season list and loaded runs are separate on purpose: the index is a handful
+  // of rows that lets the picker and the paging button exist without pulling a
+  // career's worth of games into the browser.
+  const index = useSignal<SeasonIndexEntry[]>([])
+  const loaded = useSignal<Record<string, RecentRun[]>>({})
+  const status = useSignal<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const loadingMore = useSignal(false)
+  const loadError = useSignal('')
+  const seasonFilter = useSignal<string>('')
+  const modeFilter = useSignal<GameMode | 'all'>('all')
+  const statusFilter = useSignal<StatusFilter>('any')
+  const pagedSeasons = useSignal(1)
+  const openRun = useSignal<RecentRun | null>(null)
+  const rowTriggerRef = useRef<HTMLElement | null>(null)
+
+  // First read: the index plus the most recent season the player played.
+  useEffect(() => {
+    const token = sessionToken()
+    if (!token) return
+    const controller = new AbortController()
+    index.value = []
+    loaded.value = {}
+    seasonFilter.value = ''
+    pagedSeasons.value = 1
+    status.value = 'loading'
+    void getSeasonHistory(token, controller.signal)
+      .then((response) => {
+        index.value = response.index ?? response.seasons.map((season) => ({ id: season.id, games: season.games }))
+        loaded.value = Object.fromEntries(response.seasons.map((season) => [season.id, season.runs]))
+        status.value = 'ready'
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) status.value = 'error'
+      })
+    return () => controller.abort()
+  }, [playerId, index, loaded, seasonFilter, pagedSeasons, status])
+
+  const seasonIds = index.value.map((season) => season.id)
+  const currentSeasonId = seasonIds[0] ?? ''
+  const activeSeason = seasonFilter.value || currentSeasonId
+  const viewingAll = activeSeason === 'all'
+  const viewingCurrent = activeSeason === currentSeasonId
+
+  // Which seasons the list is showing. Only the current-season view pages: a
+  // specific season is one request, and All seasons is the one place a player
+  // deliberately asks for everything.
+  const scopedSeasonIds = viewingAll
+    ? seasonIds
+    : viewingCurrent
+      ? seasonIds.slice(0, pagedSeasons.value)
+      : [activeSeason]
+  const missingSeasonIds = scopedSeasonIds.filter((id) => !(id in loaded.value))
+  const nextOlderSeasonId = viewingCurrent ? seasonIds[pagedSeasons.value] : undefined
+
+  async function fetchSeason(season: string): Promise<void> {
+    const token = sessionToken()
+    if (!token) return
+    loadingMore.value = true
+    loadError.value = ''
+    // Every season in scope is marked loaded before the request resolves —
+    // empty for now. A season with no runs, and a season whose request failed,
+    // both have to stop being "missing" or the loader re-fires every render.
+    const attempted = Object.fromEntries(scopedSeasonIds.map((id) => [id, loaded.value[id] ?? []]))
+    try {
+      const response = await getSeasonHistory(token, undefined, { season })
+      loaded.value = {
+        ...loaded.value,
+        ...attempted,
+        ...Object.fromEntries(response.seasons.map((entry) => [entry.id, entry.runs]))
+      }
+    } catch (error) {
+      loaded.value = { ...loaded.value, ...attempted }
+      loadError.value = error instanceof Error ? error.message : 'Those games could not be loaded.'
+    } finally {
+      loadingMore.value = false
+    }
+  }
+
+  // Selecting a season the browser has not fetched yet pulls exactly that one.
+  useEffect(() => {
+    if (status.value !== 'ready' || loadingMore.value || !missingSeasonIds.length) return
+    void fetchSeason(viewingAll ? 'all' : missingSeasonIds[0])
+  })
+
+  const scopedRuns = scopedSeasonIds
+    .flatMap((id) => loaded.value[id] ?? [])
+    .filter((run) => modeFilter.value === 'all' || run.mode === modeFilter.value)
+    .sort((left, right) => right.completedAt.localeCompare(left.completedAt))
+
+  // Season and mode bound what the tiles count; status is the filter the tiles
+  // themselves toggle, so it is applied after they are counted.
+  const counts = STATUS_TILES.map((tile) => ({
+    ...tile,
+    count: scopedRuns.filter((run) => run.reviewStatus === tile.key).length
+  }))
+  const visibleRuns = scopedRuns.filter(
+    (run) => statusFilter.value === 'any' || run.reviewStatus === statusFilter.value
+  )
+
+  // Per-mode personal bests inside the loaded scope, so a row can mark itself
+  // without rescanning the list once per row.
+  const bestByMode = new Map<GameMode, number>()
+  for (const mode of new Set(scopedRuns.map((run) => run.mode))) {
+    const best = bestOf(scopedRuns, mode)
+    if (best !== undefined) bestByMode.set(mode, best)
+  }
+
+  const months: Array<{ key: string; runs: RecentRun[] }> = []
+  for (const run of visibleRuns) {
+    const key = monthKey(run.completedAt)
+    const group = months.at(-1)
+    if (group?.key === key) group.runs.push(run)
+    else months.push({ key, runs: [run] })
+  }
+
+  function noteFor(run: RecentRun): string {
+    if (run.reviewStatus === 'excluded') return 'EXCLUDED'
+    if (run.reviewStatus === 'pending') return 'AWAITING'
+    return bestByMode.get(run.mode) === run.score ? 'BEST' : ''
+  }
+
+  return (
+    <section class="ed-profile__recent ed-games" aria-labelledby="your-games-title">
+      <div class="ed-profile__recent-head">
+        <span class="ed-profile__recent-title" id="your-games-title">
+          Your games
+        </span>
+        <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
+          Leaderboards <Icon name="arrow-right" />
+        </button>
+      </div>
+
+      <div class="ed-games__filters">
+        <select
+          aria-label="Season"
+          value={activeSeason}
+          onChange={(event) => {
+            seasonFilter.value = event.currentTarget.value
+            pagedSeasons.value = 1
+          }}
+        >
+          {index.value.map((season) => (
+            <option key={season.id} value={season.id}>
+              {season.id === currentSeasonId ? `${season.id} (current)` : season.id} · {season.games}
+            </option>
+          ))}
+          <option value="all">All seasons</option>
+        </select>
+        <select
+          aria-label="Mode"
+          value={modeFilter.value}
+          onChange={(event) => (modeFilter.value = event.currentTarget.value as GameMode | 'all')}
+        >
+          <option value="all">All modes</option>
+          {GAMES.map((game) => (
+            <option key={game.mode} value={game.mode}>
+              {game.name}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Review status"
+          value={statusFilter.value}
+          onChange={(event) => (statusFilter.value = event.currentTarget.value as StatusFilter)}
+        >
+          <option value="any">Any status</option>
+          {STATUS_TILES.map((tile) => (
+            <option key={tile.key} value={tile.key}>
+              {tile.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* The tiles are the filter, not a read-out beside it: tapping one sets
+          the status filter and tapping it again clears it. They count referee
+          decisions only — most games are never reviewed and belong to none. */}
+      <div class="ed-games__tiles">
+        {counts.map((tile) => (
+          <button
+            key={tile.key}
+            class={`ed-games__tile ed-games__tile--${tile.key}${statusFilter.value === tile.key ? ' ed-games__tile--on' : ''}`}
+            aria-pressed={statusFilter.value === tile.key}
+            onClick={() => (statusFilter.value = statusFilter.value === tile.key ? 'any' : tile.key)}
+          >
+            <strong>{tile.count}</strong>
+            <span>{tile.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {status.value === 'loading' || status.value === 'idle' ? (
+        <p class="ed-profile__recent-empty" role="status">
+          Loading your games…
+        </p>
+      ) : status.value === 'error' ? (
+        <p class="ed-profile__recent-empty" role="alert">
+          Your game history is temporarily unavailable.
+        </p>
+      ) : !visibleRuns.length ? (
+        <EmptyState
+          art="empty-runs"
+          heading={scopedRuns.length ? 'Nothing matches those filters' : 'Nothing played yet'}
+          line={
+            scopedRuns.length
+              ? 'Clear a filter to see the rest of your games.'
+              : 'Your finished games land here, newest first.'
+          }
+          actionLabel={scopedRuns.length ? 'Clear filters' : 'Play Surge'}
+          onAction={
+            scopedRuns.length
+              ? () => {
+                  statusFilter.value = 'any'
+                  modeFilter.value = 'all'
+                }
+              : undefined
+          }
+          href="/surge"
+        />
+      ) : (
+        <>
+          {months.map((month) => {
+            const monthBest = modeFilter.value === 'all' ? undefined : bestOf(month.runs, modeFilter.value)
+            return (
+              <div class="ed-games__month" key={month.key}>
+                <div class="ed-games__month-head">
+                  <strong>{monthLabel(month.runs[0].completedAt)}</strong>
+                  <small>
+                    {month.runs.length} {month.runs.length === 1 ? 'game' : 'games'}
+                    {monthBest !== undefined && ` · best ${scoreLabel(modeFilter.value as GameMode, monthBest)}`}
+                  </small>
+                </div>
+                <ul class="ed-games__rows">
+                  {month.runs.map((run, index) => {
+                    const note = noteFor(run)
+                    return (
+                      <li key={run.runId}>
+                        <button
+                          class="ed-games__row"
+                          aria-label={`${gameDisplay(run.mode).name}, ${scoreLabel(run.mode, run.score)}`}
+                          onClick={(event) => {
+                            rowTriggerRef.current = event.currentTarget
+                            openRun.value = run
+                          }}
+                        >
+                          <span class="ed-games__day">{dayLabel(run.completedAt)}</span>
+                          <ModeIcon mode={run.mode} size={22} />
+                          <span class="ed-games__score">{scoreLabel(run.mode, run.score)}</span>
+                          <span class={`ed-games__note ed-games__note--${run.reviewStatus ?? 'none'}`}>{note}</span>
+                          {/* No referee, no seal: the mark means a person
+                              looked at this run, so an ordinary game wears
+                              nothing at all. */}
+                          {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={18} index={index} />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })}
+          {loadError.value && (
+            <p class="ed-profile__recent-empty" role="alert">
+              {loadError.value}
+            </p>
+          )}
+          {nextOlderSeasonId && (
+            <button class="ed-games__more" disabled={loadingMore.value} onClick={() => (pagedSeasons.value += 1)}>
+              {loadingMore.value ? 'Loading…' : `Load ${nextOlderSeasonId}`}
+            </button>
+          )}
+        </>
+      )}
+
+      {openRun.value && (
+        <RunDetail run={openRun.value} onClose={() => (openRun.value = null)} returnFocus={rowTriggerRef.current} />
+      )}
+    </section>
+  )
+}
+
+function RunDetail({
+  run,
   onClose,
   returnFocus
 }: {
-  season: SeasonHistory
+  run: RecentRun
   onClose: () => void
   returnFocus: HTMLElement | null
 }) {
+  const game = gameDisplay(run.mode)
   return (
-    <DetailModal label={`${season.id} games`} onClose={onClose} className="ed-season-modal" returnFocus={returnFocus}>
-      <div class="ed-season-modal__head">
-        <div class="ed-eyebrow">Season history</div>
-        <h2 class="ed-season-modal__title">{season.id}</h2>
-        <p>
-          {season.games} {season.games === 1 ? 'game' : 'games'} played
-        </p>
+    <DetailModal label={`${game.name} game`} onClose={onClose} className="ed-run-modal" returnFocus={returnFocus}>
+      <div class="ed-run-modal__head">
+        <ModeIcon mode={run.mode} size={34} />
+        <div>
+          <h2 class="ed-run-modal__title">{game.name}</h2>
+          <p>
+            {scoreLabel(run.mode, run.score)} ·{' '}
+            {new Date(run.completedAt).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}
+          </p>
+        </div>
+        {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={32} label />}
       </div>
-      <ul class="ed-profile__recent-list ed-season-modal__runs">
-        {season.runs.map((run) => {
-          const game = gameDisplay(run.mode)
-          return (
-            <li key={run.runId}>
-              <span class="ed-profile__recent-name">
-                <ModeIcon mode={run.mode} size={24} /> {game.name}
-              </span>
-              <span class="ed-profile__recent-score">
-                {scoreLabel(run.mode, run.score)}
-                {run.reviewStatus && (
-                  <ReviewStatusMark status={run.reviewStatus} compact={run.reviewStatus === 'reviewed'} />
-                )}
-              </span>
-              <time dateTime={run.completedAt}>
-                {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </time>
-              <div class="ed-review-details">
-                <small class="ed-review-reference">Run {runReference(run.runId)}</small>
-                {run.reviewExplanation && <p class="ed-review-explanation">{run.reviewExplanation}</p>}
-                {run.reviewStatus === 'excluded' && (
-                  <a class="ed-textlink" href={contactEmailHref(`Elixir Drop run review ${runReference(run.runId)}`)}>
-                    Dispute this result
-                  </a>
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+      {/* Only a run a referee has actually touched carries a reference: on an
+          ordinary game it is a serial number with nothing to look up. */}
+      {run.reviewStatus && <p class="ed-run-modal__reference">Run {runReference(run.runId)}</p>}
+      {run.reviewExplanation && <p class="ed-run-modal__note">{run.reviewExplanation}</p>}
+      {run.reviewStatus === 'excluded' && (
+        <a class="ed-textlink" href={contactEmailHref(`Elixir Drop run review ${runReference(run.runId)}`)}>
+          Dispute this result
+        </a>
+      )}
     </DetailModal>
   )
 }

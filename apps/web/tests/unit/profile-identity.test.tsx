@@ -75,7 +75,7 @@ describe('favorite-card identity', () => {
     render(<></>, container)
   })
 
-  it('shows clan, account age, and the collection count without the card grid', async () => {
+  it('collapses the Clash Royale profile to one row: clan, role, tag, age', async () => {
     accountStatus.value = 'authenticated'
     player.value = {
       ...basePlayer,
@@ -106,14 +106,15 @@ describe('favorite-card identity', () => {
 
     const html = await renderToStringAsync(<Profile />)
 
-    expect(html).toContain('CR Player')
     expect(html).toContain('POAP KINGS')
     expect(html).toContain('Co Leader')
-    expect(html).toContain('8 years, 10 days in Clash Royale')
-    expect(html).toContain('Calculated from the Years Played badge’s day count')
-    // Collection COUNT stays; the card GRID is gone (it had no use in Drop).
-    expect(html).toContain('1 cards')
-    expect(html).toContain('Not used in Drop')
+    expect(html).toContain('#2PYQ0')
+    expect(html).toContain('8 years played')
+    // The three fact cells and the Collection tile are gone with the row.
+    expect(html).not.toContain('Calculated from the Years Played badge’s day count')
+    expect(html).not.toContain('Collection')
+    expect(html).not.toContain('1 cards')
+    expect(html).not.toContain('cr-profile__facts')
     expect(html).not.toContain('cr-card-grid')
     expect(html).not.toContain('Card collection')
     expect(html).not.toContain('api-assets.clashroyale.com')

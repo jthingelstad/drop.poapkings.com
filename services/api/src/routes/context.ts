@@ -5,6 +5,7 @@ import { publicCrProfile, requestCrProfileRefresh } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
 import { levelForGames } from "../progression.js";
+import { refereeReviewStatus } from "../referee-status.js";
 import type { Repository } from "../repository.js";
 import { signToken, verifyToken } from "../signing.js";
 import type {
@@ -143,25 +144,10 @@ export function profileResponse(
 export function ownerRunReviewStatus(
   decision: RefereeDecision | undefined,
 ): RunReviewStatus | undefined {
-  if (!decision) return undefined;
-  if (decision.visibility === "hidden" && decision.queueState === "pending")
-    return "pending";
-  if (
-    decision.visibility === "hidden" &&
-    decision.decidedBy === "integrity-gate"
-  )
-    return "pending";
-  if (
-    decision.visibility === "hidden" &&
-    decision.decidedBy === "fair-play-referee"
-  )
-    return "excluded";
-  if (
-    decision.visibility === "visible" &&
-    decision.decidedBy === "fair-play-referee"
-  )
-    return "reviewed";
-  return undefined;
+  // The owner's history is the one surface that distinguishes "no referee has
+  // looked at this" from "a referee cleared it", so it keeps the classifier's
+  // undefined rather than defaulting to reviewed the way the boards do.
+  return refereeReviewStatus(decision);
 }
 
 const PLAYER_REVIEW_EXPLANATIONS = {

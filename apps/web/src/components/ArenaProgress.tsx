@@ -1,5 +1,32 @@
 import { rankFor, zoneFor } from '../data/starRanks'
 
+// One place that turns XP into "how far along this arena am I, and how much is
+// left". The You page banner draws its own arena line and needs the same
+// numbers as the full card, so neither surface recomputes the thresholds.
+export function arenaProgress(xp: number) {
+  const { current, next } = rankFor(xp)
+  if (!next) return { current, next, fillPct: 100, toGoLabel: 'Top arena reached.' }
+  const span = next.threshold - current.threshold
+  const into = Math.max(0, xp - current.threshold)
+  const togo = Math.max(0, next.threshold - xp)
+  return {
+    current,
+    next,
+    fillPct: Math.min(100, Math.round((into / span) * 100)),
+    toGoLabel: `${togo.toLocaleString()} XP to ${next.name}`
+  }
+}
+
+// The bar on its own, for callers that already draw the arena's name and XP
+// beside it. The full card below is still the canonical presentation.
+export function ArenaProgressBar({ xp }: { xp: number }) {
+  return (
+    <div class="rank-progress">
+      <div class="rank-progress__fill" style={{ width: arenaProgress(xp).fillPct + '%' }} />
+    </div>
+  )
+}
+
 // The player's arena on Drop's Trophy Road — now a per-player journey driven by
 // lifetime Player XP. Rendered inline on the profile (no modal).
 export default function ArenaProgress({ xp }: { xp: number }) {
@@ -14,15 +41,7 @@ export default function ArenaProgress({ xp }: { xp: number }) {
     .filter(Boolean)
     .join(' ')
 
-  let fillPct = 100
-  let progressLabel = 'Top arena reached.'
-  if (next) {
-    const span = next.threshold - current.threshold
-    const into = Math.max(0, xp - current.threshold)
-    fillPct = Math.min(100, Math.round((into / span) * 100))
-    const togo = Math.max(0, next.threshold - xp)
-    progressLabel = `${togo.toLocaleString()} XP to ${next.name}`
-  }
+  const { fillPct, toGoLabel: progressLabel } = arenaProgress(xp)
 
   return (
     <div class="rank-card">

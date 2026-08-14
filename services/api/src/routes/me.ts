@@ -98,29 +98,100 @@ export async function getMe({ event, config, repository }: RouteContext) {
   });
 }
 
-// GET /me/seasons — every current-mode run grouped by its authoritative season.
+const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
+// `unreviewed` is not a stored decision — it is the absence of one, and the
+// filter needs a name for it because it is what most runs are.
+const REVIEW_STATUSES = [
+  "pending",
+  "reviewed",
+  "excluded",
+  "unreviewed",
+] as const;
+
+function isReviewStatus(
+  value: string | undefined,
+): value is (typeof REVIEW_STATUSES)[number] {
+  return REVIEW_STATUSES.includes(value as (typeof REVIEW_STATUSES)[number]);
+}
+
+// GET /me/seasons — the player's run history, grouped by authoritative season.
 // This is intentionally separate from /me: the global app shell refreshes /me,
-// while the full paginated history is only useful on the profile screen.
+// while the fuller history is only useful on the profile screen.
+//
+// The response is deliberately bounded. `index` lists every season the player
+// has runs in with its game count — a handful of rows, enough to build a season
+// picker and a "load the season before this one" control — while `seasons`
+// carries the runs for ONE season by default. Players are already into the
+// hundreds of games, and shipping a whole career to render one month is a
+// payload that only grows.
+//
+//   (no season)   the most recent season the player played
+//   season=<id>   that season
+//   season=all    every season — explicit opt-in, never the default
+//
+// `mode` and `status` narrow further. A run no referee has touched has no
+// status at all, so it answers `status=reviewed` only in the sense that it is
+// eligible; it is matched by the dedicated `unreviewed` value instead.
 export async function getMySeasons({
   event,
   config,
   repository,
 }: RouteContext) {
   const session = sessionFor(event, config.sessionSecret, true);
+  const seasonFilter = event.queryStringParameters?.season;
+  if (
+    seasonFilter !== undefined &&
+    seasonFilter !== "all" &&
+    !SEASON_ID_PATTERN.test(seasonFilter)
+  )
+    throw new HttpError(400, "Season ID is invalid.");
+  const modeFilter = event.queryStringParameters?.mode;
+  if (modeFilter !== undefined && !isGameMode(modeFilter))
+    throw new HttpError(400, "Choose a valid game mode.");
+  const statusFilter = event.queryStringParameters?.status;
+  if (statusFilter !== undefined && !isReviewStatus(statusFilter))
+    throw new HttpError(400, "Choose a valid review status.");
+
   const history = (await repository.listRunHistory(session.sub)).filter(
     (run): run is typeof run & { mode: GameMode } => isGameMode(run.mode),
   );
-  const decisions = await repository.refereeDecisions(
-    history.map((run) => run.runId),
+
+  // Built from the whole history because it has to be complete, but it costs
+  // one number per season on the wire.
+  const index = [...new Set(history.map((run) => run.seasonId))]
+    .sort((left, right) => right.localeCompare(left))
+    .map((id) => ({
+      id,
+      games: history.filter((run) => run.seasonId === id).length,
+    }));
+
+  const requestedSeason =
+    seasonFilter === undefined ? index[0]?.id : seasonFilter;
+  const scoped = history.filter(
+    (run) =>
+      (requestedSeason === undefined ||
+        requestedSeason === "all" ||
+        run.seasonId === requestedSeason) &&
+      (modeFilter === undefined || run.mode === modeFilter),
   );
-  const runs = history.map((run) => {
-    const decision = decisions.get(run.runId);
-    return runRecordResponse(
-      run,
-      ownerRunReviewStatus(decision),
-      ownerRunReviewExplanation(decision),
-    );
-  });
+  const decisions = await repository.refereeDecisions(
+    scoped.map((run) => run.runId),
+  );
+  const runs = scoped
+    .filter(
+      (run) =>
+        statusFilter === undefined ||
+        (ownerRunReviewStatus(decisions.get(run.runId)) ?? "unreviewed") ===
+          statusFilter,
+    )
+    .map((run) => {
+      const decision = decisions.get(run.runId);
+      return runRecordResponse(
+        run,
+        ownerRunReviewStatus(decision),
+        ownerRunReviewExplanation(decision),
+      );
+    });
   const grouped = new Map<string, typeof runs>();
   for (const run of runs) {
     const season = grouped.get(run.seasonId) ?? [];
@@ -129,10 +200,12 @@ export async function getMySeasons({
   }
   console.info("Player season history read", {
     requestId: event.requestContext.requestId,
+    indexedSeasons: index.length,
     seasons: grouped.size,
     runs: runs.length,
   });
   return json(200, {
+    index,
     seasons: [...grouped.entries()].map(([id, seasonRuns]) => ({
       id,
       games: seasonRuns.length,

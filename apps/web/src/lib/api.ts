@@ -274,8 +274,24 @@ export function getNameOptions(sessionToken: string, favoriteCardId: number) {
   })
 }
 
-export function getSeasonHistory(sessionToken: string, signal?: AbortSignal) {
-  return apiRequest('/me/seasons', seasonHistoryResponseSchema, { sessionToken, signal })
+// Season history, one season at a time. The response always carries a
+// lightweight `index` of every season the player has runs in, so the You page
+// can offer a season picker and page older seasons in without ever pulling a
+// whole career across the wire. Pass `season: 'all'` to opt into that
+// deliberately; omit `season` for the most recent one.
+export function getSeasonHistory(
+  sessionToken: string,
+  signal?: AbortSignal,
+  filters: {
+    season?: string
+    mode?: GameMode
+    status?: 'pending' | 'reviewed' | 'excluded' | 'unreviewed'
+  } = {}
+) {
+  const query = new URLSearchParams(
+    Object.entries(filters).flatMap(([key, value]) => (value ? [[key, value] as [string, string]] : []))
+  ).toString()
+  return apiRequest(`/me/seasons${query ? `?${query}` : ''}`, seasonHistoryResponseSchema, { sessionToken, signal })
 }
 
 export function patchMe(
@@ -380,5 +396,5 @@ export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
 export type { ActivityEntry } from './api-contracts'
-export type { LeaderboardEntry, RecentRun, SeasonHistory } from './api-contracts'
+export type { LeaderboardEntry, RecentRun, SeasonHistory, SeasonIndexEntry } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'

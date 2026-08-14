@@ -14,6 +14,11 @@ import {
   hydratePublicProfiles,
   placeholderPublicProfile,
 } from "./public-profile.js";
+import {
+  boardReviewStatus,
+  isExcludedFromBoards,
+  refereeReviewStatus,
+} from "./referee-status.js";
 import type { GameMode, PublicProfile, RefereeDecision } from "./types.js";
 
 // Every read in this module is reachable from GET /leaderboards, which is
@@ -33,12 +38,21 @@ const MAX_PLAYER_RUN_PAGES = 4;
 const MAX_PLAYER_RUNS = 2_000;
 // BatchGetItem's own per-request key ceiling.
 const DECISION_BATCH_SIZE = 100;
-// The visible-run fallback resolves decisions in ranked order and stops at the
-// first visible run, so the common case is one batch. This caps how deep a
-// player's own hidden runs can push that scan.
+// The rankable-run fallback resolves decisions in ranked order and stops at the
+// first rankable run, so the common case is one batch. This caps how deep a
+// player's own excluded runs can push that scan.
 const MAX_VISIBILITY_BATCHES = 5;
 
 type BoardItem = Record<string, unknown>;
+
+// What a run awaiting a referee is allowed to do on a given read.
+//
+// "rank" is the public rule: a held run ranks provisionally and carries an
+// awaiting status, so a leading score is never silently absent from the board
+// while it waits for a person. "withhold" is for the internal finalization
+// read — a season podium is an award, and awarding one to a run no referee has
+// cleared yet is not something a later decision can take back cleanly.
+type PendingPolicy = "rank" | "withhold";
 
 const historyUnavailable = () =>
   new HttpError(
@@ -61,16 +75,21 @@ export async function seasonLeaderboard(
 // never hydrated public rows, while reusing the exact referee-aware ranking
 // path players see. Keeping this separate prevents an internal subject key
 // from leaking into GET /leaderboards.
+//
+// This is the one read that still withholds a pending run. The public board
+// ranks it provisionally because a provisional placement is reversible; a
+// finalized podium is not.
 export async function seasonPodiumFinishers(
   tableName: string,
   mode: GameMode,
   seasonId: string,
 ): Promise<string[]> {
-  return (await seasonLeaderboardItems(tableName, mode, seasonId, 3)).flatMap(
-    (item) =>
-      typeof item.playerSub === "string" && item.playerSub
-        ? [item.playerSub]
-        : [],
+  return (
+    await seasonLeaderboardItems(tableName, mode, seasonId, 3, "withhold")
+  ).flatMap((item) =>
+    typeof item.playerSub === "string" && item.playerSub
+      ? [item.playerSub]
+      : [],
   );
 }
 
@@ -89,6 +108,7 @@ async function seasonLeaderboardItems(
   mode: GameMode,
   seasonId: string,
   limit: number,
+  pending: PendingPolicy = "rank",
 ): Promise<BoardItem[]> {
   const items: BoardItem[] = [];
   const seenPlayers = new Set<string>();
@@ -121,7 +141,9 @@ async function seasonLeaderboardItems(
     const decisions = await refereeDecisions(tableName, runIdsOf(pageItems));
     for (const item of pageItems) {
       const decision = decisions.get(String(item.runId));
-      if (decision?.visibility === "hidden") continue;
+      if (isExcludedFromBoards(decision)) continue;
+      if (pending === "withhold" && refereeReviewStatus(decision) === "pending")
+        continue;
       const sub = String(item.playerSub);
       if (!seenPlayers.has(sub)) {
         seenPlayers.add(sub);
@@ -189,9 +211,9 @@ async function allTimeLeaderboardItems(
         await Promise.all(
           pageItems.map(async (item) => {
             const decision = decisions.get(String(item.runId));
-            if (decision?.visibility !== "hidden")
+            if (!isExcludedFromBoards(decision))
               return reviewedItem(item, decision);
-            return bestVisibleRun(
+            return bestRankableRun(
               tableName,
               String(item.playerSub),
               mode,
@@ -287,9 +309,9 @@ export async function clanAllTimeLeaderboard(
         await Promise.all(
           pageItems.map(async (item) => {
             const decision = decisions.get(String(item.runId));
-            if (decision?.visibility !== "hidden")
+            if (!isExcludedFromBoards(decision))
               return reviewedItem(item, decision);
-            return bestVisibleRun(
+            return bestRankableRun(
               tableName,
               String(item.playerSub),
               mode,
@@ -374,14 +396,22 @@ export async function refereeDecisions(
   return decisions;
 }
 
+// Stamp the row with what the board should say about it. Both fields are
+// absent on a run no referee has touched: `reviewStatus` is only ever a real
+// referee state, and `refereeReviewed` keeps its original meaning so a browser
+// still running the previous release marks exactly the rows it always did.
 function reviewedItem(
   item: BoardItem,
   decision: RefereeDecision | undefined,
 ): BoardItem {
-  return decision?.decidedBy === "fair-play-referee" &&
-    decision.visibility === "visible"
-    ? { ...item, refereeReviewed: true }
-    : item;
+  const status = boardReviewStatus(decision);
+  return {
+    ...item,
+    ...(status ? { reviewStatus: status } : {}),
+    ...(refereeReviewStatus(decision) === "reviewed"
+      ? { refereeReviewed: true }
+      : {}),
+  };
 }
 
 async function resolveAllTimeEarningRun(
@@ -424,11 +454,11 @@ async function resolveAllTimeEarningRun(
   throw historyUnavailable();
 }
 
-async function bestVisibleRun(
+async function bestRankableRun(
   tableName: string,
   sub: string,
   mode: GameMode,
-  hiddenRunId: string,
+  excludedRunId: string,
 ): Promise<BoardItem | undefined> {
   const runs: BoardItem[] = [];
   let lastKey: Record<string, unknown> | undefined;
@@ -453,7 +483,7 @@ async function bestVisibleRun(
       ...((result.Items ?? []) as BoardItem[]).filter(
         (item) =>
           item.mode === mode &&
-          item.runId !== hiddenRunId &&
+          item.runId !== excludedRunId &&
           isCurrentBoardRun({
             mode,
             boardEpoch:
@@ -473,9 +503,9 @@ async function bestVisibleRun(
   );
 
   // Rank first, then resolve referee decisions in rank order and stop at the
-  // first visible run. Reading a decision for every candidate meant up to
-  // MAX_PLAYER_RUNS / DECISION_BATCH_SIZE BatchGets per hidden row, per board
-  // page; the answer only ever depends on the best visible one.
+  // first rankable run. Reading a decision for every candidate meant up to
+  // MAX_PLAYER_RUNS / DECISION_BATCH_SIZE BatchGets per excluded row, per board
+  // page; the answer only ever depends on the best rankable one.
   runs.sort((a, b) =>
     leaderboardItemSortKey(a, mode).localeCompare(
       leaderboardItemSortKey(b, mode),
@@ -488,11 +518,11 @@ async function bestVisibleRun(
   for (let offset = 0; offset < scanDepth; offset += DECISION_BATCH_SIZE) {
     const window = runs.slice(offset, offset + DECISION_BATCH_SIZE);
     const decisions = await refereeDecisions(tableName, runIdsOf(window));
-    const visible = window.find(
-      (item) => decisions.get(String(item.runId))?.visibility !== "hidden",
+    const rankable = window.find(
+      (item) => !isExcludedFromBoards(decisions.get(String(item.runId))),
     );
-    if (visible)
-      return reviewedItem(visible, decisions.get(String(visible.runId)));
+    if (rankable)
+      return reviewedItem(rankable, decisions.get(String(rankable.runId)));
   }
   return undefined;
 }
@@ -537,6 +567,9 @@ function toLeaderboardRow(
     rank: index + 1,
     score: item.score,
     achievedAt: item.completedAt,
+    ...(item.reviewStatus === "pending" || item.reviewStatus === "reviewed"
+      ? { reviewStatus: item.reviewStatus }
+      : {}),
     ...(item.refereeReviewed === true ? { refereeReviewed: true } : {}),
     ...(showTime && item.timeMs !== undefined
       ? { timeMs: item.timeMs as number }

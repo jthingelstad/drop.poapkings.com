@@ -256,14 +256,24 @@ describe('MetaPage', () => {
     expect(html).not.toContain('main-content privacy-screen')
   })
 
-  it('renders the Fair Play rules and visible review-status words', async () => {
+  it('renders the Fair Play rules and the seal vocabulary', async () => {
     const html = await render(<FairPlay />)
     expect(html).toContain('Play as a person')
-    expect(html).toContain('Pending')
-    expect(html).toContain('Reviewed')
+    expect(html).toContain('Awaiting')
+    expect(html).toContain('Cleared')
     expect(html).toContain('Excluded')
+    expect(html).toContain('ranks provisionally')
     expect(html).toContain('Practice remains available')
     expect(html).toContain(`mailto:${ELIXIR_DROP_CONTACT_EMAIL}?subject=Elixir%20Drop%20Fair%20Play%20re-review`)
+  })
+
+  it('draws review status as a CSS seal, never an emoji glyph', async () => {
+    const html = await render(<FairPlay />)
+    expect(html).toContain('ed-seal ed-seal--pending')
+    expect(html).toContain('ed-seal ed-seal--reviewed')
+    expect(html).toContain('ed-seal ed-seal--excluded')
+    // The retired glyphs: a magnifier, a check mark, and a prohibition sign.
+    for (const glyph of ['\u{1f50e}', '✅', '\u{1f6ab}']) expect(html).not.toContain(glyph)
   })
 
   it('renders the Install page with numbered iOS and Android steps', async () => {

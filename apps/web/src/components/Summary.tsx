@@ -114,10 +114,10 @@ export default function Summary({
             know anything about referee state. */}
         {heldForReview.value && (
           <div class="ed-sum__review" role="status">
-            <ReviewStatusMark status="pending" />
+            <ReviewStatusMark status="pending" size={32} struck />
             <span>
-              <strong>Review pending.</strong> Your score is recorded, but it won&rsquo;t receive a leaderboard
-              placement until a referee reviews it.
+              <strong>Awaiting the referee.</strong> Your score is recorded and ranks while it is checked. If the
+              referee excludes it, it leaves the board and you&rsquo;ll see why here.
               {heldForReviewReference.value && (
                 <small class="ed-sum__review-reference">Reference: {heldForReviewReference.value}</small>
               )}

@@ -32,7 +32,10 @@ const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1_000);
 const sub = "player-sub";
 
-function meEvent(path = "/me"): APIGatewayProxyEventV2 {
+function meEvent(
+  path = "/me",
+  queryStringParameters?: Record<string, string>,
+): APIGatewayProxyEventV2 {
   const session = signToken(
     { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3_600 },
     secret,
@@ -41,7 +44,8 @@ function meEvent(path = "/me"): APIGatewayProxyEventV2 {
     version: "2.0",
     routeKey: "$default",
     rawPath: path,
-    rawQueryString: "",
+    rawQueryString: new URLSearchParams(queryStringParameters ?? {}).toString(),
+    ...(queryStringParameters ? { queryStringParameters } : {}),
     headers: { authorization: `Bearer ${session}` },
     requestContext: {
       accountId: "test",
@@ -239,7 +243,7 @@ describe("GET /me/seasons", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
   });
 
-  it("groups the full paginated history instead of the recent-run window", async () => {
+  it("indexes every season but ships only the most recent one by default", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "new-1",
@@ -276,20 +280,180 @@ describe("GET /me/seasons", () => {
 
     expect(result.statusCode).toBe(200);
     expect(repository.listRunHistory).toHaveBeenCalledWith(sub);
-    expect(JSON.parse(result.body ?? "{}").seasons).toEqual([
+    const body = JSON.parse(result.body ?? "{}");
+    // The index covers the career — a row per season, no runs — while the
+    // payload carries one season. Retired modes are dropped from both.
+    expect(body.index).toEqual([
+      { id: "2026-08", games: 1 },
+      { id: "2026-07", games: 2 },
+    ]);
+    expect(body.seasons).toEqual([
       {
         id: "2026-08",
         games: 1,
         runs: [expect.objectContaining({ runId: "new-1", mode: "trade" })],
       },
+    ]);
+  });
+
+  it("ships every season only when the caller asks for all of them", async () => {
+    repository.listRunHistory.mockResolvedValue([
       {
-        id: "2026-07",
-        games: 2,
-        runs: [
-          expect.objectContaining({ runId: "old-1", mode: "surge" }),
-          expect.objectContaining({ runId: "old-2", mode: "practice" }),
-        ],
+        runId: "new-1",
+        mode: "trade",
+        score: 91_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+      {
+        runId: "old-1",
+        mode: "surge",
+        score: 22_000,
+        seasonId: "2026-07",
+        completedAt: "2026-07-20T18:00:00.000Z",
       },
     ]);
+
+    const result = await handler(
+      meEvent("/me/seasons", { season: "all" }),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(
+      JSON.parse(result.body ?? "{}").seasons.map(
+        (season: { id: string }) => season.id,
+      ),
+    ).toEqual(["2026-08", "2026-07"]);
+  });
+
+  it("narrows the history by season and mode", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "new-1",
+        mode: "trade",
+        score: 91_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+      {
+        runId: "old-1",
+        mode: "surge",
+        score: 22_000,
+        seasonId: "2026-07",
+        completedAt: "2026-07-20T18:00:00.000Z",
+      },
+      {
+        runId: "old-2",
+        mode: "practice",
+        score: 0,
+        seasonId: "2026-07",
+        completedAt: "2026-07-19T18:00:00.000Z",
+      },
+    ]);
+
+    const result = await handler(
+      meEvent("/me/seasons", { season: "2026-07", mode: "surge" }),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    expect(result.statusCode).toBe(200);
+    const narrowed = JSON.parse(result.body ?? "{}");
+    expect(narrowed.index).toEqual([
+      { id: "2026-08", games: 1 },
+      { id: "2026-07", games: 2 },
+    ]);
+    expect(narrowed.seasons).toEqual([
+      {
+        id: "2026-07",
+        games: 1,
+        runs: [expect.objectContaining({ runId: "old-1" })],
+      },
+    ]);
+  });
+
+  it("narrows by review status, counting an untouched run as reviewed", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "held",
+        mode: "surge",
+        score: 20_000,
+        seasonId: "2026-07",
+        completedAt: "2026-07-20T18:00:00.000Z",
+      },
+      {
+        runId: "untouched",
+        mode: "surge",
+        score: 22_000,
+        seasonId: "2026-07",
+        completedAt: "2026-07-19T18:00:00.000Z",
+      },
+    ]);
+    repository.refereeDecisions.mockResolvedValue(
+      new Map([
+        [
+          "held",
+          {
+            runId: "held",
+            visibility: "hidden",
+            decidedBy: "integrity-gate",
+          },
+        ],
+      ]) as never,
+    );
+
+    const held = await handler(
+      meEvent("/me/seasons", { status: "pending" }),
+      {} as never,
+      () => {},
+    );
+    if (!held || typeof held === "string") throw new Error("no result");
+    expect(JSON.parse(held.body ?? "{}").seasons[0].runs).toEqual([
+      expect.objectContaining({ runId: "held", reviewStatus: "pending" }),
+    ]);
+
+    // A run no referee touched is NOT cleared — it has no status at all, and
+    // only the dedicated `unreviewed` filter matches it.
+    const cleared = await handler(
+      meEvent("/me/seasons", { status: "reviewed" }),
+      {} as never,
+      () => {},
+    );
+    if (!cleared || typeof cleared === "string") throw new Error("no result");
+    expect(JSON.parse(cleared.body ?? "{}").seasons).toEqual([]);
+
+    const unreviewed = await handler(
+      meEvent("/me/seasons", { status: "unreviewed" }),
+      {} as never,
+      () => {},
+    );
+    if (!unreviewed || typeof unreviewed === "string")
+      throw new Error("no result");
+    const unreviewedRuns = JSON.parse(unreviewed.body ?? "{}").seasons[0].runs;
+    expect(unreviewedRuns).toEqual([
+      expect.objectContaining({ runId: "untouched" }),
+    ]);
+    expect(unreviewedRuns[0].reviewStatus).toBeUndefined();
+  });
+
+  it("rejects an invalid season, mode, or status", async () => {
+    repository.listRunHistory.mockResolvedValue([]);
+    const queries: Array<Record<string, string>> = [
+      { season: "nope" },
+      { mode: "chess" },
+      { status: "cleared" },
+      { season: "2026-13-nope" },
+    ];
+    for (const query of queries) {
+      const result = await handler(
+        meEvent("/me/seasons", query),
+        {} as never,
+        () => {},
+      );
+      if (!result || typeof result === "string") throw new Error("no result");
+      expect(result.statusCode).toBe(400);
+    }
   });
 });

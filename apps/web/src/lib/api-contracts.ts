@@ -173,7 +173,17 @@ export const seasonHistorySchema = z.object({
   runs: z.array(recentRunSchema)
 })
 
+// Every season the player has runs in, newest first — one row each, so the
+// picker and the "load the season before this" control never need the runs.
+export const seasonIndexEntrySchema = z.object({
+  id: nonEmptyString,
+  games: nonNegativeInteger
+})
+
 export const seasonHistoryResponseSchema = z.object({
+  // Absent on responses from before the history read was paged; the client
+  // falls back to the seasons it was given.
+  index: z.optional(z.array(seasonIndexEntrySchema)),
   seasons: z.array(seasonHistorySchema)
 })
 
@@ -288,6 +298,14 @@ export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
   achievedAt: isoDateTime,
+  // A run awaiting the referee ranks provisionally, so the row needs the run's
+  // status rather than a cleared/not-cleared boolean. 'excluded' never ships in
+  // a board response — an excluded run leaves the board entirely. Absent on the
+  // ordinary case, a run no referee has touched: there is no status to show and
+  // the row carries no mark.
+  reviewStatus: z.optional(z.enum(['pending', 'reviewed'])),
+  // Superseded by reviewStatus. Kept readable for one release so a browser on
+  // the new build still parses a response from an API that has not deployed yet.
   refereeReviewed: z.optional(z.boolean()),
   // Survival: cumulative time (ms) — the tiebreak among equal streaks.
   timeMs: z.optional(nonNegativeInteger),
@@ -326,6 +344,7 @@ export const activityResponseSchema = z.object({
 
 export type RecentRun = z.infer<typeof recentRunSchema>
 export type SeasonHistory = z.infer<typeof seasonHistorySchema>
+export type SeasonIndexEntry = z.infer<typeof seasonIndexEntrySchema>
 export type PublicPlayerSummary = z.infer<typeof publicPlayerSummarySchema>
 export type PublicPlayer = z.infer<typeof publicPlayerSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>

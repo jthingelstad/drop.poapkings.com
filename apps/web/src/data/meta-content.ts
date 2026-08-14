@@ -100,11 +100,11 @@ export const FAQ: FaqContent = {
     },
     {
       q: 'What counts for the leaderboards?',
-      a: 'Signed-in scores from ranked modes are eligible for season and all-time boards. Guest and Practice runs never rank. Leading or technically unusual results can wait for Fair Play review before placement.'
+      a: 'Signed-in scores from ranked modes are eligible for season and all-time boards. Guest and Practice runs never rank. Leading or technically unusual results are reviewed by Fair Play, and they rank provisionally while that happens.'
     },
     {
-      q: 'What do the Fair Play marks mean?',
-      a: '🔎 Pending has no placement yet. ✅ Reviewed remains eligible. 🚫 Excluded is not ranked, so the player’s next eligible result may appear instead. The run owner also sees its reference and a brief explanation for an exclusion. Automatic checks start review but do not decide it.'
+      q: 'What do the Fair Play seals mean?',
+      a: 'Most games are never reviewed and carry no seal at all. Awaiting means a referee is checking the run; it ranks provisionally in the meantime. Cleared means a referee checked that exact run and it stays eligible. Excluded means the run leaves the board, so the player’s next eligible result may appear instead. The run owner also sees its reference and a brief explanation for an exclusion. Automatic checks start review but do not decide it.'
     },
     {
       q: 'How do I contact Drop or dispute a run?',

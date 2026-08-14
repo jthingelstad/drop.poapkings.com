@@ -15,14 +15,14 @@ import ReviewStatusMark from '../components/ReviewStatus'
 
 // The leaderboards are season-scoped, not week-scoped: drop the Clan-Wars
 // weekly clock entirely and speak only to the season boundary.
-function seasonHeading(season: Season): string {
-  return season.crSeasonId === undefined ? 'Season leaderboards' : `Season ${season.crSeasonId} leaderboards`
-}
-
-function seasonTiming(season: Season): string {
+//
+// The clock reads as two short lines beside a fixed title, so the header's
+// height is the same on every scope and in every clan gate state. A heading
+// that rewrote itself per scope was the reason the rows used to jump.
+function seasonClock(season: Season): string {
   const date = new Date(season.endsAt).toLocaleDateString(undefined, {
     timeZone: 'UTC',
-    month: 'long',
+    month: 'short',
     day: 'numeric'
   })
   const time = new Date(season.endsAt).toLocaleTimeString(undefined, {
@@ -31,17 +31,23 @@ function seasonTiming(season: Season): string {
     minute: '2-digit',
     hour12: false
   })
-  const estimated = season.source === 'calendar-fallback' ? ' (estimated)' : ''
-  return `Season ends ${date} at ${time} UTC${estimated} — new boards open then`
+  return `${date} · ${time} UTC${season.source === 'calendar-fallback' ? ' (est.)' : ''}`
 }
 
-function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMode }) {
+function seasonScopeLabel(season: Season | null): string {
+  return season?.crSeasonId === undefined ? 'Season' : `Season ${season.crSeasonId}`
+}
+
+function LeaderboardRow({ entry, mode, index }: { entry: LeaderboardEntry; mode: GameMode; index: number }) {
   const isPlayer = entry.player.id === player.value?.id
   const games = entry.player.totalGames
   const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
   const score = LOWER_IS_BETTER.has(mode) ? `${formatLeaderboardSeconds(entry.score)}s` : scoreLabel(mode, entry.score)
+  const awaiting = entry.reviewStatus === 'pending'
   return (
-    <li class={`ed-lbrow${entry.rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}`}>
+    <li
+      class={`ed-lbrow${entry.rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}${entry.rank === 1 ? ' ed-lbrow--crown' : ''}`}
+    >
       <button
         class="ed-lbrow__button"
         aria-label={`View ${isPlayer ? 'your' : `${entry.player.publicName}'s`} profile`}
@@ -54,33 +60,42 @@ function LeaderboardRow({ entry, mode }: { entry: LeaderboardEntry; mode: GameMo
             {entry.player.publicName}
             {isPlayer && <em> You</em>}
           </strong>
-          <small class="ed-lbrow__meta">
-            <span class="ed-lbrow__xp">
-              <Icon name="zap" />
-              {entry.player.xp.toLocaleString()} XP
-            </span>
-            <span>
-              · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
-            </span>
-          </small>
-        </span>
-        <span class="ed-lbrow__score">
-          {score}
-          {entry.refereeReviewed && <ReviewStatusMark status="reviewed" compact />}
-          {entry.timeMs !== undefined && (
-            <small class="ed-lbrow__time">{formatLeaderboardSeconds(entry.timeMs)}s</small>
+          {/* A held run says why it is held instead of its XP and game count:
+              the one thing a player wants from that row is the reason. */}
+          {awaiting ? (
+            <small class="ed-lbrow__meta ed-lbrow__meta--awaiting">Awaiting the referee</small>
+          ) : (
+            <small class="ed-lbrow__meta">
+              <span class="ed-lbrow__xp">
+                <Icon name="zap" />
+                {entry.player.xp.toLocaleString()} XP
+              </span>
+              <span>
+                · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
+              </span>
+            </small>
           )}
+        </span>
+        <span class="ed-lbrow__result">
+          {/* Only a run a referee actually handled is marked. Most runs are
+              never reviewed, and sealing those "cleared" would claim a check
+              nobody performed — the empty slot keeps the scores aligned. */}
+          {entry.reviewStatus ? (
+            <ReviewStatusMark status={entry.reviewStatus} size={entry.rank === 1 ? 32 : 26} index={index} />
+          ) : (
+            <span class="ed-lbrow__seal-slot" aria-hidden="true" />
+          )}
+          <span class="ed-lbrow__score">
+            {score}
+            {entry.timeMs !== undefined && (
+              <small class="ed-lbrow__time">{formatLeaderboardSeconds(entry.timeMs)}s</small>
+            )}
+          </span>
         </span>
       </button>
     </li>
   )
 }
-
-const SCOPES: Array<{ scope: LeaderboardScope; label: string }> = [
-  { scope: 'season', label: 'Season' },
-  { scope: 'all-time', label: 'All-time' },
-  { scope: 'clan', label: 'Clan' }
-]
 
 type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
 
@@ -166,9 +181,15 @@ export default function Leaderboards() {
     return () => window.clearInterval(interval)
   }, [scope.value, currentPlayer?.playerTag, currentClan, crStatus])
 
-  const isAllTime = scope.value === 'all-time'
   const isClan = scope.value === 'clan'
   const selectedGame = GAME_BY_MODE.get(mode.value)!
+  const scopes: Array<{ scope: LeaderboardScope; label: string }> = [
+    { scope: 'season', label: seasonScopeLabel(season.value) },
+    { scope: 'all-time', label: 'All-time' },
+    { scope: 'clan', label: 'Clan' }
+  ]
+  const clanName = activeClan.value?.name ?? currentClan?.name
+  const clanTag = activeClan.value?.tag ?? currentClan?.tag
 
   const clanEmptyState = (() => {
     if (clanGate.value === 'signed-out')
@@ -210,40 +231,20 @@ export default function Leaderboards() {
   return (
     <div class="ed-board leaderboard-screen">
       <header class="ed-board__head">
-        <div class="ed-eyebrow">Every run counts</div>
-        {isClan ? (
-          <>
-            <h1 class="ed-h1">{activeClan.value?.name ?? currentClan?.name ?? 'Clan'} rankings</h1>
-            <p class="ed-board__timing">
-              All-time bests among current clanmates
-              {(activeClan.value?.tag ?? currentClan?.tag) ? ` · ${activeClan.value?.tag ?? currentClan?.tag}` : '.'}
-            </p>
-          </>
-        ) : isAllTime ? (
-          <>
-            <h1 class="ed-h1">All-time leaderboards</h1>
-            <p class="ed-board__timing">Your best-ever score in each mode, across every season.</p>
-          </>
-        ) : (
-          <>
-            <h1 class="ed-h1">{season.value ? seasonHeading(season.value) : 'Season leaderboards'}</h1>
-            <p class="ed-board__timing">
-              {season.value ? seasonTiming(season.value) : 'Climb a fresh set of boards every Clash Royale season.'}
-            </p>
-          </>
-        )}
+        {/* The app shell already emits this route's `<h1>Leaderboards</h1>`
+            (sr-only, App.tsx ROUTE_LABELS), so the visible title is decorative
+            here — a second identical h1 would announce the page twice. */}
+        <div class="ed-board__title" aria-hidden="true">
+          Leaderboards
+        </div>
+        <div class="ed-board__clock">
+          <span>Season ends</span>
+          <strong>{season.value ? seasonClock(season.value) : '—'}</strong>
+        </div>
       </header>
 
-      <aside class="ed-board__review-key" aria-label="Fair Play review status">
-        <ReviewStatusMark status="reviewed" compact />
-        <span>marks referee-reviewed results.</span>
-        <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
-          How Fair Play works
-        </button>
-      </aside>
-
       <div class="ed-board__scopes" aria-label="Choose a leaderboard scope">
-        {SCOPES.map((option) => (
+        {scopes.map((option) => (
           <button
             aria-pressed={scope.value === option.scope}
             class={`ed-scope${scope.value === option.scope ? ' ed-scope--active' : ''}`}
@@ -255,23 +256,42 @@ export default function Leaderboards() {
         ))}
       </div>
 
-      <div class="ed-board__mode-guide" aria-hidden="true">
-        Swipe for every mode <Icon name="arrow-right" />
-      </div>
       <div class="ed-board__mode-strip">
-        <div class="ed-board__modes row-x" aria-label="Choose a game leaderboard">
+        <div class="ed-board__modes" aria-label="Choose a game leaderboard">
           {RANKED_GAMES.map((game) => (
             <button
+              aria-label={game.name}
               aria-pressed={mode.value === game.mode}
               class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
               onClick={() => (mode.value = game.mode)}
               key={game.mode}
             >
-              <ModeIcon mode={game.mode} size={44} /> {game.name}
+              <ModeIcon mode={game.mode} size={34} />
             </button>
           ))}
         </div>
       </div>
+
+      {/* The clan strip is the only band that appears for one scope, and it
+          sits below the tabs on purpose: adding it must not move the header or
+          the scope row. */}
+      {isClan && !clanGate.value && (
+        <div class="ed-board__clan">
+          <span class="ed-board__crest" aria-hidden="true">
+            <Icon name="shield" />
+          </span>
+          <span class="ed-board__clan-ident">
+            <strong>{clanName ?? 'Clan'}</strong>
+            <small>
+              {clanTag ? `${clanTag} · ` : ''}
+              {entries.value.length} on this board
+            </small>
+          </span>
+          <button class="ed-textlink" onClick={() => navigate('/profile?edit=player-tag')}>
+            Change
+          </button>
+        </div>
+      )}
 
       <section class="ed-board__list leaderboard-list" aria-labelledby="active-leaderboard-title">
         <h2 id="active-leaderboard-title" class="sr-only">
@@ -286,8 +306,8 @@ export default function Leaderboards() {
         )}
         {!loading.value && !error.value && (!isClan || !clanGate.value) && (
           <ol class="ed-board__rows">
-            {entries.value.map((entry) => (
-              <LeaderboardRow entry={entry} mode={mode.value} key={entry.player.id} />
+            {entries.value.map((entry, index) => (
+              <LeaderboardRow entry={entry} mode={mode.value} index={index} key={entry.player.id} />
             ))}
             {!entries.value.length && (
               <li class="ed-board__empty">
@@ -307,6 +327,16 @@ export default function Leaderboards() {
           </ol>
         )}
       </section>
+
+      <footer class="ed-board__key">
+        <ReviewStatusMark status="reviewed" size={18} />
+        <span>checked by a referee</span>
+        <ReviewStatusMark status="pending" size={18} />
+        <span>ranks while it is checked · an excluded run leaves the board</span>
+        <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+          Fair Play
+        </button>
+      </footer>
     </div>
   )
 }

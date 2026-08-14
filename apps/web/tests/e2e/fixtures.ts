@@ -106,21 +106,63 @@ export const testBadges = [
     earnedAt: ['2026-07-21T18:00:00.000Z']
   }
 ] as const
+// The You page's single Your games panel reads this, so the reviewed runs live
+// here too: the three referee states have to be reachable from the history the
+// panel actually renders.
+const seasonRuns = [
+  ...testRecentRuns,
+  ...Array.from({ length: 27 }, (_, index) => ({
+    runId: `season-run-${index + 1}`,
+    mode: index % 2 === 0 ? ('surge' as const) : ('trade' as const),
+    score: index % 2 === 0 ? 67_299 - index * 100 : 91_000 - index * 250,
+    seasonId: '2026-07',
+    completedAt: `2026-07-${String(28 - index).padStart(2, '0')}T18:00:00.000Z`
+  }))
+]
+
 export const testSeasonHistory = {
   seasons: [
     {
       id: '2026-07',
       // Deliberately greater than the old 20-row profile feed cap.
-      games: 27,
-      runs: Array.from({ length: 27 }, (_, index) => ({
-        runId: `season-run-${index + 1}`,
-        mode: index % 2 === 0 ? ('surge' as const) : ('trade' as const),
-        score: index % 2 === 0 ? 67_299 - index * 100 : 91_000 - index * 250,
-        seasonId: '2026-07',
-        completedAt: `2026-07-${String(28 - index).padStart(2, '0')}T18:00:00.000Z`
-      }))
+      games: seasonRuns.length,
+      runs: seasonRuns
+    },
+    {
+      id: '2026-06',
+      games: 2,
+      runs: [
+        {
+          runId: 'older-1',
+          mode: 'surge' as const,
+          score: 71_000,
+          seasonId: '2026-06',
+          completedAt: '2026-06-20T18:00:00.000Z'
+        },
+        {
+          runId: 'older-2',
+          mode: 'trade' as const,
+          score: 84_000,
+          seasonId: '2026-06',
+          completedAt: '2026-06-19T18:00:00.000Z'
+        }
+      ]
     }
   ]
+}
+
+// GET /me/seasons is paged: the index lists every season, and `season` picks
+// which one's runs come back (absent = the most recent, `all` = everything).
+// The fixtures answer it the same way so the You page's paging is exercised
+// rather than mocked away.
+export function seasonHistoryResponse(url: string) {
+  const requested = new URL(url).searchParams.get('season')
+  const index = testSeasonHistory.seasons.map((season) => ({ id: season.id, games: season.games }))
+  const seasons =
+    requested === 'all'
+      ? testSeasonHistory.seasons
+      : testSeasonHistory.seasons.filter((season) => season.id === (requested ?? index[0]?.id))
+  return { index, seasons }
 }
 
 export function leaderboardEntries(mode: GameMode) {
@@ -134,6 +176,9 @@ export function leaderboardEntries(mode: GameMode) {
     rank: index + 1,
     score: scores[index]!,
     achievedAt: `2026-07-${18 - index}T18:00:00.000Z`,
+    // Rank 1 was cleared by a referee; rank 2 is still awaiting one and ranks
+    // provisionally, so the board renders both seals.
+    reviewStatus: index === 1 ? ('pending' as const) : ('reviewed' as const),
     ...(index === 0 ? { refereeReviewed: true } : {}),
     ...(mode === 'survival' || mode === 'higher-lower' ? { timeMs: 61_317 + index } : {}),
     player: {
@@ -231,7 +276,11 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
     return true
   }
   if (path === '/me/seasons') {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testSeasonHistory) })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(seasonHistoryResponse(route.request().url()))
+    })
     return true
   }
   if (path.startsWith('/players/')) {
@@ -464,7 +513,7 @@ export const test = base.extend({
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(testSeasonHistory)
+          body: JSON.stringify(seasonHistoryResponse(route.request().url()))
         })
         return
       }

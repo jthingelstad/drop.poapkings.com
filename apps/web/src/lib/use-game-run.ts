@@ -204,7 +204,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
         message: !isRecordedMode(result.mode)
           ? 'Practice session saved'
           : result.underReview
-            ? 'Game recorded — held for review'
+            ? 'Game recorded — awaiting the referee'
             : seasonBest
               ? 'Game recorded — new season best!'
               : 'Game recorded',

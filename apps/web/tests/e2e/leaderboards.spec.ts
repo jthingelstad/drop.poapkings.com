@@ -4,19 +4,32 @@ import { expect, test, testApiRoute, testPlayer, testSeason, testSession, testSt
 test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
 
-  await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
-  await expect(page.locator('.ed-board__timing')).toContainText(
-    'Season ends August 3 at 10:00 UTC — new boards open then'
-  )
+  // One fixed title on every scope; the season labels the scope segment and
+  // the clock sits beside the title as two short lines.
+  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
+  await expect(page.locator('.ed-board__clock')).toContainText('Season ends')
+  await expect(page.locator('.ed-board__clock')).toContainText('Aug 3 · 10:00 UTC')
   // The Clan-Wars weekly clock must not appear on the season board.
-  await expect(page.locator('.ed-board__timing')).not.toContainText('left in week')
+  await expect(page.locator('.ed-board__clock')).not.toContainText('left in week')
+  await expect(page.locator('.ed-board__scopes')).toContainText('Season 134')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
-  await expect(page.getByLabel('Referee reviewed').first()).toBeVisible()
-  await expect(page.getByLabel('Referee reviewed').first()).toHaveText('✅')
-  await expect(page.getByRole('button', { name: 'How Fair Play works' })).toBeVisible()
 
+  // The mark is a CSS seal, not a glyph, and the old review-key aside is gone.
+  const seal = page.getByLabel('Referee cleared').first()
+  await expect(seal).toBeVisible()
+  await expect(seal).toHaveText('')
+  await expect(page.locator('.ed-board__review-key')).toHaveCount(0)
+  await expect(page.locator('.ed-board__key')).toContainText('ranks while it is checked')
+  await expect(page.locator('.ed-board__key').getByRole('button', { name: 'Fair Play' })).toBeVisible()
+
+  // A run awaiting the referee ranks in place and says so on its own row.
+  const awaiting = page.locator('.ed-lbrow').nth(1)
+  await expect(awaiting.getByLabel('Awaiting referee')).toBeVisible()
+  await expect(awaiting.locator('.ed-lbrow__meta--awaiting')).toHaveText('Awaiting the referee')
+
+  // Three bands above the first row at 390px: header, scopes, mode strip.
   const firstRow = page.locator('.ed-lbrow').first()
   const firstName = firstRow.locator('.ed-lbrow__name')
   const firstScore = firstRow.locator('.ed-lbrow__score')
@@ -28,28 +41,31 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   expect(nameBounds!.width).toBeGreaterThan(40)
   expect(nameBounds!.x).toBeLessThan(scoreBounds!.x)
 
-  // Switch the per-mode tab to Survival.
+  // Switch the per-mode tab to Survival. The tabs are the mode art now, so
+  // they are addressed by their accessible name rather than visible text.
   await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()
-  await expect(page.locator('.ed-modetab--active')).toContainText('Survival')
+  await expect(page.locator('.ed-modetab--active')).toHaveAttribute('aria-label', 'Survival')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow__time').first()).toHaveText('61.317s')
 
-  // Toggling to All-time switches the board to the best-ever heading and drops
-  // the season-reset line, while the ranked player rows still render.
+  // Toggling to All-time keeps the header fixed and only moves the pressed
+  // scope, while the ranked player rows still render.
   await page.getByRole('button', { name: 'All-time' }).click()
-  await expect(page.getByRole('heading', { name: 'All-time leaderboards' })).toBeVisible()
-  await expect(page.locator('.ed-board__timing')).not.toContainText('new boards open then')
+  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
+  await expect(page.locator('.ed-scope--active')).toHaveText('All-time')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
 
-  // And back to Season restores the season heading.
-  await page.getByRole('button', { name: 'Season', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Season 134 leaderboards' })).toBeVisible()
+  // And back to Season restores the season-labelled segment.
+  await page.getByRole('button', { name: 'Season 134' }).click()
+  await expect(page.locator('.ed-scope--active')).toHaveText('Season 134')
 
   // Clan is an all-time board scoped to the signed-in player's current CR
-  // clan, with ranks recalculated inside that clan.
+  // clan, with ranks recalculated inside that clan. Its identity lives in a
+  // strip under the tabs; the header and scope row never move.
   await page.getByRole('button', { name: 'Clan', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'POAP KINGS rankings' })).toBeVisible()
-  await expect(page.locator('.ed-board__timing')).toContainText('All-time bests among current clanmates · #J2RGCRVG')
+  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
+  await expect(page.locator('.ed-board__clan')).toContainText('POAP KINGS')
+  await expect(page.locator('.ed-board__clan')).toContainText('#J2RGCRVG')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await page.waitForTimeout(250)
   const clanScreenshot = testInfo.outputPath('clan-rankings.png')

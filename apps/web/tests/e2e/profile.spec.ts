@@ -20,24 +20,38 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
     await page.locator('.ed-idchip').click()
   }
 
-  await expect(page.locator('.profile-xp')).toContainText('Player XP')
-  await expect(page.locator('.profile-xp')).toContainText('480')
-  await expect(page.getByLabel(`Player tag ${playerReference('player-1')}`)).toBeVisible()
-  const pending = page.locator('.ed-review-status--pending').first()
-  await expect(pending).toContainText('Pending')
-  await expect(pending.getByRole('img', { name: 'Review pending' })).toBeVisible()
-  await expect(page.getByText(`Run ${runReference('recent-surge')}`).first()).toBeVisible()
-  const excluded = page.locator('.ed-review-status--excluded').first()
-  await expect(excluded).toContainText('Excluded')
-  await expect(excluded.getByRole('img', { name: 'Not included in rankings' })).toBeVisible()
-  await expect(page.getByText(`Run ${runReference('recent-trade')}`).first()).toBeVisible()
-  await expect(page.getByText(`Run ${runReference('recent-practice')}`).first()).toBeVisible()
-  await expect(page.getByText(/recorded response timing was not consistent with human play/).first()).toBeVisible()
-  const dispute = page.getByRole('link', { name: 'Dispute this result' }).first()
-  await expect(dispute).toHaveAttribute(
+  // XP moved into the banner's arena line; the stats row is gone.
+  await expect(page.locator('.ed-profile__stats')).toHaveCount(0)
+  await expect(page.locator('.ed-profile__arena')).toContainText('480 XP')
+  await expect(page.locator('.ed-profile__arena-note')).toContainText('12 lifetime games')
+  // The email and player reference moved to the Account section at the foot.
+  await expect(page.locator('.ed-profile__banner')).not.toContainText('player@example.com')
+  await expect(page.locator('.ed-profile__account')).toContainText('player@example.com')
+  await expect(page.locator('.ed-profile__account')).toContainText(playerReference('player-1'))
+
+  // Only a run a referee handled is sealed. The held and excluded runs are
+  // marked; the ordinary games around them wear nothing at all.
+  const games = page.locator('.ed-games')
+  await expect(games.getByLabel('Awaiting referee')).toHaveCount(1)
+  await expect(games.getByLabel('Not ranked')).toHaveCount(1)
+  await expect(games.getByLabel('Referee cleared')).toHaveCount(0)
+  await expect(games).toContainText('AWAITING')
+  await expect(games).toContainText('EXCLUDED')
+  // The tiles count referee decisions, so an unreviewed career sits at zero.
+  await expect(games.locator('.ed-games__tile--reviewed')).toContainText('0')
+  await expect(games.locator('.ed-games__tile--pending')).toContainText('1')
+
+  // The reference and the dispute link live in the run detail, and only a run
+  // a referee has touched carries one at all.
+  await games.locator('.ed-games__row').filter({ hasText: 'EXCLUDED' }).first().click()
+  const detail = page.getByRole('dialog')
+  await expect(detail).toContainText(`Run ${runReference('recent-trade')}`)
+  await expect(detail).toContainText(/recorded response timing was not consistent with human play/)
+  await expect(detail.getByRole('link', { name: 'Dispute this result' })).toHaveAttribute(
     'href',
     `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('recent-trade')}`)}`
   )
+  await page.keyboard.press('Escape')
 })
 
 test('settings persist input and motion preferences across reload', async ({ page }) => {
@@ -125,23 +139,23 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
 test('profile leads with badges and keeps settings near the bottom', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
-  const arena = page.locator('.ed-profile__stats')
+  // identity → badges → your games → Clash Royale → settings → account.
+  const banner = page.locator('.ed-profile__banner')
   const badgeWall = page.locator('.ed-profile__badges')
+  const games = page.locator('.ed-games')
+  const clashRoyale = page.locator('.ed-profile__cr')
   const preferences = page.locator('.ed-profile__preferences')
-  // The profile now stacks three cards that share this styling; this is the
-  // recent-games one specifically.
-  const recent = page.locator('.ed-profile__games')
+  const account = page.locator('.ed-profile__account')
   await expect(preferences.getByRole('heading', { name: 'Game settings' })).toBeVisible()
+  // The Seasons section and its modal folded into Your games.
+  await expect(page.locator('.ed-profile__seasons')).toHaveCount(0)
 
-  const seasons = page.locator('.ed-profile__seasons')
-  const positions = await Promise.all(
-    [badgeWall, arena, recent, seasons, preferences].map((surface) => surface.boundingBox())
-  )
+  const surfaces = [banner, badgeWall, games, clashRoyale, preferences, account]
+  const positions = await Promise.all(surfaces.map((surface) => surface.boundingBox()))
   expect(positions.every(Boolean)).toBe(true)
-  expect(positions[1]!.y).toBeGreaterThan(positions[0]!.y + positions[0]!.height)
-  expect(positions[2]!.y).toBeGreaterThan(positions[1]!.y + positions[1]!.height)
-  expect(positions[3]!.y).toBeGreaterThan(positions[2]!.y + positions[2]!.height)
-  expect(positions[4]!.y).toBeGreaterThan(positions[3]!.y + positions[3]!.height)
+  for (let index = 1; index < positions.length; index += 1) {
+    expect(positions[index]!.y).toBeGreaterThan(positions[index - 1]!.y + positions[index - 1]!.height)
+  }
   await testInfo.attach('profile-hierarchy.png', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png'
@@ -300,16 +314,36 @@ test('earned badge sharing includes its artwork, rung, player, and public profil
   )
 })
 
-test('season totals use full history and open every game in a modal', async ({ page }, testInfo) => {
+test('your games uses full history, filters it, and pages older seasons in', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
-  const seasons = page.locator('.ed-profile__seasons')
-  await expect(seasons).toContainText('27 games')
-  await page.getByRole('button', { name: 'View 2026-07 games' }).click()
-  const modal = page.getByRole('dialog', { name: '2026-07 games' })
-  await expect(modal).toContainText('27 games played')
-  await expect(modal.locator('li')).toHaveCount(27)
-  await testInfo.attach('season-games-modal.png', {
+  const games = page.locator('.ed-games')
+  // The current season defaults in, and the month header totals it — no
+  // recent-feed cap standing in for a season total.
+  await expect(games.locator('.ed-games__row')).toHaveCount(30)
+  await expect(games.locator('.ed-games__month-head').first()).toContainText('30 games')
+
+  // Mode narrows both the rows and the counts.
+  await games.getByLabel('Mode').selectOption('surge')
+  await expect(games.locator('.ed-games__row')).toHaveCount(15)
+  await expect(games.locator('.ed-games__month-head').first()).toContainText('best')
+  await games.getByLabel('Mode').selectOption('all')
+
+  // Paging: the current season is the default, so the foot offers the season
+  // before it and appends rather than replaces. The older season's runs are
+  // fetched on demand — they were never in the first payload.
+  const seasonRequests: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === '/me/seasons') seasonRequests.push(url.searchParams.get('season') ?? '')
+  })
+  await games.getByRole('button', { name: 'Load 2026-06' }).click()
+  await expect.poll(() => seasonRequests).toContain('2026-06')
+  await expect(games.locator('.ed-games__row')).toHaveCount(32)
+  await expect(games.locator('.ed-games__month-head')).toHaveCount(2)
+  await expect(games.getByRole('button', { name: /^Load / })).toHaveCount(0)
+
+  await testInfo.attach('your-games.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
@@ -470,15 +504,19 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   // Return to the profile view, where the resolved CR profile renders.
   await page.getByRole('button', { name: 'Done' }).click()
 
-  await expect(page.getByRole('heading', { name: 'King Thing' })).toBeVisible({ timeout: 8_000 })
-  await expect(page.locator('.cr-profile')).toContainText('POAP KINGS')
-  await expect(page.locator('.cr-profile')).toContainText('Account age unavailable')
-  await expect(page.locator('.cr-profile')).toContainText('Years Played badge not returned by Clash Royale')
-  // The collection COUNT stays; the card grid was removed (no use in Drop).
-  await expect(page.locator('.cr-profile')).toContainText('Collection')
-  await expect(page.locator('.cr-profile')).toContainText('Not used in Drop')
+  // The CR profile is one row now: crest, clan, role · tag · account age.
+  const crRow = page.locator('.ed-profile__cr')
+  await expect(crRow).toContainText('POAP KINGS', { timeout: 8_000 })
+  await expect(crRow).toContainText('Leader')
+  await expect(crRow).toContainText('#20JJJ2CCRU')
+  await expect(crRow).toContainText('Account age unavailable')
+  await expect(crRow.getByRole('button', { name: 'Clan board' })).toBeVisible()
+  // The three fact cells, the Collection tile, and the card grid are all gone.
+  await expect(page.locator('.cr-profile')).toHaveCount(0)
+  await expect(crRow).not.toContainText('Collection')
+  await expect(crRow).not.toContainText('Not used in Drop')
   await expect(page.getByLabel('Clash Royale card collection')).toHaveCount(0)
-  await expect(page.locator('.cr-profile')).not.toContainText(/troph|arena|card level/i)
+  await expect(crRow).not.toContainText(/troph|arena|card level/i)
 
   const screenshot = await page.screenshot({ fullPage: true })
   await testInfo.attach('resolved-cr-profile.png', { body: screenshot, contentType: 'image/png' })
