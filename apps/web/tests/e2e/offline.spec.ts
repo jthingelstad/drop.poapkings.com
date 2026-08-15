@@ -10,36 +10,34 @@ async function setOnline(page: import('@playwright/test').Page, online: boolean)
   }, online)
 }
 
-test('offline dims ranked play and points at Practice', async ({ page }) => {
+test('offline shows in the player chip and dims ranked play', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.ed-gcard').first()).toBeVisible()
-  await expect(page.locator('.ed-offline')).toHaveCount(0)
+  await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
 
   await setOnline(page, false)
 
-  // The notice leads with what still works, not just what broke.
-  const notice = page.locator('.ed-offline')
-  await expect(notice).toBeVisible()
-  await expect(notice).toContainText('Practice works right now')
+  // A persistent state gets a persistent mark, not a banner that sits over the
+  // game while you play.
+  const glyph = page.locator('.ed-offline-glyph')
+  await expect(glyph).toBeVisible()
+  await expect(glyph).toHaveAttribute('aria-label', 'Offline')
+  // The old banner is gone for good.
+  await expect(page.locator('.ed-offline')).toHaveCount(0)
 
-  // Every ranked game says so up front instead of failing after the tap.
+  // Every ranked game still says so up front rather than failing after the tap.
   const cards = page.locator('.ed-gcard')
   await expect(cards).toHaveCount(5)
   for (const card of await cards.all()) {
     await expect(card).toHaveClass(/ed-gcard--offline/)
     await expect(card.getByRole('button')).toBeDisabled()
   }
-  // The hero says the same thing its cards do, rather than still reading PLAY.
   const hero = page.locator('.ed-hero')
   await expect(hero).toHaveClass(/ed-hero--offline/)
   await expect(hero.getByRole('button', { name: 'OFFLINE' })).toBeDisabled()
 
-  // Practice is reachable from the notice itself.
-  await notice.getByRole('button', { name: 'Practice' }).click()
-  await expect(page).toHaveURL(/#\/practice/)
-
   await setOnline(page, true)
-  await expect(page.locator('.ed-offline')).toHaveCount(0)
+  await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
 })
 
 test('Practice is actually playable with player services unreachable', async ({ page }) => {

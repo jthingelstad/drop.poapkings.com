@@ -2,6 +2,7 @@
 // rail. Chosen at ≥1024px by lib/use-layout. The right rail dims during a game.
 
 import type { ComponentChildren } from 'preact'
+import { offline } from '../../lib/api-availability'
 import { route, navigate } from '../../lib/router'
 import { ELIXIR_DROP_DISCORD_URL } from '../../lib/links'
 import { tapFxFrom } from '../../lib/tap-fx'
@@ -10,6 +11,7 @@ import { startScreensaver } from '../../lib/screensaver'
 import { rankFor } from '../../data/starRanks'
 import Icon from '../Icon'
 import ModeIcon from '../ModeIcon'
+import OfflineGlyph from '../OfflineGlyph'
 import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
 import DesktopRightRail from './DesktopRightRail'
@@ -54,7 +56,10 @@ function LeftRail() {
             <button class="ed-rail-chip" onClick={() => navigate('/profile')}>
               <PlayerAvatar favoriteCardId={current.favoriteCardId} size="small" />
               <span class="ed-rail-chip__text">
-                <span class="ed-rail-chip__name">{current.publicName ?? 'Player'}</span>
+                <span class="ed-rail-chip__name">
+                  {current.publicName ?? 'Player'}
+                  {offline.value && <OfflineGlyph />}
+                </span>
                 <span class="ed-rail-chip__sub">{arena?.name ?? 'Player'}</span>
               </span>
             </button>

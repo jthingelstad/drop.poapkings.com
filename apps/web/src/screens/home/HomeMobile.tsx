@@ -2,6 +2,8 @@ import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
 import PlayerAvatar from '../../components/PlayerAvatar'
 import Wordmark from '../../components/brand/Wordmark'
+import OfflineGlyph from '../../components/OfflineGlyph'
+import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
 import { player, accountStatus } from '../../lib/account'
 import { scoreLabel } from '../../lib/game-metadata'
@@ -22,7 +24,10 @@ function IdentityChip() {
         {authed && current && <span class="ed-idchip__level">{current.level}</span>}
       </span>
       <span class="ed-idchip__text">
-        <span class="ed-idchip__name">{authed && current ? current.publicName : 'Guest'}</span>
+        <span class="ed-idchip__name">
+          {authed && current ? current.publicName : 'Guest'}
+          {offline.value && <OfflineGlyph />}
+        </span>
         <span class="ed-idchip__sub">
           {authed && current ? `Level ${current.level}` : 'Sign in to save your scores'}
         </span>

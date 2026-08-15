@@ -39,6 +39,7 @@ import trendingUp from 'lucide-static/icons/trending-up.svg?raw'
 import triangleAlert from 'lucide-static/icons/triangle-alert.svg?raw'
 import trophy from 'lucide-static/icons/trophy.svg?raw'
 import user from 'lucide-static/icons/user.svg?raw'
+import wifiOff from 'lucide-static/icons/wifi-off.svg?raw'
 import x from 'lucide-static/icons/x.svg?raw'
 import zap from 'lucide-static/icons/zap.svg?raw'
 
@@ -86,6 +87,7 @@ const ICONS = {
   'triangle-alert': triangleAlert,
   trophy,
   user,
+  'wifi-off': wifiOff,
   x,
   zap
 } as const

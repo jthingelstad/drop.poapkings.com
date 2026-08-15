@@ -168,8 +168,9 @@ rank-oriented fields as part of unrelated work.
   the browser, in `lib/practice-deal.ts`. Offline is surfaced up front, not
   discovered by failing: `offline` in `lib/api-availability.ts` tracks
   `navigator.onLine` plus the online/offline events, ranked Play buttons
-  disable and dim, and `components/OfflineNotice.tsx` names the mode that still
-  works. It is trusted in one direction only — false means definitely offline;
+  disable and dim, and `components/OfflineGlyph.tsx` marks the player chip. A
+  persistent state gets a persistent mark, never a banner: a notice that never
+  leaves stops being information, and it sat over the board during play. It is trusted in one direction only — false means definitely offline;
   true never promises the API is reachable, which is what `ApiStatusBanner`
   still covers. **The account gate in `App.tsx` must let `/practice` through**
   when services are unreachable: Practice records nothing, so there is nothing

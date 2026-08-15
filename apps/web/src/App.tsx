@@ -4,7 +4,6 @@ import { route, navigate } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import ApiStatusBanner from './components/ApiStatusBanner'
-import OfflineNotice from './components/OfflineNotice'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
@@ -271,7 +270,6 @@ export default function App() {
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
-      <OfflineNotice />
       <ApiStatusBanner />
       <UpdateBanner />
       <Screen r={route.value} />
