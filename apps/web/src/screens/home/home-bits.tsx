@@ -9,6 +9,7 @@ import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { LeaderboardEntry } from '../../lib/api'
+import { canPlayOffline, offline } from '../../lib/api-availability'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, type HomeData } from './home-data'
 
@@ -42,6 +43,7 @@ export function FeaturedHero({
   game: HomeGame
   withHours?: boolean
 }) {
+  const unavailable = offline.value && !canPlayOffline(game.mode)
   const best = data.bestScores[game.mode]
   const bestText = best === undefined ? '—' : scoreLabel(game.mode, best)
   const rank = data.rankFor(game.mode)
@@ -67,7 +69,10 @@ export function FeaturedHero({
         <div class="ed-hero__cta">
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+            disabled={unavailable}
+            aria-describedby={unavailable ? 'offline-note' : undefined}
             onClick={(e) => {
+              if (unavailable) return
               tapFxFrom(e)
               navigate(game.path)
             }}
@@ -97,8 +102,9 @@ export function HomeGameCard({
   featured: boolean
   championFor: (m: GameMode) => LeaderboardEntry | undefined
 }) {
+  const unavailable = offline.value && !canPlayOffline(game.mode)
   return (
-    <article class={`ed-gcard${featured ? ' ed-gcard--accent' : ''}`}>
+    <article class={`ed-gcard${featured ? ' ed-gcard--accent' : ''}${unavailable ? ' ed-gcard--offline' : ''}`}>
       <GameMotes dense={featured} />
       <div class="ed-gcard__body">
         <div class="ed-gcard__title">
@@ -113,13 +119,16 @@ export function HomeGameCard({
         </div>
         <button
           class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
+          disabled={unavailable}
+          aria-describedby={unavailable ? 'offline-note' : undefined}
           onClick={(e) => {
+            if (unavailable) return
             tapFxFrom(e)
             navigate(game.path)
           }}
         >
           <span class="tap-face">
-            <Icon name="play" /> Play
+            <Icon name="play" /> {unavailable ? 'Offline' : 'Play'}
           </span>
         </button>
       </div>

@@ -14,3 +14,32 @@ export function reportApiUnavailable(): void {
   apiUnavailableReason.value = typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'service'
   apiAvailability.value = 'unavailable'
 }
+
+// The browser's own verdict, which arrives immediately rather than after a
+// request has already failed. It is only trustworthy in one direction — false
+// means definitely offline, true does not promise the API is reachable — and
+// that is exactly the direction this is used in: to say up front which games
+// cannot start, rather than letting a player tap Play and wait for an error.
+export const offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false)
+
+export function watchConnectivity(): () => void {
+  if (typeof window === 'undefined') return () => undefined
+  const update = () => {
+    offline.value = navigator.onLine === false
+    // Coming back is worth acting on: the banner's reason should stop saying
+    // "offline" the moment the network returns.
+    if (!offline.value && apiUnavailableReason.value === 'offline') apiUnavailableReason.value = 'service'
+  }
+  window.addEventListener('online', update)
+  window.addEventListener('offline', update)
+  return () => {
+    window.removeEventListener('online', update)
+    window.removeEventListener('offline', update)
+  }
+}
+
+// Ranked play needs a signed challenge from the server. Practice does not, so
+// it stays available offline — the one mode that records nothing.
+export function canPlayOffline(mode: string): boolean {
+  return mode === 'practice'
+}

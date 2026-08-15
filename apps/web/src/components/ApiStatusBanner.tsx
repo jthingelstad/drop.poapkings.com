@@ -1,15 +1,18 @@
 import { useSignal } from '@preact/signals'
 import { accountStatus, initializeAccount } from '../lib/account'
 import { getStats } from '../lib/api'
-import { apiAvailability, apiUnavailableReason } from '../lib/api-availability'
+import { apiAvailability, apiUnavailableReason, offline } from '../lib/api-availability'
 import Icon from './Icon'
 
 export default function ApiStatusBanner() {
   const reconnecting = useSignal(false)
 
-  if (apiAvailability.value !== 'unavailable') return null
+  // Being offline has its own notice with a usable next step, so this one
+  // stays out of the way rather than stacking a second banner that only offers
+  // a retry the network cannot satisfy.
+  if (apiAvailability.value !== 'unavailable' || offline.value) return null
 
-  const offline = apiUnavailableReason.value === 'offline'
+  const offlineReason = apiUnavailableReason.value === 'offline'
   const reconnect = async () => {
     if (reconnecting.value) return
     reconnecting.value = true
@@ -27,9 +30,9 @@ export default function ApiStatusBanner() {
     <aside class="api-status" role="alert" aria-live="polite">
       <Icon name="clock" className="api-status__icon" />
       <div class="api-status__copy">
-        <h2>{offline ? 'Drop can’t reach the internet' : 'Drop is taking a quick elixir break'}</h2>
+        <h2>{offlineReason ? 'Drop can’t reach the internet' : 'Drop is taking a quick elixir break'}</h2>
         <p>
-          {offline
+          {offlineReason
             ? 'Check your connection. Your account and recorded games are safe.'
             : 'Player services are unavailable right now. Your account and recorded games are safe.'}
         </p>

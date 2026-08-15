@@ -4,6 +4,7 @@ import { route, navigate } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import ApiStatusBanner from './components/ApiStatusBanner'
+import OfflineNotice from './components/OfflineNotice'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
@@ -13,6 +14,7 @@ import PlayerTagNudge from './components/PlayerTagNudge'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
+import { watchConnectivity } from './lib/api-availability'
 import { initCardArtCache } from './lib/card-art-cache'
 import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
@@ -214,6 +216,7 @@ export default function App() {
     // Decides once per load whether a named release is worth announcing. A
     // first-time visitor is recorded and never interrupted.
     initReleaseNotice()
+    return watchConnectivity()
   }, [])
 
   // Watch for a newer front-end build: /stats reports the current version, so a
@@ -253,6 +256,7 @@ export default function App() {
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
+      <OfflineNotice />
       <ApiStatusBanner />
       <UpdateBanner />
       <Screen r={route.value} />

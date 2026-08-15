@@ -165,7 +165,13 @@ rank-oriented fields as part of unrelated work.
   unranked and unscored, and the API's own Practice deal is `shuffle(pool)`
   over the whole catalog, which is exactly what the offline deal reproduces —
   the weakness weighting that decides what a player sees has always lived in
-  the browser, in `lib/practice-deal.ts`.
+  the browser, in `lib/practice-deal.ts`. Offline is surfaced up front, not
+  discovered by failing: `offline` in `lib/api-availability.ts` tracks
+  `navigator.onLine` plus the online/offline events, ranked Play buttons
+  disable and dim, and `components/OfflineNotice.tsx` names the mode that still
+  works. It is trusted in one direction only — false means definitely offline;
+  true never promises the API is reachable, which is what `ApiStatusBanner`
+  still covers.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves

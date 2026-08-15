@@ -5592,6 +5592,51 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-weight: 700;
 }
 
+/* Offline is a state with an answer, so the notice leads with what still
+   works rather than only what does not. */
+.ed-offline {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  border: 1px solid rgba(245, 200, 76, 0.38);
+  border-radius: 15px;
+  background: linear-gradient(160deg, rgba(245, 200, 76, 0.14), rgba(18, 13, 40, 0.8));
+}
+.ed-offline__icon {
+  flex: none;
+  color: var(--gold);
+  font-size: 1.1rem;
+}
+.ed-offline__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ed-offline__copy strong {
+  font-size: 0.84rem;
+}
+.ed-offline__copy span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+.ed-offline__cta {
+  flex: none;
+}
+
+/* A game that cannot start offline reads as unavailable, not broken. */
+.ed-gcard--offline {
+  opacity: 0.55;
+}
+.ed-gcard--offline .ed-btn[disabled],
+.ed-hero .ed-btn[disabled] {
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+}
+
 /* Said plainly, and only when true: an offline drill saves nothing. */
 .ed-offline-note {
   margin: 0 0 12px;
