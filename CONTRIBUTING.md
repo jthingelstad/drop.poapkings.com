@@ -63,6 +63,21 @@ Before pushing, this must pass:
 npm run verify
 ```
 
+**Match the gate to what you changed.** The four-browser matrix exists to protect
+the running game; it proves nothing about a commit that cannot reach a player,
+and it is roughly three of the five minutes.
+
+| What the commit touches | Run |
+| --- | --- |
+| `apps/`, `services/`, `packages/`, `infra/` | `npm run verify` |
+| Gameplay, layout, or anything visual | `npm run verify` |
+| Root `scripts/`, `.claude/`, `AGENT-TEAM/`, `docs/`, root `*.md` | `npm run verify:non-browser` |
+| Unsure | `npm run verify` |
+
+`npm run verify:quick` sits between them: the full non-browser gate plus
+Chromium and iPhone-14 only. It is the right choice while iterating on a UI
+change; finish with `npm run verify` before pushing one.
+
 It runs, across every implemented workspace: Prettier format check, oxlint
 (warnings fail), the release-tooling test (`test:release`), the objective-team
 contract test (`test:agent-team`), Stylelint, TypeScript typecheck, Knip (unused
@@ -78,6 +93,18 @@ parallel Playwright jobs (Chromium, Firefox, WebKit, and iPhone 14):
   the gate is fork-safe by construction.
 - **`deploy.yml`** on every push to `main` — API and Pages deployment waits for
   all five jobs, and any failure stops both surfaces from deploying.
+
+`deploy.yml` opens with a `scope` job that asks whether the push changed
+anything a player can reach. When it did not — a skill, root tooling, or prose —
+the browser matrix and the deploy are skipped and the push costs about ninety
+seconds instead of eight minutes. Non-browser verification always runs, so
+tooling still gets linted, typechecked, and tested.
+
+That job fails safe: any path outside its explicit non-shipping list ships, a
+missing parent commit ships, a manual `workflow_dispatch` ships, and `.github/`
+is deliberately absent from the list so a commit repairing the pipeline can
+still run it. If a deploy is ever skipped that should not have been, re-run the
+workflow manually — `workflow_dispatch` always deploys.
 
 Both workflows also run `npm audit --audit-level=high` ahead of the gate; that
 audit is not part of `npm run verify` itself (`npm run check:beta` bundles the

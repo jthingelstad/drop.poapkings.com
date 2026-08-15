@@ -28,6 +28,7 @@
     "test:unit": "npm run test:unit --workspace=@elixir-drop/web",
     "test:e2e": "npm run test:e2e --workspace=@elixir-drop/web --",
     "verify": "npm run verify:non-browser && npm run test:e2e:full",
+    "verify:quick": "npm run verify:non-browser && npm run test:e2e --workspace=@elixir-drop/web -- --project=chromium --project=iphone-14",
     "verify:non-browser": "npm run format:check && npm run lint && npm run test:release && npm run test:agent-team && npm run verify:non-browser --workspaces --if-present",
     "test:e2e:full": "npm run test:e2e --workspace=@elixir-drop/web -- --project=chromium --project=firefox --project=webkit --project=iphone-14",
     "typecheck": "npm run typecheck --workspaces --if-present",

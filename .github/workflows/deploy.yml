@@ -13,6 +13,56 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  scope:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ships: ${{ steps.classify.outputs.ships }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      # Browser verification and deployment exist to protect the running game.
+      # A push that changes only tooling, skills, or prose changes nothing a
+      # player can reach, and paying five minutes of Playwright plus a stack
+      # update for it is waste that lands on every single commit.
+      #
+      # This fails safe in every direction: any path outside the explicit
+      # non-shipping list ships, an unavailable parent commit ships, and a
+      # manual workflow_dispatch always ships. Skipping is only ever the
+      # answer when we can prove nothing shipped.
+      #
+      # .github/ is deliberately NOT on the list. A commit that repairs this
+      # pipeline has to be able to run it.
+      - id: classify
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Manual run: deploying."
+            echo "ships=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git rev-parse --verify --quiet HEAD^ >/dev/null; then
+            echo "No parent commit to compare: deploying."
+            echo "ships=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^ HEAD)
+          echo "Changed files:"
+          echo "$changed"
+          # Everything a player can reach lives outside these paths.
+          shipping=$(echo "$changed" | grep -vE '^(\.claude/|AGENT-TEAM/|docs/|scripts/|[^/]+\.md$)' || true)
+          if [ -n "$shipping" ]; then
+            echo "Shipping paths changed:"
+            echo "$shipping"
+            echo "ships=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing player-facing changed: skipping browsers and deploy."
+            echo "ships=false" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
     name: Non-browser verification
     runs-on: ubuntu-latest
@@ -33,6 +83,8 @@ jobs:
 
   browser:
     name: Playwright (${{ matrix.project }})
+    needs: scope
+    if: needs.scope.outputs.ships == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -74,7 +126,8 @@ jobs:
 
   build:
     name: Build and deploy
-    needs: [verify, browser]
+    needs: [scope, verify, browser]
+    if: needs.scope.outputs.ships == 'true'
     runs-on: ubuntu-latest
     # Verification is complete before this job starts. The UpdateStack wait in
     # infra/scripts/deploy.mjs can still take up to 1200s, so leave enough room

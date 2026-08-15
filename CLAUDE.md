@@ -72,9 +72,15 @@ decisions.
 - `apps/admin`: **Preact** + Vite, served only through `services/admin` and
   Tailscale on the managed host; never include it in the Pages artifact.
 - `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
-- Before pushing code, run root `npm run verify`. It runs each implemented
-  workspace's verification script. **What the gate contains is documented once, in
+- Before pushing, run the gate that matches what you changed: `npm run verify`
+  for anything under `apps/`, `services/`, `packages/`, or `infra/`, and
+  `npm run verify:non-browser` for root `scripts/`, `.claude/`, `AGENT-TEAM/`,
+  or prose. Four browser engines prove nothing about a commit a player cannot
+  reach. **What the gate contains, and which to run, is documented once, in
   `CONTRIBUTING.md` → "The quality gate"** — don't restate it here.
+- A push that changes nothing player-facing skips the browser matrix and the
+  deploy in CI too. That classification fails safe and lives in `deploy.yml`'s
+  `scope` job; `workflow_dispatch` always deploys.
 - Deploying is one pipeline off a push to `main` (web *and* Lambda API). The model
   is stated once, in `AGENTS.md` → "Deploy model".
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
