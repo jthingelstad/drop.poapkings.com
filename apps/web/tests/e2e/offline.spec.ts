@@ -1,4 +1,4 @@
-import { allowOfflineTransportErrors, expect, test, testApiRoute } from './fixtures'
+import { allowOfflineTransportErrors, expect, isDesktopViewport, test, testApiRoute } from './fixtures'
 
 // The UI keys off navigator.onLine and the online/offline events, so drive
 // those directly. Killing the real socket would only add browser network
@@ -59,6 +59,47 @@ test('a signed-out desktop visitor still gets the offline mark', async ({ page, 
   await setOnline(page, false)
 
   await expect(page.locator('.ed-rail-chip--guest .ed-offline-glyph')).toBeVisible()
+})
+
+test('Leaderboards and You explain their offline boundary and lead to Practice', async ({ page, viewport }) => {
+  await page.goto('/')
+  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+
+  // The shell is warm; now remove the API entirely. This proves the treatments
+  // do not depend on a mocked error payload, and the Practice CTA must fall
+  // through to its local deal rather than receiving an online challenge.
+  allowOfflineTransportErrors.add(page)
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))
+  await setOnline(page, false)
+
+  const primaryNav = page.getByRole('navigation', { name: 'Primary' })
+  await primaryNav
+    .getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
+    .click()
+  await expect(page).toHaveURL(/#\/leaderboards$/)
+  await expect(page.getByRole('heading', { name: 'Leaderboards need a connection' })).toBeVisible()
+  await expect(page.locator('.ed-offline-page')).toContainText('never presents a saved board as current')
+  await expect(page.locator('.ed-board')).toHaveCount(0)
+
+  if (isDesktopViewport(viewport)) {
+    await expect(page.locator('.ed-rail-standings')).toHaveText('Offline — reconnect for standings.')
+    await expect(page.locator('.ed-rail-live')).toHaveText('Offline — reconnect for recent runs.')
+    await expect(page.locator('.ed-desktop__right')).not.toContainText('Loading…')
+  }
+
+  await page.getByRole('button', { name: 'Back to games' }).click()
+  await expect(page).toHaveURL(/#?\/?$/)
+  await primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true }).click()
+  await expect(page).toHaveURL(/#\/profile$/)
+  await expect(page.getByRole('heading', { name: 'Your player data is safe' })).toBeVisible()
+  await expect(page.locator('.ed-offline-page')).toContainText('does not keep an offline copy')
+  await expect(page.locator('.account-screen')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Send magic link' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Open Practice' }).click()
+  await expect(page).toHaveURL(/#\/practice$/)
+  await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
 })
 
 test('Practice is actually playable with player services unreachable', async ({ page }) => {

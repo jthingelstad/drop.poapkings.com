@@ -81,6 +81,7 @@ import DesktopShell from '../../src/components/shell/DesktopShell'
 import DesktopRightRail from '../../src/components/shell/DesktopRightRail'
 import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
+import { offline } from '../../src/lib/api-availability'
 
 // --- Helpers --------------------------------------------------------------
 
@@ -146,6 +147,7 @@ beforeEach(() => {
     cancel: () => {}
   })
   route.value = '/'
+  offline.value = false
   player.value = null
   accountStatus.value = 'anonymous'
 })
@@ -563,6 +565,20 @@ describe('DesktopShell', () => {
 // null) → populated (standings resolves truthy for the rest of the file).
 
 describe('DesktopRightRail', () => {
+  it('replaces live-data spinners and polling with an offline state', () => {
+    offline.value = true
+    player.value = { ...samplePlayer }
+
+    draw(<DesktopRightRail />)
+
+    expect(host.textContent).toContain('Offline — reconnect for standings.')
+    expect(host.textContent).toContain('Offline — reconnect for recent runs.')
+    expect(host.textContent).not.toContain('Loading…')
+    expect(host.querySelector('.ed-rail-this')).toBeNull()
+    expect(apiMock.getLeaderboard).not.toHaveBeenCalled()
+    expect(apiMock.getActivity).not.toHaveBeenCalled()
+  })
+
   it('shows loading placeholders while requests are in flight', () => {
     // Defaults (from beforeEach) are never-resolving promises.
     draw(<DesktopRightRail />)

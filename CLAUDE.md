@@ -172,7 +172,10 @@ rank-oriented fields as part of unrelated work.
   persistent state gets a persistent mark, never a banner: a notice that never
   leaves stops being information, and it sat over the board during play. It is trusted in one direction only — false means definitely offline;
   true never promises the API is reachable, which is what `ApiStatusBanner`
-  still covers. **The account gate in `App.tsx` must let `/practice` through**
+  still covers. Leaderboards and You are live server views: offline they render
+  a connection-required state with a direct Practice action, and the desktop
+  live-data rail replaces its spinners instead of presenting stale data as
+  current. **The account gate in `App.tsx` must let `/practice` through**
   when services are unreachable: Practice records nothing, so there is nothing
   for player services to be reconnecting for, and gating it made the one mode
   that works offline the one mode you could not reach.

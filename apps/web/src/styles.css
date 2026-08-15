@@ -397,6 +397,88 @@ a {
   text-align: center;
 }
 
+/* Live account/ranking surfaces never masquerade as cached data offline. The
+   treatment is entirely bundle-native (inlined icon + CSS), so it still
+   renders when no optional art has ever been warmed. */
+.ed-offline-page {
+  min-height: 65vh;
+  justify-content: center;
+}
+.ed-offline-page__card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(109, 40, 217, 0.28), transparent 48%), rgba(18, 13, 40, 0.9);
+}
+.ed-offline-page__mark {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(245, 200, 76, 0.42);
+  border-radius: 24px;
+  background: rgba(245, 200, 76, 0.1);
+  color: var(--gold);
+  font-size: 34px;
+  box-shadow: 0 14px 34px rgba(7, 6, 16, 0.34);
+}
+.ed-offline-page__title {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  line-height: 1.15;
+}
+.ed-offline-page__line {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.ed-offline-page__practice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 42ch;
+  margin: 10px 0 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(109, 40, 217, 0.42);
+  border-radius: 12px;
+  background: rgba(109, 40, 217, 0.14);
+  color: var(--lavender-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+}
+.ed-offline-page__practice .icon {
+  flex: none;
+  color: var(--gold);
+  font-size: 1rem;
+}
+.ed-offline-page__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ed-offline-page__actions .ed-btn {
+  min-height: 48px;
+}
+
+@media (width <= 520px) {
+  .ed-offline-page {
+    padding-inline: 18px;
+  }
+  .ed-offline-page__actions,
+  .ed-offline-page__actions .ed-btn {
+    width: 100%;
+  }
+}
+
 .account-privacy {
   margin: 14px 0 0;
   color: var(--muted);

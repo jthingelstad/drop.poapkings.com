@@ -3,6 +3,7 @@ import { renderToStringAsync } from 'preact-render-to-string'
 import App from '../../src/App'
 import { accountStatus, player } from '../../src/lib/account'
 import { route } from '../../src/lib/router'
+import { offline } from '../../src/lib/api-availability'
 
 const CASES = [
   ['/', 'Elixir Drop'],
@@ -22,6 +23,7 @@ const CASES = [
 
 describe('SSR render smoke', () => {
   beforeEach(() => {
+    offline.value = false
     accountStatus.value = 'authenticated'
     player.value = {
       id: 'player-1',
@@ -96,6 +98,26 @@ describe('SSR render smoke', () => {
     const practiceHtml = await renderToStringAsync(<App />)
     expect(practiceHtml).toContain('PREPARING')
     expect(practiceHtml).not.toContain('Ranked access restricted')
+  })
+
+  it.each([
+    ['/leaderboards', 'Leaderboards need a connection'],
+    ['/profile', 'Your player data is safe']
+  ])('gives %s a route-specific offline treatment', async (path, heading) => {
+    offline.value = true
+    accountStatus.value = 'unavailable'
+    player.value = null
+    route.value = path
+
+    const html = await renderToStringAsync(<App />)
+
+    expect(html).toContain('ed-offline-page')
+    expect(html).toContain(heading)
+    expect(html).toContain('Practice is still ready')
+    expect(html).toContain('Open Practice')
+    expect(html).toContain('Back to games')
+    expect(html).not.toContain('Player services are reconnecting')
+    expect(html).not.toContain('Loading leaderboard')
   })
 
   it('links to the Elixir Drop Discord from the desktop rail cluster', async () => {

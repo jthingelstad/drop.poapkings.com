@@ -9,6 +9,7 @@ import { scoreLabel, gameDisplay } from '../../lib/game-metadata'
 import { navigate } from '../../lib/router'
 import { playerProfilePath } from '../../lib/public-player'
 import { player } from '../../lib/account'
+import { offline } from '../../lib/api-availability'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
 import Icon from '../Icon'
@@ -34,7 +35,9 @@ function activityWhen(iso: string): string {
 }
 
 export default function DesktopRightRail() {
+  const disconnected = offline.value
   useEffect(() => {
+    if (disconnected) return
     const ctrl = new AbortController()
     if (!standings.value) {
       getLeaderboard(RAIL_MODE, 'season', ctrl.signal)
@@ -57,7 +60,7 @@ export default function DesktopRightRail() {
       ctrl.abort()
       window.clearInterval(timer)
     }
-  }, [])
+  }, [disconnected])
 
   const rows = standings.value
   const meId = player.value?.id
@@ -73,30 +76,32 @@ export default function DesktopRightRail() {
           <span class="ed-rail-block__tag">Surge</span>
         </div>
         <div class="ed-rail-standings">
-          {rows === null && !standingsFailed.value && <div class="ed-rail-empty">Loading…</div>}
-          {standingsFailed.value && <div class="ed-rail-empty">Standings unavailable</div>}
-          {rows?.length === 0 && <div class="ed-rail-empty">No runs yet this season</div>}
-          {rows?.slice(0, 5).map((r) => {
-            const you = r.player.id === meId
-            return (
-              <button
-                key={r.player.id}
-                class={`ed-rail-row${you ? ' ed-rail-row--you' : ''}`}
-                onClick={() => navigate(playerProfilePath(r.player, meId))}
-              >
-                <span class="ed-rail-row__rank" data-top={r.rank <= 3 ? '' : undefined}>
-                  {r.rank}
-                </span>
-                <PlayerAvatar favoriteCardId={r.player.favoriteCardId} size="small" />
-                <span class="ed-rail-row__name">{you ? 'You' : r.player.publicName}</span>
-                <span class="ed-rail-row__score">{scoreLabel(RAIL_MODE, r.score)}</span>
-              </button>
-            )
-          })}
+          {disconnected && <div class="ed-rail-empty">Offline — reconnect for standings.</div>}
+          {!disconnected && rows === null && !standingsFailed.value && <div class="ed-rail-empty">Loading…</div>}
+          {!disconnected && standingsFailed.value && <div class="ed-rail-empty">Standings unavailable</div>}
+          {!disconnected && rows?.length === 0 && <div class="ed-rail-empty">No runs yet this season</div>}
+          {!disconnected &&
+            rows?.slice(0, 5).map((r) => {
+              const you = r.player.id === meId
+              return (
+                <button
+                  key={r.player.id}
+                  class={`ed-rail-row${you ? ' ed-rail-row--you' : ''}`}
+                  onClick={() => navigate(playerProfilePath(r.player, meId))}
+                >
+                  <span class="ed-rail-row__rank" data-top={r.rank <= 3 ? '' : undefined}>
+                    {r.rank}
+                  </span>
+                  <PlayerAvatar favoriteCardId={r.player.favoriteCardId} size="small" />
+                  <span class="ed-rail-row__name">{you ? 'You' : r.player.publicName}</span>
+                  <span class="ed-rail-row__score">{scoreLabel(RAIL_MODE, r.score)}</span>
+                </button>
+              )
+            })}
         </div>
       </section>
 
-      {player.value && (
+      {player.value && !disconnected && (
         <button class="ed-rail-this tap-fx" onClick={() => navigate('/leaderboards')}>
           <span class="ed-rail-this__label">Your Surge season</span>
           <strong class="ed-rail-this__headline">{callout.title}</strong>
@@ -122,22 +127,24 @@ export default function DesktopRightRail() {
           <span class="ed-rail-block__title">Recent runs</span>
         </div>
         <div class="ed-rail-live">
-          {feed === null && <div class="ed-rail-empty">Loading…</div>}
-          {feed?.length === 0 && <div class="ed-rail-empty">No recent runs yet — be the first.</div>}
-          {feed?.map((a, i) => (
-            <button
-              key={`${a.player.id}-${a.achievedAt}-${i}`}
-              class="ed-rail-live__row"
-              onClick={() => navigate(playerProfilePath(a.player, meId))}
-            >
-              <PlayerAvatar favoriteCardId={a.player.favoriteCardId} size="small" />
-              <span class="ed-rail-live__text">
-                <span class="ed-rail-live__name">{a.player.id === meId ? 'You' : a.player.publicName}</span>
-                <span class="ed-rail-live__action">{activityAction(a.mode, a.score, a.runCount)}</span>
-              </span>
-              <span class="ed-rail-live__when">{activityWhen(a.achievedAt)}</span>
-            </button>
-          ))}
+          {disconnected && <div class="ed-rail-empty">Offline — reconnect for recent runs.</div>}
+          {!disconnected && feed === null && <div class="ed-rail-empty">Loading…</div>}
+          {!disconnected && feed?.length === 0 && <div class="ed-rail-empty">No recent runs yet — be the first.</div>}
+          {!disconnected &&
+            feed?.map((a, i) => (
+              <button
+                key={`${a.player.id}-${a.achievedAt}-${i}`}
+                class="ed-rail-live__row"
+                onClick={() => navigate(playerProfilePath(a.player, meId))}
+              >
+                <PlayerAvatar favoriteCardId={a.player.favoriteCardId} size="small" />
+                <span class="ed-rail-live__text">
+                  <span class="ed-rail-live__name">{a.player.id === meId ? 'You' : a.player.publicName}</span>
+                  <span class="ed-rail-live__action">{activityAction(a.mode, a.score, a.runCount)}</span>
+                </span>
+                <span class="ed-rail-live__when">{activityWhen(a.achievedAt)}</span>
+              </button>
+            ))}
         </div>
       </section>
     </>

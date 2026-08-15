@@ -30,6 +30,7 @@ import FairPlay from './screens/FairPlay'
 import MetaPage from './screens/MetaPage'
 import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
+import OfflinePage from './components/OfflinePage'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
 import { contactEmailHref } from './lib/links'
@@ -157,6 +158,11 @@ function AccountUnavailable() {
 
 function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
+  // These are live server views, not snapshots. Give them their own stable
+  // offline state instead of a failed request, a stale board, or an account
+  // reconnect spinner. Practice remains the only functional offline surface.
+  if (offline.value && r.startsWith('/leaderboards')) return <OfflinePage kind="leaderboards" />
+  if (offline.value && r.startsWith('/profile')) return <OfflinePage kind="profile" />
   // Practice needs no account and no server: it records nothing, so there is
   // nothing for player services to be reconnecting FOR. Gating it behind them
   // made the one mode that works offline the one mode you could not reach —
