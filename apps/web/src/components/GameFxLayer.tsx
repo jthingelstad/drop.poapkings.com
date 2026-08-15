@@ -30,7 +30,14 @@ interface FxRuntime {
 }
 
 export function preloadGameFx(): void {
-  if (!isReducedMotionEnabled()) void loadPixi()
+  if (!isReducedMotionEnabled()) {
+    void loadPixi().catch((error) => {
+      // Preloading is speculative progressive enhancement. The mounted layer
+      // has its own guarded attempt, but this branch must still consume an
+      // offline chunk failure instead of leaking an unhandled rejection.
+      console.warn('Optional game effects could not preload', error)
+    })
+  }
 }
 
 export default function GameFxLayer({ cue, particleCount = 8 }: Props) {

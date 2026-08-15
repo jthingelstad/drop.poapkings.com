@@ -55,14 +55,15 @@ const pixiStub = vi.hoisted(() => {
     async init() {}
     destroy() {}
   }
-  return { Application, Graphics }
+  const module = { Application, Graphics }
+  return { ...module, loadPixi: vi.fn(() => Promise.resolve(module)) }
 })
 
 vi.mock('motion', () => ({ animate: motionMock.animate }))
 vi.mock('../../src/lib/sound', () => soundMock)
 vi.mock('../../src/lib/screensaver', () => screensaverMock)
 vi.mock('../../src/lib/load-pixi', () => ({
-  loadPixi: () => Promise.resolve({ Application: pixiStub.Application, Graphics: pixiStub.Graphics })
+  loadPixi: pixiStub.loadPixi
 }))
 vi.mock('../../src/lib/api', () => ({
   getLeaderboard: apiMock.getLeaderboard,
@@ -75,7 +76,7 @@ import PipKeypad from '../../src/components/PipKeypad'
 import GameFrame from '../../src/components/game/GameFrame'
 import FloatingCue from '../../src/components/FloatingCue'
 import GameMotion from '../../src/components/GameMotion'
-import GameFxLayer from '../../src/components/GameFxLayer'
+import GameFxLayer, { preloadGameFx } from '../../src/components/GameFxLayer'
 import MobileShell from '../../src/components/shell/MobileShell'
 import DesktopShell from '../../src/components/shell/DesktopShell'
 import DesktopRightRail from '../../src/components/shell/DesktopRightRail'
@@ -136,6 +137,8 @@ beforeEach(() => {
   screensaverMock.startScreensaver.mockClear()
   apiMock.getLeaderboard.mockReset()
   apiMock.getActivity.mockReset()
+  pixiStub.loadPixi.mockReset()
+  pixiStub.loadPixi.mockResolvedValue({ Application: pixiStub.Application, Graphics: pixiStub.Graphics })
   // Default to never-resolving so incidental rail mounts (e.g. in DesktopShell
   // tests) leave the rail's module-level standings/activity signals untouched —
   // the DesktopRightRail state tests rely on those starting empty.
@@ -382,6 +385,18 @@ describe('GameMotion', () => {
 // --- GameFxLayer ----------------------------------------------------------
 
 describe('GameFxLayer', () => {
+  it('contains an offline chunk failure during speculative preload', async () => {
+    const error = new Error('offline chunk')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    pixiStub.loadPixi.mockRejectedValueOnce(error)
+
+    preloadGameFx()
+    await tick()
+
+    expect(warn).toHaveBeenCalledWith('Optional game effects could not preload', error)
+    warn.mockRestore()
+  })
+
   it('lazily mounts the pixi canvas and survives cue changes', async () => {
     draw(<GameFxLayer cue={null} particleCount={8} />)
     expect(host.querySelector('.game-fx-layer')).toBeTruthy()
