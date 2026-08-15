@@ -340,6 +340,13 @@ void test("objective contract requires the lease and contains no retired queue l
     "utf8",
   );
   assert.match(fairPlay, /fair-play-policy\.md/);
+  const fairPlayPolicy = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/fair-play-policy.md"),
+    "utf8",
+  );
+  assert.match(fairPlayPolicy, /Jamie-confirmed direct playtesting/);
+  assert.match(fairPlayPolicy, /never a blanket exemption/);
+  assert.match(fairPlayPolicy, /missing.*evidence remains fail-closed/s);
 });
 
 void test("automation registry passes the common contract audit", () => {

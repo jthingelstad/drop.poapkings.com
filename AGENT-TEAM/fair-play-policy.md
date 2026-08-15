@@ -58,6 +58,12 @@ stable mode strengths and weaknesses; lucky taps or learned sequences; accessibi
 tools; and shared households, schools, workplaces, VPNs, carrier NAT, or devices.
 Correlation is context, never identity proof.
 
+Jamie-confirmed direct playtesting is strong benign calibration for the range of
+skilled human performance when it is consistent with the player's exact retained
+evidence and broad progression. It is never a blanket exemption: each run still
+requires its signed challenge, transcript, timing, and scoring evidence, and missing
+or contradictory evidence remains fail-closed.
+
 ## Dispositions
 
 - `clear`: no material integrity concern in the available evidence. This does not
