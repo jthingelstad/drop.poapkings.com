@@ -221,7 +221,13 @@ export default function App() {
   useEffect(() => {
     void initializeAccount()
     initInstallPrompt()
-    void initCardArtCache()
+    // Practice is a lazily-loaded route, so its chunk is not in the document's
+    // script list and the shell cache never saw it — offline, the dynamic
+    // import failed and the error boundary swallowed the whole screen. Fetch it
+    // while there is still a network, so the worker has it before it is needed.
+    // The chunk is small, and pulling it early also makes Practice open
+    // instantly. Warmed after the worker is ready, or the fetch bypasses it.
+    void initCardArtCache().then(() => loadPractice().catch(() => undefined))
     // Decides once per load whether a named release is worth announcing. A
     // first-time visitor is recorded and never interrupted.
     initReleaseNotice()

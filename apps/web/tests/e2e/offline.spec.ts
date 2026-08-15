@@ -29,7 +29,10 @@ test('offline dims ranked play and points at Practice', async ({ page }) => {
     await expect(card).toHaveClass(/ed-gcard--offline/)
     await expect(card.getByRole('button')).toBeDisabled()
   }
-  await expect(page.locator('.ed-hero').getByRole('button', { name: 'PLAY' })).toBeDisabled()
+  // The hero says the same thing its cards do, rather than still reading PLAY.
+  const hero = page.locator('.ed-hero')
+  await expect(hero).toHaveClass(/ed-hero--offline/)
+  await expect(hero.getByRole('button', { name: 'OFFLINE' })).toBeDisabled()
 
   // Practice is reachable from the notice itself.
   await notice.getByRole('button', { name: 'Practice' }).click()
@@ -63,4 +66,22 @@ test('Practice is actually playable with player services unreachable', async ({ 
   // And it plays: answering advances the drill with no server involved.
   await page.locator('.pip-keypad button').first().click()
   await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
+})
+
+test('the Practice chunk is fetched while online, before it is needed', async ({ page }) => {
+  // The bug this guards: Practice is a lazily-loaded route, so its chunk is
+  // absent from the document's script list and the shell cache never saw it.
+  // Offline, the dynamic import failed and the error boundary took the screen.
+  // Warming it on Home is what puts it in the cache while a network exists.
+  const requested: string[] = []
+  page.on('request', (request) => {
+    if (/modes[/\\]practice/.test(request.url())) requested.push(request.url())
+  })
+
+  await page.goto('/')
+  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+
+  // Without ever navigating to Practice.
+  await expect.poll(() => requested.length, { timeout: 10_000 }).toBeGreaterThan(0)
+  await expect(page).toHaveURL(/#?\/?$/)
 })

@@ -49,7 +49,7 @@ export function FeaturedHero({
   const rank = data.rankFor(game.mode)
   const rankText = rank ? `#${rank}` : '—'
   return (
-    <section class="ed-hero">
+    <section class={`ed-hero${unavailable ? ' ed-hero--offline' : ''}`}>
       <span class="ed-fx" aria-hidden="true">
         <span class="ed-cell-drop" style={{ left: '82%' }} />
         <span class="ed-cell-drop" style={{ left: '90%', animationDelay: '1.6s' }} />
@@ -78,7 +78,7 @@ export function FeaturedHero({
             }}
           >
             <span class="tap-face">
-              <Icon name="play" /> PLAY
+              <Icon name="play" /> {unavailable ? 'OFFLINE' : 'PLAY'}
             </span>
           </button>
           <div class="ed-hero__best">
