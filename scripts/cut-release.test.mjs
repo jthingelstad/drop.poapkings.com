@@ -319,22 +319,47 @@ void test("appending the in-app history is newest-first and idempotent", () => {
   });
 });
 
+void test("--at is refused outside a single-channel retry", () => {
+  assert.throws(
+    () => optionsFor(["--draft", "d.json", "--at", "abc1234"]),
+    /only for a single-channel retry/,
+  );
+  assert.equal(
+    optionsFor(["--draft", "d.json", "--channel", "email", "--at", "abc1234"])
+      .at,
+    "abc1234",
+  );
+});
+
 void test("creates one idempotent Buttondown draft in the explicit newsletter", async () => {
   let request;
+  const requests = [];
   const email = await createButtondownDraft(manifest, {
     apiKey: "secret",
     newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
     request: async (url, options) => {
       request = { url, options };
+      requests.push({ url, method: options.method });
+      // A real create echoes the stored email back, so nothing needs
+      // reconciling and no second call goes out.
+      const sent = JSON.parse(options.body);
       return new Response(
-        JSON.stringify({ id: "em_release", status: "draft" }),
-        {
-          status: 201,
-        },
+        JSON.stringify({
+          id: "em_release",
+          status: "draft",
+          subject: sent.subject,
+          body: sent.body,
+        }),
+        { status: 201 },
       );
     },
   });
   assert.equal(email.id, "em_release");
+  assert.equal(email.reconciled, false);
+  assert.deepEqual(
+    requests.map((entry) => entry.method),
+    ["POST"],
+  );
   assert.equal(request.url, "https://api.buttondown.com/v1/emails");
   assert.equal(
     request.options.headers["Buttondown-Context"],
@@ -350,6 +375,75 @@ void test("creates one idempotent Buttondown draft in the explicit newsletter", 
   assert.equal(body.slug, "mighty-musketeer");
   assert.match(body.body, /Play Elixir Drop/);
   assert.equal("recipients" in body, false);
+});
+
+void test("rewrites the existing draft when the notes changed", async () => {
+  // The idempotency key is the tag, so Buttondown replays the first response:
+  // same id, stale copy. Re-running after a rewrite has to move the draft.
+  const requests = [];
+  const email = await createButtondownDraft(manifest, {
+    apiKey: "secret",
+    newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+    request: async (url, options) => {
+      requests.push({ url, method: options.method, body: options.body });
+      if (options.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            id: "em_release",
+            status: "draft",
+            subject: "An older subject",
+            body: "An older body that predates the rewrite.",
+          }),
+          { status: 201 },
+        );
+      }
+      const sent = JSON.parse(options.body);
+      return new Response(
+        JSON.stringify({
+          id: "em_release",
+          status: "draft",
+          subject: sent.subject,
+          body: sent.body,
+        }),
+        { status: 200 },
+      );
+    },
+  });
+
+  assert.equal(email.id, "em_release");
+  assert.equal(email.reconciled, true);
+  assert.deepEqual(
+    requests.map((entry) => entry.method),
+    ["POST", "PATCH"],
+  );
+  const patch = requests[1];
+  assert.equal(patch.url, "https://api.buttondown.com/v1/emails/em_release");
+  const patched = JSON.parse(patch.body);
+  assert.equal(patched.subject, manifest.email.subject);
+  assert.match(patched.body, /Play Elixir Drop/);
+  // The rewrite never re-declares status or recipients: it edits copy only.
+  assert.equal("status" in patched, false);
+  assert.equal("recipients" in patched, false);
+});
+
+void test("a rewrite that does not take is an error, not a shrug", async () => {
+  await assert.rejects(
+    createButtondownDraft(manifest, {
+      apiKey: "secret",
+      newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      request: async (url, options) =>
+        new Response(
+          JSON.stringify({
+            id: "em_release",
+            status: "draft",
+            subject: "Stale subject",
+            body: "Stale body",
+          }),
+          { status: options.method === "POST" ? 201 : 200 },
+        ),
+    }),
+    /did not accept the rewritten notes/,
+  );
 });
 
 void test("Buttondown draft fails closed without an explicit newsletter", async () => {

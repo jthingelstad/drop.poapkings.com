@@ -44,6 +44,18 @@ the tag, writes the app's copy of the release into `apps/web/src/data/releases.j
 the GitHub release, and creates the Buttondown email with `status: draft`. Rerunning the same
 draft is idempotent. To retry only one failed channel: `--channel github` or `--channel email`.
 
+Once anything else lands on `main`, a plain retry is refused — the release commit is no longer
+the live build. Pin it: `--channel email --at <released-sha>`. That is allowed only for a
+single channel, only for a commit still in `origin/main` history, and it still requires that
+commit to have deployed successfully; it drops only the "is this the build production serves
+right now" check, which stops being true the moment anything else ships.
+
+**Rewriting a draft's copy is a real edit, not a no-op.** The Buttondown idempotency key is the
+tag, so a second POST replays the first response: same draft ID, stale copy. The tool detects
+that and PATCHes the draft, then re-reads it and fails if the rewrite did not take. It reports
+`rewritten` rather than `created` when it does. Never confirm a draft update from the returned
+ID alone — the ID is identical either way, which is exactly how a stale draft passes review.
+
 Use a Buttondown API key with `email_access=write` and `sending_access=none` when one is
 available. The tool never calls a send endpoint or advances an email beyond `draft`.
 

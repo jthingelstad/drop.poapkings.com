@@ -23,6 +23,7 @@ export function optionsFor(argv) {
     args: argv,
     allowPositionals: false,
     options: {
+      at: { type: "string" },
       channel: { type: "string", multiple: true },
       days: { type: "string" },
       draft: { type: "string" },
@@ -49,7 +50,15 @@ export function optionsFor(argv) {
   if (values.prepare && (values.draft || values["dry-run"] || values.channel)) {
     throw new Error("--prepare cannot be combined with release actions");
   }
+  // Retrying one channel has to stay possible after main moves on — otherwise
+  // a single unrelated push strands a failed or rewritten draft forever. It is
+  // deliberately narrow: only a single-channel retry, and the pinned commit
+  // still has to be released history reachable from origin/main.
+  if (values.at && !values.channel) {
+    throw new Error("--at is only for a single-channel retry; pass --channel");
+  }
   return {
+    at: values.at,
     channels: [...new Set(selectedChannels)],
     days,
     draft: values.draft,
@@ -231,7 +240,7 @@ export async function runRelease(options, actions) {
   if (options.help) return actions.output(help());
   if (!options.channels.length) throw new Error("No release channel selected");
 
-  const target = await actions.preflight();
+  const target = await actions.preflight(options.at);
   const material = await actions.gather(options, target);
   if (!material.commits.length) throw new Error("Release range has no commits");
 
@@ -256,7 +265,7 @@ export async function runRelease(options, actions) {
   printPlan(manifest, options.channels, actions.output);
   if (options.dryRun) return { manifest, dryRun: true };
 
-  await actions.confirmTarget(material.head);
+  await actions.confirmTarget(material.head, { pinned: Boolean(options.at) });
   await actions.ensureTag(manifest, material.head);
   // The tag is the release's identity, so the app's copy is written as soon as
   // it exists — a channel that has to be retried does not leave the in-app
@@ -300,7 +309,12 @@ function commandOk(executable, args) {
   }
 }
 
-async function assertLive(head) {
+// Two separate questions. "Did this build deploy successfully?" is permanent
+// and true forever after. "Is this the build production serves right now?" is
+// only true until the next push. A cut demands both; a pinned channel retry
+// demands only the first, because a release commit stops being the live build
+// the moment anything else lands.
+async function assertLive(head, { current = true } = {}) {
   const runs = JSON.parse(
     command("gh", [
       "run",
@@ -319,6 +333,7 @@ async function assertLive(head) {
   if (!run || run.status !== "completed" || run.conclusion !== "success") {
     throw new Error(`Build ${head.slice(0, 12)} is not live`);
   }
+  if (!current) return;
   const config = await (
     await fetch("https://drop.poapkings.com/api-config.json")
   ).json();
@@ -484,7 +499,50 @@ export async function createButtondownDraft(
   if (typeof email.id !== "string" || email.status !== "draft") {
     throw new Error("Buttondown response is not a draft email");
   }
-  return email;
+
+  // The idempotency key is the tag, so a second run replays the FIRST
+  // response verbatim: same id, same old copy, and a POST that silently does
+  // nothing. Rewriting the player email and re-running `--channel email` has
+  // to actually move the draft, so reconcile the stored copy against the one
+  // we just authored. Only ever a draft — a sent or scheduled email is never
+  // touched, which the status check above already guarantees.
+  const intendedBody = buttondownBody(manifest);
+  if (email.subject === manifest.email.subject && email.body === intendedBody) {
+    return { ...email, reconciled: false };
+  }
+  const update = await request(
+    `https://api.buttondown.com/v1/emails/${email.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Token ${apiKey.trim()}`,
+        "Buttondown-Context": newsletterId,
+        "Content-Type": "application/json",
+        "X-API-Version": buttondownApiVersion,
+      },
+      body: JSON.stringify({
+        subject: manifest.email.subject,
+        body: intendedBody,
+      }),
+    },
+  );
+  if (!update.ok) {
+    const detail = (await update.text()).slice(0, 500);
+    throw new Error(
+      `Buttondown release draft update failed (${update.status})${detail ? `: ${detail}` : ""}`,
+    );
+  }
+  const updated = await update.json();
+  if (updated.status !== "draft") {
+    throw new Error("Buttondown response is not a draft email");
+  }
+  if (
+    updated.subject !== manifest.email.subject ||
+    updated.body !== intendedBody
+  ) {
+    throw new Error("Buttondown draft did not accept the rewritten notes");
+  }
+  return { ...updated, reconciled: true };
 }
 
 async function recordRelease(manifest) {
@@ -561,7 +619,9 @@ async function announce(manifest, selectedChannels) {
     if (selectedChannels.includes("email")) {
       const email = await createButtondownDraft(manifest);
       result.emailDraftId = email.id;
-      console.log(`Buttondown release draft created (${email.id})`);
+      console.log(
+        `Buttondown release draft ${email.reconciled ? "rewritten" : "created"} (${email.id})`,
+      );
     }
     return result;
   } finally {
@@ -579,10 +639,12 @@ export function systemActions(output = console.log) {
         month: "2-digit",
         day: "2-digit",
       }).format(new Date()),
-    async preflight() {
+    async preflight(at) {
       command("git", ["fetch", "origin", "main", "--tags"]);
-      const head = command("git", ["rev-parse", "origin/main"]);
-      await assertLive(head);
+      const head = at
+        ? command("git", ["rev-parse", `${at}^{commit}`])
+        : command("git", ["rev-parse", "origin/main"]);
+      await assertLive(head, { current: !at });
       return head;
     },
     gather,
@@ -595,15 +657,30 @@ export function systemActions(output = console.log) {
       ),
     readDraft: async (path) =>
       JSON.parse(await readFile(resolve(repoRoot, path), "utf8")),
-    async confirmTarget(head) {
+    async confirmTarget(head, { pinned = false } = {}) {
       command("git", ["fetch", "origin", "main", "--tags"]);
       const current = command("git", ["rev-parse", "origin/main"]);
       if (current !== head) {
-        throw new Error(
-          `origin/main moved from ${head.slice(0, 12)} to ${current.slice(0, 12)}; prepare a new draft`,
-        );
+        // A pinned retry is allowed to sit behind main, but only on history
+        // main still contains: a commit that was live, never a rewritten or
+        // abandoned one.
+        if (!pinned) {
+          throw new Error(
+            `origin/main moved from ${head.slice(0, 12)} to ${current.slice(0, 12)}; prepare a new draft`,
+          );
+        }
+        // `merge-base <head> <current>` is head itself exactly when head is an
+        // ancestor of current, and unlike `--is-ancestor` it answers on stdout.
+        const base = command("git", ["merge-base", head, current], {
+          allowFailure: true,
+        });
+        if (base !== head) {
+          throw new Error(
+            `${head.slice(0, 12)} is not in origin/main history; prepare a new draft`,
+          );
+        }
       }
-      await assertLive(head);
+      await assertLive(head, { current: !pinned });
     },
     async ensureTag(manifest, head) {
       const remote = remoteTagCommit(manifest.tag);
@@ -643,7 +720,11 @@ export function help() {
   return `Usage:
   node scripts/cut-release.mjs --prepare [--since <ref> | --days <n>]
   node scripts/cut-release.mjs --draft <llm-output.json> --dry-run [--since <ref> | --days <n>]
-  node scripts/cut-release.mjs --draft <llm-output.json> [--since <ref> | --days <n>] [--channel github|email]`;
+  node scripts/cut-release.mjs --draft <llm-output.json> [--since <ref> | --days <n>] [--channel github|email]
+  node scripts/cut-release.mjs --draft <llm-output.json> --since <ref> --channel email --at <released-sha>
+
+--at retries one channel against a commit main has already moved past. The
+commit must still be in origin/main history.`;
 }
 
 export async function main(argv = process.argv.slice(2)) {
