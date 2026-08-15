@@ -166,6 +166,19 @@ function waitForExpectedWorker(
 // pack in the background; ordinary web visits cache cards as they encounter
 // them. `enabled` is injectable so the registration flow can be unit tested
 // without installing a service worker into Vite's development origin.
+// Every same-origin script and stylesheet this document actually loaded, plus
+// the document itself. Read from the DOM rather than a build manifest so it can
+// never drift from what shipped.
+function shellUrls(): string[] {
+  const urls = new Set<string>(['/'])
+  for (const node of document.querySelectorAll<HTMLScriptElement>('script[src]')) urls.add(node.src)
+  for (const node of document.querySelectorAll<HTMLLinkElement>('link[href]')) {
+    const rel = node.rel
+    if (rel === 'stylesheet' || rel === 'manifest' || rel === 'icon' || rel === 'apple-touch-icon') urls.add(node.href)
+  }
+  return [...urls]
+}
+
 export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<void> {
   if (!enabled || !('serviceWorker' in navigator)) return
 
@@ -173,6 +186,10 @@ export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<
     const workerUrl = `/card-art-sw.js?build=${encodeURIComponent(buildMeta.id)}&catalog=${encodeURIComponent(cardCatalogVersion)}`
     const registration = await navigator.serviceWorker.register(workerUrl, { scope: '/', updateViaCache: 'none' })
     const worker = await waitForExpectedWorker(registration, workerUrl)
+    // The page knows its own build assets; the worker cannot guess their hashed
+    // names. Handing them over is what makes the app openable offline after a
+    // single online visit, which is the whole precondition for offline Practice.
+    if (worker) worker.postMessage({ type: 'cache-shell', urls: shellUrls() })
     if (worker && isStandalone()) progressivelyFill(worker, cardArtBatches(allCardArtUrls))
   } catch (error) {
     // Card art still loads normally when service workers are unavailable or

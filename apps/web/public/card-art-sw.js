@@ -1,16 +1,86 @@
-/* Elixir Drop card-art service worker. This deliberately owns only /cards/*;
-   navigation, API, scripts, and release updates stay network-controlled. */
+/* Elixir Drop service worker.
+ *
+ * Two caches, deliberately separate because they expire on different clocks:
+ *
+ *   card art  — keyed to the CATALOG version. Card images are immutable and
+ *               enormous in aggregate; they must survive an app release.
+ *   app shell — keyed to the BUILD id. It must NOT survive a release, or a
+ *               player is stranded on an old app with no way to know.
+ *
+ * The shell exists so Practice works with no network. Navigation is
+ * network-first, so an online player always gets the newest document and the
+ * cache is only ever a fallback — the stale-build failure mode this could have
+ * introduced never happens while the network is reachable.
+ *
+ * The API is never cached. /api-config.json in particular points at the live
+ * stack, and a stale copy would aim the app at the wrong endpoint. */
 const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
 const CARD_CACHE_PREFIX = 'elixir-drop-card-art-base-'
+const SHELL_CACHE_PREFIX = 'elixir-drop-shell-'
 const params = new URL(self.location.href).searchParams
 const cardCacheName = `${CARD_CACHE_PREFIX}${params.get('catalog') || 'unknown'}`
+const shellCacheName = `${SHELL_CACHE_PREFIX}${params.get('build') || 'unknown'}`
 const cardPath = /^\/cards\/\d+(?:_(?:evo|hero))?\.png$/
+// Everything the app needs to boot and drill offline. Card art has its own
+// cache; api-config.json is excluded on purpose.
+const shellPath = /^\/(?:assets\/|site\.webmanifest$|favicon|apple-touch-icon)/
+const NEVER_CACHE = new Set(['/api-config.json', '/card-art-sw.js'])
 let fillQueue = Promise.resolve()
 
 function isCardRequest(request) {
   if (request.method !== 'GET') return false
   const url = new URL(request.url)
   return url.origin === self.location.origin && cardPath.test(url.pathname)
+}
+
+function isShellRequest(request) {
+  if (request.method !== 'GET') return false
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return false
+  if (NEVER_CACHE.has(url.pathname)) return false
+  return shellPath.test(url.pathname)
+}
+
+// Network-first: the freshest document always wins when there is a network,
+// and the cached copy is strictly a fallback for when there is not.
+async function shellNavigation(request) {
+  const cache = await caches.open(shellCacheName)
+  try {
+    const response = await fetch(request)
+    if (response.ok) await cache.put('/index.html', response.clone())
+    return response
+  } catch (error) {
+    const cached = await cache.match('/index.html')
+    if (cached) return cached
+    throw error
+  }
+}
+
+// Cache-first for hashed build assets. The file name changes every build, so a
+// stale hit is impossible; a miss just fetches and stores.
+async function shellAsset(request) {
+  const cache = await caches.open(shellCacheName)
+  const cached = await cache.match(request)
+  if (cached) return cached
+  const response = await fetch(request)
+  if (response.ok) await cache.put(request, response.clone())
+  return response
+}
+
+async function cacheShell(urls) {
+  const cache = await caches.open(shellCacheName)
+  for (const value of urls) {
+    const url = new URL(value, self.location.origin)
+    if (url.origin !== self.location.origin || NEVER_CACHE.has(url.pathname)) continue
+    if (!shellPath.test(url.pathname) && url.pathname !== '/') continue
+    try {
+      const response = await fetch(url.href)
+      if (response.ok) await cache.put(url.pathname === '/' ? '/index.html' : new Request(url.href), response)
+    } catch {
+      // The next controlled load repopulates this; offline Practice simply
+      // stays unavailable until then.
+    }
+  }
 }
 
 async function fetchAndCache(request) {
@@ -48,7 +118,14 @@ self.addEventListener('activate', (event) => {
           names
             // The broad legacy prefix also matches base-only caches, removing
             // both the old variant pack and superseded catalog versions.
-            .filter((name) => name.startsWith(LEGACY_CARD_CACHE_PREFIX) && name !== cardCacheName)
+            .filter(
+              (name) =>
+                (name.startsWith(LEGACY_CARD_CACHE_PREFIX) && name !== cardCacheName) ||
+                // A superseded build's shell is retired the moment its
+                // replacement activates. This is what keeps the offline copy
+                // from outliving the release it belongs to.
+                (name.startsWith(SHELL_CACHE_PREFIX) && name !== shellCacheName)
+            )
             .map((name) => caches.delete(name))
         )
       )
@@ -57,11 +134,22 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-  if (!isCardRequest(event.request)) return
-  event.respondWith(fetchAndCache(event.request))
+  if (isCardRequest(event.request)) {
+    event.respondWith(fetchAndCache(event.request))
+    return
+  }
+  if (event.request.mode === 'navigate') {
+    event.respondWith(shellNavigation(event.request))
+    return
+  }
+  if (isShellRequest(event.request)) event.respondWith(shellAsset(event.request))
 })
 
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'cache-shell' && Array.isArray(event.data.urls)) {
+    event.waitUntil(cacheShell(event.data.urls))
+    return
+  }
   if (event.data?.type !== 'cache-card-art' || !Array.isArray(event.data.urls)) return
   // Serialize background batches so installing the PWA never fans the entire
   // catalog out as a burst of concurrent image requests.

@@ -7,6 +7,7 @@ import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './gam
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import type { EarnedRung } from '../components/BadgeEarned'
+import { isOfflineRun, localPracticeRun } from './offline-practice'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
 import { track } from './analytics'
@@ -35,6 +36,11 @@ export const heldForReviewReference = signal<string | null>(null)
 // them know anything about badges. Cleared when the next run is prepared, so a
 // replay never re-celebrates the previous run's badges.
 export const earnedBadges = signal<EarnedRung[]>([])
+
+// This Practice session was dealt locally because the signed one could not be
+// prepared. Read by the Practice screen so the player is told plainly that
+// nothing is being saved, rather than discovering it later in their history.
+export const offlinePractice = signal(false)
 
 let noticeTimer: number | undefined
 
@@ -99,6 +105,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     heldForReview.value = false
     heldForReviewReference.value = null
     earnedBadges.value = []
+    offlinePractice.value = false
     setRecordingNotice({ state: 'idle' })
     try {
       // No token → a guest run: the server deals the same signed challenge but
@@ -112,6 +119,17 @@ export function useGameRun<T extends GameMode>(mode: T) {
         signOut()
         const gamePath = gamePathForRoute(`/${mode}`)
         navigate(gamePath ? loginRouteForGame(gamePath) : '/login')
+        return
+      }
+      // Practice needs no server. Rather than block a drill on an unreachable
+      // API — offline, or simply a bad minute — deal it locally. Every other
+      // mode still fails closed, because every other mode records something.
+      if (mode === 'practice') {
+        const local = localPracticeRun()
+        run.current = local
+        challenge.value = local.challenge as Extract<RunChallenge, { mode: T }>
+        offlinePractice.value = true
+        track('game.started', mode)
         return
       }
       startError.value =
@@ -148,6 +166,16 @@ export function useGameRun<T extends GameMode>(mode: T) {
     onRecorded?: () => void,
     onUnrecorded?: () => void
   ): Promise<void> {
+    // A locally dealt Practice session has no server run to complete. Nothing
+    // is sent, nothing is recorded, and the local card stats the drill weights
+    // itself from were already written by the loop.
+    if (isOfflineRun(active)) {
+      run.current = null
+      pendingCompletion.current = null
+      setRecordingNotice({ state: 'saved', message: 'Practised offline — not saved' })
+      onRecorded?.()
+      return
+    }
     setRecordingNotice(
       active.guest
         ? { state: 'scoring', message: 'Scoring your game…' }

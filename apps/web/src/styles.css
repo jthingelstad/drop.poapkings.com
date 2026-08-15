@@ -5591,6 +5591,18 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 10.5px;
   font-weight: 700;
 }
+
+/* Said plainly, and only when true: an offline drill saves nothing. */
+.ed-offline-note {
+  margin: 0 0 12px;
+  padding: 10px 13px;
+  border: 1px solid rgba(245, 200, 76, 0.34);
+  border-radius: 13px;
+  background: rgba(245, 200, 76, 0.1);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 .ed-games__filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

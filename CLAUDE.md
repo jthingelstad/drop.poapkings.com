@@ -152,6 +152,20 @@ rank-oriented fields as part of unrelated work.
   setting (default on; `isEnhancedEffectsEnabled()` in `lib/motion.ts`) layers
   richer bursts — including on misses — on top; **reduced motion always wins**
   (no FX). Don't hand-roll in-flow feedback text or ad-hoc CSS keyframes.
+- **Practice runs offline; nothing else does.** The service worker keeps two
+  caches on two clocks: card art keyed to the CATALOG version (immutable, must
+  survive a release) and the app shell keyed to the BUILD id (must not, or a
+  player strands on an old app). Navigation is network-first, so the cached
+  shell is only ever a fallback. `/api-config.json` is never cached — a stale
+  copy would aim the app at the wrong stack. When a signed start cannot be
+  prepared, **Practice alone** deals locally from `lib/offline-practice.ts` and
+  records nothing: no history row, no server learning stats, no badges, no XP,
+  no daily streak. The screen says so. Every mode that records something still
+  fails closed. This is not a hole in the signed-challenge rule: Practice is
+  unranked and unscored, and the API's own Practice deal is `shuffle(pool)`
+  over the whole catalog, which is exactly what the offline deal reproduces —
+  the weakness weighting that decides what a player sees has always lived in
+  the browser, in `lib/practice-deal.ts`.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves

@@ -76,7 +76,10 @@ describe('card art cache', () => {
       expect.stringContaining(`catalog=${encodeURIComponent(cardCatalogVersion)}`),
       { scope: '/', updateViaCache: 'none' }
     )
-    expect(postMessage).not.toHaveBeenCalled()
+    // Every visit hands over the shell so the app can open offline; only an
+    // installed PWA fills the whole card-art pack.
+    expect(postMessage).toHaveBeenCalledTimes(1)
+    expect(postMessage).toHaveBeenCalledWith({ type: 'cache-shell', urls: expect.arrayContaining(['/']) })
   })
 
   it('progressively sends bounded batches when running as an installed PWA', async () => {
@@ -93,12 +96,14 @@ describe('card art cache', () => {
     })
 
     await initCardArtCache(true)
-    expect(postMessage).not.toHaveBeenCalled()
+    // The shell goes over immediately; the card-art batches are still paced.
+    expect(postMessage).toHaveBeenCalledTimes(1)
+    expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'cache-shell', urls: expect.arrayContaining(['/']) })
 
     vi.advanceTimersByTime(750)
-    expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
+    expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
     vi.advanceTimersByTime(750)
-    expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(4, 8) })
+    expect(postMessage).toHaveBeenNthCalledWith(3, { type: 'cache-card-art', urls: allCardArtUrls.slice(4, 8) })
   })
 
   it('waits for the newly registered worker instead of filling through the retiring worker', async () => {
@@ -194,7 +199,7 @@ describe('card art cache', () => {
     })
   })
 
-  it('ships a card-only service worker with runtime and background cache paths', () => {
+  it('ships a service worker with runtime and background card-art cache paths', () => {
     const source = readFileSync('public/card-art-sw.js', 'utf8')
     expect(source).toContain('const cardPath = /^\\/cards\\/')
     expect(source).toContain('event.respondWith(fetchAndCache(event.request))')
@@ -202,5 +207,23 @@ describe('card art cache', () => {
     expect(source).toContain("const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'")
     expect(source).toContain('name.startsWith(LEGACY_CARD_CACHE_PREFIX)')
     expect(cardArtCacheName).toBe(`elixir-drop-card-art-base-${cardCatalogVersion}`)
+  })
+
+  it('keys the app shell to the build so a release retires it', () => {
+    const source = readFileSync('public/card-art-sw.js', 'utf8')
+    // Card art survives a release (keyed to the catalog); the shell must not
+    // (keyed to the build), or a player is stranded on an old app.
+    expect(source).toContain("const SHELL_CACHE_PREFIX = 'elixir-drop-shell-'")
+    expect(source).toContain("params.get('build')")
+    expect(source).toContain('name.startsWith(SHELL_CACHE_PREFIX) && name !== shellCacheName')
+  })
+
+  it('serves navigation network-first and never caches the API config', () => {
+    const source = readFileSync('public/card-art-sw.js', 'utf8')
+    // Network-first is what keeps the cached shell a fallback rather than a
+    // stale app: online players always get the newest document.
+    expect(source).toContain('shellNavigation(event.request)')
+    expect(source).toContain('const response = await fetch(request)')
+    expect(source).toContain("NEVER_CACHE = new Set(['/api-config.json', '/card-art-sw.js'])")
   })
 })

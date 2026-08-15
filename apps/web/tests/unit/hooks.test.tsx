@@ -42,7 +42,7 @@ import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { runReference } from '@elixir-drop/contracts'
-import { heldForReviewReference, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { heldForReviewReference, offlinePractice, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
 import { getRecords, saveRecords } from '../../src/lib/storage'
@@ -407,7 +407,7 @@ function startedRun(overrides: Record<string, unknown> = {}) {
 
 type RunApi = ReturnType<typeof useGameRun>
 
-function mountRun(mode: 'surge' | 'rain' = 'surge'): { api: () => RunApi } {
+function mountRun(mode: 'surge' | 'rain' | 'practice' = 'surge'): { api: () => RunApi } {
   let current: RunApi
   function Probe() {
     current = useGameRun(mode)
@@ -553,6 +553,36 @@ describe('useGameRun', () => {
     expect(recordRecentRun).toHaveBeenCalledTimes(1)
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(recordingNotice.value.state).toBe('saved')
+  })
+
+  it('falls back to a local Practice deal and records nothing', async () => {
+    vi.mocked(startRun).mockRejectedValue(new TypeError('Failed to fetch'))
+    const { api } = mountRun('practice')
+    await flush()
+
+    // Practice needs no server, so an unreachable start deals locally instead
+    // of blocking the drill.
+    expect(offlinePractice.value).toBe(true)
+
+    await act(async () => {
+      await api().complete({ answers: [{ cardId: 26000000, guess: 3 }] })
+    })
+
+    // Nothing is sent, nothing is recorded: no history row, no learning stats,
+    // no badges, no XP.
+    expect(completeRun).not.toHaveBeenCalled()
+    expect(recordRecentRun).not.toHaveBeenCalled()
+    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Practised offline — not saved' })
+  })
+
+  it('never deals a ranked mode locally', async () => {
+    vi.mocked(startRun).mockRejectedValue(new TypeError('Failed to fetch'))
+    const { api } = mountRun('surge')
+    await flush()
+
+    // Every mode that records something still fails closed.
+    expect(offlinePractice.value).toBe(false)
+    expect(api().challenge.value).toBeNull()
   })
 
   it('joins a held-run notice and history status with the server run ID', async () => {
