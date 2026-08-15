@@ -538,6 +538,7 @@ describe('HomeMobile', () => {
       championFor: (mode) => (mode === 'higher-lower' ? standing('c1', 1, 'Champ', 9) : undefined),
       surgeStandings: standings,
       surgeRank: undefined,
+      rankFor: () => undefined,
       surgeCallout: {
         title: 'Get 0.6s faster to take the lead',
         detail: '#1 in Surge wins next season’s free pass.',

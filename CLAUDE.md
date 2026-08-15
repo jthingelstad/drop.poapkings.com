@@ -173,6 +173,12 @@ rank-oriented fields as part of unrelated work.
   endless, unranked drill that touches no competitive or progression surface
   (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI; zero
   XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
+- **Home lists every game and features one a day.** `home-games.ts` holds all
+  five ranked games in a fixed order that never changes — a player looking for
+  Survival finds it in the same place every day — and the hero promotes one of
+  them, chosen by UTC day so every player sees the same game and it turns over
+  predictably. The rotation is the promotion slot; it must never be the only
+  route to a mode. No mode carries a permanent "NEW" badge.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only. (Rationale and the set-aside ideas live in

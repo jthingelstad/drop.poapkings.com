@@ -1,10 +1,11 @@
 import Icon from '../../components/Icon'
 import { navigate } from '../../lib/router'
 import { seasonEndsLabel, type HomeData } from './home-data'
-import { MORE_GAMES } from './home-games'
-import { SurgeHero, MoreGameCard } from './home-bits'
+import { ALL_GAMES, featuredGame } from './home-games'
+import { FeaturedHero, HomeGameCard } from './home-bits'
 
 export default function HomeDesktop({ data }: { data: HomeData }) {
+  const featured = featuredGame()
   return (
     <div class="ed-home-d">
       <div class="ed-home-d__head">
@@ -15,17 +16,17 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
         </span>
       </div>
 
-      <SurgeHero data={data} withHours />
+      <FeaturedHero data={data} game={featured} withHours />
 
       <div class="ed-more__head">
-        <span class="ed-more__title">More games</span>
+        <span class="ed-more__title">All games</span>
         <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
           All leaderboards <Icon name="arrow-right" />
         </button>
       </div>
       <div class="ed-more-grid">
-        {MORE_GAMES.map((g) => (
-          <MoreGameCard game={g} championFor={data.championFor} key={g.key} />
+        {ALL_GAMES.map((g) => (
+          <HomeGameCard game={g} featured={g.key === featured.key} championFor={data.championFor} key={g.key} />
         ))}
       </div>
     </div>

@@ -3828,9 +3828,18 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 .ed-home-d .ed-hero {
   padding: 26px 28px;
 }
+
+/* "HIGHER / LOWER" is more than twice the width of "SURGE". A size step keeps
+   the featured wordmark on one line instead of breaking the headline. */
+.ed-hero__wordmark--long {
+  font-size: 1.9rem;
+}
 .ed-home-d .ed-hero__wordmark {
   font-size: 3.4rem;
   margin-top: 4px;
+}
+.ed-home-d .ed-hero__wordmark--long {
+  font-size: 2.4rem;
 }
 .ed-home-d .ed-hero__desc {
   font-size: 0.92rem;

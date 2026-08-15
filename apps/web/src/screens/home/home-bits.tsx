@@ -9,7 +9,7 @@ import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { LeaderboardEntry } from '../../lib/api'
-import type { MoreGame } from './home-games'
+import type { HomeGame } from './home-games'
 import { seasonEndsLabel, type HomeData } from './home-data'
 
 // Falling elixir motes inside a card (CSS-animated, decorative).
@@ -24,18 +24,28 @@ export function GameMotes({ dense = false }: { dense?: boolean }) {
   )
 }
 
-function championText(game: MoreGame, championFor: (m: GameMode) => LeaderboardEntry | undefined): string {
-  if (!game.mode) return 'New this season'
+function championText(game: HomeGame, championFor: (m: GameMode) => LeaderboardEntry | undefined): string {
   const champ = championFor(game.mode)
   if (!champ) return 'The crown is open'
   return `${champ.player.publicName} · ${scoreLabel(game.mode, champ.score)}`
 }
 
-// The flagship Surge hero. `withHours` gives the desktop pill its "6d 04h" form.
-export function SurgeHero({ data, withHours = false }: { data: HomeData; withHours?: boolean }) {
-  const best = data.bestScores.surge
-  const bestText = best === undefined ? '—' : scoreLabel('surge', best)
-  const rankText = data.surgeRank ? `#${data.surgeRank}` : '—'
+// `withHours` gives the desktop pill its "6d 04h" form.
+// The hero promotes one game a day. It was Surge-only before, which meant the
+// only promotion slot on the app's first screen could never say anything new.
+export function FeaturedHero({
+  data,
+  game,
+  withHours = false
+}: {
+  data: HomeData
+  game: HomeGame
+  withHours?: boolean
+}) {
+  const best = data.bestScores[game.mode]
+  const bestText = best === undefined ? '—' : scoreLabel(game.mode, best)
+  const rank = data.rankFor(game.mode)
+  const rankText = rank ? `#${rank}` : '—'
   return (
     <section class="ed-hero">
       <span class="ed-fx" aria-hidden="true">
@@ -47,15 +57,19 @@ export function SurgeHero({ data, withHours = false }: { data: HomeData; withHou
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
         <span class="ed-pill ed-pill--gold">{seasonEndsLabel(data.season, withHours)}</span>
-        <ModeIcon mode="surge" size={60} className="ed-hero__art" />
-        <div class="ed-hero__wordmark">SURGE</div>
-        <p class="ed-hero__desc">15 cards. Name each elixir cost against the clock.</p>
+        <ModeIcon mode={game.mode} size={60} className="ed-hero__art" />
+        {/* Long names get their own size step rather than wrapping the
+            wordmark, which reads as a broken headline. */}
+        <div class={`ed-hero__wordmark${game.name.length > 8 ? ' ed-hero__wordmark--long' : ''}`}>
+          {game.name.toLocaleUpperCase()}
+        </div>
+        <p class="ed-hero__desc">{game.desc}</p>
         <div class="ed-hero__cta">
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
             onClick={(e) => {
               tapFxFrom(e)
-              navigate('/surge')
+              navigate(game.path)
             }}
           >
             <span class="tap-face">
@@ -74,19 +88,21 @@ export function SurgeHero({ data, withHours = false }: { data: HomeData; withHou
   )
 }
 
-export function MoreGameCard({
+export function HomeGameCard({
   game,
+  featured,
   championFor
 }: {
-  game: MoreGame
+  game: HomeGame
+  featured: boolean
   championFor: (m: GameMode) => LeaderboardEntry | undefined
 }) {
   return (
-    <article class={`ed-gcard${game.accent ? ' ed-gcard--accent' : ''}`}>
-      <GameMotes dense={!!game.accent} />
+    <article class={`ed-gcard${featured ? ' ed-gcard--accent' : ''}`}>
+      <GameMotes dense={featured} />
       <div class="ed-gcard__body">
         <div class="ed-gcard__title">
-          {game.mode && <ModeIcon mode={game.mode} size={50} className="ed-gcard__art" />}
+          <ModeIcon mode={game.mode} size={50} className="ed-gcard__art" />
           {game.name}
           {game.badge && <span class="ed-gcard__badge">{game.badge}</span>}
         </div>

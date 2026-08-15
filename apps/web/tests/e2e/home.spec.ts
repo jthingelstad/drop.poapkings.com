@@ -32,6 +32,31 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
   })
 })
 
+test('every game sits in the row, and one is featured for the day', async ({ page }) => {
+  await page.goto('/')
+
+  // All five ranked games are always listed, Surge included, in a fixed order.
+  const row = page.locator('.ed-more-row, .ed-more-grid').first()
+  await expect(row.locator('.ed-gcard')).toHaveCount(5)
+  await expect(row).toContainText('Surge')
+  await expect(row).toContainText('Higher / Lower')
+  await expect(row).toContainText('Rain')
+  await expect(row).toContainText('Trade')
+  await expect(row).toContainText('Survival')
+  await expect(page.locator('.ed-more__title').first()).toHaveText('All games')
+
+  // Rain is no longer badged as new.
+  await expect(row.locator('.ed-gcard__badge')).toHaveCount(0)
+
+  // The hero promotes one of those five, and the same one is accented in the
+  // row — so the promotion never points somewhere the list does not.
+  const wordmark = (await page.locator('.ed-hero__wordmark').textContent())?.trim() ?? ''
+  expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
+  const accented = row.locator('.ed-gcard--accent')
+  await expect(accented).toHaveCount(1)
+  await expect(accented).toContainText(new RegExp(wordmark.replace(/ \/ /, ' / '), 'i'))
+})
+
 test('mobile install suggestion waits until the third browser session', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')

@@ -1,23 +1,30 @@
-// The "More games" cards on Home (everything except the Surge hero), in one
-// order shared by both layouts — mobile swipe row and desktop 2×2 grid. Rain
-// sits 2nd, as designed. Rain is not a real GameMode until Phase 5, so it is
-// modeled here as a static card pointing at a themed placeholder route.
+// Every game on Home, in one fixed order shared by both layouts — the mobile
+// swipe row and the desktop grid. The order never changes, because a player
+// looking for Survival should find it in the same place every day.
+//
+// Promotion is the hero's job, not this list's: one game is featured at the top
+// each day and every game still sits here, so the rotation can never make a
+// mode harder to find.
 
 import type { GameMode } from '@elixir-drop/contracts'
 
-export interface MoreGame {
+export interface HomeGame {
   key: string
   name: string
   desc: string
   path: string
-  // Ranked modes read their #1 champion from the live board; Rain has none yet.
-  mode?: GameMode
+  mode: GameMode
   badge?: string
-  // Purple accent = the featured/new card (Rain), matching the prototype.
-  accent?: boolean
 }
 
-export const MORE_GAMES: MoreGame[] = [
+export const ALL_GAMES: HomeGame[] = [
+  {
+    key: 'surge',
+    name: 'Surge',
+    desc: '15 cards. Name each elixir cost against the clock.',
+    path: '/surge',
+    mode: 'surge'
+  },
   {
     key: 'higher-lower',
     name: 'Higher / Lower',
@@ -30,9 +37,7 @@ export const MORE_GAMES: MoreGame[] = [
     name: 'Rain',
     desc: 'Cards fall from the sky. Clear each cost before it lands. 3 lives.',
     path: '/rain',
-    mode: 'rain',
-    badge: 'NEW',
-    accent: true
+    mode: 'rain'
   },
   {
     key: 'trade',
@@ -49,3 +54,11 @@ export const MORE_GAMES: MoreGame[] = [
     mode: 'survival'
   }
 ]
+
+// Today's featured game, by UTC day so every player sees the same one and it
+// turns over at a single predictable moment. Deliberately not random: the
+// sequence repeats every five days, which is a rotation a regular can learn.
+export function featuredGame(now: Date = new Date()): HomeGame {
+  const day = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86_400_000)
+  return ALL_GAMES[((day % ALL_GAMES.length) + ALL_GAMES.length) % ALL_GAMES.length]!
+}

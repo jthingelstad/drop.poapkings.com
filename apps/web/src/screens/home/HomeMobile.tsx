@@ -9,8 +9,8 @@ import { registerLogoTap } from '../../lib/screensaver'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
 import type { LeaderboardEntry } from '../../lib/api'
 import type { HomeData } from './home-data'
-import { MORE_GAMES } from './home-games'
-import { SurgeHero, MoreGameCard } from './home-bits'
+import { ALL_GAMES, featuredGame } from './home-games'
+import { FeaturedHero, HomeGameCard } from './home-bits'
 
 function IdentityChip() {
   const current = player.value
@@ -74,24 +74,25 @@ function StandingsPeek({ data }: { data: HomeData }) {
 }
 
 export default function HomeMobile({ data }: { data: HomeData }) {
+  const featured = featuredGame()
   return (
     <div class="ed-home">
       <InstallBanner />
       <IdentityChip />
-      <SurgeHero data={data} />
+      <FeaturedHero data={data} game={featured} />
 
       <section class="ed-more">
         <div class="ed-more__head">
           <span class="ed-more__title" onClick={() => registerLogoTap()}>
-            More games
+            All games
           </span>
           <span class="ed-more__hint">
             swipe <Icon name="arrow-right" />
           </span>
         </div>
         <div class="ed-more-row">
-          {MORE_GAMES.map((g) => (
-            <MoreGameCard game={g} championFor={data.championFor} key={g.key} />
+          {ALL_GAMES.map((g) => (
+            <HomeGameCard game={g} featured={g.key === featured.key} championFor={data.championFor} key={g.key} />
           ))}
         </div>
       </section>

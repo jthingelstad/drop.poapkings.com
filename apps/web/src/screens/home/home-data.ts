@@ -19,6 +19,9 @@ export interface HomeData {
   bestScores: Partial<Record<GameMode, number>>
   boards: Partial<Record<GameMode, LeaderboardEntry[]>>
   championFor: (mode: GameMode) => LeaderboardEntry | undefined
+  // The signed-in player's rank on any mode's board — the hero features a
+  // different game each day, so it cannot read a Surge-only rank.
+  rankFor: (mode: GameMode) => number | undefined
   surgeStandings: LeaderboardEntry[]
   surgeRank: number | undefined
   surgeCallout: SurgeSeasonCallout
@@ -118,6 +121,7 @@ export function useHomeData(): HomeData {
     bestScores,
     boards: boards.value,
     championFor: (mode) => boards.value[mode]?.[0],
+    rankFor: (mode) => (meId ? boards.value[mode]?.find((entry) => entry.player.id === meId)?.rank : undefined),
     surgeStandings,
     surgeRank,
     surgeCallout: surgeSeasonCallout(surgeStandings, bestScores.surge, meId)
