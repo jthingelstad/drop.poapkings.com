@@ -362,7 +362,7 @@ describe('Leaderboards', () => {
     const strip = host.querySelector('.ed-board__clan')!
     expect(strip.textContent).toContain('POAP KINGS')
     expect(strip.textContent).toContain('#J2RGCRVG')
-    expect(strip.textContent).toContain('2 on this board')
+    expect(strip.textContent).toContain('2 in Drop')
     expect(buttonWithText(host, '.ed-board__clan button', 'Change')).toBeTruthy()
   })
 

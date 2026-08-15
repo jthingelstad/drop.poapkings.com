@@ -158,3 +158,38 @@ export function upcomingSeasons(
   }
   return seasons;
 }
+
+// Leaderboard season IDs are calendar-derived (`2026-08`, or `2026-08-74` when
+// one calendar month carried two CR seasons). Players do not think in those
+// ids — they think in Clash Royale season numbers — but only the live war
+// clock stores both, and it is overwritten each rollover, so a past season's
+// number is not recorded anywhere.
+//
+// Derive it instead. Clan Wars seasons are monthly and sequential, so a
+// season's number is the current one offset by the months between them. An id
+// that carries an explicit `-NN` suffix states its own number and is trusted
+// over the arithmetic.
+//
+// Returns undefined rather than a guess when there is no live clock to anchor
+// on, or when the offset is implausible; callers fall back to the raw id.
+const MAX_DERIVED_SEASON_OFFSET = 120;
+
+export function crSeasonIdFor(
+  seasonId: string,
+  clock: { leaderboardSeasonId: string; crSeasonId: number } | undefined,
+): number | undefined {
+  const explicit = /^\d{4}-\d{2}-(\d+)$/.exec(seasonId);
+  if (explicit) return Number(explicit[1]);
+  if (!clock?.crSeasonId) return undefined;
+  const months = (id: string): number | undefined => {
+    const parts = /^(\d{4})-(\d{2})/.exec(id);
+    return parts ? Number(parts[1]) * 12 + Number(parts[2]) : undefined;
+  };
+  const target = months(seasonId);
+  const current = months(clock.leaderboardSeasonId);
+  if (target === undefined || current === undefined) return undefined;
+  const offset = target - current;
+  if (Math.abs(offset) > MAX_DERIVED_SEASON_OFFSET) return undefined;
+  const derived = clock.crSeasonId + offset;
+  return derived > 0 ? derived : undefined;
+}

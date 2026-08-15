@@ -32,14 +32,20 @@ test('the profile is reachable from the shell and shows Player XP', async ({ pag
   // Only a run a referee handled is sealed. The held and excluded runs are
   // marked; the ordinary games around them wear nothing at all.
   const games = page.locator('.ed-games')
-  await expect(games.getByLabel('Awaiting referee')).toHaveCount(1)
-  await expect(games.getByLabel('Not ranked')).toHaveCount(1)
-  await expect(games.getByLabel('Referee cleared')).toHaveCount(0)
+  const rows = games.locator('.ed-games__row')
+  await expect(rows.getByLabel('Awaiting referee')).toHaveCount(1)
+  await expect(rows.getByLabel('Not ranked')).toHaveCount(1)
+  await expect(rows.getByLabel('Referee cleared')).toHaveCount(0)
   await expect(games).toContainText('AWAITING')
   await expect(games).toContainText('EXCLUDED')
   // The tiles count referee decisions, so an unreviewed career sits at zero.
   await expect(games.locator('.ed-games__tile--reviewed')).toContainText('0')
   await expect(games.locator('.ed-games__tile--pending')).toContainText('1')
+  // A held run names its provisional board placement.
+  await expect(games).toContainText('AWAITING · #2')
+  // The account block is one identity line plus its two actions.
+  await expect(page.locator('.ed-profile__account-line')).toContainText('Player')
+  await expect(page.locator('.ed-profile__account-actions')).toContainText('Sign out')
 
   // The reference and the dispute link live in the run detail, and only a run
   // a referee has touched carries one at all.
@@ -146,7 +152,7 @@ test('profile leads with badges and keeps settings near the bottom', async ({ pa
   const clashRoyale = page.locator('.ed-profile__cr')
   const preferences = page.locator('.ed-profile__preferences')
   const account = page.locator('.ed-profile__account')
-  await expect(preferences.getByRole('heading', { name: 'Game settings' })).toBeVisible()
+  await expect(preferences.getByRole('heading', { name: 'Settings' })).toBeVisible()
   // The Seasons section and its modal folded into Your games.
   await expect(page.locator('.ed-profile__seasons')).toHaveCount(0)
 
@@ -187,8 +193,23 @@ test('profile leads with badges and keeps settings near the bottom', async ({ pa
   ).toHaveAttribute('aria-checked', 'false')
 })
 
+test('the badge wall starts as a strip and expands in place', async ({ page }) => {
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  const wall = page.locator('.ed-profile__badges')
+  await expect(wall.locator('.ed-badges__grid--featured')).toHaveCount(1)
+  const toggle = wall.locator('.ed-profile__badges-toggle')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  const condensed = await wall.locator('.ed-badges__cell').count()
+
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(wall.locator('.ed-badges__grid--featured')).toHaveCount(0)
+  expect(await wall.locator('.ed-badges__cell').count()).toBeGreaterThan(condensed)
+})
+
 test('opening a badge uses a focused modal instead of changing the badge wall', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  await page.locator('.ed-profile__badges-toggle').click()
 
   await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
   const sheet = page.getByRole('dialog', { name: 'Clockbreaker' })
@@ -337,7 +358,10 @@ test('your games uses full history, filters it, and pages older seasons in', asy
     const url = new URL(request.url())
     if (url.pathname === '/me/seasons') seasonRequests.push(url.searchParams.get('season') ?? '')
   })
-  await games.getByRole('button', { name: 'Load 2026-06' }).click()
+  // Seasons read as Clash Royale season numbers, never the internal id.
+  await expect(games.getByLabel('Season')).toContainText('Season 134')
+  await expect(games.getByLabel('Season')).not.toContainText('2026-07')
+  await games.getByRole('button', { name: 'Load Season 133' }).click()
   await expect.poll(() => seasonRequests).toContain('2026-06')
   await expect(games.locator('.ed-games__row')).toHaveCount(32)
   await expect(games.locator('.ed-games__month-head')).toHaveCount(2)

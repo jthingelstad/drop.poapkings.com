@@ -237,10 +237,16 @@ export default function Leaderboards() {
         <div class="ed-board__title" aria-hidden="true">
           Leaderboards
         </div>
-        <div class="ed-board__clock">
-          <span>Season ends</span>
-          <strong>{season.value ? seasonClock(season.value) : '—'}</strong>
-        </div>
+        {scope.value === 'season' ? (
+          <div class="ed-board__clock">
+            <span>Season ends</span>
+            <strong>{season.value ? seasonClock(season.value) : '—'}</strong>
+          </div>
+        ) : (
+          <div class="ed-board__clock">
+            <strong>All-time bests</strong>
+          </div>
+        )}
       </header>
 
       <div class="ed-board__scopes" aria-label="Choose a leaderboard scope">
@@ -284,11 +290,11 @@ export default function Leaderboards() {
             <strong>{clanName ?? 'Clan'}</strong>
             <small>
               {clanTag ? `${clanTag} · ` : ''}
-              {entries.value.length} on this board
+              {entries.value.length} in Drop
             </small>
           </span>
           <button class="ed-textlink" onClick={() => navigate('/profile?edit=player-tag')}>
-            Change
+            Change <Icon name="chevron-right" />
           </button>
         </div>
       )}
@@ -330,9 +336,9 @@ export default function Leaderboards() {
 
       <footer class="ed-board__key">
         <ReviewStatusMark status="reviewed" size={18} />
-        <span>checked by a referee</span>
+        <span>Cleared by a referee.</span>
         <ReviewStatusMark status="pending" size={18} />
-        <span>ranks while it is checked · an excluded run leaves the board</span>
+        <span>means the run ranks while it is checked; excluded runs leave the board.</span>
         <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
           Fair Play
         </button>

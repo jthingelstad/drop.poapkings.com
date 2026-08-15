@@ -248,6 +248,12 @@ rank-oriented fields as part of unrelated work.
 - **`GET /me/seasons` is bounded.** It returns a one-row-per-season `index` plus
   a single season's runs (`season=all` is an explicit opt-in). Never reintroduce
   a read that ships a player's whole career to render one month.
+- **Players read Clash Royale season numbers, never Drop's internal ids.**
+  `2026-08` is a storage key; "Season 135" is the season. `crSeasonIdFor` in
+  `services/api/src/seasons.ts` derives the number for a past season (monthly and
+  sequential from the live war clock, or the id's own `-NN` suffix) and returns
+  undefined rather than guessing. Any surface naming a season shows the number
+  and falls back to the raw id only when there isn't one.
 
 ---
 

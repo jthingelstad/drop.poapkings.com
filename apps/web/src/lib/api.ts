@@ -286,10 +286,15 @@ export function getSeasonHistory(
     season?: string
     mode?: GameMode
     status?: 'pending' | 'reviewed' | 'excluded' | 'unreviewed'
+    // Board placements cost one leaderboard read per mode played, so they are
+    // asked for rather than assumed.
+    placements?: boolean
   } = {}
 ) {
   const query = new URLSearchParams(
-    Object.entries(filters).flatMap(([key, value]) => (value ? [[key, value] as [string, string]] : []))
+    Object.entries(filters).flatMap(([key, value]) =>
+      value ? [[key, value === true ? '1' : String(value)] as [string, string]] : []
+    )
   ).toString()
   return apiRequest(`/me/seasons${query ? `?${query}` : ''}`, seasonHistoryResponseSchema, { sessionToken, signal })
 }

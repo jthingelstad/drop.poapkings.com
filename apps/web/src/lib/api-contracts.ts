@@ -134,7 +134,10 @@ export const recentRunSchema = z.object({
   seasonId: nonEmptyString,
   completedAt: isoDateTime,
   reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
-  reviewExplanation: z.optional(nonEmptyString)
+  reviewExplanation: z.optional(nonEmptyString),
+  // This run's rank on its season board, present only on the run that holds
+  // the player's placement for its mode, and only when the caller asked.
+  placement: z.optional(safeInteger.positive())
 })
 
 export const learningSummarySchema = z.object({
@@ -177,7 +180,10 @@ export const seasonHistorySchema = z.object({
 // picker and the "load the season before this" control never need the runs.
 export const seasonIndexEntrySchema = z.object({
   id: nonEmptyString,
-  games: nonNegativeInteger
+  games: nonNegativeInteger,
+  // The Clash Royale season number players actually recognise. Absent when the
+  // server cannot anchor the internal id to a live war clock.
+  crSeasonId: z.optional(nonNegativeInteger)
 })
 
 export const seasonHistoryResponseSchema = z.object({

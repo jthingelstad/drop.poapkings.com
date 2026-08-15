@@ -634,7 +634,7 @@ describe('Profile interactive flows', () => {
     expect(preferences).not.toBeNull()
     expect(preferences.previousElementSibling?.classList.contains('ed-games')).toBe(true)
     expect(preferences.nextElementSibling?.classList.contains('ed-profile__account')).toBe(true)
-    expect(preferences.textContent).toContain('Game settings')
+    expect(preferences.textContent).toContain('Settings')
 
     const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
     const motion = preferences.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
@@ -681,7 +681,7 @@ describe('Profile interactive flows', () => {
   it('groups your games by month, seals each row, and signs out from the profile view', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length }],
+      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
       seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
@@ -692,9 +692,11 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('12.50s')
     // A run no referee touched wears no seal at all; only the held and the
     // excluded run are marked.
-    expect(container.querySelectorAll('[aria-label="Referee cleared"]')).toHaveLength(0)
-    expect(container.querySelector('[aria-label="Awaiting referee"]')).not.toBeNull()
-    expect(container.querySelector('[aria-label="Not ranked"]')).not.toBeNull()
+    const rowSeals = (label: string) =>
+      [...container.querySelectorAll('.ed-games__row')].filter((row) => row.querySelector(`[aria-label="${label}"]`))
+    expect(rowSeals('Referee cleared')).toHaveLength(0)
+    expect(rowSeals('Awaiting referee')).toHaveLength(1)
+    expect(rowSeals('Not ranked')).toHaveLength(1)
     expect(container.textContent).toContain('AWAITING')
     expect(container.textContent).toContain('EXCLUDED')
 
@@ -706,7 +708,7 @@ describe('Profile interactive flows', () => {
   it('counts each status in the tiles and toggles the filter from one', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length }],
+      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
       seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
@@ -730,7 +732,7 @@ describe('Profile interactive flows', () => {
   it('opens a run detail with its reference and the dispute link for an excluded run', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length }],
+      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
       seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
@@ -750,7 +752,7 @@ describe('Profile interactive flows', () => {
   it('leaves the run reference off a game no referee has touched', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: 1 }],
+      index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
       seasons: [{ id: '2026-07', games: 1, runs: [historyRuns[2]] }]
     })
     await mount()

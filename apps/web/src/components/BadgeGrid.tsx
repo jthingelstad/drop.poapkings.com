@@ -14,14 +14,21 @@ import Icon from './Icon'
 // Grid uses -192 at 74px, the sheet the same file at 84px. -384 is reserved for
 // the earn celebration, which is the only place a badge gets big enough to need
 // it.
+// `featured` is the You page's condensed strip: the first few badges at medal
+// size with no captions. The full wall is one tap away, so the strip trims what
+// is shown, never what exists.
+const FEATURED_BADGES = 6
+
 export default function BadgeGrid({
   states,
   earnedOnly = false,
+  featured = false,
   playerId,
   playerName
 }: {
   states: BadgeState[]
   earnedOnly?: boolean
+  featured?: boolean
   playerId?: string
   playerName?: string
 }) {
@@ -29,7 +36,9 @@ export default function BadgeGrid({
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const views = badgeViews(states)
   const earned = earnedCount(views)
-  const visible = earnedOnly ? views.filter((view) => view.earned) : views
+  const scoped = earnedOnly ? views.filter((view) => view.earned) : views
+  const ordered = sortForGrid(scoped)
+  const visible = featured ? ordered.slice(0, FEATURED_BADGES) : ordered
   const open = visible.find((view) => view.slug === openSlug)
 
   if (!earned) {
@@ -49,8 +58,8 @@ export default function BadgeGrid({
 
   return (
     <>
-      <div class="ed-badges__grid">
-        {sortForGrid(visible).map((view) => (
+      <div class={featured ? 'ed-badges__grid ed-badges__grid--featured' : 'ed-badges__grid'}>
+        {visible.map((view) => (
           <button
             key={view.slug}
             class="ed-badges__cell"
@@ -60,8 +69,8 @@ export default function BadgeGrid({
             }}
             aria-label={`${view.name}${view.chip ? `, ${view.chip}` : ''}`}
           >
-            <BadgeMedallion badge={view} size={74} />
-            <span class="ed-badges__cell-name">{view.name}</span>
+            <BadgeMedallion badge={view} size={featured ? 44 : 74} />
+            {!featured && <span class="ed-badges__cell-name">{view.name}</span>}
           </button>
         ))}
       </div>

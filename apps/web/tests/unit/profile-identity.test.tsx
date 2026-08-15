@@ -109,7 +109,7 @@ describe('favorite-card identity', () => {
     expect(html).toContain('POAP KINGS')
     expect(html).toContain('Co Leader')
     expect(html).toContain('#2PYQ0')
-    expect(html).toContain('8 years played')
+    expect(html).toContain('8y 10d playing')
     // The three fact cells and the Collection tile are gone with the row.
     expect(html).not.toContain('Calculated from the Years Played badge’s day count')
     expect(html).not.toContain('Collection')

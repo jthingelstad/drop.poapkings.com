@@ -9,6 +9,7 @@ import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
+import { crSeasonIdFor } from "../seasons.js";
 import {
   cardResultsFromTranscript,
   costAccuracy,
@@ -21,6 +22,7 @@ import type {
   NameClaims,
   RefereeDecision,
 } from "../types.js";
+import type { Repository } from "../repository.js";
 import { normalizePlayerTag } from "../validation.js";
 import { runXp } from "../xp.js";
 import {
@@ -157,13 +159,20 @@ export async function getMySeasons({
   );
 
   // Built from the whole history because it has to be complete, but it costs
-  // one number per season on the wire.
+  // one row per season on the wire. `crSeasonId` is what the player actually
+  // recognizes — "Season 135", not "2026-08" — so it travels with the index
+  // rather than leaving the browser to guess at an internal id.
+  const clock = await repository.getCrWarClock();
   const index = [...new Set(history.map((run) => run.seasonId))]
     .sort((left, right) => right.localeCompare(left))
-    .map((id) => ({
-      id,
-      games: history.filter((run) => run.seasonId === id).length,
-    }));
+    .map((id) => {
+      const crSeasonId = crSeasonIdFor(id, clock);
+      return {
+        id,
+        games: history.filter((run) => run.seasonId === id).length,
+        ...(crSeasonId === undefined ? {} : { crSeasonId }),
+      };
+    });
 
   const requestedSeason =
     seasonFilter === undefined ? index[0]?.id : seasonFilter;
@@ -198,20 +207,75 @@ export async function getMySeasons({
     season.push(run);
     grouped.set(run.seasonId, season);
   }
+  // Board placements are opt-in and scoped to one season, because each one is
+  // a real leaderboard read. Only the run that actually holds the player's
+  // position on a board gets a number — that is what the placement describes.
+  const placements =
+    event.queryStringParameters?.placements === "1" &&
+    requestedSeason !== undefined &&
+    requestedSeason !== "all"
+      ? await seasonPlacements(repository, session.sub, requestedSeason, runs)
+      : new Map<string, number>();
+
   console.info("Player season history read", {
     requestId: event.requestContext.requestId,
     indexedSeasons: index.length,
     seasons: grouped.size,
     runs: runs.length,
+    placements: placements.size,
   });
   return json(200, {
     index,
     seasons: [...grouped.entries()].map(([id, seasonRuns]) => ({
       id,
       games: seasonRuns.length,
-      runs: seasonRuns,
+      runs: seasonRuns.map((run) => {
+        const placement = placements.get(run.runId);
+        return placement === undefined ? run : { ...run, placement };
+      }),
     })),
   });
+}
+
+// One board read per ranked mode the player actually played that season, and
+// none at all for a player who played none. The board row's achievedAt is the
+// run's completedAt, which is what ties a placement to a specific run.
+async function seasonPlacements(
+  repository: Repository,
+  sub: string,
+  seasonId: string,
+  runs: Array<{ runId: string; mode: GameMode; completedAt: string }>,
+): Promise<Map<string, number>> {
+  const placements = new Map<string, number>();
+  const profile = await repository.getProfile(sub);
+  if (!profile) return placements;
+  const modes = [...new Set(runs.map((run) => run.mode))].filter(
+    (mode) => mode !== "practice",
+  );
+  await Promise.all(
+    modes.map(async (mode) => {
+      let board: Array<Record<string, unknown>>;
+      try {
+        board = await repository.leaderboard(mode, seasonId);
+      } catch {
+        // A placement is decoration on a history row. A board that is briefly
+        // unavailable must not fail the whole history read.
+        return;
+      }
+      const row = board.find(
+        (entry) =>
+          (entry.player as { id?: string } | undefined)?.id ===
+          profile.playerId,
+      );
+      if (!row || typeof row.rank !== "number") return;
+      const run = runs.find(
+        (candidate) =>
+          candidate.mode === mode && candidate.completedAt === row.achievedAt,
+      );
+      if (run) placements.set(run.runId, row.rank);
+    }),
+  );
+  return placements;
 }
 
 // The player's badge ladders, rebuilding from history when they have never been

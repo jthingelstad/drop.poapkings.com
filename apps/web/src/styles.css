@@ -5599,6 +5599,32 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.72rem;
   font-weight: 700;
 }
+.ed-profile__badges-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.ed-profile__badges-toggle .icon {
+  font-size: 0.8rem;
+}
+
+/* The condensed strip: medals only, wrapping rather than scrolling. */
+.ed-badges__grid--featured {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ed-badges__grid--featured .ed-badges__cell {
+  width: auto;
+  padding: 0;
+}
 .ed-games__tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5615,6 +5641,14 @@ html.reduce-motion .ed-profile-guest__halo::before {
   background: rgba(18, 13, 40, 0.5);
   color: var(--muted);
   cursor: pointer;
+}
+.ed-games__tile-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ed-games__tile-count .ed-review-status {
+  margin-inline-start: 0;
 }
 .ed-games__tile strong {
   font-family: var(--font-display);
@@ -5765,14 +5799,27 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.78rem;
   line-height: 1.45;
 }
+.ed-profile__cr-fresh {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
 .ed-profile__cr {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 11px 13px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: rgba(18, 13, 40, 0.6);
+}
+.ed-profile__cr .ed-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 0;
+  font-size: 0.72rem;
+}
+.ed-profile__cr .ed-textlink .icon {
+  font-size: 0.72rem;
 }
 .ed-profile__cr-crest {
   display: grid;
@@ -5814,23 +5861,22 @@ html.reduce-motion .ed-profile-guest__halo::before {
   border-radius: 18px;
   background: rgba(18, 13, 40, 0.6);
 }
-.ed-profile__account-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.ed-profile__account-row > span {
+.ed-profile__account-line {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
 }
-.ed-profile__account-row > strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 0.78rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.ed-profile__account-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ed-profile__account-actions .ed-profile__signout {
+  flex: 1;
+}
+.ed-profile__account-actions .ed-danger__open {
+  flex: 1;
+  margin: 0;
 }
 .ed-profile__account .ed-profile__reference {
   margin-top: 0;

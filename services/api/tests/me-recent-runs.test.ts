@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   refereeDecisions: vi.fn(async () => new Map()),
+  leaderboard: vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
   rankedAccess: vi.fn(async () => "allowed" as const),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     refereeDecisions = repository.refereeDecisions;
+    leaderboard = repository.leaderboard;
     rankedAccess = repository.rankedAccess;
   },
 }));
@@ -294,6 +296,128 @@ describe("GET /me/seasons", () => {
         runs: [expect.objectContaining({ runId: "new-1", mode: "trade" })],
       },
     ]);
+  });
+
+  it("numbers each indexed season the way players read it", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "a",
+        mode: "surge",
+        score: 1,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+      {
+        runId: "b",
+        mode: "surge",
+        score: 2,
+        seasonId: "2026-06",
+        completedAt: "2026-06-02T18:00:00.000Z",
+      },
+      {
+        runId: "c",
+        mode: "surge",
+        score: 3,
+        seasonId: "2026-05-131",
+        completedAt: "2026-05-20T18:00:00.000Z",
+      },
+    ]);
+    repository.getCrWarClock.mockResolvedValue({
+      leaderboardSeasonId: "2026-08",
+      crSeasonId: 135,
+    });
+
+    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    if (!result || typeof result === "string") throw new Error("no result");
+    // Sequential monthly seasons count back from the live clock; an id that
+    // states its own number is trusted over the arithmetic.
+    expect(JSON.parse(result.body ?? "{}").index).toEqual([
+      { id: "2026-08", games: 1, crSeasonId: 135 },
+      { id: "2026-06", games: 1, crSeasonId: 133 },
+      { id: "2026-05-131", games: 1, crSeasonId: 131 },
+    ]);
+  });
+
+  it("omits the season number when no clock can anchor it", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "a",
+        mode: "surge",
+        score: 1,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+    ]);
+    repository.getCrWarClock.mockResolvedValue(undefined);
+
+    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(JSON.parse(result.body ?? "{}").index).toEqual([
+      { id: "2026-08", games: 1 },
+    ]);
+  });
+
+  it("places only the run holding the player's board position, on request", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "best",
+        mode: "surge",
+        score: 12_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+      {
+        runId: "worse",
+        mode: "surge",
+        score: 19_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-01T18:00:00.000Z",
+      },
+    ]);
+    repository.leaderboard.mockResolvedValue([
+      {
+        rank: 4,
+        achievedAt: "2026-08-02T18:00:00.000Z",
+        player: { id: "player-1" },
+      },
+    ]);
+
+    const result = await handler(
+      meEvent("/me/seasons", { placements: "1" }),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    const runs = JSON.parse(result.body ?? "{}").seasons[0].runs;
+    expect(runs).toEqual([
+      expect.objectContaining({ runId: "best", placement: 4 }),
+      expect.objectContaining({ runId: "worse" }),
+    ]);
+    expect(runs[1].placement).toBeUndefined();
+  });
+
+  it("keeps the history readable when a board read fails", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "best",
+        mode: "surge",
+        score: 12_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-02T18:00:00.000Z",
+      },
+    ]);
+    repository.leaderboard.mockRejectedValue(new Error("board unavailable"));
+
+    const result = await handler(
+      meEvent("/me/seasons", { placements: "1" }),
+      {} as never,
+      () => {},
+    );
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(result.statusCode).toBe(200);
+    expect(
+      JSON.parse(result.body ?? "{}").seasons[0].runs[0].placement,
+    ).toBeUndefined();
   });
 
   it("ships every season only when the caller asks for all of them", async () => {

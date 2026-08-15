@@ -435,7 +435,16 @@ complete `RUN#` range and filters retired modes, but its **response is bounded**
 `index` lists every season the player has runs in with a game count (one row
 each), while `seasons` carries the runs for a single season. `season=<id>` picks
 one, `season=all` is an explicit opt-in to the whole career, and omitting it
-returns the most recent season. `mode` and `status` narrow further; `status`
+returns the most recent season. Each index row carries `crSeasonId` — the Clash
+Royale season number players recognise. Nothing stores a past season's number
+(only the live war clock holds both ids, and it is overwritten each rollover),
+so it is derived: Clan Wars seasons are monthly and sequential, so a season's
+number is the current one offset by the months between them, and an id carrying
+an explicit `-NN` suffix states its own. `crSeasonIdFor` returns undefined
+rather than a guess when no clock can anchor it, and the UI falls back to the
+raw id. `placements=1` additionally returns each run's board rank, but only for
+the run that actually holds the player's position for its mode — one leaderboard
+read per ranked mode played, so it is opt-in and never spans `season=all`. `mode` and `status` narrow further; `status`
 takes `pending`, `reviewed`, `excluded`, or `unreviewed` — the last of which is
 the absence of a decision, which is what most runs are. A recent-feed cap must
 never be used as a season total.

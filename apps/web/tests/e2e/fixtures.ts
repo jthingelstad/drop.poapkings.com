@@ -55,7 +55,8 @@ export const testRecentRuns = [
     score: 67_299,
     seasonId: '2026-07',
     completedAt: '2026-07-18T18:42:00.000Z',
-    reviewStatus: 'pending'
+    reviewStatus: 'pending',
+    placement: 2
   },
   {
     runId: 'recent-trade',
@@ -157,7 +158,13 @@ export const testSeasonHistory = {
 // rather than mocked away.
 export function seasonHistoryResponse(url: string) {
   const requested = new URL(url).searchParams.get('season')
-  const index = testSeasonHistory.seasons.map((season) => ({ id: season.id, games: season.games }))
+  // The season index numbers each season the way players read it.
+  const crSeasonIds: Record<string, number> = { '2026-07': 134, '2026-06': 133 }
+  const index = testSeasonHistory.seasons.map((season) => ({
+    id: season.id,
+    games: season.games,
+    ...(crSeasonIds[season.id] === undefined ? {} : { crSeasonId: crSeasonIds[season.id] })
+  }))
   const seasons =
     requested === 'all'
       ? testSeasonHistory.seasons
