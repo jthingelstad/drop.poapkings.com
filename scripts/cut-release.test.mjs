@@ -319,6 +319,21 @@ void test("appending the in-app history is newest-first and idempotent", () => {
   });
 });
 
+void test("email artwork never reaches the in-app notes", () => {
+  const notes = playerNotes(
+    [
+      "Badges are ladders now.",
+      "![Clockbreaker](https://drop.poapkings.com/assets/badges/clockbreaker-192.png) ![Downpour](https://drop.poapkings.com/assets/badges/downpour-192.png)",
+      "Read more at [the site](https://drop.poapkings.com).",
+    ].join("\n\n"),
+  );
+  // The image-only paragraph collapses and falls out; link text survives.
+  assert.deepEqual(notes, [
+    "Badges are ladders now.",
+    "Read more at the site.",
+  ]);
+});
+
 void test("--at is refused outside a single-channel retry", () => {
   assert.throws(
     () => optionsFor(["--draft", "d.json", "--at", "abc1234"]),

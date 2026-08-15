@@ -104,6 +104,18 @@ Write it so a player finishes it knowing everything that changed *for them*:
 - Keep the warmth and the plain voice. Short paragraphs with bold leads, not a changelog.
 - End with the link.
 
+**Artwork is welcome, and email-only.** Badge medallions and mode emblems can illustrate the
+letter as ordinary Markdown images pointing at `https://drop.poapkings.com/assets/...` — those
+files are already public and CDN-free. `playerNotes` strips images entirely, so a paragraph
+that is only artwork contributes nothing to the in-app `/releases` notes; illustrating the
+email can never rewrite them. Confirm that with `git diff apps/web/src/data/releases.json`
+after a re-run: it should be empty.
+
+The newsletter's own styling lives in `scripts/buttondown-theme.css` and is applied with
+`npm run theme:buttondown`. Note that the release API key is scoped to email writes, so it
+gets 403 on newsletter settings — applying the theme needs a key with newsletter scope, or a
+paste into Buttondown's design settings. Do not widen the release key to make this work.
+
 When a range is long enough that the email cannot carry it, that is a signal the release is
 overdue — raise it with Jamie rather than compressing the letter until it says nothing.
 

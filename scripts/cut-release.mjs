@@ -179,13 +179,20 @@ export function preparePayload(material, cards) {
 // in-app notes reuse it rather than asking for a third set of prose. Markdown
 // the newsletter renders is flattened here because the page prints plain
 // paragraphs.
+//
+// Images are dropped outright rather than reduced to their alt text: badge and
+// mode artwork is email decoration, and /releases already renders that artwork
+// itself. A paragraph that is only images therefore collapses to nothing and
+// falls out, which is what keeps illustrating the email from rewriting the
+// in-app notes.
 export function playerNotes(body) {
   return body
     .split(/\n{2,}/)
     .map((paragraph) =>
       paragraph
         .replace(/\s+/g, " ")
-        .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
         .replace(/\*\*([^*]+)\*\*/g, "$1")
         .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "$1")
         .replace(/`([^`]+)`/g, "$1")

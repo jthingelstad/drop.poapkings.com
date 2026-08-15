@@ -21,6 +21,7 @@
     "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace=@elixir-drop/web",
     "release:cut": "node --env-file-if-exists=.env scripts/cut-release.mjs",
+    "theme:buttondown": "node --env-file-if-exists=.env scripts/apply-buttondown-theme.mjs",
     "test": "npm run test --workspaces --if-present",
     "test:agent-team": "node --test scripts/agent-team.test.mjs",
     "test:release": "node --test scripts/cut-release.test.mjs",

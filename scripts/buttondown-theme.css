@@ -1,0 +1,147 @@
+/* Elixir Drop — Buttondown newsletter theme.
+ *
+ * Vendored, like the website's own styles: Drop's palette copied in, never
+ * linked out. Applied to the newsletter's `css` field, so it themes both the
+ * delivered email and the web archive.
+ *
+ * Written for email clients, not browsers:
+ *   - literal colors, no custom properties (Outlook does not resolve them)
+ *   - no flexbox or grid; images flow inline
+ *   - a system display stack, because SupercellMagic is a licensed font that
+ *     must not be hotlinked from a mail client
+ *   - every rule degrades to plain readable text if the client strips <style>
+ */
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0a0818;
+  color: #f0ecff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.email-body,
+.email-container,
+#content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px 20px 32px;
+  background-color: #120d28;
+}
+
+h1,
+h2,
+h3 {
+  margin: 28px 0 10px;
+  color: #ffffff;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 27px;
+  color: #f5c84c;
+}
+
+h2 {
+  font-size: 21px;
+}
+
+h3 {
+  font-size: 17px;
+}
+
+p {
+  margin: 0 0 16px;
+  color: #e6e0ff;
+}
+
+/* Each section of a release letter opens on a bold lead. Gold is the app's
+   accent, so the lead reads as a heading without needing to be one. */
+strong {
+  color: #f5c84c;
+  font-weight: 700;
+}
+
+em {
+  color: #d7c8ff;
+  font-style: italic;
+}
+
+a {
+  color: #d7c8ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: #f5c84c;
+}
+
+ul,
+ol {
+  margin: 0 0 16px;
+  padding-left: 22px;
+  color: #e6e0ff;
+}
+
+li {
+  margin-bottom: 7px;
+}
+
+blockquote {
+  margin: 20px 0;
+  padding: 12px 16px;
+  border-left: 3px solid #f5c84c;
+  border-radius: 0 12px 12px 0;
+  background-color: rgba(109, 40, 217, 0.22);
+  color: #f0ecff;
+}
+
+hr {
+  height: 1px;
+  margin: 26px 0;
+  border: 0;
+  background-color: rgba(215, 200, 255, 0.18);
+}
+
+code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background-color: rgba(215, 200, 255, 0.12);
+  color: #ffe99a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+}
+
+/* Badge medallions and mode emblems sit in a row of their own. Inline-block
+   keeps them flowing and wrapping without any layout engine. */
+img {
+  max-width: 100%;
+  height: auto;
+  border: 0;
+  vertical-align: middle;
+}
+
+p img {
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+  margin: 4px 6px 4px 0;
+}
+
+/* Buttondown's own furniture: keep the footer quiet but legible, and never let
+   the unsubscribe link disappear into the background. */
+.footer,
+.email-footer {
+  color: #9a90c4;
+  font-size: 13px;
+}
+
+.footer a,
+.email-footer a {
+  color: #b9a9ee;
+}
