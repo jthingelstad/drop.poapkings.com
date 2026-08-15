@@ -151,7 +151,7 @@ export function preparePayload(material, cards) {
     issues: material.issues,
     canonicalCards: cards.map((card) => card.name),
     instruction:
-      "In one LLM call, coin an apt alliterative name ending in a canonical Clash Royale card and write honest detailed GitHub notes plus a warm player-facing Buttondown draft. Return only the output schema.",
+      "In one LLM call, coin an apt alliterative name ending in a canonical Clash Royale card and write honest detailed GitHub notes plus a warm player-facing Buttondown draft. The email must arrive ready to send, not ready to rewrite: give every player-visible change in the range its own sentence, call out changed game facts (a card's elixir cost, a mode's lives or curve) explicitly, say what each fix means for the player, and leave out anything not player-visible. Return only the output schema.",
     outputSchema: {
       sourceHead: material.head,
       range: material.range,

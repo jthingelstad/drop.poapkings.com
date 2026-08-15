@@ -53,10 +53,13 @@ available. The tool never calls a send endpoint or advances an email beyond `dra
 2. Fetch `origin/main` and tags. Ignore unrelated local commits and working-tree changes; never
    push them. Verify the exact remote commit has a successful deploy and is the build
    production actually reports.
-3. Gather changes since the latest reachable release tag. Coin an apt alliterative canonical
-   Clash Royale card name, and write accurate GitHub and player-email notes.
+3. Gather changes since the latest reachable release tag — or, when no tag is reachable, since
+   the most recent entry in `releases.json`. Coin an apt alliterative canonical Clash Royale
+   card name, and write accurate GitHub notes and a player email per "The player email" below.
 4. Dry-run first. Check the name, range, build hash, detailed notes, Buttondown subject/body,
-   newsletter context, and planned actions.
+   newsletter context, and planned actions. Read the email against "The player email" below
+   before accepting it — that is the check that is easiest to skip and most expensive to get
+   wrong, because Jamie's next action is to send it.
 5. Run the real cut. The tag must point to the verified live SHA. The GitHub release uses the
    detailed notes. Buttondown holds a draft only — never `about_to_send`, `scheduled`, or
    `sent`.
@@ -64,15 +67,51 @@ available. The tool never calls a send endpoint or advances an email beyond `dra
 7. Confirm the only worktree change is the `apps/web/src/data/releases.json` entry the tool
    wrote. Report it; Jamie owns committing it.
 
+## The player email
+
+The two note tiers are **not** the same document at two lengths. The GitHub notes are a record
+for whoever needs to know what changed. The Buttondown body is a letter to people who play the
+game, and it must arrive **ready to send** — Jamie's review is a read-through, not a rewrite.
+A draft that summarises only the headline features and buries the rest in a closing clause is
+not finished work.
+
+Write it so a player finishes it knowing everything that changed *for them*:
+
+- **Every player-visible change in the range gets its own sentence.** A feature that took a
+  week does not get four words at the end of a paragraph.
+- **Changes to game facts are called out explicitly, never folded into a list.** A card's
+  elixir cost changing, a mode's lives or curve changing, a score or rank being recomputed —
+  a player has memorised these. Say what changed and what it used to be.
+- **Say what a fix means, not that a fix happened.** "Dropped taps on the iOS keypad are
+  fixed" beats "various stability improvements".
+- **Name the surfaces.** Clan rankings, the profile, the boards, the badge wall: a player
+  should be able to find each thing you mention.
+- **Leave out anything that is not player-visible.** Internal tooling, observability,
+  refactors, test infrastructure, deploy hardening, and private operator surfaces belong in
+  the GitHub notes only.
+- Keep the warmth and the plain voice. Short paragraphs with bold leads, not a changelog.
+- End with the link.
+
+When a range is long enough that the email cannot carry it, that is a signal the release is
+overdue — raise it with Jamie rather than compressing the letter until it says nothing.
+
 ## releases.json
 
 `releases.json` is the only file a cut touches, and **the tool writes it** — from the same card
 name and player-facing notes already authored — so the in-app `/releases` page stays current
-without anyone hand-editing it. Never write that file by hand and never commit it yourself.
+without anyone hand-editing it. During a cut, never write that file by hand, and never commit
+it yourself; the backfill below is the one edit made outside the ceremony, and Jamie triggers
+that too.
 
-Its `beta: true` entries are backfilled pre-1.0 history: real builds that really went live, but
-were never named or mailed at the time. A cut never sets that flag, and never rewrites those
+Its `beta: true` entries are backfilled history: real builds that really went live, but were
+never named or mailed at the time. A cut never sets that flag, and never rewrites those
 entries.
+
+Backfilling betas is a **separate, deliberate act, never part of a cut** — an ordinary commit
+that adds entries by hand, the way `24ab005` did. It is the right move when a long gap between
+named releases would otherwise collapse months of real work into one entry. Every backfilled
+entry is anchored to a commit that genuinely went live and deployed, carries `beta: true`, and
+gets no tag, no GitHub release, and no email. Only Jamie decides to backfill.
 
 ## Hard rules
 
@@ -90,4 +129,5 @@ entries.
   never invent a second release to recover a partial one.
 
 Success is intentionally boring: Jamie asks, one aptly named GitHub release appears on the
-already-live build, one Buttondown draft is ready for review, and nothing else changes.
+already-live build, one Buttondown draft is ready to send as written, and nothing else
+changes.
