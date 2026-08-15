@@ -166,7 +166,7 @@ export default function Trade() {
 
     // tradeLadderBest is persisted centrally when the server accepts the run.
     elixirLine.value = tradeSummaryLine({
-      isPB: pb,
+      isPB: !gameRun.offline && pb,
       totalMs: total,
       sequenceLen: TRADE.SEQUENCE_LEN,
       cleanTrades: cleanTrades.value,

@@ -45,6 +45,9 @@ const loadRain = () => import('./modes/rain/Rain')
 const loadSettings = () => import('./modes/settings/Settings')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
+const loadOfflineGames = () =>
+  Promise.all([loadPractice(), loadSurge(), loadHigherLower(), loadTrade(), loadSurvival(), loadRain()])
+
 const Practice = lazy(loadPractice)
 const Surge = lazy(loadSurge)
 const HigherLower = lazy(loadHigherLower)
@@ -160,30 +163,28 @@ function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
   // These are live server views, not snapshots. Give them their own stable
   // offline state instead of a failed request, a stale board, or an account
-  // reconnect spinner. Practice remains the only functional offline surface.
+  // reconnect spinner. Games are local offline; live data never is.
   if (offline.value && r.startsWith('/leaderboards')) return <OfflinePage kind="leaderboards" />
   if (offline.value && r.startsWith('/profile')) return <OfflinePage kind="profile" />
-  // Practice needs no account and no server: it records nothing, so there is
-  // nothing for player services to be reconnecting FOR. Gating it behind them
-  // made the one mode that works offline the one mode you could not reach —
-  // the app booted from cache, then blocked on a reconnect screen.
-  //
-  // Only when the account is genuinely out of reach. Online, Practice still
-  // waits for the session so a signed-in drill records normally.
-  const practiceWithoutServices = gamePath === '/practice' && (offline.value || accountStatus.value === 'unavailable')
-  if (gamePath && !practiceWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
-  if ((gamePath || r.startsWith('/profile')) && !practiceWithoutServices && accountStatus.value === 'unavailable')
+  // A definitely offline game is local and unrecorded, so account state cannot
+  // gate it. Practice retains the same bypass during a player-service outage;
+  // ranked modes only fall back when the browser itself reports offline.
+  const gameWithoutServices =
+    Boolean(gamePath) && (offline.value || (gamePath === '/practice' && accountStatus.value === 'unavailable'))
+  if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
+  if ((gamePath || r.startsWith('/profile')) && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
   // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
   // player who has not finished profile setup is routed to it first.
   if (
     gamePath &&
+    !gameWithoutServices &&
     accountStatus.value === 'authenticated' &&
     (!player.value?.favoriteCardId || !player.value.publicName)
   ) {
     return <ProfileRequired returnTo={gamePath} />
   }
-  if (gamePath && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
+  if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
@@ -226,16 +227,13 @@ export default function App() {
   useEffect(() => {
     void initializeAccount()
     initInstallPrompt()
-    // Practice is a lazily-loaded route, so its chunk is not in the document's
-    // script list and the shell cache never saw it — offline, the dynamic
-    // import failed and the error boundary swallowed the whole screen. Fetch it
-    // while there is still a network, so the worker has it before it is needed.
-    // The chunk is small, and pulling it early also makes Practice open
-    // instantly. Warmed after the worker is ready, or the fetch bypasses it.
+    // Every game is a lazy route, so none of their chunks are guaranteed to be
+    // in the document's script list. Warm all six through the active worker,
+    // then atomically commit the shell that makes every mode open offline.
     void initCardArtCache().then(async (worker) => {
       try {
-        await loadPractice()
-        // Commit the new shell only after the lazy Practice graph has loaded
+        await loadOfflineGames()
+        // Commit the new shell only after every lazy game graph has loaded
         // through this worker. The worker keeps the prior complete build until
         // every URL in this message is safely cached.
         if (worker) cacheAppShell(worker)

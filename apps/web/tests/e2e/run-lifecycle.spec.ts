@@ -95,7 +95,7 @@ test('a malformed signed challenge is rejected without local gameplay fallback',
   })
 
   await page.goto('/#/surge')
-  await expect(page.getByText('Drop received an invalid signed Surge challenge.')).toBeVisible()
+  await expect(page.getByText('Drop received an invalid Surge challenge.')).toBeVisible()
   await expect(page.locator('.pip-keypad')).toHaveCount(0)
 })
 

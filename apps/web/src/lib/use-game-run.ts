@@ -7,10 +7,11 @@ import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './gam
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
 import type { EarnedRung } from '../components/BadgeEarned'
-import { isOfflineRun, localPracticeRun } from './offline-practice'
+import { isOfflineRun, localOfflineRun } from './offline-run'
 import { navigate } from './router'
 import { TROPHY_ROAD_UPDATED_EVENT } from './trophy-road'
 import { track } from './analytics'
+import { offline } from './api-availability'
 
 type RecordingNotice =
   | { state: 'idle' }
@@ -37,10 +38,10 @@ export const heldForReviewReference = signal<string | null>(null)
 // replay never re-celebrates the previous run's badges.
 export const earnedBadges = signal<EarnedRung[]>([])
 
-// This Practice session was dealt locally because the signed one could not be
-// prepared. Read by the Practice screen so the player is told plainly that
-// nothing is being saved, rather than discovering it later in their history.
-export const offlinePractice = signal(false)
+// A local run is deliberately unrecorded, even if connectivity returns before
+// it ends. Shared game chrome and summaries read this so the boundary is visible
+// before, during, and after play instead of being discovered in history later.
+export const offlineRunMode = signal<GameMode | null>(null)
 
 let noticeTimer: number | undefined
 
@@ -98,6 +99,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
   const startError = useSignal('')
 
   const prepare = useCallback(async (): Promise<void> => {
+    let localAttempted = false
     preparing.value = true
     run.current = null
     challenge.value = null
@@ -105,9 +107,23 @@ export function useGameRun<T extends GameMode>(mode: T) {
     heldForReview.value = false
     heldForReviewReference.value = null
     earnedBadges.value = []
-    offlinePractice.value = false
+    offlineRunMode.value = null
     setRecordingNotice({ state: 'idle' })
+    const prepareLocal = () => {
+      localAttempted = true
+      const local = localOfflineRun(mode)
+      run.current = local
+      challenge.value = local.challenge as Extract<RunChallenge, { mode: T }>
+      offlineRunMode.value = mode
+      track('game.started', mode)
+    }
     try {
+      // navigator.onLine=false is trustworthy: do not spend a timeout proving
+      // the network is gone, and never create an official attempt for this run.
+      if (offline.value) {
+        prepareLocal()
+        return
+      }
       // No token → a guest run: the server deals the same signed challenge but
       // records nothing on completion.
       const started = await startRun(mode, sessionToken())
@@ -121,15 +137,12 @@ export function useGameRun<T extends GameMode>(mode: T) {
         navigate(gamePath ? loginRouteForGame(gamePath) : '/login')
         return
       }
-      // Practice needs no server. Rather than block a drill on an unreachable
-      // API — offline, or simply a bad minute — deal it locally. Every other
-      // mode still fails closed, because every other mode records something.
-      if (mode === 'practice') {
-        const local = localPracticeRun()
-        run.current = local
-        challenge.value = local.challenge as Extract<RunChallenge, { mode: T }>
-        offlinePractice.value = true
-        track('game.started', mode)
+      // If the browser disconnected while the request was in flight, every mode
+      // can continue locally. Practice also retains its service-outage fallback;
+      // ranked modes do not silently discard recording when the browser still
+      // believes it is online.
+      if (!localAttempted && (offline.value || mode === 'practice')) {
+        prepareLocal()
         return
       }
       startError.value =
@@ -166,14 +179,13 @@ export function useGameRun<T extends GameMode>(mode: T) {
     onRecorded?: () => void,
     onUnrecorded?: () => void
   ): Promise<void> {
-    // A locally dealt Practice session has no server run to complete. Nothing
-    // is sent, nothing is recorded, and the local card stats the drill weights
-    // itself from were already written by the loop.
+    // A locally dealt session has no server run to complete. Nothing is sent or
+    // queued, and reconnecting cannot promote it into an official result.
     if (isOfflineRun(active)) {
       run.current = null
       pendingCompletion.current = null
-      setRecordingNotice({ state: 'saved', message: 'Practised offline — not saved' })
-      onRecorded?.()
+      setRecordingNotice({ state: 'saved', message: 'Offline run complete — not saved' })
+      onUnrecorded?.()
       return
     }
     setRecordingNotice(
@@ -322,5 +334,13 @@ export function useGameRun<T extends GameMode>(mode: T) {
     await submitCompletion(active, transcript, onRecorded, onUnrecorded)
   }
 
-  return { challenge, preparing, startError, prepare, ensureFreshRun, complete }
+  return {
+    challenge,
+    preparing,
+    startError,
+    prepare,
+    ensureFreshRun,
+    complete,
+    offline: offlineRunMode.value === mode
+  }
 }

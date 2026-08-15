@@ -28,7 +28,7 @@ export function useGameSession<TMode extends GameMode, TContent>(
     } catch (error) {
       return {
         prepared: null,
-        error: error instanceof Error ? error.message : 'Drop received an invalid signed game challenge.'
+        error: error instanceof Error ? error.message : 'Drop received an invalid game challenge.'
       }
     }
   }, [challenge, resolve])

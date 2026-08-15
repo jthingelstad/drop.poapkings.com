@@ -487,6 +487,23 @@ returns a distinct minimal shape `{ accepted: true, guest: true, mode, score,
 season }`. A `/runs/complete` carrying a non-guest run token still requires a
 session that owns the run.
 
+Offline play is a separate, explicitly unrecorded path. When
+`navigator.onLine === false`, the browser never calls `/runs/start`: it creates a
+tokenless `offline:{mode}:…` run from the same pure challenge generator used by
+the API. `/runs/complete` is never called, no transcript or score is queued, and
+reconnecting cannot promote the run. The summary keeps the local result visible
+but does not write personal or season records, recent history, XP, badges,
+leaderboard entries, learning telemetry, or the global game count. Device-local
+card stats may still update as an adaptive learning cache. Conversely, an online
+signed run that loses connectivity keeps its retryable completion rather than
+being downgraded to offline.
+
+The service worker atomically caches the document and every lazy game chunk by
+build ID, while card art lives in a catalog-versioned cache. Every production
+visit fills the 120-image base-art pack in small serialized batches; App Info
+shows its progress. Live API configuration, account data, and leaderboards are
+never cached.
+
 Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
 transcript consistency produce a deterministic candidate score; timing limits,
 terminal-state expectations, score floors, completion-rate ceilings, and other

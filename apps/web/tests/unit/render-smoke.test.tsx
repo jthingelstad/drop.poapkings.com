@@ -113,9 +113,9 @@ describe('SSR render smoke', () => {
 
     expect(html).toContain('ed-offline-page')
     expect(html).toContain(heading)
-    expect(html).toContain('Practice is still ready')
+    expect(html).toContain('Every game is ready offline')
     expect(html).toContain('Open Practice')
-    expect(html).toContain('Back to games')
+    expect(html).toContain('Choose a game')
     expect(html).not.toContain('Player services are reconnecting')
     expect(html).not.toContain('Loading leaderboard')
   })

@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import { weakestBandLabel } from '../lib/insights'
-import { earnedBadges, heldForReview, heldForReviewReference } from '../lib/use-game-run'
+import { earnedBadges, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -89,10 +89,12 @@ export default function Summary({
   onHome
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
+  const offline = offlineRunMode.value === share.mode
+  const visiblePbCallout = offline ? undefined : pbCallout
   // The arena the player is standing in, for the share card's footer. Derived
   // from XP exactly as the profile does it.
   const shareArena = player.value ? rankFor(player.value.xp ?? 0).current : undefined
-  const runMoments = moments ?? defaultMoments(insights, pbCallout)
+  const runMoments = moments ?? defaultMoments(insights, visiblePbCallout)
   // Modes without per-card cost answers (Trade, Higher/Lower) have no bands.
   const hasBands = bands.some((b) => b.total > 0)
 
@@ -104,9 +106,18 @@ export default function Summary({
           {eyebrow}
         </div>
         <div class="ed-sum__headline">{headline}</div>
-        {pbCallout && (
+        {visiblePbCallout && (
           <div class="ed-sum__pb">
-            <Icon name="star" /> {pbCallout}
+            <Icon name="star" /> {visiblePbCallout}
+          </div>
+        )}
+        {offline && (
+          <div class="ed-sum__offline" role="status">
+            <Icon name="wifi-off" />
+            <span>
+              <strong>Offline run — not saved.</strong> Your score, badges, XP, history, and leaderboard position did
+              not change. Existing device-only learning hints may still update.
+            </span>
           </div>
         )}
         {/* Read straight from the signal rather than threaded through every
@@ -202,7 +213,7 @@ export default function Summary({
       {children}
 
       {/* Practice is deliberately unranked and has no score to save. */}
-      {share.mode !== 'practice' && <SignInToSave />}
+      {!offline && share.mode !== 'practice' && <SignInToSave />}
 
       <div class="ed-sum__actions">
         <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={onReplay}>

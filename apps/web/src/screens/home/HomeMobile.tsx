@@ -109,7 +109,7 @@ export default function HomeMobile({ data }: { data: HomeData }) {
           <span class="ed-practice__sub">No clock, no ranks — learn at your pace.</span>
         </span>
         <span class="ed-practice__play">
-          <Icon name="play" /> Play
+          <Icon name="play" /> {offline.value ? 'Play offline' : 'Play'}
         </span>
       </button>
 

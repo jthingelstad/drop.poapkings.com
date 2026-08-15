@@ -25,11 +25,23 @@ its own result screen).
 Local personal bests still track on-device — except Practice, which keeps no
 best for anyone. Signing in unlocks recording and ranking.
 
+**Offline play:** every mode uses the same browser game loop and shared deal
+rules without creating a server run. The result is session-only: no local
+personal or season best, account history, Player XP, badge progress, daily
+activity, global game count, or leaderboard entry, and it is never queued for a
+later reconnect. The result screen remains available and labels the run
+"Offline — not saved." Existing device-local learning behavior remains intact:
+Practice, Surge, and Survival can still sharpen future drills on that device
+without changing canonical player progress. A run that starts offline stays
+offline; a signed online run that loses connectivity keeps its normal
+completion-retry path.
+
 Every game shares one engine and the same shared paths: cards come from
 `packages/game-data/cards.json`, local learning progress goes through
-`apps/web/src/lib/storage.ts`, card selection comes from the signed server
-challenge (created in `services/api/src/scoring.ts`, resolved client-side by
-`apps/web/src/lib/game-challenge-content.ts`), and card presentation through
+`apps/web/src/lib/storage.ts`, and card selection comes from the shared
+challenge generator (signed by the server for official play and invoked locally
+for offline play, then resolved by `apps/web/src/lib/game-challenge-content.ts`).
+Card presentation goes through
 `apps/web/src/lib/card-rendering.ts` plus
 `apps/web/src/components/CardChrome.tsx`. Completed games submit a
 mode-specific transcript through `apps/web/src/lib/use-game-run.ts`, which is

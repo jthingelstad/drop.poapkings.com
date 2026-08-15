@@ -58,7 +58,7 @@ describe('card art cache', () => {
     expect(cardArtBatches(['a', 'b', 'c', 'd', 'e'], 2)).toEqual([['a', 'b'], ['c', 'd'], ['e']])
   })
 
-  it('registers the runtime cache for web visits without filling the full catalog', async () => {
+  it('registers the runtime cache and fills the full catalog for browser visits', async () => {
     const postMessage = vi.fn()
     const register = vi.fn(async (workerUrl: string) => activeRegistration(workerUrl, postMessage))
     Object.defineProperty(navigator, 'serviceWorker', {
@@ -73,19 +73,20 @@ describe('card art cache', () => {
     const worker = await initCardArtCache(true)
     expect(worker).not.toBeNull()
     cacheAppShell(worker!)
-    vi.runAllTimers()
 
     expect(register).toHaveBeenCalledWith(
       expect.stringContaining(`catalog=${encodeURIComponent(cardCatalogVersion)}`),
       { scope: '/', updateViaCache: 'none' }
     )
-    // Every visit hands over the shell so the app can open offline; only an
-    // installed PWA fills the whole card-art pack.
+    // Every visit hands over the shell immediately, then fills card art in
+    // paced batches so every locally generated challenge can render offline.
     expect(postMessage).toHaveBeenCalledTimes(1)
     expect(postMessage).toHaveBeenCalledWith({ type: 'cache-shell', urls: expect.arrayContaining(['/']) })
+    vi.advanceTimersByTime(750)
+    expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
   })
 
-  it('progressively sends bounded batches when running as an installed PWA', async () => {
+  it('progressively sends bounded batches in standalone mode too', async () => {
     const postMessage = vi.fn()
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,

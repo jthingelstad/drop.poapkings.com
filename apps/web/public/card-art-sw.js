@@ -7,7 +7,7 @@
  *   app shell — keyed to the BUILD id. It must NOT survive a release, or a
  *               player is stranded on an old app with no way to know.
  *
- * The shell exists so Practice works with no network. Navigation is
+ * The shell exists so every game works with no network. Navigation is
  * network-first, so an online player always gets the newest document and the
  * cache is only ever a fallback — the stale-build failure mode this could have
  * introduced never happens while the network is reachable.
@@ -21,7 +21,7 @@ const params = new URL(self.location.href).searchParams
 const cardCacheName = `${CARD_CACHE_PREFIX}${params.get('catalog') || 'unknown'}`
 const shellCacheName = `${SHELL_CACHE_PREFIX}${params.get('build') || 'unknown'}`
 const cardPath = /^\/cards\/\d+(?:_(?:evo|hero))?\.png$/
-// Everything the app needs to boot and drill offline. Card art has its own
+// Everything the app needs to boot and play offline. Card art has its own
 // cache; api-config.json is excluded on purpose.
 const shellPath = /^\/(?:assets\/|site\.webmanifest$|favicon|apple-touch-icon)/
 const NEVER_CACHE = new Set(['/api-config.json', '/card-art-sw.js'])
@@ -50,7 +50,7 @@ async function shellNavigation(request) {
     // worker serves the new document before the new worker exists. Caching it
     // under the old build would destroy the only complete offline fallback.
     // The new worker commits its own document through cacheShell only after
-    // Practice and every other shell dependency have loaded successfully.
+    // every game and every other shell dependency have loaded successfully.
     return await fetch(request)
   } catch (error) {
     const cached = await cache.match('/index.html')

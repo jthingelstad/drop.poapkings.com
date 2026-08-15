@@ -26,13 +26,6 @@ export interface CardArtCacheInfo {
   ready: boolean
 }
 
-function isStandalone(): boolean {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  )
-}
-
 export function cardArtBatches(urls: readonly string[], size = CARD_ART_BATCH_SIZE): string[][] {
   const batchSize = Math.max(1, Math.floor(size))
   const batches: string[][] = []
@@ -161,11 +154,11 @@ function waitForExpectedWorker(
   })
 }
 
-// Every production browser gets the runtime cache, so all modes share card art
-// once fetched. Only the installed/standalone PWA fills the complete base-art
-// pack in the background; ordinary web visits cache cards as they encounter
-// them. `enabled` is injectable so the registration flow can be unit tested
-// without installing a service worker into Vite's development origin.
+// Every production browser fills the complete base-art pack in small serialized
+// batches. A locally generated challenge can draw any catalog card, so caching
+// only previously encountered art would make "offline" a partial promise.
+// `enabled` is injectable so the registration flow can be unit tested without
+// installing a service worker into Vite's development origin.
 // Every same-origin script and stylesheet this document actually loaded, plus
 // the document itself. Read from the DOM rather than a build manifest so it can
 // never drift from what shipped.
@@ -191,7 +184,7 @@ export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<
     const workerUrl = `/card-art-sw.js?build=${encodeURIComponent(buildMeta.id)}&catalog=${encodeURIComponent(cardCatalogVersion)}`
     const registration = await navigator.serviceWorker.register(workerUrl, { scope: '/', updateViaCache: 'none' })
     const worker = await waitForExpectedWorker(registration, workerUrl)
-    if (worker && isStandalone()) progressivelyFill(worker, cardArtBatches(allCardArtUrls))
+    if (worker) progressivelyFill(worker, cardArtBatches(allCardArtUrls))
     return worker
   } catch (error) {
     // Card art still loads normally when service workers are unavailable or

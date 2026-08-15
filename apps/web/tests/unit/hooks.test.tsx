@@ -41,8 +41,9 @@ import { signOut, applyBadgeSummary, applyRunProgress, recordRecentRun } from '.
 import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
-import { runReference } from '@elixir-drop/contracts'
-import { heldForReviewReference, offlinePractice, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { GAME_MODES, runReference, type GameMode } from '@elixir-drop/contracts'
+import { heldForReviewReference, offlineRunMode, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { offline } from '../../src/lib/api-availability'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
 import { getRecords, saveRecords } from '../../src/lib/storage'
@@ -407,7 +408,7 @@ function startedRun(overrides: Record<string, unknown> = {}) {
 
 type RunApi = ReturnType<typeof useGameRun>
 
-function mountRun(mode: 'surge' | 'rain' | 'practice' = 'surge'): { api: () => RunApi } {
+function mountRun(mode: GameMode = 'surge'): { api: () => RunApi } {
   let current: RunApi
   function Probe() {
     current = useGameRun(mode)
@@ -439,9 +440,12 @@ describe('useGameRun', () => {
     vi.mocked(startRun).mockReset()
     vi.mocked(completeRun).mockReset()
     vi.mocked(signOut).mockClear()
+    vi.mocked(applyBadgeSummary).mockClear()
     vi.mocked(applyRunProgress).mockClear()
     vi.mocked(recordRecentRun).mockClear()
     vi.mocked(track).mockClear()
+    offline.value = false
+    offlineRunMode.value = null
     localStorage.removeItem('elixirdrop:records')
     localStorage.removeItem('elixirdrop:seasonRecords')
   })
@@ -562,7 +566,7 @@ describe('useGameRun', () => {
 
     // Practice needs no server, so an unreachable start deals locally instead
     // of blocking the drill.
-    expect(offlinePractice.value).toBe(true)
+    expect(offlineRunMode.value).toBe('practice')
 
     await act(async () => {
       await api().complete({ answers: [{ cardId: 26000000, guess: 3 }] })
@@ -572,17 +576,39 @@ describe('useGameRun', () => {
     // no badges, no XP.
     expect(completeRun).not.toHaveBeenCalled()
     expect(recordRecentRun).not.toHaveBeenCalled()
-    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Practised offline — not saved' })
+    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Offline run complete — not saved' })
   })
 
-  it('never deals a ranked mode locally', async () => {
+  it('does not silently deal a ranked mode locally during an online service failure', async () => {
     vi.mocked(startRun).mockRejectedValue(new TypeError('Failed to fetch'))
     const { api } = mountRun('surge')
     await flush()
 
-    // Every mode that records something still fails closed.
-    expect(offlinePractice.value).toBe(false)
+    expect(offlineRunMode.value).toBeNull()
     expect(api().challenge.value).toBeNull()
+  })
+
+  it.each(GAME_MODES)('deals and settles %s locally when the browser is offline', async (mode) => {
+    offline.value = true
+    const { api } = mountRun(mode)
+    await flush()
+    expect(startRun).not.toHaveBeenCalled()
+    expect(api().challenge.value?.mode).toBe(mode)
+    expect(api().offline).toBe(true)
+
+    const onRecorded = vi.fn()
+    const onUnrecorded = vi.fn()
+    await act(async () => {
+      await api().complete({ answers: [] }, onRecorded, onUnrecorded)
+    })
+
+    expect(completeRun).not.toHaveBeenCalled()
+    expect(applyRunProgress).not.toHaveBeenCalled()
+    expect(applyBadgeSummary).not.toHaveBeenCalled()
+    expect(recordRecentRun).not.toHaveBeenCalled()
+    expect(onRecorded).not.toHaveBeenCalled()
+    expect(onUnrecorded).toHaveBeenCalledTimes(1)
+    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Offline run complete — not saved' })
   })
 
   it('joins a held-run notice and history status with the server run ID', async () => {

@@ -1,4 +1,5 @@
 import RunCountdown from '../RunCountdown'
+import { offlineRunMode } from '../../lib/use-game-run'
 
 export type GameStartPhase = 'preparing' | 'loading' | 'countdown'
 
@@ -26,6 +27,7 @@ export function GameStartStage({ modeName, phase, count = 3 }: GameStartStagePro
   return (
     <div class="ed-game__count" data-game-start-phase={phase}>
       <div class="ed-game__count-mode">{modeName}</div>
+      {offlineRunMode.value && <div class="ed-game__offline ed-game__offline--start">Offline · not saved</div>}
       <div class={`ed-game__count-num${status ? ' ed-game__count-num--status' : ''}`}>
         {status ? (
           <div class="run-count" role="status" aria-label={status.accessible}>

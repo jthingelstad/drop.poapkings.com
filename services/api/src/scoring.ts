@@ -4,9 +4,14 @@ import {
   rainSpawnFloorMs,
   rainSpawnIntervalMs,
   survivalWindowMs,
-  TRADE_LADDER,
-  type TradeBoard,
 } from "@elixir-drop/contracts";
+import {
+  createChallenge as createGameChallenge,
+  higherLowerGap,
+  SURGE_CARD_COUNT,
+  tradeRounds as createTradeRounds,
+  type RandomInt,
+} from "@elixir-drop/contracts/challenge-generation";
 import type {
   GameMode,
   RunChallenge,
@@ -36,14 +41,12 @@ export const SCORING_RULES_VERSION = "6";
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
 }
-export const SURGE_CARD_COUNT = 15;
+export { higherLowerGap, SURGE_CARD_COUNT };
 export const SURGE_PENALTY_MS = 2_000;
-const HIGHER_LOWER_PAIR_COUNT = 250;
 // Higher/Lower runs on three lives, like Rain: a wrong tap OR a timeout costs
 // one and the run continues, so a transcript legitimately carries misses and
 // the score is the TOTAL correct reads, not the longest unbroken streak.
 const HIGHER_LOWER_LIVES = 3;
-export const RAIN_DECK_SIZE = 250;
 export const RAIN_LIVES = 3;
 // Rain is endless: the client wraps the signed deck, so a strong run resolves
 // more cards than the deck holds. This is an anti-abuse ceiling on transcript
@@ -70,8 +73,6 @@ export const RAIN_FLOOR_TOLERANCE_MS = 2_000;
 // reasoning — it bounds the scorer, it is not a round length.
 export const PRACTICE_MAX_ANSWERS = 10_000;
 
-type RandomInt = (upperBound: number) => number;
-
 // Reflex modes expect fast mash-taps, so a lone sub-100ms answer is human, not a
 // bot. Reject a run only when lightning taps are BOTH several and a large share
 // of the score — the signature of automation, not an occasional lucky tap.
@@ -79,248 +80,11 @@ function isImplausiblyFast(lightningTaps: number, score: number): boolean {
   return lightningTaps >= 3 && lightningTaps > score * 0.25;
 }
 
-function shuffle<T>(values: readonly T[], randomInt: RandomInt): T[] {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomInt(index + 1);
-    [result[index], result[swapIndex]] = [result[swapIndex]!, result[index]!];
-  }
-  return result;
-}
-
-function cardSequence(
-  count: number,
-  randomInt: RandomInt,
-  pool: readonly Card[],
-): number[] {
-  const result: number[] = [];
-  while (result.length < count) {
-    const next = shuffle(pool, randomInt);
-    // No back-to-back repeats across shuffle boundaries: the same card twice
-    // in a row reads as a bug, and in Higher/Lower a boundary repeat dealt a
-    // "Knight vs Knight" pair.
-    if (pool.length > 1 && next[0]!.id === result.at(-1)) {
-      const swapIndex = 1 + randomInt(next.length - 1);
-      [next[0], next[swapIndex]] = [next[swapIndex]!, next[0]!];
-    }
-    result.push(...next.map((card) => card.id));
-  }
-  return result.slice(0, count);
-}
-
-// The signed keypad answers -4 through +4, so a board whose swing falls outside
-// that is unanswerable. Card costs are drawn, not chosen, so the in-range board
-// is found by rejection: deal the shape, keep it if it lands, redeal if not.
-const TRADE_VALUE_LIMIT = 4;
-// A bound on that rejection loop. The tightest shapes on this ladder (2v3, 3v2)
-// land in range better than half the time, so 200 redeals is beyond
-// astronomically safe for the real catalog — it exists so a shape that CANNOT
-// land (a catalog of nothing but 9-cost cards, say) fails the run start loudly
-// instead of spinning the Lambda forever.
-const TRADE_DEAL_ATTEMPTS = 200;
-
-// Deal one exchange of the requested shape from `available`, or undefined when
-// the attempt budget runs out. A longer side carries more elixir on average, so
-// a lopsided board lands in range mostly when its short side holds the pricier
-// card — which is the classic trade read, not a distortion.
-function tradeBoard(
-  board: TradeBoard,
-  available: readonly Card[],
-  randomInt: RandomInt,
-): { blue: Card[]; red: Card[] } | undefined {
-  for (let attempt = 0; attempt < TRADE_DEAL_ATTEMPTS; attempt += 1) {
-    const cards = shuffle(available, randomInt);
-    const blue = cards.slice(0, board.blue);
-    const red = cards.slice(board.blue, board.blue + board.red);
-    const value =
-      red.reduce((sum, card) => sum + card.elixir, 0) -
-      blue.reduce((sum, card) => sum + card.elixir, 0);
-    if (Math.abs(value) <= TRADE_VALUE_LIMIT) return { blue, red };
-  }
-  return undefined;
-}
-
-// Trade's exchanges, one per rung of the fixed TRADE_LADDER. The ladder is the
-// difficulty ramp and it is deterministic — every run climbs the same board
-// shapes in the same order, and only the cards vary. (The old deal rolled both
-// side sizes at random and sorted by total card count, which put a two-card
-// board in round 1 about 81% of the time but reached 3v3 by round 8 with no run
-// of plain 1v1 reads to learn on first.)
 export function tradeRounds(
   randomInt: RandomInt,
   pool: readonly Card[],
 ): Array<{ blueIds: number[]; redIds: number[] }> {
-  const rounds: Array<{ blueIds: number[]; redIds: number[] }> = [];
-  let excluded = new Set<number>();
-  for (const board of TRADE_LADDER) {
-    const size = board.blue + board.red;
-    // Cards do not repeat within a run while the catalog can afford it.
-    if (pool.length - excluded.size < size) excluded = new Set();
-    const available = pool.filter((card) => !excluded.has(card.id));
-    const dealt = tradeBoard(board, available, randomInt);
-    if (!dealt)
-      throw new Error(
-        `Trade could not deal a ${board.blue}v${board.red} board within the signed keypad's range`,
-      );
-    rounds.push({
-      blueIds: dealt.blue.map((card) => card.id),
-      redIds: dealt.red.map((card) => card.id),
-    });
-    for (const card of [...dealt.blue, ...dealt.red]) excluded.add(card.id);
-  }
-  return rounds;
-}
-
-// ── Higher/Lower difficulty ────────────────────────────────────────────────
-// Both axes ramp. The response clock uses Survival's continuously tightening
-// shared curve (higherLowerWindowMs); the deal independently narrows the elixir
-// GAP between the two cards. A 4-elixir gap reads at a glance, a 1-elixir gap is
-// the hardest call the mode can ask for, and a uniformly random draw made the
-// hardest kind of pair the single most common opening.
-const HIGHER_LOWER_GAP_MAX = 4;
-const HIGHER_LOWER_GAP_MIN = 1;
-// Opening rounds held fully wide, then the rounds spent narrowing to a 1-elixir
-// call. The ramp has to live where the runs live — most end inside the first ten
-// rounds — so it is measured in rounds, not in fractions of the 250-pair deck.
-const HIGHER_LOWER_GAP_HOLD_ROUNDS = 5;
-const HIGHER_LOWER_GAP_RAMP_ROUNDS = 13;
-
-// The elixir gap round `round` should span — a pure function of the round index,
-// where the top value means "HIGHER_LOWER_GAP_MAX or wider". The target narrows
-// continuously and the fractional part is spent as a weighted coin flip between
-// the two neighbouring gaps, so the bands BLEND: round 10 deals a mix of 2s and
-// 3s instead of the whole game stepping down a stair on one fixed round.
-export function higherLowerGap(round: number, randomInt: RandomInt): number {
-  const progress = Math.min(
-    1,
-    Math.max(
-      0,
-      (round - HIGHER_LOWER_GAP_HOLD_ROUNDS) / HIGHER_LOWER_GAP_RAMP_ROUNDS,
-    ),
-  );
-  const target =
-    HIGHER_LOWER_GAP_MAX -
-    (HIGHER_LOWER_GAP_MAX - HIGHER_LOWER_GAP_MIN) * progress;
-  const narrower = Math.floor(target);
-  const widerOdds = Math.round((target - narrower) * 100);
-  return randomInt(100) < widerOdds ? narrower + 1 : narrower;
-}
-
-interface CostPair {
-  low: number;
-  high: number;
-  // How many distinct card pairings these two costs can produce.
-  combinations: number;
-}
-
-// Every dealable cost pair, grouped by the gap band it belongs to (everything
-// at or above HIGHER_LOWER_GAP_MAX collapses into the top band — past 4 elixir
-// the read is equally free). Bands are resolved outward when the catalog cannot
-// make the requested gap: WIDER first, because a wider gap is strictly easier,
-// so degrading never hands the player a harder pair than the ramp asked for.
-function higherLowerBands(
-  byCost: Map<number, Card[]>,
-): Map<number, CostPair[]> {
-  const costs = [...byCost.keys()].sort((left, right) => left - right);
-  const raw = new Map<number, CostPair[]>();
-  for (const low of costs) {
-    for (const high of costs) {
-      if (high <= low) continue;
-      const band = Math.min(high - low, HIGHER_LOWER_GAP_MAX);
-      const entries = raw.get(band) ?? [];
-      entries.push({
-        low,
-        high,
-        combinations: byCost.get(low)!.length * byCost.get(high)!.length,
-      });
-      raw.set(band, entries);
-    }
-  }
-  const resolved = new Map<number, CostPair[]>();
-  for (let band = HIGHER_LOWER_GAP_MIN; band <= HIGHER_LOWER_GAP_MAX; band++) {
-    let entries = raw.get(band) ?? [];
-    for (
-      let wider = band + 1;
-      !entries.length && wider <= HIGHER_LOWER_GAP_MAX;
-    )
-      entries = raw.get(wider++) ?? [];
-    for (let narrower = band - 1; !entries.length && narrower >= 1;)
-      entries = raw.get(narrower--) ?? [];
-    resolved.set(band, entries);
-  }
-  return resolved;
-}
-
-// Cost counts are wildly uneven (34 four-cost cards; exactly one 8 and one 9),
-// so a band picks its cost pair weighted by how many CARD pairings it can make.
-// Picking cost pairs uniformly would put Golem and Three Musketeers in a large
-// share of every wide opening.
-function pickCostPair(options: readonly CostPair[], randomInt: RandomInt) {
-  const total = options.reduce((sum, option) => sum + option.combinations, 0);
-  let roll = randomInt(total);
-  for (const option of options) {
-    roll -= option.combinations;
-    if (roll < 0) return option;
-  }
-  return options.at(-1)!;
-}
-
-// Prefer a card that was not in the previous pair — an immediate repeat reads as
-// a bug — but degrade instead of looping: a cost with exactly one card makes
-// "avoid the previous card" occasionally impossible.
-function pickFromCost(
-  options: readonly Card[],
-  previous: ReadonlySet<number>,
-  randomInt: RandomInt,
-): Card {
-  const fresh = options.filter((card) => !previous.has(card.id));
-  const choices = fresh.length ? fresh : options;
-  return choices[randomInt(choices.length)]!;
-}
-
-// Independent pairs for the tap-the-higher-card game. Each pair's two cards
-// always differ in elixir (never equal, so there is always a strictly higher
-// card), neither card repeats from the immediately previous pair, and the gap
-// between them narrows as the deck goes on. The target COST PAIR is chosen
-// first and the cards second, so a wide gap is never blocked by how few cards
-// happen to sit at the far end of the catalog.
-function higherLowerPairs(
-  randomInt: RandomInt,
-  pool: readonly Card[],
-): Array<[number, number]> {
-  const hasTwoCosts = new Set(pool.map((card) => card.elixir)).size >= 2;
-  const source = pool.length >= 2 && hasTwoCosts ? pool : CARDS;
-  const byCost = new Map<number, Card[]>();
-  for (const card of source) {
-    const cards = byCost.get(card.elixir) ?? [];
-    cards.push(card);
-    byCost.set(card.elixir, cards);
-  }
-  const bands = higherLowerBands(byCost);
-  const pairs: Array<[number, number]> = [];
-  let previous = new Set<number>();
-  for (let round = 0; round < HIGHER_LOWER_PAIR_COUNT; round += 1) {
-    const band = bands.get(higherLowerGap(round, randomInt)) ?? [];
-    // Unreachable: `source` always holds at least two distinct costs, so every
-    // band resolves to something. The guard keeps the loop total anyway.
-    if (!band.length) break;
-    // Drop the cost pairs that could only repeat a card from the last pair,
-    // which is what makes the no-repeat rule exact instead of a retry loop.
-    const fresh = band.filter(
-      (option) =>
-        byCost.get(option.low)!.some((card) => !previous.has(card.id)) &&
-        byCost.get(option.high)!.some((card) => !previous.has(card.id)),
-    );
-    const { low, high } = pickCostPair(fresh.length ? fresh : band, randomInt);
-    const lower = pickFromCost(byCost.get(low)!, previous, randomInt);
-    const higher = pickFromCost(byCost.get(high)!, previous, randomInt);
-    // Flip which side holds the higher card, or the answer is always the same tap.
-    const pair: [number, number] =
-      randomInt(2) === 0 ? [lower.id, higher.id] : [higher.id, lower.id];
-    pairs.push(pair);
-    previous = new Set(pair);
-  }
-  return pairs;
+  return createTradeRounds(randomInt, pool);
 }
 
 export function createChallenge<T extends GameMode>(
@@ -331,36 +95,7 @@ export function createChallenge(
   mode: GameMode,
   randomInt: RandomInt,
 ): RunChallenge {
-  // Every run draws from the same canonical catalog. Clash Royale collection
-  // snapshots remain available on player profiles but do not affect games.
-  const pool = CARDS;
-  switch (mode) {
-    case "surge":
-      return { mode, cardIds: cardSequence(15, randomInt, pool) };
-    case "practice":
-      // Practice is an endless drill, so the signed deck is a POOL, not a
-      // sequence: the whole shuffled catalog, from which the client draws in its
-      // own weakness-weighted order (and may repeat a card). Unlike Survival the
-      // deck length is not the game length — scorePractice validates by set
-      // membership, not by position.
-      return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
-    case "survival":
-      // Every card once, shuffled: clearing the whole deck is a WIN, then it is
-      // a race on cumulative time. No repeats, so the max streak is the catalog
-      // size (~120).
-      return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
-    case "rain":
-      // A long draw deck of falling cards. The client spawns tiles from it in
-      // order and WRAPS when it runs out (Rain is endless), so a deep run
-      // resolves more cards than the deck holds. The signed deck is the set of
-      // ids the scorer validates each transcript entry against — not a length
-      // limit (see scoreRain / RAIN_MAX_ANSWERS).
-      return { mode, cardIds: cardSequence(RAIN_DECK_SIZE, randomInt, pool) };
-    case "higher-lower":
-      return { mode, pairs: higherLowerPairs(randomInt, pool) };
-    case "trade":
-      return { mode, rounds: tradeRounds(randomInt, pool) };
-  }
+  return createGameChallenge(mode, randomInt, CARDS);
 }
 
 function objectArray(

@@ -141,7 +141,7 @@ describe('learning helpers', () => {
     expect(prepared.content).toHaveLength(fullDeckSize)
     expect(prepared.assets).toHaveLength(14)
     expect(() => challengePreparers.survival({ mode: 'survival', cardIds: deck.slice(0, fullDeckSize - 1) })).toThrow(
-      /invalid signed Survival/
+      /invalid Survival challenge/
     )
   })
 

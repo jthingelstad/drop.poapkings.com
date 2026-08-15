@@ -4092,6 +4092,16 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   font-size: 0.68rem;
   font-weight: 700;
 }
+.ed-game__offline {
+  color: var(--gold-lite);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ed-game__offline--start {
+  margin-top: -12px;
+}
 
 /* Lives (Rain, Higher/Lower) — see components/LivesRow.tsx.
    The row opts OUT of .ed-game__progress's 0.68rem muted treatment: at that
@@ -4267,6 +4277,29 @@ html.reduce-motion .ed-game__bar-fill {
 }
 .ed-sum__pb svg {
   fill: currentcolor;
+}
+.ed-sum__offline {
+  margin: 12px auto 0;
+  max-width: 34rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 200, 76, 0.34);
+  border-radius: 12px;
+  background: rgba(245, 200, 76, 0.1);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.ed-sum__offline > svg {
+  flex: none;
+  color: var(--gold);
+  margin-top: 0.15em;
+}
+.ed-sum__offline strong {
+  color: var(--ink);
 }
 
 /* Held-for-review is information, not a penalty: it reads calm and muted, never
@@ -5686,28 +5719,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.82rem;
 }
 
-/* A game that cannot start offline reads as unavailable, not broken. */
-.ed-gcard--offline,
-.ed-hero--offline .ed-hero__body {
-  opacity: 0.55;
-}
-.ed-gcard--offline .ed-btn[disabled],
-.ed-hero .ed-btn[disabled] {
-  filter: grayscale(0.7);
-  cursor: not-allowed;
-}
-
-/* Said plainly, and only when true: an offline drill saves nothing. */
-.ed-offline-note {
-  margin: 0 0 12px;
-  padding: 10px 13px;
-  border: 1px solid rgba(245, 200, 76, 0.34);
-  border-radius: 13px;
-  background: rgba(245, 200, 76, 0.1);
-  color: var(--ink);
-  font-size: 0.78rem;
-  line-height: 1.45;
-}
 .ed-games__filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

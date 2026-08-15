@@ -24,7 +24,6 @@ import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
-import { offlinePractice } from '../../lib/use-game-run'
 import { preloadImages } from '../../lib/preload'
 
 const ADVANCE_DELAY_CORRECT = 280
@@ -233,12 +232,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     const focus = weakestBandLabel(ins)
     return (
       <div class="ed-gamewrap">
-        {offlinePractice.value && (
-          <p class="ed-offline-note" role="status">
-            Practised offline. This session isn&rsquo;t saved and doesn&rsquo;t count toward badges or your daily streak
-            — your weak cards still got tougher on this device.
-          </p>
-        )}
         <Summary
           eyebrow={eyebrow}
           headline={`${ins.correct} / ${ins.total} · ${ins.accuracyPct}%`}

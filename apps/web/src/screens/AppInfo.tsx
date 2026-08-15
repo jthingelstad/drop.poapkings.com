@@ -23,7 +23,7 @@ function cacheHeadline(info: CardArtCacheInfo | null, failed: boolean): string {
   if (failed) return 'Status unavailable'
   if (!info) return 'Checking card library…'
   if (!info.supported) return 'Caching unavailable'
-  if (info.ready) return 'Card art ready'
+  if (info.ready) return 'Offline card art ready'
   return 'Downloading card art'
 }
 
@@ -38,6 +38,13 @@ function readiness(
   apiFailed: boolean,
   cacheInfo: CardArtCacheInfo | null
 ): { title: string; detail: string; tone: 'checking' | 'ready' | 'caching' | 'error' } {
+  if (cacheInfo?.ready && cacheInfo.workerState === 'activated' && apiFailed) {
+    return {
+      title: 'Ready to play offline',
+      detail: 'Every game and the complete card library are local. Runs will not be saved or ranked.',
+      tone: 'ready'
+    }
+  }
   if (apiFailed) {
     return {
       title: 'Connection issue',
@@ -50,8 +57,8 @@ function readiness(
   }
   if (cacheInfo.ready && cacheInfo.workerState === 'activated') {
     return {
-      title: 'Ready to compete',
-      detail: 'Player services are online and the complete card library is local.',
+      title: 'Ready online and offline',
+      detail: 'Player services are online and every game has the complete local card library.',
       tone: 'ready'
     }
   }
@@ -191,8 +198,8 @@ export default function AppInfo() {
           <span style={{ width: `${progress}%` }} />
         </div>
         <p class="ed-appinfo__cache-note">
-          Cached images load from this device in every mode. Drop still needs a connection for recorded games and
-          updates.
+          Cached images load from this device in every mode. A connection is needed only to save runs, update progress
+          and rankings, read live player data, and receive app updates.
         </p>
       </section>
 

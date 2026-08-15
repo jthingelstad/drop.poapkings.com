@@ -152,37 +152,36 @@ rank-oriented fields as part of unrelated work.
   setting (default on; `isEnhancedEffectsEnabled()` in `lib/motion.ts`) layers
   richer bursts — including on misses — on top; **reduced motion always wins**
   (no FX). Don't hand-roll in-flow feedback text or ad-hoc CSS keyframes.
-- **Practice runs offline; nothing else does.** The service worker keeps two
-  caches on two clocks: card art keyed to the CATALOG version (immutable, must
-  survive a release) and the app shell keyed to the BUILD id (must not, or a
-  player strands on an old app). Navigation is network-first, so the cached
-  shell is only ever a fallback. `/api-config.json` is never cached — a stale
-  copy would aim the app at the wrong stack. When a signed start cannot be
-  prepared, **Practice alone** deals locally from `lib/offline-practice.ts` and
-  records nothing: no history row, no server learning stats, no badges, no XP,
-  no daily streak. The screen says so. Every mode that records something still
-  fails closed. This is not a hole in the signed-challenge rule: Practice is
-  unranked and unscored, and the API's own Practice deal is `shuffle(pool)`
-  over the whole catalog, which is exactly what the offline deal reproduces —
-  the weakness weighting that decides what a player sees has always lived in
-  the browser, in `lib/practice-deal.ts`. Offline is surfaced up front, not
-  discovered by failing: `offline` in `lib/api-availability.ts` tracks
-  `navigator.onLine` plus the online/offline events, ranked Play buttons
-  disable and dim, and `components/OfflineGlyph.tsx` marks the player chip. A
-  persistent state gets a persistent mark, never a banner: a notice that never
-  leaves stops being information, and it sat over the board during play. It is trusted in one direction only — false means definitely offline;
-  true never promises the API is reachable, which is what `ApiStatusBanner`
-  still covers. Leaderboards and You are live server views: offline they render
-  a connection-required state with a direct Practice action, and the desktop
-  live-data rail replaces its spinners instead of presenting stale data as
-  current. **The account gate in `App.tsx` must let `/practice` through**
-  when services are unreachable: Practice records nothing, so there is nothing
-  for player services to be reconnecting for, and gating it made the one mode
-  that works offline the one mode you could not reach.
-- **Card selection is server-owned.** Signed challenges from
-  `services/api/src/scoring.ts` deal every game (no immediate repeats across
-  shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves
-  them into playable content. The old client-side `sampling.ts` is gone.
+- **Every game runs offline; offline runs never record.** The service worker
+  keeps two caches on two clocks: card art keyed to the CATALOG version
+  (immutable, survives a release) and the app shell keyed to the BUILD id (must
+  not, or a player strands on an old app). Navigation is network-first, so the
+  cached shell is only a fallback. `/api-config.json` is never cached. Every
+  production visit warms all six lazy game chunks before atomically committing
+  the shell, then fills the complete base-art pack in small serialized batches.
+  When `navigator.onLine === false`, `lib/offline-run.ts` deals a tokenless run
+  locally from the shared challenge generator. It is never submitted or queued:
+  no personal/season record, history, server learning stats, badges, XP, daily
+  activity, global game count, or leaderboard entry. Device-local card stats may
+  still sharpen future drills. Reconnecting never promotes that run; a signed
+  online run that disconnects retains the normal completion retry instead.
+  Practice alone also keeps its local fallback when services fail while the
+  browser still reports online; ranked modes fail closed rather than silently
+  discarding an expected recording. Offline is surfaced up front through Home's
+  Play offline controls, `components/OfflineGlyph.tsx`, game chrome, and the
+  result summary. A persistent state gets a persistent mark, never a standing
+  banner. `offline` in `lib/api-availability.ts` trusts `navigator.onLine` in one
+  direction only: false means definitely offline; true never promises the API
+  is reachable, which `ApiStatusBanner` still covers. Leaderboards and You remain
+  live server views and render a connection-required state offline. The account,
+  profile-setup, and ranked-access gates must let every definitely offline game
+  through because no official run exists to protect or record.
+- **Official card selection is server-owned; deal rules are shared.**
+  `packages/contracts/src/challenge-generation.ts` is the pure challenge factory
+  used by the API for signed official runs and by the browser for tokenless
+  offline runs. `apps/web/src/lib/game-challenge-content.ts` resolves either
+  source into playable content. The server remains the only issuer and scorer of
+  an official run; the old client-side `sampling.ts` remains gone.
 - **`apps/web/src/lib/choices.ts`** — `makeChoices(elixir)` returns four
   **adjacent** costs that contain the answer, with the window's offset chosen at
   random (a 4-cost → {1,2,3,4}, {2,3,4,5}, {3,4,5,6}, or {4,5,6,7}). The

@@ -21,7 +21,7 @@ export default function GameRunGate({ modeName, session }: GameRunGateProps) {
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
-        <div class="eyebrow">Recorded game</div>
+        <div class="eyebrow">Game setup</div>
         <h1>This game could not start</h1>
         <p class="account-message account-message--error">
           {session.error || 'Player services are temporarily unavailable.'}

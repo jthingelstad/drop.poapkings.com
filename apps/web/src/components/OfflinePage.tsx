@@ -31,14 +31,14 @@ export default function OfflinePage({ kind }: { kind: OfflinePageKind }) {
         <p class="ed-offline-page__line">{copy.line}</p>
         <p class="ed-offline-page__practice">
           <Icon name="target" />
-          <span>Practice is still ready. It runs locally and records nothing.</span>
+          <span>Every game is ready offline. Runs stay on this screen and record nothing.</span>
         </p>
         <div class="ed-offline-page__actions">
-          <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/practice')}>
-            <span class="tap-face">Open Practice</span>
+          <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/')}>
+            <span class="tap-face">Choose a game</span>
           </button>
-          <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/')}>
-            Back to games
+          <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/practice')}>
+            Open Practice
           </button>
         </div>
       </div>

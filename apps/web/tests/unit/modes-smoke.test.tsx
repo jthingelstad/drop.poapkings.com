@@ -234,7 +234,7 @@ describe('challengePreparers', () => {
       challengePreparers.practice({ mode: 'practice', cardIds: CARD_IDS.slice(0, 40) } as never).content
     ).toHaveLength(40)
     expect(() => challengePreparers.practice({ mode: 'practice', cardIds: [] } as never)).toThrow(
-      /invalid signed Practice/
+      /invalid Practice challenge/
     )
   })
 
@@ -277,7 +277,7 @@ describe('challengePreparers', () => {
 
   it('rejects a challenge whose card count is wrong', () => {
     expect(() => challengePreparers.surge({ mode: 'surge', cardIds: CARD_IDS.slice(0, 3) } as never)).toThrow(
-      /invalid signed Surge/
+      /invalid Surge challenge/
     )
   })
 
@@ -287,7 +287,7 @@ describe('challengePreparers', () => {
   })
 
   it('rejects an empty rain deck', () => {
-    expect(() => challengePreparers.rain({ mode: 'rain', cardIds: [] } as never)).toThrow(/invalid signed Rain/)
+    expect(() => challengePreparers.rain({ mode: 'rain', cardIds: [] } as never)).toThrow(/invalid Rain challenge/)
   })
 
   it('rejects higher-lower with the wrong pair count', () => {
@@ -297,7 +297,7 @@ describe('challengePreparers', () => {
   })
 
   it('rejects trade with the wrong round count', () => {
-    expect(() => challengePreparers.trade({ mode: 'trade', rounds: [] } as never)).toThrow(/invalid signed Trade/)
+    expect(() => challengePreparers.trade({ mode: 'trade', rounds: [] } as never)).toThrow(/invalid Trade challenge/)
   })
 })
 

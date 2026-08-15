@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals'
+import { GAME_MODES } from '@elixir-drop/contracts'
 
 export type ApiAvailability = 'checking' | 'available' | 'unavailable'
 export type ApiUnavailableReason = 'offline' | 'service'
@@ -18,8 +19,8 @@ export function reportApiUnavailable(): void {
 // The browser's own verdict, which arrives immediately rather than after a
 // request has already failed. It is only trustworthy in one direction — false
 // means definitely offline, true does not promise the API is reachable — and
-// that is exactly the direction this is used in: to say up front which games
-// cannot start, rather than letting a player tap Play and wait for an error.
+// that is exactly the direction this is used in: to choose a local run up front
+// instead of creating an official attempt that cannot be completed.
 export const offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false)
 
 export function watchConnectivity(): () => void {
@@ -38,8 +39,8 @@ export function watchConnectivity(): () => void {
   }
 }
 
-// Ranked play needs a signed challenge from the server. Practice does not, so
-// it stays available offline — the one mode that records nothing.
+// Every game can deal locally when the browser is definitely offline. The run
+// stays unrecorded; signed server challenges remain mandatory for official play.
 export function canPlayOffline(mode: string): boolean {
-  return mode === 'practice'
+  return GAME_MODES.some((candidate) => candidate === mode)
 }

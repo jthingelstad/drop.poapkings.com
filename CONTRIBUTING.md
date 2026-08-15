@@ -38,8 +38,9 @@ points the dev server at the **deployed production API**. That means:
 - **Signing in (magic link) and recording games hit the live backend and create
   real data.** If you need to test the signed-in flow, use a throwaway email
   address, and delete the account afterward from the profile page.
-- There is no anonymous/offline fallback for *recorded gameplay* — the game
-  refuses to deal a run without a signed server challenge.
+- Recorded gameplay always requires a signed server challenge. When the browser
+  is offline, every mode can deal locally, but that run is never submitted,
+  queued, ranked, or applied to account progress.
 
 Running the API (a TypeScript Lambda + DynamoDB) fully locally is not wired up
 yet; a local emulation path (e.g. SAM + dynamodb-local) is a welcome future

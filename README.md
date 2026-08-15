@@ -35,11 +35,12 @@ See [`GAMES.md`](GAMES.md) for the full mode catalog, retired modes, and backlog
 of game ideas. See [`docs/card-rendering.md`](docs/card-rendering.md) for the
 shared Clash-style card-rendering rules used by the modes.
 
-Every game deals from a signed server challenge drawn from the complete card
-catalog, and a short end-of-session insight ("you bleed time on 5–6 cost
-cards") turns the game into a coach rather than a quiz. A linked Clash Royale
-collection is stored but not rendered; only the card count is shown, and it does
-not change the deal.
+Official online games deal from a signed server challenge drawn from the
+complete card catalog. Offline, the same shared deal rules run locally and the
+result is never saved, ranked, or applied to account progress. A short
+end-of-session insight ("you bleed time on 5–6 cost cards") turns the game into
+a coach rather than a quiz. A linked Clash Royale collection is stored but not
+rendered; only the card count is shown, and it does not change the deal.
 
 It's also a quiet front door to the clan: a persistent "Run by POAP KINGS"
 footer link and a Discord link, never a banner or a pop-up.
@@ -69,11 +70,12 @@ automation, private review, and re-review.
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-Every player signs in with an email magic link and every game starts from a
-signed server challenge. The app never falls back to an anonymous or locally
-sampled run when player services are unavailable. Local display and input
-preferences stay in **localStorage**; game history, player profiles, per-player
-Player XP, and leaderboards live in DynamoDB. Player XP is an activity score
+Every player signs in with an email magic link. Online games start from a signed
+server challenge; when the browser is offline, all six modes deal locally and
+say plainly that the run will not be saved. Local runs are never queued or
+promoted after reconnecting. Local display, input preferences, and adaptive
+card-learning hints stay in **localStorage**; game history, player profiles,
+per-player Player XP, and leaderboards live in DynamoDB. Player XP is an activity score
 (one point per question practiced, right or wrong) that drives a per-player
 arena; the leaderboard is ranked purely on speed. Practice is the one mode
 outside both systems: it earns no XP and keeps no record. A separate global games
