@@ -426,6 +426,19 @@ export async function currentDecision(doc, runId) {
   return result.Item;
 }
 
+// Mirror of referee-status.ts#isExcludedFromBoards. A neutral integrity-gate
+// hold (or an explicitly reopened pending judgment) ranks provisionally; only
+// a final referee exclusion is removed from the public board and replaced by a
+// player's next eligible run. Keeping this distinction here is essential:
+// referee-cohort and referee-feed must surface pending runs first, not silently
+// hide the exact queue cases they exist to review.
+export function isExcludedFromBoards(decision) {
+  if (decision?.visibility !== "hidden") return false;
+  return (
+    decision.queueState !== "pending" && decision.decidedBy !== "integrity-gate"
+  );
+}
+
 // Mirror of Repository#leaderboardItemSortKey. GSI1SK is only written for
 // leaderboard-eligible runs, so rows genuinely arrive without one (an all-time
 // row reconciled back to a player's plain history run is the common case) and
@@ -492,7 +505,7 @@ export async function bestVisibleRun(doc, playerSub, mode, hiddenRunId) {
     runs.map((run) => String(run.runId ?? "")).filter(Boolean),
   );
   return runs
-    .filter((run) => decisions.get(String(run.runId))?.visibility !== "hidden")
+    .filter((run) => !isExcludedFromBoards(decisions.get(String(run.runId))))
     .sort((a, b) => rowSortKey(a, mode).localeCompare(rowSortKey(b, mode)))[0];
 }
 
@@ -556,7 +569,7 @@ export async function visibleLeaderboardRows(
     const seen = new Set();
     const visible = [];
     for (const row of rows) {
-      if (decisions.get(String(row.runId))?.visibility === "hidden") continue;
+      if (isExcludedFromBoards(decisions.get(String(row.runId)))) continue;
       const sub = String(row.playerSub);
       if (seen.has(sub)) continue;
       seen.add(sub);
@@ -570,7 +583,7 @@ export async function visibleLeaderboardRows(
 
   const reconciled = await Promise.all(
     rows.map(async (row) => {
-      if (decisions.get(String(row.runId))?.visibility !== "hidden") return row;
+      if (!isExcludedFromBoards(decisions.get(String(row.runId)))) return row;
       return bestVisibleRun(
         doc,
         String(row.playerSub),

@@ -223,6 +223,52 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.textContent).not.toContain('HL-0a')
   })
 
+  it('stamps the next round before an immediate tap can be recorded', async () => {
+    const session = stage(pairs())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    mockNow = 1500
+    await click(higher(c))
+
+    // Fire the reveal timer and tap the newly rendered pair inside one act.
+    // Passive effects flush only after the callback returns, matching the
+    // browser frame that exposed the production bug to a fast player.
+    await act(async () => {
+      mockNow = 2000
+      vi.advanceTimersByTime(800)
+      mockNow = 2100
+      // The DOM commit is deliberately still pending, but the game-key handler
+      // reads the newly selected pair synchronously. This lands in the exact
+      // timer-to-passive-effect gap that produced the zero-stamp transcript.
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }))
+    })
+
+    // Spend the remaining two lives so the submitted transcript is observable.
+    for (let miss = 0; miss < 2; miss += 1) {
+      mockNow += 1500
+      await advance(1500)
+      mockNow += 200
+      await click(lower(c))
+    }
+    await advance(1500)
+
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const payload = session.complete.mock.calls[0][0] as {
+      answers: Array<{ elapsedMs: number }>
+      inputEvents: Array<{ round: number; enabledAtMs: number; inputAtMs: number }>
+    }
+    // The second pair started at 2000 and was tapped at 2100. Measuring it
+    // from the old zero sentinel would record 2100ms and can turn a correct tap
+    // into a false timeout on deeper rounds.
+    expect(payload.answers[1]?.elapsedMs).toBe(100)
+    expect(payload.inputEvents[1]).toMatchObject({
+      round: 1,
+      enabledAtMs: 1000,
+      inputAtMs: 1100
+    })
+  })
+
   it('keeps the revealed pair until both next-card images are decoded', async () => {
     let releaseArt: (() => void) | undefined
     hoisted.preloadImages.mockImplementationOnce((_cards: Card[], done: (loaded: number) => void) => {

@@ -88,23 +88,16 @@ export default function HigherLower() {
   startRun.current = () =>
     runtime.start((startedAt) => {
       runStartedAt.current = startedAt
+      // Arm the opening pair before the stage becomes interactive. A passive
+      // effect runs after paint, which leaves a fast player one frame where the
+      // board is live but the round stamp is still zero.
+      roundStart.current = startedAt
       inputEvents.current = []
       remainingFrac.value = 1
     })
   useEffect(() => {
     if (gameRun.content && stage.value === 'ready') startRun.current()
   }, [gameRun.content, stage.value])
-
-  // (Re)start the round clock whenever a new pair is dealt (its left card
-  // changes) — but only once the run is live, so the countdown doesn't secretly
-  // burn the opening window. The stage flip to 'running' re-runs this and starts
-  // the first round's clock.
-  const leftCardId = gameRun.content?.[pairIndex.value]?.[0]?.id
-  useEffect(() => {
-    if (leftCardId === undefined || stage.value !== 'running') return
-    roundStart.current = performance.now()
-    remainingFrac.value = 1
-  }, [leftCardId, remainingFrac, stage.value])
 
   // The countdown itself: drives the depleting bar and times you out. The window
   // tightens with the ROUND INDEX — every pair presented, missed ones included —
@@ -126,13 +119,12 @@ export default function HigherLower() {
     pairIndex.value = nextIndex
     picked.value = null
     timedOut.value = false
-    // Disarm the clock BEFORE unfreezing it. `revealed = false` resumes ticking
-    // immediately, but roundStart is only restamped by an effect, which runs
-    // after render — so the rAF loop could get a frame that measured the NEW
-    // round against the PREVIOUS round's start, find it long expired, and fire a
-    // timeout the player never earned. Zero means "not dealt yet" and the loop
-    // already skips it, so the gap is simply not tickable.
-    roundStart.current = 0
+    // Stamp the new pair synchronously BEFORE unfreezing it. A passive effect
+    // used to do this after paint, leaving a fast tap to subtract zero from
+    // page uptime and manufacture minutes of elapsed time, false timeouts, and
+    // contradictory referee evidence.
+    roundStart.current = performance.now()
+    remainingFrac.value = 1
     revealed.value = false
     runtime.emitCue('round-advance', { pairIndex: nextIndex })
   }

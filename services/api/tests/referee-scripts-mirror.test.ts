@@ -294,6 +294,21 @@ function hiddenDecision(runId: string): Item {
   };
 }
 
+function pendingDecision(runId: string): Item {
+  return {
+    pk: `REFEREE#${runId}`,
+    sk: "CURRENT",
+    runId,
+    subjectType: "ranked_run",
+    disposition: "review",
+    visibility: "hidden",
+    reason: "fixture: awaiting referee",
+    decidedAt: "2026-07-20T00:00:00.000Z",
+    decidedBy: "integrity-gate",
+    schemaVersion: "1",
+  };
+}
+
 // The API returns public rows; the referee returns raw table rows. Compare the
 // part that carries the ranking decision: order, score, and which player.
 function apiOrder(rows: Array<Record<string, unknown>>) {
@@ -1024,6 +1039,96 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
         achievedAt: "2026-07-10T00:00:00.000Z",
         playerId: "player-alpha",
       },
+    ]);
+  });
+
+  it("keeps an integrity-gate hold in the season cohort for prompt review", async () => {
+    const table: Item[] = [
+      profileItem("alpha"),
+      profileItem("beta"),
+      historyRun({
+        sub: "alpha",
+        runId: "alpha-pending",
+        mode: "rain",
+        score: 80,
+        completedAt: "2026-07-10T00:00:00.000Z",
+        indexed: true,
+      }),
+      historyRun({
+        sub: "beta",
+        runId: "beta-visible",
+        mode: "rain",
+        score: 70,
+        completedAt: "2026-07-11T00:00:00.000Z",
+        indexed: true,
+      }),
+      pendingDecision("alpha-pending"),
+    ];
+
+    const { api, referee } = await boardAgreement({
+      table,
+      mode: "rain",
+      scope: "season",
+      seasonId: SEASON_ID,
+      limit: 5,
+    });
+
+    expect(referee).toEqual(api);
+    expect(api.map((row) => row.playerId)).toEqual([
+      "player-alpha",
+      "player-beta",
+    ]);
+  });
+
+  it("keeps an integrity-gate hold in the all-time cohort for prompt review", async () => {
+    const table: Item[] = [
+      profileItem("alpha"),
+      profileItem("beta"),
+      allTimeBest({
+        sub: "alpha",
+        mode: "surge",
+        score: 8_000,
+        completedAt: "2026-07-10T00:00:00.000Z",
+        runId: "alpha-pending",
+      }),
+      allTimeBest({
+        sub: "beta",
+        mode: "surge",
+        score: 9_000,
+        completedAt: "2026-07-11T00:00:00.000Z",
+        runId: "beta-visible",
+      }),
+      historyRun({
+        sub: "alpha",
+        runId: "alpha-pending",
+        mode: "surge",
+        score: 8_000,
+        completedAt: "2026-07-10T00:00:00.000Z",
+        indexed: true,
+      }),
+      historyRun({
+        sub: "beta",
+        runId: "beta-visible",
+        mode: "surge",
+        score: 9_000,
+        completedAt: "2026-07-11T00:00:00.000Z",
+        indexed: true,
+      }),
+      pendingDecision("alpha-pending"),
+    ];
+
+    const { api, referee } = await boardAgreement({
+      table,
+      mode: "surge",
+      scope: "all-time",
+      seasonId: "ALLTIME",
+      limit: 5,
+    });
+
+    expect(referee).toEqual(api);
+    expect(api.map((row) => row.playerId)).toEqual([
+      "player-alpha",
+      "player-beta",
     ]);
   });
 

@@ -18,6 +18,44 @@ function surgeTranscript(activeMs: number, trusted = true) {
   return { answers, inputEvents };
 }
 
+function correctionHeavySurgeTranscript() {
+  let enabledAtMs = 0;
+  const answers: Array<{
+    cardId: number;
+    guesses: number[];
+    atMs: number;
+  }> = [];
+  const inputEvents: Array<{
+    round: number;
+    value: number;
+    enabledAtMs: number;
+    inputAtMs: number;
+    inputKind: "pointer";
+    trusted: boolean;
+  }> = [];
+  for (let round = 0; round < 15; round += 1) {
+    const guesses = round < 3 ? [1, 2, 1, 2, 3] : [3];
+    for (const [guessIndex, value] of guesses.entries()) {
+      const inputAtMs = enabledAtMs + (guessIndex === 0 ? 320 : 40);
+      inputEvents.push({
+        round,
+        value,
+        enabledAtMs,
+        inputAtMs,
+        inputKind: "pointer",
+        trusted: true,
+      });
+      enabledAtMs = inputAtMs + (guessIndex === guesses.length - 1 ? 280 : 430);
+    }
+    answers.push({
+      cardId: 26_000_000 + round,
+      guesses,
+      atMs: inputEvents.at(-1)!.inputAtMs,
+    });
+  }
+  return { answers, inputEvents };
+}
+
 describe("competitive input timing evidence", () => {
   it("sums display-to-input time without the forced Surge transitions", () => {
     const analysis = analyzeTimingEvidence("surge", surgeTranscript(320));
@@ -43,6 +81,23 @@ describe("competitive input timing evidence", () => {
       "surge_repeated_sub_100ms_inputs",
       "surge_sustained_sub_200ms_inputs",
     ]);
+  });
+
+  it("retains rapid Surge corrections without treating them as independent recall", () => {
+    const analysis = analyzeTimingEvidence(
+      "surge",
+      correctionHeavySurgeTranscript(),
+    );
+
+    // The exact sidecar still reports every rapid correction for the referee.
+    expect(analysis.evidence).toMatchObject({
+      model: "observed-v2",
+      inputCount: 27,
+      under100MsCount: 12,
+      longestUnder200MsStreak: 4,
+    });
+    // Only correct first reads drive the automatic recall-speed signals.
+    expect(analysis.reviewSignals).toEqual([]);
   });
 
   it("derives a legacy active budget by removing correct and wrong lockouts", () => {

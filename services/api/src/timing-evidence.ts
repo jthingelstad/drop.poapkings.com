@@ -16,6 +16,13 @@ interface ObservedInput {
   trusted: boolean;
 }
 
+interface SurgeRecallEvidence {
+  inputCount: number;
+  activeTotalMs: number;
+  under100MsCount: number;
+  longestUnder200MsStreak: number;
+}
+
 export interface TimingAnalysis {
   evidence: TimingEvidence;
   reviewSignals: string[];
@@ -191,6 +198,48 @@ function observedEvidence(inputs: ObservedInput[]): TimingEvidence {
   };
 }
 
+// Surge keeps a card live after a miss, so its sidecar contains both the
+// player's independent recall attempt and any correction taps made after the
+// higher/lower hint. The latter are still useful exact evidence and remain in
+// the retained summary, but they are not independent demonstrations of recall
+// and must not trigger the automatic subhuman-response holds.
+//
+// A one-guess round is necessarily a correct first read because the scorer has
+// already validated the transcript before timing analysis runs. Preserve round
+// adjacency in the streak calculation so wrong-first rounds break a purported
+// sustained sequence instead of disappearing from it.
+function surgeRecallEvidence(
+  transcript: RunTranscript,
+  inputs: ObservedInput[],
+): SurgeRecallEvidence {
+  const answers = records(transcript.answers);
+  const independent = inputs.filter((input) => {
+    const guesses = answers[input.round]?.guesses;
+    return Array.isArray(guesses) && guesses.length === 1;
+  });
+  const active = independent.map((event) =>
+    Math.max(0, event.inputAtMs - event.enabledAtMs),
+  );
+  let longestUnder200MsStreak = 0;
+  let currentStreak = 0;
+  let previousRound: number | undefined;
+  for (let index = 0; index < independent.length; index += 1) {
+    const event = independent[index]!;
+    const consecutive =
+      previousRound === undefined || event.round === previousRound + 1;
+    currentStreak =
+      active[index]! < 200 ? (consecutive ? currentStreak + 1 : 1) : 0;
+    longestUnder200MsStreak = Math.max(longestUnder200MsStreak, currentStreak);
+    previousRound = event.round;
+  }
+  return {
+    inputCount: independent.length,
+    activeTotalMs: Math.round(active.reduce((sum, value) => sum + value, 0)),
+    under100MsCount: active.filter((value) => value < 100).length,
+    longestUnder200MsStreak,
+  };
+}
+
 function inferredEvidence(
   mode: GameMode,
   transcript: RunTranscript,
@@ -249,6 +298,10 @@ export function analyzeTimingEvidence(
             : 0,
         }
     : inferredEvidence(mode, transcript);
+  const surgeRecall =
+    valid && mode === "surge"
+      ? surgeRecallEvidence(transcript, inputs!)
+      : undefined;
   const reviewSignals: string[] = [];
   if (evidence.model === "invalid-v2")
     reviewSignals.push("input_timing_invalid");
@@ -258,20 +311,20 @@ export function analyzeTimingEvidence(
   if (
     evidence.model === "observed-v2" &&
     mode === "surge" &&
-    evidence.activeTotalMs !== undefined &&
-    evidence.activeTotalMs < 4_500
+    surgeRecall?.inputCount === records(transcript.answers).length &&
+    surgeRecall.activeTotalMs < 4_500
   )
     reviewSignals.push("surge_active_time_below_review_floor");
   if (
     evidence.model === "observed-v2" &&
     mode === "surge" &&
-    (evidence.under100MsCount ?? 0) >= 3
+    (surgeRecall?.under100MsCount ?? 0) >= 3
   )
     reviewSignals.push("surge_repeated_sub_100ms_inputs");
   if (
     evidence.model === "observed-v2" &&
     mode === "surge" &&
-    (evidence.longestUnder200MsStreak ?? 0) >= 4
+    (surgeRecall?.longestUnder200MsStreak ?? 0) >= 4
   )
     reviewSignals.push("surge_sustained_sub_200ms_inputs");
   if (
