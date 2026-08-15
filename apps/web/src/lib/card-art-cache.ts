@@ -176,24 +176,27 @@ function shellUrls(): string[] {
     const rel = node.rel
     if (rel === 'stylesheet' || rel === 'manifest' || rel === 'icon' || rel === 'apple-touch-icon') urls.add(node.href)
   }
+  for (const entry of performance.getEntriesByType?.('resource') ?? []) urls.add(entry.name)
   return [...urls]
 }
 
-export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<void> {
-  if (!enabled || !('serviceWorker' in navigator)) return
+export function cacheAppShell(worker: ServiceWorker): void {
+  worker.postMessage({ type: 'cache-shell', urls: shellUrls() })
+}
+
+export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<ServiceWorker | null> {
+  if (!enabled || !('serviceWorker' in navigator)) return null
 
   try {
     const workerUrl = `/card-art-sw.js?build=${encodeURIComponent(buildMeta.id)}&catalog=${encodeURIComponent(cardCatalogVersion)}`
     const registration = await navigator.serviceWorker.register(workerUrl, { scope: '/', updateViaCache: 'none' })
     const worker = await waitForExpectedWorker(registration, workerUrl)
-    // The page knows its own build assets; the worker cannot guess their hashed
-    // names. Handing them over is what makes the app openable offline after a
-    // single online visit, which is the whole precondition for offline Practice.
-    if (worker) worker.postMessage({ type: 'cache-shell', urls: shellUrls() })
     if (worker && isStandalone()) progressivelyFill(worker, cardArtBatches(allCardArtUrls))
+    return worker
   } catch (error) {
     // Card art still loads normally when service workers are unavailable or
     // blocked. Keep the diagnostic secret-free and never interrupt play.
     console.warn('Card art cache unavailable', error instanceof Error ? error.name : 'unknown')
+    return null
   }
 }

@@ -201,8 +201,8 @@ export default function Summary({
       {/* Optional mode-specific result details, such as the share line. */}
       {children}
 
-      {/* Signed-out players played as a guest — invite them to save the score. */}
-      <SignInToSave />
+      {/* Practice is deliberately unranked and has no score to save. */}
+      {share.mode !== 'practice' && <SignInToSave />}
 
       <div class="ed-sum__actions">
         <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={onReplay}>

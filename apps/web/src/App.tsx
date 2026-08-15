@@ -14,7 +14,7 @@ import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
 import { offline, watchConnectivity } from './lib/api-availability'
-import { initCardArtCache } from './lib/card-art-cache'
+import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
 import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
@@ -226,7 +226,18 @@ export default function App() {
     // while there is still a network, so the worker has it before it is needed.
     // The chunk is small, and pulling it early also makes Practice open
     // instantly. Warmed after the worker is ready, or the fetch bypasses it.
-    void initCardArtCache().then(() => loadPractice().catch(() => undefined))
+    void initCardArtCache().then(async (worker) => {
+      try {
+        await loadPractice()
+        // Commit the new shell only after the lazy Practice graph has loaded
+        // through this worker. The worker keeps the prior complete build until
+        // every URL in this message is safely cached.
+        if (worker) cacheAppShell(worker)
+      } catch {
+        // A later online load retries the warm-up. The worker deliberately
+        // keeps the prior complete shell when this build could not finish.
+      }
+    })
     // Decides once per load whether a named release is worth announcing. A
     // first-time visitor is recorded and never interrupted.
     initReleaseNotice()

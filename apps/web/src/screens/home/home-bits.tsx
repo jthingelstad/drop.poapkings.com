@@ -44,6 +44,7 @@ export function FeaturedHero({
   withHours?: boolean
 }) {
   const unavailable = offline.value && !canPlayOffline(game.mode)
+  const offlineDescriptionId = `featured-${game.mode}-offline-description`
   const best = data.bestScores[game.mode]
   const bestText = best === undefined ? '—' : scoreLabel(game.mode, best)
   const rank = data.rankFor(game.mode)
@@ -70,7 +71,7 @@ export function FeaturedHero({
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
             disabled={unavailable}
-            aria-describedby={unavailable ? 'offline-note' : undefined}
+            aria-describedby={unavailable ? offlineDescriptionId : undefined}
             onClick={(e) => {
               if (unavailable) return
               tapFxFrom(e)
@@ -80,6 +81,11 @@ export function FeaturedHero({
             <span class="tap-face">
               <Icon name="play" /> {unavailable ? 'OFFLINE' : 'PLAY'}
             </span>
+            {unavailable && (
+              <span id={offlineDescriptionId} class="sr-only">
+                {game.name} requires player services and is unavailable offline.
+              </span>
+            )}
           </button>
           <div class="ed-hero__best">
             <span class="ed-hero__best-label">Best · Rank</span>
@@ -103,6 +109,7 @@ export function HomeGameCard({
   championFor: (m: GameMode) => LeaderboardEntry | undefined
 }) {
   const unavailable = offline.value && !canPlayOffline(game.mode)
+  const offlineDescriptionId = `${game.mode}-offline-description`
   return (
     <article class={`ed-gcard${featured ? ' ed-gcard--accent' : ''}${unavailable ? ' ed-gcard--offline' : ''}`}>
       <GameMotes dense={featured} />
@@ -120,7 +127,7 @@ export function HomeGameCard({
         <button
           class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
           disabled={unavailable}
-          aria-describedby={unavailable ? 'offline-note' : undefined}
+          aria-describedby={unavailable ? offlineDescriptionId : undefined}
           onClick={(e) => {
             if (unavailable) return
             tapFxFrom(e)
@@ -130,6 +137,11 @@ export function HomeGameCard({
           <span class="tap-face">
             <Icon name="play" /> {unavailable ? 'Offline' : 'Play'}
           </span>
+          {unavailable && (
+            <span id={offlineDescriptionId} class="sr-only">
+              {game.name} requires player services and is unavailable offline.
+            </span>
+          )}
         </button>
       </div>
     </article>

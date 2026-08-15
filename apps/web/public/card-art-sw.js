@@ -46,12 +46,17 @@ function isShellRequest(request) {
 async function shellNavigation(request) {
   const cache = await caches.open(shellCacheName)
   try {
-    const response = await fetch(request)
-    if (response.ok) await cache.put('/index.html', response.clone())
-    return response
+    // Do not write a network navigation here: during a release, the retiring
+    // worker serves the new document before the new worker exists. Caching it
+    // under the old build would destroy the only complete offline fallback.
+    // The new worker commits its own document through cacheShell only after
+    // Practice and every other shell dependency have loaded successfully.
+    return await fetch(request)
   } catch (error) {
     const cached = await cache.match('/index.html')
     if (cached) return cached
+    const previous = await previousShellMatch('/index.html')
+    if (previous) return previous
     throw error
   }
 }
@@ -62,24 +67,67 @@ async function shellAsset(request) {
   const cache = await caches.open(shellCacheName)
   const cached = await cache.match(request)
   if (cached) return cached
-  const response = await fetch(request)
-  if (response.ok) await cache.put(request, response.clone())
-  return response
+  try {
+    const response = await fetch(request)
+    if (response.ok) await cache.put(request, response.clone())
+    return response
+  } catch (error) {
+    const previous = await previousShellMatch(request)
+    if (previous) return previous
+    throw error
+  }
+}
+
+async function previousShellMatch(request) {
+  const names = await caches.keys()
+  for (const name of names) {
+    if (!name.startsWith(SHELL_CACHE_PREFIX) || name === shellCacheName) continue
+    const response = await caches.match(request, { cacheName: name })
+    if (response) return response
+  }
+  return undefined
+}
+
+async function retirePreviousShells() {
+  const names = await caches.keys()
+  await Promise.all(
+    names
+      .filter((name) => name.startsWith(SHELL_CACHE_PREFIX) && name !== shellCacheName)
+      .map((name) => caches.delete(name))
+  )
 }
 
 async function cacheShell(urls) {
   const cache = await caches.open(shellCacheName)
-  for (const value of urls) {
+  const targets = []
+  for (const value of new Set(urls)) {
     const url = new URL(value, self.location.origin)
     if (url.origin !== self.location.origin || NEVER_CACHE.has(url.pathname)) continue
     if (!shellPath.test(url.pathname) && url.pathname !== '/') continue
-    try {
-      const response = await fetch(url.href)
-      if (response.ok) await cache.put(url.pathname === '/' ? '/index.html' : new Request(url.href), response)
-    } catch {
-      // The next controlled load repopulates this; offline Practice simply
-      // stays unavailable until then.
+    targets.push({ url, key: url.pathname === '/' ? '/index.html' : new Request(url.href) })
+  }
+
+  try {
+    // Fetch every byte before touching the new shell cache. The document is
+    // written last, so a killed update can never advertise a partially cached
+    // build. Until this completes, fetch fallback keeps using the prior shell.
+    const fetched = await Promise.all(
+      targets.map(async (target) => {
+        const response = await fetch(target.url.href)
+        if (!response.ok) throw new Error(`shell fetch failed: ${target.url.pathname}`)
+        return { ...target, response }
+      })
+    )
+    const document = fetched.find((target) => target.url.pathname === '/')
+    for (const target of fetched) {
+      if (target !== document) await cache.put(target.key, target.response)
     }
+    if (!document) throw new Error('shell document missing')
+    await cache.put(document.key, document.response)
+    await retirePreviousShells()
+  } catch {
+    // Keep the last complete shell. A later controlled load retries this build
+    // rather than trading a working offline app for a partial replacement.
   }
 }
 
@@ -120,11 +168,7 @@ self.addEventListener('activate', (event) => {
             // both the old variant pack and superseded catalog versions.
             .filter(
               (name) =>
-                (name.startsWith(LEGACY_CARD_CACHE_PREFIX) && name !== cardCacheName) ||
-                // A superseded build's shell is retired the moment its
-                // replacement activates. This is what keeps the offline copy
-                // from outliving the release it belongs to.
-                (name.startsWith(SHELL_CACHE_PREFIX) && name !== shellCacheName)
+                name.startsWith(LEGACY_CARD_CACHE_PREFIX) && name !== cardCacheName
             )
             .map((name) => caches.delete(name))
         )

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   allCardArtUrls,
+  cacheAppShell,
   cardArtBatches,
   cardArtCacheName,
   getCardArtCacheInfo,
@@ -69,7 +70,9 @@ describe('card art cache', () => {
       value: vi.fn(() => ({ matches: false }))
     })
 
-    await initCardArtCache(true)
+    const worker = await initCardArtCache(true)
+    expect(worker).not.toBeNull()
+    cacheAppShell(worker!)
     vi.runAllTimers()
 
     expect(register).toHaveBeenCalledWith(
@@ -95,7 +98,9 @@ describe('card art cache', () => {
       value: vi.fn(() => ({ matches: true }))
     })
 
-    await initCardArtCache(true)
+    const worker = await initCardArtCache(true)
+    expect(worker).not.toBeNull()
+    cacheAppShell(worker!)
     // The shell goes over immediately; the card-art batches are still paced.
     expect(postMessage).toHaveBeenCalledTimes(1)
     expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'cache-shell', urls: expect.arrayContaining(['/']) })
@@ -147,7 +152,9 @@ describe('card art cache', () => {
 
     newState = 'activated'
     newWorker.dispatchEvent(new Event('statechange'))
-    await initialization
+    const worker = await initialization
+    expect(worker).toBe(newWorker)
+    cacheAppShell(worker!)
     vi.advanceTimersByTime(750)
 
     expect(oldPostMessage).not.toHaveBeenCalled()
@@ -209,13 +216,17 @@ describe('card art cache', () => {
     expect(cardArtCacheName).toBe(`elixir-drop-card-art-base-${cardCatalogVersion}`)
   })
 
-  it('keys the app shell to the build so a release retires it', () => {
+  it('keys the app shell to the build and retires the prior shell only after a complete replacement', () => {
     const source = readFileSync('public/card-art-sw.js', 'utf8')
     // Card art survives a release (keyed to the catalog); the shell must not
     // (keyed to the build), or a player is stranded on an old app.
     expect(source).toContain("const SHELL_CACHE_PREFIX = 'elixir-drop-shell-'")
     expect(source).toContain("params.get('build')")
     expect(source).toContain('name.startsWith(SHELL_CACHE_PREFIX) && name !== shellCacheName')
+    expect(source).toContain('const fetched = await Promise.all')
+    expect(source).toContain('await cache.put(document.key, document.response)')
+    expect(source).toContain('await retirePreviousShells()')
+    expect(source).toContain("previousShellMatch('/index.html')")
   })
 
   it('serves navigation network-first and never caches the API config', () => {
@@ -224,6 +235,7 @@ describe('card art cache', () => {
     // stale app: online players always get the newest document.
     expect(source).toContain('shellNavigation(event.request)')
     expect(source).toContain('const response = await fetch(request)')
+    expect(source).not.toContain("cache.put('/index.html', response.clone())")
     expect(source).toContain("NEVER_CACHE = new Set(['/api-config.json', '/card-art-sw.js'])")
   })
 })

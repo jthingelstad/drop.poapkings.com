@@ -94,7 +94,10 @@ function LeftRail() {
               <Icon name="user" />
             </span>
             <span class="ed-rail-chip__text">
-              <span class="ed-rail-chip__name">Guest</span>
+              <span class="ed-rail-chip__name">
+                Guest
+                {offline.value && <OfflineGlyph />}
+              </span>
               <span class="ed-rail-chip__sub">Sign in to save</span>
             </span>
           </button>

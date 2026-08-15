@@ -117,7 +117,7 @@ describe('Summary', () => {
     expect(html).not.toContain('signin-save')
   })
 
-  it('shows the guest SignInToSave panel when signed out', async () => {
+  it('does not invite a guest to save an intentionally unranked Practice session', async () => {
     player.value = null
     const html = await render(
       <Summary
@@ -129,8 +129,8 @@ describe('Summary', () => {
         onHome={() => {}}
       />
     )
-    expect(html).toContain('signin-save')
-    expect(html).toContain('Sign in to save')
+    expect(html).not.toContain('signin-save')
+    expect(html).not.toContain('Sign in to save')
     // No pbCallout → no pb block.
     expect(html).not.toContain('ed-sum__pb')
   })

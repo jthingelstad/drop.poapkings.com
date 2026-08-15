@@ -30,14 +30,35 @@ test('offline shows in the player chip and dims ranked play', async ({ page }) =
   await expect(cards).toHaveCount(5)
   for (const card of await cards.all()) {
     await expect(card).toHaveClass(/ed-gcard--offline/)
-    await expect(card.getByRole('button')).toBeDisabled()
+    const button = card.getByRole('button')
+    await expect(button).toBeDisabled()
+    const descriptionId = await button.getAttribute('aria-describedby')
+    expect(descriptionId).toBeTruthy()
+    await expect(page.locator(`#${descriptionId}`)).toContainText('requires player services and is unavailable offline')
   }
   const hero = page.locator('.ed-hero')
   await expect(hero).toHaveClass(/ed-hero--offline/)
-  await expect(hero.getByRole('button', { name: 'OFFLINE' })).toBeDisabled()
+  const heroButton = hero.getByRole('button', { name: 'OFFLINE' })
+  await expect(heroButton).toBeDisabled()
+  const heroDescriptionId = await heroButton.getAttribute('aria-describedby')
+  expect(heroDescriptionId).toBeTruthy()
+  await expect(page.locator(`#${heroDescriptionId}`)).toContainText(
+    'requires player services and is unavailable offline'
+  )
 
   await setOnline(page, true)
   await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
+})
+
+test('a signed-out desktop visitor still gets the offline mark', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'desktop shell only')
+  await page.addInitScript(() => localStorage.removeItem('elixirdrop:session:v1'))
+  await page.goto('/?signedOut=1')
+  await expect(page.locator('.ed-rail-chip__name')).toHaveText('Guest')
+
+  await setOnline(page, false)
+
+  await expect(page.locator('.ed-rail-chip--guest .ed-offline-glyph')).toBeVisible()
 })
 
 test('Practice is actually playable with player services unreachable', async ({ page }) => {
