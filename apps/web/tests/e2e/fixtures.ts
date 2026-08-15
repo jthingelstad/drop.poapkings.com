@@ -424,6 +424,10 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
 
 export const allowBlockedAssets = new WeakSet<Page>()
 export const allowExpectedApiErrors = new WeakSet<Page>()
+// A test that deliberately severs the network: the browser logs a transport
+// error for every aborted request, which is the condition under test rather
+// than a fault. Narrow to that exact class so a genuine app error still fails.
+export const allowOfflineTransportErrors = new WeakSet<Page>()
 
 // Every spec imports this `test`: the overridden `page` fixture installs the
 // shared analytics/API mocks before the test navigates, and the teardown half
@@ -456,7 +460,14 @@ export const test = base.extend({
         !firefoxNavigationCancellation &&
         !isWebkitMockNavigationCancellation(text) &&
         !(allowBlockedAssets.has(page) && text.includes('net::ERR_FAILED')) &&
-        !(allowExpectedApiErrors.has(page) && (text.includes('status of 400') || text.includes('status of 503')))
+        !(allowExpectedApiErrors.has(page) && (text.includes('status of 400') || text.includes('status of 503'))) &&
+        !(
+          allowOfflineTransportErrors.has(page) &&
+          (text.includes('net::ERR_INTERNET_DISCONNECTED') ||
+            text.includes('Failed to load resource') ||
+            text.includes('NetworkError') ||
+            text.includes('Load failed'))
+        )
       ) {
         const sourceUrl = msg.location().url
         errors.push(sourceUrl ? `${text} (${sourceUrl})` : text)

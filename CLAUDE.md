@@ -171,7 +171,10 @@ rank-oriented fields as part of unrelated work.
   disable and dim, and `components/OfflineNotice.tsx` names the mode that still
   works. It is trusted in one direction only — false means definitely offline;
   true never promises the API is reachable, which is what `ApiStatusBanner`
-  still covers.
+  still covers. **The account gate in `App.tsx` must let `/practice` through**
+  when services are unreachable: Practice records nothing, so there is nothing
+  for player services to be reconnecting for, and gating it made the one mode
+  that works offline the one mode you could not reach.
 - **Card selection is server-owned.** Signed challenges from
   `services/api/src/scoring.ts` deal every game (no immediate repeats across
   shuffle boundaries); `apps/web/src/lib/game-challenge-content.ts` resolves

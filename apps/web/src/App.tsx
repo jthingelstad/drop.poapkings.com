@@ -14,7 +14,7 @@ import PlayerTagNudge from './components/PlayerTagNudge'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
-import { watchConnectivity } from './lib/api-availability'
+import { offline, watchConnectivity } from './lib/api-availability'
 import { initCardArtCache } from './lib/card-art-cache'
 import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
@@ -158,8 +158,17 @@ function AccountUnavailable() {
 
 function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
-  if (gamePath && accountStatus.value === 'loading') return <RouteFallback r={r} />
-  if ((gamePath || r.startsWith('/profile')) && accountStatus.value === 'unavailable') return <AccountUnavailable />
+  // Practice needs no account and no server: it records nothing, so there is
+  // nothing for player services to be reconnecting FOR. Gating it behind them
+  // made the one mode that works offline the one mode you could not reach —
+  // the app booted from cache, then blocked on a reconnect screen.
+  //
+  // Only when the account is genuinely out of reach. Online, Practice still
+  // waits for the session so a signed-in drill records normally.
+  const practiceWithoutServices = gamePath === '/practice' && (offline.value || accountStatus.value === 'unavailable')
+  if (gamePath && !practiceWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
+  if ((gamePath || r.startsWith('/profile')) && !practiceWithoutServices && accountStatus.value === 'unavailable')
+    return <AccountUnavailable />
   // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
   // player who has not finished profile setup is routed to it first.
   if (
