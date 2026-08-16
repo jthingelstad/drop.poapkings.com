@@ -546,6 +546,15 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("lets CloudFormation inspect policies only for Elixir Drop roles", () => {
+    const roleManagementPolicy = bootstrap.match(
+      /\{\s+Effect: "Allow",\s+Action: \[\s+"iam:CreateRole",[\s\S]*?Resource: `arn:aws:iam::\$\{accountId\}:role\/elixir-drop-\*`,\s+\},/,
+    )?.[0];
+    assert.ok(roleManagementPolicy);
+    assert.match(roleManagementPolicy, /"iam:ListAttachedRolePolicies"/);
+    assert.match(roleManagementPolicy, /"iam:ListRolePolicies"/);
+  });
+
   void it("bounds referee writes to its independent decision partitions", () => {
     const refereeRole = template.match(
       /  RefereeReadRole:[\s\S]*?\n  DropControlRole:/,
