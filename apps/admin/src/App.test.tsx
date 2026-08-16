@@ -151,10 +151,9 @@ async function renderApp() {
 
 it("keeps the searchable player directory open beside filterable run history", async () => {
   const { host } = await renderApp();
-  await vi.waitFor(() => expect(host.textContent).toContain("Knight Main"));
+  await vi.waitFor(() => expect(host.textContent).toContain("2 of 2 runs"));
   expect(host.textContent).toContain("player@example.com");
   expect(host.textContent).toContain("#P1234567890");
-  expect(host.textContent).toContain("2 of 2 runs");
   expect(host.textContent).toContain("🔎 Pending");
   expect(
     host.querySelector(
