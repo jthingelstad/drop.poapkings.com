@@ -84,9 +84,9 @@ jobs:
           else
             echo "Validated ${validated_sha} was superseded by ${remote_sha}; skipping this deployment."
             echo "latest=false" >> "$GITHUB_OUTPUT"
-            # Keep this run out of the successful-production baseline used by
-            # the next cumulative scope calculation.
-            exit 1
+            # This is expected when main advances while a validated release is
+            # waiting for the production lock. Leave the run green; the false
+            # output skips promotion and prevents a production marker.
           fi
 
   build:

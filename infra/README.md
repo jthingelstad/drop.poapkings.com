@@ -89,7 +89,9 @@ and shared-package changes first update the API's referee `WEB_VERSION`, smoke
 the API, rebuild against the stack endpoint, and then publish Pages. Test-only,
 fixed-host, tooling, and documentation changes stop after validation. This keeps
 incompatible web and Lambda versions from reaching production without paying
-for an unrelated surface on every commit.
+for an unrelated surface on every commit. A validated SHA superseded while it
+waits for the production lock ends as a successful no-op and writes no production
+marker, so routine rapid pushes do not produce false failure notifications.
 
 Lambda artifacts use a SHA-256 content key. Re-running an identical bundle does
 not invent a new S3 key or force a Lambda publication, and CloudFormation's
