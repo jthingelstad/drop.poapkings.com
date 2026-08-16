@@ -85,7 +85,9 @@ correct, with a higher/lower arrow cue pointing from the latest guess toward
 the answer (the penalty already paid for the information). At cards 5 and 10 a
 ghost-pace checkpoint shows the delta against the recorded best run. The
 sprint's images preload before the timer starts; Elixir stays silent during
-the run and reacts on the summary. Produces one clean, shareable number.
+the run and reacts on the summary. Live time, summaries, personal bests, and
+leaderboards all show the same three decimal places. Produces one clean,
+shareable number.
 
 - Input: pip keypad (one row, or two wide rows with the Speedrun keyboard setting).
 - Record: `surgeBest` (lowest time).
@@ -133,7 +135,10 @@ sequence; `apps/web/src/lib/practice-deal.ts` draws from it weighted by the
 player's own local `elixirdrop:cardStats`, so cards on a miss streak come back
 hardest, then shaky recall, then unseen, and well-known cards stay rare but
 possible. A player with no stats gets plain uniform random. The same card never
-lands twice in a row.
+lands twice in a row. Solving a card flashes its correct elixir cost in the gold
+countdown face directly over the art for 300ms. Every ten consecutive first-read
+answers also receives the shared centered milestone flash (10, 20, 30, and so
+on); misses reset that streak.
 
 **Unranked and unscored by design.** Runs are created `ranked: false`, never
 write a leaderboard entry, have no leaderboard tab, and earn **zero Player XP** —
@@ -161,6 +166,7 @@ run — the same shape as Rain. A wrong tap **or a timeout** reveals the answer,
 costs one life, and the run **continues**; the run ends when the third life
 goes. Correct advances in 750ms; a miss holds 1.4s, and the final miss leaves
 the revealed result in place until the player explicitly starts another run.
+Every ten correct reads receives the shared centered milestone flash.
 
 Two difficulty axes, both of which tighten:
 
@@ -226,6 +232,8 @@ and advancing must never wait on another tap.
 - Input: signed trade keypad (`-4 … Even … +4`).
 - Scoring: golf time (elapsed + 2.0s per miss), unchanged. Trade drills a read
   that a real match asks for under time pressure, so the clock is the point.
+  Live time, summaries, personal bests, and leaderboards use three decimal
+  places, matching the millisecond score used for ordering.
 - Record: `tradeLadderBest` (lowest 10-exchange ladder time). Renamed from
   `tradeBest`, which orphans existing on-device bests on purpose — a 10-round
   run cannot beat an 8-round time, so keeping the key would retire the player's
@@ -249,6 +257,8 @@ count, then fastest cumulative time** (`survivalTimeMs` → the sort key's
 tiebreak), so once everyone can clear the deck it becomes a speedrun.
 
 - Record: `survivalBest` (streak). Cumulative time is the leaderboard tiebreak.
+  The selected leaderboard mode already supplies the meaning, so its primary
+  score column shows the bare card count rather than repeating “streak.”
 
 **Reviewed 2026-07-25 and deliberately left alone.** Three things about Survival
 look like problems and are not:

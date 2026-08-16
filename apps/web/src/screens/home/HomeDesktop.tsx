@@ -26,7 +26,7 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
       </div>
       <div class="ed-more-grid">
         {ALL_GAMES.map((g) => (
-          <HomeGameCard game={g} featured={g.key === featured.key} championFor={data.championFor} key={g.key} />
+          <HomeGameCard game={g} featured={g.key === featured.key} best={data.personalBestScores[g.mode]} key={g.key} />
         ))}
       </div>
     </div>

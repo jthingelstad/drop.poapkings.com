@@ -46,6 +46,8 @@ test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInf
   await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()
   await expect(page.locator('.ed-modetab--active')).toHaveAttribute('aria-label', 'Survival')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-lbrow__score').first()).toContainText('42')
+  await expect(page.locator('.ed-lbrow__score').first()).not.toContainText('streak')
   await expect(page.locator('.ed-lbrow__time').first()).toHaveText('61.317s')
 
   // Toggling to All-time keeps the header fixed and only moves the pressed

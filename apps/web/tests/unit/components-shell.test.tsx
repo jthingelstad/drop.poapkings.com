@@ -696,7 +696,7 @@ describe('DesktopRightRail', () => {
     // The grouped feed renders one compact row with its count and best score.
     expect(host.querySelector('.ed-rail-live__row')).toBeTruthy()
     expect(host.textContent).toContain('Recent runs')
-    expect(host.textContent).toContain('Surge · 8 runs · best 17.26s')
+    expect(host.textContent).toContain('Surge · 8 runs · best 17.260s')
     expect(host.textContent).not.toContain('Live now')
     expect(host.querySelector('.ed-rail-live__dot')).toBeNull()
 

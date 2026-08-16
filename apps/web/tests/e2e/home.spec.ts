@@ -12,23 +12,20 @@ test('home surfaces season standings and the featured game result', async ({ pag
     await expect(page.locator('.ed-rail-this')).toContainText('next season’s free pass')
     // Repeated activity is grouped into one recent-runs row.
     await expect(page.locator('.ed-rail-live__head')).toContainText('Recent runs')
-    await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.80s')
+    await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
     await expect(page.locator('.ed-rail-live__dot')).toHaveCount(0)
   } else {
     await expect(page.locator('.ed-home')).toBeVisible()
-    // Season standings surface as the mobile peek.
-    await expect(page.locator('.ed-standpeek')).toContainText('Royal Ghosted')
-    await expect(page.locator('.ed-standpeek')).toContainText('You')
-    await expect(page.locator('.ed-standpeek')).toContainText('Get 8.9s faster to take the lead')
-    await expect(page.locator('.ed-standpeek')).toContainText('next season’s free pass')
+    // Rankings stay on the dedicated Ranks page rather than trailing Games.
+    await expect(page.locator('.ed-standpeek')).toHaveCount(0)
   }
 
   // The hero rotates by UTC day. Its result must follow the featured mode
   // instead of permanently asserting Surge's best on a non-Surge hero.
   const featured = (await page.locator('.ed-hero__wordmark').innerText()).trim()
   const expectedBest: Record<string, string> = {
-    SURGE: '67.30s',
-    TRADE: '11.80s'
+    SURGE: '67.299s',
+    TRADE: '11.800s'
   }
   await expect(page.locator('.ed-hero__best-val')).toHaveText(`${expectedBest[featured] ?? '—'} · #4`)
 
@@ -50,6 +47,9 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
   await expect(row).toContainText('Trade')
   await expect(row).toContainText('Survival')
   await expect(page.locator('.ed-more__title').first()).toHaveText('All games')
+  await expect(row).toContainText('Your best ·')
+  await expect(row).not.toContainText('Royal Ghosted')
+  await expect(row).not.toContainText('The crown is open')
 
   // Rain is no longer badged as new.
   await expect(row.locator('.ed-gcard__badge')).toHaveCount(0)

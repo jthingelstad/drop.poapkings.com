@@ -282,6 +282,9 @@ describe('Surge gameplay', () => {
     const host = await startTimed(<Surge />)
     for (let i = 0; i < 15; i++) {
       press(host, cards[i]!.elixir)
+      if (i === 4) {
+        expect(host.querySelector('.floating-cue--pace')?.textContent).toMatch(/\d+\.\d{3}s (ahead|behind)/)
+      }
       advance(280)
     }
 
@@ -517,7 +520,7 @@ describe('Practice gameplay', () => {
   function answerCorrectly(host: HTMLElement, deck: Card[], count: number): void {
     for (let i = 0; i < count; i++) {
       press(host, liveCard(host, deck).elixir)
-      advance(280) // ADVANCE_DELAY_CORRECT → the next deal
+      advance(300) // correct-cost reinforcement → the next deal
     }
   }
 
@@ -543,7 +546,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.pcard__img')).not.toBeNull()
   })
 
-  it('uses the Surge card motion and no purple correct-answer treatment', () => {
+  it('uses the Surge card motion and reinforces the correct cost over the art for 300ms', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -558,9 +561,13 @@ describe('Practice gameplay', () => {
     press(host, first.elixir)
     expect(host.querySelector('.pcard--correct')).toBeTruthy()
     expect(host.querySelector('.pcard__cost')).toBeNull()
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
     expect(host.querySelector('.drop-pop-wrap')).toBeNull()
 
-    advance(280)
+    advance(299)
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
+    advance(1)
+    expect(host.querySelector('.pcard__answer-cost')).toBeNull()
     expect(host.textContent).toContain('1 answered')
     // Endless: no card counter, and never the same card twice in a row.
     expect(host.textContent).not.toContain('/ 15')
@@ -585,7 +592,7 @@ describe('Practice gameplay', () => {
 
     const first = liveCard(host, cards)
     press(host, first.elixir)
-    advance(280)
+    advance(300)
 
     expect(liveCard(host, cards).id).toBe(first.id)
     expect(host.querySelector('.pcard--correct')).toBeTruthy()
@@ -594,6 +601,26 @@ describe('Practice gameplay', () => {
     void act(() => releaseArt?.())
     expect(liveCard(host, cards).id).not.toBe(first.id)
     expect(host.querySelector('.pcard--correct')).toBeNull()
+  })
+
+  it('memorializes every ten consecutive first-read answers', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    answerCorrectly(host, cards, 9)
+    expect(host.querySelector('.game-milestone')).toBeNull()
+
+    press(host, liveCard(host, cards).elixir)
+    expect(host.querySelector('.game-milestone__num')?.textContent).toBe('10')
+
+    advance(600)
+    expect(host.querySelector('.game-milestone')).toBeNull()
   })
 
   it('runs past the old 15-card round and only ends when the player ends it', () => {
@@ -683,7 +710,7 @@ describe('Practice gameplay', () => {
 
     advance(430)
     press(host, correctCost)
-    advance(280)
+    advance(300)
     expect(host.textContent).toContain('1 answered') // still one question, now solved
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
@@ -727,7 +754,7 @@ describe('Practice gameplay', () => {
     void act(() => {
       correct!.click()
     })
-    advance(280)
+    advance(300)
     expect(host.textContent).toContain('1 answered')
   })
 
@@ -746,7 +773,7 @@ describe('Practice gameplay', () => {
       void act(() => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: `${live.elixir}` }))
       })
-      advance(280)
+      advance(300)
     }
     endSession(host)
     expect(host.textContent).toContain('6 / 6 · 100%')

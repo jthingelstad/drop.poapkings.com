@@ -281,7 +281,7 @@ export default function Surge() {
               className={`floating-cue--pace ${paceAhead ? 'is-ahead' : 'is-behind'}`}
             >
               <Icon name={paceAhead ? 'arrow-up' : 'arrow-down'} />
-              {(Math.abs(pace?.aheadMs ?? 0) / 1000).toFixed(1)}s {paceAhead ? 'ahead' : 'behind'}
+              {formatSeconds(Math.abs(pace?.aheadMs ?? 0))}s {paceAhead ? 'ahead' : 'behind'}
             </FloatingCue>
           </div>
           <div class="game-cues__slot game-cues__slot--bottom">

@@ -7,8 +7,6 @@ import ModeIcon from '../../components/ModeIcon'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
-import type { GameMode } from '@elixir-drop/contracts'
-import type { LeaderboardEntry } from '../../lib/api'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, type HomeData } from './home-data'
@@ -25,11 +23,9 @@ export function GameMotes({ dense = false }: { dense?: boolean }) {
   )
 }
 
-function championText(game: HomeGame, championFor: (m: GameMode) => LeaderboardEntry | undefined): string {
-  if (offline.value) return 'Offline runs are not ranked'
-  const champ = championFor(game.mode)
-  if (!champ) return 'The crown is open'
-  return `${champ.player.publicName} · ${scoreLabel(game.mode, champ.score)}`
+function personalBestText(game: HomeGame, best: number | undefined): string {
+  if (best === undefined) return 'Your best · —'
+  return `Your best · ${scoreLabel(game.mode, best)}`
 }
 
 // `withHours` gives the desktop pill its "6d 04h" form.
@@ -101,11 +97,11 @@ export function FeaturedHero({
 export function HomeGameCard({
   game,
   featured,
-  championFor
+  best
 }: {
   game: HomeGame
   featured: boolean
-  championFor: (m: GameMode) => LeaderboardEntry | undefined
+  best: number | undefined
 }) {
   const offlinePlay = offline.value && canPlayOffline(game.mode)
   const offlineDescriptionId = `${game.mode}-offline-description`
@@ -121,7 +117,7 @@ export function HomeGameCard({
         <p class="ed-gcard__desc">{game.desc}</p>
         <div class="ed-gcard__champ">
           <Icon name="trophy" />
-          <span>{championText(game, championFor)}</span>
+          <span>{personalBestText(game, best)}</span>
         </div>
         <button
           class="ed-btn ed-btn--gold ed-btn--sm tap-fx"

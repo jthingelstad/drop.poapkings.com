@@ -16,15 +16,13 @@ export interface HomeData {
   loading: boolean
   stats: SiteStats | null
   season: Season | null
+  // All-time device/server personal bests for the evergreen All Games cards.
+  personalBestScores: Partial<Record<GameMode, number>>
+  // Current-season bests stay paired with current-season rank in the hero.
   bestScores: Partial<Record<GameMode, number>>
-  boards: Partial<Record<GameMode, LeaderboardEntry[]>>
-  championFor: (mode: GameMode) => LeaderboardEntry | undefined
   // The signed-in player's rank on any mode's board — the hero features a
   // different game each day, so it cannot read a Surge-only rank.
   rankFor: (mode: GameMode) => number | undefined
-  surgeStandings: LeaderboardEntry[]
-  surgeRank: number | undefined
-  surgeCallout: SurgeSeasonCallout
 }
 
 export interface SurgeSeasonCallout {
@@ -109,21 +107,16 @@ export function useHomeData(): HomeData {
   }, [boards, loading, stats])
 
   const season = stats.value?.currentSeason ?? null
-  const surgeStandings = boards.value.surge ?? []
   const meId = player.value?.id
-  const surgeRank = meId ? surgeStandings.find((e) => e.player.id === meId)?.rank : undefined
+  const personalBestScores = mergedBestScores(null)
   const bestScores = mergedBestScores(season)
 
   return {
     loading: loading.value,
     stats: stats.value,
     season,
+    personalBestScores,
     bestScores,
-    boards: boards.value,
-    championFor: (mode) => boards.value[mode]?.[0],
-    rankFor: (mode) => (meId ? boards.value[mode]?.find((entry) => entry.player.id === meId)?.rank : undefined),
-    surgeStandings,
-    surgeRank,
-    surgeCallout: surgeSeasonCallout(surgeStandings, bestScores.surge, meId)
+    rankFor: (mode) => (meId ? boards.value[mode]?.find((entry) => entry.player.id === meId)?.rank : undefined)
   }
 }

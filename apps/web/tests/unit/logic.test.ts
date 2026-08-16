@@ -122,9 +122,9 @@ describe('learning helpers', () => {
     expect(cardRarityModifier(hunter, 'cr-card-art')).toBe('cr-card-art--epic')
   })
 
-  it('formats timed scores to the hundredth of a second', () => {
-    expect(formatSeconds(28_600)).toBe('28.60')
-    expect(formatSeconds(14_432)).toBe('14.43')
+  it('formats every timed score to the millisecond', () => {
+    expect(formatSeconds(28_600)).toBe('28.600')
+    expect(formatSeconds(14_432)).toBe('14.432')
   })
 
   it('formats leaderboard times to the millisecond', () => {

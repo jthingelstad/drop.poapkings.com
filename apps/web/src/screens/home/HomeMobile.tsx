@@ -6,10 +6,8 @@ import OfflineGlyph from '../../components/OfflineGlyph'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
 import { player, accountStatus } from '../../lib/account'
-import { scoreLabel } from '../../lib/game-metadata'
 import { registerLogoTap } from '../../lib/screensaver'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
-import type { LeaderboardEntry } from '../../lib/api'
 import type { HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
 import { FeaturedHero, HomeGameCard } from './home-bits'
@@ -37,47 +35,6 @@ function IdentityChip() {
   )
 }
 
-function StandingsPeek({ data }: { data: HomeData }) {
-  const rows = data.surgeStandings
-  const top = rows[0]
-  const meId = player.value?.id
-  const mine = meId ? rows.find((e) => e.player.id === meId) : undefined
-  const second: LeaderboardEntry | undefined = mine && mine.rank > 1 ? mine : rows[1]
-  const list = [top, second].filter((e): e is LeaderboardEntry => !!e)
-  return (
-    <button class="ed-standpeek tap-fx" onClick={() => navigate('/leaderboards')}>
-      <span class="ed-standpeek__head">
-        <span class="ed-standpeek__title">Season standings</span>
-        <span class="ed-standpeek__more">
-          Full board <Icon name="arrow-right" />
-        </span>
-      </span>
-      <span class="ed-standpeek__callout" data-leading={data.surgeCallout.leading ? '' : undefined}>
-        <span class="ed-standpeek__callout-icon">
-          <Icon name="trophy" />
-        </span>
-        <span>
-          <strong>{data.surgeCallout.title}</strong>
-          <small>{data.surgeCallout.detail}</small>
-        </span>
-      </span>
-      {list.map((e) => {
-        const you = e.player.id === meId
-        return (
-          <span class={`ed-standpeek__row${you ? ' ed-standpeek__row--you' : ''}`} key={e.player.id}>
-            <span class="ed-standpeek__rank" data-top={e.rank === 1 ? '' : undefined}>
-              {e.rank}
-            </span>
-            <span class="ed-standpeek__name">{you ? 'You' : e.player.publicName}</span>
-            <span class="ed-standpeek__score">{scoreLabel('surge', e.score)}</span>
-          </span>
-        )
-      })}
-      {!list.length && <span class="ed-standpeek__empty">No runs yet — first score takes the crown.</span>}
-    </button>
-  )
-}
-
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()
   return (
@@ -97,7 +54,12 @@ export default function HomeMobile({ data }: { data: HomeData }) {
         </div>
         <div class="ed-more-row">
           {ALL_GAMES.map((g) => (
-            <HomeGameCard game={g} featured={g.key === featured.key} championFor={data.championFor} key={g.key} />
+            <HomeGameCard
+              game={g}
+              featured={g.key === featured.key}
+              best={data.personalBestScores[g.mode]}
+              key={g.key}
+            />
           ))}
         </div>
       </section>
@@ -112,8 +74,6 @@ export default function HomeMobile({ data }: { data: HomeData }) {
           <Icon name="play" /> {offline.value ? 'Play offline' : 'Play'}
         </span>
       </button>
-
-      <StandingsPeek data={data} />
 
       <InstallRow />
 

@@ -1,7 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import type { GamePath } from './game-routes'
 import type { Records } from '../types'
-import { formatSeconds } from './format'
+import { formatLeaderboardSeconds, formatSeconds } from './format'
 
 export interface GameInfo {
   mode: GameMode
@@ -123,6 +123,16 @@ export function scoreLabel(mode: GameMode, score: number): string {
   // a streak. Survival is still sudden death, and still a streak.
   if (mode === 'higher-lower') return `${Math.round(score)} correct`
   return `${Math.round(score)} streak`
+}
+
+// Leaderboard rows already establish the selected mode, so Survival's card
+// count needs no repeated "streak" suffix. Other count modes keep their
+// distinct meaning (correct reads vs. cleared falling cards), while timed modes
+// use the shared millisecond display contract.
+export function leaderboardScoreLabel(mode: GameMode, score: number): string {
+  if (LOWER_IS_BETTER.has(mode)) return `${formatLeaderboardSeconds(score)}s`
+  if (mode === 'survival') return String(Math.round(score))
+  return scoreLabel(mode, score)
 }
 
 export function scoreFromRecords(mode: GameMode, records: Records): number | undefined {

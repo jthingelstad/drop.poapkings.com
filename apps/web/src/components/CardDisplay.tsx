@@ -10,9 +10,19 @@ interface Props {
   // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
   forceReveal?: boolean
   hideName?: boolean
+  // Practice briefly reinforces a solved card with the correct cost, centered
+  // directly over its art. Other modes keep their existing reveal treatment.
+  reinforceCost?: boolean
 }
 
-export default function CardDisplay({ card, phase, revealCost = true, forceReveal = false, hideName = false }: Props) {
+export default function CardDisplay({
+  card,
+  phase,
+  revealCost = true,
+  forceReveal = false,
+  hideName = false,
+  reinforceCost = false
+}: Props) {
   const cardClass = classNames('pcard', phase === 'correct' && 'pcard--correct', phase === 'wrong' && 'pcard--wrong')
   const showCost = forceReveal || (phase !== 'playing' && revealCost)
 
@@ -29,6 +39,13 @@ export default function CardDisplay({ card, phase, revealCost = true, forceRevea
         costClassName="pcard__cost"
         showName={!hideName}
         nameClassName="pcard__name"
+        overlay={
+          reinforceCost ? (
+            <span class="pcard__answer-cost" aria-hidden="true">
+              {card.elixir}
+            </span>
+          ) : undefined
+        }
       />
     </div>
   )

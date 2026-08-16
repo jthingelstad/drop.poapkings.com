@@ -223,6 +223,30 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.textContent).not.toContain('HL-0a')
   })
 
+  it('memorializes each ten correct reads', async () => {
+    const longRun = Array.from(
+      { length: 21 },
+      (_unused, index) =>
+        [fakeCard(501 + index * 2, 6, `Long-${index}a`), fakeCard(502 + index * 2, 1, `Long-${index}b`)] as [Card, Card]
+    )
+    stage(longRun)
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    for (let score = 1; score <= 20; score += 1) {
+      await click(higher(c))
+      if (score === 10 || score === 20) {
+        expect(c.querySelector('.game-milestone__num')?.textContent).toBe(String(score))
+      } else {
+        expect(c.querySelector('.game-milestone')).toBeNull()
+      }
+      await advance(800)
+    }
+
+    expect(metricValue(c)).toBe('20')
+    expect(c.querySelector('.game-milestone')).toBeNull()
+  })
+
   it('stamps the next round before an immediate tap can be recorded', async () => {
     const session = stage(pairs())
     const c = mount(<HigherLower />)

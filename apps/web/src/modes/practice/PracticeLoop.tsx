@@ -19,6 +19,7 @@ import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
+import GameMilestone from '../../components/GameMilestone'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -26,8 +27,9 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
 
-const ADVANCE_DELAY_CORRECT = 280
+const CORRECT_REINFORCEMENT_MS = 300
 const WRONG_BEAT_MS = 430
+const MILESTONE_EVERY = 10
 
 interface Props {
   eyebrow: string
@@ -80,6 +82,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const streak = useSignal(0)
   // Bumped at streak milestones to fire the shared floating streak cue.
   const streakCue = useSignal(0)
+  const milestone = useSignal<number | null>(null)
+  const reinforcedCost = useSignal<number | null>(null)
   const correct = useSignal(0)
   const insights = useSignal<Insights | null>(null)
 
@@ -118,6 +122,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     recorded.current = false
     phase.value = 'playing'
     hint.value = null
+    reinforcedCost.value = null
+  }
+
+  function showMilestone(value: number): void {
+    milestone.value = value
+    runtime.later(() => {
+      if (milestone.peek() === value) milestone.value = null
+    }, 520)
   }
 
   function endSession() {
@@ -156,7 +168,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       if (isCorrect) {
         correct.value++
         streak.value++
-        if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
+        if (streak.value % MILESTONE_EVERY === 0) showMilestone(streak.value)
+        else if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
       } else {
         streak.value = 0
       }
@@ -166,7 +179,11 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       playCorrect()
       phase.value = 'correct'
       hint.value = null
+      reinforcedCost.value = current.elixir
       runtime.emitCue('answer-correct', { cardId: current.id })
+      runtime.later(() => {
+        if (reinforcedCost.peek() === current.elixir) reinforcedCost.value = null
+      }, CORRECT_REINFORCEMENT_MS)
       // The next weighted draw is unknowable at startup, so prepare it now and
       // keep the solved hand on screen until BOTH the feedback beat and browser
       // image decode have finished. This makes the name/art swap atomic even
@@ -190,7 +207,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       runtime.later(() => {
         beatReady = true
         advance()
-      }, ADVANCE_DELAY_CORRECT)
+      }, CORRECT_REINFORCEMENT_MS)
     } else {
       playWrong()
       hint.value = picked < current.elixir ? 'higher' : 'lower'
@@ -209,6 +226,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     answered.value = 0
     correct.value = 0
     streak.value = 0
+    milestone.value = null
+    reinforcedCost.value = null
     insights.value = null
     recorded.current = false
     phase.value = 'playing'
@@ -276,7 +295,12 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       <div class="ed-kstage ed-kstage--practice">
         <div class="ed-kstage__card">
           <GameMotion contentKey={current.id} cue={runtime.cue.value}>
-            <CardDisplay card={current} phase={phase.value} revealCost={false} />
+            <CardDisplay
+              card={current}
+              phase={phase.value}
+              revealCost={false}
+              reinforceCost={reinforcedCost.value !== null}
+            />
           </GameMotion>
         </div>
 
@@ -333,6 +357,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         <span class="sr-only" aria-live="assertive">
           {phase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
         </span>
+        {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>
     </GameFrame>
   )

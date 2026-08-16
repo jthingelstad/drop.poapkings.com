@@ -13,6 +13,7 @@ import { analyticsPagePath, initAnalytics } from '../../src/lib/analytics-loader
 import {
   gameDisplay,
   scoreLabel,
+  leaderboardScoreLabel,
   betterScore,
   scoreFromRecords,
   bestScoresFromRuns,
@@ -438,13 +439,20 @@ describe('game-metadata', () => {
   })
 
   it('scoreLabel formats per mode', () => {
-    expect(scoreLabel('surge', 12340)).toBe('12.34s') // lower-is-better
-    expect(scoreLabel('trade', 5000)).toBe('5.00s') // lower-is-better
+    expect(scoreLabel('surge', 12340)).toBe('12.340s') // lower-is-better
+    expect(scoreLabel('trade', 5000)).toBe('5.000s') // lower-is-better
     expect(scoreLabel('practice', 87.4)).toBe('87%')
     expect(scoreLabel('rain', 9.6)).toBe('10 cleared')
     // Higher/Lower has three lives, so its score is total correct, not a streak.
     expect(scoreLabel('higher-lower', 12)).toBe('12 correct')
     expect(scoreLabel('survival', 8)).toBe('8 streak')
+  })
+
+  it('keeps leaderboard precision while presenting Survival as a bare card count', () => {
+    expect(leaderboardScoreLabel('surge', 12_340)).toBe('12.340s')
+    expect(leaderboardScoreLabel('trade', 5_000)).toBe('5.000s')
+    expect(leaderboardScoreLabel('survival', 8)).toBe('8')
+    expect(leaderboardScoreLabel('rain', 8)).toBe('8 cleared')
   })
 
   it('LOWER_IS_BETTER holds only the golf-time modes', () => {
@@ -492,7 +500,7 @@ describe('mode-insights: tradeSummaryLine', () => {
   it('leads with the PB line', () => {
     const line = tradeSummaryLine({ ...base, isPB: true })
     expect(line).toContain('New Trade best')
-    expect(line).toContain('12.00s')
+    expect(line).toContain('12.000s')
   })
 
   it('celebrates a clean sweep', () => {

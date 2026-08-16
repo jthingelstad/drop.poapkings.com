@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { useState } from 'preact/hooks'
 import type { Card } from '../types'
 import { cardNameToneClass, classNames, type ElixirBadgeTone } from '../lib/card-rendering'
@@ -25,6 +26,7 @@ interface CardArtProps {
   costTone?: ElixirBadgeTone
   showName?: boolean
   nameClassName?: string
+  overlay?: ComponentChildren
 }
 
 export function ElixirCostBadge({ elixir, className, tone = 'default' }: ElixirCostBadgeProps) {
@@ -54,7 +56,8 @@ export function CardArt({
   costClassName,
   costTone = 'default',
   showName = false,
-  nameClassName
+  nameClassName,
+  overlay
 }: CardArtProps) {
   const [imageState, setImageState] = useState<{ cardId: number; status: 'loading' | 'ready' | 'failed' }>({
     cardId: card.id,
@@ -87,6 +90,7 @@ export function CardArt({
           onError={() => setImageState({ cardId: card.id, status: 'failed' })}
         />
       )}
+      {overlay}
       {showCost && <ElixirCostBadge elixir={card.elixir} className={costClassName} tone={costTone} />}
       {showName && <CardName card={card} className={nameClassName} />}
     </span>

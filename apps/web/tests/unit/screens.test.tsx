@@ -427,7 +427,7 @@ describe('PublicProfile', () => {
     expect(host.textContent).toContain('Clan POAP KINGS · #J2RGCRVG')
     expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/player/UL2V9QRGO"]')).not.toBeNull()
     expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/clan/J2RGCRVG"]')).not.toBeNull()
-    expect(host.textContent).toContain('52.00s')
+    expect(host.textContent).toContain('52.000s')
     expect(host.textContent).not.toContain('player@example.com')
     expect(host.textContent).not.toContain('Edit')
   })
@@ -518,37 +518,19 @@ describe('AuthRedeem', () => {
 // HomeMobile
 // =============================================================================
 describe('HomeMobile', () => {
-  function standing(id: string, rank: number, name: string, score: number): LeaderboardEntry {
-    return {
-      rank,
-      score,
-      achievedAt: '2026-07-20T00:00:00.000Z',
-      player: { id, publicName: name, favoriteCardId: 26000000, totalGames: 4, xp: 300, level: 2 }
-    }
-  }
-
   function homeData(overrides: Partial<HomeData> = {}): HomeData {
-    const standings = [standing('p1', 1, 'Alice', 4_200), standing('p2', 2, 'Bob', 5_000)]
     return {
       loading: false,
       stats: null,
       season: null,
+      personalBestScores: { surge: 4_800 },
       bestScores: { surge: 4_800 },
-      boards: {},
-      championFor: (mode) => (mode === 'higher-lower' ? standing('c1', 1, 'Champ', 9) : undefined),
-      surgeStandings: standings,
-      surgeRank: undefined,
       rankFor: () => undefined,
-      surgeCallout: {
-        title: 'Get 0.6s faster to take the lead',
-        detail: '#1 in Surge wins next season’s free pass.',
-        leading: false
-      },
       ...overrides
     }
   }
 
-  it('renders as a guest: Guest chip, more-games row, open crowns, and no install UI', async () => {
+  it('renders as a guest: Guest chip, personal bests, more-games row, and no Ranks stub', async () => {
     accountStatus.value = 'anonymous'
     player.value = null
     installMode.value = 'none'
@@ -562,18 +544,15 @@ describe('HomeMobile', () => {
     expect(html).toContain('Rain')
     expect(html).toContain('Trade')
     expect(html).toContain('Survival')
-    // championFor supplies a named champ for higher-lower, open crowns elsewhere.
-    expect(html).toContain('Champ')
-    expect(html).toContain('The crown is open')
-    // Standings peek shows the top row.
-    expect(html).toContain('Season standings')
-    expect(html).toContain('Alice')
+    expect(html).toContain('Your best · 4.800s')
+    expect(html).toContain('Your best · —')
+    expect(html).not.toContain('Season standings')
     // installMode 'none' → neither banner nor row.
     expect(html).not.toContain('ed-installbar')
     expect(html).not.toContain('ed-installrow')
   })
 
-  it('renders an authed identity chip with public name + level, flagging the players own standing', async () => {
+  it('renders an authed identity chip with public name + level', async () => {
     accountStatus.value = 'authenticated'
     player.value = { id: 'p2', publicName: 'Bob', level: 7 } as never
 
@@ -582,15 +561,7 @@ describe('HomeMobile', () => {
     expect(html).toContain('Bob')
     expect(html).toContain('Level 7')
     expect(html).not.toContain('Sign in to save your scores')
-    // Bob (rank 2, the signed-in player) is surfaced as "You" in the peek.
-    expect(html).toContain('ed-standpeek__row--you')
-    expect(html).toContain('>You<')
-  })
-
-  it('shows the empty standings copy when there are no runs yet', async () => {
-    accountStatus.value = 'anonymous'
-    const html = await renderToStringAsync(<HomeMobile data={homeData({ surgeStandings: [] })} />)
-    expect(html).toContain('No runs yet — first score takes the crown.')
+    expect(html).not.toContain('ed-standpeek')
   })
 
   it('shows the prominent install banner while installable and undismissed', async () => {

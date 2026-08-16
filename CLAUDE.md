@@ -217,7 +217,10 @@ rank-oriented fields as part of unrelated work.
   Survival finds it in the same place every day — and the hero promotes one of
   them, chosen by UTC day so every player sees the same game and it turns over
   predictably. The rotation is the promotion slot; it must never be the only
-  route to a mode. No mode carries a permanent "NEW" badge.
+  route to a mode. Each All Games card highlights the player's own all-time
+  best, not the current board leader. Rankings stay on the dedicated Ranks
+  surface rather than trailing the mobile Games page. No mode carries a
+  permanent "NEW" badge.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only. (Rationale and the set-aside ideas live in
@@ -336,7 +339,9 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 ## Current product decisions
 
 - **Surge scoring:** golf time (elapsed + penalties; lower wins). Sprint of 15;
-  +2.0s per wrong answer; the card stays until correct.
+  +2.0s per wrong answer; the card stays until correct. Every timed-game display
+  uses three decimal places, matching the millisecond precision used to order
+  leaderboards.
 - **Practice input:** offer both 4-button multiple choice and the pip keypad;
   remember the choice in settings. Default to the keypad. The keypad has one key
   per cost that exists in the catalog (currently 1–9) — a dead "10" key was

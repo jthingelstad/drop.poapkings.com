@@ -48,6 +48,112 @@ test('survival flashes the same every-10 counter as Rain', async ({ page }, test
   await expect(page.locator('.game-milestone')).toHaveCount(0)
 })
 
+test('practice reinforces the solved cost over the card and marks each ten streak', async ({ page }, testInfo) => {
+  await page.goto('/#/practice')
+  await waitForKeypad(page)
+
+  const cardImage = page.locator('.pcard__img')
+  const answerLiveCard = async () => {
+    const name = await cardImage.getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === name)
+    expect(card, `unknown practice card "${name}"`).toBeTruthy()
+    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+    return { card: card!, name: name! }
+  }
+
+  await page.evaluate(() => {
+    const capture = () => {
+      const art = document.querySelector('.pcard__img')
+      const reinforcement = document.querySelector('.pcard__answer-cost')
+      if (!(art instanceof HTMLElement) || !(reinforcement instanceof HTMLElement)) return false
+      const artBounds = art.getBoundingClientRect()
+      const reinforcementBounds = reinforcement.getBoundingClientRect()
+      ;(
+        window as typeof window & {
+          practiceReinforcement?: {
+            text: string | null
+            artBounds: { x: number; y: number; width: number; height: number }
+            reinforcementBounds: { x: number; y: number; width: number; height: number }
+          }
+        }
+      ).practiceReinforcement = {
+        text: reinforcement.textContent,
+        artBounds: {
+          x: artBounds.x,
+          y: artBounds.y,
+          width: artBounds.width,
+          height: artBounds.height
+        },
+        reinforcementBounds: {
+          x: reinforcementBounds.x,
+          y: reinforcementBounds.y,
+          width: reinforcementBounds.width,
+          height: reinforcementBounds.height
+        }
+      }
+      return true
+    }
+    if (capture()) return
+    const observer = new MutationObserver(() => {
+      if (capture()) observer.disconnect()
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+
+  const first = await answerLiveCard()
+  const reinforcement = page.locator('.pcard__answer-cost')
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              practiceReinforcement?: {
+                text: string | null
+                artBounds: { x: number; y: number; width: number; height: number }
+                reinforcementBounds: { x: number; y: number; width: number; height: number }
+              }
+            }
+          ).practiceReinforcement
+      )
+    )
+    .toBeTruthy()
+  const { text, artBounds, reinforcementBounds } = await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          practiceReinforcement: {
+            text: string | null
+            artBounds: { x: number; y: number; width: number; height: number }
+            reinforcementBounds: { x: number; y: number; width: number; height: number }
+          }
+        }
+      ).practiceReinforcement
+  )
+  expect(text).toBe(String(first.card.elixir))
+  expect(
+    Math.abs(artBounds.x + artBounds.width / 2 - (reinforcementBounds.x + reinforcementBounds.width / 2))
+  ).toBeLessThan(2)
+  expect(
+    Math.abs(artBounds.y + artBounds.height / 2 - (reinforcementBounds.y + reinforcementBounds.height / 2))
+  ).toBeLessThan(2)
+  await expect(cardImage).not.toHaveAttribute('alt', first.name)
+  await expect(reinforcement).toHaveCount(0)
+
+  for (let answered = 2; answered <= 9; answered += 1) {
+    const current = await answerLiveCard()
+    await expect(cardImage).not.toHaveAttribute('alt', current.name)
+  }
+
+  await answerLiveCard()
+  await expect(page.locator('.game-milestone__num')).toHaveText('10')
+  await testInfo.attach('practice-10-milestone.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
+})
+
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)
   const activeModes = [

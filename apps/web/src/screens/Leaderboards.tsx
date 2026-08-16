@@ -6,7 +6,7 @@ import Icon from '../components/Icon'
 import { accountStatus, player, refreshAccount, sessionToken } from '../lib/account'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
-import { GAME_BY_MODE, LOWER_IS_BETTER, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
+import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-metadata'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import { navigate } from '../lib/router'
@@ -42,7 +42,7 @@ function LeaderboardRow({ entry, mode, index }: { entry: LeaderboardEntry; mode:
   const isPlayer = entry.player.id === player.value?.id
   const games = entry.player.totalGames
   const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
-  const score = LOWER_IS_BETTER.has(mode) ? `${formatLeaderboardSeconds(entry.score)}s` : scoreLabel(mode, entry.score)
+  const score = leaderboardScoreLabel(mode, entry.score)
   const awaiting = entry.reviewStatus === 'pending'
   return (
     <li

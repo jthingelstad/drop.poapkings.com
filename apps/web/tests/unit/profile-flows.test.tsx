@@ -175,7 +175,7 @@ describe('seasonEndsLabel', () => {
 })
 
 // ===========================================================================
-// home-data.ts — useHomeData derivations (standings / champion / best merge)
+// home-data.ts — useHomeData derivations (rank / best merge)
 // ===========================================================================
 
 describe('useHomeData derivations', () => {
@@ -263,18 +263,14 @@ describe('useHomeData derivations', () => {
     expect(captured?.loading).toBe(false)
     expect(captured?.season?.id).toBe(season.id)
     expect(captured?.stats?.trophyRoadGames).toBe(700)
-    // championFor(surge) is the rank-1 entry.
-    expect(captured?.championFor('surge')?.player.id).toBe('ace')
-    // Non-surge board with no entries has no champion.
-    expect(captured?.championFor('trade')).toBeUndefined()
-    expect(captured?.surgeStandings).toHaveLength(2)
-    // The signed-in player's rank is pulled from the surge board.
-    expect(captured?.surgeRank).toBe(2)
+    // The signed-in player's rank is still pulled from the board for the hero.
+    expect(captured?.rankFor('surge')).toBe(2)
     // The recent run (8_500) beats the empty stored record and merges in.
+    expect(captured?.personalBestScores.surge).toBe(8_500)
     expect(captured?.bestScores.surge).toBe(8_500)
   })
 
-  it('leaves the surge rank undefined for an anonymous visitor', async () => {
+  it('leaves every rank undefined for an anonymous visitor', async () => {
     vi.mocked(api.getStats).mockResolvedValue({ trophyRoadGames: 1, currentSeason: season })
     vi.mocked(api.getLeaderboard).mockResolvedValue({ mode: 'surge', currentSeason: season, entries: [] })
 
@@ -288,8 +284,7 @@ describe('useHomeData derivations', () => {
     })
     await flush()
 
-    expect(captured?.surgeRank).toBeUndefined()
-    expect(captured?.surgeStandings).toEqual([])
+    expect(captured?.rankFor('surge')).toBeUndefined()
   })
 })
 
@@ -689,7 +684,7 @@ describe('Profile interactive flows', () => {
     const rows = container.querySelectorAll('.ed-games__row')
     expect(rows).toHaveLength(3)
     expect(container.querySelector('.ed-games__month-head')?.textContent).toContain('3 games')
-    expect(container.textContent).toContain('12.50s')
+    expect(container.textContent).toContain('12.500s')
     // A run no referee touched wears no seal at all; only the held and the
     // excluded run are marked.
     const rowSeals = (label: string) =>

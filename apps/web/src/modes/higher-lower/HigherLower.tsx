@@ -19,6 +19,7 @@ import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
 import Summary from '../../components/Summary'
+import GameMilestone from '../../components/GameMilestone'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
@@ -36,6 +37,7 @@ const COUNTDOWN_STEP_MS = 700
 // going, so the score is every correct read in the session — not the longest
 // unbroken streak. Matches HIGHER_LOWER_LIVES in the server scorer.
 const HIGHER_LOWER_LIVES = 3
+const MILESTONE_EVERY = 10
 
 export default function HigherLower() {
   const gameRun = useGameSession('higher-lower', challengePreparers['higher-lower'])
@@ -59,6 +61,7 @@ export default function HigherLower() {
   const lives = useSignal(HIGHER_LOWER_LIVES)
   const score = useSignal(0)
   const scoreCue = useSignal(0)
+  const milestone = useSignal<number | null>(null)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the score just set.
   const previousBest = useSignal(comparableBest(getRecords().higherLowerContinuousBest))
@@ -134,6 +137,13 @@ export default function HigherLower() {
     awaitingReplay.value = true
   }
 
+  function showMilestone(value: number): void {
+    milestone.value = value
+    runtime.later(() => {
+      if (milestone.peek() === value) milestone.value = null
+    }, 520)
+  }
+
   async function replay() {
     track('game.replayed', 'higher-lower')
     // Carry this session's best forward so a second run compares against it,
@@ -152,6 +162,7 @@ export default function HigherLower() {
     revealed.value = false
     lives.value = HIGHER_LOWER_LIVES
     score.value = 0
+    milestone.value = null
     remainingFrac.value = 1
     handoffGeneration.current += 1
     await gameRun.prepare()
@@ -194,7 +205,8 @@ export default function HigherLower() {
       playCorrect()
       const total = score.value + 1
       score.value = total
-      if (total === 3 || (total > 3 && total % 5 === 0)) scoreCue.value++
+      if (total % MILESTONE_EVERY === 0) showMilestone(total)
+      else if (total === 3 || (total > 3 && total % 5 === 0)) scoreCue.value++
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
@@ -383,6 +395,7 @@ export default function HigherLower() {
             </FloatingCue>
           </div>
         </div>
+        {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>
     </GameFrame>
   )
