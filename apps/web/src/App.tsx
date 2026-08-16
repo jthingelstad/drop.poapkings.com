@@ -69,6 +69,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/trade', label: 'Trade' },
   { match: '/survival', label: 'Survival' },
   { match: '/rain', label: 'Rain' },
+  { match: '/offline', label: 'Offline' },
   { match: '/leaderboards', label: 'Leaderboards' },
   { match: '/profile', label: 'Profile' },
   { match: '/players', label: 'Player profile' },
@@ -161,11 +162,11 @@ function AccountUnavailable() {
 
 function ScreenContent({ r }: { r: string }) {
   const gamePath = gamePathForRoute(r)
-  // These are live server views, not snapshots. Give them their own stable
-  // offline state instead of a failed request, a stale board, or an account
-  // reconnect spinner. Games are local offline; live data never is.
-  if (offline.value && r.startsWith('/leaderboards')) return <OfflinePage kind="leaderboards" />
-  if (offline.value && r.startsWith('/profile')) return <OfflinePage kind="profile" />
+  // These are live server views, not snapshots. Offline navigation replaces
+  // both with one bundled explanation; direct links land on the same surface
+  // instead of a failed request, stale board, or account reconnect spinner.
+  if (r.startsWith('/offline')) return <OfflinePage />
+  if (offline.value && (r.startsWith('/leaderboards') || r.startsWith('/profile'))) return <OfflinePage />
   // A definitely offline game is local and unrecorded, so account state cannot
   // gate it. Practice retains the same bypass during a player-service outage;
   // ranked modes only fall back when the browser itself reports offline.

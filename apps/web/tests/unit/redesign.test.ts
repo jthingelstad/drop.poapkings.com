@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
+import { NAV_ITEMS, OFFLINE_NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
 import { seasonEndsLabel, surgeSeasonCallout } from '../../src/screens/home/home-data'
 import { scoreLabel, gameDisplay, RANKED_GAMES, GAMES } from '../../src/lib/game-metadata'
 import { installMode, installDismissed, dismissInstall } from '../../src/lib/pwa-install'
@@ -16,6 +16,13 @@ describe('shell nav model', () => {
     expect(activeNavIndex('/players/rival')).toBe(1)
     expect(activeNavIndex('/profile')).toBe(2)
     expect(NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Games', 'Ranks', 'You'])
+  })
+
+  it('replaces live player destinations with one Offline destination', () => {
+    expect(OFFLINE_NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Games', 'Offline'])
+    expect(activeNavIndex('/offline', OFFLINE_NAV_ITEMS)).toBe(1)
+    expect(activeNavIndex('/leaderboards', OFFLINE_NAV_ITEMS)).toBe(1)
+    expect(activeNavIndex('/profile', OFFLINE_NAV_ITEMS)).toBe(1)
   })
 
   // The "More" pages are opened from Profile, so the pill has to stay on You

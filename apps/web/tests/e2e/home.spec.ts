@@ -1,6 +1,6 @@
 import { expect, isDesktopViewport, test, useSignedOutState, waitForKeypad } from './fixtures'
 
-test('home surfaces season standings and a personal Surge best', async ({ page, viewport }, testInfo) => {
+test('home surfaces season standings and the featured game result', async ({ page, viewport }, testInfo) => {
   await page.goto('/')
 
   if (isDesktopViewport(viewport)) {
@@ -23,8 +23,14 @@ test('home surfaces season standings and a personal Surge best', async ({ page, 
     await expect(page.locator('.ed-standpeek')).toContainText('next season’s free pass')
   }
 
-  // The player's Surge best (from recent runs) leads the hero.
-  await expect(page.locator('.ed-hero__best-val')).toContainText('67.30s')
+  // The hero rotates by UTC day. Its result must follow the featured mode
+  // instead of permanently asserting Surge's best on a non-Surge hero.
+  const featured = (await page.locator('.ed-hero__wordmark').innerText()).trim()
+  const expectedBest: Record<string, string> = {
+    SURGE: '67.30s',
+    TRADE: '11.80s'
+  }
+  await expect(page.locator('.ed-hero__best-val')).toHaveText(`${expectedBest[featured] ?? '—'} · #4`)
 
   await testInfo.attach('home.png', {
     body: await page.screenshot({ fullPage: true }),

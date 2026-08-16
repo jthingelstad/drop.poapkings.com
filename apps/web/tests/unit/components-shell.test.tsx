@@ -456,6 +456,25 @@ describe('MobileShell', () => {
     expect(window.location.hash).toBe('#/leaderboards')
   })
 
+  it('shows Games and Offline instead of Ranks and You when disconnected', () => {
+    offline.value = true
+    route.value = '/profile'
+    draw(
+      <MobileShell>
+        <p>offline</p>
+      </MobileShell>
+    )
+
+    const buttons = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')]
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Games', 'Offline'])
+    expect(buttons[1]!.getAttribute('aria-current')).toBe('page')
+    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.width).toBe('calc(0.5 * (100% - 10px))')
+    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.transform).toBe('translateX(100%)')
+
+    buttons[1]!.click()
+    expect(window.location.hash).toBe('#/offline')
+  })
+
   it('hides the nav on game routes for full-bleed play', () => {
     route.value = '/surge'
     draw(
@@ -555,6 +574,24 @@ describe('DesktopShell', () => {
     )!
     profile.click()
     expect(window.location.hash).toBe('#/profile')
+  })
+
+  it('replaces Leaderboards and Profile with Offline when disconnected', () => {
+    route.value = '/leaderboards'
+    offline.value = true
+    draw(
+      <DesktopShell>
+        <p>offline</p>
+      </DesktopShell>
+    )
+
+    const primary = host.querySelector<HTMLElement>('.ed-nav')!
+    expect(primary.textContent).toContain('Games')
+    expect(primary.textContent).toContain('Offline mode')
+    expect(primary.textContent).toContain('Practice')
+    expect(primary.textContent).not.toContain('Leaderboards')
+    expect(primary.textContent).not.toContain('Profile')
+    expect(primary.querySelector<HTMLButtonElement>('[aria-current="page"]')?.textContent).toContain('Offline mode')
   })
 
   it('uses the Practice mode artwork in the desktop rail', () => {

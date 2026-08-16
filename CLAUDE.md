@@ -173,7 +173,9 @@ rank-oriented fields as part of unrelated work.
   banner. `offline` in `lib/api-availability.ts` trusts `navigator.onLine` in one
   direction only: false means definitely offline; true never promises the API
   is reachable, which `ApiStatusBanner` still covers. Leaderboards and You remain
-  live server views and render a connection-required state offline. The account,
+  live server views and never appear as offline navigation destinations: both
+  shells replace them with one bundled Offline page until reconnect. Direct
+  offline links to either live view land on that same explanation. The account,
   profile-setup, and ranked-access gates must let every definitely offline game
   through because no official run exists to protect or record.
 - **Official card selection is server-owned; deal rules are shared.**

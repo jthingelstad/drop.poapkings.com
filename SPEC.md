@@ -502,7 +502,10 @@ The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Every production
 visit fills the 120-image base-art pack in small serialized batches; App Info
 shows its progress. Live API configuration, account data, and leaderboards are
-never cached.
+never cached. While disconnected, the desktop and mobile primary navigation
+replace the live Leaderboards/Ranks and Profile/You destinations with one
+bundle-native Offline destination. Reconnecting restores the normal navigation;
+direct offline links to either live view render the same Offline explanation.
 
 Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
 transcript consistency produce a deterministic candidate score; timing limits,

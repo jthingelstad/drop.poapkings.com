@@ -68,26 +68,38 @@ test('a signed-out desktop visitor still gets the offline mark', async ({ page, 
   await expect(page.locator('.ed-rail-chip--guest .ed-offline-glyph')).toBeVisible()
 })
 
-test('Leaderboards and You explain their offline boundary and lead back to games', async ({ page, viewport }) => {
+test('primary navigation replaces Ranks and You with an Offline destination', async ({ page, viewport }) => {
   await page.goto('/')
   await expect(page.locator('.ed-gcard').first()).toBeVisible()
 
-  // The shell is warm; now remove the API entirely. This proves the treatments
-  // do not depend on a mocked error payload. Both screens lead back to the
-  // complete offline catalog; the direct Practice shortcut is playable too.
+  // The shell is warm; now remove the API entirely. The navigation should stop
+  // offering live destinations instead of leading to two separate blockers.
   allowOfflineTransportErrors.add(page)
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))
   await setOnline(page, false)
 
   const primaryNav = page.getByRole('navigation', { name: 'Primary' })
-  await primaryNav
-    .getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
-    .click()
-  await expect(page).toHaveURL(/#\/leaderboards$/)
-  await expect(page.getByRole('heading', { name: 'Leaderboards need a connection' })).toBeVisible()
-  await expect(page.locator('.ed-offline-page')).toContainText('never presents a saved board as current')
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
+  ).toHaveCount(0)
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
+  ).toHaveCount(0)
+
+  const offlineNav = primaryNav.getByRole('button', {
+    name: isDesktopViewport(viewport) ? 'Offline mode' : 'Offline',
+    exact: true
+  })
+  await expect(offlineNav).toBeVisible()
+  await offlineNav.click()
+  await expect(page).toHaveURL(/#\/offline$/)
+  await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toBeVisible()
+  await expect(page.locator('.ed-offline-page')).toContainText('All six games are available')
+  await expect(page.locator('.ed-offline-page')).toContainText('Ranks and You return to navigation when you reconnect')
+  await expect(page.locator('.ed-offline-page')).toContainText('personal bests, badges, XP, history')
   await expect(page.locator('.ed-board')).toHaveCount(0)
+  await expect(page.locator('.account-screen')).toHaveCount(0)
 
   if (isDesktopViewport(viewport)) {
     await expect(page.locator('.ed-rail-standings')).toHaveText('Offline — reconnect for standings.')
@@ -95,18 +107,17 @@ test('Leaderboards and You explain their offline boundary and lead back to games
     await expect(page.locator('.ed-desktop__right')).not.toContainText('Loading…')
   }
 
-  await page.getByRole('button', { name: 'Choose a game' }).click()
-  await expect(page).toHaveURL(/#?\/?$/)
-  await primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true }).click()
-  await expect(page).toHaveURL(/#\/profile$/)
-  await expect(page.getByRole('heading', { name: 'Your player data is safe' })).toBeVisible()
-  await expect(page.locator('.ed-offline-page')).toContainText('does not keep an offline copy')
-  await expect(page.locator('.account-screen')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Send magic link' })).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Open Practice' }).click()
-  await expect(page).toHaveURL(/#\/practice$/)
-  await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
+  // Reconnecting swaps the normal destinations back in without leaving an
+  // obsolete offline explanation on screen.
+  await setOnline(page, true)
+  await expect(page.getByRole('heading', { name: 'You’re back online' })).toBeVisible()
+  await expect(offlineNav).toHaveCount(0)
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
+  ).toBeVisible()
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
+  ).toBeVisible()
 })
 
 test('Practice is actually playable with player services unreachable', async ({ page }) => {

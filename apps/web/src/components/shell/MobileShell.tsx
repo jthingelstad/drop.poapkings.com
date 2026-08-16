@@ -1,19 +1,24 @@
-// Mobile shell — single-column scroll body with a fixed bottom pill nav
-// (Games / Ranks / You) and a sliding active indicator. Nav is hidden during a
-// game so play areas are full-bleed. Chosen below 1024px by lib/use-layout.
+// Mobile shell — single-column scroll body with a fixed bottom pill nav and a
+// sliding active indicator. Nav is hidden during a game so play areas are
+// full-bleed. Chosen below 1024px by lib/use-layout.
 
 import type { ComponentChildren } from 'preact'
+import { offline } from '../../lib/api-availability'
 import { route, navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import Icon from '../Icon'
-import { NAV_ITEMS, activeNavIndex, isGameRoute } from './nav'
+import { NAV_ITEMS, OFFLINE_NAV_ITEMS, activeNavIndex, isGameRoute, type NavItem } from './nav'
 
-function PillNav({ activeIdx }: { activeIdx: number }) {
+function PillNav({ activeIdx, items }: { activeIdx: number; items: readonly NavItem[] }) {
   return (
     <nav class="ed-pillnav" aria-label="Primary">
       <div class="ed-pillnav__track">
-        <span class="ed-pillnav__ind" style={{ transform: `translateX(${activeIdx * 100}%)` }} aria-hidden="true" />
-        {NAV_ITEMS.map((item, i) => (
+        <span
+          class="ed-pillnav__ind"
+          style={{ width: `calc((100% - 10px) / ${items.length})`, transform: `translateX(${activeIdx * 100}%)` }}
+          aria-hidden="true"
+        />
+        {items.map((item, i) => (
           <button
             key={item.route}
             class="ed-pillnav__btn tap-fx"
@@ -37,11 +42,12 @@ function PillNav({ activeIdx }: { activeIdx: number }) {
 export default function MobileShell({ children }: { children: ComponentChildren }) {
   const r = route.value
   const gaming = isGameRoute(r)
+  const items = offline.value ? OFFLINE_NAV_ITEMS : NAV_ITEMS
   return (
     <div class="ed-app">
       <div class={`ed-mobile${gaming ? ' ed-mobile--game' : ''}`}>
         <main class={`ed-mobile__scroll${gaming ? ' ed-mobile__scroll--game' : ''}`}>{children}</main>
-        {!gaming && <PillNav activeIdx={activeNavIndex(r)} />}
+        {!gaming && <PillNav activeIdx={activeNavIndex(r, items)} items={items} />}
       </div>
     </div>
   )

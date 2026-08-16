@@ -13,6 +13,7 @@ const CASES = [
   ['/trade', 'PREPARING'],
   ['/survival', 'PREPARING'],
   ['/rain', 'PREPARING'],
+  ['/offline', 'You’re back online'],
   ['/settings', 'Settings'],
   ['/about', 'About Elixir Drop'],
   ['/fair-play', 'Fair Play'],
@@ -59,6 +60,7 @@ describe('SSR render smoke', () => {
     ['/trade', 'Trade'],
     ['/survival', 'Survival'],
     ['/rain', 'Rain'],
+    ['/offline', 'Offline'],
     ['/leaderboards', 'Leaderboards'],
     ['/settings', 'Settings'],
     ['/privacy', 'Privacy'],
@@ -100,10 +102,7 @@ describe('SSR render smoke', () => {
     expect(practiceHtml).not.toContain('Ranked access restricted')
   })
 
-  it.each([
-    ['/leaderboards', 'Leaderboards need a connection'],
-    ['/profile', 'Your player data is safe']
-  ])('gives %s a route-specific offline treatment', async (path, heading) => {
+  it.each(['/offline', '/leaderboards', '/profile'])('gives %s the unified offline treatment', async (path) => {
     offline.value = true
     accountStatus.value = 'unavailable'
     player.value = null
@@ -112,8 +111,10 @@ describe('SSR render smoke', () => {
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain('ed-offline-page')
-    expect(html).toContain(heading)
-    expect(html).toContain('Every game is ready offline')
+    expect(html).toContain('Offline mode is ready')
+    expect(html).toContain('All six games are available')
+    expect(html).toContain('Ranks and You return to navigation when you reconnect')
+    expect(html).toContain('personal bests, badges, XP, history, or leaderboard position')
     expect(html).toContain('Open Practice')
     expect(html).toContain('Choose a game')
     expect(html).not.toContain('Player services are reconnecting')

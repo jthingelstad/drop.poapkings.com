@@ -2303,6 +2303,8 @@ html.reduce-motion .release-notice__card {
   top: 5px;
   bottom: 5px;
   left: 5px;
+
+  /* MobileShell supplies the connected (3-item) or offline (2-item) width. */
   width: calc((100% - 10px) / 3);
   border-radius: 999px;
   background: var(--gold-grad);

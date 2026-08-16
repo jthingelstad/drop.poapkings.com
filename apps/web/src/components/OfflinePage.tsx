@@ -1,45 +1,53 @@
 import Icon from './Icon'
+import { offline } from '../lib/api-availability'
 import { navigate } from '../lib/router'
 
-type OfflinePageKind = 'leaderboards' | 'profile'
-
-const COPY: Record<OfflinePageKind, { heading: string; line: string }> = {
-  leaderboards: {
-    heading: 'Leaderboards need a connection',
-    line: 'Rankings change with every recorded run, so Drop never presents a saved board as current.'
-  },
-  profile: {
-    heading: 'Your player data is safe',
-    line: 'Your profile, badges, and saved games live with player services. This device does not keep an offline copy.'
-  }
-}
-
-export default function OfflinePage({ kind }: { kind: OfflinePageKind }) {
-  const copy = COPY[kind]
-  const titleId = `${kind}-offline-title`
+export default function OfflinePage() {
+  const disconnected = offline.value
 
   return (
-    <section class="main-content ed-offline-page" aria-labelledby={titleId}>
+    <section class="main-content ed-offline-page" aria-labelledby="offline-title">
       <div class="account-card ed-offline-page__card">
         <span class="ed-offline-page__mark" aria-hidden="true">
           <Icon name="wifi-off" />
         </span>
         <div class="eyebrow">Offline</div>
-        <h2 id={titleId} class="ed-offline-page__title">
-          {copy.heading}
+        <h2 id="offline-title" class="ed-offline-page__title">
+          {disconnected ? 'Offline mode is ready' : 'You’re back online'}
         </h2>
-        <p class="ed-offline-page__line">{copy.line}</p>
+        <p class="ed-offline-page__line">
+          {disconnected
+            ? 'All six games are available from this device. Ranks and You return to navigation when you reconnect.'
+            : 'Ranks, your profile, and saved progress are available again.'}
+        </p>
         <p class="ed-offline-page__practice">
-          <Icon name="target" />
-          <span>Every game is ready offline. Runs stay on this screen and record nothing.</span>
+          <Icon name={disconnected ? 'wifi-off' : 'check'} />
+          <span>
+            {disconnected
+              ? 'Offline runs are not saved and do not change personal bests, badges, XP, history, or leaderboard position.'
+              : 'Online runs can be recorded and advance your player progress.'}
+          </span>
         </p>
         <div class="ed-offline-page__actions">
-          <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/')}>
-            <span class="tap-face">Choose a game</span>
-          </button>
-          <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/practice')}>
-            Open Practice
-          </button>
+          {disconnected ? (
+            <>
+              <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/')}>
+                <span class="tap-face">Choose a game</span>
+              </button>
+              <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/practice')}>
+                Open Practice
+              </button>
+            </>
+          ) : (
+            <>
+              <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/leaderboards')}>
+                <span class="tap-face">View Ranks</span>
+              </button>
+              <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/profile')}>
+                Open You
+              </button>
+            </>
+          )}
         </div>
       </div>
     </section>
