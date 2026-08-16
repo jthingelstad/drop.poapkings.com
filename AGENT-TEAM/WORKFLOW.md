@@ -26,10 +26,12 @@ objective file before acting.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
    recheck the branch, upstream, and worktree immediately before the first edit and
    before push. Stop if the state changed.
-7. Run focused checks while iterating and `npm run verify` before commit. Commit and
-   push only current-run work directly to `main`.
-8. Verify the `Build and Deploy` workflow and live API/site when the change ships.
-   Use `npm run deploy:api` only for the documented out-of-band exception.
+7. Run focused checks while iterating and the change-specific final gate from
+   `CONTRIBUTING.md` before commit. Commit and push only current-run work directly
+   to `main`.
+8. Verify `Validate Main`, the triggered `Build and Deploy` workflow, and each live
+   surface the classifier ships. Use `npm run deploy:api` only for the documented
+   out-of-band exception.
 9. Verify semantic success from natural product evidence. Do not create guest runs,
    player accounts, leaderboard entries, email, or referee cases merely for acceptance.
 10. Release only this run's token with

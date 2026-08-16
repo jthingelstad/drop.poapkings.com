@@ -1,12 +1,14 @@
 name: Verify
 
-# Pull requests get the same checks as the deploy gate, split into one
-# non-browser job and four parallel Playwright projects. No secrets are exposed,
-# so the workflow is fork-safe by construction. Deployment still happens only
-# on push to main, where deploy.yml requires the same five verification lanes.
+# Pull requests and the scheduled regression run get the exhaustive four-engine
+# matrix. Main's deployment gate is intentionally faster: full Chromium split
+# across two shards plus tagged cross-browser smoke, with this workflow serving
+# as the daily backstop for the combinations that do not need to block a push.
 on:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
 
 permissions:
   contents: read

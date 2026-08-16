@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const deploymentGate = process.env.PLAYWRIGHT_DEPLOY_GATE === '1'
+const deploymentSmoke = deploymentGate ? { grep: /@deploy/ } : {}
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -32,8 +35,8 @@ export default defineConfig({
   // to triple the deploy gate's runtime by accident.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'iphone-14', use: { ...devices['iPhone 14'] } }
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, ...deploymentSmoke },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, ...deploymentSmoke },
+    { name: 'iphone-14', use: { ...devices['iPhone 14'] }, ...deploymentSmoke }
   ]
 })

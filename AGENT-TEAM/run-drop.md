@@ -16,15 +16,16 @@ Cadence: weekly, after every relevant deploy, and after a reported incident.
 
 ## Every run
 
-1. Run preflight and compare `main`, the latest `Build and Deploy` run, live API, and
-   public site revision.
+1. Run preflight and compare `main`, the latest `Validate Main` and `Build and Deploy`
+   runs, live API, and public site revision.
 2. Check Lambda errors/throttles/p95/cold starts, DynamoDB throttling/TTL/capacity,
    bridge delivery, Pages health, and recent JMAP outcomes using the least-privilege
    read path. Missing observability is itself a measured gap.
 3. Inspect cost, dependency/security advisories, supported runtime drift, card-catalog
    freshness, and open `objective:run` issues.
-4. If a concrete defect exists, fix it with the smallest regression, run
-   `npm run verify`, push, and verify the unified deploy.
+4. If a concrete defect exists, fix it with the smallest regression, run the final
+   gate required by `CONTRIBUTING.md`, push, and verify validation plus every surface
+   the path-aware deploy ships.
 5. Use `npm run deploy:api` only when the normal pipeline failed, never as the routine
    path. Never expose or relocate the CR token, `TELEMETRY_PEPPER`, or JMAP token.
 

@@ -89,7 +89,7 @@ Current public website stack:
 | Persistence | `localStorage`; learning progress through `apps/web/src/lib/storage.ts` (§6) |
 | Analytics   | Tinylytics, Elixir Drop's own property                      |
 | Hosting     | GitHub Pages, custom domain `drop.poapkings.com`            |
-| Deployment  | `.github/workflows/deploy.yml` on push to `main` (API + Pages) |
+| Deployment  | Cancelable `Validate Main` → serialized, path-aware API/Pages promotion |
 
 The app builds to static files in `apps/web/dist/`. GitHub Pages serves the
 custom domain from root, so Vite `base` stays `/` and routes stay hash-based to
@@ -704,22 +704,23 @@ project and is not endorsed by Supercell.
 
 ## 9. QA And Deployment
 
-Use this before pushing:
-
-```bash
-npm run verify
-```
-
 **`CONTRIBUTING.md` → "The quality gate" is the canonical description** of what
-`verify` runs and where CI runs it. In short: the same gate runs on pull requests
-(`.github/workflows/verify.yml`) and on the push-to-`main` deploy path
-(`.github/workflows/deploy.yml`), and the Pages artifact is uploaded from
-`apps/web/dist/` only after it passes.
+each change-specific local command runs and where CI runs it. In short:
+`validate-main.yml` provides the cancelable per-push gate,
+`deploy.yml` promotes only a successful exact head, and `verify.yml` supplies
+the exhaustive pull-request/manual/daily matrix. The Pages artifact is uploaded
+from `apps/web/dist/` only after its required gate and API boundary pass.
 
 Playwright browser/device projects are declared in
 `apps/web/playwright.config.ts` — `chromium`, `firefox`, `webkit`, and `iphone-14`,
 exactly the four the `verify` gate runs. Do not add a project the gate does not
 run; an unexercised project is a false sense of coverage.
+
+The main deployment gate runs all Chromium tests in two shards. Tests tagged
+`@deploy` also run in Firefox, desktop WebKit, and iPhone WebKit; those tags are
+reserved for critical journeys, engine regressions, offline behavior, and
+recording/deployment boundaries. The daily `Verify` workflow runs every test in
+all four projects.
 
 The e2e suite is split by concern under `apps/web/tests/e2e/`, with shared API
 stubs and helpers in `fixtures.ts`:

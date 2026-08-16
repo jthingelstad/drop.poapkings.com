@@ -93,7 +93,8 @@ community nicknames and character.
 ```bash
 npm install
 npm run dev       # Vite dev server
-npm run verify    # verify every implemented workspace
+npm run verify:quick # routine web pre-push gate
+npm run verify    # exhaustive four-browser gate for high-risk changes
 npm run build     # build every implemented workspace
 npm run preview   # serve the build locally
 npm run build:admin # build the private Control Room and its local service
@@ -165,11 +166,13 @@ fallback when the bridge clock is stale.
 
 ## Deploy
 
-`.github/workflows/deploy.yml` ships **both surfaces from one push to `main`**: it
-runs the quality gate, updates the API's CloudFormation stack, smokes the deployed
-API, rebuilds the web bundle against the endpoint that stack emitted, and then
-publishes GitHub Pages. A failed API update blocks the website deploy, so the web
-app and the Lambda cannot drift apart.
+A push to `main` first runs cancelable, cumulative validation in
+`.github/workflows/validate-main.yml`. A successful exact head enters the
+serialized `.github/workflows/deploy.yml`: API-only work deploys and smokes only
+the Lambda, while web/shared work updates the API's referee version, smokes it,
+rebuilds against the stack endpoint, and then publishes Pages. Test-only and
+fixed-host changes do not republish unrelated public surfaces. The exhaustive
+four-browser matrix runs on pull requests, manually, and daily in `verify.yml`.
 
 The website is GitHub Pages on the custom domain `drop.poapkings.com`:
 
@@ -221,7 +224,7 @@ elixir-drop/
 │  └─ game-data/             # canonical cards.json snapshot
 ├─ infra/                    # CloudFormation and SDK deployment scripts
 ├─ package.json              # npm workspace commands
-├─ .github/workflows/        # verify.yml (pull requests) + deploy.yml (push to main)
+├─ .github/workflows/        # main validation/deploy + exhaustive PR/daily verification
 ├─ AGENT-TEAM/               # scheduled and on-demand maintainer role prompts
 ├─ AGENTS.md                 # agent entry point + the canonical doc map
 ├─ CLAUDE.md                 # agent working guide: golden rules and architecture

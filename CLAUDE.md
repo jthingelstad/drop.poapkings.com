@@ -72,17 +72,16 @@ decisions.
 - `apps/admin`: **Preact** + Vite, served only through `services/admin` and
   Tailscale on the managed host; never include it in the Pages artifact.
 - `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
-- Before pushing, run the gate that matches what you changed: `npm run verify`
-  for anything under `apps/`, `services/`, `packages/`, or `infra/`, and
-  `npm run verify:non-browser` for root `scripts/`, `.claude/`, `AGENT-TEAM/`,
-  or prose. Four browser engines prove nothing about a commit a player cannot
-  reach. **What the gate contains, and which to run, is documented once, in
+- Before pushing, run the gate that matches what you changed. Routine web work
+  uses `npm run verify:quick`; backend-only and non-player-runtime work uses
+  `npm run verify:non-browser`; exhaustive `npm run verify` is reserved for the
+  cross-engine/high-risk cases. **What each gate contains is documented once, in
   `CONTRIBUTING.md` → "The quality gate"** — don't restate it here.
-- A push that changes nothing player-facing skips the browser matrix and the
-  deploy in CI too. That classification fails safe and lives in `deploy.yml`'s
-  `scope` job; `workflow_dispatch` always deploys.
-- Deploying is one pipeline off a push to `main` (web *and* Lambda API). The model
-  is stated once, in `AGENTS.md` → "Deploy model".
+- Push validation is cancelable and cumulative; exact-head deployment is
+  serialized and path-aware. The tested classifier lives in
+  `scripts/classify-ci-scope.mjs`; `workflow_dispatch` takes the full path.
+- Deployment mechanics and surface boundaries are stated once, in `AGENTS.md`
+  → "Deploy model".
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 
@@ -413,7 +412,7 @@ For UI/gameplay changes:
   celebratory effects.
 - Add or update focused unit/e2e coverage when changing shared logic, scoring,
   storage, or mobile gameplay controls.
-- Run `npm run verify` before pushing.
+- Run the change-specific final gate in `CONTRIBUTING.md` before pushing.
 
 When a decision is genuinely ambiguous and not covered above, in `SPEC.md`, or in
 `GAMES.md`, stop and ask rather than guessing.

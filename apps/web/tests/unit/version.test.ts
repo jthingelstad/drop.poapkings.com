@@ -6,7 +6,7 @@ vi.mock('../../src/lib/build', () => ({
   buildMeta: { id: 'aaaaaaaaaaaa', dateIso: undefined, dateLabel: 'test' }
 }))
 
-import { latestVersionUrl, noteWebVersion, updateAvailable } from '../../src/lib/version'
+import { checkForWebUpdate, latestVersionUrl, noteWebVersion, updateAvailable } from '../../src/lib/version'
 
 beforeEach(() => {
   updateAvailable.value = false
@@ -14,6 +14,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 
 describe('noteWebVersion', () => {
@@ -42,6 +43,31 @@ describe('noteWebVersion', () => {
     noteWebVersion('bbbbbbbbbbbb')
     noteWebVersion('aaaaaaaaaaaa')
     expect(updateAvailable.value).toBe(true)
+  })
+})
+
+describe('checkForWebUpdate', () => {
+  it('reads the uncached Pages manifest and compares its version', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ webVersion: 'bbbbbbbbbbbb' }), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    )
+
+    await checkForWebUpdate(fetcher, 123)
+
+    expect(fetcher).toHaveBeenCalledWith('/version.json?check=123', { cache: 'no-store' })
+    expect(updateAvailable.value).toBe(true)
+  })
+
+  it('treats an unreachable or malformed manifest as an offline no-op', async () => {
+    const unavailable = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('offline'))
+    await checkForWebUpdate(unavailable, 123)
+    expect(updateAvailable.value).toBe(false)
+
+    const malformed = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
+    await checkForWebUpdate(malformed, 456)
+    expect(updateAvailable.value).toBe(false)
   })
 })
 

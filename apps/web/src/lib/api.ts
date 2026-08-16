@@ -18,7 +18,6 @@ import {
   startedRunSchema
 } from './api-contracts'
 import { reportApiAvailable, reportApiUnavailable } from './api-availability'
-import { noteWebVersion } from './version'
 
 interface ResponseSchema<T> {
   safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown }
@@ -343,10 +342,7 @@ export function completeRun(runToken: string, transcript: Record<string, unknown
 }
 
 export function getStats(signal?: AbortSignal) {
-  return apiRequest('/stats', siteStatsSchema, { signal }).then((stats) => {
-    noteWebVersion(stats.webVersion)
-    return stats
-  })
+  return apiRequest('/stats', siteStatsSchema, { signal })
 }
 
 export interface ApiDiagnostics {
@@ -367,7 +363,6 @@ export async function getApiDiagnostics(signal?: AbortSignal): Promise<ApiDiagno
     timeoutMs: 5_000,
     cache: 'no-store'
   })
-  noteWebVersion(stats.webVersion)
   return {
     endpoint: apiBaseUrl,
     latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),

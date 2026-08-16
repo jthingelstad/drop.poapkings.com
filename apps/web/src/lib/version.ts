@@ -1,9 +1,9 @@
 import { signal } from '@preact/signals'
 import { buildMeta } from './build'
 
-// Set once the server reports a newer front-end build than the one running in
-// this tab. The app then invites the player to reload. Latches on: a shipped
-// update never becomes "un-shipped" within a session.
+// Set once Pages reports a newer front-end build than the one running in this
+// tab. The app then invites the player to reload. Latches on: a shipped update
+// never becomes "un-shipped" within a session.
 export const updateAvailable = signal(false)
 
 // Visual QA deliberately runs against the deployed API, whose build id will
@@ -13,13 +13,32 @@ export function isUpdateNoticeEnabled(): boolean {
   return import.meta.env.VITE_DISABLE_UPDATE_NOTICE !== '1'
 }
 
-// Compare the server's current front-end build id (from /stats) against this
-// tab's. Only real CI builds carry a git-sha id, so dev/unknown builds and
-// missing server versions are ignored to avoid false prompts.
+// Compare Pages' current front-end build id against this tab's. Only real CI
+// builds carry a git-sha id, so dev/unknown builds and missing versions are
+// ignored to avoid false prompts.
 export function noteWebVersion(serverVersion: string | undefined): void {
   if (!isUpdateNoticeEnabled() || updateAvailable.value || !serverVersion) return
   if (buildMeta.id === 'dev' || !buildMeta.id) return
   if (serverVersion !== buildMeta.id) updateAvailable.value = true
+}
+
+// The version manifest lives with the browser bundle, not behind the player
+// API. That means an API outage cannot masquerade as a stale app, and Pages can
+// authoritatively report which document is current. Failure is intentionally
+// silent: offline play must not create a second connectivity error path.
+export async function checkForWebUpdate(fetcher: typeof fetch = globalThis.fetch, nonce = Date.now()): Promise<void> {
+  if (!isUpdateNoticeEnabled() || updateAvailable.value || buildMeta.id === 'dev' || !buildMeta.id) return
+
+  try {
+    const response = await fetcher(`/version.json?check=${nonce}`, { cache: 'no-store' })
+    if (!response.ok) return
+    const body: unknown = await response.json()
+    if (typeof body !== 'object' || body === null || !('webVersion' in body)) return
+    const version = body.webVersion
+    if (typeof version === 'string') noteWebVersion(version)
+  } catch {
+    // An unreachable manifest is ordinary offline behavior.
+  }
 }
 
 // A normal reload may reuse the cached app shell. Give the document request a

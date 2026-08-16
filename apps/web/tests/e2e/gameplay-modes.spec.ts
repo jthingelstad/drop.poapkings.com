@@ -48,74 +48,78 @@ test('survival flashes the same every-10 counter as Rain', async ({ page }, test
   await expect(page.locator('.game-milestone')).toHaveCount(0)
 })
 
-test('practice reinforces the solved cost over the card and marks each ten streak', async ({ page }, testInfo) => {
-  await page.goto('/#/practice')
-  await waitForKeypad(page)
+test(
+  'practice reinforces the solved cost over the card and marks each ten streak',
+  { tag: '@deploy' },
+  async ({ page }, testInfo) => {
+    await page.goto('/#/practice')
+    await waitForKeypad(page)
 
-  const cardImage = page.locator('.pcard__img')
-  const answerLiveCard = async () => {
-    const name = await cardImage.getAttribute('alt')
-    const card = cardsData.cards.find((candidate) => candidate.name === name)
-    expect(card, `unknown practice card "${name}"`).toBeTruthy()
-    await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
-    return { card: card!, name: name! }
+    const cardImage = page.locator('.pcard__img')
+    const answerLiveCard = async () => {
+      const name = await cardImage.getAttribute('alt')
+      const card = cardsData.cards.find((candidate) => candidate.name === name)
+      expect(card, `unknown practice card "${name}"`).toBeTruthy()
+      await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+      return { card: card!, name: name! }
+    }
+
+    const first = await answerLiveCard()
+    const reinforcement = page.locator('.pcard__answer-cost')
+    await expect(reinforcement).toHaveText(String(first.card.elixir))
+    // This is the regression from the shared video: checking a DOM mutation
+    // would pass for a single frame. It must still be readable 250ms later.
+    await page.waitForTimeout(250)
+    await expect(reinforcement).toBeVisible()
+    const { artBounds, reinforcementBounds, sameMotion } = await page.evaluate(() => {
+      const art = document.querySelector('.pcard__img')
+      const answer = document.querySelector('.pcard__answer-cost')
+      if (!(art instanceof HTMLElement) || !(answer instanceof HTMLElement)) {
+        throw new Error('Practice reinforcement disappeared before the 300ms hold')
+      }
+      const bounds = (element: HTMLElement) => {
+        const rect = element.getBoundingClientRect()
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      }
+      return {
+        artBounds: bounds(art),
+        reinforcementBounds: bounds(answer),
+        sameMotion: art.closest('.game-motion') === answer.closest('.game-motion')
+      }
+    })
+    expect(artBounds).toBeTruthy()
+    expect(reinforcementBounds).toBeTruthy()
+    expect(
+      Math.abs(artBounds.x + artBounds.width / 2 - (reinforcementBounds.x + reinforcementBounds.width / 2))
+    ).toBeLessThan(2)
+    expect(
+      Math.abs(artBounds.y + artBounds.height / 2 - (reinforcementBounds.y + reinforcementBounds.height / 2))
+    ).toBeLessThan(2)
+    // The answer is structurally inside the same animated card container, so the
+    // exit transform carries them as one object rather than replacing the value.
+    expect(sameMotion).toBe(true)
+    await testInfo.attach('practice-correct-feedback.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
+    // The hand swaps only after that attached exit completes.
+    await expect(cardImage).not.toHaveAttribute('alt', first.name)
+    await expect(reinforcement).toHaveCount(0)
+
+    for (let answered = 2; answered <= 9; answered += 1) {
+      const current = await answerLiveCard()
+      await expect(cardImage).not.toHaveAttribute('alt', current.name)
+    }
+
+    await answerLiveCard()
+    await expect(page.locator('.game-milestone__num')).toHaveText('10')
+    await testInfo.attach('practice-10-milestone.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
+    await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
   }
-
-  const first = await answerLiveCard()
-  const reinforcement = page.locator('.pcard__answer-cost')
-  await expect(reinforcement).toHaveText(String(first.card.elixir))
-  // This is the regression from the shared video: checking a DOM mutation
-  // would pass for a single frame. It must still be readable 250ms later.
-  await page.waitForTimeout(250)
-  await expect(reinforcement).toBeVisible()
-  const { artBounds, reinforcementBounds, sameMotion } = await page.evaluate(() => {
-    const art = document.querySelector('.pcard__img')
-    const answer = document.querySelector('.pcard__answer-cost')
-    if (!(art instanceof HTMLElement) || !(answer instanceof HTMLElement)) {
-      throw new Error('Practice reinforcement disappeared before the 300ms hold')
-    }
-    const bounds = (element: HTMLElement) => {
-      const rect = element.getBoundingClientRect()
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
-    }
-    return {
-      artBounds: bounds(art),
-      reinforcementBounds: bounds(answer),
-      sameMotion: art.closest('.game-motion') === answer.closest('.game-motion')
-    }
-  })
-  expect(artBounds).toBeTruthy()
-  expect(reinforcementBounds).toBeTruthy()
-  expect(
-    Math.abs(artBounds.x + artBounds.width / 2 - (reinforcementBounds.x + reinforcementBounds.width / 2))
-  ).toBeLessThan(2)
-  expect(
-    Math.abs(artBounds.y + artBounds.height / 2 - (reinforcementBounds.y + reinforcementBounds.height / 2))
-  ).toBeLessThan(2)
-  // The answer is structurally inside the same animated card container, so the
-  // exit transform carries them as one object rather than replacing the value.
-  expect(sameMotion).toBe(true)
-  await testInfo.attach('practice-correct-feedback.png', {
-    body: await page.screenshot({ fullPage: false }),
-    contentType: 'image/png'
-  })
-  // The hand swaps only after that attached exit completes.
-  await expect(cardImage).not.toHaveAttribute('alt', first.name)
-  await expect(reinforcement).toHaveCount(0)
-
-  for (let answered = 2; answered <= 9; answered += 1) {
-    const current = await answerLiveCard()
-    await expect(cardImage).not.toHaveAttribute('alt', current.name)
-  }
-
-  await answerLiveCard()
-  await expect(page.locator('.game-milestone__num')).toHaveText('10')
-  await testInfo.attach('practice-10-milestone.png', {
-    body: await page.screenshot({ fullPage: false }),
-    contentType: 'image/png'
-  })
-  await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
-})
+)
 
 test('active play states use low chrome and keep controls visible', async ({ page }, testInfo) => {
   test.setTimeout(60_000)

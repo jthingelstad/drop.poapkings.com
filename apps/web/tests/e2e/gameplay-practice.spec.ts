@@ -43,39 +43,43 @@ async function openPracticeOnMidCostCard(page: Page) {
   throw new Error('Practice never dealt a mid-cost card')
 }
 
-test('practice scaffolds one recall retry, then teaches the exact answer', async ({ page }, testInfo) => {
-  const card = await openPracticeOnMidCostCard(page)
+test(
+  'practice scaffolds one recall retry, then teaches the exact answer',
+  { tag: '@deploy' },
+  async ({ page }, testInfo) => {
+    const card = await openPracticeOnMidCostCard(page)
 
-  const motion = page.locator('.game-motion')
-  await expect(motion).toHaveClass(/game-motion--card/)
-  // Endless: the progress line counts practice reads, not progress to a finish.
-  await expect(page.locator('.ed-game__progress')).toHaveText('0 practiced')
-  await expect(page.locator('.ed-game__bar')).toHaveCount(0)
+    const motion = page.locator('.game-motion')
+    await expect(motion).toHaveClass(/game-motion--card/)
+    // Endless: the progress line counts practice reads, not progress to a finish.
+    await expect(page.locator('.ed-game__progress')).toHaveText('0 practiced')
+    await expect(page.locator('.ed-game__bar')).toHaveCount(0)
 
-  await page.getByRole('button', { name: `${card.elixir - 1} elixir`, exact: true }).click()
-  await expect(page.getByTestId('practice-hint')).toContainText(`Higher than ${card.elixir - 1}`)
-  await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
-  await expect(page.locator('.pcard__cost')).toHaveCount(0)
-  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
+    await page.getByRole('button', { name: `${card.elixir - 1} elixir`, exact: true }).click()
+    await expect(page.getByTestId('practice-hint')).toContainText(`Higher than ${card.elixir - 1}`)
+    await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+    await expect(page.locator('.pcard__cost')).toHaveCount(0)
+    await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
 
-  await expect(page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true }).click()
-  await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
+    await expect(page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true })).toBeEnabled()
+    await page.getByRole('button', { name: `${card.elixir + 1} elixir`, exact: true }).click()
+    await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
 
-  const answer = page.locator('.pcard__answer-cost')
-  await expect(answer).toHaveText(String(card.elixir))
-  await page.waitForTimeout(300)
-  await expect(answer).toHaveText(String(card.elixir))
+    const answer = page.locator('.pcard__answer-cost')
+    await expect(answer).toHaveText(String(card.elixir))
+    await page.waitForTimeout(300)
+    await expect(answer).toHaveText(String(card.elixir))
 
-  await testInfo.attach('practice-wrong-feedback.png', {
-    body: await page.screenshot({ fullPage: false }),
-    contentType: 'image/png'
-  })
+    await testInfo.attach('practice-wrong-feedback.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
 
-  // A fresh card is dealt only after the teaching hold and attached exit.
-  await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card.name)
-  await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
-})
+    // A fresh card is dealt only after the teaching hold and attached exit.
+    await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card.name)
+    await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+  }
+)
 
 test('practice never exposes the next hand before its image decode completes', async ({ page }) => {
   await page.addInitScript(() => {
@@ -155,7 +159,7 @@ test('practice runs until the player ends it, then closes on stats with no perso
   await expect(page.locator('[data-summary]')).not.toContainText(/personal best|New best/i)
 })
 
-test('practice offers voluntary idle help without revealing the answer', async ({ page }) => {
+test('practice offers voluntary idle help without revealing the answer', { tag: '@deploy' }, async ({ page }) => {
   await page.goto('/#/practice')
   await waitForKeypad(page)
 

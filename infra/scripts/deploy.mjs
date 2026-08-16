@@ -7,13 +7,13 @@ import {
   waitUntilStackUpdateComplete,
 } from "@aws-sdk/client-cloudformation";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.mjs";
+import { isNoUpdatesError, lambdaCodeKey } from "./deployment-code.mjs";
 import { deploymentParameters } from "./parameters.mjs";
 import { deploymentTemplateSource } from "./template-source.mjs";
 
@@ -40,7 +40,6 @@ execFileSync("npm", ["run", "build", "--workspace=@elixir-drop/api"], {
 });
 const bundlePath = resolve(repoRoot, "services/api/dist/handler.cjs");
 const bundle = await readFile(bundlePath);
-const digest = createHash("sha256").update(bundle).digest("hex").slice(0, 16);
 const tempRoot = await mkdtemp(resolve(tmpdir(), "elixir-drop-deploy-"));
 const zipPath = resolve(tempRoot, "api.zip");
 execFileSync("zip", ["-q", "-j", zipPath, bundlePath]);
@@ -49,7 +48,10 @@ try {
   const region = process.env.AWS_REGION;
   const bucket = process.env.ELIXIR_DROP_CODE_BUCKET;
   const stackName = process.env.ELIXIR_DROP_STACK_NAME;
-  const codeKey = `lambda/${Date.now()}-${digest}.zip`;
+  // Content-addressed objects make an unchanged API bundle a real no-op. The
+  // previous timestamped key forced CloudFormation to publish a new Lambda
+  // version even when only unrelated repository files had changed.
+  const codeKey = lambdaCodeKey(bundle);
   const s3 = new S3Client({ region });
   const cloudformation = new CloudFormationClient({ region });
 
@@ -97,13 +99,23 @@ try {
   };
 
   if (exists) {
-    await cloudformation.send(new UpdateStackCommand(common));
-    const wait = await waitUntilStackUpdateComplete(
-      { client: cloudformation, maxWaitTime: 1_200 },
-      { StackName: stackName },
-    );
-    if (wait.state !== "SUCCESS")
-      throw new Error(`Stack update ended in ${wait.state}`);
+    let updated = true;
+    try {
+      await cloudformation.send(new UpdateStackCommand(common));
+    } catch (error) {
+      if (isNoUpdatesError(error)) updated = false;
+      else throw error;
+    }
+    if (updated) {
+      const wait = await waitUntilStackUpdateComplete(
+        { client: cloudformation, maxWaitTime: 1_200 },
+        { StackName: stackName },
+      );
+      if (wait.state !== "SUCCESS")
+        throw new Error(`Stack update ended in ${wait.state}`);
+    } else {
+      console.log("CloudFormation is already at the requested API version.");
+    }
   } else {
     await cloudformation.send(
       new CreateStackCommand({ ...common, OnFailure: "ROLLBACK" }),
@@ -129,7 +141,7 @@ try {
     resolve(repoRoot, "apps/web/public/api-config.json"),
     `${JSON.stringify({ apiBaseUrl: apiUrl }, null, 2)}\n`,
   );
-  console.log(`Elixir Drop API deployed successfully to ${apiUrl}`);
+  console.log(`Elixir Drop API is ready at ${apiUrl}`);
   console.log("apps/web/public/api-config.json was updated for the web build.");
 } finally {
   await rm(tempRoot, { recursive: true, force: true });

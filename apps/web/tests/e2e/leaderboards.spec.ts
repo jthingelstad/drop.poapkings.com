@@ -1,7 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import { expect, test, testApiRoute, testPlayer, testSeason, testSession, testStats } from './fixtures'
 
-test('leaderboards are season-scoped, not week-scoped', async ({ page }, testInfo) => {
+test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
 
   // One fixed title on every scope; the season labels the scope segment and

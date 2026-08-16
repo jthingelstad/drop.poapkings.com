@@ -66,7 +66,7 @@ async function tapLower(page: Page) {
   await page.locator('.ed-duel__card').nth(lower).click()
 }
 
-test('higher/lower: a miss costs a life and the run keeps counting', async ({ page }) => {
+test('higher/lower: a miss costs a life and the run keeps counting', { tag: '@deploy' }, async ({ page }) => {
   await openFrozenBoard(page)
   // Low chrome + effects present, like the other running modes.
   await expect(page.locator('.game-motion')).toBeVisible()

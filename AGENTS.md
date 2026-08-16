@@ -42,8 +42,8 @@ Every other doc points back here instead of keeping its own copy of this list.
 ## Stack & commands
 
 - npm workspaces at the root; **Node 24**. `apps/web` = Preact + @preact/signals + Vite + TS.
-- `npm run dev` · `npm run build` · **`npm run verify`** — run before pushing. What the gate
-  actually runs is documented once, in `CONTRIBUTING.md` → "The quality gate".
+- `npm run dev` · `npm run build` · `npm run verify:quick` · `npm run verify` —
+  use the change-specific pre-push gate in `CONTRIBUTING.md` → "The quality gate".
 - Transactional player email sends from `elixir@poapkings.com` through **Fastmail
   JMAP** in `services/api/src/jmap.ts`; magic links keep that recognizable sender.
   `drop@poapkings.com` is the monitored administrative/general-contact address
@@ -53,11 +53,18 @@ Every other doc points back here instead of keeping its own copy of this list.
 
 ## Deploy model (canonical)
 
-**One pipeline ships both surfaces.** Pushing to `main` runs
-`.github/workflows/deploy.yml`, which verifies the monorepo, runs `npm run deploy:api`
-to update the Lambda/CloudFormation stack, smokes the deployed API, rebuilds the web
-bundle against the endpoint that stack emitted, and only then publishes GitHub Pages.
-A failed API update blocks the website deploy, so web and Lambda cannot diverge.
+**Validation is replaceable; deployment is serialized.** Pushing to `main` runs
+`.github/workflows/validate-main.yml`. A newer push cancels an obsolete validation,
+and the replacement validates the cumulative change since the last successful
+production run. A successful exact-head validation triggers
+`.github/workflows/deploy.yml`.
+
+- API/infra changes deploy and smoke the Lambda without rebuilding Pages.
+- Web/shared changes update the API's referee `WEB_VERSION`, smoke it, rebuild the
+  web bundle against the emitted endpoint, and only then publish GitHub Pages.
+- Tests, fixed-host services, tooling, and prose validate without republishing an
+  unrelated public surface. Unknown paths and manual deploys take the full path.
+- Content-addressed Lambda bundles make unchanged code a CloudFormation no-op.
 
 - There is **no manual handoff for an ordinary backend change** — the same push that
   commits it deploys it.

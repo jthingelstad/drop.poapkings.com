@@ -1,0 +1,159 @@
+name: Validate Main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+# Validation is replaceable work. A newer main includes every earlier commit,
+# so cancel the stale run and validate everything since the last successfully
+# promoted production head instead.
+concurrency:
+  group: validate-main
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: What changed since production
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      browser: ${{ steps.classify.outputs.browser }}
+      deploy_api: ${{ steps.classify.outputs.deploy_api }}
+      deploy_web: ${{ steps.classify.outputs.deploy_web }}
+      ships: ${{ steps.classify.outputs.ships }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: classify
+        name: Classify the cumulative unpromoted change
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          scope_file="${RUNNER_TEMP}/ci-scope.json"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/classify-ci-scope.mjs --all --github-output "$GITHUB_OUTPUT" --json-output "$scope_file"
+            exit 0
+          fi
+
+          marker=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" -f per_page=100 --jq '[.artifacts[] | select(.expired == false and (.name | startswith("production-head-")))][0].name // empty')
+          if [ -n "$marker" ]; then
+            baseline=${marker#production-head-}
+          else
+            # Migration fallback: the old unified workflow has no marker. Once
+            # this pipeline promotes once, markers are the only baseline. Check
+            # the old job name so a skipped run from the new workflow can never
+            # be mistaken for a completed promotion during migration.
+            baseline=""
+            while IFS=$'\t' read -r run_id run_sha; do
+              promoted=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs" --jq '[.jobs[] | select(.name == "Build and deploy" and .conclusion == "success")] | length')
+              if [ "$promoted" -gt 0 ]; then
+                baseline=$run_sha
+                break
+              fi
+            done < <(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs" -f branch=main -f status=success -f per_page=20 --jq '.workflow_runs[] | [.id, .head_sha] | @tsv')
+          fi
+          if [ -z "$baseline" ] || ! git merge-base --is-ancestor "$baseline" HEAD; then
+            echo "No trusted successful production baseline; taking the full fail-safe path."
+            node scripts/classify-ci-scope.mjs --all --github-output "$GITHUB_OUTPUT" --json-output "$scope_file"
+          else
+            echo "Classifying cumulative changes after ${baseline}."
+            node scripts/classify-ci-scope.mjs --base "$baseline" --head HEAD --github-output "$GITHUB_OUTPUT" --json-output "$scope_file"
+          fi
+
+      - name: Preserve scope for deployment
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-scope
+          path: ${{ runner.temp }}/ci-scope.json
+          retention-days: 2
+
+  verify:
+    name: Non-browser verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm audit --audit-level=high
+
+      - run: npm run verify:non-browser
+
+  browser:
+    name: Playwright (${{ matrix.label }})
+    needs: scope
+    if: needs.scope.outputs.browser == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: chromium 1/2
+            project: chromium
+            browser: chromium
+            shard: 1/2
+            smoke: false
+          - label: chromium 2/2
+            project: chromium
+            browser: chromium
+            shard: 2/2
+            smoke: false
+          - label: firefox smoke
+            project: firefox
+            browser: firefox
+            smoke: true
+          - label: webkit smoke
+            project: webkit
+            browser: webkit
+            smoke: true
+          - label: iphone-14 smoke
+            project: iphone-14
+            browser: webkit
+            smoke: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run full Chromium shard
+        if: matrix.smoke == false
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+
+      - name: Run cross-browser deployment smoke
+        if: matrix.smoke == true
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+        env:
+          PLAYWRIGHT_DEPLOY_GATE: "1"
+
+      - name: Upload Playwright report (${{ matrix.label }})
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.project }}-${{ strategy.job-index }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore

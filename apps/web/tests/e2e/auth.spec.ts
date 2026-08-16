@@ -14,51 +14,55 @@ import {
   waitForKeypad
 } from './fixtures'
 
-test('a signed-out visitor plays a game as a guest and is nudged to save the score', async ({ page }) => {
-  // Hold the response until the in-flight guest state has actually been
-  // inspected. A fixed delay races slower CI devices and can let the final
-  // notice replace this deliberately transient one before the assertion runs.
-  let releaseCompletion: (() => void) | undefined
-  const completionHeld = new Promise<void>((resolve) => {
-    releaseCompletion = resolve
-  })
-  await page.route(`${testApiBaseUrl}/runs/complete`, async (route) => {
-    await completionHeld
-    await route.fallback()
-  })
+test(
+  'a signed-out visitor plays a game as a guest and is nudged to save the score',
+  { tag: '@deploy' },
+  async ({ page }) => {
+    // Hold the response until the in-flight guest state has actually been
+    // inspected. A fixed delay races slower CI devices and can let the final
+    // notice replace this deliberately transient one before the assertion runs.
+    let releaseCompletion: (() => void) | undefined
+    const completionHeld = new Promise<void>((resolve) => {
+      releaseCompletion = resolve
+    })
+    await page.route(`${testApiBaseUrl}/runs/complete`, async (route) => {
+      await completionHeld
+      await route.fallback()
+    })
 
-  // Guests are no longer redirected to sign in: they can open any game, and it
-  // auto-starts (no "Start" button).
-  await useSignedOutState(page, '/survival')
-  await expect(page.getByRole('heading', { name: 'Sign in to play' })).toHaveCount(0)
+    // Guests are no longer redirected to sign in: they can open any game, and it
+    // auto-starts (no "Start" button).
+    await useSignedOutState(page, '/survival')
+    await expect(page.getByRole('heading', { name: 'Sign in to play' })).toHaveCount(0)
 
-  await waitForKeypad(page)
-  // Survival ends on a single miss — a complete run for a guest.
-  const cardName = await page.locator('.pcard__img').getAttribute('alt')
-  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
-  expect(card).toBeTruthy()
-  const wrongCost = card?.elixir === 1 ? 2 : 1
-  await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+    await waitForKeypad(page)
+    // Survival ends on a single miss — a complete run for a guest.
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    const wrongCost = card?.elixir === 1 ? 2 : 1
+    await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
 
-  try {
-    const scoringNotice = page.locator('.run-recording')
-    await expect(scoringNotice).toContainText('Scoring your game…')
-    await expect(scoringNotice).not.toHaveClass(/run-recording--blocking/)
-    await expect(page.getByText('Recording your game…')).toHaveCount(0)
-  } finally {
-    releaseCompletion?.()
+    try {
+      const scoringNotice = page.locator('.run-recording')
+      await expect(scoringNotice).toContainText('Scoring your game…')
+      await expect(scoringNotice).not.toHaveClass(/run-recording--blocking/)
+      await expect(page.getByText('Recording your game…')).toHaveCount(0)
+    } finally {
+      releaseCompletion?.()
+    }
+
+    // The shared summary appears with the guest sign-in-to-save nudge.
+    const summary = page.locator('.ed-sum')
+    await expect(summary).toBeVisible()
+    await expect(summary.getByRole('button', { name: 'Play again' })).toBeVisible()
+    await expect(
+      page.getByText('Create an account to save this score and make it eligible for the leaderboard.')
+    ).toBeVisible()
+    await summary.getByRole('button', { name: 'Sign in to save' }).click()
+    await expect(page).toHaveURL(/#\/login$/)
   }
-
-  // The shared summary appears with the guest sign-in-to-save nudge.
-  const summary = page.locator('.ed-sum')
-  await expect(summary).toBeVisible()
-  await expect(summary.getByRole('button', { name: 'Play again' })).toBeVisible()
-  await expect(
-    page.getByText('Create an account to save this score and make it eligible for the leaderboard.')
-  ).toBeVisible()
-  await summary.getByRole('button', { name: 'Sign in to save' }).click()
-  await expect(page).toHaveURL(/#\/login$/)
-})
+)
 
 test('signing in from the login screen returns the player to the requested game', async ({ page }) => {
   let loginBody: Record<string, unknown> | undefined

@@ -1,140 +1,104 @@
 name: Build and Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Validate Main"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
+# A deployment already updating CloudFormation or Pages is allowed to finish.
+# A newer successful validation waits, then rechecks that its SHA is still main
+# before changing production. GitHub keeps only the newest pending run here.
 concurrency:
   group: production
   cancel-in-progress: false
 
 jobs:
   scope:
-    name: What changed
+    name: Confirm validated release
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      browser: ${{ steps.classify.outputs.browser }}
+      deploy_api: ${{ steps.classify.outputs.deploy_api }}
+      deploy_web: ${{ steps.classify.outputs.deploy_web }}
+      head_sha: ${{ steps.head.outputs.sha }}
+      latest: ${{ steps.latest.outputs.latest }}
       ships: ${{ steps.classify.outputs.ships }}
     steps:
+      - id: head
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${VALIDATED_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v7
         with:
+          ref: ${{ steps.head.outputs.sha }}
           fetch-depth: 2
 
-      # Browser verification and deployment exist to protect the running game.
-      # A push that changes only tooling, skills, or prose changes nothing a
-      # player can reach, and paying five minutes of Playwright plus a stack
-      # update for it is waste that lands on every single commit.
-      #
-      # This fails safe in every direction: any path outside the explicit
-      # non-shipping list ships, an unavailable parent commit ships, and a
-      # manual workflow_dispatch always ships. Skipping is only ever the
-      # answer when we can prove nothing shipped.
-      #
-      # .github/ is deliberately NOT on the list. A commit that repairs this
-      # pipeline has to be able to run it.
+      - name: Download validated scope
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v7
+        with:
+          name: ci-scope
+          path: ${{ runner.temp }}/ci-scope
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
       - id: classify
+        name: Read validated scope
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "Manual run: deploying."
-            echo "ships=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if ! git rev-parse --verify --quiet HEAD^ >/dev/null; then
-            echo "No parent commit to compare: deploying."
-            echo "ships=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          changed=$(git diff --name-only HEAD^ HEAD)
-          echo "Changed files:"
-          echo "$changed"
-          # Everything a player can reach lives outside these paths.
-          shipping=$(echo "$changed" | grep -vE '^(\.claude/|AGENT-TEAM/|docs/|scripts/|[^/]+\.md$)' || true)
-          if [ -n "$shipping" ]; then
-            echo "Shipping paths changed:"
-            echo "$shipping"
-            echo "ships=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/classify-ci-scope.mjs --all --github-output "$GITHUB_OUTPUT"
           else
-            echo "Nothing player-facing changed: skipping browsers and deploy."
-            echo "ships=false" >> "$GITHUB_OUTPUT"
+            scope_file="${RUNNER_TEMP}/ci-scope/ci-scope.json"
+            test -f "$scope_file"
+            echo "Validated scope:"
+            jq . "$scope_file"
+            echo "browser=$(jq -r .browser "$scope_file")" >> "$GITHUB_OUTPUT"
+            echo "deploy_api=$(jq -r .deployApi "$scope_file")" >> "$GITHUB_OUTPUT"
+            echo "deploy_web=$(jq -r .deployWeb "$scope_file")" >> "$GITHUB_OUTPUT"
+            echo "ships=$(jq -r .ships "$scope_file")" >> "$GITHUB_OUTPUT"
           fi
 
-  verify:
-    name: Non-browser verification
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - run: npm ci
-
-      - run: npm audit --audit-level=high
-
-      - run: npm run verify:non-browser
-
-  browser:
-    name: Playwright (${{ matrix.project }})
-    needs: scope
-    if: needs.scope.outputs.ships == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - project: chromium
-            browser: chromium
-          - project: firefox
-            browser: firefox
-          - project: webkit
-            browser: webkit
-          - project: iphone-14
-            browser: webkit
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - run: npm ci
-
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-
-      - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
-
-      - name: Upload Playwright report (${{ matrix.project }})
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report-${{ matrix.project }}
-          path: |
-            apps/web/playwright-report
-            apps/web/test-results
-          retention-days: 7
-          if-no-files-found: ignore
+      - id: latest
+        name: Require the current main SHA
+        run: |
+          set -euo pipefail
+          remote_sha=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
+          validated_sha=$(git rev-parse HEAD)
+          if [ "$remote_sha" = "$validated_sha" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Validated ${validated_sha} was superseded by ${remote_sha}; skipping this deployment."
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            # Keep this run out of the successful-production baseline used by
+            # the next cumulative scope calculation.
+            exit 1
+          fi
 
   build:
-    name: Build and deploy
-    needs: [scope, verify, browser]
-    if: needs.scope.outputs.ships == 'true'
+    name: Promote validated surfaces
+    needs: scope
+    if: needs.scope.outputs.latest == 'true' && needs.scope.outputs.ships == 'true'
     runs-on: ubuntu-latest
-    # Verification is complete before this job starts. The UpdateStack wait in
-    # infra/scripts/deploy.mjs can still take up to 1200s, so leave enough room
-    # for that operation plus the API smoke and final website build.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.scope.outputs.head_sha }}
 
       - uses: actions/setup-node@v7
         with:
@@ -144,6 +108,7 @@ jobs:
       - run: npm ci
 
       - name: Deploy API
+        if: needs.scope.outputs.deploy_api == 'true'
         run: npm run deploy:api
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
@@ -152,22 +117,17 @@ jobs:
           ELIXIR_DROP_CFN_ROLE_ARN: ${{ vars.ELIXIR_DROP_CFN_ROLE_ARN }}
           ELIXIR_DROP_CODE_BUCKET: ${{ vars.ELIXIR_DROP_CODE_BUCKET }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
-          # Buttondown enrollment credentials. Passed here so CI is the
-          # authoritative source of the value; without them the deploy relies on
-          # UsePreviousValue and a manual seed. Empty/unset is tolerated by
-          # parameters.mjs (falls back to UsePreviousValue on an existing stack).
           BUTTONDOWN_API_KEY: ${{ secrets.ELIXIR_DROP_BUTTONDOWN_API_KEY }}
           BUTTONDOWN_NEWSLETTER_ID: ${{ secrets.ELIXIR_DROP_BUTTONDOWN_NEWSLETTER_ID }}
           APP_URL: https://drop.poapkings.com
-          # The API reports this so stale browser tabs can prompt a reload. It is
-          # the same commit the web bundle is built from below (GITHUB_SHA), and
-          # the front-end build id is its first 12 chars.
-          WEB_VERSION: ${{ github.sha }}
+          # A web release advances the referee evidence boundary. API-only
+          # releases preserve the deployed value through UsePreviousValue.
+          WEB_VERSION: ${{ needs.scope.outputs.deploy_web == 'true' && needs.scope.outputs.head_sha || '' }}
 
-      # The Fastmail token deliberately stays out of GitHub: the smoke script
-      # reports its JMAP probe as "not checked" here, and the operator-side
-      # `npm run check:beta` covers live mail verification from the fixed host.
+      # Fastmail stays fixed-host-only. CI's smoke reports its JMAP probe as
+      # not checked; `npm run check:beta` owns live mail verification.
       - name: Verify deployed API
+        if: needs.scope.outputs.deploy_api == 'true'
         run: npm run smoke:api
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
@@ -175,21 +135,23 @@ jobs:
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
 
-      # The API deploy writes api-config.json; rebuild so Pages contains the
-      # endpoint emitted by the stack that was just promoted.
+      # deploy:api writes the stack's endpoint to api-config.json. A web release
+      # deliberately passes through the API first so its referee version and
+      # the Pages bundle retain one production boundary.
       - name: Build website with deployed API configuration
+        if: needs.scope.outputs.deploy_web == 'true'
         run: npm run build --workspace=@elixir-drop/web
 
-      - uses: actions/upload-pages-artifact@v5
+      - if: needs.scope.outputs.deploy_web == 'true'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/dist/
 
   deploy:
-    needs: build
+    name: Publish Pages
+    needs: [scope, build]
+    if: needs.scope.outputs.latest == 'true' && needs.scope.outputs.deploy_web == 'true' && needs.build.result == 'success'
     runs-on: ubuntu-latest
-    # Pages normally publishes quickly, but its deployment service can spend
-    # more than ten minutes processing an otherwise healthy artifact. Keep the
-    # job and action ceilings aligned so the runner does not cancel it first.
     timeout-minutes: 20
     permissions:
       pages: write
@@ -203,7 +165,42 @@ jobs:
         with:
           timeout: 1200000
 
-      - name: Verify deployed website
+      - name: Verify deployed website and build manifest
+        env:
+          EXPECTED_SHA: ${{ needs.scope.outputs.head_sha }}
         run: |
+          set -euo pipefail
           curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/ | grep -q "Elixir Drop"
           curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/api-config.json | grep -q "apiBaseUrl"
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 "https://drop.poapkings.com/version.json?check=${EXPECTED_SHA}" | jq -e --arg version "$EXPECTED_SHA" '.webVersion == $version[0:12]'
+
+  mark:
+    name: Record production head
+    needs: [scope, build, deploy]
+    if: >-
+      always() &&
+      needs.scope.result == 'success' &&
+      needs.scope.outputs.latest == 'true' &&
+      (
+        needs.scope.outputs.ships != 'true' ||
+        (
+          needs.build.result == 'success' &&
+          (needs.scope.outputs.deploy_web != 'true' || needs.deploy.result == 'success')
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write production marker
+        env:
+          PRODUCTION_SHA: ${{ needs.scope.outputs.head_sha }}
+        run: echo "$PRODUCTION_SHA" > "${RUNNER_TEMP}/production-head"
+
+      # Validation reads the SHA from the artifact name. Only this final job can
+      # create one, so a failed, skipped, or superseded promotion never advances
+      # the cumulative production baseline.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: production-head-${{ needs.scope.outputs.head_sha }}
+          path: ${{ runner.temp }}/production-head
+          retention-days: 90

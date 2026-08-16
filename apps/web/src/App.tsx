@@ -5,7 +5,7 @@ import { accountError, accountStatus, initializeAccount, player } from './lib/ac
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
-import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
+import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
 import ReleaseNotice from './components/ReleaseNotice'
 import PlayerTagNudge from './components/PlayerTagNudge'
@@ -288,14 +288,14 @@ export default function App() {
     }
   }, [apiOutage])
 
-  // Watch for a newer front-end build: /stats reports the current version, so a
-  // check at startup, periodic poll, and refocus check catch a stale installed
-  // PWA and let the player reload. Stops polling once an update is known.
+  // Watch Pages for a newer front-end build. A startup check, periodic poll,
+  // and refocus check catch a stale installed PWA without coupling this signal
+  // to player API availability. Stops polling once an update is known.
   useEffect(() => {
     if (!isUpdateNoticeEnabled()) return
     const check = () => {
       if (updateAvailable.value || document.visibilityState !== 'visible') return
-      void getStats().catch(() => {})
+      void checkForWebUpdate()
     }
     check()
     const timer = window.setInterval(check, 15 * 60_000)

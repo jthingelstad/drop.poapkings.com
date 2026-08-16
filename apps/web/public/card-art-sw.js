@@ -24,7 +24,7 @@ const cardPath = /^\/cards\/\d+(?:_(?:evo|hero))?\.png$/
 // Everything the app needs to boot and play offline. Card art has its own
 // cache; api-config.json is excluded on purpose.
 const shellPath = /^\/(?:assets\/|site\.webmanifest$|favicon|apple-touch-icon)/
-const NEVER_CACHE = new Set(['/api-config.json', '/card-art-sw.js'])
+const NEVER_CACHE = new Set(['/api-config.json', '/version.json', '/card-art-sw.js'])
 let fillQueue = Promise.resolve()
 
 function isCardRequest(request) {

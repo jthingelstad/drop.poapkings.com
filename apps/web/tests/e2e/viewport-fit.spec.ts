@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cardsData, expect, test, testApiBaseUrl, testStats, waitForKeypad } from './fixtures'
+import { cardsData, expect, test, waitForKeypad } from './fixtures'
 
 // Turn the setting on the way a player would leave it: written to the settings
 // blob before the app boots. PipKeypad reads it fresh when it mounts.
@@ -30,7 +30,7 @@ test.describe('mobile timed-mode controls', () => {
 
   // Practice is untimed (no countdown), but pairs a full card with the same
   // keypad — its bottom row must not fall off the first viewport either.
-  test('keeps the Practice keypad in the first viewport', async ({ page }) => {
+  test('keeps the Practice keypad in the first viewport', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/practice')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
     await expect(keypad).toBeVisible({ timeout: 12_000 })
@@ -67,11 +67,11 @@ test.describe('mobile timed-mode controls', () => {
   })
 
   test('keeps the Trade board separated below the update banner', async ({ page }) => {
-    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+    await page.route('**/version.json*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+        body: JSON.stringify({ webVersion: 'newer-build' })
       })
     )
     await page.goto('/#/trade')
@@ -212,11 +212,11 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps Higher / Lower in view below the update banner', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
-    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+    await page.route('**/version.json*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+        body: JSON.stringify({ webVersion: 'newer-build' })
       })
     )
     await page.goto('/#/higher-lower')
@@ -235,11 +235,11 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps the Trade board full-width below the update banner', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
-    await page.route(`${testApiBaseUrl}/stats`, (route) =>
+    await page.route('**/version.json*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ...testStats, webVersion: 'newer-build' })
+        body: JSON.stringify({ webVersion: 'newer-build' })
       })
     )
     await page.goto('/#/trade')

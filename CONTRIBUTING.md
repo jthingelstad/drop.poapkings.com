@@ -58,60 +58,68 @@ leave update notices enabled.
 **This section is the canonical description of the gate.** Other docs point here
 rather than repeating the list — if you change what `verify` runs, change it here.
 
-Before pushing, this must pass:
-
-```bash
-npm run verify
-```
-
-**Match the gate to what you changed.** The four-browser matrix exists to protect
-the running game; it proves nothing about a commit that cannot reach a player,
-and it is roughly three of the five minutes.
+**Match the local gate to what you changed.** Re-running the complete remote
+matrix locally on every change spent minutes without improving the deployment
+decision. The push gate remains authoritative; local work should prove the
+changed surface and finish with the smallest final gate below.
 
 | What the commit touches | Run |
 | --- | --- |
-| `apps/`, `services/`, `packages/`, `infra/` | `npm run verify` |
-| Gameplay, layout, or anything visual | `npm run verify` |
+| Routine web/gameplay/layout work | `npm run verify:quick` |
+| API, infrastructure, bridge, or Control Room only | `npm run verify:non-browser` |
+| E2E test only | the changed Playwright spec/project, then `npm run verify:non-browser` |
 | Root `scripts/`, `.claude/`, `AGENT-TEAM/`, `docs/`, root `*.md` | `npm run verify:non-browser` |
+| Offline/service-worker behavior, browser test infrastructure, cross-engine fixes, broad release QA | `npm run verify` |
 | Unsure | `npm run verify` |
 
-`npm run verify:quick` sits between them: the full non-browser gate plus
-Chromium and iPhone-14 only. It is the right choice while iterating on a UI
-change; finish with `npm run verify` before pushing one.
+`npm run verify:quick` is the routine web pre-push gate: full non-browser
+verification, the complete Chromium suite, and the tagged deployment smoke in
+Firefox, WebKit, and iPhone 14. `npm run verify` is the exhaustive version; it
+runs every test in all four projects and is intentionally reserved for the
+high-risk cases in the table. `npm run test:e2e:deploy` reproduces just the
+browser portion of the main deployment gate.
 
 It runs, across every implemented workspace: Prettier format check, oxlint
 (warnings fail), the release-tooling test (`test:release`), the objective-team
-contract test (`test:agent-team`), Stylelint, TypeScript typecheck, Knip (unused
-code/deps), Vitest unit tests with coverage thresholds, Playwright e2e across
-**Chromium / Firefox / WebKit / iPhone-14**, and a production build.
+contract test (`test:agent-team`), the CI-scope contract tests, Stylelint,
+TypeScript typecheck, Knip (unused code/deps), Vitest unit tests with coverage
+thresholds, Playwright e2e, and a production build.
 
-CI runs the same checks in two places, both defined in `.github/workflows/`.
-To keep the complete gate without serializing four browser engines on one
-runner, each workflow splits the work into one non-browser job and four
-parallel Playwright jobs (Chromium, Firefox, WebKit, and iPhone 14):
+CI divides validation from mutation so obsolete checks can be cancelled without
+interrupting a CloudFormation or Pages deployment:
 
-- **`verify.yml`** on every pull request — all five jobs run without secrets, so
-  the gate is fork-safe by construction.
-- **`deploy.yml`** on every push to `main` — API and Pages deployment waits for
-  all five jobs, and any failure stops both surfaces from deploying.
+- **`validate-main.yml`** on a push to `main` — non-browser verification always
+  runs. Player-reachable changes add two full Chromium shards plus the tagged
+  `@deploy` smoke in Firefox, desktop WebKit, and iPhone WebKit. A newer push
+  cancels an obsolete validation and reclassifies the cumulative change since
+  the last successful production run.
+- **`deploy.yml`** starts only after `Validate Main` succeeds. It downloads that
+  exact scope, requires the validated SHA still to be `main`, serializes
+  production mutation, and deploys only the affected surface.
+- **`verify.yml`** runs the exhaustive four-project suite on every pull request,
+  every manual dispatch, and once daily. It is fork-safe and is the regression
+  backstop for combinations intentionally removed from the per-push gate.
 
-`deploy.yml` opens with a `scope` job that asks whether the push changed
-anything a player can reach. When it did not — a skill, root tooling, or prose —
-the browser matrix and the deploy are skipped and the push costs about ninety
-seconds instead of eight minutes. Non-browser verification always runs, so
-tooling still gets linted, typechecked, and tested.
+The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
+infrastructure changes deploy and smoke the Lambda without rebuilding or
+publishing Pages. A web change updates the API first because `WEB_VERSION` is a
+referee-evidence boundary, then builds and publishes Pages from the endpoint the
+stack emitted. Test-only, fixed-host, tooling, and prose changes validate but do
+not republish unrelated public surfaces. Unknown paths take the full fail-safe
+path; manual `workflow_dispatch` also deploys both surfaces.
 
-That job fails safe: any path outside its explicit non-shipping list ships, a
-missing parent commit ships, a manual `workflow_dispatch` ships, and `.github/`
-is deliberately absent from the list so a commit repairing the pipeline can
-still run it. If a deploy is ever skipped that should not have been, re-run the
-workflow manually — `workflow_dispatch` always deploys.
+Tests tagged `@deploy` should cover a critical player journey, a known
+engine-specific regression, or a production boundary such as offline fallback
+or run recording. Do not tag broad visual inventories or long exhaustive loops
+only to increase the count: full Chromium and the daily matrix already own
+those. A deployment-tag change must be exercised locally with
+`npm run test:e2e:deploy`.
 
-Both workflows also run `npm audit --audit-level=high` ahead of the gate; that
-audit is not part of `npm run verify` itself (`npm run check:beta` bundles the
-two locally). Root `npm run verify` remains the complete sequential pre-push
-command; `npm run verify:non-browser` is the fast CI/local subset when browser
-coverage is running separately.
+Both validation workflows also run `npm audit --audit-level=high` ahead of the
+gate; that audit is not part of `npm run verify` itself (`npm run check:beta`
+bundles the two locally). Root `npm run verify` remains the complete sequential
+pre-push command; `verify:quick` is the normal web command, and
+`verify:non-browser` is the complete gate for changes with no browser runtime.
 
 Handy sub-commands while iterating:
 
@@ -163,14 +171,16 @@ workspaces, and **only the bridge may call the Clash Royale API at runtime**.
 This repository **commits directly to `main`** — no feature branches and no
 PR-based review. That is the stated convention for maintainers and for the
 scheduled `AGENT-TEAM/` roles (`AGENTS.md` → "Work tracking"), and it is what the
-history shows. `main` is protected by the gate, not by review: the push-to-main
-workflow runs `npm run verify` before it deploys anything.
+history shows. `main` is protected by the gate, not by review: `Validate Main`
+must succeed before the exact validated head can enter the serialized
+deployment workflow.
 
 If you do not have push access, the fork-and-pull-request path is the way in:
 
 - Fork, branch in your fork, keep the change focused, and describe what and why.
 - `.github/workflows/verify.yml` runs the same gate on your PR, with no secrets.
-- Make sure `npm run verify` is green locally first — CI will run it again.
+- Run the local gate from the table above; CI supplies the authoritative remote
+  matrix.
 - Screenshots or a short clip help for any visual change.
 
 ## Reporting bugs & ideas

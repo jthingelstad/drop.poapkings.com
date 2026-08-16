@@ -42,12 +42,13 @@ reversible visibility decisions. Cross-cutting work keeps one originating owner.
 - `AGENTS.md` and `CLAUDE.md` are the repository and architecture sources of truth.
 - `SPEC.md` owns the implemented product/data contract; `GAMES.md` owns mode and
   scoring decisions.
-- `npm run verify` is the canonical source gate.
+- `CONTRIBUTING.md` owns the change-specific local and CI source gates.
 - `AGENT-TEAM/scripts/objective-lease.mjs` serializes mutating objective runs in the
   shared checkout.
 - `python3 AGENT-TEAM/scripts/automation_audit.py` verifies the registry against installed
   Codex tasks; use `--registry-only` in source-only checks.
-- `.github/workflows/deploy.yml` ships Lambda and Pages together from `main`.
+- `.github/workflows/validate-main.yml` gates `main`; `deploy.yml` serializes and
+  ships only the validated production surfaces.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
 - `.claude/skills/cut-release/` is a user-triggered named-release ceremony, not an

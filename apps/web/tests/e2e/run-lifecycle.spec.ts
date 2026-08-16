@@ -11,7 +11,7 @@ import {
   waitForKeypad
 } from './fixtures'
 
-test('a server failure while preparing a signed run falls back to local play', async ({ page }) => {
+test('a server failure while preparing a signed run falls back to local play', { tag: '@deploy' }, async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let attempts = 0
   await page.unroute(testApiRoute)

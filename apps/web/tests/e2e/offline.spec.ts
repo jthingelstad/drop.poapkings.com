@@ -122,7 +122,7 @@ test('primary navigation replaces Ranks and You with an Offline destination', as
   ).toBeVisible()
 })
 
-test('an API-only outage allows local play while navigator remains online', async ({ page }) => {
+test('an API-only outage allows local play while navigator remains online', { tag: '@deploy' }, async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.ed-gcard').first()).toBeVisible()
 
@@ -150,7 +150,7 @@ test('an API-only outage allows local play while navigator remains online', asyn
   expect(startRequests).toBeLessThanOrEqual(1)
 })
 
-test('Practice is actually playable with player services unreachable', async ({ page }) => {
+test('Practice is actually playable with player services unreachable', { tag: '@deploy' }, async ({ page }) => {
   // The real cold-boot shape: the app opens from cache, every API call fails,
   // and the account never resolves. Practice must still deal and play — the
   // first version of this shipped with an account gate in front of it, so the
@@ -187,7 +187,7 @@ test('Practice is actually playable with player services unreachable', async ({ 
 const offlineModes = ['surge', 'practice', 'higher-lower', 'trade', 'survival', 'rain'] as const
 
 for (const mode of offlineModes) {
-  test(`${mode} starts and responds with player services disconnected`, async ({ page }) => {
+  test(`${mode} starts and responds with player services disconnected`, { tag: '@deploy' }, async ({ page }) => {
     allowOfflineTransportErrors.add(page)
     await page.unroute(testApiRoute)
     await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))

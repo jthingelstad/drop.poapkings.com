@@ -75,12 +75,27 @@ public API endpoint to `apps/web/public/api-config.json`.
 
 ## Continuous deployment
 
-Every push to `main` runs `.github/workflows/deploy.yml`: a high-severity `npm
-audit`, the repository quality gate, `npm run deploy:api`, a smoke test against
-the deployed API, a website rebuild against the endpoint that stack emitted, and
-only then the GitHub Pages publish. A failed API deployment blocks the website
-deployment, preventing incompatible web and Lambda versions from reaching
-production. What the quality gate contains is documented in `CONTRIBUTING.md`.
+Every push to `main` first runs `.github/workflows/validate-main.yml`: a
+high-severity `npm audit`, non-browser verification, and—when browser code can
+change—the sharded Chromium suite plus the tagged cross-browser deployment
+smoke. Validation is safe to cancel when a newer push arrives; the replacement
+classifies the cumulative diff since the last successful production run. What
+each quality gate contains is documented in `CONTRIBUTING.md`.
+
+A successful validation triggers `.github/workflows/deploy.yml`, which requires
+that exact SHA still to be `main` and serializes production work. API/infra-only
+changes run `npm run deploy:api` and the API smoke without publishing Pages. Web
+and shared-package changes first update the API's referee `WEB_VERSION`, smoke
+the API, rebuild against the stack endpoint, and then publish Pages. Test-only,
+fixed-host, tooling, and documentation changes stop after validation. This keeps
+incompatible web and Lambda versions from reaching production without paying
+for an unrelated surface on every commit.
+
+Lambda artifacts use a SHA-256 content key. Re-running an identical bundle does
+not invent a new S3 key or force a Lambda publication, and CloudFormation's
+"No updates" response is a successful no-op. The website emits an uncached
+`version.json`; stale tabs poll that Pages-owned manifest rather than treating
+player API reachability as a web-version signal.
 
 GitHub Actions receives only the limited `elixir-drop` IAM deploy-user key through
 the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
@@ -91,8 +106,8 @@ copying those application secrets into GitHub. The CI smoke step therefore
 reports its Fastmail JMAP probe as "not checked" — live mail verification runs
 from the fixed host via `npm run check:beta`. (If a
 `ELIXIR_DROP_FASTMAIL_JMAP_TOKEN` repository secret still exists from an earlier
-setup, delete it.) Pull requests run the same gate through
-`.github/workflows/verify.yml` with no secrets at all — fork-safe by
+setup, delete it.) Pull requests and the daily exhaustive browser regression run
+through `.github/workflows/verify.yml` with no secrets at all — fork-safe by
 construction.
 
 The first stack creation and any intentional secret rotation remain local
