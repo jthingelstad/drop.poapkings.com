@@ -163,7 +163,9 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v5
         with:
-          timeout: 1200000
+          # deploy-pages caps this input at ten minutes; a larger value only
+          # emits a warning and is silently reduced to this value.
+          timeout: 600000
 
       - name: Verify deployed website and build manifest
         env:
