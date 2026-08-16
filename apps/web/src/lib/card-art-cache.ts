@@ -6,6 +6,11 @@ const CARD_ART_BATCH_DELAY_MS = 750
 const WORKER_ACTIVATION_TIMEOUT_MS = 15_000
 const CACHE_MESSAGE = 'cache-card-art'
 const CARD_CACHE_PREFIX = 'elixir-drop-card-art-base-'
+// This icon is rendered only after some answers and hints, so it may not have
+// appeared in the performance entries when the shell is committed. Keep it in
+// the explicit shell set so a cold offline choice/reveal never shows a broken
+// image after the rest of Practice has loaded successfully.
+const ESSENTIAL_SHELL_ASSETS = ['/assets/elixir-drop.png']
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
@@ -163,7 +168,7 @@ function waitForExpectedWorker(
 // the document itself. Read from the DOM rather than a build manifest so it can
 // never drift from what shipped.
 function shellUrls(): string[] {
-  const urls = new Set<string>(['/'])
+  const urls = new Set<string>(['/', ...ESSENTIAL_SHELL_ASSETS])
   for (const node of document.querySelectorAll<HTMLScriptElement>('script[src]')) urls.add(node.src)
   for (const node of document.querySelectorAll<HTMLLinkElement>('link[href]')) {
     const rel = node.rel

@@ -81,7 +81,10 @@ describe('card art cache', () => {
     // Every visit hands over the shell immediately, then fills card art in
     // paced batches so every locally generated challenge can render offline.
     expect(postMessage).toHaveBeenCalledTimes(1)
-    expect(postMessage).toHaveBeenCalledWith({ type: 'cache-shell', urls: expect.arrayContaining(['/']) })
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'cache-shell',
+      urls: expect.arrayContaining(['/', '/assets/elixir-drop.png'])
+    })
     vi.advanceTimersByTime(750)
     expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'cache-card-art', urls: allCardArtUrls.slice(0, 4) })
   })
