@@ -202,32 +202,24 @@ export function HomeHeroCarousel({
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
   const reduceMotion = isReducedMotionEnabled()
-  const swipeStart = useRef<{ pointerId: number; x: number; y: number } | null>(null)
-  const swiped = useRef(false)
+  const trackRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (paused || reduceMotion) return
-    const timer = window.setTimeout(() => setActive((current) => (current + 1) % HERO_SLIDE_COUNT), HERO_ROTATION_MS)
+    const timer = window.setTimeout(() => {
+      const next = (active + 1) % HERO_SLIDE_COUNT
+      const track = trackRef.current
+      if (track) track.scrollTo({ left: next * track.clientWidth, behavior: 'smooth' })
+      else setActive(next)
+    }, HERO_ROTATION_MS)
     return () => window.clearTimeout(timer)
   }, [active, paused, reduceMotion])
 
-  const select = (index: number) => setActive((index + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT)
-
-  const finishSwipe = (event: PointerEvent) => {
-    const start = swipeStart.current
-    if (!start || start.pointerId !== event.pointerId) return
-    swipeStart.current = null
-
-    const deltaX = event.clientX - start.x
-    const deltaY = event.clientY - start.y
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return
-
-    swiped.current = true
-    event.preventDefault()
-    select(active + (deltaX < 0 ? 1 : -1))
-    window.setTimeout(() => {
-      swiped.current = false
-    }, 0)
+  const select = (index: number) => {
+    const next = (index + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT
+    const track = trackRef.current
+    if (track) track.scrollTo({ left: next * track.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' })
+    else setActive(next)
   }
 
   return (
@@ -244,27 +236,49 @@ export function HomeHeroCarousel({
       }}
     >
       <div
-        class="ed-hero-carousel__slide"
+        class="ed-hero-carousel__track"
+        ref={trackRef}
         aria-live="off"
-        onPointerDown={(event) => {
-          if (event.button !== 0 || event.isPrimary === false) return
-          swipeStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
-          swiped.current = false
-        }}
-        onPointerUp={finishSwipe}
-        onPointerCancel={() => {
-          swipeStart.current = null
-          swiped.current = false
-        }}
-        onClickCapture={(event) => {
-          if (!swiped.current) return
-          event.preventDefault()
-          event.stopPropagation()
+        onPointerDown={() => setPaused(true)}
+        onPointerUp={() => setPaused(false)}
+        onPointerCancel={() => setPaused(false)}
+        onScroll={(event) => {
+          const track = event.currentTarget
+          if (track.clientWidth === 0) return
+          const next = Math.round(track.scrollLeft / track.clientWidth)
+          if (next >= 0 && next < HERO_SLIDE_COUNT) setActive(next)
         }}
       >
-        {active === 0 && <FeaturedHero data={data} game={game} withHours={withHours} />}
-        {active === 1 && <FreePassHero data={data} withHours={withHours} />}
-        {active === 2 && <ShareHero />}
+        <div
+          class="ed-hero-carousel__slide"
+          role="group"
+          aria-roledescription="slide"
+          aria-label="1 of 3"
+          aria-hidden={active !== 0}
+          inert={active !== 0}
+        >
+          <FeaturedHero data={data} game={game} withHours={withHours} />
+        </div>
+        <div
+          class="ed-hero-carousel__slide"
+          role="group"
+          aria-roledescription="slide"
+          aria-label="2 of 3"
+          aria-hidden={active !== 1}
+          inert={active !== 1}
+        >
+          <FreePassHero data={data} withHours={withHours} />
+        </div>
+        <div
+          class="ed-hero-carousel__slide"
+          role="group"
+          aria-roledescription="slide"
+          aria-label="3 of 3"
+          aria-hidden={active !== 2}
+          inert={active !== 2}
+        >
+          <ShareHero />
+        </div>
       </div>
       <div class="ed-hero-carousel__controls" aria-label="Choose a hero slide">
         <button type="button" aria-label="Previous slide" onClick={() => select(active - 1)}>

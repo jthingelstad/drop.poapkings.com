@@ -25,7 +25,7 @@ test(
 
     // The hero rotates by UTC day. Its result must follow the featured mode
     // instead of permanently asserting Surge's best on a non-Surge hero.
-    const featured = (await page.locator('.ed-hero__wordmark').innerText()).trim()
+    const featured = (await page.locator('.ed-hero__wordmark').first().innerText()).trim()
     const expectedBest: Record<string, string> = {
       SURGE: '67.299s',
       TRADE: '11.800s'
@@ -60,7 +60,7 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
 
   // The hero promotes one of those five, and the same one is accented in the
   // row — so the promotion never points somewhere the list does not.
-  const wordmark = (await page.locator('.ed-hero__wordmark').textContent())?.trim() ?? ''
+  const wordmark = (await page.locator('.ed-hero__wordmark').first().textContent())?.trim() ?? ''
   expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
   const accented = row.locator('.ed-gcard--accent')
   await expect(accented).toHaveCount(1)
@@ -77,14 +77,20 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await page.goto('/')
 
   await expect(page.getByRole('heading', { name: 'Elixir Drop', exact: true })).toBeVisible()
-  const featuredHeight = await page.locator('.ed-hero').evaluate((element) => element.getBoundingClientRect().height)
+  const track = page.locator('.ed-hero-carousel__track')
+  const slides = track.locator('.ed-hero-carousel__slide')
+  await expect(slides).toHaveCount(3)
+  const featuredHeight = await slides
+    .first()
+    .locator('.ed-hero')
+    .evaluate((element) => element.getBoundingClientRect().height)
   const gamesTop = await page
     .locator('.ed-more__head')
     .first()
     .evaluate((element) => element.getBoundingClientRect().top)
   await page.getByRole('button', { name: 'Free Pass challenge' }).click()
+  await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
   const pass = page.locator('.ed-hero--pass')
-  await expect(pass).toBeVisible()
   await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
   await expect(pass.locator('.ed-hero-podium')).toHaveCount(0)
   await expect(pass).not.toContainText('Provisional until Fair Play review')
@@ -101,8 +107,8 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   )
 
   await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
+  await expect(slides.nth(2)).toHaveAttribute('aria-hidden', 'false')
   const share = page.locator('.ed-hero--share')
-  await expect(share).toBeVisible()
   expect(await share.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
   expect(
     await page
@@ -114,34 +120,46 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
 })
 
-test('the hero carousel responds to horizontal touch swipes', async ({ page }) => {
+test('the hero carousel is a finger-tracking horizontal scroll surface', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
 
-  const slide = page.locator('.ed-hero-carousel__slide')
-  const featured = (await page.locator('.ed-hero__wordmark').innerText()).trim()
+  const track = page.locator('.ed-hero-carousel__track')
+  const slides = track.locator('.ed-hero-carousel__slide')
   const gamesTop = await page
     .locator('.ed-more__head')
     .first()
     .evaluate((element) => element.getBoundingClientRect().top)
 
-  await slide.dispatchEvent('pointerdown', {
-    pointerId: 1,
-    pointerType: 'touch',
-    isPrimary: true,
-    button: 0,
-    clientX: 320,
-    clientY: 260
+  const geometry = await track.evaluate((element) => {
+    const styles = getComputedStyle(element)
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      overflowX: styles.overflowX,
+      scrollSnapType: styles.scrollSnapType
+    }
   })
-  await slide.dispatchEvent('pointerup', {
-    pointerId: 1,
-    pointerType: 'touch',
-    isPrimary: true,
-    button: 0,
-    clientX: 100,
-    clientY: 264
+  expect(geometry.scrollWidth).toBe(geometry.clientWidth * 3)
+  expect(geometry.overflowX).toBe('auto')
+  expect(geometry.scrollSnapType).toBe('x mandatory')
+
+  // Unlike a threshold-driven content swap, a native track can occupy the
+  // intermediate position under the player's finger before snapping.
+  const intermediate = await track.evaluate((element) => {
+    element.style.scrollSnapType = 'none'
+    element.scrollLeft = element.clientWidth * 0.35
+    const scrollLeft = element.scrollLeft
+    element.scrollLeft = 0
+    element.style.removeProperty('scroll-snap-type')
+    return scrollLeft
   })
-  await expect(page.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  expect(intermediate).toBeGreaterThan(0)
+  expect(intermediate).toBeLessThan(geometry.clientWidth)
+
+  await track.evaluate((element) => element.scrollTo({ left: element.clientWidth, behavior: 'auto' }))
+  await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
+  await expect(slides.nth(1).locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
   expect(
     await page
       .locator('.ed-more__head')
@@ -149,23 +167,8 @@ test('the hero carousel responds to horizontal touch swipes', async ({ page }) =
       .evaluate((element) => element.getBoundingClientRect().top)
   ).toBe(gamesTop)
 
-  await slide.dispatchEvent('pointerdown', {
-    pointerId: 2,
-    pointerType: 'touch',
-    isPrimary: true,
-    button: 0,
-    clientX: 100,
-    clientY: 260
-  })
-  await slide.dispatchEvent('pointerup', {
-    pointerId: 2,
-    pointerType: 'touch',
-    isPrimary: true,
-    button: 0,
-    clientX: 320,
-    clientY: 264
-  })
-  await expect(page.locator('.ed-hero__wordmark')).toHaveText(featured)
+  await track.evaluate((element) => element.scrollTo({ left: 0, behavior: 'auto' }))
+  await expect(slides.first()).toHaveAttribute('aria-hidden', 'false')
 })
 
 test('mobile install suggestion waits until the third browser session', async ({ page }) => {

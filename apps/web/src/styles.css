@@ -2932,9 +2932,22 @@ html.reduce-motion .ed-btn--gold {
   display: grid;
   gap: 9px;
 }
+.ed-hero-carousel__track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+.ed-hero-carousel__track::-webkit-scrollbar {
+  height: 0;
+}
 .ed-hero-carousel__slide {
+  flex: 0 0 100%;
+  min-width: 0;
   height: 400px;
-  touch-action: pan-y;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 .ed-hero-carousel__slide > .ed-hero {
   height: 100%;
