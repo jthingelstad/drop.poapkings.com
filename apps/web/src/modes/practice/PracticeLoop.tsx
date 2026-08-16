@@ -214,7 +214,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     return () => {
       active = false
     }
-  }, [openingCard, openingReadyId])
+  }, [openingCard, openingGenerationValue, openingReadyId])
 
   // Start the invisible response clock only after the hand exists in the DOM.
   // Background time is subtracted by the visibility handler above.

@@ -910,6 +910,9 @@ describe('Practice gameplay', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
+    // Force replay to deal the same opening card. Resetting the decoded-card
+    // gate must still rerun its preload effect for the new session generation.
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
 
     let host!: HTMLElement
     void act(() => {
@@ -933,8 +936,9 @@ describe('Practice gameplay', () => {
     // Replay resets the decoded-opening-card gate. Flush that passive preload
     // effect before asserting the new playable frame.
     await act(async () => replay!.click())
+    random.mockRestore()
     expect(session.prepare).toHaveBeenCalled()
-    expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
+    await vi.waitFor(() => expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice'))
     expect(host.textContent).toContain('0 practiced')
   })
 })
