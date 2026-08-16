@@ -3939,6 +3939,19 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   min-height: 0;
 }
 
+/* Keep vertical browser gestures inside active play. In particular, iOS can
+   otherwise rubber-band this zero-range scroller or turn a downward swipe
+   into a page refresh. Result pages deliberately keep normal document
+   scrolling through the .ed-gamewrap rules below. */
+.ed-mobile--game:has(> .ed-mobile__scroll--game > .ed-game),
+.ed-mobile__scroll--game:has(> .ed-game) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.ed-mobile__scroll--game:has(> .ed-game) {
+  touch-action: none;
+}
+
 /* Active play needs the fixed inner viewport below; completed summaries do
    not. Let the document own result-page scrolling so standalone iOS WebKit
    cannot retain a stale nested scroll range until the PWA is resumed. */

@@ -43,6 +43,60 @@ test.describe('mobile timed-mode controls', () => {
     expect(controlsFit).toBe(true)
   })
 
+  test('locks vertical browser gestures during active play', { tag: '@deploy' }, async ({ page }, testInfo) => {
+    await page.goto('/#/practice/costs')
+    await waitForKeypad(page)
+
+    const game = page.locator('.ed-game')
+    const scroller = page.locator('.ed-mobile__scroll--game')
+    const lock = await scroller.evaluate((element) => {
+      const styles = getComputedStyle(element)
+      return {
+        overflowY: styles.overflowY,
+        overscrollBehaviorY: styles.overscrollBehaviorY,
+        touchAction: styles.touchAction
+      }
+    })
+    expect(lock).toEqual({
+      overflowY: 'hidden',
+      overscrollBehaviorY: 'none',
+      touchAction: 'none'
+    })
+
+    const before = await page.evaluate(() => ({
+      documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+      gameTop: document.querySelector('.ed-game')?.getBoundingClientRect().top ?? 0,
+      scrollerScrollTop: document.querySelector('.ed-mobile__scroll--game')?.scrollTop ?? 0
+    }))
+    const bounds = await game.boundingBox()
+    expect(bounds).not.toBeNull()
+
+    // Mobile WebKit does not expose wheel input through Playwright. Chromium's
+    // mobile viewport exercises displacement, while every engine asserts the
+    // CSS touch contract that prevents a real finger pan from reaching iOS.
+    if (testInfo.project.name === 'chromium') {
+      await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2)
+      await page.mouse.wheel(0, 500)
+      await page.mouse.wheel(0, -500)
+    }
+
+    const after = await page.evaluate(() => ({
+      documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+      gameTop: document.querySelector('.ed-game')?.getBoundingClientRect().top ?? 0,
+      scrollerScrollTop: document.querySelector('.ed-mobile__scroll--game')?.scrollTop ?? 0
+    }))
+    expect(after).toEqual(before)
+
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    const answer = page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true })
+    const answerBounds = await answer.boundingBox()
+    expect(answerBounds).not.toBeNull()
+    await page.touchscreen.tap(answerBounds!.x + answerBounds!.width / 2, answerBounds!.y + answerBounds!.height / 2)
+    await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+  })
+
   test('keeps the complete Ledger interaction in the first viewport', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/practice/ledger')
     await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
