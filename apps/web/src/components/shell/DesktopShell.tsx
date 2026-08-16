@@ -4,7 +4,6 @@
 import type { ComponentChildren } from 'preact'
 import { offline } from '../../lib/api-availability'
 import { route, navigate } from '../../lib/router'
-import { ELIXIR_DROP_DISCORD_URL } from '../../lib/links'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { player, accountStatus, signOut } from '../../lib/account'
 import { startScreensaver } from '../../lib/screensaver'
@@ -121,9 +120,8 @@ function LeftRail() {
         <a class="ed-railfoot__link" href="/privacy/">
           Privacy
         </a>
-        <a class="ed-railfoot__link" href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+        <a class="ed-railfoot__link" href="/discord/">
           Discord
-          <Icon name="external-link" />
         </a>
       </nav>
     </aside>

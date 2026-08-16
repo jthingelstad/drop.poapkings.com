@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://drop.poapkings.com/</loc></url>
+  <url><loc>https://drop.poapkings.com/games/</loc></url>
+  <url><loc>https://drop.poapkings.com/learn-elixir-costs/</loc></url>
+  <url><loc>https://drop.poapkings.com/elixir-costs/</loc></url>
+  <url><loc>https://drop.poapkings.com/badges/</loc></url>
+  <url><loc>https://drop.poapkings.com/discord/</loc></url>
+  <url><loc>https://drop.poapkings.com/install/</loc></url>
+  <url><loc>https://drop.poapkings.com/fair-play/</loc></url>
   <url><loc>https://drop.poapkings.com/about/</loc></url>
   <url><loc>https://drop.poapkings.com/faq/</loc></url>
-  <url><loc>https://drop.poapkings.com/fair-play/</loc></url>
   <url><loc>https://drop.poapkings.com/privacy/</loc></url>
   <url><loc>https://drop.poapkings.com/releases/</loc></url>
-  <url><loc>https://drop.poapkings.com/install/</loc></url>
 </urlset>

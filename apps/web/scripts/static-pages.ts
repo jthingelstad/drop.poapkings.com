@@ -1,13 +1,36 @@
+import { BADGE_LIST, type BadgeDefinition, type GameMode } from '@elixir-drop/contracts'
+import cardData from '../../../packages/game-data/cards.json' with { type: 'json' }
+import { GAME_CATALOG as GAMES } from '../src/lib/game-catalog.ts'
 import releaseData from '../src/data/releases.json' with { type: 'json' }
 
-export const STATIC_PAGE_SLUGS = ['about', 'faq', 'fair-play', 'privacy', 'releases', 'install'] as const
+export const STATIC_PAGE_SLUGS = [
+  'games',
+  'learn-elixir-costs',
+  'elixir-costs',
+  'badges',
+  'discord',
+  'install',
+  'fair-play',
+  'about',
+  'faq',
+  'privacy',
+  'releases'
+] as const
 export type StaticPageSlug = (typeof STATIC_PAGE_SLUGS)[number]
+
+interface SchemaItem {
+  name: string
+  url: string
+  description?: string
+}
 
 interface StaticPage {
   eyebrow: string
   title: string
   description: string
   body: string
+  schemaType?: 'WebPage' | 'CollectionPage'
+  schemaItems?: SchemaItem[]
 }
 
 interface ReleaseEntry {
@@ -20,10 +43,27 @@ interface ReleaseEntry {
   beta?: boolean
 }
 
+interface CardEntry {
+  id: number
+  name: string
+  elixir: number
+  rarity: string
+  type: string
+}
+
 const SITE_URL = 'https://drop.poapkings.com'
 const CONTACT = 'drop@poapkings.com'
+const DISCORD_URL = 'https://discord.gg/SdvKfJW5kA'
 const POLICY_NOTICE =
   'This material is unofficial and is not endorsed by Supercell. For more information see Supercell’s Fan Content Policy: www.supercell.com/fan-content-policy.'
+const PRIMARY_NAV: ReadonlyArray<{ slug: StaticPageSlug; label: string }> = [
+  { slug: 'games', label: 'Game Modes' },
+  { slug: 'learn-elixir-costs', label: 'Learn Elixir Costs' },
+  { slug: 'install', label: 'Game Setup' },
+  { slug: 'fair-play', label: 'Fair Play' },
+  { slug: 'about', label: 'About' },
+  { slug: 'faq', label: 'FAQ' }
+]
 
 function escapeHtml(value: string): string {
   return value.replace(
@@ -32,8 +72,12 @@ function escapeHtml(value: string): string {
   )
 }
 
-function section(title: string, body: string, muted = false): string {
-  return `<section class="static-section${muted ? ' static-section--muted' : ''}">
+function titleCase(value: string): string {
+  return value.replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function section(title: string, body: string, muted = false, id?: string): string {
+  return `<section${id ? ` id="${escapeHtml(id)}"` : ''} class="static-section${muted ? ' static-section--muted' : ''}">
     <h2>${escapeHtml(title)}</h2>
     <div class="static-section__body">${body}</div>
   </section>`
@@ -45,6 +89,10 @@ function paragraph(copy: string): string {
 
 function pageSections(sections: string[]): string {
   return `<div class="static-sections">${sections.join('\n')}</div>`
+}
+
+function playLink(path: string, label: string, event: string): string {
+  return `<a class="static-inline-cta" href="/#${path}" data-tinylytics-event="${event}">${escapeHtml(label)} →</a>`
 }
 
 function releaseDateLabel(date: string): string {
@@ -81,26 +129,24 @@ function releasesBody(): string {
 const ABOUT_BODY = pageSections([
   section(
     'Built for fast reads',
-    paragraph(
+    `${paragraph(
       'Elixir Drop is a free browser game for learning Clash Royale card elixir costs through fast, replayable games.'
-    )
-  ),
-  section(
-    'Six ways to train',
-    paragraph(
-      'Practice teaches without a clock. Surge races through 15 cards. Higher / Lower and Trade test comparison, Survival is sudden death, and Rain drops cards you must clear before they land.'
-    )
+    )}${paragraph(
+      'Explore the <a href="/games/">six game modes</a>, follow the <a href="/learn-elixir-costs/">learning guide</a>, or check a card in the <a href="/elixir-costs/">elixir-cost reference</a>.'
+    )}`
   ),
   section(
     'Play, improve, compete',
-    paragraph(
-      'Every mode works without an account. Sign in when you want to save progress and post eligible ranked scores to seasonal and all-time leaderboards. Leading results may rank provisionally while Fair Play reviews them.'
-    )
+    `${paragraph(
+      'Every mode works without an account. Sign in when you want to save progress, <a href="/badges/">earn badge milestones</a>, and post eligible ranked scores to seasonal and all-time leaderboards.'
+    )}${paragraph(
+      'Leading results may rank provisionally while <a href="/fair-play/">Fair Play</a> reviews them. The review process is designed to protect honest competition without treating an automated signal as a verdict.'
+    )}`
   ),
   section(
-    'Contact Drop',
+    'Help shape Drop',
     paragraph(
-      `Questions, feedback, privacy requests, or help with a result? Email <a href="mailto:${CONTACT}">${CONTACT}</a>. Sign-in magic links come from elixir@poapkings.com.`
+      `Share feedback and strategies in the <a href="/discord/">Elixir Drop Discord</a>. For private questions, privacy requests, or help with a result, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Sign-in magic links come from elixir@poapkings.com.`
     )
   ),
   section(
@@ -115,7 +161,7 @@ const ABOUT_BODY = pageSections([
 const FAQ_ITEMS = [
   [
     'Do I need an account?',
-    'No. You can play every mode as a guest. Signing in with your email saves scores, levels, and leaderboard placement across devices.'
+    'No. You can play every mode as a guest. Signing in with your email saves scores, levels, badge progress, and leaderboard placement across devices.'
   ],
   [
     'How does sign-in work?',
@@ -123,27 +169,31 @@ const FAQ_ITEMS = [
   ],
   [
     'Are the elixir costs official?',
-    'Card costs mirror the live Clash Royale card set. When Supercell rebalances a card, Drop updates its catalog.'
+    'Card costs mirror the live Clash Royale card set. When Supercell rebalances a card, Drop updates its catalog. The current catalog is available on the Elixir Costs page.'
   ],
   [
     'What counts for the leaderboards?',
-    'Signed-in scores from ranked modes are eligible for season and all-time boards. Guest and Practice runs never rank. Leading or technically unusual results may rank provisionally while Fair Play reviews them.'
+    'Signed-in online scores from ranked modes are eligible for season and all-time boards. Guest, Practice, and offline runs never rank. Leading or technically unusual results may rank provisionally while Fair Play reviews them.'
   ],
   [
     'What do the Fair Play seals mean?',
     'Most games are never reviewed and carry no seal. Awaiting means a referee is checking the run while it ranks provisionally. Cleared means a referee checked that exact run and it remains eligible. Excluded means the run leaves the board. Automatic checks start review but never decide it.'
   ],
   [
+    'How do badges work?',
+    'Each public badge is a ladder with several milestones. Stronger milestones change its medallion tier. A small set of hidden badges keeps its identity and requirement secret until earned.'
+  ],
+  [
     'How do I contact Drop or dispute a run?',
-    `Email <a href="mailto:${CONTACT}">${CONTACT}</a> for questions, feedback, privacy requests, or a Fair Play re-review. Include the run tag shown in your game history when asking about a result.`
+    `Email <a href="mailto:${CONTACT}">${CONTACT}</a> for private questions, privacy requests, or a Fair Play re-review. Include the run tag shown in your game history when asking about a result. General feedback is also welcome in the <a href="/discord/">Elixir Drop Discord</a>.`
   ],
   [
     'Is Elixir Drop made by Supercell?',
     'No. It is a fan-made trainer run by POAP KINGS and is not affiliated with or endorsed by Supercell.'
   ],
   [
-    'How do I install it on my phone?',
-    'Open the Install page and follow the steps. Adding Drop to your home screen removes the browser bars for a full-screen game.'
+    'How do I set up the game on my phone?',
+    'Open Game Setup and follow the iPhone or Android steps. Adding Drop to your home screen removes browser bars, gives you a one-tap launch icon, and prepares the game for offline play.'
   ]
 ] as const
 
@@ -230,19 +280,362 @@ ${pageSections([
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
 ])}<p class="static-updated">Last updated August 16, 2026.</p>`
 
-const INSTALL_BODY = `<p class="static-intro">Add Drop to your home screen and the browser bars disappear—more room for falling cards, a cleaner game, and a one-tap launch icon.</p>
+const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([
   section(
     'iPhone · Safari',
-    '<ol><li>Tap the Share button in the Safari toolbar.</li><li>Scroll and choose <strong>Add to Home Screen</strong>.</li><li>Tap Add. The Drop icon appears on your home screen.</li></ol>'
+    '<ol><li>Open Elixir Drop in Safari while you are online.</li><li>Tap the Share button in the Safari toolbar.</li><li>Scroll and choose <strong>Add to Home Screen</strong>.</li><li>Tap Add. Launch Drop once from the new home-screen icon so its game files and card art are ready.</li></ol>'
   ),
   section(
     'Android · Chrome',
-    '<ol><li>Tap the menu in the top-right of Chrome.</li><li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li><li>Confirm. Drop installs like a native app.</li></ol>'
+    '<ol><li>Open Elixir Drop in Chrome while you are online.</li><li>Tap the menu in the top-right of Chrome.</li><li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li><li>Confirm, then launch Drop once from the new icon so its game files and card art are ready.</li></ol>'
+  ),
+  section(
+    'Why use Game Setup?',
+    '<ul><li>A one-tap home-screen icon</li><li>More room to play without normal browser bars</li><li>All six games available when player services or your connection are unavailable</li></ul>'
+  ),
+  section(
+    'What offline play means',
+    `${paragraph(
+      'Offline runs are session-only. They do not save a personal best, season best, account history, Player XP, badges, daily activity, global game count, or leaderboard entry, and they are never uploaded later.'
+    )}${paragraph(
+      'Open the installed game while online before you need it offline. The app reports whether the card catalog, card art, and service worker are ready in App Info.'
+    )}`,
+    true
+  )
+])}`
+
+const MODE_DETAILS: Record<
+  GameMode,
+  { focus: string; format: string; ranked: string; overview: string; choose: string }
+> = {
+  practice: {
+    focus: 'Exact-cost recall',
+    format: 'Endless · untimed',
+    ranked: 'No',
+    overview:
+      'Name each card’s cost without a clock. Missed and slower cards return more often, optional hints turn recall into recognition, and the session ends whenever you choose.',
+    choose: 'Start here when you are learning the catalog or want a low-pressure warm-up.'
+  },
+  surge: {
+    focus: 'Speed and accuracy',
+    format: '15-card sprint',
+    ranked: 'Yes · lowest time',
+    overview:
+      'Race through 15 cards as quickly as possible. Every wrong answer adds two seconds, so clean recall beats frantic guessing.',
+    choose: 'Choose Surge for the clearest benchmark of instant cost recall.'
+  },
+  'higher-lower': {
+    focus: 'Relative cost',
+    format: '3 lives · tightening clock',
+    ranked: 'Yes · most correct',
+    overview:
+      'Two cards appear with different costs. Tap the more expensive card before the clock closes; a wrong answer or timeout costs one of three lives.',
+    choose: 'Choose Higher / Lower to sharpen quick comparisons before exact numbers feel automatic.'
+  },
+  trade: {
+    focus: 'Elixir exchanges',
+    format: '10 exchanges',
+    ranked: 'Yes · lowest time',
+    overview:
+      'Read cards from the Blue King side and call the trade from −4 through +4. A wrong answer adds two seconds and reveals a useful cost hint before you try again.',
+    choose: 'Choose Trade when you want card costs to become usable match decisions.'
+  },
+  survival: {
+    focus: 'Recall under pressure',
+    format: 'Sudden death',
+    ranked: 'Yes · longest streak',
+    overview:
+      'Cards come from the full catalog without repeats while the clock keeps tightening. One miss or timeout ends the run; clearing the catalog is a win.',
+    choose: 'Choose Survival when you want a high-stakes test of consistency.'
+  },
+  rain: {
+    focus: 'Fast visual recognition',
+    format: '3 lives · accelerating',
+    ranked: 'Yes · most cleared',
+    overview:
+      'Cards fall from the sky while you clear each one by cost. The pace accelerates, and a landed card or wrong answer costs one of three lives.',
+    choose: 'Choose Rain for the most arcade-like way to build fast visual recall.'
+  }
+}
+
+function gamesBody(): string {
+  const rows = GAMES.map((game) => {
+    const detail = MODE_DETAILS[game.mode]
+    return `<tr><th scope="row"><a href="#${game.mode}">${escapeHtml(game.name)}</a></th><td>${escapeHtml(
+      detail.focus
+    )}</td><td>${escapeHtml(detail.format)}</td><td>${escapeHtml(detail.ranked)}</td></tr>`
+  }).join('')
+  const modeSections = GAMES.map((game) => {
+    const detail = MODE_DETAILS[game.mode]
+    return section(
+      game.name,
+      `<div class="static-mode"><img src="${game.art}" width="88" height="88" alt=""><div>${paragraph(
+        escapeHtml(detail.overview)
+      )}${paragraph(`<strong>Best for:</strong> ${escapeHtml(detail.choose)}`)}${playLink(
+        game.path,
+        `Play ${game.name}`,
+        `content.games.play-${game.mode}`
+      )}</div></div>`,
+      false,
+      game.mode
+    )
+  })
+  return `<p class="static-intro">Six games train the same Clash Royale skill from different angles: seeing a card and knowing its elixir cost without stopping to calculate.</p>
+  <div class="static-table-wrap"><table><caption>Compare Elixir Drop game modes</caption><thead><tr><th>Mode</th><th>Trains</th><th>Format</th><th>Ranked</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${pageSections([
+    section(
+      'Which mode should I play?',
+      `${paragraph(
+        'New to the card catalog? Begin with <a href="#practice">Practice</a>. Want a clean speed benchmark? Play <a href="#surge">Surge</a>. Use <a href="#higher-lower">Higher / Lower</a> for comparisons, <a href="#trade">Trade</a> for match math, <a href="#survival">Survival</a> for consistency, and <a href="#rain">Rain</a> for an arcade challenge.'
+      )}${paragraph(
+        'Practice is intentionally unranked. The other five modes have seasonal and all-time leaderboards for signed-in online runs. Read <a href="/fair-play/">Fair Play</a> before competing for a leading result.'
+      )}`
+    ),
+    ...modeSections
+  ])}`
+}
+
+const LEARN_BODY = `<p class="static-intro">Knowing elixir costs is useful only when the answer arrives fast enough to leave your attention on the match. Elixir Drop turns that knowledge into repeatable recall.</p>
+${pageSections([
+  section(
+    'Why instant recall matters',
+    `${paragraph(
+      'Every card creates an elixir decision: defend cheaply, accept damage, pressure the other lane, or wait. If you have to calculate a familiar card’s cost, that calculation competes with placement, timing, cycle, and your opponent’s remaining elixir.'
+    )}${paragraph(
+      'The goal is not trivia. It is to recognize the cost quickly enough that the rest of the match gets more of your attention.'
+    )}`
+  ),
+  section(
+    'Recall before recognition',
+    `${paragraph(
+      '<strong>Recall</strong> means producing a cost from the card alone. <strong>Recognition</strong> means choosing it from visible options. Recognition is a useful bridge, but recall is the skill you need in a live match.'
+    )}${paragraph(
+      'Practice begins with recall and offers choices only when you ask for help. Missed cards return, so a weak answer becomes another learning opportunity instead of disappearing into a score.'
+    )}${playLink('/practice', 'Start Practice', 'content.learn.play-practice')}`
+  ),
+  section(
+    'Turn costs into elixir trades',
+    `${paragraph(
+      'Knowing that Fireball costs 4 and Musketeer costs 4 is the foundation. Reading whether an entire exchange leaves you up, down, or even is the next step. Higher / Lower trains quick relative reads; Trade makes you total both sides of an exchange under time pressure.'
+    )}${paragraph(
+      '<a href="/elixir-costs/">Use the complete elixir-cost reference</a> when you need to check a card, then return to a game so the answer becomes recall rather than lookup.'
+    )}${playLink('/trade', 'Practice elixir trades', 'content.learn.play-trade')}`
+  ),
+  section(
+    'A simple training routine',
+    '<ol><li><strong>Warm up in Practice.</strong> Play until you have recovered the cards you miss instead of stopping at the first good streak.</li><li><strong>Test exact recall in Surge.</strong> A 15-card run makes improvement easy to compare.</li><li><strong>Change the angle.</strong> Rotate through Higher / Lower, Trade, Survival, and Rain so the knowledge survives different kinds of pressure.</li><li><strong>Review, then repeat.</strong> Use the summary to identify weak costs or cards and return to Practice.</li></ol>'
+  ),
+  section(
+    'Keep the goal useful',
+    paragraph(
+      'A leaderboard time can make practice fun, but the durable win is faster, calmer match reading. Short, regular sessions are more useful than one exhausting session followed by a long gap.'
+    )
+  )
+])}`
+
+function elixirCostsBody(): string {
+  const data = cardData as { version: string; count: number; cards: CardEntry[] }
+  const byCost = new Map<number, CardEntry[]>()
+  for (const card of data.cards) {
+    const bucket = byCost.get(card.elixir) ?? []
+    bucket.push(card)
+    byCost.set(card.elixir, bucket)
+  }
+  const groups = [...byCost.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([cost, cards]) =>
+      section(
+        `${cost} elixir`,
+        `<ul class="static-card-grid">${cards
+          .sort((left, right) => left.name.localeCompare(right.name))
+          .map(
+            (card) =>
+              `<li><strong>${escapeHtml(card.name)}</strong><span>${escapeHtml(titleCase(card.rarity))} · ${escapeHtml(
+                titleCase(card.type)
+              )}</span></li>`
+          )
+          .join('')}</ul>`,
+        false,
+        `cost-${cost}`
+      )
+    )
+  return `<p class="static-intro">A complete reference to the ${data.count} Clash Royale cards currently used by Elixir Drop, grouped by elixir cost. The game catalog was refreshed ${escapeHtml(
+    releaseDateLabel(data.version)
+  )}.</p>
+  <nav class="static-jump" aria-label="Jump to an elixir cost">${[...byCost.keys()]
+    .sort((left, right) => left - right)
+    .map((cost) => `<a href="#cost-${cost}">${cost}</a>`)
+    .join('')}</nav>
+  ${pageSections(groups)}
+  <p class="static-afterword">Looking up a card answers today’s question. Practicing the catalog makes the answer available during a match. ${playLink(
+    '/practice',
+    'Practice the card catalog',
+    'content.costs.play-practice'
+  )}</p>`
+}
+
+const BADGE_GROUPS: ReadonlyArray<{ key: BadgeDefinition['group']; title: string; description: string }> = [
+  {
+    key: 'mode-mastery',
+    title: 'Mode Mastery',
+    description: 'Volume ladders that grow as you keep playing each mode.'
+  },
+  { key: 'mode-skill', title: 'Mode Skill', description: 'Personal-best ladders for stronger individual runs.' },
+  { key: 'progression', title: 'Progression', description: 'Milestones that span the whole Elixir Drop experience.' },
+  {
+    key: 'card-knowledge',
+    title: 'Card Knowledge',
+    description: 'Proof that your recall covers different parts of the card catalog.'
+  },
+  { key: 'habit', title: 'Habit', description: 'Milestones for returning and building a regular practice habit.' }
+]
+
+const BADGE_MODE: Partial<Record<string, GameMode>> = {
+  'surge-runner': 'surge',
+  clockbreaker: 'surge',
+  'bridge-read': 'higher-lower',
+  'coin-flip-killer': 'higher-lower',
+  'trade-reader': 'trade',
+  'sharp-trade': 'trade',
+  'last-stand': 'survival',
+  unbroken: 'survival',
+  stormchaser: 'rain',
+  downpour: 'rain',
+  reps: 'practice',
+  'clean-sweep': 'practice',
+  catalog: 'practice',
+  spellcaster: 'practice',
+  'tower-watch': 'practice',
+  'big-spender': 'practice'
+}
+
+function formatRung(rung: number, badge: BadgeDefinition): string {
+  const value = rung >= 1_000 ? rung.toLocaleString('en-US') : String(rung)
+  return badge.unit === 'seconds' ? `${value}s` : value
+}
+
+function badgesBody(): string {
+  const publicBadges = BADGE_LIST.filter((badge) => !badge.hidden)
+  const hiddenCount = BADGE_LIST.length - publicBadges.length
+  const groups = BADGE_GROUPS.map((group) => {
+    const badges = publicBadges.filter((badge) => badge.group === group.key)
+    return section(
+      group.title,
+      `${paragraph(escapeHtml(group.description))}<div class="static-badge-grid">${badges
+        .map((badge) => {
+          const mode = BADGE_MODE[badge.slug]
+          const game = mode ? GAMES.find((candidate) => candidate.mode === mode) : undefined
+          return `<article id="${escapeHtml(badge.slug)}" class="static-badge"><img src="/assets/badges/${escapeHtml(
+            badge.slug
+          )}-192.png" width="72" height="72" alt=""><div><h3>${escapeHtml(badge.name)}</h3><p>${escapeHtml(
+            badge.requirement ?? ''
+          )}</p><p class="static-badge__rungs"><strong>Milestones:</strong> ${badge.rungs
+            .map((rung) => escapeHtml(formatRung(rung, badge)))
+            .join(' · ')}</p>${
+            game
+              ? `<a href="/#${game.path}" data-tinylytics-event="content.badges.play-${game.mode}">Play ${escapeHtml(
+                  game.name
+                )} →</a>`
+              : ''
+          }</div></article>`
+        })
+        .join('')}</div>`
+    )
+  })
+  return `<p class="static-intro">Every finished game can move a badge ladder. Clear milestones to change a badge from unlit to copper, silver, gold, and finally prismatic.</p>
+  ${pageSections([
+    section(
+      'How badge ladders work',
+      `${paragraph(
+        'Badges are progress ladders, not one-time checkboxes. Each badge has several meaningful milestones. Your medallion shows the strongest tier you have reached and the exact rung that earned it.'
+      )}${paragraph(
+        'Badge progress is saved for signed-in online play. Guest and offline runs are playable, but they do not add badge progress.'
+      )}`
+    ),
+    ...groups,
+    section(
+      `${hiddenCount} hidden badges`,
+      '<div class="static-secret"><span aria-hidden="true">?</span><p>Some badges celebrate surprising moments instead of published goals. Their identities and requirements stay concealed until they are earned.</p></div>',
+      true
+    )
+  ])}`
+}
+
+const DISCORD_BODY = `<p class="static-intro">The Elixir Drop Discord is the easiest place to compare personal bests, share strategies, suggest improvements, and help shape what comes next.</p>
+${pageSections([
+  section(
+    'Everyone who plays is welcome',
+    `${paragraph(
+      'You do not need to be a POAP KINGS clan member. Join if you play Elixir Drop, are learning Clash Royale elixir costs, or simply want to follow the game’s development.'
+    )}<a class="static-inline-cta" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" data-tinylytics-event="content.discord.join">Join the Elixir Drop Discord →</a>`
+  ),
+  section(
+    'Good things to share',
+    '<ul><li>Feedback about a mode, screen, or confusing moment</li><li>Ideas for new training approaches</li><li>Personal bests, badge milestones, and learning strategies</li><li>Browser or device details when reporting a bug</li></ul>'
+  ),
+  section(
+    'Keep private matters private',
+    paragraph(
+      `Do not post email addresses, account details, Fair Play evidence, or other private information in public Discord channels. For privacy requests, sensitive reports, or a result review, email <a href="mailto:${CONTACT}">${CONTACT}</a>.`
+    ),
+    true
   )
 ])}`
 
 const PAGES: Record<StaticPageSlug, StaticPage> = {
+  games: {
+    eyebrow: 'Choose your drill',
+    title: 'Elixir Drop Game Modes',
+    description:
+      'Compare Practice, Surge, Higher / Lower, Trade, Survival, and Rain—six games for learning Clash Royale elixir costs.',
+    body: gamesBody(),
+    schemaType: 'CollectionPage',
+    schemaItems: GAMES.map((game) => ({
+      name: game.name,
+      url: `${SITE_URL}/games/#${game.mode}`,
+      description: game.description
+    }))
+  },
+  'learn-elixir-costs': {
+    eyebrow: 'Train the useful skill',
+    title: 'Learn Clash Royale Elixir Costs',
+    description:
+      'Learn why instant elixir-cost recall matters, how recall differs from recognition, and how to build a practical training routine.',
+    body: LEARN_BODY
+  },
+  'elixir-costs': {
+    eyebrow: 'Card reference',
+    title: 'Clash Royale Elixir Costs',
+    description: `Browse all ${(cardData as { count: number }).count} cards used by Elixir Drop, grouped by elixir cost with card type and rarity.`,
+    body: elixirCostsBody(),
+    schemaType: 'CollectionPage',
+    schemaItems: (cardData as { cards: CardEntry[] }).cards.map((card) => ({
+      name: card.name,
+      url: `${SITE_URL}/elixir-costs/#cost-${card.elixir}`,
+      description: `${titleCase(card.rarity)} ${card.type}, ${card.elixir} elixir`
+    }))
+  },
+  badges: {
+    eyebrow: 'Milestones that grow',
+    title: 'Elixir Drop Badges',
+    description:
+      'Explore Elixir Drop badge ladders for mode mastery, personal bests, progression, card knowledge, and practice habits.',
+    body: badgesBody(),
+    schemaType: 'CollectionPage',
+    schemaItems: BADGE_LIST.filter((badge) => !badge.hidden).map((badge) => ({
+      name: badge.name,
+      url: `${SITE_URL}/badges/#${badge.slug}`,
+      description: badge.requirement
+    }))
+  },
+  discord: {
+    eyebrow: 'Join the players',
+    title: 'Elixir Drop Discord',
+    description:
+      'Join the Elixir Drop Discord to share feedback, strategies, personal bests, badge milestones, ideas, and bug reports.',
+    body: DISCORD_BODY
+  },
   about: {
     eyebrow: 'What is this',
     title: 'About Elixir Drop',
@@ -278,31 +671,66 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
     body: releasesBody()
   },
   install: {
-    eyebrow: 'Full-screen play',
-    title: 'Install Elixir Drop',
-    description: 'Add Elixir Drop to an iPhone or Android home screen for full-screen play and one-tap launching.',
+    eyebrow: 'Full-screen and offline play',
+    title: 'Elixir Drop Game Setup',
+    description:
+      'Set up Elixir Drop on iPhone or Android for full-screen play, one-tap launching, and access to all six games offline.',
     body: INSTALL_BODY
   }
 }
 
 function pageNav(current: StaticPageSlug): string {
-  return STATIC_PAGE_SLUGS.map((slug) => {
-    const label = slug === 'fair-play' ? 'Fair Play' : slug[0]!.toUpperCase() + slug.slice(1)
-    return `<a href="/${slug}/"${slug === current ? ' aria-current="page"' : ''}>${label}</a>`
-  }).join('')
+  return PRIMARY_NAV.map(
+    ({ slug, label }) => `<a href="/${slug}/"${slug === current ? ' aria-current="page"' : ''}>${escapeHtml(label)}</a>`
+  ).join('')
+}
+
+function footerNav(current: StaticPageSlug): string {
+  const links: ReadonlyArray<{ slug?: StaticPageSlug; label: string; href: string }> = [
+    { slug: 'discord', label: 'Discord', href: '/discord/' },
+    { slug: 'releases', label: 'Releases', href: '/releases/' },
+    { slug: 'privacy', label: 'Privacy', href: '/privacy/' },
+    { label: 'Contact', href: `mailto:${CONTACT}` },
+    { label: 'POAP KINGS', href: 'https://poapkings.com/elixir-drop/' }
+  ]
+  return links
+    .map(
+      ({ slug, label, href }) =>
+        `<a href="${href}"${slug === current ? ' aria-current="page"' : ''}>${escapeHtml(label)}</a>`
+    )
+    .join('')
+}
+
+function pageSchema(page: StaticPage, canonical: string): string {
+  const graph: Record<string, unknown>[] = [
+    {
+      '@type': page.schemaType ?? 'WebPage',
+      '@id': canonical,
+      name: page.title,
+      url: canonical,
+      description: page.description,
+      isPartOf: { '@id': `${SITE_URL}/#website` }
+    }
+  ]
+  if (page.schemaItems) {
+    graph.push({
+      '@type': 'ItemList',
+      name: `${page.title} list`,
+      numberOfItems: page.schemaItems.length,
+      itemListElement: page.schemaItems.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        item: { '@type': 'Thing', ...item }
+      }))
+    })
+  }
+  return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')
 }
 
 export function renderStaticPage(slug: StaticPageSlug): string {
   const page = PAGES[slug]
   const canonical = `${SITE_URL}/${slug}/`
-  const schema = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: page.title,
-    url: canonical,
-    description: page.description,
-    isPartOf: { '@type': 'WebSite', name: 'Elixir Drop', url: `${SITE_URL}/` }
-  }).replace(/</g, '\\u003c')
+  const schema = pageSchema(page, canonical)
 
   return `<!doctype html>
 <html lang="en">
@@ -356,7 +784,7 @@ export function renderStaticPage(slug: StaticPageSlug): string {
   </main>
   <footer class="static-footer">
     <div class="static-wrap">
-      <p><a href="mailto:${CONTACT}">${CONTACT}</a> · <a href="https://poapkings.com/elixir-drop/">Run by POAP KINGS</a></p>
+      <nav class="static-footer__nav" aria-label="More about Elixir Drop">${footerNav(slug)}</nav>
       <p>${POLICY_NOTICE}</p>
     </div>
   </footer>

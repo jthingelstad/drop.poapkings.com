@@ -10,6 +10,11 @@ export function parseHash(): string {
 }
 
 const STANDALONE_HASH_ROUTES: Record<string, string> = {
+  '/games': '/games/',
+  '/learn-elixir-costs': '/learn-elixir-costs/',
+  '/elixir-costs': '/elixir-costs/',
+  '/badges': '/badges/',
+  '/discord': '/discord/',
   '/about': '/about/',
   '/releases': '/releases/',
   '/faq': '/faq/',

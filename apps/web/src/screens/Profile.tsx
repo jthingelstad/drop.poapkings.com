@@ -441,6 +441,9 @@ export default function Profile() {
           playerId={current.id}
           playerName={current.publicName}
         />
+        <a class="ed-textlink" href="/badges/">
+          How badge ladders work <Icon name="arrow-right" />
+        </a>
       </section>
 
       <YourGames playerId={current.id} />

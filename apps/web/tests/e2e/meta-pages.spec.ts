@@ -1,15 +1,20 @@
 import { expect, isDesktopViewport, test } from './fixtures'
 
 const pages = [
-  { slug: 'about', title: 'About Elixir Drop' },
-  { slug: 'releases', title: 'Elixir Drop Releases' },
-  { slug: 'faq', title: 'Elixir Drop FAQ' },
-  { slug: 'fair-play', title: 'Elixir Drop Fair Play' },
-  { slug: 'privacy', title: 'Elixir Drop Privacy' },
-  { slug: 'install', title: 'Install Elixir Drop' }
+  { slug: 'games', title: 'Elixir Drop Game Modes', primary: true },
+  { slug: 'learn-elixir-costs', title: 'Learn Clash Royale Elixir Costs', primary: true },
+  { slug: 'elixir-costs', title: 'Clash Royale Elixir Costs', primary: false },
+  { slug: 'badges', title: 'Elixir Drop Badges', primary: false },
+  { slug: 'discord', title: 'Elixir Drop Discord', primary: true },
+  { slug: 'install', title: 'Elixir Drop Game Setup', primary: true },
+  { slug: 'fair-play', title: 'Elixir Drop Fair Play', primary: true },
+  { slug: 'about', title: 'About Elixir Drop', primary: true },
+  { slug: 'faq', title: 'Elixir Drop FAQ', primary: true },
+  { slug: 'privacy', title: 'Elixir Drop Privacy', primary: true },
+  { slug: 'releases', title: 'Elixir Drop Releases', primary: true }
 ] as const
 
-test('all six text pages are standalone, canonical, and responsive', { tag: '@deploy' }, async ({ page }) => {
+test('all text pages are standalone, canonical, and responsive', { tag: '@deploy' }, async ({ page }) => {
   for (const meta of pages) {
     await page.goto(`/${meta.slug}/`)
     await expect(page).toHaveURL(new RegExp(`/${meta.slug}/$`))
@@ -22,10 +27,9 @@ test('all six text pages are standalone, canonical, and responsive', { tag: '@de
     await expect(page.locator('.static-section')).not.toHaveCount(0)
     await expect(page.locator('.ed-app')).toHaveCount(0)
     await expect(page.locator('html')).not.toHaveAttribute('data-vite-error-overlay')
-    await expect(page.locator('nav[aria-label="Elixir Drop information"] a[aria-current="page"]')).toHaveAttribute(
-      'href',
-      `/${meta.slug}/`
-    )
+    const current = page.locator('a[aria-current="page"]')
+    if (meta.primary) await expect(current).toHaveAttribute('href', `/${meta.slug}/`)
+    else await expect(current).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(
       false
     )
@@ -40,7 +44,7 @@ test('legacy hash text routes redirect to their real pages', async ({ page }) =>
   }
 })
 
-test('the app shells link to real pages and keep Discord external', async ({ page, viewport }) => {
+test('the app shells link to real pages and the Discord guide', async ({ page, viewport }) => {
   if (isDesktopViewport(viewport)) await page.goto('/')
   else await page.goto('/#/profile')
 
@@ -51,9 +55,11 @@ test('the app shells link to real pages and keep Discord external', async ({ pag
   await expect(scope.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy/')
 
   const discord = scope.getByRole('link', { name: /Discord/ })
-  await expect(discord).toHaveAttribute('href', 'https://discord.gg/SdvKfJW5kA')
-  await expect(discord).toHaveAttribute('target', '_blank')
-  await expect(discord).toHaveAttribute('rel', 'noopener noreferrer')
+  await expect(discord).toHaveAttribute('href', '/discord/')
+
+  if (!isDesktopViewport(viewport)) {
+    await expect(scope.getByRole('link', { name: 'Game Setup' })).toHaveAttribute('href', '/install/')
+  }
 
   if (isDesktopViewport(viewport)) {
     const boxes = await scope.locator('a.ed-railfoot__link').evaluateAll((links) =>
@@ -85,4 +91,31 @@ test('contact and Fair Play review mail go to the Drop mailbox', async ({ page }
     'href',
     'mailto:drop@poapkings.com?subject=Elixir%20Drop%20Fair%20Play%20re-review'
   )
+})
+
+test('generated guides expose the canonical public content without revealing hidden badges', async ({ page }) => {
+  await page.goto('/games/')
+  await expect(page.locator('.static-mode')).toHaveCount(6)
+  await expect(page.getByRole('link', { name: 'Play Surge' })).toHaveAttribute('href', '/#/surge')
+  await expect(page.getByRole('link', { name: 'Fair Play' }).first()).toHaveAttribute('href', '/fair-play/')
+
+  await page.goto('/elixir-costs/')
+  await expect(page.locator('.static-card-grid li')).toHaveCount(120)
+  await expect(page.getByText('Three Musketeers', { exact: true })).toBeVisible()
+
+  await page.goto('/badges/')
+  await expect(page.locator('.static-badge')).toHaveCount(22)
+  await expect(page.getByRole('heading', { name: '7 hidden badges' })).toBeVisible()
+  await expect(page.getByText('Night Shift', { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/midnight and 5:00/)).toHaveCount(0)
+
+  await page.goto('/discord/')
+  await expect(page.getByRole('link', { name: 'Join the Elixir Drop Discord' })).toHaveAttribute(
+    'href',
+    'https://discord.gg/SdvKfJW5kA'
+  )
+
+  await page.goto('/install/')
+  await expect(page.getByText(/All six games available/)).toBeVisible()
+  await expect(page.getByText(/never uploaded later/)).toBeVisible()
 })

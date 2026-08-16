@@ -113,13 +113,13 @@ describe('SSR render smoke', () => {
     expect(html).not.toContain('Loading leaderboard')
   })
 
-  it('links to the Elixir Drop Discord from the desktop rail cluster', async () => {
+  it('links to the Elixir Drop Discord guide from the desktop rail cluster', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
     // The old global footer moved into the meta entry points; the desktop
-    // left-rail cluster carries the external Discord link.
+    // left-rail cluster carries the standalone Discord guide.
     expect(html).toContain('ed-railfoot')
-    expect(html).toContain('https://discord.gg/SdvKfJW5kA')
+    expect(html).toContain('href="/discord/"')
   })
 })

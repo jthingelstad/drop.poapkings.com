@@ -43,7 +43,10 @@ a coach rather than a quiz. A linked Clash Royale collection is stored but not
 rendered; only the card count is shown, and it does not change the deal.
 
 It's also a quiet front door to the clan: a persistent "Run by POAP KINGS"
-footer link and a Discord link, never a banner or a pop-up.
+footer link and a Discord guide, never a banner or a pop-up. Standalone,
+indexable pages explain the six modes, learning approach, current card costs,
+badge ladders, Game Setup, Fair Play, and support without wrapping that content
+inside the game UI.
 
 Ranked play is human play: a person chooses every answer. Strict new leaders and
 technically unusual results can wait for referee review before placement, with

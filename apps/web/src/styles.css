@@ -2835,12 +2835,16 @@ html.reduce-motion .ed-btn--gold {
   gap: 10px;
 }
 .ed-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: none;
   background: transparent;
   color: var(--lavender);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: none;
 }
 
 /* ── Home (mobile) ──────────────────────────────────────────── */

@@ -52,9 +52,9 @@ export default function HomeMobile({ data }: { data: HomeData }) {
           <span class="ed-more__title" onClick={() => registerLogoTap()}>
             All games
           </span>
-          <span class="ed-more__hint">
-            swipe <Icon name="arrow-right" />
-          </span>
+          <a class="ed-textlink" href="/games/">
+            How every mode works <Icon name="arrow-right" />
+          </a>
         </div>
         <div class="ed-more-row">
           {ALL_GAMES.map((g) => (

@@ -21,7 +21,6 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
 import { recordingNotice } from '../../src/lib/use-game-run'
-import { ELIXIR_DROP_DISCORD_URL } from '../../src/lib/links'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -223,7 +222,15 @@ describe('standalone pages', () => {
     }
   })
 
-  it('keeps support, Fair Play, privacy, releases, and install copy in real HTML', () => {
+  it('keeps discovery, support, policy, and setup copy in real HTML', () => {
+    expect(renderStaticPage('games')).toContain('Compare Elixir Drop game modes')
+    expect(renderStaticPage('learn-elixir-costs')).toContain('Recall before recognition')
+    expect(renderStaticPage('elixir-costs')).toContain('Three Musketeers')
+    const badges = renderStaticPage('badges')
+    expect(badges).toContain('Clockbreaker')
+    expect(badges).toContain('7 hidden badges')
+    expect(badges).not.toContain('Night Shift')
+    expect(renderStaticPage('discord')).toContain('You do not need to be a POAP KINGS clan member')
     expect(renderStaticPage('about')).toContain('mailto:drop@poapkings.com')
     expect(renderStaticPage('faq')).toContain('What counts for the leaderboards?')
     const fairPlay = renderStaticPage('fair-play')
@@ -235,22 +242,20 @@ describe('standalone pages', () => {
     expect(renderStaticPage('privacy')).toContain('Retention and deletion')
     expect(renderStaticPage('releases')).toContain('Principled P.E.K.K.A')
     expect(renderStaticPage('install')).toContain('Add to Home Screen')
+    expect(renderStaticPage('install')).toContain('never uploaded later')
   })
 })
 
 describe('MetaMoreList', () => {
-  it('renders real page links and an external Discord anchor', async () => {
+  it('renders real page links for Game Setup and Discord', async () => {
     const html = await render(<MetaMoreList />)
     expect(html).toContain('About')
     expect(html).toContain('FAQ')
     expect(html).toContain('Fair Play')
-    expect(html).toContain('Install app')
+    expect(html).toContain('Game Setup')
     expect(html).toContain('Privacy')
     expect(html).toContain('Discord')
-    // Discord is the only external anchor with the real href + new-tab rel.
-    expect(html).toContain(`href="${ELIXIR_DROP_DISCORD_URL}"`)
-    expect(html).toContain('target="_blank"')
-    expect(html).toContain('rel="noopener noreferrer"')
+    expect(html).toContain('href="/discord/"')
     expect(html).toContain('href="/about/"')
     expect(html).toContain('href="/releases/"')
     expect(html).toContain('href="/install/"')
@@ -261,7 +266,7 @@ describe('MetaMoreList', () => {
     const html = await render(<MetaMoreList />)
 
     expect(html).toContain('App Info')
-    expect(html).not.toContain('Install app')
+    expect(html).not.toContain('Game Setup')
   })
 })
 

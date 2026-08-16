@@ -119,6 +119,14 @@ rank-oriented fields as part of unrelated work.
   player has not already been playing through. It is **not** the `UpdateBanner`:
   that one says "this tab is stale, reload"; this one says "a named release
   shipped, here's what changed". Keep them separate.
+- **Public learning content is generated, not duplicated in the app shell.**
+  `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
+  `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
+  Fair Play, About, FAQ, Privacy, and Releases pages. The card reference reads
+  `packages/game-data/cards.json`; the badge guide reads `BADGE_LIST` and must
+  never publish hidden badge identities or requirements. Keep only canonical
+  content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,
+  not sitemap entries.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
   canonical card snapshot. Claude Haiku may use community nicknames and playful
   card associations; the public name does not need the exact card title.

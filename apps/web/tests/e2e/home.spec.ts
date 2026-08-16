@@ -51,6 +51,7 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
   await expect(row).toContainText('Trade')
   await expect(row).toContainText('Survival')
   await expect(page.locator('.ed-more__title').first()).toHaveText('All games')
+  await expect(page.getByRole('link', { name: 'How every mode works' }).first()).toHaveAttribute('href', '/games/')
   await expect(row).toContainText('Your best ·')
   await expect(row).not.toContainText('Royal Ghosted')
   await expect(row).not.toContainText('The crown is open')

@@ -33,7 +33,19 @@ for (const route of a11yRoutes) {
   })
 }
 
-for (const slug of ['about', 'releases', 'faq', 'fair-play', 'privacy', 'install']) {
+for (const slug of [
+  'games',
+  'learn-elixir-costs',
+  'elixir-costs',
+  'badges',
+  'discord',
+  'install',
+  'fair-play',
+  'about',
+  'faq',
+  'privacy',
+  'releases'
+]) {
   test(`renders standalone ${slug} without serious accessibility issues`, async ({ page }) => {
     await page.goto(`/${slug}/`)
     await expect(page.locator('.static-main')).toBeVisible()

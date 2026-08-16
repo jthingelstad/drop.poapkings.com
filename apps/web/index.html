@@ -44,19 +44,29 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": ["WebApplication", "VideoGame"],
-        "name": "Elixir Drop",
-        "url": "https://drop.poapkings.com/",
-        "description": "Elixir Drop is a free browser game for learning Clash Royale card elixir costs through fast, replayable games.",
-        "applicationCategory": "GameApplication",
-        "operatingSystem": "Any",
-        "isAccessibleForFree": true,
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "creator": {
-          "@type": "Organization",
-          "name": "POAP KINGS",
-          "url": "https://poapkings.com/"
-        }
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://drop.poapkings.com/#website",
+            "name": "Elixir Drop",
+            "url": "https://drop.poapkings.com/"
+          },
+          {
+            "@type": ["WebApplication", "VideoGame"],
+            "name": "Elixir Drop",
+            "url": "https://drop.poapkings.com/",
+            "description": "Elixir Drop is a free browser game for learning Clash Royale card elixir costs through fast, replayable games.",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "creator": {
+              "@type": "Organization",
+              "name": "POAP KINGS",
+              "url": "https://poapkings.com/"
+            }
+          }
+        ]
       }
     </script>
   </head>
@@ -67,12 +77,12 @@
         <p>Learn Clash Royale card elixir costs with six fast browser games.</p>
         <p><a href="#/practice">Practice for free</a> or <a href="#/surge">race the clock in Surge</a>.</p>
         <nav aria-label="About Elixir Drop">
+          <a href="/games/">Game Modes</a>
+          <a href="/learn-elixir-costs/">Learn Elixir Costs</a>
+          <a href="/install/">Game Setup</a>
+          <a href="/fair-play/">Fair Play</a>
           <a href="/about/">About</a>
           <a href="/faq/">FAQ</a>
-          <a href="/fair-play/">Fair Play</a>
-          <a href="/privacy/">Privacy</a>
-          <a href="/releases/">Releases</a>
-          <a href="/install/">Install</a>
         </nav>
       </main>
     </div>

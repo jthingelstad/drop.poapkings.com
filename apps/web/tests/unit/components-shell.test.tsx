@@ -524,7 +524,7 @@ describe('DesktopShell', () => {
     const discord = [...foot.querySelectorAll<HTMLAnchorElement>('a.ed-railfoot__link')].find((link) =>
       link.textContent?.startsWith('Discord')
     )!
-    expect(discord.href).toBe('https://discord.gg/SdvKfJW5kA')
+    expect(discord.href).toBe('http://localhost/discord/')
   })
 
   it('navigates to login when the guest chip is clicked', () => {

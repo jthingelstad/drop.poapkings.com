@@ -1,5 +1,3 @@
-export const ELIXIR_DROP_DISCORD_URL = 'https://discord.gg/SdvKfJW5kA'
-
 // Player contact and transactional delivery deliberately use different
 // mailboxes. drop@ is monitored for questions and Fair Play review requests;
 // elixir@ is the recognizable sender for one-time sign-in links.

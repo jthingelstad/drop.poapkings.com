@@ -1,5 +1,4 @@
 import Icon from '../../components/Icon'
-import { navigate } from '../../lib/router'
 import { seasonEndsLabel, type HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
 import { HomeHeroCarousel, HomeGameCard } from './home-bits'
@@ -23,9 +22,9 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
 
       <div class="ed-more__head">
         <span class="ed-more__title">All games</span>
-        <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-          All leaderboards <Icon name="arrow-right" />
-        </button>
+        <a class="ed-textlink" href="/games/">
+          How every mode works <Icon name="arrow-right" />
+        </a>
       </div>
       <div class="ed-more-grid">
         {ALL_GAMES.map((g) => (
