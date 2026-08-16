@@ -125,6 +125,10 @@ test('practice never exposes the next hand before its image decode completes', a
 })
 
 test('practice runs until the player ends it, then closes on stats with no personal best', async ({ page }) => {
+  // Sixteen deliberate learning holds plus card-art handoffs can exceed the
+  // suite's 30-second default on CI WebKit while remaining well within the
+  // interaction's expected bound.
+  test.setTimeout(45_000)
   const card = await openPracticeOnMidCostCard(page)
 
   // Past the retired 15-card round: answer 16 questions and the session is still
