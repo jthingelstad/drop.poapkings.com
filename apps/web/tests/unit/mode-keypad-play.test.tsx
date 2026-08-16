@@ -1014,6 +1014,58 @@ describe('Ledger gameplay', () => {
     expect(host.textContent).toContain('Without help')
     expect(host.textContent).toContain('Keep tracking')
   })
+
+  it('replays a sequence interrupted by a hidden tab and excludes hidden answer time', async () => {
+    session = makeSession(fakeCards(15))
+    hoisted.session.current = session
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // The first play is visible immediately; the second must not arrive while
+    // the player cannot see the prompt.
+    expect(host.querySelectorAll('.ledger-card')).toHaveLength(1)
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    void act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    advance(5_000)
+    expect(host.querySelectorAll('.ledger-card')).toHaveLength(1)
+    expect(host.textContent).not.toContain('Who owns the elixir advantage?')
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    void act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    advance(1_440)
+    expect(host.textContent).toContain('Who owns the elixir advantage?')
+    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Red +1"]')).not.toBeNull()
+    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Blue +1"]')).not.toBeNull()
+
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    void act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    advance(10_000)
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    void act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    const answer = correctLedgerButton(host)
+    void act(() => answer.click())
+    const end = host.querySelector<HTMLButtonElement>('button[aria-label="End session"]')
+    if (!end) throw new Error('no End session control')
+    void act(() => end.click())
+
+    const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ responseMs: number }> }
+    expect(payload.answers[0]!.responseMs).toBeLessThan(50)
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════

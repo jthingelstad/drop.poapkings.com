@@ -123,8 +123,12 @@ test('primary navigation replaces Ranks and You with an Offline destination', as
 })
 
 test('an API-only outage allows local play while navigator remains online', { tag: '@deploy' }, async ({ page }) => {
+  const accountReady = page.waitForResponse(
+    (response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/me'
+  )
   await page.goto('/')
   await expect(page.locator('.ed-gcard').first()).toBeVisible()
+  await accountReady
 
   allowOfflineTransportErrors.add(page)
   await page.unroute(testApiRoute)
@@ -183,6 +187,49 @@ test('Practice is actually playable with player services unreachable', { tag: '@
   await expect(page.locator('.pcard__answer-cost')).toBeVisible()
   await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card!.name)
 })
+
+test(
+  'Ledger remains local, playable, and unsaved with player services unreachable',
+  { tag: '@deploy' },
+  async ({ page }) => {
+    allowOfflineTransportErrors.add(page)
+    await page.unroute(testApiRoute)
+    await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+    })
+    let runRequests = 0
+    page.on('request', (request) => {
+      if (/\/runs\/(?:start|complete)$/.test(new URL(request.url()).pathname)) runRequests += 1
+    })
+
+    await page.goto('/#/practice/ledger')
+    await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
+    await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+
+    const balance = await page.locator('.ledger-board').evaluate(
+      (board, catalog) => {
+        const costs = new Map(
+          (catalog as Array<{ id: number; elixir: number }>).map((card) => [String(card.id), card.elixir])
+        )
+        const total = (selector: string) =>
+          [...board.querySelectorAll<HTMLElement>(selector)].reduce(
+            (sum, card) => sum + (costs.get(card.dataset.cardId ?? '') ?? 0),
+            0
+          )
+        return total('.ledger-lane--red .ledger-card') - total('.ledger-lane--blue .ledger-card')
+      },
+      [...cardsById.values()].map(({ id, elixir }) => ({ id, elixir }))
+    )
+    const answer = balance > 0 ? `Blue +${balance}` : balance < 0 ? `Red +${Math.abs(balance)}` : 'Even'
+    await page.getByRole('button', { name: answer, exact: true }).click()
+    await expect(page.locator('.ed-game__progress')).toContainText('1 checked')
+    await page.getByRole('button', { name: 'End session' }).click()
+
+    await expect(page.locator('.ed-sum__offline')).toContainText('Offline run — not saved')
+    expect(runRequests).toBe(0)
+  }
+)
 
 const offlineModes = ['surge', 'practice', 'higher-lower', 'trade', 'survival', 'rain'] as const
 

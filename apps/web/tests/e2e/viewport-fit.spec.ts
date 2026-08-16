@@ -43,6 +43,32 @@ test.describe('mobile timed-mode controls', () => {
     expect(controlsFit).toBe(true)
   })
 
+  test('keeps the complete Ledger interaction in the first viewport', { tag: '@deploy' }, async ({ page }) => {
+    await page.goto('/#/practice/ledger')
+    await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+
+    const geometry = await page.locator('.ledger').evaluate((element) => {
+      const board = element.querySelector('.ledger-board')?.getBoundingClientRect()
+      const pad = element.querySelector('.ledger-pad')?.getBoundingClientRect()
+      const assist = element.querySelector('.ledger-assist')?.getBoundingClientRect()
+      return {
+        boardHeight: board?.height ?? 0,
+        contained:
+          !!board &&
+          !!pad &&
+          !!assist &&
+          board.top >= 0 &&
+          pad.left >= 0 &&
+          pad.right <= window.innerWidth + 1 &&
+          assist.bottom <= window.innerHeight + 1,
+        noHorizontalOverflow: document.documentElement.scrollWidth <= window.innerWidth + 1
+      }
+    })
+    expect(geometry.boardHeight).toBeGreaterThanOrEqual(180)
+    expect(geometry.contained).toBe(true)
+    expect(geometry.noHorizontalOverflow).toBe(true)
+  })
+
   test('keeps both Higher / Lower cards usable in the first viewport', async ({ page }) => {
     await page.goto('/#/higher-lower')
     const cards = page.locator('.ed-duel__card')
@@ -190,6 +216,45 @@ test.describe('mobile timed-mode controls', () => {
       })
     }
   })
+})
+
+test.describe('tall mobile Ledger layout', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+
+  test(
+    'expands the board and cards through the available playfield',
+    { tag: '@deploy' },
+    async ({ page }, testInfo) => {
+      await page.goto('/#/practice/ledger')
+      await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+
+      const geometry = await page.locator('.ledger').evaluate((element) => {
+        const ledger = element.getBoundingClientRect()
+        const board = element.querySelector('.ledger-board')?.getBoundingClientRect()
+        const card = element.querySelector('.ledger-card')?.getBoundingClientRect()
+        const assist = element.querySelector('.ledger-assist')?.getBoundingClientRect()
+        return {
+          boardShare: board ? board.height / ledger.height : 0,
+          cardWidth: card?.width ?? 0,
+          topWaste: board ? board.top - ledger.top : Number.POSITIVE_INFINITY,
+          bottomWaste: assist ? ledger.bottom - assist.bottom : Number.POSITIVE_INFINITY,
+          fits: ledger.top >= 0 && ledger.bottom <= window.innerHeight + 1
+        }
+      })
+
+      expect(geometry.boardShare).toBeGreaterThanOrEqual(0.5)
+      expect(geometry.cardWidth).toBeGreaterThanOrEqual(100)
+      expect(geometry.topWaste).toBeLessThanOrEqual(8)
+      expect(geometry.bottomWaste).toBeLessThanOrEqual(12)
+      expect(geometry.fits).toBe(true)
+
+      if (testInfo.project.name === 'iphone-14') {
+        const screenshotPath = testInfo.outputPath('ledger-expanded-mobile.png')
+        await page.screenshot({ path: screenshotPath, fullPage: false })
+        await testInfo.attach('ledger-expanded-mobile.png', { path: screenshotPath, contentType: 'image/png' })
+      }
+    }
+  )
 })
 
 test.describe('low-height desktop timed controls', () => {

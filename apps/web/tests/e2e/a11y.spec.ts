@@ -22,6 +22,7 @@ for (const route of a11yRoutes) {
     await page.goto('/')
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
+    if (route.label === 'Practice') await expect(page.getByRole('main')).toHaveCount(1)
 
     const screenshot = await page.screenshot({ fullPage: true })
     await testInfo.attach(`${route.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}.png`, {

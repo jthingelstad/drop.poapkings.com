@@ -12,6 +12,9 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
   await expect(page.locator('.ledger-board')).toHaveAttribute('data-stage', 'guided')
   await expect(page.locator('.ledger-card')).toHaveCount(2, { timeout: 12_000 })
   await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+  await expect(page.getByRole('button', { name: 'Red +1', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Even', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Blue +1', exact: true })).toBeVisible()
 
   const balance = await page.locator('.ledger-board').evaluate(
     (board, catalog) => {

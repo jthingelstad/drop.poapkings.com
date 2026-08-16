@@ -45,6 +45,17 @@ describe('Ledger learning model', () => {
     expect(Math.abs(sequence.balance)).toBeLessThanOrEqual(4)
   })
 
+  it('varies which side opens a guided sequence', () => {
+    const openings = new Set(
+      Array.from(
+        { length: 24 },
+        (_, seed) => dealLedgerSequence(allCards, emptyLedgerStats(), new Set(), seededRandom(seed + 1)).plays[0]!.side
+      )
+    )
+
+    expect(openings).toEqual(new Set(['blue', 'red']))
+  })
+
   it('only fades costs backed by fluent Cost Recall evidence', () => {
     const card = allCards[0]!
     expect(isFluentCard(card.id, {})).toBe(false)

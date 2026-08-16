@@ -73,6 +73,8 @@ export default function Ledger() {
   const generation = useRef(0)
   const previousIds = useRef<Set<number>>(new Set())
   const promptStartedAt = useRef(0)
+  const promptPausedAt = useRef<number | null>(null)
+  const promptPausedMs = useRef(0)
 
   const sequence = useSignal<LedgerSequence | null>(null)
   const revealed = useSignal(0)
@@ -89,6 +91,44 @@ export default function Ledger() {
     preloadGameFx()
   }, [])
 
+  // A Ledger sequence is the prompt: letting its beats run in a background tab
+  // makes the player return to an answer they never saw. Freeze an active read,
+  // replay an interrupted sequence from the top, and exclude hidden time from
+  // the response sample exactly as Cost Recall does.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      const currentPhase = phase.peek()
+      if (document.visibilityState === 'hidden') {
+        if (currentPhase === 'answering' && promptPausedAt.current === null) {
+          promptPausedAt.current = performance.now()
+        } else if (currentPhase !== 'answering') {
+          generation.current += 1
+          runtime.clearScheduled()
+        }
+        return
+      }
+
+      if (currentPhase === 'answering') {
+        if (promptPausedAt.current !== null) {
+          promptPausedMs.current += performance.now() - promptPausedAt.current
+          promptPausedAt.current = null
+        }
+        return
+      }
+
+      if (currentPhase === 'dealing') {
+        const active = sequence.peek()
+        if (active) beginSequence(active)
+        return
+      }
+
+      dealNext()
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only listener reads current refs and signals
+
   useEffect(() => {
     if (!deck || !gameRun.assetsReady || sequence.peek()) return
     dealNext()
@@ -104,30 +144,47 @@ export default function Ledger() {
         if (activeGeneration !== generation.current) return
         phase.value = 'answering'
         promptStartedAt.current = performance.now()
+        promptPausedAt.current = null
+        promptPausedMs.current = 0
       }, PLAY_BEAT_MS)
       return
     }
     runtime.later(() => revealPlay(activeGeneration, count + 1), PLAY_BEAT_MS)
   }
 
-  function dealNext(): void {
-    if (!deck?.length) return
-    const next = dealLedgerSequence(deck, getLedgerStats(), previousIds.current)
-    previousIds.current = new Set(next.plays.map((play) => play.card.id))
+  function beginSequence(next: LedgerSequence): void {
+    runtime.clearScheduled()
     const activeGeneration = ++generation.current
     sequence.value = next
     revealed.value = 0
     phase.value = 'dealing'
     picked.value = null
     assistance.value = false
+    promptPausedAt.current = null
+    promptPausedMs.current = 0
     preloadImages(
       next.plays.map((play) => play.card),
-      () => revealPlay(activeGeneration, 1)
+      () => {
+        if (document.visibilityState !== 'hidden') revealPlay(activeGeneration, 1)
+      }
     )
   }
 
+  function dealNext(): void {
+    if (!deck?.length) return
+    const next = dealLedgerSequence(deck, getLedgerStats(), previousIds.current)
+    previousIds.current = new Set(next.plays.map((play) => play.card.id))
+    beginSequence(next)
+  }
+
   function responseMs(): number {
-    return Math.round(Math.max(0, Math.min(MAX_RESPONSE_MS, performance.now() - promptStartedAt.current)))
+    const pausedNow = promptPausedAt.current === null ? 0 : performance.now() - promptPausedAt.current
+    return Math.round(
+      Math.max(
+        0,
+        Math.min(MAX_RESPONSE_MS, performance.now() - promptStartedAt.current - promptPausedMs.current - pausedNow)
+      )
+    )
   }
 
   function guess(value: number): void {
@@ -279,7 +336,7 @@ export default function Ledger() {
       cue={runtime.cue.value}
       fxParticles={6}
       progressText={`${checks.value} checked · ${stageLabel(active.stage)}`}
-      metric={{ value: String(correct.value), label: 'tracked' }}
+      metric={{ value: String(correct.value), label: 'correct' }}
     >
       <div class="ledger">
         <div class="ledger-board" data-stage={active.stage}>
@@ -341,13 +398,19 @@ export default function Ledger() {
                   class={answerClass(value, 'red')}
                   onClick={() => guess(value)}
                   disabled={phase.value !== 'answering'}
+                  aria-label={formatLedgerBalance(value)}
                 >
                   +{Math.abs(value)}
                 </button>
               ))}
             </div>
           </div>
-          <button class={answerClass(0, 'even')} onClick={() => guess(0)} disabled={phase.value !== 'answering'}>
+          <button
+            class={answerClass(0, 'even')}
+            onClick={() => guess(0)}
+            disabled={phase.value !== 'answering'}
+            aria-label={formatLedgerBalance(0)}
+          >
             EVEN
           </button>
           <div class="ledger-pad__group ledger-pad__group--blue">
@@ -359,6 +422,7 @@ export default function Ledger() {
                   class={answerClass(value, 'blue')}
                   onClick={() => guess(value)}
                   disabled={phase.value !== 'answering'}
+                  aria-label={formatLedgerBalance(value)}
                 >
                   +{value}
                 </button>

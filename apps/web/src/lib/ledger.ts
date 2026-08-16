@@ -61,9 +61,10 @@ export function dealLedgerSequence(
 
   for (let attempt = 0; attempt < 300; attempt += 1) {
     const cards = shuffle(pool, randomInt).slice(0, length)
+    const openingSide = randomInt(2) === 0 ? ('blue' as const) : ('red' as const)
     const sides = cards.map((_, index) => {
-      if (index === 0) return 'blue' as const
-      if (index === 1) return 'red' as const
+      if (index === 0) return openingSide
+      if (index === 1) return openingSide === 'blue' ? ('red' as const) : ('blue' as const)
       return randomInt(2) === 0 ? ('blue' as const) : ('red' as const)
     })
     const plays = cards.map((card, index) => ({ card, cardId: card.id, side: sides[index]! }))

@@ -23,7 +23,7 @@ const drills = [
 
 export default function PracticeHub() {
   return (
-    <main class="practice-hub main-content">
+    <div class="practice-hub main-content">
       <header class="practice-hub__head">
         <div class="practice-hub__mark" aria-hidden="true">
           <ModeIcon mode="practice" size={56} />
@@ -60,6 +60,6 @@ export default function PracticeHub() {
       <p class="practice-hub__note">
         <Icon name="wifi-off" /> Both drills work offline. Offline learning stays on this device.
       </p>
-    </main>
+    </div>
   )
 }
