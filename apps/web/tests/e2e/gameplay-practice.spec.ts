@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test'
-import { allowBlockedAssets, cardsById, cardsData, expect, test, waitForKeypad } from './fixtures'
+import { allowBlockedAssets, cardsById, cardsData, expect, isDesktopViewport, test, waitForKeypad } from './fixtures'
 
-test('Practice is a two-drill section and Ledger completes a validated balance check', async ({ page }) => {
-  await page.goto('/#/practice')
+test('Practice is a two-drill section and Ledger completes a validated balance check', async ({ page, viewport }) => {
+  const desktop = isDesktopViewport(viewport)
+  await page.goto(desktop ? '/#/practice' : '/')
 
-  await expect(page.locator('.practice-hub')).toBeVisible()
+  await expect(page.locator(desktop ? '.practice-hub' : '.ed-practice-options')).toBeVisible()
   await expect(page.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
   await page.getByRole('button', { name: /Ledger/ }).click()
 
@@ -47,7 +48,13 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
   await expect(page.locator('[data-summary]')).toBeVisible()
   await expect(page.locator('.ed-sum__headline')).toHaveText('1 / 1 balances')
   await expect(page.locator('.shareline')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Practice', exact: true })).toBeVisible()
+  const returnToPractice = page
+    .locator('[data-summary]')
+    .getByRole('button', { name: desktop ? 'Practice' : 'Games', exact: true })
+  await expect(returnToPractice).toBeVisible()
+  await returnToPractice.click()
+  await expect(page).toHaveURL(desktop ? /#\/practice$/ : /#\/$/)
+  await expect(page.locator(desktop ? '.practice-hub' : '.ed-practice-options')).toBeVisible()
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {

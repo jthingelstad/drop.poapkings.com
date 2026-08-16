@@ -3231,56 +3231,56 @@ html.reduce-motion .ed-gcard {
   width: 100%;
 }
 
-/* ── Practice entry (mobile) ────────────────────────────────── */
+/* ── Practice options (mobile Games page) ───────────────────── */
 
-.ed-practice {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1.5px dashed rgba(139, 92, 246, 0.45);
-  background: linear-gradient(145deg, rgba(18, 13, 40, 0.82), rgba(30, 20, 58, 0.55));
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-}
+.ed-practice-options {
+  --practice-blue: #50b7ff;
+  --practice-red: #ff647d;
 
-/* The painted Practice emblem. No tinted chip behind it: the art carries its
-   own outline and mass, and a background square reads as a double frame. */
-.ed-practice__art {
-  flex: 0 0 auto;
-}
-.ed-practice__text {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(215, 200, 255, 0.12);
 }
-.ed-practice__name {
+.ed-practice-options__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.ed-practice-options__eyebrow {
+  color: var(--lavender-2);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.ed-practice-options h2 {
+  margin: 3px 0 4px;
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 1.18rem;
 }
-.ed-practice__sub {
+.ed-practice-options__head p {
+  margin: 0;
   color: var(--muted);
   font-size: 0.72rem;
+  line-height: 1.45;
 }
-.ed-practice__play {
+.ed-practice-options__badge {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid rgba(215, 200, 255, 0.24);
-  border-radius: 12px;
-  font-family: var(--font-display);
-  font-size: 0.86rem;
-  color: var(--lavender-2);
-  background: linear-gradient(135deg, #4a4266, #332c4d);
-}
-.ed-practice__play svg {
-  fill: currentcolor;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid rgba(174, 138, 255, 0.28);
+  border-radius: 999px;
+  color: rgba(225, 215, 249, 0.68);
+  background: rgba(64, 42, 105, 0.34);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* Add-to-Home-Screen prompt (dismissible). */
@@ -6759,7 +6759,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 1rem;
   line-height: 1.55;
 }
-.practice-hub__drills {
+.practice-drills {
   display: grid;
   gap: 14px;
 }
@@ -6852,7 +6852,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 1.4rem;
 }
-.practice-hub__note {
+.practice-note {
   display: flex;
   align-items: center;
   justify-content: center;

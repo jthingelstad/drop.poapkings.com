@@ -1,9 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test } from './fixtures'
+import { expect, isDesktopViewport, test } from './fixtures'
 
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
-  { hash: '#/practice', label: 'Practice', ready: '.practice-hub' },
+  { hash: '#/practice', label: 'Practice', ready: '.practice-hub, .ed-home' },
   { hash: '#/practice/costs', label: 'Cost Recall', ready: '.ed-game' },
   { hash: '#/practice/ledger', label: 'Ledger', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
@@ -18,11 +18,18 @@ const a11yRoutes = [
 ]
 
 for (const route of a11yRoutes) {
-  test(`renders ${route.label} without serious accessibility issues`, async ({ page }, testInfo) => {
+  test(`renders ${route.label} without serious accessibility issues`, async ({ page, viewport }, testInfo) => {
     await page.goto('/')
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
-    if (route.label === 'Practice') await expect(page.getByRole('main')).toHaveCount(1)
+    if (route.label === 'Practice') {
+      await expect(page.getByRole('main')).toHaveCount(1)
+      if (isDesktopViewport(viewport)) await expect(page.locator('.practice-hub')).toBeVisible()
+      else {
+        await expect(page).toHaveURL(/#\/$/)
+        await expect(page.locator('.ed-practice-options')).toBeVisible()
+      }
+    }
 
     const screenshot = await page.screenshot({ fullPage: true })
     await testInfo.attach(`${route.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}.png`, {

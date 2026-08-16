@@ -30,6 +30,7 @@ import OfflinePage from './components/OfflinePage'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
 import { contactEmailHref } from './lib/links'
+import { practiceLandingPath } from './lib/practice-navigation'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -114,7 +115,7 @@ function RankedAccessRestricted() {
         <p class="lede">
           You can still use Practice and view your account. Read how decisions work or request a re-review.
         </p>
-        <button class="btn btn--gold" onClick={() => navigate('/practice')}>
+        <button class="btn btn--gold" onClick={() => navigate(practiceLandingPath())}>
           Open Practice
         </button>
         <a class="btn btn--ghost btn--sm" href="/fair-play/">
@@ -150,7 +151,13 @@ function AccountUnavailable() {
   )
 }
 
+function MobilePracticeRedirect() {
+  useEffect(() => navigate('/'), [])
+  return <Home />
+}
+
 function ScreenContent({ r }: { r: string }) {
+  if (r === '/practice' && layout.value === 'mobile') return <MobilePracticeRedirect />
   const gamePath = gamePathForRoute(r)
   // These are live server views, not snapshots. Offline navigation replaces
   // both with one bundled explanation; direct links land on the same surface
@@ -203,7 +210,7 @@ function Screen({ r }: { r: string }) {
 }
 
 function screenTitle(r: string): string | null {
-  if (r === '/') return null
+  if (r === '/' || (r === '/practice' && layout.value === 'mobile')) return null
   return ROUTE_LABELS.find((x) => r.startsWith(x.match))?.label ?? 'Elixir Drop'
 }
 
@@ -294,7 +301,7 @@ export default function App() {
   // Idle attract mode arms only on Home; leaving the route disarms it, so it
   // can never fire during a game. (Reading route.value in render subscribes
   // this component to the signal, so the local flag is a real dependency.)
-  const onHome = route.value === '/'
+  const onHome = route.value === '/' || (route.value === '/practice' && layout.value === 'mobile')
   useEffect(() => {
     if (!onHome) return
     return createIdleWatcher(() => startScreensaver('idle'))

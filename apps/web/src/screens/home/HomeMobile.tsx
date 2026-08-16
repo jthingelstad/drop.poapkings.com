@@ -1,5 +1,6 @@
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
+import PracticeDrills from '../../components/PracticeDrills'
 import PlayerAvatar from '../../components/PlayerAvatar'
 import Wordmark from '../../components/brand/Wordmark'
 import OfflineGlyph from '../../components/OfflineGlyph'
@@ -42,7 +43,7 @@ export default function HomeMobile({ data }: { data: HomeData }) {
       <InstallBanner />
       <header class="ed-home-intro">
         <h1>Elixir Drop</h1>
-        <p>Learn Clash Royale card elixir costs through six fast games.</p>
+        <p>Five competitive games and two focused practice drills.</p>
       </header>
       <IdentityChip />
       <HomeHeroCarousel data={data} game={featured} />
@@ -68,16 +69,19 @@ export default function HomeMobile({ data }: { data: HomeData }) {
         </div>
       </section>
 
-      <button class="ed-practice tap-fx" onClick={() => navigate('/practice')}>
-        <ModeIcon mode="practice" size={38} className="ed-practice__art" />
-        <span class="ed-practice__text">
-          <span class="ed-practice__name">Practice</span>
-          <span class="ed-practice__sub">No clock, no ranks — learn at your pace.</span>
-        </span>
-        <span class="ed-practice__play">
-          <Icon name="play" /> {offline.value ? 'Play offline' : 'Play'}
-        </span>
-      </button>
+      <section class="ed-practice-options" aria-labelledby="practice-options-title">
+        <header class="ed-practice-options__head">
+          <div>
+            <span class="ed-practice-options__eyebrow">Training grounds</span>
+            <h2 id="practice-options-title">Practice options</h2>
+            <p>No clock, no ranks — choose a focused drill and learn at your pace.</p>
+          </div>
+          <span class="ed-practice-options__badge">
+            <ModeIcon mode="practice" size={30} /> Unranked
+          </span>
+        </header>
+        <PracticeDrills />
+      </section>
 
       <InstallRow />
 

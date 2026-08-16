@@ -68,6 +68,35 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
   await expect(accented).toContainText(new RegExp(wordmark.replace(/ \/ /, ' / '), 'i'))
 })
 
+test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({
+  page,
+  viewport
+}) => {
+  await page.goto('/')
+
+  if (isDesktopViewport(viewport)) {
+    await expect(page.locator('.ed-practice-options')).toHaveCount(0)
+    await page
+      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('button', { name: /Practice Unranked/ })
+      .click()
+    await expect(page).toHaveURL(/#\/practice$/)
+    await expect(page.locator('.practice-hub')).toBeVisible()
+  } else {
+    const options = page.locator('.ed-practice-options')
+    await expect(options).toBeVisible()
+    await expect(options.getByRole('button')).toHaveCount(2)
+    await expect(options.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
+    await expect(options.getByRole('button', { name: /Ledger/ })).toBeVisible()
+    await expect(options).toContainText('Both drills work offline')
+
+    await page.goto('/#/practice')
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(page.locator('.ed-practice-options')).toBeVisible()
+    await expect(page.locator('.practice-hub')).toHaveCount(0)
+  }
+})
+
 test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@deploy' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {

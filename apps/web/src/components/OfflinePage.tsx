@@ -1,6 +1,7 @@
 import Icon from './Icon'
 import { offline } from '../lib/api-availability'
 import { navigate } from '../lib/router'
+import { practiceLandingPath } from '../lib/practice-navigation'
 
 export default function OfflinePage() {
   const disconnected = offline.value
@@ -34,7 +35,7 @@ export default function OfflinePage() {
               <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/')}>
                 <span class="tap-face">Choose a game</span>
               </button>
-              <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/practice')}>
+              <button class="ed-btn ed-btn--ghost" onClick={() => navigate(practiceLandingPath())}>
                 Open Practice
               </button>
             </>

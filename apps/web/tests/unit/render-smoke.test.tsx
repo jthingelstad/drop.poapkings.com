@@ -4,6 +4,7 @@ import App from '../../src/App'
 import { accountStatus, player } from '../../src/lib/account'
 import { route } from '../../src/lib/router'
 import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
+import { layout } from '../../src/lib/use-layout'
 
 const CASES = [
   ['/', 'Elixir Drop'],
@@ -22,6 +23,7 @@ describe('SSR render smoke', () => {
   beforeEach(() => {
     apiAvailability.value = 'available'
     transportOffline.value = false
+    layout.value = 'desktop'
     accountStatus.value = 'authenticated'
     player.value = {
       id: 'player-1',
@@ -76,6 +78,19 @@ describe('SSR render smoke', () => {
 
     expect(html).toContain('Build ID')
     expect(html).toContain('Build date')
+  })
+
+  it('folds the legacy Practice hub route into Games on mobile', async () => {
+    layout.value = 'mobile'
+    route.value = '/practice'
+
+    const html = await renderToStringAsync(<App />)
+
+    expect(html).toContain('Practice options')
+    expect(html).toContain('Cost Recall')
+    expect(html).toContain('Ledger')
+    expect(html).not.toContain('practice-hub main-content')
+    expect(html).not.toContain('<h1 class="sr-only">Practice</h1>')
   })
 
   it('keeps a restricted player in Practice while blocking ranked routes', async () => {

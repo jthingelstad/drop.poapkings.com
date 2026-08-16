@@ -20,6 +20,7 @@ import {
   type LedgerSequence
 } from '../../lib/ledger'
 import { navigate } from '../../lib/router'
+import { practiceLandingPath } from '../../lib/practice-navigation'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { getCardStats, getLedgerStats, recordSession, saveLedgerResult } from '../../lib/storage'
 import { track } from '../../lib/analytics'
@@ -229,7 +230,7 @@ export default function Ledger() {
   function endSession(): void {
     generation.current += 1
     if (!serverAnswers.current.length) {
-      navigate('/practice')
+      navigate(practiceLandingPath())
       return
     }
     recordSession()
@@ -284,8 +285,8 @@ export default function Ledger() {
           share={{ mode: 'practice', score: '' }}
           onReplay={replay}
           replayLabel="Keep tracking"
-          onHome={() => navigate('/practice')}
-          homeLabel="Practice"
+          onHome={() => navigate(practiceLandingPath())}
+          homeLabel={practiceLandingPath() === '/practice' ? 'Practice' : 'Games'}
         >
           <p class="ledger-summary__coach">
             {accuracy >= 80

@@ -10,7 +10,7 @@ export default function HomeDesktop({ data }: { data: HomeData }) {
       <div class="ed-home-d__head">
         <div class="ed-home-d__identity">
           <h1 class="ed-h1">Elixir Drop</h1>
-          <p>Learn Clash Royale card elixir costs through six fast games.</p>
+          <p>Five competitive games plus focused practice drills.</p>
         </div>
         <span class="ed-pill ed-pill--muted">
           <Icon name="clock" />
