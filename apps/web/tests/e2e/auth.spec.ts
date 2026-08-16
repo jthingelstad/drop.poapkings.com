@@ -15,10 +15,15 @@ import {
 } from './fixtures'
 
 test('a signed-out visitor plays a game as a guest and is nudged to save the score', async ({ page }) => {
-  // Hold the response long enough to inspect the in-flight guest state. Guest
-  // runs are scored, never recorded, and must not cover the whole play surface.
+  // Hold the response until the in-flight guest state has actually been
+  // inspected. A fixed delay races slower CI devices and can let the final
+  // notice replace this deliberately transient one before the assertion runs.
+  let releaseCompletion: (() => void) | undefined
+  const completionHeld = new Promise<void>((resolve) => {
+    releaseCompletion = resolve
+  })
   await page.route(`${testApiBaseUrl}/runs/complete`, async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await completionHeld
     await route.fallback()
   })
 
@@ -35,10 +40,14 @@ test('a signed-out visitor plays a game as a guest and is nudged to save the sco
   const wrongCost = card?.elixir === 1 ? 2 : 1
   await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
 
-  const scoringNotice = page.locator('.run-recording')
-  await expect(scoringNotice).toContainText('Scoring your game…')
-  await expect(scoringNotice).not.toHaveClass(/run-recording--blocking/)
-  await expect(page.getByText('Recording your game…')).toHaveCount(0)
+  try {
+    const scoringNotice = page.locator('.run-recording')
+    await expect(scoringNotice).toContainText('Scoring your game…')
+    await expect(scoringNotice).not.toHaveClass(/run-recording--blocking/)
+    await expect(page.getByText('Recording your game…')).toHaveCount(0)
+  } finally {
+    releaseCompletion?.()
+  }
 
   // The shared summary appears with the guest sign-in-to-save nudge.
   const summary = page.locator('.ed-sum')
