@@ -77,13 +77,24 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await page.goto('/')
 
   await expect(page.getByRole('heading', { name: 'Elixir Drop', exact: true })).toBeVisible()
+  const featuredHeight = await page.locator('.ed-hero').evaluate((element) => element.getBoundingClientRect().height)
+  const gamesTop = await page
+    .locator('.ed-more__head')
+    .first()
+    .evaluate((element) => element.getBoundingClientRect().top)
   await page.getByRole('button', { name: 'Free Pass challenge' }).click()
   const pass = page.locator('.ed-hero--pass')
   await expect(pass).toBeVisible()
   await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
-  await expect(pass.locator('.ed-hero-podium li')).toHaveCount(3)
-  await expect(pass).toContainText('Royal Ghosted')
-  await expect(pass).toContainText('Provisional until Fair Play review')
+  await expect(pass.locator('.ed-hero-podium')).toHaveCount(0)
+  await expect(pass).not.toContainText('Provisional until Fair Play review')
+  expect(await pass.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
+  expect(
+    await page
+      .locator('.ed-more__head')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top)
+  ).toBe(gamesTop)
   await expect(pass.getByRole('link', { name: 'RULES' })).toHaveAttribute(
     'href',
     'https://poapkings.com/elixir-drop/free-pass/'
@@ -92,8 +103,69 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
   const share = page.locator('.ed-hero--share')
   await expect(share).toBeVisible()
+  expect(await share.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
+  expect(
+    await page
+      .locator('.ed-more__head')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top)
+  ).toBe(gamesTop)
   await share.getByRole('button', { name: /SHARE ELIXIR DROP/ }).click()
   await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
+})
+
+test('the hero carousel responds to horizontal touch swipes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const slide = page.locator('.ed-hero-carousel__slide')
+  const featured = (await page.locator('.ed-hero__wordmark').innerText()).trim()
+  const gamesTop = await page
+    .locator('.ed-more__head')
+    .first()
+    .evaluate((element) => element.getBoundingClientRect().top)
+
+  await slide.dispatchEvent('pointerdown', {
+    pointerId: 1,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    clientX: 320,
+    clientY: 260
+  })
+  await slide.dispatchEvent('pointerup', {
+    pointerId: 1,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    clientX: 100,
+    clientY: 264
+  })
+  await expect(page.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  expect(
+    await page
+      .locator('.ed-more__head')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top)
+  ).toBe(gamesTop)
+
+  await slide.dispatchEvent('pointerdown', {
+    pointerId: 2,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    clientX: 100,
+    clientY: 260
+  })
+  await slide.dispatchEvent('pointerup', {
+    pointerId: 2,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    clientX: 320,
+    clientY: 264
+  })
+  await expect(page.locator('.ed-hero__wordmark')).toHaveText(featured)
 })
 
 test('mobile install suggestion waits until the third browser session', async ({ page }) => {

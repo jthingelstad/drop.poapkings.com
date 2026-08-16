@@ -2932,8 +2932,12 @@ html.reduce-motion .ed-btn--gold {
   display: grid;
   gap: 9px;
 }
+.ed-hero-carousel__slide {
+  height: 400px;
+  touch-action: pan-y;
+}
 .ed-hero-carousel__slide > .ed-hero {
-  min-height: 420px;
+  height: 100%;
 }
 .ed-hero-carousel__controls {
   display: grid;
@@ -2977,6 +2981,7 @@ html.reduce-motion .ed-btn--gold {
 .ed-hero__body {
   position: relative;
   z-index: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3025,56 +3030,13 @@ html.reduce-motion .ed-btn--gold {
   align-items: center;
   gap: 12px;
   width: 100%;
+  margin-top: auto;
 }
 .ed-hero__cta .ed-btn {
   flex: 1;
 }
 .ed-hero__cta--split .ed-btn {
   min-width: 0;
-}
-.ed-hero-podium {
-  width: 100%;
-  max-width: 330px;
-  display: grid;
-  gap: 5px;
-  margin: -2px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.ed-hero-podium li {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  border-radius: 9px;
-  padding: 6px 9px;
-  color: var(--lavender);
-  background: rgba(7, 6, 16, 0.28);
-  font-size: 0.7rem;
-}
-.ed-hero-podium li > span {
-  color: var(--gold);
-  font-family: var(--font-display);
-}
-.ed-hero-podium li > strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ed-hero-podium li > em {
-  color: var(--ink);
-  font-style: normal;
-  font-weight: 800;
-}
-.ed-hero-podium .ed-hero-podium__empty {
-  grid-template-columns: 1fr;
-}
-.ed-hero-podium__note {
-  margin-top: -8px;
-  color: var(--lavender);
-  font-size: 0.62rem;
-  font-weight: 700;
 }
 .ed-hero__best {
   display: grid;
@@ -3900,9 +3862,6 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 }
 .ed-home-d .ed-hero {
   padding: 26px 28px;
-}
-.ed-home-d .ed-hero-carousel__slide > .ed-hero {
-  min-height: 430px;
 }
 
 /* "HIGHER / LOWER" is more than twice the width of "SURGE". A size step keeps

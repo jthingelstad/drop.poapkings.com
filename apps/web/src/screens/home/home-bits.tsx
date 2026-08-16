@@ -1,7 +1,7 @@
 // Shared Home presentation bits used by both HomeMobile and HomeDesktop: the
 // rotating promotion hero, ambient elixir motes, and the "More games" card.
 
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
 import { navigate } from '../../lib/router'
@@ -100,7 +100,6 @@ export function FeaturedHero({
 }
 
 function FreePassHero({ data, withHours }: { data: HomeData; withHours: boolean }) {
-  const standings = data.standingsFor(FREE_PASS_MODE).slice(0, 3)
   return (
     <section class="ed-hero ed-hero--pass">
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
@@ -110,20 +109,6 @@ function FreePassHero({ data, withHours }: { data: HomeData; withHours: boolean 
         <ModeIcon mode={FREE_PASS_MODE} size={60} className="ed-hero__art" />
         <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
         <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
-        <ol class="ed-hero-podium" aria-label="Current provisional Surge leaders">
-          {standings.length === 0 ? (
-            <li class="ed-hero-podium__empty">Current standings will appear here.</li>
-          ) : (
-            standings.map((entry) => (
-              <li key={entry.player.id}>
-                <span>{entry.rank}</span>
-                <strong>{entry.player.publicName}</strong>
-                <em>{scoreLabel(FREE_PASS_MODE, entry.score)}</em>
-              </li>
-            ))
-          )}
-        </ol>
-        <span class="ed-hero-podium__note">Provisional until Fair Play review</span>
         <div class="ed-hero__cta ed-hero__cta--split">
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
@@ -217,6 +202,8 @@ export function HomeHeroCarousel({
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
   const reduceMotion = isReducedMotionEnabled()
+  const swipeStart = useRef<{ pointerId: number; x: number; y: number } | null>(null)
+  const swiped = useRef(false)
 
   useEffect(() => {
     if (paused || reduceMotion) return
@@ -225,6 +212,23 @@ export function HomeHeroCarousel({
   }, [active, paused, reduceMotion])
 
   const select = (index: number) => setActive((index + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT)
+
+  const finishSwipe = (event: PointerEvent) => {
+    const start = swipeStart.current
+    if (!start || start.pointerId !== event.pointerId) return
+    swipeStart.current = null
+
+    const deltaX = event.clientX - start.x
+    const deltaY = event.clientY - start.y
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return
+
+    swiped.current = true
+    event.preventDefault()
+    select(active + (deltaX < 0 ? 1 : -1))
+    window.setTimeout(() => {
+      swiped.current = false
+    }, 0)
+  }
 
   return (
     <div
@@ -239,7 +243,25 @@ export function HomeHeroCarousel({
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false)
       }}
     >
-      <div class="ed-hero-carousel__slide" aria-live="off">
+      <div
+        class="ed-hero-carousel__slide"
+        aria-live="off"
+        onPointerDown={(event) => {
+          if (event.button !== 0 || event.isPrimary === false) return
+          swipeStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+          swiped.current = false
+        }}
+        onPointerUp={finishSwipe}
+        onPointerCancel={() => {
+          swipeStart.current = null
+          swiped.current = false
+        }}
+        onClickCapture={(event) => {
+          if (!swiped.current) return
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+      >
         {active === 0 && <FeaturedHero data={data} game={game} withHours={withHours} />}
         {active === 1 && <FreePassHero data={data} withHours={withHours} />}
         {active === 2 && <ShareHero />}
