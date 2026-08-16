@@ -173,7 +173,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | Mode           | Route            | Score / record                              |
 | -------------- | ---------------- | ------------------------------------------- |
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
-| Practice       | `#/practice`     | none — **endless, unranked, unscored**      |
+| Practice       | `#/practice`     | section hub; drills are unranked/unscored   |
 | Higher / Lower | `#/higher-lower` | `higherLowerContinuousBest`, total correct |
 | Trade          | `#/trade`        | `tradeLadderBest`, lowest 10-exchange time  |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
@@ -215,9 +215,12 @@ Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
 leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
 from the type, so a Practice best is unrepresentable rather than merely
-discouraged). Because the mode is endless and the client re-orders the deck by
-weakness, `scorePractice` validates the transcript by **set membership** against
-the signed deck rather than by position — a relaxation that is safe only because
+discouraged). `practiceKind` on the signed challenge routes `/practice/costs`
+and `/practice/ledger` through distinct transcript validation and learning
+aggregates without adding another `GameMode`. Cost Recall validates answer-card
+set membership because the client adaptively reorders the pool. Ledger validates
+every 2–6-play sequence against that same pool and recomputes Red spend minus
+Blue spend from canonical costs. Those relaxations are safe only because
 nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
 Each ranked mode has three boards, selected by the `scope` query param on
@@ -256,18 +259,22 @@ Product decisions currently in force:
 
 - Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
-- Practice defaults to the pip keypad and also offers 4-button choices. The
+- Cost Recall defaults to the pip keypad and also offers 4-button choices. The
   keypad has one key per cost the catalog actually has (currently 1–9), dealt as
   one row. The **Speedrun keyboard** setting (`speedrunKeyboard`, off by
   default) deals the same keys as two full-width rows instead — 1–5 over 6–9 —
   for roughly double the tap-target width. It applies everywhere the pip keypad
   renders (Surge, Practice, Survival, Rain), never to Trade's swing pad.
-- Practice is a learning loop, not a finite round: no progress bar and no share
+- Both Practice drills are learning loops, not finite rounds: no progress bar and no share
   action. It times the first response invisibly, separates requested assistance
   from recall, offers voluntary help after seven idle seconds, gives keypad
   recall one anchored higher/lower retry, then reveals the exact answer. Missed
   cards return through the short-term spaced-review queue documented in
   `GAMES.md`.
+- Ledger sequences adapt from two guided plays to six tracked plays. It uses
+  Cost Recall fluency only to decide which faded-stage costs remain visible;
+  Ledger outcomes never mutate those per-card stats. Requested `Show ledger`
+  help is stored separately from unassisted balance reads.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
@@ -285,6 +292,8 @@ Important shared modules:
 - `apps/web/src/lib/practice-deal.ts` - Practice's weakness-weighted card draw.
 - `apps/web/src/lib/practice-review.ts` - Practice's guaranteed short-term
   retry and confirmation queue.
+- `apps/web/src/lib/ledger.ts` - Ledger stage graduation, answerable sequence
+  dealing, fluent-card visibility, and Blue-perspective balance labels.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
 - `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
 - `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
@@ -361,6 +370,9 @@ elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen,
                                       recallSeen?, recallCorrect?, assistedSeen?,
                                       assistedCorrect?, avgMs?, latencySamples? } }
+elixirdrop:ledgerStats   -> { checks, correct, assisted, unassistedChecks,
+                              unassistedCorrect, longestSequence, byStage,
+                              updatedAt? }
 elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBest,
                               survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
@@ -392,17 +404,18 @@ The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape 
 
 Authoritative learning telemetry is server-side: accepted completions in the
 card-recall modes fold per-card outcomes (derived from the validated
-transcript) into a per-player CARDSTATS item. Practice transcripts additionally
+transcript) into a per-player CARDSTATS item. Cost Recall transcripts additionally
 carry bounded first-response milliseconds and whether recognition help was
 used; the aggregate keeps assisted recognition separate and averages only
 unassisted recall latency. Legacy rows fall back to their lifetime counters.
-GET /me retains a learning summary (weak cards + per-cost accuracy) for possible
-future coaching, and account deletion sweeps it. Learning telemetry does not
-affect official challenge generation; Practice's device-local weighted deal may
-use the local copy. Immutable run history
-also retains the validated `answerCount` (not the raw transcript), so Practice
+Ledger completions instead fold accuracy, assistance, stage, and sequence length
+into a per-player LEDGERSTATS item; they contribute no CARDSTATS results. GET
+`/me` retains both summaries and account deletion sweeps both player-partition
+items. Learning telemetry does not affect official challenge generation;
+Practice's device-local deals may use their local copies. Immutable run history
+also retains the validated `answerCount` (not the raw transcript), so Cost Recall
 volume can be rebuilt without storing a second copy of a player's guesses;
-legacy history created before that field cannot be inferred from accuracy.
+Ledger stores zero there to keep Reps and Clean Sweep isolated.
 
 Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
 item holds the monotonic counters, per-rung `time` run counts, the distinct-mode

@@ -165,6 +165,53 @@ describe("guest play", () => {
     expect(claims.guest).toBe(true);
   });
 
+  it("deals Ledger as a signed Practice subtype", async () => {
+    repository.createRun.mockImplementation(
+      (
+        owner: string,
+        mode: string,
+        challenge: unknown,
+        expiresAt: number,
+        ranked: boolean,
+        guest: boolean,
+      ) =>
+        Promise.resolve({
+          pk: "RUN#run-ledger",
+          sk: "RUN",
+          runId: "run-ledger",
+          owner,
+          mode,
+          challenge,
+          state: "started",
+          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          expiresAt,
+          ranked,
+          guest,
+        }),
+    );
+
+    const response = (await handler(
+      guestEvent("/runs/start", {
+        mode: "practice",
+        practiceKind: "ledger",
+      }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+    const body = JSON.parse(response.body || "{}");
+
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({
+      mode: "practice",
+      ranked: false,
+      guest: true,
+      challenge: { mode: "practice", practiceKind: "ledger" },
+    });
+    expect(body.challenge.cardIds).toHaveLength(
+      (rawCards as { cards: unknown[] }).cards.length,
+    );
+  });
+
   it("completes a guest run: returns the scored result and records NOTHING", async () => {
     const runToken = signToken(
       {

@@ -1,3 +1,4 @@
+import { isPracticeKind, type PracticeKind } from "@elixir-drop/contracts";
 import { randomInt } from "node:crypto";
 import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
@@ -23,6 +24,12 @@ export async function startRun({ event, config, repository }: RouteContext) {
   const body = bodyOf(event);
   if (!isGameMode(body.mode))
     throw new HttpError(400, "Choose a valid game mode.");
+  let practiceKind: PracticeKind | undefined;
+  if (body.practiceKind !== undefined) {
+    if (body.mode !== "practice" || !isPracticeKind(body.practiceKind))
+      throw new HttpError(400, "Choose a valid Practice drill.");
+    practiceKind = body.practiceKind;
+  }
   // Rate-limit per IP FIRST, before any auth branch, so a signed-out (guest)
   // caller is covered exactly like a signed-in one.
   await repository.useRateLimit("run-start", clientIpHash(event), 300, 60 * 60);
@@ -32,7 +39,7 @@ export async function startRun({ event, config, repository }: RouteContext) {
   // Every game uses the complete canonical catalog. Linked Clash Royale card
   // data and learning history stay on the profile for future features but do
   // not influence challenge selection. Guests are dealt the same challenge.
-  const challenge = createChallenge(body.mode, randomInt);
+  const challenge = createChallenge(body.mode, randomInt, { practiceKind });
   const nowSeconds = Math.floor(Date.now() / 1_000);
   // "guest" is a sentinel owner that can never collide with a real sub: real
   // subs are base64url SHA-256 email hashes, never the literal string.

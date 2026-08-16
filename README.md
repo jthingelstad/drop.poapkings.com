@@ -18,9 +18,9 @@ Six ways to play, one card-cost engine:
 
 - **Surge** — the flagship speed game. A 15-card sprint against the clock; wrong
   answers add a time penalty. Your score is your time, lower is better.
-- **Practice** — untimed, endless cost recall, weighted toward the cards you keep
-  getting wrong. A card appears, you pick its elixir cost, and you stop when you
-  want. True practice: no score, no record, no XP, never a leaderboard.
+- **Practice** — an unranked training section with adaptive **Cost Recall** and
+  **Ledger** drills. Cost Recall reinforces exact card costs; Ledger teaches the
+  running Blue/Red elixir count behind Trade. No score, record, XP, or board.
 - **Higher / Lower** — two cards, pick which costs more, on three lives. The gap
   between the two costs narrows as you go. Trains the relative read that wins
   elixir trades.

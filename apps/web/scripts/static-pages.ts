@@ -387,7 +387,7 @@ function gamesBody(): string {
     section(
       'Which mode should I play?',
       `${paragraph(
-        'New to the card catalog? Begin with <a href="#practice">Practice</a>. Want a clean speed benchmark? Play <a href="#surge">Surge</a>. Use <a href="#higher-lower">Higher / Lower</a> for comparisons, <a href="#trade">Trade</a> for match math, <a href="#survival">Survival</a> for consistency, and <a href="#rain">Rain</a> for an arcade challenge.'
+        'New to the card catalog? Begin with <a href="#practice">Practice</a>: Cost Recall teaches exact values and Ledger teaches the running count behind a trade. Want a clean speed benchmark? Play <a href="#surge">Surge</a>. Use <a href="#higher-lower">Higher / Lower</a> for comparisons, <a href="#trade">Trade</a> for match math, <a href="#survival">Survival</a> for consistency, and <a href="#rain">Rain</a> for an arcade challenge.'
       )}${paragraph(
         'Practice is intentionally unranked. The other five modes have seasonal and all-time leaderboards for signed-in online runs. Read <a href="/fair-play/">Fair Play</a> before competing for a leading result.'
       )}`
@@ -411,7 +411,7 @@ ${pageSections([
     `${paragraph(
       '<strong>Recall</strong> means producing a cost from the card alone. <strong>Recognition</strong> means choosing it from visible options. Recognition is a useful bridge, but recall is the skill you need in a live match.'
     )}${paragraph(
-      'Practice begins with recall and offers choices only when you ask for help. Missed cards return, so a weak answer becomes another learning opportunity instead of disappearing into a score.'
+      'Practice offers two adaptive drills. Cost Recall begins with recall and offers choices only when you ask for help; missed cards return until they stick. Ledger follows Blue and Red plays and asks who owns the elixir advantage, growing from guided two-card reads to tracked six-play sequences.'
     )}${playLink('/practice', 'Start Practice', 'content.learn.play-practice')}`
   ),
   section(

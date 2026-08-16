@@ -7,7 +7,7 @@ import { apiAvailability, transportOffline } from '../../src/lib/api-availabilit
 
 const CASES = [
   ['/', 'Elixir Drop'],
-  ['/practice', 'PREPARING'],
+  ['/practice', 'Training grounds'],
   ['/surge', 'PREPARING'],
   ['/higher-lower', 'PREPARING'],
   ['/trade', 'PREPARING'],
@@ -90,7 +90,7 @@ describe('SSR render smoke', () => {
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
-    expect(practiceHtml).toContain('PREPARING')
+    expect(practiceHtml).toContain('Training grounds')
     expect(practiceHtml).not.toContain('Ranked access restricted')
   })
 

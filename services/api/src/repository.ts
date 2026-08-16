@@ -34,7 +34,7 @@ import {
   seasonLeaderboardLeader,
 } from "./leaderboards.js";
 import { seasonPodiumFinishers } from "./leaderboards.js";
-import type { CardStatsMap } from "./learning.js";
+import type { CardStatsMap, LedgerStats } from "./learning.js";
 import {
   hydratePublicProfiles,
   placeholderPublicProfile,
@@ -870,6 +870,35 @@ export class Repository {
         Item: {
           pk: `PLAYER#${sub}`,
           sk: "CARDSTATS",
+          stats,
+          updatedAt,
+        },
+      }),
+    );
+  }
+
+  async getLedgerStats(sub: string): Promise<LedgerStats | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "LEDGERSTATS" },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item?.stats as LedgerStats | undefined;
+  }
+
+  async saveLedgerStats(
+    sub: string,
+    stats: LedgerStats,
+    updatedAt: string,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `PLAYER#${sub}`,
+          sk: "LEDGERSTATS",
           stats,
           updatedAt,
         },

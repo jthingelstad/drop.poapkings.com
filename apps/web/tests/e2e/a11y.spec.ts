@@ -3,7 +3,9 @@ import { expect, test } from './fixtures'
 
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
-  { hash: '#/practice', label: 'Practice', ready: '.ed-game' },
+  { hash: '#/practice', label: 'Practice', ready: '.practice-hub' },
+  { hash: '#/practice/costs', label: 'Cost Recall', ready: '.ed-game' },
+  { hash: '#/practice/ledger', label: 'Ledger', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
   { hash: '#/trade', label: 'Trade', ready: '.ed-game' },

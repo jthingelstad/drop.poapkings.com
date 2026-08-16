@@ -1,6 +1,7 @@
 import {
   TRADE_LADDER,
   type GameMode,
+  type PracticeKind,
   type RunChallenge,
   type TradeBoard,
 } from "./index.js";
@@ -228,18 +229,24 @@ export function createChallenge<T extends GameMode>(
   mode: T,
   randomInt: RandomInt,
   pool: readonly ChallengeCard[],
+  options?: { practiceKind?: PracticeKind },
 ): Extract<RunChallenge, { mode: T }>;
 export function createChallenge(
   mode: GameMode,
   randomInt: RandomInt,
   pool: readonly ChallengeCard[],
+  options?: { practiceKind?: PracticeKind },
 ): RunChallenge {
   if (!pool.length) throw new Error("A game challenge needs at least one card");
   switch (mode) {
     case "surge":
       return { mode, cardIds: cardSequence(SURGE_CARD_COUNT, randomInt, pool) };
     case "practice":
-      return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
+      return {
+        mode,
+        practiceKind: options?.practiceKind ?? "costs",
+        cardIds: shuffle(pool, randomInt).map((card) => card.id),
+      };
     case "survival":
       return { mode, cardIds: shuffle(pool, randomInt).map((card) => card.id) };
     case "rain":

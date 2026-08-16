@@ -13,6 +13,7 @@ import { signToken } from "../src/signing.js";
 const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
+  getLedgerStats: vi.fn(async () => undefined),
   getCrWarClock: vi.fn(),
   getBadges: vi.fn(),
   getProfile: vi.fn(),
@@ -20,6 +21,7 @@ const repository = vi.hoisted(() => ({
   putRefereeEvidence: vi.fn(),
   saveBadges: vi.fn(),
   saveCardStats: vi.fn(),
+  saveLedgerStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
   wouldLeadSeason: vi.fn(async () => false),
@@ -31,6 +33,7 @@ vi.mock("../src/repository.js", () => ({
   Repository: class {
     completeRun = repository.completeRun;
     getCardStats = repository.getCardStats;
+    getLedgerStats = repository.getLedgerStats;
     getCrWarClock = repository.getCrWarClock;
     getBadges = repository.getBadges;
     getProfile = repository.getProfile;
@@ -38,6 +41,7 @@ vi.mock("../src/repository.js", () => ({
     putRefereeEvidence = repository.putRefereeEvidence;
     saveBadges = repository.saveBadges;
     saveCardStats = repository.saveCardStats;
+    saveLedgerStats = repository.saveLedgerStats;
     updateAllTimeBest = repository.updateAllTimeBest;
     wouldLeadAllTime = repository.wouldLeadAllTime;
     wouldLeadSeason = repository.wouldLeadSeason;
@@ -71,7 +75,7 @@ const profile = {
 
 function completionEvent(
   runToken: string,
-  answers: Array<{ cardId: number; guess: number }>,
+  answers: Array<Record<string, unknown>>,
 ): APIGatewayProxyEventV2 {
   const session = signToken(
     {
@@ -177,6 +181,7 @@ describe("Practice completion", () => {
     repository.putRefereeEvidence.mockResolvedValue(undefined);
     repository.saveBadges.mockResolvedValue(true);
     repository.saveCardStats.mockResolvedValue(undefined);
+    repository.saveLedgerStats.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
@@ -305,6 +310,72 @@ describe("Practice completion", () => {
     // Both are gated on `ranked !== false`, which Practice never is.
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
+  });
+
+  it("stores Ledger progress separately without adding Cost Recall Reps", async () => {
+    const blue = allCards.find((card) => card.elixir === 3)!;
+    const red = allCards.find((card) => card.elixir === 5)!;
+    repository.getRun.mockResolvedValue({
+      pk: "RUN#run-practice",
+      sk: "RUN",
+      runId: "run-practice",
+      owner: profile.sub,
+      mode: "practice",
+      challenge: {
+        mode: "practice",
+        practiceKind: "ledger",
+        cardIds: deck,
+      },
+      state: "started",
+      startedAt: new Date(Date.now() - 60_000).toISOString(),
+      expiresAt: nowSeconds + 1_800,
+      ranked: false,
+    });
+    repository.completeRun.mockResolvedValue({
+      totalGames: 5,
+      completedAt: "2026-07-24T12:01:00.000Z",
+      profile: { ...profile, totalGames: 5, xp: 45 },
+    });
+    const response = (await handler(
+      completionEvent(practiceRunToken(), [
+        {
+          plays: [
+            { side: "blue", cardId: blue.id },
+            { side: "red", cardId: red.id },
+          ],
+          guess: 2,
+          responseMs: 1_200,
+          assisted: false,
+          stage: "guided",
+        },
+      ]),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(201);
+    expect(repository.saveLedgerStats).toHaveBeenCalledWith(
+      profile.sub,
+      expect.objectContaining({
+        checks: 1,
+        correct: 1,
+        unassistedChecks: 1,
+        longestSequence: 2,
+      }),
+      "2026-07-24T12:01:00.000Z",
+    );
+    expect(repository.saveCardStats).not.toHaveBeenCalled();
+    expect(repository.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ answerCount: 0 }),
+      100,
+      expect.any(String),
+      0,
+      undefined,
+      undefined,
+    );
+    const savedBadges = repository.saveBadges.mock.calls.at(-1)?.[1];
+    expect(savedBadges.values.reps).toBeUndefined();
+    expect(savedBadges.values["clean-sweep"]).toBeUndefined();
   });
 
   // Practice is a private drill. An endless session has no comparable number to

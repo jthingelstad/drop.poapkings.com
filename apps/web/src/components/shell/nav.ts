@@ -15,7 +15,7 @@ export interface NavItem {
 
 const GAMES_ITEM: NavItem = {
   route: '/',
-  matches: (r) => r === '/' || isGameRoute(r),
+  matches: (r) => r === '/' || r === '/practice' || isGameRoute(r),
   icon: 'gamepad',
   label: 'Games',
   shortLabel: 'Games'
@@ -66,7 +66,9 @@ export function isMoreRoute(r: string): boolean {
 // Home owns the game routes so the Games tab stays lit while playing. Also used
 // by the shells to hide the nav / dim the rail during a game.
 export function isGameRoute(r: string): boolean {
-  return GAME_PREFIXES.some((p) => r.startsWith(p))
+  // `/practice` is a section hub, so it keeps the ordinary shell and mobile
+  // navigation. Only a selected drill becomes the full-bleed game surface.
+  return r !== '/practice' && GAME_PREFIXES.some((p) => r.startsWith(p))
 }
 
 // Falls back to Games only for genuinely unclaimed routes. Every route a player

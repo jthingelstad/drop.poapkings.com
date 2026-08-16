@@ -7,6 +7,7 @@ const repository = vi.hoisted(() => ({
   listRecentRuns: vi.fn(),
   listRunHistory: vi.fn(),
   getCardStats: vi.fn(),
+  getLedgerStats: vi.fn(async () => undefined),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   refereeDecisions: vi.fn(async () => new Map()),
@@ -20,6 +21,7 @@ vi.mock("../src/repository.js", () => ({
     listRecentRuns = repository.listRecentRuns;
     listRunHistory = repository.listRunHistory;
     getCardStats = repository.getCardStats;
+    getLedgerStats = repository.getLedgerStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     refereeDecisions = repository.refereeDecisions;

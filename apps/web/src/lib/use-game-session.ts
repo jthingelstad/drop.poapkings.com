@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import type { GameMode, RunChallenge } from '@elixir-drop/contracts'
+import type { GameMode, PracticeKind, RunChallenge } from '@elixir-drop/contracts'
 import { preloadImages } from './preload'
 import { useGameRun } from './use-game-run'
 import type { PreparedChallenge } from './game-challenge-content'
@@ -12,9 +12,9 @@ type Resolved<T> = { prepared: PreparedChallenge<T>; error: '' } | { prepared: n
 export function useGameSession<TMode extends GameMode, TContent>(
   mode: TMode,
   resolve: (challenge: ChallengeFor<TMode>) => PreparedChallenge<TContent>,
-  options?: { requireArt?: boolean }
+  options?: { requireArt?: boolean; practiceKind?: PracticeKind }
 ) {
-  const run = useGameRun(mode)
+  const run = useGameRun(mode, { practiceKind: options?.practiceKind })
   const loadedChallenge = useSignal<ChallengeFor<TMode> | null>(null)
   const artFailed = useSignal(false)
   const preloadGeneration = useRef(0)

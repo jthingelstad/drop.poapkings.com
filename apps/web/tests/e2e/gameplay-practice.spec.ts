@@ -1,9 +1,55 @@
 import type { Page } from '@playwright/test'
-import { allowBlockedAssets, cardsData, expect, test, waitForKeypad } from './fixtures'
+import { allowBlockedAssets, cardsById, cardsData, expect, test, waitForKeypad } from './fixtures'
+
+test('Practice is a two-drill section and Ledger completes a validated balance check', async ({ page }) => {
+  await page.goto('/#/practice')
+
+  await expect(page.locator('.practice-hub')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
+  await page.getByRole('button', { name: /Ledger/ }).click()
+
+  await expect(page.locator('.ed-game__mode')).toHaveText('Ledger', { timeout: 12_000 })
+  await expect(page.locator('.ledger-board')).toHaveAttribute('data-stage', 'guided')
+  await expect(page.locator('.ledger-card')).toHaveCount(2, { timeout: 12_000 })
+  await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+
+  const balance = await page.locator('.ledger-board').evaluate(
+    (board, catalog) => {
+      const costs = new Map(
+        (catalog as Array<{ id: number; elixir: number }>).map((card) => [String(card.id), card.elixir])
+      )
+      const total = (selector: string) =>
+        [...board.querySelectorAll<HTMLElement>(selector)].reduce(
+          (sum, card) => sum + (costs.get(card.dataset.cardId ?? '') ?? 0),
+          0
+        )
+      return total('.ledger-lane--red .ledger-card') - total('.ledger-lane--blue .ledger-card')
+    },
+    [...cardsById.values()].map(({ id, elixir }) => ({ id, elixir }))
+  )
+
+  const answer =
+    balance === 0
+      ? page.locator('.ledger-answer--even')
+      : page
+          .locator(
+            balance > 0 ? '.ledger-pad__group--blue button' : '.ledger-pad__group:not(.ledger-pad__group--blue) button'
+          )
+          .filter({ hasText: `+${Math.abs(balance)}` })
+  await answer.click()
+
+  await expect(page.locator('.ledger-prompt')).toContainText('Blue spent')
+  await expect(page.locator('.ed-game__progress')).toContainText('1 checked')
+  await page.getByRole('button', { name: 'End session' }).click()
+  await expect(page.locator('[data-summary]')).toBeVisible()
+  await expect(page.locator('.ed-sum__headline')).toHaveText('1 / 1 balances')
+  await expect(page.locator('.shareline')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Practice', exact: true })).toBeVisible()
+})
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
   // Higher/Lower has its own tap-the-card coverage in gameplay-higher-lower.spec.ts.
-  const modes = [{ hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' }]
+  const modes = [{ hash: '#/practice/costs', control: '.pip-keypad', answer: '4 elixir' }]
 
   for (const mode of modes) {
     await page.goto('/')
@@ -33,7 +79,7 @@ test('continuous play modes expose working controls with low chrome', async ({ p
 // ways. 114 of the 120 cards qualify, so this lands on the first or second try.
 async function openPracticeOnMidCostCard(page: Page) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    await page.goto('/#/practice')
+    await page.goto('/#/practice/costs')
     await waitForKeypad(page)
     const name = await page.locator('.pcard__img').getAttribute('alt')
     const card = cardsData.cards.find((candidate) => candidate.name === name)
@@ -124,7 +170,7 @@ test('practice never exposes the next hand before its image decode completes', a
     }
   })
 
-  await page.goto('/#/practice')
+  await page.goto('/#/practice/costs')
   await waitForKeypad(page)
   const image = page.locator('.pcard__img')
   const firstName = await image.getAttribute('alt')
@@ -188,7 +234,7 @@ test('practice runs until the player ends it, then closes on stats with no perso
 })
 
 test('practice offers voluntary idle help without revealing the answer', { tag: '@deploy' }, async ({ page }) => {
-  await page.goto('/#/practice')
+  await page.goto('/#/practice/costs')
   await waitForKeypad(page)
 
   await expect(page.getByRole('button', { name: /Need a nudge/ })).toHaveCount(0)
@@ -201,7 +247,7 @@ test('practice offers voluntary idle help without revealing the answer', { tag: 
 
 test('practice keeps the learning hold and advances under reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/#/practice')
+  await page.goto('/#/practice/costs')
   await waitForKeypad(page)
 
   const image = page.locator('.pcard__img')
@@ -221,6 +267,6 @@ test('card art fallback renders when card images cannot load', async ({ page }) 
   // Card art is mirrored same-origin under /cards/; block that path.
   await page.route('**/cards/*.png', (route) => route.abort())
   await page.goto('/')
-  await page.goto('/#/practice')
+  await page.goto('/#/practice/costs')
   await expect(page.locator('.pcard__fallback')).toBeVisible({ timeout: 12_000 })
 })

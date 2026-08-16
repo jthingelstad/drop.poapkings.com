@@ -1,4 +1,4 @@
-import type { GameMode } from '@elixir-drop/contracts'
+import type { GameMode, PracticeKind } from '@elixir-drop/contracts'
 import {
   accountDeletionResponseSchema,
   activityResponseSchema,
@@ -325,11 +325,11 @@ export function deleteMe(sessionToken: string, confirmation: string) {
 // The session token is optional: with none, the request is a guest request and
 // the server deals/scores a run that is never recorded. apiRequest only sends
 // the authorization header when a token is present.
-export function startRun(mode: GameMode, sessionToken?: string) {
+export function startRun(mode: GameMode, sessionToken?: string, practiceKind?: PracticeKind) {
   return apiRequest('/runs/start', startedRunSchema, {
     method: 'POST',
     sessionToken,
-    body: JSON.stringify({ mode })
+    body: JSON.stringify({ mode, ...(practiceKind ? { practiceKind } : {}) })
   })
 }
 

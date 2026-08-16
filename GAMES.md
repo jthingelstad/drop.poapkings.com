@@ -7,10 +7,11 @@ reworking a mode.
 **Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
 owns.
 
-Shipped state as of July 25, 2026: **six playable modes** — Surge, Practice,
-Higher / Lower, Trade, Survival, and Rain. **Practice is a pure drill**: endless,
-unranked, no score, no record, and **no Player XP** — it deliberately touches no
-competitive or progression surface, which is exactly what lets it run forever.
+Shipped state as of August 16, 2026: **six playable game families** — Surge,
+Practice, Higher / Lower, Trade, Survival, and Rain. Practice is now a section
+with two complementary drills: **Cost Recall** and **Ledger**. Both are endless,
+unranked, have no record, and award **no Player XP** — they deliberately touch no
+competitive surface, which is exactly what lets them run forever.
 Player XP is a per-player activity score (one point per question practiced, right
 or wrong) that drives the arena and is earned by the other five modes;
 leaderboards rank on speed. **Daily Ladder is not shipped and should not be
@@ -127,6 +128,14 @@ in-game hero links there rather than duplicating the full rules.
 ### Core drills
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
+Practice is a training section rather than a single game. Its hub keeps the
+ordinary app shell visible and offers Cost Recall and Ledger. Selecting a drill
+opens the focused game shell. Both drills share the signed `practice` GameMode,
+with `practiceKind` on the challenge distinguishing their validation and
+learning aggregates; a drill can never acquire a leaderboard just by joining
+this section.
+
+**Cost Recall** — `/practice/costs`
 Untimed and **endless**. A card appears; name its cost; repeat until you choose
 to stop, via the always-available icon-only close control in the top bar
 (accessibly named **End session**). There is no round
@@ -179,6 +188,37 @@ feeds the server-owned learning stats (`services/api/src/learning.ts`).
 - Sharing: **none.** An endless drill has no comparable result worth publishing.
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
   adjacent but randomly offset, so the option set never names the answer.
+
+**Ledger** — `/practice/ledger`
+Untimed, endless running-count practice and a direct learning companion to
+Trade. Cards are played one at a time for Blue or Red; after the sequence, the
+player calls `Blue +N`, `Even`, or `Red +N`. Internally the answer uses the same
+Blue-King perspective as Trade: Red spend minus Blue spend, bounded to -4…+4.
+Each sequence contains 2–6 unique cards, includes both sides, and comes from the
+full signed catalog pool.
+
+Ledger adapts in three stages using its own device-local progress:
+
+- **Guided** starts at two plays. Card costs and the running balance are visible
+  during the sequence, then the final answer is recalled.
+- **Faded** grows to three and four plays. Costs disappear only for cards whose
+  Cost Recall history shows fluent, accurate, unassisted recall; weak, slow, and
+  unseen cards stay scaffolded.
+- **Tracked** grows from four to six plays. Costs are hidden and previous cards
+  leave the board, training the live working-memory read used in a match.
+
+The player may request **Show ledger** after any sequence. That assistance is
+tracked separately and cannot accelerate graduation to Tracked. Solving a check
+reveals Blue and Red totals plus the canonical balance before the next sequence.
+The player ends the session at any time and sees accuracy, unassisted checks,
+and the next adaptive stage—never a score, best, streak, share action, or rank.
+
+Online completion validates every play against the signed pool, recomputes the
+balance from canonical costs, and folds the result into a separate
+`LEDGERSTATS` item. Ledger never writes per-card Cost Recall mastery, Reps, or
+Clean Sweep; its history `answerCount` is zero so a later badge rebuild keeps
+that boundary. Offline sessions update only `elixirdrop:ledgerStats` on the
+device and are never queued for reconnect.
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
 Two cards, costs hidden; **tap the card that costs more elixir**. Pairs are

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { getCardStats, getRecords, getSettings, saveRecords, saveResult, saveSettings } from '../../src/lib/storage'
+import {
+  getCardStats,
+  getLedgerStats,
+  getRecords,
+  getSettings,
+  saveLedgerResult,
+  saveRecords,
+  saveResult,
+  saveSettings
+} from '../../src/lib/storage'
 
 describe('storage seam', () => {
   it('round-trips settings, records, and card stats', () => {
@@ -53,5 +62,23 @@ describe('storage seam', () => {
     localStorage.setItem('elixirdrop:records', JSON.stringify({ higherLowerBest: 87 }))
 
     expect(getRecords().higherLowerContinuousBest).toBeUndefined()
+  })
+
+  it('keeps Ledger checks and requested help separate from card mastery', () => {
+    saveLedgerResult({ correct: true, assisted: true, stage: 'guided', sequenceLength: 2 })
+    saveLedgerResult({ correct: false, assisted: false, stage: 'faded', sequenceLength: 4 })
+
+    expect(getLedgerStats()).toMatchObject({
+      checks: 2,
+      correct: 1,
+      assisted: 1,
+      unassistedChecks: 1,
+      unassistedCorrect: 0,
+      longestSequence: 4,
+      byStage: {
+        guided: { seen: 1, correct: 1 },
+        faded: { seen: 1, correct: 0 }
+      }
+    })
   })
 })

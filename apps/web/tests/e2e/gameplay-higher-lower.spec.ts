@@ -156,6 +156,12 @@ test('higher/lower: a timeout costs a life, and the last life ends the run', asy
   await tapLower(page)
   await expect(livesRow(page)).toHaveAttribute('aria-label', '1 of 3 lives left')
   await page.clock.fastForward(AFTER_MISS_MS)
+  // Wait for the replacement pair before deriving its lower-card index. On a
+  // busy WebKit worker the old pair can still be present here; letting click()
+  // do the waiting would apply an index computed from that old pair to the new
+  // one, which can turn the intended miss into a correct answer.
+  await expect(page.locator('.ed-duel__card--correct')).toHaveCount(0)
+  await expect(page.locator('.ed-duel__card').first()).toBeEnabled()
   await tapLower(page)
   await expect(livesRow(page)).toHaveAttribute('aria-label', '0 of 3 lives left')
 

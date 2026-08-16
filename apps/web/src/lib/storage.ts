@@ -5,11 +5,12 @@
 // inventory.
 // v2: replace the body of each function with fetch() without touching game logic.
 
-import type { CardStats, CardStat, Records, Profile, Settings } from '../types'
+import type { CardStats, CardStat, LedgerStage, LedgerStats, Records, Profile, Settings } from '../types'
 
 const K = {
   profile: 'elixirdrop:profile',
   cardStats: 'elixirdrop:cardStats',
+  ledgerStats: 'elixirdrop:ledgerStats',
   records: 'elixirdrop:records',
   seasonRecords: 'elixirdrop:seasonRecords',
   settings: 'elixirdrop:settings'
@@ -80,6 +81,60 @@ export function saveResult(cardId: number, correct: boolean, ms?: number, assist
   }
 
   save(K.cardStats, stats)
+}
+
+// ── Ledger stats ──────────────────────────────────────────────────────────────
+
+export function emptyLedgerStats(): LedgerStats {
+  return {
+    checks: 0,
+    correct: 0,
+    assisted: 0,
+    unassistedChecks: 0,
+    unassistedCorrect: 0,
+    longestSequence: 0,
+    byStage: {
+      guided: { seen: 0, correct: 0 },
+      faded: { seen: 0, correct: 0 },
+      tracked: { seen: 0, correct: 0 }
+    }
+  }
+}
+
+export function getLedgerStats(): LedgerStats {
+  const stored = load<Partial<LedgerStats>>(K.ledgerStats, {})
+  const empty = emptyLedgerStats()
+  return {
+    ...empty,
+    ...stored,
+    byStage: {
+      guided: { ...empty.byStage.guided, ...stored.byStage?.guided },
+      faded: { ...empty.byStage.faded, ...stored.byStage?.faded },
+      tracked: { ...empty.byStage.tracked, ...stored.byStage?.tracked }
+    }
+  }
+}
+
+export function saveLedgerResult(result: {
+  correct: boolean
+  assisted: boolean
+  stage: LedgerStage
+  sequenceLength: number
+}): LedgerStats {
+  const stats = getLedgerStats()
+  stats.checks += 1
+  stats.correct += result.correct ? 1 : 0
+  stats.assisted += result.assisted ? 1 : 0
+  if (!result.assisted) {
+    stats.unassistedChecks += 1
+    stats.unassistedCorrect += result.correct ? 1 : 0
+  }
+  stats.longestSequence = Math.max(stats.longestSequence, result.sequenceLength)
+  stats.byStage[result.stage].seen += 1
+  stats.byStage[result.stage].correct += result.correct ? 1 : 0
+  stats.updatedAt = Date.now()
+  save(K.ledgerStats, stats)
+  return stats
 }
 
 // ── Records ───────────────────────────────────────────────────────────────────

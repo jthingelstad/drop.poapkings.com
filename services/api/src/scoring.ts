@@ -1,6 +1,10 @@
 import rawCards from "@elixir-drop/game-data/cards.json";
 import {
   higherLowerWindowMs,
+  LEDGER_MAX_PLAYS,
+  LEDGER_MIN_PLAYS,
+  LEDGER_VALUE_LIMIT,
+  type PracticeKind,
   rainSpawnFloorMs,
   rainSpawnIntervalMs,
   survivalWindowMs,
@@ -36,7 +40,7 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "6";
+export const SCORING_RULES_VERSION = "7";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
@@ -90,12 +94,14 @@ export function tradeRounds(
 export function createChallenge<T extends GameMode>(
   mode: T,
   randomInt: RandomInt,
+  options?: { practiceKind?: PracticeKind },
 ): Extract<RunChallenge, { mode: T }>;
 export function createChallenge(
   mode: GameMode,
   randomInt: RandomInt,
+  options?: { practiceKind?: PracticeKind },
 ): RunChallenge {
-  return createGameChallenge(mode, randomInt, CARDS);
+  return createGameChallenge(mode, randomInt, CARDS, options);
 }
 
 function objectArray(
@@ -249,6 +255,8 @@ function scorePractice(
   challenge: Extract<RunChallenge, { mode: "practice" }>,
   transcript: RunTranscript,
 ): number {
+  if (challenge.practiceKind === "ledger")
+    return scoreLedger(challenge, transcript);
   const answers = objectArray(transcript.answers, "Practice");
   if (!answers.length)
     throw new Error("A Practice session needs at least one answer");
@@ -276,6 +284,67 @@ function scorePractice(
       throw new Error("Practice assistance is invalid");
     if (answer.guess === card(cardId).elixir) correct += 1;
   }
+  return Math.round((correct / answers.length) * 100);
+}
+
+// Ledger uses the same endless, unranked Practice channel but a deliberately
+// different transcript. Each check repeats the exact play sequence so the
+// server can derive the balance from its own catalog, verify every card came
+// from the signed pool, and reject a client-authored answer key.
+function scoreLedger(
+  challenge: Extract<RunChallenge, { mode: "practice" }>,
+  transcript: RunTranscript,
+): number {
+  const answers = objectArray(transcript.answers, "Ledger");
+  if (!answers.length)
+    throw new Error("A Ledger session needs at least one check");
+  if (answers.length > PRACTICE_MAX_ANSWERS)
+    throw new Error("Ledger transcript exceeds the maximum check count");
+  const deck = new Set(challenge.cardIds);
+  const stages = new Set(["guided", "faded", "tracked"]);
+  let correct = 0;
+
+  for (const answer of answers) {
+    const plays = objectArray(answer.plays, "Ledger plays");
+    if (plays.length < LEDGER_MIN_PLAYS || plays.length > LEDGER_MAX_PLAYS)
+      throw new Error("Ledger sequence length is invalid");
+    const seen = new Set<number>();
+    const sides = new Set<string>();
+    let balance = 0;
+    for (const play of plays) {
+      const cardId = Number(play.cardId);
+      if (!Number.isSafeInteger(cardId) || !deck.has(cardId))
+        throw new Error("Ledger card is not from the signed deck");
+      if (seen.has(cardId))
+        throw new Error("Ledger cannot repeat a card within one sequence");
+      if (play.side !== "blue" && play.side !== "red")
+        throw new Error("Ledger side is invalid");
+      seen.add(cardId);
+      sides.add(play.side);
+      const cost = card(cardId).elixir;
+      balance += play.side === "red" ? cost : -cost;
+    }
+    if (sides.size !== 2 || Math.abs(balance) > LEDGER_VALUE_LIMIT)
+      throw new Error("Ledger sequence balance is invalid");
+    if (
+      !Number.isInteger(answer.guess) ||
+      Math.abs(Number(answer.guess)) > LEDGER_VALUE_LIMIT
+    )
+      throw new Error("Ledger answer is invalid");
+    if (
+      typeof answer.responseMs !== "number" ||
+      !Number.isInteger(answer.responseMs) ||
+      answer.responseMs < 0 ||
+      answer.responseMs > 60_000
+    )
+      throw new Error("Ledger response time is invalid");
+    if (typeof answer.assisted !== "boolean")
+      throw new Error("Ledger assistance is invalid");
+    if (typeof answer.stage !== "string" || !stages.has(answer.stage))
+      throw new Error("Ledger stage is invalid");
+    if (answer.guess === balance) correct += 1;
+  }
+
   return Math.round((correct / answers.length) * 100);
 }
 

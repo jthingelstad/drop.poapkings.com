@@ -32,7 +32,7 @@ function redirectStandaloneRoute(value: string): boolean {
 }
 
 const initialRoute = parseHash()
-redirectStandaloneRoute(initialRoute)
+export const redirectingToStandalonePage = redirectStandaloneRoute(initialRoute)
 export const route = signal<string>(initialRoute)
 
 // The route we were on before the current one — powers in-app back actions

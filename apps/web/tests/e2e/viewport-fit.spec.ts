@@ -31,7 +31,7 @@ test.describe('mobile timed-mode controls', () => {
   // Practice is untimed (no countdown), but pairs a full card with the same
   // keypad — its bottom row must not fall off the first viewport either.
   test('keeps the Practice keypad in the first viewport', { tag: '@deploy' }, async ({ page }) => {
-    await page.goto('/#/practice')
+    await page.goto('/#/practice/costs')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
     await expect(keypad).toBeVisible({ timeout: 12_000 })
 
@@ -119,7 +119,7 @@ test.describe('mobile timed-mode controls', () => {
   // pills), and Rain draws the pad over the falling-cards field.
   test('keeps the speedrun keyboard in the first viewport', async ({ page }) => {
     await useSpeedrunKeyboard(page)
-    for (const hash of ['#/surge', '#/survival', '#/practice', '#/rain']) {
+    for (const hash of ['#/surge', '#/survival', '#/practice/costs', '#/rain']) {
       await page.goto(`/${hash}`)
       const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
       await expect(keypad).toBeVisible({ timeout: 12_000 })

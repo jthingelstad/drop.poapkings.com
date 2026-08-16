@@ -49,6 +49,7 @@ import { setSoundEnabled, playCorrect } from '../../src/lib/sound'
 import { getSettings } from '../../src/lib/storage'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { challengeCard, challengeCards, fullDeckSize } from '../../src/lib/challenge-cards'
+import { route } from '../../src/lib/router'
 import { createProgressivePreloadPlan, preloadImages, preloadUrls } from '../../src/lib/preload'
 
 import Settings from '../../src/modes/settings/Settings'
@@ -433,6 +434,7 @@ describe('mode smoke — Surge', () => {
 
 describe('mode smoke — Practice', () => {
   it('uses the shared loading stage while card art is prepared', () => {
+    route.value = '/practice/costs'
     stageSession(fakeCards(15), 'running', { assetsReady: false })
     const c = mount(<Practice />)
     expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
@@ -440,6 +442,7 @@ describe('mode smoke — Practice', () => {
   })
 
   it('renders the running board', () => {
+    route.value = '/practice/costs'
     vi.useFakeTimers()
     try {
       stageSession(fakeCards(15), 'running')

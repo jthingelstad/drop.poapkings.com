@@ -21,7 +21,12 @@ import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
 import { assessRunIntegrity } from "../integrity.js";
-import { cardResultsFromTranscript, mergeCardStats } from "../learning.js";
+import {
+  cardResultsFromTranscript,
+  ledgerResultsFromTranscript,
+  mergeCardStats,
+  mergeLedgerStats,
+} from "../learning.js";
 import { levelForGames } from "../progression.js";
 import { buildEvidenceItem, deriveCorrelation } from "../referee-evidence.js";
 import type { Repository, RunItem } from "../repository.js";
@@ -284,9 +289,15 @@ async function recordSignedInRun(
   // no progression. The exclusion is stated here, at the call site, rather than
   // buried as a mode branch inside runXp.
   const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
-  const answerCount = Array.isArray(transcript.answers)
-    ? transcript.answers.length
-    : 0;
+  const isLedger =
+    run.challenge.mode === "practice" &&
+    run.challenge.practiceKind === "ledger";
+  // `answerCount` is the history-backed Cost Recall Reps source. Ledger keeps
+  // its own aggregate and must never inflate that badge during a later rebuild.
+  const answerCount =
+    !isLedger && Array.isArray(transcript.answers)
+      ? transcript.answers.length
+      : 0;
   const result = await repository.completeRun(
     { ...run, answerCount },
     score,
@@ -374,6 +385,16 @@ async function recordSignedInRun(
     result.profile,
     automaticReviewReason,
   );
+  const practiceKind =
+    run.challenge.mode === "practice"
+      ? (run.challenge.practiceKind ?? "costs")
+      : undefined;
+  const analyticsMode =
+    practiceKind === "ledger"
+      ? "practice:ledger"
+      : practiceKind === "costs"
+        ? "practice:costs"
+        : run.mode;
   console.info(
     automaticReviewReason
       ? "Game completed under referee review"
@@ -416,8 +437,8 @@ async function recordSignedInRun(
       : Promise.resolve(),
     publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
       event: "game.completed",
-      value: run.mode,
-      path: `/${run.mode}`,
+      value: analyticsMode,
+      path: practiceKind ? `/practice/${practiceKind}` : `/${run.mode}`,
     }),
     personalBest.improved
       ? publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
@@ -504,7 +525,10 @@ export async function updateBadges(
         context.tzOffsetMinutes,
       );
       const answers = Array.isArray(transcript.answers)
-        ? transcript.answers.length
+        ? run.challenge.mode === "practice" &&
+          run.challenge.practiceKind === "ledger"
+          ? 0
+          : transcript.answers.length
         : 0;
       const cardResults = cardResultsFromTranscript(run.challenge, transcript);
       // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
@@ -675,6 +699,19 @@ async function updateLearningStats(
   completedAt: string,
 ) {
   try {
+    const ledgerResults = ledgerResultsFromTranscript(
+      run.challenge,
+      transcript,
+    );
+    if (ledgerResults.length) {
+      const existing = await repository.getLedgerStats(run.owner);
+      await repository.saveLedgerStats(
+        run.owner,
+        mergeLedgerStats(existing, ledgerResults, completedAt),
+        completedAt,
+      );
+      return;
+    }
     const cardResults = cardResultsFromTranscript(run.challenge, transcript);
     if (cardResults.length) {
       const existing = await repository.getCardStats(run.owner);

@@ -54,21 +54,31 @@ export async function getMe({ event, config, repository }: RouteContext) {
       "Player profile was not found.",
       "profile_not_found",
     );
-  const [recentRuns, crProfile, cardStats, rankedAccess] = await Promise.all([
-    repository.listRecentRuns(session.sub),
-    profile.playerTag ? repository.getCrProfile(profile.playerTag) : undefined,
-    // Best-effort like every other side lookup here — but logged, so a
-    // persistently failing stats read is visible instead of silently
-    // flattening every player's learning summary.
-    repository.getCardStats(session.sub).catch((error) => {
-      console.warn("Learning stats lookup failed", {
-        requestId: event.requestContext.requestId,
-        error: error instanceof Error ? error.name : "unknown",
-      });
-      return {};
-    }),
-    repository.rankedAccess(profile.playerId),
-  ]);
+  const [recentRuns, crProfile, cardStats, ledgerStats, rankedAccess] =
+    await Promise.all([
+      repository.listRecentRuns(session.sub),
+      profile.playerTag
+        ? repository.getCrProfile(profile.playerTag)
+        : undefined,
+      // Best-effort like every other side lookup here — but logged, so a
+      // persistently failing stats read is visible instead of silently
+      // flattening every player's learning summary.
+      repository.getCardStats(session.sub).catch((error) => {
+        console.warn("Learning stats lookup failed", {
+          requestId: event.requestContext.requestId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+        return {};
+      }),
+      repository.getLedgerStats(session.sub).catch((error) => {
+        console.warn("Ledger stats lookup failed", {
+          requestId: event.requestContext.requestId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+        return undefined;
+      }),
+      repository.rankedAccess(profile.playerId),
+    ]);
   const badges = await badgeSummary(
     { event, config, repository },
     session.sub,
@@ -86,6 +96,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
     learning: {
       weakCardIds: weakCardIds(cardStats, 8),
       costAccuracy: costAccuracy(cardStats),
+      ...(ledgerStats ? { ledger: ledgerStats } : {}),
     },
     badges,
     // Drop runs whose mode is no longer a live game — retired modes (e.g. the

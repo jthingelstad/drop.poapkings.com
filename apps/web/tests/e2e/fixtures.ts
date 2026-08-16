@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test'
 import { test as base, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { TRADE_LADDER, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
+import { TRADE_LADDER, type GameMode, type PracticeKind, type RunChallenge } from '@elixir-drop/contracts'
 import type { CardsData } from '../../src/types'
 
 export const cardsData = JSON.parse(
@@ -302,7 +302,7 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
   return false
 }
 
-function testChallenge(mode: GameMode): RunChallenge {
+function testChallenge(mode: GameMode, practiceKind?: PracticeKind): RunChallenge {
   const cards = [...cardsData.cards]
   const ids = cards.map((card) => card.id)
   const sequence = (count: number) => Array.from({ length: count }, (_, index) => ids[index % ids.length]!)
@@ -313,7 +313,7 @@ function testChallenge(mode: GameMode): RunChallenge {
     case 'practice':
       // Practice is endless: the signed deck is the whole catalog used as a
       // pool, which the client draws from weighted by the player's weak cards.
-      return { mode, cardIds: [...ids] }
+      return { mode, practiceKind: practiceKind ?? 'costs', cardIds: [...ids] }
     case 'rain':
       return { mode, cardIds: sequence(250) }
     case 'survival':
@@ -365,15 +365,16 @@ function testChallenge(mode: GameMode): RunChallenge {
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
   if (path === '/runs/start') {
-    const { mode } = route.request().postDataJSON() as { mode: GameMode }
-    const challenge = testChallenge(mode)
+    const { mode, practiceKind } = route.request().postDataJSON() as { mode: GameMode; practiceKind?: PracticeKind }
+    const challenge = testChallenge(mode, practiceKind)
+    const runToken = `run-${mode}${practiceKind === 'ledger' ? '-ledger' : ''}`
     const guest = !route.request().headers()['authorization']
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
       body: JSON.stringify({
-        runId: `run-${mode}`,
-        runToken: `run-${mode}`,
+        runId: runToken,
+        runToken,
         mode,
         challenge,
         ...(guest ? { guest: true } : {}),
@@ -384,7 +385,7 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
   }
   if (path === '/runs/complete') {
     const { runToken } = route.request().postDataJSON() as { runToken: string }
-    const mode = runToken.replace(/^run-/, '') as GameMode
+    const mode = runToken === 'run-practice-ledger' ? 'practice' : (runToken.replace(/^run-/, '') as GameMode)
     const season = {
       id: '2026-07',
       startsAt: '2026-07-06T08:00:00.000Z',

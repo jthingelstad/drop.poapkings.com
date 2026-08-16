@@ -1,6 +1,12 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
-import { runReference, type GameMode, type RunChallenge, type StartedRun } from '@elixir-drop/contracts'
+import {
+  runReference,
+  type GameMode,
+  type PracticeKind,
+  type RunChallenge,
+  type StartedRun
+} from '@elixir-drop/contracts'
 import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
@@ -86,7 +92,9 @@ function recordAllTimeBest(result: { mode: GameMode; score: number }): boolean {
   return better
 }
 
-export function useGameRun<T extends GameMode>(mode: T) {
+export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind?: PracticeKind }) {
+  const practiceKind = options?.practiceKind
+  const analyticsMode = practiceKind === 'ledger' ? 'practice:ledger' : mode
   const run = useRef<StartedRun | null>(null)
   const pendingCompletion = useRef<{
     run: StartedRun
@@ -111,11 +119,11 @@ export function useGameRun<T extends GameMode>(mode: T) {
     setRecordingNotice({ state: 'idle' })
     const prepareLocal = () => {
       localAttempted = true
-      const local = localOfflineRun(mode)
+      const local = localOfflineRun(mode, Date.now(), undefined, practiceKind)
       run.current = local
       challenge.value = local.challenge as Extract<RunChallenge, { mode: T }>
       offlineRunMode.value = mode
-      track('game.started', mode)
+      track('game.started', analyticsMode)
     }
     try {
       // A known transport or API outage means there is nowhere safe to create
@@ -126,10 +134,12 @@ export function useGameRun<T extends GameMode>(mode: T) {
       }
       // No token → a guest run: the server deals the same signed challenge but
       // records nothing on completion.
-      const started = await startRun(mode, sessionToken())
+      const started = practiceKind
+        ? await startRun(mode, sessionToken(), practiceKind)
+        : await startRun(mode, sessionToken())
       run.current = started
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
-      track('game.started', mode)
+      track('game.started', analyticsMode)
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         signOut()
@@ -152,7 +162,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     } finally {
       preparing.value = false
     }
-  }, [challenge, mode, preparing, startError])
+  }, [analyticsMode, challenge, mode, practiceKind, preparing, startError])
 
   useEffect(() => {
     void prepare()
