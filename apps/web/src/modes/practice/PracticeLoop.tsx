@@ -30,7 +30,6 @@ import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
-import GameMilestone from '../../components/GameMilestone'
 import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -43,7 +42,6 @@ const REVEALED_ANSWER_HOLD_MS = 1_600
 const WRONG_BEAT_MS = 430
 const IDLE_HINT_MS = 7_000
 const MAX_RESPONSE_MS = 60_000
-const MILESTONE_EVERY = 10
 
 interface Props {
   eyebrow: string
@@ -152,10 +150,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const selectedChoice = useSignal<number | null>(null)
   const revealCorrectChoice = useSignal(false)
   const revealedAnswer = useSignal(false)
-  const streak = useSignal(0)
   const achievementCue = useSignal(0)
   const achievementText = useSignal('')
-  const milestone = useSignal<number | null>(null)
   const reinforcedCost = useSignal<number | null>(null)
   const correct = useSignal(0)
   const recovered = useSignal(0)
@@ -272,13 +268,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     idleHintGeneration.current += 1
   }
 
-  function showMilestone(value: number): void {
-    milestone.value = value
-    runtime.later(() => {
-      if (milestone.peek() === value) milestone.value = null
-    }, 520)
-  }
-
   function celebrate(text: string): void {
     achievementText.value = text
     achievementCue.value++
@@ -390,13 +379,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
     if (isCorrect) {
       correct.value++
-      streak.value++
-      if (streak.value % MILESTONE_EVERY === 0) showMilestone(streak.value)
-      else if (!current.reviewStage && (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0))) {
-        celebrate(`🔥 ${streak.value} streak`)
-      }
-    } else {
-      streak.value = 0
     }
   }
 
@@ -478,9 +460,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     answered.value = 0
     correct.value = 0
     recovered.value = 0
-    streak.value = 0
     achievementText.value = ''
-    milestone.value = null
     reinforcedCost.value = null
     revealedAnswer.value = false
     insights.value = null
@@ -576,19 +556,48 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     >
       <div class="ed-kstage ed-kstage--practice">
         <div class="ed-kstage__card">
-          <GameMotion
-            contentKey={current.id}
-            cue={runtime.cue.value}
-            practiceFeedback
-            onFeedbackComplete={handleMotionComplete}
-          >
-            <CardDisplay
-              card={current}
-              phase={phase.value}
-              revealCost={false}
-              reinforceCost={reinforcedCost.value !== null}
-            />
-          </GameMotion>
+          <div class="practice-card-feedback">
+            <GameMotion
+              contentKey={current.id}
+              cue={runtime.cue.value}
+              practiceFeedback
+              onFeedbackComplete={handleMotionComplete}
+            >
+              <CardDisplay
+                card={current}
+                phase={phase.value}
+                revealCost={false}
+                reinforceCost={reinforcedCost.value !== null}
+              />
+            </GameMotion>
+            <div class="game-cues game-cues--practice" aria-hidden="true">
+              <div class="game-cues__slot game-cues__slot--top">
+                <FloatingCue trigger={achievementCue.value} className="floating-cue--practice-recovery">
+                  {achievementText.value}
+                </FloatingCue>
+              </div>
+              <div class="game-cues__slot game-cues__slot--bottom">
+                {hint.value !== null && (
+                  <FloatingCue
+                    trigger={hintPulse.value}
+                    className="floating-cue--hint"
+                    testId="practice-hint"
+                    persistent
+                  >
+                    {hint.value === 'higher' ? (
+                      <>
+                        <Icon name="arrow-up" /> Higher than {hintGuess.value}
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="arrow-down" /> Lower than {hintGuess.value}
+                      </>
+                    )}
+                  </FloatingCue>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="ed-kstage__hint">
@@ -631,27 +640,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           <PipKeypad onPick={handleAnswer} disabled={controlsDisabled} />
         )}
 
-        <div class="game-cues" aria-hidden="true">
-          <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={achievementCue.value} className="floating-cue--streak">
-              {achievementText.value}
-            </FloatingCue>
-          </div>
-          <div class="game-cues__slot game-cues__slot--bottom">
-            <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="practice-hint">
-              {hint.value === 'higher' && (
-                <>
-                  <Icon name="arrow-up" /> Higher than {hintGuess.value}
-                </>
-              )}
-              {hint.value === 'lower' && (
-                <>
-                  <Icon name="arrow-down" /> Lower than {hintGuess.value}
-                </>
-              )}
-            </FloatingCue>
-          </div>
-        </div>
         <span class="sr-only" aria-live="assertive">
           {reinforcedCost.value !== null
             ? revealedAnswer.value
@@ -664,7 +652,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         <span class="sr-only" aria-live="polite">
           {idleHintAvailable.value ? 'A hint is available.' : ''}
         </span>
-        {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>
     </GameFrame>
   )

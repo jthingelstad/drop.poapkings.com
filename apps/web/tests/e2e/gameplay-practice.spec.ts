@@ -56,7 +56,32 @@ test(
     await expect(page.locator('.ed-game__bar')).toHaveCount(0)
 
     await page.getByRole('button', { name: `${card.elixir - 1} elixir`, exact: true }).click()
-    await expect(page.getByTestId('practice-hint')).toContainText(`Higher than ${card.elixir - 1}`)
+    const directionalHint = page.getByTestId('practice-hint')
+    await expect(directionalHint).toContainText(`Higher than ${card.elixir - 1}`)
+    const { cardBounds, hintBounds, hintFontSize } = await page.evaluate(() => {
+      const displayedCard = document.querySelector('.pcard')
+      const displayedHint = document.querySelector('[data-testid="practice-hint"]')
+      if (!(displayedCard instanceof HTMLElement) || !(displayedHint instanceof HTMLElement)) {
+        throw new Error('Practice card or directional hint was not rendered')
+      }
+      const bounds = (element: HTMLElement) => {
+        const rect = element.getBoundingClientRect()
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      }
+      return {
+        cardBounds: bounds(displayedCard),
+        hintBounds: bounds(displayedHint),
+        hintFontSize: Number.parseFloat(getComputedStyle(displayedHint).fontSize)
+      }
+    })
+    expect(Math.abs(hintBounds.y + hintBounds.height / 2 - (cardBounds.y + cardBounds.height))).toBeLessThan(56)
+    expect(hintFontSize).toBeGreaterThanOrEqual(16)
+    await page.waitForTimeout(700)
+    await expect(directionalHint).toHaveCSS('opacity', '1')
+    await testInfo.attach('practice-directional-hint.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
     await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
     await expect(page.locator('.pcard__cost')).toHaveCount(0)
     await expect(page.locator('.pcard__img')).toHaveAttribute('alt', card.name)
@@ -67,7 +92,6 @@ test(
 
     const answer = page.locator('.pcard__answer-cost')
     await expect(answer).toHaveText(String(card.elixir))
-    await expect(page.locator('.pcard__answer-reveal')).toContainText('Correct cost')
     await page.waitForTimeout(1_200)
     await expect(answer).toHaveText(String(card.elixir))
 

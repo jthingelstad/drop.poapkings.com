@@ -326,6 +326,19 @@ describe('FloatingCue', () => {
     draw(<FloatingCue trigger={5}>hi</FloatingCue>)
     expect(motionMock.animate).not.toHaveBeenCalled()
   })
+
+  it('holds a persistent cue visible after its short entrance', () => {
+    draw(
+      <FloatingCue trigger={1} persistent>
+        Higher than 3
+      </FloatingCue>
+    )
+    expect(motionMock.animate).toHaveBeenCalledWith(
+      host.querySelector('.floating-cue'),
+      { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0)'] },
+      { duration: 0.18, ease: 'easeOut' }
+    )
+  })
 })
 
 // --- GameMotion -----------------------------------------------------------

@@ -628,7 +628,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.pcard--correct')).toBeNull()
   })
 
-  it('memorializes every ten consecutive first-read answers', () => {
+  it('does not turn ten consecutive first-read answers into a streak milestone', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -638,14 +638,9 @@ describe('Practice gameplay', () => {
       host = mount(<Practice />)
     })
 
-    answerCorrectly(host, cards, 9)
+    answerCorrectly(host, cards, 10)
     expect(host.querySelector('.game-milestone')).toBeNull()
-
-    press(host, liveCard(host, cards).elixir)
-    expect(host.querySelector('.game-milestone__num')?.textContent).toBe('10')
-
-    advance(600)
-    expect(host.querySelector('.game-milestone')).toBeNull()
+    expect(host.textContent).not.toContain('streak')
   })
 
   it('runs past the old 15-card round and only ends when the player ends it', () => {
@@ -852,7 +847,7 @@ describe('Practice gameplay', () => {
     expect(saveResult).toHaveBeenCalledWith(current.id, true, undefined, true)
   })
 
-  it('answers via the physical keyboard (keydown) and starts a fresh session', () => {
+  it('answers via the physical keyboard (keydown) and starts a fresh session', async () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -872,7 +867,13 @@ describe('Practice gameplay', () => {
     endSession(host)
     expect(host.textContent).toContain('6 / 6 first try')
 
-    clickText(host, 'button', 'Practice again')
+    const replay = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Practice again')
+    )
+    expect(replay).toBeTruthy()
+    // Replay resets the decoded-opening-card gate. Flush that passive preload
+    // effect before asserting the new playable frame.
+    await act(async () => replay!.click())
     expect(session.prepare).toHaveBeenCalled()
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
     expect(host.textContent).toContain('0 practiced')

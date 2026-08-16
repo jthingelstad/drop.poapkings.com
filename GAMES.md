@@ -143,15 +143,16 @@ uniform random. The same card never lands twice in a row.
 
 The learning loop has three layers:
 
-- A correct first read places the cost in a bounded, high-contrast **Correct
-  cost** badge over the card, visually separate from its art. It holds stable
-  for at least 300ms and until the next art is decoded, then remains attached
-  while the solved card exits. Reduced motion uses the same learning hold with
-  a short fade.
+- A correct first read enlarges the cost directly over the card with a strong
+  drop shadow so it stays readable without becoming a separate badge. It holds
+  stable for at least 300ms and until the next art is decoded, then remains
+  attached while the solved card exits. Reduced motion uses the same learning
+  hold with a short fade.
 - A wrong keypad read gets one anchored directional scaffold (`Higher than 4`
-  or `Lower than 7`). A second miss reveals and holds the exact cost for 1.6
-  seconds; a wrong recognition choice uses the same teaching hold after its
-  wrong beat rather than encouraging elimination guesses.
+  or `Lower than 7`) that stays beside the card until the retry. A second miss
+  reveals and holds the exact cost for 1.6 seconds; a wrong recognition choice
+  uses the same teaching hold after its wrong beat rather than encouraging
+  elimination guesses.
 - A miss is guaranteed to return after four other reads. A repeated review miss
   returns after three; a successful retry receives a longer-gap confirmation
   after ten. Recovery cues say `Got it back!` and `Locked in!`.
@@ -160,9 +161,8 @@ First-response time is recorded invisibly after the card is paint-ready,
 excluding background-tab time and capped at 60 seconds. After seven idle seconds
 the player may request help: keypad recall becomes four choices, while an
 already-visible choice set narrows to two. Help is voluntary and never reveals
-the answer. Every ten consecutive first-read answers also receives the shared
-centered milestone flash (10, 20, 30, and so on); misses reset that streak. The
-summary's primary action becomes **Review misses** when the session has any.
+the answer. Practice deliberately has no streak or ten-answer milestone effect;
+the summary's primary action becomes **Review misses** when the session has any.
 
 **Unranked and unscored by design.** Runs are created `ranked: false`, never
 write a leaderboard entry, have no leaderboard tab, and earn **zero Player XP** —

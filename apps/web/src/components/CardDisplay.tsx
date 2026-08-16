@@ -10,8 +10,8 @@ interface Props {
   // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
   forceReveal?: boolean
   hideName?: boolean
-  // Practice reinforces a solved card with a visually separate correct-cost
-  // badge, kept attached through the solved card's exit.
+  // Practice reinforces a solved card with an enlarged, shadowed correct cost
+  // kept attached through the solved card's exit.
   reinforceCost?: boolean
 }
 
@@ -41,13 +41,8 @@ export default function CardDisplay({
         nameClassName="pcard__name"
         overlay={
           reinforceCost ? (
-            <span class="pcard__answer-reveal" aria-hidden="true">
-              <span class="pcard__answer-label">Correct cost</span>
-              <span class="pcard__answer-value">
-                <img src="/assets/elixir-drop.png" alt="" class="pcard__answer-pip" />
-                <span class="pcard__answer-cost">{card.elixir}</span>
-              </span>
-              <span class="pcard__answer-unit">Elixir</span>
+            <span class="pcard__answer-cost" aria-hidden="true">
+              {card.elixir}
             </span>
           ) : undefined
         }

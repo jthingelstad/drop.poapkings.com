@@ -49,7 +49,7 @@ test('survival flashes the same every-10 counter as Rain', async ({ page }, test
 })
 
 test(
-  'practice reinforces the solved cost over the card and marks each ten streak',
+  'practice reinforces the solved cost without a streak milestone',
   { tag: '@deploy' },
   async ({ page }, testInfo) => {
     await page.goto('/#/practice')
@@ -66,16 +66,14 @@ test(
 
     const first = await answerLiveCard()
     const reinforcement = page.locator('.pcard__answer-cost')
-    const answerReveal = page.locator('.pcard__answer-reveal')
     await expect(reinforcement).toHaveText(String(first.card.elixir))
-    await expect(answerReveal).toBeVisible()
     // This is the regression from the shared video: checking a DOM mutation
     // would pass for a single frame. It must still be readable 250ms later.
     await page.waitForTimeout(250)
     await expect(reinforcement).toBeVisible()
     const { artBounds, revealBounds, revealStyle, sameMotion } = await page.evaluate(() => {
       const art = document.querySelector('.pcard__img')
-      const reveal = document.querySelector('.pcard__answer-reveal')
+      const reveal = document.querySelector('.pcard__answer-cost')
       if (!(art instanceof HTMLElement) || !(reveal instanceof HTMLElement)) {
         throw new Error('Practice reinforcement disappeared before the 300ms hold')
       }
@@ -89,18 +87,20 @@ test(
         revealStyle: {
           backgroundImage: getComputedStyle(reveal).backgroundImage,
           borderStyle: getComputedStyle(reveal).borderStyle,
-          boxShadow: getComputedStyle(reveal).boxShadow
+          filter: getComputedStyle(reveal).filter,
+          fontSize: Number.parseFloat(getComputedStyle(reveal).fontSize)
         },
         sameMotion: art.closest('.game-motion') === reveal.closest('.game-motion')
       }
     })
     expect(artBounds).toBeTruthy()
-    expect(revealBounds.width).toBeLessThan(artBounds.width)
+    expect(revealBounds.width).toBe(artBounds.width)
     expect(Math.abs(artBounds.x + artBounds.width / 2 - (revealBounds.x + revealBounds.width / 2))).toBeLessThan(2)
     expect(Math.abs(artBounds.y + artBounds.height / 2 - (revealBounds.y + revealBounds.height / 2))).toBeLessThan(2)
-    expect(revealStyle.backgroundImage).not.toBe('none')
-    expect(revealStyle.borderStyle).toBe('solid')
-    expect(revealStyle.boxShadow).not.toBe('none')
+    expect(revealStyle.backgroundImage).toBe('none')
+    expect(revealStyle.borderStyle).toBe('none')
+    expect(revealStyle.filter).not.toBe('none')
+    expect(revealStyle.fontSize).toBeGreaterThanOrEqual(120)
     // The answer is structurally inside the same animated card container, so the
     // exit transform carries them as one object rather than replacing the value.
     expect(sameMotion).toBe(true)
@@ -118,12 +118,8 @@ test(
     }
 
     await answerLiveCard()
-    await expect(page.locator('.game-milestone__num')).toHaveText('10')
-    await testInfo.attach('practice-10-milestone.png', {
-      body: await page.screenshot({ fullPage: false }),
-      contentType: 'image/png'
-    })
-    await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
+    await expect(page.locator('.game-milestone')).toHaveCount(0)
+    await expect(page.getByText(/streak/i)).toHaveCount(0)
   }
 )
 

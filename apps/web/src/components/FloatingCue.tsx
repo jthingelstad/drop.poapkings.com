@@ -5,8 +5,9 @@ import { isReducedMotionEnabled } from '../lib/motion'
 
 // A transient feedback cue painted OVER the game, never in layout flow, so game
 // feedback (penalties, hints, streaks) can never reflow the board mid-tap. Each
-// new `trigger` value replays a rise-and-fade via the motion library; between
-// plays the cue rests invisible. Shared by every mode for consistent feel.
+// new `trigger` value normally replays a rise-and-fade via the motion library;
+// a persistent cue instead enters once and remains readable until unmounted.
+// Shared by every mode for consistent feel.
 //
 // Its slot must be positioned (`.game-cues__*`); the cue animates its own
 // transform, so wrap it in a slot that handles anchoring/centering.
@@ -14,11 +15,13 @@ export default function FloatingCue({
   trigger,
   className = '',
   testId,
+  persistent = false,
   children
 }: {
   trigger: number
   className?: string
   testId?: string
+  persistent?: boolean
   children: ComponentChildren
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -28,6 +31,13 @@ export default function FloatingCue({
     const element = ref.current
     if (!element || trigger === 0 || trigger === handled.current) return
     handled.current = trigger
+    if (persistent) {
+      const keyframes = isReducedMotionEnabled()
+        ? { opacity: [0, 1] }
+        : { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0)'] }
+      void animate(element, keyframes, { duration: 0.18, ease: 'easeOut' })
+      return
+    }
     if (isReducedMotionEnabled()) {
       void animate(element, { opacity: [0, 1, 1, 0] }, { duration: 0.9 })
       return
@@ -40,7 +50,7 @@ export default function FloatingCue({
       },
       { duration: 0.9, ease: 'easeOut' }
     )
-  }, [trigger])
+  }, [persistent, trigger])
 
   return (
     <div
