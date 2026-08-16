@@ -3,7 +3,6 @@ import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
-import ApiStatusBanner from './components/ApiStatusBanner'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { isUpdateNoticeEnabled, updateAvailable } from './lib/version'
@@ -13,7 +12,7 @@ import PlayerTagNudge from './components/PlayerTagNudge'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
-import { offline, watchConnectivity } from './lib/api-availability'
+import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
 import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
@@ -167,11 +166,10 @@ function ScreenContent({ r }: { r: string }) {
   // instead of a failed request, stale board, or account reconnect spinner.
   if (r.startsWith('/offline')) return <OfflinePage />
   if (offline.value && (r.startsWith('/leaderboards') || r.startsWith('/profile'))) return <OfflinePage />
-  // A definitely offline game is local and unrecorded, so account state cannot
-  // gate it. Practice retains the same bypass during a player-service outage;
-  // ranked modes only fall back when the browser itself reports offline.
-  const gameWithoutServices =
-    Boolean(gamePath) && (offline.value || (gamePath === '/practice' && accountStatus.value === 'unavailable'))
+  // An offline game is local and unrecorded, so account state cannot gate it.
+  // The effective state covers both a transport disconnect and an unreachable
+  // player API; either way there is no official run to protect or record.
+  const gameWithoutServices = Boolean(gamePath) && offline.value
   if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
   if ((gamePath || r.startsWith('/profile')) && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
@@ -249,6 +247,47 @@ export default function App() {
     return watchConnectivity()
   }, [])
 
+  // API outages are an ordinary offline experience now, with no error banner
+  // or manual retry loop. Probe conservatively in the background so returning
+  // to the app, restoring transport, or leaving it open can restore connected
+  // navigation without a reload. Do not probe immediately: the request that
+  // changed availability has already established the outage.
+  const apiOutage = apiAvailability.value === 'unavailable'
+  useEffect(() => {
+    if (!apiOutage) return
+    let checking = false
+    let disposed = false
+    const check = async () => {
+      if (checking || navigator.onLine === false || document.visibilityState !== 'visible') return
+      checking = true
+      try {
+        await getStats()
+        if (!disposed && accountStatus.value === 'unavailable') await initializeAccount()
+      } catch {
+        // The shared availability signal keeps the app offline until a probe
+        // succeeds. There is deliberately no player-facing error or retry UI.
+      } finally {
+        checking = false
+      }
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check()
+    }
+    const onFocus = () => void check()
+    const onOnline = () => void check()
+    const timer = window.setInterval(() => void check(), 30_000)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onOnline)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [apiOutage])
+
   // Watch for a newer front-end build: /stats reports the current version, so a
   // check at startup, periodic poll, and refocus check catch a stale installed
   // PWA and let the player reload. Stops polling once an update is known.
@@ -286,7 +325,6 @@ export default function App() {
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
-      <ApiStatusBanner />
       <UpdateBanner />
       <Screen r={route.value} />
     </>

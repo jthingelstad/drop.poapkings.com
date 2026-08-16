@@ -10,9 +10,9 @@ import {
   waitForKeypad
 } from './fixtures'
 
-// The UI keys off navigator.onLine and the online/offline events, so drive
-// those directly. Killing the real socket would only add browser network
-// errors to the console guard without testing anything extra.
+// Transport events remain one input to offline mode. Other tests below sever
+// only the API while navigator.onLine stays true, matching restricted airplane
+// Wi-Fi and captive portals that still claim to have connectivity.
 async function setOnline(page: import('@playwright/test').Page, online: boolean): Promise<void> {
   await page.evaluate((value) => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value })
@@ -96,7 +96,9 @@ test('primary navigation replaces Ranks and You with an Offline destination', as
   await expect(page).toHaveURL(/#\/offline$/)
   await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toBeVisible()
   await expect(page.locator('.ed-offline-page')).toContainText('All six games are available')
-  await expect(page.locator('.ed-offline-page')).toContainText('Ranks and You return to navigation when you reconnect')
+  await expect(page.locator('.ed-offline-page')).toContainText(
+    'Ranks and You return automatically when player services are reachable'
+  )
   await expect(page.locator('.ed-offline-page')).toContainText('personal bests, badges, XP, history')
   await expect(page.locator('.ed-board')).toHaveCount(0)
   await expect(page.locator('.account-screen')).toHaveCount(0)
@@ -118,6 +120,34 @@ test('primary navigation replaces Ranks and You with an Offline destination', as
   await expect(
     primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
   ).toBeVisible()
+})
+
+test('an API-only outage allows local play while navigator remains online', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+
+  allowOfflineTransportErrors.add(page)
+  await page.unroute(testApiRoute)
+  let apiRequests = 0
+  let startRequests = 0
+  await page.route(testApiRoute, (route) => {
+    apiRequests += 1
+    if (new URL(route.request().url()).pathname === '/runs/start') startRequests += 1
+    return route.abort('internetdisconnected')
+  })
+
+  expect(await page.evaluate(() => navigator.onLine)).toBe(true)
+  await page.evaluate(() => {
+    window.location.hash = '#/surge'
+  })
+
+  await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
+  await expect(page.locator('.pip-keypad')).toBeVisible()
+  expect(await page.evaluate(() => navigator.onLine)).toBe(true)
+  expect(apiRequests).toBeGreaterThan(0)
+  // A still-pending Home read may establish the outage before navigation;
+  // otherwise /runs/start establishes it. Either way no second start is sent.
+  expect(startRequests).toBeLessThanOrEqual(1)
 })
 
 test('Practice is actually playable with player services unreachable', async ({ page }) => {

@@ -17,7 +17,7 @@ export default function OfflinePage() {
         </h2>
         <p class="ed-offline-page__line">
           {disconnected
-            ? 'All six games are available from this device. Ranks and You return to navigation when you reconnect.'
+            ? 'All six games are available from this device. Ranks and You return automatically when player services are reachable.'
             : 'Ranks, your profile, and saved progress are available again.'}
         </p>
         <p class="ed-offline-page__practice">

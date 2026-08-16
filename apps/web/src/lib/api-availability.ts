@@ -1,35 +1,31 @@
-import { signal } from '@preact/signals'
+import { computed, signal } from '@preact/signals'
 import { GAME_MODES } from '@elixir-drop/contracts'
 
 export type ApiAvailability = 'checking' | 'available' | 'unavailable'
-export type ApiUnavailableReason = 'offline' | 'service'
 
 export const apiAvailability = signal<ApiAvailability>('checking')
-export const apiUnavailableReason = signal<ApiUnavailableReason>('service')
+// The transport verdict stays separate from the effective product state. A
+// browser may report "online" while airplane mode, captive Wi-Fi, DNS, or the
+// player API itself makes every server request unreachable.
+export const transportOffline = signal(typeof navigator !== 'undefined' && navigator.onLine === false)
+
+// Every API failure already converges on `apiAvailability`. Make that same
+// signal own the offline experience so navigation, local deals, persistence,
+// and live-data polling cannot disagree about whether recorded play is safe.
+export const offline = computed(() => transportOffline.value || apiAvailability.value === 'unavailable')
 
 export function reportApiAvailable(): void {
   apiAvailability.value = 'available'
 }
 
 export function reportApiUnavailable(): void {
-  apiUnavailableReason.value = typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'service'
   apiAvailability.value = 'unavailable'
 }
-
-// The browser's own verdict, which arrives immediately rather than after a
-// request has already failed. It is only trustworthy in one direction — false
-// means definitely offline, true does not promise the API is reachable — and
-// that is exactly the direction this is used in: to choose a local run up front
-// instead of creating an official attempt that cannot be completed.
-export const offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false)
 
 export function watchConnectivity(): () => void {
   if (typeof window === 'undefined') return () => undefined
   const update = () => {
-    offline.value = navigator.onLine === false
-    // Coming back is worth acting on: the banner's reason should stop saying
-    // "offline" the moment the network returns.
-    if (!offline.value && apiUnavailableReason.value === 'offline') apiUnavailableReason.value = 'service'
+    transportOffline.value = navigator.onLine === false
   }
   window.addEventListener('online', update)
   window.addEventListener('offline', update)

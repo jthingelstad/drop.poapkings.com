@@ -159,25 +159,30 @@ rank-oriented fields as part of unrelated work.
   cached shell is only a fallback. `/api-config.json` is never cached. Every
   production visit warms all six lazy game chunks before atomically committing
   the shell, then fills the complete base-art pack in small serialized batches.
-  When `navigator.onLine === false`, `lib/offline-run.ts` deals a tokenless run
-  locally from the shared challenge generator. It is never submitted or queued:
-  no personal/season record, history, server learning stats, badges, XP, daily
-  activity, global game count, or leaderboard entry. Device-local card stats may
-  still sharpen future drills. Reconnecting never promotes that run; a signed
-  online run that disconnects retains the normal completion retry instead.
-  Practice alone also keeps its local fallback when services fail while the
-  browser still reports online; ranked modes fail closed rather than silently
-  discarding an expected recording. Offline is surfaced up front through Home's
-  Play offline controls, `components/OfflineGlyph.tsx`, game chrome, and the
-  result summary. A persistent state gets a persistent mark, never a standing
-  banner. `offline` in `lib/api-availability.ts` trusts `navigator.onLine` in one
-  direction only: false means definitely offline; true never promises the API
-  is reachable, which `ApiStatusBanner` still covers. Leaderboards and You remain
-  live server views and never appear as offline navigation destinations: both
-  shells replace them with one bundled Offline page until reconnect. Direct
-  offline links to either live view land on that same explanation. The account,
-  profile-setup, and ranked-access gates must let every definitely offline game
-  through because no official run exists to protect or record.
+  When `navigator.onLine === false` **or the shared API boundary classifies a
+  network error, timeout, or 5xx response as unavailable**, `lib/offline-run.ts`
+  deals a tokenless run locally from the shared challenge generator. It is never
+  submitted or queued: no personal/season record, history, server learning
+  stats, badges, XP, daily activity, global game count, or leaderboard entry.
+  Device-local card stats may still sharpen future drills. Reconnecting never
+  promotes that run; a signed online run that disconnects retains the normal
+  completion retry instead.
+  A ranked mode whose start request establishes the outage also falls back to a
+  local run; an already-started signed run still retains its retryable official
+  completion and is never downgraded after the fact. Offline is surfaced up
+  front through Home's Play offline controls, `components/OfflineGlyph.tsx`, game
+  chrome, and the result summary. A persistent state gets a persistent mark,
+  never a standing banner. `offline` in `lib/api-availability.ts` combines the
+  browser transport verdict with the shared API availability signal, because
+  `navigator.onLine` being true never promises the API is reachable. There is no
+  outage error or manual retry panel; a quiet health probe on focus, visibility,
+  restored transport, or a 30-second interval restores connected mode after a
+  successful response. Leaderboards and You remain live server views and never
+  appear as offline navigation destinations: both shells replace them with one
+  bundled Offline page until reconnect. Direct offline links to either live view
+  land on that same explanation. The account, profile-setup, and ranked-access
+  gates must let every effectively offline game through because no official run
+  exists to protect or record.
 - **Official card selection is server-owned; deal rules are shared.**
   `packages/contracts/src/challenge-generation.ts` is the pure challenge factory
   used by the API for signed official runs and by the browser for tokenless

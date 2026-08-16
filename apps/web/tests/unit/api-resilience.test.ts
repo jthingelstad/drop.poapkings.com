@@ -66,13 +66,16 @@ describe('API resilience', () => {
       .mockResolvedValueOnce(json({ trophyRoadGames: 594, currentSeason }))
     vi.stubGlobal('fetch', fetchMock)
     const { getStats } = await import('../../src/lib/api')
-    const { apiAvailability } = await import('../../src/lib/api-availability')
+    const { apiAvailability, offline, transportOffline } = await import('../../src/lib/api-availability')
 
     await expect(getStats()).rejects.toMatchObject({ status: 503 })
     expect(apiAvailability.value).toBe('unavailable')
+    expect(transportOffline.value).toBe(false)
+    expect(offline.value).toBe(true)
 
     await expect(getStats()).resolves.toMatchObject({ trophyRoadGames: 594 })
     expect(apiAvailability.value).toBe('available')
+    expect(offline.value).toBe(false)
   })
 
   it('bounds a stalled request with a timeout', async () => {
@@ -93,7 +96,8 @@ describe('API resilience', () => {
     await vi.advanceTimersByTimeAsync(25)
 
     await rejected
-    const { apiAvailability } = await import('../../src/lib/api-availability')
+    const { apiAvailability, offline } = await import('../../src/lib/api-availability')
     expect(apiAvailability.value).toBe('unavailable')
+    expect(offline.value).toBe(true)
   })
 })

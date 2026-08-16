@@ -1,6 +1,7 @@
 import {
   allowExpectedApiErrors,
   expect,
+  isDesktopViewport,
   leaderboardEntries,
   test,
   testActivity,
@@ -34,44 +35,41 @@ test('a stale installed app checks immediately and cache-busts its reload', asyn
   expect(new URL(page.url()).hash).toBe('#/higher-lower')
 })
 
-test('shows a friendly API outage notice and recovers in place', async ({ page }) => {
+test('treats an API outage as offline and recovers without a retry panel', async ({ page, viewport }) => {
   allowExpectedApiErrors.add(page)
   let available = false
-  let unavailableStatsResponses = 0
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === '/stats') {
-      const wasAvailable = available
+    if (!available) {
       await route.fulfill({
-        status: wasAvailable ? 200 : 503,
+        status: 503,
         contentType: 'application/json',
-        body: JSON.stringify(
-          wasAvailable ? testStats : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
-        )
+        body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Try again.' } })
       })
-      if (!wasAvailable) unavailableStatsResponses += 1
+      return
+    }
+    if (path === '/stats') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(testStats)
+      })
       return
     }
     if (path === '/leaderboards') {
       await route.fulfill({
-        status: available ? 200 : 503,
+        status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(
-          available
-            ? {
-                mode: 'surge',
-                seasonId: testSeason.id,
-                currentSeason: testSeason,
-                entries: leaderboardEntries('surge')
-              }
-            : { error: { code: 'temporarily_unavailable', message: 'Try again.' } }
-        )
+        body: JSON.stringify({
+          mode: 'surge',
+          seasonId: testSeason.id,
+          currentSeason: testSeason,
+          entries: leaderboardEntries('surge')
+        })
       })
       return
     }
-    // The desktop right rail also polls /activity; keep it benign so the outage
-    // banner (driven by /stats) is what the test observes.
     if (path === '/activity') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
       return
@@ -80,19 +78,36 @@ test('shows a friendly API outage notice and recovers in place', async ({ page }
   })
 
   await useSignedOutState(page)
-  const outage = page.locator('.api-status')
-  await expect(page.getByRole('heading', { name: 'Drop is taking a quick elixir break' })).toBeVisible()
-  await expect(outage).toContainText('Your account and recorded games are safe.')
+  expect(await page.evaluate(() => navigator.onLine)).toBe(true)
+  await expect(page.locator('.api-status')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Drop is taking a quick elixir break' })).toHaveCount(0)
 
-  // App's stale-build check and Home's view-model both request /stats during
-  // startup. Let both failed responses settle before reconnecting. Queued Home
-  // reads may recover the app as soon as availability flips, so use a
-  // synchronous DOM click when the button still exists instead of waiting for
-  // Playwright's stability checks on a banner that is correctly disappearing.
-  await expect.poll(() => unavailableStatsResponses).toBeGreaterThanOrEqual(2)
+  const primaryNav = page.getByRole('navigation', { name: 'Primary' })
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
+  ).toHaveCount(0)
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
+  ).toHaveCount(0)
+  const offlineNav = primaryNav.getByRole('button', {
+    name: isDesktopViewport(viewport) ? 'Offline mode' : 'Offline',
+    exact: true
+  })
+  await expect(offlineNav).toBeVisible()
+  await expect(page.locator('.ed-gcard').first().getByRole('button')).toContainText('Play offline')
+  await offlineNav.click()
+  await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toBeVisible()
+
+  // Restricted airplane Wi-Fi can become generally usable without changing
+  // navigator.onLine. Returning focus triggers the quiet health probe.
   available = true
-  await page.evaluate(() => document.querySelector<HTMLButtonElement>('.api-status__retry')?.click())
-  await expect(outage).toHaveCount(0)
-  // Recovers in place: the Home surface renders (the Surge hero + PLAY button).
-  await expect(page.locator('.ed-hero')).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByRole('heading', { name: 'You’re back online' })).toBeVisible()
+  await expect(offlineNav).toHaveCount(0)
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
+  ).toBeVisible()
+  await expect(
+    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
+  ).toBeVisible()
 })

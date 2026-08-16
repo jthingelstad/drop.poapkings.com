@@ -118,8 +118,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
       track('game.started', mode)
     }
     try {
-      // navigator.onLine=false is trustworthy: do not spend a timeout proving
-      // the network is gone, and never create an official attempt for this run.
+      // A known transport or API outage means there is nowhere safe to create
+      // an official attempt. Deal locally without spending another timeout.
       if (offline.value) {
         prepareLocal()
         return
@@ -137,11 +137,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
         navigate(gamePath ? loginRouteForGame(gamePath) : '/login')
         return
       }
-      // If the browser disconnected while the request was in flight, every mode
-      // can continue locally. Practice also retains its service-outage fallback;
-      // ranked modes do not silently discard recording when the browser still
-      // believes it is online.
-      if (!localAttempted && (offline.value || mode === 'practice')) {
+      // The failed request may be what changed effective availability. Every
+      // mode can continue locally, and the run is visibly unrecorded from here.
+      if (!localAttempted && offline.value) {
         prepareLocal()
         return
       }

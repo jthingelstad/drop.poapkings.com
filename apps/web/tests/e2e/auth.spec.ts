@@ -184,24 +184,24 @@ test('new players choose a favorite card and generated name before returning to 
 
 test('a temporary authentication outage keeps the saved login', async ({ page }) => {
   allowExpectedApiErrors.add(page)
+  let runStarts = 0
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === '/auth/refresh') {
-      await route.fulfill({
-        status: 503,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Player services are restarting.' } })
-      })
-      return
-    }
-    if (await fulfillSupportData(route)) return
-    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+    if (path === '/runs/start') runStarts += 1
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Player services are restarting.' } })
+    })
   })
 
   await page.goto('/#/surge')
-  await expect(page.getByRole('heading', { name: 'Player services are reconnecting' })).toBeVisible()
-  await expect(page.getByText('Your saved login has not been removed.')).toBeVisible()
+  expect(await page.evaluate(() => navigator.onLine)).toBe(true)
+  await expect(page.getByRole('heading', { name: 'Player services are reconnecting' })).toHaveCount(0)
+  await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
+  await waitForKeypad(page)
+  expect(runStarts).toBe(0)
   await expect
     .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('elixirdrop:session:v1') || 'null')?.token))
     .toBe(testSession.token)

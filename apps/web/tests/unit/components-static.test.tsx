@@ -19,12 +19,10 @@ import RunCountdown from '../../src/components/RunCountdown'
 import MultipleChoice from '../../src/components/MultipleChoice'
 import PenaltyFlash from '../../src/components/PenaltyFlash'
 import PlayerAvatar from '../../src/components/PlayerAvatar'
-import ApiStatusBanner from '../../src/components/ApiStatusBanner'
 import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { apiAvailability, apiUnavailableReason } from '../../src/lib/api-availability'
 import { recordingNotice } from '../../src/lib/use-game-run'
 import { ABOUT, FAQ, INSTALL } from '../../src/data/meta-content'
 import {
@@ -84,8 +82,6 @@ afterEach(() => {
   installEligible.value = false
   installDismissed.value = false
   standaloneApp.value = false
-  apiAvailability.value = 'checking'
-  apiUnavailableReason.value = 'service'
   recordingNotice.value = { state: 'idle' }
 })
 
@@ -595,30 +591,6 @@ describe('PlayerAvatar', () => {
     const html = await render(<PlayerAvatar favoriteCardId={123} />)
     expect(html).toContain('player-avatar--fallback')
     expect(html).toContain('/assets/icon/drop-icon-192.png')
-  })
-})
-
-describe('ApiStatusBanner', () => {
-  it('renders nothing while the API is available', async () => {
-    apiAvailability.value = 'available'
-    expect(await render(<ApiStatusBanner />)).toBe('')
-  })
-
-  it('shows the offline copy', async () => {
-    apiAvailability.value = 'unavailable'
-    apiUnavailableReason.value = 'offline'
-    const html = await render(<ApiStatusBanner />)
-    expect(html).toContain('api-status')
-    expect(html).toContain('reach the internet')
-    expect(html).toContain('Try reconnecting')
-  })
-
-  it('shows the service-break copy', async () => {
-    apiAvailability.value = 'unavailable'
-    apiUnavailableReason.value = 'service'
-    const html = await render(<ApiStatusBanner />)
-    expect(html).toContain('elixir break')
-    expect(html).toContain('Player services are unavailable')
   })
 })
 

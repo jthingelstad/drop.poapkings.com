@@ -82,7 +82,7 @@ import DesktopShell from '../../src/components/shell/DesktopShell'
 import DesktopRightRail from '../../src/components/shell/DesktopRightRail'
 import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
-import { offline } from '../../src/lib/api-availability'
+import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
 
 // --- Helpers --------------------------------------------------------------
 
@@ -150,7 +150,8 @@ beforeEach(() => {
     cancel: () => {}
   })
   route.value = '/'
-  offline.value = false
+  apiAvailability.value = 'available'
+  transportOffline.value = false
   player.value = null
   accountStatus.value = 'anonymous'
 })
@@ -457,7 +458,7 @@ describe('MobileShell', () => {
   })
 
   it('shows Games and Offline instead of Ranks and You when disconnected', () => {
-    offline.value = true
+    transportOffline.value = true
     route.value = '/profile'
     draw(
       <MobileShell>
@@ -578,7 +579,7 @@ describe('DesktopShell', () => {
 
   it('replaces Leaderboards and Profile with Offline when disconnected', () => {
     route.value = '/leaderboards'
-    offline.value = true
+    transportOffline.value = true
     draw(
       <DesktopShell>
         <p>offline</p>
@@ -618,7 +619,7 @@ describe('DesktopShell', () => {
 
 describe('DesktopRightRail', () => {
   it('replaces live-data spinners and polling with an offline state', () => {
-    offline.value = true
+    apiAvailability.value = 'unavailable'
     player.value = { ...samplePlayer }
 
     draw(<DesktopRightRail />)

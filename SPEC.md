@@ -488,15 +488,18 @@ season }`. A `/runs/complete` carrying a non-guest run token still requires a
 session that owns the run.
 
 Offline play is a separate, explicitly unrecorded path. When
-`navigator.onLine === false`, the browser never calls `/runs/start`: it creates a
-tokenless `offline:{mode}:…` run from the same pure challenge generator used by
-the API. `/runs/complete` is never called, no transcript or score is queued, and
-reconnecting cannot promote the run. The summary keeps the local result visible
+`navigator.onLine === false` or the API boundary has classified a network error,
+timeout, or 5xx response as unavailable, the browser does not make another
+`/runs/start` call: it creates a tokenless `offline:{mode}:…` run from the same
+pure challenge generator used by the API. `/runs/complete` is never called, no
+transcript or score is queued, and reconnecting cannot promote the run. A failed
+start request may establish that offline state and immediately fall back to a
+local run. The summary keeps the local result visible
 but does not write personal or season records, recent history, XP, badges,
 leaderboard entries, learning telemetry, or the global game count. Device-local
-card stats may still update as an adaptive learning cache. Conversely, an online
-signed run that loses connectivity keeps its retryable completion rather than
-being downgraded to offline.
+card stats may still update as an adaptive learning cache. An official run that
+started online is never downgraded: if its completion loses the API, the signed
+completion remains retryable.
 
 The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Every production
@@ -506,6 +509,10 @@ never cached. While disconnected, the desktop and mobile primary navigation
 replace the live Leaderboards/Ranks and Profile/You destinations with one
 bundle-native Offline destination. Reconnecting restores the normal navigation;
 direct offline links to either live view render the same Offline explanation.
+The API-outage state uses the same navigation and persistence rules without an
+error/retry banner. A low-frequency health probe runs when the app regains focus,
+becomes visible, restores browser transport, or reaches a 30-second interval;
+the first successful response restores connected navigation and account hydration.
 
 Anti-cheat treats automatic checks as triage, not truth. Signed challenge and
 transcript consistency produce a deterministic candidate score; timing limits,
@@ -697,9 +704,10 @@ stubs and helpers in `fixtures.ts`:
 | Spec | Covers |
 | --- | --- |
 | `a11y.spec.ts` | Axe checks on all 14 public routes, including every game |
-| `app-shell.spec.ts` | Stale-build reload, API outage notice and recovery |
-| `auth.spec.ts` | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, auth outage |
-| `run-lifecycle.spec.ts` | Signed-run preparation, malformed-challenge rejection, completion retry, permanent rejection |
+| `app-shell.spec.ts` | Stale-build reload, API-outage offline transition and automatic recovery |
+| `auth.spec.ts` | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, saved-login retention during an outage |
+| `offline.spec.ts` | Transport-offline and API-only outage behavior, all-mode local play, unsaved persistence boundaries, cached game chunks |
+| `run-lifecycle.spec.ts` | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection |
 | `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play |
 | `home.spec.ts` | Season standings, install suggestion timing, the Tinylytics hash-page/event bridge |
 | `leaderboards.spec.ts` · `profile.spec.ts` · `player-tag-nudge.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, weekly reminder timing |

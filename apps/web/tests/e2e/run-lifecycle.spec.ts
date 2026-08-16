@@ -11,7 +11,7 @@ import {
   waitForKeypad
 } from './fixtures'
 
-test('a signed run must be prepared before game controls become available', async ({ page }) => {
+test('a server failure while preparing a signed run falls back to local play', async ({ page }) => {
   allowExpectedApiErrors.add(page)
   let attempts = 0
   await page.unroute(testApiRoute)
@@ -49,11 +49,11 @@ test('a signed run must be prepared before game controls become available', asyn
   })
 
   await page.goto('/#/surge')
-  await expect(page.getByRole('heading', { name: 'This game could not start' })).toBeVisible()
-  await expect(page.locator('.pip-keypad')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Try again' }).click()
-  // The recovered run prepares, auto-starts, and the keypad becomes available.
+  expect(await page.evaluate(() => navigator.onLine)).toBe(true)
+  await expect(page.getByRole('heading', { name: 'This game could not start' })).toHaveCount(0)
+  await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
   await waitForKeypad(page)
+  expect(attempts).toBe(1)
 })
 
 test('a malformed signed challenge is rejected without local gameplay fallback', async ({ page }) => {

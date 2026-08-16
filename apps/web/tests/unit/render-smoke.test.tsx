@@ -3,7 +3,7 @@ import { renderToStringAsync } from 'preact-render-to-string'
 import App from '../../src/App'
 import { accountStatus, player } from '../../src/lib/account'
 import { route } from '../../src/lib/router'
-import { offline } from '../../src/lib/api-availability'
+import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
 
 const CASES = [
   ['/', 'Elixir Drop'],
@@ -24,7 +24,8 @@ const CASES = [
 
 describe('SSR render smoke', () => {
   beforeEach(() => {
-    offline.value = false
+    apiAvailability.value = 'available'
+    transportOffline.value = false
     accountStatus.value = 'authenticated'
     player.value = {
       id: 'player-1',
@@ -103,7 +104,7 @@ describe('SSR render smoke', () => {
   })
 
   it.each(['/offline', '/leaderboards', '/profile'])('gives %s the unified offline treatment', async (path) => {
-    offline.value = true
+    apiAvailability.value = 'unavailable'
     accountStatus.value = 'unavailable'
     player.value = null
     route.value = path
@@ -113,7 +114,7 @@ describe('SSR render smoke', () => {
     expect(html).toContain('ed-offline-page')
     expect(html).toContain('Offline mode is ready')
     expect(html).toContain('All six games are available')
-    expect(html).toContain('Ranks and You return to navigation when you reconnect')
+    expect(html).toContain('Ranks and You return automatically when player services are reachable')
     expect(html).toContain('personal bests, badges, XP, history, or leaderboard position')
     expect(html).toContain('Open Practice')
     expect(html).toContain('Choose a game')

@@ -43,7 +43,7 @@ import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { GAME_MODES, runReference, type GameMode } from '@elixir-drop/contracts'
 import { heldForReviewReference, offlineRunMode, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
-import { offline } from '../../src/lib/api-availability'
+import { apiAvailability, reportApiUnavailable, transportOffline } from '../../src/lib/api-availability'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
 import { getRecords, saveRecords } from '../../src/lib/storage'
@@ -444,7 +444,8 @@ describe('useGameRun', () => {
     vi.mocked(applyRunProgress).mockClear()
     vi.mocked(recordRecentRun).mockClear()
     vi.mocked(track).mockClear()
-    offline.value = false
+    apiAvailability.value = 'available'
+    transportOffline.value = false
     offlineRunMode.value = null
     localStorage.removeItem('elixirdrop:records')
     localStorage.removeItem('elixirdrop:seasonRecords')
@@ -560,7 +561,10 @@ describe('useGameRun', () => {
   })
 
   it('falls back to a local Practice deal and records nothing', async () => {
-    vi.mocked(startRun).mockRejectedValue(new TypeError('Failed to fetch'))
+    vi.mocked(startRun).mockImplementation(async () => {
+      reportApiUnavailable()
+      throw new ApiError(0, 'network_unavailable', 'Drop could not reach player services.')
+    })
     const { api } = mountRun('practice')
     await flush()
 
@@ -579,17 +583,22 @@ describe('useGameRun', () => {
     expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Offline run complete — not saved' })
   })
 
-  it('does not silently deal a ranked mode locally during an online service failure', async () => {
-    vi.mocked(startRun).mockRejectedValue(new TypeError('Failed to fetch'))
+  it('deals a ranked mode locally when its start request establishes an API outage', async () => {
+    vi.mocked(startRun).mockImplementation(async () => {
+      reportApiUnavailable()
+      throw new ApiError(0, 'network_unavailable', 'Drop could not reach player services.')
+    })
     const { api } = mountRun('surge')
     await flush()
 
-    expect(offlineRunMode.value).toBeNull()
-    expect(api().challenge.value).toBeNull()
+    expect(transportOffline.value).toBe(false)
+    expect(offlineRunMode.value).toBe('surge')
+    expect(api().challenge.value?.mode).toBe('surge')
+    expect(api().startError.value).toBe('')
   })
 
   it.each(GAME_MODES)('deals and settles %s locally when the browser is offline', async (mode) => {
-    offline.value = true
+    transportOffline.value = true
     const { api } = mountRun(mode)
     await flush()
     expect(startRun).not.toHaveBeenCalled()
