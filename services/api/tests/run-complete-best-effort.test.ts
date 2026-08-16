@@ -26,6 +26,7 @@ const repository = vi.hoisted(() => ({
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
+const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -55,6 +56,11 @@ vi.mock("../src/discord.js", async (importOriginal) => {
 vi.mock("../src/buttondown.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/buttondown.js")>();
   return { ...actual, updateButtondownSubscriberMetadata };
+});
+
+vi.mock("../src/tinylytics.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
+  return { ...actual, publishTinylyticsEvent };
 });
 
 import { handler } from "../src/handler.js";
@@ -164,6 +170,7 @@ describe("run completion side effects are best effort", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
+    process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
@@ -201,6 +208,35 @@ describe("run completion side effects are best effort", () => {
     expect(result.statusCode).toBe(201);
     expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
     expect(publishDiscordEvent).toHaveBeenCalledOnce();
+    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
+      { apiToken: "tinylytics-key" },
+      expect.objectContaining({ rawPath: "/runs/complete" }),
+      {
+        event: "game.completed",
+        value: "surge",
+        path: "/surge",
+      },
+    );
+  });
+
+  it("publishes a personal best only when the all-time projection improves", async () => {
+    repository.updateAllTimeBest.mockResolvedValue({
+      improved: true,
+      previousScore: 30_000,
+    });
+
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
+      { apiToken: "tinylytics-key" },
+      expect.objectContaining({ rawPath: "/runs/complete" }),
+      {
+        event: "game.personal_best",
+        value: "surge",
+        path: "/surge",
+      },
+    );
   });
 
   it("records the run when the badge write fails", async () => {

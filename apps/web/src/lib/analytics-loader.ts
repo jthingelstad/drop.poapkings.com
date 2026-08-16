@@ -6,7 +6,7 @@
 // hash routing on GitHub Pages. Bridge safe hash changes to Tinylytics' browser
 // collector explicitly so its Pages view receives useful virtual paths.
 
-import { analyticsCollectorReady, flushLoginCompleted } from './analytics'
+import { analyticsCollectorReady } from './analytics'
 
 const SITE_ID = 'JjqvUeyEnrPM1f_iXrbU'
 const EMBED_SRC = `https://tinylytics.app/embed/${SITE_ID}/min.js?events&beacon`
@@ -100,7 +100,6 @@ export function initAnalytics(): () => void {
     script.defer = true
     script.addEventListener('load', () => {
       analyticsCollectorReady()
-      flushLoginCompleted()
     })
     document.head.appendChild(script)
   }

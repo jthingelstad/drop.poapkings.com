@@ -49,8 +49,12 @@ export default function Privacy() {
             </li>
             <li>
               Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or
-              platform labels. Drop never sends it your email, public player name, player tag, score, run ID, or Drop
-              session token.
+              platform labels. For events confirmed by the API, Drop forwards your connection IP address and browser
+              user-agent so Tinylytics can associate the outcome with the same anonymous visit and derive country and
+              browser context. Drop does not store or log those raw values for analytics. Tinylytics says it discards
+              raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes
+              user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player
+              tag, score, run ID, or Drop session token.
             </li>
             <li>
               A private Discord operator log receives compact login and completed-game events using your public Drop
@@ -106,7 +110,7 @@ export default function Privacy() {
         </MetaSection>
       </div>
 
-      <p class="ed-page__updated">Last updated August 13, 2026.</p>
+      <p class="ed-page__updated">Last updated August 16, 2026.</p>
     </article>
   )
 }

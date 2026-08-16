@@ -8,6 +8,7 @@ import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { sendMagicLink } from "../jmap.js";
+import { publishTinylyticsEvent } from "../tinylytics.js";
 import {
   emailSubject,
   normalizeEmail,
@@ -69,6 +70,10 @@ export async function requestMagicLink({
     await repository.deleteMagicLink(tokenHash);
     throw error;
   }
+  await publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
+    event: "account.login_requested",
+    path: "/login",
+  });
   return json(202, {
     ok: true,
     message: "If that address can receive mail, a login link is on its way.",
@@ -163,6 +168,11 @@ export async function redeemMagicLink({
           buttondownPlayerMetadata(login.profile, snapshot),
         ),
       ),
+      publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
+        event: "account.login_completed",
+        value: login.created ? "new" : "returning",
+        path: "/login",
+      }),
     ]);
   } catch (error) {
     console.warn("Post-login side effects failed", {

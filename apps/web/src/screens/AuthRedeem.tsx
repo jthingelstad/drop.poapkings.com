@@ -2,7 +2,6 @@ import { useSignal } from '@preact/signals'
 import { redeemAccount } from '../lib/account'
 import { gameReturnPathFromRoute, profileRouteForGame } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
-import { flushLoginCompleted, queueLoginCompleted } from '../lib/analytics'
 import Icon from '../components/Icon'
 
 export default function AuthRedeem() {
@@ -22,14 +21,11 @@ export default function AuthRedeem() {
     error.value = ''
     try {
       const authenticatedPlayer = await redeemAccount(token)
-      queueLoginCompleted()
       if (!authenticatedPlayer.favoriteCardId || !authenticatedPlayer.publicName) {
         navigate(returnTo ? profileRouteForGame(returnTo) : '/profile')
-        flushLoginCompleted()
         return
       }
       navigate(returnTo || '/profile')
-      flushLoginCompleted()
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : 'This login link could not be used.'
     } finally {

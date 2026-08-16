@@ -30,6 +30,7 @@ const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 const sendMagicLink = vi.hoisted(() => vi.fn());
+const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -72,6 +73,11 @@ vi.mock("../src/jmap.js", async (importOriginal) => {
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
   return { ...actual, requestCrProfileRefresh };
+});
+
+vi.mock("../src/tinylytics.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
+  return { ...actual, publishTinylyticsEvent };
 });
 
 import { handler } from "../src/handler.js";
@@ -168,6 +174,7 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
+    process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
@@ -203,6 +210,15 @@ describe("Clash Royale refresh scheduling", () => {
         totalGames: 4,
       },
     );
+    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
+      { apiToken: "tinylytics-key" },
+      expect.objectContaining({ rawPath: "/auth/redeem" }),
+      {
+        event: "account.login_completed",
+        value: "returning",
+        path: "/login",
+      },
+    );
   });
 
   it("refreshes Buttondown metadata when an existing session returns", async () => {
@@ -236,6 +252,11 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(202);
     expect(sendMagicLink).toHaveBeenCalledOnce();
     expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
+    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
+      { apiToken: "tinylytics-key" },
+      expect.objectContaining({ rawPath: "/auth/request" }),
+      { event: "account.login_requested", path: "/login" },
+    );
   });
 
   it("hands the new session to a waiting poll id (cross-context/PWA login)", async () => {

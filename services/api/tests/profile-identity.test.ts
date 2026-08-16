@@ -15,6 +15,7 @@ const repository = vi.hoisted(() => ({
 }));
 const generateNameOptions = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
+const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -39,6 +40,11 @@ vi.mock("../src/cr-refresh.js", async (importOriginal) => {
 vi.mock("../src/buttondown.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/buttondown.js")>();
   return { ...actual, updateButtondownSubscriberMetadata };
+});
+
+vi.mock("../src/tinylytics.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
+  return { ...actual, publishTinylyticsEvent };
 });
 
 import { handler } from "../src/handler.js";
@@ -141,6 +147,7 @@ describe("player identity binding", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
+    process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(profile);
@@ -214,6 +221,37 @@ describe("player identity binding", () => {
 
     expect(result.statusCode).toBe(400);
     expect(result.body.error?.code).toBe("invalid_player_identity");
+  });
+
+  it("publishes profile completion only on the incomplete-to-complete transition", async () => {
+    repository.getProfile.mockResolvedValue({
+      ...profile,
+      publicName: undefined,
+      favoriteCardId: undefined,
+    });
+    repository.updateProfile.mockResolvedValue(profile);
+
+    const result = await invoke("PATCH", "/me", {
+      favoriteCardId: FAVORITE_CARD_ID,
+      publicName: "Pancake Patrol",
+      nameToken: nameToken(),
+    });
+
+    expect(result.statusCode).toBe(200);
+    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
+      { apiToken: "tinylytics-key" },
+      expect.objectContaining({ rawPath: "/me" }),
+      { event: "account.profile_completed", path: "/profile" },
+    );
+
+    publishTinylyticsEvent.mockClear();
+    repository.getProfile.mockResolvedValue(profile);
+    await invoke("PATCH", "/me", {
+      favoriteCardId: FAVORITE_CARD_ID,
+      publicName: "Pancake Patrol",
+      nameToken: nameToken(),
+    });
+    expect(publishTinylyticsEvent).not.toHaveBeenCalled();
   });
 
   it("answers a mistyped player tag with the validation message", async () => {

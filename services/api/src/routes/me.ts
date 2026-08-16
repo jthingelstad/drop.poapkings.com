@@ -21,6 +21,7 @@ import {
 } from "../learning.js";
 import { generateNameOptions, isSafeGeneratedName } from "../names.js";
 import { signToken, verifyToken } from "../signing.js";
+import { publishTinylyticsEvent } from "../tinylytics.js";
 import type {
   CrProfileSnapshot,
   NameClaims,
@@ -589,6 +590,9 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   }
   if (!Object.keys(updates).length)
     throw new HttpError(400, "No profile changes were provided.");
+  const previousProfile = changesIdentity
+    ? await repository.getProfile(session.sub)
+    : undefined;
   const profile = await repository.updateProfile(session.sub, updates);
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? updates.playerTag
@@ -599,18 +603,30 @@ export async function patchMe({ event, config, repository }: RouteContext) {
         )
       : await repository.getCrProfile(profile.playerTag)
     : undefined;
-  await updateButtondownSubscriberMetadata(
-    {
-      apiKey: config.buttondownApiKey,
-      newsletterId: config.buttondownNewsletterId,
-    },
-    profile.email,
-    buttondownPlayerMetadata(
-      profile,
-      crProfile,
-      updates.playerTag !== undefined || updates.clearPlayerTag === true,
+  const completedProfile =
+    changesIdentity &&
+    (!previousProfile?.favoriteCardId || !previousProfile.publicName) &&
+    Boolean(profile.favoriteCardId && profile.publicName);
+  await Promise.all([
+    updateButtondownSubscriberMetadata(
+      {
+        apiKey: config.buttondownApiKey,
+        newsletterId: config.buttondownNewsletterId,
+      },
+      profile.email,
+      buttondownPlayerMetadata(
+        profile,
+        crProfile,
+        updates.playerTag !== undefined || updates.clearPlayerTag === true,
+      ),
     ),
-  );
+    completedProfile
+      ? publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
+          event: "account.profile_completed",
+          path: "/profile",
+        })
+      : Promise.resolve(),
+  ]);
   const rankedAccess = await repository.rankedAccess(profile.playerId);
   return json(200, {
     player: profileResponse(profile, crProfile, rankedAccess),

@@ -35,6 +35,7 @@ const PRESERVED_PARAMETERS = [
   ["AllowedOrigins", ["ELIXIR_DROP_ALLOWED_ORIGINS"]],
   ["ButtondownApiKey", ["BUTTONDOWN_API_KEY"]],
   ["ButtondownNewsletterId", ["BUTTONDOWN_NEWSLETTER_ID"]],
+  ["TinylyticsApiToken", ["TINYLYTICS_API_TOKEN"]],
 ];
 
 function firstValue(environment, environmentKeys) {

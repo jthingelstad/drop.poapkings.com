@@ -98,9 +98,9 @@ rank-oriented fields as part of unrelated work.
 - **`apps/web/src/lib/storage.ts` is the local learning-data boundary.**
   All *progress* reads/writes go through it (`getProfile`, `getRecords`,
   `getCardStats`, `saveResult`, …) — never read or write a progress key directly.
-  It is not the only browser-storage owner: the session token, the analytics
-  login latch, and the install-prompt state are deliberately owned by
-  `account.ts`, `analytics.ts`, and `pwa-install.ts`. Authenticated identity and
+  It is not the only browser-storage owner: the session token, install-prompt
+  state, release notice, and player-tag nudge are deliberately owned by their
+  narrow modules. Authenticated identity and
   signed runs use `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
   the canonical inventory of all eleven keys and which module owns each; add new
@@ -367,6 +367,9 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 - Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). The safe loader uses
   `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon` and explicitly
   bridges credential-free hash routes into virtual page paths because Pages requires hash routing.
+  Browser events own interaction intent; `services/api/src/tinylytics.ts` sends authoritative
+  login/profile and recorded-game outcomes through the numeric property API. The two surfaces
+  must never emit the same logical occurrence.
   (kudos removed — the like button was only on game summaries and is gone)
 - Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with

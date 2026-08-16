@@ -360,13 +360,10 @@ elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects
                               speedrunKeyboard? }
 ```
 
-Session, analytics, install, and release-notice state, owned by their own modules:
+Session, install, release-notice, and player-nudge state, owned by their own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
-elixirdrop:analyticsLoginCompleted  -> lib/analytics.ts   sessionStorage latch that holds the
-                                       login-completed event until the app has left the
-                                       token-bearing #/auth route
 elixirdrop:installDismissed         -> lib/pwa-install.ts localStorage   Home banner dismissed
 elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinct browser
                                        sessions (install is suggested on the third)
@@ -620,17 +617,28 @@ browser collector hit for each distinct credential-free virtual route. Query
 parameters are stripped, public player IDs collapse to `/players/profile`, and
 the one-time-token `#/auth` route is never loaded or reported.
 
-Custom events are the `TinyEvent` union in `apps/web/src/lib/analytics.ts` — that
-type is authoritative; this list mirrors it. Names are `category.action`, plus at
-most one low-cardinality value (a game mode, or `browser` / `ios` / `nav` / `tap`).
-Player ids, emails, tags, scores, and run ids never cross this boundary.
+Event ownership is deliberately hybrid. The browser reports intent and device-
+local outcomes; the API reports durable outcomes only after the operation that
+makes them authoritative succeeds. A logical occurrence has exactly one owner:
 
-| Category | Events |
-| --- | --- |
-| `game` | `game.started`, `game.completed`, `game.replayed`, `game.personal_best`, `game.shared` |
-| `account` | `account.login_requested`, `account.login_completed`, `account.profile_completed` |
-| `install` | `install.suggestion_shown`, `install.suggestion_dismissed`, `install.instructions_opened`, `install.prompt_accepted`, `install.prompt_dismissed`, `install.completed` |
-| `easter_egg` | `easter_egg.screensaver_opened` (value `nav` or `tap`; idle attract is untracked) |
+| Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                                           |
+| API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
+
+Names are `category.action`, with at most one low-cardinality value (game mode,
+login cohort, or browser/install family). Player ids, emails, public names,
+tags, scores, run ids, seasons, transcripts, session tokens, and referee data
+never cross this boundary.
+
+For API-owned events, the Lambda forwards API Gateway's trusted client source IP
+and browser user-agent together with the event, value, and credential-free route
+path. This lets Tinylytics associate the server-confirmed outcome with the same
+anonymous visit and derive country/browser context. Drop never stores or logs
+those raw fields in analytics. Tinylytics documents that raw IPs are discarded
+after country lookup, unresolved lookups may use IPinfo, and user-agent strings
+are purged after seven days. Delivery is best-effort, attempted once with a
+one-second timeout, and never changes the API response.
 
 Tinylytics is the only analytics sink; there is no local mirror of these events.
 A `community.*` category and an `elixirdrop:funnel` counter set existed for an

@@ -183,6 +183,23 @@ AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metada
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env" --apply
 ```
 
+## Tinylytics product events
+
+`TINYLYTICS_API_TOKEN` is an optional server-only full-access key for the active
+Elixir Drop Tinylytics property (numeric site ID `3445`). The browser continues
+to own page views and interaction intent. The API owns successful magic-link
+requests and redemptions, the first completed profile transition, recorded
+signed-in game completions, and conditional all-time personal bests. A recorded
+run retry replays its response without sending another event; guest outcomes
+remain browser-owned because guest runs are intentionally transient.
+
+API events contain only the event name, a low-cardinality value when useful,
+the credential-free product path, API Gateway's trusted client source IP, and
+the browser user-agent. They never include player/account identifiers, email,
+tags, scores, run/season IDs, tokens, transcripts, or referee data. Tinylytics
+delivery is best effort, has a one-second timeout and no retry, and never changes
+the API response.
+
 ## Referee evidence
 
 On `/runs/complete`, the API writes best-effort **referee evidence** for every

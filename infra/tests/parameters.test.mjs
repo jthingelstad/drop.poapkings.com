@@ -281,6 +281,55 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("supplies and then preserves the server-only Tinylytics token", () => {
+    const supplied = deploymentParameters({
+      ...base,
+      environment: { TINYLYTICS_API_TOKEN: "tinylytics-key" },
+      stackExists: true,
+    });
+    assert.deepEqual(
+      supplied.find(
+        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
+      ),
+      {
+        ParameterKey: "TinylyticsApiToken",
+        ParameterValue: "tinylytics-key",
+      },
+    );
+
+    const preserved = deploymentParameters({ ...base, stackExists: true });
+    assert.deepEqual(
+      preserved.find(
+        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
+      ),
+      { ParameterKey: "TinylyticsApiToken", UsePreviousValue: true },
+    );
+    assert.match(
+      template,
+      /TinylyticsApiToken:\n {4}Type: String\n {4}NoEcho: true/,
+    );
+    assert.match(template, /TINYLYTICS_API_TOKEN: !Ref TinylyticsApiToken/);
+  });
+
+  void it("keeps Tinylytics disabled on stack creation without a token", () => {
+    const parameters = deploymentParameters({
+      ...base,
+      environment: {
+        SESSION_SECRET: "session-secret",
+        TELEMETRY_PEPPER: "telemetry-pepper",
+        FASTMAIL_JMAP_TOKEN: "jmap-token",
+        ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+      },
+      stackExists: false,
+    });
+    assert.equal(
+      parameters.some(
+        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
+      ),
+      false,
+    );
+  });
+
   void it("omits Buttondown parameters on stack creation without credentials", () => {
     // No previous value exists yet on create; omitting lets the "" Default
     // apply so a fresh stack comes up with Buttondown cleanly disabled.

@@ -31,7 +31,6 @@ import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
 import PlayerPreferences from '../components/PlayerPreferences'
-import { track } from '../lib/analytics'
 import DetailModal from '../components/DetailModal'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
@@ -187,7 +186,6 @@ export default function Profile() {
 
   async function chooseName(name: string) {
     if (!selectedCard) return
-    const creatingIdentity = !current.favoriteCardId || !current.publicName
     busy.value = true
     message.value = ''
     try {
@@ -196,7 +194,6 @@ export default function Profile() {
         publicName: name,
         nameToken: nameToken.value
       })
-      if (creatingIdentity) track('account.profile_completed')
       names.value = []
       editingIdentity.value = false
       if (returnTo) {

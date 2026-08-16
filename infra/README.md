@@ -30,7 +30,8 @@ XP, deletes, and secrets are outside the role.
 
 The gitignored root `.env` also supplies
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL`, `BUTTONDOWN_API_KEY`, and the explicit
-`BUTTONDOWN_NEWSLETTER_ID`. CloudFormation treats the credentials as `NoEcho`
+`BUTTONDOWN_NEWSLETTER_ID`. `TINYLYTICS_API_TOKEN` optionally enables the API's
+authoritative product-event publisher. CloudFormation treats the credentials as `NoEcho`
 parameters and exposes them only to the Lambda runtime. Buttondown enrollment
 runs only after a player redeems a valid magic link; account deletion removes
 the matching subscriber, while Buttondown preserves its own unsubscribe and

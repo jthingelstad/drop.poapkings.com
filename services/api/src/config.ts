@@ -9,6 +9,7 @@ export interface Config {
   jmapToken: string;
   buttondownApiKey?: string;
   buttondownNewsletterId?: string;
+  tinylyticsApiToken?: string;
   emailFrom: string;
   emailFromName: string;
   nameModelId: string;
@@ -66,6 +67,7 @@ export function getConfig(): Config {
     jmapToken: required("FASTMAIL_JMAP_TOKEN"),
     buttondownApiKey,
     buttondownNewsletterId,
+    tinylyticsApiToken: process.env.TINYLYTICS_API_TOKEN?.trim() || undefined,
     emailFrom: emailFrom(),
     emailFromName: emailFromName(),
     nameModelId:

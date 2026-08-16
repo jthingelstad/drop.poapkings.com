@@ -35,6 +35,7 @@ import {
 import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
 import { analyzeTimingEvidence } from "../timing-evidence.js";
+import { publishTinylyticsEvent } from "../tinylytics.js";
 import type {
   Correlation,
   PlayerProfile,
@@ -303,12 +304,17 @@ async function recordSignedInRun(
   };
   if (run.ranked !== false) {
     try {
-      personalBest = await repository.updateAllTimeBest(
+      const bestUpdate = await repository.updateAllTimeBest(
         run,
         score,
         tiebreaks,
         result.completedAt,
       );
+      // Keep completion side effects fail-open if an older repository adapter
+      // returns no result. The production repository always returns the typed
+      // outcome, but analytics and badges must not turn a recorded run into a
+      // 500 when a test or recovery adapter only performs the write.
+      if (bestUpdate) personalBest = bestUpdate;
     } catch (error) {
       console.warn("All-time best update failed", {
         runId: run.runId,
@@ -407,6 +413,18 @@ async function recordSignedInRun(
             crProfile,
           }),
         )
+      : Promise.resolve(),
+    publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
+      event: "game.completed",
+      value: run.mode,
+      path: `/${run.mode}`,
+    }),
+    personalBest.improved
+      ? publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
+          event: "game.personal_best",
+          value: run.mode,
+          path: `/${run.mode}`,
+        })
       : Promise.resolve(),
   ]);
   return json(201, {

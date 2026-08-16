@@ -195,13 +195,16 @@ export function useGameRun<T extends GameMode>(mode: T) {
       const result = await completeRun(active.runToken, transcript, sessionToken())
       const seasonBest = recordSeasonBest(result)
       const personalBest = recordAllTimeBest(result)
-      track('game.completed', result.mode)
-      if (personalBest) track('game.personal_best', result.mode)
       // A guest run is scored but never recorded: there is no player progress
       // to apply and no account to refresh. The local bests still track (so a
       // signed-out streak advances and the device shows a personal best), and
       // the normal onRecorded fires so streak modes deal the next game.
       if (result.guest) {
+        // Guest runs are deliberately transient on the API, so their completed
+        // and device-local best outcomes remain browser-owned. Recorded player
+        // outcomes are emitted once by the API after their durable writes win.
+        track('game.completed', result.mode)
+        if (personalBest) track('game.personal_best', result.mode)
         run.current = null
         pendingCompletion.current = null
         setRecordingNotice({

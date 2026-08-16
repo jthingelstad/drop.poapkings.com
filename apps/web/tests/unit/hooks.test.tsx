@@ -558,6 +558,8 @@ describe('useGameRun', () => {
     expect(recordRecentRun).toHaveBeenCalledTimes(1)
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(recordingNotice.value.state).toBe('saved')
+    expect(track).not.toHaveBeenCalledWith('game.completed', 'surge')
+    expect(track).not.toHaveBeenCalledWith('game.personal_best', 'surge')
   })
 
   it('falls back to a local Practice deal and records nothing', async () => {
@@ -680,7 +682,7 @@ describe('useGameRun', () => {
   // server's verdict, and nowhere else. Every mode used to write its own best
   // eagerly in finish(), which left a rejected run showing as a personal best on
   // that player's device (Rain was the last one still doing it).
-  it('writes the local all-time best only for a server-accepted run', async () => {
+  it('writes the local all-time best without duplicating the API-owned event', async () => {
     vi.mocked(startRun).mockResolvedValue(
       startedRun({ mode: 'rain', challenge: { mode: 'rain', cardIds: [1, 2, 3] } }) as never
     )
@@ -691,7 +693,7 @@ describe('useGameRun', () => {
       await api().complete({ answers: [] })
     })
     expect(getRecords().rainBest).toBe(12)
-    expect(track).toHaveBeenCalledWith('game.personal_best', 'rain')
+    expect(track).not.toHaveBeenCalledWith('game.personal_best', 'rain')
   })
 
   it('leaves the local all-time best untouched when the run is rejected', async () => {

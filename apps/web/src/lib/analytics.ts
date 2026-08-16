@@ -13,9 +13,6 @@ export type TinyEvent =
   | 'game.personal_best'
   | 'game.shared'
   | 'badge.shared'
-  | 'account.login_requested'
-  | 'account.login_completed'
-  | 'account.profile_completed'
   | 'install.suggestion_shown'
   | 'install.suggestion_dismissed'
   | 'install.instructions_opened'
@@ -32,11 +29,10 @@ interface PendingEvent {
 }
 
 const pendingEvents: PendingEvent[] = []
-const LOGIN_COMPLETE_KEY = 'elixirdrop:analyticsLoginCompleted'
 let collectorReady = false
 
 // Tinylytics' browser collector records clicks on data-tinylytics-event nodes.
-// Programmatic outcomes (a completed game, a successful login, an accepted
+// Programmatic browser-owned outcomes (a guest game completion or an accepted
 // install prompt) have no natural click node, so use a short-lived button as the
 // documented event bridge. The SPA collector's delegated listener sees the click.
 function fireTinylytics(event: TinyEvent, value?: TinyEventValue): void {
@@ -66,25 +62,4 @@ export function track(event: TinyEvent, value?: TinyEventValue): void {
 export function analyticsCollectorReady(): void {
   collectorReady = true
   for (const pending of pendingEvents.splice(0)) fireTinylytics(pending.event, pending.value)
-}
-
-// Authentication tokens live in the hash route. Hold this event until the app
-// has navigated away from #/auth so a collector can never associate it with the
-// token-bearing URL.
-export function queueLoginCompleted(): void {
-  try {
-    sessionStorage.setItem(LOGIN_COMPLETE_KEY, '1')
-  } catch {
-    // Losing analytics is safer than weakening the auth-route boundary.
-  }
-}
-
-export function flushLoginCompleted(): void {
-  try {
-    if (sessionStorage.getItem(LOGIN_COMPLETE_KEY) !== '1') return
-    sessionStorage.removeItem(LOGIN_COMPLETE_KEY)
-    track('account.login_completed')
-  } catch {
-    // analytics is best-effort
-  }
 }
