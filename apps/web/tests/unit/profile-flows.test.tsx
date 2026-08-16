@@ -143,6 +143,15 @@ describe('insights extra branches', () => {
 // ===========================================================================
 
 describe('seasonEndsLabel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-08-16T10:00:00.000Z')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   const seasonEndingIn = (ms: number) => ({
     id: '2026-07',
     startsAt: '2026-07-06T10:00:00.000Z',
