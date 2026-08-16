@@ -67,7 +67,8 @@ test(
 
     const answer = page.locator('.pcard__answer-cost')
     await expect(answer).toHaveText(String(card.elixir))
-    await page.waitForTimeout(300)
+    await expect(page.locator('.pcard__answer-reveal')).toContainText('Correct cost')
+    await page.waitForTimeout(1_200)
     await expect(answer).toHaveText(String(card.elixir))
 
     await testInfo.attach('practice-wrong-feedback.png', {
@@ -150,7 +151,10 @@ test('practice runs until the player ends it, then closes on stats with no perso
     live = next!
   }
 
-  await page.getByRole('button', { name: 'End session' }).click()
+  const endSession = page.getByRole('button', { name: 'End session' })
+  await expect(endSession).toHaveText('')
+  await expect(endSession.locator('svg')).toBeVisible()
+  await endSession.click()
   await expect(page.locator('[data-summary]')).toBeVisible()
   await expect(page.locator('.ed-sum__headline')).toHaveText('16 / 16 first try')
   // No score, no record, no personal best anywhere on the summary.

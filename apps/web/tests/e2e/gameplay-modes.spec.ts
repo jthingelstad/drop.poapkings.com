@@ -66,15 +66,17 @@ test(
 
     const first = await answerLiveCard()
     const reinforcement = page.locator('.pcard__answer-cost')
+    const answerReveal = page.locator('.pcard__answer-reveal')
     await expect(reinforcement).toHaveText(String(first.card.elixir))
+    await expect(answerReveal).toBeVisible()
     // This is the regression from the shared video: checking a DOM mutation
     // would pass for a single frame. It must still be readable 250ms later.
     await page.waitForTimeout(250)
     await expect(reinforcement).toBeVisible()
-    const { artBounds, reinforcementBounds, sameMotion } = await page.evaluate(() => {
+    const { artBounds, revealBounds, revealStyle, sameMotion } = await page.evaluate(() => {
       const art = document.querySelector('.pcard__img')
-      const answer = document.querySelector('.pcard__answer-cost')
-      if (!(art instanceof HTMLElement) || !(answer instanceof HTMLElement)) {
+      const reveal = document.querySelector('.pcard__answer-reveal')
+      if (!(art instanceof HTMLElement) || !(reveal instanceof HTMLElement)) {
         throw new Error('Practice reinforcement disappeared before the 300ms hold')
       }
       const bounds = (element: HTMLElement) => {
@@ -83,18 +85,22 @@ test(
       }
       return {
         artBounds: bounds(art),
-        reinforcementBounds: bounds(answer),
-        sameMotion: art.closest('.game-motion') === answer.closest('.game-motion')
+        revealBounds: bounds(reveal),
+        revealStyle: {
+          backgroundImage: getComputedStyle(reveal).backgroundImage,
+          borderStyle: getComputedStyle(reveal).borderStyle,
+          boxShadow: getComputedStyle(reveal).boxShadow
+        },
+        sameMotion: art.closest('.game-motion') === reveal.closest('.game-motion')
       }
     })
     expect(artBounds).toBeTruthy()
-    expect(reinforcementBounds).toBeTruthy()
-    expect(
-      Math.abs(artBounds.x + artBounds.width / 2 - (reinforcementBounds.x + reinforcementBounds.width / 2))
-    ).toBeLessThan(2)
-    expect(
-      Math.abs(artBounds.y + artBounds.height / 2 - (reinforcementBounds.y + reinforcementBounds.height / 2))
-    ).toBeLessThan(2)
+    expect(revealBounds.width).toBeLessThan(artBounds.width)
+    expect(Math.abs(artBounds.x + artBounds.width / 2 - (revealBounds.x + revealBounds.width / 2))).toBeLessThan(2)
+    expect(Math.abs(artBounds.y + artBounds.height / 2 - (revealBounds.y + revealBounds.height / 2))).toBeLessThan(2)
+    expect(revealStyle.backgroundImage).not.toBe('none')
+    expect(revealStyle.borderStyle).toBe('solid')
+    expect(revealStyle.boxShadow).not.toBe('none')
     // The answer is structurally inside the same animated card container, so the
     // exit transform carries them as one object rather than replacing the value.
     expect(sameMotion).toBe(true)

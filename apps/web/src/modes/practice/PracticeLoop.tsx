@@ -39,7 +39,7 @@ import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
 
 const CORRECT_HOLD_MS = 300
-const REVEALED_ANSWER_HOLD_MS = 750
+const REVEALED_ANSWER_HOLD_MS = 1_600
 const WRONG_BEAT_MS = 430
 const IDLE_HINT_MS = 7_000
 const MAX_RESPONSE_MS = 60_000
@@ -568,6 +568,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       count={0}
       onQuit={endSession}
       quitLabel="End session"
+      quitIcon="x"
       cue={runtime.cue.value}
       fxParticles={6}
       progressText={`${answered.value} practiced`}

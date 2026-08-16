@@ -1059,26 +1059,73 @@ a {
   word-break: normal;
 }
 
-/* Practice reinforcement: the solved cost sits directly over the art during
-   the stable learning beat and leaves with the card. Its display face and scale
-   deliberately match the 3-2-1 count. */
-.pcard__answer-cost {
+/* Practice reinforcement: a bounded answer plaque stays visually independent
+   from noisy card art while remaining attached to the solved card's exit. */
+.pcard__answer-reveal {
   position: absolute;
-  inset: 0;
-  z-index: 4;
+  top: 50%;
+  left: 50%;
+  z-index: 6;
   display: grid;
+  min-width: 154px;
   place-items: center;
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 6rem;
-  font-weight: 700;
-  line-height: 1;
-  filter: drop-shadow(0 0 40px rgba(245, 200, 76, 0.5));
+  padding: 13px 20px 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 0, rgba(225, 86, 255, 0.32), transparent 48%),
+    linear-gradient(155deg, rgba(45, 18, 79, 0.98), rgba(11, 5, 24, 0.98));
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.62),
+    0 0 0 5px rgba(245, 200, 76, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   pointer-events: none;
 }
 
+.pcard__answer-label,
+.pcard__answer-unit {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pcard__answer-label {
+  color: var(--lavender);
+}
+
+.pcard__answer-value {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 5px 0 3px;
+}
+
+.pcard__answer-pip {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 3px 8px rgba(225, 86, 255, 0.55));
+}
+
+.pcard__answer-cost {
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 4.9rem;
+  font-weight: 700;
+  line-height: 0.78;
+  text-shadow:
+    0 3px 0 #631185,
+    0 0 22px rgba(245, 200, 76, 0.42);
+}
+
+.pcard__answer-unit {
+  color: var(--gold-lite);
+}
+
 .ed-desktop__main .pcard__answer-cost {
-  font-size: 7rem;
+  font-size: 5.4rem;
 }
 
 /* ── Pip keypad ───────────────────────────────────────────── */
@@ -4025,19 +4072,6 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 .ed-iconbtn svg {
   width: 20px;
   height: 20px;
-}
-
-/* Labeled variant of the same top-bar button: endless modes need their exit to
-   read as "End session" rather than a bare chevron. */
-.ed-iconbtn--labeled {
-  width: auto;
-  padding: 0 12px;
-  font-family: var(--font-body);
-}
-.ed-iconbtn__label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .ed-game__bar {

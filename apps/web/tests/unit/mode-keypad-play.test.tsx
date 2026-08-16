@@ -505,7 +505,7 @@ describe('Survival gameplay', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 // Practice — ENDLESS, untimed, unranked; keypad or 4-choice input. There is no
 // round length: the deck is a pool the loop draws from, and the player ends the
-// session with the top-bar "End session" control. Because the deal is weighted
+// session with the top-bar close control. Because the deal is weighted
 // (uniform here — the mocked card stats are empty), the tests read the live card
 // off the board instead of assuming deck order.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -524,6 +524,22 @@ describe('Practice gameplay', () => {
       button.click()
     })
   }
+
+  it('uses an icon-only close control with an explicit accessible name', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    const button = host.querySelector<HTMLButtonElement>('button[aria-label="End session"]')
+    expect(button).not.toBeNull()
+    expect(button!.textContent?.trim()).toBe('')
+    expect(button!.querySelector('svg')).not.toBeNull()
+  })
 
   // Answer `count` questions correctly, reading each card off the board.
   function answerCorrectly(host: HTMLElement, deck: Card[], count: number): void {
@@ -720,7 +736,10 @@ describe('Practice gameplay', () => {
     advance(430)
     expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(correctCost))
     expect(host.querySelector('.sr-only')?.textContent).toContain(`The answer is ${correctCost} elixir`)
-    advance(750)
+    advance(1_599)
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(correctCost))
+    advance(1)
+    expect(host.querySelector('.pcard__answer-cost')).toBeNull()
     expect(host.textContent).toContain('1 practiced')
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
@@ -765,7 +784,10 @@ describe('Practice gameplay', () => {
     advance(430)
     expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
     expect(correct!.className).toContain('mc-choices__btn--correct')
-    advance(750)
+    advance(1_599)
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
+    advance(1)
+    expect(host.querySelector('.pcard__answer-cost')).toBeNull()
     expect(host.textContent).toContain('1 practiced')
     expect(saveResult).toHaveBeenCalledWith(first.id, false, undefined, true)
   })

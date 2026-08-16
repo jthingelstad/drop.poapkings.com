@@ -125,8 +125,8 @@ award pipeline, and one should not be built without a fresh product decision.
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
 Untimed and **endless**. A card appears; name its cost; repeat until you choose
-to stop, via the always-available **End session** control in the top bar (the
-same affordance that exits the other modes, given words). There is no round
+to stop, via the always-available icon-only close control in the top bar
+(accessibly named **End session**). There is no round
 length, no score, no record, and no personal best — the session closes on the
 shared learning summary showing **stats only**: first-read accuracy, average
 response time, recovered misses, cards still needing review, and cost bands.
@@ -143,14 +143,15 @@ uniform random. The same card never lands twice in a row.
 
 The learning loop has three layers:
 
-- A correct first read places the cost in the gold countdown face directly over
-  the card. It holds stable for at least 300ms and until the next art is decoded,
-  then remains attached while the solved card exits. Reduced motion uses the
-  same learning hold with a short fade.
+- A correct first read places the cost in a bounded, high-contrast **Correct
+  cost** badge over the card, visually separate from its art. It holds stable
+  for at least 300ms and until the next art is decoded, then remains attached
+  while the solved card exits. Reduced motion uses the same learning hold with
+  a short fade.
 - A wrong keypad read gets one anchored directional scaffold (`Higher than 4`
-  or `Lower than 7`). A second miss reveals and holds the exact cost; a wrong
-  recognition choice reveals the exact cost after its wrong beat rather than
-  encouraging elimination guesses.
+  or `Lower than 7`). A second miss reveals and holds the exact cost for 1.6
+  seconds; a wrong recognition choice uses the same teaching hold after its
+  wrong beat rather than encouraging elimination guesses.
 - A miss is guaranteed to return after four other reads. A repeated review miss
   returns after three; a successful retry receives a longer-gap confirmation
   after ten. Recovery cues say `Got it back!` and `Locked in!`.
