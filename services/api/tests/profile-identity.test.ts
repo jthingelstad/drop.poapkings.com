@@ -14,6 +14,7 @@ const repository = vi.hoisted(() => ({
   rankedAccess: vi.fn(async () => "allowed" as const),
 }));
 const generateNameOptions = vi.hoisted(() => vi.fn());
+const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -33,6 +34,11 @@ vi.mock("../src/names.js", async (importOriginal) => {
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
   return { ...actual, requestCrProfileRefresh: vi.fn() };
+});
+
+vi.mock("../src/buttondown.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
+  return { ...actual, updateButtondownSubscriberMetadata };
 });
 
 import { handler } from "../src/handler.js";
@@ -133,6 +139,8 @@ describe("player identity binding", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
+    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(profile);
@@ -225,6 +233,14 @@ describe("player identity binding", () => {
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
       clearPlayerTag: true,
     });
+    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
+      {
+        apiKey: "buttondown-key",
+        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+      profile.email,
+      { playerTag: undefined, clanTag: null, totalGames: 4 },
+    );
   });
 
   it("rejects a PATCH that changes nothing", async () => {

@@ -17,10 +17,10 @@ vi.mock("../src/repository.js", () => ({
   },
 }));
 
-vi.mock("../src/buttondown.js", () => ({
-  deleteButtondownSubscriber,
-  enrollButtondownSubscriber: vi.fn(),
-}));
+vi.mock("../src/buttondown.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
+  return { ...actual, deleteButtondownSubscriber };
+});
 
 import { handler } from "../src/handler.js";
 

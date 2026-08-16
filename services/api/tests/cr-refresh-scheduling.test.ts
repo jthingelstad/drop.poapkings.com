@@ -28,6 +28,7 @@ const repository = vi.hoisted(() => ({
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
+const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 const sendMagicLink = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
@@ -53,10 +54,15 @@ vi.mock("../src/repository.js", () => ({
   },
 }));
 
-vi.mock("../src/buttondown.js", () => ({
-  deleteButtondownSubscriber: vi.fn(),
-  enrollButtondownSubscriber,
-}));
+vi.mock("../src/buttondown.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
+  return {
+    ...actual,
+    deleteButtondownSubscriber: vi.fn(),
+    enrollButtondownSubscriber,
+    updateButtondownSubscriberMetadata,
+  };
+});
 
 vi.mock("../src/jmap.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/jmap.js")>();
@@ -87,6 +93,7 @@ const snapshot = {
   tag: "#2PYQ0",
   status: "ready" as const,
   name: "Player One",
+  clan: { tag: "#J2RGCRVG", name: "POAP KINGS", badgeId: 16000000 },
   cards: [],
   fetchedAt: "2026-07-18T12:00:00.000Z",
 };
@@ -190,6 +197,31 @@ describe("Clash Royale refresh scheduling", () => {
         newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
       },
       profile.email,
+      {
+        playerTag: profile.playerTag,
+        clanTag: "#J2RGCRVG",
+        totalGames: 4,
+      },
+    );
+  });
+
+  it("refreshes Buttondown metadata when an existing session returns", async () => {
+    repository.getProfile.mockResolvedValue(profile);
+
+    const response = await invoke("POST", "/auth/refresh", undefined, true);
+
+    expect(response.statusCode).toBe(200);
+    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
+      {
+        apiKey: "buttondown-key",
+        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+      profile.email,
+      {
+        playerTag: profile.playerTag,
+        clanTag: "#J2RGCRVG",
+        totalGames: 4,
+      },
     );
   });
 
@@ -277,6 +309,15 @@ describe("Clash Royale refresh scheduling", () => {
       expect.anything(),
       "https://sqs.example/requests",
       profile.playerTag,
+    );
+    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
+      expect.anything(),
+      profile.email,
+      {
+        playerTag: profile.playerTag,
+        clanTag: "#J2RGCRVG",
+        totalGames: 4,
+      },
     );
   });
 

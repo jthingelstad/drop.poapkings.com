@@ -13,6 +13,10 @@ import {
   completedGameWebhookPayload,
   publishDiscordEvent,
 } from "../discord.js";
+import {
+  buttondownPlayerMetadata,
+  updateButtondownSubscriberMetadata,
+} from "../buttondown.js";
 import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
@@ -379,20 +383,32 @@ async function recordSignedInRun(
   // Practice never reaches the clan feed. It is a private drill — no board, no
   // XP, no record — and an endless session has no comparable number to post:
   // one correct answer then quitting would broadcast "Practice · 100%".
-  if (!automaticReviewReason && run.mode !== "practice") {
-    await publishDiscordEvent(
-      config.discordWebhookUrl,
-      completedGameWebhookPayload({
-        runId: run.runId,
-        mode: run.mode,
-        score,
-        seasonId: season.id,
-        completedAt: result.completedAt,
-        profile: result.profile,
-        crProfile,
-      }),
-    );
-  }
+  // Buttondown still receives the authoritative recorded-game total for every
+  // mode; only the Discord branch below excludes Practice and reviewed runs.
+  await Promise.all([
+    updateButtondownSubscriberMetadata(
+      {
+        apiKey: config.buttondownApiKey,
+        newsletterId: config.buttondownNewsletterId,
+      },
+      result.profile.email,
+      buttondownPlayerMetadata(result.profile, crProfile),
+    ),
+    !automaticReviewReason && run.mode !== "practice"
+      ? publishDiscordEvent(
+          config.discordWebhookUrl,
+          completedGameWebhookPayload({
+            runId: run.runId,
+            mode: run.mode,
+            score,
+            seasonId: season.id,
+            completedAt: result.completedAt,
+            profile: result.profile,
+            crProfile,
+          }),
+        )
+      : Promise.resolve(),
+  ]);
   return json(201, {
     accepted: true,
     runId: run.runId,

@@ -1,5 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { enrollButtondownSubscriber } from "../buttondown.js";
+import {
+  buttondownPlayerMetadata,
+  enrollButtondownSubscriber,
+  updateButtondownSubscriberMetadata,
+} from "../buttondown.js";
 import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
@@ -136,6 +140,11 @@ export async function redeemMagicLink({
   // Side channels are best-effort: a Discord or CR hiccup must not fail a
   // login whose link is already spent.
   try {
+    const crProfile = refreshedCrProfile(
+      repository,
+      config.crRequestQueueUrl,
+      login.profile.playerTag,
+    );
     await Promise.all([
       publishDiscordEvent(
         config.discordWebhookUrl,
@@ -144,17 +153,15 @@ export async function redeemMagicLink({
           newPlayer: login.created,
         }),
       ),
-      refreshedCrProfile(
-        repository,
-        config.crRequestQueueUrl,
-        login.profile.playerTag,
-      ),
-      enrollButtondownSubscriber(
-        {
-          apiKey: config.buttondownApiKey,
-          newsletterId: config.buttondownNewsletterId,
-        },
-        login.profile.email,
+      crProfile.then((snapshot) =>
+        enrollButtondownSubscriber(
+          {
+            apiKey: config.buttondownApiKey,
+            newsletterId: config.buttondownNewsletterId,
+          },
+          login.profile.email,
+          buttondownPlayerMetadata(login.profile, snapshot),
+        ),
       ),
     ]);
   } catch (error) {
@@ -187,12 +194,19 @@ export async function refreshSession({
   // A renewed session is also the routine "player is back" signal: queue a
   // (six-hour-deduplicated) Clash Royale refresh so an active player's
   // linked profile keeps up without ever re-redeeming a magic link.
-  if (profile.playerTag)
-    await refreshedCrProfile(
-      repository,
-      config.crRequestQueueUrl,
-      profile.playerTag,
-    );
+  const crProfile = await refreshedCrProfile(
+    repository,
+    config.crRequestQueueUrl,
+    profile.playerTag,
+  );
+  await updateButtondownSubscriberMetadata(
+    {
+      apiKey: config.buttondownApiKey,
+      newsletterId: config.buttondownNewsletterId,
+    },
+    profile.email,
+    buttondownPlayerMetadata(profile, crProfile),
+  );
   return json(200, {
     session: issueSession(
       session.sub,

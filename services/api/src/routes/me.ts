@@ -4,7 +4,11 @@ import {
   badgeStates,
   reconcileBadgeCounters,
 } from "../badges.js";
-import { deleteButtondownSubscriber } from "../buttondown.js";
+import {
+  buttondownPlayerMetadata,
+  deleteButtondownSubscriber,
+  updateButtondownSubscriberMetadata,
+} from "../buttondown.js";
 import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
@@ -595,6 +599,18 @@ export async function patchMe({ event, config, repository }: RouteContext) {
         )
       : await repository.getCrProfile(profile.playerTag)
     : undefined;
+  await updateButtondownSubscriberMetadata(
+    {
+      apiKey: config.buttondownApiKey,
+      newsletterId: config.buttondownNewsletterId,
+    },
+    profile.email,
+    buttondownPlayerMetadata(
+      profile,
+      crProfile,
+      updates.playerTag !== undefined || updates.clearPlayerTag === true,
+    ),
+  );
   const rankedAccess = await repository.rankedAccess(profile.playerId);
   return json(200, {
     player: profileResponse(profile, crProfile, rankedAccess),

@@ -25,6 +25,7 @@ const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
+const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -49,6 +50,11 @@ vi.mock("../src/repository.js", () => ({
 vi.mock("../src/discord.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/discord.js")>();
   return { ...actual, publishDiscordEvent };
+});
+
+vi.mock("../src/buttondown.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
+  return { ...actual, updateButtondownSubscriberMetadata };
 });
 
 import { handler } from "../src/handler.js";
@@ -156,6 +162,8 @@ describe("run completion side effects are best effort", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
+    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
@@ -315,6 +323,11 @@ describe("run completion side effects are best effort", () => {
       tag: profile.playerTag,
       status: "ready",
       name: "KingThing",
+      clan: {
+        tag: "#J2RGCRVG",
+        name: "POAP KINGS",
+        badgeId: 16000000,
+      },
       updatedAt: "2026-07-18T00:00:00.000Z",
     });
 
@@ -322,6 +335,18 @@ describe("run completion side effects are best effort", () => {
 
     expect(result.statusCode).toBe(201);
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
+    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
+      {
+        apiKey: "buttondown-key",
+        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
+      },
+      profile.email,
+      {
+        playerTag: profile.playerTag,
+        clanTag: "#J2RGCRVG",
+        totalGames: 5,
+      },
+    );
   });
 
   it("propagates a failed completeRun instead of pretending the game counted", async () => {

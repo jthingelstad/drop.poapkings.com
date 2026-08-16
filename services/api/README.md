@@ -10,7 +10,8 @@ Responsibilities in this release:
 - a daily Fastmail JMAP delivery canary using the same submission path as magic
   links, sent to the monitored `drop@poapkings.com` administrative mailbox;
 - Buttondown enrollment only after successful magic-link redemption, with
-  matching removal on account deletion;
+  current player/clan/activity metadata and matching removal on account
+  deletion;
 - renewable 28-day sliding HMAC bearer sessions;
 - player profiles with favorite-card avatars, safe Claude Haiku-generated
   public names, unverified CR player tags, and cached CR
@@ -158,9 +159,15 @@ levels, and delivery failure never blocks queue completion.
 settings. A successful magic-link redemption adds the verified address as a
 regular subscriber, so Buttondown does not send a redundant confirmation
 message. Repeat login collisions never overwrite Buttondown's unsubscribe or
-suppression state. Account deletion removes the subscriber by email. These
-calls are best effort with a three-second timeout and never change an otherwise
-successful login or deletion response.
+suppression state: collisions and later syncs PATCH metadata only. Subscriber
+metadata uses segment-friendly `player_tag`, optional `clan_tag`, and numeric
+`total_games` keys. It refreshes at verified login, each returning-session
+renewal, a profile/tag change, and every recorded game; the current clan comes
+only from the latest bridge-owned CR snapshot. A known no-clan result clears a
+stale clan value, while an unavailable/pending snapshot preserves the last
+known value. Account deletion removes the subscriber by email. These calls are
+best effort with a three-second timeout and never change an otherwise
+successful login, profile update, run completion, or deletion response.
 
 ## Referee evidence
 
