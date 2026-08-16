@@ -74,9 +74,9 @@ export default function Login() {
         <p class="account-privacy">
           Your email stays private and is used for sign-in plus occasional Drop release news after you successfully sign
           in. Your chosen player name, favorite card, scores, and optional public Clash Royale tag appear in Drop.{' '}
-          <button class="text-link" onClick={() => navigate('/privacy')}>
+          <a class="text-link" href="/privacy/">
             Privacy details
-          </button>
+          </a>
         </p>
         {status.value === 'sent' ? (
           <>

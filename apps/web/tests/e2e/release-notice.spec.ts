@@ -26,12 +26,14 @@ test('a newer release is announced once, opens the history, and stays dismissed'
   await expect(notice).toBeVisible()
   await expect(notice.locator('[role="dialog"]')).toHaveAttribute('aria-modal', 'true')
 
-  await notice.getByRole('button', { name: /See what/ }).click()
-  await expect(page).toHaveURL(/#\/releases$/)
-  await expect(page.getByRole('article').getByRole('heading', { name: 'Release history' })).toBeVisible()
-  await expect(page.locator('.ed-page .ed-meta-section')).not.toHaveCount(0)
+  await notice.getByRole('link', { name: /See what/ }).click()
+  await expect(page).toHaveURL(/\/releases\/$/)
+  await expect(page.getByRole('heading', { name: 'Elixir Drop Releases' })).toBeVisible()
+  await expect(page.locator('.static-section')).not.toHaveCount(0)
 
   await page.waitForLoadState('networkidle')
+  await page.goto('/')
+  await expect(page.locator(NOTICE)).toHaveCount(0)
   await page.reload()
   await expect(page.locator(NOTICE)).toHaveCount(0)
   await page.waitForLoadState('networkidle')

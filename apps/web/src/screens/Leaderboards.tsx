@@ -339,9 +339,9 @@ export default function Leaderboards() {
         <span>Cleared by a referee.</span>
         <ReviewStatusMark status="pending" size={18} />
         <span>means the run ranks while it is checked; excluded runs leave the board.</span>
-        <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+        <a class="ed-textlink" href="/fair-play/">
           Fair Play
-        </button>
+        </a>
       </footer>
     </div>
   )

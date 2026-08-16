@@ -22,7 +22,10 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(seal).toHaveText('')
   await expect(page.locator('.ed-board__review-key')).toHaveCount(0)
   await expect(page.locator('.ed-board__key')).toContainText('ranks while it is checked')
-  await expect(page.locator('.ed-board__key').getByRole('button', { name: 'Fair Play' })).toBeVisible()
+  await expect(page.locator('.ed-board__key').getByRole('link', { name: 'Fair Play' })).toHaveAttribute(
+    'href',
+    '/fair-play/'
+  )
 
   // A run awaiting the referee ranks in place and says so on its own row.
   const awaiting = page.locator('.ed-lbrow').nth(1)

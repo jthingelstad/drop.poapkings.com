@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { runSharePayload, shareRun, shareRunCard, type ShareableGameMode } from '../../src/lib/share-run'
+import {
+  dropSharePayload,
+  runSharePayload,
+  shareRun,
+  shareRunCard,
+  type ShareableGameMode
+} from '../../src/lib/share-run'
 
 function setNavigatorMethod(name: 'share' | 'clipboard', value: unknown): void {
   Object.defineProperty(navigator, name, { value, configurable: true })
@@ -12,6 +18,14 @@ afterEach(() => {
 })
 
 describe('run sharing', () => {
+  it('builds a clean root link for sharing Elixir Drop itself', () => {
+    const payload = dropSharePayload('https://drop.poapkings.com/?source=test#/profile')
+
+    expect(payload.title).toContain('Elixir Drop')
+    expect(payload.url).toBe('https://drop.poapkings.com/')
+    expect(payload.copyText).toBe(`${payload.text}\n${payload.url}`)
+  })
+
   it.each<[ShareableGameMode, string, string]>([
     ['surge', '15.04s', 'Surge'],
     ['higher-lower', '12 streak', 'Higher / Lower'],

@@ -107,8 +107,8 @@ A glyph in the leaderboard row meta, beside the XP chip
 
 ### C. The story, told once
 
-- **FAQ** (`apps/web/src/data/meta-content.ts`, after the leaderboards question
-  at :102). Draft, in house voice:
+- **FAQ** (`apps/web/scripts/static-pages.ts`, after the leaderboards question).
+  Draft, in house voice:
 
   > **How do you keep the boards honest?**
   > Every ranked run is scored on the server from a signed challenge, so a score
@@ -117,10 +117,10 @@ A glyph in the leaderboard row meta, beside the XP chip
   > at them, and the referee can put them right back. Scores that have been
   > checked carry a badge.
 
-  Note `FaqBody` renders `a` as a single `<p>`; a multi-paragraph or linked
-  answer needs a renderer change at `screens/MetaPage.tsx:34-37`.
+  A multi-paragraph or linked answer needs corresponding standalone HTML in the
+  static-page generator.
 
-- **Privacy → "Fair play"** (`screens/Privacy.tsx:61`): extend rather than
+- **Privacy → "Fair Play"** (`apps/web/scripts/static-pages.ts`): extend rather than
   duplicate. Worth saying plainly that Drop converts IP and user-agent into
   salted one-way fingerprints at recording time and discards the originals.
   Most games doing integrity work simply keep them; this is a trust win.

@@ -274,6 +274,7 @@ describe('useHomeData derivations', () => {
     expect(captured?.stats?.trophyRoadGames).toBe(700)
     // The signed-in player's rank is still pulled from the board for the hero.
     expect(captured?.rankFor('surge')).toBe(2)
+    expect(captured?.standingsFor('surge').map((entry) => entry.player.id)).toEqual(['ace', 'me'])
     // The recent run (8_500) beats the empty stored record and merges in.
     expect(captured?.personalBestScores.surge).toBe(8_500)
     expect(captured?.bestScores.surge).toBe(8_500)
@@ -294,6 +295,7 @@ describe('useHomeData derivations', () => {
     await flush()
 
     expect(captured?.rankFor('surge')).toBeUndefined()
+    expect(captured?.standingsFor('surge')).toEqual([])
   })
 })
 

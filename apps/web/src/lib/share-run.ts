@@ -13,6 +13,23 @@ export interface RunSharePayload {
 
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
 
+export function dropSharePayload(href = window.location.href): RunSharePayload {
+  const url = new URL('/', href)
+  url.search = ''
+  url.hash = ''
+  const text = 'Elixir Drop makes learning Clash Royale card costs feel like a game. How fast can you read the field?'
+  return {
+    title: 'Elixir Drop — Clash Royale Elixir Cost Trainer',
+    text,
+    url: url.toString(),
+    copyText: `${text}\n${url.toString()}`
+  }
+}
+
+export function shareDrop(href = window.location.href): Promise<RunShareOutcome> {
+  return shareRun(dropSharePayload(href))
+}
+
 export function runSharePayload(
   mode: ShareableGameMode,
   score: string,

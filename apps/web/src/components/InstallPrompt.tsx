@@ -15,7 +15,6 @@ import {
   promptInstall,
   dismissInstall
 } from '../lib/pwa-install'
-import { navigate } from '../lib/router'
 import { tapFxFrom } from '../lib/tap-fx'
 import Icon from './Icon'
 
@@ -25,7 +24,7 @@ function install(): void {
   if (installMode.value === 'available') void promptInstall()
   else {
     track('install.instructions_opened', installAnalyticsValue())
-    navigate('/install')
+    window.location.assign('/install/')
   }
 }
 
@@ -69,7 +68,7 @@ export function InstallRow() {
       class="ed-installrow tap-fx"
       onClick={() => {
         track('install.instructions_opened', installAnalyticsValue())
-        navigate('/install')
+        window.location.assign('/install/')
       }}
     >
       <span class="ed-installrow__icon">

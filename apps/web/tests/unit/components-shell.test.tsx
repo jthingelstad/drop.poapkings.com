@@ -521,7 +521,9 @@ describe('DesktopShell', () => {
     expect(labels.some((l) => l?.startsWith('FAQ'))).toBe(true)
     expect(labels.some((l) => l?.startsWith('Fair Play'))).toBe(true)
     expect(labels.some((l) => l?.startsWith('Privacy'))).toBe(true)
-    const discord = foot.querySelector<HTMLAnchorElement>('a.ed-railfoot__link')!
+    const discord = [...foot.querySelectorAll<HTMLAnchorElement>('a.ed-railfoot__link')].find((link) =>
+      link.textContent?.startsWith('Discord')
+    )!
     expect(discord.href).toBe('https://discord.gg/SdvKfJW5kA')
   })
 

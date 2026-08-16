@@ -11,9 +11,15 @@ initSound()
 initReducedMotion()
 initAnalytics()
 
+const root = document.getElementById('app')!
+// index.html carries meaningful no-JavaScript copy for crawlers and slow
+// clients. Preact's render() appends beside unmanaged markup, so remove that
+// fallback immediately before mounting the interactive application.
+root.replaceChildren()
+
 render(
   <AppErrorBoundary>
     <App />
   </AppErrorBoundary>,
-  document.getElementById('app')!
+  root
 )

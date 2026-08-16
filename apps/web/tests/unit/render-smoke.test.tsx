@@ -15,10 +15,6 @@ const CASES = [
   ['/rain', 'PREPARING'],
   ['/offline', 'You’re back online'],
   ['/settings', 'Settings'],
-  ['/about', 'About Elixir Drop'],
-  ['/fair-play', 'Fair Play'],
-  ['/faq', 'Frequently asked'],
-  ['/install', 'Install Elixir Drop'],
   ['/app-info', 'App Info']
 ] as const
 
@@ -64,11 +60,6 @@ describe('SSR render smoke', () => {
     ['/offline', 'Offline'],
     ['/leaderboards', 'Leaderboards'],
     ['/settings', 'Settings'],
-    ['/privacy', 'Privacy'],
-    ['/about', 'About'],
-    ['/fair-play', 'Fair Play'],
-    ['/faq', 'FAQ'],
-    ['/install', 'Install'],
     ['/app-info', 'App info'],
     ['/login', 'Sign in']
   ])('announces %s as its own screen title', async (path, label) => {

@@ -23,6 +23,7 @@ export interface HomeData {
   // The signed-in player's rank on any mode's board — the hero features a
   // different game each day, so it cannot read a Surge-only rank.
   rankFor: (mode: GameMode) => number | undefined
+  standingsFor: (mode: GameMode) => LeaderboardEntry[]
 }
 
 export interface SurgeSeasonCallout {
@@ -117,6 +118,7 @@ export function useHomeData(): HomeData {
     season,
     personalBestScores,
     bestScores,
-    rankFor: (mode) => (meId ? boards.value[mode]?.find((entry) => entry.player.id === meId)?.rank : undefined)
+    rankFor: (mode) => (meId ? boards.value[mode]?.find((entry) => entry.player.id === meId)?.rank : undefined),
+    standingsFor: (mode) => boards.value[mode] ?? []
   }
 }

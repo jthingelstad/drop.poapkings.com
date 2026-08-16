@@ -10,7 +10,7 @@ import { registerLogoTap } from '../../lib/screensaver'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
 import type { HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
-import { FeaturedHero, HomeGameCard } from './home-bits'
+import { HomeHeroCarousel, HomeGameCard } from './home-bits'
 
 function IdentityChip() {
   const current = player.value
@@ -40,8 +40,12 @@ export default function HomeMobile({ data }: { data: HomeData }) {
   return (
     <div class="ed-home">
       <InstallBanner />
+      <header class="ed-home-intro">
+        <h1>Elixir Drop</h1>
+        <p>Learn Clash Royale card elixir costs through six fast games.</p>
+      </header>
       <IdentityChip />
-      <FeaturedHero data={data} game={featured} />
+      <HomeHeroCarousel data={data} game={featured} />
 
       <section class="ed-more">
         <div class="ed-more__head">

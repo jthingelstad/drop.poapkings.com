@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import preact from '@preact/preset-vite'
 import { execSync } from 'node:child_process'
+import { renderStaticPage, STATIC_PAGE_SLUGS } from './scripts/static-pages.ts'
 
 function runGit(command: string): string | undefined {
   try {
@@ -42,10 +43,34 @@ function versionManifestPlugin(webVersion: string): Plugin {
   }
 }
 
+function staticPagesPlugin(): Plugin {
+  const paths = new Map(STATIC_PAGE_SLUGS.map((slug) => [`/${slug}/`, slug]))
+  return {
+    name: 'elixir-drop-static-pages',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.method !== 'GET' && request.method !== 'HEAD') return next()
+        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+        const slug = paths.get(pathname.endsWith('/') ? pathname : `${pathname}/`)
+        if (!slug) return next()
+        const source = renderStaticPage(slug)
+        response.statusCode = 200
+        response.setHeader('Content-Type', 'text/html; charset=utf-8')
+        response.end(request.method === 'HEAD' ? undefined : source)
+      })
+    },
+    generateBundle() {
+      for (const slug of STATIC_PAGE_SLUGS) {
+        this.emitFile({ type: 'asset', fileName: `${slug}/index.html`, source: renderStaticPage(slug) })
+      }
+    }
+  }
+}
+
 const currentBuildId = buildId()
 
 export default defineConfig({
-  plugins: [preact(), versionManifestPlugin(currentBuildId)],
+  plugins: [preact(), versionManifestPlugin(currentBuildId), staticPagesPlugin()],
   base: '/',
   define: {
     __ELIXIR_DROP_BUILD_ID__: JSON.stringify(currentBuildId),

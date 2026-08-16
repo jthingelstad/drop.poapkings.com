@@ -8,14 +8,12 @@ vi.mock('../../src/lib/router', async (importActual) => {
   return { ...actual, navigate: vi.fn() }
 })
 
-import { navigate, route } from '../../src/lib/router'
+import { route } from '../../src/lib/router'
 import { decideReleaseNotice, dismissRelease, initReleaseNotice, pendingRelease } from '../../src/lib/release-notice'
-import { latestRelease, releaseDateLabel, releases, type ReleaseEntry } from '../../src/lib/releases'
-import ReleaseList from '../../src/components/ReleaseList'
+import { latestRelease, releases, type ReleaseEntry } from '../../src/lib/releases'
 import ReleaseNotice from '../../src/components/ReleaseNotice'
-import MetaPage from '../../src/screens/MetaPage'
 import MetaMoreList from '../../src/components/MetaMoreList'
-import { RELEASES } from '../../src/data/meta-content'
+import { renderStaticPage } from '../../scripts/static-pages'
 
 const SEEN_KEY = 'elixirdrop:releaseSeen'
 
@@ -195,14 +193,11 @@ describe('ReleaseNotice', () => {
     expect(pendingRelease.value).toBe(null)
   })
 
-  it('sends the player to the full history and does not show again', async () => {
+  it('links the player to the full history', async () => {
     pendingRelease.value = OLDER
     const host = await mount(<ReleaseNotice />)
-    const cta = [...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('See what'))!
-    await click(cta)
-    expect(navigate).toHaveBeenCalledWith('/releases')
-    expect(pendingRelease.value).toBe(null)
-    expect(localStorage.getItem(SEEN_KEY)).toBe(OLDER.id)
+    const cta = [...host.querySelectorAll('a')].find((link) => (link.textContent ?? '').includes('See what'))!
+    expect(cta.getAttribute('href')).toBe('/releases/')
   })
 })
 
@@ -210,26 +205,16 @@ describe('ReleaseNotice', () => {
 // The page
 // =============================================================================
 describe('the /releases page', () => {
-  it('renders the committed history in the shared meta-page chrome', async () => {
-    const html = await renderToStringAsync(<MetaPage kind="releases" />)
-    expect(html).toContain('ed-page__back')
-    expect(html).toContain(RELEASES.title)
-    expect(html).toContain(RELEASES.eyebrow)
-    expect(html).toContain('ed-meta-sections')
+  it('renders the committed history as standalone HTML', () => {
+    const html = renderStaticPage('releases')
+    expect(html).toContain('<!doctype html>')
+    expect(html).toContain('Elixir Drop Releases')
+    expect(html).toContain('https://drop.poapkings.com/releases/')
+    expect(html).toContain('static-sections')
     const first = releases[0]!
     expect(html).toContain(first.name)
     expect(html).toContain(first.build)
-    expect(html).toContain(releaseDateLabel(first.date))
     expect(html).toContain(first.notes[0])
-    expect(html).not.toContain(RELEASES.empty)
-  })
-
-  it('renders sensibly with no releases cut yet', async () => {
-    const html = await renderToStringAsync(<ReleaseList entries={[]} />)
-    expect(html).toContain('ed-meta-sections')
-    expect(html).toContain(RELEASES.intro)
-    expect(html).toContain(RELEASES.empty)
-    expect(html).toContain('ed-meta-section--muted')
   })
 
   it('sits between About and FAQ in Profile’s More list', async () => {
@@ -237,15 +222,5 @@ describe('the /releases page', () => {
     expect(html).toContain('Releases')
     expect(html.indexOf('About')).toBeLessThan(html.indexOf('Releases'))
     expect(html.indexOf('Releases')).toBeLessThan(html.indexOf('FAQ'))
-  })
-})
-
-describe('releaseDateLabel', () => {
-  it('formats an ISO date without drifting a day across time zones', () => {
-    expect(releaseDateLabel('2026-07-24')).toBe('July 24, 2026')
-  })
-
-  it('falls back to the raw value it cannot parse', () => {
-    expect(releaseDateLabel('someday')).toBe('someday')
   })
 })

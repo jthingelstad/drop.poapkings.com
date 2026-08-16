@@ -1,15 +1,22 @@
 // Shared Home presentation bits used by both HomeMobile and HomeDesktop: the
-// ambient elixir motes, and the "More games" card (whose inner content is
-// identical across layouts — only the surrounding container/grid differs).
+// rotating promotion hero, ambient elixir motes, and the "More games" card.
 
+import { useEffect, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
+import { isReducedMotionEnabled } from '../../lib/motion'
+import { shareDrop } from '../../lib/share-run'
+import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, type HomeData } from './home-data'
+
+const HERO_SLIDE_COUNT = 3
+const HERO_ROTATION_MS = 10_000
+const FREE_PASS_MODE = 'surge' as const
 
 // Falling elixir motes inside a card (CSS-animated, decorative).
 export function GameMotes({ dense = false }: { dense?: boolean }) {
@@ -29,8 +36,6 @@ function personalBestText(game: HomeGame, best: number | undefined): string {
 }
 
 // `withHours` gives the desktop pill its "6d 04h" form.
-// The hero promotes one game a day. It was Surge-only before, which meant the
-// only promotion slot on the app's first screen could never say anything new.
 export function FeaturedHero({
   data,
   game,
@@ -91,6 +96,175 @@ export function FeaturedHero({
         </div>
       </div>
     </section>
+  )
+}
+
+function FreePassHero({ data, withHours }: { data: HomeData; withHours: boolean }) {
+  const standings = data.standingsFor(FREE_PASS_MODE).slice(0, 3)
+  return (
+    <section class="ed-hero ed-hero--pass">
+      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
+      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
+      <div class="ed-hero__body">
+        <span class="ed-pill ed-pill--gold">Free Pass · {seasonEndsLabel(data.season, withHours)}</span>
+        <ModeIcon mode={FREE_PASS_MODE} size={60} className="ed-hero__art" />
+        <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
+        <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
+        <ol class="ed-hero-podium" aria-label="Current provisional Surge leaders">
+          {standings.length === 0 ? (
+            <li class="ed-hero-podium__empty">Current standings will appear here.</li>
+          ) : (
+            standings.map((entry) => (
+              <li key={entry.player.id}>
+                <span>{entry.rank}</span>
+                <strong>{entry.player.publicName}</strong>
+                <em>{scoreLabel(FREE_PASS_MODE, entry.score)}</em>
+              </li>
+            ))
+          )}
+        </ol>
+        <span class="ed-hero-podium__note">Provisional until Fair Play review</span>
+        <div class="ed-hero__cta ed-hero__cta--split">
+          <button
+            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+            onClick={(event) => {
+              tapFxFrom(event)
+              track('campaign.opened', FREE_PASS_MODE)
+              navigate('/surge')
+            }}
+          >
+            <span class="tap-face">
+              <Icon name="play" /> PLAY SURGE
+            </span>
+          </button>
+          <a
+            class="ed-btn ed-btn--ghost ed-btn--lg"
+            href="https://poapkings.com/elixir-drop/free-pass/"
+            data-tinylytics-event="campaign.rules_opened"
+          >
+            RULES
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ShareHero() {
+  const [status, setStatus] = useState<'idle' | 'sharing' | 'shared' | 'copied' | 'unavailable'>('idle')
+
+  const share = async () => {
+    setStatus('sharing')
+    const outcome = await shareDrop()
+    if (outcome === 'shared' || outcome === 'copied') {
+      track('home.shared')
+      setStatus(outcome)
+      return
+    }
+    setStatus(outcome === 'cancelled' ? 'idle' : 'unavailable')
+  }
+
+  const label =
+    status === 'sharing'
+      ? 'SHARING…'
+      : status === 'shared'
+        ? 'SHARED'
+        : status === 'copied'
+          ? 'LINK COPIED'
+          : status === 'unavailable'
+            ? 'COPY UNAVAILABLE'
+            : 'SHARE ELIXIR DROP'
+
+  return (
+    <section class="ed-hero ed-hero--share">
+      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
+      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
+      <div class="ed-hero__body">
+        <span class="ed-pill ed-pill--gold">Pass it on</span>
+        <Icon name="share" className="ed-hero__feature-icon" />
+        <div class="ed-hero__wordmark ed-hero__wordmark--share">BRING A FRIEND</div>
+        <p class="ed-hero__desc">
+          Know someone who still has to count elixir costs? Send them Drop and race the same board.
+        </p>
+        <div class="ed-hero__cta">
+          <button
+            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+            disabled={status === 'sharing'}
+            onClick={(event) => {
+              tapFxFrom(event)
+              void share()
+            }}
+          >
+            <span class="tap-face">
+              <Icon name="share" /> {label}
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export function HomeHeroCarousel({
+  data,
+  game,
+  withHours = false
+}: {
+  data: HomeData
+  game: HomeGame
+  withHours?: boolean
+}) {
+  const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const reduceMotion = isReducedMotionEnabled()
+
+  useEffect(() => {
+    if (paused || reduceMotion) return
+    const timer = window.setTimeout(() => setActive((current) => (current + 1) % HERO_SLIDE_COUNT), HERO_ROTATION_MS)
+    return () => window.clearTimeout(timer)
+  }, [active, paused, reduceMotion])
+
+  const select = (index: number) => setActive((index + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT)
+
+  return (
+    <div
+      class="ed-hero-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Featured Elixir Drop promotions"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false)
+      }}
+    >
+      <div class="ed-hero-carousel__slide" aria-live="off">
+        {active === 0 && <FeaturedHero data={data} game={game} withHours={withHours} />}
+        {active === 1 && <FreePassHero data={data} withHours={withHours} />}
+        {active === 2 && <ShareHero />}
+      </div>
+      <div class="ed-hero-carousel__controls" aria-label="Choose a hero slide">
+        <button type="button" aria-label="Previous slide" onClick={() => select(active - 1)}>
+          <Icon name="chevron-left" />
+        </button>
+        <div class="ed-hero-carousel__dots">
+          {['Featured game', 'Free Pass challenge', 'Share Elixir Drop'].map((label, index) => (
+            <button
+              type="button"
+              class={index === active ? 'is-active' : undefined}
+              aria-label={label}
+              aria-current={index === active ? 'true' : undefined}
+              onClick={() => select(index)}
+              key={label}
+            />
+          ))}
+        </div>
+        <button type="button" aria-label="Next slide" onClick={() => select(active + 1)}>
+          <Icon name="chevron-right" />
+        </button>
+      </div>
+    </div>
   )
 }
 

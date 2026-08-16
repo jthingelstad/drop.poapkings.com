@@ -9,15 +9,36 @@ export function parseHash(): string {
   return h.startsWith('#') ? h.slice(1) : h
 }
 
-export const route = signal<string>(parseHash())
+const STANDALONE_HASH_ROUTES: Record<string, string> = {
+  '/about': '/about/',
+  '/releases': '/releases/',
+  '/faq': '/faq/',
+  '/fair-play': '/fair-play/',
+  '/privacy': '/privacy/',
+  '/install': '/install/'
+}
 
-// The route we were on before the current one — powers the meta-page back arrow
+function redirectStandaloneRoute(value: string): boolean {
+  const path = value.split('?')[0] ?? value
+  const destination = STANDALONE_HASH_ROUTES[path]
+  if (!destination) return false
+  window.location.replace(destination)
+  return true
+}
+
+const initialRoute = parseHash()
+redirectStandaloneRoute(initialRoute)
+export const route = signal<string>(initialRoute)
+
+// The route we were on before the current one — powers in-app back actions
 // without relying on the history API (which we don't use).
 let previousRoute = '/'
 
 window.addEventListener('hashchange', () => {
+  const nextRoute = parseHash()
+  if (redirectStandaloneRoute(nextRoute)) return
   previousRoute = route.peek()
-  route.value = parseHash()
+  route.value = nextRoute
   window.scrollTo({ top: 0 })
 })
 
@@ -29,8 +50,7 @@ export function navigate(to: string): void {
   window.location.hash = to
 }
 
-// Return to wherever we came from, defaulting to Home. Falls back to Home when
-// the previous route was itself a meta page (avoids bouncing between them).
+// Return to wherever we came from, defaulting to Home.
 export function back(fallback = '/'): void {
   const prev = previousRoute
   navigate(prev && prev !== route.peek() ? prev : fallback)

@@ -3,9 +3,6 @@ import { renderToStringAsync } from 'preact-render-to-string'
 import { signal } from '@preact/signals'
 
 import Summary from '../../src/components/Summary'
-import MetaPage from '../../src/screens/MetaPage'
-import Privacy from '../../src/screens/Privacy'
-import FairPlay from '../../src/screens/FairPlay'
 import MetaMoreList from '../../src/components/MetaMoreList'
 import AppInfo from '../../src/screens/AppInfo'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
@@ -24,12 +21,8 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
 import { recordingNotice } from '../../src/lib/use-game-run'
-import { ABOUT, FAQ, INSTALL } from '../../src/data/meta-content'
-import {
-  ELIXIR_DROP_CONTACT_EMAIL,
-  ELIXIR_DROP_DISCORD_URL,
-  ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL
-} from '../../src/lib/links'
+import { ELIXIR_DROP_DISCORD_URL } from '../../src/lib/links'
+import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
 
@@ -217,76 +210,36 @@ describe('Summary', () => {
   })
 })
 
-describe('MetaPage', () => {
-  it('renders the About page copy with a back button', async () => {
-    const html = await render(<MetaPage kind="about" />)
-    expect(html).toContain('ed-page__back')
-    expect(html).toContain('aria-label="Back"')
-    expect(html).toContain(ABOUT.title)
-    expect(html).toContain(ABOUT.eyebrow)
-    expect(html).toContain('ed-meta-sections')
-    expect(html).toContain('ed-meta-section--muted')
-    expect(html).toContain(ABOUT.sections[0]!.title)
-    expect(html).toContain(ABOUT.sections[0]!.body)
-    expect(html).toContain('Contact Drop')
-    expect(html).toContain(`href="mailto:${ELIXIR_DROP_CONTACT_EMAIL}"`)
-    expect(html).toContain(ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL)
-    // FAQ / install specific markup absent.
-    expect(html).not.toContain('ed-install-steps')
+describe('standalone pages', () => {
+  it('renders every page as a complete canonical HTML document', () => {
+    for (const slug of STATIC_PAGE_SLUGS) {
+      const html = renderStaticPage(slug)
+      expect(html).toContain('<!doctype html>')
+      expect(html).toContain(`<link rel="canonical" href="https://drop.poapkings.com/${slug}/">`)
+      expect(html).toContain('<h1>')
+      expect(html).toContain('static-sections')
+      expect(html).toContain('Run by')
+      expect(html).toContain('Play Elixir Drop')
+    }
   })
 
-  it('renders the FAQ page with question/answer items', async () => {
-    const html = await render(<MetaPage kind="faq" />)
-    expect(html).toContain(FAQ.title)
-    expect(html).toContain('ed-meta-section')
-    expect(html).toContain(FAQ.items[0].q)
-    expect(html).toContain(FAQ.items[0].a)
-  })
-
-  it('renders Privacy with the shared header and section-card treatment', async () => {
-    const html = await render(<Privacy />)
-    expect(html).toContain('ed-page ed-page--privacy')
-    expect(html).toContain('ed-page__back')
-    expect(html).toContain('ed-meta-sections')
-    expect(html).toContain('ed-meta-section')
-    expect(html).toContain('What Drop keeps—and why')
-    expect(html).toContain('Retention and deletion')
-    expect(html).not.toContain('main-content privacy-screen')
-  })
-
-  it('renders the Fair Play rules and the seal vocabulary', async () => {
-    const html = await render(<FairPlay />)
-    expect(html).toContain('Play as a person')
-    expect(html).toContain('Awaiting')
-    expect(html).toContain('Cleared')
-    expect(html).toContain('Excluded')
-    expect(html).toContain('ranks provisionally')
-    expect(html).toContain('Practice remains available')
-    expect(html).toContain(`mailto:${ELIXIR_DROP_CONTACT_EMAIL}?subject=Elixir%20Drop%20Fair%20Play%20re-review`)
-  })
-
-  it('draws review status as a CSS seal, never an emoji glyph', async () => {
-    const html = await render(<FairPlay />)
-    expect(html).toContain('ed-seal ed-seal--pending')
-    expect(html).toContain('ed-seal ed-seal--reviewed')
-    expect(html).toContain('ed-seal ed-seal--excluded')
-    // The retired glyphs: a magnifier, a check mark, and a prohibition sign.
-    for (const glyph of ['\u{1f50e}', '✅', '\u{1f6ab}']) expect(html).not.toContain(glyph)
-  })
-
-  it('renders the Install page with numbered iOS and Android steps', async () => {
-    const html = await render(<MetaPage kind="install" />)
-    expect(html).toContain(INSTALL.title)
-    expect(html).toContain('ed-install-steps')
-    expect(html).toContain(INSTALL.ios.label)
-    expect(html).toContain(INSTALL.android.label)
-    expect(html).toContain(INSTALL.ios.steps[0])
-    expect(html).toContain(INSTALL.intro)
+  it('keeps support, Fair Play, privacy, releases, and install copy in real HTML', () => {
+    expect(renderStaticPage('about')).toContain('mailto:drop@poapkings.com')
+    expect(renderStaticPage('faq')).toContain('What counts for the leaderboards?')
+    const fairPlay = renderStaticPage('fair-play')
+    expect(fairPlay).toContain('Awaiting')
+    expect(fairPlay).toContain('Cleared')
+    expect(fairPlay).toContain('Excluded')
+    expect(fairPlay).toContain('Practice remains available')
+    expect(fairPlay).toContain('Elixir%20Drop%20Fair%20Play%20re-review')
+    expect(renderStaticPage('privacy')).toContain('Retention and deletion')
+    expect(renderStaticPage('releases')).toContain('Principled P.E.K.K.A')
+    expect(renderStaticPage('install')).toContain('Add to Home Screen')
   })
 })
 
 describe('MetaMoreList', () => {
-  it('renders internal button rows and an external Discord anchor', async () => {
+  it('renders real page links and an external Discord anchor', async () => {
     const html = await render(<MetaMoreList />)
     expect(html).toContain('About')
     expect(html).toContain('FAQ')
@@ -298,8 +251,9 @@ describe('MetaMoreList', () => {
     expect(html).toContain(`href="${ELIXIR_DROP_DISCORD_URL}"`)
     expect(html).toContain('target="_blank"')
     expect(html).toContain('rel="noopener noreferrer"')
-    // Non-external rows are buttons.
-    expect(html).toContain('<button')
+    expect(html).toContain('href="/about/"')
+    expect(html).toContain('href="/releases/"')
+    expect(html).toContain('href="/install/"')
   })
 
   it('replaces Install app with App Info while running standalone', async () => {

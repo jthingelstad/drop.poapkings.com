@@ -24,9 +24,6 @@ import AuthRedeem from './screens/AuthRedeem'
 import Profile from './screens/Profile'
 import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
-import Privacy from './screens/Privacy'
-import FairPlay from './screens/FairPlay'
-import MetaPage from './screens/MetaPage'
 import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
 import OfflinePage from './components/OfflinePage'
@@ -73,12 +70,6 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/profile', label: 'Profile' },
   { match: '/players', label: 'Player profile' },
   { match: '/settings', label: 'Settings' },
-  { match: '/privacy', label: 'Privacy' },
-  { match: '/fair-play', label: 'Fair Play' },
-  { match: '/about', label: 'About' },
-  { match: '/releases', label: 'Releases' },
-  { match: '/faq', label: 'FAQ' },
-  { match: '/install', label: 'Install' },
   { match: '/app-info', label: 'App info' },
   { match: '/login', label: 'Sign in' },
   { match: '/auth', label: 'Signing in' }
@@ -126,9 +117,9 @@ function RankedAccessRestricted() {
         <button class="btn btn--gold" onClick={() => navigate('/practice')}>
           Open Practice
         </button>
-        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/fair-play')}>
+        <a class="btn btn--ghost btn--sm" href="/fair-play/">
           Read Fair Play
-        </button>
+        </a>
         <a class="btn btn--ghost btn--sm" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
           Request re-review
         </a>
@@ -199,12 +190,6 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/players/')) return <PublicProfile />
   if (r.startsWith('/profile')) return <Profile />
   if (r.startsWith('/leaderboards')) return <Leaderboards />
-  if (r.startsWith('/privacy')) return <Privacy />
-  if (r.startsWith('/fair-play')) return <FairPlay />
-  if (r.startsWith('/about')) return <MetaPage kind="about" />
-  if (r.startsWith('/releases')) return <MetaPage kind="releases" />
-  if (r.startsWith('/faq')) return <MetaPage kind="faq" />
-  if (r.startsWith('/install')) return <MetaPage kind="install" />
   if (r.startsWith('/app-info')) return <AppInfo />
   return <Home />
 }
@@ -316,12 +301,15 @@ export default function App() {
   }, [onHome])
 
   const title = screenTitle(route.value)
+  useEffect(() => {
+    document.title = title ? `${title} | Elixir Drop` : 'Elixir Drop — Clash Royale Elixir Cost Trainer'
+  }, [title])
 
   // Same routes + data on both layouts; only the surrounding shell differs. The
   // shell is chosen at the 1024px breakpoint (lib/use-layout) and re-evaluated
   // on resize. The old global footer (Discord + fan-content disclaimer) has moved
-  // into the meta pages — About carries the disclaimer, Discord/Privacy/About/FAQ
-  // are reachable from Profile → More (mobile) and the left-rail cluster (desktop).
+  // into standalone text pages — About carries the disclaimer, while Discord
+  // and the real HTML pages remain reachable from both shells.
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}

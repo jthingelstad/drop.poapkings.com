@@ -23,10 +23,6 @@ const PAGE_PATHS = [
   '/leaderboards',
   '/profile',
   '/settings',
-  '/privacy',
-  '/about',
-  '/faq',
-  '/install',
   '/login'
 ] as const
 

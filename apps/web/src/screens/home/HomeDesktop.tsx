@@ -2,21 +2,24 @@ import Icon from '../../components/Icon'
 import { navigate } from '../../lib/router'
 import { seasonEndsLabel, type HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
-import { FeaturedHero, HomeGameCard } from './home-bits'
+import { HomeHeroCarousel, HomeGameCard } from './home-bits'
 
 export default function HomeDesktop({ data }: { data: HomeData }) {
   const featured = featuredGame()
   return (
     <div class="ed-home-d">
       <div class="ed-home-d__head">
-        <h1 class="ed-h1">Play</h1>
+        <div class="ed-home-d__identity">
+          <h1 class="ed-h1">Elixir Drop</h1>
+          <p>Learn Clash Royale card elixir costs through six fast games.</p>
+        </div>
         <span class="ed-pill ed-pill--muted">
           <Icon name="clock" />
           {seasonEndsLabel(data.season, true)}
         </span>
       </div>
 
-      <FeaturedHero data={data} game={featured} withHours />
+      <HomeHeroCarousel data={data} game={featured} withHours />
 
       <div class="ed-more__head">
         <span class="ed-more__title">All games</span>

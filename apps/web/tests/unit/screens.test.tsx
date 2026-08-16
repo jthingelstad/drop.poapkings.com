@@ -526,6 +526,7 @@ describe('HomeMobile', () => {
       personalBestScores: { surge: 4_800 },
       bestScores: { surge: 4_800 },
       rankFor: () => undefined,
+      standingsFor: () => [],
       ...overrides
     }
   }

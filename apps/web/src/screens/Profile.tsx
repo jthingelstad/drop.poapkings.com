@@ -412,9 +412,9 @@ export default function Profile() {
         <aside class="ed-profile__ranked-restriction" role="status">
           <strong>Ranked access restricted</strong>
           <span>Practice and your account remain available. You may request a re-review.</span>
-          <button class="ed-textlink" onClick={() => navigate('/fair-play')}>
+          <a class="ed-textlink" href="/fair-play/">
             Read Fair Play
-          </button>
+          </a>
           <a class="ed-textlink" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
             Request re-review
           </a>

@@ -54,10 +54,10 @@ export const OFFLINE_NAV_ITEMS: NavItem[] = [
 
 const GAME_PREFIXES = ['/surge', '/practice', '/higher-lower', '/trade', '/survival', '/rain']
 
-// The meta pages reached from Profile's "More" list (and Settings, reached from
-// the same screen). They belong to the You tab: the pill has to stay where the
-// player came from, or reading About looks like it navigated them into Games.
-const MORE_PREFIXES = ['/about', '/releases', '/faq', '/fair-play', '/install', '/app-info', '/privacy', '/settings']
+// App Info and Settings are the in-app pages reached from Profile's More list.
+// The public text pages leave the app shell and therefore do not participate in
+// this navigation state.
+const MORE_PREFIXES = ['/app-info', '/settings']
 
 export function isMoreRoute(r: string): boolean {
   return MORE_PREFIXES.some((p) => r.startsWith(p))

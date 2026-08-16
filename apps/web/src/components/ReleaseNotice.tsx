@@ -9,7 +9,7 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { dismissRelease, pendingRelease } from '../lib/release-notice'
 import type { ReleaseEntry } from '../lib/releases'
-import { navigate, route } from '../lib/router'
+import { route } from '../lib/router'
 import { isGameRoute } from './shell/nav'
 import Icon from './Icon'
 
@@ -65,11 +65,6 @@ function ReleaseDialog({ release }: { release: ReleaseEntry }) {
     }
   }, [])
 
-  const openReleases = () => {
-    dismissRelease()
-    navigate('/releases')
-  }
-
   return (
     <div
       class="release-notice"
@@ -98,9 +93,9 @@ function ReleaseDialog({ release }: { release: ReleaseEntry }) {
           {release.headline}
         </p>
         <div class="release-notice__actions">
-          <button class="btn btn--gold btn--sm" onClick={openReleases}>
+          <a class="btn btn--gold btn--sm" href="/releases/" onClick={dismissRelease}>
             See what&rsquo;s new
-          </button>
+          </a>
           <button class="btn btn--ghost btn--sm" onClick={dismissRelease}>
             Not now
           </button>

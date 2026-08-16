@@ -2,8 +2,8 @@
 // That file is written by `scripts/cut-release.mjs` during `npm run
 // release:cut` — nobody edits it by hand, and GitHub Releases remain the
 // canonical history. A JSON import carries no type, so assert its shape once
-// here (card-catalog.ts precedent) for the /releases page and the one-time
-// release notice.
+// here (card-catalog.ts precedent) for the one-time release notice. The
+// standalone /releases/ page imports the same JSON from the build generator.
 
 import raw from '../data/releases.json'
 
@@ -37,14 +37,3 @@ interface ReleasesFile {
 export const releases: ReleaseEntry[] = (raw as ReleasesFile).releases
 
 export const latestRelease: ReleaseEntry | null = releases[0] ?? null
-
-export function releaseDateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return date
-  return parsed.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}

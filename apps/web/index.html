@@ -7,7 +7,7 @@
       content="default-src 'self'; script-src 'self' https://tinylytics.app https://*.tinylytics.app; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api-assets.clashroyale.com https://clashroyale.inbox.supercell.com; font-src 'self'; connect-src 'self' https://tinylytics.app https://*.tinylytics.app https://*.execute-api.us-east-1.amazonaws.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'; media-src 'self'; worker-src 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Elixir Drop</title>
+    <title>Elixir Drop — Clash Royale Elixir Cost Trainer</title>
     <!-- Add to Home Screen → launches fullscreen with no Safari location bar. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -16,24 +16,66 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta
       name="description"
-      content="Train your Clash Royale elixir intuition. How fast can you read the field? Run by POAP KINGS."
+      content="Learn Clash Royale card elixir costs with six fast browser games. Practice for free, test your speed, and compete on seasonal leaderboards."
     />
-    <meta property="og:title" content="Elixir Drop" />
-    <meta property="og:description" content="Train your Clash Royale elixir intuition. Run by POAP KINGS." />
-    <meta property="og:url" content="https://drop.poapkings.com" />
+    <meta property="og:title" content="Elixir Drop — Clash Royale Elixir Cost Trainer" />
+    <meta
+      property="og:description"
+      content="Learn Clash Royale card elixir costs with six fast browser games. Practice for free, test your speed, and compete on seasonal leaderboards."
+    />
+    <meta property="og:url" content="https://drop.poapkings.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://drop.poapkings.com/assets/og-image.png" />
+    <meta property="og:image:alt" content="Elixir Drop — a Clash Royale elixir-cost learning game" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Elixir Drop" />
-    <meta name="twitter:description" content="Train your Clash Royale elixir intuition. Run by POAP KINGS." />
+    <meta name="twitter:title" content="Elixir Drop — Clash Royale Elixir Cost Trainer" />
+    <meta
+      name="twitter:description"
+      content="Learn Clash Royale card elixir costs with six fast browser games. Practice for free, test your speed, and compete on seasonal leaderboards."
+    />
     <meta name="twitter:image" content="https://drop.poapkings.com/assets/og-image.png" />
     <meta name="theme-color" content="#070610" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon/drop-icon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon/drop-icon-192.png" />
     <link rel="apple-touch-icon" href="/assets/icon/drop-icon-180.png" />
+    <link rel="canonical" href="https://drop.poapkings.com/" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": ["WebApplication", "VideoGame"],
+        "name": "Elixir Drop",
+        "url": "https://drop.poapkings.com/",
+        "description": "Elixir Drop is a free browser game for learning Clash Royale card elixir costs through fast, replayable games.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "creator": {
+          "@type": "Organization",
+          "name": "POAP KINGS",
+          "url": "https://poapkings.com/"
+        }
+      }
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <main>
+        <h1>Elixir Drop</h1>
+        <p>Learn Clash Royale card elixir costs with six fast browser games.</p>
+        <p><a href="#/practice">Practice for free</a> or <a href="#/surge">race the clock in Surge</a>.</p>
+        <nav aria-label="About Elixir Drop">
+          <a href="/about/">About</a>
+          <a href="/faq/">FAQ</a>
+          <a href="/fair-play/">Fair Play</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/releases/">Releases</a>
+          <a href="/install/">Install</a>
+        </nav>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

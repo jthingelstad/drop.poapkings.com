@@ -110,8 +110,8 @@ rank-oriented fields as part of unrelated work.
   `cut-release` skill in `.claude/skills/cut-release/`). Entries flagged
   `beta: true` are backfilled pre-1.0 history — real builds that went live but
   were never named or mailed; a cut never sets that flag.
-  `apps/web/src/lib/releases.ts` is the
-  typed view, `/releases` renders it through `MetaPage`, and
+  `apps/web/src/lib/releases.ts` is the typed in-app view used by notices, while
+  the build emits `/releases/` as a standalone HTML page from the same JSON, and
   `components/ReleaseNotice.tsx` + `lib/release-notice.ts` show it **once** when
   the newest release id differs from `elixirdrop:releaseSeen`. A first-time
   visitor is recorded and shown nothing, and the notice never renders on a game
@@ -219,13 +219,13 @@ rank-oriented fields as part of unrelated work.
   XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
 - **Home lists every game and features one a day.** `home-games.ts` holds all
   five ranked games in a fixed order that never changes — a player looking for
-  Survival finds it in the same place every day — and the hero promotes one of
-  them, chosen by UTC day so every player sees the same game and it turns over
-  predictably. The rotation is the promotion slot; it must never be the only
-  route to a mode. Each All Games card highlights the player's own all-time
-  best, not the current board leader. Rankings stay on the dedicated Ranks
-  surface rather than trailing the mobile Games page. No mode carries a
-  permanent "NEW" badge.
+  Survival finds it in the same place every day. The first hero slide promotes
+  one ranked game chosen by UTC day; two hard-coded slides promote the current
+  Free Pass challenge and sharing Drop. Changing those promotions requires a
+  code release. The carousel must never be the only route to a mode. Each All
+  Games card highlights the player's own all-time best, not the current board
+  leader. Rankings stay on the dedicated Ranks surface rather than trailing
+  the mobile Games page. No mode carries a permanent "NEW" badge.
 - **No curated deck definitions.** Do not add `decks.json`, archetype lists, or
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only. (Rationale and the set-aside ideas live in

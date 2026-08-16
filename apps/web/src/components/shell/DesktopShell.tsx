@@ -109,18 +109,18 @@ function LeftRail() {
       </div>
 
       <nav class="ed-railfoot" aria-label="About Elixir Drop">
-        <button class="ed-railfoot__link" onClick={() => navigate('/about')}>
+        <a class="ed-railfoot__link" href="/about/">
           About
-        </button>
-        <button class="ed-railfoot__link" onClick={() => navigate('/faq')}>
+        </a>
+        <a class="ed-railfoot__link" href="/faq/">
           FAQ
-        </button>
-        <button class="ed-railfoot__link" onClick={() => navigate('/fair-play')}>
+        </a>
+        <a class="ed-railfoot__link" href="/fair-play/">
           Fair Play
-        </button>
-        <button class="ed-railfoot__link" onClick={() => navigate('/privacy')}>
+        </a>
+        <a class="ed-railfoot__link" href="/privacy/">
           Privacy
-        </button>
+        </a>
         <a class="ed-railfoot__link" href={ELIXIR_DROP_DISCORD_URL} target="_blank" rel="noopener noreferrer">
           Discord
           <Icon name="external-link" />

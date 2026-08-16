@@ -120,6 +120,9 @@ season pass. Two standing consequences:
 
 The winner is picked manually at season end. There is no automated snapshot or
 award pipeline, and one should not be built without a fresh product decision.
+The announced mode, eligibility, tie-break, seven-day response window, and
+gift-only prize terms live on the stable POAP KINGS Free Pass rules page; the
+in-game hero links there rather than duplicating the full rules.
 
 ### Core drills
 

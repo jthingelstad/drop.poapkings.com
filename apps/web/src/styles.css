@@ -2852,6 +2852,19 @@ html.reduce-motion .ed-btn--gold {
   gap: 18px;
 }
 
+.ed-home-intro h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  line-height: 1;
+}
+.ed-home-intro p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
 .ed-idchip {
   display: flex;
   align-items: center;
@@ -2915,6 +2928,52 @@ html.reduce-motion .ed-btn--gold {
   padding: 22px 20px 20px;
   background: linear-gradient(160deg, rgba(72, 37, 148, 0.96), rgba(38, 22, 78, 0.92));
 }
+.ed-hero-carousel {
+  display: grid;
+  gap: 9px;
+}
+.ed-hero-carousel__slide > .ed-hero {
+  min-height: 420px;
+}
+.ed-hero-carousel__controls {
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+}
+.ed-hero-carousel__controls > button {
+  width: 38px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  color: var(--lavender);
+  background: var(--panel);
+  cursor: pointer;
+}
+.ed-hero-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.ed-hero-carousel__dots button {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(215, 200, 255, 0.34);
+  cursor: pointer;
+}
+.ed-hero-carousel__dots button.is-active {
+  width: 24px;
+  background: var(--gold);
+}
+.ed-hero-carousel__controls button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 .ed-hero__body {
   position: relative;
   z-index: 1;
@@ -2938,6 +2997,22 @@ html.reduce-motion .ed-btn--gold {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.ed-hero__wordmark--pass,
+.ed-hero__wordmark--share {
+  font-size: 2.2rem;
+  line-height: 0.92;
+}
+.ed-hero__feature-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgba(245, 200, 76, 0.38);
+  border-radius: 18px;
+  color: var(--gold);
+  background: rgba(245, 200, 76, 0.1);
+  font-size: 2rem;
+}
 .ed-hero__desc {
   margin: 0;
   color: #f0ecff;
@@ -2953,6 +3028,53 @@ html.reduce-motion .ed-btn--gold {
 }
 .ed-hero__cta .ed-btn {
   flex: 1;
+}
+.ed-hero__cta--split .ed-btn {
+  min-width: 0;
+}
+.ed-hero-podium {
+  width: 100%;
+  max-width: 330px;
+  display: grid;
+  gap: 5px;
+  margin: -2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-hero-podium li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9px;
+  padding: 6px 9px;
+  color: var(--lavender);
+  background: rgba(7, 6, 16, 0.28);
+  font-size: 0.7rem;
+}
+.ed-hero-podium li > span {
+  color: var(--gold);
+  font-family: var(--font-display);
+}
+.ed-hero-podium li > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-hero-podium li > em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 800;
+}
+.ed-hero-podium .ed-hero-podium__empty {
+  grid-template-columns: 1fr;
+}
+.ed-hero-podium__note {
+  margin-top: -8px;
+  color: var(--lavender);
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 .ed-hero__best {
   display: grid;
@@ -3681,7 +3803,7 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   height: 16px;
 }
 
-/* Mobile "More" list (Profile entry points to the meta pages). */
+/* Mobile More list (Profile entry points to public information and app tools). */
 .ed-morelist {
   margin-top: 4px;
 }
@@ -3731,10 +3853,10 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 /* Desktop left-rail footer link cluster. */
 .ed-railfoot {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0;
+  justify-content: flex-start;
+  gap: 5px 12px;
   padding: 16px 10px 4px;
   margin-top: 10px;
   border-top: 1px solid rgba(215, 200, 255, 0.08);
@@ -3771,8 +3893,16 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   align-items: center;
   justify-content: space-between;
 }
+.ed-home-d__identity p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
 .ed-home-d .ed-hero {
   padding: 26px 28px;
+}
+.ed-home-d .ed-hero-carousel__slide > .ed-hero {
+  min-height: 430px;
 }
 
 /* "HIGHER / LOWER" is more than twice the width of "SURGE". A size step keeps
@@ -3786,6 +3916,10 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 }
 .ed-home-d .ed-hero__wordmark--long {
   font-size: 2.4rem;
+}
+.ed-home-d .ed-hero__wordmark--pass,
+.ed-home-d .ed-hero__wordmark--share {
+  font-size: 2.7rem;
 }
 .ed-home-d .ed-hero__desc {
   font-size: 0.92rem;

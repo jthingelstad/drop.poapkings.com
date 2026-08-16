@@ -47,8 +47,8 @@ footer link and a Discord link, never a banner or a pop-up.
 
 Ranked play is human play: a person chooses every answer. Strict new leaders and
 technically unusual results can wait for referee review before placement, with
-visible `🔎 Pending`, `✅ Reviewed`, and `🚫 Excluded` status. The in-app Fair
-Play page explains allowed settings and accessibility tools, prohibited
+visible `🔎 Pending`, `✅ Reviewed`, and `🚫 Excluded` status. The standalone
+Fair Play page explains allowed settings and accessibility tools, prohibited
 automation, private review, and re-review.
 
 ---

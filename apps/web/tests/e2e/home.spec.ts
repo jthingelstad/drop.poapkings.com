@@ -67,6 +67,35 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
   await expect(accented).toContainText(new RegExp(wordmark.replace(/ \/ /, ' / '), 'i'))
 })
 
+test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@deploy' }, async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: () => Promise.resolve()
+    })
+  })
+  await page.goto('/')
+
+  await expect(page.getByRole('heading', { name: 'Elixir Drop', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Free Pass challenge' }).click()
+  const pass = page.locator('.ed-hero--pass')
+  await expect(pass).toBeVisible()
+  await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  await expect(pass.locator('.ed-hero-podium li')).toHaveCount(3)
+  await expect(pass).toContainText('Royal Ghosted')
+  await expect(pass).toContainText('Provisional until Fair Play review')
+  await expect(pass.getByRole('link', { name: 'RULES' })).toHaveAttribute(
+    'href',
+    'https://poapkings.com/elixir-drop/free-pass/'
+  )
+
+  await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
+  const share = page.locator('.ed-hero--share')
+  await expect(share).toBeVisible()
+  await share.getByRole('button', { name: /SHARE ELIXIR DROP/ }).click()
+  await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
+})
+
 test('mobile install suggestion waits until the third browser session', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')

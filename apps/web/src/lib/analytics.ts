@@ -12,6 +12,8 @@ export type TinyEvent =
   | 'game.replayed'
   | 'game.personal_best'
   | 'game.shared'
+  | 'home.shared'
+  | 'campaign.opened'
   | 'badge.shared'
   | 'install.suggestion_shown'
   | 'install.suggestion_dismissed'

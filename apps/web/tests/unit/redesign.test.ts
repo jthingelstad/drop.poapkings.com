@@ -25,13 +25,13 @@ describe('shell nav model', () => {
     expect(activeNavIndex('/profile', OFFLINE_NAV_ITEMS)).toBe(1)
   })
 
-  // The "More" pages are opened from Profile, so the pill has to stay on You
-  // while they are read. They matched no tab before, and activeNavIndex falls
-  // back to 0, so opening About from the You tab slid the pill to Games.
-  it('keeps the pill on You for every page reached from the More list', () => {
-    for (const route of ['/about', '/releases', '/faq', '/fair-play', '/install', '/privacy', '/settings']) {
+  // App Info and Settings remain app routes opened from Profile, so the pill
+  // stays on You. Public information pages are now standalone documents.
+  it('keeps the pill on You for app routes reached from the More list', () => {
+    for (const route of ['/app-info', '/settings']) {
       expect(activeNavIndex(route)).toBe(2)
     }
+    expect(activeNavIndex('/about')).toBe(0)
     // The fallback still belongs to Games for genuinely unclaimed routes.
     expect(activeNavIndex('/nonsense')).toBe(0)
   })
