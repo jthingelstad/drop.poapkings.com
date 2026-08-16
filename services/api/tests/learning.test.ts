@@ -19,14 +19,34 @@ describe("server-side learning stats", () => {
       { mode: "practice", cardIds: [first.id, second.id] },
       {
         answers: [
-          { cardId: first.id, guess: first.elixir },
-          { cardId: second.id, guess: second.elixir === 1 ? 2 : 1 },
+          {
+            cardId: first.id,
+            guess: first.elixir,
+            responseMs: 850,
+            assisted: false,
+          },
+          {
+            cardId: second.id,
+            guess: second.elixir === 1 ? 2 : 1,
+            responseMs: 7_200,
+            assisted: true,
+          },
         ],
       },
     );
     expect(practice).toEqual([
-      { cardId: first.id, correct: true },
-      { cardId: second.id, correct: false },
+      {
+        cardId: first.id,
+        correct: true,
+        responseMs: 850,
+        assisted: false,
+      },
+      {
+        cardId: second.id,
+        correct: false,
+        responseMs: 7_200,
+        assisted: true,
+      },
     ]);
 
     const surge = cardResultsFromTranscript(
@@ -67,12 +87,58 @@ describe("server-side learning stats", () => {
       correct: 1,
       missStreak: 2,
       lastSeenAt: at,
+      recallSeen: 3,
+      recallCorrect: 1,
+      assistedSeen: 0,
+      assistedCorrect: 0,
     });
     expect(merged[String(second.id)]).toEqual({
       seen: 1,
       correct: 1,
       missStreak: 0,
       lastSeenAt: at,
+      recallSeen: 1,
+      recallCorrect: 1,
+      assistedSeen: 0,
+      assistedCorrect: 0,
+    });
+  });
+
+  it("tracks assisted recognition separately and averages only recall latency", () => {
+    const merged = mergeCardStats(
+      {},
+      [
+        {
+          cardId: first.id,
+          correct: true,
+          assisted: true,
+          responseMs: 8_000,
+        },
+        {
+          cardId: first.id,
+          correct: true,
+          assisted: false,
+          responseMs: 1_200,
+        },
+        {
+          cardId: first.id,
+          correct: true,
+          assisted: false,
+          responseMs: 800,
+        },
+      ],
+      at,
+    );
+
+    expect(merged[String(first.id)]).toMatchObject({
+      seen: 3,
+      correct: 3,
+      recallSeen: 2,
+      recallCorrect: 2,
+      assistedSeen: 1,
+      assistedCorrect: 1,
+      avgMs: 1_000,
+      latencySamples: 2,
     });
   });
 

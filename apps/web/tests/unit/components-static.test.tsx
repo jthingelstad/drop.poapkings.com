@@ -127,6 +127,8 @@ describe('Summary', () => {
     )
     expect(html).not.toContain('signin-save')
     expect(html).not.toContain('Sign in to save')
+    expect(html).not.toContain('shareline')
+    expect(html).not.toContain('Share score')
     // No pbCallout → no pb block.
     expect(html).not.toContain('ed-sum__pb')
   })

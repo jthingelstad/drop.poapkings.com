@@ -10,8 +10,8 @@ interface Props {
   // Higher/Lower forces the cost visible on reveal, without correct/wrong coloring.
   forceReveal?: boolean
   hideName?: boolean
-  // Practice briefly reinforces a solved card with the correct cost, centered
-  // directly over its art. Other modes keep their existing reveal treatment.
+  // Practice reinforces a solved card with the correct cost, centered directly
+  // over its art and kept attached through the solved card's exit.
   reinforceCost?: boolean
 }
 

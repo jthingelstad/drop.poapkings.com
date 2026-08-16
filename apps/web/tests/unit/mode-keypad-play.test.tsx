@@ -41,7 +41,16 @@ vi.mock('../../src/lib/sound', () => ({
 }))
 vi.mock('../../src/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('motion', () => ({
-  animate: () => ({ stop: () => {}, finished: Promise.resolve() })
+  animate: () => {
+    const settled = { catch: () => settled }
+    return {
+      stop: () => {},
+      // Practice owns the next deal from the exit animation's completion. A
+      // synchronous thenable keeps these timer-driven unit tests deterministic;
+      // browser coverage verifies the real 350ms ride-out.
+      finished: { then: (done: () => void) => (done(), settled) }
+    }
+  }
 }))
 vi.mock('../../src/components/GameFxLayer', () => ({
   default: () => null,
@@ -520,7 +529,7 @@ describe('Practice gameplay', () => {
   function answerCorrectly(host: HTMLElement, deck: Card[], count: number): void {
     for (let i = 0; i < count; i++) {
       press(host, liveCard(host, deck).elixir)
-      advance(300) // correct-cost reinforcement → the next deal
+      advance(300) // stable reinforcement hold → mocked exit completion → next deal
     }
   }
 
@@ -546,7 +555,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.pcard__img')).not.toBeNull()
   })
 
-  it('uses the Surge card motion and reinforces the correct cost over the art for 300ms', () => {
+  it('holds the solved cost over the art before the card exits', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -568,7 +577,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
     advance(1)
     expect(host.querySelector('.pcard__answer-cost')).toBeNull()
-    expect(host.textContent).toContain('1 answered')
+    expect(host.textContent).toContain('1 practiced')
     // Endless: no card counter, and never the same card twice in a row.
     expect(host.textContent).not.toContain('/ 15')
     expect(liveCard(host, cards).id).not.toBe(first.id)
@@ -638,7 +647,7 @@ describe('Practice gameplay', () => {
 
     // Still playing after 23 — the fixed round is gone.
     expect(session.complete).not.toHaveBeenCalled()
-    expect(host.textContent).toContain('23 answered')
+    expect(host.textContent).toContain('23 practiced')
 
     endSession(host)
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -646,8 +655,8 @@ describe('Practice gameplay', () => {
     expect(payload.answers).toHaveLength(23)
     expect(recordSession).toHaveBeenCalled()
     expect(saveResult).toHaveBeenCalledTimes(23)
-    expect(host.textContent).toContain('23 / 23 · 100%')
-    expect(host.querySelector('.shareline')?.textContent).toContain('Practice · 23/23 · 100%')
+    expect(host.textContent).toContain('23 / 23 first try')
+    expect(host.querySelector('.shareline')).toBeNull()
   })
 
   it('closes on session stats only — no personal best, no record line', () => {
@@ -663,8 +672,9 @@ describe('Practice gameplay', () => {
     answerCorrectly(host, cards, 4)
     endSession(host)
 
-    expect(tileValue(host, 'Answered')).toBe('4')
-    expect(tileValue(host, 'Accuracy')).toBe('100%')
+    expect(tileValue(host, 'Avg answer')).toBe('0.000s')
+    expect(tileValue(host, 'Got back')).toBe('0')
+    expect(tileValue(host, 'Needs review')).toBe('0')
     expect(host.querySelector('.ed-sum__pb')).toBeNull()
     expect(host.textContent).not.toMatch(/personal best|New best|Best:/i)
     expect(saveRecords).not.toHaveBeenCalled()
@@ -684,7 +694,7 @@ describe('Practice gameplay', () => {
     expect(session.complete).not.toHaveBeenCalled()
   })
 
-  it('keeps a missed card active with Higher/Lower feedback and grades only the first read', () => {
+  it('gives one anchored retry, then reveals the answer while grading only the first read', () => {
     const cards = fakeCards(15)
     session = makeSession(cards)
     hoisted.session.current = session
@@ -694,33 +704,35 @@ describe('Practice gameplay', () => {
       host = mount(<Practice />)
     })
 
-    expect(host.textContent).toContain('0 answered')
+    expect(host.textContent).toContain('0 practiced')
     const missed = liveCard(host, cards)
     const correctCost = missed.elixir
     press(host, correctCost - 1)
-    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Higher')
+    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain(`Higher than ${correctCost - 1}`)
     expect(host.querySelector('.pcard__cost')).toBeNull()
     // The first read is what counts as the answer; the card stays until solved.
-    expect(host.textContent).toContain('1 answered')
+    expect(host.textContent).toContain('1 practiced')
 
     advance(430)
     press(host, correctCost + 1)
-    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain('Lower')
     expect(liveCard(host, cards).id).toBe(missed.id)
 
     advance(430)
-    press(host, correctCost)
-    advance(300)
-    expect(host.textContent).toContain('1 answered') // still one question, now solved
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(correctCost))
+    expect(host.querySelector('.sr-only')?.textContent).toContain(`The answer is ${correctCost} elixir`)
+    advance(750)
+    expect(host.textContent).toContain('1 practiced')
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
-    answerCorrectly(host, cards, 14)
     endSession(host)
-    expect(host.textContent).toContain('14 / 15 · 93%')
-    const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ cardId: number; guess: number }> }
-    expect(payload.answers).toHaveLength(15)
-    expect(payload.answers[0]).toEqual({ cardId: missed.id, guess: correctCost - 1 })
-    expect(saveResult).toHaveBeenCalledTimes(15)
+    expect(host.textContent).toContain('0 / 1 first try')
+    const payload = session.complete.mock.calls[0]![0] as {
+      answers: Array<{ cardId: number; guess: number; responseMs: number; assisted: boolean }>
+    }
+    expect(payload.answers).toHaveLength(1)
+    expect(payload.answers[0]).toMatchObject({ cardId: missed.id, guess: correctCost - 1, assisted: false })
+    expect(payload.answers[0]!.responseMs).toBeGreaterThanOrEqual(0)
+    expect(saveResult).toHaveBeenCalledTimes(1)
   })
 
   it('switches to 4-choice input and answers through it', () => {
@@ -738,7 +750,8 @@ describe('Practice gameplay', () => {
     const first = liveCard(host, cards)
     expect(host.querySelector('.mc-choices')).not.toBeNull()
 
-    // A wrong choice keeps the card active and gives the same directional cue.
+    // A wrong recognition choice is marked, then the exact answer is revealed;
+    // elimination retries would train the option set instead of the card.
     const correct = host.querySelector<HTMLButtonElement>(`.mc-choices__btn[aria-label="${first.elixir} elixir"]`)
     expect(correct).not.toBeNull()
     const wrong = [...host.querySelectorAll<HTMLButtonElement>('.mc-choices__btn')].find((button) => button !== correct)
@@ -746,16 +759,75 @@ describe('Practice gameplay', () => {
     void act(() => {
       wrong!.click()
     })
-    const expectedHint = Number(wrong!.getAttribute('aria-label')?.split(' ')[0]) < first.elixir ? 'Higher' : 'Lower'
-    expect(host.querySelector('[data-testid="practice-hint"]')?.textContent).toContain(expectedHint)
+    expect(wrong!.className).toContain('mc-choices__btn--wrong')
     expect(liveCard(host, cards).id).toBe(first.id)
 
     advance(430)
+    expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
+    expect(correct!.className).toContain('mc-choices__btn--correct')
+    advance(750)
+    expect(host.textContent).toContain('1 practiced')
+    expect(saveResult).toHaveBeenCalledWith(first.id, false, undefined, true)
+  })
+
+  it('offers voluntary help after idle time and records it as assisted', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
     void act(() => {
-      correct!.click()
+      host = mount(<Practice />)
     })
-    advance(300)
-    expect(host.textContent).toContain('1 answered')
+
+    expect(host.textContent).not.toContain('Need a nudge?')
+    advance(6_999)
+    expect(host.textContent).not.toContain('Need a nudge?')
+    advance(1)
+    clickText(host, '.practice-idle-assist', 'Need a nudge?')
+    expect(host.querySelectorAll('.mc-choices__btn')).toHaveLength(4)
+
+    const current = liveCard(host, cards)
+    const correctChoice = host.querySelector<HTMLButtonElement>(
+      `.mc-choices__btn[aria-label="${current.elixir} elixir"]`
+    )
+    void act(() => correctChoice?.click())
+    expect(saveResult).toHaveBeenCalledWith(current.id, true, undefined, true)
+  })
+
+  it('narrows an idle recognition prompt from four choices to two', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    clickText(host, '.input-toggle__btn', '4 choices')
+    expect(host.querySelectorAll('.mc-choices__btn')).toHaveLength(4)
+    advance(7_000)
+    clickText(host, '.practice-idle-assist', 'Narrow it down')
+    expect(host.querySelectorAll('.mc-choices__btn')).toHaveLength(2)
+  })
+
+  it('does not relabel an exposed choice prompt as unassisted after switching back', () => {
+    const cards = fakeCards(15)
+    session = makeSession(cards)
+    hoisted.session.current = session
+
+    let host!: HTMLElement
+    void act(() => {
+      host = mount(<Practice />)
+    })
+
+    const current = liveCard(host, cards)
+    clickText(host, '.input-toggle__btn', '4 choices')
+    clickText(host, '.input-toggle__btn', 'Keypad')
+    press(host, current.elixir)
+
+    expect(saveResult).toHaveBeenCalledWith(current.id, true, undefined, true)
   })
 
   it('answers via the physical keyboard (keydown) and starts a fresh session', () => {
@@ -776,12 +848,12 @@ describe('Practice gameplay', () => {
       advance(300)
     }
     endSession(host)
-    expect(host.textContent).toContain('6 / 6 · 100%')
+    expect(host.textContent).toContain('6 / 6 first try')
 
     clickText(host, 'button', 'Practice again')
     expect(session.prepare).toHaveBeenCalled()
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice')
-    expect(host.textContent).toContain('0 answered')
+    expect(host.textContent).toContain('0 practiced')
   })
 })
 

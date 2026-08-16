@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { GameMode } from '@elixir-drop/contracts'
-import { runSharePayload, shareRun, shareRunCard } from '../../src/lib/share-run'
+import { runSharePayload, shareRun, shareRunCard, type ShareableGameMode } from '../../src/lib/share-run'
 
 function setNavigatorMethod(name: 'share' | 'clipboard', value: unknown): void {
   Object.defineProperty(navigator, name, { value, configurable: true })
@@ -13,9 +12,8 @@ afterEach(() => {
 })
 
 describe('run sharing', () => {
-  it.each<[GameMode, string, string]>([
+  it.each<[ShareableGameMode, string, string]>([
     ['surge', '15.04s', 'Surge'],
-    ['practice', '93% accuracy', 'Practice'],
     ['higher-lower', '12 streak', 'Higher / Lower'],
     ['trade', '9.42s', 'Trade'],
     ['survival', '18 streak', 'Survival'],

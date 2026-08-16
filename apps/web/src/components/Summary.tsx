@@ -141,18 +141,19 @@ export default function Summary({
           review notice is. */}
       {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}
 
-      {/* A scored result cannot omit or bury its browser-share action. The
-          composited card gets the run's own cost bands and the player's arena;
-          everything it cannot resolve simply is not drawn. */}
-      <ShareLine
-        mode={share.mode}
-        score={share.score}
-        card={{
-          bands: bands.filter((band) => band.total > 0),
-          ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
-          ...(shareArena ? { arenaImage: shareArena.image, arenaName: shareArena.name } : {})
-        }}
-      />
+      {/* A scored result cannot omit or bury its browser-share action. Practice
+          has no score or record, so it deliberately has no sharing surface. */}
+      {share.mode !== 'practice' && (
+        <ShareLine
+          mode={share.mode}
+          score={share.score}
+          card={{
+            bands: bands.filter((band) => band.total > 0),
+            ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
+            ...(shareArena ? { arenaImage: shareArena.image, arenaName: shareArena.name } : {})
+          }}
+        />
+      )}
 
       {runMoments.length > 0 && (
         <div class="ed-sum-tiles" aria-label="Run highlights">
@@ -197,7 +198,7 @@ export default function Summary({
         </div>
       )}
 
-      {/* Slowest cards (Surge) */}
+      {/* Slowest cards (timed recall and speed modes) */}
       {hasTiming && slowestCards && slowestCards.length > 0 && (
         <div class="ed-sum-section">
           <div class="ed-sum__label">Slowest reads</div>

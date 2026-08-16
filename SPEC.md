@@ -262,6 +262,12 @@ Product decisions currently in force:
   default) deals the same keys as two full-width rows instead — 1–5 over 6–9 —
   for roughly double the tap-target width. It applies everywhere the pip keypad
   renders (Surge, Practice, Survival, Rain), never to Trade's swing pad.
+- Practice is a learning loop, not a finite round: no progress bar and no share
+  action. It times the first response invisibly, separates requested assistance
+  from recall, offers voluntary help after seven idle seconds, gives keypad
+  recall one anchored higher/lower retry, then reveals the exact answer. Missed
+  cards return through the short-term spaced-review queue documented in
+  `GAMES.md`.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
@@ -277,6 +283,8 @@ Important shared modules:
 - `apps/web/src/lib/choices.ts` - adjacent elixir distractors on a randomly
   offset window (Practice's 4-choice input only).
 - `apps/web/src/lib/practice-deal.ts` - Practice's weakness-weighted card draw.
+- `apps/web/src/lib/practice-review.ts` - Practice's guaranteed short-term
+  retry and confirmation queue.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
 - `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
 - `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
@@ -350,7 +358,9 @@ Learning progress, owned by `lib/storage.ts` (`localStorage`):
 
 ```text
 elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
-elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen, avgMs? } }
+elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen,
+                                      recallSeen?, recallCorrect?, assistedSeen?,
+                                      assistedCorrect?, avgMs?, latencySamples? } }
 elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBest,
                               survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
@@ -382,10 +392,14 @@ The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape 
 
 Authoritative learning telemetry is server-side: accepted completions in the
 card-recall modes fold per-card outcomes (derived from the validated
-transcript) into a per-player CARDSTATS item. GET /me retains a learning
-summary (weak cards + per-cost accuracy) for possible future coaching, and
-account deletion sweeps it. Learning telemetry does not affect challenge card
-selection. The localStorage copy is a display cache only. Immutable run history
+transcript) into a per-player CARDSTATS item. Practice transcripts additionally
+carry bounded first-response milliseconds and whether recognition help was
+used; the aggregate keeps assisted recognition separate and averages only
+unassisted recall latency. Legacy rows fall back to their lifetime counters.
+GET /me retains a learning summary (weak cards + per-cost accuracy) for possible
+future coaching, and account deletion sweeps it. Learning telemetry does not
+affect official challenge generation; Practice's device-local weighted deal may
+use the local copy. Immutable run history
 also retains the validated `answerCount` (not the raw transcript), so Practice
 volume can be rebuilt without storing a second copy of a player's guesses;
 legacy history created before that field cannot be inferred from accuracy.
@@ -459,12 +473,13 @@ redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
-The run share card is composited in the browser
+Scored-mode run share cards are composited in the browser
 (`apps/web/src/lib/share-card.ts`): a 1080×1350 canvas over
 `assets/share/share-backdrop.png` with the mode emblem, score, cost-band squares,
 arena and sticker drawn on top, handed to `navigator.share({ files })`. Every
 source is same-origin so the canvas never taints; every failure path falls back
-to the existing text share.
+to the existing text share. Practice deliberately renders no share action:
+session length and accuracy in an endless drill are not comparable results.
 
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server

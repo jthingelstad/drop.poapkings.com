@@ -264,6 +264,16 @@ function scorePractice(
       throw new Error("Practice card is not from the signed deck");
     if (!Number.isInteger(answer.guess))
       throw new Error("Practice answer is invalid");
+    if (
+      answer.responseMs !== undefined &&
+      (typeof answer.responseMs !== "number" ||
+        !Number.isInteger(answer.responseMs) ||
+        answer.responseMs < 0 ||
+        answer.responseMs > 60_000)
+    )
+      throw new Error("Practice response time is invalid");
+    if (answer.assisted !== undefined && typeof answer.assisted !== "boolean")
+      throw new Error("Practice assistance is invalid");
     if (answer.guess === card(cardId).elixir) correct += 1;
   }
   return Math.round((correct / answers.length) * 100);

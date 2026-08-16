@@ -1,12 +1,23 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useMemo, useRef } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { Card, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
+import type { GameRuntimeCue } from '../../lib/game-runtime'
 import { pointerVerb } from '../../lib/use-layout'
 import { makeChoices } from '../../lib/choices'
 import { pickPracticeCard } from '../../lib/practice-deal'
+import {
+  PRACTICE_CONFIRM_GAP,
+  PRACTICE_REPEATED_MISS_GAP,
+  PRACTICE_RETRY_GAP,
+  queuedPracticeCardIds,
+  schedulePracticeReview,
+  type PracticeReviewItem,
+  type PracticeReviewStage
+} from '../../lib/practice-review'
 import { saveResult, getCardStats, getSettings, saveSettings, recordSession } from '../../lib/storage'
-import { computeInsights, weakestBandLabel } from '../../lib/insights'
+import { computeInsights } from '../../lib/insights'
+import { formatSeconds } from '../../lib/format'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
@@ -27,8 +38,11 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
 
-const CORRECT_REINFORCEMENT_MS = 300
+const CORRECT_HOLD_MS = 300
+const REVEALED_ANSWER_HOLD_MS = 750
 const WRONG_BEAT_MS = 430
+const IDLE_HINT_MS = 7_000
+const MAX_RESPONSE_MS = 60_000
 const MILESTONE_EVERY = 10
 
 interface Props {
@@ -36,76 +50,165 @@ interface Props {
   onExit?: () => void
 }
 
-// A card on the table plus the 4-choice window rolled for it.
+// A card on the table plus the choice window and, when applicable, the spaced
+// review that deliberately brought it back.
 interface Hand {
   card: Card
   choices: number[]
+  reviewStage?: PracticeReviewStage
 }
 
-// Card stats are re-read on every draw so the answer just given already counts
-// toward the next one — a card missed right now is immediately hot again.
-function draw(deck: readonly Card[], previousId: number | undefined): Hand | null {
-  const next = pickPracticeCard(deck, getCardStats(), previousId)
-  return next ? { card: next, choices: makeChoices(next.elixir) } : null
+interface PendingExit {
+  generation: number
+  next: Hand
+  holdReady: boolean
+  artReady: boolean
+  exiting: boolean
 }
 
-// Practice: the endless, untimed, non-competitive drill.
-//
-// It has no round length, no score, no record, and earns no Player XP — it
-// touches nothing competitive or progressive on purpose, which is what buys it
-// the freedom to be endless. The signed deck is the whole catalog used as a
-// POOL: each card is drawn weighted by the player's own local card stats (see
-// lib/practice-deal.ts), so the cards they keep missing come back. The session
-// ends only when the player ends it, and closes on stats, never a result.
+function handFor(card: Card, reviewStage?: PracticeReviewStage): Hand {
+  return {
+    card,
+    choices: makeChoices(card.elixir),
+    ...(reviewStage ? { reviewStage } : {})
+  }
+}
+
+// A due review wins the next deal. Cards waiting in the review queue are kept
+// out of the weighted pool so random chance cannot collapse their spacing.
+function draw(
+  deck: readonly Card[],
+  previousId: number | undefined,
+  queue: readonly PracticeReviewItem[],
+  answered: number
+): Hand | null {
+  const due = queue.find(
+    (item) =>
+      item.dueAtAnswered <= answered && item.cardId !== previousId && deck.some((card) => card.id === item.cardId)
+  )
+  if (due) {
+    const card = deck.find((candidate) => candidate.id === due.cardId)
+    if (card) return handFor(card, due.stage)
+  }
+
+  const queued = queuedPracticeCardIds(queue)
+  const unqueued = deck.filter((card) => !queued.has(card.id))
+  const pool = unqueued.length > 0 ? unqueued : deck
+  const next = pickPracticeCard(pool, getCardStats(), previousId)
+  return next ? handFor(next) : null
+}
+
+function narrowedChoices(choices: readonly number[], answer: number): number[] {
+  const nearestWrong = choices
+    .filter((choice) => choice !== answer)
+    .sort((left, right) => Math.abs(left - answer) - Math.abs(right - answer))[0]
+  return nearestWrong === undefined
+    ? [answer]
+    : choices.filter((choice) => choice === answer || choice === nearestWrong)
+}
+
+// Practice: a fast learning loop, not a score chase. First-read recall is timed
+// invisibly; assisted recognition is tracked separately; misses are guaranteed
+// to return after a retrieval gap; and the correct value remains attached to the
+// card through its art-ready exit animation.
 export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const gameRun = useGameSession('practice', challengePreparers.practice)
   const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const exit = onExit ?? (() => navigate('/'))
   const answers = useRef<Answer[]>([])
-  const serverAnswers = useRef<Array<{ cardId: number; guess: number }>>([])
+  const serverAnswers = useRef<Array<{ cardId: number; guess: number; responseMs: number; assisted: boolean }>>([])
   const recorded = useRef(false)
-  // Invalidates an art handoff when the session ends, replays, or unmounts.
-  // A late image callback must never deal into a different run.
+  const wrongAttempts = useRef(0)
+  const reviewQueue = useRef<PracticeReviewItem[]>([])
+  const promptStartedAt = useRef(0)
+  const promptPausedAt = useRef<number | null>(null)
+  const promptPausedMs = useRef(0)
+  const assistUsed = useRef(false)
+  const recognitionExposed = useRef(false)
+  const idleHintGeneration = useRef(0)
   const handoffGeneration = useRef(0)
+  const pendingExit = useRef<PendingExit | null>(null)
+  const currentHand = useRef<Hand | null>(null)
+  const openingCache = useRef<{
+    deck: readonly Card[] | null | undefined
+    generation: number
+    hand: Hand | null
+  }>()
   const deck = gameRun.content
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
-  // One hand: the card on the table and its 4-choice window, re-rolled together
-  // so a card that comes back around never reuses its old window.
   const dealt = useSignal<Hand | null>(null)
+  const openingGeneration = useSignal(0)
   const openingReadyId = useSignal<number | null>(null)
   const answered = useSignal(0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const hint = useSignal<'higher' | 'lower' | null>(null)
+  const hintGuess = useSignal<number | null>(null)
   const hintPulse = useSignal(0)
+  const idleHintAvailable = useSignal(false)
+  const temporaryChoices = useSignal(false)
+  const choicesNarrowed = useSignal(false)
+  const selectedChoice = useSignal<number | null>(null)
+  const revealCorrectChoice = useSignal(false)
+  const revealedAnswer = useSignal(false)
   const streak = useSignal(0)
-  // Bumped at streak milestones to fire the shared floating streak cue.
-  const streakCue = useSignal(0)
+  const achievementCue = useSignal(0)
+  const achievementText = useSignal('')
   const milestone = useSignal<number | null>(null)
   const reinforcedCost = useSignal<number | null>(null)
   const correct = useSignal(0)
+  const recovered = useSignal(0)
   const insights = useSignal<Insights | null>(null)
 
   useEffect(() => {
     preloadGameFx()
+    const onVisibilityChange = () => {
+      const now = performance.now()
+      if (document.visibilityState === 'hidden') {
+        promptPausedAt.current = now
+        idleHintAvailable.value = false
+        idleHintGeneration.current += 1
+        return
+      }
+      if (promptPausedAt.current !== null) {
+        promptPausedMs.current += now - promptPausedAt.current
+        promptPausedAt.current = null
+      }
+      const active = currentHand.current
+      if (active && phase.peek() === 'playing') armIdleHint(active.card.id)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      idleHintGeneration.current += 1
       handoffGeneration.current += 1
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only listener reads current refs and signals
 
-  // The opening hand is DERIVED from the deck rather than dealt in an effect: an
-  // effect would let one frame render with a resolved deck and nothing on the
-  // table. Every later hand comes from deal().
-  const opening = useMemo(() => draw(deck ?? [], undefined), [deck])
+  // The opening hand is derived so no empty frame can render between challenge
+  // resolution and the first card. A seeded "Review misses" queue may own it.
+  const openingGenerationValue = openingGeneration.value
+  if (
+    !openingCache.current ||
+    openingCache.current.deck !== deck ||
+    openingCache.current.generation !== openingGenerationValue
+  ) {
+    openingCache.current = {
+      deck,
+      generation: openingGenerationValue,
+      hand: draw(deck ?? [], undefined, reviewQueue.current, answered.peek())
+    }
+  }
+  const opening = openingCache.current.hand
   const hand = dealt.value ?? opening
+  currentHand.current = hand
 
-  // The opening draw is weighted from the whole catalog, not just the bounded
-  // startup slice. Keep the unified loading surface up until that exact random
-  // card is decoded; otherwise Practice can begin with the same pop-in that a
-  // later random draw used to have.
   const openingCard = opening?.card
   const openingCardId = openingCard?.id
+  const handReady = Boolean(
+    hand && gameRun.assetsReady && (dealt.value !== null || openingReadyId.value === openingCardId)
+  )
   useEffect(() => {
     if (!openingCard) return
     let active = true
@@ -117,12 +220,56 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     }
   }, [openingCard, openingReadyId])
 
+  // Start the invisible response clock only after the hand exists in the DOM.
+  // Background time is subtracted by the visibility handler above.
+  useEffect(() => {
+    if (!hand || !handReady || runtime.stage.peek() !== 'running') return
+    promptStartedAt.current = performance.now()
+    promptPausedAt.current = document.visibilityState === 'hidden' ? promptStartedAt.current : null
+    promptPausedMs.current = 0
+    assistUsed.current = false
+    recognitionExposed.current = inputStyle.peek() === 'choice'
+    wrongAttempts.current = 0
+    armIdleHint(hand.card.id)
+  }, [hand?.card.id, handReady]) // eslint-disable-line react-hooks/exhaustive-deps -- card identity owns the prompt clock
+
+  function armIdleHint(cardId: number): void {
+    const generation = ++idleHintGeneration.current
+    idleHintAvailable.value = false
+    runtime.later(() => {
+      if (generation !== idleHintGeneration.current || document.visibilityState !== 'visible') return
+      if (runtime.stage.peek() !== 'running' || phase.peek() !== 'playing') return
+      if (currentHand.current?.card.id !== cardId || assistUsed.current) return
+      idleHintAvailable.value = true
+    }, IDLE_HINT_MS)
+  }
+
+  function responseMs(): number {
+    const pausedNow = promptPausedAt.current === null ? 0 : performance.now() - promptPausedAt.current
+    return Math.round(
+      Math.max(
+        0,
+        Math.min(MAX_RESPONSE_MS, performance.now() - promptStartedAt.current - promptPausedMs.current - pausedNow)
+      )
+    )
+  }
+
   function showHand(next: Hand): void {
     dealt.value = next
     recorded.current = false
+    wrongAttempts.current = 0
     phase.value = 'playing'
     hint.value = null
+    hintGuess.value = null
     reinforcedCost.value = null
+    revealedAnswer.value = false
+    selectedChoice.value = null
+    revealCorrectChoice.value = false
+    temporaryChoices.value = false
+    choicesNarrowed.value = false
+    idleHintAvailable.value = false
+    recognitionExposed.current = inputStyle.peek() === 'choice'
+    idleHintGeneration.current += 1
   }
 
   function showMilestone(value: number): void {
@@ -132,8 +279,91 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     }, 520)
   }
 
+  function celebrate(text: string): void {
+    achievementText.value = text
+    achievementCue.value++
+  }
+
+  function scheduleMissedCard(current: Hand, firstReadCorrect: boolean): void {
+    if (current.reviewStage) {
+      reviewQueue.current = reviewQueue.current.filter((item) => item.cardId !== current.card.id)
+      if (firstReadCorrect) {
+        if (current.reviewStage === 'retry') {
+          recovered.value++
+          celebrate('Got it back!')
+          reviewQueue.current = schedulePracticeReview(
+            reviewQueue.current,
+            current.card.id,
+            answered.peek(),
+            'confirm',
+            PRACTICE_CONFIRM_GAP
+          )
+        } else {
+          celebrate('Locked in!')
+        }
+      } else {
+        reviewQueue.current = schedulePracticeReview(
+          reviewQueue.current,
+          current.card.id,
+          answered.peek(),
+          'retry',
+          PRACTICE_REPEATED_MISS_GAP
+        )
+      }
+      return
+    }
+
+    if (!firstReadCorrect) {
+      reviewQueue.current = schedulePracticeReview(
+        reviewQueue.current,
+        current.card.id,
+        answered.peek(),
+        'retry',
+        PRACTICE_RETRY_GAP
+      )
+    }
+  }
+
+  function tryStartExit(): void {
+    const pending = pendingExit.current
+    if (!pending || pending.exiting || !pending.holdReady || !pending.artReady) return
+    if (pending.generation !== handoffGeneration.current || runtime.stage.peek() !== 'running') return
+    pending.exiting = true
+    runtime.emitCue('practice-exit', { cardId: currentHand.current?.card.id })
+  }
+
+  function prepareExit(current: Card, holdMs: number): void {
+    const next = draw(deck ?? [], current.id, reviewQueue.current, answered.peek())
+    if (!next) return
+    const generation = ++handoffGeneration.current
+    pendingExit.current = { generation, next, holdReady: false, artReady: false, exiting: false }
+    preloadImages([next.card], () => {
+      const pending = pendingExit.current
+      if (!pending || pending.generation !== generation) return
+      pending.artReady = true
+      tryStartExit()
+    })
+    runtime.later(() => {
+      const pending = pendingExit.current
+      if (!pending || pending.generation !== generation) return
+      pending.holdReady = true
+      tryStartExit()
+    }, holdMs)
+  }
+
+  function handleMotionComplete(cue: GameRuntimeCue): void {
+    if (cue.type !== 'practice-exit') return
+    const pending = pendingExit.current
+    if (!pending || pending.generation !== handoffGeneration.current) return
+    pendingExit.current = null
+    showHand(pending.next)
+    runtime.emitCue('round-advance', { cardId: pending.next.card.id })
+  }
+
   function endSession() {
+    idleHintGeneration.current += 1
     handoffGeneration.current += 1
+    pendingExit.current = null
     const list = answers.current
     if (list.length === 0) {
       exit()
@@ -141,130 +371,181 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     }
     insights.value = computeInsights(list)
     recordSession()
-    // The run is still completed server-side: Practice writes no score, record,
-    // or XP, but the validated transcript is what feeds the server-owned
-    // learning stats.
+    // Online sessions persist validated recall, response time, and assistance.
+    // Offline completion is swallowed by use-game-run; the same local learning
+    // signals still drive this device and nothing is queued for reconnect.
     void gameRun.complete({ answers: serverAnswers.current })
     runtime.finish()
   }
 
-  function handleAnswer(picked: number) {
-    if (runtime.stage.value !== 'running' || phase.value !== 'playing') return
+  function recordFirstRead(current: Hand, picked: number, isCorrect: boolean, assisted: boolean): void {
+    const elapsed = responseMs()
+    recorded.current = true
+    // Only unassisted keypad latency contributes to fluent-recall averages.
+    saveResult(current.card.id, isCorrect, assisted ? undefined : elapsed, assisted)
+    answers.current.push({ card: current.card, guess: picked, correct: isCorrect, ms: elapsed, assisted })
+    serverAnswers.current.push({ cardId: current.card.id, guess: picked, responseMs: elapsed, assisted })
+    answered.value++
+    scheduleMissedCard(current, isCorrect)
 
-    const current = hand?.card
-    if (!current) return
-    const isCorrect = picked === current.elixir
-
-    // Practice grades the first read, like Surge, but lets the player keep
-    // trying the same card until they solve it. The server receives one
-    // canonical answer per question.
-    if (!recorded.current) {
-      recorded.current = true
-      saveResult(current.id, isCorrect)
-      answers.current.push({ card: current, guess: picked, correct: isCorrect })
-      serverAnswers.current.push({ cardId: current.id, guess: picked })
-      answered.value++
-
-      if (isCorrect) {
-        correct.value++
-        streak.value++
-        if (streak.value % MILESTONE_EVERY === 0) showMilestone(streak.value)
-        else if (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0)) streakCue.value++
-      } else {
-        streak.value = 0
+    if (isCorrect) {
+      correct.value++
+      streak.value++
+      if (streak.value % MILESTONE_EVERY === 0) showMilestone(streak.value)
+      else if (!current.reviewStage && (streak.value === 3 || (streak.value > 3 && streak.value % 5 === 0))) {
+        celebrate(`🔥 ${streak.value} streak`)
       }
+    } else {
+      streak.value = 0
     }
+  }
+
+  function revealAnswer(current: Hand): void {
+    hint.value = null
+    hintGuess.value = null
+    reinforcedCost.value = current.card.elixir
+    revealedAnswer.value = true
+    revealCorrectChoice.value = true
+    prepareExit(current.card, REVEALED_ANSWER_HOLD_MS)
+  }
+
+  function handleAnswer(picked: number) {
+    if (runtime.stage.peek() !== 'running' || phase.peek() !== 'playing') return
+    const current = currentHand.current
+    if (!current) return
+
+    idleHintGeneration.current += 1
+    idleHintAvailable.value = false
+    selectedChoice.value = picked
+    const choiceInput = inputStyle.peek() === 'choice' || temporaryChoices.peek()
+    // Once choices have been visible for this card, switching back to the
+    // keypad cannot turn recognition into an unassisted recall sample.
+    const assisted = choiceInput || assistUsed.current || recognitionExposed.current
+    const isCorrect = picked === current.card.elixir
+    const firstRead = !recorded.current
+    if (firstRead) recordFirstRead(current, picked, isCorrect, assisted)
 
     if (isCorrect) {
       playCorrect()
       phase.value = 'correct'
       hint.value = null
-      reinforcedCost.value = current.elixir
-      runtime.emitCue('answer-correct', { cardId: current.id })
-      runtime.later(() => {
-        if (reinforcedCost.peek() === current.elixir) reinforcedCost.value = null
-      }, CORRECT_REINFORCEMENT_MS)
-      // The next weighted draw is unknowable at startup, so prepare it now and
-      // keep the solved hand on screen until BOTH the feedback beat and browser
-      // image decode have finished. This makes the name/art swap atomic even
-      // when the service worker already had the response bytes cached.
-      const next = draw(deck ?? [], current.id)
-      const generation = ++handoffGeneration.current
-      let beatReady = false
-      let artReady = false
-      const advance = () => {
-        if (!next || !beatReady || !artReady || generation !== handoffGeneration.current) return
-        if (runtime.stage.value !== 'running') return
-        showHand(next)
-        runtime.emitCue('round-advance', { cardId: next.card.id })
-      }
-      if (next) {
-        preloadImages([next.card], () => {
-          artReady = true
-          advance()
-        })
-      }
-      runtime.later(() => {
-        beatReady = true
-        advance()
-      }, CORRECT_REINFORCEMENT_MS)
-    } else {
-      playWrong()
-      hint.value = picked < current.elixir ? 'higher' : 'lower'
-      hintPulse.value++
-      phase.value = 'wrong'
-      runtime.emitCue('answer-wrong', { cardId: current.id })
-      runtime.later(() => (phase.value = 'playing'), WRONG_BEAT_MS)
+      hintGuess.value = null
+      reinforcedCost.value = current.card.elixir
+      revealedAnswer.value = false
+      revealCorrectChoice.value = true
+      runtime.emitCue('answer-correct', { cardId: current.card.id })
+      prepareExit(current.card, CORRECT_HOLD_MS)
+      return
     }
+
+    wrongAttempts.current += 1
+    playWrong()
+    phase.value = 'wrong'
+    runtime.emitCue('answer-wrong', { cardId: current.card.id })
+
+    // Recognition choices are already a scaffold; another attempt mostly trains
+    // elimination. Keypad recall keeps one playful directional retry, anchored
+    // to the value the player actually chose.
+    const shouldReveal = choiceInput || wrongAttempts.current >= 2
+    if (shouldReveal) {
+      runtime.later(() => {
+        if (currentHand.current?.card.id === current.card.id && runtime.stage.peek() === 'running')
+          revealAnswer(current)
+      }, WRONG_BEAT_MS)
+      return
+    }
+
+    hint.value = picked < current.card.elixir ? 'higher' : 'lower'
+    hintGuess.value = picked
+    hintPulse.value++
+    runtime.later(() => {
+      if (currentHand.current?.card.id !== current.card.id || runtime.stage.peek() !== 'running') return
+      phase.value = 'playing'
+      armIdleHint(current.card.id)
+    }, WRONG_BEAT_MS)
   }
 
-  function replay() {
+  function replay(reviewCards: Card[] = []) {
     track('game.replayed', 'practice')
     runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
+    reviewQueue.current = reviewCards.map((card, index) => ({
+      cardId: card.id,
+      dueAtAnswered: index,
+      stage: 'retry'
+    }))
     answered.value = 0
     correct.value = 0
+    recovered.value = 0
     streak.value = 0
+    achievementText.value = ''
     milestone.value = null
     reinforcedCost.value = null
+    revealedAnswer.value = false
     insights.value = null
     recorded.current = false
     phase.value = 'playing'
     hint.value = null
+    hintGuess.value = null
+    temporaryChoices.value = false
+    choicesNarrowed.value = false
+    selectedChoice.value = null
+    revealCorrectChoice.value = false
+    idleHintAvailable.value = false
+    idleHintGeneration.current += 1
     handoffGeneration.current += 1
-    // Fall back to the opening hand so the board is never empty for a frame,
-    // then ask for a fresh signed run — its deck derives a new opening.
+    pendingExit.current = null
     dealt.value = null
+    openingReadyId.value = null
+    openingGeneration.value++
     void gameRun.prepare()
   }
 
   function switchInput(style: InputStyle) {
     inputStyle.value = style
+    if (style === 'choice') recognitionExposed.current = true
+    temporaryChoices.value = false
+    choicesNarrowed.value = false
+    idleHintAvailable.value = false
+    idleHintGeneration.current += 1
     saveSettings({ inputStyle: style })
+    const active = currentHand.current
+    if (active && phase.peek() === 'playing' && !assistUsed.current) armIdleHint(active.card.id)
+  }
+
+  function useIdleHint() {
+    assistUsed.current = true
+    recognitionExposed.current = true
+    idleHintAvailable.value = false
+    idleHintGeneration.current += 1
+    if (inputStyle.peek() === 'keypad' && !temporaryChoices.peek()) temporaryChoices.value = true
+    else choicesNarrowed.value = true
   }
 
   if (!deck) return <GameRunGate modeName="Practice" session={gameRun} />
 
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
-    const focus = weakestBandLabel(ins)
+    const needsReview = ins.weakest.length
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow={eyebrow}
-          headline={`${ins.correct} / ${ins.total} · ${ins.accuracyPct}%`}
+          headline={`${ins.correct} / ${ins.total} first try`}
           insights={ins}
-          // Session stats only — Practice has no score, no best, and no record
-          // to call out.
           moments={[
-            { label: 'Answered', value: `${ins.total}` },
-            { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' },
-            { label: 'Next drill', value: focus ?? 'Clean read', tone: focus ? 'purple' : 'green' }
+            {
+              label: 'Avg answer',
+              value: ins.averageMs === undefined ? '—' : `${formatSeconds(ins.averageMs)}s`,
+              tone: 'gold'
+            },
+            { label: 'Got back', value: `${recovered.value}`, tone: recovered.value > 0 ? 'green' : 'purple' },
+            { label: 'Needs review', value: `${needsReview}`, tone: needsReview > 0 ? 'purple' : 'green' }
           ]}
-          share={{ mode: 'practice', score: `${ins.correct}/${ins.total} · ${ins.accuracyPct}%` }}
-          onReplay={replay}
-          replayLabel="Practice again"
+          share={{ mode: 'practice', score: '' }}
+          onReplay={() => replay(ins.weakest)}
+          replayLabel={needsReview > 0 ? 'Review misses' : 'Practice again'}
           onHome={exit}
         />
       </div>
@@ -276,6 +557,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   }
   if (!hand) return <GameRunGate modeName="Practice" session={gameRun} />
   const current = hand.card
+  const choicesVisible = inputStyle.value === 'choice' || temporaryChoices.value
+  const visibleChoices = choicesNarrowed.value ? narrowedChoices(hand.choices, current.elixir) : hand.choices
+  const controlsDisabled = phase.value !== 'playing' || gameRun.preparing.value
 
   return (
     <GameFrame
@@ -286,15 +570,17 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       quitLabel="End session"
       cue={runtime.cue.value}
       fxParticles={6}
-      // Endless: there is no "card 7 of N" to count toward, so the bar and the
-      // progress line carry the only two live session facts instead.
-      progressText={`${answered.value} answered`}
-      metric={{ value: String(correct.value), label: 'correct' }}
-      progressPct={answered.value > 0 ? (correct.value / answered.value) * 100 : 0}
+      progressText={`${answered.value} practiced`}
+      metric={{ value: String(correct.value), label: 'first try' }}
     >
       <div class="ed-kstage ed-kstage--practice">
         <div class="ed-kstage__card">
-          <GameMotion contentKey={current.id} cue={runtime.cue.value}>
+          <GameMotion
+            contentKey={current.id}
+            cue={runtime.cue.value}
+            practiceFeedback
+            onFeedbackComplete={handleMotionComplete}
+          >
             <CardDisplay
               card={current}
               phase={phase.value}
@@ -304,58 +590,78 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           </GameMotion>
         </div>
 
-        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
+        <div class="ed-kstage__hint">
+          {idleHintAvailable.value ? (
+            <button class="practice-idle-assist" onClick={useIdleHint}>
+              <Icon name="circle-help" />
+              {choicesVisible ? 'Narrow it down' : 'Need a nudge? Show choices'}
+            </button>
+          ) : (
+            <span>{pointerVerb()} the elixir cost</span>
+          )}
+        </div>
         <div class="input-toggle">
           <button
-            class={`input-toggle__btn${inputStyle.value === 'keypad' ? ' input-toggle__btn--active' : ''}`}
+            class={`input-toggle__btn${!choicesVisible ? ' input-toggle__btn--active' : ''}`}
             onClick={() => switchInput('keypad')}
-            aria-pressed={inputStyle.value === 'keypad'}
+            aria-pressed={!choicesVisible}
           >
             Keypad
           </button>
           <button
-            class={`input-toggle__btn${inputStyle.value === 'choice' ? ' input-toggle__btn--active' : ''}`}
+            class={`input-toggle__btn${choicesVisible ? ' input-toggle__btn--active' : ''}`}
             onClick={() => switchInput('choice')}
-            aria-pressed={inputStyle.value === 'choice'}
+            aria-pressed={choicesVisible}
           >
             4 choices
           </button>
         </div>
 
-        {inputStyle.value === 'keypad' ? (
-          <PipKeypad onPick={handleAnswer} disabled={phase.value !== 'playing' || gameRun.preparing.value} />
-        ) : (
+        {choicesVisible ? (
           <MultipleChoice
-            choices={hand.choices}
+            choices={visibleChoices}
             onPick={handleAnswer}
-            disabled={phase.value !== 'playing' || gameRun.preparing.value}
+            disabled={controlsDisabled}
+            selected={selectedChoice.value}
+            correct={current.elixir}
+            revealCorrect={revealCorrectChoice.value}
           />
+        ) : (
+          <PipKeypad onPick={handleAnswer} disabled={controlsDisabled} />
         )}
 
-        {/* Shared floating streak cue — composited, never in layout flow. */}
         <div class="game-cues" aria-hidden="true">
           <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={streakCue.value} className="floating-cue--streak">
-              🔥 {streak.value} streak
+            <FloatingCue trigger={achievementCue.value} className="floating-cue--streak">
+              {achievementText.value}
             </FloatingCue>
           </div>
           <div class="game-cues__slot game-cues__slot--bottom">
             <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="practice-hint">
               {hint.value === 'higher' && (
                 <>
-                  <Icon name="arrow-up" /> Higher
+                  <Icon name="arrow-up" /> Higher than {hintGuess.value}
                 </>
               )}
               {hint.value === 'lower' && (
                 <>
-                  <Icon name="arrow-down" /> Lower
+                  <Icon name="arrow-down" /> Lower than {hintGuess.value}
                 </>
               )}
             </FloatingCue>
           </div>
         </div>
         <span class="sr-only" aria-live="assertive">
-          {phase.value === 'wrong' && hint.value ? (hint.value === 'higher' ? 'Higher' : 'Lower') : ''}
+          {reinforcedCost.value !== null
+            ? revealedAnswer.value
+              ? `The answer is ${reinforcedCost.value} elixir.`
+              : `Correct. ${reinforcedCost.value} elixir.`
+            : phase.value === 'wrong' && hint.value && hintGuess.value !== null
+              ? `${hint.value === 'higher' ? 'Higher' : 'Lower'} than ${hintGuess.value}.`
+              : ''}
+        </span>
+        <span class="sr-only" aria-live="polite">
+          {idleHintAvailable.value ? 'A hint is available.' : ''}
         </span>
         {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>

@@ -132,9 +132,11 @@ rank-oriented fields as part of unrelated work.
   so historical unranked runs can be read safely.
 - **Learning stats are server-owned** (`services/api/src/learning.ts`): derived
   from validated transcripts at completion, stored per player, and returned in
-  the GET /me learning summary for possible future coaching. They do not affect
-  challenge selection. The browser uploads nothing; localStorage stats are a
-  display cache.
+  the GET /me learning summary for possible future coaching. Practice may send
+  bounded first-response time and an assistance flag with each validated answer;
+  the browser never uploads aggregate stats. They do not affect official
+  challenge selection. Device-local stats drive Practice's adaptive deal and
+  preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
 - **"Elixir Rain" screensaver**: activation state in
@@ -205,7 +207,11 @@ rank-oriented fields as part of unrelated work.
   helpers for timed modes.
 - **`apps/web/src/lib/insights.ts`** — Practice and Surge coaching insights.
 - **`apps/web/src/lib/practice-deal.ts`** — Practice's weakness-weighted draw over
-  the signed deck, from local `cardStats`; uniform for a player with no stats.
+  the signed deck, from local `cardStats`; inaccurate and slow recall outweigh
+  assisted recognition, and a player with no stats gets a uniform deal.
+- **`apps/web/src/lib/practice-review.ts`** — Practice's guaranteed short-gap
+  retry and longer confirmation queue. Keep this distinct from the long-term
+  weakness weighting.
 - **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines (Trade).
 - **Modes** in `apps/web/src/modes/`. The six shipped, routed modes are `surge`,
   `practice`, `higher-lower`, `trade`, `survival`, and `rain`. Practice is an
@@ -346,6 +352,12 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   remember the choice in settings. Default to the keypad. The keypad has one key
   per cost that exists in the catalog (currently 1–9) — a dead "10" key was
   penalty bait and stole tap-target width.
+- **Practice learning:** keep the mode endless, unscored, and without a progress
+  bar or share action. Time first responses invisibly; separate requested help
+  from recall; offer a voluntary scaffold after seven idle seconds; give keypad
+  recall one anchored higher/lower retry before revealing the exact value; and
+  return misses through the spaced-review queue. The solved cost must hold over
+  the card for at least 300ms and leave attached to that card.
 - **Speedrun keyboard:** an off-by-default setting that deals the pip keypad as
   two full-width rows (1–5 over 6–9) instead of one row of nine, roughly doubling
   key width because mistaps happen sideways. Asked for by Drop's fastest Surge

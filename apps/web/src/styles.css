@@ -1059,8 +1059,9 @@ a {
   word-break: normal;
 }
 
-/* Practice reinforcement: the solved cost sits directly over the art for one
-   300ms beat. Its display face and scale deliberately match the 3-2-1 count. */
+/* Practice reinforcement: the solved cost sits directly over the art during
+   the stable learning beat and leaves with the card. Its display face and scale
+   deliberately match the 3-2-1 count. */
 .pcard__answer-cost {
   position: absolute;
   inset: 0;
@@ -1221,6 +1222,19 @@ a {
 .mc-choices__btn .elixir-pip {
   width: 16px;
   height: 16px;
+}
+
+.mc-choices__btn--wrong {
+  border-color: rgba(248, 113, 113, 0.85);
+  background: rgba(127, 29, 29, 0.72);
+  color: #fecaca;
+}
+
+.mc-choices__btn--correct {
+  border-color: rgba(245, 200, 76, 0.9);
+  background: linear-gradient(160deg, rgba(90, 62, 19, 0.9), rgba(121, 75, 13, 0.78));
+  color: var(--gold-lite);
+  box-shadow: 0 0 0 2px rgba(245, 200, 76, 0.18), 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 /* ── Input style toggle ───────────────────────────────────── */
@@ -4087,6 +4101,29 @@ html.reduce-motion .ed-game__bar-fill {
   font-size: 0.8rem;
   font-weight: 700;
   margin: 6px 0 14px;
+}
+.ed-kstage--practice .ed-kstage__hint {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.practice-idle-assist {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid rgba(245, 200, 76, 0.45);
+  border-radius: 999px;
+  background: rgba(245, 200, 76, 0.1);
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.practice-idle-assist .icon {
+  font-size: 1rem;
 }
 
 /* ── Summary (rebuilt) ──────────────────────────────────────── */

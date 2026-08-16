@@ -3,13 +3,14 @@
 
 import type { Card } from '../types'
 
-// One graded answer in a session. `ms` present only in timed modes (Surge),
-// where it is the total time spent on the card (incl. retries).
+// One graded answer in a session. `ms` is the first-response time in Practice
+// and the total time spent on the card (including retries) in timed Surge.
 export interface Answer {
   card: Card
   guess: number // the player's first guess for this card
   correct: boolean // whether the first guess was correct
   ms?: number
+  assisted?: boolean
 }
 
 export interface BandStat {
@@ -26,6 +27,7 @@ export interface Insights {
   weakest: Card[] // unique missed cards, most-missed first
   biasLine?: string // directional bias, e.g. "tends to overestimate spells by ~1"
   hasTiming: boolean
+  averageMs?: number
   slowestBandLabel?: string
   slowestCards?: Card[]
 }
@@ -102,9 +104,10 @@ export function computeInsights(answers: Answer[]): Insights {
     }
   }
 
-  // Timing (Surge): slowest band + slowest cards from split times
+  // Timing: slowest band + slowest cards from first-response or split times.
   const timed = answers.filter((a) => a.ms !== undefined)
   const hasTiming = timed.length > 0
+  const averageMs = hasTiming ? Math.round(mean(timed.map((answer) => answer.ms as number))) : undefined
   let slowestBandLabel: string | undefined
   let slowestCards: Card[] | undefined
   if (hasTiming) {
@@ -121,13 +124,31 @@ export function computeInsights(answers: Answer[]): Insights {
       if (!slowest || avg > slowest.avg) slowest = { label, avg }
     }
     slowestBandLabel = slowest?.label
-    slowestCards = [...timed]
+    const slowestByCard = new Map<number, Answer>()
+    for (const answer of timed) {
+      const existing = slowestByCard.get(answer.card.id)
+      if (!existing || (answer.ms as number) > (existing.ms as number)) {
+        slowestByCard.set(answer.card.id, answer)
+      }
+    }
+    slowestCards = [...slowestByCard.values()]
       .sort((a, b) => (b.ms as number) - (a.ms as number))
       .slice(0, 3)
       .map((a) => a.card)
   }
 
-  return { total, correct, accuracyPct, bands, weakest, biasLine, hasTiming, slowestBandLabel, slowestCards }
+  return {
+    total,
+    correct,
+    accuracyPct,
+    bands,
+    weakest,
+    biasLine,
+    hasTiming,
+    averageMs,
+    slowestBandLabel,
+    slowestCards
+  }
 }
 
 // The weakest cost band worth naming, e.g. "4 cost" — the band with the lowest

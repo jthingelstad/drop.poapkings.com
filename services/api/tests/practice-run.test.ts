@@ -129,7 +129,12 @@ function practiceRunToken(): string {
 }
 
 async function completePractice(
-  answers: Array<{ cardId: number; guess: number }>,
+  answers: Array<{
+    cardId: number;
+    guess: number;
+    responseMs?: number;
+    assisted?: boolean;
+  }>,
 ) {
   repository.getRun.mockResolvedValue({
     pk: "RUN#run-practice",
@@ -211,6 +216,41 @@ describe("Practice completion", () => {
     // The run still completes server-side — that is what feeds the server-owned
     // learning stats.
     expect(repository.saveCardStats).toHaveBeenCalled();
+  });
+
+  it("stores recall speed separately from assisted recognition", async () => {
+    const recalled = allCards[0]!;
+    const assisted = allCards[1]!;
+    const { response } = await completePractice([
+      {
+        cardId: recalled.id,
+        guess: recalled.elixir,
+        responseMs: 900,
+        assisted: false,
+      },
+      {
+        cardId: assisted.id,
+        guess: assisted.elixir,
+        responseMs: 8_000,
+        assisted: true,
+      },
+    ]);
+
+    expect(response.statusCode).toBe(201);
+    const saved = repository.saveCardStats.mock.calls.at(-1)?.[1];
+    expect(saved[String(recalled.id)]).toMatchObject({
+      recallSeen: 1,
+      recallCorrect: 1,
+      avgMs: 900,
+      latencySamples: 1,
+    });
+    expect(saved[String(assisted.id)]).toMatchObject({
+      recallSeen: 0,
+      recallCorrect: 0,
+      assistedSeen: 1,
+      assistedCorrect: 1,
+    });
+    expect(saved[String(assisted.id)].avgMs).toBeUndefined();
   });
 
   it("accumulates Reps across sessions and returns the current ladder", async () => {
@@ -305,6 +345,24 @@ describe("Practice completion", () => {
     )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(400);
+    expect(repository.completeRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid response timing and assistance metadata", async () => {
+    const card = allCards[0]!;
+    const badTime = await completePractice([
+      { cardId: card.id, guess: card.elixir, responseMs: 60_001 },
+    ]);
+    expect(badTime.response.statusCode).toBe(400);
+
+    const badAssistance = await completePractice([
+      {
+        cardId: card.id,
+        guess: card.elixir,
+        assisted: "yes" as unknown as boolean,
+      },
+    ]);
+    expect(badAssistance.response.statusCode).toBe(400);
     expect(repository.completeRun).not.toHaveBeenCalled();
   });
 });

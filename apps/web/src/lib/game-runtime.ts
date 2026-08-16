@@ -5,6 +5,7 @@ export type GameRuntimeCueType =
   | 'run-start'
   | 'answer-correct'
   | 'answer-wrong'
+  | 'practice-exit'
   | 'round-advance'
   | 'penalty'
   | 'run-complete'

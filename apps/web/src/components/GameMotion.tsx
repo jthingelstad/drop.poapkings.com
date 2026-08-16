@@ -12,6 +12,10 @@ interface Props {
   children: ComponentChildren
   preset?: GameMotionPreset
   className?: string
+  // Practice holds the solved value on a stable card, waits for the next art,
+  // then sends a separate exit cue. Other games keep the shared fast response.
+  practiceFeedback?: boolean
+  onFeedbackComplete?: (cue: GameRuntimeCue) => void
 }
 
 const wrongTransforms: Record<GameMotionPreset, string[]> = {
@@ -98,7 +102,15 @@ function correctAnimation(preset: GameMotionPreset) {
   }
 }
 
-export default function GameMotion({ contentKey, cue, children, preset = 'card', className = '' }: Props) {
+export default function GameMotion({
+  contentKey,
+  cue,
+  children,
+  preset = 'card',
+  className = '',
+  practiceFeedback = false,
+  onFeedbackComplete
+}: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const previousContentKey = useRef(contentKey)
   const handledCueId = useRef(0)
@@ -125,12 +137,18 @@ export default function GameMotion({ contentKey, cue, children, preset = 'card',
     const element = elementRef.current
     if (!element || !cue || handledCueId.current === cue.id) return
     handledCueId.current = cue.id
-    if (cue.type !== 'answer-correct' && cue.type !== 'answer-wrong') return
+    if (cue.type !== 'answer-correct' && cue.type !== 'answer-wrong' && cue.type !== 'practice-exit') return
 
     animation.current?.stop()
 
     if (isReducedMotionEnabled()) {
-      animation.current = animate(element, { opacity: [1, 0.72, 1] }, { duration: 0.16, ease: 'linear' })
+      animation.current =
+        cue.type === 'practice-exit'
+          ? animate(element, { opacity: [1, 0] }, { duration: 0.18, ease: 'linear' })
+          : animate(element, { opacity: [1, 0.72, 1] }, { duration: 0.16, ease: 'linear' })
+      if (cue.type === 'practice-exit') {
+        void animation.current.finished.then(() => onFeedbackComplete?.(cue)).catch(() => undefined)
+      }
       return
     }
 
@@ -143,11 +161,37 @@ export default function GameMotion({ contentKey, cue, children, preset = 'card',
       return
     }
 
+    if (cue.type === 'practice-exit') {
+      animation.current = animate(element, correctAnimation('card'), {
+        duration: 0.35,
+        ease: [0.32, 0, 0.2, 1]
+      })
+      void animation.current.finished.then(() => onFeedbackComplete?.(cue)).catch(() => undefined)
+      return
+    }
+
+    if (practiceFeedback && preset === 'card') {
+      // A small confirmation pulse only. The value remains readable on a stable
+      // card until Practice explicitly emits its art-ready exit cue.
+      animation.current = animate(
+        element,
+        {
+          transform: [
+            'translate3d(0, 0, 0) scale(1)',
+            'translate3d(0, -4px, 0) scale(1.025)',
+            'translate3d(0, 0, 0) scale(1)'
+          ]
+        },
+        { duration: 0.2, ease: 'easeOut' }
+      )
+      return
+    }
+
     animation.current = animate(element, correctAnimation(preset), {
       duration: preset === 'card' ? 0.26 : 0.38,
       ease: [0.32, 0, 0.2, 1]
     })
-  }, [cue, preset])
+  }, [cue, onFeedbackComplete, practiceFeedback, preset])
 
   useEffect(
     () => () => {

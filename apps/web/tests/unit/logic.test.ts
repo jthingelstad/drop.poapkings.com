@@ -12,6 +12,7 @@ import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { tradeSummaryLine } from '../../src/lib/mode-insights'
 import { comparableBest, pbCallout } from '../../src/lib/pb-callout'
 import { cardWeight, pickPracticeCard } from '../../src/lib/practice-deal'
+import { queuedPracticeCardIds, schedulePracticeReview, takeDuePracticeReview } from '../../src/lib/practice-review'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
@@ -164,6 +165,7 @@ describe('learning helpers', () => {
     expect(insights.weakest[0]).toBe(fireball)
     expect(insights.biasLine).toBe('you overestimate spells by ~2')
     expect(insights.slowestBandLabel).toBe('6+')
+    expect(insights.slowestCards?.map((slowCard) => slowCard.id)).toEqual([rocket.id, fireball.id, knight.id])
     expect(insightPhrase(insights)).toContain('cost cards')
   })
 
@@ -262,7 +264,19 @@ describe('learning helpers', () => {
 // Practice is a drill, so it must deal what the player is bad at — while still
 // behaving like plain random for someone who has never played.
 describe('practice deal weighting', () => {
-  const stat = (over: Partial<{ seen: number; correct: number; missStreak: number }> = {}) => ({
+  const stat = (
+    over: Partial<{
+      seen: number
+      correct: number
+      missStreak: number
+      recallSeen: number
+      recallCorrect: number
+      assistedSeen: number
+      assistedCorrect: number
+      avgMs: number
+      latencySamples: number
+    }> = {}
+  ) => ({
     seen: 0,
     correct: 0,
     missStreak: 0,
@@ -308,6 +322,38 @@ describe('practice deal weighting', () => {
     // A one-card deck has nothing else to deal, so the guard must not strand it.
     expect(pickPracticeCard([deck[0]!], {}, 1, () => 0.5)).toBe(deck[0])
     expect(pickPracticeCard([], {}, undefined, () => 0)).toBeUndefined()
+  })
+
+  it('does not mistake assisted recognition or slow recall for fluent mastery', () => {
+    const assistedOnly = cardWeight(
+      stat({ seen: 8, correct: 8, recallSeen: 0, recallCorrect: 0, assistedSeen: 8, assistedCorrect: 8 })
+    )
+    const slowRecall = cardWeight(
+      stat({ seen: 8, correct: 8, recallSeen: 8, recallCorrect: 8, avgMs: 3_400, latencySamples: 8 })
+    )
+    const fluentRecall = cardWeight(
+      stat({ seen: 8, correct: 8, recallSeen: 8, recallCorrect: 8, avgMs: 900, latencySamples: 8 })
+    )
+
+    expect(assistedOnly).toBeGreaterThan(fluentRecall)
+    expect(slowRecall).toBeGreaterThan(fluentRecall)
+  })
+})
+
+describe('practice spaced review', () => {
+  it('returns a miss only after its retrieval gap and removes it atomically', () => {
+    const scheduled = schedulePracticeReview([], 42, 3, 'retry', 4)
+    expect(scheduled).toEqual([{ cardId: 42, dueAtAnswered: 7, stage: 'retry' }])
+    expect(queuedPracticeCardIds(scheduled)).toEqual(new Set([42]))
+    expect(takeDuePracticeReview(scheduled, 6)).toEqual({ queue: scheduled })
+    expect(takeDuePracticeReview(scheduled, 7)).toEqual({ item: scheduled[0], queue: [] })
+  })
+
+  it('reschedules the same card without creating duplicate reviews', () => {
+    const first = schedulePracticeReview([], 42, 1, 'retry', 4)
+    const rescheduled = schedulePracticeReview(first, 42, 8, 'confirm', 10)
+
+    expect(rescheduled).toEqual([{ cardId: 42, dueAtAnswered: 18, stage: 'confirm' }])
   })
 })
 

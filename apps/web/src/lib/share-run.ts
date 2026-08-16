@@ -2,6 +2,8 @@ import type { GameMode } from '@elixir-drop/contracts'
 import { gameDisplay } from './game-metadata'
 import { canShareImage, renderShareCard, type ShareCardInput } from './share-card'
 
+export type ShareableGameMode = Exclude<GameMode, 'practice'>
+
 export interface RunSharePayload {
   title: string
   text: string
@@ -12,7 +14,7 @@ export interface RunSharePayload {
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
 
 export function runSharePayload(
-  mode: GameMode,
+  mode: ShareableGameMode,
   score: string,
   href = window.location.href,
   playerName?: string

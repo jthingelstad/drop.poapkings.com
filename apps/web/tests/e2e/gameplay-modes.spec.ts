@@ -61,82 +61,45 @@ test('practice reinforces the solved cost over the card and marks each ten strea
     return { card: card!, name: name! }
   }
 
-  await page.evaluate(() => {
-    const capture = () => {
-      const art = document.querySelector('.pcard__img')
-      const reinforcement = document.querySelector('.pcard__answer-cost')
-      if (!(art instanceof HTMLElement) || !(reinforcement instanceof HTMLElement)) return false
-      const artBounds = art.getBoundingClientRect()
-      const reinforcementBounds = reinforcement.getBoundingClientRect()
-      ;(
-        window as typeof window & {
-          practiceReinforcement?: {
-            text: string | null
-            artBounds: { x: number; y: number; width: number; height: number }
-            reinforcementBounds: { x: number; y: number; width: number; height: number }
-          }
-        }
-      ).practiceReinforcement = {
-        text: reinforcement.textContent,
-        artBounds: {
-          x: artBounds.x,
-          y: artBounds.y,
-          width: artBounds.width,
-          height: artBounds.height
-        },
-        reinforcementBounds: {
-          x: reinforcementBounds.x,
-          y: reinforcementBounds.y,
-          width: reinforcementBounds.width,
-          height: reinforcementBounds.height
-        }
-      }
-      return true
-    }
-    if (capture()) return
-    const observer = new MutationObserver(() => {
-      if (capture()) observer.disconnect()
-    })
-    observer.observe(document.body, { childList: true, subtree: true })
-  })
-
   const first = await answerLiveCard()
   const reinforcement = page.locator('.pcard__answer-cost')
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (
-            window as typeof window & {
-              practiceReinforcement?: {
-                text: string | null
-                artBounds: { x: number; y: number; width: number; height: number }
-                reinforcementBounds: { x: number; y: number; width: number; height: number }
-              }
-            }
-          ).practiceReinforcement
-      )
-    )
-    .toBeTruthy()
-  const { text, artBounds, reinforcementBounds } = await page.evaluate(
-    () =>
-      (
-        window as typeof window & {
-          practiceReinforcement: {
-            text: string | null
-            artBounds: { x: number; y: number; width: number; height: number }
-            reinforcementBounds: { x: number; y: number; width: number; height: number }
-          }
-        }
-      ).practiceReinforcement
-  )
-  expect(text).toBe(String(first.card.elixir))
+  await expect(reinforcement).toHaveText(String(first.card.elixir))
+  // This is the regression from the shared video: checking a DOM mutation
+  // would pass for a single frame. It must still be readable 250ms later.
+  await page.waitForTimeout(250)
+  await expect(reinforcement).toBeVisible()
+  const { artBounds, reinforcementBounds, sameMotion } = await page.evaluate(() => {
+    const art = document.querySelector('.pcard__img')
+    const answer = document.querySelector('.pcard__answer-cost')
+    if (!(art instanceof HTMLElement) || !(answer instanceof HTMLElement)) {
+      throw new Error('Practice reinforcement disappeared before the 300ms hold')
+    }
+    const bounds = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect()
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    }
+    return {
+      artBounds: bounds(art),
+      reinforcementBounds: bounds(answer),
+      sameMotion: art.closest('.game-motion') === answer.closest('.game-motion')
+    }
+  })
+  expect(artBounds).toBeTruthy()
+  expect(reinforcementBounds).toBeTruthy()
   expect(
     Math.abs(artBounds.x + artBounds.width / 2 - (reinforcementBounds.x + reinforcementBounds.width / 2))
   ).toBeLessThan(2)
   expect(
     Math.abs(artBounds.y + artBounds.height / 2 - (reinforcementBounds.y + reinforcementBounds.height / 2))
   ).toBeLessThan(2)
+  // The answer is structurally inside the same animated card container, so the
+  // exit transform carries them as one object rather than replacing the value.
+  expect(sameMotion).toBe(true)
+  await testInfo.attach('practice-correct-feedback.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  // The hand swaps only after that attached exit completes.
   await expect(cardImage).not.toHaveAttribute('alt', first.name)
   await expect(reinforcement).toHaveCount(0)
 

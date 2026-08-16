@@ -20,8 +20,9 @@ built without a fresh product decision.**
 the same server-signed challenge and scored the same way, but the run records
 **nothing** — no leaderboard, no all-time, no XP, no history. After a guest run
 the summary shows a "Create an account to save this score" nudge (Surge,
-Practice, Higher / Lower, Survival, and Rain via the shared `Summary`; Trade on
-its own result screen).
+Higher / Lower, Survival, and Rain via the shared `Summary`; Trade on its own
+result screen). Practice has no score to save and shows neither that nudge nor a
+share action.
 Local personal bests still track on-device — except Practice, which keeps no
 best for anyone. Signing in unlocks recording and ranking.
 
@@ -127,18 +128,40 @@ Untimed and **endless**. A card appears; name its cost; repeat until you choose
 to stop, via the always-available **End session** control in the top bar (the
 same affordance that exits the other modes, given words). There is no round
 length, no score, no record, and no personal best — the session closes on the
-shared summary + insights showing **stats only**: questions answered, accuracy,
-and the weakest cost bands.
+shared learning summary showing **stats only**: first-read accuracy, average
+response time, recovered misses, cards still needing review, and cost bands.
+Practice has no destination, so its running chrome counts cards practiced and
+first reads but renders no left-to-right progress bar.
 
 The signed challenge deals the **whole shuffled catalog as a pool**, not a
 sequence; `apps/web/src/lib/practice-deal.ts` draws from it weighted by the
 player's own local `elixirdrop:cardStats`, so cards on a miss streak come back
-hardest, then shaky recall, then unseen, and well-known cards stay rare but
-possible. A player with no stats gets plain uniform random. The same card never
-lands twice in a row. Solving a card flashes its correct elixir cost in the gold
-countdown face directly over the art for 300ms. Every ten consecutive first-read
-answers also receives the shared centered milestone flash (10, 20, 30, and so
-on); misses reset that streak.
+hardest, followed by inaccurate or slow recall, then unseen cards; fluent cards
+stay rare but possible. Recognition with choices is useful but is tracked
+separately and never counted as fluent recall. A player with no stats gets plain
+uniform random. The same card never lands twice in a row.
+
+The learning loop has three layers:
+
+- A correct first read places the cost in the gold countdown face directly over
+  the card. It holds stable for at least 300ms and until the next art is decoded,
+  then remains attached while the solved card exits. Reduced motion uses the
+  same learning hold with a short fade.
+- A wrong keypad read gets one anchored directional scaffold (`Higher than 4`
+  or `Lower than 7`). A second miss reveals and holds the exact cost; a wrong
+  recognition choice reveals the exact cost after its wrong beat rather than
+  encouraging elimination guesses.
+- A miss is guaranteed to return after four other reads. A repeated review miss
+  returns after three; a successful retry receives a longer-gap confirmation
+  after ten. Recovery cues say `Got it back!` and `Locked in!`.
+
+First-response time is recorded invisibly after the card is paint-ready,
+excluding background-tab time and capped at 60 seconds. After seven idle seconds
+the player may request help: keypad recall becomes four choices, while an
+already-visible choice set narrows to two. Help is voluntary and never reveals
+the answer. Every ten consecutive first-read answers also receives the shared
+centered milestone flash (10, 20, 30, and so on); misses reset that streak. The
+summary's primary action becomes **Review misses** when the session has any.
 
 **Unranked and unscored by design.** Runs are created `ranked: false`, never
 write a leaderboard entry, have no leaderboard tab, and earn **zero Player XP** —
@@ -149,6 +172,7 @@ feeds the server-owned learning stats (`services/api/src/learning.ts`).
 - Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
   The Speedrun keyboard setting deals the keypad as two wide rows.
 - Record: **none.** Practice has no record key at all (see `RECORD_KEYS`).
+- Sharing: **none.** An endless drill has no comparable result worth publishing.
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
   adjacent but randomly offset, so the option set never names the answer.
 

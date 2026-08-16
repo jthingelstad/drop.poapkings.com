@@ -17,8 +17,9 @@ export default function Privacy() {
             Your email address is used for one-time magic-link sign-in and occasional Drop release news after you
             successfully use a sign-in link. It is never shown on your public profile. Drop stores your chosen player
             name, favorite-card avatar, game results, total games, per-card practice statistics derived from your
-            recorded games (used only to deal you better practice rounds — never shown to other players), and optional
-            Clash Royale player tag. All of it is removed when you delete your account.
+            recorded games—including first-response time and whether choices or a requested hint were used (used only to
+            deal you better practice rounds — never shown to other players)—and optional Clash Royale player tag. All of
+            it is removed when you delete your account.
           </p>
           <p>Magic-link messages come from elixir@poapkings.com.</p>
         </MetaSection>

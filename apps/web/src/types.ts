@@ -36,7 +36,16 @@ export interface CardStat {
   correct: number
   missStreak: number
   lastSeen: number
+  // Recall means the player produced the value from the full keypad. Choice or
+  // idle-hint answers remain useful practice, but are weaker evidence of fluent
+  // recall and must not graduate a card as quickly.
+  recallSeen?: number
+  recallCorrect?: number
+  assistedSeen?: number
+  assistedCorrect?: number
+  // Average first-response time for unassisted recall only.
   avgMs?: number
+  latencySamples?: number
 }
 
 export type CardStats = Record<string, CardStat>

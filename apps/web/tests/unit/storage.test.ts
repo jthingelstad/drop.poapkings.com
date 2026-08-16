@@ -19,7 +19,34 @@ describe('storage seam', () => {
 
     saveResult(1, false, 1200)
     saveResult(1, true, 800)
-    expect(getCardStats()['1']).toMatchObject({ seen: 2, correct: 1, missStreak: 0, avgMs: 1000 })
+    expect(getCardStats()['1']).toMatchObject({
+      seen: 2,
+      correct: 1,
+      missStreak: 0,
+      recallSeen: 2,
+      recallCorrect: 1,
+      assistedSeen: 0,
+      assistedCorrect: 0,
+      avgMs: 1000,
+      latencySamples: 2
+    })
+  })
+
+  it('keeps requested help separate from recall accuracy and fluency', () => {
+    saveResult(2, true, undefined, true)
+    saveResult(2, false, undefined, true)
+    saveResult(2, true, 900)
+
+    expect(getCardStats()['2']).toMatchObject({
+      seen: 3,
+      correct: 2,
+      recallSeen: 1,
+      recallCorrect: 1,
+      assistedSeen: 2,
+      assistedCorrect: 1,
+      avgMs: 900,
+      latencySamples: 1
+    })
   })
 
   it('does not reinterpret a retired Higher/Lower r2 best as an r3 record', () => {

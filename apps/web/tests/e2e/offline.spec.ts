@@ -169,11 +169,19 @@ test('Practice is actually playable with player services unreachable', async ({ 
   // A real dealt hand, from the bundled catalog.
   await expect(page.locator('.ed-game')).toBeVisible({ timeout: 12_000 })
   await expect(page.locator('.pip-keypad')).toBeVisible()
-  await expect(page.locator('.ed-game__progress')).toHaveText('0 answered')
+  await expect(page.locator('.ed-game__progress')).toHaveText('0 practiced')
 
-  // And it plays: answering advances the drill with no server involved.
-  await page.locator('.pip-keypad button').first().click()
-  await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
+  // And the complete learning beat plays with no server involved: answer from
+  // the bundled card data, hold the solved value, then advance locally.
+  const name = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === name)
+  expect(card).toBeTruthy()
+  await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+  await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+  await expect(page.locator('.pcard__answer-cost')).toHaveText(String(card!.elixir))
+  await page.waitForTimeout(250)
+  await expect(page.locator('.pcard__answer-cost')).toBeVisible()
+  await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card!.name)
 })
 
 const offlineModes = ['surge', 'practice', 'higher-lower', 'trade', 'survival', 'rain'] as const
@@ -230,7 +238,7 @@ for (const mode of offlineModes) {
       const card = cardsData.cards.find((candidate) => candidate.name === name)!
       const answer = mode === 'survival' ? (card.elixir === 1 ? 2 : 1) : card.elixir
       await page.getByRole('button', { name: `${answer} elixir`, exact: true }).click()
-      if (mode === 'practice') await expect(page.locator('.ed-game__progress')).toHaveText('1 answered')
+      if (mode === 'practice') await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
       else if (mode === 'surge') await expect(page.locator('.ed-game__progress')).toHaveText('Card 2 / 15')
       else await expect(page.locator('[data-summary]')).toBeVisible({ timeout: 5_000 })
     }

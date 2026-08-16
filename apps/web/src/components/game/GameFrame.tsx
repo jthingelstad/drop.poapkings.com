@@ -30,6 +30,8 @@ interface Props {
   // Usually a plain string ("Card 3 / 15"); Rain renders its lives as glyphs.
   progressText?: ComponentChildren
   metric?: GameMetric
+  // Omit for endless learning surfaces with no destination. Rendering an
+  // accuracy fill in Practice made a score out of a deliberately unscored mode.
   progressPct?: number
   fxParticles?: number
   // Survival's depleting per-card clock needs instant width (no easing) and a
@@ -50,7 +52,7 @@ export default function GameFrame({
   cue,
   progressText,
   metric,
-  progressPct = 0,
+  progressPct,
   fxParticles = 16,
   barTransition = true,
   barLow = false,
@@ -93,15 +95,17 @@ export default function GameFrame({
             </div>
           </div>
 
-          <div class="ed-game__bar" aria-hidden="true">
-            <div
-              class={`ed-game__bar-fill${barLow ? ' ed-game__bar-fill--low' : ''}`}
-              style={{
-                width: `${Math.max(0, Math.min(100, progressPct))}%`,
-                transition: barTransition ? undefined : 'none'
-              }}
-            />
-          </div>
+          {progressPct !== undefined && (
+            <div class="ed-game__bar" aria-hidden="true">
+              <div
+                class={`ed-game__bar-fill${barLow ? ' ed-game__bar-fill--low' : ''}`}
+                style={{
+                  width: `${Math.max(0, Math.min(100, progressPct))}%`,
+                  transition: barTransition ? undefined : 'none'
+                }}
+              />
+            </div>
+          )}
 
           <div class={`ed-game__stage${fullBleed ? ' ed-game__stage--bleed' : ''}`}>{children}</div>
         </>

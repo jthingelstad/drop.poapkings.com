@@ -53,15 +53,16 @@ export function getCardStats(): CardStats {
   return load<CardStats>(K.cardStats, {})
 }
 
-export function saveResult(cardId: number, correct: boolean, ms?: number): void {
+export function saveResult(cardId: number, correct: boolean, ms?: number, assisted = false): void {
   const stats = getCardStats()
   const key = String(cardId)
   const prev: CardStat = stats[key] ?? { seen: 0, correct: 0, missStreak: 0, lastSeen: 0 }
 
+  const latencySamples = prev.latencySamples ?? (prev.avgMs !== undefined ? prev.seen : 0)
   const avgMs =
-    ms !== undefined
+    ms !== undefined && !assisted
       ? prev.avgMs !== undefined
-        ? Math.round((prev.avgMs * prev.seen + ms) / (prev.seen + 1))
+        ? Math.round((prev.avgMs * latencySamples + ms) / (latencySamples + 1))
         : ms
       : prev.avgMs
 
@@ -70,7 +71,12 @@ export function saveResult(cardId: number, correct: boolean, ms?: number): void 
     correct: prev.correct + (correct ? 1 : 0),
     missStreak: correct ? 0 : prev.missStreak + 1,
     lastSeen: Date.now(),
-    ...(avgMs !== undefined ? { avgMs } : {})
+    recallSeen: (prev.recallSeen ?? prev.seen) + (assisted ? 0 : 1),
+    recallCorrect: (prev.recallCorrect ?? prev.correct) + (!assisted && correct ? 1 : 0),
+    assistedSeen: (prev.assistedSeen ?? 0) + (assisted ? 1 : 0),
+    assistedCorrect: (prev.assistedCorrect ?? 0) + (assisted && correct ? 1 : 0),
+    ...(avgMs !== undefined ? { avgMs } : {}),
+    ...(!assisted && ms !== undefined ? { latencySamples: latencySamples + 1 } : {})
   }
 
   save(K.cardStats, stats)

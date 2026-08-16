@@ -2,9 +2,10 @@
 // afford to be a real drill: it deals the cards the player keeps getting wrong
 // far more often than the ones they have already proven they know.
 //
-// The signal is the same local `elixirdrop:cardStats` every mode already writes
-// through lib/storage.ts (seen / correct / missStreak). Nothing here is uploaded
-// and nothing here affects a score — Practice has none.
+// The signal is the same local `elixirdrop:cardStats` every recall mode already
+// writes through lib/storage.ts. The deal stays device-local and affects no
+// score; online completions independently derive server-owned learning stats
+// from their validated transcripts.
 
 import type { Card, CardStat, CardStats } from '../types'
 
@@ -20,13 +21,20 @@ const WEIGHT_KNOWN = 1 // rare, but never impossible — a drill that drops solv
 const SHAKY_ACCURACY = 0.7
 const KNOWN_ACCURACY = 0.9
 const KNOWN_REPS = 4
+export const SLOW_RECALL_MS = 3_000
 
 export function cardWeight(stat: CardStat | undefined): number {
   if (!stat || stat.seen <= 0) return WEIGHT_UNSEEN
   if (stat.missStreak > 0) return WEIGHT_MISSING
-  const accuracy = stat.correct / stat.seen
+  const recallSeen = stat.recallSeen ?? stat.seen
+  const recallCorrect = stat.recallCorrect ?? stat.correct
+  // Recognition practice is useful, but without an unassisted read there is no
+  // evidence yet that the player can produce the value from memory.
+  if (recallSeen <= 0) return WEIGHT_LEARNING
+  const accuracy = recallCorrect / recallSeen
   if (accuracy < SHAKY_ACCURACY) return WEIGHT_SHAKY
-  if (stat.seen >= KNOWN_REPS && accuracy >= KNOWN_ACCURACY) return WEIGHT_KNOWN
+  if (stat.avgMs !== undefined && stat.avgMs >= SLOW_RECALL_MS) return WEIGHT_SHAKY
+  if (recallSeen >= KNOWN_REPS && accuracy >= KNOWN_ACCURACY) return WEIGHT_KNOWN
   return WEIGHT_LEARNING
 }
 

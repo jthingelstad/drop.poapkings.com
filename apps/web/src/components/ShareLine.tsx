@@ -2,13 +2,12 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { track } from '../lib/analytics'
 import { gameDisplay } from '../lib/game-metadata'
-import { runSharePayload, shareRunCard, type RunShareOutcome } from '../lib/share-run'
+import { runSharePayload, shareRunCard, type RunShareOutcome, type ShareableGameMode } from '../lib/share-run'
 import Icon from './Icon'
-import type { GameMode } from '@elixir-drop/contracts'
 import type { ShareCardInput } from '../lib/share-card'
 
 interface Props {
-  mode: GameMode
+  mode: ShareableGameMode
   score: string
   compact?: boolean
   // Everything the composited share card draws on top of the backdrop. Absent
