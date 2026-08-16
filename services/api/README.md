@@ -169,6 +169,20 @@ known value. Account deletion removes the subscriber by email. These calls are
 best effort with a three-second timeout and never change an otherwise
 successful login, profile update, run completion, or deletion response.
 
+## Buttondown metadata backfill
+
+`scripts/backfill-buttondown-metadata.mjs` synchronizes `player_tag`, known
+`clan_tag`, and numeric `total_games` onto existing Buttondown subscribers. It
+reads only the bounded account-directory projection through `drop-control`,
+never prints email addresses or credentials, preserves unrelated subscriber
+metadata and lifecycle state, and refuses an apply if any current player has no
+matching subscriber. It is dry-run by default and idempotent:
+
+```sh
+AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env"
+AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env" --apply
+```
+
 ## Referee evidence
 
 On `/runs/complete`, the API writes best-effort **referee evidence** for every

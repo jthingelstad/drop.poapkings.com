@@ -52,7 +52,9 @@ export function buttondownPlayerMetadata(
   };
 }
 
-function metadataBody(metadata: ButtondownSubscriberMetadata) {
+export function buttondownSubscriberMetadataBody(
+  metadata: ButtondownSubscriberMetadata,
+) {
   return {
     source: "elixir-drop-magic-link",
     player_tag: metadata.playerTag ?? null,
@@ -75,7 +77,9 @@ export async function updateButtondownSubscriberMetadata(
       {
         method: "PATCH",
         headers: headers(active),
-        body: JSON.stringify({ metadata: metadataBody(metadata) }),
+        body: JSON.stringify({
+          metadata: buttondownSubscriberMetadataBody(metadata),
+        }),
         signal: AbortSignal.timeout(3_000),
       },
     );
@@ -111,7 +115,7 @@ export async function enrollButtondownSubscriber(
         body: JSON.stringify({
           email_address: email,
           type: "regular",
-          metadata: metadataBody(metadata),
+          metadata: buttondownSubscriberMetadataBody(metadata),
         }),
         signal: AbortSignal.timeout(3_000),
       },
