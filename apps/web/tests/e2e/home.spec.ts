@@ -65,7 +65,7 @@ test('every game sits in the row, and one is featured for the day', async ({ pag
   expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
   const accented = row.locator('.ed-gcard--accent')
   await expect(accented).toHaveCount(1)
-  await expect(accented).toContainText(new RegExp(wordmark.replace(/ \/ /, ' / '), 'i'))
+  await expect(accented).toContainText(wordmark, { ignoreCase: true })
 })
 
 test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({
