@@ -58,11 +58,22 @@ stable mode strengths and weaknesses; lucky taps or learned sequences; accessibi
 tools; and shared households, schools, workplaces, VPNs, carrier NAT, or devices.
 Correlation is context, never identity proof.
 
-Jamie-confirmed direct playtesting is strong benign calibration for the range of
-skilled human performance when it is consistent with the player's exact retained
-evidence and broad progression. It is never a blanket exemption: each run still
-requires its signed challenge, transcript, timing, and scoring evidence, and missing
-or contradictory evidence remains fail-closed.
+Jamie-confirmed direct playtesting and known competitive human play are strong benign
+calibration for the range of skilled human performance when they are consistent with
+the player's exact retained evidence and broad progression.
+They are never a blanket exemption: each run still requires its signed challenge,
+transcript, timing, and scoring evidence.
+Every run with missing or contradictory evidence remains fail-closed.
+
+For the current Surge rules, input surfaces, and card catalog, direct playtesting
+supports **11.000 seconds as the working lower bound** for a human 15-card clear. A
+sub-11.000-second score is therefore a strong, technically specific review signal. It
+is not an automatic verdict or sufficient by itself for `hidden`: verify the exact
+build and scoring version, signed challenge, transcript, observed input timing, and
+server wall clock; investigate a possible source defect with sanitized synthetic
+evidence; and seek corroborating mechanical or repeated cross-challenge evidence.
+Recalibrate the bound after any material Surge, input, timing, or catalog change, or
+when new Jamie-confirmed human evidence establishes a faster range.
 
 ## Dispositions
 
