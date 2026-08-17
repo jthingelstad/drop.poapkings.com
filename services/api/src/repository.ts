@@ -927,7 +927,7 @@ export class Repository {
       aux: (item.aux ?? {
         modes: [],
         cards: [],
-        dayStreak: 0,
+        playedDays: [],
         dayRuns: 0,
       }) as BadgeCounters["aux"],
       earned: (item.earned ?? {}) as Record<string, string[]>,

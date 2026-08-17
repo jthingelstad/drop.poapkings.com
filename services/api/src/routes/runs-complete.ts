@@ -505,7 +505,8 @@ export async function updateBadges(
         stored.version === 1 ||
         stored.version === 2 ||
         stored.version === 3 ||
-        stored.version === 4
+        stored.version === 4 ||
+        stored.version === 5
       ) {
         // completeRun already wrote this run to history. Migrate from every
         // prior row, then fold the current transcript exactly once below so

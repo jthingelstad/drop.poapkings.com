@@ -48,7 +48,8 @@ async function baselineCounters(
     (stored.version === 1 ||
       stored.version === 2 ||
       stored.version === 3 ||
-      stored.version === 4)
+      stored.version === 4 ||
+      stored.version === 5)
   )
     return migrateBadgeCounters(stored, currentRuns, at);
   return stored

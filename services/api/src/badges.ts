@@ -9,8 +9,8 @@ import type { GameMode } from "./types.js";
 //
 // Two invariants hold everywhere in this file:
 //   1. Counters only ever move in their favourable direction.
-//   2. No valid achievement is ever revoked. A broken daily streak lowers no
-//      badge, while a referee-excluded run is removed because it never
+//   2. No valid achievement is ever revoked. A referee-excluded run is removed
+//      because it never
 //      represented an eligible achievement.
 //
 // Because awarding is a pure function of the counters, badges can be recomputed
@@ -23,7 +23,9 @@ import type { GameMode } from "./types.js";
 // Version 5 makes the counter bag referee-aware: final excluded runs are
 // removed from every history-backed counter, with the latest referee marker
 // retained so a later exclusion or restoration invalidates the bag again.
-export const BADGE_COUNTERS_VERSION = 5;
+// Version 6 replaces Daily Drop's consecutive-day best with a cumulative count
+// of distinct played days and settles the August 16 play-test rung updates.
+export const BADGE_COUNTERS_VERSION = 6;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -32,8 +34,8 @@ export interface BadgeAux {
   // catalog, so this array cannot grow without limit.
   cards: number[];
   // Daily Drop / Marathon bookkeeping, in the player's own local day.
+  playedDays: string[];
   lastDay?: string;
-  dayStreak: number;
   dayRuns: number;
 }
 
@@ -97,7 +99,7 @@ export function emptyCounters(): BadgeCounters {
     version: BADGE_COUNTERS_VERSION,
     values: {},
     runsAtRung: {},
-    aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
+    aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
     earned: {},
   };
 }
@@ -146,6 +148,9 @@ function cloneCounters(input: BadgeCounters): BadgeCounters {
       ...input.aux,
       modes: [...input.aux.modes],
       cards: [...input.aux.cards],
+      playedDays: Array.isArray(input.aux.playedDays)
+        ? [...input.aux.playedDays]
+        : [],
     },
     earned: Object.fromEntries(
       Object.entries(input.earned).map(([slug, stamps]) => [slug, [...stamps]]),
@@ -209,29 +214,22 @@ export function rungIndexFor(
   return index;
 }
 
-// Consecutive-day bookkeeping. Records a BEST, never current state — a broken
-// streak resets the running count but never lowers the badge counter.
+// Played-day bookkeeping. Daily Drop advances once for each distinct local day;
+// Marathon still records the best number of runs completed within one day.
 function foldDay(
   aux: BadgeAux,
   values: Record<string, number>,
   day: string,
 ): void {
+  if (!aux.playedDays.includes(day)) aux.playedDays.push(day);
   if (aux.lastDay === day) {
     aux.dayRuns += 1;
   } else {
-    const previous = aux.lastDay;
     aux.dayRuns = 1;
-    aux.dayStreak =
-      previous && dayDifference(previous, day) === 1 ? aux.dayStreak + 1 : 1;
     aux.lastDay = day;
   }
-  raise(values, "daily-drop", aux.dayStreak);
+  raise(values, "daily-drop", aux.playedDays.length);
   raise(values, "marathon", aux.dayRuns);
-}
-
-function dayDifference(from: string, to: string): number {
-  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
-  return Math.round(ms / 86_400_000);
 }
 
 // A `time` ladder counts EVERY run at or under each rung, not just the best —
@@ -763,33 +761,45 @@ const VERSIONED_SKILL_BADGES = [
   "downpour",
 ] as const;
 
-// Older versions can contain incomparable skill scores from retired boards.
-// Rebuild only those four badges from current-board history: every other stored
-// counter includes forward-only facts (Podium, Clean Sweep, hidden badges,
-// local-day context) that history cannot reproduce. Invalid retired-board
-// rungs are the one exception to the no-revocation rule — they never met the
-// current badge requirement.
+// Versions 1-4 can contain incomparable skill scores from retired boards, so
+// those four badges rebuild from current-board history. Version 5 already has
+// comparable skill counters and retains their original earning timestamps.
+// Every migration rebuilds Daily Drop because a streak value cannot be safely
+// converted into a distinct-day count without the underlying history.
 export function migrateBadgeCounters(
   input: BadgeCounters,
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (
-    input.version !== 1 &&
-    input.version !== 2 &&
-    input.version !== 3 &&
-    input.version !== 4
-  )
+  if (![1, 2, 3, 4, 5].includes(input.version))
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
-  for (const slug of VERSIONED_SKILL_BADGES) {
-    delete counters.values[slug];
-    delete counters.runsAtRung[slug];
-    delete counters.earned[slug];
+  const rebuildVersionedSkillBadges = input.version <= 4;
+  if (rebuildVersionedSkillBadges) {
+    for (const slug of VERSIONED_SKILL_BADGES) {
+      delete counters.values[slug];
+      delete counters.runsAtRung[slug];
+      delete counters.earned[slug];
+    }
   }
 
-  for (const run of runs) {
-    if (!isCurrentBoardRun(run)) continue;
+  delete counters.values["daily-drop"];
+  counters.aux = {
+    modes: [...counters.aux.modes],
+    cards: [...counters.aux.cards],
+    playedDays: [],
+    dayRuns: 0,
+  };
+
+  const ordered = [...runs].sort(
+    (left, right) =>
+      Date.parse(left.completedAt) - Date.parse(right.completedAt),
+  );
+  for (const run of ordered) {
+    // Legacy history has no timezone, so migration uses the same UTC-day
+    // approximation as a first profile backfill. Live completions use localDay.
+    foldDay(counters.aux, counters.values, run.completedAt.slice(0, 10));
+    if (!rebuildVersionedSkillBadges || !isCurrentBoardRun(run)) continue;
     if (run.mode === "trade") {
       const seconds = run.score / 1_000;
       lower(counters.values, "sharp-trade", seconds);

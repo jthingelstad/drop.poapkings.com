@@ -47,6 +47,9 @@ describe("the badge table", () => {
   it("holds 29 badges, 22 visible and 7 hidden", () => {
     expect(BADGE_LIST).toHaveLength(29);
     expect(BADGE_LIST.filter((badge) => badge.hidden)).toHaveLength(7);
+    expect(
+      BADGE_LIST.reduce((total, badge) => total + badge.rungs.length, 0),
+    ).toBe(197);
   });
 
   it("orders count/best rungs upward and time rungs downward", () => {
@@ -68,9 +71,9 @@ describe("rung derivation", () => {
   it("clears a count ladder upward and a time ladder downward", () => {
     const surgeRunner = BADGE_LIST.find((b) => b.slug === "surge-runner")!;
     expect(rungIndexFor(surgeRunner, undefined)).toBe(-1);
-    expect(rungIndexFor(surgeRunner, 9)).toBe(-1);
-    expect(rungIndexFor(surgeRunner, 10)).toBe(0);
-    expect(rungIndexFor(surgeRunner, 650)).toBe(surgeRunner.rungs.length - 1);
+    expect(rungIndexFor(surgeRunner, 4)).toBe(-1);
+    expect(rungIndexFor(surgeRunner, 5)).toBe(0);
+    expect(rungIndexFor(surgeRunner, 450)).toBe(surgeRunner.rungs.length - 1);
 
     // Clockbreaker: 60·50·42·35·30·26·22·19·17·15·13·12, lower is better.
     const clockbreaker = BADGE_LIST.find((b) => b.slug === "clockbreaker")!;
@@ -96,14 +99,33 @@ describe("rung derivation", () => {
     expect(sharpTrade.rungs.at(-1)).toBe(45);
   });
 
-  it("gives the observed Higher/Lower r3 result a next milestone", () => {
+  it("puts the live Higher/Lower best one rung below prismatic", () => {
     const coinFlip = BADGE_LIST.find((b) => b.slug === "coin-flip-killer")!;
-    expect(coinFlip.rungs).toEqual([5, 10, 15, 20, 25, 30, 35, 40, 45, 50]);
-    // The first continuously tightening production run scored 35 after the
-    // same player had reached 87 on r2's retired 2s-floor clock.
-    expect(rungIndexFor(coinFlip, 35)).toBe(6);
-    expect(coinFlip.rungs[rungIndexFor(coinFlip, 35) + 1]).toBe(40);
-    expect(coinFlip.rungs.at(-1)).toBe(50);
+    expect(coinFlip.rungs).toEqual([
+      5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70,
+    ]);
+    expect(rungIndexFor(coinFlip, 68)).toBe(10);
+    expect(coinFlip.rungs[rungIndexFor(coinFlip, 68) + 1]).toBe(70);
+    expect(coinFlip.rungs.at(-1)).toBe(70);
+  });
+
+  it("puts the live Rain best one rung below prismatic", () => {
+    const downpour = BADGE_LIST.find((b) => b.slug === "downpour")!;
+    expect(downpour.rungs).toEqual([25, 40, 55, 70, 90, 120, 135, 150]);
+    expect(rungIndexFor(downpour, 145)).toBe(6);
+    expect(downpour.rungs[rungIndexFor(downpour, 145) + 1]).toBe(150);
+  });
+
+  it("uses the approved play-test mastery ladders", () => {
+    expect(BADGE_LIST.find((b) => b.slug === "trade-reader")?.rungs).toEqual([
+      3, 5, 10, 15, 25, 35, 50, 75, 100, 125, 150,
+    ]);
+    expect(BADGE_LIST.find((b) => b.slug === "surge-runner")?.rungs).toEqual([
+      5, 10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 450,
+    ]);
+    expect(BADGE_LIST.find((b) => b.slug === "stormchaser")?.rungs).toEqual([
+      75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 12_500,
+    ]);
   });
 
   it("ends Unbroken at Survival's reachable 120-card clear", () => {
@@ -265,15 +287,21 @@ describe("advanceBadges", () => {
     expect(unbroken.earnedAt).toHaveLength(5);
   });
 
-  it("records a daily streak as a best, so breaking it takes nothing away", () => {
+  it("counts distinct played days without requiring a streak", () => {
     const counters = play([
       { localDay: "2026-08-01" },
-      { localDay: "2026-08-02" },
-      { localDay: "2026-08-03" },
-      // A four-day gap breaks the streak.
+      { localDay: "2026-08-01" },
       { localDay: "2026-08-07" },
+      { localDay: "2026-08-21" },
+      // A late retry from an already-counted day remains the same distinct day.
+      { localDay: "2026-08-01" },
     ]);
     expect(stateOf(counters, "daily-drop").value).toBe(3);
+    expect(counters.aux.playedDays).toEqual([
+      "2026-08-01",
+      "2026-08-07",
+      "2026-08-21",
+    ]);
   });
 
   it("counts games per day for Marathon", () => {
@@ -586,7 +614,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -603,6 +631,72 @@ describe("recomputeCounters", () => {
     expect(stateOf(migrated, "downpour").value).toBe(102);
     expect(migrated.values.podium).toBe(5);
     expect(migrated.earned.podium).toEqual(stored.earned.podium);
+  });
+
+  it("migrates version 5 played days and settles the extended skill ladders", () => {
+    const stored = emptyCounters();
+    stored.version = 5;
+    // Version 5 stored only lastDay/dayStreak/dayRuns, not the distinct-day set.
+    delete (stored.aux as { playedDays?: string[] }).playedDays;
+    stored.values["daily-drop"] = 7;
+    stored.earned["daily-drop"] = ["2026-08-10T00:00:00.000Z"];
+    stored.values["coin-flip-killer"] = 68;
+    stored.earned["coin-flip-killer"] = Array(10).fill(
+      "2026-08-10T00:00:00.000Z",
+    );
+    stored.values.downpour = 145;
+    stored.earned.downpour = Array(6).fill("2026-08-10T00:00:00.000Z");
+
+    const migrated = migrateBadgeCounters(
+      stored,
+      [
+        {
+          mode: "surge",
+          score: 20_000,
+          completedAt: "2026-08-01T12:00:00.000Z",
+        },
+        {
+          mode: "trade",
+          score: 60_000,
+          completedAt: "2026-08-01T13:00:00.000Z",
+        },
+        {
+          mode: "rain",
+          score: 145,
+          completedAt: "2026-08-07T12:00:00.000Z",
+        },
+        {
+          mode: "higher-lower",
+          score: 68,
+          completedAt: "2026-08-21T12:00:00.000Z",
+        },
+      ],
+      "2026-08-22T00:00:00.000Z",
+    );
+
+    expect(migrated).toMatchObject({
+      version: 6,
+      aux: {
+        playedDays: ["2026-08-01", "2026-08-07", "2026-08-21"],
+        dayRuns: 1,
+        lastDay: "2026-08-21",
+      },
+    });
+    expect(stateOf(migrated, "daily-drop")).toMatchObject({
+      value: 3,
+      rungIndex: 0,
+    });
+    expect(stateOf(migrated, "coin-flip-killer")).toMatchObject({
+      value: 68,
+      rungIndex: 10,
+    });
+    expect(migrated.earned["coin-flip-killer"]?.slice(0, 10)).toEqual(
+      stored.earned["coin-flip-killer"],
+    );
+    expect(stateOf(migrated, "downpour")).toMatchObject({
+      value: 145,
+      rungIndex: 6,
+    });
   });
 
   it("leaves the transcript-derived badges at zero — they are forward-only", () => {
@@ -720,7 +814,7 @@ describe("recomputeCounters", () => {
       { "full-cup": [excludedAt] },
     );
     expect(reconciled).toMatchObject({
-      version: 5,
+      version: 6,
       refereeReconciled: true,
       refereeDecisionRevision: 1,
     });

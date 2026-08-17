@@ -903,7 +903,7 @@ describe("repository DynamoDB requests", () => {
       aux: {
         modes: ["rain"],
         cards: [],
-        dayStreak: 1,
+        playedDays: ["2026-08-07"],
         dayRuns: 1,
       },
       earned: {},

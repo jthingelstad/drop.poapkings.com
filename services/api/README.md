@@ -86,6 +86,11 @@ bag. Pending holds do not remove badges. A later audited restoration rebuilds
 again and restores the run's contribution; canonical run, XP, learning, and
 evidence records remain unchanged.
 
+Daily Drop is a cumulative distinct-played-day badge, not a streak: one recorded
+local calendar day in any mode (Practice included) advances it once. Repeated
+runs that day advance Marathon instead. Guest and offline runs move neither;
+legacy backfills use the UTC date already available on immutable history.
+
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse
 `GSI3` index and returns only public identity, progress, the already-public

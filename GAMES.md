@@ -483,14 +483,14 @@ unless it is re-approved.
 
 ## Badges
 
-29 badges over 188 rungs, backed by `BADGES` in `packages/contracts` and the pure
+29 badges over 197 rungs, backed by `BADGES` in `packages/contracts` and the pure
 engine in `services/api/src/badges.ts`. 22 visible badges on long ladders plus 7
 hidden single-rung badges.
 
 **Why ladders, not tiers.** Three tiers means a player who clears tier III is done
 with that badge forever — it stops motivating exactly the player who cared most.
 A long ladder always has a next rung visible, so rung one can land in a first
-session *and* the top rung can take a year.
+session *and* the top rung remains a genuine long-haul target.
 
 **Rungs are calibrated against real data, not feel.** Measured on 2026-08-02:
 Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Higher/Lower n=5, Survival
@@ -503,9 +503,22 @@ rungs (13–17s) above a 4.7s gap in the real field, so four of them separated
 nobody, while its entry rung excluded 31% of players outright. Ladders with no
 live data behind them are marked "scaled" in the table and should be re-checked
 once badge counters have a month of history. Coin Flip Killer was recalibrated
-on 2026-08-08 when Higher/Lower moved to r3: the same player's best fell from 87
-to 35, so its ladder now runs 5–50, with 35 recognized, 40 next, and 50 as the
-stretch target.
+on 2026-08-08 when Higher/Lower moved to r3. Tyler's 2026-08-16 play testing
+then produced the approved follow-up: Trade Reader runs
+`3·5·10·15·25·35·50·75·100·125·150`; Surge Runner runs
+`5·10·25·50·75·100·125·150·200·250·300·450`; Stormchaser runs
+`75·200·500·1K·2K·3.5K·5.5K·8.5K·12.5K`; Downpour keeps its first six
+steps and ends `135·150`; and Coin Flip Killer keeps `5–50` before new `60·70`
+steps. The live Rain best was 145 and the live Higher/Lower best was 68, leaving
+150 and 70 respectively as the next prismatic targets.
+
+**Daily Drop counts days, not streaks.** Each distinct recorded local calendar
+day advances it once, whether the player uses a ranked mode or Practice. Days do
+not need to be consecutive; extra runs on the same day still belong to Marathon.
+Guest and offline play remain unrecorded and therefore move neither badge. The
+existing `3·7·14·30·60·100·180·365` ladder is unchanged and rebuilds from
+history; legacy rows use their UTC completion date because they retain no local
+timezone.
 
 **Hidden badges.** Shown as a flat black silhouette of the real glyph until
 earned. The badge name stays visible, but its art and earning condition are the

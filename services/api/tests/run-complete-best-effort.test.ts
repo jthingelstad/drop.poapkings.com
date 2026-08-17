@@ -270,8 +270,8 @@ describe("run completion side effects are best effort", () => {
     // and takes Full Cup, whose 6+ cost cards were all named first try.
     expect(slugs).toContain("clockbreaker");
     expect(slugs).toContain("full-cup");
-    // But one run is one run: the volume and habit ladders open at 10 Surge
-    // runs, a 3-day streak and 5 games in a day, so none of them move yet.
+    // But one run is one run: the volume and habit ladders open at 5 Surge
+    // runs, 3 distinct played days and 5 games in a day, so none move yet.
     expect(slugs).not.toContain("surge-runner");
     expect(slugs).not.toContain("daily-drop");
     expect(slugs).not.toContain("marathon");
@@ -283,7 +283,12 @@ describe("run completion side effects are best effort", () => {
       version: 1,
       values: { "sharp-trade": 55.639, podium: 5 },
       runsAtRung: { "sharp-trade": [6, 6, 3, 1, 1, 1, 1, 0, 0] },
-      aux: { modes: ["trade"], cards: [], dayStreak: 1, dayRuns: 1 },
+      aux: {
+        modes: ["trade"],
+        cards: [],
+        playedDays: ["2026-08-02"],
+        dayRuns: 1,
+      },
       earned: {
         "sharp-trade": Array(10).fill("2026-08-02T17:25:31.817Z"),
         podium: Array(4).fill("2026-08-03T10:12:48.768Z"),
@@ -317,7 +322,7 @@ describe("run completion side effects are best effort", () => {
     expect(result.statusCode).toBe(201);
     const saved = repository.saveBadges.mock.calls[0]?.[1];
     expect(saved).toMatchObject({
-      version: 5,
+      version: 6,
       values: { "sharp-trade": 67.126, podium: 5 },
     });
     expect(saved.runsAtRung["sharp-trade"]).toHaveLength(16);

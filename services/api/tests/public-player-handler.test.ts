@@ -80,11 +80,11 @@ describe("GET /players/:id", () => {
     repository.refereeEvidenceForRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 5,
+      version: 6,
       refereeReconciled: true,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      aux: { modes: [], cards: [], dayStreak: 0, dayRuns: 0 },
+      aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
       earned: {
         clockbreaker: ["2026-07-21T17:00:00.000Z", "2026-07-22T17:00:00.000Z"],
       },
@@ -262,7 +262,12 @@ describe("GET /players/:id", () => {
       version: 1,
       values: { "sharp-trade": 55.639, podium: 5 },
       runsAtRung: { "sharp-trade": [6, 6, 3, 1, 1, 1, 1, 0, 0] },
-      aux: { modes: ["trade"], cards: [], dayStreak: 1, dayRuns: 1 },
+      aux: {
+        modes: ["trade"],
+        cards: [],
+        playedDays: ["2026-08-02"],
+        dayRuns: 1,
+      },
       earned: {
         "sharp-trade": Array(10).fill("2026-08-02T17:25:31.817Z"),
         podium: Array(4).fill("2026-08-03T10:12:48.768Z"),
@@ -305,7 +310,7 @@ describe("GET /players/:id", () => {
     );
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
-      expect.objectContaining({ version: 5, refereeReconciled: true }),
+      expect.objectContaining({ version: 6, refereeReconciled: true }),
       expect.any(String),
       {
         version: 1,
@@ -323,7 +328,12 @@ describe("GET /players/:id", () => {
       refereeDecisionRevision: 1,
       values: { clockbreaker: 7, "tower-watch": 25 },
       runsAtRung: { clockbreaker: Array(12).fill(1) },
-      aux: { modes: ["surge"], cards: [27000000], dayStreak: 2, dayRuns: 1 },
+      aux: {
+        modes: ["surge"],
+        cards: [27000000],
+        playedDays: ["2026-08-11", "2026-08-12"],
+        dayRuns: 1,
+      },
       earned: {
         clockbreaker: Array(12).fill(excludedAt),
         "tower-watch": [excludedAt],
@@ -409,7 +419,7 @@ describe("GET /players/:id", () => {
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
       expect.objectContaining({
-        version: 5,
+        version: 6,
         refereeReconciled: true,
         refereeDecisionRevision: 2,
       }),

@@ -251,8 +251,8 @@ rank-oriented fields as part of unrelated work.
   keeps a per-rung run count. `services/api/src/badges.ts` is the whole engine
   and is pure — no I/O — so counters can be recomputed from history, which is
   what makes a badge added later retroactive. Two invariants: counters only move
-  favourably, and **no valid achievement is ever revoked** (a broken daily
-  streak lowers no badge; a versioned migration may remove a retired-board
+  favourably, and **no valid achievement is ever revoked** (a versioned
+  migration may remove a retired-board
   result that never met the badge requirement, and a final referee exclusion
   removes that ineligible run from the derived badge bag). Referee decisions
   append an invalidation marker; the next owner or public profile read rebuilds
@@ -265,9 +265,11 @@ rank-oriented fields as part of unrelated work.
   stats — a badge failure must never roll back a recorded run. **Badges award no
   XP**: they stand alone, so a retroactive backfill cannot jump a player several
   arenas. Rungs were calibrated against the live boards on 2026-08-02, with
-  Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06,
-  not copied from the design draft; ladders with no live data behind them are
-  marked "scaled" in the table and want a re-check.
+  Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06
+  and the five Tyler-tested volume/skill ladders plus Daily Drop reworked on
+  2026-08-16. Daily Drop counts distinct played days, never a streak. The rungs
+  are not copied from the design draft; ladders with no live data behind them
+  are marked "scaled" in the table and want a re-check.
 - **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is
   server-computed in `services/api/src/xp.ts` (`runXp` = questions attempted in
   a run, right or wrong; floor 1), added to the `PLAYER#/PROFILE` item inside

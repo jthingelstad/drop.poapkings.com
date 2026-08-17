@@ -457,7 +457,7 @@ export function arenaForXp(xp: number): number {
 // A badge is ONE monotonic counter and an ordered list of rungs — not three
 // tiers. A long ladder always has a next rung visible, so the badge keeps
 // motivating the player who cared most, and rung one can land in a first session
-// while the top rung takes a year.
+// while the top rung remains a genuine long-haul target.
 //
 // Three counter kinds cover all 29 badges:
 //   count — events, only ever climbs;      rung clears at value >= rung
@@ -465,12 +465,13 @@ export function arenaForXp(xp: number): number {
 //   time  — personal best in seconds, LOWER better; rung clears at value <= rung
 //
 // Two invariants the engine must never break: counters only move in their
-// favourable direction, and **nothing earned is ever revoked** (a broken daily
-// streak cannot take a badge back). Awarding is therefore a pure function of the
-// counters, which is what makes badges recomputable from history.
+// favourable direction, and **nothing earned is ever revoked**. Awarding is
+// therefore a pure function of the counters, which is what makes badges
+// recomputable from history.
 //
 // The rungs below were calibrated against Drop's live leaderboards on
-// 2026-08-02, then rechecked when a mode's format changed. They are NOT copied
+// 2026-08-02, then rechecked when a mode's format or real play-test evidence
+// changed. They are NOT copied
 // from the design-time proposal in the Claude Design project's `Badge Set.md`.
 // That draft assumed thousands of players; Drop had 16 with a recorded Surge
 // best. Its Clockbreaker ladder put five consecutive rungs (13-17s) above a 4.7s
@@ -517,7 +518,7 @@ export const BADGES = [
     name: "Surge Runner",
     group: "mode-mastery",
     kind: "count",
-    rungs: [10, 25, 50, 75, 125, 200, 300, 450, 650],
+    rungs: [5, 10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 450],
     requirement: "Surge runs finished",
   },
   {
@@ -533,7 +534,7 @@ export const BADGES = [
     name: "Trade Reader",
     group: "mode-mastery",
     kind: "count",
-    rungs: [5, 10, 25, 50, 75, 125, 200, 300, 450],
+    rungs: [3, 5, 10, 15, 25, 35, 50, 75, 100, 125, 150],
     requirement: "Trade runs finished",
   },
   {
@@ -549,7 +550,7 @@ export const BADGES = [
     name: "Stormchaser",
     group: "mode-mastery",
     kind: "count",
-    rungs: [100, 250, 600, 1_200, 2_500, 4_500, 7_000, 11_000, 16_000],
+    rungs: [75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 12_500],
     requirement: "Cards cleared in Rain",
   },
   {
@@ -591,15 +592,14 @@ export const BADGES = [
     requirement: "Fastest 10-exchange Trade run",
   },
   {
-    // Recalibrated for Higher/Lower r3 on 2026-08-08. The same player's best
-    // fell from 87 on the retired 2s-floor clock to 35 on the continuously
-    // tightening clock. Five opens the ladder, the observed 35 earns its own
-    // rung with 40 next, and 50 is the evidence-based stretch target.
+    // Recalibrated for Higher/Lower r3 on 2026-08-08, then extended from the
+    // live 68-card best on 2026-08-16. The original 5-50 milestones remain,
+    // with 60 as the last gold step and 70 as the prismatic stretch target.
     slug: "coin-flip-killer",
     name: "Coin Flip Killer",
     group: "mode-skill",
     kind: "best",
-    rungs: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+    rungs: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70],
     requirement: "Best single Higher / Lower run",
   },
   {
@@ -614,12 +614,13 @@ export const BADGES = [
     requirement: "Longest Survival streak",
   },
   {
-    // Measured: best single run 90.
+    // The live best reached 145 on 2026-08-16. Preserve the established early
+    // ladder, then put the last gold step at 135 and prismatic at 150.
     slug: "downpour",
     name: "Downpour",
     group: "mode-skill",
     kind: "best",
-    rungs: [25, 40, 55, 70, 90, 120, 160, 220],
+    rungs: [25, 40, 55, 70, 90, 120, 135, 150],
     requirement: "Most cleared in one Rain run",
   },
   {
@@ -704,15 +705,15 @@ export const BADGES = [
     requirement: "Correct reads on 6+ cost cards",
   },
 
-  // ── Habit (2). Both record a BEST, never current state — a broken streak
-  // must not take a badge away. ─────────────────────────────────────────────
+  // ── Habit (2). Daily Drop counts distinct played days; Marathon records the
+  // best single-day run count. Both remain monotonic. ───────────────────────
   {
     slug: "daily-drop",
     name: "Daily Drop",
     group: "habit",
-    kind: "best",
+    kind: "count",
     rungs: [3, 7, 14, 30, 60, 100, 180, 365],
-    requirement: "Longest consecutive-day streak",
+    requirement: "Distinct days played",
   },
   {
     slug: "marathon",

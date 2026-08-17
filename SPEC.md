@@ -419,16 +419,21 @@ Ledger stores zero there to keep Reps and Clean Sweep isolated.
 
 Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
 item holds the monotonic counters, per-rung `time` run counts, the distinct-mode
-and distinct-card sets, day-streak bookkeeping, and an ISO stamp per cleared
+and distinct-card sets, distinct played-day and same-day run bookkeeping, and an ISO stamp per cleared
 rung. It is written best-effort *after* `completeRun` succeeds — never inside its
 transaction — so a badge failure leaves the run recorded, and account deletion
 sweeps it with the rest of the player partition. `GET /me` returns a `badges`
 summary (`{ badges: BadgeState[], backfilled?: true }`), rebuilding the counters
 from run history plus CARDSTATS the first time a player is read; new history
 rows retain the board epoch that dealt them so a mode-skill badge cannot mix
-retired, incomparable formats. Sharp Trade's version-2 migration rebuilds only
-that badge from 10-exchange `r2` history and preserves forward-only state such
-as Podium, Reps, Clean Sweep, and hidden badges. `backfilled`
+retired, incomparable formats. Daily Drop advances once on each recorded local
+calendar day in any mode, including Practice; days need not be consecutive and
+multiple runs on one day count once. Guest and offline play remain outside every
+badge. Legacy history has no timezone, so a rebuild uses its UTC completion date
+for those rows and local days for live completions. Counter version 6 rebuilds
+that distinct-day count from history, settles the 2026-08-16 play-test ladders,
+and preserves forward-only state such as Podium, Reps, Clean Sweep, and hidden
+badges. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Its identity projection also
