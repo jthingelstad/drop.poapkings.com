@@ -418,15 +418,15 @@ describe('SignInToSave', () => {
     player.value = null
     const html = await render(<SignInToSave />)
     expect(html).toContain('competition-panel--join')
-    expect(html).toContain('Create an account to save this score')
-    expect(html).toContain('Sign in to save')
+    expect(html).toContain('Sign in before your next game to save future scores')
+    expect(html).toContain('Sign In')
   })
 
   it('renders the compact line variant', async () => {
     player.value = null
     const html = await render(<SignInToSave variant="line" />)
     expect(html).toContain('signin-save--line')
-    expect(html).toContain('Sign in to save your streak')
+    expect(html).toContain('Sign in before your next game to save future scores')
   })
 })
 

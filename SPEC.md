@@ -29,10 +29,10 @@ global game totals, and seasonal leaderboards. The site and leaderboards remain
 public. Anyone can play every mode **without an account as a guest**: a guest run
 is dealt the same server-signed challenge and scored the same way, but nothing is
 recorded (no leaderboard, no all-time, no XP, no history, no Discord) — the
-summary nudges the visitor to sign in to save the score. An email-authenticated
-player session unlocks recording and ranking. Dynamic Clash Royale player
-enrichment and the global Clan Wars clock run asynchronously through the fixed-IP
-bridge.
+summary nudges the visitor to sign in before the next game so future scores can
+be recorded. An email-authenticated player session unlocks recording and
+ranking. Dynamic Clash Royale player enrichment and the global Clan Wars clock
+run asynchronously through the fixed-IP bridge.
 
 The only outbound ties are ordinary links:
 
@@ -617,6 +617,10 @@ Authenticated public identity is centered on one favorite card:
 - Changing a favorite card requires choosing a new card-derived name in the
   same flow. Existing profiles without a favorite card remain readable and use
   the Drop app icon until the player chooses one.
+- First-time setup leads with the required Player Card, then the generated
+  player name. The optional Clash Royale tag stays out of setup; finishing
+  returns to the requested game (or Home) and defers the tag reminder for seven
+  days on that device.
 - Clash Royale player tags are separate and unverified. Saving or reading a
   stale tag queues a refresh; snapshots are fresh for six hours and shared by
   tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and

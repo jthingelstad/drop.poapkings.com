@@ -27,6 +27,7 @@ import ModeIcon from '../components/ModeIcon'
 import { GAMES, gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
+import { deferPlayerTagNudge } from '../lib/player-tag-nudge'
 import { navigate, route } from '../lib/router'
 import { layout } from '../lib/use-layout'
 import MetaMoreList from '../components/MetaMoreList'
@@ -132,7 +133,7 @@ export default function Profile() {
           </p>
         </div>
         <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/login')}>
-          <span class="tap-face">Send magic link</span>
+          <span class="tap-face">Sign In</span>
         </button>
         <div class="ed-profile-guest__note">No password — we email you a one-tap link.</div>
         <button class="ed-textlink" onClick={() => navigate('/')}>
@@ -145,6 +146,7 @@ export default function Profile() {
   }
 
   const current = player.value
+  const isInitialSetup = current.favoriteCardId === undefined
   const currentCard = current.favoriteCardId === undefined ? undefined : challengeCard(current.favoriteCardId)
   const selectedCard = selectedCardId.value === null ? undefined : challengeCard(selectedCardId.value)
   const query = search.value.trim().toLocaleLowerCase()
@@ -196,8 +198,11 @@ export default function Profile() {
       })
       names.value = []
       editingIdentity.value = false
+      if (isInitialSetup) deferPlayerTagNudge(current.id)
       if (returnTo) {
         navigate(returnTo)
+      } else if (isInitialSetup) {
+        navigate('/')
       } else {
         message.value = `${selectedCard.name} is now your favorite card.`
       }
@@ -266,38 +271,16 @@ export default function Profile() {
           </div>
         </div>
 
-        {returnTo && <p class="ed-edit__note">Choose a favorite card and generated name to continue to your game.</p>}
+        {isInitialSetup && (
+          <p class="ed-edit__note">
+            Choose a Player Card, then pick a generated name. You can add a Clash Royale tag later.
+            {returnTo ? ' You’ll return to your game when setup is complete.' : ''}
+          </p>
+        )}
 
         <section class="ed-edit__section">
-          <div class="ed-edit__section-title">Player name</div>
-          <p class="ed-edit__section-sub">Inspired by your Player Card. Generate a set and pick your favorite.</p>
-          <button
-            class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
-            onClick={() => void loadNames()}
-            disabled={busy.value || !selectedCard}
-          >
-            <span class="tap-face">
-              <Icon name="sparkles" /> {names.value.length ? 'More name ideas' : 'Get name ideas'}
-            </span>
-          </button>
-          {names.value.length > 0 && (
-            <div class="ed-edit__names name-options" aria-label="Choose your public player name">
-              {names.value.map((name) => (
-                <button
-                  key={name}
-                  class="ed-nameopt name-option"
-                  onClick={() => void chooseName(name)}
-                  disabled={busy.value}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section class="ed-edit__section">
-          <div class="ed-edit__section-title">Player Card</div>
+          <div class="ed-edit__section-title">{isInitialSetup ? '1. Choose your Player Card' : 'Player Card'}</div>
+          <p class="ed-edit__section-sub">This card becomes your avatar and inspires your player name.</p>
           <input
             type="search"
             class="ed-edit__search"
@@ -324,22 +307,66 @@ export default function Profile() {
         </section>
 
         <section class="ed-edit__section">
-          <div class="ed-edit__section-title">Clash Royale player tag</div>
-          <p class="ed-edit__section-sub">Points at a public CR profile (not ownership). Drop loads it when saved.</p>
-          <form class="ed-edit__tagform" onSubmit={saveTag}>
-            <input
-              id="clash-player-tag"
-              ref={tagInputRef}
-              aria-label="Clash Royale player tag"
-              value={tag.value}
-              placeholder="#PLAYER_TAG"
-              onInput={(event) => (tag.value = event.currentTarget.value)}
-            />
-            <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" disabled={busy.value}>
-              <span class="tap-face">Save tag</span>
-            </button>
-          </form>
+          <div class="ed-edit__section-title">{isInitialSetup ? '2. Choose your player name' : 'Player name'}</div>
+          <p class="ed-edit__section-sub">
+            {selectedCard
+              ? `Inspired by ${selectedCard.name}. Generate a set and pick your favorite.`
+              : 'Choose a Player Card above, then generate a set of player names.'}
+          </p>
+          <button
+            class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
+            onClick={() => void loadNames()}
+            disabled={busy.value || !selectedCard}
+          >
+            <span class="tap-face">
+              <Icon name="sparkles" />{' '}
+              {busy.value
+                ? 'Getting ideas…'
+                : !selectedCard
+                  ? 'Choose a Player Card first'
+                  : names.value.length
+                    ? 'More name ideas'
+                    : 'Get name ideas'}
+            </span>
+          </button>
+          {names.value.length > 0 && (
+            <>
+              {isInitialSetup && <p class="ed-edit__section-sub">Pick a name to finish setup.</p>}
+              <div class="ed-edit__names name-options" aria-label="Choose your public player name">
+                {names.value.map((name) => (
+                  <button
+                    key={name}
+                    class="ed-nameopt name-option"
+                    onClick={() => void chooseName(name)}
+                    disabled={busy.value}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
+
+        {!isInitialSetup && (
+          <section class="ed-edit__section">
+            <div class="ed-edit__section-title">Clash Royale player tag (optional)</div>
+            <p class="ed-edit__section-sub">Points at a public CR profile (not ownership). Drop loads it when saved.</p>
+            <form class="ed-edit__tagform" onSubmit={saveTag}>
+              <input
+                id="clash-player-tag"
+                ref={tagInputRef}
+                aria-label="Clash Royale player tag"
+                value={tag.value}
+                placeholder="#PLAYER_TAG"
+                onInput={(event) => (tag.value = event.currentTarget.value)}
+              />
+              <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" disabled={busy.value}>
+                <span class="tap-face">Save tag</span>
+              </button>
+            </form>
+          </section>
+        )}
 
         {message.value && (
           <div class="ed-edit__msg" role="status">

@@ -38,6 +38,12 @@ export function isPlayerTagNudgeDue(lastShownAt: number | undefined, now: number
   return lastShownAt === undefined || now - lastShownAt >= PLAYER_TAG_NUDGE_INTERVAL_MS
 }
 
+// Completing the required card/name setup should not immediately open another
+// account task. Treat setup completion as the first reminder for this device.
+export function deferPlayerTagNudge(playerId: string, now = Date.now()): void {
+  writeShown(playerId, now)
+}
+
 // Holds the player for whom the prompt is open. The player id prevents a
 // sign-out/account switch from carrying one player's modal into another.
 export const playerTagNudgePlayerId = signal<string | null>(null)

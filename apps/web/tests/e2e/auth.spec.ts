@@ -15,7 +15,7 @@ import {
 } from './fixtures'
 
 test(
-  'a signed-out visitor plays a game as a guest and is nudged to save the score',
+  'a signed-out visitor plays a game as a guest and is nudged to save future scores',
   { tag: '@deploy' },
   async ({ page }) => {
     // Hold the response until the in-flight guest state has actually been
@@ -57,10 +57,10 @@ test(
     await expect(summary).toBeVisible()
     await expect(summary.getByRole('button', { name: 'Play again' })).toBeVisible()
     await expect(
-      page.getByText('Create an account to save this score and make it eligible for the leaderboard.')
+      page.getByText('Sign in before your next game to save future scores and compete on the leaderboard.')
     ).toBeVisible()
-    await summary.getByRole('button', { name: 'Sign in to save' }).click()
-    await expect(page).toHaveURL(/#\/login$/)
+    await summary.getByRole('button', { name: 'Sign In', exact: true }).click()
+    await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurvival$/)
   }
 )
 
@@ -103,16 +103,17 @@ test('signing in from the login screen returns the player to the requested game'
   // first leaves shell support requests racing the route replacement below.
   await useSignedOutState(page, '/login?returnTo=%2Fsurge')
 
+  await expect(page.getByRole('heading', { name: 'Sign In', exact: true })).toBeVisible()
   const emailInput = page.getByLabel('Email address')
   await emailInput.fill('e***@p***.com')
-  await page.getByRole('button', { name: 'Email me a login link' }).click()
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveText('Enter your complete email address, not a masked address.')
   await expect(emailInput).toHaveAttribute('aria-invalid', 'true')
   expect(loginBody).toBeUndefined()
 
   await emailInput.fill('player@example.com')
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Email me a login link' }).click()
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   // Scoped to the login card: the UpdateBanner is also role="status", and it
   // can mount mid-test whenever the built version differs from the one /stats
   // reports, which made a bare getByRole('status') a strict-mode violation.
@@ -178,7 +179,12 @@ test('new players choose a favorite card and generated name before returning to 
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
   // The identity editor (redesign) opens straight into setup for a new player.
-  await expect(page.getByText('Choose a favorite card and generated name to continue')).toBeVisible()
+  await expect(page.getByText('You can add a Clash Royale tag later.', { exact: false })).toBeVisible()
+  const setupSections = page.locator('.ed-edit__section-title')
+  await expect(setupSections.nth(0)).toHaveText('1. Choose your Player Card')
+  await expect(setupSections.nth(1)).toHaveText('2. Choose your player name')
+  await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Choose a Player Card first' })).toBeDisabled()
 
   const favoriteCards = page.locator('.favorite-card-grid')
   // The grid caps at 60 cards, so narrow to the Knight before selecting it.

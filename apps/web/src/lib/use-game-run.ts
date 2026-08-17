@@ -222,8 +222,8 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
           message: !isRecordedMode(result.mode)
             ? 'Practice session complete'
             : seasonBest
-              ? 'Local best! Sign in to save it'
-              : 'Played as a guest — sign in to save scores'
+              ? 'Local best! Sign in before your next game to record future scores'
+              : 'Played as a guest — sign in before your next game to record scores'
         })
         onRecorded?.()
         return

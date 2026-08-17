@@ -393,7 +393,7 @@ describe('Profile interactive flows', () => {
     await mount()
 
     expect(container.textContent).toContain('Player profile')
-    const link = byText(container, 'Send magic link')
+    const link = byText(container, 'Sign In')
     expect(link).toBeTruthy()
     await fire(link as Element)
     expect(router.route.value).toBe('/login')
@@ -490,14 +490,41 @@ describe('Profile interactive flows', () => {
     // No favorite card yet → editor opens straight to setup, note visible.
     await signIn({})
     await mount()
-    expect(container.textContent).toContain('continue to your game')
+    expect(container.textContent).toContain('return to your game')
+    const setupTitles = [...container.querySelectorAll('.ed-edit__section-title')].map((title) => title.textContent)
+    expect(setupTitles.slice(0, 2)).toEqual(['1. Choose your Player Card', '2. Choose your player name'])
+    expect(container.querySelector('[aria-label="Clash Royale player tag"]')).toBeNull()
+    expect((byText(container, 'Choose a Player Card first') as HTMLButtonElement).disabled).toBe(true)
 
     // Select a card first (setup has no preselected favorite), then name.
     await fire(container.querySelector('.favorite-card') as Element)
+    expect(byText(container, 'Get name ideas')).toBeTruthy()
     await fire(byText(container, 'Get name ideas') as Element)
     await fire(container.querySelector('.name-option') as Element)
 
     expect(router.route.value).toBe('/surge')
+  })
+
+  it('finishes first-time setup on Home when no game is pending', async () => {
+    window.location.hash = '/profile'
+    await flush()
+    router.route.value = '/profile'
+    vi.mocked(api.getNameOptions).mockResolvedValue({
+      favoriteCardId: 26000000,
+      names: ['Knight Prime'],
+      nameToken: 'tok-1'
+    })
+    vi.mocked(api.patchMe).mockResolvedValue({
+      player: { ...basePlayer, favoriteCardId: 26000000, publicName: 'Knight Prime' }
+    })
+    await signIn({})
+    await mount()
+
+    await fire(container.querySelector('.favorite-card') as Element)
+    await fire(byText(container, 'Get name ideas') as Element)
+    await fire(container.querySelector('.name-option') as Element)
+
+    expect(router.parseHash()).toBe('/')
   })
 
   // --- Identity editor: card search + selection ----------------------------

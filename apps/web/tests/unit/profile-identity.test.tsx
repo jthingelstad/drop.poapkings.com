@@ -50,6 +50,9 @@ describe('favorite-card identity', () => {
     expect(html).toContain('Search cards')
     expect(html).toContain('aria-label="Choose your favorite card"')
     expect(html).toContain('Knight')
+    expect(html.indexOf('1. Choose your Player Card')).toBeLessThan(html.indexOf('2. Choose your player name'))
+    expect(html).toContain('Choose a Player Card first')
+    expect(html).not.toContain('aria-label="Clash Royale player tag"')
   })
 
   it('syncs a returning player that arrives after the profile mounts', async () => {

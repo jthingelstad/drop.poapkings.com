@@ -68,9 +68,9 @@ export default function Login() {
   return (
     <div class="main-content account-screen">
       <div class="account-card">
-        <div class="eyebrow">Player account required</div>
-        <h1>Sign in with email</h1>
-        <p class="lede">We’ll send a private link. No password, no Clash Royale account access.</p>
+        <div class="eyebrow">Player account</div>
+        <h1>Sign In</h1>
+        <p class="lede">Enter your email and we’ll send a private link. No password, no Clash Royale account access.</p>
         <p class="account-privacy">
           Your email stays private and is used for sign-in plus occasional Drop release news after you successfully sign
           in. Your chosen player name, favorite card, scores, and optional public Clash Royale tag appear in Drop.{' '}
@@ -125,7 +125,7 @@ export default function Login() {
               }}
             />
             <button class="btn btn--gold" disabled={status.value === 'sending'}>
-              {status.value === 'sending' ? 'Sending…' : 'Email me a login link'}
+              {status.value === 'sending' ? 'Sending…' : 'Sign In'}
             </button>
           </form>
         )}

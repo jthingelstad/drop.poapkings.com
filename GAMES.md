@@ -20,10 +20,11 @@ built without a fresh product decision.**
 **Guest play (no account):** every mode is playable signed-out. A guest is dealt
 the same server-signed challenge and scored the same way, but the run records
 **nothing** — no leaderboard, no all-time, no XP, no history. After a guest run
-the summary shows a "Create an account to save this score" nudge (Surge,
-Higher / Lower, Survival, and Rain via the shared `Summary`; Trade on its own
-result screen). Practice has no score to save and shows neither that nudge nor a
-share action.
+the summary invites the player to sign in before the next game so future scores
+can be recorded (Surge, Higher / Lower, Survival, and Rain via the shared
+`Summary`; Trade on its own result screen). A completed guest result is never
+promoted retroactively. Practice has no score to save and shows neither that
+nudge nor a share action.
 Local personal bests still track on-device — except Practice, which keeps no
 best for anyone. Signing in unlocks recording and ranking.
 
