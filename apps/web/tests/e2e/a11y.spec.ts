@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, isDesktopViewport, test } from './fixtures'
 
 const a11yRoutes = [
-  { hash: '#/', label: 'Home', ready: '.ed-home, .ed-home-d' },
+  { hash: '#/', label: 'Home', ready: '.ed-home' },
   { hash: '#/practice', label: 'Practice', ready: '.practice-hub, .ed-home' },
   { hash: '#/practice/costs', label: 'Cost Recall', ready: '.ed-game' },
   { hash: '#/practice/ledger', label: 'Ledger', ready: '.ed-game' },

@@ -4,7 +4,6 @@ import {
   cardsData,
   completeSurge,
   expect,
-  isDesktopViewport,
   test,
   testApiRoute,
   waitForKeypad
@@ -20,42 +19,38 @@ async function setOnline(page: import('@playwright/test').Page, online: boolean)
   }, online)
 }
 
-test('offline shows a persistent mark and keeps games playable', async ({ page, viewport }) => {
+test('offline shows a persistent mark and keeps games playable', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
-  await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
   await expect(page.locator('.ed-cause')).toHaveCount(0)
 
   await setOnline(page, false)
 
   // A persistent state gets a persistent mark, never a standing banner. On the
-  // redesigned mobile home that mark is the OFFLINE cause chip plus the readiness
-  // line; the desktop shell (a separate commit) keeps its rail glyph.
-  if (isDesktopViewport(viewport)) {
-    await expect(page.locator('.ed-offline-glyph').first()).toBeVisible()
-  } else {
-    await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
-    await expect(page.locator('.ed-home__ready')).toContainText('You are offline but ready to play')
-    const rows = page.locator('.ed-grow--ranked')
-    await expect(rows).toHaveCount(4)
-    for (const row of await rows.all()) await expect(row).toBeEnabled()
-  }
+  // single-column home (letterboxed on desktop) that mark is the OFFLINE cause
+  // chip plus the readiness line; every game stays playable offline.
+  await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
+  await expect(page.locator('.ed-home__ready')).toContainText('You are offline but ready to play')
+  const rows = page.locator('.ed-grow--ranked')
+  await expect(rows).toHaveCount(4)
+  for (const row of await rows.all()) await expect(row).toBeEnabled()
   await expect(page.locator('.ed-offline')).toHaveCount(0)
 
   await setOnline(page, true)
-  await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
   await expect(page.locator('.ed-cause')).toHaveCount(0)
 })
 
 test('a signed-out desktop visitor still gets the offline mark', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'desktop shell only')
+  test.skip(isMobile, 'this exercises the desktop letterbox')
   await page.addInitScript(() => localStorage.removeItem('elixirdrop:session:v1'))
   await page.goto('/?signedOut=1')
-  await expect(page.locator('.ed-rail-chip__name')).toHaveText('Guest')
+  // The player/guest chip moved off the shell to the You page; the desktop
+  // letterbox home carries the same OFFLINE cause chip as mobile.
+  await expect(page.locator('.ed-hero').first()).toBeVisible()
 
   await setOnline(page, false)
 
-  await expect(page.locator('.ed-rail-chip--guest .ed-offline-glyph')).toBeVisible()
+  await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
 })
 
 test('offline keeps the same nav and names the cause on the page it stays on', async ({ page, isMobile }) => {
@@ -100,7 +95,7 @@ test('an API-only outage allows local play while navigator remains online', { ta
     (response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/me'
   )
   await page.goto('/')
-  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+  await expect(page.locator('.ed-hero').first()).toBeVisible()
   await accountReady
 
   allowOfflineTransportErrors.add(page)
@@ -308,7 +303,7 @@ test('all six game chunks are fetched while online, before they are needed', asy
   })
 
   await page.goto('/')
-  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+  await expect(page.locator('.ed-hero').first()).toBeVisible()
 
   // Without ever navigating to a game.
   await expect.poll(() => offlineModes.every((mode) => requested.has(mode)), { timeout: 10_000 }).toBe(true)

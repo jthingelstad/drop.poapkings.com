@@ -1,8 +1,14 @@
-// Layout switch — the redesign ships two DISTINCT layouts (not one fluid page):
-// a mobile single-column shell below 1024px and a desktop 3-column shell at or
-// above it. This is the single source of truth for which one renders; the shell
-// is chosen at the breakpoint and re-evaluated on resize. Tablet uses desktop
-// down to 1024. There is intentionally no other breakpoint JS in the app.
+// Layout switch — the redesign ships ONE phone-column layout. On mobile it is
+// the full-bleed shell; at or above 1024px the same column is centered and
+// letterboxed on the dark field, with a slim aside in the margin. This signal is
+// the single source of truth for "are we letterboxing?"; it is read at the
+// breakpoint and re-evaluated on resize. Tablet uses the desktop letterbox down
+// to 1024. There is intentionally no other breakpoint JS in the app.
+//
+// The letterbox is a WIDTH decision. Whether RANKED play is allowed is a
+// separate INPUT decision (supportsTouchPlay, below): ranked is timed to the
+// millisecond and plays on touch, so a touchscreen desktop can still rank while
+// a mouse-only laptop is held to Practice — independent of this breakpoint.
 
 import { signal } from '@preact/signals'
 
@@ -33,6 +39,18 @@ if (typeof window !== 'undefined' && window.matchMedia) {
 
 export function isDesktop(): boolean {
   return layout.value === 'desktop'
+}
+
+// Whether the device can play a ranked run. Ranked timing is fair only on touch,
+// so this gates the five ranked modes (Practice stays open everywhere). It is
+// purely input-based — a coarse pointer or any touch points — and deliberately
+// independent of the width breakpoint above: a touchscreen desktop passes, a
+// mouse-only widescreen does not. Not reactive; input capability does not change
+// mid-session, and a static read keeps SSR/tests deterministic.
+export function supportsTouchPlay(): boolean {
+  if (typeof window === 'undefined') return false
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  return coarse || (navigator.maxTouchPoints ?? 0) > 0
 }
 
 // The primary-input verb for prompts — "Click" on the desktop (pointer) shell,

@@ -6,9 +6,13 @@ test(
   async ({ page, viewport }, testInfo) => {
     await page.goto('/')
 
+    // One home for every width (HomeMobile, letterboxed on desktop).
+    await expect(page.locator('.ed-home')).toBeVisible()
+    // Rankings stay on the dedicated Ranks page rather than trailing Games.
+    await expect(page.locator('.ed-standpeek')).toHaveCount(0)
+
     if (isDesktopViewport(viewport)) {
-      await expect(page.locator('.ed-home-d')).toBeVisible()
-      // Season standings live in the desktop right rail.
+      // Season standings + the live feed survive into the desktop letterbox aside.
       await expect(page.locator('.ed-rail-standings')).toContainText('Royal Ghosted')
       await expect(page.locator('.ed-rail-standings')).toContainText('You')
       await expect(page.locator('.ed-rail-this')).toContainText('Get 8.9s faster to take the lead')
@@ -17,10 +21,6 @@ test(
       await expect(page.locator('.ed-rail-live__head')).toContainText('Recent runs')
       await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
       await expect(page.locator('.ed-rail-live__dot')).toHaveCount(0)
-    } else {
-      await expect(page.locator('.ed-home')).toBeVisible()
-      // Rankings stay on the dedicated Ranks page rather than trailing Games.
-      await expect(page.locator('.ed-standpeek')).toHaveCount(0)
     }
 
     // The hero rotates by UTC day. Its result must follow the featured mode
@@ -39,32 +39,23 @@ test(
   }
 )
 
-test('the hero features one ranked game and the other four are full-width rows', async ({ page, viewport }) => {
+test('the hero features one ranked game and the other four are full-width rows', async ({ page }) => {
   await page.goto('/')
 
   // The hero promotes one ranked game for the day.
   const wordmark = (await page.locator('.ed-hero__wordmark').first().textContent())?.trim() ?? ''
   expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
 
-  // The mobile home is the redesigned full-width-row layout; the desktop shell is
-  // a separate commit and keeps its card grid, so the assertions differ per shell.
-  if (isDesktopViewport(viewport)) {
-    const row = page.locator('.ed-more-row, .ed-more-grid').first()
-    await expect(row.locator('.ed-gcard')).toHaveCount(5)
-    const accented = row.locator('.ed-gcard--accent')
-    await expect(accented).toHaveCount(1)
-    await expect(accented).toContainText(wordmark, { ignoreCase: true })
-  } else {
-    // Exactly the OTHER four ranked games are listed as rows — the featured game
-    // is pulled out of the list so it never appears twice.
-    const otherFour = page.locator('.ed-rows').first()
-    await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
-    const rowNames = await otherFour.locator('.ed-grow__name').allTextContents()
-    expect(rowNames.map((name) => name.trim().toUpperCase())).not.toContain(wordmark)
-    // A row leads with its own best and never carries a gold PLAY.
-    await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
-    await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
-  }
+  // One full-width-row layout on every shell now (the desktop card grid retired
+  // with HomeDesktop). Exactly the OTHER four ranked games are listed as rows —
+  // the featured game is pulled out of the list so it never appears twice.
+  const otherFour = page.locator('.ed-rows').first()
+  await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
+  const rowNames = await otherFour.locator('.ed-grow__name').allTextContents()
+  expect(rowNames.map((name) => name.trim().toUpperCase())).not.toContain(wordmark)
+  // A row leads with its own best and never carries a gold PLAY.
+  await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
+  await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
 })
 
 test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({
@@ -105,7 +96,7 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   })
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'Elixir Drop', exact: true })).toBeVisible()
+  await expect(page.locator('.ed-home')).toBeVisible()
   const track = page.locator('.ed-hero-carousel__track')
   const slides = track.locator('.ed-hero-carousel__slide')
   await expect(slides).toHaveCount(3)

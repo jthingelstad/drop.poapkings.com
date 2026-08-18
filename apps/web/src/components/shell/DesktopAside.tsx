@@ -1,15 +1,21 @@
-// Desktop right rail: Season standings (Surge) · a "This season" personal card ·
-// the grouped "Recent runs" feed (polls GET /activity). Every player row opens
-// that player's read-only public profile.
+// Desktop aside — the letterbox margin panel. The app is ONE phone column; on a
+// wide viewport that column is centered and this slim aside fills the margin
+// with the things worth keeping off the phone: a Falling Cards launcher, the
+// live "Recent runs" feed (polls GET /activity), the Surge season standings, a
+// personal "this season" card, and the meta-page link cluster. It renders only
+// alongside the letterboxed column (MobileShell gates it on the desktop layout)
+// and never during a game.
 
 import { useEffect } from 'preact/hooks'
 import { signal } from '@preact/signals'
 import { getLeaderboard, getActivity, type LeaderboardEntry, type ActivityEntry } from '../../lib/api'
 import { scoreLabel, gameDisplay } from '../../lib/game-metadata'
 import { navigate } from '../../lib/router'
+import { tapFxFrom } from '../../lib/tap-fx'
 import { playerProfilePath } from '../../lib/public-player'
 import { player } from '../../lib/account'
 import { offline } from '../../lib/api-availability'
+import { startScreensaver } from '../../lib/screensaver'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
 import Icon from '../Icon'
@@ -34,7 +40,7 @@ function activityWhen(iso: string): string {
   return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`
 }
 
-export default function DesktopRightRail() {
+export default function DesktopAside() {
   const disconnected = offline.value
   useEffect(() => {
     if (disconnected) return
@@ -69,7 +75,20 @@ export default function DesktopRightRail() {
   const feed = activity.value
 
   return (
-    <>
+    <aside class="ed-aside" aria-label="Elixir Drop">
+      <button
+        class="ed-rail-btn ed-rail-btn--saver tap-fx"
+        onClick={(e) => {
+          tapFxFrom(e)
+          startScreensaver('nav')
+        }}
+      >
+        <span class="tap-face">
+          <Icon name="sparkles" />
+          Falling Cards
+        </span>
+      </button>
+
       <section class="ed-rail-block">
         <div class="ed-rail-block__head">
           <span class="ed-rail-block__title">Season standings</span>
@@ -147,6 +166,24 @@ export default function DesktopRightRail() {
             ))}
         </div>
       </section>
-    </>
+
+      <nav class="ed-railfoot" aria-label="About Elixir Drop">
+        <a class="ed-railfoot__link" href="/about/">
+          About
+        </a>
+        <a class="ed-railfoot__link" href="/faq/">
+          FAQ
+        </a>
+        <a class="ed-railfoot__link" href="/fair-play/">
+          Fair Play
+        </a>
+        <a class="ed-railfoot__link" href="/privacy/">
+          Privacy
+        </a>
+        <a class="ed-railfoot__link" href="/discord/">
+          Discord
+        </a>
+      </nav>
+    </aside>
   )
 }

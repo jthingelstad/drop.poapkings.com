@@ -180,7 +180,7 @@ rank-oriented fields as part of unrelated work.
   local run; an already-started signed run still retains its retryable official
   completion and is never downgraded after the fact. Offline is surfaced up
   front through a header cause chip (`components/CauseChip.tsx`, "OFFLINE" /
-  "GUEST"), `components/OfflineGlyph.tsx`, game chrome, and the result summary. A
+  "GUEST"), game chrome, and the result summary. A
   persistent state gets a persistent mark, never a standing banner. `offline` in
   `lib/api-availability.ts` combines the browser transport verdict with the
   shared API availability signal, because `navigator.onLine` being true never

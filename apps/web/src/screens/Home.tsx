@@ -1,15 +1,12 @@
-// Home — one shared view-model (useHomeData), two layout renders. The mobile
-// scroll (identity chip → Surge hero → swipe games → practice → standings peek →
-// wordmark) and the desktop center stage (Play heading → hero → 2×2 grid) show
-// the same data; the identity, standings, and wordmark live in the desktop
-// rails instead. Chosen at the 1024px breakpoint by lib/use-layout.
+// Home — one shared view-model (useHomeData), one render. The redesign collapsed
+// the app to a single phone column, so HomeMobile is the one true Home on every
+// width; desktop simply letterboxes it (see MobileShell + the desktop aside).
+// The old desktop-only 3-column home was retired with the desktop shell.
 
-import { layout } from '../lib/use-layout'
 import { useHomeData } from './home/home-data'
 import HomeMobile from './home/HomeMobile'
-import HomeDesktop from './home/HomeDesktop'
 
 export default function Home() {
   const data = useHomeData()
-  return layout.value === 'desktop' ? <HomeDesktop data={data} /> : <HomeMobile data={data} />
+  return <HomeMobile data={data} />
 }

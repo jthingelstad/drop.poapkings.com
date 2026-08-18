@@ -4,7 +4,6 @@ import {
   expect,
   fulfillSupportData,
   fulfillTestRun,
-  isDesktopViewport,
   test,
   testApiBaseUrl,
   testApiRoute,
@@ -231,7 +230,7 @@ test('a temporary authentication outage keeps the saved login', async ({ page })
     .toBe(testSession.token)
 })
 
-test('account deletion requires typed confirmation and clears the saved session', async ({ page, viewport }) => {
+test('account deletion requires typed confirmation and clears the saved session', async ({ page }) => {
   let deletionBody: unknown
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
@@ -272,8 +271,8 @@ test('account deletion requires typed confirmation and clears the saved session'
   await page.getByLabel('Type DELETE to confirm').fill('DELETE')
   await confirmDelete.click()
 
-  const home = isDesktopViewport(viewport) ? '.ed-home-d' : '.ed-home'
-  await expect(page.locator(home)).toBeVisible()
+  // One home for every width now — HomeMobile, letterboxed on desktop.
+  await expect(page.locator('.ed-home')).toBeVisible()
   expect(deletionBody).toEqual({ confirmation: 'DELETE' })
   await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()
 })

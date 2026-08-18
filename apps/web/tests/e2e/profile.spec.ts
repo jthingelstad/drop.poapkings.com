@@ -10,18 +10,12 @@ import {
   testApiRoute
 } from './fixtures'
 
-test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({
-  page,
-  viewport
-}) => {
+test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({ page }) => {
   await page.goto('/')
-  // Both shells expose a You entry point. The nav never renames itself, so it is
-  // "You" on either shell.
-  if (isDesktopViewport(viewport)) {
-    await page.locator('.ed-rail-chip').first().click()
-  } else {
-    await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'You', exact: true }).click()
-  }
+  // One shell now: the bottom pill nav's "You" tab is the You entry point on
+  // every width. The nav never renames itself. (A non-exact name so the tab's
+  // "Unread updates" dot, when present, doesn't defeat the match.)
+  await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'You' }).click()
 
   await expect(page.locator('.ed-you__name')).toHaveText('Knight Main')
 

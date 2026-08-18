@@ -1,5 +1,6 @@
-// Shared Home presentation bits used by both HomeMobile and HomeDesktop: the
-// rotating promotion hero, ambient elixir motes, and the "More games" card.
+// Shared Home presentation bits: the rotating promotion hero and the full-width
+// game rows. (The retired desktop home's grid card + its ambient motes went with
+// it; the hero owns its own decorative motes inline.)
 
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
@@ -18,23 +19,6 @@ import { seasonEndsLabel, type HomeData } from './home-data'
 const HERO_SLIDE_COUNT = 3
 const HERO_ROTATION_MS = 10_000
 const FREE_PASS_MODE = 'surge' as const
-
-// Falling elixir motes inside a card (CSS-animated, decorative).
-export function GameMotes({ dense = false }: { dense?: boolean }) {
-  return (
-    <span class="ed-fx" aria-hidden="true">
-      <span class="ed-cell-drop" style={{ left: '66%' }} />
-      <span class="ed-cell-drop" style={{ left: '26%', animationDelay: '1.4s' }} />
-      {dense && <span class="ed-cell-drop" style={{ left: '80%', animationDelay: '2.1s' }} />}
-      {!dense && <span class="ed-cell-sheen" style={{ animationDelay: '0.3s' }} />}
-    </span>
-  )
-}
-
-function personalBestText(game: HomeGame, best: number | undefined): string {
-  if (best === undefined) return 'Your best · —'
-  return `Your best · ${scoreLabel(game.mode, best)}`
-}
 
 // `withHours` gives the desktop pill its "6d 04h" form.
 export function FeaturedHero({
@@ -302,53 +286,6 @@ export function HomeHeroCarousel({
         </button>
       </div>
     </div>
-  )
-}
-
-export function HomeGameCard({
-  game,
-  featured,
-  best
-}: {
-  game: HomeGame
-  featured: boolean
-  best: number | undefined
-}) {
-  const offlinePlay = offline.value && canPlayOffline(game.mode)
-  const offlineDescriptionId = `${game.mode}-offline-description`
-  return (
-    <article class={`ed-gcard${featured ? ' ed-gcard--accent' : ''}`}>
-      <GameMotes dense={featured} />
-      <div class="ed-gcard__body">
-        <div class="ed-gcard__title">
-          <ModeIcon mode={game.mode} size={50} className="ed-gcard__art" />
-          {game.name}
-          {game.badge && <span class="ed-gcard__badge">{game.badge}</span>}
-        </div>
-        <p class="ed-gcard__desc">{game.desc}</p>
-        <div class="ed-gcard__champ">
-          <Icon name="trophy" />
-          <span>{personalBestText(game, best)}</span>
-        </div>
-        <button
-          class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
-          aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
-          onClick={(e) => {
-            tapFxFrom(e)
-            navigate(game.path)
-          }}
-        >
-          <span class="tap-face">
-            <Icon name="play" /> Play
-          </span>
-          {offlinePlay && (
-            <span id={offlineDescriptionId} class="sr-only">
-              {game.name} is available offline. This run will not be saved or ranked.
-            </span>
-          )}
-        </button>
-      </div>
-    </article>
   )
 }
 

@@ -355,7 +355,9 @@ test.describe('low-height desktop timed controls', () => {
         padFits: !!pad && pad.left >= 0 && pad.right <= window.innerWidth + 1 && pad.bottom <= window.innerHeight + 1
       }
     })
-    expect(layout.gameWidth).toBeGreaterThanOrEqual(500)
+    // The desktop shell now letterboxes the phone column (~440px), so the board
+    // no longer spans a wide center stage — it fills the column instead.
+    expect(layout.gameWidth).toBeGreaterThanOrEqual(400)
     expect(layout.boardContained).toBe(true)
     expect(layout.boardClearsPrompt).toBe(true)
     expect(layout.padFits).toBe(true)

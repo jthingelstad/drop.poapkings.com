@@ -2130,6 +2130,49 @@ body.modal-open {
   height: 15px;
 }
 
+/* ── Desktop letterbox ────────────────────────────────────────
+   The redesign is ONE phone column. At or above the breakpoint that
+   column is centered on the dark field and a slim aside (DesktopAside:
+   Falling Cards launcher + live Recent runs feed) fills the right
+   margin. This is a WIDTH decision only — ranked-play gating is a
+   separate INPUT decision in lib/use-layout. */
+@media (width >= 1024px) {
+  .ed-app--letterbox .ed-mobile {
+    width: min(440px, 100%);
+    margin-inline: auto;
+    border-inline: 1px solid rgba(215, 200, 255, 0.08);
+    background: rgba(10, 8, 24, 0.28);
+  }
+
+  /* The pill nav tracks the centered column, not the column-plus-aside pair. */
+  .ed-app--letterbox .ed-pillnav {
+    left: 50%;
+  }
+
+  /* The letterbox margin panel — fixed in the gutter to the right of the
+     centered 440px column (half-width 220px + a 28px gap). Scrolls on its own. */
+  .ed-aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: calc(50% + 220px + 28px);
+    width: min(320px, calc(50% - 220px - 56px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 26px 20px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    z-index: 20;
+  }
+  .ed-aside::-webkit-scrollbar {
+    width: 0;
+  }
+  .ed-aside .ed-rail-btn--saver {
+    margin-bottom: 2px;
+  }
+}
+
 /* ── Desktop shell (3-column app) ─────────────────────────── */
 
 .ed-desktop {
@@ -5566,18 +5609,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 10.5px;
   font-weight: 700;
-}
-
-/* Offline rides in the player chip, not a banner: a notice that never goes
-   away stops being information. */
-.ed-offline-glyph {
-  display: inline-flex;
-  margin-inline-start: 6px;
-  color: var(--gold);
-  vertical-align: -0.1em;
-}
-.ed-offline-glyph .icon {
-  font-size: 0.82rem;
 }
 
 .ed-games__filters {

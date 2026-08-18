@@ -19,8 +19,17 @@ const CASES = [
   ['/app-info', 'App Info']
 ] as const
 
+// Ranked play is now touch-gated (lib/use-layout supportsTouchPlay). The SSR
+// smoke renders the ranked game routes, so the default environment is a
+// touch-capable device; the dedicated gate test below drops touch to assert the
+// mouse-only fallback.
+function setTouchPlay(supported: boolean) {
+  Object.defineProperty(window.navigator, 'maxTouchPoints', { value: supported ? 1 : 0, configurable: true })
+}
+
 describe('SSR render smoke', () => {
   beforeEach(() => {
+    setTouchPlay(true)
     apiAvailability.value = 'available'
     transportOffline.value = false
     layout.value = 'desktop'
@@ -114,13 +123,36 @@ describe('SSR render smoke', () => {
     expect(html).toContain('OFFLINE')
   })
 
-  it('links to the Elixir Drop Discord guide from the desktop rail cluster', async () => {
+  it('links to the Elixir Drop Discord guide from the desktop aside cluster', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
     // The old global footer moved into the meta entry points; the desktop
-    // left-rail cluster carries the standalone Discord guide.
+    // letterbox aside carries the standalone Discord guide.
     expect(html).toContain('ed-railfoot')
     expect(html).toContain('href="/discord/"')
+  })
+
+  // Ranked runs are timed to the millisecond and fair only on touch. A mouse-only
+  // device (no coarse pointer, no touch points) is held to Practice; Practice and
+  // the Ladder stay open. This is input-based, not width-based — the letterbox
+  // layout is still desktop here.
+  it('gates the ranked modes to touch and keeps Practice open on a mouse-only device', async () => {
+    setTouchPlay(false)
+
+    route.value = '/surge'
+    const rankedHtml = await renderToStringAsync(<App />)
+    expect(rankedHtml).toContain('Ranked is touch-only')
+    expect(rankedHtml).toContain('Open Practice')
+    expect(rankedHtml).not.toContain('Charging')
+
+    route.value = '/practice'
+    const practiceHtml = await renderToStringAsync(<App />)
+    expect(practiceHtml).toContain('Training grounds')
+    expect(practiceHtml).not.toContain('Ranked is touch-only')
+
+    route.value = '/leaderboards'
+    const ladderHtml = await renderToStringAsync(<App />)
+    expect(ladderHtml).not.toContain('Ranked is touch-only')
   })
 })

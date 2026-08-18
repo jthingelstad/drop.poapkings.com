@@ -555,6 +555,40 @@ describe('use-layout', () => {
     ;(mql as unknown as { fire: (m: boolean) => void }).fire(true)
     expect(mod.layout.value).toBe('desktop')
   })
+
+  // Ranked-play gating is input-based, not width-based: a coarse pointer OR any
+  // touch points passes, regardless of the layout breakpoint. loadLayout's stub
+  // answers every query the same, so these load the module under a query-aware
+  // matchMedia that can report a coarse pointer on a narrow width.
+  async function loadTouchLayout(coarse: boolean, touchPoints: number) {
+    vi.resetModules()
+    defineNav('maxTouchPoints', touchPoints)
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((q: string) => ({
+        matches: q.includes('pointer: coarse') ? coarse : false,
+        addEventListener: () => {},
+        removeEventListener: () => {}
+      }))
+    )
+    return await import('../../src/lib/use-layout')
+  }
+
+  it('allows ranked play for a coarse pointer even below the desktop width', async () => {
+    const mod = await loadTouchLayout(true, 0)
+    expect(mod.layout.value).toBe('mobile')
+    expect(mod.supportsTouchPlay()).toBe(true)
+  })
+
+  it('allows ranked play on a fine-pointer device that still reports touch points', async () => {
+    const mod = await loadTouchLayout(false, 2)
+    expect(mod.supportsTouchPlay()).toBe(true)
+  })
+
+  it('holds a mouse-only device out of ranked play', async () => {
+    const mod = await loadTouchLayout(false, 0)
+    expect(mod.supportsTouchPlay()).toBe(false)
+  })
 })
 
 // ── pwa-install.ts ────────────────────────────────────────────────────────────

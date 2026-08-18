@@ -15,9 +15,8 @@ import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/sc
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { layout } from './lib/use-layout'
+import { layout, supportsTouchPlay } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
-import DesktopShell from './components/shell/DesktopShell'
 import Home from './screens/Home'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
@@ -104,6 +103,25 @@ function RankedAccessRestricted() {
   )
 }
 
+// Ranked is timed to the millisecond and plays on touch, so a mouse-only device
+// is held to Practice to keep the board fair. This is an input gate, not a width
+// gate — a touchscreen desktop passes supportsTouchPlay() and never sees it.
+function RankedTouchOnly() {
+  return (
+    <div class="main-content">
+      <GateCard
+        mark={<Icon name="gamepad" />}
+        state="Ranked is touch-only"
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        secondary={{ label: 'View the Ladder', href: '/leaderboards' }}
+      >
+        Ranked runs are timed to the millisecond and play on touch, so the board stays fair — open Drop on your phone.
+        Practice is open here.
+      </GateCard>
+    </div>
+  )
+}
+
 function AccountUnavailable() {
   return (
     <div class="main-content" aria-live="polite">
@@ -146,6 +164,11 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }
+  // Ranked play is touch-only (fair millisecond timing), independent of the
+  // width breakpoint and of connectivity — a mouse-only device never starts a
+  // ranked run, online or offline. Practice ('/practice') is exempt and stays
+  // open everywhere.
+  if (gamePath && gamePath !== '/practice' && !supportsTouchPlay()) return <RankedTouchOnly />
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
@@ -286,7 +309,7 @@ export default function App() {
 
   return (
     <>
-      {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
+      <MobileShell>{content}</MobileShell>
       <RunRecordingNotice />
       {/* Interrupt ladder overlays — the ladder gate lets at most one show. The
           tier-4 update strip sits above the nav pill (no scrim); the tier-1 badge
