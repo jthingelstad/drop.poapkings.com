@@ -402,11 +402,6 @@ export default function Profile() {
   return (
     <div class="ed-profile">
       <div class="ed-profile__banner">
-        <div
-          class="ed-profile__banner-bg"
-          style={{ backgroundImage: `url('${arena.current.image}')` }}
-          aria-hidden="true"
-        />
         <div class="ed-profile__banner-row">
           <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
           <div class="ed-profile__ident">

@@ -1498,7 +1498,23 @@ html.reduce-motion .game-motion {
   pointer-events: none;
 }
 
+/* The painted "charge" frame sits behind the numeral, sharing its centre. It is
+   absolutely positioned so it never displaces the numeral, and lives below it. */
+.run-count__art {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(190px, 64vw, 280px);
+  height: auto;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 46px rgba(245, 200, 76, 0.32));
+}
+
 .run-count__num {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(5rem, 24vw, 9rem);
@@ -1947,23 +1963,6 @@ html.reduce-motion .release-notice__card {
   border: 1px solid rgba(245, 200, 76, 0.28);
 }
 
-.rank-card__art {
-  position: relative;
-  flex: 0 0 auto;
-  width: 96px;
-  height: 96px;
-  display: grid;
-  place-items: center;
-}
-
-.rank-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-  transition: transform 0.3s ease;
-}
-
 .rank-card__meta {
   flex: 1 1 auto;
   min-width: 0;
@@ -2016,69 +2015,6 @@ html.reduce-motion .release-notice__card {
   letter-spacing: 0.03em;
 }
 
-/* Zone effects on the arena art */
-.rank-card__art.is-just-passed::before {
-  content: '';
-  position: absolute;
-  inset: -10%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 240, 180, 0.5) 0%, rgba(245, 200, 76, 0.25) 40%, transparent 65%);
-  animation: rankCelebrate 2.4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-.rank-card__art.is-just-passed .rank-card__img {
-  position: relative;
-  z-index: 1;
-  animation: rankPulse 2.4s ease-in-out infinite;
-}
-.rank-card__art.is-close::before {
-  content: '';
-  position: absolute;
-  inset: -6%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 60%);
-  animation: rankShimmer 2.8s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-.rank-card__art.is-close .rank-card__img {
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes rankCelebrate {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-@keyframes rankPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-  }
-  50% {
-    transform: scale(1.04);
-    filter: drop-shadow(0 4px 16px rgba(245, 200, 76, 0.7));
-  }
-}
-@keyframes rankShimmer {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 @media (width <= 520px) {
   .rank-card {
     flex-direction: column;
@@ -2086,20 +2022,12 @@ html.reduce-motion .release-notice__card {
     text-align: center;
     gap: 12px;
   }
-  .rank-card__art {
-    margin: 0 auto;
-  }
   .rank-card__name {
     font-size: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-card__art.is-just-passed::before,
-  .rank-card__art.is-just-passed .rank-card__img,
-  .rank-card__art.is-close::before {
-    animation: none;
-  }
   .rank-progress__fill {
     transition: none;
   }
@@ -5457,13 +5385,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   border: 1px solid rgba(245, 200, 76, 0.28);
   padding: 20px;
   background: linear-gradient(160deg, rgba(59, 29, 122, 0.7), rgba(18, 13, 40, 0.9));
-}
-.ed-profile__banner-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.18;
 }
 .ed-profile__banner-row {
   position: relative;

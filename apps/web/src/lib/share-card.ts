@@ -26,7 +26,8 @@ export interface ShareCardInput {
   playerName?: string
   // Per-cost accuracy, drawn as the row of squares.
   bands?: Array<{ label: string; correct: number; total: number }>
-  arenaImage?: string
+  // The arena NAME is progression context and stays; the arena artwork was
+  // retired in the 2026-08 refresh, so no arena image is composited.
   arenaName?: string
   rank?: number
 }
@@ -121,11 +122,10 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
   if (!ctx) return null
 
   const game = gameDisplay(input.mode)
-  const [backdrop, sticker, emblem, arena] = await Promise.all([
+  const [backdrop, sticker, emblem] = await Promise.all([
     loadImage('/assets/share/share-backdrop.png'),
     loadImage('/assets/share/share-sticker.png'),
-    loadImage(`/assets/modes/${input.mode}-384.png`),
-    input.arenaImage ? loadImage(input.arenaImage) : Promise.resolve(null)
+    loadImage(`/assets/modes/${input.mode}-384.png`)
   ])
   await readyFonts()
 
@@ -191,19 +191,10 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     }
   }
 
-  if (arena) {
-    const size = 132
-    ctx.save()
-    ctx.beginPath()
-    ctx.arc(centreX, 1120, size / 2, 0, Math.PI * 2)
-    ctx.clip()
-    ctx.drawImage(arena, centreX - size / 2, 1120 - size / 2, size, size)
-    ctx.restore()
-  }
   if (input.arenaName) {
     ctx.fillStyle = '#c8c1e6'
     ctx.font = '600 34px Inter, system-ui, sans-serif'
-    ctx.fillText(input.arenaName, centreX, 1226)
+    ctx.fillText(input.arenaName, centreX, 1180)
   }
   if (input.rank !== undefined) {
     ctx.fillStyle = '#f5c84c'

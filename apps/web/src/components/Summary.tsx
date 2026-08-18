@@ -152,7 +152,7 @@ export default function Summary({
           card={{
             bands: bands.filter((band) => band.total > 0),
             ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
-            ...(shareArena ? { arenaImage: shareArena.image, arenaName: shareArena.name } : {})
+            ...(shareArena ? { arenaName: shareArena.name } : {})
           }}
         />
       )}

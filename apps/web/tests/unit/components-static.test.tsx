@@ -488,7 +488,11 @@ describe('RunCountdown', () => {
     expect(html).toContain('run-count')
     expect(html).toContain('aria-label="Starting in 3"')
     expect(html).toContain('>3<')
-    expect(html).not.toContain('<img')
+    // The matching "charge" frame sits behind the numeral, decorative only.
+    expect(html).toContain('run-count__art')
+    expect(html).toContain('src="/assets/start/charge-3-512.png"')
+    expect(html).toContain('aria-hidden="true"')
+    // The charge ring is the separate loading state (Commit 4), not the countdown.
     expect(html).not.toContain('run-count__ring')
   })
 
@@ -496,6 +500,7 @@ describe('RunCountdown', () => {
     const html = await render(<RunCountdown count={0} />)
     expect(html).toContain('aria-label="Go"')
     expect(html).toContain('>GO<')
+    expect(html).toContain('src="/assets/start/charge-go-512.png"')
   })
 })
 

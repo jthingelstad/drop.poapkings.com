@@ -1,4 +1,6 @@
+import { useEffect } from 'preact/hooks'
 import RunCountdown from '../RunCountdown'
+import { preloadCountdownFrames } from '../../lib/preload'
 import { offlineRunMode } from '../../lib/use-game-run'
 
 export type GameStartPhase = 'preparing' | 'loading' | 'countdown'
@@ -23,6 +25,12 @@ const STATUS_COPY: Record<Exclude<GameStartPhase, 'countdown'>, { visible: strin
 // content; the mode name, centering, and game shell never jump between screens.
 export function GameStartStage({ modeName, phase, count = 3 }: GameStartStageProps) {
   const status = phase === 'countdown' ? null : STATUS_COPY[phase]
+
+  // Warm the charge frames while the run is still preparing/loading, so the
+  // countdown numeral never waits on its art.
+  useEffect(() => {
+    preloadCountdownFrames()
+  }, [])
 
   return (
     <div class="ed-game__count" data-game-start-phase={phase}>
