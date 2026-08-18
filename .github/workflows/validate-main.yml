@@ -108,24 +108,24 @@ jobs:
         include:
           - label: chromium 1/2
             project: chromium
+            secondary_project: ""
             browser: chromium
             shard: 1/2
             smoke: false
           - label: chromium 2/2
             project: chromium
+            secondary_project: ""
             browser: chromium
             shard: 2/2
             smoke: false
           - label: firefox smoke
             project: firefox
+            secondary_project: ""
             browser: firefox
             smoke: true
-          - label: webkit smoke
+          - label: webkit + iphone-14 smoke
             project: webkit
-            browser: webkit
-            smoke: true
-          - label: iphone-14 smoke
-            project: iphone-14
+            secondary_project: iphone-14
             browser: webkit
             smoke: true
     steps:
@@ -147,6 +147,12 @@ jobs:
       - name: Run cross-browser deployment smoke
         if: matrix.smoke == true
         run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+        env:
+          PLAYWRIGHT_DEPLOY_GATE: "1"
+
+      - name: Run secondary deployment smoke
+        if: matrix.secondary_project != ''
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.secondary_project }}
         env:
           PLAYWRIGHT_DEPLOY_GATE: "1"
 

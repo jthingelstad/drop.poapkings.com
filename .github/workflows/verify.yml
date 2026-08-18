@@ -43,12 +43,13 @@ jobs:
       matrix:
         include:
           - project: chromium
+            secondary_project: ""
             browser: chromium
           - project: firefox
+            secondary_project: ""
             browser: firefox
           - project: webkit
-            browser: webkit
-          - project: iphone-14
+            secondary_project: iphone-14
             browser: webkit
     steps:
       - uses: actions/checkout@v7
@@ -63,6 +64,10 @@ jobs:
       - run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+
+      - name: Run secondary browser project
+        if: matrix.secondary_project != ''
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.secondary_project }}
 
       - name: Upload Playwright report (${{ matrix.project }})
         if: failure()
