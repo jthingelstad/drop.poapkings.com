@@ -1,7 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Answer, Insights } from '../../lib/insights'
-import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -267,13 +266,12 @@ export default function Surge() {
             <CardDisplay card={card} phase={cardPhase.value} revealCost={false} />
           </GameMotion>
         </div>
-        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
         {/* Transient feedback, composited over the game — never in layout flow. */}
         <div class="game-cues" aria-hidden="true">
           <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty" holdMs={600}>
               <Icon name="timer" /> +2s
             </FloatingCue>
             <FloatingCue
@@ -285,7 +283,12 @@ export default function Surge() {
             </FloatingCue>
           </div>
           <div class="game-cues__slot game-cues__slot--bottom">
-            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="surge-hint">
+            <FloatingCue
+              trigger={runtime.penaltyPulse.value}
+              className="floating-cue--hint"
+              testId="surge-hint"
+              holdMs={600}
+            >
               {hint.value === 'higher' && (
                 <>
                   <Icon name="arrow-up" /> Higher

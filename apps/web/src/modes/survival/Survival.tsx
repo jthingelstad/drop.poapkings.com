@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'preact/hooks'
 import { survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -301,6 +300,10 @@ export default function Survival() {
   const counting = stage.value === 'countdown'
   const card = counting ? gameRun.content[0]! : current.value
   const low = remainingFrac.value <= 0.35
+  // Progress through the deck is the endgame — fastest to the whole deck wins —
+  // so the top bar fills toward it, not the per-card clock. That clock now lives
+  // between the card and the keypad, where it cannot be mistaken for score.
+  const deckSize = gameRun.content.length
   return (
     <GameFrame
       modeName="Survival"
@@ -309,11 +312,9 @@ export default function Survival() {
       onQuit={() => navigate('/')}
       cue={runtime.cue.value}
       fxParticles={10}
-      progressText="Sudden death"
+      progressText={`${streak.value} / ${deckSize}`}
       metric={{ value: String(streak.value), label: 'streak' }}
-      progressPct={remainingFrac.value * 100}
-      barTransition={false}
-      barLow={low}
+      progressPct={(streak.value / deckSize) * 100}
     >
       <div class="ed-kstage">
         <div class="ed-kstage__card">
@@ -323,7 +324,11 @@ export default function Survival() {
             </GameMotion>
           )}
         </div>
-        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
+        {/* The only thing that can kill you, in the gap it can be read from: a
+            12px response clock between the card and the keys. Red as it runs out. */}
+        <div class={`ed-response-clock${low ? ' ed-response-clock--low' : ''}`} aria-hidden="true">
+          <div class="ed-response-clock__fill" style={{ width: `${Math.max(0, remainingFrac.value * 100)}%` }} />
+        </div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
         {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>

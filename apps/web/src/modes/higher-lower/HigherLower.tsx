@@ -11,7 +11,6 @@ import { comparableBest, pbCallout } from '../../lib/pb-callout'
 import { useGameKeys } from '../../lib/use-game-keys'
 import { useEndRunOnHide, useShrinkingWindow } from '../../lib/use-round-clock'
 import CardDisplay from '../../components/CardDisplay'
-import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import LivesRow from '../../components/LivesRow'
@@ -60,7 +59,6 @@ export default function HigherLower() {
   const awaitingReplay = useSignal(false)
   const lives = useSignal(HIGHER_LOWER_LIVES)
   const score = useSignal(0)
-  const scoreCue = useSignal(0)
   const milestone = useSignal<number | null>(null)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the score just set.
@@ -206,7 +204,6 @@ export default function HigherLower() {
       const total = score.value + 1
       score.value = total
       if (total % MILESTONE_EVERY === 0) showMilestone(total)
-      else if (total === 3 || (total > 3 && total % 5 === 0)) scoreCue.value++
       runtime.emitCue('answer-correct', { pairIndex: pairIndex.value })
     } else {
       playWrong()
@@ -355,11 +352,16 @@ export default function HigherLower() {
       fxParticles={6}
       progressText={hearts}
       metric={{ value: String(score.value), label: 'correct' }}
-      progressPct={remainingFrac.value * 100}
-      barTransition={false}
-      barLow={remainingFrac.value <= 0.35}
     >
       <div class="ed-duel">
+        {/* The round clock lives here, directly under the top bar, not in it —
+            the cards fill the stage, so the one shrinking thing sits above them. */}
+        <div
+          class={`ed-response-clock${remainingFrac.value <= 0.35 ? ' ed-response-clock--low' : ''}`}
+          aria-hidden="true"
+        >
+          <div class="ed-response-clock__fill" style={{ width: `${Math.max(0, remainingFrac.value * 100)}%` }} />
+        </div>
         <div class="ed-duel__prompt" data-testid="higher-lower-prompt">
           {timedOut.value ? "Time's up" : 'Which costs more?'}
         </div>
@@ -387,14 +389,8 @@ export default function HigherLower() {
           </div>
         </GameMotion>
 
-        {/* Shared floating score cue — composited, never in layout flow. */}
-        <div class="game-cues" aria-hidden="true">
-          <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={scoreCue.value} className="floating-cue--streak">
-              🔥 {score.value} correct
-            </FloatingCue>
-          </div>
-        </div>
+        {/* Progress is the shared GameMilestone flash at every tenth — no emoji
+            streak cue (Drop has no emoji in any mode). */}
         {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>
     </GameFrame>

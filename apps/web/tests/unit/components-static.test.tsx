@@ -261,7 +261,6 @@ describe('AppInfo', () => {
     expect(html).toContain('Service worker')
     expect(html).toContain('Card cache')
     expect(html).toContain('Card art')
-    expect(html).toContain('Speedrun keyboard')
   })
 })
 

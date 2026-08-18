@@ -87,6 +87,15 @@ export default function Rain() {
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, trackElapsed: false })
   const { stage, count } = runtime
   const fieldRef = useRef<HTMLDivElement>(null)
+  const killLineRef = useRef<HTMLDivElement>(null)
+
+  // The kill line flashes bright for ~120ms where a card strikes it — the one
+  // new animation in this build, and what makes the line read as a floor.
+  function flashKillLine() {
+    const el = killLineRef.current
+    if (!el || isReducedMotionEnabled() || typeof el.animate !== 'function') return
+    el.animate([{ filter: 'brightness(2.6)' }, { filter: 'brightness(1)' }], { duration: 120, easing: 'ease-out' })
+  }
   const drops = useRef<Drop[]>([])
   const target = useRef<Drop | null>(null)
   const rainSpd = useRef(0)
@@ -274,8 +283,11 @@ export default function Rain() {
     const remainingLives = Math.max(0, lives.value)
     for (const d of drops.current) {
       d.y += d.speed
+      // The field now stops at the kill line (its bottom edge), so a tile lands
+      // on the line, in view — not behind the keypad as it used to.
       if (d.y >= 96) {
         popTile(d, true)
+        flashKillLine()
         // Several accelerated cards can reach the floor on the same 40ms
         // tick. Remove every landed tile from the field, but stop the signed
         // transcript exactly when the remaining lives are spent: recording a
@@ -445,12 +457,11 @@ export default function Rain() {
       fxParticles={6}
       progressText={hearts}
       metric={{ value: String(score.value), label: 'cleared' }}
-      progressPct={(lives.value / RAIN_LIVES) * 100}
       fullBleed
     >
       <div class="ed-rain">
         <div ref={fieldRef} class="ed-rain__field" aria-hidden="true" />
-        <div class="ed-rain__hint">Clear the lit card before it lands</div>
+        <div ref={killLineRef} class="ed-rain__killline" aria-hidden="true" />
         {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
         <div class="ed-rain__cue" aria-hidden="true">
           <FloatingCue trigger={hintPulse.value} className="floating-cue--hint" testId="rain-hint">

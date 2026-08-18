@@ -333,7 +333,6 @@ export default function Ledger() {
       count={0}
       onQuit={endSession}
       quitLabel="End session"
-      quitIcon="x"
       cue={runtime.cue.value}
       fxParticles={6}
       progressText={`${checks.value} checked · ${stageLabel(active.stage)}`}

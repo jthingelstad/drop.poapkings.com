@@ -1002,7 +1002,11 @@ a {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 220px);
+
+  /* The keypad's height is now a known ~110px at 390 wide (two fixed rows), so
+     the card no longer has to shrink to survive it: 220px → 250px gives the run
+     its focal point back. */
+  width: min(100%, 250px);
   aspect-ratio: 0.82;
   margin: 0 auto 14px;
 }
@@ -1084,23 +1088,16 @@ a {
 
 /* ── Pip keypad ───────────────────────────────────────────── */
 
-/* Default: one row, one key per cost, purple keycap with a solid bottom wall
-   that collapses on press. Same layout in every mode that answers by elixir
-   cost, so a number is always in the same place (muscle memory).
-   The Speedrun keyboard setting deals the same keys across two rows instead —
-   see .pip-keypad--speedrun below. */
+/* Two rows — 1-5 over 6-9 — each filling the width on its own, so a key is about
+   twice as wide as a single row of nine. Mistaps happen sideways, between
+   neighbours, so width is what this buys, and this is the only keypad now. Same
+   layout in every mode that answers by elixir cost, so a number is always in the
+   same place (muscle memory). Key height is handled at .pip-keypad__pip below. */
 .pip-keypad {
   display: flex;
+  flex-direction: column;
   gap: 6px;
   width: 100%;
-}
-
-/* Speedrun keyboard: 1-5 over 6-9, each row filling the width on its own, so a
-   key is about twice as wide as the single row's. Mistaps happen sideways,
-   between neighbours, so width is what this buys. Key height is handled at
-   .pip-keypad--speedrun .pip-keypad__pip below, and it matters. */
-.pip-keypad--speedrun {
-  flex-direction: column;
 }
 
 .pip-keypad__row {
@@ -1112,7 +1109,7 @@ a {
 .pip-keypad__pip {
   position: relative;
   flex: 1;
-  aspect-ratio: 0.66;
+  height: clamp(42px, 12vw, 60px);
   display: grid;
   place-items: center;
   padding: 0;
@@ -1149,16 +1146,6 @@ a {
 .pip-keypad__pip--disabled {
   opacity: 0.5;
   pointer-events: none;
-}
-
-/* Speedrun keys MUST drop `aspect-ratio`: at 0.66 a twice-as-wide key is also
-   twice as tall, and two such rows stack to roughly four times the single row's
-   height — straight through the gates in tests/e2e/viewport-fit.spec.ts. The
-   clamp keeps the pair only modestly taller than the row it replaces while
-   still scaling with the screen. */
-.pip-keypad--speedrun .pip-keypad__pip {
-  aspect-ratio: auto;
-  height: clamp(42px, 12vw, 60px);
 }
 
 .pip-keypad__face {
@@ -1376,13 +1363,20 @@ a {
   color: var(--gold);
   text-transform: uppercase;
 }
+
+/* The pace ghost is the most interesting thing in Surge and was the easiest to
+   miss: give it display type and weight, green when ahead, red when behind. */
+.floating-cue--pace {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
 .floating-cue--pace.is-ahead {
   color: #34d399;
 }
 .floating-cue--pace.is-behind {
-  color: var(--gold2);
+  color: var(--red);
 }
-.floating-cue--streak,
 .floating-cue--practice-recovery {
   color: var(--gold);
   text-transform: uppercase;
@@ -3536,27 +3530,6 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 .ed-appinfo__api p {
   grid-column: 1 / -1;
 }
-.ed-appinfo__performance {
-  padding: 16px;
-  border: 1px solid rgba(215, 200, 255, 0.14);
-  border-radius: 16px;
-  background: rgba(18, 13, 40, 0.54);
-}
-.ed-appinfo__performance > h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1rem;
-}
-.ed-appinfo__performance .setting-row--speedrun {
-  padding: 14px 0 10px;
-  border-bottom: 0;
-}
-.ed-appinfo__performance > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
 .ed-appinfo__cache {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -3963,6 +3936,9 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   font-size: 1.05rem;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
+
+  /* Wide enough for a three-decimal "11.812s" without wrapping. */
+  white-space: nowrap;
 }
 .ed-game__metric-label {
   color: var(--muted);
@@ -3970,6 +3946,29 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* The 12px response clock Survival and Higher/Lower deal between the card and the
+   keypad (the only thing in that gap, so it is never mistaken for score). Violet
+   → gold; instant width, no easing; red→orange as it runs out. */
+.ed-response-clock {
+  height: 12px;
+  margin: 6px 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.ed-response-clock__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+  transition: none;
+}
+.ed-response-clock--low .ed-response-clock__fill {
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
 }
 .ed-iconbtn {
   display: grid;
@@ -6183,23 +6182,37 @@ html.reduce-motion .ed-profile-guest__halo::before {
   overflow: hidden;
   background: linear-gradient(180deg, rgba(18, 13, 40, 0.4), rgba(11, 9, 32, 0.7));
 }
+
+/* The field stops at the kill line (150px up, clearing the keypad) instead of
+   running to the bottom behind it — where a live target used to be unanswerable
+   and unseeable. The old caption's 30px is reclaimed at the top. */
 .ed-rain__field {
   position: absolute;
-  inset: 30px 0 0;
+  inset: 0 0 150px;
   z-index: 0;
   overflow: hidden;
 }
-.ed-rain__hint {
-  position: relative;
-  flex: 0 0 30px;
+
+/* The floor: a solid rule with a bright core, at the field's bottom edge. Solid,
+   not dashed — a dashed rule reads as a seam you may cross; this is a floor. No
+   wash above it (a red gradient over the tiles would dirty what it warns about).
+   flashKillLine() brightens it ~120ms on impact. */
+.ed-rain__killline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 150px;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: linear-gradient(180deg, rgba(11, 9, 32, 0.76), rgba(11, 9, 32, 0.2));
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(239, 68, 68, 0.9) 10%,
+    #ffd0d0 50%,
+    rgba(239, 68, 68, 0.9) 90%,
+    transparent
+  );
+  box-shadow: 0 -6px 14px rgba(239, 68, 68, 0.28);
   pointer-events: none;
 }
 .ed-rain__pad {
@@ -6213,12 +6226,13 @@ html.reduce-motion .ed-profile-guest__halo::before {
   backdrop-filter: blur(3px);
 }
 
-/* Directional wrong-tap hint, floated just above the keypad. */
+/* Directional wrong-tap hint, floated just above the taller two-row keypad
+   (~136px) rather than printing across keys 2-4. */
 .ed-rain__cue {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 88px;
+  bottom: 168px;
   z-index: 3;
   display: flex;
   justify-content: center;
@@ -6228,9 +6242,12 @@ html.reduce-motion .ed-profile-guest__halo::before {
 /* Shared every-10 progress flash, centered above the keypad. Echoes the 3-2-1
    countdown (gold display numeral + expanding ring); composited over play so it
    never reflows the board. */
+
+/* Derived from the two-row keypad's height (~136px) so the flash centres in the
+   space above the keys rather than behind them. */
 .game-milestone {
   position: absolute;
-  inset: 0 0 120px;
+  inset: 0 0 150px;
   z-index: 2;
   display: grid;
   place-items: center;

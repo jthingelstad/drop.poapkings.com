@@ -186,11 +186,12 @@ describe('PlayerPreferences', () => {
     expect(getSettings().enhancedEffects).toBe(false)
   })
 
-  it('toggling the speedrun keyboard persists (default off → on)', () => {
+  it('shows exactly three toggles — Sound, Reduce motion, Enhance effects', () => {
     const c = mount(<PlayerPreferences />)
-    expect(getSettings().speedrunKeyboard ?? false).toBe(false)
-    byLabel(c, 'Speedrun keyboard').click()
-    expect(getSettings().speedrunKeyboard).toBe(true)
+    expect(c.querySelectorAll('.switch').length).toBe(3)
+    expect(byLabel(c, 'Sound effects')).toBeTruthy()
+    expect(byLabel(c, 'Reduce motion')).toBeTruthy()
+    expect(byLabel(c, 'Enhance effects')).toBeTruthy()
   })
 })
 
@@ -387,11 +388,13 @@ describe('mode smoke — Surge', () => {
     expect(c.querySelector('.ed-game__count')).not.toBeNull()
   })
 
-  it('renders the running board (keypad + hint)', () => {
+  it('renders the running board (keypad, no caption)', () => {
     stageSession(fakeCards(15), 'running')
     const c = mount(<Surge />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Surge')
-    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
+    // A card and a keypad need no caption — the "Tap the elixir cost" hint is gone.
+    expect(c.querySelector('.pip-keypad')).not.toBeNull()
+    expect(c.textContent).not.toMatch(/(Tap|Click) the elixir cost/)
   })
 
   it('falls back to the run gate when preparation fails', () => {
@@ -448,11 +451,15 @@ describe('mode smoke — Survival', () => {
     expect(c.textContent).toContain('Survival')
   })
 
-  it('renders the running board (sudden death)', () => {
+  it('renders the running board (streak progress + response clock)', () => {
     stageSession(fakeCards(20), 'running')
     const c = mount(<Survival />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Survival')
-    expect(c.textContent).toMatch(/(Tap|Click) the elixir cost/)
+    // The response clock lives between the card and the keys; the top bar now
+    // shows deck progress (streak / deck), not "Sudden death".
+    expect(c.querySelector('.ed-response-clock')).not.toBeNull()
+    expect(c.textContent).toContain('/ 20')
+    expect(c.textContent).not.toContain('Sudden death')
   })
 })
 
@@ -511,6 +518,8 @@ describe('mode smoke — Rain', () => {
     const c = mount(<Rain />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Rain')
     expect(c.querySelector('.ed-rain__field')).not.toBeNull()
-    expect(c.textContent).toContain('Clear the lit card before it lands')
+    // The field ends at the kill line (its floor), and the caption is gone.
+    expect(c.querySelector('.ed-rain__killline')).not.toBeNull()
+    expect(c.textContent).not.toContain('Clear the lit card before it lands')
   })
 })

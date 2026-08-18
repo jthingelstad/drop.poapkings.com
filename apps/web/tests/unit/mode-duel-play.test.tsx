@@ -214,7 +214,9 @@ describe('Higher / Lower — gameplay', () => {
 
     await click(higher(c))
     expect(metricValue(c)).toBe('1')
-    expect(c.textContent).toContain('1 correct')
+    // The score reads through the metric label now; the emoji streak cue is gone.
+    expect(c.querySelector('.ed-game__metric-label')?.textContent).toBe('correct')
+    expect(c.textContent).not.toContain('🔥')
 
     // A correct read advances after ADVANCE_DELAY_CORRECT (750ms) to pair 2.
     await advance(800)

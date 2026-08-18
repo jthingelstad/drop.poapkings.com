@@ -2,7 +2,6 @@ import { useSignal, type Signal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import Icon from '../components/Icon'
 import MetaPageHead from '../components/MetaPageHead'
-import { SpeedrunKeyboardPreference } from '../components/PlayerPreferences'
 import { buildMeta } from '../lib/build'
 import { allCards, cardCatalogVersion } from '../lib/card-catalog'
 import { getCardArtCacheInfo, type CardArtCacheInfo } from '../lib/card-art-cache'
@@ -201,13 +200,6 @@ export default function AppInfo() {
           Cached images load from this device in every mode. A connection is needed only to save runs, update progress
           and rankings, read live player data, and receive app updates.
         </p>
-      </section>
-
-      <section class="ed-appinfo__performance" aria-labelledby="performance-input-title">
-        <div class="ed-appinfo__label">Performance input</div>
-        <h2 id="performance-input-title">Keyboard setup</h2>
-        <SpeedrunKeyboardPreference />
-        <p>Applies to Surge, Practice, Survival, and Rain so the same key layout follows you into every run.</p>
       </section>
 
       <dl class="settings-meta ed-appinfo__meta" aria-label="App information">
