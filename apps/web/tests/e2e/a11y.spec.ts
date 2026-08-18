@@ -27,7 +27,8 @@ for (const route of a11yRoutes) {
       if (isDesktopViewport(viewport)) await expect(page.locator('.practice-hub')).toBeVisible()
       else {
         await expect(page).toHaveURL(/#\/$/)
-        await expect(page.locator('.ed-practice-options')).toBeVisible()
+        // Mobile folds the drills into the "Practice" list on Home (UNRANKED pill).
+        await expect(page.locator('.ed-more__aside--pill')).toBeVisible()
       }
     }
 

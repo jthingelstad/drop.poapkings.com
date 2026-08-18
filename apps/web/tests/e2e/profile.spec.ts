@@ -89,6 +89,8 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   })
 
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  // App Info lives in the You page's Account scope now (the mobile More list retired).
+  await page.getByRole('tab', { name: 'Account' }).click()
   const appInfo = page.getByRole('button', { name: 'App Info' })
   await expect(appInfo).toBeVisible()
   await expect(page.getByRole('button', { name: 'Install app' })).toHaveCount(0)
@@ -114,10 +116,6 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   await expect(details).toContainText(`${cardsData.version} · ${cardsData.cards.length} cards`)
   await expect(page.getByRole('heading', { name: 'Online' })).toBeVisible()
   await expect(page.locator('.ed-appinfo__latency')).toContainText(/\d+ms/)
-  const speedrun = page.getByRole('switch', { name: 'Speedrun keyboard' })
-  await expect(speedrun).toHaveAttribute('aria-checked', 'false')
-  await speedrun.click()
-  await expect(speedrun).toHaveAttribute('aria-checked', 'true')
   const cacheProgress = page.getByRole('progressbar', { name: 'Card art cache progress' })
   await expect(cacheProgress).toHaveAttribute('aria-valuenow', '1')
   await expect(cacheProgress).toHaveAttribute('aria-valuemax', String(totalArt))
@@ -129,12 +127,6 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png'
   })
-
-  await page.goBack()
-  await expect(page).toHaveURL(/#\/profile$/)
-  await expect(
-    page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Speedrun keyboard' })
-  ).toHaveAttribute('aria-checked', 'true')
 })
 
 test('the Settings scope has three toggles that persist per device', async ({ page }) => {

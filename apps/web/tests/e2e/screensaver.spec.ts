@@ -23,7 +23,9 @@ test('five logo taps start the screensaver and any key exits it', async ({ page,
   // launcher instead, covered above).
   test.skip(!isMobile, 'the logo-tap screensaver door exists on the mobile shell')
   await page.goto('/')
-  const logo = page.locator('.ed-more__title')
+  // The logo-tap door is wired to the first "More games" title ("The other four");
+  // the redesign added a second .ed-more__title for the Practice list.
+  const logo = page.locator('.ed-more__title').first()
   await expect(logo).toBeVisible()
   for (let tap = 0; tap < 5; tap += 1) await logo.click()
 

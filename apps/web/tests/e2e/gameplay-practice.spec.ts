@@ -53,7 +53,7 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
   await expect(returnToPractice).toBeVisible()
   await returnToPractice.click()
   await expect(page).toHaveURL(desktop ? /#\/practice$/ : /#\/$/)
-  await expect(page.locator(desktop ? '.practice-hub' : '.ed-practice-options')).toBeVisible()
+  await expect(page.locator(desktop ? '.practice-hub' : '.ed-more__aside--pill')).toBeVisible()
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
