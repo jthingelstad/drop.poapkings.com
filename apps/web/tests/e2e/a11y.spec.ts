@@ -13,8 +13,8 @@ const a11yRoutes = [
   { hash: '#/rain', label: 'Rain', ready: '.ed-game' },
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
   { hash: '#/players/player-2', label: 'Public player', ready: '.ed-public-profile' },
-  { hash: '#/profile', label: 'Profile', ready: '.ed-profile' },
-  { hash: '#/settings', label: 'Settings', ready: '.settings__card' }
+  { hash: '#/profile', label: 'Profile', ready: '.ed-you' },
+  { hash: '#/settings', label: 'Settings', ready: '.ed-you' }
 ]
 
 for (const route of a11yRoutes) {

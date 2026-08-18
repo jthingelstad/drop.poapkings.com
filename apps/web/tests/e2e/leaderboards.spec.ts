@@ -4,14 +4,15 @@ import { expect, test, testApiRoute, testPlayer, testSeason, testSession, testSt
 test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
 
-  // One fixed title on every scope; the season labels the scope segment and
-  // the clock sits beside the title as two short lines.
-  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
-  await expect(page.locator('.ed-board__clock')).toContainText('Season ends')
-  await expect(page.locator('.ed-board__clock')).toContainText('Aug 3 · 10:00 UTC')
+  // One fixed title on every scope — always "Ladder" — with the current
+  // season's close as the one clock line beside it.
+  await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
+  await expect(page.locator('.ed-ladder__clock')).toContainText('Ends')
+  await expect(page.locator('.ed-ladder__clock')).toContainText('Aug 3 · 10:00 UTC')
   // The Clan-Wars weekly clock must not appear on the season board.
-  await expect(page.locator('.ed-board__clock')).not.toContainText('left in week')
-  await expect(page.locator('.ed-board__scopes')).toContainText('Season 134')
+  await expect(page.locator('.ed-ladder__clock')).not.toContainText('left in week')
+  // Past seasons live in the Boards period rail, newest first after All-time.
+  await expect(page.locator('.ed-ladder__periods')).toContainText('Season 134')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
@@ -44,31 +45,30 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   expect(nameBounds!.width).toBeGreaterThan(40)
   expect(nameBounds!.x).toBeLessThan(scoreBounds!.x)
 
-  // Switch the per-mode tab to Survival. The tabs are the mode art now, so
-  // they are addressed by their accessible name rather than visible text.
-  await page.locator('.ed-board__modes').getByRole('button', { name: 'Survival' }).click()
-  await expect(page.locator('.ed-modetab--active')).toHaveAttribute('aria-label', 'Survival')
+  // Switch the per-mode tab to Survival. The tabs are labeled tiles now, with an
+  // uppercase short name (SURVIVE) over the mode art.
+  await page.locator('.ed-board__modes').getByRole('button', { name: 'SURVIVE' }).click()
+  await expect(page.locator('.ed-modetab--active')).toContainText('SURVIVE')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow__score').first()).toContainText('42')
   await expect(page.locator('.ed-lbrow__score').first()).not.toContainText('streak')
   await expect(page.locator('.ed-lbrow__time').first()).toHaveText('61.317s')
 
-  // Toggling to All-time keeps the header fixed and only moves the pressed
-  // scope, while the ranked player rows still render.
-  await page.getByRole('button', { name: 'All-time' }).click()
-  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
-  await expect(page.locator('.ed-scope--active')).toHaveText('All-time')
+  // Toggling the period rail to All-time keeps the header fixed and only moves
+  // the pressed chip, while the ranked player rows still render.
+  await page.locator('.ed-ladder__periods').getByRole('button', { name: 'All-time' }).click()
+  await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
+  await expect(page.locator('.ed-period--active')).toHaveText('All-time')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
 
-  // And back to Season restores the season-labelled segment.
-  await page.getByRole('button', { name: 'Season 134' }).click()
-  await expect(page.locator('.ed-scope--active')).toHaveText('Season 134')
+  // And back to Season 134 restores the current-season board.
+  await page.locator('.ed-ladder__periods').getByRole('button', { name: 'Season 134' }).click()
+  await expect(page.locator('.ed-period--active')).toHaveText('Season 134')
 
-  // Clan is an all-time board scoped to the signed-in player's current CR
-  // clan, with ranks recalculated inside that clan. Its identity lives in a
-  // strip under the tabs; the header and scope row never move.
-  await page.getByRole('button', { name: 'Clan', exact: true }).click()
-  await expect(page.locator('.ed-board__title')).toHaveText('Leaderboards')
+  // Clan is a scope of its own; ranks are recalculated inside the signed-in
+  // player's current CR clan. Its identity lives in a strip; the header never moves.
+  await page.getByRole('tab', { name: 'Clan' }).click()
+  await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
   await expect(page.locator('.ed-board__clan')).toContainText('POAP KINGS')
   await expect(page.locator('.ed-board__clan')).toContainText('#J2RGCRVG')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')

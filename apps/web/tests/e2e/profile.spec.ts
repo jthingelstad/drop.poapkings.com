@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { playerReference, runReference } from '@elixir-drop/contracts'
+import { BADGE_LIST, playerReference, runReference } from '@elixir-drop/contracts'
 import {
   cardsData,
   expect,
@@ -10,66 +10,67 @@ import {
   testApiRoute
 } from './fixtures'
 
-test('the profile is reachable from the shell and shows Player XP', async ({ page, viewport }) => {
+test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({
+  page,
+  viewport
+}) => {
   await page.goto('/')
-  // Both shells expose a profile entry point; the XP itself now lives on the
-  // profile (the old nav player-block XP chrome is gone).
+  // Both shells expose a You entry point. The nav never renames itself, so it is
+  // "You" on either shell.
   if (isDesktopViewport(viewport)) {
     await page.locator('.ed-rail-chip').first().click()
   } else {
-    await page.locator('.ed-idchip').click()
+    await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'You', exact: true }).click()
   }
 
-  // XP moved into the banner's arena line; the stats row is gone.
-  await expect(page.locator('.ed-profile__stats')).toHaveCount(0)
-  await expect(page.locator('.ed-profile__arena')).toContainText('480 XP')
-  await expect(page.locator('.ed-profile__arena-note')).toContainText('12 lifetime games')
-  // The email and player reference moved to the Account section at the foot.
-  await expect(page.locator('.ed-profile__banner')).not.toContainText('player@example.com')
-  await expect(page.locator('.ed-profile__account')).toContainText('player@example.com')
-  await expect(page.locator('.ed-profile__account')).toContainText(playerReference('player-1'))
+  await expect(page.locator('.ed-you__name')).toHaveText('Knight Main')
 
-  // Only a run a referee handled is sealed. The held and excluded runs are
-  // marked; the ordinary games around them wear nothing at all.
+  // The Log scope is the default: recorded games grouped by day, and only a run
+  // a referee handled is sealed. The held and excluded runs are marked; the
+  // ordinary games around them wear nothing.
   const games = page.locator('.ed-games')
   const rows = games.locator('.ed-games__row')
   await expect(rows.getByLabel('Awaiting referee')).toHaveCount(1)
   await expect(rows.getByLabel('Not ranked')).toHaveCount(1)
   await expect(rows.getByLabel('Referee cleared')).toHaveCount(0)
-  await expect(games).toContainText('AWAITING')
-  await expect(games).toContainText('EXCLUDED')
-  // The tiles count referee decisions, so an unreviewed career sits at zero.
-  await expect(games.locator('.ed-games__tile--reviewed')).toContainText('0')
-  await expect(games.locator('.ed-games__tile--pending')).toContainText('1')
-  // A held run names its provisional board placement.
-  await expect(games).toContainText('AWAITING · #2')
-  // The account block is one identity line plus its two actions.
-  await expect(page.locator('.ed-profile__account-line')).toContainText('Player')
-  await expect(page.locator('.ed-profile__account-actions')).toContainText('Sign out')
+  await expect(games.locator('.ed-games__day-head').first()).toContainText('game')
 
-  // The reference and the dispute link live in the run detail, and only a run
-  // a referee has touched carries one at all.
-  await games.locator('.ed-games__row').filter({ hasText: 'EXCLUDED' }).first().click()
+  // The run reference and the dispute link live in the run detail; only a run a
+  // referee has touched carries one at all.
+  await rows
+    .filter({ has: page.getByLabel('Not ranked') })
+    .first()
+    .click()
   const detail = page.getByRole('dialog')
-  await expect(detail).toContainText(`Run ${runReference('recent-trade')}`)
+  // An excluded run replaces the reference block with the referee's explanation
+  // and the dispute link (whose mailto still carries the run reference).
   await expect(detail).toContainText(/recorded response timing was not consistent with human play/)
-  await expect(detail.getByRole('link', { name: 'Dispute this result' })).toHaveAttribute(
+  await expect(detail.getByRole('link', { name: /Dispute/ })).toHaveAttribute(
     'href',
     `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('recent-trade')}`)}`
   )
   await page.keyboard.press('Escape')
+
+  // The email and player reference live in the Account scope.
+  await page.getByRole('tab', { name: 'Account' }).click()
+  await expect(page.locator('.ed-account')).toContainText('player@example.com')
+  await expect(page.locator('.ed-account')).toContainText(playerReference('player-1'))
+  await expect(page.locator('.ed-account')).toContainText('Sign out')
 })
 
-test('settings persist input and motion preferences across reload', async ({ page }) => {
+test('the Settings scope persists input and motion preferences across reload', async ({ page }) => {
+  // /settings folds into the You page; Settings is a scope there now.
   await page.goto('/#/settings', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: 'Settings' }).click()
   await page.getByRole('button', { name: '4 choices' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
   await page.reload({ waitUntil: 'domcontentloaded' })
 
+  // Reload lands on the default Log scope; reopen Settings to verify persistence.
+  await page.getByRole('tab', { name: 'Settings' }).click()
   await expect(page.getByRole('button', { name: '4 choices' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
-  await expect(page.getByLabel('Build information')).toContainText('Build ID')
-  await expect(page.getByLabel('Build information')).toContainText('Build date')
+  await expect(page.locator('.ed-settings__note')).toContainText('per-device and never sync')
 })
 
 test('an installed PWA replaces Install app with live App Info diagnostics', async ({ page, viewport }, testInfo) => {
@@ -142,34 +143,14 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   ).toHaveAttribute('aria-checked', 'true')
 })
 
-test('profile leads with badges and keeps settings near the bottom', async ({ page }, testInfo) => {
+test('the Settings scope has three toggles that persist per device', async ({ page }) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  const settings = page.locator('.ed-settings')
 
-  // identity → badges → your games → Clash Royale → settings → account.
-  const banner = page.locator('.ed-profile__banner')
-  const badgeWall = page.locator('.ed-profile__badges')
-  const games = page.locator('.ed-games')
-  const clashRoyale = page.locator('.ed-profile__cr')
-  const preferences = page.locator('.ed-profile__preferences')
-  const account = page.locator('.ed-profile__account')
-  await expect(preferences.getByRole('heading', { name: 'Settings' })).toBeVisible()
-  // The Seasons section and its modal folded into Your games.
-  await expect(page.locator('.ed-profile__seasons')).toHaveCount(0)
-
-  const surfaces = [banner, badgeWall, games, clashRoyale, preferences, account]
-  const positions = await Promise.all(surfaces.map((surface) => surface.boundingBox()))
-  expect(positions.every(Boolean)).toBe(true)
-  for (let index = 1; index < positions.length; index += 1) {
-    expect(positions[index]!.y).toBeGreaterThan(positions[index - 1]!.y + positions[index - 1]!.height)
-  }
-  await testInfo.attach('profile-hierarchy.png', {
-    body: await page.screenshot({ fullPage: true }),
-    contentType: 'image/png'
-  })
-
-  const sound = preferences.getByRole('switch', { name: 'Sound effects' })
-  const motion = preferences.getByRole('switch', { name: 'Reduce motion' })
-  const effects = preferences.getByRole('switch', { name: 'Enhance effects' })
+  const sound = settings.getByRole('switch', { name: 'Sound effects' })
+  const motion = settings.getByRole('switch', { name: 'Reduce motion' })
+  const effects = settings.getByRole('switch', { name: 'Enhance effects' })
   await expect(sound).toHaveAttribute('aria-checked', 'false')
   await expect(motion).toHaveAttribute('aria-checked', 'false')
   await expect(effects).toHaveAttribute('aria-checked', 'true')
@@ -180,36 +161,28 @@ test('profile leads with badges and keeps settings near the bottom', async ({ pa
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
 
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Sound effects' })).toHaveAttribute(
-    'aria-checked',
-    'true'
-  )
-  await expect(page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute(
-    'aria-checked',
-    'true'
-  )
-  await expect(
-    page.locator('.ed-profile__preferences').getByRole('switch', { name: 'Enhance effects' })
-  ).toHaveAttribute('aria-checked', 'false')
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await expect(settings.getByRole('switch', { name: 'Sound effects' })).toHaveAttribute('aria-checked', 'true')
+  await expect(settings.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'true')
+  await expect(settings.getByRole('switch', { name: 'Enhance effects' })).toHaveAttribute('aria-checked', 'false')
 })
 
-test('the badge wall starts as a strip and expands in place', async ({ page }) => {
-  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
-  const wall = page.locator('.ed-profile__badges')
-  await expect(wall.locator('.ed-badges__grid--featured')).toHaveCount(1)
-  const toggle = wall.locator('.ed-profile__badges-toggle')
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  const condensed = await wall.locator('.ed-badges__cell').count()
+test('the Ladder Badges scope shows every badge on one screen', async ({ page }) => {
+  await page.goto('/#/leaderboards')
+  await page.getByRole('tab', { name: 'Badges' }).click()
 
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(wall.locator('.ed-badges__grid--featured')).toHaveCount(0)
-  expect(await wall.locator('.ed-badges__cell').count()).toBeGreaterThan(condensed)
+  // Every badge, one screen — no featured strip, no "+N more", no expand toggle.
+  // (The two Reach badges are specced but not built yet, so BADGE_LIST is 29.)
+  await expect(page.locator('.ed-ladder__badges-head')).toContainText(`of ${BADGE_LIST.length} earned`)
+  await expect(page.locator('.ed-ladder__badges-head')).toContainText('Every badge, one screen')
+  await expect(page.locator('.ed-badges__grid--featured')).toHaveCount(0)
+  await expect(page.locator('.ed-profile__badges-toggle')).toHaveCount(0)
+  await expect(page.locator('.ed-badges__cell')).toHaveCount(BADGE_LIST.length)
 })
 
-test('opening a badge uses a focused modal instead of changing the badge wall', async ({ page }, testInfo) => {
-  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
-  await page.locator('.ed-profile__badges-toggle').click()
+test('opening a badge on the Ladder uses a focused modal with the rung ladder', async ({ page }, testInfo) => {
+  await page.goto('/#/leaderboards')
+  await page.getByRole('tab', { name: 'Badges' }).click()
 
   await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
   const sheet = page.getByRole('dialog', { name: 'Clockbreaker' })
@@ -217,7 +190,8 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   await expect(sheet).toContainText('Fastest Surge run')
   await expect(sheet).toContainText('Next milestone')
   await expect(sheet).toContainText('Best: 34.2s · 4.2s faster to go')
-  await expect(sheet.locator('.ed-badges__ladder')).toHaveCount(0)
+  // The redesign ADDS a full rung-ladder strip below the progress bar.
+  await expect(sheet.locator('.ed-badges__rungs')).toBeVisible()
   await testInfo.attach('badge-modal.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
@@ -242,7 +216,8 @@ test('opening a badge uses a focused modal instead of changing the badge wall', 
   const marathonProgress = marathon.getByRole('progressbar', { name: 'Marathon progress' })
   await expect(marathonProgress).toHaveAttribute('aria-valuenow', '70')
   await expect(marathonProgress).toHaveAttribute('aria-valuetext', 'Best: 7 · 3 to go')
-  await expect(marathon.locator('.ed-badges__rung')).toHaveCount(0)
+  // The rung ladder renders one segment per rung.
+  await expect(marathon.locator('.ed-badges__rung').first()).toBeVisible()
   await marathon.evaluate(async (element) => {
     await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished))
   })
@@ -276,7 +251,8 @@ test('earned badge sharing includes its artwork, rung, player, and public profil
       }
     })
   })
-  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  await page.goto('/#/leaderboards')
+  await page.getByRole('tab', { name: 'Badges' }).click()
   await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Clockbreaker' })
@@ -335,37 +311,31 @@ test('earned badge sharing includes its artwork, rung, player, and public profil
   )
 })
 
-test('your games uses full history, filters it, and pages older seasons in', async ({ page }, testInfo) => {
+test('the Log groups games by day, filters flagged, and pages older games in', async ({ page }, testInfo) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
   const games = page.locator('.ed-games')
-  // The current season defaults in, and the month header totals it — no
-  // recent-feed cap standing in for a season total.
+  // The current season's games default in, grouped by local day.
   await expect(games.locator('.ed-games__row')).toHaveCount(30)
-  await expect(games.locator('.ed-games__month-head').first()).toContainText('30 games')
+  await expect(games.locator('.ed-games__day-head').first()).toContainText('game')
 
-  // Mode narrows both the rows and the counts.
-  await games.getByLabel('Mode').selectOption('surge')
-  await expect(games.locator('.ed-games__row')).toHaveCount(15)
-  await expect(games.locator('.ed-games__month-head').first()).toContainText('best')
-  await games.getByLabel('Mode').selectOption('all')
+  // One filter chip pair — Flagged narrows to the referee-touched runs.
+  await games.getByRole('button', { name: /Flagged/ }).click()
+  await expect(games.locator('.ed-games__row')).toHaveCount(2)
+  await games.getByRole('button', { name: 'All', exact: true }).click()
+  await expect(games.locator('.ed-games__row')).toHaveCount(30)
 
-  // Paging: the current season is the default, so the foot offers the season
-  // before it and appends rather than replaces. The older season's runs are
-  // fetched on demand — they were never in the first payload.
+  // "Older games" pages the tail: the older season's runs are fetched on demand
+  // and appended, never in the first payload.
   const seasonRequests: string[] = []
   page.on('request', (request) => {
     const url = new URL(request.url())
     if (url.pathname === '/me/seasons') seasonRequests.push(url.searchParams.get('season') ?? '')
   })
-  // Seasons read as Clash Royale season numbers, never the internal id.
-  await expect(games.getByLabel('Season')).toContainText('Season 134')
-  await expect(games.getByLabel('Season')).not.toContainText('2026-07')
-  await games.getByRole('button', { name: 'Load Season 133' }).click()
+  await games.getByRole('button', { name: 'Older games' }).click()
   await expect.poll(() => seasonRequests).toContain('2026-06')
   await expect(games.locator('.ed-games__row')).toHaveCount(32)
-  await expect(games.locator('.ed-games__month-head')).toHaveCount(2)
-  await expect(games.getByRole('button', { name: /^Load / })).toHaveCount(0)
+  await expect(games.getByRole('button', { name: 'Older games' })).toHaveCount(0)
 
   await testInfo.attach('your-games.png', {
     body: await page.screenshot({ fullPage: false }),
@@ -525,22 +495,19 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
   await expect(tagInput).toBeVisible()
   await tagInput.fill('20JJJ2CCRU')
   await page.getByRole('button', { name: 'Save tag' }).click()
-  // Return to the profile view, where the resolved CR profile renders.
+  // Return to the You view, where the resolved CR profile renders in Account.
   await page.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('tab', { name: 'Account' }).click()
 
-  // The CR profile is one row now: crest, clan, role · tag · account age.
-  const crRow = page.locator('.ed-profile__cr')
-  await expect(crRow).toContainText('POAP KINGS', { timeout: 8_000 })
-  await expect(crRow).toContainText('Leader')
-  await expect(crRow).toContainText('#20JJJ2CCRU')
-  await expect(crRow).toContainText('Account age unavailable')
-  await expect(crRow.getByRole('button', { name: 'Clan board' })).toBeVisible()
-  // The three fact cells, the Collection tile, and the card grid are all gone.
+  // The Clash Royale block is clan name + tag only — no role, no collection.
+  const account = page.locator('.ed-account')
+  await expect(account).toContainText('POAP KINGS', { timeout: 8_000 })
+  await expect(account).toContainText('#20JJJ2CCRU')
+  await expect(account).not.toContainText('Leader')
   await expect(page.locator('.cr-profile')).toHaveCount(0)
-  await expect(crRow).not.toContainText('Collection')
-  await expect(crRow).not.toContainText('Not used in Drop')
+  await expect(account).not.toContainText('Collection')
   await expect(page.getByLabel('Clash Royale card collection')).toHaveCount(0)
-  await expect(crRow).not.toContainText(/troph|arena|card level/i)
+  await expect(account).not.toContainText(/troph|arena|card level/i)
 
   const screenshot = await page.screenshot({ fullPage: true })
   await testInfo.attach('resolved-cr-profile.png', { body: screenshot, contentType: 'image/png' })

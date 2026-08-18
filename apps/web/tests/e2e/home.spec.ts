@@ -39,33 +39,32 @@ test(
   }
 )
 
-test('every game sits in the row, and one is featured for the day', async ({ page }) => {
+test('the hero features one ranked game and the other four are full-width rows', async ({ page, viewport }) => {
   await page.goto('/')
 
-  // All five ranked games are always listed, Surge included, in a fixed order.
-  const row = page.locator('.ed-more-row, .ed-more-grid').first()
-  await expect(row.locator('.ed-gcard')).toHaveCount(5)
-  await expect(row).toContainText('Surge')
-  await expect(row).toContainText('Higher / Lower')
-  await expect(row).toContainText('Rain')
-  await expect(row).toContainText('Trade')
-  await expect(row).toContainText('Survival')
-  await expect(page.locator('.ed-more__title').first()).toHaveText('All games')
-  await expect(page.getByRole('link', { name: 'How every mode works' }).first()).toHaveAttribute('href', '/games/')
-  await expect(row).toContainText('Your best ·')
-  await expect(row).not.toContainText('Royal Ghosted')
-  await expect(row).not.toContainText('The crown is open')
-
-  // Rain is no longer badged as new.
-  await expect(row.locator('.ed-gcard__badge')).toHaveCount(0)
-
-  // The hero promotes one of those five, and the same one is accented in the
-  // row — so the promotion never points somewhere the list does not.
+  // The hero promotes one ranked game for the day.
   const wordmark = (await page.locator('.ed-hero__wordmark').first().textContent())?.trim() ?? ''
   expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
-  const accented = row.locator('.ed-gcard--accent')
-  await expect(accented).toHaveCount(1)
-  await expect(accented).toContainText(wordmark, { ignoreCase: true })
+
+  // The mobile home is the redesigned full-width-row layout; the desktop shell is
+  // a separate commit and keeps its card grid, so the assertions differ per shell.
+  if (isDesktopViewport(viewport)) {
+    const row = page.locator('.ed-more-row, .ed-more-grid').first()
+    await expect(row.locator('.ed-gcard')).toHaveCount(5)
+    const accented = row.locator('.ed-gcard--accent')
+    await expect(accented).toHaveCount(1)
+    await expect(accented).toContainText(wordmark, { ignoreCase: true })
+  } else {
+    // Exactly the OTHER four ranked games are listed as rows — the featured game
+    // is pulled out of the list so it never appears twice.
+    const otherFour = page.locator('.ed-rows').first()
+    await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
+    const rowNames = await otherFour.locator('.ed-grow__name').allTextContents()
+    expect(rowNames.map((name) => name.trim().toUpperCase())).not.toContain(wordmark)
+    // A row leads with its own best and never carries a gold PLAY.
+    await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
+    await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
+  }
 })
 
 test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({
@@ -75,24 +74,24 @@ test('practice choices join Games on mobile and stay in the Practice destination
   await page.goto('/')
 
   if (isDesktopViewport(viewport)) {
-    await expect(page.locator('.ed-practice-options')).toHaveCount(0)
-    await page
-      .getByRole('navigation', { name: 'Primary' })
-      .getByRole('button', { name: /Practice Unranked/ })
-      .click()
-    await expect(page).toHaveURL(/#\/practice$/)
+    // The desktop rail's Practice nav item is retired; the /practice deep link
+    // still opens the hub for anyone who types it.
+    await expect(
+      page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: /Practice/ })
+    ).toHaveCount(0)
+    await page.goto('/#/practice')
     await expect(page.locator('.practice-hub')).toBeVisible()
   } else {
-    const options = page.locator('.ed-practice-options')
-    await expect(options).toBeVisible()
-    await expect(options.getByRole('button')).toHaveCount(2)
-    await expect(options.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
-    await expect(options.getByRole('button', { name: /Ledger/ })).toBeVisible()
-    await expect(options).toContainText('Both drills work offline')
+    const practice = page.locator('section[aria-labelledby="home-practice-title"]')
+    await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
+    await expect(practice.locator('.ed-grow--drill')).toHaveCount(2)
+    await expect(practice.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
+    await expect(practice.getByRole('button', { name: /Ledger/ })).toBeVisible()
 
+    // The practice hub is retired as a destination: /practice folds into Play.
     await page.goto('/#/practice')
     await expect(page).toHaveURL(/#\/$/)
-    await expect(page.locator('.ed-practice-options')).toBeVisible()
+    await expect(page.locator('section[aria-labelledby="home-practice-title"]')).toBeVisible()
     await expect(page.locator('.practice-hub')).toHaveCount(0)
   }
 })
@@ -244,10 +243,7 @@ test('mobile install suggestion waits until the third browser session', async ({
     .toBe(true)
 })
 
-test('Tinylytics tracks hash pages, stays off the token route, and captures game events', async ({
-  page,
-  viewport
-}) => {
+test('Tinylytics tracks hash pages, stays off the token route, and captures game events', async ({ page }) => {
   const embedRequests: string[] = []
   const pageRequests: string[] = []
   page.on('request', (request) => {
@@ -270,10 +266,7 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
 
   // Scoped to the primary nav: the profile surface also links "Leaderboards"
   // (both shells label their nav "Primary", so this works on either).
-  await page
-    .getByRole('navigation', { name: 'Primary' })
-    .getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
-    .click()
+  await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Ladder', exact: true }).click()
   await expect(page).toHaveURL(/#\/leaderboards/)
   await expect.poll(() => pageRequests.length).toBe(2)
   expect(new URL(pageRequests[1]).searchParams.get('path')).toBe('/leaderboards')
@@ -308,8 +301,13 @@ test.describe('mobile primary navigation', () => {
     await applyTestSafeArea()
 
     await expect(page.locator('.ed-mobile')).toHaveCSS('padding-top', '47px')
-    const identityTop = await page.locator('.ed-idchip').evaluate((element) => element.getBoundingClientRect().top)
-    expect(identityTop).toBeGreaterThanOrEqual(53)
+    // The intro header and identity chip are gone; the hero leads the page and
+    // must clear the status-bar inset.
+    const heroTop = await page
+      .locator('.ed-hero')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top)
+    expect(heroTop).toBeGreaterThanOrEqual(47)
 
     await page.goto('/?signedOut=1#/surge')
     await applyTestSafeArea()
@@ -325,14 +323,14 @@ test.describe('mobile primary navigation', () => {
     await expect(page.locator('.site-head')).toHaveCount(0)
     const nav = page.locator('.ed-pillnav')
     await expect(nav).toBeVisible()
-    await expect(nav.getByRole('button', { name: 'Games' })).toBeVisible()
-    await expect(nav.getByRole('button', { name: 'Ranks' })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Play' })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Ladder' })).toBeVisible()
     await expect(nav.getByRole('button', { name: 'You' })).toBeVisible()
     await expect(nav.locator('.ed-pillnav__ind')).toHaveCSS(
       'background-image',
       'linear-gradient(135deg, rgb(245, 200, 76), rgb(201, 140, 16))'
     )
-    await expect(nav.getByRole('button', { name: 'Games' })).toHaveCSS('color', 'rgb(42, 21, 0)')
+    await expect(nav.getByRole('button', { name: 'Play' })).toHaveCSS('color', 'rgb(42, 21, 0)')
 
     const pageHasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1

@@ -257,9 +257,9 @@ test('account deletion requires typed confirmation and clears the saved session'
   })
 
   await page.goto('/#/profile')
-  // Delete-account ends the profile in the Account section — no longer hidden
-  // inside the identity editor.
-  await page.locator('.ed-profile__account').getByRole('button', { name: 'Delete account' }).click()
+  // Delete-account lives in the Account scope of the You page.
+  await page.getByRole('tab', { name: 'Account' }).click()
+  await page.locator('.ed-account').getByRole('button', { name: 'Delete account' }).click()
   const confirmDelete = page.getByRole('button', { name: 'Permanently delete account' })
   await expect(confirmDelete).toBeDisabled()
   await page.getByLabel('Type DELETE to confirm').fill('delete')

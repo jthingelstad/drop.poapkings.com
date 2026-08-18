@@ -147,24 +147,20 @@ test('surge points higher or lower after a wrong guess and clears on the solve',
   await expect(page.getByTestId('surge-hint')).toBeEmpty()
 })
 
-test('surge summary shows cost accuracy bars', async ({ page }, testInfo) => {
+test('the surge summary is the one-frame layout without the accuracy chart', async ({ page }, testInfo) => {
   await page.goto('/#/surge')
   await completeSurge(page)
 
-  const chart = page.locator('.ed-sum-bands')
-  await expect(chart).toBeVisible()
+  // The new summary is one frame: score + seal, "what changed", the signature
+  // panel, then share and the actions. The accuracy-by-cost chart and the three
+  // generic tiles are gone.
+  await expect(page.locator('.ed-sum')).toBeVisible()
+  await expect(page.locator('.ed-sum__headline')).toBeVisible()
+  await expect(page.locator('.ed-sum-bands')).toHaveCount(0)
+  await expect(page.locator('.ed-sum-tiles')).toHaveCount(0)
+  // A fresh run's seal is only ever awaiting or not-recorded — never cleared.
+  await expect(page.locator('.ed-sum [aria-label="Referee cleared"]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
-
-  const barHeights = await chart
-    .locator('.ed-sum-band__bar')
-    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))
-  expect(barHeights).toHaveLength(5)
-  expect(barHeights.every((height) => height > 0)).toBe(true)
-
-  const fillHeights = await chart
-    .locator('.ed-sum-band__fill')
-    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height))
-  expect(fillHeights.some((height) => height > 0)).toBe(true)
 
   await testInfo.attach('surge-summary.png', {
     body: await page.screenshot({ fullPage: true }),
@@ -292,6 +288,7 @@ test('surge runtime cues drive card motion and the optional effects canvas', asy
 
 test('surge keeps gameplay still and skips optional effects when reduced motion is enabled', async ({ page }) => {
   await page.goto('/#/settings')
+  await page.getByRole('tab', { name: 'Settings' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
   await page.goto('/#/surge')
   await waitForKeypad(page)

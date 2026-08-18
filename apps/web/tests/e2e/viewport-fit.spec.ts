@@ -99,12 +99,12 @@ test.describe('mobile timed-mode controls', () => {
 
   test('keeps the complete Ledger interaction in the first viewport', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/practice/ledger')
-    await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-xpad__key:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
 
     const geometry = await page.locator('.ledger').evaluate((element) => {
-      const board = element.querySelector('.ledger-board')?.getBoundingClientRect()
-      const pad = element.querySelector('.ledger-pad')?.getBoundingClientRect()
-      const assist = element.querySelector('.ledger-assist')?.getBoundingClientRect()
+      const board = element.querySelector('.ed-xboard')?.getBoundingClientRect()
+      const pad = element.querySelector('.ed-xpad')?.getBoundingClientRect()
+      const assist = element.querySelector('.ed-xboard__balance')?.getBoundingClientRect()
       return {
         boardHeight: board?.height ?? 0,
         contained:
@@ -147,25 +147,17 @@ test.describe('mobile timed-mode controls', () => {
   })
 
   test('keeps the Trade board separated below the update banner', async ({ page }) => {
-    await page.route('**/version.json*', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ webVersion: 'newer-build' })
-      })
-    )
     await page.goto('/#/trade')
-    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     const trade = page.locator('.ed-trade')
     await expect(trade).toBeVisible({ timeout: 12_000 })
 
     const layout = await trade.evaluate((element) => {
       const game = element.closest('.ed-game')?.getBoundingClientRect()
       const motion = element.querySelector(':scope > .game-motion')?.getBoundingClientRect()
-      const blue = element.querySelector('.ed-trade__team--blue')?.getBoundingClientRect()
-      const red = element.querySelector('.ed-trade__team--red')?.getBoundingClientRect()
+      const blue = element.querySelector('.ed-xlane--blue')?.getBoundingClientRect()
+      const red = element.querySelector('.ed-xlane--red')?.getBoundingClientRect()
       const prompt = element.querySelector('.ed-trade__prompt')?.getBoundingClientRect()
-      const pad = element.querySelector('.ed-trade__pad')?.getBoundingClientRect()
+      const pad = element.querySelector('.ed-xpad')?.getBoundingClientRect()
       return {
         viewportWidth: window.innerWidth,
         gameWidth: game?.width ?? 0,
@@ -180,17 +172,12 @@ test.describe('mobile timed-mode controls', () => {
     expect(layout.padFits).toBe(true)
   })
 
-  test('keeps the Rain instruction out of the falling-card field', async ({ page }) => {
+  test('the Rain field reclaims the space of the retired instruction caption', async ({ page }) => {
     await page.goto('/#/rain')
-    const hint = page.locator('.ed-rain__hint')
-    const field = page.locator('.ed-rain__field')
-    await expect(hint).toBeVisible({ timeout: 12_000 })
-    await expect(field).toBeVisible()
-
-    const [hintBounds, fieldBounds] = await Promise.all([hint.boundingBox(), field.boundingBox()])
-    expect(hintBounds).not.toBeNull()
-    expect(fieldBounds).not.toBeNull()
-    expect(hintBounds!.y + hintBounds!.height).toBeLessThanOrEqual(fieldBounds!.y + 1)
+    // The "Clear the lit card before it lands" caption was removed; the field
+    // gets those pixels back, and there is no instruction over it.
+    await expect(page.locator('.ed-rain__field')).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-rain__hint')).toHaveCount(0)
   })
 
   // The Speedrun keyboard trades vertical space for tap-target width, so it is
@@ -280,26 +267,30 @@ test.describe('tall mobile Ledger layout', () => {
     { tag: '@deploy' },
     async ({ page }, testInfo) => {
       await page.goto('/#/practice/ledger')
-      await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+      await expect(page.locator('.ed-xpad__key:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
 
       const geometry = await page.locator('.ledger').evaluate((element) => {
         const ledger = element.getBoundingClientRect()
-        const board = element.querySelector('.ledger-board')?.getBoundingClientRect()
-        const card = element.querySelector('.ledger-card')?.getBoundingClientRect()
-        const assist = element.querySelector('.ledger-assist')?.getBoundingClientRect()
+        const board = element.querySelector('.ed-xboard')?.getBoundingClientRect()
+        const card = element.querySelector('.ed-xcard')?.getBoundingClientRect()
+        // The pad is the bottom-most in-flow element now that the assist folded
+        // into the mid-board balance line; measure waste below it.
+        const pad = element.querySelector('.ed-xpad')?.getBoundingClientRect()
         return {
           boardShare: board ? board.height / ledger.height : 0,
           cardWidth: card?.width ?? 0,
           topWaste: board ? board.top - ledger.top : Number.POSITIVE_INFINITY,
-          bottomWaste: assist ? ledger.bottom - assist.bottom : Number.POSITIVE_INFINITY,
+          bottomWaste: pad ? ledger.bottom - pad.bottom : Number.POSITIVE_INFINITY,
           fits: ledger.top >= 0 && ledger.bottom <= window.innerHeight + 1
         }
       })
 
       expect(geometry.boardShare).toBeGreaterThanOrEqual(0.5)
-      expect(geometry.cardWidth).toBeGreaterThanOrEqual(100)
+      // The exchange board uses a fixed 96px card.
+      expect(geometry.cardWidth).toBeGreaterThanOrEqual(88)
       expect(geometry.topWaste).toBeLessThanOrEqual(8)
-      expect(geometry.bottomWaste).toBeLessThanOrEqual(12)
+      // The pad keeps a small breathing gap above the bottom safe-area padding.
+      expect(geometry.bottomWaste).toBeLessThanOrEqual(48)
       expect(geometry.fits).toBe(true)
 
       if (testInfo.project.name === 'iphone-14') {
@@ -331,15 +322,7 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps Higher / Lower in view below the update banner', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
-    await page.route('**/version.json*', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ webVersion: 'newer-build' })
-      })
-    )
     await page.goto('/#/higher-lower')
-    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     const cards = page.locator('.ed-duel__card')
     await expect(cards.first()).toBeEnabled({ timeout: 12_000 })
 
@@ -354,25 +337,17 @@ test.describe('low-height desktop timed controls', () => {
 
   test('keeps the Trade board full-width below the update banner', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
-    await page.route('**/version.json*', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ webVersion: 'newer-build' })
-      })
-    )
     await page.goto('/#/trade')
-    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     const trade = page.locator('.ed-trade')
     await expect(trade).toBeVisible({ timeout: 12_000 })
 
     const layout = await trade.evaluate((element) => {
       const game = element.closest('.ed-game')?.getBoundingClientRect()
       const motion = element.querySelector(':scope > .game-motion')?.getBoundingClientRect()
-      const blue = element.querySelector('.ed-trade__team--blue')?.getBoundingClientRect()
-      const red = element.querySelector('.ed-trade__team--red')?.getBoundingClientRect()
+      const blue = element.querySelector('.ed-xlane--blue')?.getBoundingClientRect()
+      const red = element.querySelector('.ed-xlane--red')?.getBoundingClientRect()
       const prompt = element.querySelector('.ed-trade__prompt')?.getBoundingClientRect()
-      const pad = element.querySelector('.ed-trade__pad')?.getBoundingClientRect()
+      const pad = element.querySelector('.ed-xpad')?.getBoundingClientRect()
       return {
         gameWidth: game?.width ?? 0,
         boardContained: !!motion && !!blue && !!red && blue.top >= motion.top - 1 && red.bottom <= motion.bottom + 1,

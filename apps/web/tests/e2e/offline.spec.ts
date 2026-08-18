@@ -20,41 +20,31 @@ async function setOnline(page: import('@playwright/test').Page, online: boolean)
   }, online)
 }
 
-test('offline shows in the player chip and offers every game locally', async ({ page }) => {
+test('offline shows a persistent mark and keeps games playable', async ({ page, viewport }) => {
   await page.goto('/')
-  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
   await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
+  await expect(page.locator('.ed-cause')).toHaveCount(0)
 
   await setOnline(page, false)
 
-  // A persistent state gets a persistent mark, not a banner that sits over the
-  // game while you play.
-  const glyph = page.locator('.ed-offline-glyph')
-  await expect(glyph).toBeVisible()
-  await expect(glyph).toHaveAttribute('aria-label', 'Offline')
-  // The old banner is gone for good.
-  await expect(page.locator('.ed-offline')).toHaveCount(0)
-
-  // Every ranked game says up front that this run is local, but remains playable.
-  const cards = page.locator('.ed-gcard')
-  await expect(cards).toHaveCount(5)
-  for (const card of await cards.all()) {
-    const button = card.getByRole('button')
-    await expect(button).toBeEnabled()
-    await expect(button).toContainText('Play offline')
-    const descriptionId = await button.getAttribute('aria-describedby')
-    expect(descriptionId).toBeTruthy()
-    await expect(page.locator(`#${descriptionId}`)).toContainText('will not be saved or ranked')
+  // A persistent state gets a persistent mark, never a standing banner. On the
+  // redesigned mobile home that mark is the OFFLINE cause chip plus the readiness
+  // line; the desktop shell (a separate commit) keeps its rail glyph.
+  if (isDesktopViewport(viewport)) {
+    await expect(page.locator('.ed-offline-glyph').first()).toBeVisible()
+  } else {
+    await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
+    await expect(page.locator('.ed-home__ready')).toContainText('You are offline but ready to play')
+    const rows = page.locator('.ed-grow--ranked')
+    await expect(rows).toHaveCount(4)
+    for (const row of await rows.all()) await expect(row).toBeEnabled()
   }
-  const hero = page.locator('.ed-hero')
-  const heroButton = hero.getByRole('button', { name: /PLAY OFFLINE/ })
-  await expect(heroButton).toBeEnabled()
-  const heroDescriptionId = await heroButton.getAttribute('aria-describedby')
-  expect(heroDescriptionId).toBeTruthy()
-  await expect(page.locator(`#${heroDescriptionId}`)).toContainText('will not be saved or ranked')
+  await expect(page.locator('.ed-offline')).toHaveCount(0)
 
   await setOnline(page, true)
   await expect(page.locator('.ed-offline-glyph')).toHaveCount(0)
+  await expect(page.locator('.ed-cause')).toHaveCount(0)
 })
 
 test('a signed-out desktop visitor still gets the offline mark', async ({ page, isMobile }) => {
@@ -68,58 +58,41 @@ test('a signed-out desktop visitor still gets the offline mark', async ({ page, 
   await expect(page.locator('.ed-rail-chip--guest .ed-offline-glyph')).toBeVisible()
 })
 
-test('primary navigation replaces Ranks and You with an Offline destination', async ({ page, viewport }) => {
+test('offline keeps the same nav and names the cause on the page it stays on', async ({ page, isMobile }) => {
   await page.goto('/')
-  await expect(page.locator('.ed-gcard').first()).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
 
-  // The shell is warm; now remove the API entirely. The navigation should stop
-  // offering live destinations instead of leading to two separate blockers.
+  // The shell is warm; now remove the API entirely. The nav must NOT rename
+  // itself, and the live pages must stay put rather than a route takeover.
   allowOfflineTransportErrors.add(page)
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))
   await setOnline(page, false)
 
   const primaryNav = page.getByRole('navigation', { name: 'Primary' })
-  await expect(
-    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
-  ).toHaveCount(0)
-  await expect(
-    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
-  ).toHaveCount(0)
+  // Play · Ladder · You, offline or online — the tabs never swap to "Offline".
+  await expect(primaryNav).toContainText('Ladder')
+  await expect(primaryNav).toContainText('You')
+  await expect(primaryNav).not.toContainText('Offline mode')
 
-  const offlineNav = primaryNav.getByRole('button', {
-    name: isDesktopViewport(viewport) ? 'Offline mode' : 'Offline',
-    exact: true
-  })
-  await expect(offlineNav).toBeVisible()
-  await offlineNav.click()
-  await expect(page).toHaveURL(/#\/offline$/)
-  await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toBeVisible()
-  await expect(page.locator('.ed-offline-page')).toContainText('All six games are available')
-  await expect(page.locator('.ed-offline-page')).toContainText(
-    'Ranks and You return automatically when player services are reachable'
-  )
-  await expect(page.locator('.ed-offline-page')).toContainText('personal bests, badges, XP, history')
-  await expect(page.locator('.ed-board')).toHaveCount(0)
-  await expect(page.locator('.account-screen')).toHaveCount(0)
+  // The Ladder stays live and names its cause; there is no OfflinePage takeover.
+  await page.goto('/#/leaderboards')
+  await expect(page.locator('.ed-ladder')).toBeVisible()
+  await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
+  await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toHaveCount(0)
+  // Absent server data goes quiet rather than erroring: the Boards scope explains
+  // it needs a connection, and the arena bar reads "Last known".
+  await expect(page.getByText('Boards need a connection')).toBeVisible()
+  await expect(page.locator('.ed-ladder__arena--stale')).toContainText('Last known')
 
-  if (isDesktopViewport(viewport)) {
+  if (!isMobile) {
     await expect(page.locator('.ed-rail-standings')).toHaveText('Offline — reconnect for standings.')
-    await expect(page.locator('.ed-rail-live')).toHaveText('Offline — reconnect for recent runs.')
-    await expect(page.locator('.ed-desktop__right')).not.toContainText('Loading…')
   }
 
-  // Reconnecting swaps the normal destinations back in without leaving an
-  // obsolete offline explanation on screen.
+  // Reconnecting clears the cause chip; the same nav was there throughout.
   await setOnline(page, true)
-  await expect(page.getByRole('heading', { name: 'You’re back online' })).toBeVisible()
-  await expect(offlineNav).toHaveCount(0)
-  await expect(
-    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Leaderboards' : 'Ranks', exact: true })
-  ).toBeVisible()
-  await expect(
-    primaryNav.getByRole('button', { name: isDesktopViewport(viewport) ? 'Profile' : 'You', exact: true })
-  ).toBeVisible()
+  await expect(page.locator('.ed-cause')).toHaveCount(0)
+  await expect(primaryNav).toContainText('Ladder')
 })
 
 test('an API-only outage allows local play while navigator remains online', { tag: '@deploy' }, async ({ page }) => {
@@ -205,9 +178,9 @@ test(
 
     await page.goto('/#/practice/ledger')
     await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
-    await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-xpad__key:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
 
-    const balance = await page.locator('.ledger-board').evaluate(
+    const balance = await page.locator('.ed-xboard').evaluate(
       (board, catalog) => {
         const costs = new Map(
           (catalog as Array<{ id: number; elixir: number }>).map((card) => [String(card.id), card.elixir])
@@ -217,16 +190,16 @@ test(
             (sum, card) => sum + (costs.get(card.dataset.cardId ?? '') ?? 0),
             0
           )
-        return total('.ledger-lane--red .ledger-card') - total('.ledger-lane--blue .ledger-card')
+        return total('.ed-xlane--red .ed-xcard') - total('.ed-xlane--blue .ed-xcard')
       },
       [...cardsById.values()].map(({ id, elixir }) => ({ id, elixir }))
     )
-    const answer = balance > 0 ? `Blue +${balance}` : balance < 0 ? `Red +${Math.abs(balance)}` : 'Even'
+    const answer = balance > 0 ? `Blue ahead by ${balance}` : balance < 0 ? `Red ahead by ${Math.abs(balance)}` : 'Even'
     await page.getByRole('button', { name: answer, exact: true }).click()
     await expect(page.locator('.ed-game__progress')).toContainText('1 checked')
     await page.getByRole('button', { name: 'End session' }).click()
 
-    await expect(page.locator('.ed-sum__offline')).toContainText('Offline run — not saved')
+    await expect(page.locator('.ed-sum__state')).toContainText('board never saw it')
     expect(runRequests).toBe(0)
   }
 )
@@ -259,17 +232,17 @@ for (const mode of offlineModes) {
       await choices.nth(costs[0]! > costs[1]! ? 0 : 1).click()
       await expect(page.locator('.ed-game__metric')).toHaveText('1')
     } else if (mode === 'trade') {
-      const teams = page.locator('.ed-trade__teams')
+      const teams = page.locator('.ed-xboard')
       await expect(teams).toBeVisible({ timeout: 12_000 })
       const ids = async (side: string) =>
         page
-          .locator(`.ed-trade__team--${side} [data-card-id]`)
+          .locator(`.ed-xlane--${side} [data-card-id]`)
           .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
       const total = (values: number[]) => values.reduce((sum, id) => sum + cardsById.get(id)!.elixir, 0)
       const answer = total(await ids('red')) - total(await ids('blue'))
-      const label = answer === 0 ? 'Even trade' : `${answer > 0 ? `+${answer}` : answer} trade`
-      await page.getByRole('button', { name: label }).click()
-      await expect(teams).toHaveAttribute('data-trade-index', '2')
+      const label = answer > 0 ? `Blue ahead by ${answer}` : answer < 0 ? `Red ahead by ${Math.abs(answer)}` : 'Even'
+      await page.getByRole('button', { name: label, exact: true }).click()
+      await expect(page.locator('.ed-trade__board')).toHaveAttribute('data-trade-index', '2')
     } else if (mode === 'rain') {
       await waitForKeypad(page)
       const tile = page.locator('.ed-rain__tile--lit').first()
@@ -314,9 +287,9 @@ test('an offline ranked completion stays out of records and progression', async 
   await page.goto('/#/surge')
   await completeSurge(page)
 
-  await expect(page.locator('.ed-sum__offline')).toContainText('Offline run — not saved')
-  await expect(page.locator('.ed-sum__offline')).toContainText('score, badges, XP, history, and leaderboard position')
-  await expect(page.locator('.ed-sum__pb')).toHaveCount(0)
+  await expect(page.locator('.ed-sum__state')).toContainText('The board never saw it, so nothing moved')
+  // Offline suppresses the "what changed" ledger (no PB, no rungs) entirely.
+  await expect(page.locator('.ed-sum__changed')).toHaveCount(0)
   await expect(page.locator('.signin-save')).toHaveCount(0)
   expect(runRequests).toBe(0)
   expect(await page.evaluate(() => localStorage.getItem('elixirdrop:records'))).toBe('{"surgeBest":99999}')

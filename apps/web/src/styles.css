@@ -4059,6 +4059,11 @@ html.reduce-motion .ed-game__bar-fill {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* The taller 250px card can overflow its centered flex slot; keep the idle
+     nudge (and its slot) above it so it stays visible and tappable. */
+  position: relative;
+  z-index: 6;
 }
 .practice-idle-assist {
   min-height: 32px;
