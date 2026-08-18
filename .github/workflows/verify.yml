@@ -35,7 +35,9 @@ jobs:
   browser:
     name: Playwright (${{ matrix.project }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Match main validation: hosted-runner mirror fallback can consume most of
+    # the old 15-minute window before Playwright reaches the project tests.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:

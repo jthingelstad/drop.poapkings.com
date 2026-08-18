@@ -98,7 +98,10 @@ jobs:
     needs: scope
     if: needs.scope.outputs.browser == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Browser dependency installation occasionally falls back from the hosted
+    # runner's Azure mirror. Leave enough room for that bounded retry plus the
+    # deployment smoke instead of cancelling before project tests start.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
