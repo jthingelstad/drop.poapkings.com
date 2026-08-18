@@ -102,7 +102,7 @@ rank-oriented fields as part of unrelated work.
   narrow modules. Authenticated identity and
   signed runs use `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
-  the canonical inventory of all eleven keys and which module owns each; add new
+  the canonical inventory of every browser-storage key and which module owns each; add new
   keys there.
 - **Named releases have an in-app surface.** `scripts/cut-release.mjs` writes
   `apps/web/src/data/releases.json` during `npm run release:cut` (GitHub Releases
@@ -370,14 +370,16 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   recall one anchored higher/lower retry before revealing the exact value; and
   return misses through the spaced-review queue. The solved cost must hold over
   the card for at least 300ms and leave attached to that card.
-- **Speedrun keyboard:** an off-by-default setting that deals the pip keypad as
-  two full-width rows (1–5 over 6–9) instead of one row of nine, roughly doubling
-  key width because mistaps happen sideways. Asked for by Drop's fastest Surge
-  players. It applies everywhere the pip keypad renders (Surge, Practice,
-  Survival, Rain) so muscle memory is the same in drill and in competition;
-  Trade's swing pad is a different control and is untouched. The two-row layout
-  **must not** keep the single row's `aspect-ratio`, or it blows through the
-  viewport-fit gates — see `.pip-keypad--speedrun` in `styles.css`.
+- **Two-row keypad:** the pip keypad is always dealt as two full-width rows (1–5
+  over 6–9), roughly doubling key width because mistaps happen sideways. Asked for
+  by Drop's fastest Surge players, and now the ONLY layout — the old single row of
+  nine and the opt-in "Speedrun keyboard" setting were removed in the 2026 refresh
+  (`SPEEDRUN_TOP_ROW = 5` stays: a future 10-cost card lands on the bottom row,
+  not shoving 1–5 out from under a learned thumb). It renders everywhere the pip
+  keypad does (Surge, Practice, Survival, Rain); Trade and Ledger use the shared
+  `components/game/ExchangeBoard.tsx` (RED/BLUE team rows + EVEN) instead. The two
+  rows **must not** keep a single row's `aspect-ratio`, or they blow through the
+  viewport-fit gates — see `.pip-keypad` in `styles.css`.
 - **Evolutions:** quiz on **base elixir only**; show Evo/Hero as flavor, not as
   part of the answer.
 - **Elixir voice:** dry, a little cocky, never mean. Short lines.

@@ -92,7 +92,7 @@ the run and reacts on the summary. Live time, summaries, personal bests, and
 leaderboards all show the same three decimal places. Produces one clean,
 shareable number.
 
-- Input: pip keypad (one row, or two wide rows with the Speedrun keyboard setting).
+- Input: pip keypad, always dealt as two wide rows (1–5 over 6–9).
 - Record: `surgeBest` (lowest time).
 
 **Season competition — the Free Pass.** Surge carries a real prize: the player
@@ -183,8 +183,8 @@ an endless mode paying per-question XP would make the 28-tier arena farmable.
 The run still completes server-side for one reason: the validated transcript
 feeds the server-owned learning stats (`services/api/src/learning.ts`).
 
-- Input: pip keypad by default, or 4-button multiple choice, remembered in settings.
-  The Speedrun keyboard setting deals the keypad as two wide rows.
+- Input: pip keypad by default (two wide rows, 1–5 over 6–9), or 4-button multiple
+  choice, remembered in settings.
 - Record: **none.** Practice has no record key at all (see `RECORD_KEYS`).
 - Sharing: **none.** An endless drill has no comparable result worth publishing.
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
@@ -208,7 +208,9 @@ Ledger adapts in three stages using its own device-local progress:
 - **Tracked** grows from four to six plays. Costs are hidden and previous cards
   leave the board, training the live working-memory read used in a match.
 
-The player may request **Show ledger** after any sequence. That assistance is
+The player may **Reveal** the running balance after any sequence — the `?` in the
+ledger line between the lanes is the control (a dashed violet pill), replaced by
+the value when tapped. That assistance is
 tracked separately and cannot accelerate graduation to Tracked. Solving a check
 reveals Blue and Red totals plus the canonical balance before the next sequence.
 The player ends the session at any time and sees accuracy, unassisted checks,
@@ -298,7 +300,9 @@ and advancing must never wait on another tap.
 - Cards are dealt by rejection: the value has to land inside the keypad's
   -4..+4, so a board is redealt until it does (bounded, and a shape that cannot
   land fails the run start rather than spinning).
-- Input: signed trade keypad (`-4 … Even … +4`).
+- Input: the shared exchange board (`components/game/ExchangeBoard.tsx`) — a RED
+  and a BLUE magnitude row (1–4) with EVEN between, the same board Ledger uses. A
+  blue key submits `+n`, a red key `−n`; the signed −4…+4 keypad was retired.
 - Scoring: golf time (elapsed + 2.0s per miss), unchanged. Trade drills a read
   that a real match asks for under time pressure, so the clock is the point.
   Live time, summaries, personal bests, and leaderboards use three decimal
@@ -367,7 +371,7 @@ The scorer
 validates each card id against the signed deck but does **not** cap the run at the
 deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript size.
 
-- Input: pip keypad (one row, or two wide rows with the Speedrun keyboard setting).
+- Input: pip keypad, always dealt as two wide rows (1–5 over 6–9).
 - Record: `rainBest` (cards cleared).
 - Leaderboard tiebreak: **fewest wrong guesses, then lowest average clear
   latency** (`MODE_TIEBREAKS`). Wrong guesses count every wrong tap in the run,
