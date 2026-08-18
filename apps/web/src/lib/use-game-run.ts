@@ -44,6 +44,10 @@ export const heldForReviewReference = signal<string | null>(null)
 // replay never re-celebrates the previous run's badges.
 export const earnedBadges = signal<EarnedRung[]>([])
 
+// XP earned by the run just completed, for the summary's "what changed" ledger.
+// Cleared on the next run for the same reason earnedBadges is.
+export const earnedXp = signal(0)
+
 // A local run is deliberately unrecorded, even if connectivity returns before
 // it ends. Shared game chrome and summaries read this so the boundary is visible
 // before, during, and after play instead of being discovered in history later.
@@ -115,6 +119,7 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
     heldForReview.value = false
     heldForReviewReference.value = null
     earnedBadges.value = []
+    earnedXp.value = 0
     offlineRunMode.value = null
     setRecordingNotice({ state: 'idle' })
     const prepareLocal = () => {
@@ -250,6 +255,7 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
       heldForReview.value = result.underReview === true
       heldForReviewReference.value = result.underReview ? runReference(result.runId) : null
       earnedBadges.value = result.earnedBadges ?? []
+      earnedXp.value = result.xpEarned ?? 0
       setRecordingNotice({
         state: 'saved',
         message: !isRecordedMode(result.mode)

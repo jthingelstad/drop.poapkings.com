@@ -78,8 +78,7 @@ import FloatingCue from '../../src/components/FloatingCue'
 import GameMotion from '../../src/components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../src/components/GameFxLayer'
 import MobileShell from '../../src/components/shell/MobileShell'
-import DesktopShell from '../../src/components/shell/DesktopShell'
-import DesktopRightRail from '../../src/components/shell/DesktopRightRail'
+import DesktopAside from '../../src/components/shell/DesktopAside'
 import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
 import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
@@ -139,9 +138,9 @@ beforeEach(() => {
   apiMock.getActivity.mockReset()
   pixiStub.loadPixi.mockReset()
   pixiStub.loadPixi.mockResolvedValue({ Application: pixiStub.Application, Graphics: pixiStub.Graphics })
-  // Default to never-resolving so incidental rail mounts (e.g. in DesktopShell
-  // tests) leave the rail's module-level standings/activity signals untouched —
-  // the DesktopRightRail state tests rely on those starting empty.
+  // Default to never-resolving so the structural DesktopAside tests leave the
+  // aside's module-level standings/activity signals untouched — the aside's
+  // data-state tests below rely on those starting empty.
   apiMock.getLeaderboard.mockReturnValue(new Promise(() => {}))
   apiMock.getActivity.mockReturnValue(new Promise(() => {}))
   // Neutralize native Web Animations (tap-fx) so jsdom quirks can't throw.
@@ -463,14 +462,14 @@ describe('MobileShell', () => {
         <p>home</p>
       </MobileShell>
     )
-    const ranks = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')].find((b) =>
-      b.textContent?.includes('Ranks')
+    const ladder = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')].find((b) =>
+      b.textContent?.includes('Ladder')
     )!
-    ranks.click()
+    ladder.click()
     expect(window.location.hash).toBe('#/leaderboards')
   })
 
-  it('shows Games and Offline instead of Ranks and You when disconnected', () => {
+  it('keeps the same Play · Ladder · You tabs when disconnected — the nav never renames itself', () => {
     transportOffline.value = true
     route.value = '/profile'
     draw(
@@ -480,13 +479,10 @@ describe('MobileShell', () => {
     )
 
     const buttons = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')]
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Games', 'Offline'])
-    expect(buttons[1]!.getAttribute('aria-current')).toBe('page')
-    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.width).toBe('calc(0.5 * (100% - 10px))')
-    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.transform).toBe('translateX(100%)')
-
-    buttons[1]!.click()
-    expect(window.location.hash).toBe('#/offline')
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Play', 'Ladder', 'You'])
+    // You (index 2) is still active for a /profile route; offline names its cause
+    // with a header chip on the page, not by rewriting a tab.
+    expect(buttons[2]!.getAttribute('aria-current')).toBe('page')
   })
 
   it('hides the nav on game routes for full-bleed play', () => {
@@ -501,20 +497,25 @@ describe('MobileShell', () => {
   })
 })
 
-// --- DesktopShell ---------------------------------------------------------
+// --- DesktopAside (letterbox margin panel) --------------------------------
+// The retired 3-column DesktopShell is gone: nav is the bottom pill (MobileShell,
+// above) and the player/guest chip + sign-out moved to the You page. What
+// survives into the desktop letterbox margin is this aside — the Falling Cards
+// launcher, the meta-page link cluster, and the live standings/recent-runs feed.
 
-describe('DesktopShell', () => {
-  it('shows the guest chip and the about/faq/privacy/discord cluster when signed out', () => {
-    accountStatus.value = 'anonymous'
-    player.value = null
-    draw(
-      <DesktopShell>
-        <p class="page">stage</p>
-      </DesktopShell>
-    )
-    expect(host.textContent).toContain('Guest')
-    expect(host.textContent).not.toContain('Falling Cards')
+describe('DesktopAside', () => {
+  it('launches the Falling Cards screensaver from the margin launcher', () => {
+    draw(<DesktopAside />)
+    const saver = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Falling Cards')
+    )!
+    expect(saver).toBeTruthy()
+    saver.click()
+    expect(screensaverMock.startScreensaver).toHaveBeenCalledWith('nav')
+  })
 
+  it('carries the about/faq/fair-play/privacy/discord meta cluster', () => {
+    draw(<DesktopAside />)
     const foot = host.querySelector('.ed-railfoot')!
     const labels = [...foot.querySelectorAll('.ed-railfoot__link')].map((l) => l.textContent?.trim())
     expect(labels.some((l) => l?.startsWith('About'))).toBe(true)
@@ -526,118 +527,22 @@ describe('DesktopShell', () => {
     )!
     expect(discord.href).toBe('http://localhost/discord/')
   })
-
-  it('navigates to login when the guest chip is clicked', () => {
-    accountStatus.value = 'anonymous'
-    player.value = null
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-    host.querySelector<HTMLButtonElement>('.ed-rail-chip--guest')!.click()
-    expect(window.location.hash).toBe('#/login')
-  })
-
-  it('shows the player chip + Falling Cards launcher when authed and launches the screensaver', () => {
-    accountStatus.value = 'authenticated'
-    player.value = { ...samplePlayer }
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-    expect(host.textContent).toContain('Knight Main')
-    const saver = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('Falling Cards')
-    )!
-    expect(saver).toBeTruthy()
-    saver.click()
-    expect(screensaverMock.startScreensaver).toHaveBeenCalledWith('nav')
-  })
-
-  it('signs out when the Sign out button is clicked', () => {
-    accountStatus.value = 'authenticated'
-    player.value = { ...samplePlayer }
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-    const out = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('Sign out')
-    )!
-    out.click()
-    expect(accountStatus.value).toBe('anonymous')
-    expect(player.value).toBeNull()
-  })
-
-  it('marks the nav item matching the current route as the active page', () => {
-    route.value = '/leaderboards'
-    accountStatus.value = 'anonymous'
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-    const active = [...host.querySelectorAll<HTMLButtonElement>('.ed-nav__item')].find(
-      (b) => b.getAttribute('aria-current') === 'page'
-    )!
-    expect(active.textContent).toContain('Leaderboards')
-
-    const profile = [...host.querySelectorAll<HTMLButtonElement>('.ed-nav__item')].find((b) =>
-      b.textContent?.includes('Profile')
-    )!
-    profile.click()
-    expect(window.location.hash).toBe('#/profile')
-  })
-
-  it('replaces Leaderboards and Profile with Offline when disconnected', () => {
-    route.value = '/leaderboards'
-    transportOffline.value = true
-    draw(
-      <DesktopShell>
-        <p>offline</p>
-      </DesktopShell>
-    )
-
-    const primary = host.querySelector<HTMLElement>('.ed-nav')!
-    expect(primary.textContent).toContain('Games')
-    expect(primary.textContent).toContain('Offline mode')
-    expect(primary.textContent).toContain('Practice')
-    expect(primary.textContent).not.toContain('Leaderboards')
-    expect(primary.textContent).not.toContain('Profile')
-    expect(primary.querySelector<HTMLButtonElement>('[aria-current="page"]')?.textContent).toContain('Offline mode')
-  })
-
-  it('uses the Practice mode artwork in the desktop rail', () => {
-    route.value = '/practice'
-    accountStatus.value = 'anonymous'
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-
-    const practice = host.querySelector('.ed-nav__item--practice')!
-    const artwork = practice.querySelector<HTMLImageElement>('img[data-mode="practice"]')
-    expect(artwork?.getAttribute('src')).toBe('/assets/modes/practice-192.png')
-    expect(practice.querySelector('.lucide-target')).toBeNull()
-  })
 })
 
-// --- DesktopRightRail (data-state branches) -------------------------------
-// The rail keeps standings/activity in module-level signals that cannot be reset
-// between tests, so these run in order against a single instance: loading (both
-// pending, signals stay null) → failed standings + empty feed (standings stays
-// null) → populated (standings resolves truthy for the rest of the file).
+// --- DesktopAside (data-state branches) -----------------------------------
+// The aside keeps standings/activity in module-level signals that cannot be
+// reset between tests, so these run in order against a single instance: loading
+// (both pending, signals stay null) → failed standings + empty feed (standings
+// stays null) → populated (standings resolves truthy for the rest of the file).
+// The structural tests above mounted with the never-resolving defaults, so the
+// signals are still empty entering this block.
 
-describe('DesktopRightRail', () => {
+describe('DesktopAside data states', () => {
   it('replaces live-data spinners and polling with an offline state', () => {
     apiAvailability.value = 'unavailable'
     player.value = { ...samplePlayer }
 
-    draw(<DesktopRightRail />)
+    draw(<DesktopAside />)
 
     expect(host.textContent).toContain('Offline — reconnect for standings.')
     expect(host.textContent).toContain('Offline — reconnect for recent runs.')
@@ -649,7 +554,7 @@ describe('DesktopRightRail', () => {
 
   it('shows loading placeholders while requests are in flight', () => {
     // Defaults (from beforeEach) are never-resolving promises.
-    draw(<DesktopRightRail />)
+    draw(<DesktopAside />)
     expect(host.textContent).toContain('Loading…')
     expect(host.querySelector('.ed-rail-block__title')!.textContent).toContain('Season standings')
   })
@@ -660,7 +565,7 @@ describe('DesktopRightRail', () => {
     apiMock.getLeaderboard.mockRejectedValue(new Error('boom'))
     apiMock.getActivity.mockResolvedValue({ entries: [] })
 
-    await drawAsync(<DesktopRightRail />)
+    await drawAsync(<DesktopAside />)
     expect(host.textContent).toContain('Standings unavailable')
     expect(host.textContent).toContain('No recent runs yet')
   })
@@ -697,7 +602,7 @@ describe('DesktopRightRail', () => {
     })
     player.value = { ...samplePlayer }
 
-    await drawAsync(<DesktopRightRail />)
+    await drawAsync(<DesktopAside />)
 
     const rows = host.querySelectorAll('.ed-rail-row')
     expect(rows.length).toBe(2)

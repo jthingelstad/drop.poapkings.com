@@ -1,7 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Answer, Insights } from '../../lib/insights'
-import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords, saveRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -18,6 +17,8 @@ import Icon from '../../components/Icon'
 import FloatingCue from '../../components/FloatingCue'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { surgeSignature, type Signature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
@@ -54,6 +55,7 @@ export default function Surge() {
   const { stage, count, elapsedMs, later } = runtime
   const index = useSignal(0)
   const cardPhase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
+  const signature = useSignal<Signature | null>(null)
   // After a wrong tap, point at the answer relative to the latest guess.
   const hint = useSignal<'higher' | 'lower' | null>(null)
 
@@ -117,10 +119,15 @@ export default function Surge() {
     // Penalty-adjusted elapsed at each card, for next run's ghost pacing. The
     // all-time best (surgeBest) is now persisted centrally only when the server
     // accepts the run; this pace snapshot rides along on that same acceptance.
+    const prevPace = getRecords().surgeBestPace
     const bestPace = serverAnswers.current.map((answer, index) => {
       const misses = serverAnswers.current.slice(0, index + 1).reduce((sum, entry) => sum + entry.guesses.length - 1, 0)
       return Math.round(answer.atMs) + misses * SURGE.PENALTY_MS
     })
+    // Signature: this run's time per card against the previous best's pace.
+    // Both come from the same cumulative snapshot, differenced to per-card ms.
+    const deltas = (cum: number[]) => cum.map((v, i) => Math.max(0, Math.round(v - (cum[i - 1] ?? 0))))
+    signature.value = surgeSignature(deltas(bestPace), prevPace?.length ? deltas(prevPace) : undefined)
     runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current }, () => {
       if (pb) saveRecords({ surgeBestPace: bestPace })
@@ -232,11 +239,17 @@ export default function Surge() {
             { label: 'Avg / card', value: `${formatSeconds(totalMs.value / SURGE.SPRINT_LEN)}s`, tone: 'gold' },
             { label: 'Accuracy', value: `${ins.accuracyPct}%`, tone: 'green' }
           ]}
-          share={{ mode: 'surge', score: `${formatSeconds(totalMs.value)}s` }}
+          share={{
+            mode: 'surge',
+            score: `${formatSeconds(totalMs.value)}s`,
+            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
+          }}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
-        />
+        >
+          {signature.value && <SignaturePanel {...signature.value} />}
+        </Summary>
       </div>
     )
   }
@@ -267,13 +280,12 @@ export default function Surge() {
             <CardDisplay card={card} phase={cardPhase.value} revealCost={false} />
           </GameMotion>
         </div>
-        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
 
         {/* Transient feedback, composited over the game — never in layout flow. */}
         <div class="game-cues" aria-hidden="true">
           <div class="game-cues__slot game-cues__slot--top">
-            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty">
+            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--penalty" holdMs={600}>
               <Icon name="timer" /> +2s
             </FloatingCue>
             <FloatingCue
@@ -285,7 +297,12 @@ export default function Surge() {
             </FloatingCue>
           </div>
           <div class="game-cues__slot game-cues__slot--bottom">
-            <FloatingCue trigger={runtime.penaltyPulse.value} className="floating-cue--hint" testId="surge-hint">
+            <FloatingCue
+              trigger={runtime.penaltyPulse.value}
+              className="floating-cue--hint"
+              testId="surge-hint"
+              holdMs={600}
+            >
               {hint.value === 'higher' && (
                 <>
                   <Icon name="arrow-up" /> Higher

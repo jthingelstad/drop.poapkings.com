@@ -2,22 +2,21 @@ import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
-import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
+import { gamePathForRoute } from './lib/game-routes'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
-import ReleaseNotice from './components/ReleaseNotice'
-import PlayerTagNudge from './components/PlayerTagNudge'
+import BadgeCelebration from './components/BadgeCelebration'
+import ChargeRing from './components/ChargeRing'
+import GateCard from './components/GateCard'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { initReleaseNotice } from './lib/release-notice'
-import { layout } from './lib/use-layout'
+import { layout, supportsTouchPlay } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
-import DesktopShell from './components/shell/DesktopShell'
 import Home from './screens/Home'
 import Login from './screens/Login'
 import AuthRedeem from './screens/AuthRedeem'
@@ -25,11 +24,9 @@ import Profile from './screens/Profile'
 import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import AppInfo from './screens/AppInfo'
-import Icon from './components/Icon'
-import OfflinePage from './components/OfflinePage'
 import GameStartScreen from './components/game/GameStart'
+import Icon from './components/Icon'
 import { GAMES } from './lib/game-metadata'
-import { contactEmailHref } from './lib/links'
 import { practiceLandingPath } from './lib/practice-navigation'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
@@ -39,7 +36,6 @@ const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
 const loadTrade = () => import('./modes/trade/Trade')
 const loadSurvival = () => import('./modes/survival/Survival')
 const loadRain = () => import('./modes/rain/Rain')
-const loadSettings = () => import('./modes/settings/Settings')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
 const loadOfflineGames = () =>
@@ -51,7 +47,6 @@ const HigherLower = lazy(loadHigherLower)
 const Trade = lazy(loadTrade)
 const Survival = lazy(loadSurvival)
 const Rain = lazy(loadRain)
-const SettingsScreen = lazy(loadSettings)
 const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
 // ── Screen title (sr-only) ──────────────────────────────────────────────────
@@ -67,10 +62,10 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/survival', label: 'Survival' },
   { match: '/rain', label: 'Rain' },
   { match: '/offline', label: 'Offline' },
-  { match: '/leaderboards', label: 'Leaderboards' },
-  { match: '/profile', label: 'Profile' },
+  { match: '/leaderboards', label: 'Ladder' },
+  { match: '/profile', label: 'You' },
   { match: '/players', label: 'Player profile' },
-  { match: '/settings', label: 'Settings' },
+  { match: '/settings', label: 'You' },
   { match: '/app-info', label: 'App info' },
   { match: '/login', label: 'Sign in' },
   { match: '/auth', label: 'Signing in' }
@@ -83,87 +78,78 @@ function RouteFallback({ r }: { r: string }) {
   const game = gamePath ? GAMES.find((candidate) => candidate.path === gamePath) : undefined
   if (game) return <GameStartScreen modeName={game.name} phase="preparing" routePending />
 
+  // No screen exists yet for this route chunk, so the charge ring IS the screen —
+  // the same 172px gold slot the countdown numeral will land in.
   return (
-    <div class="main-content route-loading" aria-live="polite">
-      <Icon name="loader-circle" className="route-loading__spinner" />
-      <div class="route-loading__text">Loading game…</div>
-    </div>
-  )
-}
-
-function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
-  return (
-    <div class="main-content account-screen">
-      <div class="account-card">
-        <div class="eyebrow">One quick setup</div>
-        <h1>Choose your player identity</h1>
-        <p class="lede">Pick a favorite card and one of its generated names before your first recorded game.</p>
-        <button class="btn btn--gold" onClick={() => navigate(profileRouteForGame(returnTo))}>
-          Choose favorite card
-        </button>
-      </div>
+    <div class="main-content route-loading">
+      <ChargeRing />
     </div>
   )
 }
 
 function RankedAccessRestricted() {
   return (
-    <div class="main-content account-screen">
-      <div class="account-card">
-        <div class="eyebrow">Fair Play decision</div>
-        <h1>Ranked access restricted</h1>
-        <p class="lede">
-          You can still use Practice and view your account. Read how decisions work or request a re-review.
-        </p>
-        <button class="btn btn--gold" onClick={() => navigate(practiceLandingPath())}>
-          Open Practice
-        </button>
-        <a class="btn btn--ghost btn--sm" href="/fair-play/">
-          Read Fair Play
-        </a>
-        <a class="btn btn--ghost btn--sm" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
-          Request re-review
-        </a>
-      </div>
+    <div class="main-content">
+      <GateCard
+        mark={<Icon name="shield" />}
+        state="Ranked restricted"
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        secondary={{ label: 'Read Fair Play', href: '/fair-play/' }}
+      >
+        You can still use Practice and view your account. Fair Play explains how decisions work and how to request a
+        re-review.
+      </GateCard>
+    </div>
+  )
+}
+
+// Ranked is timed to the millisecond and plays on touch, so a mouse-only device
+// is held to Practice to keep the board fair. This is an input gate, not a width
+// gate — a touchscreen desktop passes supportsTouchPlay() and never sees it.
+function RankedTouchOnly() {
+  return (
+    <div class="main-content">
+      <GateCard
+        mark={<Icon name="gamepad" />}
+        state="Ranked is touch-only"
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        secondary={{ label: 'View the Ladder', href: '/leaderboards' }}
+      >
+        Ranked runs are timed to the millisecond and play on touch, so the board stays fair — open Drop on your phone.
+        Practice is open here.
+      </GateCard>
     </div>
   )
 }
 
 function AccountUnavailable() {
   return (
-    <div class="main-content account-screen">
-      <div class="account-card" aria-live="polite">
-        <Icon name="loader-circle" className="route-loading__spinner" />
-        <div class="eyebrow">Login safely kept</div>
-        <h1>Player services are reconnecting</h1>
-        <p class="account-message account-message--error">
-          {accountError.value || 'Drop could not reach player services.'}
-        </p>
-        <p class="lede">Your saved login has not been removed. Try again when your connection is ready.</p>
-        <button class="btn btn--gold" onClick={() => void initializeAccount()}>
-          Try reconnecting
-        </button>
-        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-          Back to home
-        </button>
-      </div>
+    <div class="main-content" aria-live="polite">
+      <GateCard
+        mark={<ChargeRing variant="reconnecting" />}
+        state="Reconnecting"
+        primary={{ label: 'Try reconnecting', onAction: () => void initializeAccount() }}
+        secondary={{ label: 'Back to home', onAction: () => navigate('/') }}
+      >
+        {accountError.value || 'Drop could not reach player services.'} Your saved login has not been removed.
+      </GateCard>
     </div>
   )
 }
 
-function MobilePracticeRedirect() {
+function HomeRedirect() {
   useEffect(() => navigate('/'), [])
   return <Home />
 }
 
 function ScreenContent({ r }: { r: string }) {
-  if (r === '/practice' && layout.value === 'mobile') return <MobilePracticeRedirect />
+  if (r === '/practice' && layout.value === 'mobile') return <HomeRedirect />
   const gamePath = gamePathForRoute(r)
-  // These are live server views, not snapshots. Offline navigation replaces
-  // both with one bundled explanation; direct links land on the same surface
-  // instead of a failed request, stale board, or account reconnect spinner.
-  if (r.startsWith('/offline')) return <OfflinePage />
-  if (offline.value && (r.startsWith('/leaderboards') || r.startsWith('/profile'))) return <OfflinePage />
+  // Offline, the player stays on the real page they asked for: it names its cause
+  // with a header chip and shows what it has, never a takeover. The Ladder and You
+  // are live views that go quiet offline, not offline destinations — so the bundled
+  // /offline explainer is retired; a legacy link to it lands Home.
+  if (r.startsWith('/offline')) return <HomeRedirect />
   // An offline game is local and unrecorded, so account state cannot gate it.
   // The effective state covers both a transport disconnect and an unreachable
   // player API; either way there is no official run to protect or record.
@@ -171,19 +157,18 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
   if ((gamePath || r.startsWith('/profile')) && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
-  // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
-  // player who has not finished profile setup is routed to it first.
-  if (
-    gamePath &&
-    !gameWithoutServices &&
-    accountStatus.value === 'authenticated' &&
-    (!player.value?.favoriteCardId || !player.value.publicName)
-  ) {
-    return <ProfileRequired returnTo={gamePath} />
-  }
+  // Identity never blocks a run: profile setup fires when the magic link lands
+  // (screens/Profile identity steps), not when a game starts, so a signed-in
+  // player who has not finished setup still plays — the run records under their
+  // account and identity is filled in on the You page.
   if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }
+  // Ranked play is touch-only (fair millisecond timing), independent of the
+  // width breakpoint and of connectivity — a mouse-only device never starts a
+  // ranked run, online or offline. Practice ('/practice') is exempt and stays
+  // open everywhere.
+  if (gamePath && gamePath !== '/practice' && !supportsTouchPlay()) return <RankedTouchOnly />
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />
@@ -191,7 +176,8 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/trade')) return <Trade />
   if (r.startsWith('/survival')) return <Survival />
   if (r.startsWith('/rain')) return <Rain />
-  if (r.startsWith('/settings')) return <SettingsScreen />
+  // Settings moved into the You page (a scope). Legacy /settings links land there.
+  if (r.startsWith('/settings')) return <Profile />
   if (r.startsWith('/login')) return <Login />
   if (r.startsWith('/auth')) return <AuthRedeem />
   if (r.startsWith('/players/')) return <PublicProfile />
@@ -233,9 +219,6 @@ export default function App() {
         // keeps the prior complete shell when this build could not finish.
       }
     })
-    // Decides once per load whether a named release is worth announcing. A
-    // first-time visitor is recorded and never interrupted.
-    initReleaseNotice()
     return watchConnectivity()
   }, [])
 
@@ -320,17 +303,19 @@ export default function App() {
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
-      <UpdateBanner />
       <Screen r={route.value} />
     </>
   )
 
   return (
     <>
-      {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
+      <MobileShell>{content}</MobileShell>
       <RunRecordingNotice />
-      <ReleaseNotice />
-      <PlayerTagNudge />
+      {/* Interrupt ladder overlays — the ladder gate lets at most one show. The
+          tier-4 update strip sits above the nav pill (no scrim); the tier-1 badge
+          celebration is the only full takeover, and only on a summary. */}
+      <UpdateBanner />
+      <BadgeCelebration />
       {screensaverActive.value && <Screensaver />}
     </>
   )

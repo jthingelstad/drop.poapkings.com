@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'preact/hooks'
 import { survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
-import { pointerVerb } from '../../lib/use-layout'
 import { saveResult, getRecords } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -18,6 +17,8 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { survivalSignature, type Signature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -59,6 +60,7 @@ export default function Survival() {
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, later } = runtime
   const streak = useSignal(0)
+  const signature = useSignal<Signature | null>(null)
   const milestone = useSignal<number | null>(null)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the streak just set.
@@ -204,6 +206,11 @@ export default function Survival() {
     isPB.value = streak.value > (prev ?? 0)
     // Cumulative time across the surviving cards — matches the server's tiebreak.
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
+    // Signature: response time per card against the shrinking window; they meet
+    // where the run ends.
+    const perCardMs = serverAnswers.current.map((a) => Math.round(a.elapsedMs))
+    const windowMs = serverAnswers.current.map((_, i) => survivalWindowMs(i))
+    signature.value = survivalSignature(perCardMs, windowMs)
     // survivalBest is persisted centrally when the server accepts the run.
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
@@ -285,11 +292,14 @@ export default function Survival() {
           ]}
           share={{
             mode: 'survival',
-            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`
+            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`,
+            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
           }}
           onReplay={replay}
           onHome={() => navigate('/')}
-        />
+        >
+          {signature.value && <SignaturePanel {...signature.value} />}
+        </Summary>
       </div>
     )
   }
@@ -301,6 +311,10 @@ export default function Survival() {
   const counting = stage.value === 'countdown'
   const card = counting ? gameRun.content[0]! : current.value
   const low = remainingFrac.value <= 0.35
+  // Progress through the deck is the endgame — fastest to the whole deck wins —
+  // so the top bar fills toward it, not the per-card clock. That clock now lives
+  // between the card and the keypad, where it cannot be mistaken for score.
+  const deckSize = gameRun.content.length
   return (
     <GameFrame
       modeName="Survival"
@@ -309,11 +323,9 @@ export default function Survival() {
       onQuit={() => navigate('/')}
       cue={runtime.cue.value}
       fxParticles={10}
-      progressText="Sudden death"
+      progressText={`${streak.value} / ${deckSize}`}
       metric={{ value: String(streak.value), label: 'streak' }}
-      progressPct={remainingFrac.value * 100}
-      barTransition={false}
-      barLow={low}
+      progressPct={(streak.value / deckSize) * 100}
     >
       <div class="ed-kstage">
         <div class="ed-kstage__card">
@@ -323,7 +335,11 @@ export default function Survival() {
             </GameMotion>
           )}
         </div>
-        <div class="ed-kstage__hint">{pointerVerb()} the elixir cost</div>
+        {/* The only thing that can kill you, in the gap it can be read from: a
+            12px response clock between the card and the keys. Red as it runs out. */}
+        <div class={`ed-response-clock${low ? ' ed-response-clock--low' : ''}`} aria-hidden="true">
+          <div class="ed-response-clock__fill" style={{ width: `${Math.max(0, remainingFrac.value * 100)}%` }} />
+        </div>
         <PipKeypad onPick={answer} disabled={cardPhase.value !== 'playing'} />
         {milestone.value !== null && <GameMilestone key={milestone.value} value={milestone.value} />}
       </div>

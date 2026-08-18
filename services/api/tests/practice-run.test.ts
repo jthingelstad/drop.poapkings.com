@@ -216,8 +216,14 @@ describe("Practice completion", () => {
     ]);
 
     expect(response.statusCode).toBe(201);
-    // Accuracy is a session stat, not a score: 2 of 3.
-    expect(body).toMatchObject({ accepted: true, score: 67, ranked: false });
+    // Accuracy is a session stat, not a score: 2 of 3. Practice earns no XP, so
+    // the per-run award is zero.
+    expect(body).toMatchObject({
+      accepted: true,
+      score: 67,
+      ranked: false,
+      xpEarned: 0,
+    });
     // The run still completes server-side — that is what feeds the server-owned
     // learning stats.
     expect(repository.saveCardStats).toHaveBeenCalled();

@@ -3,7 +3,6 @@ import { renderToStringAsync } from 'preact-render-to-string'
 import { signal } from '@preact/signals'
 
 import Summary from '../../src/components/Summary'
-import MetaMoreList from '../../src/components/MetaMoreList'
 import AppInfo from '../../src/screens/AppInfo'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
 import { ElixirCostBadge, CardName, CardArt } from '../../src/components/CardChrome'
@@ -20,7 +19,7 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { recordingNotice } from '../../src/lib/use-game-run'
+import { earnedXp, recordingNotice } from '../../src/lib/use-game-run'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -75,6 +74,7 @@ afterEach(() => {
   installDismissed.value = false
   standaloneApp.value = false
   recordingNotice.value = { state: 'idle' }
+  earnedXp.value = 0
 })
 
 describe('Summary', () => {
@@ -94,15 +94,34 @@ describe('Summary', () => {
     expect(html).toContain('ed-eyebrow')
     expect(html).toContain('Surge complete')
     expect(html).toContain('28.6s')
-    // pbCallout renders the ed-sum__pb block and a default gold "Moment" tile.
-    expect(html).toContain('ed-sum__pb')
+    // The PB callout reads back in the "what it changed" ledger block.
+    expect(html).toContain('ed-sum__changed')
     expect(html).toContain('New personal best! −3.4s')
-    expect(html).toContain('ed-sum-tile--gold')
     // Default replay label + Home button.
     expect(html).toContain('Play again')
     expect(html).toContain('Home')
     // Signed in → no sign-in-to-save panel.
     expect(html).not.toContain('signin-save')
+    // The generic moment tiles are gone.
+    expect(html).not.toContain('ed-sum-tile')
+  })
+
+  it('reads XP earned back in the "what it changed" ledger', async () => {
+    player.value = { id: 'p1' } as never
+    earnedXp.value = 15
+    const html = await render(
+      <Summary
+        eyebrow="Surge complete"
+        headline="28.6s"
+        insights={emptyInsights()}
+        share={{ mode: 'surge', score: '28.6s' }}
+        onReplay={() => {}}
+        onHome={() => {}}
+      />
+    )
+    expect(html).toContain('ed-sum__changed')
+    expect(html).toContain('XP earned')
+    expect(html).toContain('+15')
   })
 
   it('does not invite a guest to save an intentionally unranked Practice session', async () => {
@@ -125,48 +144,11 @@ describe('Summary', () => {
     expect(html).not.toContain('ed-sum__pb')
   })
 
-  it('derives a "Clean read" green moment for high accuracy without a PB', async () => {
-    const html = await render(
-      <Summary
-        eyebrow="e"
-        headline="h"
-        insights={emptyInsights({ total: 10, correct: 10, accuracyPct: 100 })}
-        share={{ mode: 'surge', score: '10/10' }}
-        onReplay={() => {}}
-        onHome={() => {}}
-      />
-    )
-    expect(html).toContain('Clean read')
-    expect(html).toContain('ed-sum-tile--green')
-  })
-
-  it('derives a "first try" purple moment for mid accuracy', async () => {
-    const html = await render(
-      <Summary
-        eyebrow="e"
-        headline="h"
-        insights={emptyInsights({ total: 15, correct: 9, accuracyPct: 60 })}
-        share={{ mode: 'surge', score: '9/15' }}
-        onReplay={() => {}}
-        onHome={() => {}}
-      />
-    )
-    expect(html).toContain('9/15 first try')
-    expect(html).toContain('ed-sum-tile--purple')
-  })
-
-  it('renders bands, missed chips, slowest reads, custom moments, replay label and children', async () => {
+  it('merges missed and slow cards into one "Work on these" list and renders the signature slot', async () => {
     const insights = emptyInsights({
       total: 4,
       correct: 2,
       accuracyPct: 50,
-      bands: [
-        { label: '1–2', correct: 1, total: 1 },
-        { label: '3', correct: 1, total: 2 },
-        { label: '4', correct: 0, total: 0 },
-        { label: '5', correct: 0, total: 1 },
-        { label: '6+', correct: 0, total: 0 }
-      ],
       weakest: [KNIGHT, GIANT],
       hasTiming: true,
       slowestCards: [GIANT]
@@ -176,35 +158,26 @@ describe('Summary', () => {
         eyebrow="Surge"
         headline="40s"
         insights={insights}
-        moments={[{ label: 'Custom', value: 'Nice', tone: 'green' }]}
         share={{ mode: 'surge', score: '40s' }}
         replayLabel="Run it back"
         onReplay={() => {}}
         onHome={() => {}}
       >
-        <div class="my-share-slot">shared</div>
+        <div class="my-share-slot">signature</div>
       </Summary>
     )
-    // Custom moment overrides defaults.
-    expect(html).toContain('Custom')
-    expect(html).toContain('Nice')
-    // hasBands → accuracy-by-cost section.
-    expect(html).toContain('Accuracy by cost')
-    expect(html).toContain('ed-sum-band__fill')
-    expect(html).toContain('height:100%')
-    expect(html).toContain('height:50%')
-    // weakest chips.
-    expect(html).toContain('Missed this round')
+    // The two old taxonomies (Missed / Slowest) merge into one list, deduped.
+    expect(html).toContain('Work on these')
     expect(html).toContain('Knight')
     expect(html).toContain('Giant')
-    // slowest reads (timing).
-    expect(html).toContain('Slowest reads')
-    // Sharing is promoted directly below the result headline, before analysis.
-    expect(html).toContain('Share your score')
-    expect(html.indexOf('shareline')).toBeLessThan(html.indexOf('ed-sum-tiles'))
-    // children slot.
+    expect(html).not.toContain('Missed this round')
+    expect(html).not.toContain('Slowest reads')
+    // The accuracy-by-cost chart and the generic tiles are gone.
+    expect(html).not.toContain('Accuracy by cost')
+    expect(html).not.toContain('ed-sum-tile')
+    // The mode's signature panel (children) renders, and share is a real action.
     expect(html).toContain('my-share-slot')
-    // custom replay label.
+    expect(html).toContain('shareline')
     expect(html).toContain('Run it back')
   })
 })
@@ -246,30 +219,6 @@ describe('standalone pages', () => {
   })
 })
 
-describe('MetaMoreList', () => {
-  it('renders real page links for Game Setup and Discord', async () => {
-    const html = await render(<MetaMoreList />)
-    expect(html).toContain('About')
-    expect(html).toContain('FAQ')
-    expect(html).toContain('Fair Play')
-    expect(html).toContain('Game Setup')
-    expect(html).toContain('Privacy')
-    expect(html).toContain('Discord')
-    expect(html).toContain('href="/discord/"')
-    expect(html).toContain('href="/about/"')
-    expect(html).toContain('href="/releases/"')
-    expect(html).toContain('href="/install/"')
-  })
-
-  it('replaces Install app with App Info while running standalone', async () => {
-    standaloneApp.value = true
-    const html = await render(<MetaMoreList />)
-
-    expect(html).toContain('App Info')
-    expect(html).not.toContain('Game Setup')
-  })
-})
-
 describe('AppInfo', () => {
   it('renders build and card-library diagnostics before the browser status resolves', async () => {
     standaloneApp.value = true
@@ -286,7 +235,6 @@ describe('AppInfo', () => {
     expect(html).toContain('Service worker')
     expect(html).toContain('Card cache')
     expect(html).toContain('Card art')
-    expect(html).toContain('Speedrun keyboard')
   })
 })
 
@@ -414,12 +362,13 @@ describe('SignInToSave', () => {
     expect(await render(<SignInToSave />)).toBe('')
   })
 
-  it('renders the full panel variant for guests', async () => {
+  it('renders the shared gate card for guests', async () => {
     player.value = null
     const html = await render(<SignInToSave />)
-    expect(html).toContain('competition-panel--join')
+    expect(html).toContain('ed-gate')
+    expect(html).toContain('Guest run')
     expect(html).toContain('Sign in before your next game to save future scores')
-    expect(html).toContain('Sign In')
+    expect(html).toContain('Sign in')
   })
 
   it('renders the compact line variant', async () => {
@@ -450,8 +399,10 @@ describe('GameRunGate', () => {
   it('shows the preparing state', async () => {
     const html = await render(<GameRunGate modeName="Surge" session={gateSession(true, '')} />)
     expect(html).toContain('data-game-start-phase="preparing"')
-    expect(html).toContain('aria-label="Preparing game"')
-    expect(html).toContain('>PREPARING<')
+    // The preparing/loading slot is the charge ring now, in the same 172px gold
+    // slot the countdown numeral lands in. Copy is "Charging" — no mode name.
+    expect(html).toContain('charge-ring')
+    expect(html).toContain('>Charging<')
     expect(html).toContain('>Surge<')
     expect(html).not.toContain('Try again')
   })
@@ -475,9 +426,9 @@ describe('GameStartScreen', () => {
     const html = await render(<GameStartScreen modeName="Trade" phase="loading" />)
     expect(html).toContain('class="ed-game ed-game--starting"')
     expect(html).toContain('data-game-start-phase="loading"')
-    expect(html).toContain('aria-label="Loading cards"')
-    expect(html).toContain('run-count__num--status')
-    expect(html).toContain('>LOADING<')
+    expect(html).toContain('ed-game__count-num--status')
+    expect(html).toContain('charge-ring')
+    expect(html).toContain('>Charging<')
     expect(html).toContain('>Trade<')
   })
 })
@@ -488,7 +439,11 @@ describe('RunCountdown', () => {
     expect(html).toContain('run-count')
     expect(html).toContain('aria-label="Starting in 3"')
     expect(html).toContain('>3<')
-    expect(html).not.toContain('<img')
+    // The matching "charge" frame sits behind the numeral, decorative only.
+    expect(html).toContain('run-count__art')
+    expect(html).toContain('src="/assets/start/charge-3-512.png"')
+    expect(html).toContain('aria-hidden="true"')
+    // The charge ring is the separate loading state (Commit 4), not the countdown.
     expect(html).not.toContain('run-count__ring')
   })
 
@@ -496,6 +451,7 @@ describe('RunCountdown', () => {
     const html = await render(<RunCountdown count={0} />)
     expect(html).toContain('aria-label="Go"')
     expect(html).toContain('>GO<')
+    expect(html).toContain('src="/assets/start/charge-go-512.png"')
   })
 })
 

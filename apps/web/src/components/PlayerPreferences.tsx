@@ -71,33 +71,6 @@ export default function PlayerPreferences() {
         </div>
         <Toggle on={enhancedEffects.value} onToggle={toggleEnhanced} label="Enhance effects" />
       </div>
-
-      <SpeedrunKeyboardPreference />
-    </div>
-  )
-}
-
-// Exported so App Info can mirror the exact same persisted performance
-// preference without growing a second source of truth.
-export function SpeedrunKeyboardPreference() {
-  const speedrunKeyboard = useSignal(getSettings().speedrunKeyboard ?? false)
-
-  function toggleSpeedrunKeyboard() {
-    const on = !speedrunKeyboard.value
-    speedrunKeyboard.value = on
-    saveSettings({ speedrunKeyboard: on })
-  }
-
-  return (
-    <div class="setting-row setting-row--speedrun">
-      <div class="setting-row__text">
-        <div class="setting-row__name">Speedrun keyboard</div>
-        <div class="setting-row__desc">
-          Two wide rows &mdash; 1&ndash;5 over 6&ndash;9 &mdash; instead of one row of nine. Bigger keys, fewer mistaps.
-          Off by default.
-        </div>
-      </div>
-      <Toggle on={speedrunKeyboard.value} onToggle={toggleSpeedrunKeyboard} label="Speedrun keyboard" />
     </div>
   )
 }

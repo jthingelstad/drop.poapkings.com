@@ -124,10 +124,24 @@ export async function updateAccount(updates: {
   favoriteCardId?: number
   nameToken?: string
   playerTag?: string | null
+  lastOpenedUpdates?: string
 }): Promise<void> {
   if (!session) throw new Error('Sign in to update your player profile.')
   const response = await patchMe(session.token, updates)
   player.value = response.player
+}
+
+// Stamp the Updates view as read. The server owns the clock (the value sent is
+// only the trigger), and the refreshed player carries the new lastOpenedUpdates
+// so the unread dot clears everywhere at once. Best-effort: a failed write just
+// leaves the dot for next time.
+export async function markUpdatesOpened(): Promise<void> {
+  if (!session || !player.value) return
+  try {
+    await updateAccount({ lastOpenedUpdates: new Date().toISOString() })
+  } catch {
+    // The dot simply stays until the next successful open.
+  }
 }
 
 export async function refreshAccount(): Promise<void> {

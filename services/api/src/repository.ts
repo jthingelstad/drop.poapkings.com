@@ -470,6 +470,7 @@ export class Repository {
       favoriteCardId?: number;
       playerTag?: string;
       clearPlayerTag?: boolean;
+      lastOpenedUpdates?: string;
     },
   ): Promise<PlayerProfile> {
     const names: Record<string, string> = { "#updatedAt": "updatedAt" };
@@ -488,6 +489,11 @@ export class Repository {
       names["#favoriteCardId"] = "favoriteCardId";
       values[":favoriteCardId"] = updates.favoriteCardId;
       sets.push("#favoriteCardId = :favoriteCardId");
+    }
+    if (updates.lastOpenedUpdates !== undefined) {
+      names["#lastOpenedUpdates"] = "lastOpenedUpdates";
+      values[":lastOpenedUpdates"] = updates.lastOpenedUpdates;
+      sets.push("#lastOpenedUpdates = :lastOpenedUpdates");
     }
     if (updates.playerTag !== undefined) {
       names["#playerTag"] = "playerTag";
@@ -1142,7 +1148,7 @@ export class Repository {
             ":sk": "RUN#",
           },
           ProjectionExpression:
-            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch",
+            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, rungs",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -1165,6 +1171,8 @@ export class Repository {
             ...(typeof item.answerCount === "number"
               ? { answerCount: item.answerCount }
               : {}),
+            ...(typeof item.xp === "number" ? { xp: item.xp } : {}),
+            ...(Array.isArray(item.rungs) ? { rungs: item.rungs } : {}),
             ...(typeof item.boardEpoch === "string"
               ? { boardEpoch: item.boardEpoch }
               : {}),
@@ -1318,6 +1326,9 @@ export class Repository {
       ...(run.answerCount !== undefined
         ? { answerCount: run.answerCount }
         : {}),
+      // Per-run XP earned, so the run sheet and summary can say "XP earned +N".
+      // Practice's award is 0, so it is naturally omitted.
+      ...(xp ? { xp } : {}),
       ...tiebreakItem,
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.
@@ -1797,6 +1808,37 @@ export class Repository {
   // Returns whether this run became the new best and what it displaced, because
   // two hidden badges (Photo Finish, Cold Open) turn on exactly that — and this
   // conditional write is the only place that already knows it.
+  // The badge rungs a recorded run cleared, written onto its history row after
+  // completion (best-effort, outside the completeRun transaction) so the run
+  // sheet can show what moved. A missing row (an unrecorded run) simply no-ops
+  // through the attribute_exists guard.
+  async setRunRungs(
+    sub: string,
+    runId: string,
+    completedAt: string,
+    slugs: string[],
+  ): Promise<void> {
+    if (!slugs.length) return;
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: `PLAYER#${sub}`, sk: `RUN#${completedAt}#${runId}` },
+          UpdateExpression: "SET rungs = :rungs",
+          ConditionExpression: "attribute_exists(pk)",
+          ExpressionAttributeValues: { ":rungs": slugs },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return;
+      throw error;
+    }
+  }
+
   async updateAllTimeBest(
     run: RunItem,
     score: number,

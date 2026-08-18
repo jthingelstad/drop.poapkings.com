@@ -1,4 +1,4 @@
-// Shared Home view-model. Both layouts (HomeMobile / HomeDesktop) render from
+// Shared Home view-model. HomeMobile (the one true Home, letterboxed on desktop) renders from
 // this one hook so routes + data stay identical across the breakpoint; only the
 // surrounding shell/markup differs. Reuses the leaderboard + best-score helpers
 // the original Home already had.

@@ -260,11 +260,12 @@ Product decisions currently in force:
 - Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
 - Cost Recall defaults to the pip keypad and also offers 4-button choices. The
-  keypad has one key per cost the catalog actually has (currently 1–9), dealt as
-  one row. The **Speedrun keyboard** setting (`speedrunKeyboard`, off by
-  default) deals the same keys as two full-width rows instead — 1–5 over 6–9 —
-  for roughly double the tap-target width. It applies everywhere the pip keypad
-  renders (Surge, Practice, Survival, Rain), never to Trade's swing pad.
+  keypad has one key per cost the catalog actually has (currently 1–9), always
+  dealt as two full-width rows — 1–5 over 6–9 — for roughly double the tap-target
+  width, everywhere the pip keypad renders (Surge, Practice, Survival, Rain) —
+  never Trade or Ledger, which share the RED/BLUE exchange board. (The old single
+  row and the opt-in Speedrun keyboard setting were removed in the 2026 refresh:
+  two rows is the only keypad.)
 - Both Practice drills are learning loops, not finite rounds: no progress bar and no share
   action. It times the first response invisibly, separates requested assistance
   from recall, offers voluntary help after seven idle seconds, gives keypad
@@ -378,11 +379,10 @@ elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBes
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
                              server season id resets the slate)
-elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects?,
-                              speedrunKeyboard? }
+elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
 ```
 
-Session, install, release-notice, and player-nudge state, owned by their own modules:
+Session, install, and player-nudge state, owned by their own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
@@ -391,13 +391,16 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
-elixirdrop:releaseSeen              -> lib/release-notice.ts localStorage the release id (tag
-                                       slug) the player has already been shown, written on a
-                                       first visit so the one-time notice never greets a
-                                       newcomer, and again on dismissal
-elixirdrop:playerTagNudge           -> lib/player-tag-nudge.ts localStorage per-player timestamps
-                                       for the weekly missing-tag reminder
 ```
+
+(The `elixirdrop:playerTagNudge` key was retired with the PlayerTagNudge modal in
+the 2026 refresh: the missing-tag prompt is now a card at the top of the Updates
+scope, derived from account state, so it needs no per-device timestamp.)
+
+The one-time release-notice overlay (and its `elixirdrop:releaseSeen` key) was retired
+in the 2026 refresh: named releases now appear in the **Updates** scope on the You page,
+and unread state is a single server-owned `lastOpenedUpdates` timestamp on the account —
+account-level and deliberately not per-device, so it never needs a browser key.
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
 `Settings` there.
@@ -535,10 +538,13 @@ The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Every production
 visit fills the 120-image base-art pack in small serialized batches; App Info
 shows its progress. Live API configuration, account data, and leaderboards are
-never cached. While disconnected, the desktop and mobile primary navigation
-replace the live Leaderboards/Ranks and Profile/You destinations with one
-bundle-native Offline destination. Reconnecting restores the normal navigation;
-direct offline links to either live view render the same Offline explanation.
+never cached. While disconnected, the primary navigation is unchanged — Play ·
+Ladder · You never rename themselves. The player stays on the real page they
+asked for, which names the cause with a header chip and renders absent server
+data quietly (personal bests and ranks as `—`, the arena bar greyed, the Boards
+scope reading "Boards need a connection") instead of a takeover. Reconnecting
+refills the live data. The bundle-native Offline destination and the offline
+nav-swap were retired in the 2026 refresh.
 The API-outage state uses the same navigation and persistence rules without an
 error/retry banner. A low-frequency health probe runs when the app regains focus,
 becomes visible, restores browser transport, or reaches a 30-second interval;

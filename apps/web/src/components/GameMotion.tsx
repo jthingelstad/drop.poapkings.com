@@ -76,7 +76,10 @@ function correctAnimation(preset: GameMotionPreset) {
       transform: [
         'translate3d(0, 0, 0) rotate(0deg) scale(1)',
         'translate3d(0, -12px, 0) rotate(-1deg) scale(1.025)',
-        'translate3d(0, -72vh, 0) rotate(7deg) scale(0.9)'
+        // Measured against the card's own height (a % of the element), not the
+        // viewport: -140% clears its own height so it exits cleanly no matter how
+        // tall the card is or how much of the stage the taller keypad leaves.
+        'translate3d(0, -140%, 0) rotate(7deg) scale(0.9)'
       ]
     }
   }

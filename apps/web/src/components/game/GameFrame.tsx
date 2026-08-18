@@ -5,10 +5,9 @@
 // design-ref/{mobile,desktop}.html.
 
 import type { ComponentChildren } from 'preact'
-import Icon, { type IconName } from '../Icon'
+import Icon from '../Icon'
 import GameFxLayer from '../GameFxLayer'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
-import { offlineRunMode } from '../../lib/use-game-run'
 import { GameStartStage } from './GameStart'
 
 export interface GameMetric {
@@ -21,11 +20,10 @@ interface Props {
   counting: boolean
   count: number
   onQuit: () => void
-  // Keep the visible control compact while giving each mode an exact accessible
-  // exit name. Endless Practice uses an X because it closes a session rather
-  // than navigating backward through a finite run.
+  // The quit control is an X everywhere — leaving a run abandons it, and a back
+  // arrow would promise the run is still there. Only the accessible name differs:
+  // "Abandon run" for ranked modes (the default), "End session" for the drills.
   quitLabel?: string
-  quitIcon?: IconName
   cue: GameRuntimeCue | null
   // Usually a plain string ("Card 3 / 15"); Rain renders its lives as glyphs.
   progressText?: ComponentChildren
@@ -48,8 +46,7 @@ export default function GameFrame({
   counting,
   count,
   onQuit,
-  quitLabel,
-  quitIcon,
+  quitLabel = 'Abandon run',
   cue,
   progressText,
   metric,
@@ -70,15 +67,14 @@ export default function GameFrame({
         <>
           <div class="ed-game__top">
             <div class="ed-game__top-l">
-              <button class="ed-iconbtn tap-fx" onClick={onQuit} aria-label={quitLabel ?? 'Quit game'}>
+              <button class="ed-iconbtn tap-fx" onClick={onQuit} aria-label={quitLabel}>
                 <span class="tap-face">
-                  <Icon name={quitIcon ?? 'chevron-left'} />
+                  <Icon name="x" />
                 </span>
               </button>
             </div>
             <div class="ed-game__top-c">
               <div class="ed-game__mode">{modeName}</div>
-              {offlineRunMode.value && <div class="ed-game__offline">Offline · not saved</div>}
               {progressText && <div class="ed-game__progress">{progressText}</div>}
             </div>
             <div class="ed-game__top-r">

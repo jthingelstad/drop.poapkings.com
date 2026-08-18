@@ -45,10 +45,16 @@ test('legacy hash text routes redirect to their real pages', async ({ page }) =>
 })
 
 test('the app shells link to real pages and the Discord guide', async ({ page, viewport }) => {
-  if (isDesktopViewport(viewport)) await page.goto('/')
-  else await page.goto('/#/profile')
+  const desktop = isDesktopViewport(viewport)
+  if (desktop) {
+    await page.goto('/')
+  } else {
+    // Mobile keeps the About-Drop links in the You page's Account scope.
+    await page.goto('/#/profile')
+    await page.getByRole('tab', { name: 'Account' }).click()
+  }
 
-  const scope = page.locator(isDesktopViewport(viewport) ? '.ed-railfoot' : '.ed-morelist')
+  const scope = page.locator(desktop ? '.ed-railfoot' : '.ed-account__links')
   await expect(scope.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about/')
   await expect(scope.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq/')
   await expect(scope.getByRole('link', { name: 'Fair Play' })).toHaveAttribute('href', '/fair-play/')

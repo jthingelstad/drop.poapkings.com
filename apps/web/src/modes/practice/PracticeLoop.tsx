@@ -26,6 +26,8 @@ import MultipleChoice from '../../components/MultipleChoice'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { costRecallSignature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -372,7 +374,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     recorded.current = true
     // Only unassisted keypad latency contributes to fluent-recall averages.
     saveResult(current.card.id, isCorrect, assisted ? undefined : elapsed, assisted)
-    answers.current.push({ card: current.card, guess: picked, correct: isCorrect, ms: elapsed, assisted })
+    answers.current.push({
+      card: current.card,
+      guess: picked,
+      correct: isCorrect,
+      ms: elapsed,
+      assisted,
+      ...(current.reviewStage ? { reviewStage: current.reviewStage } : {})
+    })
     serverAnswers.current.push({ cardId: current.card.id, guess: picked, responseMs: elapsed, assisted })
     answered.value++
     scheduleMissedCard(current, isCorrect)
@@ -508,6 +517,11 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
     const needsReview = ins.weakest.length
+    // The cards that came back after a gap this session, and whether they held.
+    const returns = answers.current
+      .filter((answer) => answer.reviewStage)
+      .map((answer) => ({ ms: answer.ms ?? 0, correct: answer.correct }))
+    const signature = costRecallSignature(returns)
     return (
       <div class="ed-gamewrap">
         <Summary
@@ -527,7 +541,9 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           onReplay={() => replay(ins.weakest)}
           replayLabel={needsReview > 0 ? 'Review misses' : 'Practice again'}
           onHome={exit}
-        />
+        >
+          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
+        </Summary>
       </div>
     )
   }
@@ -548,7 +564,6 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       count={0}
       onQuit={endSession}
       quitLabel="End session"
-      quitIcon="x"
       cue={runtime.cue.value}
       fxParticles={6}
       progressText={`${answered.value} practiced`}

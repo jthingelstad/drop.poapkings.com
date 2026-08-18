@@ -94,6 +94,10 @@ export interface PlayerProfile {
   // Successful magic-link redemption, kept separate from profile mutation and
   // gameplay activity so private account administration can distinguish them.
   lastLoginAt?: string;
+  // When the player last opened the Updates view. Account-level and server-owned
+  // (deliberately not per-device): anything newer than this is unread. Absent
+  // until the first open.
+  lastOpenedUpdates?: string;
 }
 
 export type RankedAccessStatus = "allowed" | "restricted";
@@ -136,6 +140,11 @@ export interface RunRecord {
   // Stored for server-side badge recovery and aggregate analysis. Deliberately
   // omitted by runRecordResponse, so it is not part of public run history.
   answerCount?: number;
+  // Per-run XP earned (activity, not skill). Surfaced in the run sheet.
+  xp?: number;
+  // The badge slugs whose rungs this run cleared, written best-effort after
+  // completion. Surfaced as "Rungs moved" medallions in the run sheet.
+  rungs?: string[];
 }
 
 export type RunReviewStatus = "pending" | "reviewed" | "excluded";

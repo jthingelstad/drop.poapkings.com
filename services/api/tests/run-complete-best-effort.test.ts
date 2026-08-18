@@ -20,6 +20,7 @@ const repository = vi.hoisted(() => ({
   saveBadges: vi.fn(),
   saveCardStats: vi.fn(),
   updateAllTimeBest: vi.fn(),
+  setRunRungs: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("../src/repository.js", () => ({
     saveBadges = repository.saveBadges;
     saveCardStats = repository.saveCardStats;
     updateAllTimeBest = repository.updateAllTimeBest;
+    setRunRungs = repository.setRunRungs;
     wouldLeadAllTime = repository.wouldLeadAllTime;
     wouldLeadSeason = repository.wouldLeadSeason;
     useRateLimit = repository.useRateLimit;
@@ -178,6 +180,7 @@ describe("run completion side effects are best effort", () => {
     repository.getCrProfile.mockResolvedValue(undefined);
     repository.putRefereeEvidence.mockResolvedValue(undefined);
     repository.updateAllTimeBest.mockResolvedValue({ improved: false });
+    repository.setRunRungs.mockResolvedValue(undefined);
     repository.getBadges.mockResolvedValue(undefined);
     repository.listAllRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
@@ -206,7 +209,12 @@ describe("run completion side effects are best effort", () => {
     const result = await complete();
 
     expect(result.statusCode).toBe(201);
-    expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
+    // A recorded ranked run carries its per-run XP award in the response.
+    expect(result.body).toMatchObject({
+      accepted: true,
+      totalGames: 5,
+      xpEarned: expect.any(Number),
+    });
     expect(publishDiscordEvent).toHaveBeenCalledOnce();
     expect(publishTinylyticsEvent).toHaveBeenCalledWith(
       { apiToken: "tinylytics-key" },
@@ -276,6 +284,14 @@ describe("run completion side effects are best effort", () => {
     expect(slugs).not.toContain("daily-drop");
     expect(slugs).not.toContain("marathon");
     expect(repository.saveBadges).toHaveBeenCalledOnce();
+    // The cleared rungs are also written onto the run's history row (deduped to
+    // one entry per badge) so the run sheet can show what moved.
+    expect(repository.setRunRungs).toHaveBeenCalledOnce();
+    const rungCall = repository.setRunRungs.mock.calls[0]!;
+    const storedSlugs = rungCall[3] as string[];
+    expect(storedSlugs).toContain("clockbreaker");
+    expect(storedSlugs).toContain("full-cup");
+    expect(new Set(storedSlugs).size).toBe(storedSlugs.length);
   });
 
   it("migrates stale badge counters before folding the current run", async () => {

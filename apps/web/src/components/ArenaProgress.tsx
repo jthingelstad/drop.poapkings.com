@@ -1,4 +1,4 @@
-import { rankFor, zoneFor } from '../data/starRanks'
+import { rankFor } from '../data/starRanks'
 
 // One place that turns XP into "how far along this arena am I, and how much is
 // left". The You page banner draws its own arena line and needs the same
@@ -28,26 +28,15 @@ export function ArenaProgressBar({ xp }: { xp: number }) {
 }
 
 // The player's arena on Drop's Trophy Road — now a per-player journey driven by
-// lifetime Player XP. Rendered inline on the profile (no modal).
+// lifetime Player XP. Rendered inline on the profile (no modal). The arena's
+// name and XP bar carry the progression; the rendered arena artwork was retired
+// in the 2026-08 refresh (see `starRanks.ts`).
 export default function ArenaProgress({ xp }: { xp: number }) {
-  const { current, next } = rankFor(xp)
-  const zone = zoneFor(xp, current, next)
-
-  const artClass = [
-    'rank-card__art',
-    zone === 'just-passed' ? 'is-just-passed' : '',
-    zone === 'close' ? 'is-close' : ''
-  ]
-    .filter(Boolean)
-    .join(' ')
-
+  const { current } = rankFor(xp)
   const { fillPct, toGoLabel: progressLabel } = arenaProgress(xp)
 
   return (
     <div class="rank-card">
-      <div class={artClass}>
-        <img class="rank-card__img" src={current.image} alt={current.name + ' arena'} loading="lazy" />
-      </div>
       <div class="rank-card__meta">
         <div class="rank-card__eyebrow">Arena {current.n} of 28</div>
         <div class="rank-card__name">{current.name}</div>

@@ -90,7 +90,10 @@ export const playerSchema = z.object({
   nextLevelGames: nonNegativeInteger,
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
-  rankedAccess: z.optional(z.enum(['allowed', 'restricted']))
+  rankedAccess: z.optional(z.enum(['allowed', 'restricted'])),
+  // When the player last opened Updates (server-owned, account-level). Anything
+  // newer than this is unread.
+  lastOpenedUpdates: z.optional(isoDateTime)
 })
 
 const sessionSchema = z.object({
@@ -137,6 +140,10 @@ export const recentRunSchema = z.object({
   score: z.number().finite(),
   seasonId: nonEmptyString,
   completedAt: isoDateTime,
+  // Per-run XP earned (activity), for the run sheet. Practice earns none.
+  xp: z.optional(nonNegativeInteger),
+  // The badge slugs whose rungs this run cleared — "Rungs moved" in the sheet.
+  rungs: z.optional(z.array(nonEmptyString)),
   reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
   reviewExplanation: z.optional(nonEmptyString),
   // This run's rank on its season board, present only on the run that holds
@@ -251,6 +258,9 @@ const runCompletionFields = {
   underReview: z.optional(z.boolean()),
   totalGames: nonNegativeInteger,
   xp: nonNegativeInteger.default(0),
+  // The per-run XP award (activity), so the summary can say "XP earned +N".
+  // Practice earns 0. Absent through the API-first half of a rolling deploy.
+  xpEarned: z.optional(nonNegativeInteger),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger,
@@ -347,6 +357,10 @@ export const leaderboardResponseSchema = z.object({
   seasonId: z.optional(nonEmptyString),
   clan: z.optional(z.object({ tag: nonEmptyString, name: nonEmptyString })),
   currentSeason: seasonSchema,
+  // The period rail's chips (Boards scope only): the current season and the
+  // months behind it, newest first. crSeasonId is the derived Clash Royale
+  // number; absent when it cannot be derived, so the client shows the raw id.
+  seasons: z.optional(z.array(z.object({ id: nonEmptyString, crSeasonId: z.optional(safeInteger.positive()) }))),
   entries: z.array(leaderboardEntrySchema)
 })
 

@@ -188,14 +188,6 @@ function press(host: HTMLElement, value: number): void {
   })
 }
 
-// Read one of the summary's three "moment" tiles by its label.
-function tileValue(host: HTMLElement, label: string): string | undefined {
-  const tile = [...host.querySelectorAll('.ed-sum-tile')].find(
-    (t) => t.querySelector('.ed-sum-tile__label')?.textContent === label
-  )
-  return tile?.querySelector('.ed-sum-tile__value')?.textContent ?? undefined
-}
-
 function clickText(host: HTMLElement, selector: string, text: string): void {
   const el = [...host.querySelectorAll<HTMLButtonElement>(selector)].find((b) => (b.textContent ?? '').includes(text))
   if (!el) throw new Error(`no ${selector} containing "${text}"`)
@@ -299,7 +291,6 @@ describe('Surge gameplay', () => {
     // Summary: first-ever run is a PB, and every first guess was right.
     expect(host.textContent).toContain('Surge complete')
     expect(host.textContent).toContain('First Surge logged')
-    expect(host.textContent).toContain('100%')
     expect(host.querySelector('.shareline')?.textContent).toContain('Surge')
     expect(host.querySelector('.shareline')?.textContent).toContain('Share score')
   })
@@ -329,7 +320,6 @@ describe('Surge gameplay', () => {
 
     const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ guesses: number[] }> }
     expect(payload.answers[0]!.guesses).toEqual([wrongFor(e0), e0]) // both taps recorded
-    expect(host.textContent).toContain('93%') // 14 / 15 first-try
   })
 
   it('shows a prior best (not a PB) and runs the ghost-pace checkpoint', async () => {
@@ -501,8 +491,6 @@ describe('Survival gameplay', () => {
     advance(1100)
 
     expect(host.textContent).toContain('New personal best!')
-    expect(tileValue(host, 'Streak')).toBe('2')
-    expect(tileValue(host, 'Prev best')).toBe('1')
   })
 
   it('reports no previous best for a first-ever run', async () => {
@@ -515,9 +503,6 @@ describe('Survival gameplay', () => {
     advance(230)
     press(host, wrongFor(cards[1]!.elixir))
     advance(1100)
-
-    expect(tileValue(host, 'Streak')).toBe('1')
-    expect(tileValue(host, 'Prev best')).toBe('0')
   })
 
   it('shows the prior best when the run is not a PB', async () => {
@@ -742,9 +727,6 @@ describe('Practice gameplay', () => {
     answerCorrectly(host, cards, 4)
     endSession(host)
 
-    expect(tileValue(host, 'Avg answer')).toBe('0.000s')
-    expect(tileValue(host, 'Got back')).toBe('0')
-    expect(tileValue(host, 'Needs review')).toBe('0')
     expect(host.querySelector('.ed-sum__pb')).toBeNull()
     expect(host.textContent).not.toMatch(/personal best|New best|Best:/i)
     expect(saveRecords).not.toHaveBeenCalled()
@@ -971,18 +953,18 @@ describe('Ledger gameplay', () => {
   }
 
   function correctLedgerButton(host: HTMLElement): HTMLButtonElement {
-    const reveal = host.querySelector<HTMLButtonElement>('.ledger-assist')
-    if (!reveal) throw new Error('no Show ledger control')
+    const reveal = host.querySelector<HTMLButtonElement>('.ed-xboard__reveal')
+    if (!reveal) throw new Error('no Reveal control')
     void act(() => reveal.click())
-    const balance = reveal.textContent?.trim() ?? ''
+    const balance = host.querySelector('.ed-xboard__value')?.textContent?.trim() ?? ''
     if (balance === 'Even') {
-      const button = host.querySelector<HTMLButtonElement>('.ledger-answer--even')
+      const button = host.querySelector<HTMLButtonElement>('.ed-xpad__key--even')
       if (button) return button
     }
     const match = /^(Blue|Red) \+(\d)$/.exec(balance)
-    const lane = match?.[1] === 'Blue' ? '.ledger-pad__group--blue' : '.ledger-pad__group:not(.ledger-pad__group--blue)'
-    const button = [...host.querySelectorAll<HTMLButtonElement>(`${lane} .ledger-answer`)].find(
-      (candidate) => candidate.textContent?.trim() === `+${match?.[2]}`
+    const laneClass = match?.[1] === 'Blue' ? 'ed-xpad__key--blue' : 'ed-xpad__key--red'
+    const button = [...host.querySelectorAll<HTMLButtonElement>(`.${laneClass}`)].find(
+      (candidate) => candidate.textContent?.trim() === match?.[2]
     )
     if (!button) throw new Error(`no answer button for ${balance}`)
     return button
@@ -992,8 +974,8 @@ describe('Ledger gameplay', () => {
     const host = await startLedger()
 
     expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Ledger')
-    expect(host.querySelectorAll('.ledger-card')).toHaveLength(2)
-    expect(host.textContent).toContain('Who owns the elixir advantage?')
+    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(2)
+    expect(host.textContent).toContain('Who came out ahead, and by how much?')
     expect(host.textContent).toContain('0 checked · Guided')
 
     const answer = correctLedgerButton(host)
@@ -1015,7 +997,6 @@ describe('Ledger gameplay', () => {
     })
     expect(recordSession).toHaveBeenCalledTimes(1)
     expect(host.textContent).toContain('1 / 1 balances')
-    expect(host.textContent).toContain('Without help')
     expect(host.textContent).toContain('Keep tracking')
   })
 
@@ -1033,23 +1014,23 @@ describe('Ledger gameplay', () => {
 
     // The first play is visible immediately; the second must not arrive while
     // the player cannot see the prompt.
-    expect(host.querySelectorAll('.ledger-card')).toHaveLength(1)
+    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(1)
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
     void act(() => {
       document.dispatchEvent(new Event('visibilitychange'))
     })
     advance(5_000)
-    expect(host.querySelectorAll('.ledger-card')).toHaveLength(1)
-    expect(host.textContent).not.toContain('Who owns the elixir advantage?')
+    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(1)
+    expect(host.textContent).not.toContain('Who came out ahead, and by how much?')
 
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
     void act(() => {
       document.dispatchEvent(new Event('visibilitychange'))
     })
     advance(1_440)
-    expect(host.textContent).toContain('Who owns the elixir advantage?')
-    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Red +1"]')).not.toBeNull()
-    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Blue +1"]')).not.toBeNull()
+    expect(host.textContent).toContain('Who came out ahead, and by how much?')
+    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Red ahead by 1"]')).not.toBeNull()
+    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Blue ahead by 1"]')).not.toBeNull()
 
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
     void act(() => {

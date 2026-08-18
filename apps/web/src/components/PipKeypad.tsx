@@ -3,7 +3,6 @@ import { useRef } from 'preact/hooks'
 import { allCards } from '../lib/card-catalog'
 import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
-import { getSettings } from '../lib/storage'
 import { useGameKeys } from '../lib/use-game-keys'
 import { observeInput, type InputObservation } from '../lib/input-evidence'
 
@@ -16,10 +15,10 @@ const MAX_ELIXIR = Math.max(...allCards.map((card) => card.elixir))
 // is dealt across.
 const KEY_ORDER = Array.from({ length: MAX_ELIXIR }, (_, i) => i + 1)
 
-// Speedrun keyboard: 1-5 over 6-9, each row filling the full width, so a key is
-// roughly twice as wide as the single row's. Drop's fastest Surge players asked
-// for it — mistaps happen sideways, between neighbours, so width is the axis
-// that matters. Splitting after 5 rather than halving means a future 10-cost
+// The keypad is dealt as two rows — 1-5 over 6-9 — each filling the full width,
+// so a key is about twice as wide as a single row of nine. Mistaps happen
+// sideways, between neighbours, so width is the axis that matters; this is the
+// only keypad now. Splitting after 5 rather than halving means a future 10-cost
 // card lands on the bottom row instead of shifting 1-5 out from under a thumb
 // that has learned where they are.
 const SPEEDRUN_TOP_ROW = 5
@@ -130,32 +129,17 @@ export default function PipKeypad({ onPick, disabled }: Props) {
     onPick(value, observeInput(event))
   })
 
-  // Read fresh at render, the way sound and motion read their settings — the
-  // keypad is only ever mounted at the start of a run, so there is nothing to
-  // subscribe to.
-  const speedrun = getSettings().speedrunKeyboard ?? false
-  const rows = speedrun ? [KEY_ORDER.slice(0, SPEEDRUN_TOP_ROW), KEY_ORDER.slice(SPEEDRUN_TOP_ROW)] : [KEY_ORDER]
+  const rows = [KEY_ORDER.slice(0, SPEEDRUN_TOP_ROW), KEY_ORDER.slice(SPEEDRUN_TOP_ROW)]
 
-  // The default layout keeps its flat DOM: one row means no wrapper, so nothing
-  // about the shipped keypad moves for a player who never turns this on.
   return (
-    <div
-      ref={groupRef}
-      class={`pip-keypad${speedrun ? ' pip-keypad--speedrun' : ''}`}
-      role="group"
-      aria-label="Elixir cost keypad"
-    >
-      {rows.map((row, index) =>
-        speedrun ? (
-          <div class="pip-keypad__row" key={`row-${index}`}>
-            {row.map((n) => (
-              <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />
-            ))}
-          </div>
-        ) : (
-          row.map((n) => <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />)
-        )
-      )}
+    <div ref={groupRef} class="pip-keypad" role="group" aria-label="Elixir cost keypad">
+      {rows.map((row, index) => (
+        <div class="pip-keypad__row" key={`row-${index}`}>
+          {row.map((n) => (
+            <PipKey key={n} value={n} disabled={disabled} onPick={onPick} />
+          ))}
+        </div>
+      ))}
     </div>
   )
 }

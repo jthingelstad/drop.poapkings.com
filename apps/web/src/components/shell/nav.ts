@@ -1,6 +1,7 @@
-// Shared primary-navigation model for both shells. Live player data has no
-// offline snapshot, so the connected navigation (Games / Ranks / You) becomes
-// Games / Offline while the browser is definitely disconnected.
+// Shared primary-navigation model for both shells: Play · Ladder · You. The nav
+// never renames itself — offline or online, the tabs are the same. A state that
+// changes (offline, guest) is named by a header chip on the page, not by
+// rewriting a control. The tabs stay put so muscle memory does.
 
 import type { IconName } from '../Icon'
 
@@ -17,38 +18,28 @@ const GAMES_ITEM: NavItem = {
   route: '/',
   matches: (r) => r === '/' || r === '/practice' || isGameRoute(r),
   icon: 'gamepad',
-  label: 'Games',
-  shortLabel: 'Games'
+  label: 'Play',
+  shortLabel: 'Play'
 }
 
+// Play · Ladder · You. "Ladder" is what Clash players call the climb: it is
+// short enough for the pill and already the app's word for badge ladders, so
+// boards, rungs and clan all sit under it. The route stays `/leaderboards`.
 export const NAV_ITEMS: NavItem[] = [
   GAMES_ITEM,
   {
     route: '/leaderboards',
     matches: (r) => r.startsWith('/leaderboards') || r.startsWith('/players/'),
     icon: 'trophy',
-    label: 'Leaderboards',
-    shortLabel: 'Ranks'
+    label: 'Ladder',
+    shortLabel: 'Ladder'
   },
   {
     route: '/profile',
     matches: (r) => r.startsWith('/profile') || isMoreRoute(r),
     icon: 'user',
-    label: 'Profile',
+    label: 'You',
     shortLabel: 'You'
-  }
-]
-
-export const OFFLINE_NAV_ITEMS: NavItem[] = [
-  GAMES_ITEM,
-  {
-    route: '/offline',
-    // Direct links to either live player surface still render the bundled
-    // offline explanation, so keep Offline selected there too.
-    matches: (r) => r.startsWith('/offline') || r.startsWith('/leaderboards') || r.startsWith('/profile'),
-    icon: 'wifi-off',
-    label: 'Offline mode',
-    shortLabel: 'Offline'
   }
 ]
 

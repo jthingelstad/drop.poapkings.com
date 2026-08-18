@@ -175,8 +175,7 @@ const DEFAULT_SETTINGS: Settings = {
   inputStyle: 'keypad',
   sound: false,
   reducedMotion: false,
-  enhancedEffects: true,
-  speedrunKeyboard: false
+  enhancedEffects: true
 }
 
 export function getSettings(): Settings {

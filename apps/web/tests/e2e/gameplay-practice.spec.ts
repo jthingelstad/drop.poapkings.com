@@ -5,19 +5,19 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
   const desktop = isDesktopViewport(viewport)
   await page.goto(desktop ? '/#/practice' : '/')
 
-  await expect(page.locator(desktop ? '.practice-hub' : '.ed-practice-options')).toBeVisible()
+  await expect(page.locator(desktop ? '.practice-hub' : '.ed-more__aside--pill')).toBeVisible()
   await expect(page.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
   await page.getByRole('button', { name: /Ledger/ }).click()
 
   await expect(page.locator('.ed-game__mode')).toHaveText('Ledger', { timeout: 12_000 })
-  await expect(page.locator('.ledger-board')).toHaveAttribute('data-stage', 'guided')
-  await expect(page.locator('.ledger-card')).toHaveCount(2, { timeout: 12_000 })
-  await expect(page.locator('.ledger-answer:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
-  await expect(page.getByRole('button', { name: 'Red +1', exact: true })).toBeVisible()
+  await expect(page.locator('.ed-xboard')).toHaveAttribute('data-stage', 'guided')
+  await expect(page.locator('.ed-xcard')).toHaveCount(2, { timeout: 12_000 })
+  await expect(page.locator('.ed-xpad__key:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
+  await expect(page.getByRole('button', { name: 'Red ahead by 1', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Even', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Blue +1', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Blue ahead by 1', exact: true })).toBeVisible()
 
-  const balance = await page.locator('.ledger-board').evaluate(
+  const balance = await page.locator('.ed-xboard').evaluate(
     (board, catalog) => {
       const costs = new Map(
         (catalog as Array<{ id: number; elixir: number }>).map((card) => [String(card.id), card.elixir])
@@ -27,19 +27,18 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
           (sum, card) => sum + (costs.get(card.dataset.cardId ?? '') ?? 0),
           0
         )
-      return total('.ledger-lane--red .ledger-card') - total('.ledger-lane--blue .ledger-card')
+      return total('.ed-xlane--red .ed-xcard') - total('.ed-xlane--blue .ed-xcard')
     },
     [...cardsById.values()].map(({ id, elixir }) => ({ id, elixir }))
   )
 
   const answer =
     balance === 0
-      ? page.locator('.ledger-answer--even')
-      : page
-          .locator(
-            balance > 0 ? '.ledger-pad__group--blue button' : '.ledger-pad__group:not(.ledger-pad__group--blue) button'
-          )
-          .filter({ hasText: `+${Math.abs(balance)}` })
+      ? page.getByRole('button', { name: 'Even', exact: true })
+      : page.getByRole('button', {
+          name: balance > 0 ? `Blue ahead by ${balance}` : `Red ahead by ${Math.abs(balance)}`,
+          exact: true
+        })
   await answer.click()
 
   await expect(page.locator('.ledger-prompt')).toContainText('Blue spent')
@@ -54,7 +53,7 @@ test('Practice is a two-drill section and Ledger completes a validated balance c
   await expect(returnToPractice).toBeVisible()
   await returnToPractice.click()
   await expect(page).toHaveURL(desktop ? /#\/practice$/ : /#\/$/)
-  await expect(page.locator(desktop ? '.practice-hub' : '.ed-practice-options')).toBeVisible()
+  await expect(page.locator(desktop ? '.practice-hub' : '.ed-more__aside--pill')).toBeVisible()
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {

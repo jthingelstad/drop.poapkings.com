@@ -546,7 +546,14 @@ export async function patchMe({ event, config, repository }: RouteContext) {
     favoriteCardId?: number;
     playerTag?: string;
     clearPlayerTag?: boolean;
+    lastOpenedUpdates?: string;
   } = {};
+
+  // Opening the Updates view stamps the read time. The server owns the clock so
+  // an unread indicator cannot be spoofed forward by a wrong device time.
+  if (Object.hasOwn(body, "lastOpenedUpdates")) {
+    updates.lastOpenedUpdates = new Date().toISOString();
+  }
 
   if (Object.hasOwn(body, "playerTag")) {
     let tag: string | undefined;

@@ -4,7 +4,6 @@ import {
   expect,
   fulfillSupportData,
   fulfillTestRun,
-  isDesktopViewport,
   test,
   testApiBaseUrl,
   testApiRoute,
@@ -59,7 +58,7 @@ test(
     await expect(
       page.getByText('Sign in before your next game to save future scores and compete on the leaderboard.')
     ).toBeVisible()
-    await summary.getByRole('button', { name: 'Sign In', exact: true }).click()
+    await summary.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurvival$/)
   }
 )
@@ -178,20 +177,25 @@ test('new players choose a favorite card and generated name before returning to 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
-  // The identity editor (redesign) opens straight into setup for a new player.
-  await expect(page.getByText('You can add a Clash Royale tag later.', { exact: false })).toBeVisible()
-  const setupSections = page.locator('.ed-edit__section-title')
-  await expect(setupSections.nth(0)).toHaveText('1. Choose your Player Card')
-  await expect(setupSections.nth(1)).toHaveText('2. Choose your player name')
+  // Identity setup (redesign) is three steps; it opens at step 1 (the card).
+  await expect(page.getByText('Step 1 of 3')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Choose a Player Card first' })).toBeDisabled()
+  const primary = page.locator('.ed-idsetup__actions .ed-btn--gold')
+  // CONTINUE is disabled until a card is chosen.
+  await expect(primary).toBeDisabled()
 
-  const favoriteCards = page.locator('.favorite-card-grid')
-  // The grid caps at 60 cards, so narrow to the Knight before selecting it.
+  // Step 1: narrow to the Knight (the grid caps at 60), choose it, then CONTINUE.
   await page.getByPlaceholder('Search cards').fill('Knight')
-  await favoriteCards.getByRole('button', { name: 'Knight', exact: true }).click()
-  await page.getByRole('button', { name: 'Get name ideas' }).click()
-  await page.getByRole('button', { name: 'Knight Main', exact: true }).click()
+  await page.locator('.favorite-card-grid').getByRole('button', { name: 'Knight', exact: true }).click()
+  await primary.click()
+
+  // Step 2: pick the generated name, then CONTINUE saves the card + name.
+  await page.locator('.name-option', { hasText: 'Knight Main' }).click()
+  await primary.click()
+
+  // Step 3: skip the tag → return to the pending game.
+  await expect(page.getByText('Step 3 of 3')).toBeVisible()
+  await page.getByRole('button', { name: /Skip/ }).click()
 
   await expect(page).toHaveURL(/#\/surge$/)
   await expect
@@ -226,7 +230,7 @@ test('a temporary authentication outage keeps the saved login', async ({ page })
     .toBe(testSession.token)
 })
 
-test('account deletion requires typed confirmation and clears the saved session', async ({ page, viewport }) => {
+test('account deletion requires typed confirmation and clears the saved session', async ({ page }) => {
   let deletionBody: unknown
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
@@ -257,9 +261,9 @@ test('account deletion requires typed confirmation and clears the saved session'
   })
 
   await page.goto('/#/profile')
-  // Delete-account ends the profile in the Account section — no longer hidden
-  // inside the identity editor.
-  await page.locator('.ed-profile__account').getByRole('button', { name: 'Delete account' }).click()
+  // Delete-account lives in the Account scope of the You page.
+  await page.getByRole('tab', { name: 'Account' }).click()
+  await page.locator('.ed-account').getByRole('button', { name: 'Delete account' }).click()
   const confirmDelete = page.getByRole('button', { name: 'Permanently delete account' })
   await expect(confirmDelete).toBeDisabled()
   await page.getByLabel('Type DELETE to confirm').fill('delete')
@@ -267,8 +271,8 @@ test('account deletion requires typed confirmation and clears the saved session'
   await page.getByLabel('Type DELETE to confirm').fill('DELETE')
   await confirmDelete.click()
 
-  const home = isDesktopViewport(viewport) ? '.ed-home-d' : '.ed-home'
-  await expect(page.locator(home)).toBeVisible()
+  // One home for every width now — HomeMobile, letterboxed on desktop.
+  await expect(page.locator('.ed-home')).toBeVisible()
   expect(deletionBody).toEqual({ confirmation: 'DELETE' })
   await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()
 })

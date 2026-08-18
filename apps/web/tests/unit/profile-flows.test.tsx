@@ -392,28 +392,19 @@ describe('Profile interactive flows', () => {
     account.player.value = null
     await mount()
 
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
     const link = byText(container, 'Sign In')
     expect(link).toBeTruthy()
     await fire(link as Element)
     expect(router.route.value).toBe('/login')
   })
 
-  it('gates the guest More list on the mobile layout', async () => {
-    account.accountStatus.value = 'anonymous'
-    account.player.value = null
-    useLayout.layout.value = 'desktop'
-    await mount()
-    expect(container.querySelector('.ed-morelist')).toBeNull()
+  // Identity setup is three steps (card → name → tag). These helpers reach into
+  // the step chrome.
+  const primary = () => container.querySelector('.ed-idsetup__actions .ed-btn--gold') as HTMLButtonElement
+  const backBtn = () => container.querySelector('.ed-idsetup__top .ed-iconbtn') as HTMLButtonElement
 
-    await act(async () => {
-      useLayout.layout.value = 'mobile'
-    })
-    await flush()
-    expect(container.querySelector('.ed-morelist')).not.toBeNull()
-  })
-
-  // --- Identity editor: name ideas -----------------------------------------
+  // --- Identity setup: name step (Edit opens step 2) -----------------------
 
   it('generates name ideas and saves the chosen name', async () => {
     vi.mocked(api.getNameOptions).mockResolvedValue({
@@ -427,25 +418,22 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
     await mount()
 
-    // Enter the editor from the profile view.
+    // Edit opens step 2 with names generated from the current card.
     await fire(byText(container, 'Edit') as Element)
-    expect(container.querySelector('input[placeholder="Search cards"]')).not.toBeNull()
-
-    // Get name ideas → mocked options render.
-    await fire(byText(container, 'Get name ideas') as Element)
     const options = [...container.querySelectorAll('.name-option')]
-    expect(options.map((o) => o.textContent)).toEqual(['Knight Prime', 'Sir Tap'])
+    expect(options.map((o) => o.textContent?.trim())).toEqual(['Knight Prime', 'Sir Tap'])
 
-    // Pick one → patchMe called with the card + name + token; player updates.
+    // Select a name → highlighted; CONTINUE saves the card + name + token.
     await fire(options[0])
+    await fire(primary())
     expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', {
       favoriteCardId: 26000000,
       publicName: 'Knight Prime',
       nameToken: 'tok-1'
     })
     expect(account.player.value?.publicName).toBe('Knight Prime')
-    // Back to the profile view with a confirmation message.
-    expect(container.textContent).toContain('Knight is now your favorite card.')
+    // An edit (card already existed) closes back to the You view.
+    expect(container.querySelector('.ed-idsetup')).toBeNull()
   })
 
   it('surfaces a name-generation failure message', async () => {
@@ -453,7 +441,6 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
     await mount()
     await fire(byText(container, 'Edit') as Element)
-    await fire(byText(container, 'Get name ideas') as Element)
 
     expect(container.textContent).toContain('rate limited')
     expect(container.querySelectorAll('.name-option')).toHaveLength(0)
@@ -469,15 +456,17 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
     await mount()
     await fire(byText(container, 'Edit') as Element)
-    await fire(byText(container, 'Get name ideas') as Element)
     await fire(container.querySelector('.name-option') as Element)
+    await fire(primary())
 
     expect(container.textContent).toContain('identity save failed')
-    // Still in the editor (search field present).
-    expect(container.querySelector('input[placeholder="Search cards"]')).not.toBeNull()
+    // Still in the setup flow (the step chrome is present).
+    expect(container.querySelector('.ed-idsetup')).not.toBeNull()
   })
 
-  it('navigates back to the pending game after choosing a name with a returnTo', async () => {
+  // --- First-time setup: the whole flow (card → name → tag) ----------------
+
+  it('runs setup card → name → tag and returns to the pending game', async () => {
     router.route.value = '/profile?returnTo=/surge'
     vi.mocked(api.getNameOptions).mockResolvedValue({
       favoriteCardId: 26000000,
@@ -487,21 +476,29 @@ describe('Profile interactive flows', () => {
     vi.mocked(api.patchMe).mockResolvedValue({
       player: { ...basePlayer, favoriteCardId: 26000000, publicName: 'Knight Prime' }
     })
-    // No favorite card yet → editor opens straight to setup, note visible.
+    // No favorite card yet → setup opens at step 1 (card), with the step counter.
     await signIn({})
     await mount()
-    expect(container.textContent).toContain('return to your game')
-    const setupTitles = [...container.querySelectorAll('.ed-edit__section-title')].map((title) => title.textContent)
-    expect(setupTitles.slice(0, 2)).toEqual(['1. Choose your Player Card', '2. Choose your player name'])
-    expect(container.querySelector('[aria-label="Clash Royale player tag"]')).toBeNull()
-    expect((byText(container, 'Choose a Player Card first') as HTMLButtonElement).disabled).toBe(true)
+    expect(container.textContent).toContain('Step 1 of 3')
+    // CONTINUE is disabled until a card is chosen.
+    expect(primary().disabled).toBe(true)
 
-    // Select a card first (setup has no preselected favorite), then name.
+    // Step 1: choose a card, then CONTINUE to the name step.
     await fire(container.querySelector('.favorite-card') as Element)
-    expect(byText(container, 'Get name ideas')).toBeTruthy()
-    await fire(byText(container, 'Get name ideas') as Element)
-    await fire(container.querySelector('.name-option') as Element)
+    expect(primary().disabled).toBe(false)
+    await fire(primary())
 
+    // Step 2: choose a name, then CONTINUE saves and advances to the tag step.
+    await fire(container.querySelector('.name-option') as Element)
+    await fire(primary())
+    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith(
+      'live',
+      expect.objectContaining({ favoriteCardId: expect.any(Number), publicName: 'Knight Prime', nameToken: 'tok-1' })
+    )
+    expect(container.textContent).toContain('Step 3 of 3')
+
+    // Step 3: Skip → returns to the pending game.
+    await fire(byText(container, 'Skip') as Element)
     expect(router.route.value).toBe('/surge')
   })
 
@@ -521,18 +518,22 @@ describe('Profile interactive flows', () => {
     await mount()
 
     await fire(container.querySelector('.favorite-card') as Element)
-    await fire(byText(container, 'Get name ideas') as Element)
+    await fire(primary()) // card → name
     await fire(container.querySelector('.name-option') as Element)
+    await fire(primary()) // name saved → tag step
+    await fire(byText(container, 'Skip') as Element)
 
     expect(router.parseHash()).toBe('/')
   })
 
-  // --- Identity editor: card search + selection ----------------------------
+  // --- Identity setup: card step (reached by stepping back) ----------------
 
   it('filters the card grid and reports an empty search', async () => {
+    vi.mocked(api.getNameOptions).mockResolvedValue({ favoriteCardId: 26000000, names: [], nameToken: 't' })
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
+    await fire(byText(container, 'Edit') as Element) // step 2 (name)
+    await fire(backBtn()) // back → step 1 (card grid)
 
     const searchInput = container.querySelector('input[placeholder="Search cards"]') as HTMLInputElement
     await typeInto(searchInput, 'zzzzzzz')
@@ -546,9 +547,11 @@ describe('Profile interactive flows', () => {
   })
 
   it('selects a different favorite card and reflects it as pressed', async () => {
+    vi.mocked(api.getNameOptions).mockResolvedValue({ favoriteCardId: 26000000, names: [], nameToken: 't' })
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
     await fire(byText(container, 'Edit') as Element)
+    await fire(backBtn()) // back → card grid
 
     const searchInput = container.querySelector('input[placeholder="Search cards"]') as HTMLInputElement
     await typeInto(searchInput, 'archer')
@@ -561,9 +564,10 @@ describe('Profile interactive flows', () => {
     expect(selected?.getAttribute('aria-pressed')).toBe('true')
   })
 
-  // --- Player tag flow -----------------------------------------------------
+  // --- Player tag step (reached from Account via ?edit=player-tag) ---------
 
-  it('saves a player tag and shows the CR loading message', async () => {
+  it('saves a player tag and closes back to You', async () => {
+    router.route.value = '/profile?edit=player-tag'
     vi.mocked(api.patchMe).mockResolvedValue({
       player: {
         ...basePlayer,
@@ -574,41 +578,40 @@ describe('Profile interactive flows', () => {
     })
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
 
-    const tagInput = container.querySelector('.ed-edit__tagform input') as HTMLInputElement
+    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
     await typeInto(tagInput, '#ABC')
-    await fire(container.querySelector('.ed-edit__tagform') as Element, 'submit')
+    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
 
     expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: '#ABC' })
-    expect(container.textContent).toContain('Loading its public Clash Royale profile')
+    expect(container.querySelector('.ed-idsetup')).toBeNull()
   })
 
-  it('reports tag removal when the field is cleared', async () => {
+  it('removes a player tag when the field is cleared', async () => {
+    router.route.value = '/profile?edit=player-tag'
     vi.mocked(api.patchMe).mockResolvedValue({ player: { ...basePlayer, favoriteCardId: 26000000 } })
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', playerTag: '#OLD' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
 
-    const tagInput = container.querySelector('.ed-edit__tagform input') as HTMLInputElement
+    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
     await typeInto(tagInput, '')
-    await fire(container.querySelector('.ed-edit__tagform') as Element, 'submit')
+    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
 
     expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: null })
-    expect(container.textContent).toContain('Player tag removed.')
   })
 
-  it('surfaces a tag save failure', async () => {
+  it('surfaces a tag save failure and stays on the tag step', async () => {
+    router.route.value = '/profile?edit=player-tag'
     vi.mocked(api.patchMe).mockRejectedValue(new Error('tag rejected'))
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
-    await fire(byText(container, 'Edit') as Element)
 
-    const tagInput = container.querySelector('.ed-edit__tagform input') as HTMLInputElement
+    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
     await typeInto(tagInput, '#BAD')
-    await fire(container.querySelector('.ed-edit__tagform') as Element, 'submit')
+    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
 
     expect(container.textContent).toContain('tag rejected')
+    expect(container.querySelector('.ed-idsetup__tagform')).not.toBeNull()
   })
 
   // --- Delete-account flow -------------------------------------------------
@@ -618,6 +621,7 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
 
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     const confirm = container.querySelector('#delete-confirmation') as HTMLInputElement
     const deleteBtn = () => container.querySelector('.ed-danger__delete') as HTMLButtonElement
@@ -631,12 +635,13 @@ describe('Profile interactive flows', () => {
     expect(vi.mocked(api.deleteMe)).toHaveBeenCalledWith('live', 'DELETE')
     // Signed out → guest view (navigate('/') is a no-op when already at root hash).
     expect(account.accountStatus.value).toBe('anonymous')
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
   })
 
   it('cancels the delete flow with Keep my account', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     expect(container.querySelector('#delete-confirmation')).not.toBeNull()
 
@@ -649,6 +654,7 @@ describe('Profile interactive flows', () => {
     vi.mocked(api.deleteMe).mockRejectedValue(new Error('server refused'))
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     await typeInto(container.querySelector('#delete-confirmation') as HTMLInputElement, 'DELETE')
     await fire(container.querySelector('.ed-danger__confirm') as Element, 'submit')
@@ -659,19 +665,18 @@ describe('Profile interactive flows', () => {
 
   // --- Profile view: recent games / sign out / CR status -------------------
 
-  it('shows global game settings near the bottom of the profile and persists each toggle', async () => {
+  it('shows the settings toggles in the Settings scope and persists each toggle', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
 
-    const preferences = container.querySelector('.ed-profile__preferences') as HTMLElement
-    expect(preferences).not.toBeNull()
-    expect(preferences.previousElementSibling?.classList.contains('ed-games')).toBe(true)
-    expect(preferences.nextElementSibling?.classList.contains('ed-profile__account')).toBe(true)
-    expect(preferences.textContent).toContain('Settings')
+    await fire(byText(container, 'Settings') as Element)
+    const settings = container.querySelector('.ed-settings') as HTMLElement
+    expect(settings).not.toBeNull()
+    expect(settings.textContent).toContain('Preferences are per-device and never sync.')
 
-    const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
-    const motion = preferences.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
-    const effects = preferences.querySelector('[aria-label="Enhance effects"]') as HTMLButtonElement
+    const sound = settings.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
+    const motion = settings.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
+    const effects = settings.querySelector('[aria-label="Enhance effects"]') as HTMLButtonElement
     expect(sound.getAttribute('aria-checked')).toBe('false')
     expect(motion.getAttribute('aria-checked')).toBe('false')
     expect(effects.getAttribute('aria-checked')).toBe('true')
@@ -711,7 +716,7 @@ describe('Profile interactive flows', () => {
     }
   ]
 
-  it('groups your games by month, seals each row, and signs out from the profile view', async () => {
+  it('groups your games by day, seals each row, and signs out from the Account scope', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
@@ -721,7 +726,9 @@ describe('Profile interactive flows', () => {
 
     const rows = container.querySelectorAll('.ed-games__row')
     expect(rows).toHaveLength(3)
-    expect(container.querySelector('.ed-games__month-head')?.textContent).toContain('3 games')
+    // Three runs on three different days → three day groups, each with one game.
+    expect(container.querySelectorAll('.ed-games__day-group')).toHaveLength(3)
+    expect(container.querySelector('.ed-games__day-head')?.textContent).toContain('1 game')
     expect(container.textContent).toContain('12.500s')
     // A run no referee touched wears no seal at all; only the held and the
     // excluded run are marked.
@@ -733,12 +740,13 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('AWAITING')
     expect(container.textContent).toContain('EXCLUDED')
 
+    await fire(byText(container, 'Account') as Element)
     await fire(byText(container, 'Sign out') as Element)
     expect(account.accountStatus.value).toBe('anonymous')
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
   })
 
-  it('counts each status in the tiles and toggles the filter from one', async () => {
+  it('counts flagged games in the chip and toggles the filter', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
@@ -746,19 +754,16 @@ describe('Profile interactive flows', () => {
     })
     await mount()
 
-    const tiles = [...container.querySelectorAll('.ed-games__tile')]
-    // Cleared counts referee clearances only — the third run is unreviewed and
-    // belongs to none of the three tiles.
-    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+    // Two of the three runs carry a referee status (pending + excluded); the
+    // unreviewed one is not flagged.
+    const flagged = container.querySelector('.ed-filterchip--flagged') as HTMLButtonElement
+    expect(flagged.textContent).toContain('Flagged 2')
 
-    const awaiting = container.querySelector('.ed-games__tile--pending') as HTMLButtonElement
-    await fire(awaiting)
-    expect(awaiting.getAttribute('aria-pressed')).toBe('true')
-    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(1)
-    // Counts stay scoped to season and mode, never to the status being filtered.
-    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+    await fire(flagged)
+    expect(flagged.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(2)
 
-    await fire(awaiting)
+    await fire(flagged)
     expect(container.querySelectorAll('.ed-games__row')).toHaveLength(3)
   })
 
@@ -775,14 +780,16 @@ describe('Profile interactive flows', () => {
     ) as HTMLButtonElement
     await fire(excludedRow)
 
-    expect(container.textContent).toContain(`Run ${runReference('r2')}`)
+    // An excluded run swaps the reference block for the referee explanation and
+    // a dispute link (the reference rides in the mailto subject).
     const dispute = byText(container, 'Dispute this result') as HTMLAnchorElement
     expect(dispute.getAttribute('href')).toBe(
       `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('r2')}`)}`
     )
+    expect(container.querySelector('.ed-run-modal__ref')).toBeNull()
   })
 
-  it('leaves the run reference off a game no referee has touched', async () => {
+  it('shows the run reference with a Copy affordance in the run sheet', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
@@ -791,7 +798,28 @@ describe('Profile interactive flows', () => {
     await mount()
 
     await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
-    expect(container.textContent).not.toContain(`Run ${runReference('r3')}`)
+    // The D-tag lives in the sheet now (never in a list row), with a Copy button.
+    expect(container.querySelector('.ed-run-modal__ref code')?.textContent).toBe(runReference('r3'))
+    expect(byText(container, 'Copy')).toBeTruthy()
+  })
+
+  it('shows the rungs a run moved and opens the badge sheet from one', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    account.badges.value = [{ slug: 'clockbreaker', value: 15, rungIndex: 5 }] as never
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
+      seasons: [{ id: '2026-07', games: 1, runs: [{ ...historyRuns[2], rungs: ['clockbreaker'] }] }]
+    } as never)
+    await mount()
+
+    await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
+    expect(container.querySelector('.ed-run-modal__rungs-label')?.textContent).toContain('Rungs moved')
+    const rung = container.querySelector('.ed-run-modal__rung') as HTMLButtonElement
+    expect(rung).toBeTruthy()
+
+    await fire(rung)
+    // Tapping the medallion opens the same badge sheet the wall uses.
+    expect(container.querySelector('.ed-badges__sheet')).toBeTruthy()
   })
 
   it('shows the empty games hint when there are no runs', async () => {
@@ -814,33 +842,20 @@ describe('Profile interactive flows', () => {
       clashRoyale: { tag: '#ABC', status: 'pending' }
     })
     await mount()
-    expect(container.textContent).toContain('Loading Clash Royale profile')
-    expect(container.textContent).toContain('#ABC')
+    await fire(byText(container, 'Account') as Element)
+    expect(container.textContent).toContain('Loading #ABC')
 
     await act(async () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'not_found' } } as never
     })
     await flush()
-    expect(container.textContent).toContain('Player tag not found')
+    expect(container.textContent).toContain('could not find #ABC')
 
     await act(async () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'unavailable' } } as never
     })
     await flush()
     expect(container.textContent).toContain('Profile refresh delayed')
-  })
-
-  it('gates the More list on the mobile layout in the profile view', async () => {
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    useLayout.layout.value = 'desktop'
-    await mount()
-    expect(container.querySelector('.ed-morelist')).toBeNull()
-
-    await act(async () => {
-      useLayout.layout.value = 'mobile'
-    })
-    await flush()
-    expect(container.querySelector('.ed-morelist')).not.toBeNull()
   })
 
   // --- Polling + message transitions ---------------------------------------
@@ -859,35 +874,6 @@ describe('Profile interactive flows', () => {
     })
     expect(vi.mocked(api.getMe)).toHaveBeenCalled()
     vi.useRealTimers()
-  })
-
-  it('advances the loading message when the CR status resolves', async () => {
-    vi.mocked(api.patchMe).mockResolvedValue({
-      player: {
-        ...basePlayer,
-        favoriteCardId: 26000000,
-        playerTag: '#X',
-        clashRoyale: { tag: '#X', status: 'pending' }
-      }
-    })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    await mount()
-    await fire(byText(container, 'Edit') as Element)
-
-    const tagInput = container.querySelector('.ed-edit__tagform input') as HTMLInputElement
-    await typeInto(tagInput, '#X')
-    await fire(container.querySelector('.ed-edit__tagform') as Element, 'submit')
-    expect(container.textContent).toContain('Loading its public Clash Royale profile')
-
-    // Status flips to ready → the effect swaps the message.
-    await act(async () => {
-      account.player.value = {
-        ...account.player.value,
-        clashRoyale: { tag: '#X', status: 'ready', name: 'CR Name' }
-      } as never
-    })
-    await flush()
-    expect(container.textContent).toContain('Clash Royale profile loaded.')
   })
 })
 

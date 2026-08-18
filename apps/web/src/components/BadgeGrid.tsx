@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { badgeTier } from '@elixir-drop/contracts'
 import { track } from '../lib/analytics'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
 import { shareBadge } from '../lib/share-badge'
 import type { RunShareOutcome } from '../lib/share-run'
 import BadgeMedallion from './BadgeMedallion'
 import DetailModal from './DetailModal'
-import EmptyState from './EmptyState'
 import Icon from './Icon'
 
 // The badge wall: medallions open a real modal, so a tap never changes content
@@ -41,19 +41,12 @@ export default function BadgeGrid({
   const visible = featured ? ordered.slice(0, FEATURED_BADGES) : ordered
   const open = visible.find((view) => view.slug === openSlug)
 
-  if (!earned) {
-    if (earnedOnly) {
-      return <p class="ed-profile__recent-empty">No badges earned yet.</p>
-    }
-    return (
-      <EmptyState
-        art="empty-badges"
-        heading="No badges yet"
-        line="Every game you finish moves a ladder. The first rungs come quickly."
-        actionLabel="Play Surge"
-        href="/surge"
-      />
-    )
+  // Only the earned-only view (a public profile) collapses to a line when empty.
+  // The full Badges scope always shows the whole set — locked and silhouetted —
+  // because a set you cannot see whole is not a set: a new player should see the
+  // ladders waiting for them, not a blank screen.
+  if (!earned && earnedOnly) {
+    return <p class="ed-profile__recent-empty">No badges earned yet.</p>
   }
 
   return (
@@ -87,7 +80,7 @@ export default function BadgeGrid({
   )
 }
 
-function BadgeSheet({
+export function BadgeSheet({
   badge,
   playerId,
   playerName,
@@ -187,9 +180,44 @@ function BadgeSheet({
               </>
             )}
           </div>
+          <RungLadder badge={badge} />
         </>
       )}
     </DetailModal>
+  )
+}
+
+// The full ladder under the progress bar: one segment per rung in the badge's
+// own units. Cleared rungs show in their tier metal, the next rung to reach is
+// gold, the rest are dark — so a player reads the whole climb, not just the next
+// step. "Clockbreaker 19s" says something a roman numeral never could.
+function RungLadder({ badge }: { badge: BadgeView }) {
+  const { definition, rungIndex } = badge
+  const total = definition.rungs.length
+  const tierName = badge.tier.charAt(0).toUpperCase() + badge.tier.slice(1)
+  return (
+    <div class="ed-badges__rungs">
+      <div class="ed-badges__rungs-head">
+        Rung {Math.max(0, rungIndex + 1)} of {total}
+        {rungIndex >= 0 && ` · ${tierName}`}
+      </div>
+      <div class="ed-badges__rungs-track">
+        {definition.rungs.map((rung, i) => {
+          const seg =
+            i === rungIndex + 1
+              ? 'ed-badges__rung-seg--current'
+              : i <= rungIndex
+                ? `ed-badges__rung-seg--tier-${badgeTier(i, total)}`
+                : 'ed-badges__rung-seg--remaining'
+          return (
+            <div class="ed-badges__rung" key={i}>
+              <span class={`ed-badges__rung-seg ${seg}`} />
+              <span class="ed-badges__rung-num">{formatRungValue(rung, definition.unit)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

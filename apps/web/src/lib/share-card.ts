@@ -24,9 +24,15 @@ export interface ShareCardInput {
   // Already formatted for humans: "18.4s", "42 cleared".
   score: string
   playerName?: string
-  // Per-cost accuracy, drawn as the row of squares.
+  // Per-cost accuracy, drawn as the row of squares (the fallback when a mode has
+  // no signature series).
   bands?: Array<{ label: string; correct: number; total: number }>
-  arenaImage?: string
+  // The mode's signature series — the shape of the run (per-card times, clears
+  // per window, accuracy by length). Drawn as a bar chart in place of the band
+  // squares, because the shape of a run is what someone who never played can read.
+  series?: number[]
+  // The arena NAME is progression context and stays; the arena artwork was
+  // retired in the 2026-08 refresh, so no arena image is composited.
   arenaName?: string
   rank?: number
 }
@@ -121,11 +127,10 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
   if (!ctx) return null
 
   const game = gameDisplay(input.mode)
-  const [backdrop, sticker, emblem, arena] = await Promise.all([
+  const [backdrop, sticker, emblem] = await Promise.all([
     loadImage('/assets/share/share-backdrop.png'),
     loadImage('/assets/share/share-sticker.png'),
-    loadImage(`/assets/modes/${input.mode}-384.png`),
-    input.arenaImage ? loadImage(input.arenaImage) : Promise.resolve(null)
+    loadImage(`/assets/modes/${input.mode}-384.png`)
   ])
   await readyFonts()
 
@@ -165,11 +170,24 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     ctx.fillText(input.playerName, centreX, 854)
   }
 
-  // Cost-band squares: one per band, filled in proportion to accuracy. The
-  // same information the summary's bar chart carries, at a size that survives
-  // being looked at on a phone in a group chat.
+  // The signature series is the run's shape — a bar chart someone who never
+  // played can still read. It stands in for the cost-band squares when present.
+  const series = (input.series ?? []).filter((v) => Number.isFinite(v) && v >= 0)
   const bands = (input.bands ?? []).filter((band) => band.total > 0)
-  if (bands.length) {
+  if (series.length) {
+    const peak = Math.max(1, ...series)
+    const chartW = 800
+    const chartH = 220
+    const x0 = centreX - chartW / 2
+    const baseY = 914 + chartH
+    const bw = chartW / series.length
+    for (let i = 0; i < series.length; i += 1) {
+      const h = (series[i] / peak) * chartH
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.75)'
+      roundedRect(ctx, x0 + i * bw + 3, baseY - h, Math.max(1, bw - 6), h, 6)
+      ctx.fill()
+    }
+  } else if (bands.length) {
     const box = 96
     const gap = 18
     const totalWidth = bands.length * box + (bands.length - 1) * gap
@@ -191,19 +209,10 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     }
   }
 
-  if (arena) {
-    const size = 132
-    ctx.save()
-    ctx.beginPath()
-    ctx.arc(centreX, 1120, size / 2, 0, Math.PI * 2)
-    ctx.clip()
-    ctx.drawImage(arena, centreX - size / 2, 1120 - size / 2, size, size)
-    ctx.restore()
-  }
   if (input.arenaName) {
     ctx.fillStyle = '#c8c1e6'
     ctx.font = '600 34px Inter, system-ui, sans-serif'
-    ctx.fillText(input.arenaName, centreX, 1226)
+    ctx.fillText(input.arenaName, centreX, 1180)
   }
   if (input.rank !== undefined) {
     ctx.fillStyle = '#f5c84c'

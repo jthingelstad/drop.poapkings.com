@@ -128,7 +128,7 @@ test('active play states use low chrome and keep controls visible', async ({ pag
   const activeModes = [
     { hash: '#/surge', control: '.pip-keypad' },
     { hash: '#/survival', control: '.pip-keypad' },
-    { hash: '#/trade', control: '.ed-trade__pad' }
+    { hash: '#/trade', control: '.ed-xpad' }
   ]
 
   for (const mode of activeModes) {
@@ -205,9 +205,9 @@ test('rain flashes the running total every 10 clears', async ({ page }) => {
 
 test('trade auto-advances the ten-exchange ladder with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/#/trade')
-  const teams = page.locator('.ed-trade__teams')
+  const teams = page.locator('.ed-xboard')
   await expect(teams).toBeVisible({ timeout: 12_000 })
-  await expect(page.locator('.ed-trade__pad')).toBeVisible()
+  await expect(page.locator('.ed-xpad')).toBeVisible()
 
   const readSideIds = async (selector: string) =>
     page
@@ -215,13 +215,14 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
       .evaluateAll((cards) => cards.map((card) => Number((card as HTMLElement).dataset.cardId)))
   const total = (ids: number[]) => ids.reduce((sum, id) => sum + (cardsById.get(id)?.elixir ?? 0), 0)
   const answers = [-4, -3, -2, -1, 0, 1, 2, 3, 4]
-  const format = (value: number) => (value === 0 ? 'Even trade' : `${value > 0 ? `+${value}` : value} trade`)
+  const format = (value: number) =>
+    value === 0 ? 'Even' : value > 0 ? `Blue ahead by ${value}` : `Red ahead by ${Math.abs(value)}`
   const seenIds: number[] = []
 
   for (let trade = 1; trade <= TRADE_ROUNDS; trade += 1) {
-    await expect(teams).toHaveAttribute('data-trade-index', String(trade))
-    const blueIds = await readSideIds('.ed-trade__team--blue')
-    const redIds = await readSideIds('.ed-trade__team--red')
+    await expect(page.locator('.ed-trade__board')).toHaveAttribute('data-trade-index', String(trade))
+    const blueIds = await readSideIds('.ed-xlane--blue')
+    const redIds = await readSideIds('.ed-xlane--red')
     const roundIds = [...blueIds, ...redIds]
     expect(new Set(roundIds).size).toBe(roundIds.length)
     seenIds.push(...roundIds)
@@ -235,25 +236,27 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
     // the simple opening as small as the 3v3 finish. Both ends of the ladder
     // still keep every card inside its team panel.
     if (trade === 1 || trade === TRADE_ROUNDS) {
-      const art = await teams.locator('.ed-trade__card-art').evaluateAll((elements) =>
+      const cards = await teams.locator('.ed-xcard').evaluateAll((elements) =>
         elements.map((element) => {
           const bounds = element.getBoundingClientRect()
-          const team = element.closest('.ed-trade__team')?.getBoundingClientRect()
+          const lane = element.closest('.ed-xlane')?.getBoundingClientRect()
           return {
             width: bounds.width,
             height: bounds.height,
             contained:
-              !!team &&
-              bounds.left >= team.left - 1 &&
-              bounds.right <= team.right + 1 &&
-              bounds.top >= team.top - 1 &&
-              bounds.bottom <= team.bottom + 1
+              !!lane &&
+              bounds.left >= lane.left - 1 &&
+              bounds.right <= lane.right + 1 &&
+              bounds.top >= lane.top - 1 &&
+              bounds.bottom <= lane.bottom + 1
           }
         })
       )
-      const minWidth = trade === 1 ? 104 : 82
-      const minHeight = trade === 1 ? 122 : 96
-      expect(art.every((card) => card.width >= minWidth && card.height >= minHeight && card.contained)).toBe(true)
+      // The exchange board uses a fixed 96×120 card in both lanes at every rung,
+      // so the card no longer scales per rung — it just has to be a real card
+      // kept inside its lane at both ends of the ladder.
+      expect(cards.length).toBeGreaterThan(0)
+      expect(cards.every((card) => card.width >= 60 && card.height >= 60 && card.contained)).toBe(true)
     }
 
     // Every run now ends on the widest board the mode can draw, so six cards on
@@ -270,7 +273,7 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
     if (trade === 1) {
       const wrong = answers.find((value) => value !== answer)
       expect(wrong).toBeDefined()
-      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(0)
+      await expect(page.locator('.ed-xcard__cost')).toHaveCount(0)
       // The cue flips back to "Try again" after the wrong-beat, so arm an
       // in-page watcher before the click: it polls inside the browser and
       // cannot miss the window if the test worker is momentarily busy.
@@ -279,7 +282,7 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
       )
       await page.getByRole('button', { name: format(wrong!) }).click()
       await costRevealed
-      await expect(page.locator('.ed-trade__card-cost')).toHaveCount(1)
+      await expect(page.locator('.ed-xcard__cost')).toHaveCount(1)
     }
 
     await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
@@ -288,7 +291,7 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
 
     if (trade < TRADE_ROUNDS) {
       await page.waitForFunction(
-        (expected) => document.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index') === String(expected),
+        (expected) => document.querySelector('.ed-trade__board')?.getAttribute('data-trade-index') === String(expected),
         trade + 1
       )
     }

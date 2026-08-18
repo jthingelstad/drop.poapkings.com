@@ -147,14 +147,6 @@ function metricValue(root: HTMLElement): string {
   return root.querySelector('.ed-game__metric')?.textContent ?? ''
 }
 
-// Read one of the summary's three "moment" tiles by its label.
-function tileValue(root: HTMLElement, label: string): string | undefined {
-  const tile = [...root.querySelectorAll('.ed-sum-tile')].find(
-    (t) => t.querySelector('.ed-sum-tile__label')?.textContent === label
-  )
-  return tile?.querySelector('.ed-sum-tile__value')?.textContent ?? undefined
-}
-
 beforeEach(() => {
   vi.useFakeTimers()
   hoisted.preloadImages.mockImplementation((cards: Card[], done: (loaded: number) => void) => done(cards.length))
@@ -214,7 +206,9 @@ describe('Higher / Lower — gameplay', () => {
 
     await click(higher(c))
     expect(metricValue(c)).toBe('1')
-    expect(c.textContent).toContain('1 correct')
+    // The score reads through the metric label now; the emoji streak cue is gone.
+    expect(c.querySelector('.ed-game__metric-label')?.textContent).toBe('correct')
+    expect(c.textContent).not.toContain('🔥')
 
     // A correct read advances after ADVANCE_DELAY_CORRECT (750ms) to pair 2.
     await advance(800)
@@ -384,8 +378,8 @@ describe('Higher / Lower — gameplay', () => {
     }
 
     expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 correct')
-    expect(tileValue(c, 'Correct')).toBe('1')
-    expect(tileValue(c, 'Prev best')).toBe('5')
+    // The standing best (5), not the run just played (1), reads back via the PB
+    // callout in the "what it changed" block.
     expect(c.textContent).toContain('Best: 5')
   })
 
@@ -482,30 +476,30 @@ describe('Trade — gameplay', () => {
 
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Trade')
     // Costs hidden at the start of the round.
-    expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(0)
+    expect(c.querySelectorAll('.ed-xcard--revealed')).toHaveLength(0)
 
-    // Wrong guess #1 (EVEN, answer is +2) reveals ONE card + fires the hint cue.
-    await click(c.querySelector('[aria-label="Even trade"]'))
-    expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(1)
+    // Wrong guess #1 (Even, answer is Blue +2) reveals ONE card + the hint cue.
+    await click(c.querySelector('[aria-label="Even"]'))
+    expect(c.querySelectorAll('.ed-xcard--revealed')).toHaveLength(1)
     expect(c.querySelector('[data-testid="trade-hint"]')?.textContent).toBe('Cost revealed')
 
     // The wrong-beat (720ms) clears feedback so the pad is live again.
     await advance(800)
     // Wrong guess #2 reveals a SECOND card.
-    await click(c.querySelector('[aria-label="Even trade"]'))
-    expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(2)
+    await click(c.querySelector('[aria-label="Even"]'))
+    expect(c.querySelectorAll('.ed-xcard--revealed')).toHaveLength(2)
     await advance(800)
 
-    // The correct swing (+2) briefly reveals every cost and the math, with no
+    // The correct Blue +2 key briefly reveals every cost and the math, with no
     // manual Next button, then deals the next exchange automatically.
-    await click(c.querySelector('[aria-label="+2 trade"]'))
-    expect(c.querySelectorAll('.ed-trade__card--revealed')).toHaveLength(3)
+    await click(c.querySelector('[aria-label="Blue ahead by 2"]'))
+    expect(c.querySelectorAll('.ed-xcard--revealed')).toHaveLength(3)
     expect(c.querySelector('[data-testid="trade-math"]')).not.toBeNull()
     expect(c.textContent).not.toContain('Next trade')
     await advance(279)
-    expect(c.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index')).toBe('1')
+    expect(c.querySelector('.ed-trade__board')?.getAttribute('data-trade-index')).toBe('1')
     await advance(1)
-    expect(c.querySelector('.ed-trade__teams')?.getAttribute('data-trade-index')).toBe('2')
+    expect(c.querySelector('.ed-trade__board')?.getAttribute('data-trade-index')).toBe('2')
   })
 
   it('solving all ten exchanges lands on the summary with the run tiles and completes the run', async () => {
@@ -513,18 +507,14 @@ describe('Trade — gameplay', () => {
     const c = mount(<Trade />)
     await toRunning(c)
 
-    // Solve each round with the correct +2; the next exchange is automatic.
+    // Solve each round with the correct Blue +2; the next exchange is automatic.
     for (let round = 0; round < TRADE_ROUNDS; round += 1) {
-      await click(c.querySelector('[aria-label="+2 trade"]'))
+      await click(c.querySelector('[aria-label="Blue ahead by 2"]'))
       await advance(280)
     }
 
-    // Summary screen with the three moment tiles.
+    // Summary screen: the score headline and the share line for a clean run.
     expect(c.textContent).toContain('Trade complete')
-    expect(c.textContent).toContain('Clean')
-    expect(c.textContent).toContain(`${TRADE_ROUNDS}/${TRADE_ROUNDS}`) // all clean (no wrong guesses)
-    expect(c.textContent).toContain('Accuracy')
-    expect(c.textContent).toContain('100%')
     expect(c.querySelector('.shareline')?.textContent).toContain('Trade')
 
     // The run was reported with one transcript entry per solved round.
@@ -654,8 +644,6 @@ describe('Rain — gameplay', () => {
     expect(session.complete).toHaveBeenCalledTimes(1)
     // The summary still reports the personal best off the pre-run record.
     expect(c.textContent).toContain('New best! +1')
-    expect(tileValue(c, 'Cleared')).toBe('2')
-    expect(tileValue(c, 'Prev best')).toBe('1')
   })
 
   it('losing all three lives ends the run and the summary shows the cleared count', async () => {

@@ -5,7 +5,6 @@ import ArenaProgress from '../components/ArenaProgress'
 import BadgeGrid from '../components/BadgeGrid'
 import Icon from '../components/Icon'
 import PlayerAvatar from '../components/PlayerAvatar'
-import { rankFor } from '../data/starRanks'
 import { ApiError, getPublicPlayer, type PublicPlayer as PublicPlayerData, type RecentRun } from '../lib/api'
 import { challengeCard } from '../lib/challenge-cards'
 import ModeIcon from '../components/ModeIcon'
@@ -72,7 +71,6 @@ export default function PublicProfile() {
   }
 
   const favorite = current.favoriteCardId ? challengeCard(current.favoriteCardId) : undefined
-  const arena = rankFor(current.xp).current
   const badgeCount = earnedCount(badgeViews(publicBadges.value))
   const clashRoyale = 'clashRoyale' in current ? current.clashRoyale : undefined
 
@@ -83,7 +81,6 @@ export default function PublicProfile() {
       </button>
 
       <div class="ed-profile__banner">
-        <div class="ed-profile__banner-bg" style={{ backgroundImage: `url('${arena.image}')` }} aria-hidden="true" />
         <div class="ed-profile__banner-row">
           <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
           <div class="ed-profile__ident">

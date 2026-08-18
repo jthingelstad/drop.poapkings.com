@@ -176,36 +176,9 @@ body {
 
 .route-loading {
   min-height: 50vh;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 14px;
-}
-
-/* The route-loading spinner. A lucide glyph sized by font-size (see .icon),
-   spinning so a slow route reads as "working" rather than "stuck" — which a
-   still image never did. */
-.route-loading__spinner {
-  font-size: 54px;
-  color: var(--lavender);
-  animation: route-loading-spin 1.1s linear infinite;
-}
-@keyframes route-loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .route-loading__spinner {
-    animation: none;
-  }
-}
-html.reduce-motion .route-loading__spinner {
-  animation: none;
-}
-
-.route-loading__text {
-  color: var(--lavender);
-  font-family: var(--font-display);
-  font-size: 0.92rem;
 }
 
 .sr-only {
@@ -259,40 +232,61 @@ a {
 
 /* ── Accounts and leaderboards ───────────────────────────── */
 
-/* ── New-version reload prompt ─────────────────────────────── */
-
-.update-banner {
-  position: relative;
-  z-index: 35;
-  width: min(calc(100% - 32px), var(--col));
-  margin: 14px auto 0;
-  padding: 12px 14px;
+/* ── Tier-4 update strip (8a) ───────────────────────────────
+   A strip above the nav pill: NO scrim, NO blur — the page behind stays fully
+   lit and usable. The strip carries its own opaque background, so it reads
+   without dimming anything. That is the whole difference between this and a
+   takeover. Fixed above the mobile nav pill (and bottom-centre on desktop). */
+.update-strip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(calc(100% - 24px), var(--col, 440px));
+  padding: 11px 12px 11px 14px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 13px;
+  gap: 11px;
   border: 1px solid rgba(245, 200, 76, 0.5);
   border-radius: var(--r-lg);
-  background: radial-gradient(circle at 0% 50%, rgba(245, 200, 76, 0.16), transparent 45%), rgba(18, 13, 40, 0.96);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+
+  /* Opaque — never a scrim over the page. */
+  background: radial-gradient(circle at 0% 50%, rgba(245, 200, 76, 0.16), transparent 45%), #120d28;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
 }
-.update-banner__icon {
-  font-size: 30px;
+.ed-desktop .update-strip {
+  bottom: 24px;
+}
+.update-strip__icon {
+  font-size: 26px;
   color: var(--gold-lite);
   flex: 0 0 auto;
 }
-.update-banner__copy {
+.update-strip__copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
-.update-banner__copy strong {
+.update-strip__copy strong {
   color: var(--gold);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
-.update-banner__copy span {
+.update-strip__copy span {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+}
+.update-strip__x {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
 }
 
 .player-avatar {
@@ -1002,7 +996,11 @@ a {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 220px);
+
+  /* The keypad's height is now a known ~110px at 390 wide (two fixed rows), so
+     the card no longer has to shrink to survive it: 220px → 250px gives the run
+     its focal point back. */
+  width: min(100%, 250px);
   aspect-ratio: 0.82;
   margin: 0 auto 14px;
 }
@@ -1084,23 +1082,16 @@ a {
 
 /* ── Pip keypad ───────────────────────────────────────────── */
 
-/* Default: one row, one key per cost, purple keycap with a solid bottom wall
-   that collapses on press. Same layout in every mode that answers by elixir
-   cost, so a number is always in the same place (muscle memory).
-   The Speedrun keyboard setting deals the same keys across two rows instead —
-   see .pip-keypad--speedrun below. */
+/* Two rows — 1-5 over 6-9 — each filling the width on its own, so a key is about
+   twice as wide as a single row of nine. Mistaps happen sideways, between
+   neighbours, so width is what this buys, and this is the only keypad now. Same
+   layout in every mode that answers by elixir cost, so a number is always in the
+   same place (muscle memory). Key height is handled at .pip-keypad__pip below. */
 .pip-keypad {
   display: flex;
+  flex-direction: column;
   gap: 6px;
   width: 100%;
-}
-
-/* Speedrun keyboard: 1-5 over 6-9, each row filling the width on its own, so a
-   key is about twice as wide as the single row's. Mistaps happen sideways,
-   between neighbours, so width is what this buys. Key height is handled at
-   .pip-keypad--speedrun .pip-keypad__pip below, and it matters. */
-.pip-keypad--speedrun {
-  flex-direction: column;
 }
 
 .pip-keypad__row {
@@ -1112,7 +1103,7 @@ a {
 .pip-keypad__pip {
   position: relative;
   flex: 1;
-  aspect-ratio: 0.66;
+  height: clamp(42px, 12vw, 60px);
   display: grid;
   place-items: center;
   padding: 0;
@@ -1149,16 +1140,6 @@ a {
 .pip-keypad__pip--disabled {
   opacity: 0.5;
   pointer-events: none;
-}
-
-/* Speedrun keys MUST drop `aspect-ratio`: at 0.66 a twice-as-wide key is also
-   twice as tall, and two such rows stack to roughly four times the single row's
-   height — straight through the gates in tests/e2e/viewport-fit.spec.ts. The
-   clamp keeps the pair only modestly taller than the row it replaces while
-   still scaling with the screen. */
-.pip-keypad--speedrun .pip-keypad__pip {
-  aspect-ratio: auto;
-  height: clamp(42px, 12vw, 60px);
 }
 
 .pip-keypad__face {
@@ -1214,28 +1195,58 @@ a {
   width: 100%;
 }
 
+/* Cost Recall's four choices are keycaps, not a different kind of control — the
+   same face as the pip keypad, just wider (a different number of doors). */
 .mc-choices__btn {
+  position: relative;
   height: 70px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #4a2da0, #2a1860);
+  color: #fff;
+  font-family: var(--font-display);
   font-size: 1.6rem;
-  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  box-shadow:
+    0 5px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s;
 }
-
-.mc-choices__btn .elixir-pip {
-  width: 16px;
-  height: 16px;
+.mc-choices__btn:hover {
+  filter: brightness(1.08);
+}
+.mc-choices__btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 2px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.mc-choices__btn:disabled {
+  cursor: default;
 }
 
 .mc-choices__btn--wrong {
-  border-color: rgba(248, 113, 113, 0.85);
-  background: rgba(127, 29, 29, 0.72);
+  background: linear-gradient(160deg, #c0364a, #771c2b);
+  box-shadow:
+    0 5px 0 #4a0f19,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #fecaca;
 }
 
 .mc-choices__btn--correct {
-  border-color: rgba(245, 200, 76, 0.9);
-  background: linear-gradient(160deg, rgba(90, 62, 19, 0.9), rgba(121, 75, 13, 0.78));
-  color: var(--gold-lite);
-  box-shadow: 0 0 0 2px rgba(245, 200, 76, 0.18), 0 10px 24px rgba(0, 0, 0, 0.28);
+  background: linear-gradient(160deg, #e0b64a, #b77513);
+  box-shadow:
+    0 5px 0 #7a4d0d,
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  color: #2a1500;
 }
 
 /* ── Input style toggle ───────────────────────────────────── */
@@ -1376,13 +1387,20 @@ a {
   color: var(--gold);
   text-transform: uppercase;
 }
+
+/* The pace ghost is the most interesting thing in Surge and was the easiest to
+   miss: give it display type and weight, green when ahead, red when behind. */
+.floating-cue--pace {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
 .floating-cue--pace.is-ahead {
   color: #34d399;
 }
 .floating-cue--pace.is-behind {
-  color: var(--gold2);
+  color: var(--red);
 }
-.floating-cue--streak,
 .floating-cue--practice-recovery {
   color: var(--gold);
   text-transform: uppercase;
@@ -1498,7 +1516,23 @@ html.reduce-motion .game-motion {
   pointer-events: none;
 }
 
+/* The painted "charge" frame sits behind the numeral, sharing its centre. It is
+   absolutely positioned so it never displaces the numeral, and lives below it. */
+.run-count__art {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(190px, 64vw, 280px);
+  height: auto;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 46px rgba(245, 200, 76, 0.32));
+}
+
 .run-count__num {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(5rem, 24vw, 9rem);
@@ -1748,7 +1782,7 @@ body.modal-open {
   padding: 18px;
   background: rgba(7, 6, 16, 0.78);
   backdrop-filter: blur(3px);
-  animation: release-notice-fade 180ms ease-out;
+  animation: ed-overlay-fade 180ms ease-out;
 }
 .ed-detail-modal__card {
   position: relative;
@@ -1762,7 +1796,7 @@ body.modal-open {
     radial-gradient(90% 120% at 0% 0%, rgba(109, 40, 217, 0.24), transparent 56%),
     rgba(18, 13, 40, 0.99);
   box-shadow: var(--shadow);
-  animation: release-notice-rise 220ms var(--ease-drop);
+  animation: ed-overlay-rise 220ms var(--ease-drop);
 }
 .ed-detail-modal__card:focus {
   outline: none;
@@ -1787,151 +1821,19 @@ body.modal-open {
   height: 17px;
 }
 
-.player-tag-nudge {
-  width: min(100%, 420px);
-  padding: 30px 24px 24px;
-  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.15), transparent 55%), rgba(18, 13, 40, 0.99);
-}
-.player-tag-nudge__icon {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 14px;
-  border: 1px solid rgba(245, 200, 76, 0.38);
-  border-radius: 15px;
-  background: rgba(109, 40, 217, 0.32);
-  color: var(--gold);
-}
-.player-tag-nudge__icon .icon {
-  width: 23px;
-  height: 23px;
-}
-.player-tag-nudge__title {
-  margin: 5px 0 0;
-  padding-right: 28px;
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-}
-.player-tag-nudge__copy {
-  margin: 11px 0 0;
-  color: #d9d1f5;
-  font-size: 0.9rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-.player-tag-nudge__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-@media (width <= 480px) {
-  .player-tag-nudge__actions .ed-btn {
-    flex: 1 1 100%;
-  }
-}
-
-/* ── New named release notice ─────────────────────────────── */
-
-/* One-time overlay for a named release (components/ReleaseNotice.tsx). Sits
-   above the recording notice (1200) and below the screensaver (1300); it never
-   renders on a game route. */
-.release-notice {
-  position: fixed;
-  inset: 0;
-  z-index: 1250;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(7, 6, 16, 0.72);
-  backdrop-filter: blur(2px);
-  animation: release-notice-fade 180ms ease-out;
-}
-.release-notice__card {
-  position: relative;
-  width: min(100%, 420px);
-  max-height: calc(100dvh - 40px);
-  overflow-y: auto;
-  padding: 22px 20px 20px;
-  border: 1px solid rgba(245, 200, 76, 0.45);
-  border-radius: var(--r-lg);
-  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.14), transparent 55%), rgba(18, 13, 40, 0.98);
-  box-shadow: var(--shadow);
-  animation: release-notice-rise 220ms var(--ease-drop);
-}
-.release-notice__card:focus {
-  outline: none;
-}
-.release-notice__x {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--faint);
-  cursor: pointer;
-}
-.release-notice__x:hover {
-  color: var(--ink);
-}
-.release-notice__eyebrow {
-  color: var(--lavender);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.release-notice__title {
-  margin: 4px 0 0;
-  padding-right: 30px;
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  color: var(--gold);
-}
-.release-notice__lede {
-  margin: 10px 0 0;
-  color: #d9d1f5;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-.release-notice__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-@keyframes release-notice-fade {
+/* Shared overlay animation, used by the detail modal (and formerly the retired
+   release-notice overlay). */
+@keyframes ed-overlay-fade {
   from {
     opacity: 0;
   }
 }
 
-@keyframes release-notice-rise {
+@keyframes ed-overlay-rise {
   from {
     opacity: 0;
     transform: translateY(12px);
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .release-notice,
-  .release-notice__card {
-    animation: none;
-  }
-}
-html.reduce-motion .release-notice,
-html.reduce-motion .release-notice__card {
-  animation: none;
 }
 
 /* ── Rank card ────────────────────────────────────────────── */
@@ -1945,23 +1847,6 @@ html.reduce-motion .release-notice__card {
   border-radius: 14px;
   background: radial-gradient(60% 100% at 0% 0%, rgba(245, 200, 76, 0.18), transparent 55%), rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(245, 200, 76, 0.28);
-}
-
-.rank-card__art {
-  position: relative;
-  flex: 0 0 auto;
-  width: 96px;
-  height: 96px;
-  display: grid;
-  place-items: center;
-}
-
-.rank-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-  transition: transform 0.3s ease;
 }
 
 .rank-card__meta {
@@ -2016,69 +1901,6 @@ html.reduce-motion .release-notice__card {
   letter-spacing: 0.03em;
 }
 
-/* Zone effects on the arena art */
-.rank-card__art.is-just-passed::before {
-  content: '';
-  position: absolute;
-  inset: -10%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 240, 180, 0.5) 0%, rgba(245, 200, 76, 0.25) 40%, transparent 65%);
-  animation: rankCelebrate 2.4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-.rank-card__art.is-just-passed .rank-card__img {
-  position: relative;
-  z-index: 1;
-  animation: rankPulse 2.4s ease-in-out infinite;
-}
-.rank-card__art.is-close::before {
-  content: '';
-  position: absolute;
-  inset: -6%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 60%);
-  animation: rankShimmer 2.8s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-.rank-card__art.is-close .rank-card__img {
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes rankCelebrate {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-@keyframes rankPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-  }
-  50% {
-    transform: scale(1.04);
-    filter: drop-shadow(0 4px 16px rgba(245, 200, 76, 0.7));
-  }
-}
-@keyframes rankShimmer {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 @media (width <= 520px) {
   .rank-card {
     flex-direction: column;
@@ -2086,20 +1908,12 @@ html.reduce-motion .release-notice__card {
     text-align: center;
     gap: 12px;
   }
-  .rank-card__art {
-    margin: 0 auto;
-  }
   .rank-card__name {
     font-size: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-card__art.is-just-passed::before,
-  .rank-card__art.is-just-passed .rank-card__img,
-  .rank-card__art.is-close::before {
-    animation: none;
-  }
   .rank-progress__fill {
     transition: none;
   }
@@ -2314,6 +2128,49 @@ html.reduce-motion .release-notice__card {
 .ed-pillnav__btn svg {
   width: 15px;
   height: 15px;
+}
+
+/* ── Desktop letterbox ────────────────────────────────────────
+   The redesign is ONE phone column. At or above the breakpoint that
+   column is centered on the dark field and a slim aside (DesktopAside:
+   Falling Cards launcher + live Recent runs feed) fills the right
+   margin. This is a WIDTH decision only — ranked-play gating is a
+   separate INPUT decision in lib/use-layout. */
+@media (width >= 1024px) {
+  .ed-app--letterbox .ed-mobile {
+    width: min(440px, 100%);
+    margin-inline: auto;
+    border-inline: 1px solid rgba(215, 200, 255, 0.08);
+    background: rgba(10, 8, 24, 0.28);
+  }
+
+  /* The pill nav tracks the centered column, not the column-plus-aside pair. */
+  .ed-app--letterbox .ed-pillnav {
+    left: 50%;
+  }
+
+  /* The letterbox margin panel — fixed in the gutter to the right of the
+     centered 440px column (half-width 220px + a 28px gap). Scrolls on its own. */
+  .ed-aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: calc(50% + 220px + 28px);
+    width: min(320px, calc(50% - 220px - 56px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 26px 20px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    z-index: 20;
+  }
+  .ed-aside::-webkit-scrollbar {
+    width: 0;
+  }
+  .ed-aside .ed-rail-btn--saver {
+    margin-bottom: 2px;
+  }
 }
 
 /* ── Desktop shell (3-column app) ─────────────────────────── */
@@ -3693,27 +3550,6 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 .ed-appinfo__api p {
   grid-column: 1 / -1;
 }
-.ed-appinfo__performance {
-  padding: 16px;
-  border: 1px solid rgba(215, 200, 255, 0.14);
-  border-radius: 16px;
-  background: rgba(18, 13, 40, 0.54);
-}
-.ed-appinfo__performance > h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1rem;
-}
-.ed-appinfo__performance .setting-row--speedrun {
-  padding: 14px 0 10px;
-  border-bottom: 0;
-}
-.ed-appinfo__performance > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
 .ed-appinfo__cache {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -4120,6 +3956,9 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   font-size: 1.05rem;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
+
+  /* Wide enough for a three-decimal "11.812s" without wrapping. */
+  white-space: nowrap;
 }
 .ed-game__metric-label {
   color: var(--muted);
@@ -4127,6 +3966,29 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* The 12px response clock Survival and Higher/Lower deal between the card and the
+   keypad (the only thing in that gap, so it is never mistaken for score). Violet
+   → gold; instant width, no easing; red→orange as it runs out. */
+.ed-response-clock {
+  height: 12px;
+  margin: 6px 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.ed-response-clock__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+  transition: none;
+}
+.ed-response-clock--low .ed-response-clock__fill {
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
 }
 .ed-iconbtn {
   display: grid;
@@ -4240,6 +4102,11 @@ html.reduce-motion .ed-game__bar-fill {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* The taller 250px card can overflow its centered flex slot; keep the idle
+     nudge (and its slot) above it so it stays visible and tappable. */
+  position: relative;
+  z-index: 6;
 }
 .practice-idle-assist {
   min-height: 32px;
@@ -4950,39 +4817,49 @@ html.reduce-motion .ed-duel__card {
   color: #2a1500;
 }
 
-/* Six 34px emblems fit the narrowest phone with room to spare, so the strip no
-   longer scrolls — and the scroll affordances it used to need (the right-edge
-   fade and the "Swipe for every mode" guide) went with it. The fade over an
-   icon-only strip read as a black block covering the last mode. */
+/* Five equal labeled tiles: the mode's painted art over a small uppercase name.
+   Icon-only tabs made players guess, so the name is back — small, but present. */
 .ed-board__modes {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .ed-board__mode-strip {
   min-width: 0;
 }
-
-/* The mode's own painted art is the tab. It reads faster than its name at this
-   size, and dropping the label is what buys the strip its own band instead of
-   a second row of text. */
 .ed-modetab {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: transparent;
   cursor: pointer;
-  opacity: 0.4;
 }
 .ed-modetab .mode-icon {
   display: block;
-  border-radius: 10px;
+  border-radius: 9px;
+  opacity: 0.62;
+  transition: opacity 0.18s ease;
+}
+.ed-modetab__label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 .ed-modetab--active {
+  border-color: rgba(245, 200, 76, 0.55);
+  background: rgba(245, 200, 76, 0.12);
+}
+.ed-modetab--active .mode-icon {
   opacity: 1;
-  box-shadow: 0 0 0 2px #f5c84c;
+}
+.ed-modetab--active .ed-modetab__label {
+  color: #ffe9b3;
 }
 .ed-modetab:focus-visible {
   outline: 2px solid var(--gold);
@@ -5189,6 +5066,14 @@ html.reduce-motion .ed-duel__card {
   height: 2px;
   background: #fca5a5;
   transform: translateY(-50%) rotate(-45deg);
+}
+
+/* NOT RECORDED: a dotted lavender ring, no fill and no rotation. Dotted, not
+   dashed — gold dashed already means "a decision is coming"; dotted means no
+   decision was ever pending, because the board never saw this run. */
+.ed-seal--not-recorded {
+  border: 1.5px dotted rgba(185, 170, 255, 0.72);
+  background: none;
 }
 @keyframes ed-seal-pulse {
   0%,
@@ -5458,13 +5343,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   padding: 20px;
   background: linear-gradient(160deg, rgba(59, 29, 122, 0.7), rgba(18, 13, 40, 0.9));
 }
-.ed-profile__banner-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.18;
-}
 .ed-profile__banner-row {
   position: relative;
   display: flex;
@@ -5733,18 +5611,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-weight: 700;
 }
 
-/* Offline rides in the player chip, not a banner: a notice that never goes
-   away stops being information. */
-.ed-offline-glyph {
-  display: inline-flex;
-  margin-inline-start: 6px;
-  color: var(--gold);
-  vertical-align: -0.1em;
-}
-.ed-offline-glyph .icon {
-  font-size: 0.82rem;
-}
-
 .ed-games__filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5871,7 +5737,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
    never pushes the score or the seal onto a second row. */
 .ed-games__row {
   display: grid;
-  grid-template-columns: 24px 22px auto minmax(0, 1fr) 18px;
+  grid-template-columns: 42px 22px auto minmax(0, 1fr) 18px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -5888,10 +5754,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
   outline: 2px solid var(--gold);
   outline-offset: -2px;
 }
-.ed-games__day {
+.ed-games__time {
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 .ed-games__score {
   font-family: var(--font-display);
@@ -6328,23 +6195,37 @@ html.reduce-motion .ed-profile-guest__halo::before {
   overflow: hidden;
   background: linear-gradient(180deg, rgba(18, 13, 40, 0.4), rgba(11, 9, 32, 0.7));
 }
+
+/* The field stops at the kill line (150px up, clearing the keypad) instead of
+   running to the bottom behind it — where a live target used to be unanswerable
+   and unseeable. The old caption's 30px is reclaimed at the top. */
 .ed-rain__field {
   position: absolute;
-  inset: 30px 0 0;
+  inset: 0 0 150px;
   z-index: 0;
   overflow: hidden;
 }
-.ed-rain__hint {
-  position: relative;
-  flex: 0 0 30px;
+
+/* The floor: a solid rule with a bright core, at the field's bottom edge. Solid,
+   not dashed — a dashed rule reads as a seam you may cross; this is a floor. No
+   wash above it (a red gradient over the tiles would dirty what it warns about).
+   flashKillLine() brightens it ~120ms on impact. */
+.ed-rain__killline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 150px;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: linear-gradient(180deg, rgba(11, 9, 32, 0.76), rgba(11, 9, 32, 0.2));
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(239, 68, 68, 0.9) 10%,
+    #ffd0d0 50%,
+    rgba(239, 68, 68, 0.9) 90%,
+    transparent
+  );
+  box-shadow: 0 -6px 14px rgba(239, 68, 68, 0.28);
   pointer-events: none;
 }
 .ed-rain__pad {
@@ -6358,12 +6239,13 @@ html.reduce-motion .ed-profile-guest__halo::before {
   backdrop-filter: blur(3px);
 }
 
-/* Directional wrong-tap hint, floated just above the keypad. */
+/* Directional wrong-tap hint, floated just above the taller two-row keypad
+   (~136px) rather than printing across keys 2-4. */
 .ed-rain__cue {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 88px;
+  bottom: 168px;
   z-index: 3;
   display: flex;
   justify-content: center;
@@ -6373,9 +6255,12 @@ html.reduce-motion .ed-profile-guest__halo::before {
 /* Shared every-10 progress flash, centered above the keypad. Echoes the 3-2-1
    countdown (gold display numeral + expanding ring); composited over play so it
    never reflows the board. */
+
+/* Derived from the two-row keypad's height (~136px) so the flash centres in the
+   space above the keys rather than behind them. */
 .game-milestone {
   position: absolute;
-  inset: 0 0 120px;
+  inset: 0 0 150px;
   z-index: 2;
   display: grid;
   place-items: center;
@@ -7231,4 +7116,1519 @@ html.reduce-motion .ledger-card {
 html.reduce-motion .ledger-trail__pip,
 html.reduce-motion .practice-drill {
   transition: none;
+}
+
+/* ── Shared scope row (Ladder + You) ──────────────────────────
+   Violet = "where you are in the page". Gold is reserved for the nav pill and
+   the one thing to press, so a scope row never competes with a PLAY. */
+.ed-scoperow {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.ed-scopepill {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: transparent;
+  color: #cbbdf2;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+.ed-scopepill--active {
+  background: linear-gradient(160deg, #8b5cf6, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.5);
+}
+.ed-scopepill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex: none;
+}
+.ed-scopepill--active .ed-scopepill__dot {
+  background: #2a1500;
+}
+
+/* ── Unified gate card ────────────────────────────────────────
+   One shape for every gate: a mark, the state in letter-spaced small caps, one
+   sentence, exactly one gold primary, an optional secondary link. */
+.ed-gate {
+  max-width: 380px;
+  margin: 24px auto;
+  padding: 28px 24px;
+  text-align: center;
+  border-radius: 22px;
+  border: 1px solid rgba(245, 200, 76, 0.22);
+  background: linear-gradient(160deg, rgba(59, 29, 122, 0.5), rgba(18, 13, 40, 0.86));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ed-gate__mark {
+  display: grid;
+  place-items: center;
+}
+.ed-gate__state {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ed-gate__line {
+  margin: 0;
+  color: #e7e0ff;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.ed-gate .ed-btn--gold {
+  width: 100%;
+}
+.ed-gate__secondary {
+  font-size: 13px;
+}
+
+/* ── Badge rung ladder (detail sheet) ─────────────────────────
+   One segment per rung: cleared in tier metal, the next rung gold, the rest
+   dark. The number sits under its own segment. */
+.ed-badges__rungs {
+  margin-top: 16px;
+  width: 100%;
+}
+.ed-badges__rungs-head {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.ed-badges__rungs-track {
+  display: flex;
+  gap: 4px;
+}
+.ed-badges__rung {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.ed-badges__rung-seg {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.ed-badges__rung-num {
+  font-size: 9px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ed-badges__rung-seg--remaining {
+  background: rgba(255, 255, 255, 0.09);
+}
+.ed-badges__rung-seg--current {
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(245, 200, 76, 0.55);
+}
+.ed-badges__rung-seg--tier-unlit {
+  background: rgba(255, 255, 255, 0.18);
+}
+.ed-badges__rung-seg--tier-copper {
+  background: linear-gradient(90deg, #d08a52, #7a4520);
+}
+.ed-badges__rung-seg--tier-silver {
+  background: linear-gradient(90deg, #dfe4f2, #8a92ad);
+}
+.ed-badges__rung-seg--tier-gold {
+  background: linear-gradient(90deg, #ffe189, #b77513);
+}
+.ed-badges__rung-seg--tier-prismatic {
+  background: linear-gradient(90deg, #f5c84c, #8b5cf6, #22c55e);
+}
+
+/* ── Ladder header ────────────────────────────────────────────
+   A fixed title + one clock line, then the arena progression block. A soft
+   violet radial glow stands in for the retired arena artwork. */
+.ed-ladder__head {
+  position: relative;
+  margin: 6px 0 14px;
+  padding: 4px 2px 0;
+}
+.ed-ladder__head::before {
+  content: '';
+  position: absolute;
+  inset: -20px -30px auto;
+  height: 160px;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(139, 92, 246, 0.22), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.ed-ladder__titlerow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ed-ladder__title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 800;
+}
+.ed-ladder__clock {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: right;
+}
+.ed-ladder__arena {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
+}
+.ed-ladder__arena-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ed-ladder__arena-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.ed-ladder__arena-xp {
+  font-size: 12px;
+  color: #ffe9b3;
+  font-variant-numeric: tabular-nums;
+}
+.ed-ladder__arena-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.ed-ladder__arena-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  transition: width 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.ed-ladder__arena-togo {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Boards period rail ───────────────────────────────────────
+   Horizontally scrolling season chips; gold-filled selection, a right-edge fade
+   to signal more. A filter you set is a violet tint, but the selected board is
+   a "number that matters" — the one gold thing in this row. */
+.ed-ladder__periods {
+  position: relative;
+  margin-bottom: 12px;
+}
+.ed-ladder__periods::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--bg0, #0d0a1e));
+  pointer-events: none;
+}
+.ed-ladder__periods-track {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-right: 40px;
+}
+.ed-ladder__periods-track::-webkit-scrollbar {
+  display: none;
+}
+.ed-period {
+  flex: 0 0 auto;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ed-period--active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #2a1500;
+}
+
+/* ── Ladder badges scope ──────────────────────────────────── */
+.ed-ladder__badges-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ed-ladder__badges-head strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--gold);
+}
+.ed-ladder__badges-head span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Clan invite row ──────────────────────────────────────── */
+.ed-clan-invite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.ed-clan-invite__medal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(185, 170, 255, 0.6);
+  color: #cbbdf2;
+}
+.ed-clan-invite__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-clan-invite__text strong {
+  font-size: 14px;
+}
+.ed-clan-invite__text small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* ── You page (identity header + scopes) ──────────────────────── */
+.ed-you {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ed-you__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 6px 0 14px;
+}
+.ed-you__ident-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ed-you__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.ed-you__ident-line {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-you__scope-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 0 12px;
+}
+.ed-you__scope-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+.ed-you__scope-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Nav unread dot (You pill + rail item). Gold, inverted on the active gold pill. */
+.ed-nav-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex: none;
+}
+.ed-pillnav__btn[aria-current='page'] .ed-nav-dot {
+  background: #2a1500;
+}
+
+/* ── Log: filter chips, day groups ────────────────────────────── */
+.ed-games__chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ed-filterchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 160, 240, 0.3);
+  background: transparent;
+  color: #cbbdf2;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ed-filterchip--on {
+  background: rgba(139, 92, 246, 0.22);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #efeaff;
+}
+.ed-filterchip__ring {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(245, 200, 76, 0.85);
+}
+.ed-games__day-group {
+  margin-bottom: 16px;
+}
+.ed-games__day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ed-games__day-head strong {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #d6ccf5;
+}
+.ed-games__day-head small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.ed-games__tz-note {
+  margin: 12px 0 0;
+  color: var(--faint);
+  font-size: 9.5px;
+  text-align: center;
+}
+
+/* ── Updates ──────────────────────────────────────────────────── */
+.ed-updates__referee {
+  margin-bottom: 16px;
+  padding: 13px 14px;
+  border: 1.5px dashed rgba(245, 200, 76, 0.55);
+  border-radius: 14px;
+  background: rgba(245, 200, 76, 0.06);
+}
+.ed-updates__referee-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #ffe9b3;
+}
+.ed-updates__referee-ring {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(245, 200, 76, 0.9);
+  animation: ed-seal-pulse 2.4s ease-in-out infinite;
+}
+.ed-updates__referee-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ed-updates__referee-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(18, 13, 40, 0.5);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-updates__referee-score {
+  margin-left: auto;
+  font-family: var(--font-display);
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+.ed-updates__referee-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.ed-updates__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-update {
+  border: 1px solid rgba(215, 200, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 13, 40, 0.5);
+  overflow: hidden;
+}
+.ed-update--unread {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.34);
+}
+.ed-update__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 12px 13px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-update__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex: none;
+}
+.ed-update__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ed-update--unread .ed-update__title {
+  font-weight: 800;
+}
+.ed-update__date {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ed-update__body {
+  padding: 0 13px 13px;
+}
+.ed-update__body p {
+  margin: 8px 0 0;
+  color: #d9d1f5;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ed-updates__rungs {
+  margin-top: 18px;
+}
+.ed-updates__rungs-head {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.ed-updates__rungs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ed-updates__rung {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(215, 200, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 13, 40, 0.5);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-updates__rung-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-updates__rung-text strong {
+  font-size: 13px;
+}
+.ed-updates__rung-text small {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 11px;
+}
+
+/* ── Settings + Account scopes ────────────────────────────────── */
+.ed-settings__note {
+  margin: 14px 0 0;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: center;
+}
+.ed-account__block {
+  margin-bottom: 16px;
+  padding: 14px 15px;
+  border: 1px solid rgba(215, 200, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(18, 13, 40, 0.5);
+}
+.ed-account__label {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ed-account__line {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.ed-account__muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ed-account__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.ed-account__links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+.ed-account__link {
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--lavender-2);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ed-account__link:hover {
+  color: var(--ink);
+}
+.ed-account__version {
+  margin-top: 12px;
+  color: var(--faint);
+  font-size: 11px;
+}
+.ed-account__version code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── Run sheet score row + reference ──────────────────────────── */
+.ed-run-modal__scorerow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.ed-run-modal__score {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1;
+}
+.ed-run-modal__place {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--muted);
+}
+.ed-run-modal__scorerow .ed-review-status {
+  margin-left: auto;
+}
+.ed-run-modal__ref {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.ed-run-modal__ref code {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(7, 6, 16, 0.5);
+  color: var(--lavender-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+/* ── Cause chip (offline / guest) ─────────────────────────────
+   Names the cause of quiet data. Dotted lavender ring, outlined pill; persists
+   while the state does. */
+.ed-cause {
+  display: inline-block;
+  margin: 2px 0 10px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1.5px dotted rgba(185, 170, 255, 0.6);
+  color: #cbbdf2;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+/* ── Home full-width rows (Play) ──────────────────────────────
+   art | name + meta | outlined play mark. The row is the button; no PLAY fill. */
+.ed-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-grow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  text-align: left;
+}
+.ed-grow__art {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+}
+.ed-grow__art img {
+  display: block;
+  border-radius: 11px;
+}
+.ed-grow__glyph {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.16);
+  color: #cbbdf2;
+}
+.ed-grow__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ed-grow__name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ed-grow__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ed-grow__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 200, 76, 0.7);
+  color: var(--gold);
+}
+.ed-grow__mark svg {
+  width: 13px;
+  height: 13px;
+}
+.ed-grow--drill .ed-grow__mark {
+  border-color: rgba(139, 92, 246, 0.7);
+  color: #b9a7ff;
+}
+
+.ed-more__aside {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.ed-more__aside--pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #b9a7ff;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+.ed-home__ready {
+  margin: 14px 2px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Offline, the arena bar greys: it shows a last-known standing, not a live one. */
+.ed-ladder__arena--stale {
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+
+/* ── Exchange board (Trade + Ledger) ──────────────────────────
+   RED lane on top, BLUE below, a ledger line between them. */
+.ed-xboard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.ed-xlane {
+  border-radius: 16px;
+  padding: 10px 12px 12px;
+  min-height: 150px;
+}
+.ed-xlane--red {
+  background: rgba(192, 54, 74, 0.11);
+  border: 1px solid rgba(192, 54, 74, 0.38);
+}
+.ed-xlane--blue {
+  background: rgba(47, 95, 208, 0.11);
+  border: 1px solid rgba(47, 95, 208, 0.38);
+}
+.ed-xlane__label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}
+.ed-xlane--red .ed-xlane__label {
+  color: #f3a3ad;
+}
+.ed-xlane--blue .ed-xlane__label {
+  color: #a8c0f5;
+}
+.ed-xlane__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-xcard {
+  width: 96px;
+}
+.ed-xcard__art {
+  position: relative;
+  width: 96px;
+}
+.ed-xcard__img,
+.ed-xcard__fallback {
+  width: 96px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.ed-xcard__name {
+  display: block;
+  font-size: 10px;
+  text-align: center;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.ed-xcard__cost {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
+.ed-xboard__balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+}
+.ed-xboard__q {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--muted);
+}
+.ed-xboard__value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--gold);
+}
+.ed-xboard__reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1.5px dashed rgba(139, 92, 246, 0.8);
+  background: rgba(139, 92, 246, 0.12);
+  color: #cbbdf2;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Exchange pad: two magnitude rows plus EVEN ─────────────── */
+.ed-xpad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+  margin: 12px auto 0;
+}
+.ed-xpad__row {
+  display: flex;
+  gap: 6px;
+}
+.ed-xpad__key {
+  position: relative;
+  flex: 1;
+  height: clamp(42px, 12vw, 60px);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s;
+}
+.ed-xpad__key--red {
+  background: linear-gradient(160deg, #c0364a, #771c2b);
+  box-shadow:
+    0 4px 0 #4a0f19,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key--blue {
+  background: linear-gradient(160deg, #2f5fd0, #1a3480);
+  box-shadow:
+    0 4px 0 #10204d,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key--even {
+  background: linear-gradient(160deg, #4a2da0, #2a1860);
+  box-shadow:
+    0 4px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+.ed-xpad__key:hover {
+  filter: brightness(1.08);
+}
+.ed-xpad__key:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key:disabled {
+  cursor: default;
+}
+.ed-xpad__key.is-wrong {
+  outline: 2px solid #f87171;
+  outline-offset: 1px;
+}
+.ed-xpad__key.is-correct,
+.ed-xpad__key.is-answer {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+/* ── Drill sandbox bloom ──────────────────────────────────────
+   Subtraction signals a sandbox: only the drill card gets a soft violet bloom
+   behind it. Ranked stages stay flat. */
+.ed-kstage--practice .ed-kstage__card {
+  position: relative;
+}
+.ed-kstage--practice .ed-kstage__card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(520px 300px at 50% 22%, rgba(109, 40, 217, 0.16), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Summary frame additions ──────────────────────────────── */
+.ed-sum__score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.ed-sum__state {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+.ed-sum__changed {
+  border: 1px solid rgba(245, 200, 76, 0.28);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-sum__changed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-lite, #ffe9b3);
+  font-weight: 700;
+}
+.ed-sum__changed-xp {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ed-run-modal__xp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--gold-lite, #ffe9b3);
+  font-weight: 700;
+}
+.ed-run-modal__xp strong {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ed-run-modal__rungs {
+  margin-top: 14px;
+}
+.ed-run-modal__rungs-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ed-run-modal__rungs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ed-run-modal__rung {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.ed-run-modal__rung:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+.ed-sum__signature {
+  border-radius: 16px;
+}
+
+/* ── Charge ring (loading, 9a/9b) ─────────────────────────────
+   The same 172px gold slot the countdown numeral lands in. The arc always fills
+   (progress, not decoration), so the fill runs even under reduced motion; only
+   the reconnecting pulse is suppressed. */
+.charge-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.charge-ring__svg {
+  width: 172px;
+  height: 172px;
+  transform: rotate(-90deg);
+}
+.charge-ring__track {
+  fill: none;
+  stroke: rgba(245, 200, 76, 0.14);
+  stroke-width: 6;
+}
+.charge-ring__arc {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 12px rgba(245, 200, 76, 0.5));
+  animation: charge-ring-fill 1.4s cubic-bezier(0.5, 0.1, 0.4, 1) infinite;
+}
+@keyframes charge-ring-fill {
+  0% {
+    stroke-dashoffset: 276.46;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 8;
+  }
+}
+.charge-ring__label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+.charge-ring__note {
+  max-width: 300px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Reconnecting holds at a quarter turn (the inline dashoffset) and pulses. */
+.charge-ring--reconnecting .charge-ring__arc {
+  animation: charge-ring-pulse 2s ease-in-out infinite;
+}
+@keyframes charge-ring-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .charge-ring--reconnecting .charge-ring__arc {
+    animation: none;
+  }
+}
+html.reduce-motion .charge-ring--reconnecting .charge-ring__arc {
+  animation: none;
+}
+
+/* ── Skeleton rows (loading, 9c) ──────────────────────────────
+   Only rows are skeletons, and they say nothing. */
+.ed-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-skeleton__row {
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background-size: 220% 100%;
+  animation: ed-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.ed-skeleton--log .ed-skeleton__row {
+  height: 46px;
+}
+@keyframes ed-skeleton-shimmer {
+  0% {
+    background-position: 140% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-skeleton__row {
+    animation: none;
+  }
+}
+html.reduce-motion .ed-skeleton__row {
+  animation: none;
+}
+
+/* ── Badge celebration (tier 1 takeover, 8b) ──────────────────
+   The one full takeover left, on the summary after a run. */
+.badge-celebrate {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(120% 120% at 50% 30%, rgba(59, 29, 122, 0.72), rgba(7, 6, 16, 0.94) 70%);
+  animation: ed-overlay-fade 220ms ease-out;
+}
+.badge-celebrate__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  text-align: center;
+}
+.badge-celebrate__eyebrow {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.badge-celebrate__medal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 4px 0;
+}
+.badge-celebrate__burst {
+  position: absolute;
+  width: 344px;
+  height: 344px;
+  max-width: none;
+  pointer-events: none;
+  transform: translateZ(0);
+  animation: badge-burst 600ms ease-out forwards;
+}
+@keyframes badge-burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+.badge-celebrate__name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+.badge-celebrate__chip {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--gold);
+}
+.badge-celebrate__more {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.badge-celebrate__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* ── Player-tag card in Updates (tier 5, 8c) ────────────────── */
+.ed-updates__tagcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 200, 76, 0.28);
+  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.12), transparent 55%), rgba(255, 255, 255, 0.03);
+}
+.ed-updates__tagcard-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(109, 40, 217, 0.32);
+  color: var(--gold);
+}
+.ed-updates__tagcard-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-updates__tagcard-text strong {
+  font-size: 14px;
+}
+.ed-updates__tagcard-text small {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* ── Summary signature panel ──────────────────────────────────
+   A compact bar series drawn from data the mode already recorded, an optional
+   overlay line, optional per-bar markers, and one sentence reading it back. */
+.ed-sig {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-sig__chart {
+  width: 100%;
+  height: 92px;
+  display: block;
+}
+.ed-sig__bar {
+  fill: rgba(139, 92, 246, 0.5);
+}
+.ed-sig__bar--bad {
+  fill: rgba(239, 68, 68, 0.62);
+}
+.ed-sig__bar--gold {
+  fill: rgba(245, 200, 76, 0.7);
+}
+.ed-sig__line {
+  stroke: var(--gold);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+.ed-sig__dots {
+  display: flex;
+}
+.ed-sig__dot {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+}
+.ed-sig__dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+.ed-sig__dot--ok::before {
+  background: #22c55e;
+}
+.ed-sig__dot--bad::before {
+  background: #ef4444;
+}
+.ed-sig__caption {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Identity setup (three steps) ─────────────────────────────
+   Card → name → tag, one thing per screen. A fresh player runs the whole flow on
+   the magic link; Edit and Account reuse the individual steps. */
+.ed-idsetup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 2px 24px;
+  min-height: 100%;
+}
+.ed-idsetup__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+.ed-idsetup__steps {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ed-idsetup__stepnum {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ed-idsetup__bars {
+  display: flex;
+  gap: 6px;
+}
+.ed-idsetup__bar {
+  flex: 1 1 0;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.ed-idsetup__bar.is-done {
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+}
+.ed-idsetup__step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ed-idsetup__h {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+}
+.ed-idsetup__sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ed-idsetup__fine {
+  margin: 0;
+  color: #7d739f;
+  font-size: 12px;
+}
+.ed-idsetup__noresult {
+  color: var(--muted);
+}
+.ed-idsetup__cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ed-idsetup__chosen {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ed-idsetup__names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-idsetup__names .name-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: transparent;
+  color: #e7e0ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ed-idsetup__names .name-option--selected {
+  background: linear-gradient(160deg, #8b5cf6, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+}
+.ed-idsetup__more {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ed-idsetup__tagform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-idsetup__tagform input {
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  font-size: 16px;
+}
+.ed-idsetup__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ed-idsetup__actions .ed-btn {
+  width: 100%;
+}
+.ed-idsetup__msg {
+  color: #fca5a5;
+  font-size: 13px;
 }

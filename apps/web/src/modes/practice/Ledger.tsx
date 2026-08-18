@@ -1,11 +1,19 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import type { LedgerAnswer, LedgerStage } from '@elixir-drop/contracts'
-import { CardArt } from '../../components/CardChrome'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
-import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { ledgerSignature } from '../../lib/signatures'
+import {
+  balanceWinner,
+  EXCHANGE_PROMPT,
+  ExchangeBoard,
+  ExchangePad,
+  exchangeSolvedLine,
+  type LaneCard
+} from '../../components/game/ExchangeBoard'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
 import { preloadGameFx } from '../../components/GameFxLayer'
@@ -47,30 +55,14 @@ function runningBalance(sequence: LedgerSequence, count: number): number {
     .reduce((sum, play) => sum + (play.side === 'red' ? play.card.elixir : -play.card.elixir), 0)
 }
 
-function LedgerCard({ play, showCost }: { play: LedgerSequence['plays'][number]; showCost: boolean }) {
-  return (
-    <li class={`ledger-card ledger-card--${play.side}`} data-card-id={play.card.id}>
-      <CardArt
-        card={play.card}
-        className="ledger-card__art"
-        imgClassName="ledger-card__img"
-        fallbackClassName="ledger-card__fallback"
-        alt={play.card.name}
-        loading="eager"
-        showCost={showCost}
-        costClassName="ledger-card__cost"
-        showName
-        nameClassName="ledger-card__name"
-      />
-    </li>
-  )
-}
-
 export default function Ledger() {
   const gameRun = useGameSession('practice', challengePreparers.practice, { practiceKind: 'ledger' })
   const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const deck = gameRun.content
   const serverAnswers = useRef<LedgerAnswer[]>([])
+  // Per-answer sequence length + correctness, kept alongside the server transcript
+  // (which carries neither) so the summary can draw accuracy by sequence length.
+  const gradedAnswers = useRef<{ length: number; correct: boolean }[]>([])
   const generation = useRef(0)
   const previousIds = useRef<Set<number>>(new Set())
   const promptStartedAt = useRef(0)
@@ -211,6 +203,7 @@ export default function Ledger() {
       stage: active.stage
     }
     serverAnswers.current.push(answer)
+    gradedAnswers.current.push({ length: active.plays.length, correct: isCorrect })
     lastStats.value = saveLedgerResult({
       correct: isCorrect,
       assisted: answer.assisted,
@@ -242,6 +235,7 @@ export default function Ledger() {
     track('game.replayed', 'practice:ledger')
     generation.current += 1
     serverAnswers.current = []
+    gradedAnswers.current = []
     previousIds.current = new Set()
     checks.value = 0
     correct.value = 0
@@ -251,19 +245,23 @@ export default function Ledger() {
     void gameRun.prepare()
   }
 
-  // Match Trade's learned keyboard map: 1–9 reads Red +4 through Blue +4,
-  // while 0 is another convenient Even key.
+  // Match Trade's learned keyboard map: 1–4 are Blue (+1…+4), 6–9 are Red
+  // (−1…−4), and 0 or 5 is Even.
   useGameKeys((event) => {
     if (phase.value !== 'answering') return
-    if (event.key === '0') {
+    const key = event.key
+    if (key === '0' || key === '5') {
       event.preventDefault()
       guess(0)
       return
     }
-    const slot = Number(event.key)
-    if (Number.isInteger(slot) && slot >= 1 && slot <= LEDGER_ANSWERS.length) {
+    const n = Number(key)
+    if (n >= 1 && n <= 4) {
       event.preventDefault()
-      guess(LEDGER_ANSWERS[slot - 1]!)
+      guess(n)
+    } else if (n >= 6 && n <= 9) {
+      event.preventDefault()
+      guess(-(n - 5))
     }
   })
 
@@ -271,6 +269,10 @@ export default function Ledger() {
 
   if (runtime.stage.value === 'summary') {
     const accuracy = checks.value ? Math.round((correct.value / checks.value) * 100) : 0
+    const signature = ledgerSignature(
+      gradedAnswers.current.map((g) => g.length),
+      gradedAnswers.current.map((g) => g.correct)
+    )
     return (
       <div class="ed-gamewrap">
         <Summary
@@ -288,6 +290,7 @@ export default function Ledger() {
           onHome={() => navigate(practiceLandingPath())}
           homeLabel={practiceLandingPath() === '/practice' ? 'Practice' : 'Games'}
         >
+          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
           <p class="ledger-summary__coach">
             {accuracy >= 80
               ? 'Your running count is holding. Longer sequences will arrive as the read stays clean.'
@@ -315,16 +318,26 @@ export default function Ledger() {
   const showCost = (cardId: number) =>
     active.stage === 'guided' || (active.stage === 'faded' && !isFluentCard(cardId, cardStats)) || solved
 
-  function answerClass(value: number, tone: string): string {
-    const classes = ['ledger-answer', `ledger-answer--${tone}`]
-    if (picked.value === value)
-      classes.push(phase.value === 'correct' ? 'ledger-answer--correct' : 'ledger-answer--wrong')
-    if (solved && value === answerBalance) classes.push('ledger-answer--answer')
+  function padStateFor(value: number): string {
+    const classes: string[] = []
+    if (picked.value === value) classes.push(phase.value === 'correct' ? 'is-correct' : 'is-wrong')
+    if (solved && value === answerBalance) classes.push('is-answer')
     return classes.join(' ')
   }
 
-  const negatives = LEDGER_ANSWERS.filter((value) => value < 0)
-  const positives = LEDGER_ANSWERS.filter((value) => value > 0)
+  // The assist lives in the balance slot: while answering and not yet shown, the
+  // `?` becomes a Reveal pill; tapping it fills the ledger line in place.
+  const canReveal = phase.value === 'answering' && !assistance.value
+  const redLane: LaneCard[] = red.map((play) => ({
+    card: play.card,
+    showCost: showCost(play.cardId),
+    key: play.cardId
+  }))
+  const blueLane: LaneCard[] = blue.map((play) => ({
+    card: play.card,
+    showCost: showCost(play.cardId),
+    key: play.cardId
+  }))
 
   return (
     <GameFrame
@@ -333,108 +346,52 @@ export default function Ledger() {
       count={0}
       onQuit={endSession}
       quitLabel="End session"
-      quitIcon="x"
       cue={runtime.cue.value}
       fxParticles={6}
       progressText={`${checks.value} checked · ${stageLabel(active.stage)}`}
       metric={{ value: String(correct.value), label: 'correct' }}
     >
       <div class="ledger">
-        <div class="ledger-board" data-stage={active.stage}>
-          <section class="ledger-lane ledger-lane--blue" aria-label="Blue plays">
-            <div class="ledger-lane__label">BLUE</div>
-            <ol>
-              {blue.map((play) => (
-                <LedgerCard key={play.cardId} play={play} showCost={showCost(play.cardId)} />
+        <ExchangeBoard
+          stage={active.stage}
+          red={redLane}
+          blue={blueLane}
+          balanceLabel={balanceWinner(displayBalance)}
+          revealed={balanceVisible}
+          onReveal={canReveal ? showLedger : undefined}
+          trail={
+            <div
+              class="ledger-trail"
+              role="progressbar"
+              aria-label="Sequence progress"
+              aria-valuemin={0}
+              aria-valuemax={active.plays.length}
+              aria-valuenow={revealed.value}
+            >
+              {active.plays.map((play, index) => (
+                <span
+                  key={`${play.cardId}-${index}`}
+                  class={`ledger-trail__pip ledger-trail__pip--${play.side}${index < revealed.value ? ' is-played' : ''}`}
+                />
               ))}
-            </ol>
-          </section>
-
-          <div class={`ledger-balance${balanceVisible ? ' ledger-balance--visible' : ''}`} aria-live="polite">
-            <span>ELIXIR LEDGER</span>
-            <strong>{balanceVisible ? formatLedgerBalance(displayBalance) : '?'}</strong>
-          </div>
-
-          <section class="ledger-lane ledger-lane--red" aria-label="Red plays">
-            <div class="ledger-lane__label">RED</div>
-            <ol>
-              {red.map((play) => (
-                <LedgerCard key={play.cardId} play={play} showCost={showCost(play.cardId)} />
-              ))}
-            </ol>
-          </section>
-        </div>
-
-        <div
-          class="ledger-trail"
-          role="progressbar"
-          aria-label="Sequence progress"
-          aria-valuemin={0}
-          aria-valuemax={active.plays.length}
-          aria-valuenow={revealed.value}
-        >
-          {active.plays.map((play, index) => (
-            <span
-              key={`${play.cardId}-${index}`}
-              class={`ledger-trail__pip ledger-trail__pip--${play.side}${index < revealed.value ? ' is-played' : ''}`}
-            />
-          ))}
-        </div>
+            </div>
+          }
+        />
 
         <div class="ledger-prompt" aria-live="polite">
           {dealing
             ? 'Keep a running count.'
             : solved
-              ? `Blue spent ${active.blueTotal} · Red spent ${active.redTotal} · ${formatLedgerBalance(active.balance)}`
-              : 'Who owns the elixir advantage?'}
+              ? exchangeSolvedLine(active.redTotal, active.blueTotal, active.balance)
+              : EXCHANGE_PROMPT}
         </div>
 
-        <div class="ledger-pad" role="group" aria-label="Choose the elixir advantage">
-          <div class="ledger-pad__group">
-            <span>RED</span>
-            <div>
-              {negatives.map((value) => (
-                <button
-                  key={value}
-                  class={answerClass(value, 'red')}
-                  onClick={() => guess(value)}
-                  disabled={phase.value !== 'answering'}
-                  aria-label={formatLedgerBalance(value)}
-                >
-                  +{Math.abs(value)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button
-            class={answerClass(0, 'even')}
-            onClick={() => guess(0)}
-            disabled={phase.value !== 'answering'}
-            aria-label={formatLedgerBalance(0)}
-          >
-            EVEN
-          </button>
-          <div class="ledger-pad__group ledger-pad__group--blue">
-            <span>BLUE</span>
-            <div>
-              {positives.map((value) => (
-                <button
-                  key={value}
-                  class={answerClass(value, 'blue')}
-                  onClick={() => guess(value)}
-                  disabled={phase.value !== 'answering'}
-                  aria-label={formatLedgerBalance(value)}
-                >
-                  +{value}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <button class="ledger-assist" onClick={showLedger} disabled={phase.value !== 'answering' || assistance.value}>
-          <Icon name="scan-eye" /> {assistance.value ? formatLedgerBalance(active.balance) : 'Show ledger'}
-        </button>
+        <ExchangePad
+          answers={LEDGER_ANSWERS}
+          onPick={(value) => guess(value)}
+          disabled={phase.value !== 'answering'}
+          stateFor={padStateFor}
+        />
 
         <div class="game-cues" aria-hidden="true">
           <div class="game-cues__slot game-cues__slot--top">

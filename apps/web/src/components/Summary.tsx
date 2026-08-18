@@ -1,8 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { weakestBandLabel } from '../lib/insights'
-import { earnedBadges, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
+import { earnedBadges, earnedXp, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -12,8 +11,16 @@ import BadgeEarned from './BadgeEarned'
 import ModeIcon from './ModeIcon'
 import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
-import ReviewStatusMark from './ReviewStatus'
+import ReviewStatusMark, { type ReviewSeal } from './ReviewStatus'
 
+// A summary is one frame in a fixed order: what you scored (with the seal beside
+// it), what it changed (a short ledger), the mode's signature panel read back in
+// a sentence, and what to do next. A fresh run can only be `awaiting` or `not
+// recorded` — a referee reads evidence and takes minutes, so a cleared seal is
+// never drawn here; the player meets that verdict later.
+
+// `moments` is still accepted so existing callers compile, but the summary no
+// longer renders a row of generic tiles — the "what changed" ledger replaced it.
 export interface SummaryMoment {
   label: string
   value: string
@@ -21,13 +28,15 @@ export interface SummaryMoment {
 }
 
 interface Props {
-  eyebrow: string // e.g. "Surge complete" / "Practice round"
-  headline: string // e.g. "28.6s" or "12 / 15 · 80%"
-  pbCallout?: string // e.g. "New personal best! −3.4s"
+  eyebrow: string
+  headline: string
+  pbCallout?: string
   insights: Insights
   moments?: SummaryMoment[]
-  share: { mode: GameMode; score: string }
-  children?: ComponentChildren // optional mode-specific result details
+  share: { mode: GameMode; score: string; series?: number[] }
+  // The mode's signature panel — a chart or read-back drawn from data the mode
+  // already records. Falls back to the "Work on these" list below.
+  children?: ComponentChildren
   onReplay: () => void
   replayLabel?: string
   onHome: () => void
@@ -44,45 +53,11 @@ function CardChip({ card, sub }: { card: Card; sub?: string }) {
   )
 }
 
-function strongestBand(insights: Insights): string | null {
-  const band = [...insights.bands]
-    .filter((b) => b.total > 0)
-    .sort((a, b) => b.correct / b.total - a.correct / a.total)[0]
-
-  if (!band) return null
-  return `${band.label} cost`
-}
-
-function defaultMoments(insights: Insights, pbCallout?: string): SummaryMoment[] {
-  const moments: SummaryMoment[] = []
-
-  if (pbCallout) {
-    moments.push({ label: 'Moment', value: pbCallout, tone: 'gold' })
-  } else if (insights.accuracyPct >= 90) {
-    moments.push({ label: 'Moment', value: 'Clean read', tone: 'green' })
-  } else {
-    moments.push({ label: 'Moment', value: `${insights.correct}/${insights.total} first try`, tone: 'purple' })
-  }
-
-  const strength = strongestBand(insights)
-  if (strength) moments.push({ label: 'Best lane', value: strength, tone: 'green' })
-
-  const focus =
-    weakestBandLabel(insights) ??
-    (insights.hasTiming && insights.slowestBandLabel ? `${insights.slowestBandLabel} cost pace` : null) ??
-    (insights.weakest[0] ? insights.weakest[0].name : null)
-
-  if (focus) moments.push({ label: 'Next drill', value: focus })
-
-  return moments.slice(0, 3)
-}
-
 export default function Summary({
   eyebrow,
   headline,
   pbCallout,
   insights,
-  moments,
   share,
   children,
   onReplay,
@@ -92,130 +67,94 @@ export default function Summary({
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
   const offline = offlineRunMode.value === share.mode
+  const held = heldForReview.value
   const visiblePbCallout = offline ? undefined : pbCallout
-  // The arena the player is standing in, for the share card's footer. Derived
-  // from XP exactly as the profile does it.
   const shareArena = player.value ? rankFor(player.value.xp ?? 0).current : undefined
-  const runMoments = moments ?? defaultMoments(insights, visiblePbCallout)
-  // Modes without per-card cost answers (Trade, Higher/Lower) have no bands.
-  const hasBands = bands.some((b) => b.total > 0)
+
+  // The seal beside the score is only ever a state a fresh run can be in.
+  const seal: ReviewSeal | null = offline ? 'not-recorded' : held ? 'pending' : null
+  const stateLine = offline
+    ? 'The run happened and your device remembers it. The board never saw it, so nothing moved.'
+    : held
+      ? 'Awaiting the referee — your score is recorded and ranks while it is checked.'
+      : null
+
+  // "Missed this round" and "Slowest reads" are one taxonomy of the same thing:
+  // what to practise. Merge them into one list.
+  const workOnThese: Card[] = [...weakest]
+  if (hasTiming && slowestCards) {
+    for (const card of slowestCards) if (!workOnThese.some((w) => w.id === card.id)) workOnThese.push(card)
+  }
+
+  const xpEarned = offline ? 0 : earnedXp.value
+  const changed = Boolean(visiblePbCallout) || xpEarned > 0 || earnedBadges.value.length > 0
 
   return (
     <div class="ed-sum" data-summary>
+      {/* 1 — What you scored */}
       <div class="ed-sum__head">
         <div class="ed-eyebrow">
           <ModeIcon mode={share.mode} size={44} className="ed-sum__art" />
           {eyebrow}
         </div>
-        <div class="ed-sum__headline">{headline}</div>
-        {visiblePbCallout && (
-          <div class="ed-sum__pb">
-            <Icon name="star" /> {visiblePbCallout}
-          </div>
-        )}
-        {offline && (
-          <div class="ed-sum__offline" role="status">
-            <Icon name="wifi-off" />
-            <span>
-              <strong>Offline run — not saved.</strong> Your score, badges, XP, history, and leaderboard position did
-              not change. Existing device-only learning hints may still update.
-            </span>
-          </div>
-        )}
-        {/* Read straight from the signal rather than threaded through every
-            mode's props: six modes render this component, and none of them
-            know anything about referee state. */}
-        {heldForReview.value && (
-          <div class="ed-sum__review" role="status">
-            <ReviewStatusMark status="pending" size={32} struck />
-            <span>
-              <strong>Awaiting the referee.</strong> Your score is recorded and ranks while it is checked. If the
-              referee excludes it, it leaves the board and you&rsquo;ll see why here.
-              {heldForReviewReference.value && (
-                <small class="ed-sum__review-reference">Reference: {heldForReviewReference.value}</small>
-              )}
-            </span>
-          </div>
+        <div class="ed-sum__score-row">
+          <div class="ed-sum__headline">{headline}</div>
+          {seal && <ReviewStatusMark status={seal} size={32} struck />}
+        </div>
+        {stateLine && (
+          <p class="ed-sum__state" role="status">
+            {stateLine}
+            {held && heldForReviewReference.value && (
+              <small class="ed-sum__review-reference"> Reference: {heldForReviewReference.value}</small>
+            )}
+          </p>
         )}
       </div>
 
-      {/* Rungs this run cleared, read from the signal for the same reason the
-          review notice is. */}
-      {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}
+      {/* 2 — What it changed: personal best and any rung cleared, one ledger. */}
+      {changed && (
+        <div class="ed-sum__changed">
+          {visiblePbCallout && (
+            <div class="ed-sum__changed-row">
+              <Icon name="star" /> {visiblePbCallout}
+            </div>
+          )}
+          {xpEarned > 0 && (
+            <div class="ed-sum__changed-row">
+              <Icon name="zap" /> XP earned <strong class="ed-sum__changed-xp">+{xpEarned}</strong>
+            </div>
+          )}
+          {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}
+        </div>
+      )}
 
-      {/* A scored result cannot omit or bury its browser-share action. Practice
-          has no score or record, so it deliberately has no sharing surface. */}
+      {/* 3 — The mode's signature panel, then what to practise. */}
+      {children && <div class="ed-sum__signature">{children}</div>}
+      {workOnThese.length > 0 && (
+        <div class="ed-sum-section">
+          <div class="ed-sum__label">Work on these</div>
+          <div class="ed-sum-chips">
+            {workOnThese.slice(0, 6).map((c) => (
+              <CardChip card={c} key={c.id} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4 — What to do next: share, then the actions. */}
       {share.mode !== 'practice' && (
         <ShareLine
           mode={share.mode}
           score={share.score}
           card={{
             bands: bands.filter((band) => band.total > 0),
+            ...(share.series && share.series.length ? { series: share.series } : {}),
             ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
-            ...(shareArena ? { arenaImage: shareArena.image, arenaName: shareArena.name } : {})
+            ...(shareArena ? { arenaName: shareArena.name } : {})
           }}
         />
       )}
 
-      {runMoments.length > 0 && (
-        <div class="ed-sum-tiles" aria-label="Run highlights">
-          {runMoments.map((moment) => (
-            <div class={`ed-sum-tile ed-sum-tile--${moment.tone ?? 'purple'}`} key={moment.label}>
-              <div class="ed-sum-tile__label">{moment.label}</div>
-              <div class="ed-sum-tile__value">{moment.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Accuracy by cost band (only for modes that answer per-card costs) */}
-      {hasBands && (
-        <div class="ed-sum-bands">
-          <div class="ed-sum__label">Accuracy by cost</div>
-          <div class="ed-sum-bandrow">
-            {bands.map((b) => {
-              const pct = b.total > 0 ? Math.round((b.correct / b.total) * 100) : null
-              return (
-                <div class="ed-sum-band" key={b.label}>
-                  <div class="ed-sum-band__bar">
-                    <div class="ed-sum-band__fill" style={{ height: `${pct ?? 0}%` }} />
-                  </div>
-                  <div class="ed-sum-band__label">{b.label}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Weakest cards */}
-      {weakest.length > 0 && (
-        <div class="ed-sum-section">
-          <div class="ed-sum__label">Missed this round</div>
-          <div class="ed-sum-chips">
-            {weakest.slice(0, 5).map((c) => (
-              <CardChip card={c} key={c.id} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Slowest cards (timed recall and speed modes) */}
-      {hasTiming && slowestCards && slowestCards.length > 0 && (
-        <div class="ed-sum-section">
-          <div class="ed-sum__label">Slowest reads</div>
-          <div class="ed-sum-chips">
-            {slowestCards.map((c) => (
-              <CardChip card={c} key={c.id} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Optional mode-specific result details, such as the share line. */}
-      {children}
-
-      {/* Practice is deliberately unranked and has no score to save. */}
       {!offline && share.mode !== 'practice' && <SignInToSave />}
 
       <div class="ed-sum__actions">

@@ -9,18 +9,27 @@ import { layout } from '../../src/lib/use-layout'
 const CASES = [
   ['/', 'Elixir Drop'],
   ['/practice', 'Training grounds'],
-  ['/surge', 'PREPARING'],
-  ['/higher-lower', 'PREPARING'],
-  ['/trade', 'PREPARING'],
-  ['/survival', 'PREPARING'],
-  ['/rain', 'PREPARING'],
-  ['/offline', 'You’re back online'],
+  ['/surge', 'Charging'],
+  ['/higher-lower', 'Charging'],
+  ['/trade', 'Charging'],
+  ['/survival', 'Charging'],
+  ['/rain', 'Charging'],
+  ['/offline', 'Elixir Drop'],
   ['/settings', 'Settings'],
   ['/app-info', 'App Info']
 ] as const
 
+// Ranked play is now touch-gated (lib/use-layout supportsTouchPlay). The SSR
+// smoke renders the ranked game routes, so the default environment is a
+// touch-capable device; the dedicated gate test below drops touch to assert the
+// mouse-only fallback.
+function setTouchPlay(supported: boolean) {
+  Object.defineProperty(window.navigator, 'maxTouchPoints', { value: supported ? 1 : 0, configurable: true })
+}
+
 describe('SSR render smoke', () => {
   beforeEach(() => {
+    setTouchPlay(true)
     apiAvailability.value = 'available'
     transportOffline.value = false
     layout.value = 'desktop'
@@ -60,8 +69,8 @@ describe('SSR render smoke', () => {
     ['/survival', 'Survival'],
     ['/rain', 'Rain'],
     ['/offline', 'Offline'],
-    ['/leaderboards', 'Leaderboards'],
-    ['/settings', 'Settings'],
+    ['/leaderboards', 'Ladder'],
+    ['/settings', 'You'],
     ['/app-info', 'App info'],
     ['/login', 'Sign in']
   ])('announces %s as its own screen title', async (path, label) => {
@@ -72,21 +81,13 @@ describe('SSR render smoke', () => {
     expect(html).not.toContain('<h1 class="sr-only">Elixir Drop</h1>')
   })
 
-  it('renders build metadata on settings', async () => {
-    route.value = '/settings'
-    const html = await renderToStringAsync(<App />)
-
-    expect(html).toContain('Build ID')
-    expect(html).toContain('Build date')
-  })
-
   it('folds the legacy Practice hub route into Games on mobile', async () => {
     layout.value = 'mobile'
     route.value = '/practice'
 
     const html = await renderToStringAsync(<App />)
 
-    expect(html).toContain('Practice options')
+    expect(html).toContain('Practice')
     expect(html).toContain('Cost Recall')
     expect(html).toContain('Ledger')
     expect(html).not.toContain('practice-hub main-content')
@@ -98,43 +99,60 @@ describe('SSR render smoke', () => {
 
     route.value = '/surge'
     const rankedHtml = await renderToStringAsync(<App />)
-    expect(rankedHtml).toContain('Ranked access restricted')
+    expect(rankedHtml).toContain('Ranked restricted')
     expect(rankedHtml).toContain('Practice')
     expect(rankedHtml).toContain('Fair Play')
-    expect(rankedHtml).toContain('mailto:drop@poapkings.com?subject=Elixir%20Drop%20ranked-access%20re-review')
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
     expect(practiceHtml).toContain('Training grounds')
-    expect(practiceHtml).not.toContain('Ranked access restricted')
+    expect(practiceHtml).not.toContain('Ranked restricted')
   })
 
-  it.each(['/offline', '/leaderboards', '/profile'])('gives %s the unified offline treatment', async (path) => {
+  // The redesign names the cause, not the consequence: offline, the Ladder and
+  // You stay live (no bundled Offline takeover) and a header chip names why the
+  // server data is quiet.
+  it.each(['/leaderboards', '/profile'])('keeps %s live and names the cause when offline', async (path) => {
     apiAvailability.value = 'unavailable'
-    accountStatus.value = 'unavailable'
-    player.value = null
+    accountStatus.value = 'authenticated'
     route.value = path
 
     const html = await renderToStringAsync(<App />)
 
-    expect(html).toContain('ed-offline-page')
-    expect(html).toContain('Offline mode is ready')
-    expect(html).toContain('All six games are available')
-    expect(html).toContain('Ranks and You return automatically when player services are reachable')
-    expect(html).toContain('personal bests, badges, XP, history, or leaderboard position')
-    expect(html).toContain('Open Practice')
-    expect(html).toContain('Choose a game')
-    expect(html).not.toContain('Player services are reconnecting')
-    expect(html).not.toContain('Loading leaderboard')
+    expect(html).not.toContain('ed-offline-page')
+    expect(html).toContain('OFFLINE')
   })
 
-  it('links to the Elixir Drop Discord guide from the desktop rail cluster', async () => {
+  it('links to the Elixir Drop Discord guide from the desktop aside cluster', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
     // The old global footer moved into the meta entry points; the desktop
-    // left-rail cluster carries the standalone Discord guide.
+    // letterbox aside carries the standalone Discord guide.
     expect(html).toContain('ed-railfoot')
     expect(html).toContain('href="/discord/"')
+  })
+
+  // Ranked runs are timed to the millisecond and fair only on touch. A mouse-only
+  // device (no coarse pointer, no touch points) is held to Practice; Practice and
+  // the Ladder stay open. This is input-based, not width-based — the letterbox
+  // layout is still desktop here.
+  it('gates the ranked modes to touch and keeps Practice open on a mouse-only device', async () => {
+    setTouchPlay(false)
+
+    route.value = '/surge'
+    const rankedHtml = await renderToStringAsync(<App />)
+    expect(rankedHtml).toContain('Ranked is touch-only')
+    expect(rankedHtml).toContain('Open Practice')
+    expect(rankedHtml).not.toContain('Charging')
+
+    route.value = '/practice'
+    const practiceHtml = await renderToStringAsync(<App />)
+    expect(practiceHtml).toContain('Training grounds')
+    expect(practiceHtml).not.toContain('Ranked is touch-only')
+
+    route.value = '/leaderboards'
+    const ladderHtml = await renderToStringAsync(<App />)
+    expect(ladderHtml).not.toContain('Ranked is touch-only')
   })
 })
