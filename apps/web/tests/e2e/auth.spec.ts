@@ -59,7 +59,7 @@ test(
     await expect(
       page.getByText('Sign in before your next game to save future scores and compete on the leaderboard.')
     ).toBeVisible()
-    await summary.getByRole('button', { name: 'Sign In', exact: true }).click()
+    await summary.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page).toHaveURL(/#\/login\?returnTo=%2Fsurvival$/)
   }
 )

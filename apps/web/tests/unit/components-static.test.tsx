@@ -362,12 +362,13 @@ describe('SignInToSave', () => {
     expect(await render(<SignInToSave />)).toBe('')
   })
 
-  it('renders the full panel variant for guests', async () => {
+  it('renders the shared gate card for guests', async () => {
     player.value = null
     const html = await render(<SignInToSave />)
-    expect(html).toContain('competition-panel--join')
+    expect(html).toContain('ed-gate')
+    expect(html).toContain('Guest run')
     expect(html).toContain('Sign in before your next game to save future scores')
-    expect(html).toContain('Sign In')
+    expect(html).toContain('Sign in')
   })
 
   it('renders the compact line variant', async () => {

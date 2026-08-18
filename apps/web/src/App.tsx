@@ -9,6 +9,7 @@ import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib
 import RunRecordingNotice from './components/RunRecordingNotice'
 import BadgeCelebration from './components/BadgeCelebration'
 import ChargeRing from './components/ChargeRing'
+import GateCard from './components/GateCard'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
@@ -25,8 +26,8 @@ import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import AppInfo from './screens/AppInfo'
 import GameStartScreen from './components/game/GameStart'
+import Icon from './components/Icon'
 import { GAMES } from './lib/game-metadata'
-import { contactEmailHref } from './lib/links'
 import { practiceLandingPath } from './lib/practice-navigation'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
@@ -89,42 +90,31 @@ function RouteFallback({ r }: { r: string }) {
 
 function RankedAccessRestricted() {
   return (
-    <div class="main-content account-screen">
-      <div class="account-card">
-        <div class="eyebrow">Fair Play decision</div>
-        <h1>Ranked access restricted</h1>
-        <p class="lede">
-          You can still use Practice and view your account. Read how decisions work or request a re-review.
-        </p>
-        <button class="btn btn--gold" onClick={() => navigate(practiceLandingPath())}>
-          Open Practice
-        </button>
-        <a class="btn btn--ghost btn--sm" href="/fair-play/">
-          Read Fair Play
-        </a>
-        <a class="btn btn--ghost btn--sm" href={contactEmailHref('Elixir Drop ranked-access re-review')}>
-          Request re-review
-        </a>
-      </div>
+    <div class="main-content">
+      <GateCard
+        mark={<Icon name="shield" />}
+        state="Ranked restricted"
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        secondary={{ label: 'Read Fair Play', href: '/fair-play/' }}
+      >
+        You can still use Practice and view your account. Fair Play explains how decisions work and how to request a
+        re-review.
+      </GateCard>
     </div>
   )
 }
 
 function AccountUnavailable() {
   return (
-    <div class="main-content account-screen">
-      <div class="account-card" aria-live="polite">
-        <ChargeRing variant="reconnecting" />
-        <p class="account-message account-message--error">
-          {accountError.value || 'Drop could not reach player services.'}
-        </p>
-        <button class="btn btn--gold" onClick={() => void initializeAccount()}>
-          Try reconnecting
-        </button>
-        <button class="btn btn--ghost btn--sm" onClick={() => navigate('/')}>
-          Back to home
-        </button>
-      </div>
+    <div class="main-content" aria-live="polite">
+      <GateCard
+        mark={<ChargeRing variant="reconnecting" />}
+        state="Reconnecting"
+        primary={{ label: 'Try reconnecting', onAction: () => void initializeAccount() }}
+        secondary={{ label: 'Back to home', onAction: () => navigate('/') }}
+      >
+        {accountError.value || 'Drop could not reach player services.'} Your saved login has not been removed.
+      </GateCard>
     </div>
   )
 }

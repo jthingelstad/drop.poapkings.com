@@ -90,15 +90,14 @@ describe('SSR render smoke', () => {
 
     route.value = '/surge'
     const rankedHtml = await renderToStringAsync(<App />)
-    expect(rankedHtml).toContain('Ranked access restricted')
+    expect(rankedHtml).toContain('Ranked restricted')
     expect(rankedHtml).toContain('Practice')
     expect(rankedHtml).toContain('Fair Play')
-    expect(rankedHtml).toContain('mailto:drop@poapkings.com?subject=Elixir%20Drop%20ranked-access%20re-review')
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
     expect(practiceHtml).toContain('Training grounds')
-    expect(practiceHtml).not.toContain('Ranked access restricted')
+    expect(practiceHtml).not.toContain('Ranked restricted')
   })
 
   // The redesign names the cause, not the consequence: offline, the Ladder and
