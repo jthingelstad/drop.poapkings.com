@@ -179,19 +179,22 @@ rank-oriented fields as part of unrelated work.
   A ranked mode whose start request establishes the outage also falls back to a
   local run; an already-started signed run still retains its retryable official
   completion and is never downgraded after the fact. Offline is surfaced up
-  front through Home's Play offline controls, `components/OfflineGlyph.tsx`, game
-  chrome, and the result summary. A persistent state gets a persistent mark,
-  never a standing banner. `offline` in `lib/api-availability.ts` combines the
-  browser transport verdict with the shared API availability signal, because
-  `navigator.onLine` being true never promises the API is reachable. There is no
-  outage error or manual retry panel; a quiet health probe on focus, visibility,
-  restored transport, or a 30-second interval restores connected mode after a
-  successful response. Leaderboards and You remain live server views and never
-  appear as offline navigation destinations: both shells replace them with one
-  bundled Offline page until reconnect. Direct offline links to either live view
-  land on that same explanation. The account, profile-setup, and ranked-access
-  gates must let every effectively offline game through because no official run
-  exists to protect or record.
+  front through a header cause chip (`components/CauseChip.tsx`, "OFFLINE" /
+  "GUEST"), `components/OfflineGlyph.tsx`, game chrome, and the result summary. A
+  persistent state gets a persistent mark, never a standing banner. `offline` in
+  `lib/api-availability.ts` combines the browser transport verdict with the
+  shared API availability signal, because `navigator.onLine` being true never
+  promises the API is reachable. There is no outage error or manual retry panel;
+  a quiet health probe on focus, visibility, restored transport, or a 30-second
+  interval restores connected mode after a successful response. **The redesign
+  names the cause, not the consequence: offline, the player stays on the real
+  Ladder and You page they asked for — the page shows a cause chip, renders
+  absent server data quietly (bests/ranks as `—`, the arena bar greyed "Last
+  known"), and the Boards scope shows "Boards need a connection" — rather than a
+  route takeover. The nav never renames itself; the bundled Offline page and the
+  offline nav-tab swap are retired.** The account, profile-setup, and
+  ranked-access gates must let every effectively offline game through because no
+  official run exists to protect or record.
 - **Official card selection is server-owned; deal rules are shared.**
   `packages/contracts/src/challenge-generation.ts` is the pure challenge factory
   used by the API for signed official runs and by the browser for tokenless

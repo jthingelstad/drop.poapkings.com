@@ -602,23 +602,7 @@ describe('DesktopShell', () => {
     expect(primary.textContent).toContain('Play')
     expect(primary.textContent).toContain('Ladder')
     expect(primary.textContent).toContain('You')
-    expect(primary.textContent).toContain('Practice')
     expect(primary.textContent).not.toContain('Offline mode')
-  })
-
-  it('uses the Practice mode artwork in the desktop rail', () => {
-    route.value = '/practice'
-    accountStatus.value = 'anonymous'
-    draw(
-      <DesktopShell>
-        <p>stage</p>
-      </DesktopShell>
-    )
-
-    const practice = host.querySelector('.ed-nav__item--practice')!
-    const artwork = practice.querySelector<HTMLImageElement>('img[data-mode="practice"]')
-    expect(artwork?.getAttribute('src')).toBe('/assets/modes/practice-192.png')
-    expect(practice.querySelector('.lucide-target')).toBeNull()
   })
 })
 

@@ -24,7 +24,6 @@ import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import AppInfo from './screens/AppInfo'
 import Icon from './components/Icon'
-import OfflinePage from './components/OfflinePage'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
 import { contactEmailHref } from './lib/links'
@@ -147,19 +146,19 @@ function AccountUnavailable() {
   )
 }
 
-function MobilePracticeRedirect() {
+function HomeRedirect() {
   useEffect(() => navigate('/'), [])
   return <Home />
 }
 
 function ScreenContent({ r }: { r: string }) {
-  if (r === '/practice' && layout.value === 'mobile') return <MobilePracticeRedirect />
+  if (r === '/practice' && layout.value === 'mobile') return <HomeRedirect />
   const gamePath = gamePathForRoute(r)
-  // These are live server views, not snapshots. Offline navigation replaces
-  // both with one bundled explanation; direct links land on the same surface
-  // instead of a failed request, stale board, or account reconnect spinner.
-  if (r.startsWith('/offline')) return <OfflinePage />
-  if (offline.value && (r.startsWith('/leaderboards') || r.startsWith('/profile'))) return <OfflinePage />
+  // Offline, the player stays on the real page they asked for: it names its cause
+  // with a header chip and shows what it has, never a takeover. The Ladder and You
+  // are live views that go quiet offline, not offline destinations — so the bundled
+  // /offline explainer is retired; a legacy link to it lands Home.
+  if (r.startsWith('/offline')) return <HomeRedirect />
   // An offline game is local and unrecorded, so account state cannot gate it.
   // The effective state covers both a transport disconnect and an unreachable
   // player API; either way there is no official run to protect or record.

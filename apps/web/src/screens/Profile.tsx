@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import ScopeRow from '../components/ScopeRow'
+import CauseChip from '../components/CauseChip'
 import ReviewStatusMark from '../components/ReviewStatus'
 import BadgeMedallion from '../components/BadgeMedallion'
 import {
@@ -371,6 +372,7 @@ export default function Profile() {
   // ── You view: identity header + scope row ────────────────────────────────
   return (
     <div class="ed-you">
+      <CauseChip />
       <header class="ed-you__identity">
         <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
         <div class="ed-you__ident-text">

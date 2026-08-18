@@ -10,7 +10,6 @@ import { startScreensaver } from '../../lib/screensaver'
 import { rankFor } from '../../data/starRanks'
 import { hasUnreadUpdates } from '../../lib/updates'
 import Icon from '../Icon'
-import ModeIcon from '../ModeIcon'
 import OfflineGlyph from '../OfflineGlyph'
 import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
@@ -43,15 +42,6 @@ function LeftRail() {
             {item.label}
           </button>
         ))}
-        <button
-          class="ed-nav__item ed-nav__item--practice"
-          aria-current={r.startsWith('/practice') ? 'page' : undefined}
-          onClick={() => navigate('/practice')}
-        >
-          <ModeIcon mode="practice" size={24} />
-          Practice
-          <span class="ed-nav__badge">Unranked</span>
-        </button>
       </nav>
 
       <div class="ed-rail__foot">

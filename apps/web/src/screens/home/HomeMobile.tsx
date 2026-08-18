@@ -1,87 +1,95 @@
+import type { GameMode } from '@elixir-drop/contracts'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
-import PracticeDrills from '../../components/PracticeDrills'
-import PlayerAvatar from '../../components/PlayerAvatar'
+import CauseChip from '../../components/CauseChip'
 import Wordmark from '../../components/brand/Wordmark'
-import OfflineGlyph from '../../components/OfflineGlyph'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
-import { player, accountStatus } from '../../lib/account'
 import { registerLogoTap } from '../../lib/screensaver'
+import { scoreLabel } from '../../lib/game-metadata'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
 import type { HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
-import { HomeHeroCarousel, HomeGameCard } from './home-bits'
+import { HomeHeroCarousel, HomeRow } from './home-bits'
 
-function IdentityChip() {
-  const current = player.value
-  const authed = accountStatus.value === 'authenticated' && !!current
-  return (
-    <button class="ed-idchip tap-fx" onClick={() => navigate('/profile')}>
-      <span class="ed-idchip__avatar">
-        <PlayerAvatar favoriteCardId={current?.favoriteCardId} size="small" />
-        {authed && current && <span class="ed-idchip__level">{current.level}</span>}
-      </span>
-      <span class="ed-idchip__text">
-        <span class="ed-idchip__name">
-          {authed && current ? current.publicName : 'Guest'}
-          {offline.value && <OfflineGlyph />}
-        </span>
-        <span class="ed-idchip__sub">
-          {authed && current ? `Level ${current.level}` : 'Sign in to save your scores'}
-        </span>
-      </span>
-      <Icon name="chevron-right" />
-    </button>
-  )
-}
+// The two focused drills, held under one "Practice" list with an UNRANKED pill —
+// the practice hub is retired as a destination, so nothing points at /practice.
+const DRILLS = [
+  { path: '/practice/costs', name: 'Cost Recall', meta: 'Card knowledge', icon: 'zap' as const },
+  { path: '/practice/ledger', name: 'Ledger', meta: 'Battle awareness', icon: 'trending-up' as const }
+]
 
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()
+  // The featured game leads in the hero; it must not appear again in the list.
+  const others = ALL_GAMES.filter((game) => game.key !== featured.key)
+  const seasonLabel = data.season?.crSeasonId ? `Season ${data.season.crSeasonId}` : ''
+
+  // Offline, personal bests and ranks go quiet rather than apologise: the whole
+  // meta line is season context the device cannot vouch for while disconnected.
+  const rowMeta = (mode: GameMode): string => {
+    if (offline.value) return '—'
+    const best = data.bestScores[mode]
+    const rank = data.rankFor(mode)
+    const bestText = best === undefined ? 'Best —' : `Best ${scoreLabel(mode, best)}`
+    return rank ? `${bestText} · #${rank} this season` : bestText
+  }
+
   return (
     <div class="ed-home">
       <InstallBanner />
-      <header class="ed-home-intro">
-        <h1>Elixir Drop</h1>
-        <p>Five competitive games and two focused practice drills.</p>
-      </header>
-      <IdentityChip />
+      <CauseChip />
       <HomeHeroCarousel data={data} game={featured} />
 
       <section class="ed-more">
         <div class="ed-more__head">
           <span class="ed-more__title" onClick={() => registerLogoTap()}>
-            All games
+            The other four
           </span>
-          <a class="ed-textlink" href="/games/">
-            How every mode works <Icon name="arrow-right" />
-          </a>
+          {seasonLabel && <span class="ed-more__aside">{seasonLabel}</span>}
         </div>
-        <div class="ed-more-row">
-          {ALL_GAMES.map((g) => (
-            <HomeGameCard
-              game={g}
-              featured={g.key === featured.key}
-              best={data.personalBestScores[g.mode]}
-              key={g.key}
+        <div class="ed-rows">
+          {others.map((game) => (
+            <HomeRow
+              key={game.key}
+              tone="ranked"
+              name={game.name}
+              meta={rowMeta(game.mode)}
+              visual={<ModeIcon mode={game.mode} size={46} />}
+              onClick={() => navigate(game.path)}
             />
           ))}
         </div>
       </section>
 
-      <section class="ed-practice-options" aria-labelledby="practice-options-title">
-        <header class="ed-practice-options__head">
-          <div>
-            <span class="ed-practice-options__eyebrow">Training grounds</span>
-            <h2 id="practice-options-title">Practice options</h2>
-            <p>No clock, no ranks — choose a focused drill and learn at your pace.</p>
-          </div>
-          <span class="ed-practice-options__badge">
-            <ModeIcon mode="practice" size={30} /> Unranked
+      <section class="ed-more" aria-labelledby="home-practice-title">
+        <div class="ed-more__head">
+          <span class="ed-more__title" id="home-practice-title">
+            Practice
           </span>
-        </header>
-        <PracticeDrills />
+          <span class="ed-more__aside ed-more__aside--pill">UNRANKED</span>
+        </div>
+        <div class="ed-rows">
+          {DRILLS.map((drill) => (
+            <HomeRow
+              key={drill.path}
+              tone="drill"
+              name={drill.name}
+              meta={drill.meta}
+              visual={
+                <span class="ed-grow__glyph">
+                  <Icon name={drill.icon} />
+                </span>
+              }
+              onClick={() => navigate(drill.path)}
+            />
+          ))}
+        </div>
       </section>
+
+      <p class="ed-home__ready">
+        {offline.value ? 'You are offline but ready to play' : 'Games are available to play offline'}
+      </p>
 
       <InstallRow />
 

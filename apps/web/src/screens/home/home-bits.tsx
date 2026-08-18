@@ -1,6 +1,7 @@
 // Shared Home presentation bits used by both HomeMobile and HomeDesktop: the
 // rotating promotion hero, ambient elixir motes, and the "More games" card.
 
+import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
@@ -79,7 +80,7 @@ export function FeaturedHero({
             }}
           >
             <span class="tap-face">
-              <Icon name="play" /> {offlinePlay ? 'PLAY OFFLINE' : 'PLAY'}
+              <Icon name="play" /> PLAY
             </span>
             {offlinePlay && (
               <span id={offlineDescriptionId} class="sr-only">
@@ -338,7 +339,7 @@ export function HomeGameCard({
           }}
         >
           <span class="tap-face">
-            <Icon name="play" /> {offlinePlay ? 'Play offline' : 'Play'}
+            <Icon name="play" /> Play
           </span>
           {offlinePlay && (
             <span id={offlineDescriptionId} class="sr-only">
@@ -348,5 +349,43 @@ export function HomeGameCard({
         </button>
       </div>
     </article>
+  )
+}
+
+// A full-width Home row (mobile): art | name + meta | outlined play mark. The row
+// IS the button — no PLAY fill, because six gold fills would break the hero's
+// claim on the one gold thing to press (colour roles). The mark's ring is gold
+// for ranked rows, violet for drills; a mark, not a chevron, since it starts a
+// run rather than opening a screen.
+export function HomeRow({
+  visual,
+  name,
+  meta,
+  tone,
+  onClick
+}: {
+  visual: ComponentChildren
+  name: string
+  meta: string
+  tone: 'ranked' | 'drill'
+  onClick: () => void
+}) {
+  return (
+    <button
+      class={`ed-grow ed-grow--${tone} tap-fx`}
+      onClick={(event) => {
+        tapFxFrom(event)
+        onClick()
+      }}
+    >
+      <span class="ed-grow__art">{visual}</span>
+      <span class="ed-grow__body">
+        <strong class="ed-grow__name">{name}</strong>
+        <span class="ed-grow__meta">{meta}</span>
+      </span>
+      <span class="ed-grow__mark" aria-hidden="true">
+        <Icon name="play" />
+      </span>
+    </button>
   )
 }

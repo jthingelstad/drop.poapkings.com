@@ -14,7 +14,7 @@ const CASES = [
   ['/trade', 'PREPARING'],
   ['/survival', 'PREPARING'],
   ['/rain', 'PREPARING'],
-  ['/offline', 'You’re back online'],
+  ['/offline', 'Elixir Drop'],
   ['/settings', 'Settings'],
   ['/app-info', 'App Info']
 ] as const
@@ -78,7 +78,7 @@ describe('SSR render smoke', () => {
 
     const html = await renderToStringAsync(<App />)
 
-    expect(html).toContain('Practice options')
+    expect(html).toContain('Practice')
     expect(html).toContain('Cost Recall')
     expect(html).toContain('Ledger')
     expect(html).not.toContain('practice-hub main-content')
@@ -101,23 +101,18 @@ describe('SSR render smoke', () => {
     expect(practiceHtml).not.toContain('Ranked access restricted')
   })
 
-  it.each(['/offline', '/leaderboards', '/profile'])('gives %s the unified offline treatment', async (path) => {
+  // The redesign names the cause, not the consequence: offline, the Ladder and
+  // You stay live (no bundled Offline takeover) and a header chip names why the
+  // server data is quiet.
+  it.each(['/leaderboards', '/profile'])('keeps %s live and names the cause when offline', async (path) => {
     apiAvailability.value = 'unavailable'
-    accountStatus.value = 'unavailable'
-    player.value = null
+    accountStatus.value = 'authenticated'
     route.value = path
 
     const html = await renderToStringAsync(<App />)
 
-    expect(html).toContain('ed-offline-page')
-    expect(html).toContain('Offline mode is ready')
-    expect(html).toContain('All six games are available')
-    expect(html).toContain('Ranks and You return automatically when player services are reachable')
-    expect(html).toContain('personal bests, badges, XP, history, or leaderboard position')
-    expect(html).toContain('Open Practice')
-    expect(html).toContain('Choose a game')
-    expect(html).not.toContain('Player services are reconnecting')
-    expect(html).not.toContain('Loading leaderboard')
+    expect(html).not.toContain('ed-offline-page')
+    expect(html).toContain('OFFLINE')
   })
 
   it('links to the Elixir Drop Discord guide from the desktop rail cluster', async () => {

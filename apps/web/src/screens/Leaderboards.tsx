@@ -18,6 +18,8 @@ import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-m
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
 import { CLAN_INVITE_URL } from '../lib/links'
+import CauseChip from '../components/CauseChip'
+import { offline } from '../lib/api-availability'
 
 // The Ladder is one page with three scopes — Boards, Badges, Clan — under a
 // fixed header. The <h1>Ladder</h1> is emitted sr-only by App.tsx ROUTE_LABELS,
@@ -139,10 +141,24 @@ export default function Leaderboards() {
 
   const isClan = uiScope.value === 'clan'
   const isBadges = uiScope.value === 'badges'
+  // Local capture so the effect can depend on connectivity (a module-level
+  // signal is not a valid hook dependency); reading it here also subscribes the
+  // component, so a reconnect re-renders and re-runs the fetch.
+  const isOffline = offline.value
 
   useEffect(() => {
     // Badges read the local badge signal, not the board API.
     if (isBadges) {
+      loading.value = false
+      error.value = ''
+      return
+    }
+    // Offline the boards go quiet rather than error: no fetch, an empty board
+    // that names the cause. Badges above still work from the local signal.
+    if (isOffline) {
+      entries.value = []
+      activeClan.value = null
+      clanGate.value = null
       loading.value = false
       error.value = ''
       return
@@ -195,6 +211,7 @@ export default function Leaderboards() {
     mode.value,
     uiScope.value,
     period.value,
+    isOffline,
     isBadges,
     isClan,
     currentAccountStatus,
@@ -268,6 +285,7 @@ export default function Leaderboards() {
 
   return (
     <div class="ed-board ed-ladder leaderboard-screen">
+      <CauseChip />
       <header class="ed-ladder__head">
         <div class="ed-ladder__titlerow">
           <div class="ed-ladder__title" aria-hidden="true">
@@ -276,7 +294,7 @@ export default function Leaderboards() {
           <div class="ed-ladder__clock">{isBadges ? 'Badges never reset' : seasonEndLine(season.value)}</div>
         </div>
         {arena && (
-          <div class="ed-ladder__arena">
+          <div class={`ed-ladder__arena${offline.value ? ' ed-ladder__arena--stale' : ''}`}>
             <div class="ed-ladder__arena-row">
               <span class="ed-ladder__arena-name">{arena.current.name}</span>
               <span class="ed-ladder__arena-xp">{(currentPlayer?.xp ?? 0).toLocaleString()} XP</span>
@@ -284,7 +302,9 @@ export default function Leaderboards() {
             <div class="ed-ladder__arena-bar">
               <span class="ed-ladder__arena-fill" style={{ width: `${arena.fillPct}%` }} />
             </div>
-            <div class="ed-ladder__arena-togo">{arena.toGoLabel}</div>
+            <div class="ed-ladder__arena-togo">
+              {offline.value ? 'Last known · updated when you reconnect' : arena.toGoLabel}
+            </div>
           </div>
         )}
       </header>
@@ -405,10 +425,22 @@ export default function Leaderboards() {
                 <li class="ed-board__empty">
                   <EmptyState
                     art="empty-board"
-                    heading={isClan ? 'No clanmates have posted' : 'Nobody has posted'}
-                    line={isClan ? 'First clan run takes the crown.' : 'First run on this board takes the crown.'}
-                    actionLabel={`Play ${selectedGame.name}`}
-                    href={selectedGame.path}
+                    heading={
+                      offline.value
+                        ? 'Boards need a connection'
+                        : isClan
+                          ? 'No clanmates have posted'
+                          : 'Nobody has posted'
+                    }
+                    line={
+                      offline.value
+                        ? 'Reconnect to see the standings — every game still plays offline.'
+                        : isClan
+                          ? 'First clan run takes the crown.'
+                          : 'First run on this board takes the crown.'
+                    }
+                    actionLabel={offline.value ? 'Choose a game' : `Play ${selectedGame.name}`}
+                    href={offline.value ? '/' : selectedGame.path}
                   />
                 </li>
               )}

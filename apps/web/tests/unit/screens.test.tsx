@@ -542,42 +542,44 @@ describe('HomeMobile', () => {
     }
   }
 
-  it('renders as a guest: Guest chip, personal bests, more-games row, and no Ranks stub', async () => {
+  it('leads with the hero, names a guest with a cause chip, and lists every mode', async () => {
     accountStatus.value = 'anonymous'
     player.value = null
     installMode.value = 'none'
 
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
 
-    expect(html).toContain('Guest')
-    expect(html).toContain('Sign in to save your scores')
-    // More-games row carries every non-Surge mode.
-    expect(html).toContain('Higher / Lower')
-    expect(html).toContain('Rain')
-    expect(html).toContain('Trade')
-    expect(html).toContain('Survival')
-    expect(html).toContain('Practice options')
+    // The nav never renames; a header cause chip names the state instead.
+    expect(html).toContain('GUEST')
+    // Every mode appears — the featured one in the hero, the rest as rows.
+    for (const name of ['Surge', 'Higher / Lower', 'Rain', 'Trade', 'Survival']) {
+      expect(html).toContain(name)
+    }
+    // Practice holds both drills under one UNRANKED list.
     expect(html).toContain('Cost Recall')
     expect(html).toContain('Ledger')
-    expect(html).toContain('Both drills work offline')
-    expect(html).toContain('Your best · 4.800s')
-    expect(html).toContain('Your best · —')
+    expect(html).toContain('UNRANKED')
+    // A readiness indicator, not a warning.
+    expect(html).toContain('Games are available to play offline')
     expect(html).not.toContain('Season standings')
+    // The intro header and identity chip band are gone.
+    expect(html).not.toContain('ed-idchip')
+    expect(html).not.toContain('ed-home-intro')
     // installMode 'none' → neither banner nor row.
     expect(html).not.toContain('ed-installbar')
     expect(html).not.toContain('ed-installrow')
   })
 
-  it('renders an authed identity chip with public name + level', async () => {
+  it('shows no cause chip and no identity band when authed and online', async () => {
     accountStatus.value = 'authenticated'
     player.value = { id: 'p2', publicName: 'Bob', level: 7 } as never
 
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
 
-    expect(html).toContain('Bob')
-    expect(html).toContain('Level 7')
-    expect(html).not.toContain('Sign in to save your scores')
-    expect(html).not.toContain('ed-standpeek')
+    // Identity lives on the You page now; Home leads with the hero.
+    expect(html).not.toContain('GUEST')
+    expect(html).not.toContain('ed-cause')
+    expect(html).not.toContain('ed-idchip')
   })
 
   it('shows the prominent install banner while installable and undismissed', async () => {
