@@ -93,15 +93,16 @@ describe('Summary', () => {
     expect(html).toContain('ed-eyebrow')
     expect(html).toContain('Surge complete')
     expect(html).toContain('28.6s')
-    // pbCallout renders the ed-sum__pb block and a default gold "Moment" tile.
-    expect(html).toContain('ed-sum__pb')
+    // The PB callout reads back in the "what it changed" ledger block.
+    expect(html).toContain('ed-sum__changed')
     expect(html).toContain('New personal best! −3.4s')
-    expect(html).toContain('ed-sum-tile--gold')
     // Default replay label + Home button.
     expect(html).toContain('Play again')
     expect(html).toContain('Home')
     // Signed in → no sign-in-to-save panel.
     expect(html).not.toContain('signin-save')
+    // The generic moment tiles are gone.
+    expect(html).not.toContain('ed-sum-tile')
   })
 
   it('does not invite a guest to save an intentionally unranked Practice session', async () => {
@@ -124,48 +125,11 @@ describe('Summary', () => {
     expect(html).not.toContain('ed-sum__pb')
   })
 
-  it('derives a "Clean read" green moment for high accuracy without a PB', async () => {
-    const html = await render(
-      <Summary
-        eyebrow="e"
-        headline="h"
-        insights={emptyInsights({ total: 10, correct: 10, accuracyPct: 100 })}
-        share={{ mode: 'surge', score: '10/10' }}
-        onReplay={() => {}}
-        onHome={() => {}}
-      />
-    )
-    expect(html).toContain('Clean read')
-    expect(html).toContain('ed-sum-tile--green')
-  })
-
-  it('derives a "first try" purple moment for mid accuracy', async () => {
-    const html = await render(
-      <Summary
-        eyebrow="e"
-        headline="h"
-        insights={emptyInsights({ total: 15, correct: 9, accuracyPct: 60 })}
-        share={{ mode: 'surge', score: '9/15' }}
-        onReplay={() => {}}
-        onHome={() => {}}
-      />
-    )
-    expect(html).toContain('9/15 first try')
-    expect(html).toContain('ed-sum-tile--purple')
-  })
-
-  it('renders bands, missed chips, slowest reads, custom moments, replay label and children', async () => {
+  it('merges missed and slow cards into one "Work on these" list and renders the signature slot', async () => {
     const insights = emptyInsights({
       total: 4,
       correct: 2,
       accuracyPct: 50,
-      bands: [
-        { label: '1–2', correct: 1, total: 1 },
-        { label: '3', correct: 1, total: 2 },
-        { label: '4', correct: 0, total: 0 },
-        { label: '5', correct: 0, total: 1 },
-        { label: '6+', correct: 0, total: 0 }
-      ],
       weakest: [KNIGHT, GIANT],
       hasTiming: true,
       slowestCards: [GIANT]
@@ -175,35 +139,26 @@ describe('Summary', () => {
         eyebrow="Surge"
         headline="40s"
         insights={insights}
-        moments={[{ label: 'Custom', value: 'Nice', tone: 'green' }]}
         share={{ mode: 'surge', score: '40s' }}
         replayLabel="Run it back"
         onReplay={() => {}}
         onHome={() => {}}
       >
-        <div class="my-share-slot">shared</div>
+        <div class="my-share-slot">signature</div>
       </Summary>
     )
-    // Custom moment overrides defaults.
-    expect(html).toContain('Custom')
-    expect(html).toContain('Nice')
-    // hasBands → accuracy-by-cost section.
-    expect(html).toContain('Accuracy by cost')
-    expect(html).toContain('ed-sum-band__fill')
-    expect(html).toContain('height:100%')
-    expect(html).toContain('height:50%')
-    // weakest chips.
-    expect(html).toContain('Missed this round')
+    // The two old taxonomies (Missed / Slowest) merge into one list, deduped.
+    expect(html).toContain('Work on these')
     expect(html).toContain('Knight')
     expect(html).toContain('Giant')
-    // slowest reads (timing).
-    expect(html).toContain('Slowest reads')
-    // Sharing is promoted directly below the result headline, before analysis.
-    expect(html).toContain('Share your score')
-    expect(html.indexOf('shareline')).toBeLessThan(html.indexOf('ed-sum-tiles'))
-    // children slot.
+    expect(html).not.toContain('Missed this round')
+    expect(html).not.toContain('Slowest reads')
+    // The accuracy-by-cost chart and the generic tiles are gone.
+    expect(html).not.toContain('Accuracy by cost')
+    expect(html).not.toContain('ed-sum-tile')
+    // The mode's signature panel (children) renders, and share is a real action.
     expect(html).toContain('my-share-slot')
-    // custom replay label.
+    expect(html).toContain('shareline')
     expect(html).toContain('Run it back')
   })
 })

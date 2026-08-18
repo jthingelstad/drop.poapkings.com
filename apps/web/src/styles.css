@@ -1201,28 +1201,58 @@ a {
   width: 100%;
 }
 
+/* Cost Recall's four choices are keycaps, not a different kind of control — the
+   same face as the pip keypad, just wider (a different number of doors). */
 .mc-choices__btn {
+  position: relative;
   height: 70px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #4a2da0, #2a1860);
+  color: #fff;
+  font-family: var(--font-display);
   font-size: 1.6rem;
-  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  box-shadow:
+    0 5px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s;
 }
-
-.mc-choices__btn .elixir-pip {
-  width: 16px;
-  height: 16px;
+.mc-choices__btn:hover {
+  filter: brightness(1.08);
+}
+.mc-choices__btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 2px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.mc-choices__btn:disabled {
+  cursor: default;
 }
 
 .mc-choices__btn--wrong {
-  border-color: rgba(248, 113, 113, 0.85);
-  background: rgba(127, 29, 29, 0.72);
+  background: linear-gradient(160deg, #c0364a, #771c2b);
+  box-shadow:
+    0 5px 0 #4a0f19,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #fecaca;
 }
 
 .mc-choices__btn--correct {
-  border-color: rgba(245, 200, 76, 0.9);
-  background: linear-gradient(160deg, rgba(90, 62, 19, 0.9), rgba(121, 75, 13, 0.78));
-  color: var(--gold-lite);
-  box-shadow: 0 0 0 2px rgba(245, 200, 76, 0.18), 0 10px 24px rgba(0, 0, 0, 0.28);
+  background: linear-gradient(160deg, #e0b64a, #b77513);
+  box-shadow:
+    0 5px 0 #7a4d0d,
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  color: #2a1500;
 }
 
 /* ── Input style toggle ───────────────────────────────────── */
@@ -7941,4 +7971,227 @@ html.reduce-motion .practice-drill {
 .ed-ladder__arena--stale {
   opacity: 0.55;
   filter: grayscale(0.7);
+}
+
+/* ── Exchange board (Trade + Ledger) ──────────────────────────
+   RED lane on top, BLUE below, a ledger line between them. */
+.ed-xboard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.ed-xlane {
+  border-radius: 16px;
+  padding: 10px 12px 12px;
+  min-height: 150px;
+}
+.ed-xlane--red {
+  background: rgba(192, 54, 74, 0.11);
+  border: 1px solid rgba(192, 54, 74, 0.38);
+}
+.ed-xlane--blue {
+  background: rgba(47, 95, 208, 0.11);
+  border: 1px solid rgba(47, 95, 208, 0.38);
+}
+.ed-xlane__label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}
+.ed-xlane--red .ed-xlane__label {
+  color: #f3a3ad;
+}
+.ed-xlane--blue .ed-xlane__label {
+  color: #a8c0f5;
+}
+.ed-xlane__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-xcard {
+  width: 96px;
+}
+.ed-xcard__art {
+  position: relative;
+  width: 96px;
+}
+.ed-xcard__img,
+.ed-xcard__fallback {
+  width: 96px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.ed-xcard__name {
+  display: block;
+  font-size: 10px;
+  text-align: center;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.ed-xcard__cost {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
+.ed-xboard__balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+}
+.ed-xboard__q {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--muted);
+}
+.ed-xboard__value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--gold);
+}
+.ed-xboard__reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1.5px dashed rgba(139, 92, 246, 0.8);
+  background: rgba(139, 92, 246, 0.12);
+  color: #cbbdf2;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Exchange pad: two magnitude rows plus EVEN ─────────────── */
+.ed-xpad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+  margin: 12px auto 0;
+}
+.ed-xpad__row {
+  display: flex;
+  gap: 6px;
+}
+.ed-xpad__key {
+  position: relative;
+  flex: 1;
+  height: clamp(42px, 12vw, 60px);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s;
+}
+.ed-xpad__key--red {
+  background: linear-gradient(160deg, #c0364a, #771c2b);
+  box-shadow:
+    0 4px 0 #4a0f19,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key--blue {
+  background: linear-gradient(160deg, #2f5fd0, #1a3480);
+  box-shadow:
+    0 4px 0 #10204d,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key--even {
+  background: linear-gradient(160deg, #4a2da0, #2a1860);
+  box-shadow:
+    0 4px 0 #1a0f3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+.ed-xpad__key:hover {
+  filter: brightness(1.08);
+}
+.ed-xpad__key:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.ed-xpad__key:disabled {
+  cursor: default;
+}
+.ed-xpad__key.is-wrong {
+  outline: 2px solid #f87171;
+  outline-offset: 1px;
+}
+.ed-xpad__key.is-correct,
+.ed-xpad__key.is-answer {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+/* ── Drill sandbox bloom ──────────────────────────────────────
+   Subtraction signals a sandbox: only the drill card gets a soft violet bloom
+   behind it. Ranked stages stay flat. */
+.ed-kstage--practice .ed-kstage__card {
+  position: relative;
+}
+.ed-kstage--practice .ed-kstage__card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(520px 300px at 50% 22%, rgba(109, 40, 217, 0.16), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Summary frame additions ──────────────────────────────── */
+.ed-sum__score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.ed-sum__state {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+.ed-sum__changed {
+  border: 1px solid rgba(245, 200, 76, 0.28);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-sum__changed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-lite, #ffe9b3);
+  font-weight: 700;
+}
+.ed-sum__signature {
+  border-radius: 16px;
 }

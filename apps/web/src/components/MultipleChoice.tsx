@@ -23,12 +23,11 @@ export default function MultipleChoice({
         return (
           <button
             key={n}
-            class={`btn btn--purple mc-choices__btn${wrong ? ' mc-choices__btn--wrong' : ''}${right ? ' mc-choices__btn--correct' : ''}`}
+            class={`mc-choices__btn${wrong ? ' mc-choices__btn--wrong' : ''}${right ? ' mc-choices__btn--correct' : ''}`}
             onClick={() => !disabled && onPick(n)}
             disabled={disabled}
             aria-label={`${n} elixir${right ? ', correct answer' : wrong ? ', your answer, incorrect' : ''}`}
           >
-            <img src="/assets/elixir-drop.png" alt="" class="elixir-pip" aria-hidden="true" />
             <span>{n}</span>
           </button>
         )

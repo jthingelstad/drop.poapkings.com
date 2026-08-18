@@ -501,7 +501,7 @@ describe('mode smoke — Trade', () => {
     stageSession(rounds, 'running')
     const c = mount(<Trade />)
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Trade')
-    expect(c.textContent).toContain('Elixir swing from your side?')
+    expect(c.textContent).toContain('Who came out ahead, and by how much?')
   })
 })
 

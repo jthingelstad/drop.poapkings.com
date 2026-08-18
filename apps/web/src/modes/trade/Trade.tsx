@@ -1,7 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { TRADE_ROUNDS } from '@elixir-drop/contracts'
-import type { Card } from '../../types'
 import { getRecords } from '../../lib/storage'
 import { track } from '../../lib/analytics'
 import { playCorrect, playWrong } from '../../lib/sound'
@@ -14,8 +13,14 @@ import { useAutoStart } from '../../lib/use-auto-start'
 import { useGameKeys } from '../../lib/use-game-keys'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, TRADE_ANSWERS } from '../../lib/trade'
-import { CardArt } from '../../components/CardChrome'
 import Icon from '../../components/Icon'
+import {
+  balanceWinner,
+  EXCHANGE_PROMPT,
+  ExchangeBoard,
+  ExchangePad,
+  exchangeSolvedLine
+} from '../../components/game/ExchangeBoard'
 import Summary from '../../components/Summary'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
@@ -47,49 +52,6 @@ function tradeLine(value: number): string {
   if (value > 0) return `You got a ${formatTrade(value)} trade.`
   if (value < 0) return `You took a ${formatTrade(value)} trade.`
   return 'Even trade.'
-}
-
-// The mode's lesson is cost recall: each card's cost stays hidden until the
-// exchange is solved (or a miss reveals a hint card), then the whole board
-// reveals so the player sees the arithmetic confirmed.
-function TradeCard({ card, revealed }: { card: Card; revealed: boolean }) {
-  return (
-    <li class={`ed-trade__card${revealed ? ' ed-trade__card--revealed' : ''}`} data-card-id={card.id}>
-      <CardArt
-        card={card}
-        className="ed-trade__card-art"
-        imgClassName="ed-trade__card-img"
-        fallbackClassName="ed-trade__card-fallback"
-        showCost={revealed}
-        costClassName="ed-trade__card-cost"
-        showName
-        nameClassName="ed-trade__card-name"
-      />
-    </li>
-  )
-}
-
-function TradeSide({
-  label,
-  side,
-  cards,
-  revealedIds
-}: {
-  label: string
-  side: 'blue' | 'red'
-  cards: Card[]
-  revealedIds: Set<number>
-}) {
-  return (
-    <section class={`ed-trade__team ed-trade__team--${side}`} data-card-count={cards.length}>
-      <span class="ed-trade__team-label">{label}</span>
-      <ol class="ed-trade__cards">
-        {cards.map((card) => (
-          <TradeCard key={card.id} card={card} revealed={revealedIds.has(card.id)} />
-        ))}
-      </ol>
-    </section>
-  )
 }
 
 export default function Trade() {
@@ -255,19 +217,23 @@ export default function Trade() {
     void gameRun.prepare()
   }
 
-  // Desktop keyboard: number keys 1-9 map to the answer pad left→right
-  // (1 = −4 … 5 = Even … 9 = +4); 0 also answers Even.
+  // Desktop keyboard mirrors the two-row pad: 1–4 are Blue (+1…+4), 6–9 are Red
+  // (−1…−4), and 0 or 5 is Even — instead of a "1 = −4 … 9 = +4" mental table.
   useGameKeys((event) => {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
-    if (event.key === '0') {
+    const key = event.key
+    if (key === '0' || key === '5') {
       event.preventDefault()
       guess(0, observeInput(event))
       return
     }
-    const slot = Number(event.key)
-    if (Number.isInteger(slot) && slot >= 1 && slot <= TRADE_ANSWERS.length) {
+    const n = Number(key)
+    if (n >= 1 && n <= 4) {
       event.preventDefault()
-      guess(TRADE_ANSWERS[slot - 1]!, observeInput(event))
+      guess(n, observeInput(event))
+    } else if (n >= 6 && n <= 9) {
+      event.preventDefault()
+      guess(-(n - 5), observeInput(event))
     }
   })
 
@@ -314,15 +280,7 @@ export default function Trade() {
 
   const counting = stage.value === 'countdown'
   const solved = feedback.value === 'correct'
-  const negatives = TRADE_ANSWERS.filter((v) => v < 0)
-  const positives = TRADE_ANSWERS.filter((v) => v > 0)
-
-  function answerClass(value: number, base: string): string {
-    const isPicked = picked.value === value
-    if (feedback.value === 'wrong' && isPicked) return `${base} ed-trade__ans--wrong`
-    if (feedback.value === 'correct' && isPicked) return `${base} ed-trade__ans--correct`
-    return base
-  }
+  const showCost = (cardId: number) => revealedIds.value.has(cardId)
 
   return (
     <GameFrame
@@ -338,73 +296,40 @@ export default function Trade() {
     >
       <div class="ed-trade">
         <GameMotion contentKey={index.value} cue={runtime.cue.value} preset="board">
-          <div class="ed-trade__teams" data-trade-index={index.value + 1}>
-            <TradeSide side="blue" label="BLUE — YOU" cards={round.blue} revealedIds={revealedIds.value} />
-            <div class="ed-trade__divider" aria-hidden="true">
-              <span />
-              TRADE
-              <span />
-            </div>
-            <TradeSide side="red" label="RED" cards={round.red} revealedIds={revealedIds.value} />
+          <div class="ed-trade__board" data-trade-index={index.value + 1}>
+            <ExchangeBoard
+              red={round.red.map((card) => ({ card, showCost: showCost(card.id), key: card.id }))}
+              blue={round.blue.map((card) => ({ card, showCost: showCost(card.id), key: card.id }))}
+              balanceLabel={balanceWinner(tradeValue(round))}
+              revealed={solved}
+            />
           </div>
         </GameMotion>
 
         <div class="ed-trade__prompt">
           {solved ? (
             <span class="ed-trade__math-line" data-testid="trade-math">
-              Blue {sideTotal(round.blue)} · Red {sideTotal(round.red)} →{' '}
-              <strong>Answer: {formatTrade(tradeValue(round))}</strong>
+              {exchangeSolvedLine(sideTotal(round.red), sideTotal(round.blue), tradeValue(round))}
             </span>
           ) : (
-            'Elixir swing from your side?'
+            EXCHANGE_PROMPT
           )}
         </div>
 
-        <div class="ed-trade__pad" role="group" aria-label="Choose your elixir trade">
-          <div class="ed-trade__pad-col">
-            <div class="ed-trade__pad-label ed-trade__pad-label--down">You're down</div>
-            <div class="ed-trade__pad-grid">
-              {negatives.map((value) => (
-                <button
-                  key={value}
-                  class={answerClass(value, 'ed-trade__ans ed-trade__ans--neg')}
-                  onClick={(event) => guess(value, observeInput(event))}
-                  disabled={counting || feedback.value !== 'idle'}
-                  aria-label={`${formatTrade(value)} trade`}
-                >
-                  {formatTrade(value)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div class="ed-trade__pad-mid">
-            <div class="ed-trade__pad-label">Wash</div>
-            <button
-              class={answerClass(0, 'ed-trade__ans ed-trade__ans--even')}
-              onClick={(event) => guess(0, observeInput(event))}
-              disabled={counting || feedback.value !== 'idle'}
-              aria-label="Even trade"
-            >
-              EVEN
-            </button>
-          </div>
-          <div class="ed-trade__pad-col">
-            <div class="ed-trade__pad-label ed-trade__pad-label--up">You're up</div>
-            <div class="ed-trade__pad-grid">
-              {positives.map((value) => (
-                <button
-                  key={value}
-                  class={answerClass(value, 'ed-trade__ans ed-trade__ans--pos')}
-                  onClick={(event) => guess(value, observeInput(event))}
-                  disabled={counting || feedback.value !== 'idle'}
-                  aria-label={`${formatTrade(value)} trade`}
-                >
-                  {formatTrade(value)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <ExchangePad
+          answers={TRADE_ANSWERS}
+          onPick={guess}
+          disabled={counting || feedback.value !== 'idle'}
+          stateFor={(value) =>
+            picked.value === value
+              ? feedback.value === 'wrong'
+                ? 'is-wrong'
+                : feedback.value === 'correct'
+                  ? 'is-correct'
+                  : ''
+              : ''
+          }
+        />
 
         {/* Transient feedback, composited over the game — never in layout flow. */}
         <div class="game-cues" aria-hidden="true">
