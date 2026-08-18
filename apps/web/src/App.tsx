@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
 import { route, navigate } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
-import { gamePathForRoute, profileRouteForGame, type GamePath } from './lib/game-routes'
+import { gamePathForRoute } from './lib/game-routes'
 import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib/version'
@@ -87,21 +87,6 @@ function RouteFallback({ r }: { r: string }) {
   )
 }
 
-function ProfileRequired({ returnTo }: { returnTo: GamePath }) {
-  return (
-    <div class="main-content account-screen">
-      <div class="account-card">
-        <div class="eyebrow">One quick setup</div>
-        <h1>Choose your player identity</h1>
-        <p class="lede">Pick a favorite card and one of its generated names before your first recorded game.</p>
-        <button class="btn btn--gold" onClick={() => navigate(profileRouteForGame(returnTo))}>
-          Choose favorite card
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function RankedAccessRestricted() {
   return (
     <div class="main-content account-screen">
@@ -164,16 +149,10 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
   if ((gamePath || r.startsWith('/profile')) && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
-  // A signed-OUT visitor plays as a guest (nothing recorded); only a signed-IN
-  // player who has not finished profile setup is routed to it first.
-  if (
-    gamePath &&
-    !gameWithoutServices &&
-    accountStatus.value === 'authenticated' &&
-    (!player.value?.favoriteCardId || !player.value.publicName)
-  ) {
-    return <ProfileRequired returnTo={gamePath} />
-  }
+  // Identity never blocks a run: profile setup fires when the magic link lands
+  // (screens/Profile identity steps), not when a game starts, so a signed-in
+  // player who has not finished setup still plays — the run records under their
+  // account and identity is filled in on the You page.
   if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }

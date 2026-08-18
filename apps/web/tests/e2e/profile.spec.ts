@@ -488,15 +488,13 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
     localStorage.setItem('elixirdrop:session:v1', JSON.stringify(storedSession))
   }, session)
 
-  await page.goto('/#/profile')
-  // The player tag now lives in the profile editor.
-  await page.locator('.ed-profile__edit').click()
+  // Adding a player tag opens step 3 of the identity flow (Account routes here).
+  await page.goto('/#/profile?edit=player-tag')
   const tagInput = page.getByPlaceholder('#PLAYER_TAG')
   await expect(tagInput).toBeVisible()
   await tagInput.fill('20JJJ2CCRU')
-  await page.getByRole('button', { name: 'Save tag' }).click()
-  // Return to the You view, where the resolved CR profile renders in Account.
-  await page.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: /PLAY AS/ }).click()
+  // Back on the You view, the resolved CR profile renders in Account.
   await page.getByRole('tab', { name: 'Account' }).click()
 
   // The Clash Royale block is clan name + tag only — no role, no collection.

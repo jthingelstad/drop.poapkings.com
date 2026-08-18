@@ -59,8 +59,6 @@ function joinedText(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }
 
-const CR_LOADING_MESSAGE = 'Player tag saved. Loading its public Clash Royale profile…'
-
 export default function Profile() {
   const profileRoute = route.value
   const returnTo = gameReturnPathFromRoute(profileRoute)
@@ -68,6 +66,12 @@ export default function Profile() {
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
   const editingIdentity = useSignal(!player.value?.favoriteCardId)
+  // Identity setup is three steps: card → name → player tag. A fresh player runs
+  // the whole flow ('setup'); Edit from You opens step 2 and Account opens step 3
+  // ('edit'), reusing the same screens.
+  const step = useSignal<'card' | 'name' | 'tag'>('card')
+  const flow = useSignal<'setup' | 'edit'>(player.value?.favoriteCardId ? 'edit' : 'setup')
+  const chosenName = useSignal('')
   const scope = useSignal<YouScope>('log')
   const names = useSignal<string[]>([])
   const nameToken = useSignal('')
@@ -84,33 +88,31 @@ export default function Profile() {
     syncedPlayerId.current = authenticatedPlayer.id
     tag.value = authenticatedPlayer.playerTag || ''
     selectedCardId.value = authenticatedPlayer.favoriteCardId ?? null
-    editingIdentity.value = authenticatedPlayer.favoriteCardId === undefined
+    // A player arriving after mount opens setup only when they have no card. Do
+    // not clobber a tag-edit the route requested (Account → step 3).
+    if (!handledTagEditRequest.current) editingIdentity.value = authenticatedPlayer.favoriteCardId === undefined
   })
 
   useEffect(() => {
     const query = profileRoute.split('?', 2)[1]
     if (handledTagEditRequest.current || new URLSearchParams(query).get('edit') !== 'player-tag') return
     handledTagEditRequest.current = true
+    // Account's player-tag edit opens step 3 directly (reusing the setup screen).
+    flow.value = 'edit'
+    step.value = 'tag'
     editingIdentity.value = true
     const frame = window.requestAnimationFrame(() => {
       tagInputRef.current?.scrollIntoView({ block: 'center' })
       tagInputRef.current?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [profileRoute, editingIdentity])
+  }, [profileRoute, editingIdentity, flow, step])
 
   useEffect(() => {
     if (pollingCrStatus !== 'pending') return
     const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
     return () => window.clearInterval(interval)
   }, [pollingCrStatus])
-
-  useEffect(() => {
-    if (message.value !== CR_LOADING_MESSAGE || pollingCrStatus === 'pending') return
-    if (pollingCrStatus === 'ready') message.value = 'Clash Royale profile loaded.'
-    if (pollingCrStatus === 'not_found') message.value = 'Player tag was not found.'
-    if (pollingCrStatus === 'unavailable') message.value = 'Profile refresh delayed. Drop will retry automatically.'
-  }, [message.value, pollingCrStatus])
 
   // Opening Updates stamps the read time server-side, clearing the unread dot.
   useEffect(() => {
@@ -141,7 +143,6 @@ export default function Profile() {
   }
 
   const current = player.value
-  const isInitialSetup = current.favoriteCardId === undefined
   const currentCard = current.favoriteCardId === undefined ? undefined : challengeCard(current.favoriteCardId)
   const selectedCard = selectedCardId.value === null ? undefined : challengeCard(selectedCardId.value)
   const query = search.value.trim().toLocaleLowerCase()
@@ -150,19 +151,40 @@ export default function Profile() {
     : favoriteCards
 
   function beginIdentityEdit() {
+    // Edit from You opens step 2 (name) with the card already chosen.
     selectedCardId.value = current.favoriteCardId ?? null
+    chosenName.value = current.publicName ?? ''
     names.value = []
     nameToken.value = ''
     search.value = ''
     message.value = ''
+    flow.value = 'edit'
+    step.value = current.favoriteCardId === undefined ? 'card' : 'name'
     editingIdentity.value = true
+    if (current.favoriteCardId !== undefined) void loadNames()
   }
 
   function selectCard(cardId: number) {
     selectedCardId.value = cardId
+    chosenName.value = ''
     names.value = []
     nameToken.value = ''
     message.value = ''
+  }
+
+  // Card before name: CONTINUE advances to the name step and asks the server for
+  // names generated from the chosen card.
+  function continueToName() {
+    if (selectedCardId.value === null) return
+    step.value = 'name'
+    void loadNames()
+  }
+
+  function finishEdit() {
+    editingIdentity.value = false
+    message.value = ''
+    if (returnTo) navigate(returnTo)
+    else if (flow.value === 'setup') navigate('/')
   }
 
   async function loadNames() {
@@ -181,21 +203,17 @@ export default function Profile() {
     }
   }
 
-  async function chooseName(name: string) {
-    if (!selectedCard) return
+  // Step 2 saves the card and name together, then continues to the tag step for a
+  // fresh player, or finishes for an edit.
+  async function saveIdentityAndContinue() {
+    if (!selectedCard || !chosenName.value) return
     busy.value = true
     message.value = ''
     try {
-      await updateAccount({ favoriteCardId: selectedCard.id, publicName: name, nameToken: nameToken.value })
+      await updateAccount({ favoriteCardId: selectedCard.id, publicName: chosenName.value, nameToken: nameToken.value })
       names.value = []
-      editingIdentity.value = false
-      if (returnTo) {
-        navigate(returnTo)
-      } else if (isInitialSetup) {
-        navigate('/')
-      } else {
-        message.value = `${selectedCard.name} is now your favorite card.`
-      }
+      if (flow.value === 'setup') step.value = 'tag'
+      else finishEdit()
     } catch (error) {
       message.value = error instanceof Error ? error.message : 'Your player identity could not be saved.'
     } finally {
@@ -203,132 +221,145 @@ export default function Profile() {
     }
   }
 
-  async function saveTag(event: Event) {
+  // Step 3: the tag lookup runs against the public profile after submission, so
+  // the screen promises nothing it has not got — the player can start straight away.
+  async function saveTagAndFinish(event: Event) {
     event.preventDefault()
     busy.value = true
     try {
       await updateAccount({ playerTag: tag.value || null })
-      message.value = tag.value ? CR_LOADING_MESSAGE : 'Player tag removed.'
+      finishEdit()
     } catch (error) {
-      message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
-    } finally {
       busy.value = false
+      message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
     }
   }
 
-  // ── Edit mode: identity (card + name) + player tag ───────────────────────
+  // ── Identity setup: three steps (card → name → tag) ──────────────────────
+  // A fresh player runs the whole flow on the magic link; Edit opens step 2 and
+  // Account opens step 3, reusing the same screens. Nothing here ever blocks a
+  // run — setup fires on arrival, not when a game starts.
   if (editingIdentity.value) {
+    const stepNum = step.value === 'card' ? 1 : step.value === 'name' ? 2 : 3
+    const showBack = !(flow.value === 'setup' && step.value === 'card')
+    const nameForCta = (chosenName.value || current.publicName || '').toLocaleUpperCase()
+    const goBack = () => {
+      message.value = ''
+      if (step.value === 'tag') {
+        if (flow.value === 'setup') step.value = 'name'
+        else editingIdentity.value = false
+      } else if (step.value === 'name') {
+        // Both flows can step back to the card grid to change the card.
+        step.value = 'card'
+      } else {
+        editingIdentity.value = false
+      }
+    }
     return (
-      <div class="ed-edit">
-        <header class="ed-edit__top">
-          {current.favoriteCardId !== undefined && (
-            <button
-              class="ed-iconbtn"
-              aria-label="Back to profile"
-              onClick={() => {
-                editingIdentity.value = false
-                message.value = ''
-              }}
-            >
+      <div class="ed-idsetup">
+        <header class="ed-idsetup__top">
+          {showBack && (
+            <button class="ed-iconbtn" aria-label="Back" onClick={goBack} disabled={busy.value}>
               <Icon name="chevron-left" />
             </button>
           )}
-          <div>
-            <div class="ed-eyebrow">Your Drop player</div>
-            <h1 class="ed-h1">{current.favoriteCardId === undefined ? 'Finish setup' : 'Edit profile'}</h1>
-          </div>
-        </header>
-
-        <div class="ed-edit__preview">
-          <PlayerAvatar favoriteCardId={selectedCard?.id ?? current.favoriteCardId} size="large" />
-          <div>
-            <div class="ed-edit__preview-name">{current.publicName || 'Choose a name'}</div>
-            <div class="ed-edit__preview-card">{(selectedCard ?? currentCard)?.name ?? 'No card'} · Player Card</div>
-          </div>
-        </div>
-
-        {isInitialSetup && (
-          <p class="ed-edit__note">
-            Choose a Player Card, then pick a generated name. You can add a Clash Royale tag later.
-            {returnTo ? ' You’ll return to your game when setup is complete.' : ''}
-          </p>
-        )}
-
-        <section class="ed-edit__section">
-          <div class="ed-edit__section-title">{isInitialSetup ? '1. Choose your Player Card' : 'Player Card'}</div>
-          <p class="ed-edit__section-sub">This card becomes your avatar and inspires your player name.</p>
-          <input
-            type="search"
-            class="ed-edit__search"
-            placeholder="Search cards"
-            value={search.value}
-            onInput={(event) => (search.value = event.currentTarget.value)}
-          />
-          <div class="ed-edit__cards favorite-card-grid" aria-label="Choose your favorite card">
-            {visibleCards.slice(0, 60).map((card) => (
-              <button
-                key={card.id}
-                class={`ed-cardopt favorite-card${selectedCardId.value === card.id ? ' ed-cardopt--sel favorite-card--selected' : ''}`}
-                aria-label={card.name}
-                aria-pressed={selectedCardId.value === card.id}
-                onClick={() => selectCard(card.id)}
-                disabled={busy.value}
-              >
-                <PlayerAvatar favoriteCardId={card.id} size="medium" class="ed-cardopt__avatar" />
-                <span>{card.name}</span>
-              </button>
-            ))}
-            {!visibleCards.length && <p class="favorite-card-empty ed-edit__noresult">No cards match that search.</p>}
-          </div>
-        </section>
-
-        <section class="ed-edit__section">
-          <div class="ed-edit__section-title">{isInitialSetup ? '2. Choose your player name' : 'Player name'}</div>
-          <p class="ed-edit__section-sub">
-            {selectedCard
-              ? `Inspired by ${selectedCard.name}. Generate a set and pick your favorite.`
-              : 'Choose a Player Card above, then generate a set of player names.'}
-          </p>
-          <button
-            class="ed-btn ed-btn--gold ed-btn--sm tap-fx"
-            onClick={() => void loadNames()}
-            disabled={busy.value || !selectedCard}
-          >
-            <span class="tap-face">
-              <Icon name="sparkles" />{' '}
-              {busy.value
-                ? 'Getting ideas…'
-                : !selectedCard
-                  ? 'Choose a Player Card first'
-                  : names.value.length
-                    ? 'More name ideas'
-                    : 'Get name ideas'}
-            </span>
-          </button>
-          {names.value.length > 0 && (
-            <>
-              {isInitialSetup && <p class="ed-edit__section-sub">Pick a name to finish setup.</p>}
-              <div class="ed-edit__names name-options" aria-label="Choose your public player name">
-                {names.value.map((name) => (
-                  <button
-                    key={name}
-                    class="ed-nameopt name-option"
-                    onClick={() => void chooseName(name)}
-                    disabled={busy.value}
-                  >
-                    {name}
-                  </button>
+          {flow.value === 'setup' && (
+            <div class="ed-idsetup__steps">
+              <span class="ed-idsetup__stepnum">Step {stepNum} of 3</span>
+              <div class="ed-idsetup__bars" aria-hidden="true">
+                {[1, 2, 3].map((i) => (
+                  <span key={i} class={`ed-idsetup__bar${i <= stepNum ? ' is-done' : ''}`} />
                 ))}
               </div>
-            </>
+            </div>
           )}
-        </section>
+        </header>
 
-        {!isInitialSetup && (
-          <section class="ed-edit__section">
-            <div class="ed-edit__section-title">Clash Royale player tag (optional)</div>
-            <p class="ed-edit__section-sub">Points at a public CR profile (not ownership). Drop loads it when saved.</p>
-            <form class="ed-edit__tagform" onSubmit={saveTag}>
+        {step.value === 'card' && (
+          <section class="ed-idsetup__step">
+            <h1 class="ed-idsetup__h">Choose your Player Card</h1>
+            <p class="ed-idsetup__sub">This card becomes your avatar and inspires your player name.</p>
+            <input
+              type="search"
+              class="ed-edit__search"
+              placeholder="Search cards"
+              value={search.value}
+              onInput={(event) => (search.value = event.currentTarget.value)}
+            />
+            <div class="ed-idsetup__cards favorite-card-grid" aria-label="Choose your favorite card">
+              {visibleCards.slice(0, 60).map((card) => (
+                <button
+                  key={card.id}
+                  class={`ed-cardopt favorite-card${selectedCardId.value === card.id ? ' ed-cardopt--sel favorite-card--selected' : ''}`}
+                  aria-label={card.name}
+                  aria-pressed={selectedCardId.value === card.id}
+                  onClick={() => selectCard(card.id)}
+                  disabled={busy.value}
+                >
+                  <PlayerAvatar favoriteCardId={card.id} size="medium" class="ed-cardopt__avatar" />
+                  <span>{card.name}</span>
+                </button>
+              ))}
+              {!visibleCards.length && (
+                <p class="favorite-card-empty ed-idsetup__noresult">No cards match that search.</p>
+              )}
+            </div>
+            <div class="ed-idsetup__actions">
+              <button
+                class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+                disabled={selectedCardId.value === null}
+                onClick={continueToName}
+              >
+                <span class="tap-face">
+                  {selectedCard ? `${selectedCard.name.toLocaleUpperCase()} · CONTINUE` : 'CONTINUE'}
+                </span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {step.value === 'name' && (
+          <section class="ed-idsetup__step">
+            <div class="ed-idsetup__chosen">
+              <PlayerAvatar favoriteCardId={selectedCard?.id ?? current.favoriteCardId} size="large" />
+              <div>
+                <h1 class="ed-idsetup__h">Pick your name</h1>
+                <p class="ed-idsetup__sub">{selectedCard ? `Inspired by ${selectedCard.name}.` : ''}</p>
+              </div>
+            </div>
+            <div class="ed-idsetup__names name-options" aria-label="Choose your public player name">
+              {names.value.map((name) => (
+                <button
+                  key={name}
+                  class={`ed-nameopt name-option${chosenName.value === name ? ' ed-nameopt--sel name-option--selected' : ''}`}
+                  aria-pressed={chosenName.value === name}
+                  onClick={() => (chosenName.value = name)}
+                  disabled={busy.value}
+                >
+                  {chosenName.value === name && <Icon name="check" />}
+                  {name}
+                </button>
+              ))}
+            </div>
+            <button class="ed-textlink ed-idsetup__more" onClick={() => void loadNames()} disabled={busy.value}>
+              <Icon name="sparkles" /> More ideas
+            </button>
+            <div class="ed-idsetup__actions">
+              <button
+                class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+                disabled={busy.value || !chosenName.value}
+                onClick={() => void saveIdentityAndContinue()}
+              >
+                <span class="tap-face">{chosenName.value ? `${nameForCta} · CONTINUE` : 'CONTINUE'}</span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {step.value === 'tag' && (
+          <section class="ed-idsetup__step">
+            <h1 class="ed-idsetup__h">Add your Clash Royale tag</h1>
+            <form class="ed-idsetup__tagform" onSubmit={saveTagAndFinish}>
               <input
                 id="clash-player-tag"
                 ref={tagInputRef}
@@ -337,31 +368,31 @@ export default function Profile() {
                 placeholder="#PLAYER_TAG"
                 onInput={(event) => (tag.value = event.currentTarget.value)}
               />
-              <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" disabled={busy.value}>
-                <span class="tap-face">Save tag</span>
-              </button>
+              <p class="ed-idsetup__sub">
+                Drop looks up your clan after you finish — it takes a moment, and you can start playing straight away.
+              </p>
+              <p class="ed-idsetup__fine">Drop only reads your public Clash Royale profile — a tag is not ownership.</p>
+              <p class="ed-idsetup__fine">Find the tag under your name in Clash Royale.</p>
+              <div class="ed-idsetup__actions">
+                <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" disabled={busy.value}>
+                  <span class="tap-face">{`PLAY AS ${nameForCta}`.trim()}</span>
+                </button>
+                <button
+                  type="button"
+                  class="ed-btn ed-btn--ghost ed-btn--lg"
+                  onClick={finishEdit}
+                  disabled={busy.value}
+                >
+                  Skip — add it later in You
+                </button>
+              </div>
             </form>
           </section>
         )}
 
         {message.value && (
-          <div class="ed-edit__msg" role="status">
+          <div class="ed-idsetup__msg" role="alert">
             {message.value}
-          </div>
-        )}
-
-        {current.favoriteCardId !== undefined && (
-          <div class="ed-edit__actions">
-            <button
-              class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-              onClick={() => {
-                editingIdentity.value = false
-                message.value = ''
-              }}
-              disabled={busy.value}
-            >
-              <span class="tap-face">Done</span>
-            </button>
           </div>
         )}
       </div>

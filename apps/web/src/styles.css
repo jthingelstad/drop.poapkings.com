@@ -8439,3 +8439,137 @@ html.reduce-motion .ed-skeleton__row {
   color: var(--muted);
   line-height: 1.4;
 }
+
+/* ── Identity setup (three steps) ─────────────────────────────
+   Card → name → tag, one thing per screen. A fresh player runs the whole flow on
+   the magic link; Edit and Account reuse the individual steps. */
+.ed-idsetup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 2px 24px;
+  min-height: 100%;
+}
+.ed-idsetup__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+.ed-idsetup__steps {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ed-idsetup__stepnum {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ed-idsetup__bars {
+  display: flex;
+  gap: 6px;
+}
+.ed-idsetup__bar {
+  flex: 1 1 0;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.ed-idsetup__bar.is-done {
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+}
+.ed-idsetup__step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ed-idsetup__h {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+}
+.ed-idsetup__sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ed-idsetup__fine {
+  margin: 0;
+  color: #7d739f;
+  font-size: 12px;
+}
+.ed-idsetup__noresult {
+  color: var(--muted);
+}
+.ed-idsetup__cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ed-idsetup__chosen {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ed-idsetup__names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-idsetup__names .name-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: transparent;
+  color: #e7e0ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ed-idsetup__names .name-option--selected {
+  background: linear-gradient(160deg, #8b5cf6, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+}
+.ed-idsetup__more {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ed-idsetup__tagform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-idsetup__tagform input {
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  font-size: 16px;
+}
+.ed-idsetup__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ed-idsetup__actions .ed-btn {
+  width: 100%;
+}
+.ed-idsetup__msg {
+  color: #fca5a5;
+  font-size: 13px;
+}

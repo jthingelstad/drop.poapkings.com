@@ -43,15 +43,16 @@ describe('favorite-card identity', () => {
     accountStatus.value = 'authenticated'
     player.value = basePlayer
 
-    // No favorite card yet → the editor opens straight to setup.
+    // No favorite card yet → setup opens at step 1 (card), card before name.
     const html = await renderToStringAsync(<Profile />)
 
-    expect(html).toContain('Finish setup')
+    expect(html).toContain('Step 1 of 3')
+    expect(html).toContain('Choose your Player Card')
     expect(html).toContain('Search cards')
     expect(html).toContain('aria-label="Choose your favorite card"')
     expect(html).toContain('Knight')
-    expect(html.indexOf('1. Choose your Player Card')).toBeLessThan(html.indexOf('2. Choose your player name'))
-    expect(html).toContain('Choose a Player Card first')
+    // Card before name: the name and tag steps are not on the first screen.
+    expect(html).not.toContain('name-option')
     expect(html).not.toContain('aria-label="Clash Royale player tag"')
   })
 

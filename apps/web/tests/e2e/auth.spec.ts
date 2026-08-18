@@ -178,20 +178,25 @@ test('new players choose a favorite card and generated name before returning to 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
-  // The identity editor (redesign) opens straight into setup for a new player.
-  await expect(page.getByText('You can add a Clash Royale tag later.', { exact: false })).toBeVisible()
-  const setupSections = page.locator('.ed-edit__section-title')
-  await expect(setupSections.nth(0)).toHaveText('1. Choose your Player Card')
-  await expect(setupSections.nth(1)).toHaveText('2. Choose your player name')
+  // Identity setup (redesign) is three steps; it opens at step 1 (the card).
+  await expect(page.getByText('Step 1 of 3')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Choose a Player Card first' })).toBeDisabled()
+  const primary = page.locator('.ed-idsetup__actions .ed-btn--gold')
+  // CONTINUE is disabled until a card is chosen.
+  await expect(primary).toBeDisabled()
 
-  const favoriteCards = page.locator('.favorite-card-grid')
-  // The grid caps at 60 cards, so narrow to the Knight before selecting it.
+  // Step 1: narrow to the Knight (the grid caps at 60), choose it, then CONTINUE.
   await page.getByPlaceholder('Search cards').fill('Knight')
-  await favoriteCards.getByRole('button', { name: 'Knight', exact: true }).click()
-  await page.getByRole('button', { name: 'Get name ideas' }).click()
-  await page.getByRole('button', { name: 'Knight Main', exact: true }).click()
+  await page.locator('.favorite-card-grid').getByRole('button', { name: 'Knight', exact: true }).click()
+  await primary.click()
+
+  // Step 2: pick the generated name, then CONTINUE saves the card + name.
+  await page.locator('.name-option', { hasText: 'Knight Main' }).click()
+  await primary.click()
+
+  // Step 3: skip the tag → return to the pending game.
+  await expect(page.getByText('Step 3 of 3')).toBeVisible()
+  await page.getByRole('button', { name: /Skip/ }).click()
 
   await expect(page).toHaveURL(/#\/surge$/)
   await expect
