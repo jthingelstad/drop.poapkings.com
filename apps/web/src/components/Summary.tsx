@@ -33,7 +33,7 @@ interface Props {
   pbCallout?: string
   insights: Insights
   moments?: SummaryMoment[]
-  share: { mode: GameMode; score: string }
+  share: { mode: GameMode; score: string; series?: number[] }
   // The mode's signature panel — a chart or read-back drawn from data the mode
   // already records. Falls back to the "Work on these" list below.
   children?: ComponentChildren
@@ -148,6 +148,7 @@ export default function Summary({
           score={share.score}
           card={{
             bands: bands.filter((band) => band.total > 0),
+            ...(share.series && share.series.length ? { series: share.series } : {}),
             ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
             ...(shareArena ? { arenaName: shareArena.name } : {})
           }}

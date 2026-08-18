@@ -18,6 +18,8 @@ import { preloadGameFx } from '../../components/GameFxLayer'
 import GameFrame from '../../components/game/GameFrame'
 import GameStartScreen from '../../components/game/GameStart'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { duelSignature } from '../../lib/signatures'
 import GameMilestone from '../../components/GameMilestone'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
@@ -303,6 +305,11 @@ export default function HigherLower() {
       improved: (previous) => `New personal best! +${score.value - previous}`,
       standing: (previous) => `Best: ${previous}`
     })
+    // Signature: read speed per pair, with a right/wrong dot beneath each.
+    const signature = duelSignature(
+      serverAnswers.current.map((a) => a.elapsedMs),
+      gradedAnswers.current.map((a) => a.correct)
+    )
 
     return (
       <div class="ed-gamewrap">
@@ -316,10 +323,16 @@ export default function HigherLower() {
             { label: 'Prev best', value: String(previousBest.value ?? 0), tone: 'purple' },
             { label: 'Accuracy', value: `${insights.accuracyPct}%`, tone: 'green' }
           ]}
-          share={{ mode: 'higher-lower', score: `${score.value} correct` }}
+          share={{
+            mode: 'higher-lower',
+            score: `${score.value} correct`,
+            ...(signature.bars.length ? { series: signature.bars.map((b) => b.value) } : {})
+          }}
           onReplay={() => void replay()}
           onHome={() => navigate('/')}
-        />
+        >
+          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
+        </Summary>
       </div>
     )
   }

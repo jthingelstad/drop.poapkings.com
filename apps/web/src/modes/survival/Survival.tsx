@@ -17,6 +17,8 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { survivalSignature, type Signature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
 import GameFrame from '../../components/game/GameFrame'
@@ -58,6 +60,7 @@ export default function Survival() {
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, later } = runtime
   const streak = useSignal(0)
+  const signature = useSignal<Signature | null>(null)
   const milestone = useSignal<number | null>(null)
   // The record standing BEFORE this run — the number the summary compares
   // against. Never overwritten with the streak just set.
@@ -203,6 +206,11 @@ export default function Survival() {
     isPB.value = streak.value > (prev ?? 0)
     // Cumulative time across the surviving cards — matches the server's tiebreak.
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
+    // Signature: response time per card against the shrinking window; they meet
+    // where the run ends.
+    const perCardMs = serverAnswers.current.map((a) => Math.round(a.elapsedMs))
+    const windowMs = serverAnswers.current.map((_, i) => survivalWindowMs(i))
+    signature.value = survivalSignature(perCardMs, windowMs)
     // survivalBest is persisted centrally when the server accepts the run.
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
@@ -284,11 +292,14 @@ export default function Survival() {
           ]}
           share={{
             mode: 'survival',
-            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`
+            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`,
+            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
           }}
           onReplay={replay}
           onHome={() => navigate('/')}
-        />
+        >
+          {signature.value && <SignaturePanel {...signature.value} />}
+        </Summary>
       </div>
     )
   }

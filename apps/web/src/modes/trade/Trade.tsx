@@ -22,6 +22,8 @@ import {
   exchangeSolvedLine
 } from '../../components/game/ExchangeBoard'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { tradeSignature, type Signature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import FloatingCue from '../../components/FloatingCue'
 import GameMotion from '../../components/GameMotion'
@@ -67,6 +69,7 @@ export default function Trade() {
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS })
   const { stage, count, elapsedMs, later } = runtime
   const index = useSignal(0)
+  const signature = useSignal<Signature | null>(null)
   const revealedIds = useSignal<Set<number>>(new Set())
   const wrongGuesses = useSignal(0)
   const cleanTrades = useSignal(0)
@@ -135,6 +138,12 @@ export default function Trade() {
       wrongGuesses: wrongGuesses.value,
       lastTrade: lastTrade.value
     })
+    // Signature: the time on each exchange, retries marked beneath.
+    const roundMs = serverAnswers.current.map((a, i) =>
+      Math.max(0, Math.round(a.atMs - (serverAnswers.current[i - 1]?.atMs ?? 0)))
+    )
+    const retries = serverAnswers.current.map((a) => Math.max(0, a.guesses.length - 1))
+    signature.value = tradeSignature(roundMs, retries)
     runtime.finish()
     void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
@@ -261,11 +270,16 @@ export default function Trade() {
             { label: 'Accuracy', value: `${accuracyPct}%`, tone: 'green' },
             { label: 'Time', value: `${formatSeconds(totalMs.value)}s`, tone: 'gold' }
           ]}
-          share={{ mode: 'trade', score: `${formatSeconds(totalMs.value)}s` }}
+          share={{
+            mode: 'trade',
+            score: `${formatSeconds(totalMs.value)}s`,
+            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
+          }}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}
         >
+          {signature.value && <SignaturePanel {...signature.value} />}
           <p class="ed-trade__coach">{elixirLine.value}</p>
           <div class="ed-trade__math" aria-label="Trade math">
             <span>Last trade {formatTrade(lastTrade.value)}</span>
