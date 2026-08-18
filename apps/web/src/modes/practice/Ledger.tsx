@@ -4,6 +4,8 @@ import type { LedgerAnswer, LedgerStage } from '@elixir-drop/contracts'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import Summary from '../../components/Summary'
+import SignaturePanel from '../../components/summary/SignaturePanel'
+import { ledgerSignature } from '../../lib/signatures'
 import {
   balanceWinner,
   EXCHANGE_PROMPT,
@@ -58,6 +60,9 @@ export default function Ledger() {
   const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
   const deck = gameRun.content
   const serverAnswers = useRef<LedgerAnswer[]>([])
+  // Per-answer sequence length + correctness, kept alongside the server transcript
+  // (which carries neither) so the summary can draw accuracy by sequence length.
+  const gradedAnswers = useRef<{ length: number; correct: boolean }[]>([])
   const generation = useRef(0)
   const previousIds = useRef<Set<number>>(new Set())
   const promptStartedAt = useRef(0)
@@ -198,6 +203,7 @@ export default function Ledger() {
       stage: active.stage
     }
     serverAnswers.current.push(answer)
+    gradedAnswers.current.push({ length: active.plays.length, correct: isCorrect })
     lastStats.value = saveLedgerResult({
       correct: isCorrect,
       assisted: answer.assisted,
@@ -229,6 +235,7 @@ export default function Ledger() {
     track('game.replayed', 'practice:ledger')
     generation.current += 1
     serverAnswers.current = []
+    gradedAnswers.current = []
     previousIds.current = new Set()
     checks.value = 0
     correct.value = 0
@@ -262,6 +269,10 @@ export default function Ledger() {
 
   if (runtime.stage.value === 'summary') {
     const accuracy = checks.value ? Math.round((correct.value / checks.value) * 100) : 0
+    const signature = ledgerSignature(
+      gradedAnswers.current.map((g) => g.length),
+      gradedAnswers.current.map((g) => g.correct)
+    )
     return (
       <div class="ed-gamewrap">
         <Summary
@@ -279,6 +290,7 @@ export default function Ledger() {
           onHome={() => navigate(practiceLandingPath())}
           homeLabel={practiceLandingPath() === '/practice' ? 'Practice' : 'Games'}
         >
+          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
           <p class="ledger-summary__coach">
             {accuracy >= 80
               ? 'Your running count is holding. Longer sequences will arrive as the read stays clean.'

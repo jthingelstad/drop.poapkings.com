@@ -11,6 +11,10 @@ export interface Answer {
   correct: boolean // whether the first guess was correct
   ms?: number
   assisted?: boolean
+  // Practice only: the spaced-review stage this appearance was, present only when
+  // the card came back after a gap (retry/confirm). Drives the Cost Recall
+  // signature panel — "which cards came back and whether they held".
+  reviewStage?: string
 }
 
 export interface BandStat {

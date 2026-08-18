@@ -72,7 +72,45 @@ export function rainSignature(clearsPer10s: number[], fallSpeed: number[]): Sign
   return { bars, line: fallSpeed, caption: 'Clears every ten seconds against the rising fall speed.' }
 }
 
-// The two practice drills (Cost Recall, Ledger) do not yet get a signature
-// panel: they are endless, unscored, share-less sandboxes, and Cost Recall's
-// per-answer correctness is not carried on its server-shaped transcript. Their
-// summaries keep the existing coaching read-back and the "Work on these" list.
+// Ledger: accuracy by sequence length. Each bar is one length's hit rate, so the
+// shape shows where the running count starts to break as sequences get longer.
+export function ledgerSignature(lengths: number[], correct: boolean[]): Signature {
+  const byLength = new Map<number, { correct: number; total: number }>()
+  lengths.forEach((len, i) => {
+    const bucket = byLength.get(len) ?? { correct: 0, total: 0 }
+    bucket.total += 1
+    if (correct[i]) bucket.correct += 1
+    byLength.set(len, bucket)
+  })
+  const sorted = [...byLength.entries()].sort((a, b) => a[0] - b[0])
+  const bars: SignatureBar[] = sorted.map(([, b]) => {
+    const pct = Math.round((b.correct / b.total) * 100)
+    return { value: pct, tone: pct < 70 ? 'bad' : 'base' }
+  })
+  const worst = sorted.reduce<{ len: number; pct: number } | null>((acc, [len, b]) => {
+    const pct = b.correct / b.total
+    return acc === null || pct < acc.pct ? { len, pct } : acc
+  }, null)
+  const caption =
+    bars.length <= 1
+      ? 'Your read on the running count this session.'
+      : bars.every((bar) => bar.value >= 90)
+        ? 'The count holds across every sequence length.'
+        : `The running count breaks around ${worst!.len}-card sequences.`
+  return { bars, caption, max: 100 }
+}
+
+// Cost Recall: the cards that came back after a gap, and whether they held. One
+// bar per returned card (its read time), the dot marking held vs missed again.
+export function costRecallSignature(returns: Array<{ ms: number; correct: boolean }>): Signature {
+  const bars: SignatureBar[] = returns.map((r) => ({
+    value: r.ms,
+    tone: r.correct ? 'base' : 'bad',
+    dot: r.correct ? 'ok' : 'bad'
+  }))
+  const held = returns.filter((r) => r.correct).length
+  return {
+    bars,
+    caption: `Held ${held} of ${returns.length} ${returns.length === 1 ? 'card' : 'cards'} on their return.`
+  }
+}
