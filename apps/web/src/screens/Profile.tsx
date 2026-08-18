@@ -1044,6 +1044,12 @@ function RunDetail({
         {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={32} label />}
       </div>
 
+      {run.xp !== undefined && run.xp > 0 && (
+        <div class="ed-run-modal__xp">
+          <Icon name="zap" /> XP earned <strong>+{run.xp}</strong>
+        </div>
+      )}
+
       {run.reviewStatus === 'excluded' ? (
         <>
           {run.reviewExplanation && <p class="ed-run-modal__note">{run.reviewExplanation}</p>}

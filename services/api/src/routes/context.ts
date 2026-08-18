@@ -190,6 +190,7 @@ export function runRecordResponse(
     score: run.score,
     seasonId: run.seasonId,
     completedAt: run.completedAt,
+    ...(run.xp !== undefined ? { xp: run.xp } : {}),
     ...(reviewStatus ? { reviewStatus } : {}),
     ...(reviewExplanation ? { reviewExplanation } : {}),
   };

@@ -19,7 +19,7 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { recordingNotice } from '../../src/lib/use-game-run'
+import { earnedXp, recordingNotice } from '../../src/lib/use-game-run'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -74,6 +74,7 @@ afterEach(() => {
   installDismissed.value = false
   standaloneApp.value = false
   recordingNotice.value = { state: 'idle' }
+  earnedXp.value = 0
 })
 
 describe('Summary', () => {
@@ -103,6 +104,24 @@ describe('Summary', () => {
     expect(html).not.toContain('signin-save')
     // The generic moment tiles are gone.
     expect(html).not.toContain('ed-sum-tile')
+  })
+
+  it('reads XP earned back in the "what it changed" ledger', async () => {
+    player.value = { id: 'p1' } as never
+    earnedXp.value = 15
+    const html = await render(
+      <Summary
+        eyebrow="Surge complete"
+        headline="28.6s"
+        insights={emptyInsights()}
+        share={{ mode: 'surge', score: '28.6s' }}
+        onReplay={() => {}}
+        onHome={() => {}}
+      />
+    )
+    expect(html).toContain('ed-sum__changed')
+    expect(html).toContain('XP earned')
+    expect(html).toContain('+15')
   })
 
   it('does not invite a guest to save an intentionally unranked Practice session', async () => {

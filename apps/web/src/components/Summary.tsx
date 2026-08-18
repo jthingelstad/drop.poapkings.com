@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { earnedBadges, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
+import { earnedBadges, earnedXp, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -86,7 +86,8 @@ export default function Summary({
     for (const card of slowestCards) if (!workOnThese.some((w) => w.id === card.id)) workOnThese.push(card)
   }
 
-  const changed = Boolean(visiblePbCallout) || earnedBadges.value.length > 0
+  const xpEarned = offline ? 0 : earnedXp.value
+  const changed = Boolean(visiblePbCallout) || xpEarned > 0 || earnedBadges.value.length > 0
 
   return (
     <div class="ed-sum" data-summary>
@@ -116,6 +117,11 @@ export default function Summary({
           {visiblePbCallout && (
             <div class="ed-sum__changed-row">
               <Icon name="star" /> {visiblePbCallout}
+            </div>
+          )}
+          {xpEarned > 0 && (
+            <div class="ed-sum__changed-row">
+              <Icon name="zap" /> XP earned <strong class="ed-sum__changed-xp">+{xpEarned}</strong>
             </div>
           )}
           {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}

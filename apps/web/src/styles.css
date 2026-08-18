@@ -8144,6 +8144,22 @@ html.reduce-motion .practice-drill {
   color: var(--gold-lite, #ffe9b3);
   font-weight: 700;
 }
+.ed-sum__changed-xp {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ed-run-modal__xp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--gold-lite, #ffe9b3);
+  font-weight: 700;
+}
+.ed-run-modal__xp strong {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
 .ed-sum__signature {
   border-radius: 16px;
 }

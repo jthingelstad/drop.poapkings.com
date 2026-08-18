@@ -140,6 +140,8 @@ export interface RunRecord {
   // Stored for server-side badge recovery and aggregate analysis. Deliberately
   // omitted by runRecordResponse, so it is not part of public run history.
   answerCount?: number;
+  // Per-run XP earned (activity, not skill). Surfaced in the run sheet.
+  xp?: number;
 }
 
 export type RunReviewStatus = "pending" | "reviewed" | "excluded";

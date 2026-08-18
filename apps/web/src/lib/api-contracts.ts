@@ -140,6 +140,8 @@ export const recentRunSchema = z.object({
   score: z.number().finite(),
   seasonId: nonEmptyString,
   completedAt: isoDateTime,
+  // Per-run XP earned (activity), for the run sheet. Practice earns none.
+  xp: z.optional(nonNegativeInteger),
   reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
   reviewExplanation: z.optional(nonEmptyString),
   // This run's rank on its season board, present only on the run that holds
@@ -254,6 +256,9 @@ const runCompletionFields = {
   underReview: z.optional(z.boolean()),
   totalGames: nonNegativeInteger,
   xp: nonNegativeInteger.default(0),
+  // The per-run XP award (activity), so the summary can say "XP earned +N".
+  // Practice earns 0. Absent through the API-first half of a rolling deploy.
+  xpEarned: z.optional(nonNegativeInteger),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger,

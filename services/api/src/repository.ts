@@ -1171,6 +1171,7 @@ export class Repository {
             ...(typeof item.answerCount === "number"
               ? { answerCount: item.answerCount }
               : {}),
+            ...(typeof item.xp === "number" ? { xp: item.xp } : {}),
             ...(typeof item.boardEpoch === "string"
               ? { boardEpoch: item.boardEpoch }
               : {}),
@@ -1324,6 +1325,9 @@ export class Repository {
       ...(run.answerCount !== undefined
         ? { answerCount: run.answerCount }
         : {}),
+      // Per-run XP earned, so the run sheet and summary can say "XP earned +N".
+      // Practice's award is 0, so it is naturally omitted.
+      ...(xp ? { xp } : {}),
       ...tiebreakItem,
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.

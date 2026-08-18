@@ -459,6 +459,8 @@ async function recordSignedInRun(
     ...(automaticReviewReason ? { underReview: true } : {}),
     totalGames: result.totalGames,
     xp: result.profile.xp ?? 0,
+    // The per-run award, so the summary can say "XP earned +N" (Practice: 0).
+    xpEarned: xpAward,
     ...levelForGames(result.totalGames),
     ...(badgeUpdate.newlyEarned.length
       ? { earnedBadges: badgeUpdate.newlyEarned }
