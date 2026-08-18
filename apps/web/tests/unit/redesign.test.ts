@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { NAV_ITEMS, OFFLINE_NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
+import { NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
 import { seasonEndsLabel, surgeSeasonCallout } from '../../src/screens/home/home-data'
 import { scoreLabel, gameDisplay, RANKED_GAMES, GAMES } from '../../src/lib/game-metadata'
 import { installMode, installDismissed, dismissInstall } from '../../src/lib/pwa-install'
 import type { Season } from '@elixir-drop/contracts'
 
 describe('shell nav model', () => {
-  it('keeps the Games tab active across the game routes', () => {
+  it('keeps the Play tab active across the game routes', () => {
     expect(isGameRoute('/surge')).toBe(true)
     expect(isGameRoute('/rain')).toBe(true)
     expect(isGameRoute('/leaderboards')).toBe(false)
@@ -15,14 +15,8 @@ describe('shell nav model', () => {
     expect(activeNavIndex('/leaderboards')).toBe(1)
     expect(activeNavIndex('/players/rival')).toBe(1)
     expect(activeNavIndex('/profile')).toBe(2)
-    expect(NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Games', 'Ranks', 'You'])
-  })
-
-  it('replaces live player destinations with one Offline destination', () => {
-    expect(OFFLINE_NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Games', 'Offline'])
-    expect(activeNavIndex('/offline', OFFLINE_NAV_ITEMS)).toBe(1)
-    expect(activeNavIndex('/leaderboards', OFFLINE_NAV_ITEMS)).toBe(1)
-    expect(activeNavIndex('/profile', OFFLINE_NAV_ITEMS)).toBe(1)
+    // The nav never renames itself: Play · Ladder · You, offline or online.
+    expect(NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Play', 'Ladder', 'You'])
   })
 
   // App Info and Settings remain app routes opened from Profile, so the pill

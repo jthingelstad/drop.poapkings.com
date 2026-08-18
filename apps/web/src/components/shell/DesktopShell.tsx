@@ -14,14 +14,14 @@ import OfflineGlyph from '../OfflineGlyph'
 import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
 import DesktopRightRail from './DesktopRightRail'
-import { NAV_ITEMS, OFFLINE_NAV_ITEMS, isGameRoute } from './nav'
+import { NAV_ITEMS, isGameRoute } from './nav'
 
 function LeftRail() {
   const r = route.value
   const current = player.value
   const authed = accountStatus.value === 'authenticated' && !!current
   const arena = current ? rankFor(current.xp ?? 0).current : null
-  const navItems = offline.value ? OFFLINE_NAV_ITEMS : NAV_ITEMS
+  const navItems = NAV_ITEMS
 
   return (
     <aside class="ed-desktop__rail">
@@ -53,7 +53,7 @@ function LeftRail() {
       <div class="ed-rail__foot">
         {authed && current ? (
           <>
-            <button class="ed-rail-chip" onClick={() => navigate(offline.value ? '/offline' : '/profile')}>
+            <button class="ed-rail-chip" onClick={() => navigate('/profile')}>
               <PlayerAvatar favoriteCardId={current.favoriteCardId} size="small" />
               <span class="ed-rail-chip__text">
                 <span class="ed-rail-chip__name">
@@ -89,10 +89,7 @@ function LeftRail() {
             </button>
           </>
         ) : (
-          <button
-            class="ed-rail-chip ed-rail-chip--guest tap-fx"
-            onClick={() => navigate(offline.value ? '/offline' : '/login')}
-          >
+          <button class="ed-rail-chip ed-rail-chip--guest tap-fx" onClick={() => navigate('/login')}>
             <span class="ed-rail-chip__avatar-guest" aria-hidden="true">
               <Icon name="user" />
             </span>

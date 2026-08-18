@@ -347,6 +347,10 @@ export const leaderboardResponseSchema = z.object({
   seasonId: z.optional(nonEmptyString),
   clan: z.optional(z.object({ tag: nonEmptyString, name: nonEmptyString })),
   currentSeason: seasonSchema,
+  // The period rail's chips (Boards scope only): the current season and the
+  // months behind it, newest first. crSeasonId is the derived Clash Royale
+  // number; absent when it cannot be derived, so the client shows the raw id.
+  seasons: z.optional(z.array(z.object({ id: nonEmptyString, crSeasonId: z.optional(safeInteger.positive()) }))),
   entries: z.array(leaderboardEntrySchema)
 })
 

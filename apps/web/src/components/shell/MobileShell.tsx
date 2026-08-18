@@ -3,11 +3,10 @@
 // full-bleed. Chosen below 1024px by lib/use-layout.
 
 import type { ComponentChildren } from 'preact'
-import { offline } from '../../lib/api-availability'
 import { route, navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import Icon from '../Icon'
-import { NAV_ITEMS, OFFLINE_NAV_ITEMS, activeNavIndex, isGameRoute, type NavItem } from './nav'
+import { NAV_ITEMS, activeNavIndex, isGameRoute, type NavItem } from './nav'
 
 function PillNav({ activeIdx, items }: { activeIdx: number; items: readonly NavItem[] }) {
   return (
@@ -42,7 +41,7 @@ function PillNav({ activeIdx, items }: { activeIdx: number; items: readonly NavI
 export default function MobileShell({ children }: { children: ComponentChildren }) {
   const r = route.value
   const gaming = isGameRoute(r)
-  const items = offline.value ? OFFLINE_NAV_ITEMS : NAV_ITEMS
+  const items = NAV_ITEMS
   return (
     <div class="ed-app">
       <div class={`ed-mobile${gaming ? ' ed-mobile--game' : ''}`}>

@@ -159,6 +159,38 @@ export function upcomingSeasons(
   return seasons;
 }
 
+// The recent seasons, newest first, for the Ladder period rail: the current
+// season plus the preceding calendar months, each with its derived Clash Royale
+// number. Unlike `upcomingSeasons` these are boards that may already hold runs;
+// a month with none simply renders the empty-board state when selected. The
+// first entry mirrors `seasonForDate` exactly (id and number) so the rail's
+// current chip lines up with the live board.
+export function recentSeasons(
+  input: Date = new Date(),
+  count = 12,
+  clock?: StoredCrWarClock,
+): Array<{ id: string; crSeasonId?: number }> {
+  if (count <= 0) return [];
+  const current = seasonForDate(input, clock);
+  const seasons: Array<{ id: string; crSeasonId?: number }> = [
+    { id: current.id, ...(current.crSeasonId ? { crSeasonId: current.crSeasonId } : {}) },
+  ];
+  const start = new Date(current.startsAt);
+  const clockRef = clock
+    ? { leaderboardSeasonId: clock.leaderboardSeasonId, crSeasonId: clock.crSeasonId }
+    : undefined;
+  for (let offset = 1; offset < count; offset += 1) {
+    const monthStart = firstMondayAtReset(
+      start.getUTCFullYear(),
+      start.getUTCMonth() - offset,
+    );
+    const id = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`;
+    const crSeasonId = crSeasonIdFor(id, clockRef);
+    seasons.push({ id, ...(crSeasonId ? { crSeasonId } : {}) });
+  }
+  return seasons;
+}
+
 // Leaderboard season IDs are calendar-derived (`2026-08`, or `2026-08-74` when
 // one calendar month carried two CR seasons). Players do not think in those
 // ids — they think in Clash Royale season numbers — but only the live war

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { badgeTier } from '@elixir-drop/contracts'
 import { track } from '../lib/analytics'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
 import { shareBadge } from '../lib/share-badge'
@@ -187,9 +188,44 @@ function BadgeSheet({
               </>
             )}
           </div>
+          <RungLadder badge={badge} />
         </>
       )}
     </DetailModal>
+  )
+}
+
+// The full ladder under the progress bar: one segment per rung in the badge's
+// own units. Cleared rungs show in their tier metal, the next rung to reach is
+// gold, the rest are dark — so a player reads the whole climb, not just the next
+// step. "Clockbreaker 19s" says something a roman numeral never could.
+function RungLadder({ badge }: { badge: BadgeView }) {
+  const { definition, rungIndex } = badge
+  const total = definition.rungs.length
+  const tierName = badge.tier.charAt(0).toUpperCase() + badge.tier.slice(1)
+  return (
+    <div class="ed-badges__rungs">
+      <div class="ed-badges__rungs-head">
+        Rung {Math.max(0, rungIndex + 1)} of {total}
+        {rungIndex >= 0 && ` · ${tierName}`}
+      </div>
+      <div class="ed-badges__rungs-track">
+        {definition.rungs.map((rung, i) => {
+          const seg =
+            i === rungIndex + 1
+              ? 'ed-badges__rung-seg--current'
+              : i <= rungIndex
+                ? `ed-badges__rung-seg--tier-${badgeTier(i, total)}`
+                : 'ed-badges__rung-seg--remaining'
+          return (
+            <div class="ed-badges__rung" key={i}>
+              <span class={`ed-badges__rung-seg ${seg}`} />
+              <span class="ed-badges__rung-num">{formatRungValue(rung, definition.unit)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

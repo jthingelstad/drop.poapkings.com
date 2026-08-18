@@ -4878,39 +4878,49 @@ html.reduce-motion .ed-duel__card {
   color: #2a1500;
 }
 
-/* Six 34px emblems fit the narrowest phone with room to spare, so the strip no
-   longer scrolls — and the scroll affordances it used to need (the right-edge
-   fade and the "Swipe for every mode" guide) went with it. The fade over an
-   icon-only strip read as a black block covering the last mode. */
+/* Five equal labeled tiles: the mode's painted art over a small uppercase name.
+   Icon-only tabs made players guess, so the name is back — small, but present. */
 .ed-board__modes {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .ed-board__mode-strip {
   min-width: 0;
 }
-
-/* The mode's own painted art is the tab. It reads faster than its name at this
-   size, and dropping the label is what buys the strip its own band instead of
-   a second row of text. */
 .ed-modetab {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: transparent;
   cursor: pointer;
-  opacity: 0.4;
 }
 .ed-modetab .mode-icon {
   display: block;
-  border-radius: 10px;
+  border-radius: 9px;
+  opacity: 0.62;
+  transition: opacity 0.18s ease;
+}
+.ed-modetab__label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 .ed-modetab--active {
+  border-color: rgba(245, 200, 76, 0.55);
+  background: rgba(245, 200, 76, 0.12);
+}
+.ed-modetab--active .mode-icon {
   opacity: 1;
-  box-shadow: 0 0 0 2px #f5c84c;
+}
+.ed-modetab--active .ed-modetab__label {
+  color: #ffe9b3;
 }
 .ed-modetab:focus-visible {
   outline: 2px solid var(--gold);
@@ -5117,6 +5127,14 @@ html.reduce-motion .ed-duel__card {
   height: 2px;
   background: #fca5a5;
   transform: translateY(-50%) rotate(-45deg);
+}
+
+/* NOT RECORDED: a dotted lavender ring, no fill and no rotation. Dotted, not
+   dashed — gold dashed already means "a decision is coming"; dotted means no
+   decision was ever pending, because the board never saw this run. */
+.ed-seal--not-recorded {
+  border: 1.5px dotted rgba(185, 170, 255, 0.72);
+  background: none;
 }
 @keyframes ed-seal-pulse {
   0%,
@@ -7152,4 +7170,332 @@ html.reduce-motion .ledger-card {
 html.reduce-motion .ledger-trail__pip,
 html.reduce-motion .practice-drill {
   transition: none;
+}
+
+/* ── Shared scope row (Ladder + You) ──────────────────────────
+   Violet = "where you are in the page". Gold is reserved for the nav pill and
+   the one thing to press, so a scope row never competes with a PLAY. */
+.ed-scoperow {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.ed-scopepill {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 160, 240, 0.34);
+  background: transparent;
+  color: #cbbdf2;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+.ed-scopepill--active {
+  background: linear-gradient(160deg, #8b5cf6, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.5);
+}
+.ed-scopepill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex: none;
+}
+.ed-scopepill--active .ed-scopepill__dot {
+  background: #2a1500;
+}
+
+/* ── Unified gate card ────────────────────────────────────────
+   One shape for every gate: a mark, the state in letter-spaced small caps, one
+   sentence, exactly one gold primary, an optional secondary link. */
+.ed-gate {
+  max-width: 380px;
+  margin: 24px auto;
+  padding: 28px 24px;
+  text-align: center;
+  border-radius: 22px;
+  border: 1px solid rgba(245, 200, 76, 0.22);
+  background: linear-gradient(160deg, rgba(59, 29, 122, 0.5), rgba(18, 13, 40, 0.86));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ed-gate__mark {
+  display: grid;
+  place-items: center;
+}
+.ed-gate__state {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ed-gate__line {
+  margin: 0;
+  color: #e7e0ff;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.ed-gate .ed-btn--gold {
+  width: 100%;
+}
+.ed-gate__secondary {
+  font-size: 13px;
+}
+
+/* ── Badge rung ladder (detail sheet) ─────────────────────────
+   One segment per rung: cleared in tier metal, the next rung gold, the rest
+   dark. The number sits under its own segment. */
+.ed-badges__rungs {
+  margin-top: 16px;
+  width: 100%;
+}
+.ed-badges__rungs-head {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.ed-badges__rungs-track {
+  display: flex;
+  gap: 4px;
+}
+.ed-badges__rung {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.ed-badges__rung-seg {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.ed-badges__rung-num {
+  font-size: 9px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ed-badges__rung-seg--remaining {
+  background: rgba(255, 255, 255, 0.09);
+}
+.ed-badges__rung-seg--current {
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(245, 200, 76, 0.55);
+}
+.ed-badges__rung-seg--tier-unlit {
+  background: rgba(255, 255, 255, 0.18);
+}
+.ed-badges__rung-seg--tier-copper {
+  background: linear-gradient(90deg, #d08a52, #7a4520);
+}
+.ed-badges__rung-seg--tier-silver {
+  background: linear-gradient(90deg, #dfe4f2, #8a92ad);
+}
+.ed-badges__rung-seg--tier-gold {
+  background: linear-gradient(90deg, #ffe189, #b77513);
+}
+.ed-badges__rung-seg--tier-prismatic {
+  background: linear-gradient(90deg, #f5c84c, #8b5cf6, #22c55e);
+}
+
+/* ── Ladder header ────────────────────────────────────────────
+   A fixed title + one clock line, then the arena progression block. A soft
+   violet radial glow stands in for the retired arena artwork. */
+.ed-ladder__head {
+  position: relative;
+  margin: 6px 0 14px;
+  padding: 4px 2px 0;
+}
+.ed-ladder__head::before {
+  content: '';
+  position: absolute;
+  inset: -20px -30px auto;
+  height: 160px;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(139, 92, 246, 0.22), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.ed-ladder__titlerow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ed-ladder__title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 800;
+}
+.ed-ladder__clock {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: right;
+}
+.ed-ladder__arena {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
+}
+.ed-ladder__arena-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ed-ladder__arena-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.ed-ladder__arena-xp {
+  font-size: 12px;
+  color: #ffe9b3;
+  font-variant-numeric: tabular-nums;
+}
+.ed-ladder__arena-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.ed-ladder__arena-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  transition: width 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.ed-ladder__arena-togo {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Boards period rail ───────────────────────────────────────
+   Horizontally scrolling season chips; gold-filled selection, a right-edge fade
+   to signal more. A filter you set is a violet tint, but the selected board is
+   a "number that matters" — the one gold thing in this row. */
+.ed-ladder__periods {
+  position: relative;
+  margin-bottom: 12px;
+}
+.ed-ladder__periods::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--bg0, #0d0a1e));
+  pointer-events: none;
+}
+.ed-ladder__periods-track {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-right: 40px;
+}
+.ed-ladder__periods-track::-webkit-scrollbar {
+  display: none;
+}
+.ed-period {
+  flex: 0 0 auto;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ed-period--active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #2a1500;
+}
+
+/* ── Ladder badges scope ──────────────────────────────────── */
+.ed-ladder__badges-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ed-ladder__badges-head strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--gold);
+}
+.ed-ladder__badges-head span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Clan invite row ──────────────────────────────────────── */
+.ed-clan-invite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.ed-clan-invite__medal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(185, 170, 255, 0.6);
+  color: #cbbdf2;
+}
+.ed-clan-invite__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-clan-invite__text strong {
+  font-size: 14px;
+}
+.ed-clan-invite__text small {
+  color: var(--muted);
+  font-size: 11.5px;
 }

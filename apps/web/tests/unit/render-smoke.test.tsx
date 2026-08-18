@@ -60,7 +60,7 @@ describe('SSR render smoke', () => {
     ['/survival', 'Survival'],
     ['/rain', 'Rain'],
     ['/offline', 'Offline'],
-    ['/leaderboards', 'Leaderboards'],
+    ['/leaderboards', 'Ladder'],
     ['/settings', 'Settings'],
     ['/app-info', 'App info'],
     ['/login', 'Sign in']

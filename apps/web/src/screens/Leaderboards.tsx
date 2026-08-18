@@ -1,25 +1,45 @@
 import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
-import type { GameMode, Season } from '@elixir-drop/contracts'
+import { BADGE_LIST, type GameMode, type Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
-import { accountStatus, player, refreshAccount, sessionToken } from '../lib/account'
+import ModeIcon from '../components/ModeIcon'
+import ScopeRow from '../components/ScopeRow'
+import GateCard from '../components/GateCard'
+import BadgeGrid from '../components/BadgeGrid'
+import EmptyState from '../components/EmptyState'
+import ReviewStatusMark from '../components/ReviewStatus'
+import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
+import { badgeViews, earnedCount } from '../lib/badges'
+import { arenaProgress } from '../components/ArenaProgress'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
 import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-metadata'
-import EmptyState from '../components/EmptyState'
-import ModeIcon from '../components/ModeIcon'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
-import ReviewStatusMark from '../components/ReviewStatus'
+import { CLAN_INVITE_URL } from '../lib/links'
 
-// The leaderboards are season-scoped, not week-scoped: drop the Clan-Wars
-// weekly clock entirely and speak only to the season boundary.
-//
-// The clock reads as two short lines beside a fixed title, so the header's
-// height is the same on every scope and in every clan gate state. A heading
-// that rewrote itself per scope was the reason the rows used to jump.
-function seasonClock(season: Season): string {
+// The Ladder is one page with three scopes — Boards, Badges, Clan — under a
+// fixed header. The <h1>Ladder</h1> is emitted sr-only by App.tsx ROUTE_LABELS,
+// so the visible title is decorative; the header's height never changes between
+// scopes, which is what kept the rows from jumping.
+
+type UiScope = 'boards' | 'badges' | 'clan'
+type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
+
+const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
+  surge: 'SURGE',
+  rain: 'RAIN',
+  trade: 'TRADE',
+  survival: 'SURVIVE',
+  'higher-lower': 'HIGHER'
+}
+
+// The one line beside the title: the current season's close, on every Boards and
+// Clan scope. Badges say "never reset" instead — they are the one thing here
+// that does not.
+function seasonEndLine(season: Season | null): string {
+  if (!season) return '—'
   const date = new Date(season.endsAt).toLocaleDateString(undefined, {
     timeZone: 'UTC',
     month: 'short',
@@ -31,37 +51,42 @@ function seasonClock(season: Season): string {
     minute: '2-digit',
     hour12: false
   })
-  return `${date} · ${time} UTC${season.source === 'calendar-fallback' ? ' (est.)' : ''}`
+  return `Ends ${date} · ${time} UTC${season.source === 'calendar-fallback' ? ' (est.)' : ''}`
 }
 
-function seasonScopeLabel(season: Season | null): string {
-  return season?.crSeasonId === undefined ? 'Season' : `Season ${season.crSeasonId}`
-}
-
-function LeaderboardRow({ entry, mode, index }: { entry: LeaderboardEntry; mode: GameMode; index: number }) {
+function LeaderboardRow({
+  entry,
+  mode,
+  index,
+  rankOverride
+}: {
+  entry: LeaderboardEntry
+  mode: GameMode
+  index: number
+  rankOverride?: number
+}) {
   const isPlayer = entry.player.id === player.value?.id
+  const rank = rankOverride ?? entry.rank
   const games = entry.player.totalGames
-  const rankColor = entry.rank === 1 ? 'gold' : entry.rank <= 3 ? 'lav' : 'muted'
+  const rankColor = rank === 1 ? 'gold' : rank <= 3 ? 'lav' : 'muted'
   const score = leaderboardScoreLabel(mode, entry.score)
   const awaiting = entry.reviewStatus === 'pending'
   return (
     <li
-      class={`ed-lbrow${entry.rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}${entry.rank === 1 ? ' ed-lbrow--crown' : ''}`}
+      class={`ed-lbrow${rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}${rank === 1 ? ' ed-lbrow--crown' : ''}`}
     >
       <button
         class="ed-lbrow__button"
         aria-label={`View ${isPlayer ? 'your' : `${entry.player.publicName}'s`} profile`}
         onClick={() => navigate(playerProfilePath(entry.player, player.value?.id))}
       >
-        <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{entry.rank}</span>
+        <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{rank}</span>
         <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
         <span class="ed-lbrow__player">
           <strong class="ed-lbrow__name">
             {entry.player.publicName}
             {isPlayer && <em> You</em>}
           </strong>
-          {/* A held run says why it is held instead of its XP and game count:
-              the one thing a player wants from that row is the reason. */}
           {awaiting ? (
             <small class="ed-lbrow__meta ed-lbrow__meta--awaiting">Awaiting the referee</small>
           ) : (
@@ -77,11 +102,8 @@ function LeaderboardRow({ entry, mode, index }: { entry: LeaderboardEntry; mode:
           )}
         </span>
         <span class="ed-lbrow__result">
-          {/* Only a run a referee actually handled is marked. Most runs are
-              never reviewed, and sealing those "cleared" would claim a check
-              nobody performed — the empty slot keeps the scores aligned. */}
           {entry.reviewStatus ? (
-            <ReviewStatusMark status={entry.reviewStatus} size={entry.rank === 1 ? 32 : 26} index={index} />
+            <ReviewStatusMark status={entry.reviewStatus} size={rank === 1 ? 32 : 26} index={index} />
           ) : (
             <span class="ed-lbrow__seal-slot" aria-hidden="true" />
           )}
@@ -97,13 +119,14 @@ function LeaderboardRow({ entry, mode, index }: { entry: LeaderboardEntry; mode:
   )
 }
 
-type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
-
 export default function Leaderboards() {
   const mode = useSignal<GameMode>('surge')
-  const scope = useSignal<LeaderboardScope>('season')
+  const uiScope = useSignal<UiScope>('boards')
+  // '' = the current season (default), 'all-time', or a specific season id.
+  const period = useSignal<string>('')
   const entries = useSignal<LeaderboardEntry[]>([])
   const season = useSignal<Season | null>(null)
+  const seasons = useSignal<Array<{ id: string; crSeasonId?: number }>>([])
   const activeClan = useSignal<{ tag: string; name: string } | null>(null)
   const clanGate = useSignal<ClanGate>(null)
   const loading = useSignal(true)
@@ -114,7 +137,16 @@ export default function Leaderboards() {
   const currentClan = currentPlayer?.clashRoyale?.clan
   const crStatus = currentPlayer?.clashRoyale?.status
 
+  const isClan = uiScope.value === 'clan'
+  const isBadges = uiScope.value === 'badges'
+
   useEffect(() => {
+    // Badges read the local badge signal, not the board API.
+    if (isBadges) {
+      loading.value = false
+      error.value = ''
+      return
+    }
     const controller = new AbortController()
     entries.value = []
     activeClan.value = null
@@ -122,7 +154,7 @@ export default function Leaderboards() {
     loading.value = true
     error.value = ''
 
-    if (scope.value === 'clan') {
+    if (isClan) {
       if (currentAccountStatus === 'loading') return () => controller.abort()
       if (currentAccountStatus !== 'authenticated' || !currentPlayer) {
         clanGate.value = 'signed-out'
@@ -142,14 +174,13 @@ export default function Leaderboards() {
       }
     }
 
-    const request =
-      scope.value === 'clan'
-        ? getLeaderboard(mode.value, scope.value, controller.signal, sessionToken())
-        : getLeaderboard(mode.value, scope.value, controller.signal)
-    void request
+    const apiScope: LeaderboardScope = isClan ? 'clan' : period.value === 'all-time' ? 'all-time' : 'season'
+    const seasonId = !isClan && period.value && period.value !== 'all-time' ? period.value : undefined
+    void getLeaderboard(mode.value, apiScope, controller.signal, isClan ? sessionToken() : undefined, seasonId)
       .then((response) => {
         entries.value = response.entries
         season.value = response.currentSeason
+        if (response.seasons) seasons.value = response.seasons
         activeClan.value = response.clan ?? null
       })
       .catch((reason: unknown) => {
@@ -162,7 +193,10 @@ export default function Leaderboards() {
     return () => controller.abort()
   }, [
     mode.value,
-    scope.value,
+    uiScope.value,
+    period.value,
+    isBadges,
+    isClan,
     currentAccountStatus,
     currentPlayer,
     currentClan,
@@ -172,115 +206,100 @@ export default function Leaderboards() {
     clanGate,
     error,
     loading,
-    season
+    season,
+    seasons
   ])
 
+  // Keep polling while a just-saved player tag resolves to a clan.
   useEffect(() => {
-    if (scope.value !== 'clan' || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
+    if (!isClan || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
     const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
     return () => window.clearInterval(interval)
-  }, [scope.value, currentPlayer?.playerTag, currentClan, crStatus])
+  }, [isClan, currentPlayer?.playerTag, currentClan, crStatus])
 
-  const isClan = scope.value === 'clan'
   const selectedGame = GAME_BY_MODE.get(mode.value)!
-  const scopes: Array<{ scope: LeaderboardScope; label: string }> = [
-    { scope: 'season', label: seasonScopeLabel(season.value) },
-    { scope: 'all-time', label: 'All-time' },
-    { scope: 'clan', label: 'Clan' }
-  ]
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
+  const activePeriod = period.value === 'all-time' ? 'all-time' : period.value || season.value?.id || ''
+  const arena = currentPlayer ? arenaProgress(currentPlayer.xp ?? 0) : null
+  const views = badgeViews(badges.value)
+  const earnedBadges = earnedCount(views)
 
-  const clanEmptyState = (() => {
-    if (clanGate.value === 'signed-out')
-      return {
-        heading: 'Sign in for clan rankings',
+  const clanGateCard = (gate: Exclude<ClanGate, null>) => {
+    const cards: Record<Exclude<ClanGate, null>, { state: string; line: string; label: string; href: string }> = {
+      'signed-out': {
+        state: 'Ladder signed out',
         line: 'Connect your Drop player to see how you rank against clanmates.',
-        actionLabel: 'Sign in',
+        label: 'Sign in',
         href: '/login'
-      }
-    if (clanGate.value === 'tag-required')
-      return {
-        heading: 'Add your player tag',
+      },
+      'tag-required': {
+        state: 'Clan tag needed',
         line: 'Drop uses your public Clash Royale profile to find your current clan.',
-        actionLabel: 'Add player tag',
+        label: 'Add player tag',
         href: '/profile?edit=player-tag'
-      }
-    if (clanGate.value === 'profile-pending')
-      return {
-        heading: 'Loading your clan',
+      },
+      'profile-pending': {
+        state: 'Loading your clan',
         line: 'Your player tag is saved. Drop is fetching its public Clash Royale profile.',
-        actionLabel: 'View profile',
+        label: 'View profile',
+        href: '/profile'
+      },
+      'profile-missing': {
+        state: 'Clan tag not found',
+        line: 'Check the tag on your profile, then open Clan again.',
+        label: 'Edit player tag',
+        href: '/profile?edit=player-tag'
+      },
+      'no-clan': {
+        state: 'No clan connected',
+        line: 'Your linked Clash Royale profile is not currently in a clan.',
+        label: 'View profile',
         href: '/profile'
       }
-    if (clanGate.value === 'profile-missing')
-      return {
-        heading: 'Player tag not found',
-        line: 'Check the tag on your profile, then try Clan rankings again.',
-        actionLabel: 'Edit player tag',
-        href: '/profile?edit=player-tag'
-      }
-    return {
-      heading: 'No clan connected',
-      line: 'Your linked Clash Royale profile is not currently in a clan.',
-      actionLabel: 'View profile',
-      href: '/profile'
     }
-  })()
+    const card = cards[gate]
+    return (
+      <GateCard mark={<Icon name="shield" />} state={card.state} primary={{ label: card.label, href: card.href }}>
+        {card.line}
+      </GateCard>
+    )
+  }
 
   return (
-    <div class="ed-board leaderboard-screen">
-      <header class="ed-board__head">
-        {/* The app shell already emits this route's `<h1>Leaderboards</h1>`
-            (sr-only, App.tsx ROUTE_LABELS), so the visible title is decorative
-            here — a second identical h1 would announce the page twice. */}
-        <div class="ed-board__title" aria-hidden="true">
-          Leaderboards
-        </div>
-        {scope.value === 'season' ? (
-          <div class="ed-board__clock">
-            <span>Season ends</span>
-            <strong>{season.value ? seasonClock(season.value) : '—'}</strong>
+    <div class="ed-board ed-ladder leaderboard-screen">
+      <header class="ed-ladder__head">
+        <div class="ed-ladder__titlerow">
+          <div class="ed-ladder__title" aria-hidden="true">
+            Ladder
           </div>
-        ) : (
-          <div class="ed-board__clock">
-            <strong>All-time bests</strong>
+          <div class="ed-ladder__clock">{isBadges ? 'Badges never reset' : seasonEndLine(season.value)}</div>
+        </div>
+        {arena && (
+          <div class="ed-ladder__arena">
+            <div class="ed-ladder__arena-row">
+              <span class="ed-ladder__arena-name">{arena.current.name}</span>
+              <span class="ed-ladder__arena-xp">{(currentPlayer?.xp ?? 0).toLocaleString()} XP</span>
+            </div>
+            <div class="ed-ladder__arena-bar">
+              <span class="ed-ladder__arena-fill" style={{ width: `${arena.fillPct}%` }} />
+            </div>
+            <div class="ed-ladder__arena-togo">{arena.toGoLabel}</div>
           </div>
         )}
       </header>
 
-      <div class="ed-board__scopes" aria-label="Choose a leaderboard scope">
-        {scopes.map((option) => (
-          <button
-            aria-pressed={scope.value === option.scope}
-            class={`ed-scope${scope.value === option.scope ? ' ed-scope--active' : ''}`}
-            onClick={() => (scope.value = option.scope)}
-            key={option.scope}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <ScopeRow
+        ariaLabel="Choose a Ladder scope"
+        active={uiScope.value}
+        onSelect={(key) => (uiScope.value = key)}
+        options={[
+          { key: 'boards', label: 'Boards' },
+          { key: 'badges', label: 'Badges' },
+          { key: 'clan', label: 'Clan' }
+        ]}
+      />
 
-      <div class="ed-board__mode-strip">
-        <div class="ed-board__modes" aria-label="Choose a game leaderboard">
-          {RANKED_GAMES.map((game) => (
-            <button
-              aria-label={game.name}
-              aria-pressed={mode.value === game.mode}
-              class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
-              onClick={() => (mode.value = game.mode)}
-              key={game.mode}
-            >
-              <ModeIcon mode={game.mode} size={34} />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* The clan strip is the only band that appears for one scope, and it
-          sits below the tabs on purpose: adding it must not move the header or
-          the scope row. */}
       {isClan && !clanGate.value && (
         <div class="ed-board__clan">
           <span class="ed-board__crest" aria-hidden="true">
@@ -290,7 +309,7 @@ export default function Leaderboards() {
             <strong>{clanName ?? 'Clan'}</strong>
             <small>
               {clanTag ? `${clanTag} · ` : ''}
-              {entries.value.length} in Drop
+              {entries.value.length} {entries.value.length === 1 ? 'clanmate' : 'clanmates'} on Drop
             </small>
           </span>
           <button class="ed-textlink" onClick={() => navigate('/profile?edit=player-tag')}>
@@ -299,40 +318,118 @@ export default function Leaderboards() {
         </div>
       )}
 
-      <section class="ed-board__list leaderboard-list" aria-labelledby="active-leaderboard-title">
-        <h2 id="active-leaderboard-title" class="sr-only">
-          {selectedGame.name} leaderboard
-        </h2>
-        {loading.value && <div class="ed-rail-empty">Loading leaderboard…</div>}
-        {error.value && <div class="ed-board__error">{error.value}</div>}
-        {!loading.value && !error.value && isClan && clanGate.value && (
-          <div class="ed-board__empty">
-            <EmptyState art="empty-board" {...clanEmptyState} />
-          </div>
-        )}
-        {!loading.value && !error.value && (!isClan || !clanGate.value) && (
-          <ol class="ed-board__rows">
-            {entries.value.map((entry, index) => (
-              <LeaderboardRow entry={entry} mode={mode.value} index={index} key={entry.player.id} />
+      {uiScope.value === 'boards' && (
+        <div class="ed-ladder__periods" aria-label="Choose a board period">
+          <div class="ed-ladder__periods-track">
+            <button
+              class={`ed-period${activePeriod === 'all-time' ? ' ed-period--active' : ''}`}
+              aria-pressed={activePeriod === 'all-time'}
+              onClick={() => (period.value = 'all-time')}
+            >
+              All-time
+            </button>
+            {seasons.value.map((s) => (
+              <button
+                key={s.id}
+                class={`ed-period${activePeriod === s.id ? ' ed-period--active' : ''}`}
+                aria-pressed={activePeriod === s.id}
+                onClick={() => (period.value = s.id)}
+              >
+                {s.crSeasonId ? `Season ${s.crSeasonId}` : s.id}
+              </button>
             ))}
-            {!entries.value.length && (
-              <li class="ed-board__empty">
-                <EmptyState
-                  art="empty-board"
-                  heading={isClan ? 'No clanmates have posted' : 'Nobody has posted'}
-                  line={
-                    isClan
-                      ? 'First clan run on this board takes the crown.'
-                      : 'First run on this board takes the crown.'
-                  }
-                  actionLabel={`Play ${selectedGame.name}`}
-                  href={selectedGame.path}
+          </div>
+        </div>
+      )}
+
+      {!isBadges && (
+        <div class="ed-board__mode-strip">
+          <div class="ed-board__modes" aria-label="Choose a game leaderboard">
+            {RANKED_GAMES.map((game) => (
+              <button
+                aria-pressed={mode.value === game.mode}
+                class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
+                onClick={() => (mode.value = game.mode)}
+                key={game.mode}
+              >
+                <ModeIcon mode={game.mode} size={28} />
+                <span class="ed-modetab__label">{MODE_TAB_LABEL[game.mode] ?? game.name.toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isBadges ? (
+        <section class="ed-ladder__badges" aria-label="Your badges">
+          {currentAccountStatus === 'authenticated' ? (
+            <>
+              <div class="ed-ladder__badges-head">
+                <strong>
+                  {earnedBadges} of {BADGE_LIST.length} earned
+                </strong>
+                <span>Every badge, one screen</span>
+              </div>
+              <BadgeGrid states={badges.value} playerId={currentPlayer?.id} playerName={currentPlayer?.publicName} />
+            </>
+          ) : (
+            <GateCard
+              mark={<Icon name="trophy" />}
+              state="Ladder signed out"
+              primary={{ label: 'Sign in', href: '/login' }}
+            >
+              Sign in to track your badges across every game you play.
+            </GateCard>
+          )}
+        </section>
+      ) : (
+        <section class="ed-board__list leaderboard-list" aria-labelledby="active-leaderboard-title">
+          <h2 id="active-leaderboard-title" class="sr-only">
+            {selectedGame.name} leaderboard
+          </h2>
+          {loading.value && <div class="ed-rail-empty">Loading leaderboard…</div>}
+          {error.value && <div class="ed-board__error">{error.value}</div>}
+          {!loading.value && !error.value && isClan && clanGate.value && clanGateCard(clanGate.value)}
+          {!loading.value && !error.value && (!isClan || !clanGate.value) && (
+            <ol class="ed-board__rows">
+              {entries.value.map((entry, index) => (
+                <LeaderboardRow
+                  entry={entry}
+                  mode={mode.value}
+                  index={index}
+                  rankOverride={isClan ? index + 1 : undefined}
+                  key={entry.player.id}
                 />
-              </li>
-            )}
-          </ol>
-        )}
-      </section>
+              ))}
+              {!entries.value.length && (
+                <li class="ed-board__empty">
+                  <EmptyState
+                    art="empty-board"
+                    heading={isClan ? 'No clanmates have posted' : 'Nobody has posted'}
+                    line={isClan ? 'First clan run takes the crown.' : 'First run on this board takes the crown.'}
+                    actionLabel={`Play ${selectedGame.name}`}
+                    href={selectedGame.path}
+                  />
+                </li>
+              )}
+            </ol>
+          )}
+          {isClan && !clanGate.value && !loading.value && !error.value && (
+            <div class="ed-clan-invite">
+              <span class="ed-clan-invite__medal" aria-hidden="true">
+                <Icon name="user" />
+              </span>
+              <span class="ed-clan-invite__text">
+                <strong>Bring a clanmate in</strong>
+                <small>More clanmates on Drop, more of a board to climb.</small>
+              </span>
+              <a class="ed-btn ed-btn--gold ed-btn--sm" href={CLAN_INVITE_URL} target="_blank" rel="noreferrer">
+                Invite
+              </a>
+            </div>
+          )}
+        </section>
+      )}
 
       <footer class="ed-board__key">
         <ReviewStatusMark status="reviewed" size={18} />

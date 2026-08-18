@@ -463,14 +463,14 @@ describe('MobileShell', () => {
         <p>home</p>
       </MobileShell>
     )
-    const ranks = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')].find((b) =>
-      b.textContent?.includes('Ranks')
+    const ladder = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')].find((b) =>
+      b.textContent?.includes('Ladder')
     )!
-    ranks.click()
+    ladder.click()
     expect(window.location.hash).toBe('#/leaderboards')
   })
 
-  it('shows Games and Offline instead of Ranks and You when disconnected', () => {
+  it('keeps the same Play · Ladder · You tabs when disconnected — the nav never renames itself', () => {
     transportOffline.value = true
     route.value = '/profile'
     draw(
@@ -480,13 +480,10 @@ describe('MobileShell', () => {
     )
 
     const buttons = [...host.querySelectorAll<HTMLButtonElement>('.ed-pillnav__btn')]
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Games', 'Offline'])
-    expect(buttons[1]!.getAttribute('aria-current')).toBe('page')
-    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.width).toBe('calc(0.5 * (100% - 10px))')
-    expect(host.querySelector<HTMLElement>('.ed-pillnav__ind')!.style.transform).toBe('translateX(100%)')
-
-    buttons[1]!.click()
-    expect(window.location.hash).toBe('#/offline')
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Play', 'Ladder', 'You'])
+    // You (index 2) is still active for a /profile route; offline names its cause
+    // with a header chip on the page, not by rewriting a tab.
+    expect(buttons[2]!.getAttribute('aria-current')).toBe('page')
   })
 
   it('hides the nav on game routes for full-bleed play', () => {
@@ -583,16 +580,16 @@ describe('DesktopShell', () => {
     const active = [...host.querySelectorAll<HTMLButtonElement>('.ed-nav__item')].find(
       (b) => b.getAttribute('aria-current') === 'page'
     )!
-    expect(active.textContent).toContain('Leaderboards')
+    expect(active.textContent).toContain('Ladder')
 
-    const profile = [...host.querySelectorAll<HTMLButtonElement>('.ed-nav__item')].find((b) =>
-      b.textContent?.includes('Profile')
+    const you = [...host.querySelectorAll<HTMLButtonElement>('.ed-nav__item')].find((b) =>
+      b.textContent?.includes('You')
     )!
-    profile.click()
+    you.click()
     expect(window.location.hash).toBe('#/profile')
   })
 
-  it('replaces Leaderboards and Profile with Offline when disconnected', () => {
+  it('keeps the same Play · Ladder · You rail when disconnected', () => {
     route.value = '/leaderboards'
     transportOffline.value = true
     draw(
@@ -602,12 +599,11 @@ describe('DesktopShell', () => {
     )
 
     const primary = host.querySelector<HTMLElement>('.ed-nav')!
-    expect(primary.textContent).toContain('Games')
-    expect(primary.textContent).toContain('Offline mode')
+    expect(primary.textContent).toContain('Play')
+    expect(primary.textContent).toContain('Ladder')
+    expect(primary.textContent).toContain('You')
     expect(primary.textContent).toContain('Practice')
-    expect(primary.textContent).not.toContain('Leaderboards')
-    expect(primary.textContent).not.toContain('Profile')
-    expect(primary.querySelector<HTMLButtonElement>('[aria-current="page"]')?.textContent).toContain('Offline mode')
+    expect(primary.textContent).not.toContain('Offline mode')
   })
 
   it('uses the Practice mode artwork in the desktop rail', () => {

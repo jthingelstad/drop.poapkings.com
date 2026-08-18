@@ -3,7 +3,7 @@ import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
 import { ACTIVITY_WINDOW_HOURS } from "../repository.js";
-import { seasonForDate, upcomingSeasons } from "../seasons.js";
+import { recentSeasons, seasonForDate, upcomingSeasons } from "../seasons.js";
 import {
   clientIpHash,
   currentWarClock,
@@ -31,15 +31,18 @@ export async function getLeaderboards(context: RouteContext) {
   await chargeRead(context);
   const mode = event.queryStringParameters?.mode;
   if (!isGameMode(mode)) throw new HttpError(400, "Choose a valid game mode.");
-  const currentSeason = seasonForDate(
-    new Date(),
-    await currentWarClock(repository),
-  );
+  const now = new Date();
+  const clock = await currentWarClock(repository);
+  const currentSeason = seasonForDate(now, clock);
+  // The period rail's chips: the current season and the months behind it. Only
+  // the Boards scope (season/all-time) shows the rail, so the clan reply omits
+  // it. Undefined CR numbers fall back to the raw id on the client.
+  const seasons = recentSeasons(now, 12, clock);
   // All-time ranks a player's best-ever score per mode across every season;
   // season (default) keeps the existing per-season board untouched.
   if (event.queryStringParameters?.scope === "all-time") {
     const entries = await repository.allTimeLeaderboard(mode);
-    return json(200, { mode, scope: "all-time", currentSeason, entries });
+    return json(200, { mode, scope: "all-time", currentSeason, seasons, entries });
   }
   if (event.queryStringParameters?.scope === "clan") {
     const session = sessionFor(event, config.sessionSecret, true);
@@ -99,6 +102,7 @@ export async function getLeaderboards(context: RouteContext) {
     scope: "season",
     seasonId,
     currentSeason,
+    seasons,
     entries,
   });
 }

@@ -233,6 +233,10 @@ describe('Leaderboards', () => {
         source: 'clash-royale',
         crSeasonId: 60
       },
+      seasons: [
+        { id: 'season-60', crSeasonId: 60 },
+        { id: 'season-59', crSeasonId: 59 }
+      ],
       entries:
         mode === 'survival'
           ? []
@@ -254,11 +258,12 @@ describe('Leaderboards', () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'season', expect.any(AbortSignal))
-    // One fixed title on every scope; the season now labels the scope segment.
-    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
-    expect(host.querySelector('.ed-board__clock')?.textContent).toContain('Season ends')
-    expect(buttonWithText(host, '.ed-board__scopes button', 'Season 60')).toBeTruthy()
+    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'season', expect.any(AbortSignal), undefined, undefined)
+    // One fixed title on every scope; the current season labels the header clock,
+    // and the period rail carries the season chips.
+    expect(host.querySelector('.ed-ladder__title')?.textContent).toBe('Ladder')
+    expect(host.querySelector('.ed-ladder__clock')?.textContent).toContain('Ends')
+    expect(buttonWithText(host, '.ed-ladder__periods button', 'Season 60')).toBeTruthy()
     expect(host.textContent).toContain('Alice')
     expect(host.textContent).toContain('4.200s') // leaderboard preserves millisecond ordering
     // The player's own row is flagged.
@@ -311,27 +316,33 @@ describe('Leaderboards', () => {
     expect(navigate).toHaveBeenLastCalledWith('/profile')
   })
 
-  it('switches the scope tab to all-time and re-queries', async () => {
+  it('switches the board period to all-time and re-queries', async () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(buttonWithText(host, '.ed-board__scopes button', 'All-time'))
+    await click(buttonWithText(host, '.ed-ladder__periods button', 'All-time'))
     await flush()
 
-    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'all-time', expect.any(AbortSignal))
-    // The header is fixed now: only the pressed scope changes.
-    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
-    expect(buttonWithText(host, '.ed-board__scopes button', 'All-time').getAttribute('aria-pressed')).toBe('true')
+    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'all-time', expect.any(AbortSignal), undefined, undefined)
+    // The header is fixed now: only the pressed period chip changes.
+    expect(host.querySelector('.ed-ladder__title')?.textContent).toBe('Ladder')
+    expect(buttonWithText(host, '.ed-ladder__periods button', 'All-time').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('switches the mode tab, re-queries, and re-renders rows for the new mode', async () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(host.querySelector('.ed-board__modes button[aria-label="Higher / Lower"]')!)
+    await click(buttonWithText(host, '.ed-board__modes button', 'HIGHER'))
     await flush()
 
-    expect(getLeaderboard).toHaveBeenLastCalledWith('higher-lower', 'season', expect.any(AbortSignal))
+    expect(getLeaderboard).toHaveBeenLastCalledWith(
+      'higher-lower',
+      'season',
+      expect.any(AbortSignal),
+      undefined,
+      undefined
+    )
     // Higher/Lower scores read as a count of correct reads, not seconds.
     expect(host.textContent).toContain('correct')
     expect(host.textContent).toContain('61.317s')
@@ -352,17 +363,17 @@ describe('Leaderboards', () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(buttonWithText(host, '.ed-board__scopes button', 'Clan'))
+    await click(buttonWithText(host, '.ed-scoperow button', 'Clan'))
     await flush()
 
-    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'clan', expect.any(AbortSignal), undefined)
-    // The clan identity moved into its own strip under the tabs; the header
-    // and scope row are the same ones the season board rendered.
-    expect(host.querySelector('.ed-board__title')?.textContent).toBe('Leaderboards')
+    expect(getLeaderboard).toHaveBeenLastCalledWith('surge', 'clan', expect.any(AbortSignal), undefined, undefined)
+    // The clan identity has its own strip under the scope row; the header and
+    // scope row are the same ones the boards rendered.
+    expect(host.querySelector('.ed-ladder__title')?.textContent).toBe('Ladder')
     const strip = host.querySelector('.ed-board__clan')!
     expect(strip.textContent).toContain('POAP KINGS')
     expect(strip.textContent).toContain('#J2RGCRVG')
-    expect(strip.textContent).toContain('2 in Drop')
+    expect(strip.textContent).toContain('2 clanmates on Drop')
     expect(buttonWithText(host, '.ed-board__clan button', 'Change')).toBeTruthy()
   })
 
@@ -370,7 +381,7 @@ describe('Leaderboards', () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(host.querySelector('.ed-board__modes button[aria-label="Survival"]')!)
+    await click(buttonWithText(host, '.ed-board__modes button', 'SURVIVE'))
     await flush()
 
     expect(host.textContent).toContain('Nobody has posted')

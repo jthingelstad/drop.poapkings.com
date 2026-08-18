@@ -376,9 +376,15 @@ export function getLeaderboard(
   mode: GameMode,
   scope: LeaderboardScope = 'season',
   signal?: AbortSignal,
-  sessionToken?: string
+  sessionToken?: string,
+  // A specific past season's board (Boards period rail). Only meaningful in the
+  // 'season' scope; the current season is the default when omitted.
+  seasonId?: string
 ) {
-  const query = `/leaderboards?mode=${encodeURIComponent(mode)}` + (scope === 'season' ? '' : `&scope=${scope}`)
+  const params = new URLSearchParams({ mode })
+  if (scope !== 'season') params.set('scope', scope)
+  if (seasonId) params.set('season', seasonId)
+  const query = `/leaderboards?${params.toString()}`
   return scheduleLeaderboardRequest(
     () => apiRequest(query, leaderboardResponseSchema, { signal, sessionToken }),
     signal
