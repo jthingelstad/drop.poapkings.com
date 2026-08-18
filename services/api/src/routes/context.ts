@@ -134,7 +134,9 @@ export function profileResponse(
     xp: profile.xp ?? 0,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
-    ...(profile.lastOpenedUpdates ? { lastOpenedUpdates: profile.lastOpenedUpdates } : {}),
+    ...(profile.lastOpenedUpdates
+      ? { lastOpenedUpdates: profile.lastOpenedUpdates }
+      : {}),
     rankedAccess,
     ...levelForGames(profile.totalGames),
   };

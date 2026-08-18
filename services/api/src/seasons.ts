@@ -173,11 +173,17 @@ export function recentSeasons(
   if (count <= 0) return [];
   const current = seasonForDate(input, clock);
   const seasons: Array<{ id: string; crSeasonId?: number }> = [
-    { id: current.id, ...(current.crSeasonId ? { crSeasonId: current.crSeasonId } : {}) },
+    {
+      id: current.id,
+      ...(current.crSeasonId ? { crSeasonId: current.crSeasonId } : {}),
+    },
   ];
   const start = new Date(current.startsAt);
   const clockRef = clock
-    ? { leaderboardSeasonId: clock.leaderboardSeasonId, crSeasonId: clock.crSeasonId }
+    ? {
+        leaderboardSeasonId: clock.leaderboardSeasonId,
+        crSeasonId: clock.crSeasonId,
+      }
     : undefined;
   for (let offset = 1; offset < count; offset += 1) {
     const monthStart = firstMondayAtReset(

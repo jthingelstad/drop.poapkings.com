@@ -207,7 +207,11 @@ describe("run completion side effects are best effort", () => {
 
     expect(result.statusCode).toBe(201);
     // A recorded ranked run carries its per-run XP award in the response.
-    expect(result.body).toMatchObject({ accepted: true, totalGames: 5, xpEarned: expect.any(Number) });
+    expect(result.body).toMatchObject({
+      accepted: true,
+      totalGames: 5,
+      xpEarned: expect.any(Number),
+    });
     expect(publishDiscordEvent).toHaveBeenCalledOnce();
     expect(publishTinylyticsEvent).toHaveBeenCalledWith(
       { apiToken: "tinylytics-key" },

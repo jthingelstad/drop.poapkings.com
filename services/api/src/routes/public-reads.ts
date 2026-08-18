@@ -42,7 +42,13 @@ export async function getLeaderboards(context: RouteContext) {
   // season (default) keeps the existing per-season board untouched.
   if (event.queryStringParameters?.scope === "all-time") {
     const entries = await repository.allTimeLeaderboard(mode);
-    return json(200, { mode, scope: "all-time", currentSeason, seasons, entries });
+    return json(200, {
+      mode,
+      scope: "all-time",
+      currentSeason,
+      seasons,
+      entries,
+    });
   }
   if (event.queryStringParameters?.scope === "clan") {
     const session = sessionFor(event, config.sessionSecret, true);
