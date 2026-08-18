@@ -31,21 +31,50 @@ screensaver without signing in.
 
 ### How the local app talks to the backend
 
-There is currently **no local API stack**. `apps/web/public/api-config.json`
-points the dev server at the **deployed production API**. That means:
+By default `apps/web/public/api-config.json` points the dev server at the
+**deployed production API**. That means with plain `npm run dev`:
 
 - Browsing and most UI work need no sign-in and touch nothing.
 - **Signing in (magic link) and recording games hit the live backend and create
-  real data.** If you need to test the signed-in flow, use a throwaway email
-  address, and delete the account afterward from the profile page.
+  real data.** If you need to test the signed-in flow against prod, use a
+  throwaway email address, and delete the account afterward from the profile page.
 - Recorded gameplay always requires a signed server challenge. When the browser
   is offline, every mode can deal locally, but that run is never submitted,
   queued, ranked, or applied to account progress.
 
-Running the API (a TypeScript Lambda + DynamoDB) fully locally is not wired up
-yet; a local emulation path (e.g. SAM + dynamodb-local) is a welcome future
-contribution. Until then, the real inner loop for game logic, scoring, and
-storage is the **test suite**, which mocks the API end to end.
+#### Running against a local API (`npm run dev:local`)
+
+For signed-in and recording flows **without touching production**, run the
+Node-only local dev API:
+
+```
+npm run dev:local
+```
+
+This runs `services/api/dev/server.ts` — the **real** request handler, routing,
+validation, scoring, session-signing and contracts — backed by an **in-memory**
+store (plain Maps, reset on restart), and points the web app at it (a Vite
+dev middleware serves `/api-config.json` → `http://localhost:8787` while
+`LOCAL_API` is set; the committed prod file is untouched). No Docker, no Java,
+no AWS.
+
+- **Sign in:** enter any email; the magic link is printed to the terminal
+  running the API — open it in the browser to complete login (no mailbox needed,
+  via the `ELIXIR_DROP_DEV_MAIL=console` dev branch in `jmap.ts`).
+- **Seed data:** a few players with runs across modes and a couple of seasons,
+  so leaderboards, the period rail, and the activity feed aren't empty.
+- **Env / port:** override the port with `LOCAL_API_PORT`. Run the API alone
+  with `npm run dev:api`.
+- **Not a DynamoDB replica.** Storage semantics are simplified and there is no
+  referee / Clash-Royale-bridge / learning machinery (a run never holds for the
+  referee locally; CR clan boards are empty; name suggestions use the
+  favorite-card fallback). It is for exercising the **frontend** against the real
+  API surface — not a substitute for a staging deploy of the data layer. Any
+  repository method the frontend does not exercise throws loudly rather than
+  faking a result.
+
+The other real inner loop for game logic, scoring, and storage remains the
+**test suite**, which mocks the API end to end.
 
 For visual QA against that deployed API, use `npm run dev:qa`. It sets
 `VITE_DISABLE_UPDATE_NOTICE=1` for that local Vite process so a deliberate
