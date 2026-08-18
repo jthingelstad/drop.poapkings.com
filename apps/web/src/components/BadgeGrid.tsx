@@ -6,7 +6,6 @@ import { shareBadge } from '../lib/share-badge'
 import type { RunShareOutcome } from '../lib/share-run'
 import BadgeMedallion from './BadgeMedallion'
 import DetailModal from './DetailModal'
-import EmptyState from './EmptyState'
 import Icon from './Icon'
 
 // The badge wall: medallions open a real modal, so a tap never changes content
@@ -42,19 +41,12 @@ export default function BadgeGrid({
   const visible = featured ? ordered.slice(0, FEATURED_BADGES) : ordered
   const open = visible.find((view) => view.slug === openSlug)
 
-  if (!earned) {
-    if (earnedOnly) {
-      return <p class="ed-profile__recent-empty">No badges earned yet.</p>
-    }
-    return (
-      <EmptyState
-        art="empty-badges"
-        heading="No badges yet"
-        line="Every game you finish moves a ladder. The first rungs come quickly."
-        actionLabel="Play Surge"
-        href="/surge"
-      />
-    )
+  // Only the earned-only view (a public profile) collapses to a line when empty.
+  // The full Badges scope always shows the whole set — locked and silhouetted —
+  // because a set you cannot see whole is not a set: a new player should see the
+  // ladders waiting for them, not a blank screen.
+  if (!earned && earnedOnly) {
+    return <p class="ed-profile__recent-empty">No badges earned yet.</p>
   }
 
   return (

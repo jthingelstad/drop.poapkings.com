@@ -179,11 +179,15 @@ describe('BadgeEarned', () => {
 })
 
 describe('BadgeGrid', () => {
-  it('renders the player and public-profile empty states', () => {
+  it('shows the whole locked set on the Badges scope, and a line on a public profile', () => {
+    // The full Badges scope shows every badge (locked / silhouetted) even at zero
+    // earned — a set you cannot see whole is not a set.
     draw(<BadgeGrid states={[]} />)
-    expect(host.textContent).toContain('No badges yet')
-    expect(host.textContent).toContain('Play Surge')
+    expect(host.querySelector('.ed-badges__grid')).not.toBeNull()
+    expect(host.textContent).not.toContain('No badges yet')
+    expect(host.querySelectorAll('.ed-badges__cell').length).toBeGreaterThan(20)
 
+    // The earned-only public view still collapses to a line when empty.
     draw(<BadgeGrid states={[]} earnedOnly />)
     expect(host.textContent).toBe('No badges earned yet.')
   })
