@@ -379,8 +379,10 @@ describe('GameRunGate', () => {
   it('shows the preparing state', async () => {
     const html = await render(<GameRunGate modeName="Surge" session={gateSession(true, '')} />)
     expect(html).toContain('data-game-start-phase="preparing"')
-    expect(html).toContain('aria-label="Preparing game"')
-    expect(html).toContain('>PREPARING<')
+    // The preparing/loading slot is the charge ring now, in the same 172px gold
+    // slot the countdown numeral lands in. Copy is "Charging" — no mode name.
+    expect(html).toContain('charge-ring')
+    expect(html).toContain('>Charging<')
     expect(html).toContain('>Surge<')
     expect(html).not.toContain('Try again')
   })
@@ -404,9 +406,9 @@ describe('GameStartScreen', () => {
     const html = await render(<GameStartScreen modeName="Trade" phase="loading" />)
     expect(html).toContain('class="ed-game ed-game--starting"')
     expect(html).toContain('data-game-start-phase="loading"')
-    expect(html).toContain('aria-label="Loading cards"')
-    expect(html).toContain('run-count__num--status')
-    expect(html).toContain('>LOADING<')
+    expect(html).toContain('ed-game__count-num--status')
+    expect(html).toContain('charge-ring')
+    expect(html).toContain('>Charging<')
     expect(html).toContain('>Trade<')
   })
 })

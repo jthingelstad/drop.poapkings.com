@@ -9,11 +9,11 @@ import { layout } from '../../src/lib/use-layout'
 const CASES = [
   ['/', 'Elixir Drop'],
   ['/practice', 'Training grounds'],
-  ['/surge', 'PREPARING'],
-  ['/higher-lower', 'PREPARING'],
-  ['/trade', 'PREPARING'],
-  ['/survival', 'PREPARING'],
-  ['/rain', 'PREPARING'],
+  ['/surge', 'Charging'],
+  ['/higher-lower', 'Charging'],
+  ['/trade', 'Charging'],
+  ['/survival', 'Charging'],
+  ['/rain', 'Charging'],
   ['/offline', 'Elixir Drop'],
   ['/settings', 'Settings'],
   ['/app-info', 'App Info']

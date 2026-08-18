@@ -9,12 +9,11 @@ export interface EarnedRung {
   at: string
 }
 
-// The earn moment: the rungs a single run cleared, shown on its summary.
-//
-// Uses the -384 file: 172px is the only place a badge is rendered large enough
-// to need it.
-export default function BadgeEarned({ earned }: { earned: EarnedRung[] }) {
-  const views = earned.flatMap((rung) => {
+// Map the rungs a run cleared to full badge views. Shared by the summary's
+// "what changed" ledger and the earn celebration, so they can never disagree
+// about a badge's tier, name or chip.
+export function earnedRungViews(earned: EarnedRung[]): BadgeView[] {
+  return earned.flatMap((rung) => {
     const definition = BADGE_BY_SLUG.get(rung.slug)
     if (!definition) return []
     const reached = definition.rungs[rung.rungIndex]
@@ -36,6 +35,14 @@ export default function BadgeEarned({ earned }: { earned: EarnedRung[] }) {
     }
     return [view]
   })
+}
+
+// The earn moment inline on the summary: the rungs a single run cleared.
+//
+// Uses the -384 file: 172px is the only place a badge is rendered large enough
+// to need it.
+export default function BadgeEarned({ earned }: { earned: EarnedRung[] }) {
+  const views = earnedRungViews(earned)
   if (!views.length) return null
 
   return (

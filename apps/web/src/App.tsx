@@ -7,7 +7,8 @@ import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
-import PlayerTagNudge from './components/PlayerTagNudge'
+import BadgeCelebration from './components/BadgeCelebration'
+import ChargeRing from './components/ChargeRing'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
@@ -23,7 +24,6 @@ import Profile from './screens/Profile'
 import PublicProfile from './screens/PublicProfile'
 import Leaderboards from './screens/Leaderboards'
 import AppInfo from './screens/AppInfo'
-import Icon from './components/Icon'
 import GameStartScreen from './components/game/GameStart'
 import { GAMES } from './lib/game-metadata'
 import { contactEmailHref } from './lib/links'
@@ -78,10 +78,11 @@ function RouteFallback({ r }: { r: string }) {
   const game = gamePath ? GAMES.find((candidate) => candidate.path === gamePath) : undefined
   if (game) return <GameStartScreen modeName={game.name} phase="preparing" routePending />
 
+  // No screen exists yet for this route chunk, so the charge ring IS the screen —
+  // the same 172px gold slot the countdown numeral will land in.
   return (
-    <div class="main-content route-loading" aria-live="polite">
-      <Icon name="loader-circle" className="route-loading__spinner" />
-      <div class="route-loading__text">Loading game…</div>
+    <div class="main-content route-loading">
+      <ChargeRing />
     </div>
   )
 }
@@ -128,13 +129,10 @@ function AccountUnavailable() {
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
-        <Icon name="loader-circle" className="route-loading__spinner" />
-        <div class="eyebrow">Login safely kept</div>
-        <h1>Player services are reconnecting</h1>
+        <ChargeRing variant="reconnecting" />
         <p class="account-message account-message--error">
           {accountError.value || 'Drop could not reach player services.'}
         </p>
-        <p class="lede">Your saved login has not been removed. Try again when your connection is ready.</p>
         <button class="btn btn--gold" onClick={() => void initializeAccount()}>
           Try reconnecting
         </button>
@@ -313,7 +311,6 @@ export default function App() {
   const content = (
     <>
       {title && <h1 class="sr-only">{title}</h1>}
-      <UpdateBanner />
       <Screen r={route.value} />
     </>
   )
@@ -322,7 +319,11 @@ export default function App() {
     <>
       {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
       <RunRecordingNotice />
-      <PlayerTagNudge />
+      {/* Interrupt ladder overlays — the ladder gate lets at most one show. The
+          tier-4 update strip sits above the nav pill (no scrim); the tier-1 badge
+          celebration is the only full takeover, and only on a summary. */}
+      <UpdateBanner />
+      <BadgeCelebration />
       {screensaverActive.value && <Screensaver />}
     </>
   )

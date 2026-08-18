@@ -378,7 +378,7 @@ describe('mode smoke — Surge', () => {
     stageSession(fakeCards(15), 'ready', { assetsReady: false })
     const c = mount(<Surge />)
     expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
-    expect(c.textContent).toContain('LOADING')
+    expect(c.textContent).toContain('Charging')
     expect(c.textContent).toContain('Surge')
   })
 
@@ -410,7 +410,7 @@ describe('mode smoke — Surge', () => {
     hoisted.runtime.current = makeRuntime('ready')
     const c = mount(<Surge />)
     expect(c.querySelector('[data-game-start-phase="preparing"]')).not.toBeNull()
-    expect(c.textContent).toContain('PREPARING')
+    expect(c.textContent).toContain('Charging')
   })
 })
 

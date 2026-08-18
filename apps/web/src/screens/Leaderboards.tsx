@@ -8,6 +8,7 @@ import ScopeRow from '../components/ScopeRow'
 import GateCard from '../components/GateCard'
 import BadgeGrid from '../components/BadgeGrid'
 import EmptyState from '../components/EmptyState'
+import SkeletonRows from '../components/Skeleton'
 import ReviewStatusMark from '../components/ReviewStatus'
 import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
 import { badgeViews, earnedCount } from '../lib/badges'
@@ -407,7 +408,7 @@ export default function Leaderboards() {
           <h2 id="active-leaderboard-title" class="sr-only">
             {selectedGame.name} leaderboard
           </h2>
-          {loading.value && <div class="ed-rail-empty">Loading leaderboard…</div>}
+          {loading.value && <SkeletonRows count={8} className="ed-skeleton--board" />}
           {error.value && <div class="ed-board__error">{error.value}</div>}
           {!loading.value && !error.value && isClan && clanGate.value && clanGateCard(clanGate.value)}
           {!loading.value && !error.value && (!isClan || !clanGate.value) && (

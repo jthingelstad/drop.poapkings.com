@@ -27,10 +27,10 @@ import { challengeCard } from '../lib/challenge-cards'
 import { badgeViews } from '../lib/badges'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
+import SkeletonRows from '../components/Skeleton'
 import { gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
-import { deferPlayerTagNudge } from '../lib/player-tag-nudge'
 import { navigate, route } from '../lib/router'
 import { buildMeta } from '../lib/build'
 import { standaloneApp } from '../lib/pwa-install'
@@ -189,7 +189,6 @@ export default function Profile() {
       await updateAccount({ favoriteCardId: selectedCard.id, publicName: name, nameToken: nameToken.value })
       names.value = []
       editingIdentity.value = false
-      if (isInitialSetup) deferPlayerTagNudge(current.id)
       if (returnTo) {
         navigate(returnTo)
       } else if (isInitialSetup) {
@@ -571,9 +570,7 @@ function LogScope({ playerId }: { playerId: string }) {
       </div>
 
       {status.value === 'loading' || status.value === 'idle' ? (
-        <p class="ed-profile__recent-empty" role="status">
-          Loading your games…
-        </p>
+        <SkeletonRows count={6} className="ed-skeleton--log" />
       ) : status.value === 'error' ? (
         <p class="ed-profile__recent-empty" role="alert">
           Your game history is temporarily unavailable.
@@ -672,6 +669,23 @@ function UpdatesScope() {
           Updates
         </span>
       </div>
+
+      {/* Tier 5: the player-tag prompt is a card here, never an unbidden modal.
+          It waits to be found — shown only when a signed-in player has no tag. */}
+      {player.value && !player.value.playerTag && (
+        <div class="ed-updates__tagcard">
+          <span class="ed-updates__tagcard-icon" aria-hidden="true">
+            <Icon name="user" />
+          </span>
+          <div class="ed-updates__tagcard-text">
+            <strong>Add your player tag</strong>
+            <small>Link your public Clash Royale profile so Drop can show your clan and clan rankings.</small>
+          </div>
+          <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate('/profile?edit=player-tag')}>
+            Add tag
+          </button>
+        </div>
+      )}
 
       {withReferee.length > 0 && (
         <div class="ed-updates__referee">

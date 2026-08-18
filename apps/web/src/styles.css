@@ -176,36 +176,9 @@ body {
 
 .route-loading {
   min-height: 50vh;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 14px;
-}
-
-/* The route-loading spinner. A lucide glyph sized by font-size (see .icon),
-   spinning so a slow route reads as "working" rather than "stuck" — which a
-   still image never did. */
-.route-loading__spinner {
-  font-size: 54px;
-  color: var(--lavender);
-  animation: route-loading-spin 1.1s linear infinite;
-}
-@keyframes route-loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .route-loading__spinner {
-    animation: none;
-  }
-}
-html.reduce-motion .route-loading__spinner {
-  animation: none;
-}
-
-.route-loading__text {
-  color: var(--lavender);
-  font-family: var(--font-display);
-  font-size: 0.92rem;
 }
 
 .sr-only {
@@ -259,40 +232,61 @@ a {
 
 /* ── Accounts and leaderboards ───────────────────────────── */
 
-/* ── New-version reload prompt ─────────────────────────────── */
-
-.update-banner {
-  position: relative;
-  z-index: 35;
-  width: min(calc(100% - 32px), var(--col));
-  margin: 14px auto 0;
-  padding: 12px 14px;
+/* ── Tier-4 update strip (8a) ───────────────────────────────
+   A strip above the nav pill: NO scrim, NO blur — the page behind stays fully
+   lit and usable. The strip carries its own opaque background, so it reads
+   without dimming anything. That is the whole difference between this and a
+   takeover. Fixed above the mobile nav pill (and bottom-centre on desktop). */
+.update-strip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(calc(100% - 24px), var(--col, 440px));
+  padding: 11px 12px 11px 14px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 13px;
+  gap: 11px;
   border: 1px solid rgba(245, 200, 76, 0.5);
   border-radius: var(--r-lg);
-  background: radial-gradient(circle at 0% 50%, rgba(245, 200, 76, 0.16), transparent 45%), rgba(18, 13, 40, 0.96);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+
+  /* Opaque — never a scrim over the page. */
+  background: radial-gradient(circle at 0% 50%, rgba(245, 200, 76, 0.16), transparent 45%), #120d28;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
 }
-.update-banner__icon {
-  font-size: 30px;
+.ed-desktop .update-strip {
+  bottom: 24px;
+}
+.update-strip__icon {
+  font-size: 26px;
   color: var(--gold-lite);
   flex: 0 0 auto;
 }
-.update-banner__copy {
+.update-strip__copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
-.update-banner__copy strong {
+.update-strip__copy strong {
   color: var(--gold);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
-.update-banner__copy span {
+.update-strip__copy span {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+}
+.update-strip__x {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
 }
 
 .player-avatar {
@@ -1825,53 +1819,6 @@ body.modal-open {
 .ed-detail-modal__close svg {
   width: 17px;
   height: 17px;
-}
-
-.player-tag-nudge {
-  width: min(100%, 420px);
-  padding: 30px 24px 24px;
-  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.15), transparent 55%), rgba(18, 13, 40, 0.99);
-}
-.player-tag-nudge__icon {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 14px;
-  border: 1px solid rgba(245, 200, 76, 0.38);
-  border-radius: 15px;
-  background: rgba(109, 40, 217, 0.32);
-  color: var(--gold);
-}
-.player-tag-nudge__icon .icon {
-  width: 23px;
-  height: 23px;
-}
-.player-tag-nudge__title {
-  margin: 5px 0 0;
-  padding-right: 28px;
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-}
-.player-tag-nudge__copy {
-  margin: 11px 0 0;
-  color: #d9d1f5;
-  font-size: 0.9rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-.player-tag-nudge__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-@media (width <= 480px) {
-  .player-tag-nudge__actions .ed-btn {
-    flex: 1 1 100%;
-  }
 }
 
 /* Shared overlay animation, used by the detail modal (and formerly the retired
@@ -8194,4 +8141,224 @@ html.reduce-motion .practice-drill {
 }
 .ed-sum__signature {
   border-radius: 16px;
+}
+
+/* ── Charge ring (loading, 9a/9b) ─────────────────────────────
+   The same 172px gold slot the countdown numeral lands in. The arc always fills
+   (progress, not decoration), so the fill runs even under reduced motion; only
+   the reconnecting pulse is suppressed. */
+.charge-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.charge-ring__svg {
+  width: 172px;
+  height: 172px;
+  transform: rotate(-90deg);
+}
+.charge-ring__track {
+  fill: none;
+  stroke: rgba(245, 200, 76, 0.14);
+  stroke-width: 6;
+}
+.charge-ring__arc {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 12px rgba(245, 200, 76, 0.5));
+  animation: charge-ring-fill 1.4s cubic-bezier(0.5, 0.1, 0.4, 1) infinite;
+}
+@keyframes charge-ring-fill {
+  0% {
+    stroke-dashoffset: 276.46;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 8;
+  }
+}
+.charge-ring__label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+.charge-ring__note {
+  max-width: 300px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Reconnecting holds at a quarter turn (the inline dashoffset) and pulses. */
+.charge-ring--reconnecting .charge-ring__arc {
+  animation: charge-ring-pulse 2s ease-in-out infinite;
+}
+@keyframes charge-ring-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .charge-ring--reconnecting .charge-ring__arc {
+    animation: none;
+  }
+}
+html.reduce-motion .charge-ring--reconnecting .charge-ring__arc {
+  animation: none;
+}
+
+/* ── Skeleton rows (loading, 9c) ──────────────────────────────
+   Only rows are skeletons, and they say nothing. */
+.ed-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-skeleton__row {
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background-size: 220% 100%;
+  animation: ed-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.ed-skeleton--log .ed-skeleton__row {
+  height: 46px;
+}
+@keyframes ed-skeleton-shimmer {
+  0% {
+    background-position: 140% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-skeleton__row {
+    animation: none;
+  }
+}
+html.reduce-motion .ed-skeleton__row {
+  animation: none;
+}
+
+/* ── Badge celebration (tier 1 takeover, 8b) ──────────────────
+   The one full takeover left, on the summary after a run. */
+.badge-celebrate {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(120% 120% at 50% 30%, rgba(59, 29, 122, 0.72), rgba(7, 6, 16, 0.94) 70%);
+  animation: ed-overlay-fade 220ms ease-out;
+}
+.badge-celebrate__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  text-align: center;
+}
+.badge-celebrate__eyebrow {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.badge-celebrate__medal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 4px 0;
+}
+.badge-celebrate__burst {
+  position: absolute;
+  width: 344px;
+  height: 344px;
+  max-width: none;
+  pointer-events: none;
+  transform: translateZ(0);
+  animation: badge-burst 600ms ease-out forwards;
+}
+@keyframes badge-burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+.badge-celebrate__name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+.badge-celebrate__chip {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--gold);
+}
+.badge-celebrate__more {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.badge-celebrate__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* ── Player-tag card in Updates (tier 5, 8c) ────────────────── */
+.ed-updates__tagcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 200, 76, 0.28);
+  background: radial-gradient(90% 120% at 0% 0%, rgba(245, 200, 76, 0.12), transparent 55%), rgba(255, 255, 255, 0.03);
+}
+.ed-updates__tagcard-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(109, 40, 217, 0.32);
+  color: var(--gold);
+}
+.ed-updates__tagcard-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-updates__tagcard-text strong {
+  font-size: 14px;
+}
+.ed-updates__tagcard-text small {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
 }
