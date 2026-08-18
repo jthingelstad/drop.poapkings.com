@@ -1,7 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { accountStatus, player } from '../lib/account'
 import { dismissPlayerTagNudge, openPlayerTagNudgeIfDue, playerTagNudgePlayerId } from '../lib/player-tag-nudge'
-import { pendingRelease } from '../lib/release-notice'
 import { navigate, route } from '../lib/router'
 import { isGameRoute } from './shell/nav'
 import DetailModal from './DetailModal'
@@ -14,13 +13,8 @@ function routeAllowsNudge(path: string): boolean {
 export default function PlayerTagNudge() {
   const current = player.value
   const path = route.value
-  const releasePending = pendingRelease.value !== null
   const eligible =
-    accountStatus.value === 'authenticated' &&
-    current !== null &&
-    !current.playerTag &&
-    routeAllowsNudge(path) &&
-    !releasePending
+    accountStatus.value === 'authenticated' && current !== null && !current.playerTag && routeAllowsNudge(path)
 
   useEffect(() => {
     if (eligible && current) openPlayerTagNudgeIfDue(current.id)

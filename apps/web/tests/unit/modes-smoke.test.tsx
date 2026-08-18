@@ -52,7 +52,7 @@ import { challengeCard, challengeCards, fullDeckSize } from '../../src/lib/chall
 import { route } from '../../src/lib/router'
 import { createProgressivePreloadPlan, preloadImages, preloadUrls } from '../../src/lib/preload'
 
-import Settings from '../../src/modes/settings/Settings'
+import PlayerPreferences from '../../src/components/PlayerPreferences'
 import Surge from '../../src/modes/surge/Surge'
 import Practice from '../../src/modes/practice/Practice'
 import Survival from '../../src/modes/survival/Survival'
@@ -149,44 +149,23 @@ afterEach(() => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Settings — pure-ish, real storage + real toggles
+// PlayerPreferences — the toggle set now rendered inside the You › Settings scope
+// (the standalone /settings page was retired in the 2026 refresh)
 // ══════════════════════════════════════════════════════════════════════════════
-describe('Settings', () => {
+describe('PlayerPreferences', () => {
   function byLabel(root: HTMLElement, label: string): HTMLButtonElement {
     const el = root.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)
     if (!el) throw new Error(`no control labelled ${label}`)
     return el
   }
-  function byText(root: HTMLElement, sel: string, text: string): HTMLButtonElement {
-    const el = [...root.querySelectorAll<HTMLButtonElement>(sel)].find((b) => (b.textContent ?? '').includes(text))
-    if (!el) throw new Error(`no ${sel} containing ${text}`)
-    return el
-  }
 
-  it('renders headings and build metadata', () => {
-    const c = mount(<Settings />)
-    expect(c.textContent).toContain('Settings')
-    expect(c.textContent).toContain('Build ID')
-    expect(c.textContent).toContain('Build date')
-  })
-
-  it('defaults reflect stored settings (keypad input, sound off)', () => {
-    const c = mount(<Settings />)
-    const keypad = byText(c, '.input-toggle__btn', 'Keypad')
-    expect(keypad.getAttribute('aria-pressed')).toBe('true')
+  it('defaults reflect stored settings (sound off)', () => {
+    const c = mount(<PlayerPreferences />)
     expect(byLabel(c, 'Sound effects').getAttribute('aria-checked')).toBe('false')
   })
 
-  it('switching practice input persists inputStyle', () => {
-    const c = mount(<Settings />)
-    byText(c, '.input-toggle__btn', '4 choices').click()
-    expect(getSettings().inputStyle).toBe('choice')
-    byText(c, '.input-toggle__btn', 'Keypad').click()
-    expect(getSettings().inputStyle).toBe('keypad')
-  })
-
   it('toggling sound persists and pipes through the sound module', () => {
-    const c = mount(<Settings />)
+    const c = mount(<PlayerPreferences />)
     byLabel(c, 'Sound effects').click()
     expect(getSettings().sound).toBe(true)
     expect(setSoundEnabled).toHaveBeenCalledWith(true)
@@ -194,21 +173,21 @@ describe('Settings', () => {
   })
 
   it('toggling reduce motion persists and stamps the root class', () => {
-    const c = mount(<Settings />)
+    const c = mount(<PlayerPreferences />)
     byLabel(c, 'Reduce motion').click()
     expect(getSettings().reducedMotion).toBe(true)
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(true)
   })
 
   it('toggling enhanced effects persists (default on → off)', () => {
-    const c = mount(<Settings />)
+    const c = mount(<PlayerPreferences />)
     expect(getSettings().enhancedEffects ?? true).toBe(true)
     byLabel(c, 'Enhance effects').click()
     expect(getSettings().enhancedEffects).toBe(false)
   })
 
   it('toggling the speedrun keyboard persists (default off → on)', () => {
-    const c = mount(<Settings />)
+    const c = mount(<PlayerPreferences />)
     expect(getSettings().speedrunKeyboard ?? false).toBe(false)
     byLabel(c, 'Speedrun keyboard').click()
     expect(getSettings().speedrunKeyboard).toBe(true)

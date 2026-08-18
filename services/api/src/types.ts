@@ -94,6 +94,10 @@ export interface PlayerProfile {
   // Successful magic-link redemption, kept separate from profile mutation and
   // gameplay activity so private account administration can distinguish them.
   lastLoginAt?: string;
+  // When the player last opened the Updates view. Account-level and server-owned
+  // (deliberately not per-device): anything newer than this is unread. Absent
+  // until the first open.
+  lastOpenedUpdates?: string;
 }
 
 export type RankedAccessStatus = "allowed" | "restricted";

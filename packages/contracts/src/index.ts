@@ -340,6 +340,9 @@ export interface Player {
   // Owner-only enforcement state. Restriction blocks ranked starts while
   // leaving Practice, account access, history, and appeal available.
   rankedAccess?: "allowed" | "restricted";
+  // When the player last opened the Updates view. Account-level and server-owned
+  // (not per-device); anything newer is unread. Absent until the first open.
+  lastOpenedUpdates?: string;
 }
 
 // Server-derived learning history from validated run transcripts. It remains

@@ -8,6 +8,7 @@ import { tapFxFrom } from '../../lib/tap-fx'
 import { player, accountStatus, signOut } from '../../lib/account'
 import { startScreensaver } from '../../lib/screensaver'
 import { rankFor } from '../../data/starRanks'
+import { hasUnreadUpdates } from '../../lib/updates'
 import Icon from '../Icon'
 import ModeIcon from '../ModeIcon'
 import OfflineGlyph from '../OfflineGlyph'
@@ -35,6 +36,9 @@ function LeftRail() {
             aria-current={item.matches(r) ? 'page' : undefined}
             onClick={() => navigate(item.route)}
           >
+            {item.route === '/profile' && hasUnreadUpdates.value && (
+              <span class="ed-nav-dot" aria-label="Unread updates" />
+            )}
             <Icon name={item.icon} />
             {item.label}
           </button>

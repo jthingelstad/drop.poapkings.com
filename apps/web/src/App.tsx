@@ -7,14 +7,12 @@ import UpdateBanner from './components/UpdateBanner'
 import { getStats } from './lib/api'
 import { checkForWebUpdate, isUpdateNoticeEnabled, updateAvailable } from './lib/version'
 import RunRecordingNotice from './components/RunRecordingNotice'
-import ReleaseNotice from './components/ReleaseNotice'
 import PlayerTagNudge from './components/PlayerTagNudge'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { initReleaseNotice } from './lib/release-notice'
 import { layout } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import DesktopShell from './components/shell/DesktopShell'
@@ -39,7 +37,6 @@ const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
 const loadTrade = () => import('./modes/trade/Trade')
 const loadSurvival = () => import('./modes/survival/Survival')
 const loadRain = () => import('./modes/rain/Rain')
-const loadSettings = () => import('./modes/settings/Settings')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
 const loadOfflineGames = () =>
@@ -51,7 +48,6 @@ const HigherLower = lazy(loadHigherLower)
 const Trade = lazy(loadTrade)
 const Survival = lazy(loadSurvival)
 const Rain = lazy(loadRain)
-const SettingsScreen = lazy(loadSettings)
 const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 
 // ── Screen title (sr-only) ──────────────────────────────────────────────────
@@ -70,7 +66,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/leaderboards', label: 'Ladder' },
   { match: '/profile', label: 'You' },
   { match: '/players', label: 'Player profile' },
-  { match: '/settings', label: 'Settings' },
+  { match: '/settings', label: 'You' },
   { match: '/app-info', label: 'App info' },
   { match: '/login', label: 'Sign in' },
   { match: '/auth', label: 'Signing in' }
@@ -191,7 +187,8 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/trade')) return <Trade />
   if (r.startsWith('/survival')) return <Survival />
   if (r.startsWith('/rain')) return <Rain />
-  if (r.startsWith('/settings')) return <SettingsScreen />
+  // Settings moved into the You page (a scope). Legacy /settings links land there.
+  if (r.startsWith('/settings')) return <Profile />
   if (r.startsWith('/login')) return <Login />
   if (r.startsWith('/auth')) return <AuthRedeem />
   if (r.startsWith('/players/')) return <PublicProfile />
@@ -233,9 +230,6 @@ export default function App() {
         // keeps the prior complete shell when this build could not finish.
       }
     })
-    // Decides once per load whether a named release is worth announcing. A
-    // first-time visitor is recorded and never interrupted.
-    initReleaseNotice()
     return watchConnectivity()
   }, [])
 
@@ -329,7 +323,6 @@ export default function App() {
     <>
       {layout.value === 'desktop' ? <DesktopShell>{content}</DesktopShell> : <MobileShell>{content}</MobileShell>}
       <RunRecordingNotice />
-      <ReleaseNotice />
       <PlayerTagNudge />
       {screensaverActive.value && <Screensaver />}
     </>

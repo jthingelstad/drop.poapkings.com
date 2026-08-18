@@ -392,25 +392,11 @@ describe('Profile interactive flows', () => {
     account.player.value = null
     await mount()
 
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
     const link = byText(container, 'Sign In')
     expect(link).toBeTruthy()
     await fire(link as Element)
     expect(router.route.value).toBe('/login')
-  })
-
-  it('gates the guest More list on the mobile layout', async () => {
-    account.accountStatus.value = 'anonymous'
-    account.player.value = null
-    useLayout.layout.value = 'desktop'
-    await mount()
-    expect(container.querySelector('.ed-morelist')).toBeNull()
-
-    await act(async () => {
-      useLayout.layout.value = 'mobile'
-    })
-    await flush()
-    expect(container.querySelector('.ed-morelist')).not.toBeNull()
   })
 
   // --- Identity editor: name ideas -----------------------------------------
@@ -618,6 +604,7 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
 
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     const confirm = container.querySelector('#delete-confirmation') as HTMLInputElement
     const deleteBtn = () => container.querySelector('.ed-danger__delete') as HTMLButtonElement
@@ -631,12 +618,13 @@ describe('Profile interactive flows', () => {
     expect(vi.mocked(api.deleteMe)).toHaveBeenCalledWith('live', 'DELETE')
     // Signed out → guest view (navigate('/') is a no-op when already at root hash).
     expect(account.accountStatus.value).toBe('anonymous')
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
   })
 
   it('cancels the delete flow with Keep my account', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     expect(container.querySelector('#delete-confirmation')).not.toBeNull()
 
@@ -649,6 +637,7 @@ describe('Profile interactive flows', () => {
     vi.mocked(api.deleteMe).mockRejectedValue(new Error('server refused'))
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
+    await fire(byText(container, 'Account') as Element)
     await fire(container.querySelector('.ed-danger__open') as Element)
     await typeInto(container.querySelector('#delete-confirmation') as HTMLInputElement, 'DELETE')
     await fire(container.querySelector('.ed-danger__confirm') as Element, 'submit')
@@ -659,19 +648,18 @@ describe('Profile interactive flows', () => {
 
   // --- Profile view: recent games / sign out / CR status -------------------
 
-  it('shows global game settings near the bottom of the profile and persists each toggle', async () => {
+  it('shows the settings toggles in the Settings scope and persists each toggle', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()
 
-    const preferences = container.querySelector('.ed-profile__preferences') as HTMLElement
-    expect(preferences).not.toBeNull()
-    expect(preferences.previousElementSibling?.classList.contains('ed-games')).toBe(true)
-    expect(preferences.nextElementSibling?.classList.contains('ed-profile__account')).toBe(true)
-    expect(preferences.textContent).toContain('Settings')
+    await fire(byText(container, 'Settings') as Element)
+    const settings = container.querySelector('.ed-settings') as HTMLElement
+    expect(settings).not.toBeNull()
+    expect(settings.textContent).toContain('Preferences are per-device and never sync.')
 
-    const sound = preferences.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
-    const motion = preferences.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
-    const effects = preferences.querySelector('[aria-label="Enhance effects"]') as HTMLButtonElement
+    const sound = settings.querySelector('[aria-label="Sound effects"]') as HTMLButtonElement
+    const motion = settings.querySelector('[aria-label="Reduce motion"]') as HTMLButtonElement
+    const effects = settings.querySelector('[aria-label="Enhance effects"]') as HTMLButtonElement
     expect(sound.getAttribute('aria-checked')).toBe('false')
     expect(motion.getAttribute('aria-checked')).toBe('false')
     expect(effects.getAttribute('aria-checked')).toBe('true')
@@ -711,7 +699,7 @@ describe('Profile interactive flows', () => {
     }
   ]
 
-  it('groups your games by month, seals each row, and signs out from the profile view', async () => {
+  it('groups your games by day, seals each row, and signs out from the Account scope', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
@@ -721,7 +709,9 @@ describe('Profile interactive flows', () => {
 
     const rows = container.querySelectorAll('.ed-games__row')
     expect(rows).toHaveLength(3)
-    expect(container.querySelector('.ed-games__month-head')?.textContent).toContain('3 games')
+    // Three runs on three different days → three day groups, each with one game.
+    expect(container.querySelectorAll('.ed-games__day-group')).toHaveLength(3)
+    expect(container.querySelector('.ed-games__day-head')?.textContent).toContain('1 game')
     expect(container.textContent).toContain('12.500s')
     // A run no referee touched wears no seal at all; only the held and the
     // excluded run are marked.
@@ -733,12 +723,13 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('AWAITING')
     expect(container.textContent).toContain('EXCLUDED')
 
+    await fire(byText(container, 'Account') as Element)
     await fire(byText(container, 'Sign out') as Element)
     expect(account.accountStatus.value).toBe('anonymous')
-    expect(container.textContent).toContain('Player profile')
+    expect(container.textContent).toContain('You')
   })
 
-  it('counts each status in the tiles and toggles the filter from one', async () => {
+  it('counts flagged games in the chip and toggles the filter', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
@@ -746,19 +737,16 @@ describe('Profile interactive flows', () => {
     })
     await mount()
 
-    const tiles = [...container.querySelectorAll('.ed-games__tile')]
-    // Cleared counts referee clearances only — the third run is unreviewed and
-    // belongs to none of the three tiles.
-    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+    // Two of the three runs carry a referee status (pending + excluded); the
+    // unreviewed one is not flagged.
+    const flagged = container.querySelector('.ed-filterchip--flagged') as HTMLButtonElement
+    expect(flagged.textContent).toContain('Flagged 2')
 
-    const awaiting = container.querySelector('.ed-games__tile--pending') as HTMLButtonElement
-    await fire(awaiting)
-    expect(awaiting.getAttribute('aria-pressed')).toBe('true')
-    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(1)
-    // Counts stay scoped to season and mode, never to the status being filtered.
-    expect(tiles.map((tile) => tile.querySelector('strong')?.textContent)).toEqual(['0', '1', '1'])
+    await fire(flagged)
+    expect(flagged.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(2)
 
-    await fire(awaiting)
+    await fire(flagged)
     expect(container.querySelectorAll('.ed-games__row')).toHaveLength(3)
   })
 
@@ -775,14 +763,16 @@ describe('Profile interactive flows', () => {
     ) as HTMLButtonElement
     await fire(excludedRow)
 
-    expect(container.textContent).toContain(`Run ${runReference('r2')}`)
+    // An excluded run swaps the reference block for the referee explanation and
+    // a dispute link (the reference rides in the mailto subject).
     const dispute = byText(container, 'Dispute this result') as HTMLAnchorElement
     expect(dispute.getAttribute('href')).toBe(
       `mailto:drop@poapkings.com?subject=${encodeURIComponent(`Elixir Drop run review ${runReference('r2')}`)}`
     )
+    expect(container.querySelector('.ed-run-modal__ref')).toBeNull()
   })
 
-  it('leaves the run reference off a game no referee has touched', async () => {
+  it('shows the run reference with a Copy affordance in the run sheet', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
@@ -791,7 +781,9 @@ describe('Profile interactive flows', () => {
     await mount()
 
     await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
-    expect(container.textContent).not.toContain(`Run ${runReference('r3')}`)
+    // The D-tag lives in the sheet now (never in a list row), with a Copy button.
+    expect(container.querySelector('.ed-run-modal__ref code')?.textContent).toBe(runReference('r3'))
+    expect(byText(container, 'Copy')).toBeTruthy()
   })
 
   it('shows the empty games hint when there are no runs', async () => {
@@ -814,33 +806,20 @@ describe('Profile interactive flows', () => {
       clashRoyale: { tag: '#ABC', status: 'pending' }
     })
     await mount()
-    expect(container.textContent).toContain('Loading Clash Royale profile')
-    expect(container.textContent).toContain('#ABC')
+    await fire(byText(container, 'Account') as Element)
+    expect(container.textContent).toContain('Loading #ABC')
 
     await act(async () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'not_found' } } as never
     })
     await flush()
-    expect(container.textContent).toContain('Player tag not found')
+    expect(container.textContent).toContain('could not find #ABC')
 
     await act(async () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'unavailable' } } as never
     })
     await flush()
     expect(container.textContent).toContain('Profile refresh delayed')
-  })
-
-  it('gates the More list on the mobile layout in the profile view', async () => {
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    useLayout.layout.value = 'desktop'
-    await mount()
-    expect(container.querySelector('.ed-morelist')).toBeNull()
-
-    await act(async () => {
-      useLayout.layout.value = 'mobile'
-    })
-    await flush()
-    expect(container.querySelector('.ed-morelist')).not.toBeNull()
   })
 
   // --- Polling + message transitions ---------------------------------------

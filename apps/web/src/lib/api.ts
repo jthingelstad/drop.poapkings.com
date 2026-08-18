@@ -305,6 +305,8 @@ export function patchMe(
     favoriteCardId?: number
     nameToken?: string
     playerTag?: string | null
+    // The server stamps the read time; any value here is just the trigger.
+    lastOpenedUpdates?: string
   }
 ) {
   return apiRequest('/me', playerResponseSchema, {

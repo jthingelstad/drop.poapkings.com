@@ -90,7 +90,10 @@ export const playerSchema = z.object({
   nextLevelGames: nonNegativeInteger,
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
-  rankedAccess: z.optional(z.enum(['allowed', 'restricted']))
+  rankedAccess: z.optional(z.enum(['allowed', 'restricted'])),
+  // When the player last opened Updates (server-owned, account-level). Anything
+  // newer than this is unread.
+  lastOpenedUpdates: z.optional(isoDateTime)
 })
 
 const sessionSchema = z.object({

@@ -78,7 +78,7 @@ describe('favorite-card identity', () => {
     render(<></>, container)
   })
 
-  it('collapses the Clash Royale profile to one row: clan, role, tag, age', async () => {
+  it('shows the Clash Royale clan name, tag, and age in the Account scope — never the role', async () => {
     accountStatus.value = 'authenticated'
     player.value = {
       ...basePlayer,
@@ -107,21 +107,28 @@ describe('favorite-card identity', () => {
       }
     }
 
-    const html = await renderToStringAsync(<Profile />)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    render(<Profile />, container)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    // Clash Royale lives in the Account scope now.
+    const accountTab = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('Account'))!
+    accountTab.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const text = container.textContent ?? ''
 
-    expect(html).toContain('POAP KINGS')
-    expect(html).toContain('Co Leader')
-    expect(html).toContain('#2PYQ0')
-    expect(html).toContain('8y 10d playing')
-    // The three fact cells and the Collection tile are gone with the row.
-    expect(html).not.toContain('Calculated from the Years Played badge’s day count')
-    expect(html).not.toContain('Collection')
-    expect(html).not.toContain('1 cards')
-    expect(html).not.toContain('cr-profile__facts')
-    expect(html).not.toContain('cr-card-grid')
-    expect(html).not.toContain('Card collection')
-    expect(html).not.toContain('api-assets.clashroyale.com')
-    // No CR card-level or CR-trophy data is ever surfaced.
-    expect(html).not.toContain('Card level')
+    expect(text).toContain('POAP KINGS')
+    expect(text).toContain('#2PYQ0')
+    expect(text).toContain('8y 10d playing')
+    // The clan role is deliberately not projected.
+    expect(text).not.toContain('Co Leader')
+    expect(text).not.toContain('coLeader')
+    // No CR card-level, collection, or trophy data is ever surfaced.
+    expect(container.innerHTML).not.toContain('api-assets.clashroyale.com')
+    expect(text).not.toContain('Card level')
+    expect(text).not.toContain('Card collection')
+
+    render(<></>, container)
+    container.remove()
   })
 })

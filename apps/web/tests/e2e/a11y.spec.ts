@@ -64,18 +64,3 @@ for (const slug of [
     expect(serious).toEqual([])
   })
 }
-
-// The release notice is the app's only modal dialog, so it never appears on a
-// route walk above (a first visit records the release and shows nothing).
-test('renders the release notice without serious accessibility issues', async ({ page }, testInfo) => {
-  await page.goto('/')
-  await page.evaluate(() => localStorage.setItem('elixirdrop:releaseSeen', 'ancient-arrows'))
-  await page.reload()
-  await expect(page.locator('[data-testid="release-notice"]')).toBeVisible()
-
-  await testInfo.attach('release-notice.png', { body: await page.screenshot(), contentType: 'image/png' })
-
-  const results = await new AxeBuilder({ page }).analyze()
-  const serious = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))
-  expect(serious).toEqual([])
-})

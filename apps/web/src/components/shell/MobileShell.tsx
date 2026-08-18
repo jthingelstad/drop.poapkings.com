@@ -5,6 +5,7 @@
 import type { ComponentChildren } from 'preact'
 import { route, navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
+import { hasUnreadUpdates } from '../../lib/updates'
 import Icon from '../Icon'
 import { NAV_ITEMS, activeNavIndex, isGameRoute, type NavItem } from './nav'
 
@@ -28,6 +29,9 @@ function PillNav({ activeIdx, items }: { activeIdx: number; items: readonly NavI
             }}
           >
             <span class="tap-face">
+              {item.route === '/profile' && hasUnreadUpdates.value && (
+                <span class="ed-nav-dot" aria-label="Unread updates" />
+              )}
               <Icon name={item.icon} />
               {item.shortLabel}
             </span>

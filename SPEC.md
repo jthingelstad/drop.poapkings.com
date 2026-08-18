@@ -382,7 +382,7 @@ elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects
                               speedrunKeyboard? }
 ```
 
-Session, install, release-notice, and player-nudge state, owned by their own modules:
+Session, install, and player-nudge state, owned by their own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
@@ -391,13 +391,14 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
-elixirdrop:releaseSeen              -> lib/release-notice.ts localStorage the release id (tag
-                                       slug) the player has already been shown, written on a
-                                       first visit so the one-time notice never greets a
-                                       newcomer, and again on dismissal
 elixirdrop:playerTagNudge           -> lib/player-tag-nudge.ts localStorage per-player timestamps
                                        for the weekly missing-tag reminder
 ```
+
+The one-time release-notice overlay (and its `elixirdrop:releaseSeen` key) was retired
+in the 2026 refresh: named releases now appear in the **Updates** scope on the You page,
+and unread state is a single server-owned `lastOpenedUpdates` timestamp on the account —
+account-level and deliberately not per-device, so it never needs a browser key.
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
 `Settings` there.

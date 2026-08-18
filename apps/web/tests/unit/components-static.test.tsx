@@ -3,7 +3,6 @@ import { renderToStringAsync } from 'preact-render-to-string'
 import { signal } from '@preact/signals'
 
 import Summary from '../../src/components/Summary'
-import MetaMoreList from '../../src/components/MetaMoreList'
 import AppInfo from '../../src/screens/AppInfo'
 import { InstallBanner, InstallRow } from '../../src/components/InstallPrompt'
 import { ElixirCostBadge, CardName, CardArt } from '../../src/components/CardChrome'
@@ -243,30 +242,6 @@ describe('standalone pages', () => {
     expect(renderStaticPage('releases')).toContain('Principled P.E.K.K.A')
     expect(renderStaticPage('install')).toContain('Add to Home Screen')
     expect(renderStaticPage('install')).toContain('never uploaded later')
-  })
-})
-
-describe('MetaMoreList', () => {
-  it('renders real page links for Game Setup and Discord', async () => {
-    const html = await render(<MetaMoreList />)
-    expect(html).toContain('About')
-    expect(html).toContain('FAQ')
-    expect(html).toContain('Fair Play')
-    expect(html).toContain('Game Setup')
-    expect(html).toContain('Privacy')
-    expect(html).toContain('Discord')
-    expect(html).toContain('href="/discord/"')
-    expect(html).toContain('href="/about/"')
-    expect(html).toContain('href="/releases/"')
-    expect(html).toContain('href="/install/"')
-  })
-
-  it('replaces Install app with App Info while running standalone', async () => {
-    standaloneApp.value = true
-    const html = await render(<MetaMoreList />)
-
-    expect(html).toContain('App Info')
-    expect(html).not.toContain('Game Setup')
   })
 })
 

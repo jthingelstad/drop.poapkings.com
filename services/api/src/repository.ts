@@ -470,6 +470,7 @@ export class Repository {
       favoriteCardId?: number;
       playerTag?: string;
       clearPlayerTag?: boolean;
+      lastOpenedUpdates?: string;
     },
   ): Promise<PlayerProfile> {
     const names: Record<string, string> = { "#updatedAt": "updatedAt" };
@@ -488,6 +489,11 @@ export class Repository {
       names["#favoriteCardId"] = "favoriteCardId";
       values[":favoriteCardId"] = updates.favoriteCardId;
       sets.push("#favoriteCardId = :favoriteCardId");
+    }
+    if (updates.lastOpenedUpdates !== undefined) {
+      names["#lastOpenedUpdates"] = "lastOpenedUpdates";
+      values[":lastOpenedUpdates"] = updates.lastOpenedUpdates;
+      sets.push("#lastOpenedUpdates = :lastOpenedUpdates");
     }
     if (updates.playerTag !== undefined) {
       names["#playerTag"] = "playerTag";

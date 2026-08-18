@@ -116,6 +116,7 @@ export function profileResponse(
     xp?: number;
     createdAt: string;
     updatedAt: string;
+    lastOpenedUpdates?: string;
   },
   crProfile?: CrProfileSnapshot,
   rankedAccess: "allowed" | "restricted" = "allowed",
@@ -133,6 +134,7 @@ export function profileResponse(
     xp: profile.xp ?? 0,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
+    ...(profile.lastOpenedUpdates ? { lastOpenedUpdates: profile.lastOpenedUpdates } : {}),
     rankedAccess,
     ...levelForGames(profile.totalGames),
   };

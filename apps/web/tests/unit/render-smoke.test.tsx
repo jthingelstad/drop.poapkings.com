@@ -61,7 +61,7 @@ describe('SSR render smoke', () => {
     ['/rain', 'Rain'],
     ['/offline', 'Offline'],
     ['/leaderboards', 'Ladder'],
-    ['/settings', 'Settings'],
+    ['/settings', 'You'],
     ['/app-info', 'App info'],
     ['/login', 'Sign in']
   ])('announces %s as its own screen title', async (path, label) => {
@@ -70,14 +70,6 @@ describe('SSR render smoke', () => {
 
     expect(html).toContain(`<h1 class="sr-only">${label}</h1>`)
     expect(html).not.toContain('<h1 class="sr-only">Elixir Drop</h1>')
-  })
-
-  it('renders build metadata on settings', async () => {
-    route.value = '/settings'
-    const html = await renderToStringAsync(<App />)
-
-    expect(html).toContain('Build ID')
-    expect(html).toContain('Build date')
   })
 
   it('folds the legacy Practice hub route into Games on mobile', async () => {
