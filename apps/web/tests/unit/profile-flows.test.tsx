@@ -803,6 +803,25 @@ describe('Profile interactive flows', () => {
     expect(byText(container, 'Copy')).toBeTruthy()
   })
 
+  it('shows the rungs a run moved and opens the badge sheet from one', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    account.badges.value = [{ slug: 'clockbreaker', value: 15, rungIndex: 5 }] as never
+    vi.mocked(api.getSeasonHistory).mockResolvedValue({
+      index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
+      seasons: [{ id: '2026-07', games: 1, runs: [{ ...historyRuns[2], rungs: ['clockbreaker'] }] }]
+    } as never)
+    await mount()
+
+    await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
+    expect(container.querySelector('.ed-run-modal__rungs-label')?.textContent).toContain('Rungs moved')
+    const rung = container.querySelector('.ed-run-modal__rung') as HTMLButtonElement
+    expect(rung).toBeTruthy()
+
+    await fire(rung)
+    // Tapping the medallion opens the same badge sheet the wall uses.
+    expect(container.querySelector('.ed-badges__sheet')).toBeTruthy()
+  })
+
   it('shows the empty games hint when there are no runs', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     await mount()

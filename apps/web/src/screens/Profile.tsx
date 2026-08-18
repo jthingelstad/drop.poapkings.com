@@ -24,7 +24,8 @@ import { getNameOptions } from '../lib/api'
 import { getSeasonHistory, type RecentRun, type SeasonIndexEntry } from '../lib/api'
 import { allCards } from '../lib/card-catalog'
 import { challengeCard } from '../lib/challenge-cards'
-import { badgeViews } from '../lib/badges'
+import { badgeViews, type BadgeView } from '../lib/badges'
+import { BadgeSheet } from '../components/BadgeGrid'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import SkeletonRows from '../components/Skeleton'
@@ -1037,6 +1038,18 @@ function RunDetail({
   const game = gameDisplay(run.mode)
   const copied = useSignal(false)
   const reference = runReference(run.runId)
+  const openBadge = useSignal<BadgeView | null>(null)
+  const rungTriggerRef = useRef<HTMLButtonElement | null>(null)
+  // The badges this run moved a rung on, resolved to the player's current badge
+  // view so the medallion shows the tier they now stand at. Opening one shows the
+  // same badge sheet the wall uses.
+  const rungViews = (() => {
+    if (!run.rungs?.length) return []
+    const views = badgeViews(badges.value)
+    return run.rungs
+      .map((slug) => views.find((view) => view.slug === slug))
+      .filter((view): view is BadgeView => Boolean(view))
+  })()
 
   async function copyReference() {
     try {
@@ -1079,6 +1092,37 @@ function RunDetail({
         <div class="ed-run-modal__xp">
           <Icon name="zap" /> XP earned <strong>+{run.xp}</strong>
         </div>
+      )}
+
+      {rungViews.length > 0 && (
+        <div class="ed-run-modal__rungs">
+          <span class="ed-run-modal__rungs-label">Rungs moved</span>
+          <div class="ed-run-modal__rungs-list">
+            {rungViews.map((view) => (
+              <button
+                key={view.slug}
+                class="ed-run-modal__rung tap-fx"
+                aria-label={`${view.name}${view.chip ? `, ${view.chip}` : ''}`}
+                onClick={(event) => {
+                  rungTriggerRef.current = event.currentTarget
+                  openBadge.value = view
+                }}
+              >
+                <BadgeMedallion badge={view} size={44} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {openBadge.value && (
+        <BadgeSheet
+          badge={openBadge.value}
+          playerId={player.value?.id}
+          playerName={player.value?.publicName}
+          onClose={() => (openBadge.value = null)}
+          returnFocus={rungTriggerRef.current}
+        />
       )}
 
       {run.reviewStatus === 'excluded' ? (

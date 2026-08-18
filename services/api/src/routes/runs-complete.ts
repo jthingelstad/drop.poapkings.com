@@ -380,6 +380,28 @@ async function recordSignedInRun(
     tzOffsetMinutes: body.tzOffsetMinutes,
     personalBest,
   });
+  // The rungs this run cleared, written onto its history row after completion
+  // (best-effort, outside the completeRun transaction like the all-time best) so
+  // the run sheet can show what moved. Deduped to one entry per badge — a run can
+  // clear two rungs of one ladder. A missing history row simply no-ops.
+  if (badgeUpdate.newlyEarned.length) {
+    const rungSlugs = [
+      ...new Set(badgeUpdate.newlyEarned.map((rung) => rung.slug)),
+    ];
+    try {
+      await repository.setRunRungs(
+        run.owner,
+        run.runId,
+        result.completedAt,
+        rungSlugs,
+      );
+    } catch (error) {
+      console.warn("Run rungs write failed", {
+        runId: run.runId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   const crProfile = await completedGameCrProfile(
     repository,
     result.profile,

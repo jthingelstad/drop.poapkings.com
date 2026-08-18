@@ -142,6 +142,9 @@ export interface RunRecord {
   answerCount?: number;
   // Per-run XP earned (activity, not skill). Surfaced in the run sheet.
   xp?: number;
+  // The badge slugs whose rungs this run cleared, written best-effort after
+  // completion. Surfaced as "Rungs moved" medallions in the run sheet.
+  rungs?: string[];
 }
 
 export type RunReviewStatus = "pending" | "reviewed" | "excluded";

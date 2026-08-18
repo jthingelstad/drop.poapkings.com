@@ -88,7 +88,7 @@ export default function BadgeGrid({
   )
 }
 
-function BadgeSheet({
+export function BadgeSheet({
   badge,
   playerId,
   playerName,

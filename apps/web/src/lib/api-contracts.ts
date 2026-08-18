@@ -142,6 +142,8 @@ export const recentRunSchema = z.object({
   completedAt: isoDateTime,
   // Per-run XP earned (activity), for the run sheet. Practice earns none.
   xp: z.optional(nonNegativeInteger),
+  // The badge slugs whose rungs this run cleared — "Rungs moved" in the sheet.
+  rungs: z.optional(z.array(nonEmptyString)),
   reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
   reviewExplanation: z.optional(nonEmptyString),
   // This run's rank on its season board, present only on the run that holds

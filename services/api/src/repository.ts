@@ -1148,7 +1148,7 @@ export class Repository {
             ":sk": "RUN#",
           },
           ProjectionExpression:
-            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch",
+            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, rungs",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -1172,6 +1172,7 @@ export class Repository {
               ? { answerCount: item.answerCount }
               : {}),
             ...(typeof item.xp === "number" ? { xp: item.xp } : {}),
+            ...(Array.isArray(item.rungs) ? { rungs: item.rungs } : {}),
             ...(typeof item.boardEpoch === "string"
               ? { boardEpoch: item.boardEpoch }
               : {}),
@@ -1807,6 +1808,37 @@ export class Repository {
   // Returns whether this run became the new best and what it displaced, because
   // two hidden badges (Photo Finish, Cold Open) turn on exactly that — and this
   // conditional write is the only place that already knows it.
+  // The badge rungs a recorded run cleared, written onto its history row after
+  // completion (best-effort, outside the completeRun transaction) so the run
+  // sheet can show what moved. A missing row (an unrecorded run) simply no-ops
+  // through the attribute_exists guard.
+  async setRunRungs(
+    sub: string,
+    runId: string,
+    completedAt: string,
+    slugs: string[],
+  ): Promise<void> {
+    if (!slugs.length) return;
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: `PLAYER#${sub}`, sk: `RUN#${completedAt}#${runId}` },
+          UpdateExpression: "SET rungs = :rungs",
+          ConditionExpression: "attribute_exists(pk)",
+          ExpressionAttributeValues: { ":rungs": slugs },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return;
+      throw error;
+    }
+  }
+
   async updateAllTimeBest(
     run: RunItem,
     score: number,

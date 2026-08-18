@@ -122,6 +122,8 @@ describe("repository DynamoDB requests", () => {
             seasonId: "2026-08",
             completedAt: "2026-08-02T18:00:00.000Z",
             boardEpoch: "r2",
+            xp: 12,
+            rungs: ["sharp-trade", "clockbreaker"],
           },
         ],
         LastEvaluatedKey: { pk: "PLAYER#private-sub", sk: "RUN#cursor" },
@@ -142,7 +144,12 @@ describe("repository DynamoDB requests", () => {
     await expect(
       new Repository("test-table").listRunHistory("private-sub"),
     ).resolves.toMatchObject([
-      { runId: "new", boardEpoch: "r2" },
+      {
+        runId: "new",
+        boardEpoch: "r2",
+        xp: 12,
+        rungs: ["sharp-trade", "clockbreaker"],
+      },
       { runId: "old" },
     ]);
     expect(send).toHaveBeenCalledTimes(2);
@@ -150,13 +157,45 @@ describe("repository DynamoDB requests", () => {
       TableName: "test-table",
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
       ProjectionExpression:
-        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch",
+        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, rungs",
       ScanIndexForward: false,
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
       pk: "PLAYER#private-sub",
       sk: "RUN#cursor",
     });
+  });
+
+  it("writes the cleared rungs onto a run's history row, guarded by its existence", async () => {
+    send.mockResolvedValueOnce({});
+    await new Repository("test-table").setRunRungs(
+      "private-sub",
+      "run-9",
+      "2026-08-02T18:00:00.000Z",
+      ["clockbreaker", "full-cup"],
+    );
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      Key: {
+        pk: "PLAYER#private-sub",
+        sk: "RUN#2026-08-02T18:00:00.000Z#run-9",
+      },
+      UpdateExpression: "SET rungs = :rungs",
+      ConditionExpression: "attribute_exists(pk)",
+      ExpressionAttributeValues: { ":rungs": ["clockbreaker", "full-cup"] },
+    });
+  });
+
+  it("no-ops setRunRungs for an empty rung list or a missing history row", async () => {
+    await new Repository("test-table").setRunRungs("s", "r", "t", []);
+    expect(send).not.toHaveBeenCalled();
+    const missing = Object.assign(new Error("gone"), {
+      name: "ConditionalCheckFailedException",
+    });
+    send.mockRejectedValueOnce(missing);
+    await expect(
+      new Repository("test-table").setRunRungs("s", "r", "t", ["clockbreaker"]),
+    ).resolves.toBeUndefined();
   });
 
   it("stamps the current board epoch when a run is dealt", async () => {

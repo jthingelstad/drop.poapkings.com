@@ -8160,6 +8160,34 @@ html.reduce-motion .practice-drill {
   color: var(--gold);
   font-variant-numeric: tabular-nums;
 }
+.ed-run-modal__rungs {
+  margin-top: 14px;
+}
+.ed-run-modal__rungs-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ed-run-modal__rungs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ed-run-modal__rung {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.ed-run-modal__rung:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
 .ed-sum__signature {
   border-radius: 16px;
 }
