@@ -93,7 +93,7 @@ async function imageIsAvailable(url) {
   }
 }
 
-if (MIRROR) {
+if (MIRROR && !DRY_RUN) {
   await mkdir(join(WEB_ROOT, 'public/cards'), { recursive: true })
 }
 
@@ -133,41 +133,47 @@ for (const card of data.items ?? []) {
   if (MIRROR && icon) {
     const localPath = `/cards/${card.id}.png`
     const fullPath = join(WEB_ROOT, 'public/cards', `${card.id}.png`)
-    try {
-      const imgRes = await fetch(icon)
-      if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer()
-        await writeFile(fullPath, Buffer.from(buf))
-        icon = localPath
-        process.stdout.write('.')
+    if (!DRY_RUN) {
+      try {
+        const imgRes = await fetch(icon)
+        if (imgRes.ok) {
+          const buf = await imgRes.arrayBuffer()
+          await writeFile(fullPath, Buffer.from(buf))
+          process.stdout.write('.')
+        }
+      } catch (e) {
+        console.warn(`\nFailed to mirror ${card.name}: ${e.message}`)
       }
-    } catch (e) {
-      console.warn(`\nFailed to mirror ${card.name}: ${e.message}`)
     }
+    icon = localPath
     // Mirror evo/hero images when present
     if (iconEvo) {
       const evoPath = join(WEB_ROOT, 'public/cards', `${card.id}_evo.png`)
-      try {
-        const r = await fetch(iconEvo)
-        if (r.ok) {
-          await writeFile(evoPath, Buffer.from(await r.arrayBuffer()))
-          iconEvo = `/cards/${card.id}_evo.png`
+      if (!DRY_RUN) {
+        try {
+          const r = await fetch(iconEvo)
+          if (r.ok) {
+            await writeFile(evoPath, Buffer.from(await r.arrayBuffer()))
+          }
+        } catch {
+          /* non-fatal */
         }
-      } catch {
-        /* non-fatal */
       }
+      iconEvo = `/cards/${card.id}_evo.png`
     }
     if (iconHero) {
       const heroPath = join(WEB_ROOT, 'public/cards', `${card.id}_hero.png`)
-      try {
-        const r = await fetch(iconHero)
-        if (r.ok) {
-          await writeFile(heroPath, Buffer.from(await r.arrayBuffer()))
-          iconHero = `/cards/${card.id}_hero.png`
+      if (!DRY_RUN) {
+        try {
+          const r = await fetch(iconHero)
+          if (r.ok) {
+            await writeFile(heroPath, Buffer.from(await r.arrayBuffer()))
+          }
+        } catch {
+          /* non-fatal */
         }
-      } catch {
-        /* non-fatal */
       }
+      iconHero = `/cards/${card.id}_hero.png`
     }
   }
 
