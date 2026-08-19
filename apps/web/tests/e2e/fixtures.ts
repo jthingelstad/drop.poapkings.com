@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|$)/
+  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|shares|stats)(?:[/?]|$)/
 export const testSeason = {
   id: '2026-07',
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -366,8 +366,48 @@ function testChallenge(mode: GameMode, practiceKind?: PracticeKind): RunChalleng
   }
 }
 
+// Every mint returns a distinct token, because one token per SHARE ACTION is
+// the property that makes reach countable per share rather than per run.
+let shareTokenCounter = 0
+
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
+  const shareMint = /^\/runs\/[^/]+\/share$/.exec(path)
+  if (shareMint) {
+    shareTokenCounter += 1
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      // The real alphabet excludes look-alike glyphs (no I, L, O, U, 0, 1), and
+      // the app validates against it — so the stub has to speak it too.
+      body: JSON.stringify({ token: `SHR${'ABCDEFGHJKMNPQRSTVWXYZ'[shareTokenCounter % 22]!.repeat(3)}` })
+    })
+    return true
+  }
+  const sharedRun = /^\/shares\/([^/]+)$/.exec(path)
+  if (sharedRun) {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        token: sharedRun[1],
+        mode: 'surge',
+        score: 17_412,
+        seasonId: '2026-07',
+        completedAt: '2026-07-18T00:00:00.000Z',
+        series: [1200, 900, 1500],
+        player: {
+          id: 'shared-player',
+          publicName: 'Knight Main',
+          favoriteCardId: 26000000,
+          totalGames: 40,
+          xp: 900,
+          level: 4
+        }
+      })
+    })
+    return true
+  }
   if (path === '/runs/start') {
     const { mode, practiceKind } = route.request().postDataJSON() as { mode: GameMode; practiceKind?: PracticeKind }
     const challenge = testChallenge(mode, practiceKind)

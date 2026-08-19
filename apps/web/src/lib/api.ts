@@ -14,6 +14,8 @@ import {
   publicPlayerResponseSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
+  sharedRunSchema,
+  shareTokenSchema,
   siteStatsSchema,
   startedRunSchema
 } from './api-contracts'
@@ -401,8 +403,25 @@ export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
   return apiRequest(`/players/${encodeURIComponent(playerId)}`, publicPlayerResponseSchema, { signal })
 }
 
+// One token per share ACTION — sharing the same run twice mints two tokens,
+// which is what makes Herald countable per share rather than per run. Only a
+// recorded run can mint: an offline or guest run has no server record, so the
+// browser never offers the control at all.
+export function createShareToken(runId: string, sessionToken: string, series?: number[]) {
+  return apiRequest(`/runs/${encodeURIComponent(runId)}/share`, shareTokenSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify(series?.length ? { series } : {}),
+    retry: false
+  })
+}
+
+export function getSharedRun(token: string, signal?: AbortSignal) {
+  return apiRequest(`/shares/${encodeURIComponent(token)}`, sharedRunSchema, { signal })
+}
+
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
-export type { ActivityEntry } from './api-contracts'
+export type { ActivityEntry, SharedRun } from './api-contracts'
 export type { LeaderboardEntry, RecentRun, SeasonHistory, SeasonIndexEntry } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { earnedBadges, earnedXp, offlineRunMode } from '../lib/use-game-run'
+import { earnedBadges, earnedXp, offlineRunMode, recordedRunId } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -42,7 +42,7 @@ interface Props {
   pbCallout?: string
   insights: Insights
   moments?: SummaryMoment[]
-  share: { mode: GameMode; score: string; series?: number[] }
+  share: { mode: GameMode; score: string; series?: number[]; refs?: number[]; bad?: boolean[] }
   // The mode's signature panel — a chart or read-back drawn from data the mode
   // already records. Falls back to the "Work on these" list below.
   children?: ComponentChildren
@@ -144,14 +144,22 @@ export default function Summary({
         </div>
       )}
 
-      {/* 4 — What to do next: share, then the actions. */}
-      {share.mode !== 'practice' && (
+      {/* 4 — What to do next: share, then the actions.
+          A not-recorded run has NO share control: offline and guest runs have no
+          server record, so no permalink can exist. Absent, not disabled. */}
+      {share.mode !== 'practice' && recordedRunId.value && (
         <ShareLine
           mode={share.mode}
           score={share.score}
+          runId={recordedRunId.value}
           card={{
             bands: bands.filter((band) => band.total > 0),
             ...(share.series && share.series.length ? { series: share.series } : {}),
+            // A share card drops the game's half of the chart. Only a reference
+            // the PLAYER owns travels, so a mode passes `refs` when and only
+            // when it is their own previous best.
+            ...(share.refs && share.refs.length ? { refs: share.refs } : {}),
+            ...(share.bad && share.bad.length ? { bad: share.bad } : {}),
             ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
             ...(shareArena ? { arenaName: shareArena.name } : {})
           }}

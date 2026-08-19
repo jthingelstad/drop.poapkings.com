@@ -236,27 +236,36 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
     // the simple opening as small as the 3v3 finish. Both ends of the ladder
     // still keep every card inside its team panel.
     if (trade === 1 || trade === TRADE_ROUNDS) {
-      const cards = await teams.locator('.ed-xcard').evaluateAll((elements) =>
-        elements.map((element) => {
-          const bounds = element.getBoundingClientRect()
-          const lane = element.closest('.ed-xlane')?.getBoundingClientRect()
-          return {
-            width: bounds.width,
-            height: bounds.height,
-            contained:
-              !!lane &&
-              bounds.left >= lane.left - 1 &&
-              bounds.right <= lane.right + 1 &&
-              bounds.top >= lane.top - 1 &&
-              bounds.bottom <= lane.bottom + 1
-          }
-        })
-      )
+      // A dealt card animates in, so a bare measurement can catch it mid-scale
+      // and read a third of its real height. Poll the geometry until the deal
+      // has settled, then assert on the settled values.
+      const measure = () =>
+        teams.locator('.ed-xcard').evaluateAll((elements) =>
+          elements.map((element) => {
+            const bounds = element.getBoundingClientRect()
+            const lane = element.closest('.ed-xlane')?.getBoundingClientRect()
+            return {
+              width: bounds.width,
+              height: bounds.height,
+              contained:
+                !!lane &&
+                bounds.left >= lane.left - 1 &&
+                bounds.right <= lane.right + 1 &&
+                bounds.top >= lane.top - 1 &&
+                bounds.bottom <= lane.bottom + 1
+            }
+          })
+        )
       // The exchange board uses a fixed 96×120 card in both lanes at every rung,
       // so the card no longer scales per rung — it just has to be a real card
       // kept inside its lane at both ends of the ladder.
-      expect(cards.length).toBeGreaterThan(0)
-      expect(cards.every((card) => card.width >= 60 && card.height >= 60 && card.contained)).toBe(true)
+      await expect
+        .poll(async () => {
+          const settled = await measure()
+          return settled.length > 0 && settled.every((card) => card.width >= 60 && card.height >= 60)
+        })
+        .toBe(true)
+      expect((await measure()).every((card) => card.contained)).toBe(true)
     }
 
     // Every run now ends on the widest board the mode can draw, so six cards on

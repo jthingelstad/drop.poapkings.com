@@ -27,10 +27,20 @@ export interface ShareCardInput {
   // Per-cost accuracy, drawn as the row of squares (the fallback when a mode has
   // no signature series).
   bands?: Array<{ label: string; correct: number; total: number }>
-  // The mode's signature series — the shape of the run (per-card times, clears
-  // per window, accuracy by length). Drawn as a bar chart in place of the band
-  // squares, because the shape of a run is what someone who never played can read.
+  // The mode's signature series — the shape of the run. Drawn as a bar chart in
+  // place of the band squares, because the shape of a run is what someone who
+  // never played can read.
+  //
+  // A share card drops the GAME's half of the summary chart. The window, the
+  // fall time and the "seconds to answer" framing are Drop's machinery: they
+  // explain a run to the person who made it and mean nothing to a stranger
+  // seeing a post. Only the player's own series travels, and `refs` only ever
+  // carries the player's OWN previous best — never a reference the game owns.
   series?: number[]
+  refs?: number[]
+  // Marks a bar as one that cost the player something. What it cost is the
+  // summary's business; here it is only "this one went wrong".
+  bad?: boolean[]
   // The arena NAME is progression context and stays; the arena artwork was
   // retired in the 2026-08 refresh, so no arena image is composited.
   arenaName?: string
@@ -174,8 +184,9 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
   // played can still read. It stands in for the cost-band squares when present.
   const series = (input.series ?? []).filter((v) => Number.isFinite(v) && v >= 0)
   const bands = (input.bands ?? []).filter((band) => band.total > 0)
+  const refs = (input.refs ?? []).filter((v) => Number.isFinite(v) && v >= 0)
   if (series.length) {
-    const peak = Math.max(1, ...series)
+    const peak = Math.max(1, ...series, ...refs)
     const chartW = 800
     const chartH = 220
     const x0 = centreX - chartW / 2
@@ -183,9 +194,18 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob | nul
     const bw = chartW / series.length
     for (let i = 0; i < series.length; i += 1) {
       const h = (series[i] / peak) * chartH
-      ctx.fillStyle = 'rgba(139, 92, 246, 0.75)'
+      ctx.fillStyle = input.bad?.[i] ? 'rgba(220, 38, 38, 0.8)' : 'rgba(139, 92, 246, 0.75)'
       roundedRect(ctx, x0 + i * bw + 3, baseY - h, Math.max(1, bw - 6), h, 6)
       ctx.fill()
+    }
+    // The player's own previous best, per bar. It is the one reference that
+    // means something to a stranger: it says the poster beat themselves.
+    if (refs.length === series.length) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
+      for (let i = 0; i < refs.length; i += 1) {
+        const y = baseY - (refs[i] / peak) * chartH
+        ctx.fillRect(x0 + i * bw + 1, y - 2, Math.max(1, bw - 2), 4)
+      }
     }
   } else if (bands.length) {
     const box = 96

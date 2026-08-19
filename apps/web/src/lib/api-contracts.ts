@@ -330,6 +330,22 @@ export const publicPlayerResponseSchema = z.object({
   badges: z.optional(badgeSummarySchema)
 })
 
+// A shared run — what /r/<token> opens. Only what the public profile already
+// shows: score, mode, name, arena, badge count. The player is optional because
+// a deleted account takes its profile with it while the link is being read.
+export const shareTokenSchema = z.object({ token: z.string().min(4).max(16) })
+
+export const sharedRunSchema = z.object({
+  token: z.string().min(4).max(16),
+  mode: gameModeSchema,
+  score: z.number().finite(),
+  seasonId: nonEmptyString,
+  completedAt: isoDateTime,
+  // The player's own run shape, for the card. Display only.
+  series: z.optional(z.array(z.number().finite())),
+  player: z.optional(publicPlayerSummarySchema)
+})
+
 export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
@@ -389,3 +405,4 @@ export type PublicPlayerSummary = z.infer<typeof publicPlayerSummarySchema>
 export type PublicPlayer = z.infer<typeof publicPlayerSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
 export type ActivityEntry = z.infer<typeof activityEntrySchema>
+export type SharedRun = z.infer<typeof sharedRunSchema>

@@ -1448,12 +1448,172 @@ html.reduce-motion .game-motion {
   }
 }
 
+/* ── A shared run (/r/<token>) ─────────────────────────────────
+   What a shared link opens: the run, never the home page. Card, then the
+   challenge with the score as the button, then the player behind it. */
+.ed-sharedrun {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 16px 24px;
+  min-height: 100%;
+}
+.ed-sharedrun__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ed-sharedrun__free {
+  color: var(--faint);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.66rem;
+}
+.ed-sharedrun__card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(215, 200, 255, 0.18);
+  background:
+    radial-gradient(340px 190px at 50% -10%, rgba(109, 40, 217, 0.5), transparent 70%),
+    linear-gradient(180deg, #150e35, #080616);
+}
+.ed-sharedrun__by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 15px 0;
+}
+.ed-sharedrun__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-sharedrun__mode {
+  margin-left: auto;
+}
+.ed-sharedrun__result {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 15px 0;
+}
+.ed-sharedrun__score {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  line-height: 0.95;
+}
+.ed-sharedrun__mode-label {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ed-sharedrun__chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 104px;
+  padding: 11px 15px 0;
+}
+.ed-sharedrun__bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, #c4b5fd, #7c3aed);
+}
+.ed-sharedrun__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 11px;
+  padding: 8px 15px;
+  border-top: 1px solid rgba(215, 200, 255, 0.14);
+  background: rgba(7, 6, 16, 0.5);
+  color: var(--lavender);
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  letter-spacing: 0.06em;
+}
+.ed-sharedrun__foot span:last-child {
+  color: var(--faint);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.ed-sharedrun__pitch {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
+}
+.ed-sharedrun__cta {
+  width: 100%;
+}
+.ed-sharedrun__player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(215, 200, 255, 0.12);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.ed-sharedrun__player-text {
+  flex: 1;
+  min-width: 0;
+}
+.ed-sharedrun__player-name {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.ed-sharedrun__player-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+}
+.ed-sharedrun__player-go {
+  flex: 0 0 auto;
+  color: var(--lavender);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+.ed-sharedrun__fan {
+  margin: auto 0 0;
+  color: var(--faint);
+  font-size: 0.66rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* ── Share line ───────────────────────────────────────────── */
 
 .shareline {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 14px;
   border: 1px solid rgba(245, 200, 76, 0.28);
@@ -1461,9 +1621,65 @@ html.reduce-motion .game-motion {
   background: rgba(18, 13, 40, 0.72);
 }
 
-.shareline__copy {
+.shareline__copy-block {
   flex: 1;
   min-width: 0;
+}
+
+/* 10b — the no-native-sheet path. Not a degraded dialog: the same two things
+   the OS sheet offers, spelled out. The link to paste and the image to save. */
+.shareline__unbundled {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shareline__link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 13px;
+  border-radius: 13px;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  background: rgba(11, 9, 32, 0.75);
+}
+.shareline__url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shareline__copy {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.68rem;
+}
+.shareline__save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 13px;
+  border: 1px solid rgba(215, 200, 255, 0.22);
+  color: var(--lavender);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.shareline__save .icon {
+  width: 15px;
+  height: 15px;
 }
 .shareline__score {
   margin-top: 3px;

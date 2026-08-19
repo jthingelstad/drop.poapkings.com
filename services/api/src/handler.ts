@@ -29,8 +29,11 @@ import {
 } from "./routes/public-reads.js";
 import { completeRun } from "./routes/runs-complete.js";
 import { startRun } from "./routes/runs-start.js";
+import { createShare, getShare } from "./routes/shares.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
+const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
+const SHARE_PATH = /^\/shares\/([^/]+)$/;
 
 // The routing table. Every branch is one line: the handling lives in
 // ./routes/*, one module per group of related endpoints.
@@ -70,6 +73,10 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/runs/start") return startRun(context);
   if (method === "POST" && path === "/runs/complete")
     return completeRun(context);
+  const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;
+  if (runShareMatch) return createShare(context, runShareMatch[1] ?? "");
+  const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;
+  if (shareMatch) return getShare(context, shareMatch[1] ?? "");
 
   if (method === "GET" && path === "/leaderboards")
     return getLeaderboards(context);

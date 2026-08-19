@@ -11,6 +11,7 @@ import BadgeCelebration from './components/BadgeCelebration'
 import ChargeRing from './components/ChargeRing'
 import GateCard from './components/GateCard'
 import RankedTouchGate from './components/RankedTouchGate'
+import SharedRun, { sharedRunToken } from './screens/SharedRun'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
@@ -63,6 +64,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/survival', label: 'Survival' },
   { match: '/rain', label: 'Rain' },
   { match: '/offline', label: 'Offline' },
+  { match: '/r/', label: 'A shared run' },
   { match: '/leaderboards', label: 'Ladder' },
   { match: '/profile', label: 'You' },
   { match: '/players', label: 'Player profile' },
@@ -132,6 +134,12 @@ function ScreenContent({ r }: { r: string }) {
   // are live views that go quiet offline, not offline destinations — so the bundled
   // /offline explainer is retired; a legacy link to it lands Home.
   if (r.startsWith('/offline')) return <HomeRedirect />
+  // A shared run opens the RUN, never the home page. It needs no account and no
+  // network state beyond its own read, so it sits above every account gate.
+  if (r.startsWith('/r/')) {
+    const token = sharedRunToken(r)
+    return token ? <SharedRun token={token} /> : <HomeRedirect />
+  }
   // An offline game is local and unrecorded, so account state cannot gate it.
   // The effective state covers both a transport disconnect and an unreachable
   // player API; either way there is no official run to protect or record.

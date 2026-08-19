@@ -30,24 +30,25 @@ export function shareDrop(href = window.location.href): Promise<RunShareOutcome>
   return shareRun(dropSharePayload(href))
 }
 
+// `url` is the run's own permalink — a minted /#/r/<token> address. It is passed
+// through verbatim rather than rebuilt from a mode: the link is what gets
+// counted, and a payload that quietly rewrote it back to the mode's home page
+// would leave the image travelling with a link to nowhere in particular.
 export function runSharePayload(
   mode: ShareableGameMode,
   score: string,
-  href = window.location.href,
+  url: string,
   playerName?: string
 ): RunSharePayload {
   const game = gameDisplay(mode)
-  const url = new URL(href)
-  url.search = ''
-  url.hash = `/${mode}`
   const text = playerName
     ? `${playerName} scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
     : `I scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
   return {
     title: `${playerName ? `${playerName} · ` : ''}${game.name}: ${score} | Elixir Drop`,
     text,
-    url: url.toString(),
-    copyText: `${text}\n${url.toString()}`
+    url,
+    copyText: `${text}\n${url}`
   }
 }
 

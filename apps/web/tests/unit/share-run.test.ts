@@ -33,11 +33,14 @@ describe('run sharing', () => {
     ['survival', '18 streak', 'Survival'],
     ['rain', '27 cleared', 'Rain']
   ])('builds a game-specific payload for %s', (mode, score, gameName) => {
-    const payload = runSharePayload(mode, score, 'https://drop.poapkings.com/?source=test#/profile')
+    // The link is the run's own minted permalink, passed through verbatim: it is
+    // what gets counted, so nothing may quietly rewrite it to a mode's home.
+    const permalink = 'https://drop.poapkings.com/#/r/AB2CD3'
+    const payload = runSharePayload(mode, score, permalink)
 
     expect(payload.title).toBe(`${gameName}: ${score} | Elixir Drop`)
     expect(payload.text).toContain(`I scored ${score} in ${gameName} on Elixir Drop.`)
-    expect(payload.url).toBe(`https://drop.poapkings.com/#/${mode}`)
+    expect(payload.url).toBe(permalink)
     expect(payload.copyText).toBe(`${payload.text}\n${payload.url}`)
   })
 
@@ -98,7 +101,7 @@ describe('share card fallback', () => {
     setNavigatorMethod('share', share)
     setCanShare(() => false)
 
-    const outcome = await shareRunCard(runSharePayload('surge', '15.04s'), {
+    const outcome = await shareRunCard(runSharePayload('surge', '15.04s', 'https://drop.poapkings.com/#/r/AB2CD3'), {
       mode: 'surge',
       score: '15.04s'
     })
@@ -113,7 +116,7 @@ describe('share card fallback', () => {
     setNavigatorMethod('share', share)
     setCanShare(() => true)
     // jsdom has no canvas, so renderShareCard returns null via getContext.
-    const outcome = await shareRunCard(runSharePayload('rain', '27 cleared'), {
+    const outcome = await shareRunCard(runSharePayload('rain', '27 cleared', 'https://drop.poapkings.com/#/r/AB2CD3'), {
       mode: 'rain',
       score: '27 cleared'
     })
@@ -127,7 +130,7 @@ describe('share card fallback', () => {
     setNavigatorMethod('clipboard', { writeText })
     setCanShare(() => true)
 
-    const outcome = await shareRunCard(runSharePayload('trade', '9.42s'), {
+    const outcome = await shareRunCard(runSharePayload('trade', '9.42s', 'https://drop.poapkings.com/#/r/AB2CD3'), {
       mode: 'trade',
       score: '9.42s'
     })

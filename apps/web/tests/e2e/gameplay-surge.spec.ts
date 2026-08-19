@@ -199,7 +199,7 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
     axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
   ).toEqual([])
 
-  const shareButton = page.getByRole('button', { name: 'Share score' })
+  const shareButton = page.getByRole('button', { name: 'Share this run' })
   await expect(shareButton).toBeVisible()
   expect(
     await shareButton.evaluate((element) => {
@@ -244,7 +244,9 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
   expect(payload).toMatchObject({
     title: expect.stringContaining('Knight Main · Surge:'),
     text: expect.stringMatching(/Knight Main scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
-    url: expect.stringMatching(/#\/surge$/),
+    // The link is a minted permalink to THIS run, never the mode's home. It is
+    // what makes the share countable, and what a stranger actually opens.
+    url: expect.stringMatching(/#\/r\/[A-Z2-9]{6}$/),
     file: {
       name: 'elixir-drop.png',
       type: 'image/png',
@@ -258,6 +260,49 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
     body: Buffer.from(payload.imageBase64!, 'base64'),
     contentType: 'image/png'
   })
+})
+
+// Two things depend on the share function: reach is counted per opened link,
+// and the public-profile challenge needs somewhere for a shared run to land.
+test('a shared link opens the run itself, with the score as the button', async ({ page }) => {
+  await page.goto('/#/r/SHRBBB')
+
+  await expect(page.locator('.ed-sharedrun__score')).toHaveText('17.412s')
+  await expect(page.getByRole('button', { name: 'BEAT 17.412s' })).toBeVisible()
+  // The player behind it, and nothing the public profile does not already show.
+  await expect(page.locator('.ed-sharedrun__player-name')).toHaveText('Knight Main')
+  await expect(page.locator('.ed-sharedrun__free')).toContainText('no account needed')
+
+  // The button opens the mode, not the home page.
+  await page.getByRole('button', { name: 'BEAT 17.412s' }).click()
+  await expect(page).toHaveURL(/#\/surge$/)
+})
+
+test('a share mints a new token every time, so reach counts per share', async ({ page }) => {
+  const minted: string[] = []
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        const seen = (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? []
+        seen.push(payload.url ?? '')
+        ;(window as unknown as { __sharedUrls?: string[] }).__sharedUrls = seen
+      }
+    })
+  })
+  await page.goto('/#/surge')
+  await completeSurge(page)
+
+  const shareButton = page.getByRole('button', { name: 'Share this run' })
+  await shareButton.click()
+  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  await expect(shareButton).toBeVisible({ timeout: 10_000 })
+  await shareButton.click()
+  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+
+  minted.push(...(await page.evaluate(() => (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? [])))
+  expect(minted).toHaveLength(2)
+  expect(minted[0]).not.toBe(minted[1])
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {

@@ -19,7 +19,7 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { earnedXp, recordingNotice } from '../../src/lib/use-game-run'
+import { earnedXp, recordedRunId, recordingNotice } from '../../src/lib/use-game-run'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -175,10 +175,34 @@ describe('Summary', () => {
     // The accuracy-by-cost chart and the generic tiles are gone.
     expect(html).not.toContain('Accuracy by cost')
     expect(html).not.toContain('ed-sum-tile')
-    // The mode's signature panel (children) renders, and share is a real action.
+    // The mode's signature panel (children) renders.
     expect(html).toContain('my-share-slot')
-    expect(html).toContain('shareline')
     expect(html).toContain('Run it back')
+  })
+
+  // A not-recorded run has no share control at all: offline and guest runs have
+  // no server record, so no permalink can exist. Absent, not disabled — a
+  // disabled button invites a tap and then has to explain itself.
+  it('offers the share control only for a run the server actually recorded', async () => {
+    const props = {
+      eyebrow: 'Surge',
+      headline: '40s',
+      insights: emptyInsights({ total: 1, correct: 1, accuracyPct: 100 }),
+      share: { mode: 'surge' as const, score: '40s' },
+      onReplay: () => {},
+      onHome: () => {}
+    }
+
+    recordedRunId.value = null
+    const unrecorded = await render(<Summary {...props} />)
+    expect(unrecorded).not.toContain('shareline')
+    expect(unrecorded).not.toContain('Share this run')
+
+    recordedRunId.value = 'run-42'
+    const recorded = await render(<Summary {...props} />)
+    expect(recorded).toContain('shareline')
+    expect(recorded).toContain('Share this run')
+    recordedRunId.value = null
   })
 })
 
@@ -380,12 +404,15 @@ describe('SignInToSave', () => {
 })
 
 describe('ShareLine', () => {
-  it('renders a browser-share action with the game and formatted score', async () => {
-    const html = await render(<ShareLine mode="surge" score="28.60s" />)
+  it('renders a share action against the run it will mint a token for', async () => {
+    const html = await render(<ShareLine mode="surge" score="28.60s" runId="run-1" />)
     expect(html).toContain('shareline')
     expect(html).toContain('Share your score')
     expect(html).toContain('Surge · 28.60s')
-    expect(html).toContain('Share score')
+    expect(html).toContain('Share this run')
+    // The unbundled copy/save path is the no-native-sheet branch, not a
+    // permanently visible second control.
+    expect(html).not.toContain('shareline__unbundled')
   })
 })
 

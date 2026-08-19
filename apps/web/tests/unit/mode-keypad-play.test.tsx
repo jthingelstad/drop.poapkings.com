@@ -291,8 +291,9 @@ describe('Surge gameplay', () => {
     // Summary: first-ever run is a PB, and every first guess was right.
     expect(host.textContent).toContain('Surge complete')
     expect(host.textContent).toContain('First Surge logged')
-    expect(host.querySelector('.shareline')?.textContent).toContain('Surge')
-    expect(host.querySelector('.shareline')?.textContent).toContain('Share score')
+    // The harness mocks completion, so nothing recorded and the share control
+    // is correctly absent (see the Summary tests for both branches).
+    expect(host.querySelector('.shareline')).toBeNull()
   })
 
   it('penalizes a wrong tap, keeps the same card, then the correct tap advances', async () => {
@@ -432,7 +433,9 @@ describe('Survival gameplay', () => {
     expect(host.textContent).toContain('Sudden death')
     expect(host.textContent).toContain('2 streak')
     expect(host.textContent).toContain('New personal best!')
-    expect(host.querySelector('.shareline')?.textContent).toContain('Survival')
+    // The harness mocks completion, so nothing recorded and the share control
+    // is correctly absent (see the Summary tests for both branches).
+    expect(host.querySelector('.shareline')).toBeNull()
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0]![0] as { answers: unknown[] }
     expect(payload.answers).toHaveLength(3) // two cleared + the death entry

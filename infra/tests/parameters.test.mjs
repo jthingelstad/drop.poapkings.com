@@ -467,6 +467,8 @@ void describe("deployment parameters", () => {
       "PATCH /me",
       "POST /runs/start",
       "POST /runs/complete",
+      "POST /runs/{runId}/share",
+      "GET /shares/{token}",
       "GET /leaderboards",
       "GET /seasons",
       "GET /activity",

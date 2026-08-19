@@ -356,7 +356,9 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.querySelector('[data-summary]')?.textContent).toContain('Higher / Lower complete')
     expect(c.querySelector('.ed-sum__headline')?.textContent).toBe('1 correct')
     expect(c.querySelector('.ed-duel')).toBeNull()
-    expect(c.querySelector('.shareline')?.textContent).toContain('Share score')
+    // The harness mocks completion, so nothing recorded and the share control
+    // is correctly absent (see the Summary tests for both branches).
+    expect(c.querySelector('.shareline')).toBeNull()
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Play again')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Home')
   })
@@ -513,9 +515,11 @@ describe('Trade — gameplay', () => {
       await advance(280)
     }
 
-    // Summary screen: the score headline and the share line for a clean run.
+    // Summary screen: the score headline for a clean run.
     expect(c.textContent).toContain('Trade complete')
-    expect(c.querySelector('.shareline')?.textContent).toContain('Trade')
+    // The harness mocks completion, so nothing recorded and the share control
+    // is correctly absent (see the Summary tests for both branches).
+    expect(c.querySelector('.shareline')).toBeNull()
 
     // The run was reported with one transcript entry per solved round.
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -660,7 +664,9 @@ describe('Rain — gameplay', () => {
 
     expect(c.textContent).toContain('The rain stopped')
     expect(c.textContent).toContain('1 cleared') // score = one cleared card
-    expect(c.querySelector('.shareline')?.textContent).toContain('Rain · 1 cleared')
+    // The harness mocks completion, so nothing recorded and the share control
+    // is correctly absent (see the Summary tests for both branches).
+    expect(c.querySelector('.shareline')).toBeNull()
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0][0] as { answers: Array<{ cardId: number; guess: number | null }> }
     // The cleared card is recorded with its cost; landed cards with a null guess.

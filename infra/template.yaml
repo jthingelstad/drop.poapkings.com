@@ -1276,6 +1276,20 @@ Resources:
       RouteKey: POST /runs/complete
       Target: !Sub integrations/${ApiIntegration}
 
+  RunShareRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /runs/{runId}/share
+      Target: !Sub integrations/${ApiIntegration}
+
+  ShareRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /shares/{token}
+      Target: !Sub integrations/${ApiIntegration}
+
   LeaderboardsRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:

@@ -146,6 +146,25 @@ rank-oriented fields as part of unrelated work.
   preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
+- **Sharing a run mints one token per share action.** `POST /runs/{runId}/share`
+  returns a six-character token (`services/api/src/shares.ts`, an alphabet with
+  no look-alike glyphs) and `GET /shares/{token}` resolves it. Sharing the same
+  run twice mints two tokens — that is what makes reach countable per share
+  rather than per run. The permalink is `#/r/<token>`: the site is GitHub Pages
+  with hash routing, so there is no server to render `/r/<token>` or a per-run
+  unfurl preview, and a pasted link unfurls with the generic Drop card until
+  that changes. The link opens the RUN (`screens/SharedRun.tsx`) with the score
+  as the button, never the home page. **A not-recorded run has no share control
+  at all** — offline and guest runs have no server record, so no permalink can
+  exist; `Summary` renders nothing rather than a disabled button, and the mint
+  endpoint refuses independently. Nothing travels that is not already public:
+  score, mode, name, arena. **Opens are counted per token, never per person** —
+  a peppered one-way hash of the request dedupes a visitor, the sharer's own
+  device is dropped, and credit stops at 25 per token. Privacy and Fair Play
+  both say so out loud, which is the condition for a share badge shipping at
+  all. Deleting an account deletes its minted links: the share item lives
+  outside `PLAYER#` so a stranger can resolve it, and a `PLAYER#{sub}/SHARE#`
+  pointer is what lets the deletion sweep find it.
 - **Desktop is the same phone column, reordered — never a second app.** At or
   above 1024px `MobileShell` letterboxes the one 390px column
   (`lib/use-layout.ts`). The 1050px of margin is filled by **Falling Cards as

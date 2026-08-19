@@ -315,6 +315,13 @@ Important shared modules:
 - `apps/web/src/components/RankedTouchGate.tsx` - the touch-only ranked gate and
   its QR bridge. `qrcode-generator` is imported lazily HERE and nowhere else, so
   the encoder never rides in the chunk every phone player downloads.
+- `services/api/src/shares.ts` - share-token minting, the look-alike-free
+  alphabet, the per-token open credit cap, and the bounds on the run shape a
+  stranger's browser renders.
+- `services/api/src/routes/shares.ts` - `POST /runs/{runId}/share` and
+  `GET /shares/{token}`, including the peppered per-visitor dedupe and the rule
+  that the sharer's own device earns nothing.
+- `apps/web/src/screens/SharedRun.tsx` - what `#/r/<token>` opens.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge.
 
 Player XP and the per-player arena:

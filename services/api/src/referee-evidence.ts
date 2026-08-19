@@ -18,7 +18,7 @@ export const EVIDENCE_TTL_SECONDS = 180 * 24 * 60 * 60;
 // A short base64url HMAC. Same input + same pepper => same token, so the referee
 // can correlate two runs to one source; but the token is not reversible to an IP
 // or user-agent without the pepper, which never leaves the Lambda env.
-function hmac(pepper: string, value: string): string {
+export function hmac(pepper: string, value: string): string {
   return createHmac("sha256", pepper)
     .update(value)
     .digest("base64url")

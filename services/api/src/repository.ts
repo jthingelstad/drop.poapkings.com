@@ -182,6 +182,30 @@ function calendarSeasonId(startsAt: string): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// A minted share, and the durable snapshot the permalink renders from. It is
+// durable ON PURPOSE: the RUN# row is ephemeral (a one-hour TTL), while a link
+// a player has already sent to somebody has to keep working. Everything stored
+// here is already public — score, mode, arena, the run's own shape — and `owner`
+// never leaves the repository boundary: it exists so an open from the sharer's
+// own device can be dropped from their Herald count.
+export interface ShareItem {
+  pk: string; // SHARE#{token}
+  sk: "SHARE";
+  token: string;
+  runId: string;
+  owner: string;
+  playerId: string;
+  mode: GameMode;
+  score: number;
+  seasonId: string;
+  completedAt: string;
+  mintedAt: string;
+  // Credited distinct opens, capped. Absent until the first one.
+  opens?: number;
+  // The player's own run shape, for the card. Display only.
+  series?: number[];
+}
+
 export interface PublicPlayerLookup {
   // The subject key is retained inside the repository boundary only so callers
   // can load the player's run history. It is never part of a public response.
@@ -544,6 +568,7 @@ export class Repository {
     const profile = existing.Item as ProfileItem | undefined;
     const keys = new Map<string, { pk: string; sk: string }>();
     const runIds = new Set<string>();
+    const shareTokens = new Set<string>();
     let lastKey: Record<string, unknown> | undefined;
     do {
       const result = await client.send(
@@ -562,9 +587,34 @@ export class Repository {
           const runKey = { pk: `RUN#${item.runId}`, sk: "RUN" };
           keys.set(`${runKey.pk}\0${runKey.sk}`, runKey);
         }
+        if (typeof item.shareToken === "string")
+          shareTokens.add(item.shareToken);
       }
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
+
+    // Minted share links live outside PLAYER# so a stranger can resolve one by
+    // token alone. Deletion takes the share AND its per-visitor open markers:
+    // a link that outlived the account would keep naming a player who left.
+    for (const token of shareTokens) {
+      let shareLastKey: Record<string, unknown> | undefined;
+      do {
+        const result = await client.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: "pk = :pk",
+            ProjectionExpression: "pk, sk",
+            ExpressionAttributeValues: { ":pk": `SHARE#${token}` },
+            ExclusiveStartKey: shareLastKey,
+          }),
+        );
+        for (const item of result.Items ?? []) {
+          const key = { pk: String(item.pk), sk: String(item.sk) };
+          keys.set(`${key.pk}\0${key.sk}`, key);
+        }
+        shareLastKey = result.LastEvaluatedKey;
+      } while (shareLastKey);
+    }
 
     // Referee decisions deliberately live outside PLAYER# so the referee can
     // write them without authority over player data. Account deletion still
@@ -854,6 +904,119 @@ export class Repository {
 
   // Server-owned learning telemetry lives in the player partition (so account
   // deletion sweeps it) and is written best-effort after completions.
+  // ── Share tokens ─────────────────────────────────────────────────────────
+
+  // Written with a pointer in the player's own partition. The share item has to
+  // live outside PLAYER# (a stranger resolves it by token alone, with no
+  // subject to key on), and account deletion promises a complete sweep — so the
+  // pointer is what lets the sweep find it. Both or neither.
+  async putShare(item: ShareItem): Promise<void> {
+    await client.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: item,
+              ConditionExpression: "attribute_not_exists(pk)",
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                pk: `PLAYER#${item.owner}`,
+                sk: `SHARE#${item.token}`,
+                shareToken: item.token,
+                runId: item.runId,
+                mintedAt: item.mintedAt,
+              },
+            },
+          },
+        ],
+      }),
+    );
+  }
+
+  async getShare(token: string): Promise<ShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `SHARE#${token}`, sk: "SHARE" },
+      }),
+    );
+    return result.Item as ShareItem | undefined;
+  }
+
+  // Credit one distinct open. The conditional put IS the dedupe: a visitor that
+  // has already opened this token writes nothing and earns nothing, so a
+  // refresh, a preview fetch, and a second tap are all one open. Returns whether
+  // credit was granted, so the caller can leave the player's counter alone.
+  //
+  // The visitor key is a peppered hash of the request, never a raw IP or
+  // user-agent — the same rule the referee evidence works under.
+  async creditShareOpen(
+    token: string,
+    visitorHash: string,
+    cap: number,
+  ): Promise<boolean> {
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: `SHARE#${token}`,
+            sk: `OPEN#${visitorHash}`,
+            openedAt: new Date().toISOString(),
+          },
+          ConditionExpression: "attribute_not_exists(sk)",
+        }),
+      );
+    } catch (error) {
+      if (
+        (error as { name?: string }).name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: `SHARE#${token}`, sk: "SHARE" },
+          UpdateExpression: "ADD opens :one",
+          ConditionExpression:
+            "attribute_exists(pk) AND (attribute_not_exists(opens) OR opens < :cap)",
+          ExpressionAttributeValues: { ":one": 1, ":cap": cap },
+        }),
+      );
+    } catch (error) {
+      // At the cap the link still opens; it simply stops paying. That is the
+      // whole point of the cap, so it is not an error.
+      if (
+        (error as { name?: string }).name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+    return true;
+  }
+
+  // Herald's counter: distinct opens of everything this player has shared.
+  // Written best-effort outside any transaction, exactly like learning stats —
+  // a counter failure must never break the link a stranger just opened.
+  async addHeraldOpens(sub: string, count: number): Promise<void> {
+    await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression: "ADD heraldOpens :count",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeValues: { ":count": count },
+      }),
+    );
+  }
+
   async getCardStats(sub: string): Promise<CardStatsMap> {
     const result = await client.send(
       new GetCommand({

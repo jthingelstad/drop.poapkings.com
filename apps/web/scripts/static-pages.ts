@@ -228,6 +228,14 @@ ${pageSections([
     )
   ),
   section(
+    'Sharing a run',
+    `${paragraph(
+      'Sharing a run mints a unique link for that share, and Drop counts how many distinct visitors open it so a share badge can credit real reach rather than repeat taps.'
+    )}${paragraph(
+      'Drop counts opens per link and does not learn who opened one. An open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request; no raw IP address or full browser user-agent is stored. Opens from your own device are not counted, and credit per link stops at a fixed cap, so one lucky link cannot clear a ladder.'
+    )}`
+  ),
+  section(
     'Privacy and re-review',
     paragraph(
       `Review evidence stays private. Drop does not publish accusations, answer transcripts, connection fingerprints, or private reasons. If you believe a result or ranked-access decision is wrong, email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20Fair%20Play%20re-review">${CONTACT}</a> and include the run tag when the request concerns a specific result.`
@@ -270,15 +278,23 @@ ${pageSections([
     )}`
   ),
   section(
+    'Sharing a run',
+    `${paragraph(
+      'Sharing a run mints a unique link for that share. Drop counts how many distinct visitors open each link, so a share badge can credit the reach it earned. It does not learn who opened a link: an open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request, the same way Fair Play signals work. Drop does not store the raw IP address or full browser user-agent for this, opens from your own device are not counted, and credit per link stops at a fixed cap.'
+    )}${paragraph(
+      'A shared link shows only what your public profile already shows: your Drop name, favorite card, arena, the mode, and the score. Deleting your account deletes your shared links along with everything else.'
+    )}`
+  ),
+  section(
     'Retention and deletion',
     `${paragraph(
       'Magic links and signed run challenges expire quickly. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
     )}${paragraph(
-      'Account deletion removes your email, Drop identity, saved tag association, game history, and leaderboard entries from the active database and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
+      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, and any links you shared from the active database and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
-])}<p class="static-updated">Last updated August 16, 2026.</p>`
+])}<p class="static-updated">Last updated August 19, 2026.</p>`
 
 const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([

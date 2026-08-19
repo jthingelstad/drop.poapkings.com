@@ -1275,6 +1275,50 @@ describe("repository DynamoDB requests", () => {
     );
   });
 
+  // A link a player already sent to somebody lives outside PLAYER# so a stranger
+  // can resolve it by token alone. Deletion still promises a complete sweep, so
+  // the pointer in the player's partition is what lets it be found.
+  it("sweeps minted share links and their open markers when deleting the account", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3 } })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#player-sub",
+            sk: "SHARE#AB2CD3",
+            shareToken: "AB2CD3",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "SHARE#AB2CD3", sk: "SHARE" },
+          { pk: "SHARE#AB2CD3", sk: "OPEN#visitor-hash" },
+        ],
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").deleteAccount("player-sub");
+
+    const batch = send.mock.calls[3]?.[0].input.RequestItems["test-table"];
+    expect(batch).toEqual(
+      expect.arrayContaining([
+        {
+          DeleteRequest: {
+            Key: { pk: "PLAYER#player-sub", sk: "SHARE#AB2CD3" },
+          },
+        },
+        { DeleteRequest: { Key: { pk: "SHARE#AB2CD3", sk: "SHARE" } } },
+        {
+          DeleteRequest: {
+            Key: { pk: "SHARE#AB2CD3", sk: "OPEN#visitor-hash" },
+          },
+        },
+      ]),
+    );
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {

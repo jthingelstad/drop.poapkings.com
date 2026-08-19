@@ -28,6 +28,13 @@ type RecordingNotice =
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 
+// The server run id of the last RECORDED run — the only thing that can be
+// shared, because a permalink needs a server record to point at. Offline,
+// guest, and practice runs never set it, which is what makes the summary's
+// share control absent rather than disabled: a disabled button invites a tap
+// and then has to explain itself.
+export const recordedRunId = signal<string | null>(null)
+
 // Rungs the last completed run cleared. Read straight from here by Summary,
 // because six modes render that component and none of them know anything about
 // badges. Cleared when the next run is prepared, so a replay never
@@ -111,6 +118,7 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
     run.current = null
     challenge.value = null
     startError.value = ''
+    recordedRunId.value = null
     earnedBadges.value = []
     earnedXp.value = 0
     offlineRunMode.value = null
@@ -245,6 +253,10 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
       // toward the player's totals. Only its place on the public board is
       // pending, so the toast says recorded and names the hold rather than
       // celebrating a season best the board is not showing anyone.
+      // A guest completion returned above, so anything reaching here recorded.
+      // Practice records a run server-side but keeps no score, so it is not
+      // shareable either.
+      recordedRunId.value = isRecordedMode(result.mode) ? result.runId : null
       earnedBadges.value = result.earnedBadges ?? []
       earnedXp.value = result.xpEarned ?? 0
       setRecordingNotice({
