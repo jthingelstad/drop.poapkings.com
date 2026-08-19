@@ -146,6 +146,23 @@ rank-oriented fields as part of unrelated work.
   preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
+- **Desktop is the same phone column, reordered — never a second app.** At or
+  above 1024px `MobileShell` letterboxes the one 390px column
+  (`lib/use-layout.ts`). The 1050px of margin is filled by **Falling Cards as
+  wallpaper** (`components/shell/DesktopWallpaper.tsx`: 5–15% opacity, a radial
+  darkening toward the centre, `pointer-events: none`, off under reduced motion,
+  off during a game, and off on the ranked gate — nothing ambient behind a screen
+  asking for a decision). The column and the aside keep an opaque backdrop, so
+  the art is never under a score. `DesktopAside` keeps **only** the live
+  `Recent runs` feed and the Falling Cards launcher; season standings, the "Your
+  Surge season" card and the meta-link cluster were deleted because the page
+  beside them already says all three. On desktop the column **reorders, it does
+  not fork**: Practice leads with a `PLAYS HERE` tag, the ranked hero states
+  *Ranked runs are played on your phone* instead of showing `PLAY` (an
+  indicator, never a renamed control), and mode rows become `Board →` reads via
+  `boardRouteForMode`. The touch-only ranked gate
+  (`components/RankedTouchGate.tsx`) states the reason once, carries a QR that
+  opens **that mode's** hash route, and offers two exits that are not the phone.
 - **"Elixir Rain" screensaver**: activation state in
   `apps/web/src/lib/screensaver.ts` (three doors: the nav launcher — a visible
   feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under

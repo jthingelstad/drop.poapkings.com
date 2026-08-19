@@ -10,12 +10,13 @@ import RunRecordingNotice from './components/RunRecordingNotice'
 import BadgeCelebration from './components/BadgeCelebration'
 import ChargeRing from './components/ChargeRing'
 import GateCard from './components/GateCard'
+import RankedTouchGate from './components/RankedTouchGate'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { layout, supportsTouchPlay } from './lib/use-layout'
+import { layout, isRankedTouchGate } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import Home from './screens/Home'
 import Login from './screens/Login'
@@ -103,25 +104,6 @@ function RankedAccessRestricted() {
   )
 }
 
-// Ranked is timed to the millisecond and plays on touch, so a mouse-only device
-// is held to Practice to keep the board fair. This is an input gate, not a width
-// gate — a touchscreen desktop passes supportsTouchPlay() and never sees it.
-function RankedTouchOnly() {
-  return (
-    <div class="main-content">
-      <GateCard
-        mark={<Icon name="gamepad" />}
-        state="Ranked is touch-only"
-        primary={{ label: 'Open Practice', onAction: () => navigate(practiceEntryPath()) }}
-        secondary={{ label: 'View the Ladder', href: '/leaderboards' }}
-      >
-        Ranked runs are timed to the millisecond and play on touch, so the board stays fair — open Drop on your phone.
-        Practice is open here.
-      </GateCard>
-    </div>
-  )
-}
-
 function AccountUnavailable() {
   return (
     <div class="main-content" aria-live="polite">
@@ -168,7 +150,7 @@ function ScreenContent({ r }: { r: string }) {
   // width breakpoint and of connectivity — a mouse-only device never starts a
   // ranked run, online or offline. Practice ('/practice') is exempt and stays
   // open everywhere.
-  if (gamePath && gamePath !== '/practice' && !supportsTouchPlay()) return <RankedTouchOnly />
+  if (isRankedTouchGate(r) && gamePath) return <RankedTouchGate path={gamePath} />
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />

@@ -11,6 +11,7 @@
 // a mouse-only laptop is held to Practice — independent of this breakpoint.
 
 import { signal } from '@preact/signals'
+import { gamePathForRoute } from './game-routes'
 
 export type Layout = 'mobile' | 'desktop'
 
@@ -51,6 +52,15 @@ export function supportsTouchPlay(): boolean {
   if (typeof window === 'undefined') return false
   const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false
   return coarse || (navigator.maxTouchPoints ?? 0) > 0
+}
+
+// Whether a route lands on the ranked touch-only gate. App renders the gate from
+// this and the shell reads it to keep the ambient wallpaper off: nothing drifts
+// behind a screen that is asking for a decision. One predicate, so the two can
+// never disagree about which screen is the gate.
+export function isRankedTouchGate(value: string): boolean {
+  const gamePath = gamePathForRoute(value)
+  return Boolean(gamePath) && gamePath !== '/practice' && !supportsTouchPlay()
 }
 
 // The primary-input verb for prompts — "Click" on the desktop (pointer) shell,

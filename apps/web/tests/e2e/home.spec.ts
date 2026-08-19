@@ -12,15 +12,17 @@ test(
     await expect(page.locator('.ed-standpeek')).toHaveCount(0)
 
     if (isDesktopViewport(viewport)) {
-      // Season standings + the live feed survive into the desktop letterbox aside.
-      await expect(page.locator('.ed-rail-standings')).toContainText('Royal Ghosted')
-      await expect(page.locator('.ed-rail-standings')).toContainText('You')
-      await expect(page.locator('.ed-rail-this')).toContainText('Get 8.9s faster to take the lead')
-      await expect(page.locator('.ed-rail-this')).toContainText('next season’s free pass')
+      // The aside keeps only what a phone cannot do well: the live feed, given
+      // real room, and the Falling Cards launcher. Standings and the season
+      // card left because the page beside them already says both.
+      await expect(page.locator('.ed-rail-standings')).toHaveCount(0)
+      await expect(page.locator('.ed-rail-this')).toHaveCount(0)
+      await expect(page.locator('.ed-railfoot')).toHaveCount(0)
+      await expect(page.locator('.ed-rail-live__head')).toContainText('Live · recent runs')
       // Repeated activity is grouped into one recent-runs row.
-      await expect(page.locator('.ed-rail-live__head')).toContainText('Recent runs')
       await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
-      await expect(page.locator('.ed-rail-live__dot')).toHaveCount(0)
+      // The margin has a job now: Falling Cards drifting behind the column.
+      await expect(page.locator('.ed-wallpaper')).toBeVisible()
     }
 
     // The hero rotates by UTC day. Its result must follow the featured mode
@@ -39,7 +41,8 @@ test(
   }
 )
 
-test('the hero features one ranked game and the other four are full-width rows', async ({ page }) => {
+test('the hero features one ranked game and the other four are full-width rows', async ({ page, viewport }) => {
+  test.skip(isDesktopViewport(viewport), 'desktop reorders the column and reads the boards instead')
   await page.goto('/')
 
   // The hero promotes one ranked game for the day.
@@ -56,6 +59,28 @@ test('the hero features one ranked game and the other four are full-width rows',
   // A row leads with its own best and never carries a gold PLAY.
   await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
   await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
+})
+
+// Desktop reorders the same column rather than forking it: Practice leads
+// because that is what plays here, and the ranked rows read the board instead of
+// starting a run they would only be gated out of.
+test('desktop leads with Practice and turns the ranked rows into board reads', async ({ page, viewport }) => {
+  test.skip(!isDesktopViewport(viewport), 'this is the letterbox ordering')
+  await page.goto('/')
+
+  const practice = page.locator('section[aria-labelledby="home-practice-title"]')
+  await expect(practice.locator('.ed-more__aside--pill')).toHaveText('PLAYS HERE')
+
+  const boards = page.locator('.ed-rows').last()
+  await expect(boards.locator('.ed-grow--ranked')).toHaveCount(5)
+  await expect(boards.locator('.ed-grow__board').first()).toHaveText('Board →')
+
+  // The hero states where ranked runs happen; it does not rename PLAY.
+  await expect(page.locator('.ed-hero__onphone').first()).toContainText('Ranked runs are played on your phone')
+
+  await boards.locator('.ed-grow--ranked').first().click()
+  await expect(page).toHaveURL(/#\/leaderboards\?mode=/)
+  await expect(page.locator('.ed-board__rows, .ed-board__empty')).toBeVisible()
 })
 
 test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({

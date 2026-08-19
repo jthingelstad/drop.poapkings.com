@@ -12,6 +12,7 @@ import { scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import { isReducedMotionEnabled } from '../../lib/motion'
 import { shareDrop } from '../../lib/share-run'
+import { layout } from '../../lib/use-layout'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, type HomeData } from './home-data'
@@ -36,6 +37,11 @@ export function FeaturedHero({
   const bestText = best === undefined ? '—' : scoreLabel(game.mode, best)
   const rank = data.rankFor(game.mode)
   const rankText = !offline.value && rank ? `#${rank}` : '—'
+  // On desktop the hero keeps its art, its season pill and its numbers, and
+  // states where ranked runs happen instead of offering a PLAY that lands on the
+  // touch-only gate. It is an indicator, not a renamed button — a control that
+  // renames itself to carry state is the thing this app does not do.
+  const ranksOnPhone = layout.value === 'desktop'
   return (
     <section class="ed-hero">
       <span class="ed-fx" aria-hidden="true">
@@ -55,23 +61,32 @@ export function FeaturedHero({
         </div>
         <p class="ed-hero__desc">{game.desc}</p>
         <div class="ed-hero__cta">
-          <button
-            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-            aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
-            onClick={(e) => {
-              tapFxFrom(e)
-              navigate(game.path)
-            }}
-          >
-            <span class="tap-face">
-              <Icon name="play" /> PLAY
-            </span>
-            {offlinePlay && (
-              <span id={offlineDescriptionId} class="sr-only">
-                {game.name} is available offline. This run will not be saved or ranked.
+          {ranksOnPhone ? (
+            <div class="ed-hero__onphone">
+              {/* `gamepad` is already in the ICONS map and was the retired
+                  gate's own mark; no commit in this pass needs a new lucide. */}
+              <Icon name="gamepad" />
+              <span>Ranked runs are played on your phone</span>
+            </div>
+          ) : (
+            <button
+              class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+              aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
+              onClick={(e) => {
+                tapFxFrom(e)
+                navigate(game.path)
+              }}
+            >
+              <span class="tap-face">
+                <Icon name="play" /> PLAY
               </span>
-            )}
-          </button>
+              {offlinePlay && (
+                <span id={offlineDescriptionId} class="sr-only">
+                  {game.name} is available offline. This run will not be saved or ranked.
+                </span>
+              )}
+            </button>
+          )}
           <div class="ed-hero__best">
             <span class="ed-hero__best-label">Best · Rank</span>
             <strong class="ed-hero__best-val">
@@ -220,10 +235,15 @@ export function HomeHeroCarousel({
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false)
       }}
     >
+      {/* The track scrolls horizontally, so it has to be reachable by keyboard in
+          its own right. On desktop the featured slide states where ranked runs
+          happen rather than offering a button, which can leave the scrollable
+          region with no focusable child of its own. */}
       <div
         class="ed-hero-carousel__track"
         ref={trackRef}
         aria-live="off"
+        tabIndex={0}
         onPointerDown={() => setPaused(true)}
         onPointerUp={() => setPaused(false)}
         onPointerCancel={() => setPaused(false)}
@@ -299,12 +319,16 @@ export function HomeRow({
   name,
   meta,
   tone,
+  action = 'play',
   onClick
 }: {
   visual: ComponentChildren
   name: string
   meta: string
   tone: 'ranked' | 'drill'
+  // `board` is desktop's read row: the same row, going to the board rather than
+  // starting a run, because desktop's job is train, watch, read.
+  action?: 'play' | 'board'
   onClick: () => void
 }) {
   return (
@@ -320,9 +344,15 @@ export function HomeRow({
         <strong class="ed-grow__name">{name}</strong>
         <span class="ed-grow__meta">{meta}</span>
       </span>
-      <span class="ed-grow__mark" aria-hidden="true">
-        <Icon name="play" />
-      </span>
+      {action === 'board' ? (
+        <span class="ed-grow__board" aria-hidden="true">
+          Board →
+        </span>
+      ) : (
+        <span class="ed-grow__mark" aria-hidden="true">
+          <Icon name="play" />
+        </span>
+      )}
     </button>
   )
 }

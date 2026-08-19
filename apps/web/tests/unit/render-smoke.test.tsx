@@ -123,14 +123,18 @@ describe('SSR render smoke', () => {
     expect(html).toContain('OFFLINE')
   })
 
-  it('links to the Elixir Drop Discord guide from the desktop aside cluster', async () => {
+  it('fills the desktop margin with wallpaper and an aside that repeats nothing', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
-    // The old global footer moved into the meta entry points; the desktop
-    // letterbox aside carries the standalone Discord guide.
-    expect(html).toContain('ed-railfoot')
-    expect(html).toContain('href="/discord/"')
+    // The margin's job is the wallpaper; the aside keeps only the live feed and
+    // the launcher. Standings, the season card and the meta cluster left — the
+    // meta links live in You · Account, which was the point of gathering them.
+    expect(html).toContain('ed-wallpaper')
+    expect(html).toContain('Live · recent runs')
+    expect(html).toContain('Falling Cards')
+    expect(html).not.toContain('ed-railfoot')
+    expect(html).not.toContain('Season standings')
   })
 
   // Ranked runs are timed to the millisecond and fair only on touch. A mouse-only
@@ -142,17 +146,28 @@ describe('SSR render smoke', () => {
 
     route.value = '/surge'
     const rankedHtml = await renderToStringAsync(<App />)
-    expect(rankedHtml).toContain('Ranked is touch-only')
-    expect(rankedHtml).toContain('Open Practice')
+    // The gate names the mode it stopped, says why once, and offers two ways
+    // out that are not the phone.
+    expect(rankedHtml).toContain('Surge is a thumb game')
+    expect(rankedHtml).toContain('Scan to open Surge on your phone.')
+    expect(rankedHtml).toContain('Practice instead')
+    expect(rankedHtml).toContain('Open the Surge board')
     expect(rankedHtml).not.toContain('Charging')
+    // Nothing ambient behind a screen that is asking for a decision.
+    expect(rankedHtml).not.toContain('ed-wallpaper')
+
+    route.value = '/rain'
+    const rainHtml = await renderToStringAsync(<App />)
+    // The gate is per mode, so a player who came for Rain is not told about Surge.
+    expect(rainHtml).toContain('Rain is a thumb game')
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
     expect(practiceHtml).toContain('Training grounds')
-    expect(practiceHtml).not.toContain('Ranked is touch-only')
+    expect(practiceHtml).not.toContain('is a thumb game')
 
     route.value = '/leaderboards'
     const ladderHtml = await renderToStringAsync(<App />)
-    expect(ladderHtml).not.toContain('Ranked is touch-only')
+    expect(ladderHtml).not.toContain('is a thumb game')
   })
 })

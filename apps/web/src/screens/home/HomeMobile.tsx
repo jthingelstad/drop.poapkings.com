@@ -5,6 +5,8 @@ import CauseChip from '../../components/CauseChip'
 import Wordmark from '../../components/brand/Wordmark'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
+import { boardRouteForMode } from '../../lib/game-routes'
+import { layout } from '../../lib/use-layout'
 import { registerLogoTap } from '../../lib/screensaver'
 import { scoreLabel } from '../../lib/game-metadata'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
@@ -21,6 +23,10 @@ const DRILLS = [
 
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()
+  // Desktop reorders the same column; it does not fork it. Practice leads
+  // because that is what plays here and it is keyboard-native, and the ranked
+  // rows become reads rather than plays.
+  const onDesktop = layout.value === 'desktop'
   // The featured game leads in the hero; it must not appear again in the list.
   const others = ALL_GAMES.filter((game) => game.key !== featured.key)
   const seasonLabel = data.season?.crSeasonId ? `Season ${data.season.crSeasonId}` : ''
@@ -35,57 +41,65 @@ export default function HomeMobile({ data }: { data: HomeData }) {
     return rank ? `${bestText} · #${rank} this season` : bestText
   }
 
+  const rankedSection = (
+    <section class="ed-more">
+      <div class="ed-more__head">
+        <span class="ed-more__title" onClick={() => registerLogoTap()}>
+          {onDesktop ? 'Read the boards' : 'The other four'}
+        </span>
+        {seasonLabel && <span class="ed-more__aside">{seasonLabel}</span>}
+      </div>
+      <div class="ed-rows">
+        {(onDesktop ? ALL_GAMES : others).map((game) => (
+          <HomeRow
+            key={game.key}
+            tone="ranked"
+            action={onDesktop ? 'board' : 'play'}
+            name={game.name}
+            meta={rowMeta(game.mode)}
+            visual={<ModeIcon mode={game.mode} size={46} />}
+            onClick={() => navigate(onDesktop ? boardRouteForMode(game.mode) : game.path)}
+          />
+        ))}
+      </div>
+    </section>
+  )
+
+  const practiceSection = (
+    <section class="ed-more" aria-labelledby="home-practice-title">
+      <div class="ed-more__head">
+        <span class="ed-more__title" id="home-practice-title">
+          Practice
+        </span>
+        <span class="ed-more__aside ed-more__aside--pill">{onDesktop ? 'PLAYS HERE' : 'UNRANKED'}</span>
+      </div>
+      <div class="ed-rows">
+        {DRILLS.map((drill) => (
+          <HomeRow
+            key={drill.path}
+            tone="drill"
+            name={drill.name}
+            meta={drill.meta}
+            visual={
+              <span class="ed-grow__glyph">
+                <Icon name={drill.icon} />
+              </span>
+            }
+            onClick={() => navigate(drill.path)}
+          />
+        ))}
+      </div>
+    </section>
+  )
+
   return (
     <div class="ed-home">
       <InstallBanner />
       <CauseChip />
       <HomeHeroCarousel data={data} game={featured} />
 
-      <section class="ed-more">
-        <div class="ed-more__head">
-          <span class="ed-more__title" onClick={() => registerLogoTap()}>
-            The other four
-          </span>
-          {seasonLabel && <span class="ed-more__aside">{seasonLabel}</span>}
-        </div>
-        <div class="ed-rows">
-          {others.map((game) => (
-            <HomeRow
-              key={game.key}
-              tone="ranked"
-              name={game.name}
-              meta={rowMeta(game.mode)}
-              visual={<ModeIcon mode={game.mode} size={46} />}
-              onClick={() => navigate(game.path)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section class="ed-more" aria-labelledby="home-practice-title">
-        <div class="ed-more__head">
-          <span class="ed-more__title" id="home-practice-title">
-            Practice
-          </span>
-          <span class="ed-more__aside ed-more__aside--pill">UNRANKED</span>
-        </div>
-        <div class="ed-rows">
-          {DRILLS.map((drill) => (
-            <HomeRow
-              key={drill.path}
-              tone="drill"
-              name={drill.name}
-              meta={drill.meta}
-              visual={
-                <span class="ed-grow__glyph">
-                  <Icon name={drill.icon} />
-                </span>
-              }
-              onClick={() => navigate(drill.path)}
-            />
-          ))}
-        </div>
-      </section>
+      {onDesktop ? practiceSection : rankedSection}
+      {onDesktop ? rankedSection : practiceSection}
 
       <p class="ed-home__ready">
         {offline.value ? 'You are offline but ready to play' : 'Games are available to play offline'}

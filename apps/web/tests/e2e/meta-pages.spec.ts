@@ -45,16 +45,13 @@ test('legacy hash text routes redirect to their real pages', async ({ page }) =>
 })
 
 test('the app shells link to real pages and the Discord guide', async ({ page, viewport }) => {
-  const desktop = isDesktopViewport(viewport)
-  if (desktop) {
-    await page.goto('/')
-  } else {
-    // Mobile keeps the About-Drop links in the You page's Account scope.
-    await page.goto('/#/profile')
-    await page.getByRole('tab', { name: 'Account' }).click()
-  }
+  // The About-Drop links live in the You page's Account scope on every width.
+  // The desktop aside used to repeat them; gathering them in one place was the
+  // point of the structure pass, so the rail cluster went with the repetition.
+  await page.goto('/#/profile')
+  await page.getByRole('tab', { name: 'Account' }).click()
 
-  const scope = page.locator(desktop ? '.ed-railfoot' : '.ed-account__links')
+  const scope = page.locator('.ed-account__links')
   await expect(scope.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about/')
   await expect(scope.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq/')
   await expect(scope.getByRole('link', { name: 'Fair Play' })).toHaveAttribute('href', '/fair-play/')
@@ -63,24 +60,10 @@ test('the app shells link to real pages and the Discord guide', async ({ page, v
   const discord = scope.getByRole('link', { name: /Discord/ })
   await expect(discord).toHaveAttribute('href', '/discord/')
 
-  if (!isDesktopViewport(viewport)) {
-    await expect(scope.getByRole('link', { name: 'Game Setup' })).toHaveAttribute('href', '/install/')
-  }
+  await expect(scope.getByRole('link', { name: 'Game Setup' })).toHaveAttribute('href', '/install/')
 
   if (isDesktopViewport(viewport)) {
-    const boxes = await scope.locator('a.ed-railfoot__link').evaluateAll((links) =>
-      links.map((link) => {
-        const rect = link.getBoundingClientRect()
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
-      })
-    )
-    for (let left = 0; left < boxes.length; left += 1) {
-      for (let right = left + 1; right < boxes.length; right += 1) {
-        const a = boxes[left]!
-        const b = boxes[right]!
-        expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top).toBe(true)
-      }
-    }
+    await expect(page.locator('.ed-railfoot')).toHaveCount(0)
   }
 })
 

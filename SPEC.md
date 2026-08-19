@@ -309,6 +309,12 @@ Important shared modules:
   owns the mandatory unit / reference / scale / finding and the 30-bar bucketing.
 - `apps/web/src/components/summary/DrillPanel.tsx` - the drills' plain bar
   series, deliberately outside that grammar.
+- `apps/web/src/components/shell/DesktopWallpaper.tsx` - Falling Cards as the
+  letterbox margin's wallpaper (CSS, not the Pixi scene: this sits behind the app
+  for as long as the tab is open).
+- `apps/web/src/components/RankedTouchGate.tsx` - the touch-only ranked gate and
+  its QR bridge. `qrcode-generator` is imported lazily HERE and nowhere else, so
+  the encoder never rides in the chunk every phone player downloads.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge.
 
 Player XP and the per-player arena:

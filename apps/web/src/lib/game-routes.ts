@@ -16,6 +16,18 @@ export function profileRouteForGame(path: GamePath): string {
   return `/profile?returnTo=${encodeURIComponent(path)}`
 }
 
+// The Ladder, opened on one mode's board. Desktop's mode rows read rather than
+// play, so they need a destination that arrives on the right board instead of
+// the default one.
+export function boardRouteForMode(mode: string): string {
+  return `/leaderboards?mode=${encodeURIComponent(mode)}`
+}
+
+export function boardModeFromRoute(value: string): string | undefined {
+  const query = value.split('?')[1] || ''
+  return new URLSearchParams(query).get('mode') ?? undefined
+}
+
 export function gameReturnPathFromRoute(value: string): GamePath | undefined {
   const query = value.split('?')[1] || ''
   const returnTo = new URLSearchParams(query).get('returnTo')

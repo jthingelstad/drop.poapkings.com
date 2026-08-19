@@ -16,7 +16,8 @@ import { arenaProgress } from '../components/ArenaProgress'
 import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
 import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-metadata'
-import { navigate } from '../lib/router'
+import { navigate, route } from '../lib/router'
+import { boardModeFromRoute } from '../lib/game-routes'
 import { playerProfilePath } from '../lib/public-player'
 import { CLAN_INVITE_URL } from '../lib/links'
 import CauseChip from '../components/CauseChip'
@@ -122,8 +123,17 @@ function LeaderboardRow({
   )
 }
 
+// Desktop's mode rows read rather than play, so the Ladder has to be openable
+// ON a board rather than only at its default one. Read once at mount: the board
+// picker owns the mode from then on, and a later navigation within the Ladder
+// must not yank it back to the query it arrived with.
+function initialBoardMode(value: string): GameMode {
+  const requested = boardModeFromRoute(value)
+  return RANKED_GAMES.some((game) => game.mode === requested) ? (requested as GameMode) : 'surge'
+}
+
 export default function Leaderboards() {
-  const mode = useSignal<GameMode>('surge')
+  const mode = useSignal<GameMode>(initialBoardMode(route.peek()))
   const uiScope = useSignal<UiScope>('boards')
   // '' = the current season (default), 'all-time', or a specific season id.
   const period = useSignal<string>('')

@@ -42,6 +42,7 @@ import { requestLogin, pollLogin, getLeaderboard, getPublicPlayer, type Leaderbo
 import { applyPolledSession, redeemAccount, player, accountStatus, recentRuns } from '../../src/lib/account'
 import { navigate, route } from '../../src/lib/router'
 import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
+import { layout } from '../../src/lib/use-layout'
 import { screensaverActive } from '../../src/lib/screensaver'
 import { createElixirRain } from '../../src/components/ScreensaverScene'
 
@@ -529,6 +530,12 @@ describe('AuthRedeem', () => {
 // HomeMobile
 // =============================================================================
 describe('HomeMobile', () => {
+  // Home is one column on both widths; only the ORDER and what a row does
+  // change, so every test here says which layout it is asserting.
+  afterEach(() => {
+    layout.value = 'desktop'
+  })
+
   function homeData(overrides: Partial<HomeData> = {}): HomeData {
     return {
       loading: false,
@@ -543,6 +550,7 @@ describe('HomeMobile', () => {
   }
 
   it('leads with the hero, names a guest with a cause chip, and lists every mode', async () => {
+    layout.value = 'mobile'
     accountStatus.value = 'anonymous'
     player.value = null
     installMode.value = 'none'
@@ -568,6 +576,27 @@ describe('HomeMobile', () => {
     // installMode 'none' → neither banner nor row.
     expect(html).not.toContain('ed-installbar')
     expect(html).not.toContain('ed-installrow')
+  })
+
+  // Desktop reorders the same column rather than forking it: Practice leads
+  // because that is what plays here, ranked rows read the board rather than
+  // starting a run, and the hero states where ranked runs happen.
+  it('leads with Practice and turns the ranked rows into board reads on desktop', async () => {
+    layout.value = 'desktop'
+    accountStatus.value = 'anonymous'
+    player.value = null
+    installMode.value = 'none'
+
+    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+
+    expect(html).toContain('PLAYS HERE')
+    expect(html).not.toContain('UNRANKED')
+    expect(html.indexOf('Cost Recall')).toBeLessThan(html.indexOf('Read the boards'))
+    expect(html).toContain('Board →')
+    // The hero keeps its art and numbers and states where ranked play happens;
+    // it does not rename PLAY into a status.
+    expect(html).toContain('Ranked runs are played on your phone')
+    expect(html).not.toContain('> PLAY<')
   })
 
   it('shows no cause chip and no identity band when authed and online', async () => {

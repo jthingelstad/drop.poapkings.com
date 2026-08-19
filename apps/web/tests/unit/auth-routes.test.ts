@@ -3,7 +3,9 @@ import {
   gamePathForRoute,
   gameReturnPathFromRoute,
   loginRouteForGame,
-  profileRouteForGame
+  profileRouteForGame,
+  boardRouteForMode,
+  boardModeFromRoute
 } from '../../src/lib/game-routes'
 
 describe('authenticated game routes', () => {
@@ -20,5 +22,14 @@ describe('authenticated game routes', () => {
     expect(gameReturnPathFromRoute('/login?returnTo=https%3A%2F%2Fexample.com')).toBeUndefined()
     expect(profileRouteForGame('/surge')).toBe('/profile?returnTo=%2Fsurge')
     expect(gameReturnPathFromRoute(profileRouteForGame('/surge'))).toBe('/surge')
+  })
+
+  // Desktop's mode rows read the board rather than starting a run, so the
+  // Ladder has to be openable ON a board rather than only at its default one.
+  it('round-trips a mode through its board route', () => {
+    const board = boardRouteForMode('rain')
+    expect(board).toBe('/leaderboards?mode=rain')
+    expect(boardModeFromRoute(board)).toBe('rain')
+    expect(boardModeFromRoute('/leaderboards')).toBeUndefined()
   })
 })

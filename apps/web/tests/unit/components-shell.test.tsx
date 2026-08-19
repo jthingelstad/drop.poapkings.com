@@ -527,28 +527,24 @@ describe('DesktopAside', () => {
     expect(screensaverMock.startScreensaver).toHaveBeenCalledWith('nav')
   })
 
-  it('carries the about/faq/fair-play/privacy/discord meta cluster', () => {
+  it('keeps only the live feed and the launcher — nothing the page beside it already says', () => {
     draw(<DesktopAside />)
-    const foot = host.querySelector('.ed-railfoot')!
-    const labels = [...foot.querySelectorAll('.ed-railfoot__link')].map((l) => l.textContent?.trim())
-    expect(labels.some((l) => l?.startsWith('About'))).toBe(true)
-    expect(labels.some((l) => l?.startsWith('FAQ'))).toBe(true)
-    expect(labels.some((l) => l?.startsWith('Fair Play'))).toBe(true)
-    expect(labels.some((l) => l?.startsWith('Privacy'))).toBe(true)
-    const discord = [...foot.querySelectorAll<HTMLAnchorElement>('a.ed-railfoot__link')].find((link) =>
-      link.textContent?.startsWith('Discord')
-    )!
-    expect(discord.href).toBe('http://localhost/discord/')
+    // Season standings is a board one click away, "Your Surge season" is the
+    // hero's own rank-and-best line, and the meta links live in You · Account.
+    // A rail that repeats the page beside it reads busier AND emptier.
+    expect(host.querySelector('.ed-rail-standings')).toBeNull()
+    expect(host.querySelector('.ed-rail-this')).toBeNull()
+    expect(host.querySelector('.ed-railfoot')).toBeNull()
+    expect(host.textContent).not.toContain('Season standings')
+    expect(host.querySelector('.ed-rail-live')).toBeTruthy()
+    expect(host.textContent).toContain('Live · recent runs')
   })
 })
 
 // --- DesktopAside (data-state branches) -----------------------------------
-// The aside keeps standings/activity in module-level signals that cannot be
+// The aside keeps the activity feed in a module-level signal that cannot be
 // reset between tests, so these run in order against a single instance: loading
-// (both pending, signals stay null) → failed standings + empty feed (standings
-// stays null) → populated (standings resolves truthy for the rest of the file).
-// The structural tests above mounted with the never-resolving defaults, so the
-// signals are still empty entering this block.
+// (pending, the signal stays null) → empty feed → populated.
 
 describe('DesktopAside data states', () => {
   it('replaces live-data spinners and polling with an offline state', () => {
@@ -557,11 +553,8 @@ describe('DesktopAside data states', () => {
 
     draw(<DesktopAside />)
 
-    expect(host.textContent).toContain('Offline — reconnect for standings.')
     expect(host.textContent).toContain('Offline — reconnect for recent runs.')
     expect(host.textContent).not.toContain('Loading…')
-    expect(host.querySelector('.ed-rail-this')).toBeNull()
-    expect(apiMock.getLeaderboard).not.toHaveBeenCalled()
     expect(apiMock.getActivity).not.toHaveBeenCalled()
   })
 
@@ -569,39 +562,19 @@ describe('DesktopAside data states', () => {
     // Defaults (from beforeEach) are never-resolving promises.
     draw(<DesktopAside />)
     expect(host.textContent).toContain('Loading…')
-    expect(host.querySelector('.ed-rail-block__title')!.textContent).toContain('Season standings')
+    expect(host.querySelector('.ed-rail-block__title')!.textContent).toContain('Live · recent runs')
   })
 
-  it('shows the standings-unavailable message and an empty recent-runs feed', async () => {
-    apiMock.getLeaderboard.mockReset()
+  it('shows an empty recent-runs feed', async () => {
     apiMock.getActivity.mockReset()
-    apiMock.getLeaderboard.mockRejectedValue(new Error('boom'))
     apiMock.getActivity.mockResolvedValue({ entries: [] })
 
     await drawAsync(<DesktopAside />)
-    expect(host.textContent).toContain('Standings unavailable')
     expect(host.textContent).toContain('No recent runs yet')
   })
 
-  it('renders populated standings, a "You" row, the season card, and grouped recent runs', async () => {
-    apiMock.getLeaderboard.mockReset()
+  it('gives the feed six rows and sends a row to that player', async () => {
     apiMock.getActivity.mockReset()
-    apiMock.getLeaderboard.mockResolvedValue({
-      entries: [
-        {
-          rank: 1,
-          score: 1.2,
-          achievedAt: new Date().toISOString(),
-          player: { id: 'rival', publicName: 'Rival', favoriteCardId: 26000000 }
-        },
-        {
-          rank: 2,
-          score: 1.45,
-          achievedAt: new Date().toISOString(),
-          player: { id: 'me', publicName: 'Me', favoriteCardId: 26000000 }
-        }
-      ]
-    })
     apiMock.getActivity.mockResolvedValue({
       entries: [
         {
@@ -617,27 +590,11 @@ describe('DesktopAside data states', () => {
 
     await drawAsync(<DesktopAside />)
 
-    const rows = host.querySelectorAll('.ed-rail-row')
-    expect(rows.length).toBe(2)
-    // The signed-in player's row is labelled "You" and highlighted.
-    expect(host.querySelector('.ed-rail-row--you')).toBeTruthy()
-    expect(host.textContent).toContain('You')
-    expect(host.textContent).toContain('Rival')
-    // "This season" card shows the player's own rank (#2).
-    expect(host.querySelector('.ed-rail-this')).toBeTruthy()
-    expect(host.textContent).toContain('#2')
-    // The grouped feed renders one compact row with its count and best score.
+    // Six rows instead of a scrollbar — the room the three deleted blocks freed.
+    expect(apiMock.getActivity).toHaveBeenCalledWith(6, expect.anything())
     expect(host.querySelector('.ed-rail-live__row')).toBeTruthy()
-    expect(host.textContent).toContain('Recent runs')
+    expect(host.textContent).toContain('Live · recent runs')
     expect(host.textContent).toContain('Surge · 8 runs · best 17.260s')
-    expect(host.textContent).not.toContain('Live now')
-    expect(host.querySelector('.ed-rail-live__dot')).toBeNull()
-
-    const rivalStanding = [...host.querySelectorAll<HTMLButtonElement>('.ed-rail-row')].find((row) =>
-      row.textContent?.includes('Rival')
-    )!
-    rivalStanding.click()
-    expect(window.location.hash).toBe('#/players/rival')
 
     host.querySelector<HTMLButtonElement>('.ed-rail-live__row')!.click()
     expect(window.location.hash).toBe('#/players/rival')

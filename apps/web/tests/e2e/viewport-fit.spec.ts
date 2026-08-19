@@ -287,12 +287,22 @@ test.describe('mobile-width mouse fallback', () => {
 
   test('opens Cost Recall from the ranked touch-only gate', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/survival')
-    await expect(page.getByText('Ranked is touch-only')).toBeVisible()
+    // The gate names the mode it stopped and states the reason once.
+    await expect(page.getByText('Survival is a thumb game')).toBeVisible()
+    // The bridge: a code that opens THAT mode, not the home page.
+    await expect(page.getByRole('img', { name: /QR code opening Survival/ })).toBeVisible()
+    await expect(page.locator('.ed-touchgate__url')).toContainText('#/survival')
 
-    await page.getByRole('button', { name: 'Open Practice' }).click()
+    await page.getByRole('button', { name: 'Practice instead' }).click()
 
     await expect(page).toHaveURL(/#\/practice\/costs$/)
     await expect(page.getByRole('group', { name: 'Elixir cost keypad' })).toBeVisible({ timeout: 12_000 })
+  })
+
+  test('the gate also opens that mode’s board without reaching for a phone', async ({ page }) => {
+    await page.goto('/#/rain')
+    await page.getByRole('button', { name: 'Open the Rain board' }).click()
+    await expect(page).toHaveURL(/#\/leaderboards\?mode=rain$/)
   })
 })
 

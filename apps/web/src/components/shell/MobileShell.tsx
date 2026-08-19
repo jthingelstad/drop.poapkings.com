@@ -2,16 +2,18 @@
 // and a sliding active indicator. Nav is hidden during a game so play areas are
 // full-bleed. On mobile it is the full-bleed shell; at or above 1024px the same
 // column is centered and letterboxed on the dark field (lib/use-layout) and a
-// slim aside fills the margin with the Falling Cards launcher + live Recent runs
-// feed. There is no separate desktop shell any more.
+// slim aside fills the margin with the live Recent runs feed + the Falling Cards
+// launcher, over Falling Cards drifting as ambient wallpaper. There is no
+// separate desktop shell any more.
 
 import type { ComponentChildren } from 'preact'
 import { route, navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { hasUnreadUpdates } from '../../lib/updates'
-import { layout } from '../../lib/use-layout'
+import { layout, isRankedTouchGate } from '../../lib/use-layout'
 import Icon from '../Icon'
 import DesktopAside from './DesktopAside'
+import DesktopWallpaper from './DesktopWallpaper'
 import { NAV_ITEMS, activeNavIndex, isGameRoute, type NavItem } from './nav'
 
 function PillNav({ activeIdx, items }: { activeIdx: number; items: readonly NavItem[] }) {
@@ -51,9 +53,13 @@ export default function MobileShell({ children }: { children: ComponentChildren 
   const r = route.value
   const gaming = isGameRoute(r)
   const onDesktop = layout.value === 'desktop'
+  // The margin's wallpaper. Off during a game (already full-bleed) and off on
+  // the ranked gate — nothing ambient behind a screen asking for a decision.
+  const ambient = onDesktop && !gaming && !isRankedTouchGate(r)
   const items = NAV_ITEMS
   return (
     <div class={`ed-app${onDesktop ? ' ed-app--letterbox' : ''}`}>
+      {ambient && <DesktopWallpaper />}
       <div class={`ed-mobile${gaming ? ' ed-mobile--game' : ''}`}>
         <main class={`ed-mobile__scroll${gaming ? ' ed-mobile__scroll--game' : ''}`}>{children}</main>
         {!gaming && <PillNav activeIdx={activeNavIndex(r, items)} items={items} />}
