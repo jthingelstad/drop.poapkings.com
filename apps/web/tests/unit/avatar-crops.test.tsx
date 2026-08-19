@@ -10,24 +10,29 @@ import type { CardsData } from '../../src/types'
 const canonicalCardCount = (rawCards as CardsData).cards.length
 
 describe('player avatar crops', () => {
-  it('uses one consistent default crop for canonical card art', () => {
-    expect(avatarCrop(26000000)).toEqual({ x: 50, y: 48, scale: 1.06 })
-    expect(hasAvatarCropOverride(26000000)).toBe(false)
+  it('falls back to the default crop for a card outside the snapshot', () => {
+    expect(avatarCrop(99999999)).toEqual({ x: 50, y: 48, scale: 1.21 })
+    expect(hasAvatarCropOverride(99999999)).toBe(false)
   })
 
-  it('supports small per-card focal adjustments', () => {
-    expect(avatarCrop(26000037)).toEqual({ x: 50, y: 44, scale: 1.1 })
-    expect(hasAvatarCropOverride(26000037)).toBe(true)
-    expect(avatarCrop(26000106)).toEqual({ x: 50, y: 43, scale: 1.65 })
-    expect(hasAvatarCropOverride(26000106)).toBe(true)
+  it('carries a hand-set crop for every card in the canonical snapshot', () => {
+    // Every crop was set by hand against the frame's inner edge, so a card
+    // arriving without one would be the only avatar showing card border.
+    const missing = (rawCards as CardsData).cards.filter((card) => !hasAvatarCropOverride(card.id))
+    expect(missing.map((card) => card.name)).toEqual([])
+  })
+
+  it('supports per-card focal adjustments', () => {
+    expect(avatarCrop(26000037)).toEqual({ x: 33, y: 43, scale: 1.28 })
+    expect(avatarCrop(26000106)).toEqual({ x: 39, y: 49, scale: 1.37 })
   })
 
   it('passes crop coordinates to every rendered card avatar', async () => {
     const html = await renderToStringAsync(<PlayerAvatar favoriteCardId={26000037} size="large" />)
 
-    expect(html).toContain('--avatar-x:50%')
-    expect(html).toContain('--avatar-y:44%')
-    expect(html).toContain('--avatar-scale:1.1')
+    expect(html).toContain('--avatar-x:33%')
+    expect(html).toContain('--avatar-y:43%')
+    expect(html).toContain('--avatar-scale:1.28')
     expect(html).toContain('Inferno Dragon favorite card')
   })
 
