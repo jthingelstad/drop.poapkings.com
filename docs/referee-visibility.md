@@ -1,21 +1,40 @@
 # Referee visibility — bringing Fair Play into the game
 
-Status: **partly shipped.** Scope approved by Jamie 2026-07-25, then deliberately
-narrowed the same day: the doc corrections and the own-run hold notice shipped;
-**the leaderboard badge and the FAQ/Privacy copy are parked** until Drop has an
-audience that makes them worth the surface area.
+Status: **superseded — kept as the reasoning behind what shipped.** Reviewed
+2026-08-19.
 
-Why parked: the badge's flagship justification was the Free Pass obligation, but
-`docs/beta-readiness.md` says not to promise that prize until a full four-week
-season has run with integrity checks in place — so the use case is gated behind a
-milestone that has not happened. The first review pass covered 19 leading runs;
-a badge on a handful of rows seen by people who all know each other solves a
-trust problem Drop does not have yet. Revisit when there is a competitive board
-with strangers on it.
+Scope was approved 2026-07-25 and narrowed the same day. What actually shipped
+since is both more and different, so read the summary below rather than the
+proposal underneath it:
 
-Everything below still describes the intended end state. Sections A (shipped) and
-the doc corrections (shipped) are marked; B and C are the parked work, held in
-tasks #21 and #22.
+- **A held run now RANKS.** The central premise here — that a flagged run is held
+  off the board until a referee clears it — is no longer how Drop works. A
+  leading or technically unusual run ranks **provisionally** while it waits, and
+  only an `excluded` run leaves a board. The single exception is
+  `seasonPodiumFinishers`: a provisional placement is reversible, a finalized
+  podium is not. Every "hide-first" statement below, including the Reality column
+  in the corrections table, describes retired behaviour.
+- **Section B shipped in a better form.** Not the proposed `reviewed?: boolean`
+  and a `scan-eye` glyph, but a three-state seal — **Awaiting / Cleared /
+  Excluded** — drawn as a struck-wax mark in `components/ReviewStatus.tsx` (CSS
+  only; no emoji, no art file). `services/api/src/referee-status.ts` is the one
+  classifier both the public board and the owner's history read, so the two
+  surfaces cannot disagree about the same run. The design's own principle 4 held:
+  **an unreviewed run wears no seal at all**, so a missing mark never reads as
+  doubt.
+- **Section A moved off the summary.** The own-run hold notice shipped and was
+  then deliberately removed from the summary head: at the moment a run ends
+  *every* recorded run is awaiting, so a mark every run carries told a player
+  nothing. The hold is named in the recording toast (which also carries the run
+  reference) and met later on the boards, in the run log, and in Updates.
+- **Section C partly shipped.** The Fair Play page names the three states and
+  explains the salted one-way fingerprints; the FAQ points at it.
+
+What is still genuinely open is the paragraph under "Constraints worth designing
+around" about sparsity, and whether any of this deserves more surface area on a
+board that strangers read. The proposal is left intact below because its
+reasoning — especially principles 1–4 — is what the shipped seal was built
+against.
 
 The Fair Play Referee is one of Drop's best features and no player has ever seen
 it. This proposal makes it visible without turning it into an accusation
@@ -83,6 +102,10 @@ looks good.
 (`recordedRunSchema`, ~:192) and surfaced on the run's own surfaces —
 `components/Summary.tsx` and/or `components/RunRecordingNotice.tsx`.
 
+*Shipped, then narrowed:* the notice lives in `RunRecordingNotice` only. The
+summary deliberately keys no referee state, because a mark that every fresh run
+carries is not information.
+
 Draft copy:
 
 > **Held for review** — your score is recorded. It'll show on the board once a
@@ -96,14 +119,17 @@ run counted, earned its XP, and is not lost.
 A glyph in the leaderboard row meta, beside the XP chip
 (`screens/Leaderboards.tsx:53-61`), where there is already an icon precedent.
 
-- Glyph: `scan-eye` — already imported and registered in `Icon.tsx` (:26, :72)
-  and currently used nowhere. It reads as "looked at" rather than "policed".
-  `shield-check` is the alternative.
+- Glyph: `scan-eye` — already imported and registered in `Icon.tsx` (:26, :72).
+  It reads as "looked at" rather than "policed". `shield-check` is the
+  alternative. (It is no longer unused: Ledger's Reveal pill took it. What
+  shipped for the board is the struck-wax seal, not a lucide glyph.)
 - Accessible name: `Icon` hard-codes `aria-hidden`, so the badge needs its own
   `sr-only` text, and the row `aria-label` at `Leaderboards.tsx:43` must be
   extended — a badge nobody can hear is not a feature.
-- Inherited free by the desktop right rail, which consumes the same
-  `LeaderboardEntry` — though the rail rows are tight and may need to opt out.
+- ~~Inherited free by the desktop right rail, which consumes the same
+  `LeaderboardEntry`~~ — the rail's standings block was deleted in the desktop
+  pass (it repeated a board one click away), so there is no second consumer to
+  keep honest.
 
 ### C. The story, told once
 
@@ -176,7 +202,7 @@ table below is kept as the record of what was wrong.
 
 | File | Says | Reality |
 |---|---|---|
-| `GAMES.md:80-83` | "a flagged run stays on the board until a referee decides otherwise" | `repository.ts:962-1015` writes `review`/`hidden` inside the completion transaction; `leaderboards.ts:83` filters it out immediately |
+| `GAMES.md:80-83` | "a flagged run stays on the board until a referee decides otherwise" | (True as of 2026-07-25: the completion transaction wrote `review`/`hidden` and the board filtered it out immediately. **Reversed since** — a held run ranks provisionally and only an excluded run leaves the board, which makes the original GAMES.md sentence right again.) |
 | Retired referee role contract (Git history, 2026-07-25) | "an automatic integrity flag never removes a run from the board by itself" | same — and the retired file contradicted itself later |
 
 `SPEC.md:386` and `services/api/README.md:155-157` already describe the

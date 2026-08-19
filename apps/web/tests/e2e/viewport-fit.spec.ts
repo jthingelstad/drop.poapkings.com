@@ -1,16 +1,6 @@
 import type { Page } from '@playwright/test'
 import { cardsData, expect, test, waitForKeypad } from './fixtures'
 
-// Turn the setting on the way a player would leave it: written to the settings
-// blob before the app boots. PipKeypad reads it fresh when it mounts.
-async function useSpeedrunKeyboard(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const key = 'elixirdrop:settings'
-    const stored = JSON.parse(localStorage.getItem(key) ?? '{}')
-    localStorage.setItem(key, JSON.stringify({ ...stored, speedrunKeyboard: true }))
-  })
-}
-
 async function exchangeCardLabelsClear(page: Page): Promise<boolean> {
   return page.locator('.ed-xcard--revealed').evaluateAll((cards) => {
     if (cards.length === 0) return false
@@ -203,12 +193,12 @@ test.describe('mobile timed-mode controls', () => {
     await expect(page.locator('.ed-rain__hint')).toHaveCount(0)
   })
 
-  // The Speedrun keyboard trades vertical space for tap-target width, so it is
-  // the layout most likely to push its own bottom row off screen. Practice is
-  // the tightest budget of the four keypad modes (it also renders the input
-  // pills), and Rain draws the pad over the falling-cards field.
-  test('keeps the speedrun keyboard in the first viewport', async ({ page }) => {
-    await useSpeedrunKeyboard(page)
+  // The pip keypad is always two full-width rows — it trades vertical space for
+  // tap-target width, so it is the layout most likely to push its own bottom row
+  // off screen. Practice is the tightest budget of the four keypad modes (it
+  // also renders the input pills), and Rain draws the pad over the
+  // falling-cards field.
+  test('keeps both keypad rows in the first viewport', async ({ page }) => {
     for (const hash of ['#/surge', '#/survival', '#/practice/costs', '#/rain']) {
       await page.goto(`/${hash}`)
       const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
@@ -220,7 +210,7 @@ test.describe('mobile timed-mode controls', () => {
           (button) => button.getBoundingClientRect().bottom <= window.innerHeight + 1
         )
       )
-      expect(controlsFit, `speedrun keypad overflows on ${hash}`).toBe(true)
+      expect(controlsFit, `keypad overflows on ${hash}`).toBe(true)
     }
   })
 
@@ -411,9 +401,8 @@ test.describe('low-height desktop timed controls', () => {
   })
 
   // The strict gate: fully in view, top and bottom, on the shortest desktop.
-  test('keeps the entire speedrun keyboard in view', async ({ page, isMobile }) => {
+  test('keeps both keypad rows in view', async ({ page, isMobile }) => {
     test.skip(isMobile, 'the low-height desktop shell has dedicated viewport coverage')
-    await useSpeedrunKeyboard(page)
     await page.goto('/#/surge')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
     await expect(keypad).toBeVisible({ timeout: 12_000 })

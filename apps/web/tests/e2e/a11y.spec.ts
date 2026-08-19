@@ -14,7 +14,10 @@ const a11yRoutes = [
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
   { hash: '#/players/player-2', label: 'Public player', ready: '.ed-public-profile' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-you' },
-  { hash: '#/settings', label: 'Settings', ready: '.ed-you' }
+  { hash: '#/settings', label: 'Settings', ready: '.ed-you' },
+  // A shared link is the one route a stranger reaches first, with no account and
+  // often no prior visit — so it has to pass the same bar as the app itself.
+  { hash: '#/r/SHRBBB', label: 'Shared run', ready: '.ed-sharedrun' }
 ]
 
 for (const route of a11yRoutes) {

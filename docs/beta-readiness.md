@@ -75,6 +75,13 @@ Use a normal browser session and an email address that is not already signed in:
    ordinary page loads do not keep refreshing the tag.
 8. Confirm the private Discord log has compact login, CR-load, and completed-game
    lines with the public player name but no email address.
+9. Share that Surge run. Confirm the sheet carries a rendered card **and** a
+   `#/r/<token>` link, that the link opens the run itself with the score as the
+   button, and that sharing the same run again produces a different token.
+10. Open your own link and confirm it credits nothing, then open it from a second
+    device or network and confirm it counts once and only once on a refresh.
+11. Play one offline or guest run and confirm the summary offers **no** share
+    control at all — absent, not disabled.
 
 Use a disposable account once per release candidate to verify account deletion:
 type `DELETE`, confirm the account disappears, and verify its prior runs no
@@ -109,11 +116,13 @@ integrity checks and operational monitoring in place.
 
 The server recomputes every completion from its signed challenge. When
 assumption-based timing or transcript checks produce a deterministic candidate
-score plus review signals, the ranked run is recorded under automatic
-`review`/`hidden` status and excluded from seasonal and all-time leaderboards.
-The Fair Play Referee can later approve a falsely flagged run or keep a suspect
-run hidden through an audited, reversible decision; the automatic label is not a
-final integrity verdict.
+score plus review signals, the ranked run is recorded and sent to the referee
+under the Awaiting seal — and it **still ranks provisionally on the public
+board** while it waits. Only an `excluded` run leaves a board. The one read that
+withholds a pending run is `seasonPodiumFinishers`, because a provisional
+placement is reversible and a finalized podium is not. The Fair Play Referee can
+later clear a falsely flagged run or exclude a suspect one through an audited,
+reversible decision; the automatic label is a review signal, never a verdict.
 
 If no comparable score can be derived, the attempt remains unscored and cannot
 be placed on a leaderboard. Its sanitized evidence is retained for review
@@ -125,5 +134,12 @@ client, then use the bounded referee scripts to inspect it.
 The completion and public read endpoints are also IP rate-limited
 (`/runs/complete` at 300/hour; a shared `reads` scope over `/leaderboards`,
 `/stats`, and `/seasons` at 1200/hour, deliberately generous so a shared NAT
-does not trip it). A `429 rate_limited` in the logs is the expected response to
-abusive volume, not a fault.
+does not trip it; `share-mint` at 60/hour and `share-open` at 600/hour). A
+`429 rate_limited` in the logs is the expected response to abusive volume, not a
+fault.
+
+Share links carry their own anti-farm rules, because a reach counter is worth
+something to a cheater: opens are deduped per token per visitor through a
+peppered one-way hash, the sharer's own device is never credited, and credit
+stops at 25 per token. Confirm in step 4 that opening your own link does not move
+the counter.

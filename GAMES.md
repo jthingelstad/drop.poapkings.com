@@ -59,9 +59,10 @@ game card selection. Historical `ranked: false` runs remain readable for
 compatibility only.
 Ranked attempts that score zero still record to history and earn Player XP, but
 only a score above zero earns a seasonal or all-time leaderboard entry.
-A strict new season or all-time leader is recorded under neutral Fair Play hold
-and receives no placement until reviewed; exact ties do not trigger that leader
-hold. Technical integrity signals use the same reversible path. Repeated
+A strict new season or all-time leader is recorded under a neutral Fair Play hold
+and **ranks provisionally** while it waits — only an excluded run leaves a board.
+Exact ties do not trigger that leader hold. Technical integrity signals use the
+same reversible path. Repeated
 confirmed automation can separately restrict future ranked starts after Jamie's
 explicit approval, while Practice and account access remain available.
 
@@ -101,20 +102,21 @@ season pass. Two standing consequences:
 
 - **The board does not certify itself.** An automatic integrity flag
   (`automaticReviewReason` / `underReview`) is a review _signal_, never a
-  verdict — but it does take the run off the board immediately. The flag writes
-  a `review`/`hidden` decision inside the same transaction that records the
-  score (`services/api/src/repository.ts`), so a flagged result never appears
-  publicly even briefly; the visibility filter in
-  `services/api/src/leaderboards.ts` then skips it on every read. That hide is
-  reversible and costs the player nothing else: the run still scores, still
-  records, still earns XP, and a referee can restore it at its true rank. The
+  verdict — and it is treated as one. The flag writes a `review`/`hidden`
+  decision inside the same transaction that records the score
+  (`services/api/src/repository.ts`), but the run **still ranks**: the board
+  reads `services/api/src/referee-status.ts`, where a pending decision ranks
+  provisionally and only `excluded` removes a row. The run scores, records,
+  earns XP, keeps its place, and wears the Awaiting seal while it waits. The
   standing must be referee-reviewed before the pass is awarded; that obligation
   lives in `AGENT-TEAM/protect-fair-play.md`.
-- **A strict new season or all-time leader waits for review.** The completion is recorded,
-  retains XP and history, and remains visible to its owner as pending, but it
-  receives no public placement until a referee writes an audited decision.
-  Forced 280ms correct-card transitions are excluded from the active response
-  budget, so reduced motion does not make an honest run look mechanically fast.
+- **A strict new season or all-time leader goes to the referee, and ranks while
+  it waits.** The completion is recorded, retains XP and history, and takes its
+  real placement provisionally under the Awaiting seal. The one read that still
+  withholds a pending run is `seasonPodiumFinishers`: a provisional placement is
+  reversible and a finalized podium is not. Forced 280ms correct-card
+  transitions are excluded from the active response budget, so reduced motion
+  does not make an honest run look mechanically fast.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
   means more attempts yield a better best. That is accepted on purpose:
   grinding Surge _is_ drilling elixir costs, which is the whole product. Do not
@@ -400,10 +402,12 @@ per-tile component.
 
 The floor is checked twice: against the transcript's own `atMs` stamps per card,
 and against the server's wall clock, which no client can write. A run under it,
-by more than a 2s tolerance, is **quarantined for referee review — never
-rejected**. It still scores, still records, still earns XP; it is held off the
-public board until a referee decides. The floor is a difficulty model, and a
-model is exactly the kind of thing that false-positives on an exceptional player.
+by more than a 2s tolerance, is **sent to referee review — never rejected**. It
+still scores, still records, still earns XP, and it still ranks: the hold is a
+queue state, so the run takes its real placement provisionally under the Awaiting
+seal until a referee decides. The floor is a difficulty model, and a model is
+exactly the kind of thing that false-positives on an exceptional player — which
+is precisely why it no longer costs that player their rank while they wait.
 
 ### "Elixir Rain" screensaver
 

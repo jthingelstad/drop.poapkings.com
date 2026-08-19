@@ -515,13 +515,61 @@ redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
-Scored-mode run share cards are composited in the browser
-(`apps/web/src/lib/share-card.ts`): a 1080×1350 canvas over
-`assets/share/share-backdrop.png` with the mode emblem, score, cost-band squares,
-arena and sticker drawn on top, handed to `navigator.share({ files })`. Every
-source is same-origin so the canvas never taints; every failure path falls back
-to the existing text share. Practice deliberately renders no share action:
-session length and accuracy in an endless drill are not comparable results.
+### Sharing a run
+
+Sharing is two things travelling together: an image, which is what gets looked
+at, and a link, which is what gets counted.
+
+**The image** is composited in the browser (`apps/web/src/lib/share-card.ts`): a
+1080×1350 canvas over `assets/share/share-backdrop.png` with the mode emblem,
+score, the run's own signature series (cost-band squares when a mode has no
+series), arena and sticker drawn on top. Every source is same-origin so the
+canvas never taints. A share card drops the GAME's half of the summary chart —
+the window, the fall time and the "seconds to answer" framing explain a run to
+the person who made it and mean nothing to a stranger. Only the player's own
+series travels, and `refs` carries a reference only when it is the player's own
+previous best (today: Surge).
+
+**The link** is a minted permalink. `POST /runs/{runId}/share` returns a
+six-character token from an alphabet with no look-alike glyphs (a player may read
+one aloud), and one token is minted per SHARE ACTION — sharing the same run twice
+mints two tokens, which is what makes reach countable per share rather than per
+run. `GET /shares/{token}` resolves it. The address is `#/r/<token>`: the site is
+GitHub Pages with hash routing, so there is no server to render `/r/<token>` or a
+per-run unfurl preview, and a pasted link unfurls with the generic Drop card.
+
+**What the browser does.** `components/ShareLine.tsx` mints, renders, and calls
+`navigator.share` with the image as a `File`, the URL and one line of text — the
+native sheet, always, with no Drop-branded picker in between. Without a native
+sheet the same payload is unbundled into copy-the-link and save-the-image; that
+is not a degraded dialog but the same two things spelled out. If minting fails
+the button says so rather than sharing a link to nowhere.
+
+**A not-recorded run has no share control at all.** Offline, guest, and Practice
+runs have no server record, so no permalink can exist. `Summary` renders nothing
+(absent, not disabled — a disabled button invites a tap and then has to explain
+itself) and the mint endpoint refuses independently rather than trusting the
+button. Practice is excluded for a second reason too: session length and accuracy
+in an endless drill are not comparable results.
+
+**What the link opens** (`apps/web/src/screens/SharedRun.tsx`) is the RUN, with
+the score as the button — never the home page. Nothing travels that the public
+profile does not already show: score, mode, name, arena.
+
+**Counting opens.** A distinct visitor opening `/shares/{token}` is credited
+once. The visitor key is a peppered one-way HMAC of the request scoped to that
+token, so Drop counts opens per token and never learns who opened; no raw IP or
+user-agent is stored, which is the same rule referee evidence works under. The
+sharer's own device earns nothing, and credit stops at 25 per token so one lucky
+link cannot clear a ladder. The counter is written best-effort — a link opens
+whether or not the count lands. Privacy and Fair Play both state this, which was
+the stated condition for any share badge shipping. The badge itself is not
+implemented; the counter it will read is.
+
+**Deletion.** The share item lives outside `PLAYER#` so a stranger can resolve it
+by token alone, so a `PLAYER#{sub}/SHARE#{token}` pointer is written in the same
+transaction; account deletion follows the pointer and sweeps the share and its
+per-visitor open markers with everything else.
 
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server
@@ -623,7 +671,8 @@ recorded. Completion and the public read endpoints are also IP rate-limited
 (guests included, since the per-IP
 `run-start`/`run-complete` limits run before any auth branch; `/runs/complete`
 at 300/hour; the shared
-`reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour).
+`reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour;
+`share-mint` at 60/hour and `share-open` at 600/hour).
 
 With Jamie's explicit approval, materially changed player-level evidence can
 reopen an earlier referee judgment as a neutral hidden queue state. The owner
@@ -776,15 +825,15 @@ stubs and helpers in `fixtures.ts`:
 
 | Spec | Covers |
 | --- | --- |
-| `a11y.spec.ts` | Axe checks on all 14 public routes, including every game |
+| `a11y.spec.ts` | Axe checks on every public hash route (including every game and a shared run) and every standalone page |
 | `app-shell.spec.ts` | Stale-build reload, API-outage offline transition and automatic recovery |
 | `auth.spec.ts` | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, saved-login retention during an outage |
 | `offline.spec.ts` | Transport-offline and API-only outage behavior, all-mode local play, unsaved persistence boundaries, cached game chunks |
 | `run-lifecycle.spec.ts` | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection |
-| `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play |
-| `home.spec.ts` | Season standings, install suggestion timing, the Tinylytics hash-page/event bridge |
-| `leaderboards.spec.ts` · `profile.spec.ts` · `player-tag-nudge.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, weekly reminder timing |
-| `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow |
+| `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens |
+| `home.spec.ts` | The hero carousel, the desktop letterbox (wallpaper, the trimmed aside, Practice-first ordering and board reads), install suggestion timing, the Tinylytics hash-page/event bridge |
+| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states and the Updates-scope tag prompt |
+| `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, the ranked touch-only gate and its QR bridge |
 
 ---
 
@@ -842,6 +891,16 @@ the normalized unverified `playerTag`, a `schemaVersion`, and an `expiresAt` TTL
 **Retention.** Evidence past its TTL returns `insufficient_evidence` for old
 all-time entries (the referee rubric handles this); lengthen the TTL
 (`EVIDENCE_TTL_SECONDS`) for deeper all-time review.
+
+**What a player sees.** The overlay is not invisible. `referee-status.ts` is the
+single classifier the public board and the owner's run log both read, so the two
+cannot disagree about one run, and its hidden branch fails closed. The vocabulary
+is **Awaiting / Cleared / Excluded**, drawn as the struck-wax seal in
+`components/ReviewStatus.tsx`. Three rules govern it: a held run **ranks
+provisionally** rather than disappearing (only `excluded` leaves a board); **an
+unreviewed run wears no seal**, so a missing mark is never doubt; and **a summary
+keys no referee at all**, because every run that just ended is awaiting one. The
+reasoning behind the design is in `docs/referee-visibility.md`.
 
 ### Connection correlation without storing IPs
 

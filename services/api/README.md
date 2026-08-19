@@ -52,8 +52,8 @@ first-Monday calendar instead of failing.
 
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
-- `POST /runs/start`, `POST /runs/complete`
-- `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /health`
+- `POST /runs/start`, `POST /runs/complete`, `POST /runs/{runId}/share`
+- `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow
@@ -90,6 +90,42 @@ Daily Drop is a cumulative distinct-played-day badge, not a streak: one recorded
 local calendar day in any mode (Practice included) advances it once. Repeated
 runs that day advance Marathon instead. Guest and offline runs move neither;
 legacy backfills use the UTC date already available on immutable history.
+
+## Sharing a run
+
+`POST /runs/{runId}/share` mints a share token for a run the caller owns, and
+`GET /shares/{token}` resolves it. The token is six characters from an alphabet
+with no look-alike glyphs (no I, L, O, U, 0, or 1) — a player may end up reading
+one aloud. See `src/shares.ts`.
+
+**One token per share ACTION, not per run.** Sharing the same run twice mints two
+tokens; that is what makes reach countable per share rather than per run.
+
+**A not-recorded run cannot mint.** Guest and Practice runs, and any run that has
+not finished scoring, are refused `409 run_not_recorded`. The browser hides the
+control entirely rather than disabling it, and this endpoint is the second lock
+on the same rule — an endpoint that trusts the button has no rule at all.
+
+The share item carries a durable snapshot (mode, score, season, completedAt, the
+public `playerId`, and the run's own display-only series) rather than pointing at
+the ephemeral `RUN#` row, because a link a player already sent has to keep
+working after that row TTLs out. `owner` is stored but never returned: it exists
+so an open from the sharer's own device can be dropped. The response carries only
+what the public profile already shows — score, mode, name, arena.
+
+**Counting opens.** A distinct visitor is credited once per token. The dedupe key
+is a peppered one-way HMAC of the request scoped to that token, so a refresh, a
+link preview, and a second tap are one open; Drop counts opens per token and
+never learns who opened, and no raw IP or user-agent is stored. The sharer's own
+device earns nothing, and credit stops at 25 per token so one lucky link cannot
+clear a badge ladder. Crediting is best-effort and never blocks the read: a link
+opens whether or not the count lands. `share-mint` is rate-limited at 60/hour and
+`share-open` at 600/hour per IP.
+
+The share item lives outside `PLAYER#` so a stranger can resolve it by token
+alone. A `PLAYER#{sub}/SHARE#{token}` pointer is written in the same transaction,
+and account deletion follows it to sweep the share and its per-visitor open
+markers — a link that outlived the account would keep naming a player who left.
 
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse
@@ -212,9 +248,12 @@ recorded **ranked** run (after `completeRun` and the learning-stats block) and
 for unscored signed-in attempts (before the 400). Timing, end-state, and other
 assumption-based scorer failures now return a deterministic candidate score plus
 machine-readable review signals. Such a run is recorded with an automatic
-`review`/`hidden` decision in the same transaction, returns `underReview: true`,
-and is excluded from seasonal and all-time leaderboards unless the referee
-approves it. Only input from which no comparable score can be derived remains
+`review`/`hidden` decision in the same transaction and returns
+`underReview: true`. **It still ranks.** The board reads
+`src/referee-status.ts`, where a pending decision ranks provisionally and only
+`excluded` removes a row; the one read that still withholds a pending run is
+`seasonPodiumFinishers`, because a provisional placement is reversible and a
+finalized podium is not. Only input from which no comparable score can be derived remains
 unrecorded, while its evidence is retained without treating the automatic label
 as an integrity verdict. Practice (`ranked:false`) and guest runs write none.
 The evidence write is best-effort like learning stats: it is wrapped so it can

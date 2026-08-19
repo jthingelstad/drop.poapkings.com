@@ -24,6 +24,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`README.md`**                                                       | Public overview + local-development entry point.                                                                                |
 | **`docs/card-rendering.md`**                                          | Clash-style card rendering reference.                                                                                           |
 | **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
+| **`docs/referee-visibility.md`**                                     | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped.               |
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** · **`services/admin/README.md`** | Backend, bridge, and private Control Room service references.                                                                    |
 | **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
@@ -32,12 +33,13 @@ Every other doc points back here instead of keeping its own copy of this list.
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
 
-1. Keep workspace boundaries explicit (`apps/web`, `services/api`, `services/cr-api-bridge`, `infra`).
+1. Keep workspace boundaries explicit (`apps/web`, `apps/admin`, `services/api`, `services/admin`, `services/cr-api-bridge`, `infra`).
 2. Only the bridge calls the Clash Royale API at runtime; the browser and Lambda never do.
 3. The CR token lives only on the managed, allowlisted host — never committed, never in CI or Lambda config.
 4. The public website stays GitHub Pages + hash routing; `base: '/'`; the deploy build needs no secrets.
-5. Vendor the look; don't link it. 6. Fan-content & copyright — keep the disclaimer.
-6. Referee evidence is sanitized; decisions are a bounded overlay. `TELEMETRY_PEPPER` is Lambda-only.
+5. Vendor the look; don't link it.
+6. Fan-content & copyright — keep the disclaimer.
+7. Referee evidence is sanitized; decisions are a bounded overlay. `TELEMETRY_PEPPER` is Lambda-only.
 
 ## Stack & commands
 

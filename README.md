@@ -2,7 +2,7 @@
 
 A fast little game for learning **Clash Royale cards and elixir costs**, run by
 the **POAP KINGS** clan. See a card, name it or price it, get quicker. Built as
-as a static single-page app in the Elixir Drop monorepo.
+a static single-page app in the Elixir Drop monorepo.
 
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
@@ -49,10 +49,18 @@ badge ladders, Game Setup, Fair Play, and support without wrapping that content
 inside the game UI.
 
 Ranked play is human play: a person chooses every answer. Strict new leaders and
-technically unusual results can wait for referee review before placement, with
-visible `🔎 Pending`, `✅ Reviewed`, and `🚫 Excluded` status. The standalone
-Fair Play page explains allowed settings and accessibility tools, prohibited
+technically unusual results go to a referee, and a held run **still ranks
+provisionally** while it waits — only an excluded run leaves a board. The three
+states are **Awaiting**, **Cleared**, and **Excluded**, drawn as a struck-wax
+seal; most runs are never reviewed and carry no mark at all. The standalone Fair
+Play page explains allowed settings and accessibility tools, prohibited
 automation, private review, and re-review.
+
+Finishing a recorded run gives you a link to it. Sharing mints a fresh permalink
+for that share, hands your phone's own share sheet a rendered card and the link
+together, and opens on the run itself — the score as the button — rather than the
+home page. A run that was not recorded (offline or guest) has no share control at
+all, because there is no server record for a link to point at.
 
 ---
 
@@ -214,13 +222,15 @@ npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
 ```
 elixir-drop/
 ├─ apps/
-│  └─ web/                   # current public Preact/Vite application
-│     ├─ public/             # CNAME and static assets
-│     ├─ src/                # modes, components, screens, and browser libraries
-│     ├─ scripts/            # card refresh and OG image maintenance
-│     └─ tests/              # unit and browser coverage
+│  ├─ web/                   # current public Preact/Vite application
+│  │  ├─ public/             # CNAME and static assets
+│  │  ├─ src/                # modes, components, screens, and browser libraries
+│  │  ├─ scripts/            # card refresh and OG image maintenance
+│  │  └─ tests/              # unit and browser coverage
+│  └─ admin/                 # private tailnet-only Control Room UI (never on Pages)
 ├─ services/
 │  ├─ api/                   # TypeScript Lambda API backend
+│  ├─ admin/                 # loopback referee + account-support adapter
 │  └─ cr-api-bridge/         # fixed-IP TypeScript Clash Royale API worker
 ├─ packages/
 │  ├─ contracts/             # browser/server TypeScript contracts
@@ -234,7 +244,10 @@ elixir-drop/
 ├─ CONTRIBUTING.md           # local dev, the quality gate, conventions
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
-└─ docs/card-rendering.md    # shared card rendering reference
+└─ docs/
+   ├─ card-rendering.md      # shared card rendering reference
+   ├─ beta-readiness.md      # pre-invite rollout checklist
+   └─ referee-visibility.md  # what each surface shows about a reviewed run
 ```
 
 The Clash Royale API reference under `docs/cr-agent-api-docs/` is source material

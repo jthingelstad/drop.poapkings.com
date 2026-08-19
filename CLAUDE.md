@@ -110,15 +110,16 @@ rank-oriented fields as part of unrelated work.
   `cut-release` skill in `.claude/skills/cut-release/`). Entries flagged
   `beta: true` are backfilled pre-1.0 history — real builds that went live but
   were never named or mailed; a cut never sets that flag.
-  `apps/web/src/lib/releases.ts` is the typed in-app view used by notices, while
-  the build emits `/releases/` as a standalone HTML page from the same JSON, and
-  `components/ReleaseNotice.tsx` + `lib/release-notice.ts` show it **once** when
-  the newest release id differs from `elixirdrop:releaseSeen`. A first-time
-  visitor is recorded and shown nothing, and the notice never renders on a game
-  route — the "never a load-time modal" rule below still binds for anything the
-  player has not already been playing through. It is **not** the `UpdateBanner`:
-  that one says "this tab is stale, reload"; this one says "a named release
-  shipped, here's what changed". Keep them separate.
+  `apps/web/src/lib/releases.ts` is the typed in-app view and the build emits
+  `/releases/` as a standalone HTML page from the same JSON. **The one-time
+  release-notice overlay is retired** (with `ReleaseNotice.tsx`,
+  `lib/release-notice.ts`, and the `elixirdrop:releaseSeen` key): named releases
+  now appear in the **Updates** scope on the You page, and unread state is the
+  server-owned `lastOpenedUpdates` timestamp on the account — account-level and
+  deliberately not per-device, so it needs no browser key. That also settles the
+  "never a load-time modal" rule by construction. None of this is the
+  `UpdateBanner`, which says "this tab is stale, reload" rather than "a named
+  release shipped, here's what changed". Keep them separate.
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,

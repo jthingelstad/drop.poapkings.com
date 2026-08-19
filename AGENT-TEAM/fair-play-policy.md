@@ -13,8 +13,10 @@ Ranked play requires a person to deliberately choose each answer through Drop's 
 controls. Reading or modifying the open-source client is not itself a violation. Scripts,
 bots, automatic answer selection, direct API play, replayed requests, and falsified timing
 evidence are ineligible for rankings. Built-in settings, including Reduce motion and
-Speedrun keyboard, and ordinary accessibility tools remain allowed when the player makes
-each choice.
+Enhance effects, and ordinary accessibility tools remain allowed when the player makes
+each choice. (The Speedrun keyboard setting no longer exists: its two-row keypad
+became the only keypad in the 2026 refresh, so it is not a setting anyone can
+have on or off.)
 
 ## Required evidence
 
@@ -95,16 +97,26 @@ or reduce it, and whether the weakness is player-specific or systemic.
 Before a referee judgment, the integrity gate may create a neutral
 `review`/`hidden` pending hold for a strong automatic signal or a strict new
 all-time leader. This is an administrative queue state, not an adverse finding:
-the run remains intact and owner-visible, receives no placement, and must be
-promptly reviewed. The strong-evidence threshold below applies to the referee's
-decision to keep it hidden, not to the temporary queue hold.
+the run remains intact, owner-visible, and **ranks provisionally on the public
+board** under the Awaiting seal while it waits, and it must be promptly reviewed.
+The strong-evidence threshold below applies to the referee's decision to keep it
+hidden, not to the temporary queue hold.
+
+**A pending hold no longer removes a run from a board.** `refereeReviewStatus`
+in `services/api/src/referee-status.ts` separates a queue hold from a final
+exclusion, and only `excluded` leaves a board. The one read that still withholds
+a pending run is `seasonPodiumFinishers`: a provisional placement is reversible,
+a finalized podium is not. This changes what a slow review costs — an unreviewed
+hold no longer silently denies an honest player their rank — but it raises the
+stakes on the exclusion threshold below, because exclusion is now the only action
+that moves a board.
 
 When materially new player-level evidence changes the context of an earlier
 judgment, Jamie may explicitly reopen that judgment through the sanctioned
 decision script. The reopened run returns to the same neutral pending state,
-loses public placement, and retains both the old judgment and the new queue event
-in its audit history. Reopening is not an exclusion and carries no player-facing
-accusation.
+keeps ranking provisionally under the Awaiting seal, and retains both the old
+judgment and the new queue event in its audit history. Reopening is not an
+exclusion and carries no player-facing accusation.
 
 - `visible`: the scored run remains eligible for public boards. This includes normal
   `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
@@ -112,6 +124,8 @@ accusation.
 - `hidden`: allowed only with `review`, and only when strong evidence supports that
   the exact performance was likely fabricated or gamed the rules. Exceptional speed,
   an automatic flag, a shared tag, or a soft anomaly is never sufficient alone.
+  This is the only disposition that takes a run off a board, so it carries the
+  whole weight of that decision.
 - `not_ranked`: no reproducible candidate score exists, so leaderboard visibility does
   not apply. Any disposition may accompany it. A `clear`/`not_ranked` decision means
   the play appears genuine but scoreability needs product reconciliation.

@@ -204,7 +204,7 @@ ${pageSections([
   section(
     'Play as a person',
     paragraph(
-      'Scripts, bots, automatic answer selection, direct API play, replayed requests, and falsified timing evidence are not eligible for rankings. Built-in settings such as Reduce motion and Speedrun keyboard—and ordinary accessibility tools—are allowed when the player still chooses each answer.'
+      'Scripts, bots, automatic answer selection, direct API play, replayed requests, and falsified timing evidence are not eligible for rankings. Built-in settings such as Reduce motion and Enhance effects—and ordinary accessibility tools—are allowed when the player still chooses each answer.'
     )
   ),
   section(
