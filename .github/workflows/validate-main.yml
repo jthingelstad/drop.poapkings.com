@@ -98,9 +98,11 @@ jobs:
     needs: scope
     if: needs.scope.outputs.browser == 'true'
     runs-on: ubuntu-latest
-    # Browser dependency installation occasionally falls back from the hosted
-    # runner's Azure mirror. Leave enough room for that bounded retry plus the
-    # deployment smoke instead of cancelling before project tests start.
+    # The version-matched image carries Playwright's browsers and Linux
+    # dependencies, so validation never waits on the hosted runner's apt mirror.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --user 1001
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -137,8 +139,6 @@ jobs:
           cache: "npm"
 
       - run: npm ci
-
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run full Chromium shard
         if: matrix.smoke == false

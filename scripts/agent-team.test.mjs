@@ -359,6 +359,24 @@ void test("automation registry passes the common contract audit", () => {
   assert.match(result.stdout, /OK\s+registry\s+3 objective owners/);
 });
 
+void test("browser CI uses the version-matched Playwright image", () => {
+  const packageLock = JSON.parse(
+    readFileSync(path.join(ROOT, "package-lock.json"), "utf8"),
+  );
+  const playwrightVersion =
+    packageLock.packages["node_modules/@playwright/test"].version;
+  const expectedImage = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
+
+  for (const workflowPath of [
+    ".github/workflows/validate-main.yml",
+    ".github/workflows/verify.yml",
+  ]) {
+    const workflow = readFileSync(path.join(ROOT, workflowPath), "utf8");
+    assert.match(workflow, new RegExp(`image: ${expectedImage}`));
+    assert.doesNotMatch(workflow, /playwright install --with-deps/);
+  }
+});
+
 void test("referee data clients require the bounded assumed role", async () => {
   let dataClientCreated = false;
   const createDataClient = () => {

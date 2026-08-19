@@ -35,8 +35,11 @@ jobs:
   browser:
     name: Playwright (${{ matrix.project }})
     runs-on: ubuntu-latest
-    # Match main validation: hosted-runner mirror fallback can consume most of
-    # the old 15-minute window before Playwright reaches the project tests.
+    # The version-matched image carries Playwright's browsers and Linux
+    # dependencies, so the daily backstop never waits on the runner's apt mirror.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --user 1001
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -60,8 +63,6 @@ jobs:
           cache: "npm"
 
       - run: npm ci
-
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
 

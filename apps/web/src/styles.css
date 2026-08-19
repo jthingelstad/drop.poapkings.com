@@ -4393,6 +4393,11 @@ html.reduce-motion .ed-game__bar-fill {
   flex-direction: column;
   gap: 18px;
 }
+@media (width <= 520px) {
+  .ed-sum {
+    gap: 12px;
+  }
+}
 .ed-sum__head {
   text-align: center;
   margin-top: 10px;
