@@ -11,6 +11,21 @@ async function useSpeedrunKeyboard(page: Page): Promise<void> {
   })
 }
 
+async function exchangeCardLabelsClear(page: Page): Promise<boolean> {
+  return page.locator('.ed-xcard--revealed').evaluateAll((cards) => {
+    if (cards.length === 0) return false
+    return cards.every((card) => {
+      const image = card.querySelector('.ed-xcard__img')?.getBoundingClientRect()
+      const cost = card.querySelector('.ed-xcard__cost')?.getBoundingClientRect()
+      const name = card.querySelector('.ed-xcard__name')?.getBoundingClientRect()
+      if (!image || !cost || !name) return false
+      const costOverlapsName =
+        cost.left < name.right && cost.right > name.left && cost.top < name.bottom && cost.bottom > name.top
+      return cost.top <= image.top + 8 && name.top >= image.bottom && !costOverlapsName
+    })
+  })
+}
+
 test.describe('mobile timed-mode controls', () => {
   test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
 
@@ -121,6 +136,8 @@ test.describe('mobile timed-mode controls', () => {
     expect(geometry.boardHeight).toBeGreaterThanOrEqual(180)
     expect(geometry.contained).toBe(true)
     expect(geometry.noHorizontalOverflow).toBe(true)
+
+    expect(await exchangeCardLabelsClear(page)).toBe(true)
   })
 
   test('keeps both Higher / Lower cards usable in the first viewport', async ({ page }) => {
@@ -170,6 +187,12 @@ test.describe('mobile timed-mode controls', () => {
     expect(layout.boardContained).toBe(true)
     expect(layout.boardClearsPrompt).toBe(true)
     expect(layout.padFits).toBe(true)
+
+    // Any answer reveals at least one cost. The shared card wrapper must keep
+    // that badge on the image rather than dropping it over the name below.
+    await page.locator('.ed-xpad__key:not(:disabled)').first().click()
+    await expect(page.locator('.ed-xcard--revealed').first()).toBeVisible()
+    expect(await exchangeCardLabelsClear(page)).toBe(true)
   })
 
   test('the Rain field reclaims the space of the retired instruction caption', async ({ page }) => {
@@ -256,6 +279,20 @@ test.describe('mobile timed-mode controls', () => {
         contentType: 'image/png'
       })
     }
+  })
+})
+
+test.describe('mobile-width mouse fallback', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: false })
+
+  test('opens Cost Recall from the ranked touch-only gate', { tag: '@deploy' }, async ({ page }) => {
+    await page.goto('/#/survival')
+    await expect(page.getByText('Ranked is touch-only')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Open Practice' }).click()
+
+    await expect(page).toHaveURL(/#\/practice\/costs$/)
+    await expect(page.getByRole('group', { name: 'Elixir cost keypad' })).toBeVisible({ timeout: 12_000 })
   })
 })
 

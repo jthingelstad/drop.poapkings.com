@@ -7998,6 +7998,7 @@ html.reduce-motion .practice-drill {
   width: 96px;
 }
 .ed-xcard__art {
+  display: block;
   position: relative;
   width: 96px;
 }

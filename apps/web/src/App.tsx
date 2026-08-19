@@ -27,7 +27,7 @@ import AppInfo from './screens/AppInfo'
 import GameStartScreen from './components/game/GameStart'
 import Icon from './components/Icon'
 import { GAMES } from './lib/game-metadata'
-import { practiceLandingPath } from './lib/practice-navigation'
+import { practiceEntryPath } from './lib/practice-navigation'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -93,7 +93,7 @@ function RankedAccessRestricted() {
       <GateCard
         mark={<Icon name="shield" />}
         state="Ranked restricted"
-        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceEntryPath()) }}
         secondary={{ label: 'Read Fair Play', href: '/fair-play/' }}
       >
         You can still use Practice and view your account. Fair Play explains how decisions work and how to request a
@@ -112,7 +112,7 @@ function RankedTouchOnly() {
       <GateCard
         mark={<Icon name="gamepad" />}
         state="Ranked is touch-only"
-        primary={{ label: 'Open Practice', onAction: () => navigate(practiceLandingPath()) }}
+        primary={{ label: 'Open Practice', onAction: () => navigate(practiceEntryPath()) }}
         secondary={{ label: 'View the Ladder', href: '/leaderboards' }}
       >
         Ranked runs are timed to the millisecond and play on touch, so the board stays fair — open Drop on your phone.
