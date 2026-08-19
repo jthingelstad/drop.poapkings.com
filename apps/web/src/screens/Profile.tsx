@@ -127,7 +127,9 @@ export default function Profile() {
           <span class="ed-drop-shape ed-profile-guest__drop" />
         </span>
         <div>
-          <h1 class="ed-h1">You</h1>
+          <div class="ed-h1" aria-hidden="true">
+            You
+          </div>
           <p class="ed-profile-guest__lede">
             Sign in to save your games, earn badges, and climb the seasonal leaderboards.
           </p>

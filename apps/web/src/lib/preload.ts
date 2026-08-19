@@ -45,23 +45,6 @@ export function preloadUrls(urls: string[], done: (loadedCount: number) => void,
   setTimeout(finish, timeoutMs)
 }
 
-// The four run-start "charge" frames (3 · 2 · 1 · GO) that sit behind the
-// countdown numeral. A countdown frame that arrives late is worse than no art,
-// so warm all four the moment the start screen mounts — once per session, since
-// the files never change within a build.
-const COUNTDOWN_FRAMES = [
-  '/assets/start/charge-3-512.png',
-  '/assets/start/charge-2-512.png',
-  '/assets/start/charge-1-512.png',
-  '/assets/start/charge-go-512.png'
-]
-let countdownFramesRequested = false
-export function preloadCountdownFrames(): void {
-  if (countdownFramesRequested) return
-  countdownFramesRequested = true
-  preloadUrls(COUNTDOWN_FRAMES, () => {})
-}
-
 // Build a monotonic look-ahead cursor for long, ordered decks. The caller can
 // gate startup on a small first slice, then ask for only the newly exposed tail
 // as play advances. Marking the tail requested before returning keeps repeated

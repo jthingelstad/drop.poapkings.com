@@ -3,7 +3,6 @@ import { useState } from 'preact/hooks'
 import { earnedBadges } from '../lib/use-game-run'
 import { currentInterrupt } from '../lib/interrupt-ladder'
 import { player } from '../lib/account'
-import { isReducedMotionEnabled } from '../lib/motion'
 import { shareBadge } from '../lib/share-badge'
 import { track } from '../lib/analytics'
 import BadgeMedallion from './BadgeMedallion'
@@ -17,10 +16,9 @@ function batchKey(earned: EarnedRung[]): string {
 // The one takeover left (tier 1). Badges moved to their own scope and grew rungs,
 // but nothing ever TOLD a player they cleared one — it arrived as a row in a grid
 // they had to go looking at. This does, on the summary after a run: the medallion
-// at its real tier, the rung reached, a share, and "Carry on". charge-go doubles
-// as the burst behind it — the same file the run-start plays, so the two moments
-// feel related. The ladder guarantees this is the only overlay that can take the
-// screen, and only on a summary.
+// at its real tier, the rung reached, a share, and "Carry on". The ladder
+// guarantees this is the only overlay that can take the screen, and only on a
+// summary.
 const dismissedKey = signal<string | null>(null)
 
 export default function BadgeCelebration() {
@@ -55,9 +53,6 @@ export default function BadgeCelebration() {
       <div class="badge-celebrate__card">
         <div class="badge-celebrate__eyebrow">Rung cleared</div>
         <div class="badge-celebrate__medal">
-          {!isReducedMotionEnabled() && (
-            <img class="badge-celebrate__burst" src="/assets/start/charge-go-512.png" alt="" aria-hidden="true" />
-          )}
           <BadgeMedallion badge={view} size={172} file={384} />
         </div>
         <div class="badge-celebrate__name">{view.name}</div>

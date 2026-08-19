@@ -1516,20 +1516,6 @@ html.reduce-motion .game-motion {
   pointer-events: none;
 }
 
-/* The painted "charge" frame sits behind the numeral, sharing its centre. It is
-   absolutely positioned so it never displaces the numeral, and lives below it. */
-.run-count__art {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: clamp(190px, 64vw, 280px);
-  height: auto;
-  transform: translate(-50%, -50%);
-  z-index: 0;
-  pointer-events: none;
-  filter: drop-shadow(0 0 46px rgba(245, 200, 76, 0.32));
-}
-
 .run-count__num {
   position: relative;
   z-index: 1;
@@ -7211,6 +7197,7 @@ html.reduce-motion .practice-drill {
 .ed-badges__rungs {
   margin-top: 16px;
   width: 100%;
+  min-width: 0;
 }
 .ed-badges__rungs-head {
   font-family: var(--font-display);
@@ -7223,6 +7210,12 @@ html.reduce-motion .practice-drill {
 .ed-badges__rungs-track {
   display: flex;
   gap: 4px;
+}
+.ed-badges__rungs-track--long {
+  flex-wrap: wrap;
+}
+.ed-badges__rungs-track--long .ed-badges__rung {
+  flex: 0 0 calc((100% - 28px) / 8);
 }
 .ed-badges__rung {
   flex: 1 1 0;
@@ -8131,6 +8124,66 @@ html.reduce-motion .practice-drill {
   outline-offset: 1px;
 }
 
+/* The shared exchange board replaced the retired Trade/Ledger card layouts,
+   so it needs its own short-phone compression. Without this, the lanes keep
+   their 150px desktop minimum and paint through the prompt and answer pad on
+   Safari's 664px playable viewport. */
+@media (width <= 620px) and (height <= 700px) {
+  .ed-xboard {
+    gap: 4px;
+  }
+  .ed-xlane {
+    min-height: 104px;
+    padding: 6px 8px 7px;
+  }
+  .ed-xlane__label {
+    margin-bottom: 2px;
+    font-size: 9px;
+  }
+  .ed-xlane__cards {
+    gap: 4px;
+  }
+  .ed-xcard,
+  .ed-xcard__art {
+    width: 70px;
+  }
+  .ed-xcard__img,
+  .ed-xcard__fallback {
+    width: 70px;
+    height: 86px;
+  }
+  .ed-xcard__name {
+    margin-top: 1px;
+    font-size: 8px;
+    line-height: 1;
+  }
+  .ed-xcard__cost {
+    transform: scale(0.78);
+    transform-origin: top left;
+  }
+  .ed-xboard__balance {
+    min-height: 26px;
+  }
+  .ed-xboard__q,
+  .ed-xboard__value {
+    font-size: 17px;
+  }
+  .ed-trade,
+  .ledger {
+    gap: 5px;
+  }
+  .ed-trade__prompt,
+  .ledger-prompt {
+    min-height: 18px;
+    font-size: 0.72rem;
+    line-height: 1.15;
+  }
+  .ed-xpad {
+    gap: 4px;
+    margin-top: 4px;
+  }
+}
+
 /* ── Drill sandbox bloom ──────────────────────────────────────
    Subtraction signals a sandbox: only the drill card gets a soft violet bloom
    behind it. Ranked stages stay flat. */
@@ -8363,25 +8416,6 @@ html.reduce-motion .ed-skeleton__row {
   display: grid;
   place-items: center;
   margin: 4px 0;
-}
-.badge-celebrate__burst {
-  position: absolute;
-  width: 344px;
-  height: 344px;
-  max-width: none;
-  pointer-events: none;
-  transform: translateZ(0);
-  animation: badge-burst 600ms ease-out forwards;
-}
-@keyframes badge-burst {
-  0% {
-    opacity: 0.9;
-    transform: scale(1.4);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(2.2);
-  }
 }
 .badge-celebrate__name {
   font-family: var(--font-display);

@@ -82,6 +82,7 @@ import DesktopAside from '../../src/components/shell/DesktopAside'
 import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
 import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
+import { offlineRunMode } from '../../src/lib/use-game-run'
 
 // --- Helpers --------------------------------------------------------------
 
@@ -151,6 +152,7 @@ beforeEach(() => {
   route.value = '/'
   apiAvailability.value = 'available'
   transportOffline.value = false
+  offlineRunMode.value = null
   player.value = null
   accountStatus.value = 'anonymous'
 })
@@ -237,6 +239,17 @@ describe('PipKeypad', () => {
 // --- GameFrame ------------------------------------------------------------
 
 describe('GameFrame', () => {
+  it('keeps the offline state visible after the countdown', () => {
+    offlineRunMode.value = 'surge'
+    draw(
+      <GameFrame modeName="Surge" counting={false} count={0} onQuit={() => {}} cue={null}>
+        <div>Board</div>
+      </GameFrame>
+    )
+
+    expect(host.querySelector('.ed-game__offline')?.textContent).toBe('Offline · not saved')
+  })
+
   beforeEach(() => {
     // Keep the FX layer inert for these structural tests.
     document.documentElement.classList.add('reduce-motion')

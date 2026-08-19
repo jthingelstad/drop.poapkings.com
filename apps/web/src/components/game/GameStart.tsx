@@ -1,7 +1,5 @@
-import { useEffect } from 'preact/hooks'
 import RunCountdown from '../RunCountdown'
 import ChargeRing from '../ChargeRing'
-import { preloadCountdownFrames } from '../../lib/preload'
 import { offlineRunMode } from '../../lib/use-game-run'
 
 export type GameStartPhase = 'preparing' | 'loading' | 'countdown'
@@ -22,12 +20,6 @@ interface GameStartScreenProps extends GameStartStageProps {
 // numeral takes its place without a jump. The mode name and game shell never move.
 export function GameStartStage({ modeName, phase, count = 3 }: GameStartStageProps) {
   const counting = phase === 'countdown'
-
-  // Warm the charge frames while the run is still preparing/loading, so the
-  // countdown numeral never waits on its art.
-  useEffect(() => {
-    preloadCountdownFrames()
-  }, [])
 
   return (
     <div class="ed-game__count" data-game-start-phase={phase}>

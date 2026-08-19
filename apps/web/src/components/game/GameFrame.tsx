@@ -8,6 +8,7 @@ import type { ComponentChildren } from 'preact'
 import Icon from '../Icon'
 import GameFxLayer from '../GameFxLayer'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
+import { offlineRunMode } from '../../lib/use-game-run'
 import { GameStartStage } from './GameStart'
 
 export interface GameMetric {
@@ -76,6 +77,7 @@ export default function GameFrame({
             <div class="ed-game__top-c">
               <div class="ed-game__mode">{modeName}</div>
               {progressText && <div class="ed-game__progress">{progressText}</div>}
+              {offlineRunMode.value && <div class="ed-game__offline">Offline · not saved</div>}
             </div>
             <div class="ed-game__top-r">
               {metric && (

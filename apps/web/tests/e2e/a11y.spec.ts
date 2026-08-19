@@ -44,6 +44,14 @@ for (const route of a11yRoutes) {
   })
 }
 
+test('the signed-out You page exposes one page heading', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('elixirdrop:session:v1'))
+  await page.goto('/#/profile')
+
+  await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'You' })).toHaveCount(1)
+})
+
 for (const slug of [
   'games',
   'learn-elixir-costs',

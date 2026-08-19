@@ -201,7 +201,7 @@ function RungLadder({ badge }: { badge: BadgeView }) {
         Rung {Math.max(0, rungIndex + 1)} of {total}
         {rungIndex >= 0 && ` · ${tierName}`}
       </div>
-      <div class="ed-badges__rungs-track">
+      <div class={`ed-badges__rungs-track${total > 12 ? ' ed-badges__rungs-track--long' : ''}`}>
         {definition.rungs.map((rung, i) => {
           const seg =
             i === rungIndex + 1
