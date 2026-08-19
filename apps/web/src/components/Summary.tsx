@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { earnedBadges, earnedXp, heldForReview, heldForReviewReference, offlineRunMode } from '../lib/use-game-run'
+import { earnedBadges, earnedXp, offlineRunMode } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -13,11 +13,20 @@ import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
 import ReviewStatusMark, { type ReviewSeal } from './ReviewStatus'
 
-// A summary is one frame in a fixed order: what you scored (with the seal beside
-// it), what it changed (a short ledger), the mode's signature panel read back in
-// a sentence, and what to do next. A fresh run can only be `awaiting` or `not
-// recorded` — a referee reads evidence and takes minutes, so a cleared seal is
-// never drawn here; the player meets that verdict later.
+// A summary is one frame in a fixed order: what you scored, what it changed (a
+// short ledger), the mode's signature panel read back in a sentence, and what to
+// do next.
+//
+// The summary's job is what happened, not what is pending. There is no
+// "Awaiting a referee" line and no awaiting seal here: at the moment a run ends
+// EVERY recorded run is awaiting, so a mark every run carries tells a player
+// nothing. That state is keyed where it can differ — on the boards, in the run
+// log, in the Updates slot. A cleared seal is never drawn on a summary either: a
+// referee reads input evidence and takes minutes, so it cannot have cleared a
+// run that ended two seconds ago.
+//
+// The one seal that survives is `not recorded`, because that IS what happened:
+// an offline or guest run the board never saw.
 
 // `moments` is still accepted so existing callers compile, but the summary no
 // longer renders a row of generic tiles — the "what changed" ledger replaced it.
@@ -67,17 +76,14 @@ export default function Summary({
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
   const offline = offlineRunMode.value === share.mode
-  const held = heldForReview.value
   const visiblePbCallout = offline ? undefined : pbCallout
   const shareArena = player.value ? rankFor(player.value.xp ?? 0).current : undefined
 
-  // The seal beside the score is only ever a state a fresh run can be in.
-  const seal: ReviewSeal | null = offline ? 'not-recorded' : held ? 'pending' : null
+  // The only seal a summary draws: this run was not recorded at all.
+  const seal: ReviewSeal | null = offline ? 'not-recorded' : null
   const stateLine = offline
     ? 'The run happened and your device remembers it. The board never saw it, so nothing moved.'
-    : held
-      ? 'Awaiting the referee — your score is recorded and ranks while it is checked.'
-      : null
+    : null
 
   // "Missed this round" and "Slowest reads" are one taxonomy of the same thing:
   // what to practise. Merge them into one list.
@@ -104,9 +110,6 @@ export default function Summary({
         {stateLine && (
           <p class="ed-sum__state" role="status">
             {stateLine}
-            {held && heldForReviewReference.value && (
-              <small class="ed-sum__review-reference"> Reference: {heldForReviewReference.value}</small>
-            )}
           </p>
         )}
       </div>

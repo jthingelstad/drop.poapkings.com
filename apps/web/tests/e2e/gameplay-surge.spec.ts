@@ -151,15 +151,23 @@ test('the surge summary is the one-frame layout without the accuracy chart', asy
   await page.goto('/#/surge')
   await completeSurge(page)
 
-  // The new summary is one frame: score + seal, "what changed", the signature
+  // The new summary is one frame: the score, "what changed", the signature
   // panel, then share and the actions. The accuracy-by-cost chart and the three
   // generic tiles are gone.
   await expect(page.locator('.ed-sum')).toBeVisible()
   await expect(page.locator('.ed-sum__headline')).toBeVisible()
   await expect(page.locator('.ed-sum-bands')).toHaveCount(0)
   await expect(page.locator('.ed-sum-tiles')).toHaveCount(0)
-  // A fresh run's seal is only ever awaiting or not-recorded — never cleared.
+  // A summary keys no referee at all: every run that just ended is awaiting one,
+  // and a referee cannot have cleared a run that ended two seconds ago.
   await expect(page.locator('.ed-sum [aria-label="Referee cleared"]')).toHaveCount(0)
+  await expect(page.locator('.ed-sum [aria-label="Awaiting referee"]')).toHaveCount(0)
+  await expect(page.locator('.ed-sum')).not.toContainText('Awaiting the referee')
+  // The chart states its own unit and scale and reads itself back in a sentence,
+  // so height is a quantity rather than a shape.
+  await expect(page.locator('.ed-sig__unit')).toHaveText('Seconds per card')
+  await expect(page.locator('.ed-sig__scale')).toContainText('0')
+  await expect(page.locator('.ed-sig__reading')).not.toBeEmpty()
   await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible()
 
   await testInfo.attach('surge-summary.png', {

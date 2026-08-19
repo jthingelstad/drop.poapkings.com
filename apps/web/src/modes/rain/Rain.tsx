@@ -42,6 +42,9 @@ import { runInputEvidence, type InputObservation, type RunInputEvidence } from '
 // self-forgiving). See rainFallBoost / rainSpawnMs for the tuning.
 const MAX_CONCURRENT = 8
 const TICK_MS = 40
+// Field percentage at which a tile strikes the kill line. The landing test and
+// the remaining-fall-time maths both key off this one number.
+const KILL_LINE_Y = 96
 const RAIN_LIVES = 3
 const COUNTDOWN_STEP_MS = 700
 
@@ -82,6 +85,18 @@ interface Drop {
   wrong: number
   inputRound: number
   inputEnabledAt: number
+  // The moment this tile became answerable, and how long it had left to fall at
+  // that moment. Both are computed every tick already; the summary chart simply
+  // needs them kept per card, because the reference tick IS the time the card
+  // had left. Without them Rain's chart cannot be drawn to scale.
+  answerableAt: number
+  windowMs: number
+  targeted: boolean
+}
+
+// Milliseconds a tile at `y` still has before it strikes the kill line.
+function fallTimeLeftMs(y: number, speed: number): number {
+  return Math.max(0, ((KILL_LINE_Y - y) / speed) * TICK_MS)
 }
 
 export default function Rain() {
@@ -117,6 +132,9 @@ export default function Rain() {
   const nextInputRound = useRef(0)
   // Display insights (accuracy by cost) for the summary.
   const answersLog = useRef<Array<{ card: Card; correct: boolean }>>([])
+  // One entry per resolved card for the summary chart: how long the read took
+  // against how long the card had left when it became answerable.
+  const reads = useRef<Array<{ answerMs: number; windowMs: number; lost: boolean }>>([])
   const recorded = useRef(false)
 
   const lives = useSignal(RAIN_LIVES)
@@ -187,6 +205,7 @@ export default function Rain() {
     inputEvents.current = []
     nextInputRound.current = 0
     answersLog.current = []
+    reads.current = []
     recorded.current = false
     runtime.start((startedAt) => {
       runStartedAt.current = startedAt
@@ -248,14 +267,21 @@ export default function Rain() {
         `<img src="${card.icon}" alt="" class="ed-rain__tile-img" loading="eager" decoding="sync"/>` +
         `<span class="ed-rain__tile-name">${card.name}</span>`
       field.appendChild(el)
+      // Named rather than inlined so the tile's starting fall window is derived
+      // from the same speed it is dealt. Drawn AFTER the position above: the
+      // spawn's two Math.random() reads are position then speed, in that order.
+      const speed = RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current
       drops.current.push({
         el,
         card,
         y: -16,
-        speed: RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current,
+        speed,
         wrong: 0,
         inputRound: nextInputRound.current++,
-        inputEnabledAt: performance.now()
+        inputEnabledAt: performance.now(),
+        answerableAt: performance.now(),
+        windowMs: fallTimeLeftMs(-16, speed),
+        targeted: false
       })
       onSpawned()
     })
@@ -277,6 +303,11 @@ export default function Rain() {
       inputRound: d.inputRound
     })
     answersLog.current.push({ card: d.card, correct: guess !== null })
+    reads.current.push({
+      answerMs: Math.max(0, Math.round(performance.now() - d.answerableAt)),
+      windowMs: Math.round(d.windowMs),
+      lost: guess === null
+    })
   }
 
   function tick() {
@@ -288,7 +319,7 @@ export default function Rain() {
       d.y += d.speed
       // The field now stops at the kill line (its bottom edge), so a tile lands
       // on the line, in view — not behind the keypad as it used to.
-      if (d.y >= 96) {
+      if (d.y >= KILL_LINE_Y) {
         popTile(d, true)
         flashKillLine()
         // Several accelerated cards can reach the floor on the same 40ms
@@ -309,7 +340,16 @@ export default function Rain() {
     // The lowest card (largest y) is the live target.
     let t: Drop | null = null
     for (const d of drops.current) if (!t || d.y > t.y) t = d
-    if (target.current !== t && t) t.inputEnabledAt = performance.now()
+    if (target.current !== t && t) {
+      t.inputEnabledAt = performance.now()
+      // A tile is only answerable while it is lit, so the read clock and the
+      // fall it is racing both start here — once, the first time it lights up.
+      if (!t.targeted) {
+        t.targeted = true
+        t.answerableAt = performance.now()
+        t.windowMs = fallTimeLeftMs(t.y, t.speed)
+      }
+    }
     target.current = t
     for (const d of drops.current) d.el.classList.toggle('ed-rain__tile--lit', d === t)
     if (lost) {
@@ -393,25 +433,15 @@ export default function Rain() {
     insights.value = computeInsights(
       answersLog.current.map((a) => ({ card: a.card, guess: a.correct ? a.card.elixir : 0, correct: a.correct }))
     )
-    // Signature: clears per ten seconds against the rising fall speed. A cleared
-    // drop carries a real guess; a drop that fell was never answered (null).
-    const WINDOW_MS = 10_000
-    const clearsPer10s: number[] = []
-    const fallSpeed: number[] = []
-    let cumulative = 0
-    for (const a of serverAnswers.current) {
-      const w = Math.max(0, Math.floor(a.atMs / WINDOW_MS))
-      while (clearsPer10s.length <= w) {
-        clearsPer10s.push(0)
-        fallSpeed.push(rainFallBoost(cumulative))
-      }
-      if (a.guess !== null) {
-        clearsPer10s[w] += 1
-        cumulative += 1
-      }
-      fallSpeed[w] = rainFallBoost(cumulative)
-    }
-    if (clearsPer10s.length > 0) signature.value = rainSignature(clearsPer10s, fallSpeed)
+    // Signature: seconds to answer against the seconds that card had left to
+    // fall — one unit on both, so the bar and its tick can be compared at a
+    // glance. A red bar is a life lost.
+    if (reads.current.length > 0)
+      signature.value = rainSignature(
+        reads.current.map((r) => r.answerMs),
+        reads.current.map((r) => r.windowMs),
+        reads.current.map((r) => r.lost)
+      )
     runtime.finish('over')
     // Record the ranked run on the server (guest → scored, not persisted). The
     // local rainBest is written centrally, and ONLY when the server accepts the
@@ -455,7 +485,7 @@ export default function Rain() {
           share={{
             mode: 'rain',
             score: `${score.value} cleared`,
-            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
+            ...(signature.value ? { series: signature.value.values } : {})
           }}
           onReplay={replay}
           replayLabel="Play again"

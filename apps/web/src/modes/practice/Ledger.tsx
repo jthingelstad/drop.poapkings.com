@@ -4,7 +4,7 @@ import type { LedgerAnswer, LedgerStage } from '@elixir-drop/contracts'
 import FloatingCue from '../../components/FloatingCue'
 import GameRunGate from '../../components/GameRunGate'
 import Summary from '../../components/Summary'
-import SignaturePanel from '../../components/summary/SignaturePanel'
+import DrillPanel from '../../components/summary/DrillPanel'
 import { ledgerSignature } from '../../lib/signatures'
 import {
   balanceWinner,
@@ -290,7 +290,7 @@ export default function Ledger() {
           onHome={() => navigate(practiceLandingPath())}
           homeLabel={practiceLandingPath() === '/practice' ? 'Practice' : 'Games'}
         >
-          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
+          {signature.bars.length > 0 && <DrillPanel {...signature} />}
           <p class="ledger-summary__coach">
             {accuracy >= 80
               ? 'Your running count is holding. Longer sequences will arrive as the read stays clean.'

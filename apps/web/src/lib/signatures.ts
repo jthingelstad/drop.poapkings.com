@@ -1,80 +1,142 @@
-import type { SignatureBar } from '../components/summary/SignaturePanel'
+import type { SignaturePanelProps } from '../components/summary/SignaturePanel'
+import type { DrillBar } from '../components/summary/DrillPanel'
+import { formatSeconds } from './format'
 
 // Pure builders for the summary signature panels. Each mode hands over arrays it
-// already has in hand at completion; the chart math and the one-sentence
-// read-back live here so the panel component stays a dumb renderer and the mode
-// components stay thin. No card lookups here — correctness is decided in the
-// mode, where the cards are.
+// already has in hand at completion; the read-back sentence lives here so the
+// panel stays a renderer and the modes stay thin. No card lookups here —
+// correctness is decided in the mode, where the cards are.
+//
+// Every ranked mode speaks the same grammar: bars in seconds, a per-bar
+// reference tick in seconds, a red bar where that bar cost you, and the cost
+// named rather than inferred from the colour. The axis, the legend, the colour
+// rule, the bucketing and the layout all live in the component.
 
-export interface Signature {
-  bars: SignatureBar[]
-  line?: number[]
+export type Signature = Omit<SignaturePanelProps, 'max'> & { max?: number }
+
+// The two drills keep their own shape — see DrillPanel for why.
+export interface DrillSignature {
+  bars: DrillBar[]
   caption: string
   max?: number
 }
 
-// Surge: a bar per card (this run's time), the previous best's pace drawn across,
-// bars red where this run lost to it.
-export function surgeSignature(perCardMs: number[], bestPerCardMs?: number[]): Signature {
-  const bars: SignatureBar[] = perCardMs.map((ms, i) => {
-    const best = bestPerCardMs?.[i]
-    return { value: ms, tone: best !== undefined && ms > best ? 'bad' : 'base' }
-  })
-  const lost = bars.filter((b) => b.tone === 'bad').length
-  const caption = bestPerCardMs?.length
-    ? lost === 0
-      ? 'Faster than your best run on every card.'
-      : `Slower than your best run on ${lost} of ${bars.length} cards.`
-    : 'Your pace, card by card — the line to beat next run.'
-  return { bars, ...(bestPerCardMs?.length ? { line: bestPerCardMs } : {}), caption }
+function average(list: number[]): number {
+  if (list.length === 0) return 0
+  return Math.round(list.reduce((sum, value) => sum + value, 0) / list.length)
 }
 
-// Survival: response time per card with the shrinking window drawn above; they
-// converge, and the run ends where they meet.
-export function survivalSignature(perCardMs: number[], windowMs: number[]): Signature {
-  const bars: SignatureBar[] = perCardMs.map((ms, i) => ({
-    value: ms,
-    tone: windowMs[i] !== undefined && ms > windowMs[i] * 0.85 ? 'bad' : 'base'
-  }))
+function seconds(ms: number): string {
+  return `${formatSeconds(ms)}s`
+}
+
+// ── Surge ───────────────────────────────────────────────────────────────────
+// Seconds per card against the same card in your best run.
+export function surgeSignature(perCardMs: number[], bestPerCardMs?: number[]): Signature {
+  const hasBest = Boolean(bestPerCardMs?.length)
+  const bad = perCardMs.map((ms, i) => {
+    const best = bestPerCardMs?.[i]
+    return best !== undefined && ms > best
+  })
+  const lost = bad.filter(Boolean).length
+  const reading = hasBest
+    ? lost === 0
+      ? 'You beat your best run on every card.'
+      : `Your best run was quicker on ${lost} of ${perCardMs.length} cards.`
+    : `You averaged ${seconds(average(perCardMs))} a card — the pace your next run has to beat.`
   return {
-    bars,
-    line: windowMs,
-    caption: 'Your reads against the shrinking window — the gap closes as the deck runs down.'
+    unit: 'Seconds per card',
+    legend: 'The same card in your best run',
+    badLabel: 'slower than your best there',
+    values: perCardMs,
+    ...(hasBest ? { refs: bestPerCardMs!, bad } : {}),
+    reading
   }
 }
 
-// Trade: ten rounds, the time on each, with the retries marked beneath.
+// ── Rain ────────────────────────────────────────────────────────────────────
+// Seconds to answer against how long that card had left to fall. A red bar is a
+// life lost, and the three lives are marked as events.
+export function rainSignature(answerMs: number[], fallLeftMs: number[], lost: boolean[]): Signature {
+  const lives = lost.reduce<number[]>((acc, isLost, i) => (isLost ? [...acc, i] : acc), [])
+  const reading =
+    lives.length > 0
+      ? `You answered in ${seconds(average(answerMs))} against ${seconds(average(fallLeftMs))} of fall time, and ${lives.length === 1 ? 'one card' : `${lives.length} cards`} closed that gap.`
+      : `You answered in ${seconds(average(answerMs))} against ${seconds(average(fallLeftMs))} of fall time, and nothing reached the line.`
+  return {
+    unit: 'Seconds to answer',
+    legend: 'How long that card had left to fall',
+    badLabel: 'a life lost',
+    values: answerMs,
+    refs: fallLeftMs,
+    bad: lost,
+    marks: lives,
+    reading
+  }
+}
+
+// ── Survival ────────────────────────────────────────────────────────────────
+// Seconds to answer against the window at that streak. One red bar at most: the
+// card that ended it.
+export function survivalSignature(perCardMs: number[], windowMs: number[], fatalIndex: number): Signature {
+  const bad = perCardMs.map((_, i) => i === fatalIndex)
+  const lastWindow = windowMs[windowMs.length - 1]
+  const reading =
+    fatalIndex >= 0
+      ? `You answered in ${seconds(average(perCardMs))} on average, against a window down to ${seconds(lastWindow ?? 0)} by the card that ended it.`
+      : `You cleared the deck in ${seconds(average(perCardMs))} a card, against a window down to ${seconds(lastWindow ?? 0)}.`
+  return {
+    unit: 'Seconds to answer',
+    legend: 'Your window at that streak',
+    badLabel: 'the card that ended it',
+    values: perCardMs,
+    refs: windowMs,
+    bad,
+    reading
+  }
+}
+
+// ── Trade ───────────────────────────────────────────────────────────────────
+// Seconds per exchange against this run's average round. A red bar took a retry
+// — never "over the tick", which is exactly the inference this grammar refuses.
 export function tradeSignature(perRoundMs: number[], retries: number[]): Signature {
-  const bars: SignatureBar[] = perRoundMs.map((ms, i) => ({
-    value: ms,
-    tone: retries[i] > 0 ? 'bad' : 'base',
-    dot: retries[i] > 0 ? 'bad' : 'ok'
-  }))
-  const clean = retries.filter((r) => r === 0).length
-  return { bars, caption: `${clean} of ${bars.length} exchanges read first try.` }
+  const mean = average(perRoundMs)
+  const bad = retries.map((count) => count > 0)
+  const clean = retries.filter((count) => count === 0).length
+  return {
+    unit: 'Seconds per exchange',
+    legend: 'Your average round this run',
+    badLabel: 'it took a retry',
+    values: perRoundMs,
+    refs: perRoundMs.map(() => mean),
+    bad,
+    itemNoun: 'Exchanges',
+    reading: `${clean} of ${perRoundMs.length} exchanges read first try, at ${seconds(mean)} a round.`
+  }
 }
 
-// Higher / Lower: read speed per pair, a right/wrong dot beneath each.
+// ── Higher / Lower ──────────────────────────────────────────────────────────
+// Seconds per read against this run's average read. A red bar is a wrong read.
 export function duelSignature(perPairMs: number[], correct: boolean[]): Signature {
-  const bars: SignatureBar[] = perPairMs.map((ms, i) => ({
-    value: ms,
-    tone: correct[i] ? 'base' : 'bad',
-    dot: correct[i] ? 'ok' : 'bad'
-  }))
+  const mean = average(perPairMs)
   const right = correct.filter(Boolean).length
-  return { bars, caption: `${right} of ${bars.length} reads correct — the shape is your speed under the clock.` }
+  return {
+    unit: 'Seconds per read',
+    legend: 'Your average read this run',
+    badLabel: 'a wrong read',
+    values: perPairMs,
+    refs: perPairMs.map(() => mean),
+    bad: correct.map((ok) => !ok),
+    itemNoun: 'Reads',
+    reading: `${right} of ${perPairMs.length} reads correct, at ${seconds(mean)} each.`
+  }
 }
 
-// Rain: clears per ten seconds as bars, with the rising fall speed over them in
-// gold — they cross where the field beat you.
-export function rainSignature(clearsPer10s: number[], fallSpeed: number[]): Signature {
-  const bars: SignatureBar[] = clearsPer10s.map((n) => ({ value: n, tone: 'base' }))
-  return { bars, line: fallSpeed, caption: 'Clears every ten seconds against the rising fall speed.' }
-}
+// ── The two drills, exempt by design ────────────────────────────────────────
 
 // Ledger: accuracy by sequence length. Each bar is one length's hit rate, so the
 // shape shows where the running count starts to break as sequences get longer.
-export function ledgerSignature(lengths: number[], correct: boolean[]): Signature {
+export function ledgerSignature(lengths: number[], correct: boolean[]): DrillSignature {
   const byLength = new Map<number, { correct: number; total: number }>()
   lengths.forEach((len, i) => {
     const bucket = byLength.get(len) ?? { correct: 0, total: 0 }
@@ -83,7 +145,7 @@ export function ledgerSignature(lengths: number[], correct: boolean[]): Signatur
     byLength.set(len, bucket)
   })
   const sorted = [...byLength.entries()].sort((a, b) => a[0] - b[0])
-  const bars: SignatureBar[] = sorted.map(([, b]) => {
+  const bars: DrillBar[] = sorted.map(([, b]) => {
     const pct = Math.round((b.correct / b.total) * 100)
     return { value: pct, tone: pct < 70 ? 'bad' : 'base' }
   })
@@ -102,8 +164,8 @@ export function ledgerSignature(lengths: number[], correct: boolean[]): Signatur
 
 // Cost Recall: the cards that came back after a gap, and whether they held. One
 // bar per returned card (its read time), the dot marking held vs missed again.
-export function costRecallSignature(returns: Array<{ ms: number; correct: boolean }>): Signature {
-  const bars: SignatureBar[] = returns.map((r) => ({
+export function costRecallSignature(returns: Array<{ ms: number; correct: boolean }>): DrillSignature {
+  const bars: DrillBar[] = returns.map((r) => ({
     value: r.ms,
     tone: r.correct ? 'base' : 'bad',
     dot: r.correct ? 'ok' : 'bad'

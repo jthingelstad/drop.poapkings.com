@@ -424,6 +424,59 @@ Timed active states use the `game-run` layout: compact header, no footer, and no
 star counter while the player is actively timed. Keep controls visible on mobile
 and guard against horizontal overflow in e2e tests when adding or changing modes.
 
+### The summary signature chart — one grammar, five modes
+
+Every ranked summary draws the same chart from
+`apps/web/src/components/summary/SignaturePanel.tsx`: **bars in seconds, a
+per-bar reference tick in seconds, and a red bar where that bar cost you.** The
+first version gave each mode whatever series seemed most interesting about it
+and only Surge was readable, because Surge was the only chart whose bars and
+reference shared a unit — Rain plotted clears against fall *speed*, Trade
+printed retry *counts* under time bars, Higher / Lower hung right-or-wrong dots
+below them. Each asked the player to hold two scales at once.
+
+Four parts are mandatory and live in the component, so no mode can ship without
+them: a **named unit** (top left), a **named reference with its tick drawn
+beside the words** (top right), a **scale** (max and zero on the axis), and
+**one sentence of finding** — what the chart proves, never what it shows. A
+fifth rule is `badLabel`: red never means one thing inferred from colour, so
+each mode names its own cost.
+
+| Mode | Bars | Reference tick | Red bar means |
+| --- | --- | --- | --- |
+| Surge | Seconds per card | The same card in your best run | slower than your best there |
+| Rain | Seconds to answer | How long that card had left to fall | a life lost |
+| Survival | Seconds to answer | Your window at that streak | the card that ended it |
+| Trade | Seconds per exchange | Your average round this run | it took a retry |
+| Higher / Lower | Seconds per read | Your average read this run | a wrong read |
+
+Rain and Survival deliberately share a shape because they share a truth: a
+shrinking allowance against a steady hand. They differ only in what is marked —
+Rain's three lives, Survival's one fatal card. Both record the fall time and the
+window **per answer** (display-only refs, never in the signed transcript);
+without that the reference tick cannot be drawn.
+
+**Long runs bucket in the component, never in a mode.** Up to 30 answers get one
+bar each; beyond that the series folds into 30 bars, each a stretch's mean
+against that stretch's mean reference, with the x axis naming the range it
+covers. A fatal final answer always keeps its own bar.
+
+**The two drills are exempt** and use `summary/DrillPanel.tsx` instead. Cost
+Recall's review ledger answers "what stuck" and Ledger's
+accuracy-by-sequence-length answers "where does the count break". A drill is not
+racing anything, so seconds are the wrong unit — do not force them into this
+grammar.
+
+### The summary never keys a referee
+
+A summary shows what happened, not what is pending. There is no "Awaiting a
+referee" line and no awaiting seal on a summary head: at the moment a run ends
+*every* recorded run is awaiting, so a mark every run carries tells a player
+nothing. A cleared seal is never drawn there either — a referee reads input
+evidence and takes minutes. The verdict is met later, on the boards, in the run
+log, and in Updates. The one seal a summary still draws is **not recorded**,
+because that is what happened.
+
 ---
 
 ## Retired games

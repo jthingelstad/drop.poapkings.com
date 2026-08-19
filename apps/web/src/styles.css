@@ -8479,17 +8479,70 @@ html.reduce-motion .ed-skeleton__row {
 }
 
 /* ── Summary signature panel ──────────────────────────────────
-   A compact bar series drawn from data the mode already recorded, an optional
-   overlay line, optional per-bar markers, and one sentence reading it back. */
+   One grammar for every ranked mode: bars in seconds, a per-bar reference tick
+   in seconds, a red bar where that bar cost you. Four parts are mandatory —
+   a named unit, a named reference with its tick drawn beside the words, a scale
+   with max and zero on the axis, and one sentence of finding. The drills are
+   exempt and keep the plain bar series (.ed-sig--drill). */
 .ed-sig {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 0;
+}
+.ed-sig__legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.ed-sig__unit {
+  color: var(--ink);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex: 0 0 auto;
+}
+.ed-sig__ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: right;
+}
+.ed-sig__ref-tick {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--gold);
+}
+.ed-sig__plot {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.ed-sig__scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  height: 92px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 .ed-sig__chart {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   height: 92px;
   display: block;
+  border-left: 1px solid rgba(215, 200, 255, 0.16);
+  border-bottom: 1px solid rgba(215, 200, 255, 0.16);
 }
 .ed-sig__bar {
   fill: rgba(139, 92, 246, 0.5);
@@ -8500,20 +8553,23 @@ html.reduce-motion .ed-skeleton__row {
 .ed-sig__bar--gold {
   fill: rgba(245, 200, 76, 0.7);
 }
-.ed-sig__line {
+.ed-sig__tick {
   stroke: var(--gold);
   stroke-width: 2;
-  stroke-dasharray: 4 3;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
+.ed-sig__marks,
 .ed-sig__dots {
   display: flex;
 }
+.ed-sig__mark,
 .ed-sig__dot {
   flex: 1 1 0;
   display: flex;
   justify-content: center;
 }
+.ed-sig__mark::before,
 .ed-sig__dot::before {
   content: '';
   width: 6px;
@@ -8521,13 +8577,38 @@ html.reduce-motion .ed-skeleton__row {
   border-radius: 50%;
   background: transparent;
 }
+.ed-sig__mark--on::before {
+  background: #ef4444;
+}
 .ed-sig__dot--ok::before {
   background: #22c55e;
 }
 .ed-sig__dot--bad::before {
   background: #ef4444;
 }
-.ed-sig__caption {
+.ed-sig__range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.ed-sig__cost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ed-sig__swatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(239, 68, 68, 0.62);
+}
+.ed-sig__reading {
   margin: 0;
   font-size: 12.5px;
   color: var(--muted);

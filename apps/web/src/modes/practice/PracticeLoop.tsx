@@ -26,7 +26,7 @@ import MultipleChoice from '../../components/MultipleChoice'
 import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
-import SignaturePanel from '../../components/summary/SignaturePanel'
+import DrillPanel from '../../components/summary/DrillPanel'
 import { costRecallSignature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
@@ -542,7 +542,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
           replayLabel={needsReview > 0 ? 'Review misses' : 'Practice again'}
           onHome={exit}
         >
-          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
+          {signature.bars.length > 0 && <DrillPanel {...signature} />}
         </Summary>
       </div>
     )

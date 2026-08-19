@@ -42,7 +42,7 @@ import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { GAME_MODES, runReference, type GameMode } from '@elixir-drop/contracts'
-import { heldForReviewReference, offlineRunMode, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { offlineRunMode, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { apiAvailability, reportApiUnavailable, transportOffline } from '../../src/lib/api-availability'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
@@ -644,7 +644,6 @@ describe('useGameRun', () => {
       message: 'Game recorded — awaiting the referee',
       detail: `Reference: ${runReference('review-run-uuid')}`
     })
-    expect(heldForReviewReference.value).toBe(runReference('review-run-uuid'))
   })
 
   it('an expired (410) completion settles unrecorded and calls onUnrecorded', async () => {

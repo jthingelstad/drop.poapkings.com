@@ -301,6 +301,14 @@ Important shared modules:
   Clash-style name tone mapping.
 - `apps/web/src/lib/insights.ts` - Practice and Surge coaching insights.
 - `apps/web/src/lib/mode-insights.ts` - mode-specific Trade summary lines.
+- `apps/web/src/lib/signatures.ts` - the summary chart builders. The five ranked
+  modes share one grammar (seconds bars, a per-bar seconds reference tick, a red
+  bar whose cost the mode names); the two drills are exempt. See `GAMES.md` →
+  "The summary signature chart".
+- `apps/web/src/components/summary/SignaturePanel.tsx` - the ranked chart, which
+  owns the mandatory unit / reference / scale / finding and the 30-bar bucketing.
+- `apps/web/src/components/summary/DrillPanel.tsx` - the drills' plain bar
+  series, deliberately outside that grammar.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge.
 
 Player XP and the per-player arena:

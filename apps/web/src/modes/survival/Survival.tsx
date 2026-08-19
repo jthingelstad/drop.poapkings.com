@@ -52,6 +52,10 @@ export default function Survival() {
   const dead = useRef(false)
   const serverCardIndex = useRef(0)
   const serverAnswers = useRef<Array<{ cardId: number; guess: number | null; elapsedMs: number }>>([])
+  // The response window that was actually running for each card, kept per answer
+  // rather than only for the run's final value. The chart's reference tick IS
+  // that window, so without this the bars have nothing to be read against.
+  const reads = useRef<Array<{ ms: number; windowMs: number }>>([])
   const inputEvents = useRef<RunInputEvidence[]>([])
   const preloadContent = useRef<Card[] | null>(null)
   const progressiveArt = useRef<ReturnType<typeof createProgressivePreloadPlan> | null>(null)
@@ -132,6 +136,7 @@ export default function Survival() {
       won.current = false
       answers.current = []
       serverAnswers.current = []
+      reads.current = []
       inputEvents.current = []
       streak.value = 0
       milestone.value = null
@@ -181,11 +186,9 @@ export default function Survival() {
           runInputEvidence(observation, runStartedAt.current, cardStart.current, streak.value, picked)
         )
       }
-      serverAnswers.current.push({
-        cardId: card.id,
-        guess: picked ?? null,
-        elapsedMs: performance.now() - cardStart.current
-      })
+      const fatalMs = performance.now() - cardStart.current
+      serverAnswers.current.push({ cardId: card.id, guess: picked ?? null, elapsedMs: fatalMs })
+      reads.current.push({ ms: Math.round(fatalMs), windowMs: survivalWindowMs(streak.value) })
       answers.current.push({ card, guess: picked ?? card.elixir, correct: false })
       saveResult(card.id, false)
     }
@@ -206,11 +209,14 @@ export default function Survival() {
     isPB.value = streak.value > (prev ?? 0)
     // Cumulative time across the surviving cards — matches the server's tiebreak.
     finishTimeMs.value = serverAnswers.current.slice(0, streak.value).reduce((sum, entry) => sum + entry.elapsedMs, 0)
-    // Signature: response time per card against the shrinking window; they meet
-    // where the run ends.
-    const perCardMs = serverAnswers.current.map((a) => Math.round(a.elapsedMs))
-    const windowMs = serverAnswers.current.map((_, i) => survivalWindowMs(i))
-    signature.value = survivalSignature(perCardMs, windowMs)
+    // Signature: seconds to answer against the window that was actually running
+    // at that streak. They converge, and the run ends where they meet — so the
+    // one red bar is the card that ended it, and a deck clear has none.
+    signature.value = survivalSignature(
+      reads.current.map((r) => r.ms),
+      reads.current.map((r) => r.windowMs),
+      won.current ? -1 : reads.current.length - 1
+    )
     // survivalBest is persisted centrally when the server accepts the run.
     runtime.finish('over')
     void gameRun.complete({ answers: serverAnswers.current, inputEvents: inputEvents.current })
@@ -228,6 +234,7 @@ export default function Survival() {
       playCorrect()
       const ms = performance.now() - cardStart.current
       serverAnswers.current.push({ cardId: card.id, guess: picked, elapsedMs: ms })
+      reads.current.push({ ms: Math.round(ms), windowMs: survivalWindowMs(streak.value) })
       answers.current.push({ card, guess: picked, correct: true, ms })
       saveResult(card.id, true, ms)
       streak.value += 1
@@ -250,6 +257,7 @@ export default function Survival() {
     current.value = null
     serverCardIndex.current = 0
     serverAnswers.current = []
+    reads.current = []
     inputEvents.current = []
     cardPhase.value = 'playing'
     streak.value = 0
@@ -293,7 +301,7 @@ export default function Survival() {
           share={{
             mode: 'survival',
             score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`,
-            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
+            ...(signature.value ? { series: signature.value.values } : {})
           }}
           onReplay={replay}
           onHome={() => navigate('/')}

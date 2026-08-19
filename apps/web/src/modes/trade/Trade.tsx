@@ -273,7 +273,7 @@ export default function Trade() {
           share={{
             mode: 'trade',
             score: `${formatSeconds(totalMs.value)}s`,
-            ...(signature.value ? { series: signature.value.bars.map((b) => b.value) } : {})
+            ...(signature.value ? { series: signature.value.values } : {})
           }}
           onReplay={replay}
           replayLabel="Play again"

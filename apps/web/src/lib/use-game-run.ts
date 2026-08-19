@@ -28,20 +28,15 @@ type RecordingNotice =
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 
-// The last completed run was recorded but held off the public board pending a
-// Fair Play Referee decision. This is deliberately NOT part of `recordingNotice`:
-// that toast clears itself after two seconds, and "your score is not on the
-// board" is the one thing a player must still be able to read once they stop and
-// look at their summary. Cleared when the next run is prepared.
-export const heldForReview = signal(false)
-// The server-issued run UUID is the join between the immediate recording
-// notice, owner history, retained evidence, and the referee decision.
-export const heldForReviewReference = signal<string | null>(null)
-
-// Rungs the last completed run cleared. Read straight from here by Summary, for
-// the same reason heldForReview is: six modes render that component and none of
-// them know anything about badges. Cleared when the next run is prepared, so a
-// replay never re-celebrates the previous run's badges.
+// Rungs the last completed run cleared. Read straight from here by Summary,
+// because six modes render that component and none of them know anything about
+// badges. Cleared when the next run is prepared, so a replay never
+// re-celebrates the previous run's badges.
+//
+// There is deliberately no "held for review" signal beside these. A run that
+// just ended is ALWAYS awaiting a referee, so the summary says nothing about it;
+// the recording toast names the hold and carries the reference, and the run log,
+// the boards and Updates carry the verdict once there is one to carry.
 export const earnedBadges = signal<EarnedRung[]>([])
 
 // XP earned by the run just completed, for the summary's "what changed" ledger.
@@ -116,8 +111,6 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
     run.current = null
     challenge.value = null
     startError.value = ''
-    heldForReview.value = false
-    heldForReviewReference.value = null
     earnedBadges.value = []
     earnedXp.value = 0
     offlineRunMode.value = null
@@ -252,8 +245,6 @@ export function useGameRun<T extends GameMode>(mode: T, options?: { practiceKind
       // toward the player's totals. Only its place on the public board is
       // pending, so the toast says recorded and names the hold rather than
       // celebrating a season best the board is not showing anyone.
-      heldForReview.value = result.underReview === true
-      heldForReviewReference.value = result.underReview ? runReference(result.runId) : null
       earnedBadges.value = result.earnedBadges ?? []
       earnedXp.value = result.xpEarned ?? 0
       setRecordingNotice({

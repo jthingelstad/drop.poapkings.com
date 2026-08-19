@@ -305,7 +305,8 @@ export default function HigherLower() {
       improved: (previous) => `New personal best! +${score.value - previous}`,
       standing: (previous) => `Best: ${previous}`
     })
-    // Signature: read speed per pair, with a right/wrong dot beneath each.
+    // Signature: seconds per read against this run's average read; a red bar
+    // is a wrong read, named as such rather than left to the colour.
     const signature = duelSignature(
       serverAnswers.current.map((a) => a.elapsedMs),
       gradedAnswers.current.map((a) => a.correct)
@@ -326,12 +327,12 @@ export default function HigherLower() {
           share={{
             mode: 'higher-lower',
             score: `${score.value} correct`,
-            ...(signature.bars.length ? { series: signature.bars.map((b) => b.value) } : {})
+            ...(signature.values.length ? { series: signature.values } : {})
           }}
           onReplay={() => void replay()}
           onHome={() => navigate('/')}
         >
-          {signature.bars.length > 0 && <SignaturePanel {...signature} />}
+          {signature.values.length > 0 && <SignaturePanel {...signature} />}
         </Summary>
       </div>
     )
