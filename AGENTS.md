@@ -89,6 +89,8 @@ Player-visible work ships with one concise entry in
 `apps/web/src/data/updates/features.json`: a subject and one Markdown paragraph, written for
 players with Clash energy. Do not announce refactors, tests, dependencies, deploys,
 observability, admin tools, or maintenance. Season results belong in `seasons.json`; other
-player messages belong in `messages.json` and still require the normal Jamie authority for
-winners, prizes, or broad communication. Grow Drop audits deployed changes daily for missed
-feature entries. There are no named releases.
+player messages belong in `messages.json`. Call the Season may publish routine, source-backed
+current leaders and Cleared final game results in `seasons.json`; naming the Free Pass
+recipient, awarding any prize, or sending broad communication still requires Jamie's
+authority. Grow Drop audits deployed changes daily for missed feature entries. There are no
+named releases.

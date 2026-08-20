@@ -425,6 +425,9 @@ in the 2026 refresh. The **Updates** scope on the You page now merges three comm
 player-message sources: `features.json`, `seasons.json`, and `messages.json` under
 `apps/web/src/data/updates/`. Every record is one timestamped subject and one Markdown
 paragraph; its source file supplies the type. The same merged history builds `/updates/`.
+Call the Season owns routine, source-backed current leaders and Cleared final game
+results in `seasons.json`; the Free Pass recipient and award remain a manual Jamie
+decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
 Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
 account-level and deliberately not per-device, so it never needs a browser key.
 

@@ -1,6 +1,6 @@
 # AGENT-TEAM operating model
 
-Drop is maintained by three objective owners. An owner is accountable for an outcome,
+Drop is maintained by five objective owners. An owner is accountable for an outcome,
 not a job type or directory. It follows evidence through diagnosis, code, tests,
 deployment, and natural acceptance instead of handing each step to another role.
 
@@ -16,7 +16,7 @@ objective file before acting.
    product data, sanctioned referee tools, or the active issue as appropriate.
 3. Decide whether a real objective gap exists. Healthy is a complete result.
 4. Only when a safe authorized gap requires mutation, claim the checkout with
-   `node AGENT-TEAM/scripts/objective-lease.mjs claim <run|grow|fair-play>`. Retain
+   `node AGENT-TEAM/scripts/objective-lease.mjs claim <run|grow|improve|season|fair-play>`. Retain
    the returned `leaseId` for this run. A held lease leaves the run read-only. Never
    clear one merely because it looks old: automatic clearing also requires the same
    host, a dead recorded process, an unchanged starting commit, and a clean worktree;
@@ -49,8 +49,10 @@ objective file before acting.
 - Run Drop owns failed-pipeline recovery and continuing system-health acceptance.
   A failure that spans runs becomes an `objective:run` issue; normal deployment is
   not a handoff.
-- The originating objective owns semantic acceptance. Grow Drop proves a product
-  outcome moved; Protect Fair Play proves coverage or adjudication behavior is sound.
+- The originating objective owns semantic acceptance. Grow Drop proves an acquisition
+  or retention outcome moved; Improve Drop proves the changed player journey works;
+  Call the Season proves its commentary is factual and live; Protect Fair Play proves
+  coverage or adjudication behavior is sound.
 - A clean deploy never substitutes for the originating objective's natural evidence.
 
 ## Issues are the exception ledger
@@ -66,9 +68,14 @@ condition is met.
 ## Human boundary
 
 Jamie decides new modes, material scoring/season rules, privacy-affecting collection,
-winner/prize action, public enforcement, broad member communication, irreversible
-state changes, and other significant product direction. Ask one concrete yes/no
-question with evidence and the smallest useful version.
+Free Pass winner selection and prize action, public enforcement, broad member
+communication outside the standing Updates contract, irreversible state changes, and
+other significant product direction. Routine source-backed season commentary in
+`apps/web/src/data/updates/seasons.json` is pre-authorized: current public leaders,
+scores, season timing, and the designated Free Pass race. A closed game's champion may
+be stated only from a Cleared winning run; naming the Free Pass recipient still requires
+Jamie's approval. Ask one concrete yes/no question with evidence and the smallest
+useful version.
 
 Ordinary bug, reliability, observability, documentation, referee-tooling, and narrow
 quality fixes are autonomous when they preserve that boundary.

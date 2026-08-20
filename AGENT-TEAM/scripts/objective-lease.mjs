@@ -14,7 +14,13 @@ import {
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
-export const OBJECTIVES = new Set(["run", "grow", "fair-play"]);
+export const OBJECTIVES = new Set([
+  "run",
+  "grow",
+  "improve",
+  "season",
+  "fair-play",
+]);
 export const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
@@ -31,7 +37,7 @@ export const DEFAULT_LEASE_PATH = path.resolve(
 function assertObjective(objective) {
   if (!OBJECTIVES.has(objective)) {
     throw new Error(
-      `unknown objective ${JSON.stringify(objective)}; choose run, grow, or fair-play`,
+      `unknown objective ${JSON.stringify(objective)}; choose run, grow, improve, season, or fair-play`,
     );
   }
 }

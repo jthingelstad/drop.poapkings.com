@@ -87,29 +87,14 @@ aliases. Space repeats from a summary or activates a safe retry; it is inert
 during a live question. Escape focuses quit, and only a second press abandons.
 The `?` help sheet and on-key labels own discoverability.
 
----
+## Seasonal competition — the Free Pass
 
-## Shipped games
-
-### Flagship
-
-**Surge** — `/surge` · `apps/web/src/modes/surge/`
-A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
-wins. A wrong answer adds +2.0s (flashed in the HUD) and the card stays until
-correct, with a higher/lower arrow cue pointing from the latest guess toward
-the answer (the penalty already paid for the information). At cards 5 and 10 a
-ghost-pace checkpoint shows the delta against the recorded best run. The
-sprint's images preload before the timer starts; Elixir stays silent during
-the run and reacts on the summary. Live time, summaries, personal bests, and
-leaderboards all show the same three decimal places. Produces one clean,
-shareable number.
-
-- Input: pip keypad, always dealt as two wide rows (1–5 over 6–9).
-- Record: `surgeBest` (lowest time).
-
-**Season competition — the Free Pass.** Surge carries a real prize: the player
-ranked first on its seasonal leaderboard at season end wins a Clash Royale
-season pass. Two standing consequences:
+One ranked game is explicitly designated for the prize each season. The
+designation rotates: **Surge is the current game and Rain is next.** Later games
+must be named here before their season; do not infer a cycle or repeat the
+previous designation. For the current Surge competition, the player ranked first
+on its seasonal leaderboard at season end is the candidate for a Clash Royale
+season pass. Three standing consequences apply to whichever game is designated:
 
 - **The board does not certify itself.** An automatic integrity flag
   (`automaticReviewReason` / `underReview`) is a review _signal_, never a
@@ -130,14 +115,38 @@ season pass. Two standing consequences:
   does not make an honest run look mechanically fast.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
   means more attempts yield a better best. That is accepted on purpose:
-  grinding Surge _is_ drilling elixir costs, which is the whole product. Do not
-  cap ranked attempts or move the board to recent-form ranking to "fix" it.
+  grinding the designated game _is_ drilling elixir costs, which is the whole
+  product. Do not cap ranked attempts or move the board to recent-form ranking
+  to "fix" it.
 
-The winner is picked manually at season end. There is no automated snapshot or
-award pipeline, and one should not be built without a fresh product decision.
-The announced mode, eligibility, tie-break, seven-day response window, and
-gift-only prize terms live on the stable POAP KINGS Free Pass rules page; the
-in-game hero links there rather than duplicating the full rules.
+The recipient is picked manually at season end from the designated game's
+Cleared winning run. There is no automated snapshot or award pipeline, and one
+should not be built without a fresh product decision. Call the Season may report
+the public race and prepare the result, but Jamie approves the recipient and
+prize communication. The announced mode, eligibility, tie-break, seven-day
+response window, and gift-only prize terms live on the stable POAP KINGS Free
+Pass rules page; the in-game hero links there rather than duplicating the full
+rules.
+
+---
+
+## Shipped games
+
+### Flagship
+
+**Surge** — `/surge` · `apps/web/src/modes/surge/`
+A 15-card speed sprint, scored as golf time: elapsed time plus penalties, lower
+wins. A wrong answer adds +2.0s (flashed in the HUD) and the card stays until
+correct, with a higher/lower arrow cue pointing from the latest guess toward
+the answer (the penalty already paid for the information). At cards 5 and 10 a
+ghost-pace checkpoint shows the delta against the recorded best run. The
+sprint's images preload before the timer starts; Elixir stays silent during
+the run and reacts on the summary. Live time, summaries, personal bests, and
+leaderboards all show the same three decimal places. Produces one clean,
+shareable number.
+
+- Input: pip keypad, always dealt as two wide rows (1–5 over 6–9).
+- Record: `surgeBest` (lowest time).
 
 ### Core drills
 

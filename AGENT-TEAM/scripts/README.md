@@ -1,4 +1,26 @@
-# Fair Play Referee — evidence and decision scripts
+# Agent Team scripts
+
+## Public season briefing
+
+`season-brief.mjs` gives Call the Season one sanitized snapshot of all five public
+season boards. It calls only the same unauthenticated `/seasons` and `/leaderboards`
+routes available to players, then emits public names, scores, times, and public review
+status. It deliberately strips player ids, tags, profile fields, and any non-board
+data; it has no AWS, referee, account, or write access.
+
+Choose the Free Pass mode from the explicit designation in `GAMES.md`. Surge is
+current and Rain is next; never infer a later designation.
+
+```sh
+node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode surge
+node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode rain --season 2026-09
+```
+
+The default endpoint comes from `apps/web/public/api-config.json`. A source-only test
+may override it with `--api-base-url`; routine agent runs should use the deployed
+endpoint.
+
+## Fair Play Referee — evidence and decision scripts
 
 These standalone Node ESM scripts are the **only sanctioned data and decision
 path** for Protect Fair Play (`AGENT-TEAM/protect-fair-play.md`). Read

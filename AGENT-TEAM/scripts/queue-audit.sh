@@ -7,8 +7,8 @@ command -v gh >/dev/null 2>&1 || { echo "gh CLI not found"; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "jq not found"; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated"; exit 1; }
 
-objectives=("objective:run" "objective:grow" "objective:fair-play")
-allowed='["objective:run","objective:grow","objective:fair-play"]'
+objectives=("objective:run" "objective:grow" "objective:improve" "objective:season" "objective:fair-play")
+allowed='["objective:run","objective:grow","objective:improve","objective:season","objective:fair-play"]'
 retired='["proposal","approved","ready","needs-design","wip","needs-deploy","meta"]'
 issues="$(gh issue list --state open --limit 1000 --json number,title,labels,updatedAt)"
 verdict=0

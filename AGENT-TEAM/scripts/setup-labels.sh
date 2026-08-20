@@ -14,6 +14,8 @@ remove() {
 
 upsert "objective:run" "1D76DB" "Owned end-to-end by Run Drop"
 upsert "objective:grow" "0E8A16" "Owned end-to-end by Grow Drop"
+upsert "objective:improve" "7057FF" "Owned end-to-end by Improve Drop"
+upsert "objective:season" "D4A72C" "Owned end-to-end by Call the Season"
 upsert "objective:fair-play" "B60205" "Owned end-to-end by Protect Fair Play"
 upsert "decision" "FBCA04" "Jamie must answer before the objective can continue"
 upsert "blocked" "000000" "Waiting on an external dependency"
@@ -26,7 +28,7 @@ upsert "enhancement" "A2EEEF" "New or improved capability"
 upsert "eval" "5319E7" "Missing measurement"
 upsert "operations" "D93F0B" "Production, deploy, runtime, or reliability"
 upsert "integrity" "B60205" "Competitive-integrity finding"
-upsert "growth" "0E8A16" "Acquisition, retention, engagement, or season-liveliness finding"
+upsert "growth" "0E8A16" "Acquisition, retention, engagement, or participation finding"
 upsert "meta" "6F42C1" "Objective definitions, automation, or tooling"
 
 # Retired role/queue labels. Durable work now has one objective owner; the checkout

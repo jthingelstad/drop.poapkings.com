@@ -1,6 +1,6 @@
 # AGENT-TEAM — objective owners for Elixir Drop
 
-Three objective owners maintain Drop. Each owns a durable outcome through
+Five objective owners maintain Drop. Each owns a durable outcome through
 measurement, implementation, verification, deployment acceptance, and natural
 product acceptance. There is no Build Manager, Team Manager, or routing pipeline.
 
@@ -9,7 +9,9 @@ product acceptance. There is no Build Manager, Team Manager, or routing pipeline
 | Objective | File | Cadence | Primary question |
 |---|---|---|---|
 | **Run Drop** | `run-drop.md` | Daily and after incidents/deploys | Is the public game healthy, correct, current, observable, and inexpensive to run? |
-| **Grow Drop** | `grow-drop.md` | Daily and at season boundaries | Are more people reaching a first run, returning, and finding the seasons worth playing? |
+| **Grow Drop** | `grow-drop.md` | Daily and at season boundaries | Are more people reaching a first recorded run and returning? |
+| **Improve Drop** | `improve-drop.md` | Weekly and after meaningful player-facing changes | Is playing Drop becoming clearer, more satisfying, and more effective? |
+| **Call the Season** | `call-the-season.md` | Daily check; opening, weekly, and closing publication | Do players know who leads every ranked game and how the rotating Free Pass race stands? |
 | **Protect Fair Play** | `protect-fair-play.md` | Daily and before prize/result decisions | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
 
 Building and testing are capabilities of every objective owner. New modes, material
@@ -33,9 +35,11 @@ Jamie can start with the outcome instead of choosing a role or preparing a ticke
 - `Resume the active watch for <objective or issue>.`
 
 Choose **Run Drop** for availability, execution, deploys, persistence, ordinary defects,
-recovery, or cost; **Grow Drop** for acquisition, activation, retention, onboarding, and
-season value; and **Protect Fair Play** for evidence integrity, referee coverage, and
-reversible visibility decisions. Cross-cutting work keeps one originating owner.
+recovery, or cost; **Grow Drop** for acquisition, first-run conversion, and retention;
+**Improve Drop** for a working experience that is confusing, flat, awkward, or weak at
+teaching; **Call the Season** for factual standings and Free Pass commentary; and
+**Protect Fair Play** for evidence integrity, referee coverage, and reversible visibility
+decisions. Cross-cutting work keeps one originating owner.
 
 ## Project map
 
@@ -45,6 +49,8 @@ reversible visibility decisions. Cross-cutting work keeps one originating owner.
 - `CONTRIBUTING.md` owns the change-specific local and CI source gates.
 - `AGENT-TEAM/scripts/objective-lease.mjs` serializes mutating objective runs in the
   shared checkout.
+- `AGENT-TEAM/scripts/season-brief.mjs` builds Call the Season's public, sanitized
+  five-board snapshot without referee or AWS access.
 - `python3 AGENT-TEAM/scripts/automation_audit.py` verifies the registry against installed
   Codex tasks; use `--registry-only` in source-only checks.
 - `.github/workflows/validate-main.yml` gates `main`; `deploy.yml` serializes and
@@ -53,8 +59,9 @@ reversible visibility decisions. Cross-cutting work keeps one originating owner.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
 - `apps/web/src/data/updates/` holds the three static player-message streams. Every
   owner authors a concise `features.json` entry with a player-visible change; Grow
-  Drop also audits deployed commits daily for omissions. `seasons.json` and
-  `messages.json` remain subject to the human boundary for winners and broad messages.
+  Drop also audits deployed commits daily for omissions. Call the Season owns routine,
+  factual `seasons.json` checkpoints. Final Free Pass selection and award, other prize
+  action, and broad messages remain subject to the human boundary.
 
 ## Issue policy
 
@@ -66,6 +73,8 @@ open issue has exactly one ownership label:
 |---|---|
 | `objective:run` | Run Drop |
 | `objective:grow` | Grow Drop |
+| `objective:improve` | Improve Drop |
+| `objective:season` | Call the Season |
 | `objective:fair-play` | Protect Fair Play |
 
 Work-type labels such as `bug`, `operations`, `growth`, `integrity`, `eval`, and

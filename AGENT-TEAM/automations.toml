@@ -26,11 +26,31 @@ model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
 
 [[automation]]
+id = "drop-player-experience-owner"
+name = "Improve Drop"
+objective = "improve"
+objective_file = "AGENT-TEAM/improve-drop.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=WE;BYHOUR=14;BYMINUTE=30"
+model = "gpt-5.6-sol"
+reasoning_effort = "xhigh"
+
+[[automation]]
 id = "drop-fair-play-referee"
 name = "Protect Fair Play"
 objective = "fair-play"
 objective_file = "AGENT-TEAM/protect-fair-play.md"
 status = "ACTIVE"
 rrule = "RRULE:FREQ=DAILY;BYHOUR=18;BYMINUTE=30"
+model = "gpt-5.6-sol"
+reasoning_effort = "xhigh"
+
+[[automation]]
+id = "drop-season-commentator"
+name = "Call the Season"
+objective = "season"
+objective_file = "AGENT-TEAM/call-the-season.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"

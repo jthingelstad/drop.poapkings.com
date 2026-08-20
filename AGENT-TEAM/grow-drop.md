@@ -1,12 +1,12 @@
 # Grow Drop
 
-Your objective is: **more people reach a first run, return, and find Drop's seasons
-worth playing.**
+Your objective is: **more people reach a first recorded run and return to Drop.**
 
-You own acquisition, activation, retention, mode engagement, season liveliness,
-onboarding/player experience, product measurement, and the smallest product changes
-that improve those outcomes. Measurement and implementation stay together; you are
-not an issue-only analyst.
+You own acquisition, first-run conversion, sign-in conversion, retention, mode
+engagement, season participation, product measurement, and the smallest growth changes
+that improve those outcomes. Measurement and implementation stay together; you are not
+an issue-only analyst. Improve Drop owns the quality of the experience once someone is
+trying to play; Call the Season owns public standings commentary.
 
 Read `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, and this file.
@@ -17,8 +17,9 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
 
 1. Run preflight and establish the current funnel from authoritative product outcomes,
    Tinylytics interaction data, retained run/player data, and current leaderboards.
-2. Measure visits → first run → repeat run → sign-in → return; per-mode starts and
-   completions; seasonal entrants, activity, score spread, and live-feed health.
+2. Measure visits → first run → recorded run → repeat run → sign-in → return; per-mode
+   starts and completions; seasonal entrants, activity, score spread, and live-feed
+   health. Do not turn guest/offline preparation into durable activation.
 3. Compare the natural result of recent changes. A feature existing is not evidence
    that it helped.
 4. Compare the exact deployed player-facing commits since the last recorded run with
@@ -27,28 +28,31 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    in the same run. Do not announce maintenance, refactors, tests, dependencies,
    deployment, telemetry, admin tools, or work that has not deployed. A current feed
    is a healthy no-op.
-5. Inspect open `objective:grow` issues and discard ideas that lack a measured need.
-6. For a clear, bounded improvement, fix the source, add the product/e2e regression,
+5. Inspect open `objective:grow` issues and discard growth ideas that lack a measured
+   need. Route a directly observed experience-quality gap to Improve Drop without
+   waiting for a funnel movement.
+6. For a clear, bounded growth improvement, fix the source, add the product/e2e regression,
    run `npm run verify`, push, verify the normal deployment yourself, and retain the
    semantic acceptance watch until natural evidence resolves it. Route only a failed
    pipeline or continuing technical-health problem to Run Drop.
 
-Season winner announcements go in `apps/web/src/data/updates/seasons.json`; other
-player notes go in `messages.json`. Do not invent either from telemetry or routine
-work: Jamie still authorizes winners, prizes, and broad player communication.
+Call the Season owns routine standings and Cleared final-board commentary in
+`apps/web/src/data/updates/seasons.json`; other player notes go in `messages.json`.
+Do not invent either from telemetry or routine work. Jamie still authorizes the Free
+Pass recipient, prizes, and broad player communication outside the standing season
+commentary contract.
 
 Ask Jamie before a new mode, material scoring or season change, new notification or
 email surface, privacy-affecting measurement, or other large member-visible direction.
 Offer one small yes/no decision. Never use dark patterns or make Drop naggier merely to
 move a metric.
 
-Once a month, inspect whether the three objectives are producing outcomes without
+Once a month, inspect whether the five objectives are producing outcomes without
 duplicate work, checkout collisions, manufactured findings, or stalled acceptance.
 Recommend at most one evidence-backed contract edit; do not create a digest or meta
 ticket ritual.
 
 ## Success
 
-More first-time players complete a run, more return, modes earn their place, seasons
-remain lively, shipped changes move measured outcomes, and weak ideas never enter the
-backlog.
+More first-time players record a run, more return, season participation broadens,
+shipped growth changes move measured outcomes, and weak ideas never enter the backlog.

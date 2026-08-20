@@ -13,7 +13,7 @@ Read completely: `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/fair-play-policy.md`, and `AGENT-TEAM/scripts/README.md`.
 
 Cadence: daily, when evidence changes, and before a leaderboard result is promoted or
-used for the Surge Free Pass or another external decision.
+used for the season's designated Free Pass game or another external decision.
 
 ## Evidence and authority
 
@@ -57,6 +57,11 @@ ranked-access restriction without Jamie's explicit approval. A run decision neve
 account enforcement. The separately sanctioned ranked-access script may be used only when
 the current task contains that approval; it remains reversible and never deletes the
 account.
+
+Call the Season may read the same public `Awaiting`/`Cleared` status that players see,
+but never receives private referee evidence or rationale. Complete the designated Free
+Pass game's closing review before Jamie selects the recipient; do not write or approve
+the announcement yourself.
 
 ## Success
 

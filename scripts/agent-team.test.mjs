@@ -17,8 +17,13 @@ import {
   claimLease,
   clearManualLease,
   clearStaleLease,
+  OBJECTIVES,
   releaseLease,
 } from "../AGENT-TEAM/scripts/objective-lease.mjs";
+import {
+  buildSeasonBrief,
+  RANKED_MODES as RANKED_MODE_FIXTURES,
+} from "../AGENT-TEAM/scripts/season-brief.mjs";
 import {
   createVerifiedDocumentClient,
   REFEREE_ROLE_NAME,
@@ -268,7 +273,7 @@ void test("preflight fails for every unsafe publication state", async (t) => {
   });
 });
 
-void test("automation registry contains exactly the three active objective owners", () => {
+void test("automation registry contains exactly the five active objective owners", () => {
   const source = readFileSync(
     path.join(ROOT, "AGENT-TEAM/automations.toml"),
     "utf8",
@@ -285,12 +290,16 @@ void test("automation registry contains exactly the three active objective owner
   assert.deepEqual(entries.map((entry) => entry.objective).sort(), [
     "fair-play",
     "grow",
+    "improve",
     "run",
+    "season",
   ]);
   const expectedSchedules = {
     "fair-play": "RRULE:FREQ=DAILY;BYHOUR=18;BYMINUTE=30",
     grow: "RRULE:FREQ=DAILY;BYHOUR=12;BYMINUTE=30",
+    improve: "RRULE:FREQ=WEEKLY;BYDAY=WE;BYHOUR=14;BYMINUTE=30",
     run: "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30",
+    season: "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30",
   };
   for (const entry of entries) {
     assert.equal(entry.status, "ACTIVE");
@@ -304,6 +313,18 @@ void test("automation registry contains exactly the three active objective owner
       0o111,
     0,
   );
+  assert.notEqual(
+    statSync(path.join(ROOT, "AGENT-TEAM/scripts/season-brief.mjs")).mode &
+      0o111,
+    0,
+  );
+  assert.deepEqual([...OBJECTIVES].sort(), [
+    "fair-play",
+    "grow",
+    "improve",
+    "run",
+    "season",
+  ]);
 });
 
 void test("objective contract requires the lease and contains no retired queue labels", () => {
@@ -347,6 +368,100 @@ void test("objective contract requires the lease and contains no retired queue l
   assert.match(fairPlayPolicy, /Jamie-confirmed direct playtesting/);
   assert.match(fairPlayPolicy, /never a blanket exemption/);
   assert.match(fairPlayPolicy, /missing.*evidence remains fail-closed/s);
+  const improve = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/improve-drop.md"),
+    "utf8",
+  );
+  assert.match(improve, /quality of the experience once a player reaches Drop/);
+  assert.match(improve, /directly reproducible.*is evidence/s);
+  const season = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/call-the-season.md"),
+    "utf8",
+  );
+  assert.match(
+    season,
+    /Surge is the current designated game and\s+Rain is next/,
+  );
+  assert.match(season, /winning run is Cleared/);
+  assert.match(
+    season,
+    /ask Jamie one yes\/no question before naming the recipient/,
+  );
+  assert.match(season, /Home Free Pass hero name and open that same game/);
+});
+
+void test("season brief contains all five public boards and strips identity fields", async () => {
+  assert.deepEqual(RANKED_MODE_FIXTURES, [
+    "surge",
+    "higher-lower",
+    "trade",
+    "survival",
+    "rain",
+  ]);
+  const season = {
+    id: "2026-09",
+    startsAt: "2026-09-07T09:00:00.000Z",
+    endsAt: "2026-10-05T09:00:00.000Z",
+    durationWeeks: 4,
+    crSeasonId: 136,
+  };
+  const fetchImpl = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === "/seasons") {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ current: season, upcoming: [] }),
+      };
+    }
+    const mode = url.searchParams.get("mode");
+    assert.ok(RANKED_MODE_FIXTURES.includes(mode));
+    assert.equal(url.searchParams.get("season"), season.id);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        mode,
+        scope: "season",
+        seasonId: season.id,
+        entries: [
+          {
+            rank: 1,
+            score: mode === "surge" ? 12.345 : 21,
+            achievedAt: "2026-09-10T12:00:00.000Z",
+            reviewStatus: mode === "rain" ? "pending" : "reviewed",
+            player: {
+              id: `private-${mode}`,
+              publicName: `${mode} leader`,
+              playerTag: "#PRIVATE",
+              email: "private@example.test",
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  const brief = await buildSeasonBrief({
+    apiBaseUrl: "https://drop.example.test",
+    fetchImpl,
+    freePassMode: "rain",
+    now: new Date("2026-09-10T13:00:00.000Z"),
+  });
+  assert.equal(brief.status, "ok");
+  assert.equal(brief.freePassMode, "rain");
+  assert.equal(brief.season.phase, "active");
+  assert.deepEqual(
+    brief.boards.map((board) => board.mode),
+    RANKED_MODE_FIXTURES,
+  );
+  assert.equal(brief.boards.at(-1).leader.reviewStatus, "Awaiting");
+  assert.equal(brief.boards.at(-1).leader.finalEligible, false);
+  const serialized = JSON.stringify(brief);
+  assert.doesNotMatch(
+    serialized,
+    /private-|#PRIVATE|private@example|playerTag/,
+  );
 });
 
 void test("player-visible work carries a small update and Grow audits it daily", () => {
@@ -375,7 +490,7 @@ void test("automation registry passes the common contract audit", () => {
     { cwd: ROOT, encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /OK\s+registry\s+3 objective owners/);
+  assert.match(result.stdout, /OK\s+registry\s+5 objective owners/);
 });
 
 void test("browser CI uses the version-matched Playwright image", () => {

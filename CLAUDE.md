@@ -114,8 +114,10 @@ rank-oriented fields as part of unrelated work.
   agent adds a `features.json` entry in the same change whenever it ships a
   durable player-visible feature or rule change, and never for maintenance,
   refactors, tests, dependencies, deploys, telemetry, or private tools. Grow Drop
-  audits deployed commits daily for anything missed. Season winners and other
-  player messages use their owned files and retain the normal Jamie authority.
+  audits deployed commits daily for anything missed. Call the Season owns routine,
+  source-backed standings and Cleared final game results in `seasons.json` under its
+  standing publication contract. Naming the Free Pass recipient, awarding a prize,
+  other player messages, and broad communication retain the normal Jamie authority.
   Buttondown may occasionally summarize these updates for people who do not log
   in, but it is not the source of truth.
   Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
@@ -281,8 +283,10 @@ rank-oriented fields as part of unrelated work.
   five ranked games in a fixed order that never changes — a player looking for
   Survival finds it in the same place every day. The first hero slide promotes
   one ranked game chosen by UTC day; two hard-coded slides promote the current
-  Free Pass challenge and sharing Drop. Changing those promotions requires a
-  code release. The carousel must never be the only route to a mode. Each All
+  designated Free Pass game and sharing Drop. The Free Pass rotates by explicit
+  season designation: Surge is current and Rain is next; later games must be
+  named in `GAMES.md`, never inferred. Changing the promotion requires a code
+  release. The carousel must never be the only route to a mode. Each All
   Games card highlights the player's own all-time best, not the current board
   leader. Rankings stay on the dedicated Ranks surface rather than trailing
   the mobile Games page. No mode carries a permanent "NEW" badge.
