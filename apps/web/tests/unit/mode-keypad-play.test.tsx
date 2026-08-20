@@ -121,6 +121,7 @@ import { route } from '../../src/lib/router'
 import Surge from '../../src/modes/surge/Surge'
 import Survival from '../../src/modes/survival/Survival'
 import Practice from '../../src/modes/practice/Practice'
+import Ledger from '../../src/modes/practice/Ledger'
 import Rain from '../../src/modes/rain/Rain'
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
@@ -945,7 +946,7 @@ describe('Ledger gameplay', () => {
     hoisted.session.current = session
     let host!: HTMLElement
     void act(() => {
-      host = mount(<Practice />)
+      host = mount(<Ledger />)
     })
     await act(async () => {
       await Promise.resolve()
@@ -1008,7 +1009,7 @@ describe('Ledger gameplay', () => {
     hoisted.session.current = session
     let host!: HTMLElement
     void act(() => {
-      host = mount(<Practice />)
+      host = mount(<Ledger />)
     })
     await act(async () => {
       await Promise.resolve()

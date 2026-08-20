@@ -7,11 +7,13 @@ reworking a mode.
 **Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
 owns.
 
-Shipped state as of August 16, 2026: **six playable game families** — Surge,
-Practice, Higher / Lower, Trade, Survival, and Rain. Practice is now a section
-with two complementary drills: **Cost Recall** and **Ledger**. Both are endless,
-unranked, have no record, and award **no Player XP** — they deliberately touch no
-competitive surface, which is exactly what lets them run forever.
+Shipped state as of August 20, 2026: **six playable game families** — Surge,
+Practice, Higher / Lower, Trade, Survival, and Rain. Practice currently exposes
+one endless drill, **Cost Recall**. Ledger is deactivated: its implementation and
+compatibility contracts remain, but it is absent from discovery and legacy links
+redirect to active Practice. Practice is unranked, has no record, and awards **no
+Player XP** — it deliberately touches no competitive surface, which is exactly
+what lets it run forever.
 Player XP is a per-player activity score (one point per question practiced, right
 or wrong) that drives the arena and is earned by the other five modes;
 leaderboards rank on speed. **Daily Ladder is not shipped and should not be
@@ -132,11 +134,11 @@ in-game hero links there rather than duplicating the full rules.
 
 **Practice** — `/practice` · `apps/web/src/modes/practice/`
 Practice is a training section rather than a single game. Its hub keeps the
-ordinary app shell visible and offers Cost Recall and Ledger. Selecting a drill
-opens the focused game shell. Both drills share the signed `practice` GameMode,
-with `practiceKind` on the challenge distinguishing their validation and
-learning aggregates; a drill can never acquire a leaderboard just by joining
-this section.
+ordinary app shell visible and currently offers Cost Recall. Ledger's retained
+code still shares the signed `practice` GameMode and uses `practiceKind` to
+preserve historical validation and learning aggregates, but the drill is not
+player-facing. A drill can never acquire a leaderboard just by joining this
+section.
 
 **Cost Recall** — `/practice/costs`
 Untimed and **endless**. A card appears; name its cost; repeat until you choose
@@ -192,7 +194,13 @@ feeds the server-owned learning stats (`services/api/src/learning.ts`).
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
   adjacent but randomly offset, so the option set never names the answer.
 
-**Ledger** — `/practice/ledger`
+**Ledger (deactivated; implementation retained)** — legacy `/practice/ledger`
+As of 2026-08-20, Ledger is hidden from Home, the Practice hub, public guides,
+and accessibility/offline discovery. A legacy hash route redirects to the active
+Practice destination. The mechanics below remain documented because stored
+progress, historical runs, server validation, and the source implementation are
+retained while the mode's future is evaluated.
+
 Untimed, endless running-count practice and a direct learning companion to
 Trade. Cards are played one at a time for Blue or Red; after the sequence, the
 player calls `Blue +N`, `Even`, or `Red +N`. Internally the answer uses the same
@@ -465,8 +473,8 @@ bar each; beyond that the series folds into 30 bars, each a stretch's mean
 against that stretch's mean reference, with the x axis naming the range it
 covers. A fatal final answer always keeps its own bar.
 
-**The two drills are exempt** and use `summary/DrillPanel.tsx` instead. Cost
-Recall's review ledger answers "what stuck" and Ledger's
+**Practice drills are exempt** and use `summary/DrillPanel.tsx` instead. Cost
+Recall's review ledger answers "what stuck" and retained Ledger code's
 accuracy-by-sequence-length answers "where does the count break". A drill is not
 racing anything, so seconds are the wrong unit — do not force them into this
 grammar.
@@ -559,8 +567,9 @@ Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Higher/Lower n=5, Survival
 n=4, and Rain n=4. Sharp Trade was rechecked on 2026-08-06 against four accepted
 10-exchange runs across two visible players (best 67.126s, median 75.591s,
 slowest 266.570s): its 300s opener gives that learning run a first milestone,
-240s is the next step, Tyler's best clears 72s with 65s next, and 45s is the
-aspirational ceiling. The design draft's Clockbreaker ladder put five consecutive
+240s is the next step, and Tyler's best clears 72s with 65s next. The later
+38.847s all-time record clears the 40s prismatic target approved on 2026-08-20.
+The design draft's Clockbreaker ladder put five consecutive
 rungs (13–17s) above a 4.7s gap in the real field, so four of them separated
 nobody, while its entry rung excluded 31% of players outright. Ladders with no
 live data behind them are marked "scaled" in the table and should be re-checked
@@ -568,11 +577,12 @@ once badge counters have a month of history. Coin Flip Killer was recalibrated
 on 2026-08-08 when Higher/Lower moved to r3. Tyler's 2026-08-16 play testing
 then produced the approved follow-up: Trade Reader runs
 `3·5·10·15·25·35·50·75·100·125·150`; Surge Runner runs
-`5·10·25·50·75·100·125·150·200·250·300·450`; Stormchaser runs
-`75·200·500·1K·2K·3.5K·5.5K·8.5K·12.5K`; Downpour keeps its first six
+`5·10·25·50·75·100·125·150·200·250·300·450`; Downpour keeps its first six
 steps and ends `135·150`; and Coin Flip Killer keeps `5–50` before new `60·70`
 steps. The live Rain best was 145 and the live Higher/Lower best was 68, leaving
-150 and 70 respectively as the next prismatic targets.
+150 and 70 respectively as the next prismatic targets. The 2026-08-20 product
+review then set the current top rungs: Bridge Read `5K`, Stormchaser `10K`, Reps
+`10K`, Spellcaster `3K`, and Sharp Trade `40s`.
 
 **Daily Drop counts days, not streaks.** Each distinct recorded local calendar
 day advances it once, whether the player uses a ranked mode or Practice. Days do

@@ -305,9 +305,10 @@ rank-oriented fields as part of unrelated work.
   stats — a badge failure must never roll back a recorded run. **Badges award no
   XP**: they stand alone, so a retroactive backfill cannot jump a player several
   arenas. Rungs were calibrated against the live boards on 2026-08-02, with
-  Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06
-  and the five Tyler-tested volume/skill ladders plus Daily Drop reworked on
-  2026-08-16. Daily Drop counts distinct played days, never a streak. The rungs
+  Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06,
+  the five Tyler-tested volume/skill ladders plus Daily Drop reworked on
+  2026-08-16, and five prismatic ceilings revised in the 2026-08-20 product
+  review. Daily Drop counts distinct played days, never a streak. The rungs
   are not copied from the design draft; ladders with no live data behind them
   are marked "scaled" in the table and want a re-check.
 - **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is

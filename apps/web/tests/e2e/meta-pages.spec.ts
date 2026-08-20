@@ -87,6 +87,10 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(page.locator('.static-mode')).toHaveCount(6)
   await expect(page.getByRole('link', { name: 'Play Surge' })).toHaveAttribute('href', '/#/surge')
   await expect(page.getByRole('link', { name: 'Fair Play' }).first()).toHaveAttribute('href', '/fair-play/')
+  await expect(page.getByText('Ledger', { exact: true })).toHaveCount(0)
+
+  await page.goto('/learn-elixir-costs/')
+  await expect(page.getByText('Ledger', { exact: true })).toHaveCount(0)
 
   await page.goto('/elixir-costs/')
   await expect(page.locator('.static-card-grid li')).toHaveCount(120)
@@ -95,6 +99,13 @@ test('generated guides expose the canonical public content without revealing hid
   await page.goto('/badges/')
   await expect(page.locator('.static-badge')).toHaveCount(22)
   await expect(page.getByRole('heading', { name: '7 hidden badges' })).toBeVisible()
+  const badge = (name: string) =>
+    page.locator('.static-badge').filter({ has: page.getByRole('heading', { name, exact: true }) })
+  await expect(badge('Bridge Read')).toContainText('4,000 · 5,000')
+  await expect(badge('Stormchaser')).toContainText('8,500 · 10,000')
+  await expect(badge('Reps')).toContainText('8,000 · 10,000')
+  await expect(badge('Spellcaster')).toContainText('2,500 · 3,000')
+  await expect(badge('Sharp Trade')).toContainText('50s · 40s')
   await expect(page.getByText('Night Shift', { exact: true })).toHaveCount(0)
   await expect(page.getByText(/midnight and 5:00/)).toHaveCount(0)
 

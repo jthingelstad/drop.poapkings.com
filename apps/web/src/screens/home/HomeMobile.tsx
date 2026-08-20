@@ -6,6 +6,7 @@ import Wordmark from '../../components/brand/Wordmark'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
 import { boardRouteForMode } from '../../lib/game-routes'
+import { PRACTICE_LEDGER_ENABLED } from '../../lib/practice-navigation'
 import { layout } from '../../lib/use-layout'
 import { registerLogoTap } from '../../lib/screensaver'
 import { scoreLabel } from '../../lib/game-metadata'
@@ -14,12 +15,18 @@ import type { HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
 import { HomeHeroCarousel, HomeRow } from './home-bits'
 
-// The two focused drills, held under one "Practice" list with an UNRANKED pill —
-// the practice hub is retired as a destination, so nothing points at /practice.
+// Active drills sit under one "Practice" list with an UNRANKED pill. Ledger's
+// retained implementation stays out of discovery while it is deactivated.
 const DRILLS = [
-  { path: '/practice/costs', name: 'Cost Recall', meta: 'Card knowledge', icon: 'zap' as const },
-  { path: '/practice/ledger', name: 'Ledger', meta: 'Battle awareness', icon: 'trending-up' as const }
-]
+  { path: '/practice/costs', name: 'Cost Recall', meta: 'Card knowledge', icon: 'zap' as const, visible: true },
+  {
+    path: '/practice/ledger',
+    name: 'Ledger',
+    meta: 'Battle awareness',
+    icon: 'trending-up' as const,
+    visible: PRACTICE_LEDGER_ENABLED
+  }
+].filter((drill) => drill.visible)
 
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()

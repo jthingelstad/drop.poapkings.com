@@ -234,16 +234,16 @@ describe('BadgeGrid', () => {
   })
 
   it('describes descending time progress and a completed milestone ladder', async () => {
-    draw(<BadgeGrid states={[badgeState('clockbreaker', 34.2, 3, [12, 9, 5, 2]), badgeState('reps', 20_000, 8)]} />)
+    draw(<BadgeGrid states={[badgeState('clockbreaker', 34.2, 3, [12, 9, 5, 2]), badgeState('reps', 10_000, 8)]} />)
 
     await click(buttonNamed('Clockbreaker, 35s'))
     expect(host.textContent).toContain('Best: 34.2s · 4.2s faster to go')
     expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('16')
     await click(buttonNamed('Close'))
 
-    await click(buttonNamed('Reps, 20K'))
+    await click(buttonNamed('Reps, 10K'))
     expect(host.textContent).toContain('Milestones complete')
-    expect(host.textContent).toContain('Current: 20K · all milestones achieved')
+    expect(host.textContent).toContain('Current: 10K · all milestones achieved')
     expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100')
   })
 

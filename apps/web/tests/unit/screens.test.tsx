@@ -563,9 +563,9 @@ describe('HomeMobile', () => {
     for (const name of ['Surge', 'Higher / Lower', 'Rain', 'Trade', 'Survival']) {
       expect(html).toContain(name)
     }
-    // Practice holds both drills under one UNRANKED list.
+    // Practice exposes only the active drill under one UNRANKED list.
     expect(html).toContain('Cost Recall')
-    expect(html).toContain('Ledger')
+    expect(html).not.toContain('Ledger')
     expect(html).toContain('UNRANKED')
     // A readiness indicator, not a warning.
     expect(html).toContain('Games are available to play offline')

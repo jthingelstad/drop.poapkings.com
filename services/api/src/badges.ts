@@ -25,7 +25,10 @@ import type { GameMode } from "./types.js";
 // retained so a later exclusion or restoration invalidates the bag again.
 // Version 6 replaces Daily Drop's consecutive-day best with a cumulative count
 // of distinct played days and settles the August 16 play-test rung updates.
-export const BADGE_COUNTERS_VERSION = 6;
+// Version 7 lowers five prismatic targets from the August 20 product review.
+// Existing counters are re-settled against the new ladders; Sharp Trade's
+// per-rung run counts rebuild because its final time boundary changed.
+export const BADGE_COUNTERS_VERSION = 7;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -764,6 +767,8 @@ const VERSIONED_SKILL_BADGES = [
 // Versions 1-4 can contain incomparable skill scores from retired boards, so
 // those four badges rebuild from current-board history. Version 5 already has
 // comparable skill counters and retains their original earning timestamps.
+// Version 6 has comparable values too, but Sharp Trade's final rung changed
+// from 45s to 40s, so its per-rung run counts need current-board history again.
 // Every migration rebuilds Daily Drop because a streak value cannot be safely
 // converted into a distinct-day count without the underlying history.
 export function migrateBadgeCounters(
@@ -771,16 +776,19 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (![1, 2, 3, 4, 5].includes(input.version))
+  if (![1, 2, 3, 4, 5, 6].includes(input.version))
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
   const rebuildVersionedSkillBadges = input.version <= 4;
+  const rebuildSharpTradeRungCounts = input.version === 6;
   if (rebuildVersionedSkillBadges) {
     for (const slug of VERSIONED_SKILL_BADGES) {
       delete counters.values[slug];
       delete counters.runsAtRung[slug];
       delete counters.earned[slug];
     }
+  } else if (rebuildSharpTradeRungCounts) {
+    delete counters.runsAtRung["sharp-trade"];
   }
 
   delete counters.values["daily-drop"];
@@ -799,16 +807,21 @@ export function migrateBadgeCounters(
     // Legacy history has no timezone, so migration uses the same UTC-day
     // approximation as a first profile backfill. Live completions use localDay.
     foldDay(counters.aux, counters.values, run.completedAt.slice(0, 10));
-    if (!rebuildVersionedSkillBadges || !isCurrentBoardRun(run)) continue;
-    if (run.mode === "trade") {
-      const seconds = run.score / 1_000;
-      lower(counters.values, "sharp-trade", seconds);
-      countRunAtRungs(counters, "sharp-trade", seconds);
+    if (!isCurrentBoardRun(run)) continue;
+    if (rebuildVersionedSkillBadges) {
+      if (run.mode === "trade") {
+        const seconds = run.score / 1_000;
+        lower(counters.values, "sharp-trade", seconds);
+        countRunAtRungs(counters, "sharp-trade", seconds);
+      }
+      if (run.mode === "higher-lower")
+        raise(counters.values, "coin-flip-killer", run.score);
+      if (run.mode === "survival")
+        raise(counters.values, "unbroken", run.score);
+      if (run.mode === "rain") raise(counters.values, "downpour", run.score);
+    } else if (rebuildSharpTradeRungCounts && run.mode === "trade") {
+      countRunAtRungs(counters, "sharp-trade", run.score / 1_000);
     }
-    if (run.mode === "higher-lower")
-      raise(counters.values, "coin-flip-killer", run.score);
-    if (run.mode === "survival") raise(counters.values, "unbroken", run.score);
-    if (run.mode === "rain") raise(counters.values, "downpour", run.score);
   }
   return settle(counters, at);
 }

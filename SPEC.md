@@ -215,12 +215,14 @@ Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
 leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
 from the type, so a Practice best is unrepresentable rather than merely
-discouraged). `practiceKind` on the signed challenge routes `/practice/costs`
-and `/practice/ledger` through distinct transcript validation and learning
-aggregates without adding another `GameMode`. Cost Recall validates answer-card
-set membership because the client adaptively reorders the pool. Ledger validates
-every 2–6-play sequence against that same pool and recomputes Red spend minus
-Blue spend from canonical costs. Those relaxations are safe only because
+discouraged). Cost Recall is the only active drill. Ledger is deactivated in the
+browser: discovery omits it and `/practice/ledger` redirects to active Practice.
+Its `practiceKind`, transcript validation, learning aggregates, stored progress,
+and implementation remain for historical and rolling compatibility without
+adding another `GameMode`. Cost Recall validates answer-card set membership
+because the client adaptively reorders the pool. Retained Ledger validation
+checks every 2–6-play sequence against that same pool and recomputes Red spend
+minus Blue spend from canonical costs. Those relaxations are safe only because
 nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
 Each ranked mode has three boards, selected by the `scope` query param on
@@ -266,13 +268,13 @@ Product decisions currently in force:
   never Trade or Ledger, which share the RED/BLUE exchange board. (The old single
   row and the opt-in Speedrun keyboard setting were removed in the 2026 refresh:
   two rows is the only keypad.)
-- Both Practice drills are learning loops, not finite rounds: no progress bar and no share
-  action. It times the first response invisibly, separates requested assistance
+- Active Practice is a learning loop, not a finite round: no progress bar and no
+  share action. It times the first response invisibly, separates requested assistance
   from recall, offers voluntary help after seven idle seconds, gives keypad
   recall one anchored higher/lower retry, then reveals the exact answer. Missed
   cards return through the short-term spaced-review queue documented in
   `GAMES.md`.
-- Ledger sequences adapt from two guided plays to six tracked plays. It uses
+- Deactivated Ledger code adapts sequences from two guided plays to six tracked plays. It uses
   Cost Recall fluency only to decide which faded-stage costs remain visible;
   Ledger outcomes never mutate those per-card stats. Requested `Show ledger`
   help is stored separately from unassisted balance reads.
@@ -457,7 +459,8 @@ badge. Legacy history has no timezone, so a rebuild uses its UTC completion date
 for those rows and local days for live completions. Counter version 6 rebuilds
 that distinct-day count from history, settles the 2026-08-16 play-test ladders,
 and preserves forward-only state such as Podium, Reps, Clean Sweep, and hidden
-badges. `backfilled`
+badges. Counter version 7 re-settles the August 20 prismatic targets and rebuilds
+Sharp Trade's per-rung counts for its new 40-second ceiling. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Its identity projection also

@@ -96,7 +96,7 @@ describe("rung derivation", () => {
     expect(rungIndexFor(sharpTrade, 266.57)).toBe(0);
     // Tyler's current-board best clears 72s with 65s next.
     expect(rungIndexFor(sharpTrade, 67.126)).toBe(10);
-    expect(sharpTrade.rungs.at(-1)).toBe(45);
+    expect(sharpTrade.rungs.at(-1)).toBe(40);
   });
 
   it("puts the live Higher/Lower best one rung below prismatic", () => {
@@ -116,7 +116,10 @@ describe("rung derivation", () => {
     expect(downpour.rungs[rungIndexFor(downpour, 145) + 1]).toBe(150);
   });
 
-  it("uses the approved play-test mastery ladders", () => {
+  it("uses the approved mastery and card-knowledge ladders", () => {
+    expect(BADGE_LIST.find((b) => b.slug === "bridge-read")?.rungs).toEqual([
+      50, 125, 300, 600, 1_200, 2_000, 3_000, 4_000, 5_000,
+    ]);
     expect(BADGE_LIST.find((b) => b.slug === "trade-reader")?.rungs).toEqual([
       3, 5, 10, 15, 25, 35, 50, 75, 100, 125, 150,
     ]);
@@ -124,7 +127,13 @@ describe("rung derivation", () => {
       5, 10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 450,
     ]);
     expect(BADGE_LIST.find((b) => b.slug === "stormchaser")?.rungs).toEqual([
-      75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 12_500,
+      75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 10_000,
+    ]);
+    expect(BADGE_LIST.find((b) => b.slug === "reps")?.rungs).toEqual([
+      100, 250, 500, 1_000, 2_000, 4_000, 6_000, 8_000, 10_000,
+    ]);
+    expect(BADGE_LIST.find((b) => b.slug === "spellcaster")?.rungs).toEqual([
+      50, 125, 300, 600, 1_200, 2_500, 3_000,
     ]);
   });
 
@@ -614,7 +623,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(6);
+    expect(migrated.version).toBe(7);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -675,7 +684,7 @@ describe("recomputeCounters", () => {
     );
 
     expect(migrated).toMatchObject({
-      version: 6,
+      version: 7,
       aux: {
         playedDays: ["2026-08-01", "2026-08-07", "2026-08-21"],
         dayRuns: 1,
@@ -697,6 +706,60 @@ describe("recomputeCounters", () => {
       value: 145,
       rungIndex: 6,
     });
+  });
+
+  it("migrates version 6 into the revised prismatic targets", () => {
+    const stored = emptyCounters();
+    stored.version = 6;
+    stored.values["bridge-read"] = 5_000;
+    stored.values.stormchaser = 10_000;
+    stored.values.reps = 10_000;
+    stored.values.spellcaster = 3_000;
+    stored.values["sharp-trade"] = 38.847;
+    stored.earned["bridge-read"] = Array(7).fill("2026-08-18T00:52:09.863Z");
+    stored.earned.stormchaser = Array(8).fill("2026-08-18T00:52:09.863Z");
+    stored.earned.reps = Array(7).fill("2026-08-18T00:52:09.863Z");
+    stored.earned.spellcaster = Array(6).fill("2026-08-18T00:52:09.863Z");
+    stored.earned["sharp-trade"] = Array(16).fill("2026-08-18T00:52:09.863Z");
+    stored.runsAtRung["sharp-trade"] = Array(16).fill(2);
+
+    const migrated = migrateBadgeCounters(
+      stored,
+      [
+        {
+          mode: "trade",
+          boardEpoch: "r2",
+          score: 38_847,
+          completedAt: "2026-08-18T00:52:09.863Z",
+        },
+        {
+          mode: "trade",
+          boardEpoch: "r2",
+          score: 44_000,
+          completedAt: "2026-08-18T01:00:00.000Z",
+        },
+      ],
+      "2026-08-20T03:30:00.000Z",
+    );
+
+    expect(migrated.version).toBe(7);
+    for (const slug of [
+      "bridge-read",
+      "stormchaser",
+      "reps",
+      "spellcaster",
+      "sharp-trade",
+    ]) {
+      expect(stateOf(migrated, slug).rungIndex, slug).toBe(
+        BADGE_LIST.find((badge) => badge.slug === slug)!.rungs.length - 1,
+      );
+    }
+    expect(migrated.runsAtRung["sharp-trade"]).toEqual([
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1,
+    ]);
+    expect(migrated.earned["sharp-trade"]).toEqual(
+      stored.earned["sharp-trade"],
+    );
   });
 
   it("leaves the transcript-derived badges at zero — they are forward-only", () => {
@@ -814,7 +877,7 @@ describe("recomputeCounters", () => {
       { "full-cup": [excludedAt] },
     );
     expect(reconciled).toMatchObject({
-      version: 6,
+      version: 7,
       refereeReconciled: true,
       refereeDecisionRevision: 1,
     });

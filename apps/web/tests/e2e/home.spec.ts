@@ -100,9 +100,9 @@ test('practice choices join Games on mobile and stay in the Practice destination
   } else {
     const practice = page.locator('section[aria-labelledby="home-practice-title"]')
     await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
-    await expect(practice.locator('.ed-grow--drill')).toHaveCount(2)
+    await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
     await expect(practice.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
-    await expect(practice.getByRole('button', { name: /Ledger/ })).toBeVisible()
+    await expect(practice.getByRole('button', { name: /Ledger/ })).toHaveCount(0)
 
     // The practice hub is retired as a destination: /practice folds into Play.
     await page.goto('/#/practice')

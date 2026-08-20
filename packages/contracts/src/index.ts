@@ -529,7 +529,7 @@ export const BADGES = [
     name: "Bridge Read",
     group: "mode-mastery",
     kind: "count",
-    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000, 6_000, 9_000],
+    rungs: [50, 125, 300, 600, 1_200, 2_000, 3_000, 4_000, 5_000],
     requirement: "Correct reads in Higher / Lower",
   },
   {
@@ -553,7 +553,7 @@ export const BADGES = [
     name: "Stormchaser",
     group: "mode-mastery",
     kind: "count",
-    rungs: [75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 12_500],
+    rungs: [75, 200, 500, 1_000, 2_000, 3_500, 5_500, 8_500, 10_000],
     requirement: "Cards cleared in Rain",
   },
   {
@@ -561,7 +561,7 @@ export const BADGES = [
     name: "Reps",
     group: "mode-mastery",
     kind: "count",
-    rungs: [100, 250, 500, 1_000, 2_000, 4_000, 7_000, 12_000, 20_000],
+    rungs: [100, 250, 500, 1_000, 2_000, 4_000, 6_000, 8_000, 10_000],
     requirement: "Questions answered in Practice",
   },
 
@@ -589,7 +589,7 @@ export const BADGES = [
     group: "mode-skill",
     kind: "time",
     rungs: [
-      300, 240, 200, 170, 145, 125, 110, 95, 85, 78, 72, 65, 60, 55, 50, 45,
+      300, 240, 200, 170, 145, 125, 110, 95, 85, 78, 72, 65, 60, 55, 50, 40,
     ],
     unit: "seconds",
     requirement: "Fastest 10-exchange Trade run",
@@ -686,7 +686,7 @@ export const BADGES = [
     name: "Spellcaster",
     group: "card-knowledge",
     kind: "count",
-    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000],
+    rungs: [50, 125, 300, 600, 1_200, 2_500, 3_000],
     requirement: "Correct reads on spells",
   },
   {

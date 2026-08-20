@@ -158,49 +158,6 @@ test('Practice is actually playable with player services unreachable', { tag: '@
   await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card!.name)
 })
 
-test(
-  'Ledger remains local, playable, and unsaved with player services unreachable',
-  { tag: '@deploy' },
-  async ({ page }) => {
-    allowOfflineTransportErrors.add(page)
-    await page.unroute(testApiRoute)
-    await page.route(testApiRoute, (route) => route.abort('internetdisconnected'))
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
-    })
-    let runRequests = 0
-    page.on('request', (request) => {
-      if (/\/runs\/(?:start|complete)$/.test(new URL(request.url()).pathname)) runRequests += 1
-    })
-
-    await page.goto('/#/practice/ledger')
-    await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
-    await expect(page.locator('.ed-xpad__key:not(:disabled)').first()).toBeVisible({ timeout: 12_000 })
-
-    const balance = await page.locator('.ed-xboard').evaluate(
-      (board, catalog) => {
-        const costs = new Map(
-          (catalog as Array<{ id: number; elixir: number }>).map((card) => [String(card.id), card.elixir])
-        )
-        const total = (selector: string) =>
-          [...board.querySelectorAll<HTMLElement>(selector)].reduce(
-            (sum, card) => sum + (costs.get(card.dataset.cardId ?? '') ?? 0),
-            0
-          )
-        return total('.ed-xlane--red .ed-xcard') - total('.ed-xlane--blue .ed-xcard')
-      },
-      [...cardsById.values()].map(({ id, elixir }) => ({ id, elixir }))
-    )
-    const answer = balance > 0 ? `Blue ahead by ${balance}` : balance < 0 ? `Red ahead by ${Math.abs(balance)}` : 'Even'
-    await page.getByRole('button', { name: answer, exact: true }).click()
-    await expect(page.locator('.ed-game__progress')).toContainText('1 checked')
-    await page.getByRole('button', { name: 'End session' }).click()
-
-    await expect(page.locator('.ed-sum__state')).toContainText('board never saw it')
-    expect(runRequests).toBe(0)
-  }
-)
-
 const offlineModes = ['surge', 'practice', 'higher-lower', 'trade', 'survival', 'rain'] as const
 
 for (const mode of offlineModes) {
