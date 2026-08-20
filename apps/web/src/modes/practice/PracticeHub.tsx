@@ -11,7 +11,7 @@ export default function PracticeHub() {
         <div>
           <div class="eyebrow">Training grounds</div>
           <h1>Practice</h1>
-          <p>Open Cost Recall. No clock, no ranks—just sharper Clash Royale reads.</p>
+          <p>Start practicing. No clock, no ranks—just sharper Clash Royale reads.</p>
         </div>
       </header>
 

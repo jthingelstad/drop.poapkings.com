@@ -6,7 +6,8 @@ test('Practice hides Ledger and redirects its legacy route', async ({ page, view
   await page.goto(desktop ? '/#/practice' : '/')
 
   await expect(page.locator(desktop ? '.practice-hub' : '.ed-more__aside--pill')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Cost Recall/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Practice/ })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('Cost Recall')
   await expect(page.getByRole('button', { name: /Ledger/ })).toHaveCount(0)
 
   await page.goto('/#/practice/ledger')

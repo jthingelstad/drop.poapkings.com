@@ -215,15 +215,16 @@ Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
 leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
 from the type, so a Practice best is unrepresentable rather than merely
-discouraged). Cost Recall is the only active drill. Ledger is deactivated in the
+discouraged). Practice is the only active drill. Ledger is deactivated in the
 browser: discovery omits it and `/practice/ledger` redirects to active Practice.
 Its `practiceKind`, transcript validation, learning aggregates, stored progress,
 and implementation remain for historical and rolling compatibility without
-adding another `GameMode`. Cost Recall validates answer-card set membership
-because the client adaptively reorders the pool. Retained Ledger validation
-checks every 2–6-play sequence against that same pool and recomputes Red spend
-minus Blue spend from canonical costs. Those relaxations are safe only because
-nothing about Practice is competitive. `GAMES.md` owns the mechanics.
+adding another `GameMode`. The active `practiceKind: costs` transcript validates
+answer-card set membership because the client adaptively reorders the pool.
+Retained Ledger validation checks every 2–6-play sequence against that same pool
+and recomputes Red spend minus Blue spend from canonical costs. Those
+relaxations are safe only because nothing about Practice is competitive.
+`GAMES.md` owns the mechanics.
 
 Each ranked mode has three boards, selected by the `scope` query param on
 `GET /leaderboards` (`season`, the default, `all-time`, or `clan`):
@@ -261,7 +262,7 @@ Product decisions currently in force:
 
 - Surge and Trade are golf-time modes: lower is better.
 - Wrong timed answers add `+2.0s` and leave the prompt live until solved.
-- Cost Recall defaults to the pip keypad and also offers 4-button choices. The
+- Practice defaults to the pip keypad and also offers 4-button choices. The
   keypad has one key per cost the catalog actually has (currently 1–9), always
   dealt as two full-width rows — 1–5 over 6–9 — for roughly double the tap-target
   width, everywhere the pip keypad renders (Surge, Practice, Survival, Rain) —
@@ -274,8 +275,8 @@ Product decisions currently in force:
   recall one anchored higher/lower retry, then reveals the exact answer. Missed
   cards return through the short-term spaced-review queue documented in
   `GAMES.md`.
-- Deactivated Ledger code adapts sequences from two guided plays to six tracked plays. It uses
-  Cost Recall fluency only to decide which faded-stage costs remain visible;
+- Deactivated Ledger code adapts sequences from two guided plays to six tracked
+  plays. It uses Practice fluency only to decide which faded-stage costs remain visible;
   Ledger outcomes never mutate those per-card stats. Requested `Show ledger`
   help is stored separately from unassisted balance reads.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
@@ -430,7 +431,7 @@ The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape 
 
 Authoritative learning telemetry is server-side: accepted completions in the
 card-recall modes fold per-card outcomes (derived from the validated
-transcript) into a per-player CARDSTATS item. Cost Recall transcripts additionally
+transcript) into a per-player CARDSTATS item. Practice transcripts additionally
 carry bounded first-response milliseconds and whether recognition help was
 used; the aggregate keeps assisted recognition separate and averages only
 unassisted recall latency. Legacy rows fall back to their lifetime counters.
@@ -439,7 +440,7 @@ into a per-player LEDGERSTATS item; they contribute no CARDSTATS results. GET
 `/me` retains both summaries and account deletion sweeps both player-partition
 items. Learning telemetry does not affect official challenge generation;
 Practice's device-local deals may use their local copies. Immutable run history
-also retains the validated `answerCount` (not the raw transcript), so Cost Recall
+also retains the validated `answerCount` (not the raw transcript), so Practice
 volume can be rebuilt without storing a second copy of a player's guesses;
 Ledger stores zero there to keep Reps and Clean Sweep isolated.
 

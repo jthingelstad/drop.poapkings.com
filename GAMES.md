@@ -8,8 +8,8 @@ reworking a mode.
 owns.
 
 Shipped state as of August 20, 2026: **six playable game families** — Surge,
-Practice, Higher / Lower, Trade, Survival, and Rain. Practice currently exposes
-one endless drill, **Cost Recall**. Ledger is deactivated: its implementation and
+Practice, Higher / Lower, Trade, Survival, and Rain. Practice is one endless
+card-cost drill. Ledger is deactivated: its implementation and
 compatibility contracts remain, but it is absent from discovery and legacy links
 redirect to active Practice. Practice is unranked, has no record, and awards **no
 Player XP** — it deliberately touches no competitive surface, which is exactly
@@ -132,15 +132,17 @@ in-game hero links there rather than duplicating the full rules.
 
 ### Core drills
 
-**Practice** — `/practice` · `apps/web/src/modes/practice/`
-Practice is a training section rather than a single game. Its hub keeps the
-ordinary app shell visible and currently offers Cost Recall. Ledger's retained
-code still shares the signed `practice` GameMode and uses `practiceKind` to
-preserve historical validation and learning aggregates, but the drill is not
-player-facing. A drill can never acquire a leaderboard just by joining this
-section.
+**Practice** — `/practice` (active play: `/practice/costs`) ·
+`apps/web/src/modes/practice/`
+Practice is the one active training drill. Its desktop landing surface keeps the
+ordinary app shell visible before opening the focused game shell; mobile enters
+active play directly. The `/practice/costs` path and `practiceKind: costs` value
+remain compatibility identifiers, not a second player-facing name. Ledger's
+retained code still shares the signed `practice` GameMode and uses
+`practiceKind: ledger` to preserve historical validation and learning
+aggregates, but that drill is not player-facing. Neither path can acquire a
+leaderboard just by belonging to Practice.
 
-**Cost Recall** — `/practice/costs`
 Untimed and **endless**. A card appears; name its cost; repeat until you choose
 to stop, via the always-available icon-only close control in the top bar
 (accessibly named **End session**). There is no round
@@ -213,7 +215,7 @@ Ledger adapts in three stages using its own device-local progress:
 - **Guided** starts at two plays. Card costs and the running balance are visible
   during the sequence, then the final answer is recalled.
 - **Faded** grows to three and four plays. Costs disappear only for cards whose
-  Cost Recall history shows fluent, accurate, unassisted recall; weak, slow, and
+  Practice history shows fluent, accurate, unassisted recall; weak, slow, and
   unseen cards stay scaffolded.
 - **Tracked** grows from four to six plays. Costs are hidden and previous cards
   leave the board, training the live working-memory read used in a match.
@@ -228,7 +230,7 @@ and the next adaptive stage—never a score, best, streak, share action, or rank
 
 Online completion validates every play against the signed pool, recomputes the
 balance from canonical costs, and folds the result into a separate
-`LEDGERSTATS` item. Ledger never writes per-card Cost Recall mastery, Reps, or
+`LEDGERSTATS` item. Ledger never writes per-card Practice mastery, Reps, or
 Clean Sweep; its history `answerCount` is zero so a later badge rebuild keeps
 that boundary. Offline sessions update only `elixirdrop:ledgerStats` on the
 device and are never queued for reconnect.

@@ -15,7 +15,7 @@ export default function Practice() {
     return PRACTICE_LEDGER_ENABLED ? <Ledger /> : <InactiveLedgerRedirect />
   }
   if (route.value.startsWith('/practice/costs')) {
-    return <PracticeLoop eyebrow="Cost Recall session" onExit={() => navigate(practiceLandingPath())} />
+    return <PracticeLoop eyebrow="Practice session" onExit={() => navigate(practiceLandingPath())} />
   }
   return <PracticeHub />
 }

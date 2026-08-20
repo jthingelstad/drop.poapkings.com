@@ -3,8 +3,8 @@ import { expect, isDesktopViewport, test } from './fixtures'
 
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home' },
-  { hash: '#/practice', label: 'Practice', ready: '.practice-hub, .ed-home' },
-  { hash: '#/practice/costs', label: 'Cost Recall', ready: '.ed-game' },
+  { hash: '#/practice', label: 'Practice landing', ready: '.practice-hub, .ed-home' },
+  { hash: '#/practice/costs', label: 'Practice active play', ready: '.ed-game' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
   { hash: '#/trade', label: 'Trade', ready: '.ed-game' },
@@ -24,7 +24,7 @@ for (const route of a11yRoutes) {
     await page.goto('/')
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
-    if (route.label === 'Practice') {
+    if (route.hash === '#/practice') {
       await expect(page.getByRole('main')).toHaveCount(1)
       if (isDesktopViewport(viewport)) await expect(page.locator('.practice-hub')).toBeVisible()
       else {

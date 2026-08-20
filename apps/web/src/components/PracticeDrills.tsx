@@ -5,7 +5,7 @@ import { PRACTICE_LEDGER_ENABLED } from '../lib/practice-navigation'
 const DRILLS = [
   {
     path: '/practice/costs',
-    name: 'Cost Recall',
+    name: 'Practice',
     eyebrow: 'Card knowledge',
     description: 'Name card costs. Misses return after a retrieval gap until the answer sticks.',
     foot: 'Adaptive cards · Optional hints',
@@ -49,7 +49,7 @@ export default function PracticeDrills() {
       </div>
 
       <p class="practice-note">
-        <Icon name="wifi-off" /> Cost Recall works offline. Offline learning stays on this device.
+        <Icon name="wifi-off" /> Practice works offline. Offline learning stays on this device.
       </p>
     </>
   )

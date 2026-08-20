@@ -247,7 +247,7 @@ test.describe('mobile timed-mode controls', () => {
 test.describe('mobile-width mouse fallback', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: false })
 
-  test('opens Cost Recall from the ranked touch-only gate', { tag: '@deploy' }, async ({ page }) => {
+  test('opens Practice from the ranked touch-only gate', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/survival')
     // The gate names the mode it stopped and states the reason once.
     await expect(page.getByText('Survival is a thumb game')).toBeVisible()

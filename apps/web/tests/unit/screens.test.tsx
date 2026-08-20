@@ -564,7 +564,8 @@ describe('HomeMobile', () => {
       expect(html).toContain(name)
     }
     // Practice exposes only the active drill under one UNRANKED list.
-    expect(html).toContain('Cost Recall')
+    expect(html).toContain('ed-grow__name">Practice</strong>')
+    expect(html).not.toContain('Cost Recall')
     expect(html).not.toContain('Ledger')
     expect(html).toContain('UNRANKED')
     // A readiness indicator, not a warning.
@@ -591,7 +592,7 @@ describe('HomeMobile', () => {
 
     expect(html).toContain('PLAYS HERE')
     expect(html).not.toContain('UNRANKED')
-    expect(html.indexOf('Cost Recall')).toBeLessThan(html.indexOf('Read the boards'))
+    expect(html.indexOf('ed-grow__name">Practice</strong>')).toBeLessThan(html.indexOf('Read the boards'))
     expect(html).toContain('Board →')
     // The hero keeps its art and numbers and states where ranked play happens;
     // it does not rename PLAY into a status.

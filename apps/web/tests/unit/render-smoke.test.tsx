@@ -88,7 +88,7 @@ describe('SSR render smoke', () => {
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain('Practice')
-    expect(html).toContain('Cost Recall')
+    expect(html).not.toContain('Cost Recall')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('practice-hub main-content')
     expect(html).not.toContain('<h1 class="sr-only">Practice</h1>')

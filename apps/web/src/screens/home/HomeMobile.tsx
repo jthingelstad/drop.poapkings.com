@@ -18,7 +18,7 @@ import { HomeHeroCarousel, HomeRow } from './home-bits'
 // Active drills sit under one "Practice" list with an UNRANKED pill. Ledger's
 // retained implementation stays out of discovery while it is deactivated.
 const DRILLS = [
-  { path: '/practice/costs', name: 'Cost Recall', meta: 'Card knowledge', icon: 'zap' as const, visible: true },
+  { path: '/practice/costs', name: 'Practice', meta: 'Card knowledge', icon: 'zap' as const, visible: true },
   {
     path: '/practice/ledger',
     name: 'Ledger',

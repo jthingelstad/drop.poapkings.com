@@ -22,7 +22,7 @@ field belongs to that field.
 
 | Surface | Keys | Reachable on a mouse-only desktop? |
 | --- | --- | --- |
-| Pip keypad — Surge, Survival, Rain, Cost Recall (`PipKeypad.tsx`) | `1`–`9` | **Cost Recall only** |
+| Pip keypad — Surge, Survival, Rain, Practice (`PipKeypad.tsx`) | `1`–`9` | **Practice only** |
 | Higher / Lower (`HigherLower.tsx`) | `↑`/`↓`, with `←`/`→` aliases | No |
 | Exchange pad — Trade, Ledger (`Trade.tsx`, `Ledger.tsx`) | `1`–`4` Blue, `6`–`9` Red, `0`/`5` Even | **Ledger only** |
 | Detail dialogs (`DetailModal.tsx`) | `Escape`, `Tab` trap | Yes |
@@ -43,9 +43,9 @@ for player-visible copy about a key and there is none. A desktop player finds th
 number keys by guessing, and never finds `↑`/`↓` at all because Higher / Lower is
 gated off anyway.
 
-**2. Cost Recall's four-choice input has no keyboard path.** `MultipleChoice.tsx`
+**2. Practice's four-choice input has no keyboard path.** `MultipleChoice.tsx`
 renders four buttons and binds nothing. This is the one gap that hurts today,
-because Cost Recall is one of only two modes a desktop player can reach, and the
+because Practice is one of only two modes a desktop player can reach, and the
 keypad/4-choice toggle is a shipped setting — choosing the scaffold silently costs
 a desktop player their keyboard.
 
