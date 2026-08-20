@@ -1,14 +1,10 @@
-import type { ComponentChildren } from 'preact'
 import type { Card } from '../../types'
 import { CardArt } from '../CardChrome'
-import Icon from '../Icon'
 import { observeInput, type InputObservation } from '../../lib/input-evidence'
 
-// The one exchange board Trade and Ledger share. RED lane on top, BLUE below —
-// Clash Royale's own geometry, internalised over thousands of matches. Between
-// the lanes a single ledger line holds the balance: `?` until solved, then the
-// value in gold. In Ledger that `?` is itself the Reveal control (the assist),
-// so the control and the number it produces occupy one slot.
+// Trade's exchange board. RED lane on top, BLUE below — Clash Royale's own
+// geometry, internalised over thousands of matches. Between the lanes a single
+// balance line holds `?` until the exchange is solved, then the value in gold.
 
 export interface LaneCard {
   card: Card
@@ -16,11 +12,11 @@ export interface LaneCard {
   key: string | number
 }
 
-// One line of prose in both modes while asking; the same shape when solved.
+// One line of prose while asking; the same shape when solved.
 export const EXCHANGE_PROMPT = 'Who came out ahead, and by how much?'
 
-// Positive balance is a Blue advantage; negative a Red one. The one label both
-// the ledger line and the solved sentence read from.
+// Positive balance is a Blue advantage; negative a Red one. The balance line
+// and the solved sentence read from the same label.
 export function balanceWinner(balance: number): string {
   return balance > 0 ? `Blue +${balance}` : balance < 0 ? `Red +${Math.abs(balance)}` : 'Even'
 }
@@ -58,31 +54,20 @@ export function ExchangeBoard({
   red,
   blue,
   balanceLabel,
-  revealed,
-  onReveal,
-  trail,
-  stage
+  revealed
 }: {
   red: LaneCard[]
   blue: LaneCard[]
   /** The balance value once revealed, e.g. "Blue +1". */
   balanceLabel: string
   revealed: boolean
-  /** Ledger's assist: when set and not yet revealed, the `?` becomes Reveal. */
-  onReveal?: () => void
-  trail?: ComponentChildren
-  stage?: string
 }) {
   return (
-    <div class="ed-xboard" data-stage={stage}>
+    <div class="ed-xboard">
       <Lane side="red" cards={red} />
       <div class={`ed-xboard__balance${revealed ? ' ed-xboard__balance--revealed' : ''}`} aria-live="polite">
         {revealed ? (
           <strong class="ed-xboard__value">{balanceLabel}</strong>
-        ) : onReveal ? (
-          <button type="button" class="ed-xboard__reveal" onClick={onReveal}>
-            <Icon name="scan-eye" /> Reveal
-          </button>
         ) : (
           <strong class="ed-xboard__q" aria-hidden="true">
             ?
@@ -90,7 +75,6 @@ export function ExchangeBoard({
         )}
       </div>
       <Lane side="blue" cards={blue} />
-      {trail}
     </div>
   )
 }

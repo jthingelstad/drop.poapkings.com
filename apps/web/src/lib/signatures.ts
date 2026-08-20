@@ -14,7 +14,7 @@ import { formatSeconds } from './format'
 
 export type Signature = Omit<SignaturePanelProps, 'max'> & { max?: number }
 
-// The two drills keep their own shape — see DrillPanel for why.
+// Practice keeps its own shape — see DrillPanel for why.
 export interface DrillSignature {
   bars: DrillBar[]
   caption: string
@@ -132,37 +132,7 @@ export function duelSignature(perPairMs: number[], correct: boolean[]): Signatur
   }
 }
 
-// ── The two drills, exempt by design ────────────────────────────────────────
-
-// Ledger: accuracy by sequence length. Each bar is one length's hit rate, so the
-// shape shows where the running count starts to break as sequences get longer.
-export function ledgerSignature(lengths: number[], correct: boolean[]): DrillSignature {
-  const byLength = new Map<number, { correct: number; total: number }>()
-  lengths.forEach((len, i) => {
-    const bucket = byLength.get(len) ?? { correct: 0, total: 0 }
-    bucket.total += 1
-    if (correct[i]) bucket.correct += 1
-    byLength.set(len, bucket)
-  })
-  const sorted = [...byLength.entries()].sort((a, b) => a[0] - b[0])
-  const bars: DrillBar[] = sorted.map(([, b]) => {
-    const pct = Math.round((b.correct / b.total) * 100)
-    return { value: pct, tone: pct < 70 ? 'bad' : 'base' }
-  })
-  const worst = sorted.reduce<{ len: number; pct: number } | null>((acc, [len, b]) => {
-    const pct = b.correct / b.total
-    return acc === null || pct < acc.pct ? { len, pct } : acc
-  }, null)
-  const caption =
-    bars.length <= 1
-      ? 'Your read on the running count this session.'
-      : bars.every((bar) => bar.value >= 90)
-        ? 'The count holds across every sequence length.'
-        : `The running count breaks around ${worst!.len}-card sequences.`
-  return { bars, caption, max: 100 }
-}
-
-// Cost Recall: the cards that came back after a gap, and whether they held. One
+// Practice: the cards that came back after a gap, and whether they held. One
 // bar per returned card (its read time), the dot marking held vs missed again.
 export function costRecallSignature(returns: Array<{ ms: number; correct: boolean }>): DrillSignature {
   const bars: DrillBar[] = returns.map((r) => ({

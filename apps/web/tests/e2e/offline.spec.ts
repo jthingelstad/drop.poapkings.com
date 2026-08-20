@@ -140,7 +140,7 @@ test('Practice is actually playable with player services unreachable', { tag: '@
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
   })
 
-  await page.goto('/#/practice/costs')
+  await page.goto('/#/practice')
 
   // Not the reconnect gate.
   await expect(page.locator('.account-screen')).toHaveCount(0)
@@ -177,7 +177,7 @@ for (const mode of offlineModes) {
       if (/\/runs\/(?:start|complete)$/.test(new URL(request.url()).pathname)) runRequests += 1
     })
 
-    await page.goto(mode === 'practice' ? '/#/practice/costs' : `/#/${mode}`)
+    await page.goto(`/#/${mode}`)
     await expect(page.locator('.ed-game__offline')).toContainText('Offline · not saved', { timeout: 12_000 })
 
     if (mode === 'higher-lower') {

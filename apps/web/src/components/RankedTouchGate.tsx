@@ -3,7 +3,6 @@ import type { GamePath } from '../lib/game-routes'
 import { boardRouteForMode } from '../lib/game-routes'
 import { GAMES } from '../lib/game-metadata'
 import { navigate } from '../lib/router'
-import { practiceEntryPath } from '../lib/practice-navigation'
 import ModeIcon from './ModeIcon'
 
 // The ranked touch-only gate, with a way across.
@@ -81,7 +80,7 @@ export default function RankedTouchGate({ path }: { path: GamePath }) {
           </p>
           <p class="ed-touchgate__scan">Scan to open {name} on your phone.</p>
           <div class="ed-touchgate__outs">
-            <button class="ed-btn ed-btn--ghost" onClick={() => navigate(practiceEntryPath())}>
+            <button class="ed-btn ed-btn--ghost" onClick={() => navigate('/practice')}>
               Practice instead
             </button>
             {game && (

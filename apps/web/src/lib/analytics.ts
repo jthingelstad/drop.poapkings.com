@@ -23,7 +23,7 @@ export type TinyEvent =
   | 'install.completed'
   | 'easter_egg.screensaver_opened'
 
-export type TinyEventValue = GameMode | 'practice:ledger' | 'browser' | 'ios' | 'nav' | 'tap'
+export type TinyEventValue = GameMode | 'browser' | 'ios' | 'nav' | 'tap'
 
 interface PendingEvent {
   event: TinyEvent

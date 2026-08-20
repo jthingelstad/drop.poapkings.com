@@ -87,12 +87,9 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(page.locator('.static-mode')).toHaveCount(6)
   await expect(page.getByRole('link', { name: 'Play Surge' })).toHaveAttribute('href', '/#/surge')
   await expect(page.getByRole('link', { name: 'Fair Play' }).first()).toHaveAttribute('href', '/fair-play/')
-  await expect(page.getByText('Ledger', { exact: true })).toHaveCount(0)
-  await expect(page.locator('body')).not.toContainText('Cost Recall')
 
   await page.goto('/learn-elixir-costs/')
-  await expect(page.getByText('Ledger', { exact: true })).toHaveCount(0)
-  await expect(page.locator('body')).not.toContainText('Cost Recall')
+  await expect(page.getByRole('heading', { name: 'Learn Clash Royale Elixir Costs' })).toBeVisible()
 
   await page.goto('/elixir-costs/')
   await expect(page.locator('.static-card-grid li')).toHaveCount(120)

@@ -121,8 +121,8 @@ A glyph in the leaderboard row meta, beside the XP chip
 
 - Glyph: `scan-eye` — already imported and registered in `Icon.tsx` (:26, :72).
   It reads as "looked at" rather than "policed". `shield-check` is the
-  alternative. (It is no longer unused: Ledger's Reveal pill took it. What
-  shipped for the board is the struck-wax seal, not a lucide glyph.)
+  alternative. What shipped for the board is the struck-wax seal, not a lucide
+  glyph.
 - Accessible name: `Icon` hard-codes `aria-hidden`, so the badge needs its own
   `sr-only` text, and the row `aria-label` at `Leaderboards.tsx:43` must be
   extended — a badge nobody can hear is not a feature.

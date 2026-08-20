@@ -3,9 +3,7 @@ import rawCards from "@elixir-drop/game-data/cards.json";
 import {
   cardResultsFromTranscript,
   costAccuracy,
-  ledgerResultsFromTranscript,
   mergeCardStats,
-  mergeLedgerStats,
   weakCardIds,
 } from "../src/learning.js";
 
@@ -176,48 +174,5 @@ describe("server-side learning stats", () => {
 
     const byCost = costAccuracy(stats);
     expect(byCost[String(first.elixir)]?.seen).toBeGreaterThanOrEqual(5);
-  });
-
-  it("keeps Ledger learning separate from per-card recall", () => {
-    const challenge = {
-      mode: "practice" as const,
-      practiceKind: "ledger" as const,
-      cardIds: [first.id, second.id],
-    };
-    const transcript = {
-      answers: [
-        {
-          plays: [
-            { side: "blue", cardId: first.id },
-            { side: "red", cardId: second.id },
-          ],
-          guess: second.elixir - first.elixir,
-          responseMs: 1_100,
-          assisted: false,
-          stage: "faded",
-        },
-      ],
-    };
-
-    expect(cardResultsFromTranscript(challenge, transcript)).toEqual([]);
-    const results = ledgerResultsFromTranscript(challenge, transcript);
-    expect(results).toEqual([
-      {
-        correct: true,
-        assisted: false,
-        stage: "faded",
-        sequenceLength: 2,
-      },
-    ]);
-    expect(mergeLedgerStats(undefined, results, at)).toMatchObject({
-      checks: 1,
-      correct: 1,
-      assisted: 0,
-      unassistedChecks: 1,
-      unassistedCorrect: 1,
-      longestSequence: 2,
-      byStage: { faded: { seen: 1, correct: 1 } },
-      updatedAt: at,
-    });
   });
 });

@@ -6,7 +6,6 @@ import Wordmark from '../../components/brand/Wordmark'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
 import { boardRouteForMode } from '../../lib/game-routes'
-import { PRACTICE_LEDGER_ENABLED } from '../../lib/practice-navigation'
 import { layout } from '../../lib/use-layout'
 import { registerLogoTap } from '../../lib/screensaver'
 import { scoreLabel } from '../../lib/game-metadata'
@@ -14,19 +13,6 @@ import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
 import type { HomeData } from './home-data'
 import { ALL_GAMES, featuredGame } from './home-games'
 import { HomeHeroCarousel, HomeRow } from './home-bits'
-
-// Active drills sit under one "Practice" list with an UNRANKED pill. Ledger's
-// retained implementation stays out of discovery while it is deactivated.
-const DRILLS = [
-  { path: '/practice/costs', name: 'Practice', meta: 'Card knowledge', icon: 'zap' as const, visible: true },
-  {
-    path: '/practice/ledger',
-    name: 'Ledger',
-    meta: 'Battle awareness',
-    icon: 'trending-up' as const,
-    visible: PRACTICE_LEDGER_ENABLED
-  }
-].filter((drill) => drill.visible)
 
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()
@@ -81,20 +67,17 @@ export default function HomeMobile({ data }: { data: HomeData }) {
         <span class="ed-more__aside ed-more__aside--pill">{onDesktop ? 'PLAYS HERE' : 'UNRANKED'}</span>
       </div>
       <div class="ed-rows">
-        {DRILLS.map((drill) => (
-          <HomeRow
-            key={drill.path}
-            tone="drill"
-            name={drill.name}
-            meta={drill.meta}
-            visual={
-              <span class="ed-grow__glyph">
-                <Icon name={drill.icon} />
-              </span>
-            }
-            onClick={() => navigate(drill.path)}
-          />
-        ))}
+        <HomeRow
+          tone="drill"
+          name="Practice"
+          meta="Card knowledge"
+          visual={
+            <span class="ed-grow__glyph">
+              <Icon name="zap" />
+            </span>
+          }
+          onClick={() => navigate('/practice')}
+        />
       </div>
     </section>
   )

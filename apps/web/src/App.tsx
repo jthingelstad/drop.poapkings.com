@@ -17,7 +17,7 @@ import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/sc
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { layout, isRankedTouchGate } from './lib/use-layout'
+import { isRankedTouchGate } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import Home from './screens/Home'
 import Login from './screens/Login'
@@ -29,7 +29,6 @@ import AppInfo from './screens/AppInfo'
 import GameStartScreen from './components/game/GameStart'
 import Icon from './components/Icon'
 import { GAMES } from './lib/game-metadata'
-import { practiceEntryPath } from './lib/practice-navigation'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -96,7 +95,7 @@ function RankedAccessRestricted() {
       <GateCard
         mark={<Icon name="shield" />}
         state="Ranked restricted"
-        primary={{ label: 'Open Practice', onAction: () => navigate(practiceEntryPath()) }}
+        primary={{ label: 'Open Practice', onAction: () => navigate('/practice') }}
         secondary={{ label: 'Read Fair Play', href: '/fair-play/' }}
       >
         You can still use Practice and view your account. Fair Play explains how decisions work and how to request a
@@ -127,7 +126,6 @@ function HomeRedirect() {
 }
 
 function ScreenContent({ r }: { r: string }) {
-  if (r === '/practice' && layout.value === 'mobile') return <HomeRedirect />
   const gamePath = gamePathForRoute(r)
   // Offline, the player stays on the real page they asked for: it names its cause
   // with a header chip and shows what it has, never a takeover. The Ladder and You
@@ -186,7 +184,7 @@ function Screen({ r }: { r: string }) {
 }
 
 function screenTitle(r: string): string | null {
-  if (r === '/' || (r === '/practice' && layout.value === 'mobile')) return null
+  if (r === '/') return null
   return ROUTE_LABELS.find((x) => r.startsWith(x.match))?.label ?? 'Elixir Drop'
 }
 
@@ -274,7 +272,7 @@ export default function App() {
   // Idle attract mode arms only on Home; leaving the route disarms it, so it
   // can never fire during a game. (Reading route.value in render subscribes
   // this component to the signal, so the local flag is a real dependency.)
-  const onHome = route.value === '/' || (route.value === '/practice' && layout.value === 'mobile')
+  const onHome = route.value === '/'
   useEffect(() => {
     if (!onHome) return
     return createIdleWatcher(() => startScreensaver('idle'))

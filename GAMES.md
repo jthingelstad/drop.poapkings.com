@@ -9,11 +9,9 @@ owns.
 
 Shipped state as of August 20, 2026: **six playable game families** — Surge,
 Practice, Higher / Lower, Trade, Survival, and Rain. Practice is one endless
-card-cost drill. Ledger is deactivated: its implementation and
-compatibility contracts remain, but it is absent from discovery and legacy links
-redirect to active Practice. Practice is unranked, has no record, and awards **no
-Player XP** — it deliberately touches no competitive surface, which is exactly
-what lets it run forever.
+card-cost drill. It is unranked, has no record, and awards **no Player XP** — it
+deliberately touches no competitive surface, which is exactly what lets it run
+forever.
 Player XP is a per-player activity score (one point per question practiced, right
 or wrong) that drives the arena and is earned by the other five modes;
 leaderboards rank on speed. **Daily Ladder is not shipped and should not be
@@ -132,16 +130,10 @@ in-game hero links there rather than duplicating the full rules.
 
 ### Core drills
 
-**Practice** — `/practice` (active play: `/practice/costs`) ·
-`apps/web/src/modes/practice/`
-Practice is the one active training drill. Its desktop landing surface keeps the
-ordinary app shell visible before opening the focused game shell; mobile enters
-active play directly. The `/practice/costs` path and `practiceKind: costs` value
-remain compatibility identifiers, not a second player-facing name. Ledger's
-retained code still shares the signed `practice` GameMode and uses
-`practiceKind: ledger` to preserve historical validation and learning
-aggregates, but that drill is not player-facing. Neither path can acquire a
-leaderboard just by belonging to Practice.
+**Practice** — `/practice` · `apps/web/src/modes/practice/`
+Practice is the one training mode and opens directly into its focused game
+shell. It cannot acquire a leaderboard or record: those competitive surfaces
+are unrepresentable for the `practice` GameMode.
 
 Untimed and **endless**. A card appears; name its cost; repeat until you choose
 to stop, via the always-available icon-only close control in the top bar
@@ -195,45 +187,6 @@ feeds the server-owned learning stats (`services/api/src/learning.ts`).
 - Sharing: **none.** An endless drill has no comparable result worth publishing.
 - Only Practice uses `apps/web/src/lib/choices.ts`; its 4-choice window is
   adjacent but randomly offset, so the option set never names the answer.
-
-**Ledger (deactivated; implementation retained)** — legacy `/practice/ledger`
-As of 2026-08-20, Ledger is hidden from Home, the Practice hub, public guides,
-and accessibility/offline discovery. A legacy hash route redirects to the active
-Practice destination. The mechanics below remain documented because stored
-progress, historical runs, server validation, and the source implementation are
-retained while the mode's future is evaluated.
-
-Untimed, endless running-count practice and a direct learning companion to
-Trade. Cards are played one at a time for Blue or Red; after the sequence, the
-player calls `Blue +N`, `Even`, or `Red +N`. Internally the answer uses the same
-Blue-King perspective as Trade: Red spend minus Blue spend, bounded to -4…+4.
-Each sequence contains 2–6 unique cards, includes both sides, and comes from the
-full signed catalog pool.
-
-Ledger adapts in three stages using its own device-local progress:
-
-- **Guided** starts at two plays. Card costs and the running balance are visible
-  during the sequence, then the final answer is recalled.
-- **Faded** grows to three and four plays. Costs disappear only for cards whose
-  Practice history shows fluent, accurate, unassisted recall; weak, slow, and
-  unseen cards stay scaffolded.
-- **Tracked** grows from four to six plays. Costs are hidden and previous cards
-  leave the board, training the live working-memory read used in a match.
-
-The player may **Reveal** the running balance after any sequence — the `?` in the
-ledger line between the lanes is the control (a dashed violet pill), replaced by
-the value when tapped. That assistance is
-tracked separately and cannot accelerate graduation to Tracked. Solving a check
-reveals Blue and Red totals plus the canonical balance before the next sequence.
-The player ends the session at any time and sees accuracy, unassisted checks,
-and the next adaptive stage—never a score, best, streak, share action, or rank.
-
-Online completion validates every play against the signed pool, recomputes the
-balance from canonical costs, and folds the result into a separate
-`LEDGERSTATS` item. Ledger never writes per-card Practice mastery, Reps, or
-Clean Sweep; its history `answerCount` is zero so a later badge rebuild keeps
-that boundary. Offline sessions update only `elixirdrop:ledgerStats` on the
-device and are never queued for reconnect.
 
 **Higher / Lower** — `/higher-lower` · `apps/web/src/modes/higher-lower/`
 Two cards, costs hidden; **tap the card that costs more elixir**. Pairs are
@@ -313,8 +266,8 @@ and advancing must never wait on another tap.
   -4..+4, so a board is redealt until it does (bounded, and a shape that cannot
   land fails the run start rather than spinning).
 - Input: the shared exchange board (`components/game/ExchangeBoard.tsx`) — a RED
-  and a BLUE magnitude row (1–4) with EVEN between, the same board Ledger uses. A
-  blue key submits `+n`, a red key `−n`; the signed −4…+4 keypad was retired.
+  and a BLUE magnitude row (1–4) with EVEN between. A blue key submits `+n`, a
+  red key `−n`; the signed −4…+4 keypad was retired.
 - Scoring: golf time (elapsed + 2.0s per miss), unchanged. Trade drills a read
   that a real match asks for under time pressure, so the clock is the point.
   Live time, summaries, personal bests, and leaderboards use three decimal
@@ -475,11 +428,9 @@ bar each; beyond that the series folds into 30 bars, each a stretch's mean
 against that stretch's mean reference, with the x axis naming the range it
 covers. A fatal final answer always keeps its own bar.
 
-**Practice drills are exempt** and use `summary/DrillPanel.tsx` instead. Cost
-Recall's review ledger answers "what stuck" and retained Ledger code's
-accuracy-by-sequence-length answers "where does the count break". A drill is not
-racing anything, so seconds are the wrong unit — do not force them into this
-grammar.
+**Practice is exempt** and uses `summary/DrillPanel.tsx` instead. Its review bars
+answer "what stuck". Practice is not racing anything, so seconds are the wrong
+unit — do not force it into this grammar.
 
 ### The summary never keys a referee
 
@@ -497,6 +448,11 @@ because that is what happened.
 
 These are intentionally out of the active app surface. Do not reintroduce them as
 separate tiles without a fresh product decision.
+
+**Ledger** — removed.
+Drop is itself practice; a second Practice drill split the product without
+adding a distinct core experience. Its UI, route subtype, scoring, learning
+aggregate, and browser storage support were removed together.
 
 **Focus** — removed.
 It overlapped too heavily with Practice. If subset drills come back, they should

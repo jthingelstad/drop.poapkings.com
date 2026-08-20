@@ -1,9 +1,6 @@
-// The two drills are exempt from the ranked chart grammar and this is where
-// that exemption lives. Cost Recall's review ledger answers "what stuck" and
-// Ledger's accuracy-by-sequence-length answers "where does the count break" —
-// neither is a time chart, and a drill is not racing anything, so seconds are
-// the wrong unit. Forcing them into `SignaturePanel` would make both of them
-// worse to make the file count smaller.
+// Practice is exempt from the ranked chart grammar and this is where that
+// exemption lives. Its review bars answer "what stuck" rather than racing a
+// time reference, so seconds are the wrong shared grammar.
 //
 // This is the renderer the summaries shipped with, unchanged: a bar series with
 // optional per-bar dots, read back in one sentence.

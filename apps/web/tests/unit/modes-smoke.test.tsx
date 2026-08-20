@@ -416,7 +416,7 @@ describe('mode smoke — Surge', () => {
 
 describe('mode smoke — Practice', () => {
   it('uses the shared loading stage while card art is prepared', () => {
-    route.value = '/practice/costs'
+    route.value = '/practice'
     stageSession(fakeCards(15), 'running', { assetsReady: false })
     const c = mount(<Practice />)
     expect(c.querySelector('[data-game-start-phase="loading"]')).not.toBeNull()
@@ -424,7 +424,7 @@ describe('mode smoke — Practice', () => {
   })
 
   it('renders the running board', () => {
-    route.value = '/practice/costs'
+    route.value = '/practice'
     vi.useFakeTimers()
     try {
       stageSession(fakeCards(15), 'running')

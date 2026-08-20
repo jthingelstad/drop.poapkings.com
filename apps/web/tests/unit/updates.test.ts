@@ -6,10 +6,10 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(59)
+    expect(entries).toHaveLength(60)
     expect(entries[0]).toMatchObject({
-      id: 'updates-one-card-at-a-time',
-      kind: 'message'
+      id: 'practice-direct-entry',
+      kind: 'feature'
     })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(

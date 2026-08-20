@@ -17,18 +17,12 @@ export type TinylyticsServerEvent =
   | "game.completed"
   | "game.personal_best";
 
-export type TinylyticsServerValue =
-  GameMode | "practice:costs" | "practice:ledger" | "new" | "returning";
+export type TinylyticsServerValue = GameMode | "new" | "returning";
 
 export interface TinylyticsEvent {
   event: TinylyticsServerEvent;
   value?: TinylyticsServerValue;
-  path:
-    | "/login"
-    | "/profile"
-    | `/${GameMode}`
-    | "/practice/costs"
-    | "/practice/ledger";
+  path: "/login" | "/profile" | `/${GameMode}`;
 }
 
 type TinylyticsFetch = (

@@ -1,4 +1,4 @@
-import type { GameMode, PracticeKind, StartedRun } from '@elixir-drop/contracts'
+import type { GameMode, StartedRun } from '@elixir-drop/contracts'
 import { createChallenge, type RandomInt } from '@elixir-drop/contracts/challenge-generation'
 import { allCards } from './card-catalog'
 
@@ -26,19 +26,14 @@ export function isOfflineRun(run: { runId?: string } | null | undefined): boolea
   return Boolean(run?.runId?.startsWith(OFFLINE_RUN_PREFIX))
 }
 
-export function localOfflineRun(
-  mode: GameMode,
-  now = Date.now(),
-  randomInt = browserRandomInt,
-  practiceKind?: PracticeKind
-): StartedRun {
+export function localOfflineRun(mode: GameMode, now = Date.now(), randomInt = browserRandomInt): StartedRun {
   return {
-    runId: `${OFFLINE_RUN_PREFIX}${mode}${practiceKind ? `:${practiceKind}` : ''}:${now}`,
+    runId: `${OFFLINE_RUN_PREFIX}${mode}:${now}`,
     // The empty token is intentional: offline runs are settled in the browser
     // and can never authorize /runs/complete.
     runToken: '',
     mode,
-    challenge: createChallenge(mode, randomInt, allCards, { practiceKind }),
+    challenge: createChallenge(mode, randomInt, allCards),
     expiresAt: new Date(now + OFFLINE_RUN_MS).toISOString()
   }
 }

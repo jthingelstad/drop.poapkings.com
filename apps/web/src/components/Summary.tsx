@@ -49,7 +49,6 @@ interface Props {
   onReplay: () => void
   replayLabel?: string
   onHome: () => void
-  homeLabel?: string
 }
 
 function CardChip({ card, sub }: { card: Card; sub?: string }) {
@@ -71,8 +70,7 @@ export default function Summary({
   children,
   onReplay,
   replayLabel = 'Play again',
-  onHome,
-  homeLabel = 'Home'
+  onHome
 }: Props) {
   const { bands, weakest, slowestCards, hasTiming } = insights
   const offline = offlineRunMode.value === share.mode
@@ -173,7 +171,7 @@ export default function Summary({
           <span class="tap-face">{replayLabel}</span>
         </button>
         <button class="ed-btn ed-btn--ghost tap-fx" onClick={onHome}>
-          <span class="tap-face">{homeLabel}</span>
+          <span class="tap-face">Home</span>
         </button>
       </div>
     </div>

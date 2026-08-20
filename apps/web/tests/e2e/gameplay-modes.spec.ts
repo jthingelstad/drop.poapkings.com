@@ -52,7 +52,7 @@ test(
   'practice reinforces the solved cost without a streak milestone',
   { tag: '@deploy' },
   async ({ page }, testInfo) => {
-    await page.goto('/#/practice/costs')
+    await page.goto('/#/practice')
     await waitForKeypad(page)
 
     const cardImage = page.locator('.pcard__img')

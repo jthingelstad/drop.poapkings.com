@@ -24,7 +24,7 @@ field belongs to that field.
 | --- | --- | --- |
 | Pip keypad — Surge, Survival, Rain, Practice (`PipKeypad.tsx`) | `1`–`9` | **Practice only** |
 | Higher / Lower (`HigherLower.tsx`) | `↑`/`↓`, with `←`/`→` aliases | No |
-| Exchange pad — Trade, Ledger (`Trade.tsx`, `Ledger.tsx`) | `1`–`4` Blue, `6`–`9` Red, `0`/`5` Even | **Ledger only** |
+| Exchange pad — Trade (`Trade.tsx`) | `1`–`4` Blue, `6`–`9` Red, `0`/`5` Even | No |
 | Detail dialogs (`DetailModal.tsx`) | `Escape`, `Tab` trap | Yes |
 | Falling Cards screensaver (`Screensaver.tsx`) | any key exits | Yes |
 
@@ -32,8 +32,7 @@ field belongs to that field.
 because `isRankedTouchGate()` stops a mouse-only device before the mode mounts,
 not because the keys are missing. Whoever built each mode wired its keyboard path
 and then the input gate made it unreachable — Surge, Survival and Rain inherit the
-keypad's `1`–`9`, and Trade's map is deliberately mirrored into Ledger so the two
-share one learned control.
+keypad's `1`–`9`, and Trade carries its own exchange-pad map.
 
 ## What is missing
 

@@ -563,10 +563,8 @@ describe('HomeMobile', () => {
     for (const name of ['Surge', 'Higher / Lower', 'Rain', 'Trade', 'Survival']) {
       expect(html).toContain(name)
     }
-    // Practice exposes only the active drill under one UNRANKED list.
+    // Practice appears once as the unranked learning mode.
     expect(html).toContain('ed-grow__name">Practice</strong>')
-    expect(html).not.toContain('Cost Recall')
-    expect(html).not.toContain('Ledger')
     expect(html).toContain('UNRANKED')
     // A readiness indicator, not a warning.
     expect(html).toContain('Games are available to play offline')

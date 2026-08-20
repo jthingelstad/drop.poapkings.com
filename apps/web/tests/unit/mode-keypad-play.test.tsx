@@ -15,22 +15,6 @@ import type { Card } from '../../src/types'
 const hoisted = vi.hoisted(() => ({
   session: { current: null as unknown },
   records: { current: {} as Record<string, unknown> },
-  ledgerStats: {
-    current: {
-      checks: 0,
-      correct: 0,
-      assistedChecks: 0,
-      unassistedChecks: 0,
-      unassistedCorrect: 0,
-      maxSequenceLength: 0,
-      guidedChecks: 0,
-      guidedCorrect: 0,
-      fadedChecks: 0,
-      fadedCorrect: 0,
-      trackedChecks: 0,
-      trackedCorrect: 0
-    }
-  },
   preloadImages: vi.fn()
 }))
 
@@ -83,26 +67,6 @@ vi.mock('../../src/lib/storage', () => ({
   // Practice's weighted deal reads card stats every deal; an empty map is the
   // new-player case, which must fall back to uniform random.
   getCardStats: () => ({}),
-  getLedgerStats: () => hoisted.ledgerStats.current,
-  saveLedgerResult: vi.fn(
-    (result: {
-      correct: boolean
-      assisted: boolean
-      stage: 'guided' | 'faded' | 'tracked'
-      sequenceLength: number
-    }) => {
-      const stats = hoisted.ledgerStats.current
-      stats.checks += 1
-      stats.correct += result.correct ? 1 : 0
-      stats.assistedChecks += result.assisted ? 1 : 0
-      stats.unassistedChecks += result.assisted ? 0 : 1
-      stats.unassistedCorrect += result.correct && !result.assisted ? 1 : 0
-      stats.maxSequenceLength = Math.max(stats.maxSequenceLength, result.sequenceLength)
-      stats[`${result.stage}Checks`] += 1
-      stats[`${result.stage}Correct`] += result.correct ? 1 : 0
-      return { ...stats }
-    }
-  ),
   getSettings: () => ({
     inputStyle: 'keypad',
     sound: false,
@@ -116,12 +80,11 @@ vi.mock('../../src/lib/storage', () => ({
 }))
 
 import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
-import { saveResult, recordSession, saveRecords, saveSettings, saveLedgerResult } from '../../src/lib/storage'
+import { saveResult, recordSession, saveRecords, saveSettings } from '../../src/lib/storage'
 import { route } from '../../src/lib/router'
 import Surge from '../../src/modes/surge/Surge'
 import Survival from '../../src/modes/survival/Survival'
 import Practice from '../../src/modes/practice/Practice'
-import Ledger from '../../src/modes/practice/Ledger'
 import Rain from '../../src/modes/rain/Rain'
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
@@ -228,20 +191,6 @@ beforeEach(() => {
     vi.fn(() => {})
   )
   hoisted.records.current = {}
-  hoisted.ledgerStats.current = {
-    checks: 0,
-    correct: 0,
-    assistedChecks: 0,
-    unassistedChecks: 0,
-    unassistedCorrect: 0,
-    maxSequenceLength: 0,
-    guidedChecks: 0,
-    guidedCorrect: 0,
-    fadedChecks: 0,
-    fadedCorrect: 0,
-    trackedChecks: 0,
-    trackedCorrect: 0
-  }
   hoisted.preloadImages.mockImplementation((cards: Card[], done: (loaded: number) => void) => done(cards.length))
 })
 
@@ -551,7 +500,7 @@ describe('Survival gameplay', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Practice gameplay', () => {
   beforeEach(() => {
-    route.value = '/practice/costs'
+    route.value = '/practice'
   })
 
   afterEach(() => {
@@ -926,134 +875,6 @@ describe('Practice gameplay', () => {
     expect(session.prepare).toHaveBeenCalled()
     await vi.waitFor(() => expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Practice'))
     expect(host.textContent).toContain('0 practiced')
-  })
-})
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Ledger — sequential Blue / Red card accounting, with optional recall help.
-// ══════════════════════════════════════════════════════════════════════════════
-describe('Ledger gameplay', () => {
-  beforeEach(() => {
-    route.value = '/practice/ledger'
-  })
-
-  afterEach(() => {
-    route.value = '/'
-  })
-
-  async function startLedger(): Promise<HTMLElement> {
-    session = makeSession(fakeCards(15))
-    hoisted.session.current = session
-    let host!: HTMLElement
-    void act(() => {
-      host = mount(<Ledger />)
-    })
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-    advance(1_440) // two guided cards, then the answer prompt
-    return host
-  }
-
-  function correctLedgerButton(host: HTMLElement): HTMLButtonElement {
-    const reveal = host.querySelector<HTMLButtonElement>('.ed-xboard__reveal')
-    if (!reveal) throw new Error('no Reveal control')
-    void act(() => reveal.click())
-    const balance = host.querySelector('.ed-xboard__value')?.textContent?.trim() ?? ''
-    if (balance === 'Even') {
-      const button = host.querySelector<HTMLButtonElement>('.ed-xpad__key--even')
-      if (button) return button
-    }
-    const match = /^(Blue|Red) \+(\d)$/.exec(balance)
-    const laneClass = match?.[1] === 'Blue' ? 'ed-xpad__key--blue' : 'ed-xpad__key--red'
-    const button = [...host.querySelectorAll<HTMLButtonElement>(`.${laneClass}`)].find(
-      (candidate) => candidate.textContent?.trim() === match?.[2]
-    )
-    if (!button) throw new Error(`no answer button for ${balance}`)
-    return button
-  }
-
-  it('deals, reveals optional help, grades the balance, persists learning, and summarizes', async () => {
-    const host = await startLedger()
-
-    expect(host.querySelector('.ed-game__mode')?.textContent).toBe('Ledger')
-    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(2)
-    expect(host.textContent).toContain('Who came out ahead, and by how much?')
-    expect(host.textContent).toContain('0 checked · Guided')
-
-    const answer = correctLedgerButton(host)
-    void act(() => answer.click())
-
-    expect(host.textContent).toContain('1 checked · Guided')
-    expect(host.textContent).toContain('Blue spent')
-    expect(host.textContent).toContain('Red spent')
-    expect(saveLedgerResult).toHaveBeenCalledWith(
-      expect.objectContaining({ correct: true, assisted: true, stage: 'guided', sequenceLength: 2 })
-    )
-
-    const end = host.querySelector<HTMLButtonElement>('button[aria-label="End session"]')
-    expect(end).not.toBeNull()
-    void act(() => end!.click())
-
-    expect(session.complete).toHaveBeenCalledWith({
-      answers: [expect.objectContaining({ assisted: true, stage: 'guided', plays: expect.arrayContaining([]) })]
-    })
-    expect(recordSession).toHaveBeenCalledTimes(1)
-    expect(host.textContent).toContain('1 / 1 balances')
-    expect(host.textContent).toContain('Keep tracking')
-  })
-
-  it('replays a sequence interrupted by a hidden tab and excludes hidden answer time', async () => {
-    session = makeSession(fakeCards(15))
-    hoisted.session.current = session
-    let host!: HTMLElement
-    void act(() => {
-      host = mount(<Ledger />)
-    })
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-
-    // The first play is visible immediately; the second must not arrive while
-    // the player cannot see the prompt.
-    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(1)
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
-    void act(() => {
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    advance(5_000)
-    expect(host.querySelectorAll('.ed-xcard')).toHaveLength(1)
-    expect(host.textContent).not.toContain('Who came out ahead, and by how much?')
-
-    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
-    void act(() => {
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    advance(1_440)
-    expect(host.textContent).toContain('Who came out ahead, and by how much?')
-    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Red ahead by 1"]')).not.toBeNull()
-    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Blue ahead by 1"]')).not.toBeNull()
-
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
-    void act(() => {
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    advance(10_000)
-    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
-    void act(() => {
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-
-    const answer = correctLedgerButton(host)
-    void act(() => answer.click())
-    const end = host.querySelector<HTMLButtonElement>('button[aria-label="End session"]')
-    if (!end) throw new Error('no End session control')
-    void act(() => end.click())
-
-    const payload = session.complete.mock.calls[0]![0] as { answers: Array<{ responseMs: number }> }
-    expect(payload.answers[0]!.responseMs).toBeLessThan(50)
   })
 })
 

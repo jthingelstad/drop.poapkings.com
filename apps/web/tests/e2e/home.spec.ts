@@ -83,34 +83,18 @@ test('desktop leads with Practice and turns the ranked rows into board reads', a
   await expect(page.locator('.ed-board__rows, .ed-board__empty')).toBeVisible()
 })
 
-test('practice choices join Games on mobile and stay in the Practice destination on desktop', async ({
-  page,
-  viewport
-}) => {
+test('Practice has one direct entry on desktop and mobile', async ({ page, viewport }) => {
   await page.goto('/')
 
-  if (isDesktopViewport(viewport)) {
-    // The desktop rail's Practice nav item is retired; the /practice deep link
-    // still opens the hub for anyone who types it.
-    await expect(
-      page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: /Practice/ })
-    ).toHaveCount(0)
-    await page.goto('/#/practice')
-    await expect(page.locator('.practice-hub')).toBeVisible()
-  } else {
-    const practice = page.locator('section[aria-labelledby="home-practice-title"]')
-    await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
-    await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
-    await expect(practice.getByRole('button', { name: /Practice/ })).toBeVisible()
-    await expect(practice).not.toContainText('Cost Recall')
-    await expect(practice.getByRole('button', { name: /Ledger/ })).toHaveCount(0)
+  const practice = page.locator('section[aria-labelledby="home-practice-title"]')
+  await expect(practice.locator('.ed-more__aside--pill')).toHaveText(
+    isDesktopViewport(viewport) ? 'PLAYS HERE' : 'UNRANKED'
+  )
+  await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
+  await expect(practice.getByRole('button', { name: /Practice/ })).toBeVisible()
 
-    // The practice hub is retired as a destination: /practice folds into Play.
-    await page.goto('/#/practice')
-    await expect(page).toHaveURL(/#\/$/)
-    await expect(page.locator('section[aria-labelledby="home-practice-title"]')).toBeVisible()
-    await expect(page.locator('.practice-hub')).toHaveCount(0)
-  }
+  await page.goto('/#/practice')
+  await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
 })
 
 test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@deploy' }, async ({ page }) => {

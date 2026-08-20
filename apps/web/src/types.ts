@@ -46,19 +46,6 @@ export interface CardStat {
 
 export type CardStats = Record<string, CardStat>
 
-export type LedgerStage = 'guided' | 'faded' | 'tracked'
-
-export interface LedgerStats {
-  checks: number
-  correct: number
-  assisted: number
-  unassistedChecks: number
-  unassistedCorrect: number
-  longestSequence: number
-  byStage: Record<LedgerStage, { seen: number; correct: number }>
-  updatedAt?: number
-}
-
 export interface Records {
   surgeBest?: number // Surge: lowest time (ms) — lower is better
   surgeBestPace?: number[] // elapsed ms at each card of the PB run (ghost pacing)

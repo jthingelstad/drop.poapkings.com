@@ -215,16 +215,9 @@ Practice runs are created `ranked: false` server-side: they record to history
 but never write a leaderboard entry, earn no Player XP, and Practice has no
 leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
 from the type, so a Practice best is unrepresentable rather than merely
-discouraged). Practice is the only active drill. Ledger is deactivated in the
-browser: discovery omits it and `/practice/ledger` redirects to active Practice.
-Its `practiceKind`, transcript validation, learning aggregates, stored progress,
-and implementation remain for historical and rolling compatibility without
-adding another `GameMode`. The active `practiceKind: costs` transcript validates
-answer-card set membership because the client adaptively reorders the pool.
-Retained Ledger validation checks every 2–6-play sequence against that same pool
-and recomputes Red spend minus Blue spend from canonical costs. Those
-relaxations are safe only because nothing about Practice is competitive.
-`GAMES.md` owns the mechanics.
+discouraged). Its transcript validates answer-card set membership because the
+client adaptively reorders the signed pool. That relaxation is safe only because
+nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
 Each ranked mode has three boards, selected by the `scope` query param on
 `GET /leaderboards` (`season`, the default, `all-time`, or `clan`):
@@ -266,19 +259,15 @@ Product decisions currently in force:
   keypad has one key per cost the catalog actually has (currently 1–9), always
   dealt as two full-width rows — 1–5 over 6–9 — for roughly double the tap-target
   width, everywhere the pip keypad renders (Surge, Practice, Survival, Rain) —
-  never Trade or Ledger, which share the RED/BLUE exchange board. (The old single
-  row and the opt-in Speedrun keyboard setting were removed in the 2026 refresh:
-  two rows is the only keypad.)
+  never Trade, which uses the RED/BLUE exchange board. (The old single row and
+  the opt-in Speedrun keyboard setting were removed in the 2026 refresh: two
+  rows is the only keypad.)
 - Active Practice is a learning loop, not a finite round: no progress bar and no
   share action. It times the first response invisibly, separates requested assistance
   from recall, offers voluntary help after seven idle seconds, gives keypad
   recall one anchored higher/lower retry, then reveals the exact answer. Missed
   cards return through the short-term spaced-review queue documented in
   `GAMES.md`.
-- Deactivated Ledger code adapts sequences from two guided plays to six tracked
-  plays. It uses Practice fluency only to decide which faded-stage costs remain visible;
-  Ledger outcomes never mutate those per-card stats. Requested `Show ledger`
-  help is stored separately from unassisted balance reads.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
@@ -296,8 +285,6 @@ Important shared modules:
 - `apps/web/src/lib/practice-deal.ts` - Practice's weakness-weighted card draw.
 - `apps/web/src/lib/practice-review.ts` - Practice's guaranteed short-term
   retry and confirmation queue.
-- `apps/web/src/lib/ledger.ts` - Ledger stage graduation, answerable sequence
-  dealing, fluent-card visibility, and Blue-perspective balance labels.
 - `apps/web/src/lib/preload.ts` - image preloading for timed runs.
 - `apps/web/src/lib/run-loop.ts` - countdown, timeout clearing, and elapsed-time helpers.
 - `apps/web/src/lib/card-rendering.ts` - shared card rarity labels, modifier classes, and
@@ -306,7 +293,7 @@ Important shared modules:
 - `apps/web/src/lib/mode-insights.ts` - mode-specific Trade summary lines.
 - `apps/web/src/lib/signatures.ts` - the summary chart builders. The five ranked
   modes share one grammar (seconds bars, a per-bar seconds reference tick, a red
-  bar whose cost the mode names); the two drills are exempt. See `GAMES.md` →
+  bar whose cost the mode names); Practice is exempt. See `GAMES.md` →
   "The summary signature chart".
 - `apps/web/src/components/summary/SignaturePanel.tsx` - the ranked chart, which
   owns the mandatory unit / reference / scale / finding and the 30-bar bucketing.
@@ -395,9 +382,6 @@ elixirdrop:profile       -> { createdAt, nickname?, totalSessions }
 elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen,
                                       recallSeen?, recallCorrect?, assistedSeen?,
                                       assistedCorrect?, avgMs?, latencySamples? } }
-elixirdrop:ledgerStats   -> { checks, correct, assisted, unassistedChecks,
-                              unassistedCorrect, longestSequence, byStage,
-                              updatedAt? }
 elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBest,
                               survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
@@ -438,14 +422,12 @@ transcript) into a per-player CARDSTATS item. Practice transcripts additionally
 carry bounded first-response milliseconds and whether recognition help was
 used; the aggregate keeps assisted recognition separate and averages only
 unassisted recall latency. Legacy rows fall back to their lifetime counters.
-Ledger completions instead fold accuracy, assistance, stage, and sequence length
-into a per-player LEDGERSTATS item; they contribute no CARDSTATS results. GET
-`/me` retains both summaries and account deletion sweeps both player-partition
-items. Learning telemetry does not affect official challenge generation;
-Practice's device-local deals may use their local copies. Immutable run history
-also retains the validated `answerCount` (not the raw transcript), so Practice
-volume can be rebuilt without storing a second copy of a player's guesses;
-Ledger stores zero there to keep Reps and Clean Sweep isolated.
+GET `/me` retains the learning summary and account deletion sweeps its
+player-partition item. Learning telemetry does not affect official challenge
+generation; Practice's device-local deals may use their local copy. Immutable
+run history also retains the validated `answerCount` (not the raw transcript),
+so Practice volume can be rebuilt without storing a second copy of a player's
+guesses.
 
 Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
 item holds the monotonic counters, per-rung `time` run counts, the distinct-mode

@@ -1,26 +1,15 @@
 import type { Page } from '@playwright/test'
-import { allowBlockedAssets, cardsData, expect, isDesktopViewport, test, waitForKeypad } from './fixtures'
+import { allowBlockedAssets, cardsData, expect, test, waitForKeypad } from './fixtures'
 
-test('Practice hides Ledger and redirects its legacy route', async ({ page, viewport }) => {
-  const desktop = isDesktopViewport(viewport)
-  await page.goto(desktop ? '/#/practice' : '/')
-
-  await expect(page.locator(desktop ? '.practice-hub' : '.ed-more__aside--pill')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Practice/ })).toBeVisible()
-  await expect(page.locator('body')).not.toContainText('Cost Recall')
-  await expect(page.getByRole('button', { name: /Ledger/ })).toHaveCount(0)
-
-  await page.goto('/#/practice/ledger')
-  await expect(page).toHaveURL(desktop ? /#\/practice$/ : /#\/practice\/costs$/)
-  await expect(page.locator('.ledger')).toHaveCount(0)
-  await expect(page.getByText('Ledger', { exact: true })).toHaveCount(0)
-  if (desktop) await expect(page.locator('.practice-hub')).toBeVisible()
-  else await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
+test('Practice opens directly as the single training mode', async ({ page }) => {
+  await page.goto('/#/practice')
+  await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
+  await expect(page.locator('.pip-keypad')).toBeVisible()
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
   // Higher/Lower has its own tap-the-card coverage in gameplay-higher-lower.spec.ts.
-  const modes = [{ hash: '#/practice/costs', control: '.pip-keypad', answer: '4 elixir' }]
+  const modes = [{ hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' }]
 
   for (const mode of modes) {
     await page.goto('/')
@@ -50,7 +39,7 @@ test('continuous play modes expose working controls with low chrome', async ({ p
 // ways. 114 of the 120 cards qualify, so this lands on the first or second try.
 async function openPracticeOnMidCostCard(page: Page) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    await page.goto('/#/practice/costs')
+    await page.goto('/#/practice')
     await waitForKeypad(page)
     const name = await page.locator('.pcard__img').getAttribute('alt')
     const card = cardsData.cards.find((candidate) => candidate.name === name)
@@ -141,7 +130,7 @@ test('practice never exposes the next hand before its image decode completes', a
     }
   })
 
-  await page.goto('/#/practice/costs')
+  await page.goto('/#/practice')
   await waitForKeypad(page)
   const image = page.locator('.pcard__img')
   const firstName = await image.getAttribute('alt')
@@ -205,7 +194,7 @@ test('practice runs until the player ends it, then closes on stats with no perso
 })
 
 test('practice offers voluntary idle help without revealing the answer', { tag: '@deploy' }, async ({ page }) => {
-  await page.goto('/#/practice/costs')
+  await page.goto('/#/practice')
   await waitForKeypad(page)
 
   await expect(page.getByRole('button', { name: /Need a nudge/ })).toHaveCount(0)
@@ -218,7 +207,7 @@ test('practice offers voluntary idle help without revealing the answer', { tag: 
 
 test('practice keeps the learning hold and advances under reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/#/practice/costs')
+  await page.goto('/#/practice')
   await waitForKeypad(page)
 
   const image = page.locator('.pcard__img')
@@ -238,6 +227,6 @@ test('card art fallback renders when card images cannot load', async ({ page }) 
   // Card art is mirrored same-origin under /cards/; block that path.
   await page.route('**/cards/*.png', (route) => route.abort())
   await page.goto('/')
-  await page.goto('/#/practice/costs')
+  await page.goto('/#/practice')
   await expect(page.locator('.pcard__fallback')).toBeVisible({ timeout: 12_000 })
 })

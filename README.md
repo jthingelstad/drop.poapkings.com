@@ -20,7 +20,7 @@ Six ways to play, one card-cost engine:
   answers add a time penalty. Your score is your time, lower is better.
 - **Practice** — adaptive, unranked exact-cost training. Missed cards return
   until they stick, with optional recognition help when recall stalls. No score,
-  record, XP, or board. The former Ledger drill is currently deactivated.
+  record, XP, or board.
 - **Higher / Lower** — two cards, pick which costs more, on three lives. The gap
   between the two costs narrows as you go. Trains the relative read that wins
   elixir trades.

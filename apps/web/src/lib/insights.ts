@@ -12,7 +12,7 @@ export interface Answer {
   ms?: number
   assisted?: boolean
   // Practice only: the spaced-review stage this appearance was, present only when
-  // the card came back after a gap (retry/confirm). Drives the Cost Recall
+  // the card came back after a gap (retry/confirm). Drives the Practice
   // signature panel — "which cards came back and whether they held".
   reviewStage?: string
 }

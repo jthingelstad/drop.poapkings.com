@@ -36,7 +36,7 @@ test.describe('mobile timed-mode controls', () => {
   // Practice is untimed (no countdown), but pairs a full card with the same
   // keypad — its bottom row must not fall off the first viewport either.
   test('keeps the Practice keypad in the first viewport', { tag: '@deploy' }, async ({ page }) => {
-    await page.goto('/#/practice/costs')
+    await page.goto('/#/practice')
     const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
     await expect(keypad).toBeVisible({ timeout: 12_000 })
 
@@ -49,7 +49,7 @@ test.describe('mobile timed-mode controls', () => {
   })
 
   test('locks vertical browser gestures during active play', { tag: '@deploy' }, async ({ page }, testInfo) => {
-    await page.goto('/#/practice/costs')
+    await page.goto('/#/practice')
     await waitForKeypad(page)
 
     const game = page.locator('.ed-game')
@@ -171,7 +171,7 @@ test.describe('mobile timed-mode controls', () => {
   // also renders the input pills), and Rain draws the pad over the
   // falling-cards field.
   test('keeps both keypad rows in the first viewport', async ({ page }) => {
-    for (const hash of ['#/surge', '#/survival', '#/practice/costs', '#/rain']) {
+    for (const hash of ['#/surge', '#/survival', '#/practice', '#/rain']) {
       await page.goto(`/${hash}`)
       const keypad = page.getByRole('group', { name: 'Elixir cost keypad' })
       await expect(keypad).toBeVisible({ timeout: 12_000 })
@@ -257,7 +257,7 @@ test.describe('mobile-width mouse fallback', () => {
 
     await page.getByRole('button', { name: 'Practice instead' }).click()
 
-    await expect(page).toHaveURL(/#\/practice\/costs$/)
+    await expect(page).toHaveURL(/#\/practice$/)
     await expect(page.getByRole('group', { name: 'Elixir cost keypad' })).toBeVisible({ timeout: 12_000 })
   })
 

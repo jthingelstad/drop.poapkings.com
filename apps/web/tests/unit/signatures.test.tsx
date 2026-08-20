@@ -8,7 +8,6 @@ import {
   survivalSignature,
   tradeSignature,
   duelSignature,
-  ledgerSignature,
   costRecallSignature
 } from '../../src/lib/signatures'
 
@@ -131,7 +130,7 @@ describe('signature builders', () => {
   })
 })
 
-describe('the two drills stay exempt', () => {
+describe('Practice stays exempt', () => {
   it('renders a plain bar series with dots and a caption', async () => {
     const html = await renderToStringAsync(
       <DrillPanel
@@ -151,22 +150,7 @@ describe('the two drills stay exempt', () => {
     expect(html).not.toContain('ed-sig__scale')
   })
 
-  it('ledger buckets accuracy by sequence length and names where the count breaks', () => {
-    const sig = ledgerSignature([2, 2, 3, 3], [true, false, true, true])
-    expect(sig.bars).toEqual([
-      { value: 50, tone: 'bad' },
-      { value: 100, tone: 'base' }
-    ])
-    expect(sig.max).toBe(100)
-    expect(sig.caption).toContain('2-card sequences')
-  })
-
-  it('ledger reports a clean hold when every length is strong', () => {
-    const sig = ledgerSignature([2, 3], [true, true])
-    expect(sig.caption).toBe('The count holds across every sequence length.')
-  })
-
-  it('cost recall marks returned cards held vs missed again', () => {
+  it('marks returned cards held vs missed again', () => {
     const sig = costRecallSignature([
       { ms: 800, correct: true },
       { ms: 1200, correct: false }

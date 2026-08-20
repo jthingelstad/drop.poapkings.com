@@ -103,11 +103,7 @@ const sessionSchema = z.object({
 
 const cardSequenceChallengeSchemas = [
   z.object({ mode: z.literal('surge'), cardIds: z.array(cardId) }),
-  z.object({
-    mode: z.literal('practice'),
-    practiceKind: z.optional(z.enum(['costs', 'ledger'])),
-    cardIds: z.array(cardId)
-  }),
+  z.object({ mode: z.literal('practice'), cardIds: z.array(cardId) }),
   z.object({ mode: z.literal('survival'), cardIds: z.array(cardId) }),
   z.object({ mode: z.literal('rain'), cardIds: z.array(cardId) })
 ] as const
@@ -153,23 +149,7 @@ export const recentRunSchema = z.object({
 
 export const learningSummarySchema = z.object({
   weakCardIds: z.array(cardId),
-  costAccuracy: z.record(z.string(), z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger })),
-  ledger: z.optional(
-    z.object({
-      checks: nonNegativeInteger,
-      correct: nonNegativeInteger,
-      assisted: nonNegativeInteger,
-      unassistedChecks: nonNegativeInteger,
-      unassistedCorrect: nonNegativeInteger,
-      longestSequence: nonNegativeInteger,
-      byStage: z.object({
-        guided: z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger }),
-        faded: z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger }),
-        tracked: z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger })
-      }),
-      updatedAt: z.optional(isoDateTime)
-    })
-  )
+  costAccuracy: z.record(z.string(), z.object({ seen: nonNegativeInteger, correct: nonNegativeInteger }))
 })
 
 export const badgeStateSchema = z.object({

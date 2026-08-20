@@ -419,7 +419,7 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   nine and the opt-in "Speedrun keyboard" setting were removed in the 2026 refresh
   (`SPEEDRUN_TOP_ROW = 5` stays: a future 10-cost card lands on the bottom row,
   not shoving 1–5 out from under a learned thumb). It renders everywhere the pip
-  keypad does (Surge, Practice, Survival, Rain); Trade and Ledger use the shared
+  keypad does (Surge, Practice, Survival, Rain); Trade uses the shared
   `components/game/ExchangeBoard.tsx` (RED/BLUE team rows + EVEN) instead. The two
   rows **must not** keep a single row's `aspect-ratio`, or they blow through the
   viewport-fit gates — see `.pip-keypad` in `styles.css`.

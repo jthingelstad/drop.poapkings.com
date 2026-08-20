@@ -1,5 +1,4 @@
 import { cardElixir } from "./scoring.js";
-import type { LedgerStage } from "@elixir-drop/contracts";
 import type { RunChallenge, RunTranscript } from "./types.js";
 
 // Server-owned learning telemetry, derived from validated run transcripts at
@@ -24,45 +23,6 @@ export interface CardStat {
 }
 
 export type CardStatsMap = Record<string, CardStat>;
-
-export interface LedgerStageStats {
-  seen: number;
-  correct: number;
-}
-
-export interface LedgerStats {
-  checks: number;
-  correct: number;
-  assisted: number;
-  unassistedChecks: number;
-  unassistedCorrect: number;
-  longestSequence: number;
-  byStage: Record<LedgerStage, LedgerStageStats>;
-  updatedAt?: string;
-}
-
-export interface LedgerResult {
-  correct: boolean;
-  assisted: boolean;
-  stage: LedgerStage;
-  sequenceLength: number;
-}
-
-export function emptyLedgerStats(): LedgerStats {
-  return {
-    checks: 0,
-    correct: 0,
-    assisted: 0,
-    unassistedChecks: 0,
-    unassistedCorrect: 0,
-    longestSequence: 0,
-    byStage: {
-      guided: { seen: 0, correct: 0 },
-      faded: { seen: 0, correct: 0 },
-      tracked: { seen: 0, correct: 0 },
-    },
-  };
-}
 
 interface CardResult {
   cardId: number;
@@ -89,7 +49,6 @@ export function cardResultsFromTranscript(
 ): CardResult[] {
   switch (challenge.mode) {
     case "practice":
-      if (challenge.practiceKind === "ledger") return [];
       return answerArray(transcript.answers).flatMap((answer) => {
         const cardId = Number(answer.cardId);
         const elixir = cardElixir(cardId);
@@ -130,64 +89,6 @@ export function cardResultsFromTranscript(
     default:
       return [];
   }
-}
-
-// Ledger answers have already passed the scorer when this extractor runs. The
-// exact balance does not need to be stored again: correctness, assistance,
-// stage, and sequence length are the durable learning signal.
-export function ledgerResultsFromTranscript(
-  challenge: RunChallenge,
-  transcript: RunTranscript,
-): LedgerResult[] {
-  if (challenge.mode !== "practice" || challenge.practiceKind !== "ledger")
-    return [];
-  return answerArray(transcript.answers).map((answer) => {
-    const plays = answerArray(answer.plays);
-    const balance = plays.reduce((sum, play) => {
-      const cost = cardElixir(Number(play.cardId)) ?? 0;
-      return sum + (play.side === "red" ? cost : -cost);
-    }, 0);
-    return {
-      correct: answer.guess === balance,
-      assisted: answer.assisted === true,
-      stage: answer.stage as LedgerStage,
-      sequenceLength: plays.length,
-    };
-  });
-}
-
-export function mergeLedgerStats(
-  existing: LedgerStats | undefined,
-  results: LedgerResult[],
-  at: string,
-): LedgerStats {
-  const base = existing ?? emptyLedgerStats();
-  const merged: LedgerStats = {
-    ...base,
-    byStage: {
-      guided: { ...base.byStage.guided },
-      faded: { ...base.byStage.faded },
-      tracked: { ...base.byStage.tracked },
-    },
-    updatedAt: at,
-  };
-  for (const result of results) {
-    merged.checks += 1;
-    merged.correct += result.correct ? 1 : 0;
-    merged.assisted += result.assisted ? 1 : 0;
-    if (!result.assisted) {
-      merged.unassistedChecks += 1;
-      merged.unassistedCorrect += result.correct ? 1 : 0;
-    }
-    merged.longestSequence = Math.max(
-      merged.longestSequence,
-      result.sequenceLength,
-    );
-    const stage = merged.byStage[result.stage];
-    stage.seen += 1;
-    stage.correct += result.correct ? 1 : 0;
-  }
-  return merged;
 }
 
 export function mergeCardStats(

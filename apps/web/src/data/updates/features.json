@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "practice-direct-entry",
+      "publishedAt": "2026-08-20T10:19:00-05:00",
+      "title": "Practice opens straight into the cards",
+      "body": "Practice now opens directly into the card-cost drill—no drill picker, no detour. Drop is already the training ground; [start practicing](/#/practice)."
+    },
+    {
       "id": "better-battle-names",
       "publishedAt": "2026-08-19T23:35:25-05:00",
       "title": "Your battle name found more personality",

@@ -8,7 +8,7 @@ import { layout } from '../../src/lib/use-layout'
 
 const CASES = [
   ['/', 'Elixir Drop'],
-  ['/practice', 'Training grounds'],
+  ['/practice', 'Practice'],
   ['/surge', 'Charging'],
   ['/higher-lower', 'Charging'],
   ['/trade', 'Charging'],
@@ -81,17 +81,14 @@ describe('SSR render smoke', () => {
     expect(html).not.toContain('<h1 class="sr-only">Elixir Drop</h1>')
   })
 
-  it('folds the legacy Practice hub route into Games on mobile', async () => {
+  it('keeps the direct Practice route on mobile', async () => {
     layout.value = 'mobile'
     route.value = '/practice'
 
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain('Practice')
-    expect(html).not.toContain('Cost Recall')
-    expect(html).not.toContain('Ledger')
-    expect(html).not.toContain('practice-hub main-content')
-    expect(html).not.toContain('<h1 class="sr-only">Practice</h1>')
+    expect(html).toContain('<h1 class="sr-only">Practice</h1>')
   })
 
   it('keeps a restricted player in Practice while blocking ranked routes', async () => {
@@ -105,7 +102,7 @@ describe('SSR render smoke', () => {
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
-    expect(practiceHtml).toContain('Training grounds')
+    expect(practiceHtml).toContain('Practice')
     expect(practiceHtml).not.toContain('Ranked restricted')
   })
 
@@ -163,7 +160,7 @@ describe('SSR render smoke', () => {
 
     route.value = '/practice'
     const practiceHtml = await renderToStringAsync(<App />)
-    expect(practiceHtml).toContain('Training grounds')
+    expect(practiceHtml).toContain('Practice')
     expect(practiceHtml).not.toContain('is a thumb game')
 
     route.value = '/leaderboards'

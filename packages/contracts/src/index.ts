@@ -49,38 +49,6 @@ export function emailValidationMessage(value: unknown): string | undefined {
 
 export type GameMode = (typeof GAME_MODES)[number];
 
-// Practice is one unranked product surface with multiple learning drills. The
-// subtype belongs on its signed challenge rather than in GAME_MODES so adding a
-// drill can never create a leaderboard, record key, or competitive ruleset by
-// accident. `practiceKind` remains optional on RunChallenge for runs created
-// before the Practice section shipped; absent means Cost Recall.
-export const PRACTICE_KINDS = ["costs", "ledger"] as const;
-export type PracticeKind = (typeof PRACTICE_KINDS)[number];
-
-export function isPracticeKind(value: unknown): value is PracticeKind {
-  return PRACTICE_KINDS.includes(value as PracticeKind);
-}
-
-export type LedgerSide = "blue" | "red";
-export type LedgerStage = "guided" | "faded" | "tracked";
-
-export interface LedgerPlay {
-  side: LedgerSide;
-  cardId: number;
-}
-
-export interface LedgerAnswer {
-  plays: LedgerPlay[];
-  guess: number;
-  responseMs: number;
-  assisted: boolean;
-  stage: LedgerStage;
-}
-
-export const LEDGER_MIN_PLAYS = 2;
-export const LEDGER_MAX_PLAYS = 6;
-export const LEDGER_VALUE_LIMIT = 4;
-
 // Survival's per-card window tightens as the streak grows — every run gets a
 // natural climax. The curve is hyperbolic, so the clock keeps getting faster the
 // deeper you go (no flat floor): a 5s opening eases toward an 800ms ultimate
@@ -185,7 +153,7 @@ export const TRADE_ROUNDS = TRADE_LADDER.length;
 
 export type RunChallenge =
   | { mode: "surge"; cardIds: number[] }
-  | { mode: "practice"; practiceKind?: PracticeKind; cardIds: number[] }
+  | { mode: "practice"; cardIds: number[] }
   | { mode: "survival"; cardIds: number[] }
   | { mode: "rain"; cardIds: number[] }
   | { mode: "higher-lower"; pairs: Array<[number, number]> }
