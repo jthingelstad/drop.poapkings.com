@@ -1,4 +1,4 @@
-import { costForGameKey, shortcutForCost } from '../lib/game-keys'
+import { costForGameKey, keyLegendForCost } from '../lib/game-keys'
 import { useGameKeys } from '../lib/use-game-keys'
 
 interface Props {
@@ -37,12 +37,12 @@ export default function MultipleChoice({
             class={`mc-choices__btn${wrong ? ' mc-choices__btn--wrong' : ''}${right ? ' mc-choices__btn--correct' : ''}`}
             onClick={() => !disabled && onPick(n)}
             disabled={disabled}
-            aria-keyshortcuts={`${n} ${shortcutForCost(n)}`}
+            aria-keyshortcuts={`${n} ${keyLegendForCost(n)}`}
             aria-label={`${n} elixir${right ? ', correct answer' : wrong ? ', your answer, incorrect' : ''}`}
           >
             <span>{n}</span>
             <kbd class="mc-choices__shortcut" aria-hidden="true">
-              {shortcutForCost(n)}
+              {keyLegendForCost(n)}
             </kbd>
           </button>
         )

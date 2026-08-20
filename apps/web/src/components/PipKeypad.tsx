@@ -5,7 +5,7 @@ import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
 import { useGameKeys } from '../lib/use-game-keys'
 import { observeInput, type InputObservation } from '../lib/input-evidence'
-import { costForGameKey, shortcutForCost } from '../lib/game-keys'
+import { costForGameKey, keyLegendForCost } from '../lib/game-keys'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
@@ -105,13 +105,13 @@ function PipKey({
         activate(event.currentTarget, event)
       }}
       aria-label={`${value} elixir`}
-      aria-keyshortcuts={`${value} ${shortcutForCost(value)}`}
+      aria-keyshortcuts={`${value} ${keyLegendForCost(value)}`}
       disabled={disabled}
     >
       <span class="pip-keypad__face">
         <span class="pip-keypad__num">{value}</span>
         <kbd class="pip-keypad__shortcut" aria-hidden="true">
-          {shortcutForCost(value)}
+          {keyLegendForCost(value)}
         </kbd>
       </span>
     </button>

@@ -58,14 +58,14 @@ test('the desktop rail defaults Falling Cards off, then cycles through subtle, b
 })
 
 test('five logo taps start the screensaver and any key exits it', async ({ page, isMobile }) => {
-  // The redesign's logo-tap door is the mobile "More games" title (there is no
-  // tapped hero logo on desktop — desktop uses the visible "Falling Cards" rail
+  // The logo-tap door is the wordmark at the foot of Home (there is no tapped
+  // hero logo on desktop — desktop uses the visible "Falling Cards" rail
   // launcher instead, covered above).
   test.skip(!isMobile, 'the logo-tap screensaver door exists on the mobile shell')
   await page.goto('/')
-  // The logo-tap door is wired to the first "More games" title ("The other four");
-  // the redesign added a second .ed-more__title for the Practice list.
-  const logo = page.locator('.ed-more__title').first()
+  // On the LOGO, where the function's own name says it belongs. As a button
+  // rather than a second clan link, so five taps cannot open five tabs.
+  const logo = page.locator('.ed-home__foot .ed-wordmark--tap')
   await expect(logo).toBeVisible()
   for (let tap = 0; tap < 5; tap += 1) await logo.click()
 

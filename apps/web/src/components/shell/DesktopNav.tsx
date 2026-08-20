@@ -1,12 +1,33 @@
+// Desktop left rail: everything ABOUT the app — the wordmark, primary
+// navigation, the ambient Falling Cards control, and the meta links. The right
+// aside is the one thing that is HAPPENING. That split is why the live feed
+// earns the height and the controls do not.
+//
+// There is deliberately no key-mapping block here. A rail teaches a mapping on
+// a screen where it cannot be used; the letter on each keycap mid-run is the
+// only place the mapping is stated, and `KeyboardHelp` (`?`) is the full
+// reference for anyone who goes looking.
+
 import { navigate, route } from '../../lib/router'
 import { hasUnreadUpdates } from '../../lib/updates'
-import { openKeyboardHelp } from '../../lib/keyboard-help'
+import { cycleDesktopFallingCards, desktopFallingCardsMode } from '../../lib/screensaver'
+import { tapFxFrom } from '../../lib/tap-fx'
 import Icon from '../Icon'
 import Wordmark from '../brand/Wordmark'
 import { NAV_ITEMS, activeNavIndex } from './nav'
 
+const META_LINKS = [
+  { label: 'About', href: '/about/' },
+  { label: 'FAQ', href: '/faq/' },
+  { label: 'Fair Play', href: '/fair-play/' },
+  { label: 'Privacy', href: '/privacy/' }
+]
+
 export default function DesktopNav() {
   const active = activeNavIndex(route.value)
+  const fallingCardsMode = desktopFallingCardsMode.value
+  const fallingCardsNext =
+    fallingCardsMode === 'off' ? 'Subtle' : fallingCardsMode === 'subtle' ? 'Background' : 'Full screen'
 
   return (
     <aside class="ed-desktop__rail" aria-label="Desktop navigation">
@@ -28,25 +49,27 @@ export default function DesktopNav() {
         ))}
       </nav>
 
-      <div class="ed-desktop-keys" aria-label="Desktop keyboard shortcuts">
-        <div class="ed-desktop-keys__head">
-          <span>Speed keys</span>
-          <button type="button" onClick={openKeyboardHelp} aria-label="Open keyboard controls">
-            ?
-          </button>
-        </div>
-        <div class="ed-desktop-keys__row" aria-hidden="true">
-          {['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';'].map((key) => (
-            <kbd key={key}>{key}</kbd>
+      <div class="ed-rail-foot">
+        <button
+          class="ed-rail-btn ed-rail-btn--saver tap-fx"
+          aria-label={`Falling Cards — ${fallingCardsNext.toLowerCase()}`}
+          onClick={(e) => {
+            tapFxFrom(e)
+            cycleDesktopFallingCards()
+          }}
+        >
+          <span class="tap-face">
+            <Icon name="sparkles" />
+            Falling Cards
+            <span class="ed-rail-btn__hint">{fallingCardsNext} →</span>
+          </span>
+        </button>
+        <div class="ed-rail-meta">
+          {META_LINKS.map((link) => (
+            <a key={link.href} href={link.href}>
+              {link.label}
+            </a>
           ))}
-        </div>
-        <div class="ed-desktop-keys__row ed-desktop-keys__row--cost" aria-hidden="true">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((cost) => (
-            <span key={cost}>{cost}</span>
-          ))}
-        </div>
-        <div class="ed-desktop-keys__space">
-          <kbd>SPACE</kbd> Play again
         </div>
       </div>
     </aside>

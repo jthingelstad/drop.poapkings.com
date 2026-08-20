@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "keycaps-name-the-keys",
+      "publishedAt": "2026-08-20T17:30:00-05:00",
+      "title": "Every key names itself on the cap",
+      "body": "On a mouse-and-keyboard machine each elixir key now carries its letter in the corner mid-run—`A` on the `1` cap—so the home row is readable exactly where your hands already are. Keys bind by position, so an AZERTY or QWERTZ board answers the same way and shows its own letters. [Deal into Surge](/#/surge)."
+    },
+    {
       "id": "falling-cards-takes-over",
       "publishedAt": "2026-08-20T14:43:08-05:00",
       "title": "Falling Cards waits for your signal",

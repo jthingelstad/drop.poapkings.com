@@ -20,16 +20,10 @@ const HERO_SLIDE_COUNT = 3
 const HERO_ROTATION_MS = 10_000
 const FREE_PASS_MODE = 'surge' as const
 
-// `withHours` gives the desktop pill its "6d 04h" form.
-export function FeaturedHero({
-  data,
-  game,
-  withHours = false
-}: {
-  data: HomeData
-  game: HomeGame
-  withHours?: boolean
-}) {
+// The season pill is the only place the season clock appears on Play, and hours
+// matter on the last day, so it always reads "6d 04h". The hours used to be a
+// prop only the deleted desktop home passed; it is now simply the form.
+export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame }) {
   const offlinePlay = offline.value && canPlayOffline(game.mode)
   const offlineDescriptionId = `featured-${game.mode}-offline-description`
   const best = data.bestScores[game.mode]
@@ -46,8 +40,10 @@ export function FeaturedHero({
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">{seasonEndsLabel(data.season, withHours)}</span>
-        <ModeIcon mode={game.mode} size={60} className="ed-hero__art" />
+        <span class="ed-pill ed-pill--gold">{seasonEndsLabel(data.season)}</span>
+        {/* 72 against the rows' 46. The hero's whole claim is that one game is
+            bigger than the rows, and 60 was too thin a margin to make it. */}
+        <ModeIcon mode={game.mode} size={72} className="ed-hero__art" />
         {/* Long names get their own size step rather than wrapping the
             wordmark, which reads as a broken headline. */}
         <div class={`ed-hero__wordmark${game.name.length > 8 ? ' ed-hero__wordmark--long' : ''}`}>
@@ -84,14 +80,14 @@ export function FeaturedHero({
   )
 }
 
-function FreePassHero({ data, withHours }: { data: HomeData; withHours: boolean }) {
+function FreePassHero({ data }: { data: HomeData }) {
   return (
     <section class="ed-hero ed-hero--pass">
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">Free Pass · {seasonEndsLabel(data.season, withHours)}</span>
-        <ModeIcon mode={FREE_PASS_MODE} size={60} className="ed-hero__art" />
+        <span class="ed-pill ed-pill--gold">Free Pass · {seasonEndsLabel(data.season)}</span>
+        <ModeIcon mode={FREE_PASS_MODE} size={72} className="ed-hero__art" />
         <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
         <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
         <div class="ed-hero__cta ed-hero__cta--split">
@@ -175,15 +171,7 @@ function ShareHero() {
   )
 }
 
-export function HomeHeroCarousel({
-  data,
-  game,
-  withHours = false
-}: {
-  data: HomeData
-  game: HomeGame
-  withHours?: boolean
-}) {
+export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGame }) {
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
   const reduceMotion = isReducedMotionEnabled()
@@ -244,7 +232,7 @@ export function HomeHeroCarousel({
           aria-hidden={active !== 0}
           inert={active !== 0}
         >
-          <FeaturedHero data={data} game={game} withHours={withHours} />
+          <FeaturedHero data={data} game={game} />
         </div>
         <div
           class="ed-hero-carousel__slide"
@@ -254,7 +242,7 @@ export function HomeHeroCarousel({
           aria-hidden={active !== 1}
           inert={active !== 1}
         >
-          <FreePassHero data={data} withHours={withHours} />
+          <FreePassHero data={data} />
         </div>
         <div
           class="ed-hero-carousel__slide"

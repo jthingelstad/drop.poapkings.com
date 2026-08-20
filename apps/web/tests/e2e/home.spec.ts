@@ -13,15 +13,23 @@ test(
 
     if (isDesktopViewport(viewport)) {
       // The aside keeps only what a phone cannot do well: the live feed, given
-      // real room, and the Falling Cards launcher. Standings and the season
-      // card left because the page beside them already says both.
+      // the full height of its column. Standings and the season card left
+      // because the page beside them already says both, and Falling Cards moved
+      // to the left rail's foot — that rail is everything ABOUT the app, this
+      // one is the thing HAPPENING.
       await expect(page.locator('.ed-rail-standings')).toHaveCount(0)
       await expect(page.locator('.ed-rail-this')).toHaveCount(0)
       await expect(page.locator('.ed-railfoot')).toHaveCount(0)
       await expect(page.locator('.ed-rail-live__head')).toContainText('Live · recent runs')
       // Repeated activity is grouped into one recent-runs row.
       await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
+      await expect(page.locator('.ed-aside .ed-rail-btn--saver')).toHaveCount(0)
       await expect(page.locator('.ed-desktop__rail')).toBeVisible()
+      await expect(page.locator('.ed-desktop__rail .ed-rail-btn--saver')).toBeVisible()
+      await expect(page.locator('.ed-desktop__rail .ed-rail-meta a')).toHaveCount(4)
+      // No key-mapping block in the rail: it teaches a mapping where it cannot
+      // be used. The keycap letters mid-run are the whole discoverable surface.
+      await expect(page.locator('.ed-desktop-keys')).toHaveCount(0)
       // The Falling Cards host remains mounted behind the desktop shell even
       // though its card scene starts off.
       await expect(page.locator('.ed-wallpaper')).toBeVisible()
@@ -51,7 +59,7 @@ test(
   }
 )
 
-test('the hero features one ranked game and the other four are full-width rows', async ({ page }) => {
+test('the hero features one ranked game and the rest are full-width rows', async ({ page }) => {
   await page.goto('/')
 
   // The hero promotes one ranked game for the day.
@@ -82,7 +90,8 @@ test('desktop keeps the mobile game order in a fixed-width center', async ({ pag
   await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
 
   const ranked = page.locator('.ed-more--ranked')
-  await expect(ranked.locator('.ed-more__title')).toHaveText('The other four')
+  // "Games", not a count that has to be edited when the list changes.
+  await expect(ranked.locator('.ed-more__title')).toHaveText('Games')
   await expect(ranked.locator('.ed-grow--ranked')).toHaveCount(4)
   await expect(page.getByRole('button', { name: /Open .* leaderboard/ })).toHaveCount(0)
   await expect(page.locator('.ed-hero').first().getByRole('button', { name: /PLAY/ })).toBeVisible()

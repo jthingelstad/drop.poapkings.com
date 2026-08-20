@@ -14,6 +14,7 @@ import SharedRun, { sharedRunToken } from './screens/SharedRun'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
+import { resolveKeyLegend } from './lib/game-keys'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
 import MobileShell from './components/shell/MobileShell'
@@ -185,6 +186,9 @@ export default function App() {
   useEffect(() => {
     void initializeAccount()
     initInstallPrompt()
+    // Ask the browser what is actually printed on the home row. Chromium
+    // answers; everywhere else the caps keep their US letters.
+    void resolveKeyLegend()
     // Every game is a lazy route, so none of their chunks are guaranteed to be
     // in the document's script list. Warm all six through the active worker,
     // then atomically commit the shell that makes every mode open offline.

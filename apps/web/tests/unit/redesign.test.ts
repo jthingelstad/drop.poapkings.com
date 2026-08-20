@@ -40,12 +40,13 @@ describe('season-ends label', () => {
       durationWeeks: 4
     }) as Season
 
-  it('formats days, days+hours, and hour-only remaining', () => {
+  it('formats days+hours, and hour-only remaining', () => {
     // A half-hour buffer past each boundary so a few ms of test execution can't
     // drift the floored hour/day down.
     const future = new Date(Date.now() + (6 * 86_400_000 + 4 * 3_600_000 + 30 * 60_000)).toISOString()
-    expect(seasonEndsLabel(season(future))).toBe('Season ends in 6d')
-    expect(seasonEndsLabel(season(future), true)).toBe('Season ends in 6d 04h')
+    // One form everywhere: the pill is the only place the season clock appears
+    // on Play, and hours matter on the last day.
+    expect(seasonEndsLabel(season(future))).toBe('Season ends in 6d 04h')
     const soon = new Date(Date.now() + (3 * 3_600_000 + 30 * 60_000)).toISOString()
     expect(seasonEndsLabel(season(soon))).toBe('Season ends in 3h')
     expect(seasonEndsLabel(null)).toBe('Season in progress')

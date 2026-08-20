@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'preact/hooks'
 import { layout } from '../lib/use-layout'
 import { closeKeyboardHelp, keyboardHelpOpen, openKeyboardHelp } from '../lib/keyboard-help'
 import { useGameKeys } from '../lib/use-game-keys'
+import { keyLegendRow } from '../lib/game-keys'
 import Icon from './Icon'
 
 export default function KeyboardHelp() {
@@ -27,6 +28,9 @@ export default function KeyboardHelp() {
 
   if (layout.value !== 'desktop' || !open) return null
 
+  // The player's own legend where the browser resolves it, US letters otherwise.
+  const keys = keyLegendRow()
+
   return (
     <div class="ed-keyhelp" role="presentation" onClick={closeKeyboardHelp}>
       <section
@@ -47,8 +51,8 @@ export default function KeyboardHelp() {
         </header>
         <div class="ed-keyhelp__mapping" aria-label="Elixir cost keyboard mapping">
           <div class="ed-keyhelp__keys" aria-hidden="true">
-            {['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';'].map((key) => (
-              <kbd key={key}>{key}</kbd>
+            {keys.map((key, index) => (
+              <kbd key={`${key}-${index}`}>{key}</kbd>
             ))}
           </div>
           <div class="ed-keyhelp__costs" aria-hidden="true">
@@ -56,7 +60,9 @@ export default function KeyboardHelp() {
               <span key={cost}>{cost}</span>
             ))}
           </div>
-          <p>A S D F G answer 1–5. J K L ; answer 6–9. The number row works too.</p>
+          <p>
+            {keys.slice(0, 5).join(' ')} answer 1–5. {keys.slice(5).join(' ')} answer 6–9. The number row works too.
+          </p>
         </div>
         <dl class="ed-keyhelp__list">
           <div>

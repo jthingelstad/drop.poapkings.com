@@ -31,7 +31,7 @@ test('offline shows a persistent mark and keeps games playable', async ({ page }
   // chip plus the readiness line; every game stays playable offline.
   await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
   await expect(page.locator('.ed-home__ready')).toContainText('You are offline but ready to play')
-  // Every shell lists the other four beneath the featured game; every play row
+  // Every shell lists the remaining games beneath the featured one; every row
   // stays live while disconnected.
   const rows = page.locator('.ed-grow--ranked')
   await expect(rows).not.toHaveCount(0)

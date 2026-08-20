@@ -33,6 +33,14 @@ vi.mock('../../src/lib/router', async (importActual) => {
   }
 })
 
+// Home is one component on both shells now, and it owns its own data hook —
+// there is no props-only "HomeMobile" to render. Stub the hook so these stay
+// render tests.
+vi.mock('../../src/screens/home/home-data', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/screens/home/home-data')>()
+  return { ...actual, useHomeData: vi.fn() }
+})
+
 // The heavy Pixi scene is behind a dynamic import; stub it so the egg loads.
 vi.mock('../../src/components/ScreensaverScene', () => ({
   createElixirRain: vi.fn(async () => ({ destroy: vi.fn() }))
@@ -49,9 +57,9 @@ import { createElixirRain } from '../../src/components/ScreensaverScene'
 import Login from '../../src/screens/Login'
 import Leaderboards from '../../src/screens/Leaderboards'
 import AuthRedeem from '../../src/screens/AuthRedeem'
-import HomeMobile from '../../src/screens/home/HomeMobile'
+import Home from '../../src/screens/Home'
 import Screensaver from '../../src/components/Screensaver'
-import type { HomeData } from '../../src/screens/home/home-data'
+import { useHomeData, type HomeData } from '../../src/screens/home/home-data'
 import type { LeaderboardEntry } from '../../src/lib/api'
 import PublicProfile from '../../src/screens/PublicProfile'
 import { publicPlayerPreview } from '../../src/lib/public-player'
@@ -529,17 +537,18 @@ describe('AuthRedeem', () => {
 })
 
 // =============================================================================
-// HomeMobile
+// Home
 // =============================================================================
-describe('HomeMobile', () => {
+describe('Home', () => {
   // Home is one column on both widths; only the ORDER and what a row does
   // change, so every test here says which layout it is asserting.
   afterEach(() => {
     layout.value = 'desktop'
   })
 
+  // Primes the mocked hook and returns what Home will read.
   function homeData(overrides: Partial<HomeData> = {}): HomeData {
-    return {
+    const data: HomeData = {
       loading: false,
       stats: null,
       season: null,
@@ -549,6 +558,8 @@ describe('HomeMobile', () => {
       standingsFor: () => [],
       ...overrides
     }
+    vi.mocked(useHomeData).mockReturnValue(data)
+    return data
   }
 
   it('leads with the hero, names a guest with a cause chip, and lists every mode', async () => {
@@ -557,7 +568,8 @@ describe('HomeMobile', () => {
     player.value = null
     installMode.value = 'none'
 
-    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+    homeData()
+    const html = await renderToStringAsync(<Home />)
 
     // The nav never renames; a header cause chip names the state instead.
     expect(html).toContain('GUEST')
@@ -585,21 +597,47 @@ describe('HomeMobile', () => {
     player.value = null
     installMode.value = 'none'
 
-    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+    homeData()
+    const html = await renderToStringAsync(<Home />)
 
     expect(html).toContain('UNRANKED')
-    expect(html.indexOf('The other four')).toBeLessThan(html.indexOf('ed-grow__name">Practice</strong>'))
+    // "Games", not a count that goes stale when the list changes.
+    expect(html).toContain('Games</span>')
+    expect(html).not.toContain('The other four')
+    expect(html.indexOf('>Games</span>')).toBeLessThan(html.indexOf('ed-grow__name">Practice</strong>'))
     expect(html.match(/ed-grow ed-grow--ranked/g)).toHaveLength(4)
     expect(html).not.toContain('Board →')
     expect(html).toContain('> PLAY</span>')
     expect(html).not.toContain('Ranked runs are played on your phone')
   })
 
+  it('draws the Practice row in the same medium as every other row', async () => {
+    homeData()
+    const html = await renderToStringAsync(<Home />)
+
+    // Its own mode art, not a lucide glyph in a tinted tile — one row drawn
+    // differently read as unfinished.
+    expect(html).not.toContain('ed-grow__glyph')
+    expect(html).toContain('/assets/modes/practice-192.png')
+  })
+
+  it('puts the screensaver tap door on the logo, not on a section heading', async () => {
+    homeData()
+    const html = await renderToStringAsync(<Home />)
+
+    // A tap target that does something unrelated to its own label is the bug;
+    // `registerLogoTap` names where it belongs.
+    expect(html).toContain('ed-wordmark--tap')
+    // The clan link survives as the "Run by POAP KINGS" line beneath it.
+    expect(html).toContain('Run by POAP KINGS')
+  })
+
   it('shows no cause chip and no identity band when authed and online', async () => {
     accountStatus.value = 'authenticated'
     player.value = { id: 'p2', publicName: 'Bob', level: 7 } as never
 
-    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+    homeData()
+    const html = await renderToStringAsync(<Home />)
 
     // Identity lives on the You page now; Home leads with the hero.
     expect(html).not.toContain('GUEST')
@@ -611,7 +649,8 @@ describe('HomeMobile', () => {
     installMode.value = 'available'
     installEligible.value = true
     installDismissed.value = false
-    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+    homeData()
+    const html = await renderToStringAsync(<Home />)
     expect(html).toContain('ed-installbar')
     expect(html).toContain('Install for full-screen play')
     expect(html).not.toContain('ed-installrow')
@@ -621,7 +660,8 @@ describe('HomeMobile', () => {
     installMode.value = 'available'
     installEligible.value = true
     installDismissed.value = true
-    const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
+    homeData()
+    const html = await renderToStringAsync(<Home />)
     expect(html).toContain('ed-installrow')
     expect(html).not.toContain('ed-installbar')
   })

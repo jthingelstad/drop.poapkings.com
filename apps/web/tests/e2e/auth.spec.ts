@@ -271,7 +271,7 @@ test('account deletion requires typed confirmation and clears the saved session'
   await page.getByLabel('Type DELETE to confirm').fill('DELETE')
   await confirmDelete.click()
 
-  // One home for every width now — HomeMobile, letterboxed on desktop.
+  // One home for every width now — one Home component, both shells.
   await expect(page.locator('.ed-home')).toBeVisible()
   expect(deletionBody).toEqual({ confirmation: 'DELETE' })
   await expect.poll(() => page.evaluate(() => localStorage.getItem('elixirdrop:session:v1'))).toBeNull()

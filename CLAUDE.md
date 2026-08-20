@@ -178,9 +178,14 @@ rank-oriented fields as part of unrelated work.
   / activity grid (`lib/use-layout.ts`); the document itself does not scroll.
   Later browser resizes never swap or reflow that shell: a smaller viewport
   clips it. Its center is
-  a fixed 440px track and Home keeps the exact mobile sequence: featured game,
-  the other four ranked games, then Practice. The featured mode is never
-  duplicated; standings stay in the persistent Ladder navigation. Active games
+  a fixed 440px track and Home is ONE component on both shells (`screens/Home.tsx`,
+  no `layout.value` branch) in the exact mobile sequence: featured game, the
+  remaining ranked games, then Practice. The featured mode is never duplicated;
+  standings stay in the persistent Ladder navigation. Both rails stretch to the
+  column's height, and they split by kind: the LEFT rail is everything *about*
+  the app — nav, then the Falling Cards control and the meta links at its foot —
+  and the right aside is the one thing *happening*, which is why the live feed
+  gets the height and the controls do not. Active games
   drop both rails, use a bounded 480px stage, and remain playable with mouse or
   keyboard on the existing boards. **Falling Cards is optional desktop
   scenery** (`components/shell/DesktopWallpaper.tsx`): the full three-layer
@@ -188,14 +193,22 @@ rank-oriented fields as part of unrelated work.
   keeps a bounded 30-card texture cast and swaps six cards every 20 seconds so
   the catalog rotates through without living in memory all at once; reduced
   motion freezes the same composition. `DesktopAside` keeps only the live
-  `Recent runs` feed and a Falling Cards control. That control cycles off ->
+  `Recent runs` feed; the Falling Cards control sits in `DesktopNav`'s foot.
+  That control cycles off ->
   subtle -> background -> full screen: Subtle runs the same live scene at lower
   opacity; full screen hides the game panels over the same canvas, its
   dismissing input restores the panels with cards off, and the next press deals
-  the Subtle scene back in. `DesktopNav` advertises the primary
-  home-row mapping (`ASDFG` = 1–5, `JKL;` = 6–9); the number row remains an
-  alias, Space repeats/defaults, `?` opens the help sheet, and Escape requires
-  two presses to abandon a run.
+  the Subtle scene back in. The home-row mapping (`ASDFG` = 1–5, `JKL;` = 6–9)
+  binds `event.code`, never `event.key` — AZERTY's home row is *qsdfg* — and is
+  stated in exactly one place in the running app: **the letter on each keycap
+  mid-run**, gated on `(hover: hover) and (pointer: fine)` rather than viewport
+  width. No hero hint and no rail key block: both teach a mapping where it
+  cannot be used. Where `navigator.keyboard.getLayoutMap()` resolves, the caps
+  print the player's own legend; a wrong letter is worse than a generic one, so
+  nothing is substituted otherwise. The number row remains an alias, Space
+  repeats/defaults, `?` opens the help sheet, and Escape requires two presses to
+  abandon a run. **A keyboard run and a thumb run go on the same board** — no
+  split board, filter, input badge, or asterisk in a referee verdict.
 - **"Elixir Rain" screensaver**: activation state in
   `apps/web/src/lib/screensaver.ts` (three doors: the nav launcher — a visible
   feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under

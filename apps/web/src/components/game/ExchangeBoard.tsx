@@ -1,7 +1,7 @@
 import type { Card } from '../../types'
 import { CardArt } from '../CardChrome'
 import { observeInput, type InputObservation } from '../../lib/input-evidence'
-import { shortcutForCost } from '../../lib/game-keys'
+import { keyLegendForCost } from '../../lib/game-keys'
 
 // Trade's exchange board. RED lane on top, BLUE below — Clash Royale's own
 // geometry, internalised over thousands of matches. Between the lanes a single
@@ -112,7 +112,7 @@ export function ExchangePad({
           >
             <span>{mag}</span>
             <kbd class="ed-xpad__shortcut" aria-hidden="true">
-              {shortcutForCost(mag + 5)}
+              {keyLegendForCost(mag + 5)}
             </kbd>
           </button>
         ))}
@@ -126,7 +126,7 @@ export function ExchangePad({
       >
         <span>EVEN</span>
         <kbd class="ed-xpad__shortcut" aria-hidden="true">
-          G
+          {keyLegendForCost(5)}
         </kbd>
       </button>
       <div class="ed-xpad__row ed-xpad__row--blue">
@@ -141,7 +141,7 @@ export function ExchangePad({
           >
             <span>{mag}</span>
             <kbd class="ed-xpad__shortcut" aria-hidden="true">
-              {shortcutForCost(mag)}
+              {keyLegendForCost(mag)}
             </kbd>
           </button>
         ))}

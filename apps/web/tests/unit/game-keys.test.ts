@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { costForGameKey, isSpaceKey, shortcutForCost } from '../../src/lib/game-keys'
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  costForGameKey,
+  isSpaceKey,
+  keyLegendForCost,
+  keyLegendRow,
+  resetKeyLegendForTests,
+  resolveKeyLegend,
+  shortcutForCost
+} from '../../src/lib/game-keys'
 
 describe('desktop game keys', () => {
   it.each([
@@ -28,5 +36,60 @@ describe('desktop game keys', () => {
   it('recognizes modern and legacy Space values', () => {
     expect(isSpaceKey({ code: 'Space', key: ' ' })).toBe(true)
     expect(isSpaceKey({ code: '', key: 'Spacebar' })).toBe(true)
+  })
+})
+
+// The binding is positional, so the US letter is a GUESS about what is printed
+// under the player's finger. Chromium can answer it exactly; a wrong letter is
+// worse than a generic one, so nothing is substituted on anything less.
+describe('the legend printed on a keycap', () => {
+  afterEach(resetKeyLegendForTests)
+
+  it('shows the US letters until a browser resolves the real layout', () => {
+    expect(keyLegendRow()).toEqual(['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';'])
+  })
+
+  it("prints the player's own legend once getLayoutMap resolves it", async () => {
+    // AZERTY: the home row is q s d f g, and the key right of L is m.
+    await resolveKeyLegend({
+      getLayoutMap: async () =>
+        new Map([
+          ['KeyA', 'q'],
+          ['KeyS', 's'],
+          ['KeyD', 'd'],
+          ['KeyF', 'f'],
+          ['KeyG', 'g'],
+          ['KeyJ', 'j'],
+          ['KeyK', 'k'],
+          ['KeyL', 'l'],
+          ['Semicolon', 'm']
+        ])
+    })
+    expect(keyLegendRow()).toEqual(['Q', 'S', 'D', 'F', 'G', 'J', 'K', 'L', 'M'])
+    // The BINDING never moves: physical KeyA is still cost 1 on AZERTY.
+    expect(costForGameKey({ code: 'KeyA', key: 'q' })).toBe(1)
+  })
+
+  it('keeps the US fallback where the browser has no answer, or a useless one', async () => {
+    await resolveKeyLegend(undefined)
+    expect(keyLegendForCost(1)).toBe('A')
+
+    await resolveKeyLegend({
+      getLayoutMap: async () => {
+        throw new Error('not allowed')
+      }
+    })
+    expect(keyLegendForCost(1)).toBe('A')
+
+    // A blank or multi-character legend is not a keycap label.
+    await resolveKeyLegend({
+      getLayoutMap: async () =>
+        new Map([
+          ['KeyA', '  '],
+          ['KeyS', 'Dead']
+        ])
+    })
+    expect(keyLegendForCost(1)).toBe('A')
+    expect(keyLegendForCost(2)).toBe('S')
   })
 })

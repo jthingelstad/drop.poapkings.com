@@ -115,15 +115,17 @@ describe('SSR render smoke', () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
-    // The margin's job is the wallpaper; the aside keeps only the live feed and
-    // the launcher. Standings, the season card and the meta cluster left — the
-    // meta links live in You · Account, which was the point of gathering them.
+    // The margin's job is the wallpaper; the right aside keeps only the live
+    // feed. Everything ABOUT the app — nav, the ambient toggle, the meta links
+    // — sits at the foot of the LEFT rail. Standings and the season card left.
     expect(html).toContain('ed-wallpaper')
     expect(html).toContain('Desktop navigation')
     expect(html).toContain('Live · recent runs')
     expect(html).toContain('Falling Cards')
+    expect(html).toContain('ed-rail-meta')
     expect(html).not.toContain('ed-railfoot')
     expect(html).not.toContain('Season standings')
+    expect(html).not.toContain('Speed keys')
   })
 
   it('mounts ranked games directly on desktop and keeps the wallpaper behind play', async () => {

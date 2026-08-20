@@ -52,15 +52,16 @@ export function surgeSeasonCallout(
   return { title: `Get ${gapLabel(gap)} faster to take the lead`, detail, leading: false }
 }
 
-// "Season ends in 6d 04h" style pill copy. Falls back gracefully with no season.
-export function seasonEndsLabel(season: Season | null, withHours = false): string {
+// "Season ends in 6d 04h" pill copy. One form, everywhere: the pill is the only
+// place the season clock appears on Play, and hours matter on the last day.
+// Falls back gracefully with no season.
+export function seasonEndsLabel(season: Season | null): string {
   if (!season) return 'Season in progress'
   const ms = new Date(season.endsAt).getTime() - Date.now()
   if (ms <= 0) return 'Season ending'
   const days = Math.floor(ms / 86_400_000)
   const hours = Math.floor((ms % 86_400_000) / 3_600_000)
-  if (days >= 1)
-    return withHours ? `Season ends in ${days}d ${String(hours).padStart(2, '0')}h` : `Season ends in ${days}d`
+  if (days >= 1) return `Season ends in ${days}d ${String(hours).padStart(2, '0')}h`
   return `Season ends in ${hours}h`
 }
 

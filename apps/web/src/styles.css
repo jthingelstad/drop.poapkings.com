@@ -2151,6 +2151,17 @@ body.modal-open {
   animation: ed-goldShine 4.5s ease-in-out infinite;
   filter: drop-shadow(0 2px 6px rgba(245, 200, 76, 0.35));
 }
+
+/* As a button (the tap door) it must be visually identical to the link form. */
+.ed-wordmark--tap {
+  display: inline-block;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  font-size: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
 .ed-wordmark__by {
   font-family: var(--font-display);
   font-size: 0.56rem;
@@ -2570,6 +2581,62 @@ html.reduce-motion .ed-pillnav__ind {
   border-color: rgba(248, 113, 113, 0.35);
   background: transparent;
   color: var(--red-3);
+}
+
+/* Foot of the LEFT rail: the ambient control and the meta links. Everything
+   about the app lives here, pushed to the bottom so navigation keeps the top. */
+.ed-rail-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ed-rail-foot .ed-rail-btn--saver {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(215, 200, 255, 0.12);
+  background: rgba(11, 9, 32, 0.55);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* The rail is narrow, so the state sits UNDER the label rather than squeezing
+   it: a control never renames itself, and "Falling Cards" broken across two
+   lines reads as two controls. */
+.ed-rail-foot .ed-rail-btn--saver .tap-face {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 9px;
+  text-align: left;
+}
+.ed-rail-foot .ed-rail-btn--saver svg {
+  grid-row: 1;
+  color: #c4b5fd;
+}
+.ed-rail-foot .ed-rail-btn__hint {
+  grid-column: 2;
+  margin-left: 0;
+  color: #6f6699;
+  font-size: 0.56rem;
+}
+.ed-rail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 11px;
+  padding: 0 4px;
+}
+.ed-rail-meta a {
+  color: #6f6699;
+  font-size: 0.6rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.ed-rail-meta a:hover {
+  color: var(--lavender);
 }
 
 /* Right-rail blocks. */
@@ -7762,11 +7829,44 @@ html.reduce-motion .ed-profile-guest__halo::before {
    A fixed 936 × 720 workspace: a smaller browser clips the arena instead of
    reflowing it. Falling Cards remains behind every desktop route, including
    active play. */
+
+/* Keycap letters and the default-action key. Hidden by default and revealed by
+   POINTER CAPABILITY, never by viewport width: a touchscreen laptop is wide and
+   has no reason to be told about keys, and a keyboard-attached tablet is the
+   case that makes width the wrong test. The bindings themselves are global, so
+   a narrow desktop window still answers to the home row and still says so. */
 .pip-keypad__shortcut,
 .mc-choices__shortcut,
 .ed-xpad__shortcut,
 .ed-default-key {
   display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Load-bearing, not decorative: with the home row bound, `A` on the `1` cap is
+     the only place the mapping is stated while a player's hands are on it. 9px
+     rather than 8px for that reason. */
+  .pip-keypad__shortcut,
+  .mc-choices__shortcut,
+  .ed-xpad__shortcut {
+    display: block;
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    color: rgba(215, 200, 255, 0.62);
+    font:
+      700 9px/1 ui-monospace,
+      Menlo,
+      monospace;
+  }
+  .ed-default-key {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 3px 5px;
+    border: 1px solid rgba(42, 21, 0, 0.35);
+    border-radius: 5px;
+    font: 800 0.54rem/1 var(--font-body);
+  }
 }
 
 .ed-app--desktop {
@@ -7793,9 +7893,14 @@ html.reduce-motion .ed-profile-guest__halo::before {
     gap: 18px;
   }
 
+  /* All three panels run the full height of the column. The left rail's own
+     foot is pushed down by `.ed-rail-foot`, so stretching it is what puts the
+     ambient control and the meta links at the bottom of the screen rather than
+     immediately under the nav. */
   .ed-app--desktop .ed-desktop__rail,
   .ed-app--desktop .ed-desktop__main,
   .ed-app--desktop .ed-aside {
+    align-self: stretch;
     min-width: 0;
     min-height: 0;
     border: 1px solid rgba(215, 200, 255, 0.13);
@@ -7825,13 +7930,29 @@ html.reduce-motion .ed-profile-guest__halo::before {
     z-index: auto;
   }
 
-  .ed-app--desktop .ed-aside .ed-rail-block,
-  .ed-app--desktop .ed-aside .ed-rail-btn--saver {
+  .ed-app--desktop .ed-aside .ed-rail-block {
     padding: 13px;
     border: 1px solid rgba(215, 200, 255, 0.14);
     border-radius: 18px;
     background: rgba(18, 13, 40, 0.68);
     backdrop-filter: none;
+  }
+
+  /* The feed fills its stretched panel: ten rows rather than six. */
+  .ed-app--desktop .ed-aside > .ed-rail-block {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ed-app--desktop .ed-aside .ed-rail-live {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .ed-app--desktop .ed-aside .ed-rail-live::-webkit-scrollbar {
+    width: 0;
   }
 
   .ed-app--desktop .ed-desktop__brand {
@@ -7844,72 +7965,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   .ed-app--desktop .ed-nav__item {
     width: 100%;
     padding: 11px 12px;
-  }
-
-  .ed-desktop-keys {
-    margin-top: auto;
-    padding: 12px 10px;
-    border: 1px solid rgba(139, 92, 246, 0.32);
-    border-radius: 15px;
-    background: rgba(139, 92, 246, 0.09);
-  }
-  .ed-desktop-keys__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 9px;
-    color: var(--lavender);
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-  }
-  .ed-desktop-keys__head button {
-    width: 24px;
-    height: 24px;
-    border: 1px solid rgba(215, 200, 255, 0.25);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--ink);
-    cursor: pointer;
-    font-weight: 800;
-  }
-  .ed-desktop-keys__row {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr) 5px repeat(4, 1fr);
-    gap: 3px;
-  }
-  .ed-desktop-keys__row > :nth-child(6) {
-    grid-column: 7;
-  }
-  .ed-desktop-keys__row kbd,
-  .ed-desktop-keys__row span {
-    min-width: 0;
-    text-align: center;
-  }
-  .ed-desktop-keys__row kbd {
-    padding: 4px 0;
-    border: 1px solid rgba(215, 200, 255, 0.22);
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.07);
-    color: #fff;
-    font: 700 0.58rem/1 var(--font-body);
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
-  }
-  .ed-desktop-keys__row--cost {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 0.52rem;
-    font-weight: 700;
-  }
-  .ed-desktop-keys__space {
-    margin-top: 10px;
-    color: var(--muted);
-    font-size: 0.58rem;
-    font-weight: 700;
-  }
-  .ed-desktop-keys__space kbd {
-    margin-right: 5px;
-    color: var(--gold);
-    font: inherit;
   }
 
   .ed-app--desktop .ed-home {
@@ -8023,27 +8078,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
     background: rgba(9, 7, 24, 0.9);
   }
 
-  .ed-app--desktop .pip-keypad__shortcut,
-  .ed-app--desktop .mc-choices__shortcut,
-  .ed-app--desktop .ed-xpad__shortcut {
-    display: block;
-    position: absolute;
-    top: 5px;
-    right: 7px;
-    color: rgba(255, 255, 255, 0.56);
-    font: 800 0.6rem/1 var(--font-body);
-  }
-  .ed-app--desktop .ed-default-key {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 3px 5px;
-    border: 1px solid rgba(42, 21, 0, 0.35);
-    border-radius: 5px;
-    font: 800 0.54rem/1 var(--font-body);
-  }
-  .ed-app--desktop .ed-xpad__key--even {
-    position: relative;
-  }
   .ed-app--desktop .ed-game__top-l {
     position: relative;
     gap: 6px;

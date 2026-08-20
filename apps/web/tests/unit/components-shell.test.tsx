@@ -87,6 +87,7 @@ import GameMotion from '../../src/components/GameMotion'
 import GameFxLayer, { preloadGameFx } from '../../src/components/GameFxLayer'
 import MobileShell from '../../src/components/shell/MobileShell'
 import DesktopAside from '../../src/components/shell/DesktopAside'
+import DesktopNav from '../../src/components/shell/DesktopNav'
 import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
 import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
@@ -575,7 +576,10 @@ describe('MobileShell', () => {
     expect(host.querySelector('.ed-aside')).toBeTruthy()
     expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
     expect(host.querySelector('.ed-pillnav')).toBeNull()
-    expect(host.textContent).toContain('Speed keys')
+    // No key-mapping block in the rail: it teaches a mapping on a screen where
+    // it cannot be used. The keycap letters mid-run are the whole surface.
+    expect(host.textContent).not.toContain('Speed keys')
+    expect(host.querySelector('.ed-desktop-keys')).toBeNull()
     await act(async () => {
       await tick()
     })
@@ -670,14 +674,12 @@ describe('MobileShell', () => {
   })
 })
 
-// --- DesktopAside (desktop activity rail) ---------------------------------
+// --- DesktopNav (left rail: everything ABOUT the app) ---------------------
 
-describe('DesktopAside', () => {
-  it('launches the Falling Cards screensaver from the margin launcher', () => {
-    draw(<DesktopAside />)
-    const saver = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('Falling Cards')
-    )!
+describe('DesktopNav', () => {
+  it('launches the Falling Cards screensaver from the rail foot', () => {
+    draw(<DesktopNav />)
+    const saver = host.querySelector<HTMLButtonElement>('.ed-rail-foot .ed-rail-btn--saver')!
     expect(saver).toBeTruthy()
     saver.click()
     expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
@@ -685,7 +687,7 @@ describe('DesktopAside', () => {
 
   it('advertises the Subtle scene when Falling Cards are off', () => {
     screensaverMock.desktopFallingCardsMode.value = 'off'
-    draw(<DesktopAside />)
+    draw(<DesktopNav />)
 
     const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — subtle"]')!
     expect(saver.textContent).toContain('Subtle →')
@@ -695,20 +697,34 @@ describe('DesktopAside', () => {
 
   it('offers Background after the Subtle Falling Cards strength', () => {
     screensaverMock.desktopFallingCardsMode.value = 'subtle'
-    draw(<DesktopAside />)
+    draw(<DesktopNav />)
 
     const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — background"]')!
     expect(saver.textContent).toContain('Background →')
   })
 
-  it('keeps only the live feed and the launcher — nothing the page beside it already says', () => {
+  it('carries the meta links at the foot and no key-mapping block', () => {
+    draw(<DesktopNav />)
+    const meta = [...host.querySelectorAll<HTMLAnchorElement>('.ed-rail-meta a')]
+    expect(meta.map((link) => link.textContent)).toEqual(['About', 'FAQ', 'Fair Play', 'Privacy'])
+    expect(host.querySelector('.ed-desktop-keys')).toBeNull()
+    expect(host.textContent).not.toContain('Speed keys')
+  })
+})
+
+// --- DesktopAside (desktop activity rail) ---------------------------------
+
+describe('DesktopAside', () => {
+  it('keeps only the live feed — nothing the page beside it already says', () => {
     draw(<DesktopAside />)
     // Season standings is a board one click away, "Your Surge season" is the
-    // hero's own rank-and-best line, and the meta links live in You · Account.
-    // A rail that repeats the page beside it reads busier AND emptier.
+    // hero's own rank-and-best line, and the meta links are reference rather
+    // than activity. A rail that repeats the page beside it reads busier AND
+    // emptier. The Falling Cards control went to the left rail's foot.
     expect(host.querySelector('.ed-rail-standings')).toBeNull()
     expect(host.querySelector('.ed-rail-this')).toBeNull()
     expect(host.querySelector('.ed-railfoot')).toBeNull()
+    expect(host.querySelector('.ed-rail-btn--saver')).toBeNull()
     expect(host.textContent).not.toContain('Season standings')
     expect(host.querySelector('.ed-rail-live')).toBeTruthy()
     expect(host.textContent).toContain('Live · recent runs')
@@ -747,7 +763,7 @@ describe('DesktopAside data states', () => {
     expect(host.textContent).toContain('No recent runs yet')
   })
 
-  it('gives the feed six rows and sends a row to that player', async () => {
+  it('gives the feed ten rows and sends a row to that player', async () => {
     apiMock.getActivity.mockReset()
     apiMock.getActivity.mockResolvedValue({
       entries: [
@@ -764,8 +780,8 @@ describe('DesktopAside data states', () => {
 
     await drawAsync(<DesktopAside />)
 
-    // Six rows instead of a scrollbar — the room the three deleted blocks freed.
-    expect(apiMock.getActivity).toHaveBeenCalledWith(6, expect.anything())
+    // Ten rows: the feed is the only thing in this column and stretches to it.
+    expect(apiMock.getActivity).toHaveBeenCalledWith(10, expect.anything())
     expect(host.querySelector('.ed-rail-live__row')).toBeTruthy()
     expect(host.textContent).toContain('Live · recent runs')
     expect(host.textContent).toContain('Surge · 8 runs · best 17.260s')

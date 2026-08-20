@@ -1,6 +1,7 @@
-// Every game on Home, in one fixed order shared by both layouts — the mobile
-// swipe row and the desktop grid. The order never changes, because a player
-// looking for Survival should find it in the same place every day.
+// Every game on Home, in one fixed order — read by ONE component on both
+// shells, which is a stronger version of what this comment used to argue for
+// when there were two layouts to keep in step. The order never changes, because
+// a player looking for Survival should find it in the same place every day.
 //
 // Promotion is the hero's job, not this list's: one game is featured at the top
 // each day and every game still sits here, so the rotation can never make a

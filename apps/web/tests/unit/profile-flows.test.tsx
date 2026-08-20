@@ -167,13 +167,8 @@ describe('seasonEndsLabel', () => {
     expect(seasonEndsLabel(seasonEndingIn(-1000))).toBe('Season ending')
   })
 
-  it('shows only days when more than a day remains and hours are not requested', () => {
+  it('includes zero-padded hours whenever more than a day remains', () => {
     const label = seasonEndsLabel(seasonEndingIn(6 * 86_400_000 + 4 * 3_600_000))
-    expect(label).toBe('Season ends in 6d')
-  })
-
-  it('includes zero-padded hours when withHours is set', () => {
-    const label = seasonEndsLabel(seasonEndingIn(6 * 86_400_000 + 4 * 3_600_000), true)
     expect(label).toBe('Season ends in 6d 04h')
   })
 
