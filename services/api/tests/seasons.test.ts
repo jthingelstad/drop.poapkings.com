@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { seasonForDate, upcomingSeasons } from "../src/seasons.js";
+import {
+  recentSeasons,
+  seasonForDate,
+  upcomingSeasons,
+} from "../src/seasons.js";
 
 describe("Clan Wars seasons", () => {
   it("starts at 10:00 UTC on the first Monday and can span five weeks", () => {
@@ -112,5 +116,35 @@ describe("Clan Wars seasons", () => {
   it("returns consecutive boundaries", () => {
     const seasons = upcomingSeasons(new Date("2026-07-17T00:00:00Z"), 2);
     expect(seasons[0]?.endsAt).toBe(seasons[1]?.startsAt);
+  });
+
+  it("starts the Ladder board catalog with Drop's first season", () => {
+    const clock = {
+      crSeasonId: 135,
+      sectionIndex: 2,
+      periodIndex: 16,
+      periodType: "warDay" as const,
+      seasonStartsAt: "2026-08-03T10:00:00.000Z",
+      observedAt: "2026-08-20T11:55:00.000Z",
+      sourceClanTag: "#J2RGCRVG",
+      leaderboardSeasonId: "2026-08",
+      updatedAt: "2026-08-20T11:55:00.000Z",
+    };
+
+    expect(
+      recentSeasons(new Date("2026-08-20T12:00:00.000Z"), 12, clock),
+    ).toEqual([
+      { id: "2026-08", crSeasonId: 135 },
+      { id: "2026-07", crSeasonId: 134 },
+    ]);
+  });
+
+  it("keeps the Drop launch boundary when the CR clock is unavailable", () => {
+    expect(
+      recentSeasons(new Date("2026-10-20T12:00:00.000Z"), 12).map(
+        (season) => season.id,
+      ),
+    ).toEqual(["2026-10", "2026-09", "2026-08", "2026-07"]);
+    expect(recentSeasons(new Date("2026-06-20T12:00:00.000Z"), 12)).toEqual([]);
   });
 });

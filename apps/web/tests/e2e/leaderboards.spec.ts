@@ -13,6 +13,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(page.locator('.ed-ladder__clock')).not.toContainText('left in week')
   // Past seasons live in the Boards period rail, newest first after All-time.
   await expect(page.locator('.ed-ladder__periods')).toContainText('Season 134')
+  await expect(page.locator('.ed-ladder__periods')).not.toContainText('Season 133')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')

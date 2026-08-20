@@ -8,6 +8,11 @@ const WEEK_MS = 7 * DAY_MS;
 // Clan Wars seasons run four or five weeks; past five weeks a stored clock
 // cannot describe the current season any more.
 const MAX_SEASON_MS = 5 * WEEK_MS;
+// Drop's first seasonal leaderboard opened during Clash Royale season 134.
+// The period rail is a catalog of Drop boards, not a generic CR calendar, so
+// it must never advertise the empty seasons before the game existed.
+const FIRST_DROP_SEASON_START_MS = Date.UTC(2026, 6, 6, RESET_HOUR_UTC);
+const FIRST_DROP_CR_SEASON_ID = 134;
 
 function firstMondayAtReset(year: number, monthIndex: number): Date {
   const first = new Date(Date.UTC(year, monthIndex, 1, RESET_HOUR_UTC));
@@ -160,10 +165,9 @@ export function upcomingSeasons(
 }
 
 // The recent seasons, newest first, for the Ladder period rail: the current
-// season plus the preceding calendar months, each with its derived Clash Royale
-// number. Unlike `upcomingSeasons` these are boards that may already hold runs;
-// a month with none simply renders the empty-board state when selected. The
-// first entry mirrors `seasonForDate` exactly (id and number) so the rail's
+// season plus the preceding Drop seasons, each with its derived Clash Royale
+// number. Unlike `upcomingSeasons` these are boards that may already hold runs.
+// The first entry mirrors `seasonForDate` exactly (id and number) so the rail's
 // current chip lines up with the live board.
 export function recentSeasons(
   input: Date = new Date(),
@@ -172,6 +176,13 @@ export function recentSeasons(
 ): Array<{ id: string; crSeasonId?: number }> {
   if (count <= 0) return [];
   const current = seasonForDate(input, clock);
+  const currentStart = new Date(current.startsAt).getTime();
+  if (
+    currentStart < FIRST_DROP_SEASON_START_MS ||
+    (current.crSeasonId !== undefined &&
+      current.crSeasonId < FIRST_DROP_CR_SEASON_ID)
+  )
+    return [];
   const seasons: Array<{ id: string; crSeasonId?: number }> = [
     {
       id: current.id,
@@ -190,8 +201,10 @@ export function recentSeasons(
       start.getUTCFullYear(),
       start.getUTCMonth() - offset,
     );
+    if (monthStart.getTime() < FIRST_DROP_SEASON_START_MS) break;
     const id = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`;
     const crSeasonId = crSeasonIdFor(id, clockRef);
+    if (crSeasonId !== undefined && crSeasonId < FIRST_DROP_CR_SEASON_ID) break;
     seasons.push({ id, ...(crSeasonId ? { crSeasonId } : {}) });
   }
   return seasons;

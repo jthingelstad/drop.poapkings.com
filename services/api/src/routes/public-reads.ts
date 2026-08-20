@@ -34,9 +34,9 @@ export async function getLeaderboards(context: RouteContext) {
   const now = new Date();
   const clock = await currentWarClock(repository);
   const currentSeason = seasonForDate(now, clock);
-  // The period rail's chips: the current season and the months behind it. Only
-  // the Boards scope (season/all-time) shows the rail, so the clan reply omits
-  // it. Undefined CR numbers fall back to the raw id on the client.
+  // The period rail's chips: the current season back through Drop's first
+  // board. Only the Boards scope (season/all-time) shows the rail, so the clan
+  // reply omits it. Undefined CR numbers fall back to the raw id on the client.
   const seasons = recentSeasons(now, 12, clock);
   // All-time ranks a player's best-ever score per mode across every season;
   // season (default) keeps the existing per-season board untouched.

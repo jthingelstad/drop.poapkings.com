@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "boards-start-at-drop",
+      "publishedAt": "2026-08-20T11:36:15-05:00",
+      "title": "Boards begin with Drop’s first season",
+      "body": "The Ladder’s season rail now begins at Season 134—the first season Drop existed—so empty pre-Drop boards no longer crowd the climb. [Check the Boards](/#/leaderboards)."
+    },
+    {
       "id": "practice-direct-entry",
       "publishedAt": "2026-08-20T10:19:00-05:00",
       "title": "Practice opens straight into the cards",

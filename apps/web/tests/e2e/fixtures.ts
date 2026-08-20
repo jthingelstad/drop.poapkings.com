@@ -273,10 +273,7 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
         ...(scope === 'clan' ? { clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' } } : {}),
         ...(scope === 'all-time' || scope === 'clan' ? {} : { seasonId: testSeason.id }),
         currentSeason: testSeason,
-        seasons: [
-          { id: testSeason.id, crSeasonId: 134 },
-          { id: '2026-06', crSeasonId: 133 }
-        ],
+        seasons: [{ id: testSeason.id, crSeasonId: 134 }],
         entries: leaderboardEntries(mode)
       })
     })
@@ -601,10 +598,7 @@ export const test = base.extend({
                   mode,
                   scope: 'all-time',
                   currentSeason: testSeason,
-                  seasons: [
-                    { id: testSeason.id, crSeasonId: 134 },
-                    { id: '2026-06', crSeasonId: 133 }
-                  ],
+                  seasons: [{ id: testSeason.id, crSeasonId: 134 }],
                   entries: leaderboardEntries(mode)
                 }
               : scope === 'clan'
@@ -620,10 +614,7 @@ export const test = base.extend({
                     scope: 'season',
                     seasonId: '2026-07',
                     currentSeason: testSeason,
-                    seasons: [
-                      { id: testSeason.id, crSeasonId: 134 },
-                      { id: '2026-06', crSeasonId: 133 }
-                    ],
+                    seasons: [{ id: testSeason.id, crSeasonId: 134 }],
                     entries: leaderboardEntries(mode)
                   }
           )
