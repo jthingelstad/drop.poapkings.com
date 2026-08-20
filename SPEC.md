@@ -300,12 +300,15 @@ Important shared modules:
 - `apps/web/src/components/summary/DrillPanel.tsx` - the drills' plain bar
   series, deliberately outside that grammar.
 - `apps/web/src/components/shell/DesktopNav.tsx` and `MobileShell.tsx` - the
-  desktop `100dvh` navigation / stage / activity grid and the unchanged mobile
-  bottom-pill shell. Desktop game routes shed the rails but use the same mode
-  components and existing leaderboard partitions.
+  desktop `100dvh` navigation / fixed 440px center / activity grid and the
+  unchanged mobile bottom-pill shell. Home preserves the exact mobile game
+  order on both shells. Desktop game routes shed the rails but use the same mode
+  components and existing leaderboard partitions in a bounded 480px stage.
 - `apps/web/src/components/shell/DesktopWallpaper.tsx` - persistent Falling
-  Cards scenery on every desktop route (CSS, not the opt-in Pixi scene). Reduced
-  motion freezes the cards instead of removing the field.
+  Cards scenery on every desktop route (CSS, not the opt-in Pixi scene), weighted
+  toward the exposed gutters and rendered at full artwork opacity with no color
+  or vignette dimming. Reduced motion freezes the cards instead of removing the
+  field.
 - `apps/web/src/lib/game-keys.ts` and `components/KeyboardHelp.tsx` - the shared
   desktop input contract: `ASDFG` = costs 1–5, `JKL;` = 6–9, digits are aliases,
   Space is the safe default/replay action, `?` opens help, and Escape uses a
@@ -832,7 +835,7 @@ stubs and helpers in `fixtures.ts`:
 | `offline.spec.ts` | Transport-offline and API-only outage behavior, all-mode local play, unsaved persistence boundaries, cached game chunks |
 | `run-lifecycle.spec.ts` | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection |
 | `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens |
-| `home.spec.ts` | The hero carousel, fixed-height desktop shell, direct desktop game and Board actions, persistent wallpaper, install suggestion timing, the Tinylytics hash-page/event bridge |
+| `home.spec.ts` | The hero carousel, fixed-height desktop shell, fixed mobile-width center and shared game order, full-strength persistent wallpaper behind the shell, install suggestion timing, the Tinylytics hash-page/event bridge |
 | `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the merged Markdown Updates feed |
 | `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, mouse/keyboard ranked access and home-row input |
 

@@ -577,7 +577,7 @@ describe('HomeMobile', () => {
     expect(html).not.toContain('ed-installrow')
   })
 
-  it('leads with Practice and gives every ranked game Play and Board actions on desktop', async () => {
+  it('keeps the mobile game order and rows on desktop', async () => {
     layout.value = 'desktop'
     accountStatus.value = 'anonymous'
     player.value = null
@@ -586,8 +586,9 @@ describe('HomeMobile', () => {
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
 
     expect(html).toContain('UNRANKED')
-    expect(html.indexOf('ed-grow__name">Practice</strong>')).toBeLessThan(html.indexOf('Ranked games'))
-    expect(html).toContain('Board →')
+    expect(html.indexOf('The other four')).toBeLessThan(html.indexOf('ed-grow__name">Practice</strong>'))
+    expect(html.match(/ed-grow ed-grow--ranked/g)).toHaveLength(4)
+    expect(html).not.toContain('Board →')
     expect(html).toContain('> PLAY</span>')
     expect(html).not.toContain('Ranked runs are played on your phone')
   })

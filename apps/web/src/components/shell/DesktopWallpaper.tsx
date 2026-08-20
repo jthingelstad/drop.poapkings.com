@@ -8,8 +8,8 @@ import { allCards } from '../../lib/card-catalog'
 // only the two put together.
 //
 // Rules, all of them load-bearing:
-//   · 5–15% opacity with a radial darkening toward the centre, so the column
-//     always wins and the art never competes with a score.
+//   · Full-strength card art: no opacity, brightness, saturation, or vignette
+//     treatment. Z-order alone keeps the shell above the animation.
 //   · `pointer-events: none` — it is scenery, not a surface.
 //   · Never over the shell; the stage and rails keep translucent backdrops.
 //   · Reduced motion keeps the composition but freezes every card in place.
@@ -20,28 +20,28 @@ import { allCards } from '../../lib/card-catalog'
 // background. The full-screen launcher stays in the aside — this replaces the
 // empty field, not the feature.
 
-// The scatter, straight from the design: position, size, tilt and opacity per
+// The scatter, straight from the design: position, size and tilt per
 // slot. Fixed rather than random so the field is stable across a re-render and
 // deterministic in a test.
-const SLOTS: Array<{ left: number; top: number; width: number; rotate: number; opacity: number; duration: number }> = [
-  { left: 4.1, top: 68.0, width: 61, rotate: 9.7, opacity: 0.11, duration: 19 },
-  { left: 15.6, top: 81.5, width: 68, rotate: -19.6, opacity: 0.12, duration: 24 },
-  { left: 51.4, top: 39.4, width: 95, rotate: -6.9, opacity: 0.11, duration: 27 },
-  { left: 74.9, top: 30.9, width: 50, rotate: 7.3, opacity: 0.13, duration: 21 },
-  { left: 23.3, top: 8.3, width: 63, rotate: 0.4, opacity: 0.09, duration: 29 },
-  { left: 19.3, top: 30.9, width: 50, rotate: 16.3, opacity: 0.06, duration: 23 },
-  { left: 48.2, top: 77.0, width: 54, rotate: -19.6, opacity: 0.08, duration: 25 },
-  { left: 3.1, top: 20.9, width: 94, rotate: -17.6, opacity: 0.09, duration: 31 },
-  { left: 95.2, top: 77.8, width: 96, rotate: 17.5, opacity: 0.1, duration: 26 },
-  { left: 32.4, top: 14.5, width: 80, rotate: 20.6, opacity: 0.06, duration: 22 },
-  { left: 63.1, top: 27.8, width: 58, rotate: 18.1, opacity: 0.12, duration: 28 },
-  { left: 87.6, top: 88.3, width: 76, rotate: 0.2, opacity: 0.15, duration: 20 },
-  { left: 35.8, top: 51.8, width: 77, rotate: -0.4, opacity: 0.08, duration: 32 },
-  { left: 11.8, top: 37.2, width: 66, rotate: -20.9, opacity: 0.09, duration: 24 },
-  { left: 4.7, top: 70.8, width: 48, rotate: 12.1, opacity: 0.11, duration: 30 },
-  { left: 66.8, top: 97.2, width: 50, rotate: 9.1, opacity: 0.06, duration: 18 },
-  { left: 57.5, top: 57.5, width: 70, rotate: 1.1, opacity: 0.12, duration: 27 },
-  { left: 55.0, top: 33.6, width: 72, rotate: 12.9, opacity: 0.09, duration: 21 }
+const SLOTS: Array<{ left: number; top: number; width: number; rotate: number; duration: number }> = [
+  { left: 3.5, top: 68.0, width: 78, rotate: 9.7, duration: 19 },
+  { left: 9.5, top: 18.5, width: 92, rotate: -19.6, duration: 24 },
+  { left: 15.5, top: 43.0, width: 72, rotate: -6.9, duration: 27 },
+  { left: 21.0, top: 78.0, width: 84, rotate: 7.3, duration: 21 },
+  { left: 27.0, top: 8.3, width: 68, rotate: 0.4, duration: 29 },
+  { left: 33.0, top: 55.0, width: 76, rotate: 16.3, duration: 23 },
+  { left: 40.0, top: 86.0, width: 64, rotate: -19.6, duration: 25 },
+  { left: 46.0, top: 25.0, width: 90, rotate: -17.6, duration: 31 },
+  { left: 54.0, top: 74.0, width: 94, rotate: 17.5, duration: 26 },
+  { left: 60.0, top: 13.0, width: 76, rotate: 20.6, duration: 22 },
+  { left: 67.0, top: 42.0, width: 70, rotate: 18.1, duration: 28 },
+  { left: 73.0, top: 88.0, width: 88, rotate: 0.2, duration: 20 },
+  { left: 79.0, top: 28.0, width: 82, rotate: -0.4, duration: 32 },
+  { left: 84.5, top: 62.0, width: 74, rotate: -20.9, duration: 24 },
+  { left: 90.5, top: 14.0, width: 96, rotate: 12.1, duration: 30 },
+  { left: 96.5, top: 76.0, width: 80, rotate: 9.1, duration: 18 },
+  { left: 12.5, top: 92.0, width: 70, rotate: 1.1, duration: 27 },
+  { left: 87.5, top: 48.0, width: 86, rotate: 12.9, duration: 21 }
 ]
 
 // Which cards fill the slots. Rotated by UTC day like the featured game, so the
@@ -69,20 +69,17 @@ export default function DesktopWallpaper() {
           class="ed-wallpaper__card"
           src={cards[index]!.icon}
           alt=""
-          loading="lazy"
           decoding="async"
           style={{
             left: `${slot.left}%`,
             top: `${slot.top}%`,
             width: `${slot.width}px`,
-            opacity: slot.opacity,
             animationDelay: `${index * -2.1}s`,
             animationDuration: `${slot.duration}s`,
             '--wallpaper-tilt': `${slot.rotate}deg`
           }}
         />
       ))}
-      <span class="ed-wallpaper__vignette" />
     </div>
   )
 }

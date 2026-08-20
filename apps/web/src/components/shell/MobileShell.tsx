@@ -1,7 +1,7 @@
 // Mobile keeps its one-column body and fixed pill nav. Desktop uses a real
-// viewport shell: persistent navigation and activity rails around a wider,
-// independently scrolling stage. Game routes shed both rails but keep the same
-// fixed-height stage and Falling Cards background.
+// viewport shell: persistent navigation and activity rails around a fixed
+// mobile-width center. Game routes shed both rails but keep the same bounded
+// stage and Falling Cards background.
 
 import type { ComponentChildren } from 'preact'
 import { route, navigate } from '../../lib/router'

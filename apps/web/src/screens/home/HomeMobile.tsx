@@ -5,8 +5,6 @@ import CauseChip from '../../components/CauseChip'
 import Wordmark from '../../components/brand/Wordmark'
 import { offline } from '../../lib/api-availability'
 import { navigate } from '../../lib/router'
-import { boardRouteForMode } from '../../lib/game-routes'
-import { layout } from '../../lib/use-layout'
 import { registerLogoTap } from '../../lib/screensaver'
 import { scoreLabel } from '../../lib/game-metadata'
 import { InstallBanner, InstallRow } from '../../components/InstallPrompt'
@@ -16,10 +14,8 @@ import { HomeHeroCarousel, HomeRow } from './home-bits'
 
 export default function HomeMobile({ data }: { data: HomeData }) {
   const featured = featuredGame()
-  // Desktop reorders the shared content to fit all six games in its first
-  // viewport and gives every ranked row a direct play action plus a board link.
-  const onDesktop = layout.value === 'desktop'
   // The featured game leads in the hero; it must not appear again in the list.
+  // This is the order on every shell — desktop does not reshuffle the game.
   const others = ALL_GAMES.filter((game) => game.key !== featured.key)
   const seasonLabel = data.season?.crSeasonId ? `Season ${data.season.crSeasonId}` : ''
 
@@ -37,12 +33,12 @@ export default function HomeMobile({ data }: { data: HomeData }) {
     <section class="ed-more ed-more--ranked">
       <div class="ed-more__head">
         <span class="ed-more__title" onClick={() => registerLogoTap()}>
-          {onDesktop ? 'Ranked games' : 'The other four'}
+          The other four
         </span>
         {seasonLabel && <span class="ed-more__aside">{seasonLabel}</span>}
       </div>
       <div class="ed-rows">
-        {(onDesktop ? ALL_GAMES : others).map((game) => (
+        {others.map((game) => (
           <HomeRow
             key={game.key}
             tone="ranked"
@@ -50,7 +46,6 @@ export default function HomeMobile({ data }: { data: HomeData }) {
             meta={rowMeta(game.mode)}
             visual={<ModeIcon mode={game.mode} size={46} />}
             onClick={() => navigate(game.path)}
-            boardAction={onDesktop ? () => navigate(boardRouteForMode(game.mode)) : undefined}
           />
         ))}
       </div>
@@ -87,8 +82,8 @@ export default function HomeMobile({ data }: { data: HomeData }) {
       <CauseChip />
       <HomeHeroCarousel data={data} game={featured} />
 
-      {onDesktop ? practiceSection : rankedSection}
-      {onDesktop ? rankedSection : practiceSection}
+      {rankedSection}
+      {practiceSection}
 
       <p class="ed-home__ready">
         {offline.value ? 'You are offline but ready to play' : 'Games are available to play offline'}

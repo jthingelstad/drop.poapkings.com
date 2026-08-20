@@ -41,8 +41,10 @@ same public reference.
 ## Desktop composition
 
 At 1024px and wider, the app uses a bounded `100dvh` shell. Navigation and the
-activity rail stay anchored while the center stage owns any necessary internal
-scroll. Home fits all six game entries at the 1280×720 acceptance viewport.
-Game routes remove the rails, keep a wider fixed-height stage, and retain the
-CSS Falling Cards background. Reduced motion freezes that background rather
-than removing it.
+activity rail stay anchored around a fixed 440px center stage. Home uses the
+same sequence as mobile — featured game, the other four ranked games, then
+Practice — with no duplicated featured mode. Game routes remove the rails, use
+a bounded 480px fixed-height stage, and retain the CSS Falling Cards background.
+The cards are concentrated in the exposed gutters and use the original artwork
+at full opacity, with no color or vignette dimming; reduced motion freezes that
+background rather than removing it.

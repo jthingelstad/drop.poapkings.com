@@ -50,16 +50,14 @@ test(
   }
 )
 
-test('the hero features one ranked game and the other four are full-width rows', async ({ page, viewport }) => {
-  test.skip(isDesktopViewport(viewport), 'desktop reorders the column and reads the boards instead')
+test('the hero features one ranked game and the other four are full-width rows', async ({ page }) => {
   await page.goto('/')
 
   // The hero promotes one ranked game for the day.
   const wordmark = (await page.locator('.ed-hero__wordmark').first().textContent())?.trim() ?? ''
   expect(['SURGE', 'HIGHER / LOWER', 'RAIN', 'TRADE', 'SURVIVAL']).toContain(wordmark)
 
-  // One full-width-row layout on every shell now (the desktop card grid retired
-  // with HomeDesktop). Exactly the OTHER four ranked games are listed as rows —
+  // One full-width-row layout on every shell. Exactly the OTHER four ranked games are listed as rows —
   // the featured game is pulled out of the list so it never appears twice.
   const otherFour = page.locator('.ed-rows').first()
   await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
@@ -70,28 +68,40 @@ test('the hero features one ranked game and the other four are full-width rows',
   await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
 })
 
-test('desktop fits every game and offers direct Play plus Board actions', async ({ page, viewport }) => {
+test('desktop keeps the mobile game order in a fixed-width center', async ({ page, viewport }) => {
   test.skip(!isDesktopViewport(viewport), 'desktop shell coverage')
   await page.goto('/')
+
+  const center = await page.locator('.ed-desktop__main').evaluate((element) => element.getBoundingClientRect().width)
+  const home = await page.locator('.ed-home').evaluate((element) => element.getBoundingClientRect().width)
+  expect(center).toBeCloseTo(440, 0)
+  expect(home).toBeLessThanOrEqual(404)
 
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
   await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
 
   const ranked = page.locator('.ed-more--ranked')
-  await expect(ranked.locator('.ed-grow--ranked')).toHaveCount(5)
-  await expect(ranked.locator('.ed-grow-slot__board')).toHaveCount(5)
+  await expect(ranked.locator('.ed-more__title')).toHaveText('The other four')
+  await expect(ranked.locator('.ed-grow--ranked')).toHaveCount(4)
+  await expect(page.getByRole('button', { name: /Open .* leaderboard/ })).toHaveCount(0)
   await expect(page.locator('.ed-hero').first().getByRole('button', { name: /PLAY/ })).toBeVisible()
 
-  await ranked.getByRole('button', { name: 'Open Surge leaderboard' }).click()
-  await expect(page).toHaveURL(/#\/leaderboards\?mode=surge/)
-  await expect(page.locator('.ed-board__rows, .ed-board__empty')).toBeVisible()
+  const order = await page.evaluate(() => ({
+    ranked: document.querySelector('.ed-more--ranked')?.getBoundingClientRect().top ?? 0,
+    practice: document.querySelector('.ed-more--practice')?.getBoundingClientRect().top ?? 0
+  }))
+  expect(order.ranked).toBeLessThan(order.practice)
 
-  await page.goto('/')
-  await page.locator('.ed-more--ranked .ed-grow--ranked').filter({ hasText: 'Surge' }).click()
-  await expect(page).toHaveURL(/#\/surge$/)
-  await expect(page.locator('.ed-game')).toBeVisible()
-  await expect(page.locator('.ed-touchgate')).toHaveCount(0)
-  await expect(page.locator('.ed-wallpaper')).toBeVisible()
+  const fullStrengthGutterCards = await page.locator('.ed-wallpaper__card').evaluateAll(
+    (cards) =>
+      cards.filter((card) => {
+        const left = Number.parseFloat((card as HTMLElement).style.left)
+        const opacity = Number.parseFloat(getComputedStyle(card).opacity)
+        return (left <= 15 || left >= 85) && opacity === 1
+      }).length
+  )
+  expect(fullStrengthGutterCards).toBeGreaterThanOrEqual(6)
+  await expect(page.locator('.ed-wallpaper__vignette')).toHaveCount(0)
 })
 
 test('Practice has one direct entry on desktop and mobile', async ({ page }) => {

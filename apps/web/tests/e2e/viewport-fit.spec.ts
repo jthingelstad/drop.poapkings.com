@@ -319,7 +319,7 @@ test.describe('low-height desktop timed controls', () => {
         padFits: !!pad && pad.left >= 0 && pad.right <= window.innerWidth + 1 && pad.bottom <= window.innerHeight + 1
       }
     })
-    // The desktop game stage is wider than mobile while remaining bounded.
+    // The desktop game stage remains mobile-like and bounded.
     expect(layout.gameWidth).toBeGreaterThanOrEqual(400)
     expect(layout.boardContained).toBe(true)
     expect(layout.boardClearsPrompt).toBe(true)

@@ -301,21 +301,15 @@ export function HomeRow({
   name,
   meta,
   tone,
-  action = 'play',
-  onClick,
-  boardAction
+  onClick
 }: {
   visual: ComponentChildren
   name: string
   meta: string
   tone: 'ranked' | 'drill'
-  // `board` supports rows whose primary action is a standings view. Desktop's
-  // ranked rows instead use Play here and expose Board as a separate action.
-  action?: 'play' | 'board'
   onClick: () => void
-  boardAction?: () => void
 }) {
-  const row = (
+  return (
     <button
       class={`ed-grow ed-grow--${tone} tap-fx`}
       onClick={(event) => {
@@ -328,25 +322,9 @@ export function HomeRow({
         <strong class="ed-grow__name">{name}</strong>
         <span class="ed-grow__meta">{meta}</span>
       </span>
-      {action === 'board' ? (
-        <span class="ed-grow__board" aria-hidden="true">
-          Board →
-        </span>
-      ) : (
-        <span class="ed-grow__mark" aria-hidden="true">
-          <Icon name="play" />
-        </span>
-      )}
+      <span class="ed-grow__mark" aria-hidden="true">
+        <Icon name="play" />
+      </span>
     </button>
-  )
-
-  if (!boardAction) return row
-  return (
-    <div class="ed-grow-slot">
-      {row}
-      <button class="ed-grow-slot__board" onClick={boardAction} aria-label={`Open ${name} leaderboard`}>
-        Board →
-      </button>
-    </div>
   )
 }

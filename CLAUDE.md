@@ -173,13 +173,16 @@ rank-oriented fields as part of unrelated work.
   pointer is what lets the deletion sweep find it.
 - **Desktop is a viewport shell over the same routes and data.** At or above
   1024px `MobileShell` composes a fixed `100dvh` navigation / stage / activity
-  grid (`lib/use-layout.ts`); the document itself does not scroll. Home fits all
-  six direct play actions in the first 1280×720 viewport and each ranked row
-  keeps a secondary Board action. Active games drop both rails, retain a wider
-  bounded stage, and remain playable with mouse or keyboard on the existing
-  boards. **Falling Cards is persistent desktop scenery**
-  (`components/shell/DesktopWallpaper.tsx`): CSS cards fall independently behind
-  Home, reading pages, and games; reduced motion freezes the same composition.
+  grid (`lib/use-layout.ts`); the document itself does not scroll. Its center is
+  a fixed 440px track and Home keeps the exact mobile sequence: featured game,
+  the other four ranked games, then Practice. The featured mode is never
+  duplicated; standings stay in the persistent Ladder navigation. Active games
+  drop both rails, use a bounded 480px stage, and remain playable with mouse or
+  keyboard on the existing boards. **Falling Cards is persistent desktop
+  scenery** (`components/shell/DesktopWallpaper.tsx`): full-strength CSS card
+  art falls independently through the exposed gutters behind Home, reading
+  pages, and games, with no opacity, color, or vignette dimming; reduced motion
+  freezes the same composition.
   `DesktopAside` keeps only the live `Recent runs` feed and full-screen Falling
   Cards launcher. `DesktopNav` advertises the primary home-row mapping (`ASDFG`
   = 1–5, `JKL;` = 6–9); the number row remains an alias, Space repeats/defaults,
