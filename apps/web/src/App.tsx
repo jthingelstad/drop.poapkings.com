@@ -277,8 +277,9 @@ export default function App() {
   }, [title])
 
   // Same routes + data on both layouts; only the surrounding shell differs. The
-  // shell is chosen at the 1024px breakpoint (lib/use-layout) and re-evaluated
-  // on resize. The old global footer (Discord + fan-content disclaimer) has moved
+  // shell is chosen once at the 1024px breakpoint (lib/use-layout); later window
+  // resizing clips the fixed desktop arena instead of swapping interfaces. The
+  // old global footer (Discord + fan-content disclaimer) has moved
   // into standalone text pages — About carries the disclaimer, while Discord
   // and the real HTML pages remain reachable from both shells.
   const content = (

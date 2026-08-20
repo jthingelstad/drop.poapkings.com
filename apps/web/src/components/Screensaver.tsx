@@ -1,12 +1,13 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { stopScreensaver } from '../lib/screensaver'
+import { layout } from '../lib/use-layout'
 
-// The "Elixir Rain" overlay shell: opaque backdrop, exit on any input, focus
-// management, scroll lock. The heavy Pixi scene stays behind a dynamic import
-// so nobody pays for the egg until they find it — and if WebGL cannot start,
-// the dark overlay still appears and still exits, so the egg never traps.
+// The "Elixir Rain" focus/exit shell. Mobile lazily creates the Pixi scene here.
+// Desktop already runs that scene as its wallpaper, so activation only hides
+// the panels and adds this transparent input-capture layer.
 export default function Screensaver() {
   const hostRef = useRef<HTMLDivElement>(null)
+  const usesDesktopBackground = layout.value === 'desktop'
 
   // Layout effect, not a plain effect: the exit listeners must be attached
   // synchronously with the overlay's first paint. A plain effect runs *after*
@@ -29,6 +30,20 @@ export default function Screensaver() {
     window.addEventListener('keydown', exit, { capture: true })
     window.addEventListener('touchstart', exit, { capture: true })
     window.addEventListener('wheel', exit, { capture: true })
+
+    // Desktop already owns the advanced renderer as its persistent background.
+    // This layer only captures the dismissing input while the shell is hidden,
+    // so the canvas and its animation never restart.
+    if (usesDesktopBackground) {
+      return () => {
+        window.removeEventListener('pointerdown', exit, { capture: true })
+        window.removeEventListener('keydown', exit, { capture: true })
+        window.removeEventListener('touchstart', exit, { capture: true })
+        window.removeEventListener('wheel', exit, { capture: true })
+        document.body.classList.remove('modal-open')
+        previouslyFocused?.focus?.()
+      }
+    }
 
     let disposed = false
     let scene: { destroy(): void } | null = null
@@ -56,12 +71,12 @@ export default function Screensaver() {
       document.body.classList.remove('modal-open')
       previouslyFocused?.focus?.()
     }
-  }, [])
+  }, [usesDesktopBackground])
 
   return (
     <div
       ref={hostRef}
-      class="screensaver"
+      class={`screensaver${usesDesktopBackground ? ' screensaver--desktop-background' : ''}`}
       data-testid="screensaver"
       role="dialog"
       aria-modal="true"

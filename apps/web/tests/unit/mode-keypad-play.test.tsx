@@ -542,7 +542,7 @@ describe('Practice gameplay', () => {
   function answerCorrectly(host: HTMLElement, deck: Card[], count: number): void {
     for (let i = 0; i < count; i++) {
       press(host, liveCard(host, deck).elixir)
-      advance(300) // stable reinforcement hold → mocked exit completion → next deal
+      advance(500) // stable reinforcement hold → mocked exit completion → next deal
     }
   }
 
@@ -586,7 +586,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
     expect(host.querySelector('.drop-pop-wrap')).toBeNull()
 
-    advance(299)
+    advance(499)
     expect(host.querySelector('.pcard__answer-cost')?.textContent).toBe(String(first.elixir))
     advance(1)
     expect(host.querySelector('.pcard__answer-cost')).toBeNull()
@@ -614,7 +614,7 @@ describe('Practice gameplay', () => {
 
     const first = liveCard(host, cards)
     press(host, first.elixir)
-    advance(300)
+    advance(500)
 
     expect(liveCard(host, cards).id).toBe(first.id)
     expect(host.querySelector('.pcard--correct')).toBeTruthy()
@@ -859,7 +859,7 @@ describe('Practice gameplay', () => {
       void act(() => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: `${live.elixir}` }))
       })
-      advance(300)
+      advance(500)
     }
     endSession(host)
     expect(host.textContent).toContain('6 / 6 first try')

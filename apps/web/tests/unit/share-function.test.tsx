@@ -25,7 +25,6 @@ vi.mock('../../src/lib/account', async (importActual) => {
 
 import ShareLine from '../../src/components/ShareLine'
 import SharedRun, { sharedRunToken } from '../../src/screens/SharedRun'
-import { wallpaperCards } from '../../src/components/shell/DesktopWallpaper'
 
 const flush = () => act(async () => await Promise.resolve())
 
@@ -193,20 +192,5 @@ describe('the shared-run permalink', () => {
 
     expect(host.textContent).toContain('Link not found')
     expect(host.textContent).toContain('Open Elixir Drop')
-  })
-})
-
-// The margin is idle space and the screensaver is the one asset built to fill
-// idle space; the wallpaper is the two put together.
-describe('the desktop wallpaper', () => {
-  it('fills every slot from the catalog and turns over by UTC day', () => {
-    const monday = wallpaperCards(new Date('2026-08-17T00:00:00.000Z'))
-    const tuesday = wallpaperCards(new Date('2026-08-18T00:00:00.000Z'))
-
-    expect(monday).toHaveLength(18)
-    expect(monday.every((card) => card.icon.startsWith('/cards/'))).toBe(true)
-    expect(monday.map((card) => card.id)).not.toEqual(tuesday.map((card) => card.id))
-    // Stable within a day, so a re-render never reshuffles the field.
-    expect(wallpaperCards(new Date('2026-08-17T23:00:00.000Z'))).toEqual(monday)
   })
 })

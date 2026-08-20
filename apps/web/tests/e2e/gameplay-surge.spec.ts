@@ -298,6 +298,10 @@ test('a shared link opens the run itself, with the score as the button', async (
 })
 
 test('a share mints a new token every time, so reach counts per share', async ({ page }) => {
+  // Two complete share-card renders can cross the suite's 30-second ceiling
+  // when several WebGL-backed desktop tests contend for the same CI worker.
+  // Each individual share still has its own strict 10-second assertion below.
+  test.setTimeout(45_000)
   const minted: string[] = []
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {

@@ -1,6 +1,6 @@
-// One width decision chooses the shell. Mobile keeps the fixed bottom pill;
-// desktop gets a viewport-height navigation/stage/activity grid. Games and data
-// stay shared across both layouts, and every input type may play every mode.
+// One initial width decision chooses the shell. Resizing the browser never
+// changes that choice: the desktop arena has required dimensions and clips in
+// a smaller window instead of collapsing into another interface mid-session.
 
 import { signal } from '@preact/signals'
 
@@ -17,17 +17,6 @@ function detect(): Layout {
 }
 
 export const layout = signal<Layout>(detect())
-
-if (typeof window !== 'undefined' && window.matchMedia) {
-  const mql = window.matchMedia(query)
-  const sync = () => {
-    const next: Layout = mql.matches ? 'desktop' : 'mobile'
-    if (next !== layout.value) layout.value = next
-  }
-  // Safari <14 only supports the deprecated addListener signature.
-  if (mql.addEventListener) mql.addEventListener('change', sync)
-  else mql.addListener(sync)
-}
 
 export function isDesktop(): boolean {
   return layout.value === 'desktop'

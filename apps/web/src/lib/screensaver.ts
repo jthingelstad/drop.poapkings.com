@@ -7,8 +7,10 @@ import { isReducedMotionEnabled } from './motion'
 // minutes on Home. Any input exits. Under reduced motion it simply does not run.
 
 export type ScreensaverSource = 'tap' | 'idle' | 'nav'
+export type DesktopFallingCardsMode = 'ambient' | 'off'
 
 export const screensaverActive = signal<ScreensaverSource | null>(null)
+export const desktopFallingCardsMode = signal<DesktopFallingCardsMode>('ambient')
 
 export const LOGO_TAP_COUNT = 5
 export const LOGO_TAP_WINDOW_MS = 1500
@@ -18,6 +20,7 @@ let tapCount = 0
 let lastTapAt = 0
 
 export function startScreensaver(source: ScreensaverSource): void {
+  if (source === 'idle' && desktopFallingCardsMode.value === 'off') return
   if (screensaverActive.value || isReducedMotionEnabled()) return
   screensaverActive.value = source
   // Only deliberate opens (nav launcher, logo taps) are worth counting; idle
@@ -26,7 +29,28 @@ export function startScreensaver(source: ScreensaverSource): void {
 }
 
 export function stopScreensaver(): void {
+  const source = screensaverActive.value
   screensaverActive.value = null
+  if (source === 'nav') desktopFallingCardsMode.value = 'off'
+}
+
+// The desktop rail is a three-state loop: ambient -> full screen -> off ->
+// ambient. Full screen owns the middle state through `screensaverActive`; its
+// next dismissing input calls stopScreensaver() and advances to off.
+export function cycleDesktopFallingCards(): void {
+  if (desktopFallingCardsMode.value === 'off') {
+    desktopFallingCardsMode.value = 'ambient'
+    return
+  }
+
+  // Reduced motion forbids the full-screen animation door, so the same control
+  // still offers a useful two-state frozen-composition -> off -> on cycle.
+  if (isReducedMotionEnabled()) {
+    desktopFallingCardsMode.value = 'off'
+    return
+  }
+
+  startScreensaver('nav')
 }
 
 // Wired to the ELIXIR DROP hero logo. `now` is injectable for tests.
@@ -43,6 +67,7 @@ export function resetScreensaverForTests(): void {
   tapCount = 0
   lastTapAt = 0
   screensaverActive.value = null
+  desktopFallingCardsMode.value = 'ambient'
 }
 
 // Idle attract watcher. The caller arms it only on the Home route; it refuses

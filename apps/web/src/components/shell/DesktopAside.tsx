@@ -1,5 +1,5 @@
 // Desktop activity rail, cut to what a phone cannot do well: one live feed plus
-// the full-screen Falling Cards launcher.
+// the Falling Cards panel-hiding control.
 //
 // It used to carry five blocks and three of them said what the page beside them
 // already said: season standings is the top five of a board one click away
@@ -10,7 +10,7 @@
 // once — busier to read, emptier of anything new.
 //
 // What is left is the live feed, given real room, and the Falling Cards
-// launcher. The feed is the only genuinely ambient, lean-back surface in the app
+// control. The feed is the only genuinely ambient, lean-back surface in the app
 // and the only reason to have a desktop at all beyond reading. The aside is
 // short now, and that is correct.
 
@@ -23,7 +23,7 @@ import { tapFxFrom } from '../../lib/tap-fx'
 import { playerProfilePath } from '../../lib/public-player'
 import { player } from '../../lib/account'
 import { offline } from '../../lib/api-availability'
-import { startScreensaver } from '../../lib/screensaver'
+import { cycleDesktopFallingCards, desktopFallingCardsMode } from '../../lib/screensaver'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
 import Icon from '../Icon'
@@ -49,6 +49,7 @@ function activityWhen(iso: string): string {
 
 export default function DesktopAside() {
   const disconnected = offline.value
+  const fallingCardsOff = desktopFallingCardsMode.value === 'off'
   useEffect(() => {
     if (disconnected) return
     const ctrl = new AbortController()
@@ -99,15 +100,16 @@ export default function DesktopAside() {
 
       <button
         class="ed-rail-btn ed-rail-btn--saver tap-fx"
+        aria-label={`Falling Cards — ${fallingCardsOff ? 'turn on' : 'full screen'}`}
         onClick={(e) => {
           tapFxFrom(e)
-          startScreensaver('nav')
+          cycleDesktopFallingCards()
         }}
       >
         <span class="tap-face">
           <Icon name="sparkles" />
           Falling Cards
-          <span class="ed-rail-btn__hint">Full screen →</span>
+          <span class="ed-rail-btn__hint">{fallingCardsOff ? 'Turn on →' : 'Full screen →'}</span>
         </span>
       </button>
     </aside>

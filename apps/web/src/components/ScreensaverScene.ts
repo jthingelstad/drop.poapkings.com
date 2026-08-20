@@ -4,14 +4,24 @@ import { loadPixi } from '../lib/load-pixi'
 
 // "Elixir Rain": card art drifts down through floating elixir droplets in
 // three parallax layers, occasionally flipping into another card. Pure Pixi,
-// pooled sprites, zero steady-state allocation; the ticker pauses while the
-// tab is hidden. Card art is same-origin (mirrored), so textures load clean.
+// pooled sprites, and one bounded texture cast; the ticker pauses while the tab
+// is hidden. Card art is same-origin (mirrored), so textures load clean.
 
 const PALETTE = [0x8b5cf6, 0xa855f7, 0xc084fc, 0xf5c84c]
-// The scene draws from the whole card catalog. An initial cast loads fast so the
-// rain starts immediately; the rest streams in behind it for full variety.
+// The scene draws from the whole catalog over time, but only this many textures
+// are resident at once. A watcher trades a small batch every interval.
 const INITIAL_CAST_SIZE = 30
+const CAST_ROTATION_SIZE = 6
+const CAST_ROTATION_MS = 20_000
 const FLIP_DURATION_MS = 620
+
+export const fallingCardsFrameRate = (foreground: boolean): number => (foreground ? 60 : 20)
+
+export interface ElixirRainScene {
+  destroy(): void
+  setEnabled(enabled: boolean): void
+  setForeground(foreground: boolean): void
+}
 
 interface RainCard {
   sprite: Sprite
@@ -43,9 +53,41 @@ function shuffled<T>(values: readonly T[]): T[] {
   return result
 }
 
+export function rotateCastWindow<T>(
+  catalog: readonly T[],
+  active: readonly T[],
+  cursor: number,
+  batchSize = CAST_ROTATION_SIZE
+): { active: T[]; incoming: T[]; retired: T[]; nextCursor: number } {
+  if (catalog.length <= active.length || batchSize <= 0) {
+    return { active: [...active], incoming: [], retired: [], nextCursor: cursor }
+  }
+
+  const incoming: T[] = []
+  let nextCursor = cursor
+  let inspected = 0
+  while (incoming.length < Math.min(batchSize, active.length) && inspected < catalog.length) {
+    const candidate = catalog[nextCursor % catalog.length]!
+    nextCursor = (nextCursor + 1) % catalog.length
+    inspected += 1
+    if (!active.includes(candidate) && !incoming.includes(candidate)) incoming.push(candidate)
+  }
+
+  const retired = active.slice(0, incoming.length)
+  return {
+    active: [...active.slice(incoming.length), ...incoming],
+    incoming,
+    retired,
+    nextCursor
+  }
+}
+
 const between = (low: number, high: number) => low + Math.random() * (high - low)
 
-export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(): void }> {
+export async function createElixirRain(
+  host: HTMLDivElement,
+  options: { paused?: boolean; foreground?: boolean; enabled?: boolean } = {}
+): Promise<ElixirRainScene> {
   const { Application, Assets, Container: PixiContainer, Graphics, Sprite: PixiSprite } = await loadPixi()
 
   const app = new Application()
@@ -56,36 +98,29 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2)
   })
-  app.canvas.className = 'screensaver__canvas'
+  app.ticker.maxFPS = fallingCardsFrameRate(options.foreground ?? true)
+  app.canvas.className = 'elixir-rain__canvas'
   app.canvas.setAttribute('aria-hidden', 'true')
+  app.canvas.hidden = options.enabled === false
   host.appendChild(app.canvas)
 
   // A freshly shuffled run through the whole catalog every activation.
   let destroyed = false
   const catalog = shuffled(allCards.filter((card) => card.icon))
   const allUrls = catalog.map((card) => card.icon)
-  const initialUrls = allUrls.slice(0, INITIAL_CAST_SIZE)
-  const loaded = await Assets.load<Texture>(initialUrls)
-  const textures = initialUrls.map((url) => loaded[url]).filter((texture): texture is Texture => Boolean(texture))
-  if (!textures.length) throw new Error('No card textures available for the screensaver')
-
-  // Stream the rest of the catalog in behind the running scene; flips and
-  // recycles start drawing from every card as its texture arrives.
-  const remainingUrls = allUrls.slice(INITIAL_CAST_SIZE)
-  if (remainingUrls.length) {
-    void Assets.load<Texture>(remainingUrls)
-      .then((rest) => {
-        if (destroyed) return
-        for (const url of remainingUrls) {
-          const texture = rest[url]
-          if (texture) textures.push(texture)
-        }
-      })
-      .catch(() => undefined)
-  }
+  let activeUrls = allUrls.slice(0, INITIAL_CAST_SIZE)
+  const loaded = await Assets.load<Texture>(activeUrls)
+  let textureEntries = activeUrls
+    .map((url) => ({ url, texture: loaded[url] }))
+    .filter((entry): entry is { url: string; texture: Texture } => Boolean(entry.texture))
+  if (!textureEntries.length) throw new Error('No card textures available for the screensaver')
+  activeUrls = textureEntries.map((entry) => entry.url)
+  let castCursor = INITIAL_CAST_SIZE % allUrls.length
+  let rotatingCast = false
+  let enabled = options.enabled ?? true
 
   const small = app.screen.width < 600
-  const randomTexture = () => textures[Math.floor(Math.random() * textures.length)]!
+  const randomTexture = () => textureEntries[Math.floor(Math.random() * textureEntries.length)]!.texture
 
   // Droplets sit behind every card layer.
   const dropletLayer: Container = new PixiContainer()
@@ -137,6 +172,46 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
       })
     }
   }
+
+  // Keep only one 30-card cast resident. A small timer-driven exchange brings
+  // new faces in, moves any sprites off retiring textures, then unloads those
+  // textures. Over time the whole catalog visits the scene without the whole
+  // catalog living in GPU memory at once.
+  const rotateCast = async () => {
+    if (destroyed || rotatingCast || !enabled || document.hidden || options.paused) return
+    const plan = rotateCastWindow(allUrls, activeUrls, castCursor)
+    if (!plan.incoming.length) return
+    rotatingCast = true
+    try {
+      const incoming = await Assets.load<Texture>(plan.incoming)
+      if (destroyed) {
+        await Assets.unload(plan.incoming).catch(() => undefined)
+        return
+      }
+      const incomingEntries = plan.incoming
+        .map((url) => ({ url, texture: incoming[url] }))
+        .filter((entry): entry is { url: string; texture: Texture } => Boolean(entry.texture))
+      if (!incomingEntries.length) return
+
+      const retiredEntries = textureEntries.slice(0, incomingEntries.length)
+      const retiredTextures = new Set(retiredEntries.map((entry) => entry.texture))
+      textureEntries = [...textureEntries.slice(incomingEntries.length), ...incomingEntries]
+      activeUrls = textureEntries.map((entry) => entry.url)
+      castCursor = plan.nextCursor
+
+      for (const card of cards) {
+        if (retiredTextures.has(card.sprite.texture)) card.sprite.texture = randomTexture()
+      }
+      // Pixi can retain a texture in the render instructions it already built
+      // for the current frame. Give it a safe gap before freeing the retired
+      // GPU resources; keeping this await inside the task also serializes swaps.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000))
+      await Assets.unload(retiredEntries.map((entry) => entry.url)).catch(() => undefined)
+    } finally {
+      rotatingCast = false
+    }
+  }
+  const castRotationTimer = window.setInterval(() => void rotateCast(), CAST_ROTATION_MS)
 
   // The Elixir mascot cameo glided across here every ~45s until the emote set
   // was retired. The scene rotates the whole card catalog, which is what the
@@ -191,20 +266,39 @@ export async function createElixirRain(host: HTMLDivElement): Promise<{ destroy(
     }
   }
   app.ticker.add(update)
+  if (options.paused || !enabled) app.ticker.stop()
 
   const onVisibility = () => {
-    if (document.hidden) app.ticker.stop()
+    if (document.hidden || options.paused || !enabled) app.ticker.stop()
     else app.ticker.start()
   }
   document.addEventListener('visibilitychange', onVisibility)
 
   return {
+    setEnabled(nextEnabled) {
+      enabled = nextEnabled
+      app.canvas.hidden = !nextEnabled
+      if (!nextEnabled || document.hidden || options.paused) app.ticker.stop()
+      else app.ticker.start()
+    },
+    setForeground(foreground) {
+      app.ticker.maxFPS = fallingCardsFrameRate(foreground)
+    },
     destroy() {
+      if (destroyed) return
       destroyed = true
+      window.clearInterval(castRotationTimer)
       document.removeEventListener('visibilitychange', onVisibility)
-      app.destroy(true, { children: true, texture: false })
-      // Unloading a URL that never finished loading is a harmless no-op.
-      void Assets.unload(allUrls).catch(() => undefined)
+      app.ticker.stop()
+      app.ticker.remove(update)
+      const urlsToUnload = [...activeUrls]
+      window.setTimeout(() => {
+        const ticker = app.ticker
+        ticker.destroy()
+        app.stage.destroy({ children: true })
+        app.renderer.destroy({ removeView: true })
+        void Assets.unload(urlsToUnload).catch(() => undefined)
+      }, 250)
     }
   }
 }

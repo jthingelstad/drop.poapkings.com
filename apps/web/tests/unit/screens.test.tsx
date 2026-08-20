@@ -43,7 +43,7 @@ import { applyPolledSession, redeemAccount, player, accountStatus, recentRuns } 
 import { navigate, route } from '../../src/lib/router'
 import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
 import { layout } from '../../src/lib/use-layout'
-import { screensaverActive } from '../../src/lib/screensaver'
+import { desktopFallingCardsMode, resetScreensaverForTests, screensaverActive } from '../../src/lib/screensaver'
 import { createElixirRain } from '../../src/components/ScreensaverScene'
 
 import Login from '../../src/screens/Login'
@@ -100,6 +100,8 @@ function buttonWithText(host: HTMLElement, selector: string, text: string): HTML
 
 beforeEach(() => {
   vi.clearAllMocks()
+  resetScreensaverForTests()
+  layout.value = 'mobile'
 })
 
 afterEach(() => {
@@ -111,7 +113,7 @@ afterEach(() => {
   accountStatus.value = 'anonymous'
   recentRuns.value = []
   route.value = '/'
-  screensaverActive.value = null
+  resetScreensaverForTests()
   installMode.value = 'none'
   installEligible.value = false
   installDismissed.value = false
@@ -646,6 +648,19 @@ describe('Screensaver', () => {
     expect(createElixirRain).toHaveBeenCalledTimes(1)
   })
 
+  it('uses only the persistent background scene on desktop', async () => {
+    layout.value = 'desktop'
+    screensaverActive.value = 'nav'
+    const host = await mount(<Screensaver />)
+    await flush()
+
+    expect(host.querySelector('.screensaver--desktop-background')).not.toBeNull()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(createElixirRain).not.toHaveBeenCalled()
+  })
+
   it('exits on a keydown, clearing the active signal', async () => {
     screensaverActive.value = 'nav'
     await mount(<Screensaver />)
@@ -655,6 +670,7 @@ describe('Screensaver', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true }))
     })
     expect(screensaverActive.value).toBeNull()
+    expect(desktopFallingCardsMode.value).toBe('off')
   })
 
   it('exits on a pointerdown, clearing the active signal', async () => {

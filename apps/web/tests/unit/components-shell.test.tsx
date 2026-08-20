@@ -23,7 +23,13 @@ const soundMock = vi.hoisted(() => ({
 }))
 
 const screensaverMock = vi.hoisted(() => ({
-  startScreensaver: vi.fn()
+  cycleDesktopFallingCards: vi.fn(),
+  screensaverActive: { value: null as null | 'tap' | 'idle' | 'nav' },
+  desktopFallingCardsMode: { value: 'ambient' as 'ambient' | 'off' }
+}))
+
+const rainMock = vi.hoisted(() => ({
+  createElixirRain: vi.fn(async () => ({ destroy: vi.fn(), setEnabled: vi.fn(), setForeground: vi.fn() }))
 }))
 
 const apiMock = vi.hoisted(() => ({
@@ -62,6 +68,7 @@ const pixiStub = vi.hoisted(() => {
 vi.mock('motion', () => ({ animate: motionMock.animate }))
 vi.mock('../../src/lib/sound', () => soundMock)
 vi.mock('../../src/lib/screensaver', () => screensaverMock)
+vi.mock('../../src/components/ScreensaverScene', () => rainMock)
 vi.mock('../../src/lib/load-pixi', () => ({
   loadPixi: pixiStub.loadPixi
 }))
@@ -137,7 +144,10 @@ beforeEach(() => {
   document.documentElement.classList.remove('reduce-motion')
   motionMock.animate.mockClear()
   soundMock.playTap.mockClear()
-  screensaverMock.startScreensaver.mockClear()
+  screensaverMock.cycleDesktopFallingCards.mockClear()
+  screensaverMock.screensaverActive.value = null
+  screensaverMock.desktopFallingCardsMode.value = 'ambient'
+  rainMock.createElixirRain.mockClear()
   apiMock.getLeaderboard.mockReset()
   apiMock.getActivity.mockReset()
   pixiStub.loadPixi.mockReset()
@@ -552,7 +562,7 @@ describe('MobileShell', () => {
     expect(host.querySelector('.ed-mobile__scroll--game')).toBeTruthy()
   })
 
-  it('renders a viewport desktop shell with persistent nav, activity, and wallpaper', () => {
+  it('renders a fixed desktop shell over the advanced Falling Cards scene', async () => {
     layout.value = 'desktop'
     draw(
       <MobileShell>
@@ -566,6 +576,10 @@ describe('MobileShell', () => {
     expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
     expect(host.querySelector('.ed-pillnav')).toBeNull()
     expect(host.textContent).toContain('Speed keys')
+    await act(async () => {
+      await tick()
+    })
+    expect(rainMock.createElixirRain).toHaveBeenCalledTimes(1)
   })
 
   it('keeps Falling Cards behind desktop gameplay while removing the rails', () => {
@@ -581,6 +595,39 @@ describe('MobileShell', () => {
     expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
     expect(host.querySelector('.ed-desktop__rail')).toBeNull()
     expect(host.querySelector('.ed-aside')).toBeNull()
+  })
+
+  it('keeps one paused desktop Falling Cards scene while it is off', async () => {
+    layout.value = 'desktop'
+    screensaverMock.desktopFallingCardsMode.value = 'off'
+    draw(
+      <MobileShell>
+        <p>home</p>
+      </MobileShell>
+    )
+
+    await act(async () => {
+      await tick()
+    })
+    expect(host.querySelector('.ed-wallpaper--off')).toBeTruthy()
+    expect(rainMock.createElixirRain).toHaveBeenCalledWith(
+      expect.any(HTMLDivElement),
+      expect.objectContaining({ enabled: false })
+    )
+  })
+
+  it('hides the desktop panels without unmounting the Falling Cards host', () => {
+    layout.value = 'desktop'
+    screensaverMock.screensaverActive.value = 'nav'
+    draw(
+      <MobileShell>
+        <p>home</p>
+      </MobileShell>
+    )
+
+    expect(host.querySelector('.ed-app--screensaver')).toBeTruthy()
+    expect(host.querySelector('.ed-desktop')).toBeTruthy()
+    expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
   })
 
   it('opens and closes the advertised keyboard guide with ? and Escape', async () => {
@@ -614,7 +661,17 @@ describe('DesktopAside', () => {
     )!
     expect(saver).toBeTruthy()
     saver.click()
-    expect(screensaverMock.startScreensaver).toHaveBeenCalledWith('nav')
+    expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
+  })
+
+  it('advertises turning the ambient scene back on when Falling Cards are off', () => {
+    screensaverMock.desktopFallingCardsMode.value = 'off'
+    draw(<DesktopAside />)
+
+    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — turn on"]')!
+    expect(saver.textContent).toContain('Turn on →')
+    saver.click()
+    expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
   })
 
   it('keeps only the live feed and the launcher — nothing the page beside it already says', () => {

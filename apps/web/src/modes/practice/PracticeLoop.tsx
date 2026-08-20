@@ -39,7 +39,7 @@ import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
 
-const CORRECT_HOLD_MS = 300
+const CORRECT_HOLD_MS = 500
 const REVEALED_ANSWER_HOLD_MS = 1_600
 const WRONG_BEAT_MS = 430
 const IDLE_HINT_MS = 7_000

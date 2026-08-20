@@ -539,20 +539,18 @@ describe('use-layout', () => {
     expect(mod.isDesktop()).toBe(true)
   })
 
-  it('detects mobile below the breakpoint and reacts to a change event', async () => {
+  it('detects mobile below the breakpoint and keeps the initial choice on resize', async () => {
     const { mod, mql } = await loadLayout(false)
     expect(mod.layout.value).toBe('mobile')
     expect(mod.isDesktop()).toBe(false)
     ;(mql as unknown as { fire: (m: boolean) => void }).fire(true)
-    expect(mod.layout.value).toBe('desktop')
-    ;(mql as unknown as { fire: (m: boolean) => void }).fire(false)
     expect(mod.layout.value).toBe('mobile')
   })
 
-  it('falls back to the legacy addListener signature', async () => {
-    const { mod, mql } = await loadLayout(false, { modern: false })
-    expect(mod.layout.value).toBe('mobile')
-    ;(mql as unknown as { fire: (m: boolean) => void }).fire(true)
+  it('keeps an initially selected desktop shell on a later narrow resize', async () => {
+    const { mod, mql } = await loadLayout(true)
+    expect(mod.layout.value).toBe('desktop')
+    ;(mql as unknown as { fire: (m: boolean) => void }).fire(false)
     expect(mod.layout.value).toBe('desktop')
   })
 })

@@ -1,13 +1,15 @@
 // Mobile keeps its one-column body and fixed pill nav. Desktop uses a real
 // viewport shell: persistent navigation and activity rails around a fixed
-// mobile-width center. Game routes shed both rails but keep the same bounded
-// stage and Falling Cards background.
+// mobile-width center. The desktop shell keeps its required dimensions and
+// clips on later window resizes. Game routes shed both rails but retain the
+// advanced Falling Cards background.
 
 import type { ComponentChildren } from 'preact'
 import { route, navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { hasUnreadUpdates } from '../../lib/updates'
 import { layout } from '../../lib/use-layout'
+import { screensaverActive } from '../../lib/screensaver'
 import Icon from '../Icon'
 import KeyboardHelp from '../KeyboardHelp'
 import DesktopAside from './DesktopAside'
@@ -56,7 +58,7 @@ export default function MobileShell({ children }: { children: ComponentChildren 
 
   if (onDesktop) {
     return (
-      <div class="ed-app ed-app--desktop">
+      <div class={`ed-app ed-app--desktop${screensaverActive.value ? ' ed-app--screensaver' : ''}`}>
         <DesktopWallpaper />
         <div class={`ed-desktop${gaming ? ' ed-desktop--game' : ''}`}>
           {!gaming && <DesktopNav />}

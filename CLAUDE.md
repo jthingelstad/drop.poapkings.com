@@ -171,20 +171,25 @@ rank-oriented fields as part of unrelated work.
   all. Deleting an account deletes its minted links: the share item lives
   outside `PLAYER#` so a stranger can resolve it, and a `PLAYER#{sub}/SHARE#`
   pointer is what lets the deletion sweep find it.
-- **Desktop is a viewport shell over the same routes and data.** At or above
-  1024px `MobileShell` composes a fixed `100dvh` navigation / stage / activity
-  grid (`lib/use-layout.ts`); the document itself does not scroll. Its center is
+- **Desktop is a viewport shell over the same routes and data.** On initial load
+  at or above 1024px, `MobileShell` composes a fixed 936 × 720 navigation / stage
+  / activity grid (`lib/use-layout.ts`); the document itself does not scroll.
+  Later browser resizes never swap or reflow that shell: a smaller viewport
+  clips it. Its center is
   a fixed 440px track and Home keeps the exact mobile sequence: featured game,
   the other four ranked games, then Practice. The featured mode is never
   duplicated; standings stay in the persistent Ladder navigation. Active games
   drop both rails, use a bounded 480px stage, and remain playable with mouse or
   keyboard on the existing boards. **Falling Cards is persistent desktop
-  scenery** (`components/shell/DesktopWallpaper.tsx`): full-strength CSS card
-  art falls independently through the exposed gutters behind Home, reading
-  pages, and games, with no opacity, color, or vignette dimming; reduced motion
-  freezes the same composition.
-  `DesktopAside` keeps only the live `Recent runs` feed and full-screen Falling
-  Cards launcher. `DesktopNav` advertises the primary home-row mapping (`ASDFG`
+  scenery** (`components/shell/DesktopWallpaper.tsx`): the full three-layer
+  Pixi scene runs at full strength behind Home, reading pages, and games. It
+  keeps a bounded 30-card texture cast and swaps six cards every 20 seconds so
+  the catalog rotates through without living in memory all at once; reduced
+  motion freezes the same composition. `DesktopAside` keeps only the live
+  `Recent runs` feed and a Falling Cards control. That control cycles ambient ->
+  full screen -> off: full screen hides the game panels over the same canvas,
+  its dismissing input restores the panels with cards off, and the next press
+  deals the ambient scene back in. `DesktopNav` advertises the primary home-row mapping (`ASDFG`
   = 1–5, `JKL;` = 6–9); the number row remains an alias, Space repeats/defaults,
   `?` opens the help sheet, and Escape requires two presses to abandon a run.
 - **"Elixir Rain" screensaver**: activation state in
@@ -192,7 +197,8 @@ rank-oriented fields as part of unrelated work.
   feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under
   reduced motion), overlay in `components/Screensaver.tsx`, Pixi scene in
   `components/ScreensaverScene.ts` (lazy chunk via `lib/load-pixi.ts`; rotates
-  the whole card catalog). It must never trigger on gameplay routes.
+  a bounded cast through the whole card catalog). The desktop scene is allowed
+  behind gameplay; automatic screensaver activation must never trigger there.
 - **Game feedback is composited, never in layout flow.** Transient feedback
   (penalties, hints, streaks) uses the shared `components/FloatingCue.tsx`
   (motion-lib rise-and-fade) inside a `.game-cues` overlay — every mode uses it,

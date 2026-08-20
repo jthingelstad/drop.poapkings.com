@@ -75,7 +75,7 @@ test(
       const art = document.querySelector('.pcard__img')
       const reveal = document.querySelector('.pcard__answer-cost')
       if (!(art instanceof HTMLElement) || !(reveal instanceof HTMLElement)) {
-        throw new Error('Practice reinforcement disappeared before the 300ms hold')
+        throw new Error('Practice reinforcement disappeared before the 500ms hold')
       }
       const bounds = (element: HTMLElement) => {
         const rect = element.getBoundingClientRect()

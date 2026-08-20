@@ -300,15 +300,20 @@ Important shared modules:
 - `apps/web/src/components/summary/DrillPanel.tsx` - the drills' plain bar
   series, deliberately outside that grammar.
 - `apps/web/src/components/shell/DesktopNav.tsx` and `MobileShell.tsx` - the
-  desktop `100dvh` navigation / fixed 440px center / activity grid and the
-  unchanged mobile bottom-pill shell. Home preserves the exact mobile game
-  order on both shells. Desktop game routes shed the rails but use the same mode
-  components and existing leaderboard partitions in a bounded 480px stage.
+  fixed 936 × 720 desktop navigation / 440px center / activity grid and the
+  unchanged mobile bottom-pill shell. The initial 1024px decision persists for
+  the page lifetime; later browser resizing clips rather than reflows the
+  desktop shell. Home preserves the exact mobile game order on both shells.
+  Desktop game routes shed the rails but use the same mode components and
+  existing leaderboard partitions in a fixed 480 × 720 stage.
 - `apps/web/src/components/shell/DesktopWallpaper.tsx` - persistent Falling
-  Cards scenery on every desktop route (CSS, not the opt-in Pixi scene), weighted
-  toward the exposed gutters and rendered at full artwork opacity with no color
-  or vignette dimming. Reduced motion freezes the cards instead of removing the
-  field.
+  Cards scenery on every desktop route using the same advanced three-layer Pixi
+  renderer as the mobile screensaver. It keeps 30 textures resident and swaps
+  six every 20 seconds, gradually rotating through the catalog. The desktop
+  control cycles ambient -> full screen -> off -> ambient. Full screen hides the
+  panels over that persistent canvas instead of creating a second scene; its
+  dismissing input restores the panels and shuts the cards off. Reduced motion
+  freezes the composition and cycles directly between frozen ambient and off.
 - `apps/web/src/lib/game-keys.ts` and `components/KeyboardHelp.tsx` - the shared
   desktop input contract: `ASDFG` = costs 1–5, `JKL;` = 6–9, digits are aliases,
   Space is the safe default/replay action, `?` opens help, and Escape uses a

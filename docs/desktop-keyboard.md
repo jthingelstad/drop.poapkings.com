@@ -40,11 +40,17 @@ same public reference.
 
 ## Desktop composition
 
-At 1024px and wider, the app uses a bounded `100dvh` shell. Navigation and the
-activity rail stay anchored around a fixed 440px center stage. Home uses the
-same sequence as mobile — featured game, the other four ranked games, then
-Practice — with no duplicated featured mode. Game routes remove the rails, use
-a bounded 480px fixed-height stage, and retain the CSS Falling Cards background.
-The cards are concentrated in the exposed gutters and use the original artwork
-at full opacity, with no color or vignette dimming; reduced motion freezes that
-background rather than removing it.
+On initial load at 1024px and wider, the app uses a fixed 936 × 720 shell.
+Navigation and the activity rail stay anchored around a fixed 440px center
+stage. Home uses the same sequence as mobile — featured game, the other four
+ranked games, then Practice — with no duplicated featured mode. Game routes
+remove the rails, use a fixed 480 × 720 stage, and retain the advanced
+three-layer Falling Cards scene. Later browser resizing never swaps or reflows
+the desktop interface; a smaller viewport clips it.
+
+The persistent scene keeps a 30-card texture cast and swaps six cards every 20
+seconds so the full catalog rotates through over time. Reduced motion freezes
+the composition. The desktop control cycles ambient -> full screen -> off ->
+ambient. Full screen hides the game panels over the same running background;
+the dismissing input restores the panels with cards off, and the next press
+deals the ambient scene back in.

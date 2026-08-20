@@ -92,16 +92,34 @@ test('desktop keeps the mobile game order in a fixed-width center', async ({ pag
   }))
   expect(order.ranked).toBeLessThan(order.practice)
 
-  const fullStrengthGutterCards = await page.locator('.ed-wallpaper__card').evaluateAll(
-    (cards) =>
-      cards.filter((card) => {
-        const left = Number.parseFloat((card as HTMLElement).style.left)
-        const opacity = Number.parseFloat(getComputedStyle(card).opacity)
-        return (left <= 15 || left >= 85) && opacity === 1
-      }).length
-  )
-  expect(fullStrengthGutterCards).toBeGreaterThanOrEqual(6)
-  await expect(page.locator('.ed-wallpaper__vignette')).toHaveCount(0)
+  await expect(page.locator('.ed-wallpaper canvas')).toBeVisible()
+  await expect(page.locator('.ed-wallpaper__card, .ed-wallpaper__vignette')).toHaveCount(0)
+})
+
+test('desktop keeps its required size and clips instead of reflowing on resize', async ({ page, viewport }) => {
+  test.skip(!isDesktopViewport(viewport), 'desktop shell coverage')
+  await page.goto('/')
+
+  const required = await page.locator('.ed-desktop').evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    height: element.getBoundingClientRect().height
+  }))
+  expect(required).toEqual({ width: 936, height: 720 })
+
+  await page.setViewportSize({ width: 800, height: 600 })
+  await expect(page.locator('.ed-desktop')).toBeVisible()
+  await expect(page.locator('.ed-mobile')).toHaveCount(0)
+  await expect(page.locator('.ed-aside')).toBeVisible()
+  const clipped = await page.locator('.ed-desktop').evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      width: rect.width,
+      height: rect.height,
+      clipsRight: rect.right > window.innerWidth,
+      clipsBottom: rect.bottom > window.innerHeight
+    }
+  })
+  expect(clipped).toEqual({ width: 936, height: 720, clipsRight: true, clipsBottom: true })
 })
 
 test('Practice has one direct entry on desktop and mobile', async ({ page }) => {
