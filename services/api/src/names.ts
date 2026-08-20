@@ -2,31 +2,8 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-
-const CARD_NICKNAMES: Readonly<Record<string, readonly string[]>> = {
-  "Archer Queen": ["AQ"],
-  "Baby Dragon": ["Baby D"],
-  "Electro Dragon": ["E-Drag"],
-  "Electro Wizard": ["E-Wiz"],
-  "Elite Barbarians": ["E-Barbs"],
-  "Goblin Barrel": ["Gob Barrel"],
-  "Golden Knight": ["GK"],
-  "Inferno Dragon": ["Inferno D"],
-  "Little Prince": ["LP"],
-  Lumberjack: ["Lumber"],
-  "Mega Knight": ["MK"],
-  "Mighty Miner": ["MM"],
-  "Mini P.E.K.K.A": ["Mini P", "Pancake Bot"],
-  "P.E.K.K.A": ["Pekka"],
-  "Royal Giant": ["RG"],
-  "Royal Hogs": ["Piggies"],
-  "Skeleton Army": ["Skarmy"],
-  "Skeleton Barrel": ["Skelly Barrel"],
-  "Skeleton King": ["SK"],
-  "The Log": ["Log"],
-  "Three Musketeers": ["3M"],
-  "Wall Breakers": ["Wallies"],
-};
+import type { FavoriteCard } from "./cards.js";
+import { CARD_NAME_FLAVORS } from "./name-flavors.js";
 
 const DISALLOWED_WORDS = new Set([
   "admin",
@@ -43,6 +20,8 @@ const DISALLOWED_WORDS = new Set([
   "twitch",
   "twitter",
   "youtube",
+  "noob",
+  "midladder",
   "damn",
   "hell",
   "crap",
@@ -53,11 +32,14 @@ const DISALLOWED_WORDS = new Set([
   "fuck",
   "piss",
   "shit",
+  "spic",
   "slut",
   "whore",
 ]);
 
 const DISALLOWED_COMPACT_FRAGMENTS = [
+  "paytowin",
+  "p2w",
   "fuck",
   "shit",
   "bitch",
@@ -68,10 +50,95 @@ const DISALLOWED_COMPACT_FRAGMENTS = [
   "faggot",
   "kike",
   "chink",
-  "spic",
 ] as const;
 
-const client = new BedrockRuntimeClient({});
+const NAME_LANES = [
+  "nickname",
+  "battle",
+  "character",
+  "arena",
+  "wildcard",
+] as const;
+
+export type NameLane = (typeof NAME_LANES)[number];
+
+export interface NameCandidate {
+  id: string;
+  lane: NameLane;
+  name: string;
+}
+
+const NICKNAME_SCENES = [
+  "Picnic",
+  "Snack Break",
+  "Dance Break",
+  "Brunch Club",
+  "Rush Hour",
+  "Day Off",
+  "Pajama Party",
+  "Bake Sale",
+  "Road Trip",
+  "Lunch Club",
+] as const;
+
+const BATTLE_ENDINGS = [
+  "Patrol",
+  "Parade",
+  "Stampede",
+  "Shuffle",
+  "Charge",
+  "Brigade",
+  "Blitz",
+  "Bounce",
+  "Rumble",
+  "Rally",
+  "Rush",
+  "Crew",
+] as const;
+
+const CHARACTER_MODIFIERS = [
+  "Pocket",
+  "Turbo",
+  "Sneaky",
+  "Toasty",
+  "Tiny",
+  "Midnight",
+  "Cozy",
+  "Bouncy",
+  "Speedy",
+  "Wobbly",
+  "Sparkly",
+  "Sleepy",
+] as const;
+
+const ARENA_OPENERS = [
+  "Bridge",
+  "Crown",
+  "Elixir",
+  "Overtime",
+  "Tower",
+  "Arena",
+  "Deck",
+  "Double Elixir",
+] as const;
+
+const WILDCARD_SCENES = [
+  "Picnic",
+  "Snack Club",
+  "Tea Time",
+  "Disco",
+  "Day Off",
+  "Pancake Run",
+  "Lunch Break",
+  "Road Trip",
+  "Party",
+  "Brunch",
+] as const;
+
+const client = new BedrockRuntimeClient({
+  maxAttempts: 5,
+  retryMode: "adaptive",
+});
 
 function safetyFold(value: string): string {
   return value
@@ -101,73 +168,160 @@ export function isSafeGeneratedName(value: unknown): value is string {
   return !/(?:https?|www|dotcom|gmail|outlook|yahoo)/.test(compact);
 }
 
-function nicknameHints(cardName: string): readonly string[] {
-  return CARD_NICKNAMES[cardName] ?? [];
+function flavorFor(card: FavoriteCard) {
+  const flavor = CARD_NAME_FLAVORS[card.id];
+  if (!flavor)
+    throw new Error(`Missing reviewed player-name flavor for card ${card.id}`);
+  return flavor;
 }
 
-export function fallbackNamesForCard(cardName: string): string[] {
-  const root = nicknameHints(cardName)[0] || cardName;
-  return [
-    root,
-    `${root} Energy`,
-    `Pocket ${root}`,
-    `${root} Parade`,
-    `${root} Quest`,
-    `${root} Snack Club`,
-  ].filter(isSafeGeneratedName);
+export function allNameCandidatesForCard(card: FavoriteCard): NameCandidate[] {
+  const flavor = flavorFor(card);
+  const anchors = flavor.nicknames?.length ? flavor.nicknames : [card.name];
+  const candidates = new Map<string, Omit<NameCandidate, "id">>();
+
+  function add(lane: NameLane, name: string) {
+    if (!isSafeGeneratedName(name)) return;
+    const key = name.toLowerCase();
+    if (!candidates.has(key)) candidates.set(key, { lane, name });
+  }
+
+  for (const anchor of anchors)
+    for (const scene of NICKNAME_SCENES) add("nickname", `${anchor} ${scene}`);
+  for (const motif of flavor.motifs)
+    for (const ending of BATTLE_ENDINGS) add("battle", `${motif} ${ending}`);
+  for (const modifier of CHARACTER_MODIFIERS)
+    for (const motif of flavor.motifs) add("character", `${modifier} ${motif}`);
+  for (const opener of ARENA_OPENERS)
+    for (const motif of flavor.motifs) add("arena", `${opener} ${motif}`);
+  for (const motif of flavor.motifs)
+    for (const scene of WILDCARD_SCENES) add("wildcard", `${motif} ${scene}`);
+
+  return [...candidates.values()].map((candidate, index) => ({
+    id: `r${index + 1}`,
+    ...candidate,
+  }));
 }
 
-export function parseModelNames(text: string): string[] {
+function shuffled<T>(values: readonly T[], random: () => number): T[] {
+  const copy = [...values];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(random() * (index + 1));
+    const current = copy[index]!;
+    copy[index] = copy[swap]!;
+    copy[swap] = current;
+  }
+  return copy;
+}
+
+export function candidateSlateForCard(
+  card: FavoriteCard,
+  perLane = 8,
+  random: () => number = Math.random,
+): NameCandidate[] {
+  const all = allNameCandidatesForCard(card);
+  const slate = NAME_LANES.flatMap((lane) =>
+    shuffled(
+      all.filter((candidate) => candidate.lane === lane),
+      random,
+    ).slice(0, perLane),
+  );
+  return slate.map((candidate, index) => ({
+    ...candidate,
+    id: `c${index + 1}`,
+  }));
+}
+
+export function parseModelCandidateIds(text: string): string[] {
   const match = /\{[\s\S]*\}/.exec(text);
   if (!match) return [];
   try {
-    const parsed = JSON.parse(match[0]) as { names?: unknown };
-    if (!Array.isArray(parsed.names)) return [];
-    const names = new Map<string, string>();
-    for (const name of parsed.names) {
-      if (!isSafeGeneratedName(name)) continue;
-      const key = name.toLowerCase();
-      if (!names.has(key)) names.set(key, name);
-    }
-    return [...names.values()];
+    const parsed = JSON.parse(match[0]) as { ids?: unknown };
+    if (!Array.isArray(parsed.ids)) return [];
+    return parsed.ids.filter((id): id is string => typeof id === "string");
   } catch {
     return [];
   }
 }
 
-function generationPrompt(cardName: string, count: number): string {
-  const hints = nicknameHints(cardName);
-  return `Create ${count} distinct, playful public player names inspired by the Clash Royale card "${cardName}".
+export function selectCandidateNames(
+  candidates: readonly NameCandidate[],
+  requestedIds: readonly string[],
+  count: number,
+): string[] {
+  const byId = new Map(
+    candidates.map((candidate) => [candidate.id, candidate]),
+  );
+  const selected: NameCandidate[] = [];
+  const usedNames = new Set<string>();
+  const usedLanes = new Set<NameLane>();
 
-The name does NOT need to contain the official card title. Draw from the card's community nickname or shorthand, character, artwork, mechanic, personality, sound, or a funny association. Known nickname hints for this card: ${hints.length ? hints.join(", ") : "none supplied; use your Clash Royale knowledge when confident"}.
+  function add(candidate: NameCandidate | undefined, requireNewLane: boolean) {
+    if (!candidate || selected.length >= count) return;
+    const key = candidate.name.toLowerCase();
+    if (usedNames.has(key) || (requireNewLane && usedLanes.has(candidate.lane)))
+      return;
+    selected.push(candidate);
+    usedNames.add(key);
+    usedLanes.add(candidate.lane);
+  }
 
-Good style examples (do not copy unless they fit this card): Skarmy Picnic, Bone Parade, Mini P Pancakes, Pancake Patrol, E-Wiz Fizz, Pocket Pekka, Toasty Wings. Favor memorable wordplay over generic labels like Pro, Main, Legend, Master, or Fan.
+  for (const id of requestedIds) add(byId.get(id), true);
+  for (const lane of NAME_LANES)
+    add(
+      candidates.find((candidate) => candidate.lane === lane),
+      true,
+    );
+  for (const candidate of candidates) add(candidate, false);
 
-Every option must be family-friendly for an all-ages game community, 2-32 characters, 1-5 words, and use only ASCII letters, numbers, spaces, apostrophes, hyphens, or periods. No profanity, slurs, suggestive language, insults, personal information, handles, URLs, political or religious references, or claims to be staff, official, Supercell, or support.
+  return selected.map((candidate) => candidate.name);
+}
 
-Return only JSON shaped {"names":["Skarmy Picnic"]}.`;
+export function nameSelectionPrompt(
+  card: FavoriteCard,
+  candidates: readonly NameCandidate[],
+  count: number,
+): string {
+  const choices = NAME_LANES.map((lane) => {
+    const laneChoices = candidates
+      .filter((candidate) => candidate.lane === lane)
+      .map((candidate) => `${candidate.id} = ${candidate.name}`)
+      .join("; ");
+    return `${lane}: ${laneChoices}`;
+  }).join("\n");
+
+  return `Choose ${count} playful public player names for a fan-made Clash Royale practice game. The favorite card is "${card.name}".
+
+The server has already assembled and safety-checked every candidate below. Act as a comedy editor: pick the choices with the strongest card connection, rhythm, surprise, and friendly arena energy. They should feel like community inside jokes, not generic gamer tags or literal descriptions.
+
+Choose at most one from each lane. Avoid repeated roots, endings, joke structures, and near-duplicates. Never invent, rewrite, combine, or return visible name text.
+
+${choices}
+
+Return only JSON shaped {"ids":["c1","c2"]}. Use candidate IDs exactly as supplied.`;
 }
 
 export async function generateNameOptions(
   modelId: string,
-  cardName: string,
+  card: FavoriteCard,
   count = 5,
 ): Promise<string[]> {
-  let generated: string[] = [];
+  const candidates = candidateSlateForCard(card);
+  let requestedIds: string[] = [];
   try {
     const response = await client.send(
       new ConverseCommand({
         modelId,
-        inferenceConfig: { maxTokens: 400, temperature: 1 },
+        inferenceConfig: { maxTokens: 160, temperature: 0.9 },
         system: [
           {
-            text: "You invent concise, clever, family-friendly player names for a Clash Royale practice game. Follow the requested JSON schema exactly and never include unsafe or identifying content.",
+            text: "You are the comedy editor for a cheerful Clash Royale practice game. Select only supplied candidate IDs. Never create or repeat visible name text.",
           },
         ],
         messages: [
           {
             role: "user",
-            content: [{ text: generationPrompt(cardName, count) }],
+            content: [{ text: nameSelectionPrompt(card, candidates, count) }],
           },
         ],
       }),
@@ -176,18 +330,12 @@ export async function generateNameOptions(
       response.output?.message?.content
         ?.map((item) => ("text" in item ? item.text : ""))
         .join("") ?? "";
-    generated = parseModelNames(text);
+    requestedIds = parseModelCandidateIds(text);
   } catch (error) {
-    console.warn("Name generation model failed; using favorite-card fallback", {
+    console.warn("Name selection model failed; using safe recipe fallback", {
       error: error instanceof Error ? error.name : "unknown",
     });
   }
 
-  const names = new Map(generated.map((name) => [name.toLowerCase(), name]));
-  for (const fallback of fallbackNamesForCard(cardName)) {
-    if (names.size >= count) break;
-    const key = fallback.toLowerCase();
-    if (!names.has(key)) names.set(key, fallback);
-  }
-  return [...names.values()].slice(0, count);
+  return selectCandidateNames(candidates, requestedIds, count);
 }

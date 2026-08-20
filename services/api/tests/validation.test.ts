@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GAME_MODES } from "@elixir-drop/contracts";
 import { favoriteCard } from "../src/cards.js";
-import {
-  fallbackNamesForCard,
-  isSafeGeneratedName,
-  parseModelNames,
-} from "../src/names.js";
+import { isSafeGeneratedName } from "../src/names.js";
 import {
   normalizeEmail,
   normalizeGameReturnPath,
@@ -67,28 +63,11 @@ describe("player input validation", () => {
       "https Pekka",
       "Mini P   Party",
       "DefinitelyShitty",
+      "Midladder Menace",
+      "P2W Pekka",
     ]) {
       expect(isSafeGeneratedName(name)).toBe(false);
     }
-  });
-
-  it("filters and deduplicates model output", () => {
-    expect(
-      parseModelNames(
-        '```json\n{"names":["Skarmy Picnic","skarmy picnic","Bone Parade","Supercell Support"]}\n```',
-      ),
-    ).toEqual(["Skarmy Picnic", "Bone Parade"]);
-  });
-
-  it("builds playful deterministic fallback choices with card nicknames", () => {
-    expect(fallbackNamesForCard("Skeleton Army")).toEqual([
-      "Skarmy",
-      "Skarmy Energy",
-      "Pocket Skarmy",
-      "Skarmy Parade",
-      "Skarmy Quest",
-      "Skarmy Snack Club",
-    ]);
   });
 
   it("only accepts cards in the canonical catalog", () => {

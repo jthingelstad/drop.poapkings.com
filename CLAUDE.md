@@ -129,8 +129,12 @@ rank-oriented fields as part of unrelated work.
   content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,
   not sitemap entries.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
-  canonical card snapshot. Claude Haiku may use community nicknames and playful
-  card associations; the public name does not need the exact card title.
+  canonical card snapshot. The API composes a fresh candidate slate from
+  reviewed card-specific flavor tiles and safe humor patterns; Claude Haiku
+  selects opaque candidate IDs and never authors displayable name text. Every
+  catalog card must have a flavor profile before verification passes. The
+  public name may use community nicknames and playful card associations instead
+  of the exact card title.
   Name-option tokens bind the player, card ID, and exact safe choices; the API
   saves favorite card and public name together. Keep player tags separate and
   explicitly unverified.

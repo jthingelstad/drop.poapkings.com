@@ -688,10 +688,14 @@ Authenticated public identity is centered on one favorite card:
 
 - The player chooses a card from the canonical committed snapshot; its ID is
   stored as `favoriteCardId` and its artwork becomes the profile image.
-- `POST /me/name-options` accepts that card ID and uses Claude Haiku to return
-  playful public names inspired by its title, community nicknames, mechanics,
-  artwork, and character, plus a short-lived signed choice token. Names do not
-  need to contain the exact card title.
+- `POST /me/name-options` accepts that card ID and builds a fresh candidate
+  slate from reviewed card-specific nicknames/motifs plus five safe composition
+  lanes (nickname, battle, character, arena, and wildcard). Claude Haiku acts
+  only as the comedy editor: it returns opaque candidate IDs, never displayable
+  text. The API rejects unknown IDs, enforces lane diversity, and fills an
+  incomplete or failed model response from the same safe slate. A catalog
+  completeness test blocks a new card until its flavor profile is reviewed.
+  Names do not need to contain the exact card title.
 - The token binds the player, favorite card, and exact name choices. `PATCH /me`
   accepts the card and selected name together and persists them atomically.
 - Changing a favorite card requires choosing a new card-derived name in the

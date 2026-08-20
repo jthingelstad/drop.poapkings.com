@@ -72,7 +72,7 @@ void describe("deployment parameters", () => {
     }
   });
 
-  void it("uses Claude Haiku for creative player names by default", () => {
+  void it("uses Claude Haiku to edit player-name candidates by default", () => {
     assert.equal(
       parameterDefault("NameModelId"),
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",

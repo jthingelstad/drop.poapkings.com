@@ -492,7 +492,7 @@ export async function createNameOptions({
       "invalid_favorite_card",
     );
   await repository.useRateLimit("names", session.sub, 10, 60 * 60);
-  const names = await generateNameOptions(config.nameModelId, card.name);
+  const names = await generateNameOptions(config.nameModelId, card);
   const nowSeconds = Math.floor(Date.now() / 1_000);
   const claims: NameClaims = {
     type: "names",

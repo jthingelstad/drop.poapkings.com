@@ -307,6 +307,10 @@ describe("player identity binding", () => {
 
     expect(result.statusCode).toBe(200);
     expect(result.body.names).toEqual(["Pancake Patrol", "Mini P Griddle"]);
+    expect(generateNameOptions).toHaveBeenCalledWith(expect.any(String), {
+      id: FAVORITE_CARD_ID,
+      name: "Mini P.E.K.K.A",
+    });
     expect(repository.useRateLimit).toHaveBeenCalledWith(
       "names",
       profile.sub,
