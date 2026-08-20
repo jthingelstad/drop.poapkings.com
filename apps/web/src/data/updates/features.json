@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "desktop-enters-the-arena",
+      "publishedAt": "2026-08-20T13:05:00-05:00",
+      "title": "Desktop enters the arena",
+      "body": "Wide screens can now play every Drop mode with Falling Cards behind the fight and a home-row speed setup: **ASDFG** for 1–5, **JKL;** for 6–9, and **Space** to run it back. [Deal into Surge](/#/surge)."
+    },
+    {
       "id": "boards-start-at-drop",
       "publishedAt": "2026-08-20T11:36:15-05:00",
       "title": "Boards begin with Drop’s first season",

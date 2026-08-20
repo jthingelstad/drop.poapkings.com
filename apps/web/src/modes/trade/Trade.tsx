@@ -33,6 +33,7 @@ import { preloadGameFx } from '../../components/GameFxLayer'
 import { challengePreparers } from '../../lib/game-challenge-content'
 import { useGameSession } from '../../lib/use-game-session'
 import { observeInput, runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
+import { costForGameKey } from '../../lib/game-keys'
 
 // Trade tunables — one config object (SPEC §9). The exchange count is NOT a
 // tunable here: it is the length of the shared board ladder the server deals,
@@ -230,19 +231,18 @@ export default function Trade() {
   // (−1…−4), and 0 or 5 is Even — instead of a "1 = −4 … 9 = +4" mental table.
   useGameKeys((event) => {
     if (stage.value !== 'running' || feedback.value !== 'idle') return
-    const key = event.key
-    if (key === '0' || key === '5') {
+    const cost = costForGameKey(event)
+    if (event.key === '0' || cost === 5) {
       event.preventDefault()
       guess(0, observeInput(event))
       return
     }
-    const n = Number(key)
-    if (n >= 1 && n <= 4) {
+    if (cost !== null && cost >= 1 && cost <= 4) {
       event.preventDefault()
-      guess(n, observeInput(event))
-    } else if (n >= 6 && n <= 9) {
+      guess(cost, observeInput(event))
+    } else if (cost !== null && cost >= 6 && cost <= 9) {
       event.preventDefault()
-      guess(-(n - 5), observeInput(event))
+      guess(-(cost - 5), observeInput(event))
     }
   })
 

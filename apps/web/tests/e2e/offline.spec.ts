@@ -27,12 +27,12 @@ test('offline shows a persistent mark and keeps games playable', async ({ page }
   await setOnline(page, false)
 
   // A persistent state gets a persistent mark, never a standing banner. On the
-  // single-column home (letterboxed on desktop) that mark is the OFFLINE cause
+  // shared Home that mark is the OFFLINE cause
   // chip plus the readiness line; every game stays playable offline.
   await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
   await expect(page.locator('.ed-home__ready')).toContainText('You are offline but ready to play')
-  // Mobile lists the other four; the desktop letterbox lists all five as board
-  // reads. Either way every row stays live while disconnected.
+  // Mobile lists the other four; desktop lists all five. Either way every play
+  // row stays live while disconnected.
   const rows = page.locator('.ed-grow--ranked')
   await expect(rows).not.toHaveCount(0)
   for (const row of await rows.all()) await expect(row).toBeEnabled()
@@ -43,11 +43,11 @@ test('offline shows a persistent mark and keeps games playable', async ({ page }
 })
 
 test('a signed-out desktop visitor still gets the offline mark', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'this exercises the desktop letterbox')
+  test.skip(isMobile, 'this exercises the desktop shell')
   await page.addInitScript(() => localStorage.removeItem('elixirdrop:session:v1'))
   await page.goto('/?signedOut=1')
   // The player/guest chip moved off the shell to the You page; the desktop
-  // letterbox home carries the same OFFLINE cause chip as mobile.
+  // shell carries the same OFFLINE cause chip as mobile.
   await expect(page.locator('.ed-hero').first()).toBeVisible()
 
   await setOnline(page, false)

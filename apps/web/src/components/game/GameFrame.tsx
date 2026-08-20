@@ -5,11 +5,16 @@
 // design-ref/{mobile,desktop}.html.
 
 import type { ComponentChildren } from 'preact'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../Icon'
 import GameFxLayer from '../GameFxLayer'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
 import { offlineRunMode } from '../../lib/use-game-run'
 import { GameStartStage } from './GameStart'
+import { useGameKeys } from '../../lib/use-game-keys'
+import { isInteractiveKeyTarget, isSpaceKey } from '../../lib/game-keys'
+import { keyboardHelpOpen, openKeyboardHelp } from '../../lib/keyboard-help'
+import { layout } from '../../lib/use-layout'
 
 export interface GameMetric {
   value: string
@@ -58,6 +63,34 @@ export default function GameFrame({
   fullBleed = false,
   children
 }: Props) {
+  const quitRef = useRef<HTMLButtonElement>(null)
+  const [quitArmed, setQuitArmed] = useState(false)
+
+  useEffect(() => {
+    if (!quitArmed) return
+    const timer = window.setTimeout(() => setQuitArmed(false), 2200)
+    return () => window.clearTimeout(timer)
+  }, [quitArmed])
+
+  useGameKeys((event) => {
+    if (keyboardHelpOpen.value) return
+    if (isSpaceKey(event) && !isInteractiveKeyTarget(event.target)) {
+      // Space is deliberately inert during a question/countdown, but it must
+      // not scroll the fixed game viewport.
+      event.preventDefault()
+      return
+    }
+    if (event.key !== 'Escape' || counting) return
+    event.preventDefault()
+    if (quitArmed || document.activeElement === quitRef.current) {
+      setQuitArmed(false)
+      onQuit()
+      return
+    }
+    setQuitArmed(true)
+    quitRef.current?.focus({ preventScroll: true })
+  })
+
   return (
     <div class="ed-game">
       <GameFxLayer cue={cue} particleCount={fxParticles} />
@@ -68,11 +101,26 @@ export default function GameFrame({
         <>
           <div class="ed-game__top">
             <div class="ed-game__top-l">
-              <button class="ed-iconbtn tap-fx" onClick={onQuit} aria-label={quitLabel}>
+              <button ref={quitRef} class="ed-iconbtn tap-fx" onClick={onQuit} aria-label={quitLabel}>
                 <span class="tap-face">
                   <Icon name="x" />
                 </span>
               </button>
+              {layout.value === 'desktop' && (
+                <button
+                  class="ed-iconbtn ed-game__help"
+                  onClick={openKeyboardHelp}
+                  aria-label="Keyboard controls"
+                  aria-keyshortcuts="?"
+                >
+                  ?
+                </button>
+              )}
+              {quitArmed && (
+                <span class="ed-game__quit-hint" role="status">
+                  Esc again to quit
+                </span>
+              )}
             </div>
             <div class="ed-game__top-c">
               <div class="ed-game__mode">{modeName}</div>

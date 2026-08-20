@@ -1,3 +1,6 @@
+import { costForGameKey, shortcutForCost } from '../lib/game-keys'
+import { useGameKeys } from '../lib/use-game-keys'
+
 interface Props {
   choices: number[]
   onPick: (value: number) => void
@@ -15,6 +18,14 @@ export default function MultipleChoice({
   correct,
   revealCorrect = false
 }: Props) {
+  useGameKeys((event) => {
+    if (disabled) return
+    const value = costForGameKey(event)
+    if (value === null || !choices.includes(value)) return
+    event.preventDefault()
+    onPick(value)
+  })
+
   return (
     <div class="mc-choices" role="group" aria-label="Elixir cost choices">
       {choices.map((n) => {
@@ -26,9 +37,13 @@ export default function MultipleChoice({
             class={`mc-choices__btn${wrong ? ' mc-choices__btn--wrong' : ''}${right ? ' mc-choices__btn--correct' : ''}`}
             onClick={() => !disabled && onPick(n)}
             disabled={disabled}
+            aria-keyshortcuts={`${n} ${shortcutForCost(n)}`}
             aria-label={`${n} elixir${right ? ', correct answer' : wrong ? ', your answer, incorrect' : ''}`}
           >
             <span>{n}</span>
+            <kbd class="mc-choices__shortcut" aria-hidden="true">
+              {shortcutForCost(n)}
+            </kbd>
           </button>
         )
       })}

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
-import { renderToStringAsync } from 'preact-render-to-string'
 
 const api = vi.hoisted(() => ({
   getSharedRun: vi.fn(),
@@ -26,7 +25,6 @@ vi.mock('../../src/lib/account', async (importActual) => {
 
 import ShareLine from '../../src/components/ShareLine'
 import SharedRun, { sharedRunToken } from '../../src/screens/SharedRun'
-import RankedTouchGate, { rankedModeUrl, rankedModeUrlLabel } from '../../src/components/RankedTouchGate'
 import { wallpaperCards } from '../../src/components/shell/DesktopWallpaper'
 
 const flush = () => act(async () => await Promise.resolve())
@@ -195,25 +193,6 @@ describe('the shared-run permalink', () => {
 
     expect(host.textContent).toContain('Link not found')
     expect(host.textContent).toContain('Open Elixir Drop')
-  })
-})
-
-// The gate already shipped; what it lacked was a bridge. A code is faster than
-// dictating a URL to yourself, and it opens THAT mode rather than the home page.
-describe('the ranked touch-only gate', () => {
-  it('addresses the mode by its real hash route — there is no server to rewrite one', () => {
-    expect(rankedModeUrl('/surge', 'https://drop.poapkings.com')).toBe('https://drop.poapkings.com/#/surge')
-    expect(rankedModeUrlLabel('/rain', 'https://drop.poapkings.com')).toBe('drop.poapkings.com/#/rain')
-  })
-
-  it('names the mode it stopped, states the reason once, and offers two exits', async () => {
-    const html = await renderToStringAsync(<RankedTouchGate path="/survival" />)
-
-    expect(html).toContain('Survival is a thumb game')
-    expect(html).toContain('Scan to open Survival on your phone.')
-    expect(html).toContain('two thumbs')
-    expect(html).toContain('Practice instead')
-    expect(html).toContain('Open the Survival board')
   })
 })
 

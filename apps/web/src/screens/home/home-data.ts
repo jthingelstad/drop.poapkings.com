@@ -1,7 +1,5 @@
-// Shared Home view-model. HomeMobile (the one true Home, letterboxed on desktop) renders from
-// this one hook so routes + data stay identical across the breakpoint; only the
-// surrounding shell/markup differs. Reuses the leaderboard + best-score helpers
-// the original Home already had.
+// Shared Home view-model. One hook keeps routes and data identical across the
+// breakpoint while the shell changes their composition.
 
 import { useEffect } from 'preact/hooks'
 import { useSignal } from '@preact/signals'

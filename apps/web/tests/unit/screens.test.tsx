@@ -577,10 +577,7 @@ describe('HomeMobile', () => {
     expect(html).not.toContain('ed-installrow')
   })
 
-  // Desktop reorders the same column rather than forking it: Practice leads
-  // because that is what plays here, ranked rows read the board rather than
-  // starting a run, and the hero states where ranked runs happen.
-  it('leads with Practice and turns the ranked rows into board reads on desktop', async () => {
+  it('leads with Practice and gives every ranked game Play and Board actions on desktop', async () => {
     layout.value = 'desktop'
     accountStatus.value = 'anonymous'
     player.value = null
@@ -588,14 +585,11 @@ describe('HomeMobile', () => {
 
     const html = await renderToStringAsync(<HomeMobile data={homeData()} />)
 
-    expect(html).toContain('PLAYS HERE')
-    expect(html).not.toContain('UNRANKED')
-    expect(html.indexOf('ed-grow__name">Practice</strong>')).toBeLessThan(html.indexOf('Read the boards'))
+    expect(html).toContain('UNRANKED')
+    expect(html.indexOf('ed-grow__name">Practice</strong>')).toBeLessThan(html.indexOf('Ranked games'))
     expect(html).toContain('Board →')
-    // The hero keeps its art and numbers and states where ranked play happens;
-    // it does not rename PLAY into a status.
-    expect(html).toContain('Ranked runs are played on your phone')
-    expect(html).not.toContain('> PLAY<')
+    expect(html).toContain('> PLAY</span>')
+    expect(html).not.toContain('Ranked runs are played on your phone')
   })
 
   it('shows no cause chip and no identity band when authed and online', async () => {

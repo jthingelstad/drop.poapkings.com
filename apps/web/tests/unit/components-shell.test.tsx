@@ -73,6 +73,7 @@ vi.mock('../../src/lib/api', () => ({
 // --- Static imports (original module singletons) --------------------------
 
 import PipKeypad from '../../src/components/PipKeypad'
+import MultipleChoice from '../../src/components/MultipleChoice'
 import GameFrame from '../../src/components/game/GameFrame'
 import FloatingCue from '../../src/components/FloatingCue'
 import GameMotion from '../../src/components/GameMotion'
@@ -83,6 +84,8 @@ import { route } from '../../src/lib/router'
 import { player, accountStatus } from '../../src/lib/account'
 import { apiAvailability, transportOffline } from '../../src/lib/api-availability'
 import { offlineRunMode } from '../../src/lib/use-game-run'
+import { layout } from '../../src/lib/use-layout'
+import { keyboardHelpOpen } from '../../src/lib/keyboard-help'
 
 // --- Helpers --------------------------------------------------------------
 
@@ -155,6 +158,19 @@ beforeEach(() => {
   offlineRunMode.value = null
   player.value = null
   accountStatus.value = 'anonymous'
+  layout.value = 'mobile'
+  keyboardHelpOpen.value = false
+})
+
+describe('MultipleChoice keyboard input', () => {
+  it('binds the advertised home row to the offered cost, not its position', () => {
+    const onPick = vi.fn()
+    draw(<MultipleChoice choices={[3, 4, 5, 6]} onPick={onPick} />)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ' }))
+    expect(onPick).toHaveBeenCalledWith(6)
+    expect(host.querySelector('[aria-label^="6 elixir"] .mc-choices__shortcut')?.textContent).toBe('J')
+  })
 })
 
 afterEach(() => {
@@ -198,6 +214,16 @@ describe('PipKeypad', () => {
     expect(onPick).toHaveBeenCalledWith(4, expect.objectContaining({ inputKind: 'keyboard', trusted: false }))
   })
 
+  it('answers with the advertised home-row mapping and renders its labels', () => {
+    const onPick = vi.fn()
+    draw(<PipKeypad onPick={onPick} />)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ' }))
+    expect(onPick).toHaveBeenCalledWith(6, expect.objectContaining({ inputKind: 'keyboard', trusted: false }))
+    expect(host.querySelector('[data-pip-value="6"] .pip-keypad__shortcut')?.textContent).toBe('J')
+    expect(host.querySelector('[data-pip-value="9"] .pip-keypad__shortcut')?.textContent).toBe(';')
+  })
+
   it('ignores modifier chords, repeats, out-of-range and typing in inputs', () => {
     const onPick = vi.fn()
     draw(<PipKeypad onPick={onPick} />)
@@ -206,7 +232,7 @@ describe('PipKeypad', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', metaKey: true }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', repeat: true }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
     expect(onPick).not.toHaveBeenCalled()
 
     // Typing a digit inside a text field must not answer.
@@ -295,6 +321,23 @@ describe('GameFrame', () => {
     expect(host.querySelector('.stage-child')).toBeTruthy()
 
     host.querySelector<HTMLButtonElement>('.ed-iconbtn')!.click()
+    expect(onQuit).toHaveBeenCalledTimes(1)
+  })
+
+  it('requires two Escape presses to abandon an active run', () => {
+    const onQuit = vi.fn()
+    draw(
+      <GameFrame modeName="Surge" counting={false} count={0} onQuit={onQuit} cue={null}>
+        <div>stage</div>
+      </GameFrame>
+    )
+    const quit = host.querySelector<HTMLButtonElement>('[aria-label="Abandon run"]')!
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+    expect(onQuit).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(quit)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
     expect(onQuit).toHaveBeenCalledTimes(1)
   })
 
@@ -508,13 +551,60 @@ describe('MobileShell', () => {
     expect(host.querySelector('.ed-pillnav')).toBeNull()
     expect(host.querySelector('.ed-mobile__scroll--game')).toBeTruthy()
   })
+
+  it('renders a viewport desktop shell with persistent nav, activity, and wallpaper', () => {
+    layout.value = 'desktop'
+    draw(
+      <MobileShell>
+        <p>home</p>
+      </MobileShell>
+    )
+
+    expect(host.querySelector('.ed-desktop')).toBeTruthy()
+    expect(host.querySelector('.ed-desktop__rail')).toBeTruthy()
+    expect(host.querySelector('.ed-aside')).toBeTruthy()
+    expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
+    expect(host.querySelector('.ed-pillnav')).toBeNull()
+    expect(host.textContent).toContain('Speed keys')
+  })
+
+  it('keeps Falling Cards behind desktop gameplay while removing the rails', () => {
+    layout.value = 'desktop'
+    route.value = '/surge'
+    draw(
+      <MobileShell>
+        <p>playing</p>
+      </MobileShell>
+    )
+
+    expect(host.querySelector('.ed-desktop--game')).toBeTruthy()
+    expect(host.querySelector('.ed-wallpaper')).toBeTruthy()
+    expect(host.querySelector('.ed-desktop__rail')).toBeNull()
+    expect(host.querySelector('.ed-aside')).toBeNull()
+  })
+
+  it('opens and closes the advertised keyboard guide with ? and Escape', async () => {
+    layout.value = 'desktop'
+    draw(
+      <MobileShell>
+        <p>home</p>
+      </MobileShell>
+    )
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain('Keep both hands home')
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')).toBeNull()
+  })
 })
 
-// --- DesktopAside (letterbox margin panel) --------------------------------
-// The retired 3-column DesktopShell is gone: nav is the bottom pill (MobileShell,
-// above) and the player/guest chip + sign-out moved to the You page. What
-// survives into the desktop letterbox margin is this aside — the Falling Cards
-// launcher, the meta-page link cluster, and the live standings/recent-runs feed.
+// --- DesktopAside (desktop activity rail) ---------------------------------
 
 describe('DesktopAside', () => {
   it('launches the Falling Cards screensaver from the margin launcher', () => {

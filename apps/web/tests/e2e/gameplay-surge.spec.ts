@@ -70,6 +70,26 @@ test('countdown uses standalone gold display text', async ({ page }) => {
   await expect(page.locator('.run-count__ring')).toHaveCount(0)
 })
 
+test('desktop can repeat Surge entirely from the home row and Space', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'desktop keyboard loop')
+  await page.goto('/#/surge')
+  await waitForKeypad(page)
+
+  const homeKeys = ['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';']
+  for (let index = 0; index < 15; index += 1) {
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    await page.keyboard.press(homeKeys[card!.elixir - 1]!)
+    if (index < 14) await expect(page.locator('.ed-game__progress')).toHaveText(`Card ${index + 2} / 15`)
+  }
+
+  await expect(page.locator('[data-summary]')).toBeVisible()
+  await page.keyboard.press('Space')
+  await waitForKeypad(page)
+  await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')
+})
+
 // This ran twice, once per keypad layout, until the two-row pad became the only
 // pad — after which it was the same test twice, in four browsers, presenting as
 // coverage of two things.

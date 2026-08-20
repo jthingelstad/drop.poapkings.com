@@ -1,6 +1,7 @@
 import type { Card } from '../../types'
 import { CardArt } from '../CardChrome'
 import { observeInput, type InputObservation } from '../../lib/input-evidence'
+import { shortcutForCost } from '../../lib/game-keys'
 
 // Trade's exchange board. RED lane on top, BLUE below — Clash Royale's own
 // geometry, internalised over thousands of matches. Between the lanes a single
@@ -109,7 +110,10 @@ export function ExchangePad({
             disabled={disabled}
             aria-label={`Red ahead by ${mag}`}
           >
-            {mag}
+            <span>{mag}</span>
+            <kbd class="ed-xpad__shortcut" aria-hidden="true">
+              {shortcutForCost(mag + 5)}
+            </kbd>
           </button>
         ))}
       </div>
@@ -120,7 +124,10 @@ export function ExchangePad({
         disabled={disabled}
         aria-label="Even"
       >
-        EVEN
+        <span>EVEN</span>
+        <kbd class="ed-xpad__shortcut" aria-hidden="true">
+          G
+        </kbd>
       </button>
       <div class="ed-xpad__row ed-xpad__row--blue">
         {magnitudes.map((mag) => (
@@ -132,7 +139,10 @@ export function ExchangePad({
             disabled={disabled}
             aria-label={`Blue ahead by ${mag}`}
           >
-            {mag}
+            <span>{mag}</span>
+            <kbd class="ed-xpad__shortcut" aria-hidden="true">
+              {shortcutForCost(mag)}
+            </kbd>
           </button>
         ))}
       </div>

@@ -76,6 +76,17 @@ is a maintenance rabbit hole and makes small games expensive. New games should u
 only the committed card facts already in `cards.json`: name, elixir, rarity, type,
 and art.
 
+### Desktop input policy
+
+Every shipped mode plays on desktop and uses the same challenge, scorer, and
+leaderboard partition as mobile. Cost inputs advertise the home row as the fast
+path: `A S D F G` answer 1–5 and `J K L ;` answer 6–9; `1`–`9` remain aliases.
+Trade maps those same cost positions onto its lanes (`A/S/D/F` Blue +1…+4,
+`G` Even, `J`–`;` Red +1…+4). Higher / Lower keeps `↑`/`↓` with `←`/`→`
+aliases. Space repeats from a summary or activates a safe retry; it is inert
+during a live question. Escape focuses quit, and only a second press abandons.
+The `?` help sheet and on-key labels own discoverability.
+
 ---
 
 ## Shipped games

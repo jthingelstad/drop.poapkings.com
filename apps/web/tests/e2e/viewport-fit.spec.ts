@@ -192,13 +192,14 @@ test.describe('mobile timed-mode controls', () => {
     // shell. The CSS token is the existing deterministic seam for that space.
     await page.evaluate(() => document.documentElement.style.setProperty('--ed-safe-area-top', '47px'))
     await waitForKeypad(page)
-    // Use the supported number-key path to reach the summary. Pointer/touch
+    // Use the advertised home-row path to reach the summary. Pointer/touch
     // sequencing has its own regression coverage; this test owns layout only.
+    const homeKeys = ['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';']
     for (let index = 0; index < 15; index += 1) {
       const cardName = await page.locator('.pcard__img').getAttribute('alt')
       const card = cardsData.cards.find((candidate) => candidate.name === cardName)
       expect(card).toBeTruthy()
-      await page.keyboard.press(String(card!.elixir))
+      await page.keyboard.press(homeKeys[card!.elixir - 1]!)
       if (index < 14) {
         await expect(page.locator('.ed-game__progress')).toHaveText(`Card ${index + 2} / 15`)
       }
@@ -244,27 +245,24 @@ test.describe('mobile timed-mode controls', () => {
   })
 })
 
-test.describe('mobile-width mouse fallback', () => {
+test.describe('mouse and keyboard input parity', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: false })
 
-  test('opens Practice from the ranked touch-only gate', { tag: '@deploy' }, async ({ page }) => {
+  test('opens a ranked game directly without a touch-only gate', { tag: '@deploy' }, async ({ page }) => {
     await page.goto('/#/survival')
-    // The gate names the mode it stopped and states the reason once.
-    await expect(page.getByText('Survival is a thumb game')).toBeVisible()
-    // The bridge: a code that opens THAT mode, not the home page.
-    await expect(page.getByRole('img', { name: /QR code opening Survival/ })).toBeVisible()
-    await expect(page.locator('.ed-touchgate__url')).toContainText('#/survival')
-
-    await page.getByRole('button', { name: 'Practice instead' }).click()
-
-    await expect(page).toHaveURL(/#\/practice$/)
     await expect(page.getByRole('group', { name: 'Elixir cost keypad' })).toBeVisible({ timeout: 12_000 })
+    await expect(page.locator('.ed-touchgate')).toHaveCount(0)
   })
 
-  test('the gate also opens that mode’s board without reaching for a phone', async ({ page }) => {
-    await page.goto('/#/rain')
-    await page.getByRole('button', { name: 'Open the Rain board' }).click()
-    await expect(page).toHaveURL(/#\/leaderboards\?mode=rain$/)
+  test('the advertised home-row key answers a cost', async ({ page }) => {
+    await page.goto('/#/surge')
+    await waitForKeypad(page)
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    const keys = ['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';']
+    await page.keyboard.press(keys[card!.elixir - 1]!)
+    await expect(page.locator('.ed-game__progress')).toHaveText('Card 2 / 15')
   })
 })
 
@@ -321,8 +319,7 @@ test.describe('low-height desktop timed controls', () => {
         padFits: !!pad && pad.left >= 0 && pad.right <= window.innerWidth + 1 && pad.bottom <= window.innerHeight + 1
       }
     })
-    // The desktop shell now letterboxes the phone column (~440px), so the board
-    // no longer spans a wide center stage — it fills the column instead.
+    // The desktop game stage is wider than mobile while remaining bounded.
     expect(layout.gameWidth).toBeGreaterThanOrEqual(400)
     expect(layout.boardContained).toBe(true)
     expect(layout.boardClearsPrompt).toBe(true)

@@ -213,6 +213,41 @@ a {
   text-underline-offset: 3px;
 }
 
+.static-keymap {
+  width: min(100%, 560px);
+  margin: 18px 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(139, 92, 246, 0.08);
+}
+.static-keymap > div {
+  display: grid;
+  grid-template-columns: 54px repeat(9, minmax(30px, 1fr));
+  align-items: center;
+  gap: 5px;
+}
+.static-keymap > div + div {
+  margin-top: 7px;
+}
+.static-keymap span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.static-keymap kbd {
+  min-width: 30px;
+  padding: 7px 4px;
+  border: 1px solid rgba(215, 200, 255, 0.24);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  font: 800 0.72rem/1 var(--body);
+  text-align: center;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.38);
+}
+
 .static-inline-cta {
   display: inline-flex;
   align-items: center;

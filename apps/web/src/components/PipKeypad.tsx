@@ -5,6 +5,7 @@ import { isEnhancedEffectsEnabled } from '../lib/motion'
 import { playTap } from '../lib/sound'
 import { useGameKeys } from '../lib/use-game-keys'
 import { observeInput, type InputObservation } from '../lib/input-evidence'
+import { costForGameKey, shortcutForCost } from '../lib/game-keys'
 
 // The keypad only offers costs that exist in the catalog — a dead "10" key was
 // pure penalty bait and stole tap-target width on phones.
@@ -104,10 +105,14 @@ function PipKey({
         activate(event.currentTarget, event)
       }}
       aria-label={`${value} elixir`}
+      aria-keyshortcuts={`${value} ${shortcutForCost(value)}`}
       disabled={disabled}
     >
       <span class="pip-keypad__face">
         <span class="pip-keypad__num">{value}</span>
+        <kbd class="pip-keypad__shortcut" aria-hidden="true">
+          {shortcutForCost(value)}
+        </kbd>
       </span>
     </button>
   )
@@ -116,12 +121,12 @@ function PipKey({
 export default function PipKeypad({ onPick, disabled }: Props) {
   const groupRef = useRef<HTMLDivElement>(null)
 
-  // Desktop keyboard: number keys 1..N answer, with the same tap sound + key FX
-  // as a click.
+  // Desktop keyboard: the advertised home row and number-row alias answer with
+  // the same tap sound + key FX as a click.
   useGameKeys((event) => {
     if (disabled) return
-    const value = Number(event.key)
-    if (!Number.isInteger(value) || value < 1 || value > MAX_ELIXIR) return
+    const value = costForGameKey(event)
+    if (value === null || value > MAX_ELIXIR) return
     event.preventDefault()
     const button = groupRef.current?.querySelector<HTMLButtonElement>(`[data-pip-value="${value}"]`)
     playTap()

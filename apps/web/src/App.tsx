@@ -10,14 +10,12 @@ import RunRecordingNotice from './components/RunRecordingNotice'
 import BadgeCelebration from './components/BadgeCelebration'
 import ChargeRing from './components/ChargeRing'
 import GateCard from './components/GateCard'
-import RankedTouchGate from './components/RankedTouchGate'
 import SharedRun, { sharedRunToken } from './screens/SharedRun'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
 import { apiAvailability, offline, watchConnectivity } from './lib/api-availability'
 import { cacheAppShell, initCardArtCache } from './lib/card-art-cache'
-import { isRankedTouchGate } from './lib/use-layout'
 import MobileShell from './components/shell/MobileShell'
 import Home from './screens/Home'
 import Login from './screens/Login'
@@ -152,11 +150,6 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }
-  // Ranked play is touch-only (fair millisecond timing), independent of the
-  // width breakpoint and of connectivity — a mouse-only device never starts a
-  // ranked run, online or offline. Practice ('/practice') is exempt and stays
-  // open everywhere.
-  if (isRankedTouchGate(r) && gamePath) return <RankedTouchGate path={gamePath} />
   if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
   if (r.startsWith('/practice')) return <Practice />
   if (r.startsWith('/surge')) return <Surge />

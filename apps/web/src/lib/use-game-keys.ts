@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 
 // Window-level keydown for a game surface. Bound once for the component's life
 // — a ref keeps the handler current without re-binding on every render — and
@@ -9,7 +9,10 @@ export function useGameKeys(handler: (event: KeyboardEvent) => void): void {
   const latest = useRef(handler)
   latest.current = handler
 
-  useEffect(() => {
+  // Bind in the same commit as a new game surface. A summary can replace the
+  // final card and receive Space immediately; waiting for a post-paint effect
+  // leaves one small frame where that deliberate input disappears.
+  useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
       const target = event.target as HTMLElement | null

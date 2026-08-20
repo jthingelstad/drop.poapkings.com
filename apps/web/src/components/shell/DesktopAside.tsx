@@ -1,5 +1,5 @@
-// Desktop aside — the letterbox margin panel, cut to what a phone cannot do
-// well, which turns out to be one thing plus a launcher.
+// Desktop activity rail, cut to what a phone cannot do well: one live feed plus
+// the full-screen Falling Cards launcher.
 //
 // It used to carry five blocks and three of them said what the page beside them
 // already said: season standings is the top five of a board one click away

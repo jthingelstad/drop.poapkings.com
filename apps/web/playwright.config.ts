@@ -33,15 +33,12 @@ export default defineConfig({
   // pixel-7 / ipad-portrait / ipad-landscape entries were referenced by no
   // script or workflow, so they never ran — carrying them just invited someone
   // to triple the deploy gate's runtime by accident.
-  // Ranked play is touch-only (fair millisecond timing; see lib/use-layout
-  // supportsTouchPlay). The desktop projects therefore model a touchscreen
-  // desktop — hasTouch so the ranked-gameplay suites can start a run at desktop
-  // width — while the letterbox (a width decision) still engages. The dedicated
-  // mouse-only fallback is asserted where a test opts out with hasTouch:false.
+  // Desktop projects use their normal mouse/keyboard input model. Ranked modes
+  // intentionally run on desktop now; the iPhone project preserves touch QA.
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], hasTouch: true } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'], hasTouch: true }, ...deploymentSmoke },
-    { name: 'webkit', use: { ...devices['Desktop Safari'], hasTouch: true }, ...deploymentSmoke },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, ...deploymentSmoke },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, ...deploymentSmoke },
     { name: 'iphone-14', use: { ...devices['iPhone 14'] }, ...deploymentSmoke }
   ]
 })

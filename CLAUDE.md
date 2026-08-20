@@ -171,23 +171,19 @@ rank-oriented fields as part of unrelated work.
   all. Deleting an account deletes its minted links: the share item lives
   outside `PLAYER#` so a stranger can resolve it, and a `PLAYER#{sub}/SHARE#`
   pointer is what lets the deletion sweep find it.
-- **Desktop is the same phone column, reordered — never a second app.** At or
-  above 1024px `MobileShell` letterboxes the one 390px column
-  (`lib/use-layout.ts`). The 1050px of margin is filled by **Falling Cards as
-  wallpaper** (`components/shell/DesktopWallpaper.tsx`: 5–15% opacity, a radial
-  darkening toward the centre, `pointer-events: none`, off under reduced motion,
-  off during a game, and off on the ranked gate — nothing ambient behind a screen
-  asking for a decision). The column and the aside keep an opaque backdrop, so
-  the art is never under a score. `DesktopAside` keeps **only** the live
-  `Recent runs` feed and the Falling Cards launcher; season standings, the "Your
-  Surge season" card and the meta-link cluster were deleted because the page
-  beside them already says all three. On desktop the column **reorders, it does
-  not fork**: Practice leads with a `PLAYS HERE` tag, the ranked hero states
-  *Ranked runs are played on your phone* instead of showing `PLAY` (an
-  indicator, never a renamed control), and mode rows become `Board →` reads via
-  `boardRouteForMode`. The touch-only ranked gate
-  (`components/RankedTouchGate.tsx`) states the reason once, carries a QR that
-  opens **that mode's** hash route, and offers two exits that are not the phone.
+- **Desktop is a viewport shell over the same routes and data.** At or above
+  1024px `MobileShell` composes a fixed `100dvh` navigation / stage / activity
+  grid (`lib/use-layout.ts`); the document itself does not scroll. Home fits all
+  six direct play actions in the first 1280×720 viewport and each ranked row
+  keeps a secondary Board action. Active games drop both rails, retain a wider
+  bounded stage, and remain playable with mouse or keyboard on the existing
+  boards. **Falling Cards is persistent desktop scenery**
+  (`components/shell/DesktopWallpaper.tsx`): CSS cards fall independently behind
+  Home, reading pages, and games; reduced motion freezes the same composition.
+  `DesktopAside` keeps only the live `Recent runs` feed and full-screen Falling
+  Cards launcher. `DesktopNav` advertises the primary home-row mapping (`ASDFG`
+  = 1–5, `JKL;` = 6–9); the number row remains an alias, Space repeats/defaults,
+  `?` opens the help sheet, and Escape requires two presses to abandon a run.
 - **"Elixir Rain" screensaver**: activation state in
   `apps/web/src/lib/screensaver.ts` (three doors: the nav launcher — a visible
   feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under

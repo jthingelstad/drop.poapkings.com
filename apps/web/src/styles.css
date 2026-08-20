@@ -2652,12 +2652,9 @@ html.reduce-motion .ed-pillnav__ind {
   font-weight: 700;
 }
 
-/* ── Falling Cards as wallpaper (desktop letterbox) ───────────
-   The margin is idle space and the screensaver is the one asset built to fill
-   idle space. Scenery only: pointer-events off, 5–15% opacity, a radial
-   darkening toward the centre so the column always wins, and nothing under the
-   column or the aside (both keep an opaque backdrop above). Off under reduced
-   motion, off during a game, off on the ranked gate — see MobileShell. */
+/* ── Falling Cards as desktop wallpaper ──────────────────────
+   Persistent scenery behind the shell and games: pointer-events off, low
+   opacity, and a center vignette so play always wins. */
 .ed-wallpaper {
   position: fixed;
   inset: 0;
@@ -2669,127 +2666,15 @@ html.reduce-motion .ed-pillnav__ind {
   position: absolute;
   filter: blur(0.4px);
   transform: translate(-50%, -50%) rotate(var(--wallpaper-tilt, 0deg));
-  animation: wallpaper-drift 52s ease-in-out infinite alternate;
+  animation-name: wallpaper-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: normal;
 }
 .ed-wallpaper__vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(700px 420px at 50% 40%, rgba(6, 5, 15, 0.55), rgba(6, 5, 15, 0.9));
-}
-@keyframes wallpaper-drift {
-  from {
-    transform: translate(-50%, -50%) rotate(var(--wallpaper-tilt, 0deg));
-  }
-  to {
-    transform: translate(-50%, calc(-50% - 26px)) rotate(var(--wallpaper-tilt, 0deg));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ed-wallpaper {
-    display: none;
-  }
-}
-
-/* ── Ranked touch-only gate, with a way across ────────────────
-   A code is faster than dictating a URL to yourself, and it opens THAT mode.
-   No ambient wallpaper behind it: this screen is asking for a decision. */
-.ed-touchgate {
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  margin: 24px auto;
-  padding: 26px 24px;
-  max-width: 520px;
-  border-radius: 24px;
-  border: 1px solid rgba(215, 200, 255, 0.18);
-  background: linear-gradient(180deg, #171034, #0b0920);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
-}
-.ed-touchgate__body {
-  flex: 1;
-  min-width: 0;
-}
-.ed-touchgate__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  font-weight: 800;
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.ed-touchgate__title {
-  margin: 14px 0 0;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 400;
-  line-height: 1.12;
-  color: var(--ink);
-}
-.ed-touchgate__reason {
-  margin: 10px 0 0;
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: var(--muted);
-  text-wrap: pretty;
-}
-.ed-touchgate__scan {
-  margin: 12px 0 0;
-  font-weight: 600;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: #ffe99a;
-}
-.ed-touchgate__outs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 18px;
-  flex-wrap: wrap;
-}
-.ed-touchgate__outs .ed-btn {
-  padding: 10px 14px;
-  font-size: 0.72rem;
-}
-.ed-touchgate__code {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-}
-.ed-touchgate__qr {
-  width: 148px;
-  height: 148px;
-  padding: 11px;
-  border-radius: 16px;
-  background: var(--ink);
-  color: #0b0920;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-}
-.ed-touchgate__qr svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-
-  /* Modules are drawn as unit squares; keep them crisp rather than smoothed. */
-  shape-rendering: crispedges;
-}
-.ed-touchgate__url {
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.6rem;
-}
-@media (width < 560px) {
-  .ed-touchgate {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-  .ed-touchgate__code {
-    align-self: center;
-  }
+  background: radial-gradient(760px 480px at 50% 42%, rgba(6, 5, 15, 0.38), rgba(6, 5, 15, 0.86));
 }
 
 /* ── Shared redesign primitives (buttons, pills, headings) ──── */
@@ -7878,6 +7763,478 @@ html.reduce-motion .ed-profile-guest__halo::before {
     gap: 4px;
     margin-top: 4px;
   }
+}
+
+/* ── Desktop arena shell ─────────────────────────────────────
+   A bounded 100dvh workspace: navigation and activity stay put while only the
+   center stage scrolls. Falling Cards remains behind every desktop route,
+   including active play. */
+.pip-keypad__shortcut,
+.mc-choices__shortcut,
+.ed-xpad__shortcut,
+.ed-default-key {
+  display: none;
+}
+
+@media (width >= 1024px) {
+  .ed-app--desktop {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ed-app--desktop .ed-desktop {
+    position: relative;
+    z-index: 1;
+    width: min(1440px, calc(100% - 32px));
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    margin-inline: auto;
+    padding: 16px 0;
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr) 280px;
+    gap: 18px;
+  }
+
+  .ed-app--desktop .ed-desktop__rail,
+  .ed-app--desktop .ed-desktop__main,
+  .ed-app--desktop .ed-aside {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid rgba(215, 200, 255, 0.13);
+    border-radius: 22px;
+    background: rgba(9, 7, 24, 0.91);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  }
+
+  .ed-app--desktop .ed-desktop__rail {
+    padding: 20px 14px 14px;
+    overflow: hidden;
+  }
+
+  .ed-app--desktop .ed-desktop__main {
+    padding: 14px 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .ed-app--desktop .ed-aside {
+    position: relative;
+    inset: auto;
+    width: auto;
+    padding: 14px;
+    overflow-y: auto;
+    z-index: auto;
+  }
+
+  .ed-app--desktop .ed-aside .ed-rail-block,
+  .ed-app--desktop .ed-aside .ed-rail-btn--saver {
+    padding: 13px;
+    border: 1px solid rgba(215, 200, 255, 0.14);
+    border-radius: 18px;
+    background: rgba(18, 13, 40, 0.68);
+    backdrop-filter: none;
+  }
+
+  .ed-desktop__brand {
+    padding: 4px 4px 20px;
+  }
+  .ed-desktop__brand .ed-wordmark {
+    font-size: 1.08rem;
+  }
+
+  .ed-nav__item {
+    width: 100%;
+    padding: 11px 12px;
+  }
+
+  .ed-desktop-keys {
+    margin-top: auto;
+    padding: 12px 10px;
+    border: 1px solid rgba(139, 92, 246, 0.32);
+    border-radius: 15px;
+    background: rgba(139, 92, 246, 0.09);
+  }
+  .ed-desktop-keys__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 9px;
+    color: var(--lavender);
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+  }
+  .ed-desktop-keys__head button {
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(215, 200, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--ink);
+    cursor: pointer;
+    font-weight: 800;
+  }
+  .ed-desktop-keys__row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr) 5px repeat(4, 1fr);
+    gap: 3px;
+  }
+  .ed-desktop-keys__row > :nth-child(6) {
+    grid-column: 7;
+  }
+  .ed-desktop-keys__row kbd,
+  .ed-desktop-keys__row span {
+    min-width: 0;
+    text-align: center;
+  }
+  .ed-desktop-keys__row kbd {
+    padding: 4px 0;
+    border: 1px solid rgba(215, 200, 255, 0.22);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    font: 700 0.58rem/1 var(--font-body);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  }
+  .ed-desktop-keys__row--cost {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.52rem;
+    font-weight: 700;
+  }
+  .ed-desktop-keys__space {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+  .ed-desktop-keys__space kbd {
+    margin-right: 5px;
+    color: var(--gold);
+    font: inherit;
+  }
+
+  .ed-app--desktop .ed-home {
+    width: 100%;
+    max-width: 780px;
+    margin-inline: auto;
+    padding: 0 2px 8px;
+    gap: 9px;
+  }
+  .ed-app--desktop .ed-cause {
+    width: max-content;
+    margin: 0 0 2px;
+  }
+  .ed-app--desktop .ed-hero-carousel {
+    gap: 6px;
+  }
+  .ed-app--desktop .ed-hero-carousel__slide {
+    height: 246px;
+  }
+  .ed-app--desktop .ed-hero {
+    padding: 15px 18px;
+  }
+  .ed-app--desktop .ed-hero__body {
+    gap: 7px;
+  }
+  .ed-app--desktop .ed-hero__art {
+    width: 46px !important;
+    height: 46px !important;
+    margin-bottom: 0;
+  }
+  .ed-app--desktop .ed-hero__feature-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 1.45rem;
+  }
+  .ed-app--desktop .ed-hero__wordmark {
+    font-size: 2.35rem;
+  }
+  .ed-app--desktop .ed-hero__wordmark--pass,
+  .ed-app--desktop .ed-hero__wordmark--share {
+    font-size: 1.9rem;
+  }
+  .ed-app--desktop .ed-hero__desc {
+    max-width: 370px;
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+  .ed-app--desktop .ed-hero__cta {
+    max-width: 430px;
+  }
+  .ed-app--desktop .ed-hero__cta .ed-btn {
+    min-height: 42px;
+    padding-block: 8px;
+  }
+  .ed-app--desktop .ed-hero-carousel__controls {
+    grid-template-columns: 34px 1fr 34px;
+  }
+  .ed-app--desktop .ed-hero-carousel__controls > button {
+    width: 34px;
+    height: 30px;
+  }
+  .ed-app--desktop .ed-more {
+    gap: 6px;
+  }
+  .ed-app--desktop .ed-more__title {
+    font-size: 0.82rem;
+  }
+  .ed-app--desktop .ed-more--ranked .ed-rows {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .ed-grow-slot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+  }
+  .ed-grow-slot .ed-grow {
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .ed-grow-slot .ed-grow__art,
+  .ed-app--desktop .ed-more--practice .ed-grow__art,
+  .ed-grow-slot .ed-grow__glyph {
+    width: 38px;
+    height: 38px;
+  }
+  .ed-grow-slot .ed-grow__art .mode-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .ed-grow-slot .ed-grow__name,
+  .ed-app--desktop .ed-more--practice .ed-grow__name {
+    font-size: 0.88rem;
+  }
+  .ed-grow-slot .ed-grow__meta,
+  .ed-app--desktop .ed-more--practice .ed-grow__meta {
+    font-size: 0.61rem;
+  }
+  .ed-grow-slot__board {
+    border: 0;
+    border-left: 1px solid rgba(215, 200, 255, 0.12);
+    background: rgba(139, 92, 246, 0.08);
+    color: var(--lavender);
+    cursor: pointer;
+    font-size: 0.58rem;
+    font-weight: 800;
+  }
+  .ed-grow-slot__board:hover,
+  .ed-grow-slot__board:focus-visible {
+    background: rgba(139, 92, 246, 0.18);
+    color: #fff;
+  }
+  .ed-app--desktop .ed-more--practice .ed-grow {
+    min-height: 50px;
+    padding: 6px 8px;
+  }
+  .ed-app--desktop .ed-home__ready {
+    margin: 1px 0 0;
+    font-size: 0.62rem;
+  }
+  .ed-app--desktop .ed-home__foot,
+  .ed-app--desktop .ed-installbar,
+  .ed-app--desktop .ed-installrow {
+    display: none;
+  }
+
+  .ed-app--desktop .ed-desktop--game {
+    width: min(760px, calc(100% - 32px));
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: center;
+  }
+  .ed-app--desktop .ed-desktop--game .ed-desktop__main {
+    padding: 10px 22px;
+    background: rgba(9, 7, 24, 0.9);
+  }
+
+  .pip-keypad__shortcut,
+  .mc-choices__shortcut,
+  .ed-xpad__shortcut {
+    display: block;
+    position: absolute;
+    top: 5px;
+    right: 7px;
+    color: rgba(255, 255, 255, 0.56);
+    font: 800 0.6rem/1 var(--font-body);
+  }
+  .ed-default-key {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 3px 5px;
+    border: 1px solid rgba(42, 21, 0, 0.35);
+    border-radius: 5px;
+    font: 800 0.54rem/1 var(--font-body);
+  }
+  .ed-xpad__key--even {
+    position: relative;
+  }
+  .ed-game__top-l {
+    position: relative;
+    gap: 6px;
+  }
+  .ed-game__help {
+    font-family: var(--font-display);
+    font-size: 1rem;
+  }
+  .ed-game__quit-hint {
+    position: absolute;
+    top: 44px;
+    left: 0;
+    width: max-content;
+    padding: 5px 8px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 8px;
+    background: rgba(35, 10, 20, 0.96);
+    color: #fecaca;
+    font-size: 0.62rem;
+    font-weight: 800;
+  }
+  .ed-app--desktop :is(button, a[href], [tabindex]):focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+@media (width >= 1024px) and (width < 1200px) {
+  .ed-app--desktop .ed-desktop:not(.ed-desktop--game) {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+  .ed-app--desktop .ed-desktop:not(.ed-desktop--game) > .ed-aside {
+    display: none;
+  }
+}
+
+.ed-keyhelp {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 3, 12, 0.72);
+  backdrop-filter: blur(8px);
+}
+.ed-keyhelp__dialog {
+  width: min(520px, 100%);
+  padding: 22px;
+  border: 1px solid rgba(245, 200, 76, 0.34);
+  border-radius: 22px;
+  background: linear-gradient(160deg, #171034, #0b0920);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.7);
+}
+.ed-keyhelp__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.ed-keyhelp__eyebrow {
+  color: var(--gold);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.ed-keyhelp h2 {
+  margin: 5px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+.ed-keyhelp__mapping {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  border-radius: 15px;
+  background: rgba(139, 92, 246, 0.09);
+}
+.ed-keyhelp__keys,
+.ed-keyhelp__costs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr) 10px repeat(4, 1fr);
+  gap: 5px;
+}
+.ed-keyhelp__keys > :nth-child(6),
+.ed-keyhelp__costs > :nth-child(6) {
+  grid-column: 7;
+}
+.ed-keyhelp__keys kbd {
+  padding: 8px 0;
+  border: 1px solid rgba(215, 200, 255, 0.25);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: center;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45);
+}
+.ed-keyhelp__costs {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-align: center;
+}
+.ed-keyhelp__mapping p {
+  margin: 12px 0 0;
+  color: var(--lavender);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.ed-keyhelp__list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+.ed-keyhelp__list > div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(215, 200, 255, 0.1);
+}
+.ed-keyhelp__list dt,
+.ed-keyhelp__list dd {
+  margin: 0;
+}
+.ed-keyhelp__list kbd {
+  color: var(--gold);
+  font-weight: 800;
+}
+.ed-keyhelp__list dd {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+/* Falling means falling: each card traverses the viewport on its own linear
+   cadence. Reduced motion keeps the same quiet card field, frozen. */
+@keyframes wallpaper-fall {
+  from {
+    transform: translate(-50%, calc(-50% - 115vh)) rotate(var(--wallpaper-tilt, 0deg));
+  }
+  to {
+    transform: translate(-50%, calc(-50% + 115vh)) rotate(calc(var(--wallpaper-tilt, 0deg) + 12deg));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-wallpaper {
+    display: block;
+  }
+  .ed-wallpaper__card {
+    animation: none;
+  }
+}
+html.reduce-motion .ed-wallpaper__card {
+  animation: none;
 }
 
 /* ── Drill sandbox bloom ──────────────────────────────────────

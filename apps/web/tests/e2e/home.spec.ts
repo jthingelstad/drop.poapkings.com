@@ -6,7 +6,7 @@ test(
   async ({ page, viewport }, testInfo) => {
     await page.goto('/')
 
-    // One home for every width (HomeMobile, letterboxed on desktop).
+    // One shared Home model, composed into the shell for this width.
     await expect(page.locator('.ed-home')).toBeVisible()
     // Rankings stay on the dedicated Ranks page rather than trailing Games.
     await expect(page.locator('.ed-standpeek')).toHaveCount(0)
@@ -21,8 +21,17 @@ test(
       await expect(page.locator('.ed-rail-live__head')).toContainText('Live · recent runs')
       // Repeated activity is grouped into one recent-runs row.
       await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
-      // The margin has a job now: Falling Cards drifting behind the column.
+      await expect(page.locator('.ed-desktop__rail')).toBeVisible()
+      // Falling Cards remains the ambient desktop layer.
       await expect(page.locator('.ed-wallpaper')).toBeVisible()
+      const viewportFit = await page.evaluate(() => ({
+        viewport: window.innerHeight,
+        document: document.documentElement.scrollHeight,
+        mainScroll: document.querySelector('.ed-desktop__main')?.scrollHeight ?? 0,
+        mainClient: document.querySelector('.ed-desktop__main')?.clientHeight ?? 0
+      }))
+      expect(viewportFit.document).toBeLessThanOrEqual(viewportFit.viewport + 1)
+      expect(viewportFit.mainScroll).toBeLessThanOrEqual(viewportFit.mainClient + 1)
     }
 
     // The hero rotates by UTC day. Its result must follow the featured mode
@@ -61,35 +70,35 @@ test('the hero features one ranked game and the other four are full-width rows',
   await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
 })
 
-// Desktop reorders the same column rather than forking it: Practice leads
-// because that is what plays here, and the ranked rows read the board instead of
-// starting a run they would only be gated out of.
-test('desktop leads with Practice and turns the ranked rows into board reads', async ({ page, viewport }) => {
-  test.skip(!isDesktopViewport(viewport), 'this is the letterbox ordering')
+test('desktop fits every game and offers direct Play plus Board actions', async ({ page, viewport }) => {
+  test.skip(!isDesktopViewport(viewport), 'desktop shell coverage')
   await page.goto('/')
 
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
-  await expect(practice.locator('.ed-more__aside--pill')).toHaveText('PLAYS HERE')
+  await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
 
-  const boards = page.locator('.ed-rows').last()
-  await expect(boards.locator('.ed-grow--ranked')).toHaveCount(5)
-  await expect(boards.locator('.ed-grow__board').first()).toHaveText('Board →')
+  const ranked = page.locator('.ed-more--ranked')
+  await expect(ranked.locator('.ed-grow--ranked')).toHaveCount(5)
+  await expect(ranked.locator('.ed-grow-slot__board')).toHaveCount(5)
+  await expect(page.locator('.ed-hero').first().getByRole('button', { name: /PLAY/ })).toBeVisible()
 
-  // The hero states where ranked runs happen; it does not rename PLAY.
-  await expect(page.locator('.ed-hero__onphone').first()).toContainText('Ranked runs are played on your phone')
-
-  await boards.locator('.ed-grow--ranked').first().click()
-  await expect(page).toHaveURL(/#\/leaderboards\?mode=/)
+  await ranked.getByRole('button', { name: 'Open Surge leaderboard' }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?mode=surge/)
   await expect(page.locator('.ed-board__rows, .ed-board__empty')).toBeVisible()
+
+  await page.goto('/')
+  await page.locator('.ed-more--ranked .ed-grow--ranked').filter({ hasText: 'Surge' }).click()
+  await expect(page).toHaveURL(/#\/surge$/)
+  await expect(page.locator('.ed-game')).toBeVisible()
+  await expect(page.locator('.ed-touchgate')).toHaveCount(0)
+  await expect(page.locator('.ed-wallpaper')).toBeVisible()
 })
 
-test('Practice has one direct entry on desktop and mobile', async ({ page, viewport }) => {
+test('Practice has one direct entry on desktop and mobile', async ({ page }) => {
   await page.goto('/')
 
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
-  await expect(practice.locator('.ed-more__aside--pill')).toHaveText(
-    isDesktopViewport(viewport) ? 'PLAYS HERE' : 'UNRANKED'
-  )
+  await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
   await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
   await expect(practice.getByRole('button', { name: /Practice/ })).toBeVisible()
 

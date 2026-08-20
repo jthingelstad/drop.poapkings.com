@@ -295,7 +295,13 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
     }
 
     await expect(page.getByRole('button', { name: format(answer) })).toBeEnabled()
-    await page.getByRole('button', { name: format(answer) }).click()
+    if (trade === 1) {
+      const answerCost = answer === 0 ? 5 : answer > 0 ? answer : 5 + Math.abs(answer)
+      const homeKeys = ['A', 'S', 'D', 'F', 'G', 'J', 'K', 'L', ';']
+      await page.keyboard.press(homeKeys[answerCost - 1]!)
+    } else {
+      await page.getByRole('button', { name: format(answer) }).click()
+    }
     await expect(page.getByRole('button', { name: 'Next trade' })).toHaveCount(0)
 
     if (trade < TRADE_ROUNDS) {

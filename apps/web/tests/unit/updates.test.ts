@@ -6,9 +6,9 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(62)
+    expect(entries).toHaveLength(63)
     expect(entries[0]).toMatchObject({
-      id: 'boards-start-at-drop',
+      id: 'desktop-enters-the-arena',
       kind: 'feature'
     })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)

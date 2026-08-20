@@ -19,17 +19,8 @@ const CASES = [
   ['/app-info', 'App Info']
 ] as const
 
-// Ranked play is now touch-gated (lib/use-layout supportsTouchPlay). The SSR
-// smoke renders the ranked game routes, so the default environment is a
-// touch-capable device; the dedicated gate test below drops touch to assert the
-// mouse-only fallback.
-function setTouchPlay(supported: boolean) {
-  Object.defineProperty(window.navigator, 'maxTouchPoints', { value: supported ? 1 : 0, configurable: true })
-}
-
 describe('SSR render smoke', () => {
   beforeEach(() => {
-    setTouchPlay(true)
     apiAvailability.value = 'available'
     transportOffline.value = false
     layout.value = 'desktop'
@@ -120,7 +111,7 @@ describe('SSR render smoke', () => {
     expect(html).toContain('OFFLINE')
   })
 
-  it('fills the desktop margin with wallpaper and an aside that repeats nothing', async () => {
+  it('fills the desktop shell with persistent nav, wallpaper, and an aside that repeats nothing', async () => {
     route.value = '/'
     const html = await renderToStringAsync(<App />)
 
@@ -128,43 +119,19 @@ describe('SSR render smoke', () => {
     // the launcher. Standings, the season card and the meta cluster left — the
     // meta links live in You · Account, which was the point of gathering them.
     expect(html).toContain('ed-wallpaper')
+    expect(html).toContain('Desktop navigation')
     expect(html).toContain('Live · recent runs')
     expect(html).toContain('Falling Cards')
     expect(html).not.toContain('ed-railfoot')
     expect(html).not.toContain('Season standings')
   })
 
-  // Ranked runs are timed to the millisecond and fair only on touch. A mouse-only
-  // device (no coarse pointer, no touch points) is held to Practice; Practice and
-  // the Ladder stay open. This is input-based, not width-based — the letterbox
-  // layout is still desktop here.
-  it('gates the ranked modes to touch and keeps Practice open on a mouse-only device', async () => {
-    setTouchPlay(false)
-
+  it('mounts ranked games directly on desktop and keeps the wallpaper behind play', async () => {
     route.value = '/surge'
     const rankedHtml = await renderToStringAsync(<App />)
-    // The gate names the mode it stopped, says why once, and offers two ways
-    // out that are not the phone.
-    expect(rankedHtml).toContain('Surge is a thumb game')
-    expect(rankedHtml).toContain('Scan to open Surge on your phone.')
-    expect(rankedHtml).toContain('Practice instead')
-    expect(rankedHtml).toContain('Open the Surge board')
-    expect(rankedHtml).not.toContain('Charging')
-    // Nothing ambient behind a screen that is asking for a decision.
-    expect(rankedHtml).not.toContain('ed-wallpaper')
-
-    route.value = '/rain'
-    const rainHtml = await renderToStringAsync(<App />)
-    // The gate is per mode, so a player who came for Rain is not told about Surge.
-    expect(rainHtml).toContain('Rain is a thumb game')
-
-    route.value = '/practice'
-    const practiceHtml = await renderToStringAsync(<App />)
-    expect(practiceHtml).toContain('Practice')
-    expect(practiceHtml).not.toContain('is a thumb game')
-
-    route.value = '/leaderboards'
-    const ladderHtml = await renderToStringAsync(<App />)
-    expect(ladderHtml).not.toContain('is a thumb game')
+    expect(rankedHtml).toContain('Charging')
+    expect(rankedHtml).toContain('ed-desktop--game')
+    expect(rankedHtml).toContain('ed-wallpaper')
+    expect(rankedHtml).not.toContain('thumb game')
   })
 })

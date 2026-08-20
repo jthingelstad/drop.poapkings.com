@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact'
+import { useEffect, useRef } from 'preact/hooks'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
 import { earnedBadges, earnedXp, offlineRunMode, recordedRunId } from '../lib/use-game-run'
@@ -12,6 +13,8 @@ import ModeIcon from './ModeIcon'
 import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
 import ReviewStatusMark, { type ReviewSeal } from './ReviewStatus'
+import { useGameKeys } from '../lib/use-game-keys'
+import { isInteractiveKeyTarget, isSpaceKey } from '../lib/game-keys'
 
 // A summary is one frame in a fixed order: what you scored, what it changed (a
 // short ledger), the mode's signature panel read back in a sentence, and what to
@@ -72,6 +75,7 @@ export default function Summary({
   replayLabel = 'Play again',
   onHome
 }: Props) {
+  const headingRef = useRef<HTMLDivElement>(null)
   const { bands, weakest, slowestCards, hasTiming } = insights
   const offline = offlineRunMode.value === share.mode
   const visiblePbCallout = offline ? undefined : pbCallout
@@ -93,10 +97,22 @@ export default function Summary({
   const xpEarned = offline ? 0 : earnedXp.value
   const changed = Boolean(visiblePbCallout) || xpEarned > 0 || earnedBadges.value.length > 0
 
+  // Results own the desktop default action. Focus follows the state change so
+  // Space can immediately deal the next run without reaching for a pointer.
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  useGameKeys((event) => {
+    if (!isSpaceKey(event) || isInteractiveKeyTarget(event.target)) return
+    event.preventDefault()
+    onReplay()
+  })
+
   return (
     <div class="ed-sum" data-summary>
       {/* 1 — What you scored */}
-      <div class="ed-sum__head">
+      <div class="ed-sum__head" ref={headingRef} tabIndex={-1}>
         <div class="ed-eyebrow">
           <ModeIcon mode={share.mode} size={44} className="ed-sum__art" />
           {eyebrow}
@@ -167,8 +183,13 @@ export default function Summary({
       {!offline && share.mode !== 'practice' && <SignInToSave />}
 
       <div class="ed-sum__actions">
-        <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={onReplay}>
-          <span class="tap-face">{replayLabel}</span>
+        <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={onReplay} aria-keyshortcuts="Space">
+          <span class="tap-face">
+            {replayLabel}
+            <kbd class="ed-default-key" aria-hidden="true">
+              SPACE
+            </kbd>
+          </span>
         </button>
         <button class="ed-btn ed-btn--ghost tap-fx" onClick={onHome}>
           <span class="tap-face">Home</span>

@@ -300,6 +300,14 @@ ${pageSections([
     '<ol><li>Open Elixir Drop in Chrome while you are online.</li><li>Tap the menu in the top-right of Chrome.</li><li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li><li>Confirm, then launch Drop once from the new icon so its game files and card art are ready.</li></ol>'
   ),
   section(
+    'Desktop controls',
+    `${paragraph(
+      'Every game plays directly on desktop. For elixir costs, keep both hands on the home row; the number row remains an alias.'
+    )}<div class="static-keymap" role="table" aria-label="Desktop elixir cost keyboard mapping"><div role="row"><span role="rowheader">Cost</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd></div><div role="row"><span role="rowheader">Key</span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd></div></div>${paragraph(
+      '<strong>Space</strong> plays again or takes the screen’s primary action. Higher / Lower uses the arrow keys, <strong>Escape</strong> focuses quit before a second press confirms it, and <strong>?</strong> opens the controls guide.'
+    )}`
+  ),
+  section(
     'Why use Game Setup?',
     '<ul><li>A one-tap home-screen icon</li><li>More room to play without normal browser bars</li><li>All six games available when player services or your connection are unavailable</li></ul>'
   ),
@@ -680,10 +688,9 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
     body: updatesBody()
   },
   install: {
-    eyebrow: 'Full-screen and offline play',
+    eyebrow: 'Full-screen, offline, and desktop play',
     title: 'Elixir Drop Game Setup',
-    description:
-      'Set up Elixir Drop on iPhone or Android for full-screen play, one-tap launching, and access to all six games offline.',
+    description: 'Set up Elixir Drop on mobile for full-screen offline play or learn the desktop keyboard controls.',
     body: INSTALL_BODY
   }
 }
