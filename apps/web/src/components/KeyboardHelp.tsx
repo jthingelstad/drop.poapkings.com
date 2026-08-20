@@ -11,13 +11,18 @@ export default function KeyboardHelp() {
 
   useGameKeys((event) => {
     if (layout.value !== 'desktop') return
-    if (event.key === '?' && !open) {
+    if (event.key === '?') {
       event.preventDefault()
-      openKeyboardHelp()
+      // GameFrame also listens on window for Escape. Consume a guide key here
+      // so closing the modal cannot fall through and arm "Esc again to quit".
+      event.stopImmediatePropagation()
+      if (open) closeKeyboardHelp()
+      else openKeyboardHelp()
       return
     }
     if (event.key === 'Escape' && open) {
       event.preventDefault()
+      event.stopImmediatePropagation()
       closeKeyboardHelp()
     }
   })

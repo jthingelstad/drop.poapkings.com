@@ -352,6 +352,47 @@ describe('GameFrame', () => {
     expect(onQuit).toHaveBeenCalledTimes(1)
   })
 
+  it('closes keyboard help without arming quit or leaking the key to the game', async () => {
+    const onQuit = vi.fn()
+    layout.value = 'desktop'
+    route.value = '/practice'
+    draw(
+      <MobileShell>
+        <GameFrame modeName="Practice" counting={false} count={0} onQuit={onQuit} cue={null}>
+          <div>stage</div>
+        </GameFrame>
+      </MobileShell>
+    )
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')).toBeTruthy()
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')).toBeNull()
+    expect(host.querySelector('.ed-game__quit-hint')).toBeNull()
+    expect(onQuit).not.toHaveBeenCalled()
+
+    // The guide promises that ? both opens and closes it.
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')).toBeTruthy()
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', code: 'Slash', shiftKey: true }))
+      await Promise.resolve()
+    })
+    expect(host.querySelector('[role="dialog"]')).toBeNull()
+    expect(host.querySelector('.ed-game__quit-hint')).toBeNull()
+    expect(onQuit).not.toHaveBeenCalled()
+  })
+
   it('clamps progress and applies the full-bleed stage modifier', () => {
     draw(
       <GameFrame modeName="Rain" counting={false} count={0} onQuit={() => {}} cue={null} progressPct={250} fullBleed>
