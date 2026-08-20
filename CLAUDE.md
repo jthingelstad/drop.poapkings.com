@@ -166,7 +166,13 @@ rank-oriented fields as part of unrelated work.
   at all** — offline and guest runs have no server record, so no permalink can
   exist; `Summary` renders nothing rather than a disabled button, and the mint
   endpoint refuses independently. Nothing travels that is not already public:
-  score, mode, name, arena. **Opens are counted per token, never per person** —
+  score, mode, name, arena. **The card's chart carries every mode's red bars**
+  (`bad`) — red means *this bar cost you*, and bars with nothing marked are a
+  run with the comparison stripped out. `refs` is different: only a reference
+  the PLAYER owns travels, which today is Surge's per-card personal best alone.
+  Rain's fall time, Survival's window, and Trade's and Higher / Lower's
+  this-run average are the game's own machinery and stay in the summary.
+  **Opens are counted per token, never per person** —
   a peppered one-way hash of the request dedupes a visitor, the sharer's own
   device is dropped, and credit stops at 25 per token. Privacy and Fair Play
   both say so out loud, which is the condition for a share badge shipping at

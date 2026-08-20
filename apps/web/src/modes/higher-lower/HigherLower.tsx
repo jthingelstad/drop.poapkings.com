@@ -327,7 +327,11 @@ export default function HigherLower() {
           share={{
             mode: 'higher-lower',
             score: `${score.value} correct`,
-            ...(signature.values.length ? { series: signature.values } : {})
+            // Red marks the wrong reads. No `refs`: this run's own average is
+            // not a reference the player owns across runs.
+            ...(signature.values.length
+              ? { series: signature.values, ...(signature.bad ? { bad: signature.bad } : {}) }
+              : {})
           }}
           onReplay={() => void replay()}
           onHome={() => navigate('/')}

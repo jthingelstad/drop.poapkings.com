@@ -8,6 +8,12 @@
       "body": "On a mouse-and-keyboard machine each elixir key now carries its letter in the corner mid-run—`A` on the `1` cap—so the home row is readable exactly where your hands already are. Keys bind by position, so an AZERTY or QWERTZ board answers the same way and shows its own letters. [Deal into Surge](/#/surge)."
     },
     {
+      "id": "shared-runs-show-the-cost",
+      "publishedAt": "2026-08-20T17:20:00-05:00",
+      "title": "Shared runs show what each answer cost",
+      "body": "A shared Rain, Survival, Trade, or Higher / Lower card now marks the answers that hurt in **red**—a lost life, the fatal card, an exchange that took a retry, a wrong read. The chart tells the story of the run instead of just its shape."
+    },
+    {
       "id": "falling-cards-takes-over",
       "publishedAt": "2026-08-20T14:43:08-05:00",
       "title": "Falling Cards waits for your signal",

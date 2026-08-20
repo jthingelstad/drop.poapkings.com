@@ -24,7 +24,10 @@ vi.mock('../../src/lib/account', async (importActual) => {
 })
 
 import ShareLine from '../../src/components/ShareLine'
+import Summary from '../../src/components/Summary'
 import SharedRun, { sharedRunToken } from '../../src/screens/SharedRun'
+import { recordedRunId } from '../../src/lib/use-game-run'
+import { duelSignature, rainSignature, survivalSignature, tradeSignature } from '../../src/lib/signatures'
 
 const flush = () => act(async () => await Promise.resolve())
 
@@ -119,6 +122,71 @@ describe('sharing a run', () => {
 
     expect(shared).toHaveLength(0)
     expect(host.textContent).toContain('Sharing is unavailable right now.')
+  })
+
+  // Red means "this bar cost you". Bars with nothing marked are the shape of a
+  // run with the comparison stripped out — a chart rather than a story. Every
+  // mode knows which bars those are, so every mode sends them.
+  it("carries the run's red bars onto the card, and only a reference the player owns", async () => {
+    setNavigator('canShare', () => true)
+    setNavigator('share', async () => undefined)
+    recordedRunId.value = 'run-9'
+
+    // Rain's own signature: red is a life lost, and the fall time is the GAME's
+    // reference — correctly excluded from a card a stranger will see.
+    const rain = rainSignature([900, 1400, 1100], [1200, 1200, 1200], [false, true, false])
+    await act(async () => {
+      render(
+        <Summary
+          eyebrow="Rain complete"
+          headline="41 cleared"
+          insights={{
+            bands: [],
+            total: 3,
+            correct: 2,
+            accuracyPct: 67,
+            weakest: [],
+            slowestCards: [],
+            hasTiming: true
+          }}
+          share={{ mode: 'rain', score: '41 cleared', series: rain.values, bad: rain.bad }}
+          onReplay={() => {}}
+          onHome={() => {}}
+        />,
+        host
+      )
+    })
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('.shareline__btn')!.click()
+    })
+    await flush()
+    await flush()
+
+    expect(shareCard.renderShareCard).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'rain', bad: [false, true, false] })
+    )
+    expect(shareCard.renderShareCard.mock.calls.at(-1)![0]).not.toHaveProperty('refs')
+    recordedRunId.value = null
+  })
+})
+
+// The per-mode half of the same rule: every ranked signature already knows which
+// bars cost the player something, so nothing has to be inferred at a call site.
+describe('what each mode has to send', () => {
+  it('names its red bars', () => {
+    expect(rainSignature([900, 1400], [1200, 1200], [false, true]).bad).toEqual([false, true])
+    expect(survivalSignature([900, 1400], [1200, 900], 1).bad).toEqual([false, true])
+    expect(tradeSignature([900, 1400], [0, 2]).bad).toEqual([false, true])
+    expect(duelSignature([900, 1400], [true, false]).bad).toEqual([false, true])
+  })
+
+  // Rain's fall time and Survival's window are the game's machinery: they
+  // explain a run to the person who made it and mean nothing to a stranger.
+  // Trade and Higher / Lower reference this run's own average, which is not a
+  // reference the player owns across runs either. Only Surge's per-card best is.
+  it('keeps a game-owned reference off the card even though the summary draws it', () => {
+    expect(rainSignature([900], [1200], [false]).refs).toEqual([1200])
+    expect(survivalSignature([900], [1200], -1).refs).toEqual([1200])
   })
 })
 

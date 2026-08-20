@@ -273,7 +273,14 @@ export default function Trade() {
           share={{
             mode: 'trade',
             score: `${formatSeconds(totalMs.value)}s`,
-            ...(signature.value ? { series: signature.value.values } : {})
+            // Red marks the exchanges that took a retry. No `refs`: this run's
+            // own average is not a reference the player owns across runs.
+            ...(signature.value
+              ? {
+                  series: signature.value.values,
+                  ...(signature.value.bad ? { bad: signature.value.bad } : {})
+                }
+              : {})
           }}
           onReplay={replay}
           replayLabel="Play again"

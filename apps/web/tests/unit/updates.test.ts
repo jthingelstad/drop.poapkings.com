@@ -6,7 +6,7 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(65)
+    expect(entries).toHaveLength(66)
     expect(entries[0]).toMatchObject({
       id: 'keycaps-name-the-keys',
       kind: 'feature'
