@@ -56,7 +56,7 @@ const pixiStub = vi.hoisted(() => {
   class Application {
     canvas = document.createElement('canvas')
     stage = { addChild: () => {}, removeChild: () => {} }
-    ticker = { add: () => {} }
+    ticker = { add: () => {}, stop: () => {}, remove: () => {} }
     screen = { width: 300, height: 200 }
     async init() {}
     destroy() {}

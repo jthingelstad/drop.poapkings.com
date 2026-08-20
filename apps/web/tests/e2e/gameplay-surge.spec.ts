@@ -198,6 +198,11 @@ test('the surge summary is the one-frame layout without the accuracy chart', asy
 test('completed runs share a 1080x1350 score card with game, score, and Elixir Drop link', async ({
   page
 }, testInfo) => {
+  // Completing the run and rendering its full-resolution share card can cross
+  // the suite's 30-second aggregate ceiling when several desktop Pixi scenes
+  // contend on the same CI host. The share operation itself retains
+  // its strict 10-second assertion below.
+  test.setTimeout(45_000)
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'canShare', {
       configurable: true,

@@ -56,6 +56,26 @@ test(
     await waitForKeypad(page)
 
     const cardImage = page.locator('.pcard__img')
+    await page.evaluate(() => {
+      const testWindow = window as unknown as { __practiceReinforcementMs?: number }
+      let reveal: Element | null = null
+      let shownAt = 0
+      const observer = new MutationObserver(() => {
+        if (!reveal) {
+          const current = document.querySelector('.pcard__answer-cost')
+          if (current) {
+            reveal = current
+            shownAt = performance.now()
+          }
+          return
+        }
+        if (!reveal.isConnected) {
+          testWindow.__practiceReinforcementMs = performance.now() - shownAt
+          observer.disconnect()
+        }
+      })
+      observer.observe(document.body, { childList: true, subtree: true })
+    })
     const answerLiveCard = async () => {
       const name = await cardImage.getAttribute('alt')
       const card = cardsData.cards.find((candidate) => candidate.name === name)
@@ -67,15 +87,11 @@ test(
     const first = await answerLiveCard()
     const reinforcement = page.locator('.pcard__answer-cost')
     await expect(reinforcement).toHaveText(String(first.card.elixir))
-    // This is the regression from the shared video: checking a DOM mutation
-    // would pass for a single frame. It must still be readable 250ms later.
-    await page.waitForTimeout(250)
-    await expect(reinforcement).toBeVisible()
     const { artBounds, revealBounds, revealStyle, sameMotion } = await page.evaluate(() => {
       const art = document.querySelector('.pcard__img')
       const reveal = document.querySelector('.pcard__answer-cost')
       if (!(art instanceof HTMLElement) || !(reveal instanceof HTMLElement)) {
-        throw new Error('Practice reinforcement disappeared before the 500ms hold')
+        throw new Error('Practice reinforcement was not rendered')
       }
       const bounds = (element: HTMLElement) => {
         const rect = element.getBoundingClientRect()
@@ -108,6 +124,16 @@ test(
       body: await page.screenshot({ fullPage: false }),
       contentType: 'image/png'
     })
+    // Measure the element's real in-page lifetime instead of asking the test
+    // runner to schedule an assertion inside a 300ms window. A contended runner
+    // may resume late, but the browser's mutation timestamps remain exact.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __practiceReinforcementMs?: number }).__practiceReinforcementMs ?? 0
+        )
+      )
+      .toBeGreaterThanOrEqual(275)
     // The hand swaps only after that attached exit completes.
     await expect(cardImage).not.toHaveAttribute('alt', first.name)
     await expect(reinforcement).toHaveCount(0)

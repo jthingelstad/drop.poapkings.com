@@ -295,8 +295,7 @@ export async function createElixirRain(
       window.setTimeout(() => {
         const ticker = app.ticker
         ticker.destroy()
-        app.stage.destroy({ children: true })
-        app.renderer.destroy({ removeView: true })
+        app.canvas.remove()
         void Assets.unload(urlsToUnload).catch(() => undefined)
       }, 250)
     }

@@ -121,8 +121,7 @@ describe('Falling Cards scene lifecycle', () => {
     await Promise.resolve()
 
     expect(app.ticker.destroy).toHaveBeenCalled()
-    expect(app.stage.destroy).toHaveBeenCalledWith({ children: true })
-    expect(app.renderer.destroy).toHaveBeenCalledWith({ removeView: true })
+    expect(host.contains(app.canvas)).toBe(false)
     expect(pixi.Assets.unload).toHaveBeenCalled()
   })
 })

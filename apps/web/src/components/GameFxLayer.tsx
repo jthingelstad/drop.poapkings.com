@@ -1,4 +1,4 @@
-import type { Application, Graphics, Ticker } from 'pixi.js'
+import type { Graphics, Ticker } from 'pixi.js'
 import { useEffect, useRef } from 'preact/hooks'
 import type { GameRuntimeCue } from '../lib/game-runtime'
 import { loadPixi } from '../lib/load-pixi'
@@ -24,9 +24,9 @@ interface Particle {
 }
 
 interface FxRuntime {
-  app: Application
   particles: Particle[]
   spawnBurst: (options: { colors: readonly number[]; count: number; tone: BurstTone }) => void
+  destroy: () => void
 }
 
 export function preloadGameFx(): void {
@@ -67,7 +67,8 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
           resolution: Math.min(window.devicePixelRatio || 1, 2)
         })
         if (disposed) {
-          app.destroy(true, true)
+          app.ticker.stop()
+          app.canvas.remove()
           return
         }
 
@@ -100,8 +101,18 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
         app.ticker.add(update)
 
         const runtime: FxRuntime = {
-          app,
           particles,
+          destroy: () => {
+            // Pixi can still have a render callback queued when Preact removes
+            // this layer during a game-to-summary transition. Destroying the
+            // renderer in that window nulls its batch geometry before the
+            // queued callback executes. Stop this layer's work and detach its
+            // canvas; once the runtime reference drops, the renderer is safe
+            // for the browser to collect.
+            app.ticker.stop()
+            app.ticker.remove(update)
+            app.canvas.remove()
+          },
           spawnBurst: ({ colors, count, tone }) => {
             const originX = app.screen.width / 2
             const originY = app.screen.height * 0.52
@@ -152,7 +163,7 @@ export default function GameFxLayer({ cue, particleCount = 8 }: Props) {
       disposed = true
       const runtime = runtimeRef.current
       runtimeRef.current = null
-      runtime?.app.destroy(true, true)
+      runtime?.destroy()
     }
   }, [])
 
