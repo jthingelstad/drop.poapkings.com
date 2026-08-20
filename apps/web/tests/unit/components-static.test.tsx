@@ -13,7 +13,6 @@ import GameRunGate from '../../src/components/GameRunGate'
 import GameStartScreen from '../../src/components/game/GameStart'
 import RunCountdown from '../../src/components/RunCountdown'
 import MultipleChoice from '../../src/components/MultipleChoice'
-import PenaltyFlash from '../../src/components/PenaltyFlash'
 import PlayerAvatar from '../../src/components/PlayerAvatar'
 import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
@@ -492,21 +491,6 @@ describe('MultipleChoice', () => {
   it('disables the buttons when disabled', async () => {
     const html = await render(<MultipleChoice choices={[2, 3]} onPick={() => {}} disabled />)
     expect(html).toContain('disabled')
-  })
-})
-
-describe('PenaltyFlash', () => {
-  it('reserves space but shows no chip when pulse is 0', async () => {
-    const html = await render(<PenaltyFlash pulse={0} label="+2.0s" />)
-    expect(html).toContain('penalty-flash')
-    expect(html).not.toContain('penalty-flash__chip')
-    expect(html).not.toContain('+2.0s')
-  })
-
-  it('shows the penalty chip once the pulse fires', async () => {
-    const html = await render(<PenaltyFlash pulse={1} label="+2.0s" />)
-    expect(html).toContain('penalty-flash__chip')
-    expect(html).toContain('+2.0s')
   })
 })
 

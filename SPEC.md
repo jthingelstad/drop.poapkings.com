@@ -776,10 +776,13 @@ not reintroduce either without the surface that justifies them.
 Elixir Drop vendors its own visual layer:
 
 - `apps/web/src/styles.css` contains the local tokens and components.
-- `apps/web/public/assets/` contains the app icon set (`icon/`), badge art
-  (`badges/`), mode emblems (`modes/`), empty-state art (`empty/`), run-start
-  charge frames (`start/`), share furniture (`share/`), arena images, fonts, OG
-  art, and the star asset.
+- `apps/web/public/assets/` contains only shipped visual assets: the four app
+  icon sizes used by HTML/the web manifest (`icon/`), 192/384px badge art
+  (`badges/`), 192/384px mode emblems (`modes/`), the public game's two active
+  512px empty states plus Control Room's 256px empty-runs art (`empty/`), share
+  furniture (`share/`), the wired Regular display font, OG art, and the elixir
+  pip. `tests/unit/public-assets.test.ts` keeps the source-driven badge/mode
+  inventories and the static asset directories aligned.
 - Card art is mirrored same-origin under `apps/web/public/cards/` (refresh
   always runs with `MIRROR_IMAGES=true`). The "Elixir Rain" screensaver
   Easter egg (see GAMES.md) draws this art as WebGL textures via pixi.js;

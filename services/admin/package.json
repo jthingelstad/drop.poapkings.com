@@ -15,7 +15,8 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"package.json\" \"tsconfig.json\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"package.json\" \"tsconfig.json\"",
     "lint": "oxlint --config ../../.oxlintrc.json --type-aware --type-check --deny-warnings .",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "knip": "knip --no-config-hints --include files,dependencies,unlisted",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run knip && npm run test && npm run build",
     "verify:non-browser": "npm run verify"
   },
   "dependencies": {

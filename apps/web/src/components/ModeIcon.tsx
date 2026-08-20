@@ -11,8 +11,8 @@ import { gameDisplay } from '../lib/game-metadata'
 // Width and height are always set so 6 tiles cannot reflow as they decode.
 //
 // The 192px file covers every size we render (60px is the largest, in the Surge
-// hero), so it is the only one this component reaches for. -384 and -768 exist
-// for the share card and future large surfaces.
+// hero), so it is the only one this component reaches for. The share card uses
+// the 384px file directly.
 export default function ModeIcon({ mode, size, className }: { mode: GameMode; size: number; className?: string }) {
   const { art, name } = gameDisplay(mode)
   return (

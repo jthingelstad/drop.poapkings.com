@@ -15,7 +15,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{ts,json}\"",
     "lint": "oxlint --config ../../.oxlintrc.json --type-aware --type-check --deny-warnings .",
     "lint:css": "stylelint \"src/styles.css\" --config ../web/.stylelintrc.json",
-    "verify": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run test && npm run build",
+    "knip": "knip --no-config-hints --include files,dependencies,unlisted",
+    "verify": "npm run format:check && npm run lint && npm run lint:css && npm run typecheck && npm run knip && npm run test && npm run build",
     "verify:non-browser": "npm run verify"
   },
   "dependencies": {
@@ -29,7 +30,6 @@
     "oxlint": "^1.76.0",
     "prettier": "^3.9.6",
     "stylelint": "^17.14.1",
-    "stylelint-config-standard": "^40.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"

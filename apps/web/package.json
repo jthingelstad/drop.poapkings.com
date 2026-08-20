@@ -44,7 +44,6 @@
     "@playwright/test": "^1.62.1",
     "@preact/preset-vite": "^2.10.6",
     "jsdom": "^30.0.1",
-    "knip": "^6.31.0",
     "oxlint": "^1.76.0",
     "preact-render-to-string": "^6.7.0",
     "prettier": "^3.9.6",

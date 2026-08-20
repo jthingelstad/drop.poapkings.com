@@ -7,5 +7,9 @@
     ".": "./src/index.ts",
     "./challenge-generation": "./src/challenge-generation.ts"
   },
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "scripts": {
+    "knip": "knip --no-config-hints --include files,dependencies,unlisted",
+    "verify:non-browser": "npm run knip"
+  }
 }

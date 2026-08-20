@@ -1,8 +1,8 @@
 import { navigate } from '../lib/router'
 
-export type EmptyStateArt = 'empty-runs' | 'empty-badges' | 'empty-board' | 'empty-season'
+export type EmptyStateArt = 'empty-runs' | 'empty-board'
 
-// The four empty screens: art, a heading, one line, and — always — a button.
+// The two empty screens: art, a heading, one line, and — always — a button.
 // An empty screen with nothing to press is what makes a new player close the
 // app, so the CTA is required, not optional.
 //
@@ -10,7 +10,7 @@ export type EmptyStateArt = 'empty-runs' | 'empty-badges' | 'empty-board' | 'emp
 // haven't started yet, not players who lost.
 //
 // Rendered at 132px from the -512 file: the art carries a drop-shadow and needs
-// the headroom, so the smaller -256 crops into it at this size.
+// the headroom, so this component does not use the smaller Control Room asset.
 export default function EmptyState({
   art,
   heading,

@@ -1781,63 +1781,6 @@ html.reduce-motion .game-motion {
   }
 }
 
-/* Penalty flash: the clock jump made visible. */
-.penalty-flash {
-  display: inline-flex;
-  min-width: 58px;
-  justify-content: center;
-}
-
-.penalty-flash__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: var(--red, #ef4444);
-  animation: penalty-pop 900ms ease-out forwards;
-}
-
-@keyframes penalty-pop {
-  0% {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  15% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .penalty-flash__chip {
-    animation: penalty-fade 900ms linear forwards;
-    transform: none;
-  }
-}
-
-html.reduce-motion .penalty-flash__chip {
-  animation: penalty-fade 900ms linear forwards;
-  transform: none;
-}
-
-@keyframes penalty-fade {
-  0%,
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 /* ── Trade ───────────────────────────────────────────────── */
 
 .trade {

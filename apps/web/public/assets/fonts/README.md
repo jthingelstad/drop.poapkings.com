@@ -7,18 +7,15 @@ the Supercell Fan Kit and used as fan kit assets under Supercell's Fan Content P
 - "Clash" is a trademark of Supercell.
 - Source: Supercell Fan Kit — <https://fankit.supercell.com/> (Clash Royale fonts).
 
-Weights present (the full family, kept for future use):
+Weight present:
 
 | File | Weight |
 | --- | --- |
-| `Clash_Light.otf` | Light |
 | `Clash_Regular.otf` | Regular |
-| `Clash_Bold.otf` | Bold |
-| `Clash_Heavy.otf` | Heavy |
 
-Only **Regular** is currently wired up (the `Clash Royale` `@font-face` in
-`apps/web/src/styles.css` and the OG-image render script). The other weights are
-committed so they're on hand if the design uses them later.
+**Regular** is wired up by the `Clash Royale` `@font-face` in
+`apps/web/src/styles.css` and the OG-image render script. Unused weights are not
+shipped in the public bundle.
 
 > This material is unofficial and is not endorsed by Supercell. For more information
 > see Supercell's Fan Content Policy: <www.supercell.com/fan-content-policy>.

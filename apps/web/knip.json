@@ -9,6 +9,5 @@
     "tests/**/*.{ts,tsx}"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}", "*.config.ts"],
-  "ignore": ["src/components/PenaltyFlash.tsx"],
   "vite": false
 }
