@@ -51,8 +51,10 @@ reversible visibility decisions. Cross-cutting work keeps one originating owner.
   ships only the validated production surfaces.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
-- `.claude/skills/cut-release/` is a user-triggered named-release ceremony, not an
-  objective or scheduled activity.
+- `apps/web/src/data/updates/` holds the three static player-message streams. Every
+  owner authors a concise `features.json` entry with a player-visible change; Grow
+  Drop also audits deployed commits daily for omissions. `seasons.json` and
+  `messages.json` remain subject to the human boundary for winners and broad messages.
 
 ## Issue policy
 

@@ -11,7 +11,7 @@ const pages = [
   { slug: 'about', title: 'About Elixir Drop', primary: true },
   { slug: 'faq', title: 'Elixir Drop FAQ', primary: true },
   { slug: 'privacy', title: 'Elixir Drop Privacy', primary: true },
-  { slug: 'releases', title: 'Elixir Drop Releases', primary: true }
+  { slug: 'updates', title: 'Elixir Drop Updates', primary: true }
 ] as const
 
 test('all text pages are standalone, canonical, and responsive', { tag: '@deploy' }, async ({ page }) => {

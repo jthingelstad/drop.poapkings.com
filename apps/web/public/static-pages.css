@@ -416,13 +416,13 @@ a {
   color: var(--lavender);
 }
 
-.static-release-stamp {
+.static-update-stamp {
   margin-bottom: 16px !important;
   color: #a99fce;
   font-size: 0.76rem;
 }
 
-.static-release-stamp span {
+.static-update-stamp span {
   display: inline-block;
   margin-right: 8px;
   border-radius: 999px;
@@ -432,7 +432,7 @@ a {
   font-weight: 800;
 }
 
-.static-release-stamp code {
+.static-update-stamp code {
   color: var(--lavender);
 }
 

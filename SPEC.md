@@ -422,8 +422,11 @@ the 2026 refresh: the missing-tag prompt is now a card at the top of the Updates
 scope, derived from account state, so it needs no per-device timestamp.)
 
 The one-time release-notice overlay (and its `elixirdrop:releaseSeen` key) was retired
-in the 2026 refresh: named releases now appear in the **Updates** scope on the You page,
-and unread state is a single server-owned `lastOpenedUpdates` timestamp on the account —
+in the 2026 refresh. The **Updates** scope on the You page now merges three committed
+player-message sources: `features.json`, `seasons.json`, and `messages.json` under
+`apps/web/src/data/updates/`. Every record is one timestamped subject and one Markdown
+paragraph; its source file supplies the type. The same merged history builds `/updates/`.
+Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
 account-level and deliberately not per-device, so it never needs a browser key.
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
@@ -840,7 +843,7 @@ stubs and helpers in `fixtures.ts`:
 | `run-lifecycle.spec.ts` | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection |
 | `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens |
 | `home.spec.ts` | The hero carousel, the desktop letterbox (wallpaper, the trimmed aside, Practice-first ordering and board reads), install suggestion timing, the Tinylytics hash-page/event bridge |
-| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states and the Updates-scope tag prompt |
+| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the merged Markdown Updates feed |
 | `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, the ranked touch-only gate and its QR bridge |
 
 ---

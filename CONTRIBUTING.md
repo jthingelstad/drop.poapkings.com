@@ -80,7 +80,7 @@ high-risk cases in the table. `npm run test:e2e:deploy` reproduces just the
 browser portion of the main deployment gate.
 
 It runs, across every implemented workspace: Prettier format check, oxlint
-(warnings fail), the release-tooling test (`test:release`), the objective-team
+(warnings fail), the objective-team
 contract test (`test:agent-team`), the CI-scope contract tests, Stylelint,
 TypeScript typecheck, Knip (unused code/deps), Vitest unit tests with coverage
 thresholds, Playwright e2e, and a production build.

@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "features": [
+    {
+      "id": "better-battle-names",
+      "publishedAt": "2026-08-19T23:35:25-05:00",
+      "title": "Your battle name found more personality",
+      "body": "Favorite-card names now pull from a bigger, more playful pool of Clash-inspired ideas while staying friendly enough for every arena. [Choose your identity](/#/profile)."
+    },
+    {
+      "id": "practice-one-name",
+      "publishedAt": "2026-08-19T23:11:51-05:00",
+      "title": "Practice goes by one name",
+      "body": "The focused card-cost drill is now simply **Practice** everywhere in Drop. Same learn-first battle, cleaner name—[start a round](/#/practice)."
+    },
+    {
+      "id": "badge-summits-rebalanced",
+      "publishedAt": "2026-08-19T22:45:10-05:00",
+      "title": "The badge summits are back within reach",
+      "body": "The highest rungs on several badge ladders now match what great real-world play can actually achieve. Your earned progress stays yours; the climb just has a fairer finish. [Scout the ladders](/badges/)."
+    },
+    {
+      "id": "share-every-run",
+      "publishedAt": "2026-08-19T09:01:52-05:00",
+      "title": "Every finish can leave the arena",
+      "body": "The Share button on each summary now opens your device’s real share sheet—or copies a clean fallback—so a personal best can reach the clan in one tap."
+    },
+    {
+      "id": "desktop-tactical-rail",
+      "publishedAt": "2026-08-19T07:47:50-05:00",
+      "title": "Desktop’s empty flank joined the fight",
+      "body": "Wide screens now use the space beside the phone-shaped playfield for useful game context and controls. The board stays focused while your desktop stops feeling like a giant purple moat."
+    },
+    {
+      "id": "ranked-summary-charts",
+      "publishedAt": "2026-08-19T07:25:34-05:00",
+      "title": "Ranked summaries speak one chart language",
+      "body": "Every ranked finish now shows the same clear comparison grammar, making your score, best, and next chase easier to read across all five competitive modes."
+    },
+    {
+      "id": "favorite-card-portraits",
+      "publishedAt": "2026-08-19T06:42:39-05:00",
+      "title": "Every favorite card got its best angle",
+      "body": "Player avatars now use hand-tuned crops for the full card catalog, so your chosen troop, spell, or building reads clearly from the tiniest board row to your full profile."
+    },
+    {
+      "id": "full-badge-gallery",
+      "publishedAt": "2026-08-18T15:29:38-05:00",
+      "title": "The whole badge kingdom is visible",
+      "body": "The Ladder now shows every public badge even before you earn its first rung. You can see the challenge, inspect the climb, and choose what to chase next. [Browse the badges](/badges/)."
+    },
+    {
+      "id": "identity-three-steps",
+      "publishedAt": "2026-08-18T13:10:39-05:00",
+      "title": "New players enter in three clean steps",
+      "body": "First-time setup now moves through favorite card, battle name, and optional player tag one choice at a time—less wall of form, more arrival in the arena."
+    },
+    {
+      "id": "xp-on-every-run",
+      "publishedAt": "2026-08-18T12:32:21-05:00",
+      "title": "Every run shows the XP it earned",
+      "body": "Summaries and your game log now call out the Player XP from that exact battle, so the road to your next arena never advances in secret."
+    },
+    {
+      "id": "trade-exchange-board",
+      "publishedAt": "2026-08-18T10:08:56-05:00",
+      "title": "Trade moved onto one royal exchange board",
+      "body": "Every Trade decision now happens on a single stable board, with the offer, choice, and result holding their ground instead of shuffling the arena between taps. [Make the trade](/#/trade)."
+    },
+    {
+      "id": "one-frame-every-game",
+      "publishedAt": "2026-08-18T09:48:23-05:00",
+      "title": "Six games, one battle-ready frame",
+      "body": "The games now share one keypad, one playfield frame, and clocks that are always visible when they matter. Rain also gained a calmer opening floor before the storm accelerates. [Pick your mode](/games/)."
+    },
+    {
+      "id": "play-ladder-you",
+      "publishedAt": "2026-08-18T08:48:05-05:00",
+      "title": "Play. Ladder. You.",
+      "body": "Drop’s main navigation now follows the three things players come to do: jump into a game, read the boards, or check their own history, badges, updates, and settings."
+    },
+    {
+      "id": "learning-guides",
+      "publishedAt": "2026-08-16T13:16:16-05:00",
+      "title": "The card-cost playbook opened",
+      "body": "A new learning guide explains how recall, recognition, feedback, and spaced practice work together in Drop—useful when you want a plan instead of another blind grind. [Read the guide](/learn-elixir-costs/)."
+    },
+    {
+      "id": "practice-teaches-misses",
+      "publishedAt": "2026-08-16T09:26:00-05:00",
+      "title": "Practice now teaches the miss",
+      "body": "Wrong answers pause long enough to compare your choice with the real cost, while the next deal adapts toward cards that need another look. No clock, no rank—just sharper recall. [Train now](/#/practice)."
+    },
+    {
+      "id": "all-games-offline",
+      "publishedAt": "2026-08-15T11:42:06-05:00",
+      "title": "The whole game roster works offline",
+      "body": "All six modes can now be played when the network disappears. Offline battles stay on your device and do not rank, but the cards keep dropping wherever you are. [Set up Drop](/install/)."
+    },
+    {
+      "id": "one-game-log",
+      "publishedAt": "2026-08-14T19:58:37-05:00",
+      "title": "Your battle history became one clean log",
+      "body": "The You page now groups every saved run by month with filters for season, mode, and review state, plus personal-best and placement marks. Seasons also use names players can say out loud."
+    },
+    {
+      "id": "awaiting-runs-rank",
+      "publishedAt": "2026-08-14T18:20:59-05:00",
+      "title": "Awaiting runs hold their place",
+      "body": "A leading score still ranks while the referee checks it, wearing an **Awaiting** seal instead of vanishing. Only a result a referee actually excludes leaves the board. [How Fair Play works](/fair-play/)."
+    },
+    {
+      "id": "visible-fair-play",
+      "publishedAt": "2026-08-12T22:34:55-05:00",
+      "title": "Fair Play stepped into the light",
+      "body": "Reviewed results now explain whether they are Awaiting, Cleared, or Excluded, and affected players get a plain-language reason plus a run tag for re-review. Most runs carry no seal because nobody needed to inspect them."
+    },
+    {
+      "id": "millisecond-boards",
+      "publishedAt": "2026-08-12T18:31:42-05:00",
+      "title": "The Ladder counts every millisecond",
+      "body": "Time-ranked leaderboards now show three decimal places, so lightning finishes no longer look tied when the hidden clock already knew the difference. [Read the Ladder](/#/leaderboards)."
+    },
+    {
+      "id": "void-five-elixir",
+      "publishedAt": "2026-08-12T10:45:22-05:00",
+      "title": "Void costs five—because it does",
+      "body": "Void is now correctly dealt as a **5-elixir** card throughout Drop. If the old answer was stuck in your head, consider this the clean reset. [Check the catalog](/elixir-costs/)."
+    },
+    {
+      "id": "clan-rankings",
+      "publishedAt": "2026-08-07T16:42:39-05:00",
+      "title": "Your clan entered the Ladder",
+      "body": "Add your Clash Royale player tag and Drop can find your public clan, then show a clan-only board beside the global competition. [Add your tag](/#/profile?edit=player-tag)."
+    },
+    {
+      "id": "secret-badges-explain-themselves",
+      "publishedAt": "2026-08-07T15:41:50-05:00",
+      "title": "Secret badges reveal their tale when earned",
+      "body": "Hidden achievements still keep their identity and requirement secret—but once you unlock one, its badge sheet finally explains what you did to earn it."
+    },
+    {
+      "id": "clash-identity-on-profiles",
+      "publishedAt": "2026-08-07T09:50:23-05:00",
+      "title": "Public profiles found their Clash identity",
+      "body": "Linked players now show their public Clash Royale name, tag, clan, and account age on their Drop profile, giving every leaderboard name a little more story."
+    },
+    {
+      "id": "podium-badges",
+      "publishedAt": "2026-08-05T17:08:11-05:00",
+      "title": "Season podiums now forge badges",
+      "body": "Finish a season on a mode’s podium and the rollover now awards the matching Podium badge rung—proof that your name survived the whole campaign, not just one hot afternoon."
+    },
+    {
+      "id": "share-earned-badges",
+      "publishedAt": "2026-08-02T14:04:14-05:00",
+      "title": "Earned badges are ready for the clan chat",
+      "body": "Every badge you have earned can now be shared as its own polished card, complete with the medallion and rung you cleared."
+    },
+    {
+      "id": "badge-ladders",
+      "publishedAt": "2026-08-02T12:08:26-05:00",
+      "title": "Badge ladders landed",
+      "body": "Speed, volume, consistency, and a few well-hidden feats now build permanent badge progress across your games. Each badge has multiple rungs, counts eligible history, and never takes an earned milestone back. [See the collection](/badges/)."
+    },
+    {
+      "id": "survival-curve",
+      "publishedAt": "2026-07-25T09:45:43-05:00",
+      "title": "Survival locked in its battle curve",
+      "body": "The response window now accelerates by documented steps across the full catalog, giving every Survival attempt the same relentless—but predictable—path to a clear. [Try to survive](/#/survival)."
+    },
+    {
+      "id": "trade-fixed-ladder",
+      "publishedAt": "2026-07-25T09:27:33-05:00",
+      "title": "Trade found its fixed ladder",
+      "body": "Every Trade run now opens with three straight one-for-one reads before the exchanges grow more demanding, so the climb is learnable, repeatable, and fair to race. [Enter Trade](/#/trade)."
+    },
+    {
+      "id": "higher-lower-three-lives",
+      "publishedAt": "2026-07-25T08:52:41-05:00",
+      "title": "Higher / Lower deals three hearts",
+      "body": "You now get three lives, while the elixir gap tightens as the streak grows. Early reads teach the pattern; late reads ask whether you truly know it. [Take the challenge](/#/higher-lower)."
+    },
+    {
+      "id": "practice-endless",
+      "publishedAt": "2026-07-25T08:01:24-05:00",
+      "title": "Practice became true practice",
+      "body": "Practice is now an endless card-cost drill with no clock, ranking, XP, or finish line. Stay for three cards or three hundred; this arena exists only to make the answers stick. [Start practicing](/#/practice)."
+    },
+    {
+      "id": "rain-endless",
+      "publishedAt": "2026-07-24T22:00:06-05:00",
+      "title": "Rain became an endless storm",
+      "body": "Elixir Rain no longer stops at an arbitrary finish line. Correct catches push the storm faster and every ten sends a flash across the count; one missed drop ends the run. [Step into the Rain](/#/rain)."
+    },
+    {
+      "id": "score-sharing-front-and-center",
+      "publishedAt": "2026-07-22T22:47:18-05:00",
+      "title": "Score sharing moved to center stage",
+      "body": "Finished a run worth shouting about? Sharing now sits beside the result instead of hiding in the scenery, with player names rendered correctly when the card reaches the clan."
+    },
+    {
+      "id": "installable-drop",
+      "publishedAt": "2026-07-22T00:39:02-05:00",
+      "title": "Drop can live on your home screen",
+      "body": "Install Drop for a one-tap, full-screen launch on iPhone or Android. Magic-link sign-in follows you into the installed window, so the app-shaped version still knows it is you. [Get set up](/install/)."
+    },
+    {
+      "id": "ranked-rain",
+      "publishedAt": "2026-07-22T00:00:33-05:00",
+      "title": "Elixir Rain joined ranked play",
+      "body": "The falling-card screensaver grew teeth: catch each card with its cost, learn from a higher-or-lower hint after a miss, and send your streak to the seasonal board. [Play Rain](/#/rain)."
+    },
+    {
+      "id": "guest-play",
+      "publishedAt": "2026-07-19T22:43:18-05:00",
+      "title": "Every game opened its gates to guests",
+      "body": "You can try all six modes without creating an account. Guest runs stay local and off the Ladder; sign in only when you want saved progress, XP, badges, and ranked scores. [Choose a game](/games/)."
+    },
+    {
+      "id": "all-time-leaderboards",
+      "publishedAt": "2026-07-19T22:20:12-05:00",
+      "title": "The all-time greats got their own boards",
+      "body": "Every ranked mode now has an all-time leaderboard beside the live season, preserving the scores that remain worth chasing after a season crown changes hands. [Open the Ladder](/#/leaderboards)."
+    },
+    {
+      "id": "survival-clear-the-deck",
+      "publishedAt": "2026-07-19T12:36:55-05:00",
+      "title": "Survival gained a real final card",
+      "body": "Clear the entire catalog before the shrinking clock catches you and Survival now declares a true win, ranked by completion time instead of an endless score. [Face the deck](/#/survival)."
+    },
+    {
+      "id": "higher-lower-shrinking-clock",
+      "publishedAt": "2026-07-19T11:24:38-05:00",
+      "title": "Higher / Lower’s clock fights back",
+      "body": "The response window now shrinks from five seconds toward two as your streak grows, turning a simple comparison into a pressure test with a clear finish when time runs out."
+    },
+    {
+      "id": "enhanced-effects",
+      "publishedAt": "2026-07-19T10:30:16-05:00",
+      "title": "The arena learned a bigger victory roar",
+      "body": "An optional **Enhance effects** setting adds richer flashes, bursts, and motion across every mode. Prefer calm? Leave it off or use Reduce motion—the game remains fully yours."
+    },
+    {
+      "id": "player-xp-arenas",
+      "publishedAt": "2026-07-19T07:47:00-05:00",
+      "title": "Player XP opened a 28-arena road",
+      "body": "Every completed game moves your personal arena journey forward. XP measures how much you play, not whether you are already elite, so even a rough session leaves a footprint."
+    },
+    {
+      "id": "seasonal-leaderboards",
+      "publishedAt": "2026-07-18T14:56:07-05:00",
+      "title": "The first seasonal Ladder went live",
+      "body": "Ranked scores now follow Clash Royale’s Clan Wars season clock, giving every mode a fresh campaign, a real ending, and another chance to put your name on top."
+    },
+    {
+      "id": "favorite-card-profiles",
+      "publishedAt": "2026-07-18T06:58:33-05:00",
+      "title": "Players got profiles with a favorite card",
+      "body": "Magic-link accounts now carry a battle name, favorite-card avatar, saved results, and progress between devices—your own corner of Drop instead of a browser that forgets."
+    },
+    {
+      "id": "trade-arrives",
+      "publishedAt": "2026-06-14T21:44:31-05:00",
+      "title": "Trade opened the exchange",
+      "body": "Two card groups enter. Choose which side costs more before the deal closes, then keep climbing as the exchange grows harder. [Play Trade](/#/trade)."
+    },
+    {
+      "id": "survival-arrives",
+      "publishedAt": "2026-06-13T14:40:09Z",
+      "title": "Survival dealt sudden death",
+      "body": "Name each card’s elixir cost before its window closes. One miss ends the run, making every correct answer another step deeper into the catalog. [Play Survival](/#/survival)."
+    },
+    {
+      "id": "higher-lower-arrives",
+      "publishedAt": "2026-06-13T14:17:58Z",
+      "title": "Higher / Lower entered the arena",
+      "body": "Two cards face off and you choose the one that costs more elixir—a fast recognition battle for players who know the shape of the catalog even before the exact number arrives. [Play Higher / Lower](/#/higher-lower)."
+    },
+    {
+      "id": "surge-arrives",
+      "publishedAt": "2026-06-13T14:15:30Z",
+      "title": "Surge started the speed race",
+      "body": "A fixed run of cards, one honest clock, and no place to hide a shaky cost: Surge turned recall into Drop’s first pure sprint. [Play Surge](/#/surge)."
+    },
+    {
+      "id": "practice-arrives",
+      "publishedAt": "2026-06-13T08:44:37-05:00",
+      "title": "The first card dropped",
+      "body": "Elixir Drop began with Practice: real Clash Royale cards, their elixir costs, and a quick read on what you knew versus what needed another round. [Start practicing](/#/practice)."
+    }
+  ]
+}

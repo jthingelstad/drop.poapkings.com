@@ -30,7 +30,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** · **`services/admin/README.md`** | Backend, bridge, and private Control Room service references.                                                                    |
 | **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
 | **`AGENT-TEAM/fair-play-policy.md`**                                 | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
-| **`.claude/skills/`**                                                 | User-invoked skills in the build process (`cut-release` — the named-release ceremony).                                          |
+| **`apps/web/src/data/updates/`**                                      | Player-facing feature, season, and message history merged into the Updates tab and public archive.                             |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
 
@@ -85,6 +85,10 @@ directly to `main`** — no feature branches or PR-based review. The full contra
 `AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
 
-Cutting a named release is not queue work: it opens no tracking issue and makes no product
-commit. It is a user-triggered **skill**, not a team role — `.claude/skills/cut-release/` —
-invoked only when Jamie explicitly asks. GitHub Releases are the named-release history.
+Player-visible work ships with one concise entry in
+`apps/web/src/data/updates/features.json`: a subject and one Markdown paragraph, written for
+players with Clash energy. Do not announce refactors, tests, dependencies, deploys,
+observability, admin tools, or maintenance. Season results belong in `seasons.json`; other
+player messages belong in `messages.json` and still require the normal Jamie authority for
+winners, prizes, or broad communication. Grow Drop audits deployed changes daily for missed
+feature entries. There are no named releases.

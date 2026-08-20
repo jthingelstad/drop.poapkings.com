@@ -52,6 +52,30 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
   await expect(page.locator('.ed-account')).toContainText('Sign out')
 })
 
+test('Updates renders one Markdown paragraph and links to the public history', async ({ page }, testInfo) => {
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: 'Updates' }).click()
+
+  const newest = page.getByRole('button', { name: /Updates, one card at a time/ })
+  await newest.click()
+  const body = newest.locator('xpath=following-sibling::*[1]')
+  await expect(body).toContainText('POAP KINGS')
+  await expect(body.locator('strong')).toHaveText('POAP KINGS')
+  await testInfo.attach('updates-feed.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  await body.getByRole('link', { name: 'read the full history' }).click()
+
+  await expect(page).toHaveURL(/\/updates\/$/)
+  await expect(page.getByRole('heading', { name: 'Elixir Drop Updates' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your battle name found more personality' })).toBeVisible()
+  await testInfo.attach('updates-archive.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+})
+
 test('the Settings scope persists input and motion preferences across reload', async ({ page }) => {
   // /settings folds into the You page; Settings is a scope there now.
   await page.goto('/#/settings', { waitUntil: 'domcontentloaded' })

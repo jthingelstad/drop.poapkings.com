@@ -65,7 +65,7 @@ for (const slug of [
   'about',
   'faq',
   'privacy',
-  'releases'
+  'updates'
 ]) {
   test(`renders standalone ${slug} without serious accessibility issues`, async ({ page }) => {
     await page.goto(`/${slug}/`)

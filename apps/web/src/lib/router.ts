@@ -16,7 +16,7 @@ const STANDALONE_HASH_ROUTES: Record<string, string> = {
   '/badges': '/badges/',
   '/discord': '/discord/',
   '/about': '/about/',
-  '/releases': '/releases/',
+  '/updates': '/updates/',
   '/faq': '/faq/',
   '/fair-play': '/fair-play/',
   '/privacy': '/privacy/',

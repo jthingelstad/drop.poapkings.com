@@ -39,6 +39,7 @@ import { getSettings, saveSettings } from '../lib/storage'
 import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
 import DetailModal from '../components/DetailModal'
+import UpdateMarkdown from '../components/UpdateMarkdown'
 import { editorialEntries, isUnread, hasUnreadUpdates, type UpdateEntry } from '../lib/updates'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
@@ -750,7 +751,7 @@ function UpdatesScope() {
 
       <ul class="ed-updates__list">
         {entries.map((entry) => (
-          <UpdateRow key={entry.id} entry={entry} unread={isUnread(entry.date, lastOpened)} />
+          <UpdateRow key={entry.id} entry={entry} unread={isUnread(entry.publishedAt, lastOpened)} />
         ))}
       </ul>
 
@@ -783,7 +784,7 @@ function UpdatesScope() {
 
 function UpdateRow({ entry, unread }: { entry: UpdateEntry; unread: boolean }) {
   const open = useSignal(false)
-  const dateLabel = new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, {
+  const dateLabel = new Date(entry.publishedAt).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
@@ -798,9 +799,7 @@ function UpdateRow({ entry, unread }: { entry: UpdateEntry; unread: boolean }) {
       </button>
       {open.value && (
         <div class="ed-update__body">
-          {entry.body.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
+          <UpdateMarkdown body={entry.body} />
         </div>
       )}
     </li>
@@ -859,7 +858,7 @@ function SettingsScope() {
 
 const ABOUT_LINKS: Array<{ label: string; href?: string; to?: string; standaloneTo?: string }> = [
   { label: 'About', href: '/about/' },
-  { label: 'Releases', href: '/releases/' },
+  { label: 'Updates', href: '/updates/' },
   { label: 'FAQ', href: '/faq/' },
   { label: 'Fair Play', href: '/fair-play/' },
   { label: 'Discord', href: '/discord/' },

@@ -1,7 +1,8 @@
 import { BADGE_LIST, type BadgeDefinition, type GameMode } from '@elixir-drop/contracts'
 import cardData from '../../../packages/game-data/cards.json' with { type: 'json' }
 import { GAME_CATALOG as GAMES } from '../src/lib/game-catalog.ts'
-import releaseData from '../src/data/releases.json' with { type: 'json' }
+import { editorialEntries, type UpdateKind } from '../src/lib/update-data.ts'
+import { renderUpdateMarkdownHtml } from '../src/lib/update-markdown.ts'
 
 export const STATIC_PAGE_SLUGS = [
   'games',
@@ -14,7 +15,7 @@ export const STATIC_PAGE_SLUGS = [
   'about',
   'faq',
   'privacy',
-  'releases'
+  'updates'
 ] as const
 export type StaticPageSlug = (typeof STATIC_PAGE_SLUGS)[number]
 
@@ -31,16 +32,6 @@ interface StaticPage {
   body: string
   schemaType?: 'WebPage' | 'CollectionPage'
   schemaItems?: SchemaItem[]
-}
-
-interface ReleaseEntry {
-  id: string
-  name: string
-  date: string
-  build: string
-  headline: string
-  notes: string[]
-  beta?: boolean
 }
 
 interface CardEntry {
@@ -95,32 +86,34 @@ function playLink(path: string, label: string, event: string): string {
   return `<a class="static-inline-cta" href="/#${path}" data-tinylytics-event="${event}">${escapeHtml(label)} →</a>`
 }
 
-function releaseDateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return date
+function dateLabel(value: string): string {
+  const parsed = new Date(value.includes('T') ? value : `${value}T12:00:00Z`)
+  if (Number.isNaN(parsed.getTime())) return value
   return parsed.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
+    timeZone: 'America/Chicago',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   })
 }
 
-function releasesBody(): string {
-  const releases = (releaseData as { releases: ReleaseEntry[] }).releases
-  if (releases.length === 0) {
-    return pageSections([section('Nothing released yet', paragraph('The first named release will appear here.'), true)])
+function updateKindLabel(kind: UpdateKind): string {
+  return kind === 'feature' ? 'Feature' : kind === 'season' ? 'Season' : 'Message'
+}
+
+function updatesBody(): string {
+  const updates = editorialEntries()
+  if (updates.length === 0) {
+    return pageSections([section('The arena is quiet', paragraph('The first player update will appear here.'), true)])
   }
-  return `<p class="static-intro">Every named Elixir Drop release, newest first—what changed and when it landed.</p>
+  return `<p class="static-intro">New features, season winners, and player messages—one clear update at a time.</p>
   ${pageSections(
-    releases.map((entry) =>
+    updates.map((entry) =>
       section(
-        entry.name,
-        `<p class="static-release-stamp">${entry.beta ? '<span>Beta</span>' : ''}${escapeHtml(
-          releaseDateLabel(entry.date)
-        )} · build <code>${escapeHtml(entry.build)}</code></p>${entry.notes
-          .map((note) => paragraph(escapeHtml(note)))
-          .join('')}`
+        entry.title,
+        `<p class="static-update-stamp"><span>${updateKindLabel(entry.kind)}</span>${escapeHtml(
+          dateLabel(entry.publishedAt)
+        )}</p>${paragraph(renderUpdateMarkdownHtml(entry.body))}`
       )
     )
   )}`
@@ -477,7 +470,7 @@ function elixirCostsBody(): string {
       )
     )
   return `<p class="static-intro">A complete reference to the ${data.count} Clash Royale cards currently used by Elixir Drop, grouped by elixir cost. The game catalog was refreshed ${escapeHtml(
-    releaseDateLabel(data.version)
+    dateLabel(data.version)
   )}.</p>
   <nav class="static-jump" aria-label="Jump to an elixir cost">${[...byCost.keys()]
     .sort((left, right) => left - right)
@@ -680,11 +673,11 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
       'What Elixir Drop stores, what other players can see, which services it uses, and how account deletion works.',
     body: PRIVACY_BODY
   },
-  releases: {
-    eyebrow: 'What shipped',
-    title: 'Elixir Drop Releases',
-    description: 'The named Elixir Drop release history, newest first, with the changes included in each release.',
-    body: releasesBody()
+  updates: {
+    eyebrow: 'From the arena',
+    title: 'Elixir Drop Updates',
+    description: 'New Elixir Drop player features, season winners, and messages, newest first.',
+    body: updatesBody()
   },
   install: {
     eyebrow: 'Full-screen and offline play',
@@ -704,7 +697,7 @@ function pageNav(current: StaticPageSlug): string {
 function footerNav(current: StaticPageSlug): string {
   const links: ReadonlyArray<{ slug?: StaticPageSlug; label: string; href: string }> = [
     { slug: 'discord', label: 'Discord', href: '/discord/' },
-    { slug: 'releases', label: 'Releases', href: '/releases/' },
+    { slug: 'updates', label: 'Updates', href: '/updates/' },
     { slug: 'privacy', label: 'Privacy', href: '/privacy/' },
     { label: 'Contact', href: `mailto:${CONTACT}` },
     { label: 'POAP KINGS', href: 'https://poapkings.com/elixir-drop/' }

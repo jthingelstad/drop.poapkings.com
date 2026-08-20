@@ -349,6 +349,25 @@ void test("objective contract requires the lease and contains no retired queue l
   assert.match(fairPlayPolicy, /missing.*evidence remains fail-closed/s);
 });
 
+void test("player-visible work carries a small update and Grow audits it daily", () => {
+  const agents = readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
+  const workflow = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/WORKFLOW.md"),
+    "utf8",
+  );
+  const grow = readFileSync(path.join(ROOT, "AGENT-TEAM/grow-drop.md"), "utf8");
+
+  for (const contract of [agents, workflow, grow]) {
+    assert.match(contract, /data\/updates\/features\.json/);
+    assert.match(contract, /maintenance/);
+  }
+  assert.match(grow, /Cadence: daily/);
+  assert.match(grow, /exact deployed player-facing commits/);
+  assert.match(grow, /seasons\.json/);
+  assert.match(grow, /messages\.json/);
+  assert.doesNotMatch(agents, /cut-release/);
+});
+
 void test("automation registry passes the common contract audit", () => {
   const result = spawnSync(
     "python3",

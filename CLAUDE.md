@@ -98,32 +98,33 @@ rank-oriented fields as part of unrelated work.
   All *progress* reads/writes go through it (`getProfile`, `getRecords`,
   `getCardStats`, `saveResult`, …) — never read or write a progress key directly.
   It is not the only browser-storage owner: the session token, install-prompt
-  state, release notice, and player-tag nudge are deliberately owned by their
+  state, install notice, and player-tag nudge are deliberately owned by their
   narrow modules. Authenticated identity and
   signed runs use `apps/web/src/lib/account.ts`, `api.ts`, and `use-game-run.ts`.
 - **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
   the canonical inventory of every browser-storage key and which module owns each; add new
   keys there.
-- **Named releases have an in-app surface.** `scripts/cut-release.mjs` writes
-  `apps/web/src/data/releases.json` during `npm run release:cut` (GitHub Releases
-  stay the canonical history; the file is never hand-edited — the ceremony is the
-  `cut-release` skill in `.claude/skills/cut-release/`). Entries flagged
-  `beta: true` are backfilled pre-1.0 history — real builds that went live but
-  were never named or mailed; a cut never sets that flag.
-  `apps/web/src/lib/releases.ts` is the typed in-app view and the build emits
-  `/releases/` as a standalone HTML page from the same JSON. **The one-time
-  release-notice overlay is retired** (with `ReleaseNotice.tsx`,
-  `lib/release-notice.ts`, and the `elixirdrop:releaseSeen` key): named releases
-  now appear in the **Updates** scope on the You page, and unread state is the
-  server-owned `lastOpenedUpdates` timestamp on the account — account-level and
-  deliberately not per-device, so it needs no browser key. That also settles the
-  "never a load-time modal" rule by construction. None of this is the
-  `UpdateBanner`, which says "this tab is stale, reload" rather than "a named
-  release shipped, here's what changed". Keep them separate.
+- **Player updates are small static records, not releases or an API.** The three
+  hand-edited sources are `apps/web/src/data/updates/features.json`,
+  `seasons.json`, and `messages.json`; `apps/web/src/lib/update-data.ts` validates
+  and merges them newest-first for both the **Updates** scope and `/updates/`.
+  Each entry is one subject plus one Markdown paragraph. Markdown is rendered
+  through a deliberately small, safe vocabulary: emphasis, code, and approved
+  links; raw HTML, images, lists, and unsafe protocols fail validation. A coding
+  agent adds a `features.json` entry in the same change whenever it ships a
+  durable player-visible feature or rule change, and never for maintenance,
+  refactors, tests, dependencies, deploys, telemetry, or private tools. Grow Drop
+  audits deployed commits daily for anything missed. Season winners and other
+  player messages use their owned files and retain the normal Jamie authority.
+  Buttondown may occasionally summarize these updates for people who do not log
+  in, but it is not the source of truth.
+  Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
+  and deliberately not per-device, so it needs no browser key. The player feed is
+  also separate from `UpdateBanner`, which only says the open app build is stale.
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
-  Fair Play, About, FAQ, Privacy, and Releases pages. The card reference reads
+  Fair Play, About, FAQ, Privacy, and Updates pages. The card reference reads
   `packages/game-data/cards.json`; the badge guide reads `BADGE_LIST` and must
   never publish hidden badge identities or requirements. Keep only canonical
   content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,

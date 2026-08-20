@@ -21,8 +21,12 @@ objective file before acting.
    clear one merely because it looks old: automatic clearing also requires the same
    host, a dead recorded process, an unchanged starting commit, and a clean worktree;
    otherwise inspect it and use the exact holder identity for a confirmed manual clear.
-5. Fix the gap at the source in the same run. Add the
-   business-rule regression; do not substitute a warning, guard, or ticket chain.
+5. Fix the gap at the source in the same run. Add the business-rule regression; do
+   not substitute a warning, guard, or ticket chain. When the change gives players
+   a durable new feature, visible behavior, or rule, add one subject and one Markdown
+   paragraph to `apps/web/src/data/updates/features.json` in the same commit. Never
+   add an update for maintenance, refactors, tests, dependencies, deployment,
+   telemetry, or private tooling.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
    recheck the branch, upstream, and worktree immediately before the first edit and
    before push. Stop if the state changed.
