@@ -22,7 +22,8 @@ test(
       // Repeated activity is grouped into one recent-runs row.
       await expect(page.locator('.ed-rail-live')).toContainText('Trade · 8 runs · best 11.800s')
       await expect(page.locator('.ed-desktop__rail')).toBeVisible()
-      // Falling Cards remains the ambient desktop layer.
+      // The Falling Cards host remains mounted behind the desktop shell even
+      // though its card scene starts off.
       await expect(page.locator('.ed-wallpaper')).toBeVisible()
       const viewportFit = await page.evaluate(() => ({
         viewport: window.innerHeight,
@@ -92,7 +93,7 @@ test('desktop keeps the mobile game order in a fixed-width center', async ({ pag
   }))
   expect(order.ranked).toBeLessThan(order.practice)
 
-  await expect(page.locator('.ed-wallpaper canvas')).toBeVisible()
+  await expect(page.locator('.ed-wallpaper canvas')).toBeHidden()
   await expect(page.locator('.ed-wallpaper__card, .ed-wallpaper__vignette')).toHaveCount(0)
 })
 

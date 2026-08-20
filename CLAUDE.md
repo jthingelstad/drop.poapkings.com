@@ -180,18 +180,19 @@ rank-oriented fields as part of unrelated work.
   the other four ranked games, then Practice. The featured mode is never
   duplicated; standings stay in the persistent Ladder navigation. Active games
   drop both rails, use a bounded 480px stage, and remain playable with mouse or
-  keyboard on the existing boards. **Falling Cards is persistent desktop
+  keyboard on the existing boards. **Falling Cards is optional desktop
   scenery** (`components/shell/DesktopWallpaper.tsx`): the full three-layer
-  Pixi scene runs at full strength behind Home, reading pages, and games. It
+  Pixi scene starts off and can run behind Home, reading pages, and games. It
   keeps a bounded 30-card texture cast and swaps six cards every 20 seconds so
   the catalog rotates through without living in memory all at once; reduced
   motion freezes the same composition. `DesktopAside` keeps only the live
-  `Recent runs` feed and a Falling Cards control. That control cycles ambient ->
-  full screen -> off: full screen hides the game panels over the same canvas,
-  its dismissing input restores the panels with cards off, and the next press
-  deals the ambient scene back in. `DesktopNav` advertises the primary home-row mapping (`ASDFG`
-  = 1–5, `JKL;` = 6–9); the number row remains an alias, Space repeats/defaults,
-  `?` opens the help sheet, and Escape requires two presses to abandon a run.
+  `Recent runs` feed and a Falling Cards control. That control cycles off ->
+  background -> full screen: full screen hides the game panels over the same
+  canvas, its dismissing input restores the panels with cards off, and the next
+  press deals the background scene back in. `DesktopNav` advertises the primary
+  home-row mapping (`ASDFG` = 1–5, `JKL;` = 6–9); the number row remains an
+  alias, Space repeats/defaults, `?` opens the help sheet, and Escape requires
+  two presses to abandon a run.
 - **"Elixir Rain" screensaver**: activation state in
   `apps/web/src/lib/screensaver.ts` (three doors: the nav launcher — a visible
   feature, source `'nav'`; 5 logo taps; 2-min Home idle; full no-op under

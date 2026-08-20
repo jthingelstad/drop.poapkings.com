@@ -25,7 +25,7 @@ const soundMock = vi.hoisted(() => ({
 const screensaverMock = vi.hoisted(() => ({
   cycleDesktopFallingCards: vi.fn(),
   screensaverActive: { value: null as null | 'tap' | 'idle' | 'nav' },
-  desktopFallingCardsMode: { value: 'ambient' as 'ambient' | 'off' }
+  desktopFallingCardsMode: { value: 'off' as 'ambient' | 'off' }
 }))
 
 const rainMock = vi.hoisted(() => ({
@@ -146,7 +146,7 @@ beforeEach(() => {
   soundMock.playTap.mockClear()
   screensaverMock.cycleDesktopFallingCards.mockClear()
   screensaverMock.screensaverActive.value = null
-  screensaverMock.desktopFallingCardsMode.value = 'ambient'
+  screensaverMock.desktopFallingCardsMode.value = 'off'
   rainMock.createElixirRain.mockClear()
   apiMock.getLeaderboard.mockReset()
   apiMock.getActivity.mockReset()
@@ -664,12 +664,12 @@ describe('DesktopAside', () => {
     expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
   })
 
-  it('advertises turning the ambient scene back on when Falling Cards are off', () => {
+  it('advertises the background scene when Falling Cards are off', () => {
     screensaverMock.desktopFallingCardsMode.value = 'off'
     draw(<DesktopAside />)
 
-    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — turn on"]')!
-    expect(saver.textContent).toContain('Turn on →')
+    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — background"]')!
+    expect(saver.textContent).toContain('Background →')
     saver.click()
     expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
   })

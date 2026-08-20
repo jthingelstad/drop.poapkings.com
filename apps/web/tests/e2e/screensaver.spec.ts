@@ -1,16 +1,27 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, isDesktopViewport, test } from './fixtures'
 
-test('the desktop rail cycles Falling Cards through ambient, full screen, and off', async ({ page, viewport }) => {
+test('the desktop rail defaults Falling Cards off, then cycles through background and full screen', async ({
+  page,
+  viewport
+}) => {
   test.skip(!isDesktopViewport(viewport), 'the visible screensaver launcher is a desktop-rail control')
   await page.goto('/')
 
   const backgroundCanvas = page.locator('.ed-wallpaper canvas')
-  await expect(backgroundCanvas).toBeVisible()
+  await expect(backgroundCanvas).toHaveCount(1)
+  await expect(backgroundCanvas).toBeHidden()
   await backgroundCanvas.evaluate((canvas) => canvas.setAttribute('data-persistence-check', 'mounted'))
 
   const launcher = page.getByRole('button', { name: 'Falling Cards' })
   await expect(launcher).toBeVisible()
+  await expect(launcher).toContainText('Background →')
+  await launcher.click()
+  await expect(backgroundCanvas).toBeVisible()
+  await expect(backgroundCanvas).toHaveAttribute('data-persistence-check', 'mounted')
+  await expect(page.locator('.ed-desktop')).toBeVisible()
+  await expect(launcher).toContainText('Full screen →')
+
   await launcher.click()
 
   const overlay = page.getByTestId('screensaver')
@@ -27,18 +38,14 @@ test('the desktop rail cycles Falling Cards through ambient, full screen, and of
   await expect(page.locator('.ed-desktop')).toBeVisible()
   await expect(page.locator('.ed-wallpaper canvas')).toBeHidden()
   await expect(page.locator('.ed-wallpaper canvas')).toHaveAttribute('data-persistence-check', 'mounted')
-  await expect(launcher).toContainText('Turn on →')
+  await expect(launcher).toContainText('Background →')
 
-  // The next press restores ambient cards without hiding the panels; pressing
-  // once more returns to the full-screen middle state.
+  // The next press restores the background without hiding the panels.
   await launcher.click()
   await expect(page.locator('.ed-wallpaper canvas')).toBeVisible()
   await expect(page.locator('.ed-wallpaper canvas')).toHaveAttribute('data-persistence-check', 'mounted')
   await expect(page.locator('.ed-desktop')).toBeVisible()
   await expect(launcher).toContainText('Full screen →')
-  await launcher.click()
-  await expect(page.getByTestId('screensaver')).toBeVisible()
-  await expect(page.locator('.ed-desktop')).toBeHidden()
 })
 
 test('five logo taps start the screensaver and any key exits it', async ({ page, isMobile }) => {

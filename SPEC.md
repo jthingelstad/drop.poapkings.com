@@ -310,10 +310,11 @@ Important shared modules:
   Cards scenery on every desktop route using the same advanced three-layer Pixi
   renderer as the mobile screensaver. It keeps 30 textures resident and swaps
   six every 20 seconds, gradually rotating through the catalog. The desktop
-  control cycles ambient -> full screen -> off -> ambient. Full screen hides the
-  panels over that persistent canvas instead of creating a second scene; its
-  dismissing input restores the panels and shuts the cards off. Reduced motion
-  freezes the composition and cycles directly between frozen ambient and off.
+  scene defaults off; its control cycles off -> background -> full screen ->
+  off. Full screen hides the panels over that persistent canvas instead of
+  creating a second scene; its dismissing input restores the panels and shuts
+  the cards off. Reduced motion freezes the composition and cycles directly
+  between the frozen background and off.
 - `apps/web/src/lib/game-keys.ts` and `components/KeyboardHelp.tsx` - the shared
   desktop input contract: `ASDFG` = costs 1–5, `JKL;` = 6–9, digits are aliases,
   Space is the safe default/replay action, `?` opens help, and Escape uses a

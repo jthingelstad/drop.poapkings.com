@@ -55,8 +55,12 @@ describe('screensaver activation', () => {
     expect(screensaverActive.value).toBeNull()
   })
 
-  it('cycles desktop Falling Cards from ambient through full screen and off', () => {
+  it('defaults desktop Falling Cards off, then cycles through background and full screen', () => {
+    expect(desktopFallingCardsMode.value).toBe('off')
+
+    cycleDesktopFallingCards()
     expect(desktopFallingCardsMode.value).toBe('ambient')
+    expect(screensaverActive.value).toBeNull()
 
     cycleDesktopFallingCards()
     expect(screensaverActive.value).toBe('nav')
@@ -75,11 +79,11 @@ describe('screensaver activation', () => {
     document.documentElement.classList.add('reduce-motion')
 
     cycleDesktopFallingCards()
-    expect(desktopFallingCardsMode.value).toBe('off')
+    expect(desktopFallingCardsMode.value).toBe('ambient')
     expect(screensaverActive.value).toBeNull()
 
     cycleDesktopFallingCards()
-    expect(desktopFallingCardsMode.value).toBe('ambient')
+    expect(desktopFallingCardsMode.value).toBe('off')
   })
 
   it('does not restart the idle attract mode after desktop Falling Cards are off', () => {

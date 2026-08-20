@@ -100,7 +100,7 @@ export default function DesktopAside() {
 
       <button
         class="ed-rail-btn ed-rail-btn--saver tap-fx"
-        aria-label={`Falling Cards — ${fallingCardsOff ? 'turn on' : 'full screen'}`}
+        aria-label={`Falling Cards — ${fallingCardsOff ? 'background' : 'full screen'}`}
         onClick={(e) => {
           tapFxFrom(e)
           cycleDesktopFallingCards()
@@ -109,7 +109,7 @@ export default function DesktopAside() {
         <span class="tap-face">
           <Icon name="sparkles" />
           Falling Cards
-          <span class="ed-rail-btn__hint">{fallingCardsOff ? 'Turn on →' : 'Full screen →'}</span>
+          <span class="ed-rail-btn__hint">{fallingCardsOff ? 'Background →' : 'Full screen →'}</span>
         </span>
       </button>
     </aside>

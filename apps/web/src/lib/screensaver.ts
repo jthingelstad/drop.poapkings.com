@@ -10,7 +10,7 @@ export type ScreensaverSource = 'tap' | 'idle' | 'nav'
 export type DesktopFallingCardsMode = 'ambient' | 'off'
 
 export const screensaverActive = signal<ScreensaverSource | null>(null)
-export const desktopFallingCardsMode = signal<DesktopFallingCardsMode>('ambient')
+export const desktopFallingCardsMode = signal<DesktopFallingCardsMode>('off')
 
 export const LOGO_TAP_COUNT = 5
 export const LOGO_TAP_WINDOW_MS = 1500
@@ -34,9 +34,9 @@ export function stopScreensaver(): void {
   if (source === 'nav') desktopFallingCardsMode.value = 'off'
 }
 
-// The desktop rail is a three-state loop: ambient -> full screen -> off ->
-// ambient. Full screen owns the middle state through `screensaverActive`; its
-// next dismissing input calls stopScreensaver() and advances to off.
+// The desktop rail starts quiet and cycles off -> background -> full screen ->
+// off. Full screen owns the last state through `screensaverActive`; its next
+// dismissing input calls stopScreensaver() and advances to off.
 export function cycleDesktopFallingCards(): void {
   if (desktopFallingCardsMode.value === 'off') {
     desktopFallingCardsMode.value = 'ambient'
@@ -67,7 +67,7 @@ export function resetScreensaverForTests(): void {
   tapCount = 0
   lastTapAt = 0
   screensaverActive.value = null
-  desktopFallingCardsMode.value = 'ambient'
+  desktopFallingCardsMode.value = 'off'
 }
 
 // Idle attract watcher. The caller arms it only on the Home route; it refuses

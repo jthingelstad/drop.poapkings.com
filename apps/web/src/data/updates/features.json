@@ -4,8 +4,8 @@
     {
       "id": "falling-cards-takes-over",
       "publishedAt": "2026-08-20T14:43:08-05:00",
-      "title": "Falling Cards takes over the arena",
-      "body": "Desktop now runs the full Falling Cards storm behind every battle—three layers, elixir sparks, flips, and a cast that keeps changing. The arena control cycles from **ambient** to **full screen** to **off**, then deals the storm back in."
+      "title": "Falling Cards waits for your signal",
+      "body": "Desktop now starts calm with Falling Cards **off**. The arena control deals the storm into the **background**, then expands it to **full screen**; dismissing it clears the arena again."
     },
     {
       "id": "desktop-enters-the-arena",
