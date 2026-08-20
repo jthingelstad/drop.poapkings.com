@@ -9,8 +9,10 @@ import type { ElixirRainScene } from '../ScreensaverScene'
 export default function DesktopWallpaper() {
   const hostRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<ElixirRainScene | null>(null)
-  const enabled = desktopFallingCardsMode.value === 'ambient'
+  const mode = desktopFallingCardsMode.value
+  const enabled = mode !== 'off'
   const foreground = screensaverActive.value !== null
+  const subtle = mode === 'subtle' && !foreground
 
   useLayoutEffect(() => {
     const host = hostRef.current
@@ -24,7 +26,7 @@ export default function DesktopWallpaper() {
         const created = await createElixirRain(host, {
           paused: isReducedMotionEnabled(),
           foreground: screensaverActive.value !== null,
-          enabled: desktopFallingCardsMode.value === 'ambient'
+          enabled: desktopFallingCardsMode.value !== 'off'
         })
         if (disposed) created.destroy()
         else sceneRef.current = created
@@ -49,5 +51,11 @@ export default function DesktopWallpaper() {
     sceneRef.current?.setForeground(foreground)
   }, [foreground])
 
-  return <div ref={hostRef} class={`ed-wallpaper${enabled ? '' : ' ed-wallpaper--off'}`} aria-hidden="true" />
+  return (
+    <div
+      ref={hostRef}
+      class={`ed-wallpaper${enabled ? '' : ' ed-wallpaper--off'}${subtle ? ' ed-wallpaper--subtle' : ''}`}
+      aria-hidden="true"
+    />
+  )
 }

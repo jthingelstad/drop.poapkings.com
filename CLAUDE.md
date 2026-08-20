@@ -187,9 +187,10 @@ rank-oriented fields as part of unrelated work.
   the catalog rotates through without living in memory all at once; reduced
   motion freezes the same composition. `DesktopAside` keeps only the live
   `Recent runs` feed and a Falling Cards control. That control cycles off ->
-  background -> full screen: full screen hides the game panels over the same
-  canvas, its dismissing input restores the panels with cards off, and the next
-  press deals the background scene back in. `DesktopNav` advertises the primary
+  subtle -> background -> full screen: Subtle runs the same live scene at lower
+  opacity; full screen hides the game panels over the same canvas, its
+  dismissing input restores the panels with cards off, and the next press deals
+  the Subtle scene back in. `DesktopNav` advertises the primary
   home-row mapping (`ASDFG` = 1–5, `JKL;` = 6–9); the number row remains an
   alias, Space repeats/defaults, `?` opens the help sheet, and Escape requires
   two presses to abandon a run.

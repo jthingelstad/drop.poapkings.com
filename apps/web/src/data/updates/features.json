@@ -5,7 +5,7 @@
       "id": "falling-cards-takes-over",
       "publishedAt": "2026-08-20T14:43:08-05:00",
       "title": "Falling Cards waits for your signal",
-      "body": "Desktop now starts calm with Falling Cards **off**. The arena control deals the storm into the **background**, then expands it to **full screen**; dismissing it clears the arena again."
+      "body": "Desktop now starts calm with Falling Cards **off**. The arena control first deals a **Subtle** storm, then turns it up to **Background** or **Full screen**; dismissing it clears the arena again."
     },
     {
       "id": "desktop-enters-the-arena",

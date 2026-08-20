@@ -7,7 +7,7 @@ import { isReducedMotionEnabled } from './motion'
 // minutes on Home. Any input exits. Under reduced motion it simply does not run.
 
 export type ScreensaverSource = 'tap' | 'idle' | 'nav'
-export type DesktopFallingCardsMode = 'ambient' | 'off'
+export type DesktopFallingCardsMode = 'subtle' | 'ambient' | 'off'
 
 export const screensaverActive = signal<ScreensaverSource | null>(null)
 export const desktopFallingCardsMode = signal<DesktopFallingCardsMode>('off')
@@ -34,17 +34,22 @@ export function stopScreensaver(): void {
   if (source === 'nav') desktopFallingCardsMode.value = 'off'
 }
 
-// The desktop rail starts quiet and cycles off -> background -> full screen ->
-// off. Full screen owns the last state through `screensaverActive`; its next
-// dismissing input calls stopScreensaver() and advances to off.
+// The desktop rail starts quiet and cycles off -> subtle -> background -> full
+// screen -> off. Full screen owns the last state through `screensaverActive`;
+// its next dismissing input calls stopScreensaver() and advances to off.
 export function cycleDesktopFallingCards(): void {
   if (desktopFallingCardsMode.value === 'off') {
+    desktopFallingCardsMode.value = 'subtle'
+    return
+  }
+
+  if (desktopFallingCardsMode.value === 'subtle') {
     desktopFallingCardsMode.value = 'ambient'
     return
   }
 
   // Reduced motion forbids the full-screen animation door, so the same control
-  // still offers a useful two-state frozen-composition -> off -> on cycle.
+  // still cycles through the two frozen background strengths before off.
   if (isReducedMotionEnabled()) {
     desktopFallingCardsMode.value = 'off'
     return

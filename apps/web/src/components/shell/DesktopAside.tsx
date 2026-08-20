@@ -49,7 +49,9 @@ function activityWhen(iso: string): string {
 
 export default function DesktopAside() {
   const disconnected = offline.value
-  const fallingCardsOff = desktopFallingCardsMode.value === 'off'
+  const fallingCardsMode = desktopFallingCardsMode.value
+  const fallingCardsNext =
+    fallingCardsMode === 'off' ? 'Subtle' : fallingCardsMode === 'subtle' ? 'Background' : 'Full screen'
   useEffect(() => {
     if (disconnected) return
     const ctrl = new AbortController()
@@ -100,7 +102,7 @@ export default function DesktopAside() {
 
       <button
         class="ed-rail-btn ed-rail-btn--saver tap-fx"
-        aria-label={`Falling Cards — ${fallingCardsOff ? 'background' : 'full screen'}`}
+        aria-label={`Falling Cards — ${fallingCardsNext.toLowerCase()}`}
         onClick={(e) => {
           tapFxFrom(e)
           cycleDesktopFallingCards()
@@ -109,7 +111,7 @@ export default function DesktopAside() {
         <span class="tap-face">
           <Icon name="sparkles" />
           Falling Cards
-          <span class="ed-rail-btn__hint">{fallingCardsOff ? 'Background →' : 'Full screen →'}</span>
+          <span class="ed-rail-btn__hint">{fallingCardsNext} →</span>
         </span>
       </button>
     </aside>

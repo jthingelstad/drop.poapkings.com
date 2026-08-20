@@ -55,8 +55,12 @@ describe('screensaver activation', () => {
     expect(screensaverActive.value).toBeNull()
   })
 
-  it('defaults desktop Falling Cards off, then cycles through background and full screen', () => {
+  it('defaults desktop Falling Cards off, then cycles through subtle, background, and full screen', () => {
     expect(desktopFallingCardsMode.value).toBe('off')
+
+    cycleDesktopFallingCards()
+    expect(desktopFallingCardsMode.value).toBe('subtle')
+    expect(screensaverActive.value).toBeNull()
 
     cycleDesktopFallingCards()
     expect(desktopFallingCardsMode.value).toBe('ambient')
@@ -71,12 +75,16 @@ describe('screensaver activation', () => {
     expect(desktopFallingCardsMode.value).toBe('off')
 
     cycleDesktopFallingCards()
-    expect(desktopFallingCardsMode.value).toBe('ambient')
+    expect(desktopFallingCardsMode.value).toBe('subtle')
     expect(screensaverActive.value).toBeNull()
   })
 
-  it('cycles a reduced-motion desktop directly between its frozen scene and off', () => {
+  it('cycles a reduced-motion desktop through both frozen background strengths and off', () => {
     document.documentElement.classList.add('reduce-motion')
+
+    cycleDesktopFallingCards()
+    expect(desktopFallingCardsMode.value).toBe('subtle')
+    expect(screensaverActive.value).toBeNull()
 
     cycleDesktopFallingCards()
     expect(desktopFallingCardsMode.value).toBe('ambient')

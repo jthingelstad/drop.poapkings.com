@@ -2672,6 +2672,10 @@ html.reduce-motion .ed-pillnav__ind {
   height: 100%;
 }
 
+.ed-wallpaper--subtle canvas {
+  opacity: 0.28;
+}
+
 .ed-wallpaper--off canvas {
   display: none;
 }

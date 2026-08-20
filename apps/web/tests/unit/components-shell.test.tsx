@@ -25,7 +25,7 @@ const soundMock = vi.hoisted(() => ({
 const screensaverMock = vi.hoisted(() => ({
   cycleDesktopFallingCards: vi.fn(),
   screensaverActive: { value: null as null | 'tap' | 'idle' | 'nav' },
-  desktopFallingCardsMode: { value: 'off' as 'ambient' | 'off' }
+  desktopFallingCardsMode: { value: 'off' as 'subtle' | 'ambient' | 'off' }
 }))
 
 const rainMock = vi.hoisted(() => ({
@@ -616,6 +616,25 @@ describe('MobileShell', () => {
     )
   })
 
+  it('renders the Subtle Falling Cards strength without pausing the scene', async () => {
+    layout.value = 'desktop'
+    screensaverMock.desktopFallingCardsMode.value = 'subtle'
+    draw(
+      <MobileShell>
+        <p>home</p>
+      </MobileShell>
+    )
+
+    await act(async () => {
+      await tick()
+    })
+    expect(host.querySelector('.ed-wallpaper--subtle')).toBeTruthy()
+    expect(rainMock.createElixirRain).toHaveBeenCalledWith(
+      expect.any(HTMLDivElement),
+      expect.objectContaining({ enabled: true })
+    )
+  })
+
   it('hides the desktop panels without unmounting the Falling Cards host', () => {
     layout.value = 'desktop'
     screensaverMock.screensaverActive.value = 'nav'
@@ -664,14 +683,22 @@ describe('DesktopAside', () => {
     expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
   })
 
-  it('advertises the background scene when Falling Cards are off', () => {
+  it('advertises the Subtle scene when Falling Cards are off', () => {
     screensaverMock.desktopFallingCardsMode.value = 'off'
+    draw(<DesktopAside />)
+
+    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — subtle"]')!
+    expect(saver.textContent).toContain('Subtle →')
+    saver.click()
+    expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers Background after the Subtle Falling Cards strength', () => {
+    screensaverMock.desktopFallingCardsMode.value = 'subtle'
     draw(<DesktopAside />)
 
     const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — background"]')!
     expect(saver.textContent).toContain('Background →')
-    saver.click()
-    expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
   })
 
   it('keeps only the live feed and the launcher — nothing the page beside it already says', () => {
