@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises'
 import { execSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { parseEnv } from 'util'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 const WEB_ROOT = join(__dir, '..')
@@ -42,13 +43,7 @@ const DRY_RUN = args.includes('--dry-run')
 // ── Load .env ─────────────────────────────────────────────────────────────────
 
 const dotenv = await readFile(join(REPO_ROOT, '.env'), 'utf8').catch(() => '')
-for (const line of dotenv.split('\n')) {
-  const trimmed = line.trim()
-  if (!trimmed || trimmed.startsWith('#')) continue
-  const eq = trimmed.indexOf('=')
-  if (eq < 0) continue
-  const key = trimmed.slice(0, eq).trim()
-  const val = trimmed.slice(eq + 1).trim()
+for (const [key, val] of Object.entries(parseEnv(dotenv))) {
   if (!process.env[key]) process.env[key] = val
 }
 

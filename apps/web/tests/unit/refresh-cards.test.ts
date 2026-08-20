@@ -22,6 +22,7 @@ describe('refresh cards', () => {
     mkdirSync(dirname(scriptPath), { recursive: true })
     mkdirSync(dirname(cardsPath), { recursive: true })
     copyFileSync(join(process.cwd(), 'scripts/refresh-cards.mjs'), scriptPath)
+    writeFileSync(join(root, '.env'), 'CR_API_TOKEN="test-token"\nMIRROR_IMAGES="true"\n')
     writeFileSync(
       cardsPath,
       JSON.stringify({
@@ -70,16 +71,16 @@ describe('refresh cards', () => {
         return new Response(null, { status: 404 });
       };
     `
+    const env = { ...process.env }
+    delete env.CR_API_TOKEN
+    delete env.CR_API_KEY
+    delete env.MIRROR_IMAGES
     const result = spawnSync(
       process.execPath,
       ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, scriptPath, '--dry-run'],
       {
         encoding: 'utf8',
-        env: {
-          ...process.env,
-          CR_API_TOKEN: 'test-token',
-          MIRROR_IMAGES: 'true'
-        }
+        env
       }
     )
 
