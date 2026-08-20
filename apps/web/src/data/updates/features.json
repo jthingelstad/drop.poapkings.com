@@ -50,6 +50,12 @@
       "body": "The Ladder now shows every public badge even before you earn its first rung. You can see the challenge, inspect the climb, and choose what to chase next. [Browse the badges](/badges/)."
     },
     {
+      "id": "run-rungs-moved",
+      "publishedAt": "2026-08-18T14:20:25-05:00",
+      "title": "Every run names the rungs it moved",
+      "body": "Open a saved battle to see the exact badge rungs it cleared, turning each run sheet into proof of where your climb advanced. [Read your battle log](/#/profile)."
+    },
+    {
       "id": "identity-three-steps",
       "publishedAt": "2026-08-18T13:10:39-05:00",
       "title": "New players enter in three clean steps",
@@ -68,10 +74,16 @@
       "body": "Every Trade decision now happens on a single stable board, with the offer, choice, and result holding their ground instead of shuffling the arena between taps. [Make the trade](/#/trade)."
     },
     {
+      "id": "two-row-keypad",
+      "publishedAt": "2026-08-18T09:48:23-05:00",
+      "title": "The keypad made room for fast thumbs",
+      "body": "Every elixir keypad now deals **1–5** over **6–9** in two full-width rows, making each target wider so sideways mistaps stop stealing clean answers."
+    },
+    {
       "id": "one-frame-every-game",
       "publishedAt": "2026-08-18T09:48:23-05:00",
       "title": "Six games, one battle-ready frame",
-      "body": "The games now share one keypad, one playfield frame, and clocks that are always visible when they matter. Rain also gained a calmer opening floor before the storm accelerates. [Pick your mode](/games/)."
+      "body": "Every game now shares one stable playfield frame. Survival and Higher / Lower show the clock running out, while Rain marks the kill line above the keypad so every falling card stays answerable. [Pick your mode](/games/)."
     },
     {
       "id": "play-ladder-you",
@@ -96,6 +108,12 @@
       "publishedAt": "2026-08-15T11:42:06-05:00",
       "title": "The whole game roster works offline",
       "body": "All six modes can now be played when the network disappears. Offline battles stay on your device and do not rank, but the cards keep dropping wherever you are. [Set up Drop](/install/)."
+    },
+    {
+      "id": "daily-featured-game",
+      "publishedAt": "2026-08-14T20:15:51-05:00",
+      "title": "A different battle takes the crown each day",
+      "body": "Home now spotlights one ranked mode each day while keeping the full game row in a fixed order, so every arena gets its moment without making your favorite harder to find. [Choose your battle](/games/)."
     },
     {
       "id": "one-game-log",
@@ -128,6 +146,18 @@
       "body": "Void is now correctly dealt as a **5-elixir** card throughout Drop. If the old answer was stuck in your head, consider this the clean reset. [Check the catalog](/elixir-costs/)."
     },
     {
+      "id": "higher-lower-continuous-clock",
+      "publishedAt": "2026-08-08T04:17:42-05:00",
+      "title": "Higher / Lower tore out the speed limit",
+      "body": "The clock no longer settles at two seconds—it keeps tightening toward **0.8s** as the run grows. That changed the contest enough to open a fresh Higher / Lower board. [Face the squeeze](/#/higher-lower)."
+    },
+    {
+      "id": "app-info",
+      "publishedAt": "2026-08-07T18:20:04-05:00",
+      "title": "Your pocket arena reports for duty",
+      "body": "App Info now shows whether player services are reachable, how much card art is ready offline, and which Drop build your device is running. [Check your setup](/#/app-info)."
+    },
+    {
       "id": "clan-rankings",
       "publishedAt": "2026-08-07T16:42:39-05:00",
       "title": "Your clan entered the Ladder",
@@ -156,6 +186,12 @@
       "publishedAt": "2026-08-02T14:04:14-05:00",
       "title": "Earned badges are ready for the clan chat",
       "body": "Every badge you have earned can now be shared as its own polished card, complete with the medallion and rung you cleared."
+    },
+    {
+      "id": "mode-artwork",
+      "publishedAt": "2026-08-02T12:08:26-05:00",
+      "title": "Every battle raised its own banner",
+      "body": "Surge, Practice, Higher / Lower, Trade, Survival, and Rain now carry painted emblems across Home, the Ladder, summaries, and activity rows—no more emoji standing in for an arena."
     },
     {
       "id": "badge-ladders",
@@ -248,6 +284,18 @@
       "body": "Every completed game moves your personal arena journey forward. XP measures how much you play, not whether you are already elite, so even a rough session leaves a footprint."
     },
     {
+      "id": "falling-cards",
+      "publishedAt": "2026-07-19T00:29:10-05:00",
+      "title": "The whole card catalog learned to rain",
+      "body": "Open **Falling Cards**, let Home sit idle, or tap the Drop logo five times to turn the screen into a drifting card storm. Any tap sends you straight back to the arena."
+    },
+    {
+      "id": "account-delete-privacy",
+      "publishedAt": "2026-07-18T17:08:17-05:00",
+      "title": "You can leave the arena cleanly",
+      "body": "Profile now lets you permanently delete your Drop account, including your email, battle identity, saved tag, run history, and leaderboard entries. [Read the privacy rules](/privacy/)."
+    },
+    {
       "id": "seasonal-leaderboards",
       "publishedAt": "2026-07-18T14:56:07-05:00",
       "title": "The first seasonal Ladder went live",
@@ -260,6 +308,12 @@
       "body": "Magic-link accounts now carry a battle name, favorite-card avatar, saved results, and progress between devices—your own corner of Drop instead of a browser that forgets."
     },
     {
+      "id": "clash-card-frames",
+      "publishedAt": "2026-07-17T16:22:22-05:00",
+      "title": "Every card put on its arena armor",
+      "body": "Card art now carries one Clash-style treatment across every game, with rarity-colored names and a clear elixir badge so the troop you learn is the troop you recognize. [Study the catalog](/elixir-costs/)."
+    },
+    {
       "id": "trade-arrives",
       "publishedAt": "2026-06-14T21:44:31-05:00",
       "title": "Trade opened the exchange",
@@ -270,6 +324,12 @@
       "publishedAt": "2026-06-13T14:40:09Z",
       "title": "Survival dealt sudden death",
       "body": "Name each card’s elixir cost before its window closes. One miss ends the run, making every correct answer another step deeper into the catalog. [Play Survival](/#/survival)."
+    },
+    {
+      "id": "player-controls",
+      "publishedAt": "2026-06-13T14:23:32Z",
+      "title": "The arena plays your way",
+      "body": "Choose the pip keypad or four choices for Practice, turn battle sounds on or off, and calm the arena with **Reduce motion**. [Tune your setup](/#/settings)."
     },
     {
       "id": "higher-lower-arrives",

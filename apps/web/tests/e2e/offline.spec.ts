@@ -56,8 +56,12 @@ test('a signed-out desktop visitor still gets the offline mark', async ({ page, 
 })
 
 test('offline keeps the same nav and names the cause on the page it stays on', async ({ page, isMobile }) => {
+  const accountReady = page.waitForResponse(
+    (response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/me'
+  )
   await page.goto('/')
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
+  await accountReady
 
   // The shell is warm; now remove the API entirely. The nav must NOT rename
   // itself, and the live pages must stay put rather than a route takeover.
