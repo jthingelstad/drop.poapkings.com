@@ -52,6 +52,11 @@ test(
   'practice reinforces the solved cost without a streak milestone',
   { tag: '@deploy' },
   async ({ page }, testInfo) => {
+    // This deliberately clears ten hands to prove the retired streak milestone
+    // never returns. WebKit can take more than the suite's 30-second aggregate
+    // ceiling on a shared CI host; every individual interaction still uses the
+    // normal five-second assertion limit.
+    test.setTimeout(45_000)
     await page.goto('/#/practice')
     await waitForKeypad(page)
 
