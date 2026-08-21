@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { NAV_ITEMS, activeNavIndex, isGameRoute } from '../../src/components/shell/nav'
-import { seasonEndsLabel, surgeSeasonCallout } from '../../src/screens/home/home-data'
+import { seasonEndsLabel, seasonPillLabel, surgeSeasonCallout } from '../../src/screens/home/home-data'
 import { scoreLabel, gameDisplay, RANKED_GAMES, GAMES } from '../../src/lib/game-metadata'
 import { installMode, installDismissed, dismissInstall } from '../../src/lib/pwa-install'
 import type { Season } from '@elixir-drop/contracts'
@@ -50,6 +50,19 @@ describe('season-ends label', () => {
     const soon = new Date(Date.now() + (3 * 3_600_000 + 30 * 60_000)).toISOString()
     expect(seasonEndsLabel(season(soon))).toBe('Season ends in 3h')
     expect(seasonEndsLabel(null)).toBe('Season in progress')
+  })
+
+  // The featured hero's pill names the season, per `12a`. Players read Clash
+  // Royale season numbers, never Drop's internal ids, so a season without a
+  // resolved number falls back to the sentence rather than guessing one.
+  it('names the season and its clock in the hero pill', () => {
+    const future = new Date(Date.now() + (6 * 86_400_000 + 4 * 3_600_000 + 30 * 60_000)).toISOString()
+    const numbered = { ...season(future), crSeasonId: 135 } as Season
+    expect(seasonPillLabel(numbered)).toBe('Season 135 · 6d 04h')
+    expect(seasonPillLabel(season(future))).toBe('Season ends in 6d 04h')
+    expect(seasonPillLabel(null)).toBe('Season in progress')
+    const done = { ...season(new Date(Date.now() - 1000).toISOString()), crSeasonId: 135 } as Season
+    expect(seasonPillLabel(done)).toBe('Season ending')
   })
 })
 

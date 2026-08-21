@@ -75,7 +75,7 @@ export default function Home() {
         <HomeRow
           tone="drill"
           name="Practice"
-          meta="Card knowledge"
+          meta="Card knowledge · no clock"
           visual={<ModeIcon mode="practice" size={46} />}
           onClick={() => navigate('/practice')}
         />

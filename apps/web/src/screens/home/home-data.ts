@@ -52,17 +52,32 @@ export function surgeSeasonCallout(
   return { title: `Get ${gapLabel(gap)} faster to take the lead`, detail, leading: false }
 }
 
-// "Season ends in 6d 04h" pill copy. One form, everywhere: the pill is the only
-// place the season clock appears on Play, and hours matter on the last day.
-// Falls back gracefully with no season.
-export function seasonEndsLabel(season: Season | null): string {
-  if (!season) return 'Season in progress'
+// "6d 04h" — the clock alone. One form, everywhere: hours matter on the last
+// day, so they are never dropped. Returns null when there is no clock to state.
+function seasonClock(season: Season | null): string | null {
+  if (!season) return null
   const ms = new Date(season.endsAt).getTime() - Date.now()
-  if (ms <= 0) return 'Season ending'
+  if (ms <= 0) return null
   const days = Math.floor(ms / 86_400_000)
   const hours = Math.floor((ms % 86_400_000) / 3_600_000)
-  if (days >= 1) return `Season ends in ${days}d ${String(hours).padStart(2, '0')}h`
-  return `Season ends in ${hours}h`
+  return days >= 1 ? `${days}d ${String(hours).padStart(2, '0')}h` : `${hours}h`
+}
+
+// "Season ends in 6d 04h" — the clock said in a sentence. Used where something
+// else already owns the pill's subject, so the season cannot lead.
+export function seasonEndsLabel(season: Season | null): string {
+  if (!season) return 'Season in progress'
+  const clock = seasonClock(season)
+  return clock ? `Season ends in ${clock}` : 'Season ending'
+}
+
+// "Season 135 · 6d 04h" — the featured hero's pill. Players read Clash Royale
+// season numbers, never Drop's internal ids, so this names the number and falls
+// back to the sentence form rather than guessing one that isn't there.
+export function seasonPillLabel(season: Season | null): string {
+  const clock = seasonClock(season)
+  if (!season || !clock || !season.crSeasonId) return seasonEndsLabel(season)
+  return `Season ${season.crSeasonId} · ${clock}`
 }
 
 function mergedBestScores(season: Season | null): Partial<Record<GameMode, number>> {

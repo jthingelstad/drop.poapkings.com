@@ -14,15 +14,16 @@ import { isReducedMotionEnabled } from '../../lib/motion'
 import { shareDrop } from '../../lib/share-run'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
-import { seasonEndsLabel, type HomeData } from './home-data'
+import { seasonEndsLabel, seasonPillLabel, type HomeData } from './home-data'
 
 const HERO_SLIDE_COUNT = 3
 const HERO_ROTATION_MS = 10_000
 const FREE_PASS_MODE = 'surge' as const
 
-// The season pill is the only place the season clock appears on Play, and hours
-// matter on the last day, so it always reads "6d 04h". The hours used to be a
-// prop only the deleted desktop home passed; it is now simply the form.
+// The season pill names the season and its clock — "Season 135 · 6d 04h" — and
+// hours are never dropped, because they are what matters on the last day. The
+// Free Pass slide keeps the sentence form: its pill already leads with "Free
+// Pass", so the season cannot also lead there.
 export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame }) {
   const offlinePlay = offline.value && canPlayOffline(game.mode)
   const offlineDescriptionId = `featured-${game.mode}-offline-description`
@@ -40,7 +41,7 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
       <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">{seasonEndsLabel(data.season)}</span>
+        <span class="ed-pill ed-pill--gold">{seasonPillLabel(data.season)}</span>
         {/* 72 against the rows' 46. The hero's whole claim is that one game is
             bigger than the rows, and 60 was too thin a margin to make it. */}
         <ModeIcon mode={game.mode} size={72} className="ed-hero__art" />
