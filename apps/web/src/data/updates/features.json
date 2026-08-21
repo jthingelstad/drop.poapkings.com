@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "features": [
     {
-      "id": "play-gets-its-hero",
-      "publishedAt": "2026-08-20T19:40:00-05:00",
-      "title": "Play leads with your game and your face",
-      "body": "The Play screen now opens on a full-width hero: the wordmark and your own avatar across the top, the featured game centred under it, and one full-width **PLAY** with your best and rank beneath. The game list lost its boxes and reads as one list. Tap your avatar to jump to [You](/#/profile)."
-    },
-    {
       "id": "keycaps-name-the-keys",
       "publishedAt": "2026-08-20T17:30:00-05:00",
       "title": "Every key names itself on the cap",

@@ -6,9 +6,9 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(67)
+    expect(entries).toHaveLength(66)
     expect(entries[0]).toMatchObject({
-      id: 'play-gets-its-hero',
+      id: 'keycaps-name-the-keys',
       kind: 'feature'
     })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)

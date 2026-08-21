@@ -113,7 +113,10 @@ rank-oriented fields as part of unrelated work.
   links; raw HTML, images, lists, and unsafe protocols fail validation. A coding
   agent adds a `features.json` entry in the same change whenever it ships a
   durable player-visible feature or rule change, and never for maintenance,
-  refactors, tests, dependencies, deploys, telemetry, or private tools. Grow Drop
+  refactors, tests, dependencies, deploys, telemetry, private tools, **or a
+  restyle of a screen that already exists** — a player does not need to be told
+  their app was redrawn, they can see it. The test is whether a player could now
+  do, win, or lose something they could not before. Grow Drop
   audits deployed commits daily for anything missed. Call the Season owns routine,
   source-backed standings and Cleared final game results in `seasons.json` under its
   standing publication contract. Naming the Free Pass recipient, awarding a prize,
