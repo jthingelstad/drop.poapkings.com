@@ -298,6 +298,17 @@ rank-oriented fields as part of unrelated work.
   endless, unranked drill that touches no competitive or progression surface
   (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI; zero
   XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
+- **Play opens on a full-bleed hero panel** (`9a`). The panel runs to the top of
+  the screen and carries the `ELIXIR DROP` wordmark and the player's avatar
+  across its top — the one place identity appears on Play, and a shortcut to You
+  rather than a second profile surface (signed out, the row is just the
+  wordmark). Inside it: the season pill (`Season 135 · 6d 04h`, lavender — gold
+  belongs to PLAY alone here), 72px mode art, the name, one **full-width PLAY**
+  with no glyph, and `Your best … │ Rank …` beneath it as a footnote to the
+  button. Dots only, no chevrons. Game rows are a flat list with hairline
+  separators, not a stack of cards. **On desktop the hero topbar is hidden**:
+  `12a` keeps the wordmark and the player in the left rail, and the 34px it
+  returns is what keeps the arena on one screen.
 - **Home lists every game and features one a day.** `home-games.ts` holds all
   five ranked games in a fixed order that never changes — a player looking for
   Survival finds it in the same place every day. The first hero slide promotes

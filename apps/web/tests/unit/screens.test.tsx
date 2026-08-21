@@ -607,7 +607,9 @@ describe('Home', () => {
     expect(html.indexOf('>Games</span>')).toBeLessThan(html.indexOf('ed-grow__name">Practice</strong>'))
     expect(html.match(/ed-grow ed-grow--ranked/g)).toHaveLength(4)
     expect(html).not.toContain('Board →')
-    expect(html).toContain('> PLAY</span>')
+    // Full-width, and the word alone — `9a` draws no glyph on the hero button.
+    expect(html).toContain('<span class="tap-face">PLAY</span>')
+    expect(html).toContain('ed-hero__play')
     expect(html).not.toContain('Ranked runs are played on your phone')
   })
 

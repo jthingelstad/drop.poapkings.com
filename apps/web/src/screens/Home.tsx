@@ -92,7 +92,10 @@ export default function Home() {
       {rankedSection}
       {practiceSection}
 
+      {/* A rule and a hollow mark, not a banner: it is a standing fact about the
+          app, so it sits at the foot of the list rather than interrupting it. */}
       <p class="ed-home__ready">
+        <span class="ed-home__ready-mark" aria-hidden="true" />
         {offline.value ? 'You are offline but ready to play' : 'Games are available to play offline'}
       </p>
 

@@ -6,6 +6,8 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
+import PlayerAvatar from '../../components/PlayerAvatar'
+import { player } from '../../lib/account'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
@@ -38,10 +40,8 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
         <span class="ed-cell-drop" style={{ left: '90%', animationDelay: '1.6s' }} />
         <span class="ed-cell-drop" style={{ left: '70%', animationDelay: '2.6s' }} />
       </span>
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">{seasonPillLabel(data.season)}</span>
+        <span class="ed-pill ed-pill--season">{seasonPillLabel(data.season)}</span>
         {/* 72 against the rows' 46. The hero's whole claim is that one game is
             bigger than the rows, and 60 was too thin a margin to make it. */}
         <ModeIcon mode={game.mode} size={72} className="ed-hero__art" />
@@ -51,30 +51,33 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
           {game.name.toLocaleUpperCase()}
         </div>
         <p class="ed-hero__desc">{game.desc}</p>
-        <div class="ed-hero__cta">
-          <button
-            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-            aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
-            onClick={(e) => {
-              tapFxFrom(e)
-              navigate(game.path)
-            }}
-          >
-            <span class="tap-face">
-              <Icon name="play" /> PLAY
+        {/* Full-width, and the word alone: the button is the only gold fill on
+            the screen, so it does not also need a glyph to be found. */}
+        <button
+          class="ed-btn ed-btn--gold ed-hero__play tap-fx"
+          aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
+          onClick={(e) => {
+            tapFxFrom(e)
+            navigate(game.path)
+          }}
+        >
+          <span class="tap-face">PLAY</span>
+          {offlinePlay && (
+            <span id={offlineDescriptionId} class="sr-only">
+              {game.name} is available offline. This run will not be saved or ranked.
             </span>
-            {offlinePlay && (
-              <span id={offlineDescriptionId} class="sr-only">
-                {game.name} is available offline. This run will not be saved or ranked.
-              </span>
-            )}
-          </button>
-          <div class="ed-hero__best">
-            <span class="ed-hero__best-label">Best · Rank</span>
-            <strong class="ed-hero__best-val">
-              {bestText} · {rankText}
-            </strong>
-          </div>
+          )}
+        </button>
+        {/* Under the button, not beside it — the result is what the button did
+            last time, so it reads as a footnote to the action, not a rival. */}
+        <div class="ed-hero__result">
+          <span class="ed-hero__result-item">
+            Your best <strong>{bestText}</strong>
+          </span>
+          <span class="ed-hero__result-div" aria-hidden="true" />
+          <span class="ed-hero__result-item">
+            Rank <strong>{rankText}</strong>
+          </span>
         </div>
       </div>
     </section>
@@ -84,13 +87,14 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
 function FreePassHero({ data }: { data: HomeData }) {
   return (
     <section class="ed-hero ed-hero--pass">
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">Free Pass · {seasonEndsLabel(data.season)}</span>
+        <span class="ed-pill ed-pill--season">Free Pass · {seasonEndsLabel(data.season)}</span>
         <ModeIcon mode={FREE_PASS_MODE} size={72} className="ed-hero__art" />
         <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
         <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
+        {/* Two controls share this row, so the primary keeps the standard large
+            size rather than the featured hero's full-width one — at 20px the
+            display face breaks "PLAY SURGE" across two lines. */}
         <div class="ed-hero__cta ed-hero__cta--split">
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
@@ -144,10 +148,8 @@ function ShareHero() {
 
   return (
     <section class="ed-hero ed-hero--share">
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--a" aria-hidden="true" />
-      <span class="ed-drop-shape ed-hero__blob ed-hero__blob--b" aria-hidden="true" />
       <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--gold">Pass it on</span>
+        <span class="ed-pill ed-pill--season">Pass it on</span>
         <Icon name="share" className="ed-hero__feature-icon" />
         <div class="ed-hero__wordmark ed-hero__wordmark--share">BRING A FRIEND</div>
         <p class="ed-hero__desc">
@@ -155,7 +157,7 @@ function ShareHero() {
         </p>
         <div class="ed-hero__cta">
           <button
-            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+            class="ed-btn ed-btn--gold ed-hero__play tap-fx"
             disabled={status === 'sharing'}
             onClick={(event) => {
               tapFxFrom(event)
@@ -196,6 +198,8 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
     else setActive(next)
   }
 
+  const me = player.value
+
   return (
     <div
       class="ed-hero-carousel"
@@ -209,6 +213,25 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false)
       }}
     >
+      <span class="ed-hero-carousel__glow" aria-hidden="true" />
+
+      {/* The app says its own name once, at the top of the screen, and the
+          player's own face sits opposite it — the one place identity appears on
+          Play. It is a shortcut to You, not a second profile surface. A signed-
+          out visitor has no face to show, so the row is just the wordmark. */}
+      <div class="ed-hero-carousel__topbar">
+        <span class="ed-hero-carousel__brand">ELIXIR DROP</span>
+        {me && (
+          <button
+            type="button"
+            class="ed-hero-carousel__me"
+            aria-label={`${me.publicName} — open You`}
+            onClick={() => navigate('/profile')}
+          >
+            <PlayerAvatar favoriteCardId={me.favoriteCardId} size="small" />
+          </button>
+        )}
+      </div>
       {/* The horizontally scrolling track is itself reachable by keyboard. */}
       <div
         class="ed-hero-carousel__track"
@@ -256,25 +279,19 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
           <ShareHero />
         </div>
       </div>
-      <div class="ed-hero-carousel__controls" aria-label="Choose a hero slide">
-        <button type="button" aria-label="Previous slide" onClick={() => select(active - 1)}>
-          <Icon name="chevron-left" />
-        </button>
-        <div class="ed-hero-carousel__dots">
-          {['Featured game', 'Free Pass challenge', 'Share Elixir Drop'].map((label, index) => (
-            <button
-              type="button"
-              class={index === active ? 'is-active' : undefined}
-              aria-label={label}
-              aria-current={index === active ? 'true' : undefined}
-              onClick={() => select(index)}
-              key={label}
-            />
-          ))}
-        </div>
-        <button type="button" aria-label="Next slide" onClick={() => select(active + 1)}>
-          <Icon name="chevron-right" />
-        </button>
+      {/* Dots only. The chevrons existed to frame a bordered card; the panel is
+          full-bleed now, and the track already swipes. */}
+      <div class="ed-hero-carousel__dots" aria-label="Choose a hero slide">
+        {['Featured game', 'Free Pass challenge', 'Share Elixir Drop'].map((label, index) => (
+          <button
+            type="button"
+            class={index === active ? 'is-active' : undefined}
+            aria-label={label}
+            aria-current={index === active ? 'true' : undefined}
+            onClick={() => select(index)}
+            key={label}
+          />
+        ))}
       </div>
     </div>
   )

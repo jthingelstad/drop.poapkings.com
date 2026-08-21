@@ -50,7 +50,11 @@ test(
       SURGE: '67.299s',
       TRADE: '11.800s'
     }
-    await expect(page.locator('.ed-hero__best-val')).toHaveText(`${expectedBest[featured] ?? '—'} · #4`)
+    // `9a` splits the old "BEST · RANK" block into a labelled line under the
+    // button: "Your best 17.4s │ Rank #7".
+    const result = page.locator('.ed-hero__result')
+    await expect(result).toContainText(`Your best ${expectedBest[featured] ?? '—'}`)
+    await expect(result).toContainText('Rank #4')
 
     await testInfo.attach('home.png', {
       body: await page.screenshot({ fullPage: true }),

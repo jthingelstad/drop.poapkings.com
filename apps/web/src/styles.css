@@ -2759,6 +2759,7 @@ html.reduce-motion .ed-pillnav__ind {
   cursor: pointer;
   font-family: var(--font-display);
   color: var(--ink);
+  text-decoration: none;
 }
 .ed-btn--gold {
   color: var(--ink-on-gold);
@@ -2859,11 +2860,20 @@ html.reduce-motion .ed-btn--gold {
 
 /* ── Home (mobile) ──────────────────────────────────────────── */
 
+/* Full-bleed: the hero panel runs edge to edge and to the top of the screen,
+   and the game rows are a flat list whose separators reach both edges. Anything
+   that is neither takes the 18px gutter back for itself. */
 .ed-home {
-  padding: 6px 18px 8px;
+  padding: 0 0 8px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
+}
+.ed-home > .update-banner,
+.ed-home > .ed-installbar,
+.ed-home > .ed-installrow,
+.ed-home > .ed-cause {
+  margin: 8px 18px 0;
 }
 
 .ed-home-intro h1 {
@@ -2934,19 +2944,67 @@ html.reduce-motion .ed-btn--gold {
 
 /* ── Surge hero (shared, sized up on desktop) ───────────────── */
 
+/* A slide, not a card. The panel below owns the background, the padding and the
+   rounding — the gold-bordered floating card is gone, because the hero is the
+   top of the screen now rather than an object sitting on it. */
 .ed-hero {
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
-  border: 1.5px solid var(--gold);
-  padding: 22px 20px 20px;
-  background: linear-gradient(160deg, rgba(72, 37, 148, 0.96), rgba(38, 22, 78, 0.92));
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
 }
+
+/* The hero PANEL: wordmark + avatar, the slide track, then the dots. */
 .ed-hero-carousel {
-  display: grid;
-  gap: 9px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 20px;
+  background: linear-gradient(165deg, rgba(59, 29, 122, 0.9), rgba(11, 9, 32, 0.98) 72%);
+}
+.ed-hero-carousel__glow {
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.42), transparent 68%);
+  pointer-events: none;
+}
+.ed-hero-carousel__topbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+}
+.ed-hero-carousel__brand {
+  font-family: var(--font-display);
+  font-size: 0.81rem;
+  letter-spacing: 0.06em;
+  color: var(--lavender);
+}
+.ed-hero-carousel__me {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+}
+.ed-hero-carousel__me .player-avatar {
+  width: 34px;
+  height: 34px;
+  border-width: 2px;
+  border-color: rgba(245, 200, 76, 0.72);
 }
 .ed-hero-carousel__track {
+  position: relative;
+  z-index: 1;
   display: flex;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -2959,51 +3017,37 @@ html.reduce-motion .ed-btn--gold {
 .ed-hero-carousel__slide {
   flex: 0 0 100%;
   min-width: 0;
-  height: 400px;
+  height: 322px;
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
 .ed-hero-carousel__slide > .ed-hero {
   height: 100%;
 }
-.ed-hero-carousel__controls {
-  display: grid;
-  grid-template-columns: 38px 1fr 38px;
-  align-items: center;
-  gap: 10px;
-}
-.ed-hero-carousel__controls > button {
-  width: 38px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  color: var(--lavender);
-  background: var(--panel);
-  cursor: pointer;
-}
 .ed-hero-carousel__dots {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 8px;
 }
 .ed-hero-carousel__dots button {
-  width: 9px;
-  height: 9px;
+  width: 5px;
+  height: 5px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
-  background: rgba(215, 200, 255, 0.34);
+  border-radius: 3px;
+  background: rgba(215, 200, 255, 0.3);
   cursor: pointer;
 }
 .ed-hero-carousel__dots button.is-active {
-  width: 24px;
+  width: 18px;
   background: var(--gold);
 }
-.ed-hero-carousel__controls button:focus-visible {
+.ed-hero-carousel__dots button:focus-visible {
   outline: 2px solid var(--gold);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 .ed-hero__body {
   position: relative;
@@ -3011,23 +3055,23 @@ html.reduce-motion .ed-btn--gold {
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
+  align-items: center;
+  gap: 9px;
+  padding-top: 14px;
+  text-align: center;
 }
 
 /* The hero emblem sits above the wordmark, the largest mode art we render. */
 .ed-hero__art {
   display: block;
-  margin-bottom: 4px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.6));
 }
 .ed-hero__wordmark {
   font-family: var(--font-display);
-  font-size: 2.9rem;
-  line-height: 0.85;
-  background: linear-gradient(135deg, #fff, var(--lavender));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 2.625rem;
+  line-height: 0.95;
+  color: #f7f4ff;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
 }
 .ed-hero__wordmark--pass,
 .ed-hero__wordmark--share {
@@ -3047,20 +3091,70 @@ html.reduce-motion .ed-btn--gold {
 }
 .ed-hero__desc {
   margin: 0;
-  color: #f0ecff;
-  font-size: 0.86rem;
-  line-height: 1.4;
-  max-width: 230px;
+  color: var(--lavender);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-width: 280px;
 }
+
+/* Full-width and centred: one gold fill on the screen, so it does not compete
+   with anything beside it. */
+.ed-hero__play {
+  width: 100%;
+  margin-top: 5px;
+  padding: 15px;
+  border-radius: 16px;
+  font-size: 1.25rem;
+  box-shadow: 0 8px 22px rgba(201, 140, 16, 0.4);
+}
+
+/* The result of the last run, read as a footnote to the button above it. */
+.ed-hero__result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 2px;
+}
+.ed-hero__result-item {
+  color: var(--faint);
+  font-size: 0.69rem;
+}
+.ed-hero__result-item strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 0.88rem;
+  color: var(--gold);
+}
+.ed-hero__result-div {
+  width: 1px;
+  height: 12px;
+  background: rgba(215, 200, 255, 0.2);
+}
+
+/* The season pill is lavender-on-violet here, not gold: gold is the PLAY
+   button's alone on this screen. */
+.ed-pill--season {
+  color: #e7ddff;
+  background: rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.6);
+}
+
+/* A slide that needs two controls keeps them on one row; the full-width rule
+   below is for the single primary action, not for each half of a pair. */
 .ed-hero__cta {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  margin-top: auto;
+  margin-top: 5px;
 }
 .ed-hero__cta .ed-btn {
   flex: 1;
+}
+.ed-hero__cta .ed-hero__play {
+  width: auto;
+  margin-top: 0;
 }
 .ed-hero__cta--split .ed-btn {
   min-width: 0;
@@ -3130,16 +3224,17 @@ html.reduce-motion .ed-btn--gold {
 .ed-more {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 .ed-more__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  padding: 20px 18px 2px;
 }
 .ed-more__title {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 .ed-more__hint {
   color: var(--muted);
@@ -3416,7 +3511,7 @@ html.reduce-motion .ed-gcard {
 }
 
 .ed-home__foot {
-  padding: 20px 0 8px;
+  padding: 20px 18px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3424,7 +3519,12 @@ html.reduce-motion .ed-gcard {
   text-align: center;
 }
 .ed-home__foot .ed-wordmark {
+  display: block;
   font-size: 1.15rem;
+}
+.ed-home__foot .ed-wordmark__by {
+  display: block;
+  margin-top: 6px;
 }
 
 /* ── Meta pages (About / FAQ / Install) ─────────────────────── */
@@ -7503,17 +7603,22 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
+
+/* A row in a list, not a card in a stack. Five bordered boxes read as five
+   objects to choose between; a list reads as one thing with five entries, which
+   is what a game list is. The separator is the only chrome. */
 .ed-grow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 13px 18px;
+  border: 0;
+  border-top: 1px solid rgba(215, 200, 255, 0.07);
+  border-radius: 0;
+  background: none;
   cursor: pointer;
   text-align: left;
 }
@@ -7554,8 +7659,9 @@ html.reduce-motion .ed-profile-guest__halo::before {
   text-overflow: ellipsis;
 }
 .ed-grow__meta {
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--faint);
 }
 
 .ed-grow__mark {
@@ -7565,7 +7671,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1.5px solid rgba(245, 200, 76, 0.7);
+  border: 1.5px solid rgba(245, 200, 76, 0.45);
   color: var(--gold);
 }
 .ed-grow__mark svg {
@@ -7573,8 +7679,8 @@ html.reduce-motion .ed-profile-guest__halo::before {
   height: 13px;
 }
 .ed-grow--drill .ed-grow__mark {
-  border-color: rgba(139, 92, 246, 0.7);
-  color: #b9a7ff;
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #c4b5fd;
 }
 
 .ed-more__aside {
@@ -7592,10 +7698,23 @@ html.reduce-motion .ed-profile-guest__halo::before {
   letter-spacing: 0.14em;
 }
 .ed-home__ready {
-  margin: 14px 2px 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 18px 0;
+  padding-top: 11px;
+  border-top: 1px solid rgba(215, 200, 255, 0.08);
+  color: #7d739f;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  text-align: left;
+}
+.ed-home__ready-mark {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.2px dotted rgba(215, 200, 255, 0.5);
 }
 
 /* Offline, the arena bar greys: it shows a last-known standing, not a live one. */
@@ -7978,22 +8097,30 @@ html.reduce-motion .ed-profile-guest__halo::before {
     width: max-content;
     margin: 0 0 2px;
   }
+
+  /* `12a` keeps the wordmark and the player in the LEFT RAIL on desktop, so the
+     hero's own topbar is a mobile thing — the rail already says both, and the
+     34px it returns is what lets the arena stay one screen. */
   .ed-app--desktop .ed-hero-carousel {
-    gap: 6px;
+    padding: 10px 14px 12px;
+  }
+  .ed-app--desktop .ed-hero-carousel__topbar {
+    display: none;
   }
   .ed-app--desktop .ed-hero-carousel__slide {
-    height: 222px;
+    height: 214px;
   }
-  .ed-app--desktop .ed-hero {
-    padding: 15px 18px;
+  .ed-app--desktop .ed-hero-carousel__dots {
+    margin-top: 5px;
   }
   .ed-app--desktop .ed-hero__body {
-    gap: 7px;
+    gap: 6px;
+    padding-top: 2px;
   }
   .ed-app--desktop .ed-hero__art {
     width: 46px !important;
     height: 46px !important;
-    margin-bottom: 0;
+    filter: none;
   }
   .ed-app--desktop .ed-hero__feature-icon {
     width: 46px;
@@ -8001,11 +8128,17 @@ html.reduce-motion .ed-profile-guest__halo::before {
     font-size: 1.45rem;
   }
   .ed-app--desktop .ed-hero__wordmark {
-    font-size: 2.35rem;
+    font-size: 2.05rem;
+  }
+
+  /* Long names still need their own step here: without this the desktop rule
+     above out-specifies `--long` and "HIGHER / LOWER" breaks across two lines. */
+  .ed-app--desktop .ed-hero__wordmark--long {
+    font-size: 1.6rem;
   }
   .ed-app--desktop .ed-hero__wordmark--pass,
   .ed-app--desktop .ed-hero__wordmark--share {
-    font-size: 1.9rem;
+    font-size: 1.7rem;
   }
   .ed-app--desktop .ed-hero__desc {
     max-width: 370px;
@@ -8019,12 +8152,13 @@ html.reduce-motion .ed-profile-guest__halo::before {
     min-height: 42px;
     padding-block: 8px;
   }
-  .ed-app--desktop .ed-hero-carousel__controls {
-    grid-template-columns: 34px 1fr 34px;
+  .ed-app--desktop .ed-hero__play {
+    margin-top: 2px;
+    padding: 10px;
+    font-size: 1.05rem;
   }
-  .ed-app--desktop .ed-hero-carousel__controls > button {
-    width: 34px;
-    height: 30px;
+  .ed-app--desktop .ed-hero__result {
+    margin-top: 0;
   }
   .ed-app--desktop .ed-more {
     gap: 6px;
