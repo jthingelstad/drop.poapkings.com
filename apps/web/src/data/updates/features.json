@@ -2,6 +2,18 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "updates-rss-feed",
+      "publishedAt": "2026-08-21T07:04:00-05:00",
+      "title": "Drop updates can follow you out of the arena",
+      "body": "Features, season calls, and **POAP KINGS** messages now share one RSS feed, so every new card can land in your reader. [Subscribe to the feed](/feed.xml)."
+    },
+    {
+      "id": "unread-updates-open-on-arrival",
+      "publishedAt": "2026-08-21T07:03:00-05:00",
+      "title": "Unread updates deal themselves face-up",
+      "body": "Open Updates and every fresh card is already expanded, so the news you have not seen is ready to read. Older cards stay tucked away until you tap them."
+    },
+    {
       "id": "keycaps-name-the-keys",
       "publishedAt": "2026-08-20T17:30:00-05:00",
       "title": "Every key names itself on the cap",

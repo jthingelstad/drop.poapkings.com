@@ -783,7 +783,10 @@ function UpdatesScope() {
 }
 
 function UpdateRow({ entry, unread }: { entry: UpdateEntry; unread: boolean }) {
-  const open = useSignal(false)
+  // Capture the unread state from the first render. Opening the scope stamps the
+  // account read time immediately, but a fresh card should stay face-up for this
+  // visit even after that response clears its unread dot.
+  const open = useSignal(unread)
   const dateLabel = new Date(entry.publishedAt).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',

@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import preact from '@preact/preset-vite'
 import { execSync } from 'node:child_process'
-import { renderStaticPage, STATIC_PAGE_SLUGS } from './scripts/static-pages.ts'
+import { renderStaticPage, renderUpdatesFeed, STATIC_PAGE_SLUGS } from './scripts/static-pages.ts'
 
 function runGit(command: string): string | undefined {
   try {
@@ -51,6 +51,13 @@ function staticPagesPlugin(): Plugin {
       server.middlewares.use((request, response, next) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') return next()
         const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+        if (pathname === '/feed.xml') {
+          const source = renderUpdatesFeed()
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'application/rss+xml; charset=utf-8')
+          response.end(request.method === 'HEAD' ? undefined : source)
+          return
+        }
         const slug = paths.get(pathname.endsWith('/') ? pathname : `${pathname}/`)
         if (!slug) return next()
         const source = renderStaticPage(slug)
@@ -63,6 +70,7 @@ function staticPagesPlugin(): Plugin {
       for (const slug of STATIC_PAGE_SLUGS) {
         this.emitFile({ type: 'asset', fileName: `${slug}/index.html`, source: renderStaticPage(slug) })
       }
+      this.emitFile({ type: 'asset', fileName: 'feed.xml', source: renderUpdatesFeed() })
     }
   }
 }

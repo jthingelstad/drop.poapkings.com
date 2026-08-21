@@ -7,7 +7,10 @@ import {
   isDesktopViewport,
   test,
   testApiBaseUrl,
-  testApiRoute
+  testApiRoute,
+  testBadges,
+  testPlayer,
+  testRecentRuns
 } from './fixtures'
 
 test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({ page }) => {
@@ -52,13 +55,43 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
   await expect(page.locator('.ed-account')).toContainText('Sign out')
 })
 
-test('Updates renders one Markdown paragraph and links to the public history', async ({ page }, testInfo) => {
+test('Updates opens unread cards and links Markdown to the public history', async ({ page }, testInfo) => {
+  let currentPlayer = { ...testPlayer, lastOpenedUpdates: '2026-08-20T17:25:00-05:00' }
+  let markedRead = false
+  await page.route(testApiRoute, async (route) => {
+    const request = route.request()
+    if (new URL(request.url()).pathname !== '/me') return route.fallback()
+    if (request.method() === 'PATCH') {
+      markedRead = true
+      currentPlayer = { ...currentPlayer, lastOpenedUpdates: '2026-08-21T12:05:00.000Z' }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: currentPlayer })
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ player: currentPlayer, recentRuns: testRecentRuns, badges: { badges: testBadges } })
+    })
+  })
+
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Updates' }).click()
 
-  const newest = page.getByRole('button', { name: /Updates, one card at a time/ })
-  await newest.click()
-  const body = newest.locator('xpath=following-sibling::*[1]')
+  const unread = page.getByRole('button', { name: /Drop updates can follow you out of the arena/ })
+  const alreadyRead = page.getByRole('button', { name: /Shared runs show what each answer cost/ })
+  await expect(unread).toHaveAttribute('aria-expanded', 'true')
+  await expect(alreadyRead).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(() => markedRead).toBe(true)
+  await expect(unread).toHaveAttribute('aria-expanded', 'true')
+
+  const message = page.getByRole('button', { name: /Updates, one card at a time/ })
+  await expect(message).toHaveAttribute('aria-expanded', 'false')
+  await message.click()
+  const body = message.locator('xpath=following-sibling::*[1]')
   await expect(body).toContainText('POAP KINGS')
   await expect(body.locator('strong')).toHaveText('POAP KINGS')
   await testInfo.attach('updates-feed.png', {
@@ -70,6 +103,7 @@ test('Updates renders one Markdown paragraph and links to the public history', a
   await expect(page).toHaveURL(/\/updates\/$/)
   await expect(page.getByRole('heading', { name: 'Elixir Drop Updates' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Your battle name found more personality' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Follow via RSS' })).toHaveAttribute('href', '/feed.xml')
   await testInfo.attach('updates-archive.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'

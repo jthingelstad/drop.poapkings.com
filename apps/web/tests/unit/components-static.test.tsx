@@ -211,6 +211,9 @@ describe('standalone pages', () => {
       const html = renderStaticPage(slug)
       expect(html).toContain('<!doctype html>')
       expect(html).toContain(`<link rel="canonical" href="https://drop.poapkings.com/${slug}/">`)
+      expect(html).toContain(
+        '<link rel="alternate" type="application/rss+xml" title="Elixir Drop Updates" href="https://drop.poapkings.com/feed.xml">'
+      )
       expect(html).toContain('<h1>')
       expect(html).toContain('static-sections')
       expect(html).toContain('Run by')
@@ -236,8 +239,11 @@ describe('standalone pages', () => {
     expect(fairPlay).toContain('Practice remains available')
     expect(fairPlay).toContain('Elixir%20Drop%20Fair%20Play%20re-review')
     expect(renderStaticPage('privacy')).toContain('Retention and deletion')
-    expect(renderStaticPage('updates')).toContain('Updates, one card at a time')
-    expect(renderStaticPage('updates')).toContain('<strong>POAP KINGS</strong>')
+    const updates = renderStaticPage('updates')
+    expect(updates).toContain('Updates, one card at a time')
+    expect(updates).toContain('<strong>POAP KINGS</strong>')
+    expect(updates).toContain('<a href="/feed.xml">Follow via RSS</a>')
+    expect(updates).toContain('<section id="updates-rss-feed"')
     expect(renderStaticPage('install')).toContain('Add to Home Screen')
     expect(renderStaticPage('install')).toContain('never uploaded later')
   })

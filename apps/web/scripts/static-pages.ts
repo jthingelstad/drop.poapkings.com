@@ -106,17 +106,58 @@ function updatesBody(): string {
   if (updates.length === 0) {
     return pageSections([section('The arena is quiet', paragraph('The first player update will appear here.'), true)])
   }
-  return `<p class="static-intro">New features, season winners, and player messages—one clear update at a time.</p>
+  return `<p class="static-intro">New features, season winners, and player messages—one clear update at a time. <a href="/feed.xml">Follow via RSS</a>.</p>
   ${pageSections(
     updates.map((entry) =>
       section(
         entry.title,
         `<p class="static-update-stamp"><span>${updateKindLabel(entry.kind)}</span>${escapeHtml(
           dateLabel(entry.publishedAt)
-        )}</p>${paragraph(renderUpdateMarkdownHtml(entry.body))}`
+        )}</p>${paragraph(renderUpdateMarkdownHtml(entry.body))}`,
+        false,
+        entry.id
       )
     )
   )}`
+}
+
+function absoluteUpdateHtml(body: string): string {
+  return renderUpdateMarkdownHtml(body)
+    .replaceAll('href="/', `href="${SITE_URL}/`)
+    .replaceAll('href="#', `href="${SITE_URL}/updates/#`)
+}
+
+export function renderUpdatesFeed(): string {
+  const updates = editorialEntries()
+  const lastBuildDate = updates[0]
+    ? `\n    <lastBuildDate>${new Date(updates[0].publishedAt).toUTCString()}</lastBuildDate>`
+    : ''
+  const items = updates
+    .map((entry) => {
+      const permalink = `${SITE_URL}/updates/#${encodeURIComponent(entry.id)}`
+      return `    <item>
+      <title>${escapeHtml(entry.title)}</title>
+      <link>${escapeHtml(permalink)}</link>
+      <guid isPermaLink="true">${escapeHtml(permalink)}</guid>
+      <pubDate>${new Date(entry.publishedAt).toUTCString()}</pubDate>
+      <category>${updateKindLabel(entry.kind)}</category>
+      <description>${escapeHtml(absoluteUpdateHtml(entry.body))}</description>
+    </item>`
+    })
+    .join('\n')
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Elixir Drop Updates</title>
+    <link>${SITE_URL}/updates/</link>
+    <description>New Elixir Drop player features, season results, and messages from POAP KINGS.</description>
+    <language>en-us</language>${lastBuildDate}
+    <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml" />
+${items}
+  </channel>
+</rss>
+`
 }
 
 const ABOUT_BODY = pageSections([
@@ -757,6 +798,7 @@ export function renderStaticPage(slug: StaticPageSlug): string {
   <title>${escapeHtml(page.title)} | Elixir Drop</title>
   <meta name="description" content="${escapeHtml(page.description)}">
   <link rel="canonical" href="${canonical}">
+  <link rel="alternate" type="application/rss+xml" title="Elixir Drop Updates" href="${SITE_URL}/feed.xml">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Elixir Drop">
   <meta property="og:title" content="${escapeHtml(page.title)} | Elixir Drop">

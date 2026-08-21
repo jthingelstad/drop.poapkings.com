@@ -24,6 +24,10 @@ test('all text pages are standalone, canonical, and responsive', { tag: '@deploy
       'href',
       `https://drop.poapkings.com/${meta.slug}/`
     )
+    await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute(
+      'href',
+      'https://drop.poapkings.com/feed.xml'
+    )
     await expect(page.locator('.static-section')).not.toHaveCount(0)
     await expect(page.locator('.ed-app')).toHaveCount(0)
     await expect(page.locator('html')).not.toHaveAttribute('data-vite-error-overlay')
@@ -34,6 +38,21 @@ test('all text pages are standalone, canonical, and responsive', { tag: '@deploy
       false
     )
   }
+})
+
+test('the combined player-updates RSS feed is generated and discoverable', async ({ page, request }) => {
+  await page.goto('/')
+  await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/feed.xml')
+
+  const response = await request.get('/feed.xml')
+  expect(response.ok()).toBe(true)
+  expect(response.headers()['content-type']).toContain('application/rss+xml')
+  const feed = await response.text()
+  expect(feed).toContain('<rss version="2.0"')
+  expect(feed).toContain('<category>Feature</category>')
+  expect(feed).toContain('<category>Season</category>')
+  expect(feed).toContain('<category>Message</category>')
+  expect(feed).toContain('https://drop.poapkings.com/updates/#updates-rss-feed')
 })
 
 test('legacy hash text routes redirect to their real pages', async ({ page }) => {

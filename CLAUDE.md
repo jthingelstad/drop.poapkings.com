@@ -129,7 +129,9 @@ rank-oriented fields as part of unrelated work.
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
-  Fair Play, About, FAQ, Privacy, and Updates pages. The card reference reads
+  Fair Play, About, FAQ, Privacy, and Updates pages. It also emits `/feed.xml`,
+  an RSS 2.0 projection of the same three player-update streams, with stable
+  links to anchored entries in `/updates/`. The card reference reads
   `packages/game-data/cards.json`; the badge guide reads `BADGE_LIST` and must
   never publish hidden badge identities or requirements. Keep only canonical
   content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,
