@@ -27,7 +27,8 @@ describe('favorite-card identity', () => {
     player.value = {
       ...basePlayer,
       publicName: 'Knight Main',
-      favoriteCardId: 26000000
+      favoriteCardId: 26000000,
+      accountTags: ['developer']
     }
 
     const html = await renderToStringAsync(<Profile />)
@@ -35,6 +36,8 @@ describe('favorite-card identity', () => {
     expect(html).toContain('Knight Main')
     expect(html).toContain('Knight · Player Card')
     expect(html).toContain('Knight favorite card')
+    expect(html).toContain('Elixir Drop developer')
+    expect(html).toContain('DEV')
     // The profile view offers an Edit action into the identity editor.
     expect(html).toContain('ed-profile__edit')
   })

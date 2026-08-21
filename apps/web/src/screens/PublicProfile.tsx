@@ -13,6 +13,7 @@ import { playerIdFromRoute, publicPlayerPreview } from '../lib/public-player'
 import { royaleApiClanUrl, royaleApiPlayerUrl } from '../lib/royale-api'
 import { back, navigate, route } from '../lib/router'
 import { badgeViews, earnedCount, type BadgeState } from '../lib/badges'
+import AccountTags from '../components/AccountTags'
 
 export default function PublicProfile() {
   const playerId = playerIdFromRoute(route.value)
@@ -84,7 +85,10 @@ export default function PublicProfile() {
         <div class="ed-profile__banner-row">
           <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
           <div class="ed-profile__ident">
-            <h1 class="ed-profile__name">{current.publicName}</h1>
+            <h1 class="ed-profile__name">
+              <span>{current.publicName}</span>
+              <AccountTags tags={current.accountTags} />
+            </h1>
             <div class="ed-profile__card">{favorite ? `${favorite.name} · Player Card` : 'Drop Player'}</div>
             <div class="ed-profile__reference" aria-label={`Player tag ${playerReference(current.id)}`}>
               Player {playerReference(current.id)}

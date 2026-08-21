@@ -430,12 +430,20 @@ export interface PodiumFinalizeResult {
   finalizedAt: string;
 }
 
+// Public account tags describe a player's relationship to Drop. They are
+// server-owned identity metadata, never progression, authorization, or a Clash
+// Royale player tag. Keep this tuple as the shared allowlist as new tag kinds
+// are deliberately introduced.
+export const ACCOUNT_TAGS = ["developer"] as const;
+export type AccountTag = (typeof ACCOUNT_TAGS)[number];
+
 export interface Player {
   id: string;
   email: string;
   publicName?: string;
   favoriteCardId?: number;
   playerTag?: string;
+  accountTags?: AccountTag[];
   clashRoyale?: ClashRoyaleProfile;
   totalGames: number;
   // Lifetime Player XP (event-awarded, only climbs); drives the arena.

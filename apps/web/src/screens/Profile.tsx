@@ -6,6 +6,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import ScopeRow from '../components/ScopeRow'
 import CauseChip from '../components/CauseChip'
+import AccountTags from '../components/AccountTags'
 import ReviewStatusMark from '../components/ReviewStatus'
 import BadgeMedallion from '../components/BadgeMedallion'
 import {
@@ -410,7 +411,10 @@ export default function Profile() {
       <header class="ed-you__identity">
         <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
         <div class="ed-you__ident-text">
-          <div class="ed-you__name">{current.publicName || 'Choose a favorite card'}</div>
+          <div class="ed-you__name">
+            <span>{current.publicName || 'Choose a favorite card'}</span>
+            <AccountTags tags={current.accountTags} />
+          </div>
           <div class="ed-you__ident-line">
             {[currentCard ? `${currentCard.name} · Player Card` : 'Pick a Player Card', playerReference(current.id)]
               .filter(Boolean)

@@ -7,8 +7,8 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(72)
-    expect(entries[0]).toMatchObject({ id: 'community-badges-enter-the-arena', kind: 'feature' })
+    expect(entries).toHaveLength(73)
+    expect(entries[0]).toMatchObject({ id: 'developer-tags-mark-the-builders', kind: 'feature' })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(
       entries.every(

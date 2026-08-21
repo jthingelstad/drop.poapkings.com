@@ -5171,8 +5171,15 @@ html.reduce-motion .ed-duel__card {
 .ed-lbrow__player {
   min-width: 0;
 }
+.ed-lbrow__name-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
 .ed-lbrow__name {
   display: block;
+  min-width: 0;
   font-weight: 700;
   font-size: 0.82rem;
   overflow: hidden;
@@ -5183,6 +5190,39 @@ html.reduce-motion .ed-duel__card {
   color: var(--gold);
   font-style: normal;
   font-size: 0.72rem;
+}
+
+/* Public account tags are identity labels, not badges or progression. The
+   compact gold plate is beveled like arena hardware, with a thin purple rim
+   that keeps it unmistakably in Drop's own palette. */
+.ed-account-tags {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+.ed-account-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16px;
+  padding: 1px 5px 0;
+  border: 1px solid var(--gold-lite);
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--gold-shine) 0%, var(--gold) 42%, var(--gold2) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -2px 0 rgba(42, 21, 0, 0.24),
+    0 0 0 1px rgba(109, 40, 217, 0.56),
+    0 3px 9px rgba(109, 40, 217, 0.34);
+  color: var(--ink-on-gold);
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 rgba(255, 246, 213, 0.72);
+  white-space: nowrap;
 }
 .ed-lbrow__meta {
   display: flex;
@@ -5600,8 +5640,18 @@ html.reduce-motion .ed-profile-guest__halo::before {
   min-width: 0;
 }
 .ed-profile__name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
   font-family: var(--font-display);
   font-size: 1.35rem;
+}
+.ed-profile__name .ed-account-tag,
+.ed-you__name .ed-account-tag {
+  min-height: 18px;
+  padding: 2px 6px 1px;
+  font-size: 0.62rem;
 }
 .ed-profile__card {
   color: var(--lavender-2);
@@ -7210,6 +7260,10 @@ html.reduce-motion .ed-profile-guest__halo::before {
   min-width: 0;
 }
 .ed-you__name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 800;

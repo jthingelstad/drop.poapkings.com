@@ -15,6 +15,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(page.locator('.ed-ladder__periods')).toContainText('Season 134')
   await expect(page.locator('.ed-ladder__periods')).not.toContainText('Season 133')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-lbrow').first().getByLabel('Elixir Drop developer')).toHaveText('DEV')
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
 
@@ -85,6 +86,7 @@ test('leaderboard and recent-run entries open the selected public player', async
   await page.getByRole('button', { name: "View Royal Ghosted's profile" }).click()
   await expect(page).toHaveURL(/#\/players\/player-2$/)
   await expect(page.getByRole('heading', { name: 'Royal Ghosted' })).toBeVisible()
+  await expect(page.getByLabel('Elixir Drop developer')).toHaveText('DEV')
   await expect(page.locator('.ed-public-profile')).not.toContainText(testPlayer.email)
   await expect(page.locator('.ed-public-profile')).not.toContainText('Edit')
 

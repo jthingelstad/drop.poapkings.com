@@ -509,6 +509,11 @@ boundary; no control-room or CR bridge surface writes XP directly.
 profile, where only earned medallions are shown. Its identity projection also
 includes the unverified Clash player tag plus CR name and clan when the shared
 snapshot has them; account age and collection context remain owner-only.
+Public identity responses may also include `accountTags`, an allowlisted set of
+server-owned labels keyed by permanent public player ID. The initial
+`developer` tag renders as `DEV` beside Jamie and Tyler on owner profiles,
+public profiles, and every leaderboard scope. Account tags are not badges, do
+not award XP, do not affect ranking, and must never be used for authorization.
 Missing or stale counters take
 the same history-backed rebuild path, so another player never sees an empty wall
 merely because the owner has not opened Profile since badges shipped.

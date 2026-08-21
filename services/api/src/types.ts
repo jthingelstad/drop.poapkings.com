@@ -4,6 +4,7 @@ export {
   type RunChallenge,
 } from "@elixir-drop/contracts";
 import type {
+  AccountTag,
   ClashRoyaleAccountAge,
   ClashRoyaleCard,
   ClashRoyaleClan,
@@ -129,6 +130,7 @@ export interface PublicProfile {
   publicName: string;
   favoriteCardId?: number;
   playerTag?: string;
+  accountTags?: AccountTag[];
   // Public profiles expose identity only; owner-only CR context such as
   // account age and collection data stays on GET /me.
   clashRoyale?: Pick<ClashRoyaleProfile, "tag" | "status" | "name" | "clan">;

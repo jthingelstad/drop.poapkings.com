@@ -21,6 +21,7 @@ import { boardModeFromRoute } from '../lib/game-routes'
 import { playerProfilePath } from '../lib/public-player'
 import { CLAN_INVITE_URL } from '../lib/links'
 import CauseChip from '../components/CauseChip'
+import AccountTags from '../components/AccountTags'
 import { offline } from '../lib/api-availability'
 
 // The Ladder is one page with three scopes — Boards, Badges, Clan — under a
@@ -87,10 +88,13 @@ function LeaderboardRow({
         <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{rank}</span>
         <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
         <span class="ed-lbrow__player">
-          <strong class="ed-lbrow__name">
-            {entry.player.publicName}
-            {isPlayer && <em> You</em>}
-          </strong>
+          <span class="ed-lbrow__name-line">
+            <strong class="ed-lbrow__name">
+              {entry.player.publicName}
+              {isPlayer && <em> You</em>}
+            </strong>
+            <AccountTags tags={entry.player.accountTags} />
+          </span>
           {awaiting ? (
             <small class="ed-lbrow__meta ed-lbrow__meta--awaiting">Awaiting the referee</small>
           ) : (

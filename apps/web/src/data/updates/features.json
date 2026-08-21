@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "developer-tags-mark-the-builders",
+      "publishedAt": "2026-08-21T18:15:00-05:00",
+      "title": "The builders get a battle flag",
+      "body": "A new **DEV** tag now rides beside Drop's developers on every board and player profile. It marks the crew building the game—no badge unlock, no XP, just the people behind the arena."
+    },
+    {
       "id": "community-badges-enter-the-arena",
       "publishedAt": "2026-08-21T17:45:00-05:00",
       "title": "Three community badges enter the arena",

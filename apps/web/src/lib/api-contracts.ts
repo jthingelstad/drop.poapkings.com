@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { GAME_MODES } from '@elixir-drop/contracts'
+import { ACCOUNT_TAGS, GAME_MODES } from '@elixir-drop/contracts'
 
 // Drop ships a strict CSP without unsafe-eval. Disable Zod's optional JIT probe
 // so Firefox does not report a security-policy violation for every API parse.
@@ -10,6 +10,7 @@ const isoDateTime = z.string().datetime({ offset: true })
 const safeInteger = z.number().int().safe()
 const nonNegativeInteger = safeInteger.nonnegative()
 const cardId = safeInteger.positive()
+const accountTagSchema = z.enum(ACCOUNT_TAGS)
 
 export const apiConfigSchema = z.object({
   apiBaseUrl: z.string()
@@ -81,6 +82,7 @@ export const playerSchema = z.object({
   publicName: z.optional(nonEmptyString),
   favoriteCardId: z.optional(cardId),
   playerTag: z.optional(nonEmptyString),
+  accountTags: z.optional(z.array(accountTagSchema)),
   clashRoyale: z.optional(clashRoyaleProfileSchema),
   totalGames: nonNegativeInteger,
   // Absent on responses from before XP shipped — default to 0.
@@ -311,6 +313,7 @@ export const publicPlayerSummarySchema = z.object({
   publicName: nonEmptyString,
   favoriteCardId: z.optional(cardId),
   playerTag: z.optional(nonEmptyString),
+  accountTags: z.optional(z.array(accountTagSchema)),
   totalGames: nonNegativeInteger,
   xp: nonNegativeInteger.default(0),
   level: safeInteger.positive()

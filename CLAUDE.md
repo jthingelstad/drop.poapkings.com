@@ -386,6 +386,12 @@ rank-oriented fields as part of unrelated work.
   `apps/web/src/data/starRanks.ts` (thresholds scaled to XP), shown in the nav
   player block and profile. Leaderboards stay ranked purely on speed. The old
   games-derived "Level" is retired.
+- **Account tags are identity, never progression or authority.** The API maps
+  permanent public player IDs to a shared allowlist of public account tags and
+  projects them onto owner, public-profile, and leaderboard responses. `DEV`
+  marks Drop's developers beside their names; it is not a badge, earns no XP,
+  changes no rank, and grants no API or referee capability. The browser owns the
+  compact Drop-styled label while the server owns who receives it.
 - **The global `GET /stats.trophyRoadGames` counter is site social proof only.**
   Stable launch seed of 592, increments atomically with every server-accepted
   run; surfaced on Home as "games played across Drop". It is NOT the arena/XP

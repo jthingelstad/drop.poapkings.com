@@ -191,6 +191,7 @@ export function leaderboardEntries(mode: GameMode) {
     player: {
       id: entry.id,
       publicName: entry.name,
+      ...(entry.id === 'player-2' ? { accountTags: ['developer' as const] } : {}),
       favoriteCardId: entry.card,
       level: entry.level,
       xp: 1000 - index * 200,

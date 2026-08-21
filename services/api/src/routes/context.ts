@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import { accountTagsForPlayerId } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { publicCrProfile, requestCrProfileRefresh } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
@@ -121,12 +122,14 @@ export function profileResponse(
   crProfile?: CrProfileSnapshot,
   rankedAccess: "allowed" | "restricted" = "allowed",
 ) {
+  const accountTags = accountTagsForPlayerId(profile.playerId);
   return {
     id: profile.playerId,
     email: profile.email,
     publicName: profile.publicName,
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
+    ...(accountTags.length ? { accountTags } : {}),
     ...(profile.playerTag
       ? { clashRoyale: publicCrProfile(profile.playerTag, crProfile) }
       : {}),

@@ -1,4 +1,5 @@
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb";
+import { accountTagsForPlayerId } from "./account-tags.js";
 import { client, profileKey } from "./dynamo.js";
 import { levelForGames } from "./progression.js";
 import type {
@@ -69,11 +70,13 @@ export type PublicProfileSource = Pick<
 
 export function publicProfile(profile: PublicProfileSource): PublicProfile {
   const progress = levelForGames(profile.totalGames);
+  const accountTags = accountTagsForPlayerId(profile.playerId);
   return {
     id: profile.playerId,
     publicName: profile.publicName || "Elixir Player",
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
+    ...(accountTags.length ? { accountTags } : {}),
     totalGames: profile.totalGames,
     xp: profile.xp ?? 0,
     ...progress,
