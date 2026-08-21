@@ -6,10 +6,10 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(66)
+    expect(entries).toHaveLength(67)
     expect(entries[0]).toMatchObject({
-      id: 'keycaps-name-the-keys',
-      kind: 'feature'
+      id: 'season-135-five-board-checkpoint',
+      kind: 'season'
     })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(
