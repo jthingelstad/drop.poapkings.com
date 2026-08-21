@@ -1,4 +1,4 @@
-import { arenaForXp, BADGE_LIST } from "@elixir-drop/contracts";
+import { arenaForXp, BADGE_LIST, badgeRungXp } from "@elixir-drop/contracts";
 import { describe, expect, it } from "vitest";
 import {
   advanceBadges,
@@ -44,12 +44,12 @@ function play(runs: Array<Partial<RunFacts>>): BadgeCounters {
 }
 
 describe("the badge table", () => {
-  it("holds 29 badges, 22 visible and 7 hidden", () => {
-    expect(BADGE_LIST).toHaveLength(29);
+  it("holds 32 badges, 25 visible and 7 hidden", () => {
+    expect(BADGE_LIST).toHaveLength(32);
     expect(BADGE_LIST.filter((badge) => badge.hidden)).toHaveLength(7);
     expect(
       BADGE_LIST.reduce((total, badge) => total + badge.rungs.length, 0),
-    ).toBe(197);
+    ).toBe(212);
   });
 
   it("orders count/best rungs upward and time rungs downward", () => {
@@ -63,6 +63,14 @@ describe("the badge table", () => {
       expect(new Set(rungs).size, `${badge.slug} has duplicate rungs`).toBe(
         rungs.length,
       );
+    }
+  });
+
+  it("pays Herald and Recruiter with the normal visible tier schedule", () => {
+    for (const slug of ["herald", "recruiter"]) {
+      const badge = BADGE_LIST.find((candidate) => candidate.slug === slug)!;
+      expect(badgeRungXp(badge, 0), slug).toBe(5);
+      expect(badgeRungXp(badge, badge.rungs.length - 1), slug).toBe(50);
     }
   });
 });
@@ -156,6 +164,7 @@ describe("advanceBadges", () => {
         correctCards: [26000009, 27000000, 28000000],
         totalGames: 10_000,
         arena: 28,
+        playerTag: "#2PYQ0",
         localHour: 2,
         photoFinish: true,
         fullCup: true,
@@ -461,6 +470,35 @@ describe("recomputeCounters", () => {
     expect(stateOf(counters, "arena-climber").value).toBe(5);
   });
 
+  it("retroactively rebuilds the profile-backed community badges", () => {
+    const counters = recomputeCounters(
+      [],
+      {},
+      {
+        totalGames: 0,
+        xp: 0,
+        playerTag: "#2PYQ0",
+        heraldOpens: 26,
+        recruiterCount: 4,
+      },
+      arenaForXp,
+      "2026-08-21T12:00:00.000Z",
+    );
+
+    expect(stateOf(counters, "battle-tag")).toMatchObject({
+      value: 1,
+      rungIndex: 0,
+    });
+    expect(stateOf(counters, "herald")).toMatchObject({
+      value: 26,
+      rungIndex: 3,
+    });
+    expect(stateOf(counters, "recruiter")).toMatchObject({
+      value: 4,
+      rungIndex: 1,
+    });
+  });
+
   it("rebuilds card knowledge from the stored learning stats", () => {
     const counters = recomputeCounters(
       history,
@@ -623,7 +661,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -684,7 +722,7 @@ describe("recomputeCounters", () => {
     );
 
     expect(migrated).toMatchObject({
-      version: 7,
+      version: 8,
       aux: {
         playedDays: ["2026-08-01", "2026-08-07", "2026-08-21"],
         dayRuns: 1,
@@ -742,7 +780,7 @@ describe("recomputeCounters", () => {
       "2026-08-20T03:30:00.000Z",
     );
 
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     for (const slug of [
       "bridge-read",
       "stormchaser",
@@ -785,6 +823,56 @@ describe("recomputeCounters", () => {
         `${slug} must not backfill`,
       ).toBe(-1);
     }
+  });
+
+  it("keeps Battle Tag after a player later clears their profile tag", () => {
+    const earned = recomputeCounters(
+      [],
+      {},
+      { totalGames: 0, xp: 0, playerTag: "#2PYQ0" },
+      arenaForXp,
+      "2026-08-21T12:00:00.000Z",
+    );
+    const reconciled = reconcileBadgeCounters(
+      earned,
+      [],
+      {},
+      { totalGames: 0, xp: 0 },
+      [],
+      arenaForXp,
+      "2026-08-22T12:00:00.000Z",
+    );
+
+    expect(stateOf(reconciled, "battle-tag")).toMatchObject({
+      value: 1,
+      rungIndex: 0,
+    });
+    expect(reconciled.earned["battle-tag"]).toEqual(
+      earned.earned["battle-tag"],
+    );
+  });
+
+  it("does not revoke Collector when the catalog gains new badges", () => {
+    const stored = emptyCounters();
+    stored.version = 7;
+    stored.values.collector = 1;
+    stored.earned.collector = ["2026-08-20T12:00:00.000Z"];
+
+    const reconciled = reconcileBadgeCounters(
+      stored,
+      [],
+      {},
+      { totalGames: 0, xp: 0 },
+      [],
+      arenaForXp,
+      "2026-08-21T12:00:00.000Z",
+    );
+
+    expect(stateOf(reconciled, "collector")).toMatchObject({
+      value: 1,
+      rungIndex: 0,
+    });
+    expect(reconciled.earned.collector).toEqual(stored.earned.collector);
   });
 
   it("is order-independent: shuffled history yields identical counters", () => {
@@ -877,7 +965,7 @@ describe("recomputeCounters", () => {
       { "full-cup": [excludedAt] },
     );
     expect(reconciled).toMatchObject({
-      version: 7,
+      version: 8,
       refereeReconciled: true,
       refereeDecisionRevision: 1,
     });

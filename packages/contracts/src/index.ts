@@ -573,7 +573,7 @@ export function arenaForXp(xp: number): number {
 // motivating the player who cared most, and rung one can land in a first session
 // while the top rung remains a genuine long-haul target.
 //
-// Three counter kinds cover all 29 badges:
+// Three counter kinds cover all 32 badges:
 //   count — events, only ever climbs;      rung clears at value >= rung
 //   best  — personal best, higher better;  rung clears at value >= rung
 //   time  — personal best in seconds, LOWER better; rung clears at value <= rung
@@ -603,6 +603,7 @@ export type BadgeGroup =
   | "progression"
   | "card-knowledge"
   | "habit"
+  | "community"
   | "hidden";
 
 export interface BadgeDefinition {
@@ -838,6 +839,33 @@ export const BADGES = [
     requirement: "Most games in a single day",
   },
 
+  // ── Community (3). Herald and Recruiter are scaled until their live
+  // counters have enough history to calibrate; Battle Tag is one-time. ──────
+  {
+    slug: "battle-tag",
+    name: "Battle Tag",
+    group: "community",
+    kind: "count",
+    rungs: [1],
+    requirement: "Add a Clash Royale player tag to your profile",
+  },
+  {
+    slug: "herald",
+    name: "Herald",
+    group: "community",
+    kind: "count",
+    rungs: [1, 5, 10, 25, 50, 100, 250, 500],
+    requirement: "Credited visitors across your shared-run links",
+  },
+  {
+    slug: "recruiter",
+    name: "Recruiter",
+    group: "community",
+    kind: "count",
+    rungs: [1, 3, 5, 10, 25, 50],
+    requirement: "New players brought to their first recorded game",
+  },
+
   // ── Hidden — one rung, silhouette until earned (7). Six of the seven are
   // earnable in a single run: they are moments, not grinds. Only Collector is a
   // long game, and it is the only badge that requires all the others. ────────
@@ -961,6 +989,7 @@ export const BADGE_TIER_XP = {
 } as const satisfies Record<Exclude<BadgeTier, "unlit">, number>;
 export const HIDDEN_BADGE_XP = 25;
 export const COLLECTOR_BADGE_XP = 100;
+export const BATTLE_TAG_XP = 100;
 
 export function badgeRungXp(
   definition: BadgeDefinition,
@@ -968,6 +997,7 @@ export function badgeRungXp(
 ): number {
   if (rungIndex < 0 || rungIndex >= definition.rungs.length) return 0;
   if (definition.slug === "collector") return COLLECTOR_BADGE_XP;
+  if (definition.slug === "battle-tag") return BATTLE_TAG_XP;
   if (definition.hidden) return HIDDEN_BADGE_XP;
   const tier = badgeTier(rungIndex, definition.rungs.length);
   return tier === "unlit" ? 0 : BADGE_TIER_XP[tier];

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
+  getProfile: vi.fn(),
   getPublicPlayer: vi.fn(),
   getBadges: vi.fn(),
   getCardStats: vi.fn(),
@@ -18,6 +19,7 @@ const repository = vi.hoisted(() => ({
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getCrProfile = repository.getCrProfile;
+    getProfile = repository.getProfile;
     getPublicPlayer = repository.getPublicPlayer;
     getBadges = repository.getBadges;
     getCardStats = repository.getCardStats;
@@ -74,13 +76,14 @@ describe("GET /players/:id", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(undefined);
     repository.getCardStats.mockResolvedValue({});
     repository.badgeDecisionRevision.mockResolvedValue(undefined);
     repository.listAllRuns.mockResolvedValue([]);
     repository.refereeEvidenceForRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 7,
+      version: 8,
       refereeReconciled: true,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -214,6 +217,9 @@ describe("GET /players/:id", () => {
     });
     expect(body.player.clashRoyale).not.toHaveProperty("accountAge");
     expect(body.player.clashRoyale).not.toHaveProperty("cards");
+    expect(body.badges.badges).toContainEqual(
+      expect.objectContaining({ slug: "battle-tag", rungIndex: 0 }),
+    );
   });
 
   it("does not expose another player's pending or excluded runs", async () => {
@@ -310,7 +316,7 @@ describe("GET /players/:id", () => {
     );
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
-      expect.objectContaining({ version: 7, refereeReconciled: true }),
+      expect.objectContaining({ version: 8, refereeReconciled: true }),
       expect.any(String),
       {
         version: 1,
@@ -419,7 +425,7 @@ describe("GET /players/:id", () => {
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
       expect.objectContaining({
-        version: 7,
+        version: 8,
         refereeReconciled: true,
         refereeDecisionRevision: 2,
       }),

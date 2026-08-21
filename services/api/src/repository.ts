@@ -94,6 +94,9 @@ interface MagicItem {
   // The secret poll id (known only to the requesting client) so a PWA that can't
   // receive the emailed link's browser context can still pick up its session.
   pollId?: string;
+  // Owner of the last valid shared-run link this not-yet-registered email
+  // arrived through. Internal subjects never leave the API boundary.
+  recruiterSub?: string;
 }
 
 interface SessionEnvelope {
@@ -285,6 +288,7 @@ export class Repository {
     email: string,
     expiresAt: number,
     pollId?: string,
+    recruiterSub?: string,
   ): Promise<void> {
     await client.send(
       new PutCommand({
@@ -295,6 +299,7 @@ export class Repository {
           email,
           expiresAt,
           ...(pollId ? { pollId } : {}),
+          ...(recruiterSub ? { recruiterSub } : {}),
         } satisfies MagicItem,
       }),
     );
@@ -350,7 +355,7 @@ export class Repository {
   async peekMagicLink(
     tokenHash: string,
     nowSeconds: number,
-  ): Promise<{ email: string; pollId?: string }> {
+  ): Promise<{ email: string; pollId?: string; recruiterSub?: string }> {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -366,7 +371,11 @@ export class Repository {
         "invalid_magic_link",
       );
     }
-    return { email: item.email, pollId: item.pollId };
+    return {
+      email: item.email,
+      pollId: item.pollId,
+      recruiterSub: item.recruiterSub,
+    };
   }
 
   async consumeMagicLink(
@@ -469,6 +478,95 @@ export class Repository {
       }),
     );
     return result.Item as ProfileItem | undefined;
+  }
+
+  // Bind a newly requested account to the shared-run owner who brought it in.
+  // First valid attribution wins; retries by the same magic link are a no-op.
+  async attachRecruiter(
+    recruitedSub: string,
+    recruiterSub: string,
+  ): Promise<boolean> {
+    if (recruitedSub === recruiterSub) return false;
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: profileKey(recruitedSub),
+          UpdateExpression: "SET recruitedBy = :recruiter",
+          ConditionExpression:
+            "attribute_exists(pk) AND attribute_not_exists(recruitedBy)",
+          ExpressionAttributeValues: { ":recruiter": recruiterSub },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+      const profile = await this.getProfile(recruitedSub);
+      if (profile?.recruitedBy === recruiterSub) return false;
+      return false;
+    }
+  }
+
+  // A recruit becomes real at their first recorded online game, not when an
+  // email is merely entered. The recruited profile is the exact-once marker;
+  // the recruiter counter increments in the same transaction.
+  async creditRecruiter(
+    recruitedSub: string,
+    creditedAt: string,
+  ): Promise<boolean> {
+    const recruited = await this.getProfile(recruitedSub);
+    const recruiterSub = recruited?.recruitedBy;
+    if (!recruiterSub || recruited.recruiterCreditedAt) return false;
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: profileKey(recruitedSub),
+                UpdateExpression:
+                  "SET recruiterCreditedAt = :creditedAt, updatedAt = :creditedAt",
+                ConditionExpression:
+                  "recruitedBy = :recruiter AND attribute_not_exists(recruiterCreditedAt)",
+                ExpressionAttributeValues: {
+                  ":creditedAt": creditedAt,
+                  ":recruiter": recruiterSub,
+                },
+              },
+            },
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: profileKey(recruiterSub),
+                UpdateExpression:
+                  "SET updatedAt = :creditedAt ADD recruiterCount :one",
+                ConditionExpression: "attribute_exists(pk)",
+                ExpressionAttributeValues: {
+                  ":creditedAt": creditedAt,
+                  ":one": 1,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "TransactionCanceledException"
+      )
+        throw error;
+      const current = await this.getProfile(recruitedSub);
+      if (current?.recruiterCreditedAt) return false;
+      if (!current?.recruitedBy) return false;
+      throw error;
+    }
   }
 
   async getPublicPlayer(

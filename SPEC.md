@@ -348,7 +348,7 @@ Player XP and the per-player arena:
   featured mode pays 5 per UTC day regardless of entry route; count modes
   require a positive score. These bonuses stack with the base and each other.
 - **Badge rung XP is retroactive and exact once:** copper 5, silver 10, gold 25,
-  prismatic 50, hidden single-rung 25, Collector 100. Profile reads reconcile
+  prismatic 50, hidden single-rung 25, Battle Tag 100, Collector 100. Profile reads reconcile
   markers for every currently earned slug+rung and settle the finite Arena
   Climber cascade. Later badge/referee changes never subtract XP.
 - **Season-final XP (Season 135 / `2026-08` onward):** the private result-queue finalizer reads referee-eligible,
@@ -439,6 +439,9 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
+elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid shared-run
+                                       token + capture time; expires after 30 days and is
+                                       consumed by a successful login-email request
 ```
 
 (The `elixirdrop:playerTagNudge` key was retired with the PlayerTagNudge modal in
@@ -493,6 +496,9 @@ and preserves forward-only state such as Podium, Reps, Clean Sweep, and hidden
 badges. Counter version 7 re-settles the August 20 prismatic targets and rebuilds
 Sharp Trade's per-rung counts for its new 40-second ceiling. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
+Counter version 8 adds the profile-backed community set: Battle Tag backfills
+from an existing optional player tag, Herald from the existing distinct-open
+counter, and Recruiter advances from new post-launch attribution.
 Badge XP uses sibling `PLAYER#{sub}/XP#BADGE#{slug}#{rung}` markers; Practice's
 carry is `XP#PRACTICE`; PB day caps use `XP-DAY#{yyyy-mm-dd}`; featured,
 season-placement, Circuit, and per-run PB markers use their event identities.
@@ -509,7 +515,7 @@ merely because the owner has not opened Profile since badges shipped.
 `/runs/complete` returns `earnedBadges`, the rungs that run cleared, plus the
 current badge summary so the in-memory Profile updates without another request.
 Awarding is a pure function of the counters
-(`services/api/src/badges.ts`), badges award no XP, and no valid achievement is
+(`services/api/src/badges.ts`), every earned rung awards exact-once XP, and no valid achievement is
 ever revoked; a versioned correction may remove a retired-board result that
 never met the badge's stated requirement, and a final referee exclusion removes
 that ineligible run from the derived award projection. Every ranked-run referee
@@ -603,8 +609,13 @@ user-agent is stored, which is the same rule referee evidence works under. The
 sharer's own device earns nothing, and credit stops at 25 per token so one lucky
 link cannot clear a ladder. The counter is written best-effort — a link opens
 whether or not the count lands. Privacy and Fair Play both state this, which was
-the stated condition for any share badge shipping. The badge itself is not
-implemented; the counter it will read is.
+the stated condition for any share badge shipping. Herald reads that aggregate
+counter. Recruiter is separate: opening a valid shared run stores only its
+six-character token in the browser for up to 30 days. If the token is supplied
+with a login request for an email that has no Drop profile, the resulting
+account is privately attributed to the sharer; the Recruiter counter advances
+exactly once only after that new player finishes a recorded online game.
+Neither a link open nor a login-email request alone counts as a recruit.
 
 **Deletion.** The share item lives outside `PLAYER#` so a stranger can resolve it
 by token alone, so a `PLAYER#{sub}/SHARE#{token}` pointer is written in the same

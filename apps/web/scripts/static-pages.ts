@@ -3,6 +3,7 @@ import {
   BADGE_LIST,
   badgeRungXp,
   BADGE_TIER_XP,
+  BATTLE_TAG_XP,
   COLLECTOR_BADGE_XP,
   DAILY_FEATURED_XP,
   HIDDEN_BADGE_XP,
@@ -286,7 +287,7 @@ ${pageSections([
   section(
     'Sharing a run',
     `${paragraph(
-      'Sharing a run mints a unique link for that share, and Drop counts how many distinct visitors open it so a share badge can credit real reach rather than repeat taps.'
+      'Sharing a run mints a unique link for that share, and Drop counts how many distinct visitors open it so Herald can credit real reach rather than repeat taps.'
     )}${paragraph(
       'Drop counts opens per link and does not learn who opened one. An open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request; no raw IP address or full browser user-agent is stored. Opens from your own device are not counted, and credit per link stops at a fixed cap, so one lucky link cannot clear a ladder.'
     )}`
@@ -339,6 +340,8 @@ ${pageSections([
       'Sharing a run mints a unique link for that share. Drop counts how many distinct visitors open each link, so a share badge can credit the reach it earned. It does not learn who opened a link: an open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request, the same way Fair Play signals work. Drop does not store the raw IP address or full browser user-agent for this, opens from your own device are not counted, and credit per link stops at a fixed cap.'
     )}${paragraph(
       'A shared link shows only what your public profile already shows: your Drop name, favorite card, arena, the mode, and the score. Deleting your account deletes your shared links along with everything else.'
+    )}${paragraph(
+      'Opening a valid shared run stores only its six-character public token in that browser for up to 30 days. If that token leads to a genuinely new account and the new player finishes a recorded online game, Drop credits one Recruiter milestone to the sharer. The relationship is private, the token is consumed when the login email is requested, and neither player&rsquo;s identity is stored in the browser attribution.'
     )}`
   ),
   section(
@@ -350,7 +353,7 @@ ${pageSections([
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
-])}<p class="static-updated">Last updated August 19, 2026.</p>`
+])}<p class="static-updated">Last updated August 21, 2026.</p>`
 
 const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([
@@ -574,7 +577,12 @@ const BADGE_GROUPS: ReadonlyArray<{ key: BadgeDefinition['group']; title: string
     title: 'Card Knowledge',
     description: 'Proof that your recall covers different parts of the card catalog.'
   },
-  { key: 'habit', title: 'Habit', description: 'Milestones for returning and building a regular practice habit.' }
+  { key: 'habit', title: 'Habit', description: 'Milestones for returning and building a regular practice habit.' },
+  {
+    key: 'community',
+    title: 'Community',
+    description: 'Milestones for linking your Clash identity and bringing more players into Drop.'
+  }
 ]
 
 const BADGE_MODE: Partial<Record<string, GameMode>> = {
@@ -690,7 +698,7 @@ function xpBody(): string {
     ),
     section(
       'Bonuses that stack',
-      `<ul><li><strong>New personal best: +${PERSONAL_BEST_XP} XP.</strong> The first eligible current-board result counts, and later results must beat the player’s official best using the mode’s normal tiebreaks. Maximum ${PERSONAL_BEST_DAILY_LIMIT} paid personal bests (${PERSONAL_BEST_DAILY_LIMIT * PERSONAL_BEST_XP} XP) per UTC day.</li><li><strong>Daily featured completion: +${DAILY_FEATURED_XP} XP.</strong> Paid once per player per UTC day for the mode featured on Home, no matter which route opened the game. Higher / Lower, Survival, and Rain require a score above zero.</li><li><strong>Badge rung:</strong> copper +${BADGE_TIER_XP.copper}, silver +${BADGE_TIER_XP.silver}, gold +${BADGE_TIER_XP.gold}, prismatic +${BADGE_TIER_XP.prismatic}, hidden single-rung +${HIDDEN_BADGE_XP}, Collector +${COLLECTOR_BADGE_XP}. Every badge slug and rung pays once. If a later Fair Play decision changes a badge projection, XP already awarded is never removed.</li></ul>${paragraph(
+      `<ul><li><strong>New personal best: +${PERSONAL_BEST_XP} XP.</strong> The first eligible current-board result counts, and later results must beat the player’s official best using the mode’s normal tiebreaks. Maximum ${PERSONAL_BEST_DAILY_LIMIT} paid personal bests (${PERSONAL_BEST_DAILY_LIMIT * PERSONAL_BEST_XP} XP) per UTC day.</li><li><strong>Daily featured completion: +${DAILY_FEATURED_XP} XP.</strong> Paid once per player per UTC day for the mode featured on Home, no matter which route opened the game. Higher / Lower, Survival, and Rain require a score above zero.</li><li><strong>Badge rung:</strong> copper +${BADGE_TIER_XP.copper}, silver +${BADGE_TIER_XP.silver}, gold +${BADGE_TIER_XP.gold}, prismatic +${BADGE_TIER_XP.prismatic}, hidden single-rung +${HIDDEN_BADGE_XP}, Battle Tag +${BATTLE_TAG_XP}, Collector +${COLLECTOR_BADGE_XP}. Every badge slug and rung pays once. If a later Fair Play decision changes a badge projection, XP already awarded is never removed.</li></ul>${paragraph(
         'All eligible sources add together. A featured Trade personal best is 100 + 10 + 5 = 115 XP. A featured Higher / Lower score of 35 that sets a personal best is 60 + 10 + 5 = 75 XP. One hundred Practice cards are 50 XP before any badge rung they clear.'
       )}`
     ),
@@ -704,7 +712,7 @@ function xpBody(): string {
     ),
     section(
       'What does not earn XP',
-      '<p>Starting without completing, replaying, sharing, installing, signing in, setting up a profile, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Guest and offline runs never award XP, save progress, or upload later.</p>'
+      '<p>Starting without completing, replaying, sharing, installing, signing in, choosing a Drop name or favorite card, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Adding a Clash Royale player tag is the one profile action that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
     ),
     section(
       'Opening balance and retroactive awards',

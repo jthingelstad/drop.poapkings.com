@@ -28,7 +28,9 @@ import type { GameMode } from "./types.js";
 // Version 7 lowers five prismatic targets from the August 20 product review.
 // Existing counters are re-settled against the new ladders; Sharp Trade's
 // per-rung run counts rebuild because its final time boundary changed.
-export const BADGE_COUNTERS_VERSION = 7;
+// Version 8 adds Battle Tag, Herald, and Recruiter. Their profile-backed facts
+// join the history rebuild so existing tags and share opens award immediately.
+export const BADGE_COUNTERS_VERSION = 8;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -82,6 +84,9 @@ export interface RunFacts {
   correctCards: number[];
   totalGames: number;
   arena: number;
+  playerTag?: string;
+  heraldOpens?: number;
+  recruiterCount?: number;
   practiceClean?: boolean;
   photoFinish?: boolean;
   fullCup?: boolean;
@@ -165,9 +170,9 @@ function cloneCounters(input: BadgeCounters): BadgeCounters {
 // 5am") and Cold Open ("first run of the day") are meaningless in UTC — a
 // player in Minneapolis finishing at 11pm is already on the next UTC day. The
 // browser therefore sends its offset. It is spoofable, and deliberately so:
-// these are hidden vanity badges worth no XP and no leaderboard position, so
-// the cost of trusting the client is a player awarding themselves a silhouette.
-// Nothing that ranks or progresses reads this.
+// these are low-stakes, one-time badge signals with no leaderboard position.
+// Their bounded badge XP does not justify collecting a more invasive timezone
+// signal, and nothing competitive reads this value.
 export function localStamp(
   completedAt: string,
   tzOffsetMinutes: unknown,
@@ -313,6 +318,12 @@ export function advanceBadges(
 
   // ── Habit ─────────────────────────────────────────────────────────────────
   foldDay(aux, values, facts.localDay);
+
+  // ── Community. Profile counters are monotonic; clearing a player tag later
+  // never removes the one-time Battle Tag stamp. ─────────────────────────────
+  if (facts.playerTag) raise(values, "battle-tag", 1);
+  raise(values, "herald", facts.heraldOpens ?? 0);
+  raise(values, "recruiter", facts.recruiterCount ?? 0);
 
   // ── Hidden. Single-rung moments; once set they never move again. ──────────
   if (facts.localHour < 5) raise(values, "night-shift", 1);
@@ -501,9 +512,10 @@ export function hiddenSignals(
 // which is why this cannot rebuild every counter. The split:
 //
 //   Recomputable here — the volume ladders, all five skill ladders, Drop
-//   Regular, Arena Climber, All Six, Daily Drop, Marathon, Night Shift, and the
-//   four card-knowledge badges (from the CARDSTATS item's per-card correct
-//   counts, which the learning path has been writing all along).
+//   Regular, Arena Climber, All Six, Daily Drop, Marathon, Night Shift, the
+//   three profile-backed community badges, and the four card-knowledge badges
+//   (from the CARDSTATS item's per-card correct counts, which the learning path
+//   has been writing all along).
 //
 //   Partially recomputable — Reps includes every run recorded after answerCount
 //   was added. Older Practice history stores only accuracy, so legacy sessions
@@ -530,7 +542,13 @@ export interface BackfillCardStat {
 export function recomputeCounters(
   runs: HistoricalRun[],
   cardStats: Record<string, BackfillCardStat>,
-  profile: { totalGames: number; xp: number },
+  profile: {
+    totalGames: number;
+    xp: number;
+    playerTag?: string;
+    heraldOpens?: number;
+    recruiterCount?: number;
+  },
   arenaFor: (xp: number) => number,
   at: string,
 ): BadgeCounters {
@@ -579,6 +597,9 @@ export function recomputeCounters(
   raise(values, "all-six", aux.modes.length);
   raise(values, "drop-regular", profile.totalGames);
   raise(values, "arena-climber", arenaFor(profile.xp));
+  if (profile.playerTag) raise(values, "battle-tag", 1);
+  raise(values, "herald", profile.heraldOpens ?? 0);
+  raise(values, "recruiter", profile.recruiterCount ?? 0);
 
   for (const [key, stat] of Object.entries(cardStats)) {
     if (!stat || stat.correct <= 0) continue;
@@ -597,6 +618,7 @@ export function recomputeCounters(
 }
 
 const FORWARD_ONLY_BADGES = [
+  "battle-tag",
   "clean-sweep",
   "podium",
   "photo-finish",
@@ -620,7 +642,13 @@ export function reconcileBadgeCounters(
   input: BadgeCounters | undefined,
   runs: HistoricalRun[],
   cardStats: Record<string, BackfillCardStat>,
-  profile: { totalGames: number; xp: number },
+  profile: {
+    totalGames: number;
+    xp: number;
+    playerTag?: string;
+    heraldOpens?: number;
+    recruiterCount?: number;
+  },
   excludedRuns: ExcludedBadgeRun[],
   arenaFor: (xp: number) => number,
   at: string,
@@ -654,6 +682,9 @@ export function reconcileBadgeCounters(
     {
       totalGames: Math.max(0, profile.totalGames - excludedRuns.length),
       xp: Math.max(0, profile.xp - excludedXp),
+      ...(profile.playerTag ? { playerTag: profile.playerTag } : {}),
+      heraldOpens: profile.heraldOpens ?? 0,
+      recruiterCount: profile.recruiterCount ?? 0,
     },
     arenaFor,
     at,
@@ -708,10 +739,10 @@ export function reconcileBadgeCounters(
       if (slug === "collector") continue;
       const previousStamps = forwardEarned[slug] ?? [];
       if (forwardOnly.has(slug)) {
-        // Practice-only Clean Sweep and season-finalized Podium are not earned
-        // by an excludable ranked run. The five run moments carry the exact
-        // completion stamp, so remove them only when that earning run was
-        // excluded.
+        // Profile-backed Battle Tag, Practice-only Clean Sweep, and
+        // season-finalized Podium are not earned by an excludable ranked run.
+        // The five run moments carry the exact completion stamp, so remove them
+        // only when that earning run was excluded.
         const removed = previousStamps.filter((stamp) =>
           excludedStamps.has(stamp),
         );
@@ -729,9 +760,17 @@ export function reconcileBadgeCounters(
           archive.earned[slug] = [...previousStamps];
         }
         const retained =
-          slug === "clean-sweep" || slug === "podium"
+          slug === "battle-tag" || slug === "clean-sweep" || slug === "podium"
             ? previousStamps
             : previousStamps.filter((stamp) => !excludedStamps.has(stamp));
+        // A current profile tag can newly earn Battle Tag during this rebuild.
+        // With no older stamp to preserve, keep the recomputed award as-is.
+        if (
+          slug === "battle-tag" &&
+          retained.length === 0 &&
+          counters.earned[slug]?.length
+        )
+          continue;
         if (retained.length) {
           counters.earned[slug] = [...retained];
           const previousValue = forwardValues[slug];
@@ -762,10 +801,23 @@ export function reconcileBadgeCounters(
       counters.refereeExcludedForward = excludedForward;
   }
 
+  const retainedCollector = input?.earned.collector;
   delete counters.values.collector;
   delete counters.earned.collector;
   delete counters.runsAtRung.collector;
   settle(counters, at);
+  // Collector was legitimately complete against the catalog that existed when
+  // it was earned. Adding a badge later must not revoke that achievement.
+  const settledCollector = (
+    counters.earned as Record<string, string[] | undefined>
+  ).collector;
+  if (
+    retainedCollector?.length &&
+    (settledCollector?.length ?? 0) < retainedCollector.length
+  ) {
+    counters.values.collector = 1;
+    counters.earned.collector = [...retainedCollector];
+  }
   counters.refereeReconciled = true;
   if (refereeDecisionRevision !== undefined)
     counters.refereeDecisionRevision = refereeDecisionRevision;
@@ -792,7 +844,7 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (![1, 2, 3, 4, 5, 6].includes(input.version))
+  if (![1, 2, 3, 4, 5, 6, 7].includes(input.version))
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
   const rebuildVersionedSkillBadges = input.version <= 4;

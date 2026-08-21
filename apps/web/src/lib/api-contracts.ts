@@ -221,7 +221,10 @@ export const nameOptionsResponseSchema = z.object({
   nameToken: nonEmptyString
 })
 
-export const playerResponseSchema = z.object({ player: playerSchema })
+export const playerResponseSchema = z.object({
+  player: playerSchema,
+  badges: z.optional(badgeSummarySchema)
+})
 export const accountDeletionResponseSchema = z.object({ ok: z.literal(true) })
 
 export const startedRunSchema = z

@@ -1,10 +1,12 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
 import { getSharedRun, type SharedRun as SharedRunPayload } from '../lib/api'
+import { sessionToken } from '../lib/account'
 import { GAME_BY_MODE, gameDisplay, scoreLabel } from '../lib/game-metadata'
 import { rankFor } from '../data/starRanks'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
+import { rememberRecruiter } from '../lib/referral'
 import ModeIcon from '../components/ModeIcon'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Wordmark from '../components/brand/Wordmark'
@@ -51,8 +53,11 @@ export default function SharedRun({ token }: { token: string }) {
     const controller = new AbortController()
     run.value = null
     failed.value = false
-    getSharedRun(token, controller.signal)
-      .then((result) => (run.value = result))
+    getSharedRun(token, controller.signal, sessionToken())
+      .then((result) => {
+        run.value = result
+        rememberRecruiter(result.token)
+      })
       .catch(() => {
         if (!controller.signal.aborted) failed.value = true
       })

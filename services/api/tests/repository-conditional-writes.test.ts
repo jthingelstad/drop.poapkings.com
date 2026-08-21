@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const send = vi.hoisted(() => vi.fn());
 
@@ -132,7 +132,7 @@ describe("repository conditional writes", () => {
     ).rejects.toMatchObject({ statusCode: 401, code: "invalid_magic_link" });
   });
 
-  it("returns a consumed link's email and poll id when it is still valid", async () => {
+  it("returns a valid link's email, poll id, and recruiter attribution", async () => {
     send.mockResolvedValueOnce({
       Item: {
         pk: "MAGIC#hash",
@@ -140,12 +140,95 @@ describe("repository conditional writes", () => {
         email: "player@example.com",
         expiresAt: 1_900_000,
         pollId: "poll-id",
+        recruiterSub: "recruiter-sub",
       },
     });
 
     await expect(
       new Repository("test-table").peekMagicLink("hash", 1_800_000),
-    ).resolves.toEqual({ email: "player@example.com", pollId: "poll-id" });
+    ).resolves.toEqual({
+      email: "player@example.com",
+      pollId: "poll-id",
+      recruiterSub: "recruiter-sub",
+    });
+  });
+
+  it("attaches the first recruiter without allowing self-attribution", async () => {
+    const repository = new Repository("test-table");
+    send.mockResolvedValueOnce({});
+
+    await expect(
+      repository.attachRecruiter("recruited-sub", "recruiter-sub"),
+    ).resolves.toBe(true);
+    await expect(
+      repository.attachRecruiter("same-sub", "same-sub"),
+    ).resolves.toBe(false);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(UpdateCommand);
+    if (!(command instanceof UpdateCommand))
+      throw new Error("Expected recruiter attribution update");
+    expect(command.input).toMatchObject({
+      Key: { pk: "PLAYER#recruited-sub", sk: "PROFILE" },
+      ConditionExpression:
+        "attribute_exists(pk) AND attribute_not_exists(recruitedBy)",
+      ExpressionAttributeValues: { ":recruiter": "recruiter-sub" },
+    });
+    expect(send).toHaveBeenCalledOnce();
+  });
+
+  it("credits a recruit once with the marker and counter in one transaction", async () => {
+    send
+      .mockResolvedValueOnce({
+        Item: { sub: "recruited-sub", recruitedBy: "recruiter-sub" },
+      })
+      .mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").creditRecruiter(
+        "recruited-sub",
+        "2026-08-21T12:00:00.000Z",
+      ),
+    ).resolves.toBe(true);
+
+    const command = send.mock.calls[1]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected recruiter credit transaction");
+    expect(command.input.TransactItems).toEqual([
+      expect.objectContaining({
+        Update: expect.objectContaining({
+          Key: { pk: "PLAYER#recruited-sub", sk: "PROFILE" },
+          ConditionExpression:
+            "recruitedBy = :recruiter AND attribute_not_exists(recruiterCreditedAt)",
+        }),
+      }),
+      expect.objectContaining({
+        Update: expect.objectContaining({
+          Key: { pk: "PLAYER#recruiter-sub", sk: "PROFILE" },
+          UpdateExpression:
+            "SET updatedAt = :creditedAt ADD recruiterCount :one",
+        }),
+      }),
+    ]);
+  });
+
+  it("does not credit a recruit whose exact-once marker already exists", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        sub: "recruited-sub",
+        recruitedBy: "recruiter-sub",
+        recruiterCreditedAt: "2026-08-21T12:00:00.000Z",
+      },
+    });
+
+    await expect(
+      new Repository("test-table").creditRecruiter(
+        "recruited-sub",
+        "2026-08-22T12:00:00.000Z",
+      ),
+    ).resolves.toBe(false);
+    expect(send).toHaveBeenCalledOnce();
   });
 
   it("treats a lost create race as a returning player, not an error", async () => {

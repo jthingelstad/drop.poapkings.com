@@ -8,6 +8,7 @@ import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { sendMagicLink } from "../jmap.js";
+import { isShareToken } from "../shares.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
 import {
   emailSubject,
@@ -39,9 +40,10 @@ export async function requestMagicLink({
     throw badRequest(error);
   }
   const returnTo = normalizeGameReturnPath(body.returnTo);
+  const sub = emailSubject(email);
   const ip = event.requestContext.http.sourceIp || "unknown";
   await Promise.all([
-    repository.useRateLimit("magic-email", emailSubject(email), 5, 60 * 60),
+    repository.useRateLimit("magic-email", sub, 5, 60 * 60),
     repository.useRateLimit("magic-ip", sha256(ip), 20, 60 * 60),
     // A global hourly ceiling: distributed abuse across many IPs must not
     // turn the login mailer into a spam cannon that burns the domain's
@@ -56,7 +58,35 @@ export async function requestMagicLink({
   // browser that opens the emailed link — poll for its session.
   const pollId = randomBytes(24).toString("base64url");
   const expiresAt = Math.floor(Date.now() / 1_000) + MAGIC_LINK_SECONDS;
-  await repository.saveMagicLink(tokenHash, email, expiresAt, pollId);
+  let recruiterSub: string | undefined;
+  const recruiterToken =
+    typeof body.recruiterToken === "string"
+      ? body.recruiterToken.toUpperCase()
+      : undefined;
+  if (isShareToken(recruiterToken)) {
+    try {
+      const [existingProfile, share] = await Promise.all([
+        repository.getProfile(sub),
+        repository.getShare(recruiterToken),
+      ]);
+      if (!existingProfile && share && share.owner !== sub)
+        recruiterSub = share.owner;
+    } catch (error) {
+      // Attribution is optional. A share read must never keep a player from
+      // receiving the login email they asked for.
+      console.warn("Recruiter attribution lookup failed", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
+  await repository.saveMagicLink(
+    tokenHash,
+    email,
+    expiresAt,
+    pollId,
+    recruiterSub,
+  );
   try {
     await sendMagicLink({
       token: config.jmapToken,
@@ -112,12 +142,13 @@ export async function redeemMagicLink({
   // Validate and complete the durable work before burning the single-use
   // link: a transient failure mid-login used to consume the link and strand
   // the player on "already used" with no way to retry.
-  const { email, pollId } = await repository.peekMagicLink(
+  const { email, pollId, recruiterSub } = await repository.peekMagicLink(
     tokenHash,
     nowSeconds,
   );
   const sub = emailSubject(email);
   const login = await repository.ensureProfile(sub, email);
+  if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
   await repository.consumeMagicLink(tokenHash, nowSeconds);
   const session = issueSession(sub, config.sessionSecret, nowSeconds);
   // Hand the session to a client waiting on this request's poll id (e.g. the

@@ -148,7 +148,7 @@ describe('Login', () => {
     await flush()
 
     // Trimmed email + the returnTo captured from the route were forwarded.
-    expect(requestLogin).toHaveBeenCalledWith('Player@Example.com', '/surge')
+    expect(requestLogin).toHaveBeenCalledWith('Player@Example.com', '/surge', undefined)
     expect(host.textContent).toContain('Check your email for the link.')
     expect(host.textContent).toContain('Keep this page open')
     // The email form is replaced by the success block.

@@ -5,16 +5,20 @@ import type {
 } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
+import { emailSubject } from "../src/validation.js";
 
 const repository = vi.hoisted(() => ({
+  attachRecruiter: vi.fn(),
   completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
+  deleteMagicLink: vi.fn(),
   ensureProfile: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
   getRun: vi.fn(),
+  getShare: vi.fn(),
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
   saveMagicLink: vi.fn(),
@@ -34,14 +38,17 @@ const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    attachRecruiter = repository.attachRecruiter;
     completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
+    deleteMagicLink = repository.deleteMagicLink;
     ensureProfile = repository.ensureProfile;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
     getRun = repository.getRun;
+    getShare = repository.getShare;
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
     saveMagicLink = repository.saveMagicLink;
@@ -256,6 +263,81 @@ describe("Clash Royale refresh scheduling", () => {
       { apiToken: "tinylytics-key" },
       expect.objectContaining({ rawPath: "/auth/request" }),
       { event: "account.login_requested", path: "/login" },
+    );
+  });
+
+  it("carries a valid shared-run recruiter into a new account's magic link", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(undefined);
+    repository.getShare.mockResolvedValue({
+      token: "AB2CD3",
+      owner: "recruiter-sub",
+    });
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: "new-player@example.com",
+      recruiterToken: "ab2cd3",
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(repository.getShare).toHaveBeenCalledWith("AB2CD3");
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      "new-player@example.com",
+      expect.any(Number),
+      expect.any(String),
+      "recruiter-sub",
+    );
+  });
+
+  it("does not attach shared-run recruitment to an existing account", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(profile);
+    repository.getShare.mockResolvedValue({
+      token: "AB2CD3",
+      owner: "recruiter-sub",
+    });
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: profile.email,
+      recruiterToken: "AB2CD3",
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      profile.email,
+      expect.any(Number),
+      expect.any(String),
+      undefined,
+    );
+  });
+
+  it("attaches magic-link recruitment before consuming the link", async () => {
+    repository.peekMagicLink.mockResolvedValue({
+      email: "new-player@example.com",
+      recruiterSub: "recruiter-sub",
+    });
+    repository.ensureProfile.mockResolvedValue({
+      profile: { ...profile, email: "new-player@example.com" },
+      created: true,
+    });
+    repository.attachRecruiter.mockResolvedValue(true);
+    repository.consumeMagicLink.mockResolvedValue("new-player@example.com");
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.attachRecruiter).toHaveBeenCalledWith(
+      emailSubject("new-player@example.com"),
+      "recruiter-sub",
+    );
+    expect(repository.attachRecruiter.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.consumeMagicLink.mock.invocationCallOrder[0]!,
     );
   });
 

@@ -46,7 +46,10 @@ function saveSession(value: StoredSession | undefined): void {
 }
 
 export function sessionToken(): string | undefined {
-  return session?.token
+  // Shared-run routes render before the account refresh gate so anyone can
+  // open them. Honor a still-valid stored session during that first render;
+  // otherwise the sharer's own direct-link load could be counted as reach.
+  return session?.token ?? loadSession()?.token
 }
 
 export function requiredSessionToken(): string {
@@ -129,6 +132,7 @@ export async function updateAccount(updates: {
   if (!session) throw new Error('Sign in to update your player profile.')
   const response = await patchMe(session.token, updates)
   player.value = response.player
+  if (response.badges) applyBadgeSummary(response.badges)
 }
 
 // Stamp the Updates view as read. The server owns the clock (the value sent is

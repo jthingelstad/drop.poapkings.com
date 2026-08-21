@@ -237,10 +237,10 @@ export async function apiRequest<T>(
   return validateResponse(schema, payload, path)
 }
 
-export function requestLogin(email: string, returnTo?: string) {
+export function requestLogin(email: string, returnTo?: string, recruiterToken?: string) {
   return apiRequest('/auth/request', loginRequestResponseSchema, {
     method: 'POST',
-    body: JSON.stringify({ email, returnTo })
+    body: JSON.stringify({ email, returnTo, recruiterToken })
   })
 }
 
@@ -416,8 +416,8 @@ export function createShareToken(runId: string, sessionToken: string, series?: n
   })
 }
 
-export function getSharedRun(token: string, signal?: AbortSignal) {
-  return apiRequest(`/shares/${encodeURIComponent(token)}`, sharedRunSchema, { signal })
+export function getSharedRun(token: string, signal?: AbortSignal, sessionToken?: string) {
+  return apiRequest(`/shares/${encodeURIComponent(token)}`, sharedRunSchema, { signal, sessionToken })
 }
 
 // Keep these public type aliases close to the request functions that return them.

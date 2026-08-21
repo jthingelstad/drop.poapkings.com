@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "community-badges-enter-the-arena",
+      "publishedAt": "2026-08-21T17:45:00-05:00",
+      "title": "Three community badges enter the arena",
+      "body": "**Battle Tag** pays 100 XP when you add your Clash Royale player tag. **Herald** climbs when players open your shared runs, and **Recruiter** advances when someone you brought to Drop finishes their first recorded game. Existing tags and share opens count retroactively."
+    },
+    {
       "id": "player-xp-rewards-the-whole-climb",
       "publishedAt": "2026-08-21T17:05:00-05:00",
       "title": "Player XP rewards the whole climb",

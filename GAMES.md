@@ -538,9 +538,9 @@ unless it is re-approved.
 
 ## Badges
 
-29 badges over 197 rungs, backed by `BADGES` in `packages/contracts` and the pure
-engine in `services/api/src/badges.ts`. 22 visible badges on long ladders plus 7
-hidden single-rung badges.
+32 badges over 212 rungs, backed by `BADGES` in `packages/contracts` and the pure
+engine in `services/api/src/badges.ts`. 25 visible badges plus 7 hidden
+single-rung badges.
 
 **Why ladders, not tiers.** Three tiers means a player who clears tier III is done
 with that badge forever — it stops motivating exactly the player who cared most.
@@ -577,6 +577,17 @@ existing `3·7·14·30·60·100·180·365` ladder is unchanged and rebuilds from
 history; legacy rows use their UTC completion date because they retain no local
 timezone.
 
+**Community badges.** Battle Tag is a visible one-time badge for adding the
+optional, unverified Clash Royale player tag and pays a special +100 XP. Herald
+counts deduplicated non-owner opens on each of the player's shared-run links,
+with the existing 25-credit cap per link. Recruiter uses 30-day last-touch attribution
+from a valid shared-run token and counts only after a genuinely new account
+finishes its first recorded online game; merely opening a link or requesting a
+login email is not a recruit. Herald and Recruiter use the normal rung-tier XP
+schedule. Their scaled ladders are `1·5·10·25·50·100·250·500` and
+`1·3·5·10·25·50` respectively and should be recalibrated after a month of live
+counter history.
+
 **Hidden badges.** Shown as a flat black silhouette of the real glyph until
 earned. The badge name stays visible, but its art and earning condition are the
 mystery; once earned, the detail sheet explains exactly what triggered it.
@@ -587,8 +598,9 @@ only Collector is a long game.
 **What backfills and what does not.** Run history stores mode, score, seasonId,
 completedAt, and the board epoch that dealt new runs — not transcripts. So the
 volume and skill ladders, Drop Regular, Arena Climber, All Six, Daily Drop,
-Marathon, Night Shift and the four card-knowledge badges rebuild from history
-plus the `CARDSTATS` item; Reps, Clean Sweep and the five transcript-derived
+Marathon, Night Shift, Battle Tag, Herald, and the four card-knowledge badges
+rebuild from profile/history plus the `CARDSTATS` item; Recruiter is
+forward-only from the attribution launch. Reps, Clean Sweep and the five transcript-derived
 hidden badges are forward-only. Mode-mastery ladders keep legitimate historical
 activity across formats, while the four format-comparable skill badges — Sharp
 Trade, Coin Flip Killer, Unbroken, and Downpour — accept only their current

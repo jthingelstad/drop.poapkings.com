@@ -383,6 +383,17 @@ async function recordSignedInRun(
       error: error instanceof Error ? error.name : "unknown",
     });
   }
+  // A shared-link attribution becomes a Recruiter credit only after the new
+  // player reaches a recorded game. The recruited profile is the exact-once
+  // marker, so every completion may safely retry this best-effort settlement.
+  try {
+    await repository.creditRecruiter(run.owner, result.completedAt);
+  } catch (error) {
+    console.warn("Recruiter credit failed", {
+      runId: run.runId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+  }
   let progressionProfile = result.profile;
   try {
     progressionProfile =
@@ -398,6 +409,9 @@ async function recordSignedInRun(
     completedAt: result.completedAt,
     totalGames: result.totalGames,
     xp: progressionProfile.xp ?? 0,
+    playerTag: progressionProfile.playerTag,
+    heraldOpens: progressionProfile.heraldOpens,
+    recruiterCount: progressionProfile.recruiterCount,
     tzOffsetMinutes: body.tzOffsetMinutes,
     personalBest,
   });
@@ -548,6 +562,9 @@ export async function updateBadges(
     completedAt: string;
     totalGames: number;
     xp: number;
+    playerTag?: string;
+    heraldOpens?: number;
+    recruiterCount?: number;
     tzOffsetMinutes: unknown;
     personalBest: { improved: boolean; previousScore?: number };
   },
@@ -576,7 +593,8 @@ export async function updateBadges(
         stored.version === 3 ||
         stored.version === 4 ||
         stored.version === 5 ||
-        stored.version === 6
+        stored.version === 6 ||
+        stored.version === 7
       ) {
         // completeRun already wrote this run to history. Migrate from every
         // prior row, then fold the current transcript exactly once below so
@@ -631,6 +649,9 @@ export async function updateBadges(
           .map((result) => result.cardId),
         totalGames: context.totalGames,
         arena: arenaForXp(context.xp),
+        playerTag: context.playerTag,
+        heraldOpens: context.heraldOpens,
+        recruiterCount: context.recruiterCount,
         practiceClean:
           run.mode === "practice" &&
           answers >= 20 &&

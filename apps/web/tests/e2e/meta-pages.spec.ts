@@ -116,7 +116,7 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(page.getByText('Three Musketeers', { exact: true })).toBeVisible()
 
   await page.goto('/badges/')
-  await expect(page.locator('.static-badge')).toHaveCount(22)
+  await expect(page.locator('.static-badge')).toHaveCount(25)
   await expect(page.getByRole('heading', { name: '7 hidden badges' })).toBeVisible()
   const badge = (name: string) =>
     page.locator('.static-badge').filter({ has: page.getByRole('heading', { name, exact: true }) })
@@ -125,6 +125,9 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(badge('Reps')).toContainText('8,000 (+25 XP) · 10,000 (+50 XP)')
   await expect(badge('Spellcaster')).toContainText('2,500 (+25 XP) · 3,000 (+50 XP)')
   await expect(badge('Sharp Trade')).toContainText('50s (+25 XP) · 40s (+50 XP)')
+  await expect(badge('Battle Tag')).toContainText('1 (+100 XP)')
+  await expect(badge('Herald')).toContainText('500 (+50 XP)')
+  await expect(badge('Recruiter')).toContainText('50 (+50 XP)')
   await expect(page.getByText('Night Shift', { exact: true })).toHaveCount(0)
   await expect(page.getByText(/midnight and 5:00/)).toHaveCount(0)
 

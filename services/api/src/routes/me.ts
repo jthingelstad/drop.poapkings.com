@@ -319,7 +319,13 @@ async function badgeSummary(
   { event, repository }: RouteContext,
   sub: string,
   playerId: string,
-  profile: { totalGames: number; xp?: number },
+  profile: {
+    totalGames: number;
+    xp?: number;
+    playerTag?: string;
+    heraldOpens?: number;
+    recruiterCount?: number;
+  },
   cardStats?: Record<string, { correct: number }>,
 ) {
   try {
@@ -331,7 +337,10 @@ async function badgeSummary(
       stored &&
       stored.version === BADGE_COUNTERS_VERSION &&
       stored.refereeReconciled === true &&
-      stored.refereeDecisionRevision === badgeDecisionRevision
+      stored.refereeDecisionRevision === badgeDecisionRevision &&
+      (!profile.playerTag || (stored.values["battle-tag"] ?? 0) >= 1) &&
+      (stored.values.herald ?? 0) >= (profile.heraldOpens ?? 0) &&
+      (stored.values.recruiter ?? 0) >= (profile.recruiterCount ?? 0)
     ) {
       const settled = await settleBadgeXpOnRead(
         repository,
@@ -377,7 +386,13 @@ async function badgeSummary(
       stored,
       currentRuns,
       backfillCardStats,
-      { totalGames: profile.totalGames, xp: profile.xp ?? 0 },
+      {
+        totalGames: profile.totalGames,
+        xp: profile.xp ?? 0,
+        playerTag: profile.playerTag,
+        heraldOpens: profile.heraldOpens,
+        recruiterCount: profile.recruiterCount,
+      },
       excluded.flatMap((run) => {
         if (!run.runId) return [];
         const item = evidenceByRun.get(run.runId);
@@ -488,11 +503,13 @@ export async function getPublicPlayer(
   const decisions = await repository.refereeDecisions(
     recentRuns.map((run) => run.runId),
   );
+  const badgeProfile =
+    (await repository.getProfile(lookup.sub)) ?? lookup.player;
   const badges = await badgeSummary(
     { event, config, repository },
     lookup.sub,
     playerId,
-    lookup.player,
+    badgeProfile,
   );
   const xpLookup = (await repository.getPublicPlayer(playerId)) ?? lookup;
   return json(200, {
@@ -682,7 +699,17 @@ export async function patchMe({ event, config, repository }: RouteContext) {
       : Promise.resolve(),
   ]);
   const rankedAccess = await repository.rankedAccess(profile.playerId);
+  const badgeResult = updates.playerTag
+    ? await badgeSummary(
+        { event, config, repository },
+        session.sub,
+        profile.playerId,
+        profile,
+      )
+    : undefined;
+  const xpProfile = badgeResult && (await repository.getProfile(session.sub));
   return json(200, {
-    player: profileResponse(profile, crProfile, rankedAccess),
+    player: profileResponse(xpProfile ?? profile, crProfile, rankedAccess),
+    ...(badgeResult ? { badges: badgeResult } : {}),
   });
 }

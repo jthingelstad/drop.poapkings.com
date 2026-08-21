@@ -88,6 +88,16 @@ describe('api.ts request helpers', () => {
     expect(JSON.parse(init.body as string)).toEqual({ email: 'ace@example.com', returnTo: '/surge' })
   })
 
+  it('passes a shared-run recruiter token with the login request', async () => {
+    const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.' }))
+    const { requestLogin } = await import('../../src/lib/api')
+
+    await requestLogin('new@example.com', undefined, 'AB2CD3')
+
+    const { init } = endpointCall(fetchMock)
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'new@example.com', recruiterToken: 'AB2CD3' })
+  })
+
   it('sets accept and content-type headers on a body request', async () => {
     const fetchMock = stubFetch(json({ ok: true, message: 'ok' }))
     const { requestLogin } = await import('../../src/lib/api')
@@ -470,6 +480,13 @@ describe('account.ts state machine', () => {
     const stored = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
     expect(stored.token).toBe('t2')
     expect(account.sessionToken()).toBe('t2')
+  })
+
+  it('exposes a valid stored session before account refresh finishes', async () => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'stored', expiresAt: FUTURE() }))
+    const { account } = await load()
+
+    expect(account.sessionToken()).toBe('stored')
   })
 
   it('initializeAccount clears the session and goes anonymous on a 401', async () => {
