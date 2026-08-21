@@ -1,10 +1,49 @@
 import type { Page } from '@playwright/test'
-import { allowBlockedAssets, cardsData, expect, test, waitForKeypad } from './fixtures'
+import {
+  allowBlockedAssets,
+  cardsData,
+  expect,
+  test,
+  testApiBaseUrl,
+  useSignedOutState,
+  waitForKeypad
+} from './fixtures'
 
 test('Practice opens directly as the single training mode', async ({ page }) => {
   await page.goto('/#/practice')
   await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
   await expect(page.locator('.pip-keypad')).toBeVisible()
+})
+
+test('Practice finishes a guest session without claiming to score it', async ({ page }) => {
+  let releaseCompletion: (() => void) | undefined
+  const completionHeld = new Promise<void>((resolve) => {
+    releaseCompletion = resolve
+  })
+  await page.route(`${testApiBaseUrl}/runs/complete`, async (route) => {
+    await completionHeld
+    await route.fallback()
+  })
+
+  await useSignedOutState(page, '/practice')
+  await waitForKeypad(page)
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+  await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+  await page.getByRole('button', { name: 'End session' }).click()
+
+  try {
+    const notice = page.locator('.run-recording')
+    await expect(notice).toContainText('Finishing your session…')
+    await expect(notice).not.toContainText(/scor/i)
+    await expect(page.locator('[data-summary]')).toBeVisible()
+  } finally {
+    releaseCompletion?.()
+  }
+
+  await expect(page.getByText('Practice session complete', { exact: true })).toBeVisible()
 })
 
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {

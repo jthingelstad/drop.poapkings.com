@@ -7,8 +7,8 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(69)
-    expect(entries[0]).toMatchObject({ id: 'updates-rss-feed', kind: 'feature' })
+    expect(entries).toHaveLength(70)
+    expect(entries[0]).toMatchObject({ id: 'practice-exit-names-the-session', kind: 'feature' })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(
       entries.every(
@@ -51,7 +51,10 @@ describe('player updates', () => {
     expect(items[0]?.querySelector('title')?.textContent).toBe(entries[0]?.title)
     expect(items[0]?.querySelector('guid')?.textContent).toBe(`https://drop.poapkings.com/updates/#${entries[0]?.id}`)
     expect(items[0]?.querySelector('pubDate')?.textContent).toBe(new Date(entries[0]!.publishedAt).toUTCString())
-    expect(items[0]?.querySelector('description')?.textContent).toContain('https://drop.poapkings.com/feed.xml')
+    const feedAnnouncement = items.find((item) =>
+      item.querySelector('guid')?.textContent?.endsWith('/updates/#updates-rss-feed')
+    )
+    expect(feedAnnouncement?.querySelector('description')?.textContent).toContain('https://drop.poapkings.com/feed.xml')
     expect(new Set(items.map((item) => item.querySelector('category')?.textContent))).toEqual(
       new Set(['Feature', 'Season', 'Message'])
     )

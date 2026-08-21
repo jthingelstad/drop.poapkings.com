@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "practice-exit-names-the-session",
+      "publishedAt": "2026-08-21T16:12:00-05:00",
+      "title": "Practice leaves the scoreboard behind",
+      "body": "End a Practice session and Drop now calls it exactly that—from the finishing beat into your learning summary. No score talk in a drill that stays unranked and unscored."
+    },
+    {
       "id": "updates-rss-feed",
       "publishedAt": "2026-08-21T07:04:00-05:00",
       "title": "Drop updates can follow you out of the arena",

@@ -193,9 +193,11 @@ export function useGameRun<T extends GameMode>(mode: T) {
       return
     }
     setRecordingNotice(
-      active.guest
-        ? { state: 'scoring', message: 'Scoring your game…' }
-        : { state: 'saving', message: 'Recording your game…' }
+      mode === 'practice'
+        ? { state: active.guest ? 'scoring' : 'saving', message: 'Finishing your session…' }
+        : active.guest
+          ? { state: 'scoring', message: 'Scoring your game…' }
+          : { state: 'saving', message: 'Recording your game…' }
     )
     try {
       const result = await completeRun(active.runToken, transcript, sessionToken())
