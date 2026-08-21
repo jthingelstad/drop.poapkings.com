@@ -201,71 +201,9 @@ export function useGameRun<T extends GameMode>(mode: T) {
           ? { state: 'scoring', message: 'Scoring your game…' }
           : { state: 'saving', message: 'Recording your game…' }
     )
+    let result: Awaited<ReturnType<typeof completeRun>>
     try {
-      const result = await completeRun(active.runToken, transcript, sessionToken())
-      const seasonBest = recordSeasonBest(result)
-      const personalBest = recordAllTimeBest(result)
-      // A guest run is scored but never recorded: there is no player progress
-      // to apply and no account to refresh. The local bests still track (so a
-      // signed-out streak advances and the device shows a personal best), and
-      // the normal onRecorded fires so streak modes deal the next game.
-      if (result.guest) {
-        // Guest runs are deliberately transient on the API, so their completed
-        // and device-local best outcomes remain browser-owned. Recorded player
-        // outcomes are emitted once by the API after their durable writes win.
-        track('game.completed', result.mode)
-        if (personalBest) track('game.personal_best', result.mode)
-        run.current = null
-        pendingCompletion.current = null
-        setRecordingNotice({
-          state: 'saved',
-          message: !isRecordedMode(result.mode)
-            ? 'Practice session complete'
-            : seasonBest
-              ? 'Local best! Sign in before your next game to record future scores'
-              : 'Played as a guest — sign in before your next game to record scores'
-        })
-        onRecorded?.()
-        return
-      }
-      applyRunProgress(result)
-      if (result.badges) applyBadgeSummary(result.badges)
-      recordRecentRun({
-        runId: result.runId,
-        mode: result.mode,
-        score: result.score,
-        seasonId: result.season.id,
-        completedAt: result.completedAt,
-        ...(result.underReview ? { reviewStatus: 'pending' } : {})
-      })
-      run.current = null
-      pendingCompletion.current = null
-      // Practice keeps no board score, but its validated cards now earn Player
-      // XP and feed the same saved learning stats.
-      // A held run really did record — it scored, it kept its XP, and it counts
-      // toward the player's totals. Only its place on the public board is
-      // pending, so the toast says recorded and names the hold rather than
-      // celebrating a season best the board is not showing anyone.
-      // A guest completion returned above, so anything reaching here recorded.
-      // Practice records a run server-side but keeps no score, so it is not
-      // shareable either.
-      recordedRunId.value = isRecordedMode(result.mode) ? result.runId : null
-      earnedBadges.value = result.earnedBadges ?? []
-      earnedXp.value = result.xpEarned ?? 0
-      earnedXpAwards.value = result.xpAwards ?? []
-      setRecordingNotice({
-        state: 'saved',
-        message: !isRecordedMode(result.mode)
-          ? 'Practice session saved'
-          : result.underReview
-            ? 'Game recorded — awaiting the referee'
-            : seasonBest
-              ? 'Game recorded — new season best!'
-              : 'Game recorded',
-        ...(result.underReview ? { detail: `Reference: ${runReference(result.runId)}` } : {})
-      })
-      window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
-      onRecorded?.()
+      result = await completeRun(active.runToken, transcript, sessionToken())
     } catch (error) {
       // An expired or invalid run token only invalidates this run, never the
       // player's session — do not sign the player out over a stale game.
@@ -321,6 +259,90 @@ export function useGameRun<T extends GameMode>(mode: T) {
           if (pending) void submitCompletion(pending.run, pending.transcript, pending.onRecorded, pending.onUnrecorded)
         }
       })
+      return
+    }
+
+    // A guest run is scored but never recorded: there is no player progress to
+    // apply and no account to refresh. Its local results remain browser-owned.
+    if (result.guest) {
+      let seasonBest = false
+      let personalBest = false
+      try {
+        seasonBest = recordSeasonBest(result)
+        personalBest = recordAllTimeBest(result)
+        track('game.completed', result.mode)
+        if (personalBest) track('game.personal_best', result.mode)
+      } catch (error) {
+        console.warn('Guest run result could not be fully applied', {
+          mode,
+          error: error instanceof Error ? error.name : 'unknown'
+        })
+      }
+      run.current = null
+      pendingCompletion.current = null
+      setRecordingNotice({
+        state: 'saved',
+        message: !isRecordedMode(result.mode)
+          ? 'Practice session complete'
+          : seasonBest
+            ? 'Local best! Sign in before your next game to record future scores'
+            : 'Played as a guest — sign in before your next game to record scores'
+      })
+      try {
+        onRecorded?.()
+      } catch (error) {
+        console.warn('Guest run follow-up failed', { mode, error: error instanceof Error ? error.name : 'unknown' })
+      }
+      return
+    }
+
+    // The response above is the durable server acknowledgement. Mark it saved
+    // before applying any optional browser projections: local storage, badge
+    // state, or a mode callback must never turn a recorded game back into a
+    // retryable API failure.
+    run.current = null
+    pendingCompletion.current = null
+    recordedRunId.value = isRecordedMode(result.mode) ? result.runId : null
+    earnedBadges.value = result.earnedBadges ?? []
+    earnedXp.value = result.xpEarned ?? 0
+    earnedXpAwards.value = result.xpAwards ?? []
+    setRecordingNotice({
+      state: 'saved',
+      message: !isRecordedMode(result.mode)
+        ? 'Practice session saved'
+        : result.underReview
+          ? 'Game recorded — awaiting the referee'
+          : 'Game recorded',
+      ...(result.underReview ? { detail: `Reference: ${runReference(result.runId)}` } : {})
+    })
+
+    try {
+      const seasonBest = recordSeasonBest(result)
+      recordAllTimeBest(result)
+      applyRunProgress(result)
+      if (result.badges) applyBadgeSummary(result.badges)
+      recordRecentRun({
+        runId: result.runId,
+        mode: result.mode,
+        score: result.score,
+        seasonId: result.season.id,
+        completedAt: result.completedAt,
+        ...(result.underReview ? { reviewStatus: 'pending' } : {})
+      })
+      if (seasonBest && isRecordedMode(result.mode) && !result.underReview) {
+        setRecordingNotice({ state: 'saved', message: 'Game recorded — new season best!' })
+      }
+      window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))
+    } catch (error) {
+      console.warn('Recorded run result could not be fully applied', {
+        mode,
+        error: error instanceof Error ? error.name : 'unknown'
+      })
+    }
+    try {
+      onRecorded?.()
+    } catch (error) {
+      console.warn('Recorded run follow-up failed', { mode, error: error instanceof Error ? error.name : 'unknown' })
     }
   }
 

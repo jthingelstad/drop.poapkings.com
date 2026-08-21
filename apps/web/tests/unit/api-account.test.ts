@@ -243,6 +243,60 @@ describe('api.ts request helpers', () => {
     expect(JSON.parse(init.body as string)).toEqual({ runToken: 'rt1', transcript: { taps: 3 } })
   })
 
+  it('automatically retries a transient completion failure because the endpoint is idempotent', async () => {
+    const completion = {
+      accepted: true,
+      runId: 'run-1',
+      mode: 'surge',
+      score: 12_500,
+      season,
+      completedAt: ISO,
+      totalGames: 11,
+      xp: 20,
+      level: 2,
+      levelStartGames: 0,
+      nextLevelGames: 20
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ apiBaseUrl: API_BASE }))
+      .mockResolvedValueOnce(json({ error: { code: 'temporarily_unavailable', message: 'Try again.' } }, 503))
+      .mockResolvedValueOnce(json(completion, 200))
+    vi.stubGlobal('fetch', fetchMock)
+    const { completeRun } = await import('../../src/lib/api')
+
+    await expect(completeRun('rt1', { taps: 3 }, 'tok')).resolves.toMatchObject({ runId: 'run-1' })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('requests the stored acknowledgement when the richer fresh completion response is invalid', async () => {
+    const completion = {
+      accepted: true,
+      runId: 'run-1',
+      mode: 'practice',
+      score: 100,
+      season,
+      ranked: false,
+      completedAt: ISO,
+      totalGames: 11,
+      xp: 20,
+      level: 2,
+      levelStartGames: 0,
+      nextLevelGames: 20
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ apiBaseUrl: API_BASE }))
+      .mockResolvedValueOnce(json({ ...completion, badges: { badges: [{ slug: 'reps', value: null }] } }, 201))
+      .mockResolvedValueOnce(json(completion, 200))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { completeRun } = await import('../../src/lib/api')
+
+    await expect(completeRun('rt1', { answers: [] }, 'tok')).resolves.toMatchObject({ runId: 'run-1' })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
   it('getStats GETs /stats and returns the parsed stats', async () => {
     const fetchMock = stubFetch(json({ trophyRoadGames: 601, currentSeason: season }))
     const { getStats } = await import('../../src/lib/api')

@@ -337,12 +337,28 @@ export function startRun(mode: GameMode, sessionToken?: string) {
   })
 }
 
-export function completeRun(runToken: string, transcript: Record<string, unknown>, sessionToken?: string) {
-  return apiRequest('/runs/complete', completedRunSchema, {
-    method: 'POST',
-    sessionToken,
-    body: JSON.stringify({ runToken, transcript })
-  })
+export async function completeRun(runToken: string, transcript: Record<string, unknown>, sessionToken?: string) {
+  const request = () =>
+    apiRequest('/runs/complete', completedRunSchema, {
+      method: 'POST',
+      sessionToken,
+      body: JSON.stringify({ runToken, transcript }),
+      // Completion is the one POST the API explicitly makes idempotent: after
+      // the first write wins, a replay returns the stored result. Recover a
+      // lost response here instead of making the player press Retry recording.
+      retry: true
+    })
+
+  try {
+    return await request()
+  } catch (error) {
+    // A fresh completion includes optional progress and badge projections while
+    // the stored replay is deliberately minimal. If only that richer response
+    // cannot be parsed, ask for the authoritative stored acknowledgement once.
+    if (!(error instanceof ApiError) || error.code !== 'invalid_response') throw error
+    await retryDelay()
+    return request()
+  }
 }
 
 export function getStats(signal?: AbortSignal) {

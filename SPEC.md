@@ -657,7 +657,12 @@ but does not write personal or season records, recent history, XP, badges,
 leaderboard entries, learning telemetry, or the global game count. Device-local
 card stats may still update as an adaptive learning cache. An official run that
 started online is never downgraded: if its completion loses the API, the signed
-completion remains retryable.
+completion remains retryable. `/runs/complete` is the one idempotent browser
+POST: a lost, transient, or invalid fresh response is replayed automatically,
+and the API returns the stored result after the first write wins. Once that
+durable acknowledgement parses, optional browser progress/badge application can
+never move the run back to the "not recorded" state; a manual retry is reserved
+for failures that remain after the bounded automatic recovery.
 
 The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Every production

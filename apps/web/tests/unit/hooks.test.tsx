@@ -42,7 +42,7 @@ import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { GAME_MODES, runReference, type GameMode } from '@elixir-drop/contracts'
-import { offlineRunMode, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import { offlineRunMode, recordedRunId, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
 import { apiAvailability, reportApiUnavailable, transportOffline } from '../../src/lib/api-availability'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
@@ -560,6 +560,27 @@ describe('useGameRun', () => {
     expect(recordingNotice.value.state).toBe('saved')
     expect(track).not.toHaveBeenCalledWith('game.completed', 'surge')
     expect(track).not.toHaveBeenCalledWith('game.personal_best', 'surge')
+  })
+
+  it('keeps a server-accepted run saved when applying local progress fails', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun).mockResolvedValue(acceptedResult('surge', 3_100) as never)
+    vi.mocked(applyRunProgress).mockImplementationOnce(() => {
+      throw new Error('local projection failed')
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { api } = mountRun()
+    await flush()
+    const onRecorded = vi.fn()
+
+    await act(async () => {
+      await api().complete({ answers: [] }, onRecorded)
+    })
+
+    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Game recorded' })
+    expect(recordingNotice.value).not.toHaveProperty('actionLabel')
+    expect(recordedRunId.value).toBe('run-1')
+    expect(onRecorded).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to a local Practice deal and records nothing', async () => {
