@@ -52,12 +52,12 @@ describe("competition integrity check", () => {
     });
   });
 
-  it("keeps practice honest at any wall time — only its score range matters", () => {
-    // Practice is unranked and only drives XP, so it has no wall-time floor.
-    expect(assessRunIntegrity("practice", 100, 1_000)).toEqual({
-      eligible: true,
+  it("requires enough server wall time for Practice's XP-bearing cards", () => {
+    expect(assessRunIntegrity("practice", 100, 1_000, 100)).toEqual({
+      eligible: false,
+      reason: "completion_rate_above_ui_limit",
     });
-    expect(assessRunIntegrity("practice", 100, 20_000)).toEqual({
+    expect(assessRunIntegrity("practice", 100, 23_000, 100)).toEqual({
       eligible: true,
     });
   });

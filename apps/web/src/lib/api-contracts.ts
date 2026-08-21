@@ -130,14 +130,29 @@ export const loginPollResponseSchema = z.union([
   z.object({ ready: z.literal(true), session: sessionSchema })
 ])
 
+export const xpAwardSchema = z.object({
+  source: z.enum([
+    'game',
+    'practice',
+    'personal-best',
+    'daily-featured',
+    'badge',
+    'season-placement',
+    'season-circuit'
+  ]),
+  label: nonEmptyString,
+  amount: nonNegativeInteger
+})
+
 export const recentRunSchema = z.object({
   runId: nonEmptyString,
   mode: gameModeSchema,
   score: z.number().finite(),
   seasonId: nonEmptyString,
   completedAt: isoDateTime,
-  // Per-run XP earned (activity), for the run sheet. Practice earns none.
+  // All XP that stacked on this completion, plus its source breakdown.
   xp: z.optional(nonNegativeInteger),
+  xpAwards: z.optional(z.array(xpAwardSchema)),
   // The badge slugs whose rungs this run cleared — "Rungs moved" in the sheet.
   rungs: z.optional(z.array(nonEmptyString)),
   reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
@@ -241,6 +256,7 @@ const runCompletionFields = {
   // The per-run XP award (activity), so the summary can say "XP earned +N".
   // Practice earns 0. Absent through the API-first half of a rolling deploy.
   xpEarned: z.optional(nonNegativeInteger),
+  xpAwards: z.optional(z.array(xpAwardSchema)),
   level: safeInteger.positive(),
   levelStartGames: nonNegativeInteger,
   nextLevelGames: nonNegativeInteger,

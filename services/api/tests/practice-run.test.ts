@@ -7,9 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
 
-// Practice completions end to end: endless, unranked, XP-free. The drill is
-// deliberately outside every competitive and progression surface, and this suite
-// is what holds it there.
+// Practice completions end to end: endless and unranked, with one XP per two
+// validated cards. The repository owns the odd-card carry between sessions.
 const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
@@ -151,7 +150,12 @@ async function completePractice(
   repository.completeRun.mockResolvedValue({
     totalGames: 5,
     completedAt: "2026-07-24T12:01:00.000Z",
-    profile: { ...profile, totalGames: 5, xp: 45 },
+    profile: {
+      ...profile,
+      totalGames: 5,
+      xp: 45 + Math.floor(answers.length / 2),
+    },
+    xpAward: Math.floor(answers.length / 2),
   });
   const response = (await handler(
     completionEvent(practiceRunToken(), answers),
@@ -181,9 +185,7 @@ describe("Practice completion", () => {
     repository.useRateLimit.mockResolvedValue(undefined);
   });
 
-  it("earns ZERO Player XP", async () => {
-    // 40 questions — under the old rules that was 40 XP, and an endless session
-    // could mint arena tiers forever.
+  it("earns one Player XP per two resolved cards", async () => {
     const answers = Array.from({ length: 40 }, (_, index) => {
       const card = allCards[index % allCards.length]!;
       return { cardId: card.id, guess: card.elixir };
@@ -195,10 +197,14 @@ describe("Practice completion", () => {
       expect.objectContaining({ runId: "run-practice" }),
       100,
       expect.any(String),
-      0, // xpAward
+      { practiceCards: 40 },
       undefined,
       undefined,
     );
+    expect(JSON.parse(response.body || "{}")).toMatchObject({
+      xpEarned: 20,
+      xpAwards: [{ source: "practice", label: "Practice cards", amount: 20 }],
+    });
   });
 
   it("accepts a transcript of any length, in any order, and still records the run", async () => {
@@ -211,13 +217,13 @@ describe("Practice completion", () => {
     ]);
 
     expect(response.statusCode).toBe(201);
-    // Accuracy is a session stat, not a score: 2 of 3. Practice earns no XP, so
-    // the per-run award is zero.
+    // Accuracy is a session stat, not a score. Three cards pay one XP and the
+    // repository carries the odd card forward.
     expect(body).toMatchObject({
       accepted: true,
       score: 67,
       ranked: false,
-      xpEarned: 0,
+      xpEarned: 1,
     });
     // The run still completes server-side — that is what feeds the server-owned
     // learning stats.

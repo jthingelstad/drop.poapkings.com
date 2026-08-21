@@ -2,6 +2,7 @@ import { expect, isDesktopViewport, test } from './fixtures'
 
 const pages = [
   { slug: 'games', title: 'Elixir Drop Game Modes', primary: true },
+  { slug: 'xp', title: 'Elixir Drop Player XP', primary: true },
   { slug: 'learn-elixir-costs', title: 'Learn Clash Royale Elixir Costs', primary: true },
   { slug: 'elixir-costs', title: 'Clash Royale Elixir Costs', primary: false },
   { slug: 'badges', title: 'Elixir Drop Badges', primary: false },
@@ -119,11 +120,11 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(page.getByRole('heading', { name: '7 hidden badges' })).toBeVisible()
   const badge = (name: string) =>
     page.locator('.static-badge').filter({ has: page.getByRole('heading', { name, exact: true }) })
-  await expect(badge('Bridge Read')).toContainText('4,000 · 5,000')
-  await expect(badge('Stormchaser')).toContainText('8,500 · 10,000')
-  await expect(badge('Reps')).toContainText('8,000 · 10,000')
-  await expect(badge('Spellcaster')).toContainText('2,500 · 3,000')
-  await expect(badge('Sharp Trade')).toContainText('50s · 40s')
+  await expect(badge('Bridge Read')).toContainText('4,000 (+25 XP) · 5,000 (+50 XP)')
+  await expect(badge('Stormchaser')).toContainText('8,500 (+25 XP) · 10,000 (+50 XP)')
+  await expect(badge('Reps')).toContainText('8,000 (+25 XP) · 10,000 (+50 XP)')
+  await expect(badge('Spellcaster')).toContainText('2,500 (+25 XP) · 3,000 (+50 XP)')
+  await expect(badge('Sharp Trade')).toContainText('50s (+25 XP) · 40s (+50 XP)')
   await expect(page.getByText('Night Shift', { exact: true })).toHaveCount(0)
   await expect(page.getByText(/midnight and 5:00/)).toHaveCount(0)
 

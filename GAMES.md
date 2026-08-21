@@ -9,13 +9,16 @@ owns.
 
 Shipped state as of August 20, 2026: **six playable game families** — Surge,
 Practice, Higher / Lower, Trade, Survival, and Rain. Practice is one endless
-card-cost drill. It is unranked, has no record, and awards **no Player XP** — it
-deliberately touches no competitive surface, which is exactly what lets it run
-forever.
-Player XP is a per-player activity score (one point per question practiced, right
-or wrong) that drives the arena and is earned by the other five modes;
-leaderboards rank on speed. **Daily Ladder is not shipped and should not be
-built without a fresh product decision.**
+card-cost drill. It is unranked and has no best or leaderboard record, but a
+signed-in online session awards **1 Player XP per two resolved cards** with an
+odd-card carry and no payout cap. Player XP v2 rewards the different time and
+complexity of each mode: Surge pays 15, Trade pays 100, and Higher / Lower,
+Survival, and Rain use the shared score bands in
+`packages/contracts/src/index.ts`. Personal bests, the UTC daily featured game,
+badge rungs, and final season results stack on top. The generated player-facing
+rulebook is `/xp/`; leaderboards still rank only game performance. **Daily
+Ladder is not shipped and should not be built without a fresh product
+decision.**
 
 **Guest play (no account):** every mode is playable signed-out. A guest is dealt
 the same server-signed challenge and scored the same way, but the run records
@@ -196,10 +199,14 @@ the answer. Practice deliberately has no streak or ten-answer milestone effect;
 the summary's primary action becomes **Review misses** when the session has any.
 
 **Unranked and unscored by design.** Runs are created `ranked: false`, never
-write a leaderboard entry, have no leaderboard tab, and earn **zero Player XP** —
-an endless mode paying per-question XP would make the 28-tier arena farmable.
-The run still completes server-side for one reason: the validated transcript
-feeds the server-owned learning stats (`services/api/src/learning.ts`).
+write a leaderboard entry, and have no leaderboard tab. The validated
+transcript feeds server-owned learning stats (`services/api/src/learning.ts`)
+and awards **1 Player XP per two resolved cards**. The odd remainder is stored
+under the player and carries across sessions; there is no session or daily XP
+cap. The signed card pool, answer validation, 10,000-answer anti-abuse work
+ceiling, and server wall-clock completion floor keep a fabricated instant bulk
+transcript from minting progression. Guest and offline Practice remain
+session-only and award nothing.
 
 - Input: pip keypad by default (two wide rows, 1–5 over 6–9), or 4-button multiple
   choice, remembered in settings.

@@ -7,8 +7,8 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(70)
-    expect(entries[0]).toMatchObject({ id: 'practice-exit-names-the-session', kind: 'feature' })
+    expect(entries).toHaveLength(71)
+    expect(entries[0]).toMatchObject({ id: 'player-xp-rewards-the-whole-climb', kind: 'feature' })
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(
       entries.every(

@@ -67,5 +67,15 @@ export function assessRunIntegrity(
       return { eligible: false, reason: "completion_rate_above_ui_limit" };
   }
 
+  if (mode === "practice") {
+    // Practice now pays one XP per two resolved cards. It stays unranked, but
+    // the server wall clock must still prove that a bulk transcript could have
+    // passed through the real 300ms correct-answer hold. A two-second grace
+    // keeps startup/art variance and very short sessions out of the way.
+    const cards = Math.max(0, roundsPresented ?? 0);
+    if (wallElapsedMs + 2_000 < cards * 250)
+      return { eligible: false, reason: "completion_rate_above_ui_limit" };
+  }
+
   return { eligible: true };
 }

@@ -49,6 +49,7 @@ test('the signed-out You page exposes one page heading', async ({ page }) => {
 
 for (const slug of [
   'games',
+  'xp',
   'learn-elixir-costs',
   'elixir-costs',
   'badges',

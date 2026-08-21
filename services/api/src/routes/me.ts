@@ -29,7 +29,7 @@ import type {
 } from "../types.js";
 import type { Repository } from "../repository.js";
 import { normalizePlayerTag } from "../validation.js";
-import { runXp } from "../xp.js";
+import { settleBadgeXp } from "../xp-awards.js";
 import {
   bodyOf,
   clientIpHash,
@@ -76,11 +76,12 @@ export async function getMe({ event, config, repository }: RouteContext) {
     profile,
     cardStats,
   );
+  const xpProfile = (await repository.getProfile(session.sub)) ?? profile;
   const recentDecisions = await repository.refereeDecisions(
     recentRuns.map((run) => run.runId),
   );
   return json(200, {
-    player: profileResponse(profile, crProfile, rankedAccess),
+    player: profileResponse(xpProfile, crProfile, rankedAccess),
     // Retain server-owned learning history for possible future coaching.
     // It is derived from validated transcripts and does not affect deals.
     learning: {
@@ -297,6 +298,23 @@ async function seasonPlacements(
 // returns an empty ladder set rather than 500-ing a profile load. A missing
 // excluded-run evidence item fails closed because subtracting only part of the
 // retained card contribution would publish badges we cannot justify.
+async function settleBadgeXpOnRead(
+  repository: Repository,
+  sub: string,
+  counters: Parameters<typeof settleBadgeXp>[2],
+  at: string,
+  expected: { version: number; updatedAt?: string },
+) {
+  try {
+    return await settleBadgeXp(repository, sub, counters, at, expected);
+  } catch (error) {
+    console.warn("Badge XP lookup failed", {
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return { counters, awarded: 0, newlyEarned: [] };
+  }
+}
+
 async function badgeSummary(
   { event, repository }: RouteContext,
   sub: string,
@@ -315,7 +333,17 @@ async function badgeSummary(
       stored.refereeReconciled === true &&
       stored.refereeDecisionRevision === badgeDecisionRevision
     ) {
-      return { badges: badgeStates(stored) };
+      const settled = await settleBadgeXpOnRead(
+        repository,
+        sub,
+        stored,
+        new Date().toISOString(),
+        { version: stored.version, updatedAt: stored.updatedAt },
+      );
+      return {
+        badges: badgeStates(settled.counters),
+        ...(settled.awarded > 0 ? { backfilled: true } : {}),
+      };
     }
     const [runs, backfillCardStats] = await Promise.all([
       repository.listAllRuns(sub),
@@ -357,7 +385,10 @@ async function badgeSummary(
           {
             runId: run.runId,
             completedAt: run.completedAt,
-            xp: item ? runXp(item.transcript) : 0,
+            // Canonical profile XP is never clawed back. This value only
+            // keeps Arena Climber's referee-derived badge projection aligned
+            // with the exact XP originally attached to the excluded run.
+            xp: run.xp ?? 0,
             correctCards: item
               ? cardResultsFromTranscript(item.challenge, item.transcript)
                   .filter((result) => result.correct)
@@ -380,15 +411,30 @@ async function badgeSummary(
     );
     if (!saved) {
       const concurrent = await repository.getBadges(sub);
-      if (concurrent?.version === BADGE_COUNTERS_VERSION)
-        return { badges: badgeStates(concurrent) };
+      if (concurrent?.version === BADGE_COUNTERS_VERSION) {
+        const settled = await settleBadgeXpOnRead(
+          repository,
+          sub,
+          concurrent,
+          at,
+          { version: concurrent.version, updatedAt: concurrent.updatedAt },
+        );
+        return {
+          badges: badgeStates(settled.counters),
+          ...(settled.awarded > 0 ? { backfilled: true } : {}),
+        };
+      }
     }
     console.info("Badges reconciled from eligible history", {
       requestId: event.requestContext.requestId,
       runs: runs.length,
       excludedRuns: excluded.length,
     });
-    return { badges: badgeStates(counters), backfilled: true };
+    const settled = await settleBadgeXpOnRead(repository, sub, counters, at, {
+      version: counters.version,
+      updatedAt: at,
+    });
+    return { badges: badgeStates(settled.counters), backfilled: true };
   } catch (error) {
     console.warn("Badge lookup failed", {
       requestId: event.requestContext.requestId,
@@ -448,9 +494,10 @@ export async function getPublicPlayer(
     playerId,
     lookup.player,
   );
+  const xpLookup = (await repository.getPublicPlayer(playerId)) ?? lookup;
   return json(200, {
     player: {
-      ...lookup.player,
+      ...xpLookup.player,
       ...(clashRoyale ? { clashRoyale } : {}),
     },
     badges,

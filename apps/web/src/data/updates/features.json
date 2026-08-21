@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "player-xp-rewards-the-whole-climb",
+      "publishedAt": "2026-08-21T17:05:00-05:00",
+      "title": "Player XP rewards the whole climb",
+      "body": "Your XP now matches the challenge: Trade pays big, Practice pays every two cards with no cap, strong Rain, Survival, and Higher / Lower runs climb through performance bands, and personal bests, featured games, badge rungs, and final season positions all stack. Nobody loses existing XP, and earned badge rungs pay retroactively. [See every XP rule and arena threshold](/xp/)."
+    },
+    {
       "id": "practice-exit-names-the-session",
       "publishedAt": "2026-08-21T16:12:00-05:00",
       "title": "Practice leaves the scoreboard behind",

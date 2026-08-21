@@ -49,6 +49,146 @@ export function emailValidationMessage(value: unknown): string | undefined {
 
 export type GameMode = (typeof GAME_MODES)[number];
 
+// Player XP v2 is progression with several explicit sources: completing games,
+// improving, showing up for the featured game, earning badge rungs, and placing
+// at season close. Keep every amount and boundary here so the API, browser, and
+// public /xp/ reference cannot drift into three different rulebooks.
+export const XP_RULES_VERSION = 2;
+
+export type XpAwardSource =
+  | "game"
+  | "practice"
+  | "personal-best"
+  | "daily-featured"
+  | "badge"
+  | "season-placement"
+  | "season-circuit";
+
+export interface XpAward {
+  source: XpAwardSource;
+  label: string;
+  amount: number;
+}
+
+export interface XpBand {
+  min: number;
+  max?: number;
+  xp: number;
+}
+
+export const SURGE_COMPLETION_XP = 15;
+export const TRADE_COMPLETION_XP = 100;
+export const PRACTICE_CARDS_PER_XP = 2;
+export const PERSONAL_BEST_XP = 10;
+export const PERSONAL_BEST_DAILY_LIMIT = 3;
+export const DAILY_FEATURED_XP = 5;
+export const SEASON_CIRCUIT_XP = 100;
+// Season 135 is the first season that can pay placement/Circuit XP. Earlier
+// Podium repairs remain badge-only so activation never backfills old boards.
+export const XP_FIRST_SEASON_ID = "2026-08";
+
+export const PERFORMANCE_XP_BANDS = {
+  "higher-lower": [
+    { min: 0, max: 4, xp: -1 },
+    { min: 5, max: 9, xp: 10 },
+    { min: 10, max: 19, xp: 20 },
+    { min: 20, max: 29, xp: 40 },
+    { min: 30, max: 39, xp: 60 },
+    { min: 40, max: 49, xp: 75 },
+    { min: 50, max: 69, xp: 90 },
+    { min: 70, max: 99, xp: 110 },
+    { min: 100, xp: 125 },
+  ],
+  survival: [
+    { min: 0, max: 4, xp: -1 },
+    { min: 5, max: 9, xp: 10 },
+    { min: 10, max: 19, xp: 20 },
+    { min: 20, max: 39, xp: 40 },
+    { min: 40, max: 59, xp: 60 },
+    { min: 60, max: 79, xp: 90 },
+    { min: 80, max: 99, xp: 100 },
+    { min: 100, max: 119, xp: 110 },
+    { min: 120, max: 120, xp: 125 },
+  ],
+  rain: [
+    { min: 0, max: 4, xp: -1 },
+    { min: 5, max: 9, xp: 10 },
+    { min: 10, max: 24, xp: 20 },
+    { min: 25, max: 39, xp: 40 },
+    { min: 40, max: 54, xp: 60 },
+    { min: 55, max: 69, xp: 75 },
+    { min: 70, max: 99, xp: 90 },
+    { min: 100, max: 134, xp: 110 },
+    { min: 135, xp: 125 },
+  ],
+} as const satisfies Record<
+  "higher-lower" | "survival" | "rain",
+  readonly XpBand[]
+>;
+
+export const FEATURED_MODE_ROTATION = [
+  "surge",
+  "higher-lower",
+  "rain",
+  "trade",
+  "survival",
+] as const satisfies readonly Exclude<GameMode, "practice">[];
+
+export const SEASON_PLACEMENT_XP = [
+  { min: 1, max: 1, xp: 500 },
+  { min: 2, max: 2, xp: 350 },
+  { min: 3, max: 3, xp: 250 },
+  { min: 4, max: 5, xp: 150 },
+  { min: 6, max: 10, xp: 100 },
+  { min: 11, max: 20, xp: 50 },
+] as const satisfies readonly XpBand[];
+
+function bandXp(bands: readonly XpBand[], rawValue: number): number {
+  const value = Math.max(0, Math.floor(rawValue));
+  const band = bands.find(
+    ({ min, max }) => value >= min && (max === undefined || value <= max),
+  );
+  // The 0-4 band deliberately mirrors the exact score. Its sentinel keeps the
+  // public table compact while preserving 0 XP for a zero-score completion.
+  return band?.xp === -1 ? value : (band?.xp ?? 0);
+}
+
+export function gameCompletionXp(mode: GameMode, score: number): number {
+  if (mode === "surge") return SURGE_COMPLETION_XP;
+  if (mode === "trade") return TRADE_COMPLETION_XP;
+  if (mode === "practice") return 0;
+  return bandXp(PERFORMANCE_XP_BANDS[mode], score);
+}
+
+export function practiceXpForCards(
+  cards: number,
+  carriedCards = 0,
+): { xp: number; carriedCards: number } {
+  const total =
+    Math.max(0, Math.floor(cards)) + Math.max(0, Math.floor(carriedCards));
+  return {
+    xp: Math.floor(total / PRACTICE_CARDS_PER_XP),
+    carriedCards: total % PRACTICE_CARDS_PER_XP,
+  };
+}
+
+export function featuredModeForDate(
+  now: Date = new Date(),
+): Exclude<GameMode, "practice"> {
+  const day = Math.floor(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) /
+      86_400_000,
+  );
+  return FEATURED_MODE_ROTATION[
+    ((day % FEATURED_MODE_ROTATION.length) + FEATURED_MODE_ROTATION.length) %
+      FEATURED_MODE_ROTATION.length
+  ]!;
+}
+
+export function seasonPlacementXp(rank: number): number {
+  return bandXp(SEASON_PLACEMENT_XP, rank);
+}
+
 // Survival's per-card window tightens as the streak grows — every run gets a
 // natural climax. The curve is hyperbolic, so the clock keeps getting faster the
 // deeper you go (no flat floor): a 5s opening eases toward an 800ms ultimate
@@ -298,7 +438,7 @@ export interface Player {
   playerTag?: string;
   clashRoyale?: ClashRoyaleProfile;
   totalGames: number;
-  // Lifetime Player XP (correctness-weighted, only climbs); drives the arena.
+  // Lifetime Player XP (event-awarded, only climbs); drives the arena.
   xp: number;
   level: number;
   levelStartGames: number;
@@ -381,6 +521,9 @@ export interface CompletedRun {
   underReview?: boolean;
   totalGames: number;
   xp: number;
+  // The exact sources that stacked on this completion. `xpEarned` remains in
+  // the JSON response during the rolling upgrade for older clients.
+  xpAwards?: XpAward[];
   level: number;
   levelStartGames: number;
   nextLevelGames: number;
@@ -398,9 +541,9 @@ export interface GuestRunCompletion {
 
 export type RunCompletion = CompletedRun | GuestRunCompletion;
 
-// Lifetime Player XP required to reach each of the 28 arenas. XP is an activity
-// score — one point per question practiced — so early arenas fall inside a
-// session and the summit is a genuine long-haul.
+// Lifetime Player XP required to reach each of the 28 arenas. XP v2 combines
+// explicit game, improvement, badge, and season awards; the ladder remains a
+// genuine long-haul even though individual event value now reflects effort.
 //
 // This lives in contracts because BOTH surfaces need it and neither may import
 // the other: apps/web renders the arena (names and art stay client-side, in
@@ -808,6 +951,26 @@ export function badgeTier(rungIndex: number, rungCount: number): BadgeTier {
   if (progress <= 1 / 3) return "copper";
   if (progress <= 2 / 3) return "silver";
   return "gold";
+}
+
+export const BADGE_TIER_XP = {
+  copper: 5,
+  silver: 10,
+  gold: 25,
+  prismatic: 50,
+} as const satisfies Record<Exclude<BadgeTier, "unlit">, number>;
+export const HIDDEN_BADGE_XP = 25;
+export const COLLECTOR_BADGE_XP = 100;
+
+export function badgeRungXp(
+  definition: BadgeDefinition,
+  rungIndex: number,
+): number {
+  if (rungIndex < 0 || rungIndex >= definition.rungs.length) return 0;
+  if (definition.slug === "collector") return COLLECTOR_BADGE_XP;
+  if (definition.hidden) return HIDDEN_BADGE_XP;
+  const tier = badgeTier(rungIndex, definition.rungs.length);
+  return tier === "unlit" ? 0 : BADGE_TIER_XP[tier];
 }
 
 export interface BadgeSummary {

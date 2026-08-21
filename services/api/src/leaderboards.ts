@@ -84,11 +84,39 @@ export async function seasonPodiumFinishers(
   mode: GameMode,
   seasonId: string,
 ): Promise<string[]> {
-  return (
-    await seasonLeaderboardItems(tableName, mode, seasonId, 3, "withhold")
-  ).flatMap((item) =>
-    typeof item.playerSub === "string" && item.playerSub
-      ? [item.playerSub]
+  return (await seasonFinalists(tableName, mode, seasonId, 3)).map(
+    ({ sub }) => sub,
+  );
+}
+
+export interface SeasonFinalist {
+  sub: string;
+  rank: number;
+  score: number;
+}
+
+// Referee-cleared final standings for season awards. Pending results are
+// withheld because XP and badges are permanent; sparse boards still retain
+// their occupied 1-based positions. A 2,000-player read matches the existing
+// bounded 2,000-run partition walk and is used only by the private season job.
+export async function seasonFinalists(
+  tableName: string,
+  mode: GameMode,
+  seasonId: string,
+  limit = 20,
+): Promise<SeasonFinalist[]> {
+  const items = await seasonLeaderboardItems(
+    tableName,
+    mode,
+    seasonId,
+    Math.max(0, Math.min(2_000, Math.floor(limit))),
+    "withhold",
+  );
+  return items.flatMap((item, index) =>
+    typeof item.playerSub === "string" &&
+    item.playerSub &&
+    isLeaderboardEligibleScore(Number(item.score))
+      ? [{ sub: item.playerSub, rank: index + 1, score: Number(item.score) }]
       : [],
   );
 }

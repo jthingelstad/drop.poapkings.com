@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef } from 'preact/hooks'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { earnedBadges, earnedXp, offlineRunMode, recordedRunId } from '../lib/use-game-run'
+import { earnedBadges, earnedXp, earnedXpAwards, offlineRunMode, recordedRunId } from '../lib/use-game-run'
 import { player } from '../lib/account'
 import { rankFor } from '../data/starRanks'
 import type { Card } from '../types'
@@ -137,9 +137,20 @@ export default function Summary({
             </div>
           )}
           {xpEarned > 0 && (
-            <div class="ed-sum__changed-row">
-              <Icon name="zap" /> XP earned <strong class="ed-sum__changed-xp">+{xpEarned}</strong>
-            </div>
+            <>
+              <div class="ed-sum__changed-row">
+                <Icon name="zap" /> XP earned <strong class="ed-sum__changed-xp">+{xpEarned}</strong>
+              </div>
+              {earnedXpAwards.value.map((award, index) => (
+                <div
+                  class="ed-sum__changed-row ed-sum__changed-row--detail"
+                  key={`${award.source}-${award.label}-${index}`}
+                >
+                  <span>{award.label}</span>
+                  <strong>+{award.amount}</strong>
+                </div>
+              ))}
+            </>
           )}
           {earnedBadges.value.length > 0 && <BadgeEarned earned={earnedBadges.value} />}
         </div>

@@ -86,10 +86,13 @@ server challenge; when the browser is offline, all six modes deal locally and
 say plainly that the run will not be saved. Local runs are never queued or
 promoted after reconnecting. Local display, input preferences, and adaptive
 card-learning hints stay in **localStorage**; game history, player profiles,
-per-player Player XP, and leaderboards live in DynamoDB. Player XP is an activity score
-(one point per question practiced, right or wrong) that drives a per-player
-arena; the leaderboard is ranked purely on speed. Practice is the one mode
-outside both systems: it earns no XP and keeps no record. A separate global games
+per-player Player XP, and leaderboards live in DynamoDB. Player XP is a progression score
+(fixed for Surge and Trade, performance-banded for Higher / Lower, Survival,
+and Rain, and one point per two saved Practice cards) that drives a per-player
+arena. Personal bests, the daily featured game, badge rungs, and final season
+results can add stackable awards; the exact generated rules are public at
+[`/xp/`](https://drop.poapkings.com/xp/). Practice remains unranked and keeps no
+best, but signed-in online sessions earn XP. A separate global games
 counter began at a one-time launch seed of 592 and advances once for every
 server-accepted completed game — shown on Home as social proof; page views and
 Tinylytics analytics never contribute to it.

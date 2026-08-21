@@ -11,6 +11,7 @@ import type {
   CrWarClock,
   GameMode,
   RunChallenge,
+  XpAward,
 } from "@elixir-drop/contracts";
 export type ScoreDirection = "lower" | "higher";
 
@@ -86,7 +87,7 @@ export interface PlayerProfile {
   favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
-  // Lifetime Player XP (correctness-weighted, only climbs). Absent on profiles
+  // Lifetime Player XP (event-awarded, only climbs). Absent on profiles
   // created before XP shipped — treat as 0.
   xp?: number;
   createdAt: string;
@@ -140,8 +141,9 @@ export interface RunRecord {
   // Stored for server-side badge recovery and aggregate analysis. Deliberately
   // omitted by runRecordResponse, so it is not part of public run history.
   answerCount?: number;
-  // Per-run XP earned (activity, not skill). Surfaced in the run sheet.
+  // All XP that stacked on this completion. Surfaced in the run sheet.
   xp?: number;
+  xpAwards?: XpAward[];
   // The badge slugs whose rungs this run cleared, written best-effort after
   // completion. Surfaced as "Rungs moved" medallions in the run sheet.
   rungs?: string[];

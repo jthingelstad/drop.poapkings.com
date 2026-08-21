@@ -1,14 +1,35 @@
-import { BADGE_LIST, type BadgeDefinition, type GameMode } from '@elixir-drop/contracts'
+import {
+  ARENA_XP_THRESHOLDS,
+  BADGE_LIST,
+  badgeRungXp,
+  BADGE_TIER_XP,
+  COLLECTOR_BADGE_XP,
+  DAILY_FEATURED_XP,
+  HIDDEN_BADGE_XP,
+  PERFORMANCE_XP_BANDS,
+  PERSONAL_BEST_DAILY_LIMIT,
+  PERSONAL_BEST_XP,
+  PRACTICE_CARDS_PER_XP,
+  SEASON_CIRCUIT_XP,
+  SEASON_PLACEMENT_XP,
+  SURGE_COMPLETION_XP,
+  TRADE_COMPLETION_XP,
+  XP_FIRST_SEASON_ID,
+  type BadgeDefinition,
+  type GameMode
+} from '@elixir-drop/contracts'
 import cardData from '../../../packages/game-data/cards.json' with { type: 'json' }
 import { GAME_CATALOG as GAMES } from '../src/lib/game-catalog.ts'
 import { editorialEntries, type UpdateKind } from '../src/lib/update-data.ts'
 import { renderUpdateMarkdownHtml } from '../src/lib/update-markdown.ts'
+import RANKS from '../src/data/starRanks.ts'
 
 export const STATIC_PAGE_SLUGS = [
   'games',
   'learn-elixir-costs',
   'elixir-costs',
   'badges',
+  'xp',
   'discord',
   'install',
   'fair-play',
@@ -49,6 +70,7 @@ const POLICY_NOTICE =
   'This material is unofficial and is not endorsed by Supercell. For more information see Supercell’s Fan Content Policy: www.supercell.com/fan-content-policy.'
 const PRIMARY_NAV: ReadonlyArray<{ slug: StaticPageSlug; label: string }> = [
   { slug: 'games', label: 'Game Modes' },
+  { slug: 'xp', label: 'Player XP' },
   { slug: 'learn-elixir-costs', label: 'Learn Elixir Costs' },
   { slug: 'install', label: 'Game Setup' },
   { slug: 'fair-play', label: 'Fair Play' },
@@ -344,7 +366,7 @@ ${pageSections([
     'Desktop controls',
     `${paragraph(
       'Every game plays directly on desktop. For elixir costs, keep both hands on the home row; the number row remains an alias.'
-    )}<div class="static-keymap" role="table" aria-label="Desktop elixir cost keyboard mapping"><div role="row"><span role="rowheader">Cost</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd></div><div role="row"><span role="rowheader">Key</span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd></div></div>${paragraph(
+    )}<div class="static-keymap" role="table" aria-label="Desktop elixir cost keyboard mapping" tabindex="0"><div role="row"><span role="rowheader">Cost</span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd><kbd>8</kbd><kbd>9</kbd></div><div role="row"><span role="rowheader">Key</span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd></div></div>${paragraph(
       '<strong>Space</strong> plays again or takes the screen’s primary action. Higher / Lower uses the arrow keys, <strong>Escape</strong> focuses quit before a second press confirms it, and <strong>?</strong> opens the controls guide.'
     )}`
   ),
@@ -417,6 +439,14 @@ const MODE_DETAILS: Record<
   }
 }
 
+function modeXpSummary(mode: GameMode): string {
+  if (mode === 'practice')
+    return `1 XP for every ${PRACTICE_CARDS_PER_XP} resolved cards; an odd card carries into the next saved session.`
+  if (mode === 'surge') return `${SURGE_COMPLETION_XP} XP per recorded completion.`
+  if (mode === 'trade') return `${TRADE_COMPLETION_XP} XP per recorded completion.`
+  return 'Performance XP from the exact score bands on the Player XP page.'
+}
+
 function gamesBody(): string {
   const rows = GAMES.map((game) => {
     const detail = MODE_DETAILS[game.mode]
@@ -430,17 +460,15 @@ function gamesBody(): string {
       game.name,
       `<div class="static-mode"><img src="${game.art}" width="88" height="88" alt=""><div>${paragraph(
         escapeHtml(detail.overview)
-      )}${paragraph(`<strong>Best for:</strong> ${escapeHtml(detail.choose)}`)}${playLink(
-        game.path,
-        `Play ${game.name}`,
-        `content.games.play-${game.mode}`
-      )}</div></div>`,
+      )}${paragraph(`<strong>Best for:</strong> ${escapeHtml(detail.choose)}`)}${paragraph(
+        `<strong>Player XP:</strong> ${escapeHtml(modeXpSummary(game.mode))} <a href="/xp/">Full XP rules</a>.`
+      )}${playLink(game.path, `Play ${game.name}`, `content.games.play-${game.mode}`)}</div></div>`,
       false,
       game.mode
     )
   })
   return `<p class="static-intro">Six games train the same Clash Royale skill from different angles: seeing a card and knowing its elixir cost without stopping to calculate.</p>
-  <div class="static-table-wrap"><table><caption>Compare Elixir Drop game modes</caption><thead><tr><th>Mode</th><th>Trains</th><th>Format</th><th>Ranked</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="static-table-wrap" role="region" aria-label="Game mode comparison" tabindex="0"><table><caption>Compare Elixir Drop game modes</caption><thead><tr><th>Mode</th><th>Trains</th><th>Format</th><th>Ranked</th></tr></thead><tbody>${rows}</tbody></table></div>
   ${pageSections([
     section(
       'Which mode should I play?',
@@ -589,7 +617,7 @@ function badgesBody(): string {
           )}-192.png" width="72" height="72" alt=""><div><h3>${escapeHtml(badge.name)}</h3><p>${escapeHtml(
             badge.requirement ?? ''
           )}</p><p class="static-badge__rungs"><strong>Milestones:</strong> ${badge.rungs
-            .map((rung) => escapeHtml(formatRung(rung, badge)))
+            .map((rung, rungIndex) => `${escapeHtml(formatRung(rung, badge))} (+${badgeRungXp(badge, rungIndex)} XP)`)
             .join(' · ')}</p>${
             game
               ? `<a href="/#${game.path}" data-tinylytics-event="content.badges.play-${game.mode}">Play ${escapeHtml(
@@ -608,7 +636,7 @@ function badgesBody(): string {
       `${paragraph(
         'Badges are progress ladders, not one-time checkboxes. Each badge has several meaningful milestones. Your medallion shows the strongest tier you have reached and the exact rung that earned it.'
       )}${paragraph(
-        'Badge progress is saved for signed-in online play. Guest and offline runs are playable, but they do not add badge progress.'
+        'Every rung also awards Player XP once: copper +5, silver +10, gold +25, and prismatic +50. Hidden single-rung badges award +25; Collector awards +100. Previously earned rungs receive their XP automatically, with no loss of existing XP. Badge progress is saved for signed-in online play; guest and offline runs do not add progress.'
       )}`
     ),
     ...groups,
@@ -616,6 +644,82 @@ function badgesBody(): string {
       `${hiddenCount} hidden badges`,
       '<div class="static-secret"><span aria-hidden="true">?</span><p>Some badges celebrate surprising moments instead of published goals. Their identities and requirements stay concealed until they are earned.</p></div>',
       true
+    )
+  ])}`
+}
+
+function xpRange(min: number, max?: number): string {
+  if (max === undefined) return `${min}+`
+  return min === max ? String(min) : `${min}–${max}`
+}
+
+function performanceXpTable(name: string, bands: readonly { min: number; max?: number; xp: number }[]): string {
+  return `<h3>${escapeHtml(name)}</h3><div class="static-table-wrap" role="region" aria-label="${escapeHtml(name)} XP table" tabindex="0"><table><thead><tr><th>Score</th><th>XP</th></tr></thead><tbody>${bands
+    .map(
+      (band) =>
+        `<tr><td>${escapeHtml(xpRange(band.min, band.max))}</td><td>${band.xp === -1 ? 'Same as score' : band.xp}</td></tr>`
+    )
+    .join('')}</tbody></table></div>`
+}
+
+function xpBody(): string {
+  const arenaRows = ARENA_XP_THRESHOLDS.map(
+    (threshold, index) =>
+      `<tr><td>${index + 1}</td><td>${escapeHtml(RANKS[index]?.name ?? `Arena ${index + 1}`)}</td><td>${threshold.toLocaleString(
+        'en-US'
+      )}</td></tr>`
+  ).join('')
+  const seasonRows = SEASON_PLACEMENT_XP.map(
+    ({ min, max, xp }) => `<tr><td>${escapeHtml(xpRange(min, max))}</td><td>${xp}</td></tr>`
+  ).join('')
+
+  return `<p class="static-intro">Player XP is permanent progression. Signed-in online play can award XP from games, improvements, badge milestones, and season results; your total determines your arena.</p>
+  ${pageSections([
+    section(
+      'Game XP',
+      `${paragraph(
+        `<strong>Surge:</strong> ${SURGE_COMPLETION_XP} XP per recorded completion. <strong>Trade:</strong> ${TRADE_COMPLETION_XP} XP per recorded completion.`
+      )}${paragraph(
+        `<strong>Practice:</strong> 1 XP for every ${PRACTICE_CARDS_PER_XP} resolved cards, with no session or daily cap. If a saved session ends on an odd card, that card carries into the next saved Practice session.`
+      )}${paragraph(
+        'Higher / Lower, Survival, and Rain pay for the validated final score. Scores 0–4 award that exact number, which keeps a zero-score completion at 0 XP and removes a profitable spam floor.'
+      )}${performanceXpTable('Higher / Lower', PERFORMANCE_XP_BANDS['higher-lower'])}${performanceXpTable(
+        'Survival',
+        PERFORMANCE_XP_BANDS.survival
+      )}${performanceXpTable('Rain', PERFORMANCE_XP_BANDS.rain)}`
+    ),
+    section(
+      'Bonuses that stack',
+      `<ul><li><strong>New personal best: +${PERSONAL_BEST_XP} XP.</strong> The first eligible current-board result counts, and later results must beat the player’s official best using the mode’s normal tiebreaks. Maximum ${PERSONAL_BEST_DAILY_LIMIT} paid personal bests (${PERSONAL_BEST_DAILY_LIMIT * PERSONAL_BEST_XP} XP) per UTC day.</li><li><strong>Daily featured completion: +${DAILY_FEATURED_XP} XP.</strong> Paid once per player per UTC day for the mode featured on Home, no matter which route opened the game. Higher / Lower, Survival, and Rain require a score above zero.</li><li><strong>Badge rung:</strong> copper +${BADGE_TIER_XP.copper}, silver +${BADGE_TIER_XP.silver}, gold +${BADGE_TIER_XP.gold}, prismatic +${BADGE_TIER_XP.prismatic}, hidden single-rung +${HIDDEN_BADGE_XP}, Collector +${COLLECTOR_BADGE_XP}. Every badge slug and rung pays once. If a later Fair Play decision changes a badge projection, XP already awarded is never removed.</li></ul>${paragraph(
+        'All eligible sources add together. A featured Trade personal best is 100 + 10 + 5 = 115 XP. A featured Higher / Lower score of 35 that sets a personal best is 60 + 10 + 5 = 75 XP. One hundred Practice cards are 50 XP before any badge rung they clear.'
+      )}`
+    ),
+    section(
+      'Season rollover',
+      `${paragraph(
+        `Beginning with Season 135 (${XP_FIRST_SEASON_ID}), each of the five ranked modes pays its final referee-eligible top 20 at rollover. A pending result is withheld until it can be finalized, a score must be above zero, and a sparse board still pays the positions it actually contains. Placement XP stacks across modes.`
+      )}<div class="static-table-wrap" role="region" aria-label="Season placement XP table" tabindex="0"><table><thead><tr><th>Final position</th><th>XP per mode</th></tr></thead><tbody>${seasonRows}</tbody></table></div>${paragraph(
+        `<strong>Seasonal Circuit: +${SEASON_CIRCUIT_XP} XP.</strong> Earned once at rollover by recording at least one final eligible positive score in every ranked mode that season. Practice is not part of the circuit. A #1 finish, a first copper Podium rung, and the Circuit stack to 500 + 5 + 100 = 605 XP.`
+      )}`
+    ),
+    section(
+      'What does not earn XP',
+      '<p>Starting without completing, replaying, sharing, installing, signing in, setting up a profile, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Guest and offline runs never award XP, save progress, or upload later.</p>'
+    ),
+    section(
+      'Opening balance and retroactive awards',
+      `${paragraph(
+        'Every player keeps all XP already earned. Drop does not recalculate or remove the opening balance.'
+      )}${paragraph(
+        'Badge rung XP is retroactive: all rungs already earned are paid once when the account is next reconciled, including any finite Arena Climber cascade caused by that XP. Historical games, Practice cards, personal bests, featured games, leaderboard positions, and Seasonal Circuits are not backfilled.'
+      )}${paragraph(
+        'Arena thresholds stay unchanged through the first two fully completed XP seasons so players can evaluate the new earning pace before any ladder adjustment.'
+      )}`,
+      true
+    ),
+    section(
+      'Arena thresholds',
+      `<div class="static-table-wrap" role="region" aria-label="Arena XP thresholds" tabindex="0"><table><thead><tr><th>Arena</th><th>Name</th><th>Lifetime XP</th></tr></thead><tbody>${arenaRows}</tbody></table></div>`
     )
   ])}`
 }
@@ -686,6 +790,13 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
       url: `${SITE_URL}/badges/#${badge.slug}`,
       description: badge.requirement
     }))
+  },
+  xp: {
+    eyebrow: 'Permanent progression',
+    title: 'Elixir Drop Player XP',
+    description:
+      'Exact Elixir Drop XP values for games, Practice, personal bests, featured play, badges, season standings, and arenas.',
+    body: xpBody()
   },
   discord: {
     eyebrow: 'Join the players',

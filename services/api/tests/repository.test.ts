@@ -206,7 +206,7 @@ describe("repository DynamoDB requests", () => {
       TableName: "test-table",
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
       ProjectionExpression:
-        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, rungs",
+        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs",
       ScanIndexForward: false,
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({

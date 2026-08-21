@@ -7,7 +7,7 @@
 // each day and every game still sits here, so the rotation can never make a
 // mode harder to find.
 
-import type { GameMode } from '@elixir-drop/contracts'
+import { featuredModeForDate, type GameMode } from '@elixir-drop/contracts'
 
 export interface HomeGame {
   key: string
@@ -60,6 +60,5 @@ export const ALL_GAMES: HomeGame[] = [
 // turns over at a single predictable moment. Deliberately not random: the
 // sequence repeats every five days, which is a rotation a regular can learn.
 export function featuredGame(now: Date = new Date()): HomeGame {
-  const day = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86_400_000)
-  return ALL_GAMES[((day % ALL_GAMES.length) + ALL_GAMES.length) % ALL_GAMES.length]!
+  return ALL_GAMES.find((game) => game.mode === featuredModeForDate(now))!
 }

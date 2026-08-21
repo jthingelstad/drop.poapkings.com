@@ -18,7 +18,7 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { earnedXp, recordedRunId, recordingNotice } from '../../src/lib/use-game-run'
+import { earnedXp, earnedXpAwards, recordedRunId, recordingNotice } from '../../src/lib/use-game-run'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -74,6 +74,7 @@ afterEach(() => {
   standaloneApp.value = false
   recordingNotice.value = { state: 'idle' }
   earnedXp.value = 0
+  earnedXpAwards.value = []
 })
 
 describe('Summary', () => {
@@ -108,6 +109,7 @@ describe('Summary', () => {
   it('reads XP earned back in the "what it changed" ledger', async () => {
     player.value = { id: 'p1' } as never
     earnedXp.value = 15
+    earnedXpAwards.value = [{ source: 'game', label: 'Surge completion', amount: 15 }]
     const html = await render(
       <Summary
         eyebrow="Surge complete"
@@ -121,6 +123,7 @@ describe('Summary', () => {
     expect(html).toContain('ed-sum__changed')
     expect(html).toContain('XP earned')
     expect(html).toContain('+15')
+    expect(html).toContain('Surge completion')
   })
 
   it('does not invite a guest to save an intentionally unranked Practice session', async () => {
@@ -229,6 +232,11 @@ describe('standalone pages', () => {
     expect(badges).toContain('Clockbreaker')
     expect(badges).toContain('7 hidden badges')
     expect(badges).not.toContain('Night Shift')
+    const xp = renderStaticPage('xp')
+    expect(xp).toContain('Trade:</strong> 100 XP')
+    expect(xp).toContain('New personal best: +10 XP')
+    expect(xp).toContain('Seasonal Circuit: +100 XP')
+    expect(xp).toContain('Summit of Heroes')
     expect(renderStaticPage('discord')).toContain('You do not need to be a POAP KINGS clan member')
     expect(renderStaticPage('about')).toContain('mailto:drop@poapkings.com')
     expect(renderStaticPage('faq')).toContain('What counts for the leaderboards?')

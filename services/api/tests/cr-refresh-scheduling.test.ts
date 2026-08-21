@@ -433,7 +433,7 @@ describe("Clash Royale refresh scheduling", () => {
       expect.anything(),
       expect.any(Number),
       "2026-07",
-      expect.any(Number),
+      { practiceCards: 1 },
       undefined, // no Survival time tiebreak for a Practice run
       undefined, // no automatic referee quarantine for a valid Practice run
     );

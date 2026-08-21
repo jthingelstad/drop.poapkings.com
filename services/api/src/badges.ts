@@ -343,6 +343,22 @@ export function recordPodiumFinish(
   };
 }
 
+// Badge XP can itself move the player's arena, which can clear Arena Climber
+// and even Collector. This small pure pass lets the award reconciler settle
+// that finite cascade without pretending another game was played.
+export function recordArenaProgress(
+  input: BadgeCounters,
+  arena: number,
+  at: string,
+): { counters: BadgeCounters; newlyEarned: EarnedRung[] } {
+  const counters = cloneCounters(input);
+  raise(counters.values, "arena-climber", arena);
+  return {
+    counters: settle(counters, at),
+    newlyEarned: newRungsBetween(input, counters, at),
+  };
+}
+
 // Derive rung positions from the counters and stamp any newly cleared rung.
 // Collector resolves last: it depends on every other badge's position, so it
 // can only be decided once the rest of this pass has settled.

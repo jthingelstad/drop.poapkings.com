@@ -315,6 +315,8 @@ export default function Leaderboards() {
             </div>
             <div class="ed-ladder__arena-togo">
               {offline.value ? 'Last known · updated when you reconnect' : arena.toGoLabel}
+              {' · '}
+              <a href="/xp/">XP rules</a>
             </div>
           </div>
         )}

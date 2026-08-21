@@ -1,4 +1,4 @@
-import { arenaForXp } from "@elixir-drop/contracts";
+import { arenaForXp, type XpAward } from "@elixir-drop/contracts";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import {
   advanceBadges,
@@ -43,7 +43,8 @@ import type {
   RunTranscript,
 } from "../types.js";
 import { requireObject } from "../validation.js";
-import { runXp } from "../xp.js";
+import { awardRunBonuses, settleBadgeXp } from "../xp-awards.js";
+import { runXp, runXpAward } from "../xp.js";
 import {
   bodyOf,
   clientIpHash,
@@ -277,24 +278,28 @@ async function recordSignedInRun(
       wallElapsedMs,
     });
   }
-  // Practice earns NO Player XP. It is an endless, non-competitive drill, so
-  // paying one XP per question would let a player farm the 28-tier arena just by
-  // never ending the session. The run itself is still completed and recorded —
-  // that is what feeds the server-owned learning stats below — it simply moves
-  // no progression. The exclusion is stated here, at the call site, rather than
-  // buried as a mode branch inside runXp.
-  const xpAward = run.mode === "practice" ? 0 : runXp(transcript);
   const answerCount = Array.isArray(transcript.answers)
     ? transcript.answers.length
     : 0;
+  // Every ranked mode is determined by its validated score. Practice is the
+  // one stateful award: Repository folds these cards into the player's durable
+  // odd-card carry in the same transaction as the run, so 1 + 1 cards across
+  // two sessions still earn exactly one XP.
+  const completionXp =
+    run.mode === "practice"
+      ? { practiceCards: answerCount }
+      : runXp(run.mode, score);
   const result = await repository.completeRun(
     { ...run, answerCount },
     score,
     season.id,
-    xpAward,
+    completionXp,
     tiebreaks,
     automaticReviewReason,
   );
+  const baseXp =
+    result.xpAward ?? (typeof completionXp === "number" ? completionXp : 0);
+  const xpAwards: XpAward[] = baseXp ? [runXpAward(run.mode, baseXp)] : [];
   await updateLearningStats(repository, run, transcript, result.completedAt);
   // Best-effort all-time best per mode, outside the completeRun transaction so
   // a "not a new best" no-op can never roll back the recorded run. Ranked
@@ -356,27 +361,82 @@ async function recordSignedInRun(
       });
     }
   }
+
+  // Improvement and featured-game XP are exact-once marker transactions. A
+  // recorded run must not become a 500 if a follow-up service call is briefly
+  // unavailable, so retain the established best-effort completion contract.
+  try {
+    xpAwards.push(
+      ...(await awardRunBonuses(repository, {
+        sub: run.owner,
+        runId: run.runId,
+        mode: run.mode,
+        score,
+        completedAt: result.completedAt,
+        personalBest: personalBest.improved,
+        underReview: Boolean(automaticReviewReason),
+      })),
+    );
+  } catch (error) {
+    console.warn("Run XP bonus award failed", {
+      runId: run.runId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+  }
+  let progressionProfile = result.profile;
+  try {
+    progressionProfile =
+      (await repository.getProfile(run.owner)) ?? result.profile;
+  } catch {
+    // The transaction already returned the authoritative post-run profile.
+  }
   // Badges fold in after the run is recorded, on the same best-effort contract
   // as learning stats: a badge failure must never roll back a recorded game.
-  // Practice counts here even though it earns no XP — Reps and Clean Sweep are
-  // Practice badges, and badges reward the drill that the arena deliberately
-  // does not.
+  // Practice counts here too — Reps and Clean Sweep are Practice badges.
   const badgeUpdate = await updateBadges(repository, run, transcript, {
     score,
     completedAt: result.completedAt,
     totalGames: result.totalGames,
-    xp: result.profile.xp ?? 0,
+    xp: progressionProfile.xp ?? 0,
     tzOffsetMinutes: body.tzOffsetMinutes,
     personalBest,
   });
+  let earnedBadges = [...badgeUpdate.newlyEarned];
+  let finalBadgeStates = badgeUpdate.badges;
+  if (badgeUpdate.applied && badgeUpdate.counters) {
+    try {
+      const badgeXp = await settleBadgeXp(
+        repository,
+        run.owner,
+        badgeUpdate.counters,
+        result.completedAt,
+        {
+          version: badgeUpdate.counters.version,
+          updatedAt: result.completedAt,
+        },
+        { runId: run.runId, completedAt: result.completedAt },
+      );
+      earnedBadges = [...earnedBadges, ...badgeXp.newlyEarned];
+      finalBadgeStates = badgeStates(badgeXp.counters);
+      if (badgeXp.awarded > 0)
+        xpAwards.push({
+          source: "badge",
+          label: "Badge milestones",
+          amount: badgeXp.awarded,
+        });
+    } catch (error) {
+      console.warn("Badge XP reconciliation failed", {
+        runId: run.runId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   // The rungs this run cleared, written onto its history row after completion
   // (best-effort, outside the completeRun transaction like the all-time best) so
   // the run sheet can show what moved. Deduped to one entry per badge — a run can
   // clear two rungs of one ladder. A missing history row simply no-ops.
-  if (badgeUpdate.newlyEarned.length) {
-    const rungSlugs = [
-      ...new Set(badgeUpdate.newlyEarned.map((rung) => rung.slug)),
-    ];
+  if (earnedBadges.length) {
+    const rungSlugs = [...new Set(earnedBadges.map((rung) => rung.slug))];
     try {
       await repository.setRunRungs(
         run.owner,
@@ -391,9 +451,16 @@ async function recordSignedInRun(
       });
     }
   }
+  let finalProfile = progressionProfile;
+  try {
+    finalProfile =
+      (await repository.getProfile(run.owner)) ?? progressionProfile;
+  } catch {
+    // Badge/bonus refresh is best-effort; retain the last confirmed profile.
+  }
   const crProfile = await completedGameCrProfile(
     repository,
-    result.profile,
+    finalProfile,
     automaticReviewReason,
   );
   console.info(
@@ -419,8 +486,8 @@ async function recordSignedInRun(
         apiKey: config.buttondownApiKey,
         newsletterId: config.buttondownNewsletterId,
       },
-      result.profile.email,
-      buttondownPlayerMetadata(result.profile, crProfile),
+      finalProfile.email,
+      buttondownPlayerMetadata(finalProfile, crProfile),
     ),
     !automaticReviewReason && run.mode !== "practice"
       ? publishDiscordEvent(
@@ -431,7 +498,7 @@ async function recordSignedInRun(
             score,
             seasonId: season.id,
             completedAt: result.completedAt,
-            profile: result.profile,
+            profile: finalProfile,
             crProfile,
           }),
         )
@@ -459,14 +526,12 @@ async function recordSignedInRun(
     completedAt: result.completedAt,
     ...(automaticReviewReason ? { underReview: true } : {}),
     totalGames: result.totalGames,
-    xp: result.profile.xp ?? 0,
-    // The per-run award, so the summary can say "XP earned +N" (Practice: 0).
-    xpEarned: xpAward,
+    xp: finalProfile.xp ?? 0,
+    xpEarned: xpAwards.reduce((total, award) => total + award.amount, 0),
+    ...(xpAwards.length ? { xpAwards } : {}),
     ...levelForGames(result.totalGames),
-    ...(badgeUpdate.newlyEarned.length
-      ? { earnedBadges: badgeUpdate.newlyEarned }
-      : {}),
-    ...(badgeUpdate.badges ? { badges: { badges: badgeUpdate.badges } } : {}),
+    ...(earnedBadges.length ? { earnedBadges } : {}),
+    ...(finalBadgeStates ? { badges: { badges: finalBadgeStates } } : {}),
   });
 }
 
@@ -496,6 +561,7 @@ export async function updateBadges(
 ): Promise<{
   newlyEarned: ReturnType<typeof advanceBadges>["newlyEarned"];
   badges?: ReturnType<typeof badgeStates>;
+  counters?: ReturnType<typeof advanceBadges>["counters"];
   applied: boolean;
 }> {
   try {
@@ -587,6 +653,7 @@ export async function updateBadges(
         return {
           newlyEarned,
           badges: badgeStates(advanced),
+          counters: advanced,
           applied: true,
         };
     }

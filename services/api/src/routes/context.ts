@@ -193,6 +193,8 @@ export function runRecordResponse(
     seasonId: run.seasonId,
     completedAt: run.completedAt,
     ...(run.xp !== undefined ? { xp: run.xp } : {}),
+    ...(run.xpAwards?.length ? { xpAwards: run.xpAwards } : {}),
+    ...(run.rungs?.length ? { rungs: run.rungs } : {}),
     ...(reviewStatus ? { reviewStatus } : {}),
     ...(reviewExplanation ? { reviewExplanation } : {}),
   };

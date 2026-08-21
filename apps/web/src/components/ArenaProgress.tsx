@@ -45,6 +45,9 @@ export default function ArenaProgress({ xp }: { xp: number }) {
           <div class="rank-progress__fill" style={{ width: fillPct + '%' }} />
         </div>
         <div class="rank-progress__label">{progressLabel}</div>
+        <a class="rank-card__xp-link" href="/xp/">
+          How Player XP works
+        </a>
       </div>
     </div>
   )

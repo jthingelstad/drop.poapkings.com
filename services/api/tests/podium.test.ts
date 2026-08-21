@@ -8,11 +8,16 @@ import type { Repository } from "../src/repository.js";
 
 function repository(overrides: Record<string, unknown> = {}): Repository {
   return {
-    podiumFinishers: vi.fn().mockResolvedValue([]),
+    seasonFinalists: vi.fn().mockResolvedValue([]),
     getBadges: vi.fn().mockResolvedValue({
       ...emptyCounters(),
       updatedAt: "2026-08-03T10:00:00.000Z",
     }),
+    getProfile: vi.fn().mockResolvedValue({ xp: 0 }),
+    badgeXpKeys: vi.fn().mockResolvedValue(new Set()),
+    grantBadgeXpBatch: vi.fn().mockResolvedValue(true),
+    grantXpOnce: vi.fn().mockResolvedValue(false),
+    saveBadges: vi.fn().mockResolvedValue(true),
     savePodiumAward: vi.fn().mockResolvedValue(true),
     ...overrides,
   } as unknown as Repository;
@@ -20,23 +25,28 @@ function repository(overrides: Record<string, unknown> = {}): Repository {
 
 describe("podium finalization", () => {
   it("checks every ranked mode, excludes Practice, and awards each visible finish", async () => {
-    const podiumFinishers = vi
-      .fn()
-      .mockImplementation((mode: string) =>
-        Promise.resolve(mode === "surge" ? ["player-a", "player-b"] : []),
-      );
+    const seasonFinalists = vi.fn().mockImplementation((mode: string) =>
+      Promise.resolve(
+        mode === "surge"
+          ? [
+              { sub: "player-a", rank: 1, score: 12_000 },
+              { sub: "player-b", rank: 2, score: 13_000 },
+            ]
+          : [],
+      ),
+    );
     const savePodiumAward = vi
       .fn()
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
-    const repo = repository({ podiumFinishers, savePodiumAward });
+    const repo = repository({ seasonFinalists, savePodiumAward });
 
     const summary = await finalizePodiumBadges(repo, {
       seasonId: "2026-07",
       finalizedAt: "2026-08-03T10:12:48.768Z",
     });
 
-    expect(podiumFinishers.mock.calls.map(([mode]) => mode)).toEqual([
+    expect(seasonFinalists.mock.calls.map(([mode]) => mode)).toEqual([
       "surge",
       "higher-lower",
       "trade",
@@ -54,6 +64,11 @@ describe("podium finalization", () => {
       finishes: 2,
       awarded: 1,
       duplicates: 1,
+      placementAwards: 0,
+      placementDuplicates: 0,
+      circuitAwards: 0,
+      circuitDuplicates: 0,
+      xpAwarded: 0,
     });
   });
 
@@ -76,7 +91,41 @@ describe("podium finalization", () => {
       finishes: 0,
       awarded: 0,
       duplicates: 0,
+      placementAwards: 0,
+      placementDuplicates: 0,
+      circuitAwards: 0,
+      circuitDuplicates: 0,
+      xpAwarded: 0,
     });
+  });
+
+  it("pays each top-20 mode placement and the five-mode Seasonal Circuit once", async () => {
+    const grantXpOnce = vi.fn().mockResolvedValue(true);
+    const repo = repository({
+      seasonFinalists: vi
+        .fn()
+        .mockResolvedValue([{ sub: "player-a", rank: 1, score: 100 }]),
+      grantXpOnce,
+      savePodiumAward: vi.fn().mockResolvedValue(false),
+    });
+
+    await expect(
+      finalizePodiumBadges(repo, {
+        seasonId: "2026-08",
+        finalizedAt: "2026-09-07T10:00:00.000Z",
+      }),
+    ).resolves.toEqual({
+      seasonId: "2026-08",
+      finishes: 5,
+      awarded: 0,
+      duplicates: 5,
+      placementAwards: 5,
+      placementDuplicates: 0,
+      circuitAwards: 1,
+      circuitDuplicates: 0,
+      xpAwarded: 2_600,
+    });
+    expect(grantXpOnce).toHaveBeenCalledTimes(6);
   });
 
   it("does not finalize on same-season or stale out-of-order clock results", async () => {
@@ -85,8 +134,8 @@ describe("podium finalization", () => {
       leaderboardSeasonId: "2026-08",
       observedAt: "2026-08-03T10:12:48.768Z",
     });
-    const podiumFinishers = vi.fn();
-    const repo = repository({ getCrWarClock, podiumFinishers });
+    const seasonFinalists = vi.fn();
+    const repo = repository({ getCrWarClock, seasonFinalists });
 
     await expect(
       finalizePreviousSeasonIfNeeded(repo, {
@@ -100,6 +149,6 @@ describe("podium finalization", () => {
         observedAt: "2026-08-03T10:00:00.000Z",
       }),
     ).resolves.toBeUndefined();
-    expect(podiumFinishers).not.toHaveBeenCalled();
+    expect(seasonFinalists).not.toHaveBeenCalled();
   });
 });

@@ -241,10 +241,11 @@ function scoreAnswerSprint(
 // anti-injection property) instead of the positional check every other mode
 // uses.
 //
-// That relaxation is safe ONLY because Practice is unranked, earns no Player XP,
-// and writes no record: the returned accuracy is a session stat, never a score,
-// so there is nothing here worth forging. Do not copy this shape into a mode
-// that scores, ranks, or progresses anything.
+// Practice is unranked but does award Player XP, so the route pairs this signed
+// deck-membership validation with integrity.ts's unforgeable server wall-clock
+// floor before recording cards. The returned accuracy remains a session stat,
+// never a leaderboard score. Do not copy this flexible-order shape into a
+// ranked mode.
 function scorePractice(
   challenge: Extract<RunChallenge, { mode: "practice" }>,
   transcript: RunTranscript,

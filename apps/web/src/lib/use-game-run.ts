@@ -1,6 +1,6 @@
 import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
-import { runReference, type GameMode, type RunChallenge, type StartedRun } from '@elixir-drop/contracts'
+import { runReference, type GameMode, type RunChallenge, type StartedRun, type XpAward } from '@elixir-drop/contracts'
 import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
 import { ApiError, completeRun, startRun } from './api'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
@@ -43,6 +43,7 @@ export const earnedBadges = signal<EarnedRung[]>([])
 // XP earned by the run just completed, for the summary's "what changed" ledger.
 // Cleared on the next run for the same reason earnedBadges is.
 export const earnedXp = signal(0)
+export const earnedXpAwards = signal<XpAward[]>([])
 
 // A local run is deliberately unrecorded, even if connectivity returns before
 // it ends. Shared game chrome and summaries read this so the boundary is visible
@@ -113,6 +114,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     recordedRunId.value = null
     earnedBadges.value = []
     earnedXp.value = 0
+    earnedXpAwards.value = []
     offlineRunMode.value = null
     setRecordingNotice({ state: 'idle' })
     const prepareLocal = () => {
@@ -238,9 +240,8 @@ export function useGameRun<T extends GameMode>(mode: T) {
       })
       run.current = null
       pendingCompletion.current = null
-      // Practice keeps no record and earns no XP; the run exists server-side
-      // only so the validated transcript can feed the learning stats. Its toast
-      // says exactly that and never mentions a score or a best.
+      // Practice keeps no board score, but its validated cards now earn Player
+      // XP and feed the same saved learning stats.
       // A held run really did record — it scored, it kept its XP, and it counts
       // toward the player's totals. Only its place on the public board is
       // pending, so the toast says recorded and names the hold rather than
@@ -251,6 +252,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       recordedRunId.value = isRecordedMode(result.mode) ? result.runId : null
       earnedBadges.value = result.earnedBadges ?? []
       earnedXp.value = result.xpEarned ?? 0
+      earnedXpAwards.value = result.xpAwards ?? []
       setRecordingNotice({
         state: 'saved',
         message: !isRecordedMode(result.mode)

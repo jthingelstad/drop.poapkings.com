@@ -152,7 +152,7 @@ export function planRainRecovery(
     evidence,
     transcript,
     score: scored.score,
-    xp: runXp(transcript),
+    xp: runXp("rain", scored.score),
     answerCount: canonicalAnswers.length,
     tiebreaks,
     ignoredAnswerCount: ignored.length,

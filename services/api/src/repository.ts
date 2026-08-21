@@ -9,6 +9,11 @@ import {
   type TransactWriteCommandInput,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import {
+  practiceXpForCards,
+  XP_RULES_VERSION,
+  type XpAward,
+} from "@elixir-drop/contracts";
 import { createHash, randomUUID } from "node:crypto";
 import type { BadgeCounters } from "./badges.js";
 import { client, profileKey } from "./dynamo.js";
@@ -31,9 +36,10 @@ import {
   clanAllTimeLeaderboard,
   refereeDecisions as loadRefereeDecisions,
   seasonLeaderboard,
+  seasonFinalists,
   seasonLeaderboardLeader,
 } from "./leaderboards.js";
-import { seasonPodiumFinishers } from "./leaderboards.js";
+import type { SeasonFinalist } from "./leaderboards.js";
 import type { CardStatsMap } from "./learning.js";
 import {
   hydratePublicProfiles,
@@ -56,6 +62,7 @@ import type {
   RunTiebreaks,
   StoredCrWarClock,
 } from "./types.js";
+import { runXpAward } from "./xp.js";
 
 type DocumentWriteRequest = NonNullable<
   BatchWriteCommandInput["RequestItems"]
@@ -92,6 +99,35 @@ interface MagicItem {
 interface SessionEnvelope {
   token: string;
   expiresAt: string;
+}
+
+interface PracticeXpState {
+  version: number;
+  cards: number;
+  carriedCards: number;
+}
+
+interface PracticeXpWrite extends PracticeXpState {
+  expectedVersion?: number;
+}
+
+export interface XpRunContext {
+  runId: string;
+  completedAt: string;
+}
+
+export interface BadgeXpGrant {
+  key: string;
+  slug: string;
+  rungIndex: number;
+  amount: number;
+}
+
+class PracticeXpConflict extends Error {
+  constructor() {
+    super("Practice XP carry changed concurrently");
+    this.name = "PracticeXpConflict";
+  }
 }
 
 export interface RunItem {
@@ -1158,6 +1194,268 @@ export class Repository {
     }
   }
 
+  private xpHistoryUpdate(
+    sub: string,
+    run: XpRunContext,
+    award: XpAward,
+  ): NonNullable<TransactWriteCommandInput["TransactItems"]>[number] {
+    return {
+      Update: {
+        TableName: this.tableName,
+        Key: {
+          pk: `PLAYER#${sub}`,
+          sk: `RUN#${run.completedAt}#${run.runId}`,
+        },
+        UpdateExpression:
+          "SET xp = if_not_exists(xp, :zero) + :amount, xpAwards = list_append(if_not_exists(xpAwards, :empty), :awards)",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeValues: {
+          ":zero": 0,
+          ":amount": award.amount,
+          ":empty": [],
+          ":awards": [award],
+        },
+      },
+    };
+  }
+
+  private async xpMarker(
+    sub: string,
+    sk: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as Record<string, unknown> | undefined;
+  }
+
+  // Every non-run XP event gets an immutable marker in the player's own
+  // partition and the profile increment in the same transaction. A retry sees
+  // the marker and returns false, so Lambda/SQS retries can never double-pay.
+  async grantXpOnce(
+    sub: string,
+    key: string,
+    award: XpAward,
+    awardedAt: string,
+    run?: XpRunContext,
+    metadata: Record<string, unknown> = {},
+  ): Promise<boolean> {
+    if (!Number.isInteger(award.amount) || award.amount <= 0) return false;
+    const sk = `XP#${key}`;
+    const items: NonNullable<TransactWriteCommandInput["TransactItems"]> = [
+      {
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            ...metadata,
+            pk: `PLAYER#${sub}`,
+            sk,
+            award,
+            awardedAt,
+            xpRulesVersion: XP_RULES_VERSION,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      },
+      {
+        Update: {
+          TableName: this.tableName,
+          Key: profileKey(sub),
+          UpdateExpression: "SET updatedAt = :updatedAt ADD xp :amount",
+          ConditionExpression: "attribute_exists(pk)",
+          ExpressionAttributeValues: {
+            ":updatedAt": awardedAt,
+            ":amount": award.amount,
+          },
+        },
+      },
+    ];
+    if (run) items.push(this.xpHistoryUpdate(sub, run, award));
+    try {
+      await client.send(new TransactWriteCommand({ TransactItems: items }));
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "TransactionCanceledException" &&
+        (await this.xpMarker(sub, sk))
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  // A personal-best marker is per run, while the small UTC-day state enforces
+  // the three-award cap atomically across tabs and retries.
+  async grantDailyPersonalBestXp(
+    sub: string,
+    day: string,
+    run: XpRunContext,
+    award: XpAward,
+    awardedAt: string,
+    dailyLimit: number,
+  ): Promise<boolean> {
+    const markerSk = `XP#PERSONAL-BEST#${run.runId}`;
+    const daySk = `XP-DAY#${day}`;
+    const items: NonNullable<TransactWriteCommandInput["TransactItems"]> = [
+      {
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            pk: `PLAYER#${sub}`,
+            sk: markerSk,
+            award,
+            day,
+            runId: run.runId,
+            awardedAt,
+            xpRulesVersion: XP_RULES_VERSION,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      },
+      {
+        Update: {
+          TableName: this.tableName,
+          Key: { pk: `PLAYER#${sub}`, sk: daySk },
+          UpdateExpression:
+            "SET updatedAt = :updatedAt ADD personalBestAwards :one",
+          ConditionExpression:
+            "attribute_not_exists(personalBestAwards) OR personalBestAwards < :limit",
+          ExpressionAttributeValues: {
+            ":updatedAt": awardedAt,
+            ":one": 1,
+            ":limit": dailyLimit,
+          },
+        },
+      },
+      {
+        Update: {
+          TableName: this.tableName,
+          Key: profileKey(sub),
+          UpdateExpression: "SET updatedAt = :updatedAt ADD xp :amount",
+          ConditionExpression: "attribute_exists(pk)",
+          ExpressionAttributeValues: {
+            ":updatedAt": awardedAt,
+            ":amount": award.amount,
+          },
+        },
+      },
+      this.xpHistoryUpdate(sub, run, award),
+    ];
+    try {
+      await client.send(new TransactWriteCommand({ TransactItems: items }));
+      return true;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "TransactionCanceledException"
+      )
+        throw error;
+      if (await this.xpMarker(sub, markerSk)) return false;
+      const dayState = await this.xpMarker(sub, daySk);
+      if (
+        typeof dayState?.personalBestAwards === "number" &&
+        dayState.personalBestAwards >= dailyLimit
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  async badgeXpKeys(sub: string): Promise<Set<string>> {
+    const keys = new Set<string>();
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":prefix": "XP#BADGE#",
+          },
+          ProjectionExpression: "sk",
+          ConsistentRead: true,
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const item of result.Items ?? [])
+        if (typeof item.sk === "string") keys.add(item.sk.slice(3));
+      startKey = result.LastEvaluatedKey;
+    } while (startKey);
+    return keys;
+  }
+
+  // Retroactive badge XP can contain many already-earned rungs. Batch their
+  // markers with one profile update (99 markers + 1 update is DynamoDB's
+  // transaction ceiling); a concurrent overlap returns false and the caller
+  // reloads markers before retrying the remaining set.
+  async grantBadgeXpBatch(
+    sub: string,
+    grants: BadgeXpGrant[],
+    awardedAt: string,
+    run?: XpRunContext,
+  ): Promise<boolean> {
+    if (!grants.length) return false;
+    if (grants.length > 99) throw new Error("Badge XP batch exceeds 99 rungs");
+    const amount = grants.reduce((total, grant) => total + grant.amount, 0);
+    const award: XpAward = {
+      source: "badge",
+      label: grants.length === 1 ? "Badge milestone" : "Badge milestones",
+      amount,
+    };
+    const items: NonNullable<TransactWriteCommandInput["TransactItems"]> =
+      grants.map((grant) => ({
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            pk: `PLAYER#${sub}`,
+            sk: `XP#${grant.key}`,
+            award: {
+              source: "badge",
+              label: "Badge milestone",
+              amount: grant.amount,
+            } satisfies XpAward,
+            badgeSlug: grant.slug,
+            rungIndex: grant.rungIndex,
+            awardedAt,
+            xpRulesVersion: XP_RULES_VERSION,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      }));
+    items.push({
+      Update: {
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression: "SET updatedAt = :updatedAt ADD xp :amount",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeValues: {
+          ":updatedAt": awardedAt,
+          ":amount": amount,
+        },
+      },
+    });
+    // A history update consumes one more transaction slot, so run-triggered
+    // reconciliation uses at most 98 markers in its caller.
+    if (run) items.push(this.xpHistoryUpdate(sub, run, award));
+    try {
+      await client.send(new TransactWriteCommand({ TransactItems: items }));
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "TransactionCanceledException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
   // Atomically records one mode's podium finish and replaces the player's
   // badge bag. The marker makes SQS redelivery and partial season retries a
   // no-op; the badge condition prevents a concurrent run completion from being
@@ -1272,6 +1570,9 @@ export class Repository {
       completedAt: string;
       answerCount?: number;
       boardEpoch?: string;
+      xp?: number;
+      xpAwards?: XpAward[];
+      rungs?: string[];
     }>
   > {
     const runs: Array<{
@@ -1282,6 +1583,9 @@ export class Repository {
       completedAt: string;
       answerCount?: number;
       boardEpoch?: string;
+      xp?: number;
+      xpAwards?: XpAward[];
+      rungs?: string[];
     }> = [];
     let startKey: Record<string, unknown> | undefined;
     do {
@@ -1294,7 +1598,7 @@ export class Repository {
             ":sk": "RUN#",
           },
           ProjectionExpression:
-            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, rungs",
+            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -1318,6 +1622,9 @@ export class Repository {
               ? { answerCount: item.answerCount }
               : {}),
             ...(typeof item.xp === "number" ? { xp: item.xp } : {}),
+            ...(Array.isArray(item.xpAwards)
+              ? { xpAwards: item.xpAwards as XpAward[] }
+              : {}),
             ...(Array.isArray(item.rungs) ? { rungs: item.rungs } : {}),
             ...(typeof item.boardEpoch === "string"
               ? { boardEpoch: item.boardEpoch }
@@ -1342,16 +1649,18 @@ export class Repository {
       answerCount?: number;
       runId: string;
       boardEpoch?: string;
+      xp?: number;
     }>
   > {
     return (await this.listRunHistory(sub)).map(
-      ({ runId, mode, score, completedAt, answerCount, boardEpoch }) => ({
+      ({ runId, mode, score, completedAt, answerCount, boardEpoch, xp }) => ({
         runId,
         mode,
         score,
         completedAt,
         ...(answerCount !== undefined ? { answerCount } : {}),
         ...(boardEpoch !== undefined ? { boardEpoch } : {}),
+        ...(xp !== undefined ? { xp } : {}),
       }),
     );
   }
@@ -1441,7 +1750,7 @@ export class Repository {
     run: RunItem,
     score: number,
     seasonId: string,
-    xp: number,
+    xp: number | { practiceCards: number },
     tiebreaks?: RunTiebreaks,
     automaticReviewReason?: string,
     recovery?: RunRecoveryOptions,
@@ -1449,6 +1758,84 @@ export class Repository {
     totalGames: number;
     completedAt: string;
     profile: PlayerProfile;
+    xpAward: number;
+  }> {
+    if (typeof xp === "number")
+      return this.completeRunAward(
+        run,
+        score,
+        seasonId,
+        xp,
+        tiebreaks,
+        automaticReviewReason,
+        recovery,
+      );
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const stored = await this.getPracticeXpState(run.owner);
+      const calculated = practiceXpForCards(
+        xp.practiceCards,
+        stored?.carriedCards ?? 0,
+      );
+      try {
+        return await this.completeRunAward(
+          run,
+          score,
+          seasonId,
+          calculated.xp,
+          tiebreaks,
+          automaticReviewReason,
+          recovery,
+          {
+            expectedVersion: stored?.version,
+            version: (stored?.version ?? 0) + 1,
+            cards: (stored?.cards ?? 0) + Math.max(0, xp.practiceCards),
+            carriedCards: calculated.carriedCards,
+          },
+        );
+      } catch (error) {
+        if (!(error instanceof PracticeXpConflict)) throw error;
+      }
+    }
+    throw new HttpError(
+      503,
+      "Practice progression is briefly busy. Try again.",
+      "practice_xp_busy",
+    );
+  }
+
+  private async getPracticeXpState(
+    sub: string,
+  ): Promise<PracticeXpState | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "XP#PRACTICE" },
+        ConsistentRead: true,
+      }),
+    );
+    if (!result.Item) return undefined;
+    return {
+      version: Number(result.Item.version) || 0,
+      cards: Number(result.Item.cards) || 0,
+      carriedCards: Number(result.Item.carriedCards) || 0,
+    };
+  }
+
+  private async completeRunAward(
+    run: RunItem,
+    score: number,
+    seasonId: string,
+    xp: number,
+    tiebreaks?: RunTiebreaks,
+    automaticReviewReason?: string,
+    recovery?: RunRecoveryOptions,
+    practiceXp?: PracticeXpWrite,
+  ): Promise<{
+    totalGames: number;
+    completedAt: string;
+    profile: PlayerProfile;
+    xpAward: number;
   }> {
     const completedAt = recovery?.completedAt ?? new Date().toISOString();
     const writeAt = recovery?.recoveredAt ?? completedAt;
@@ -1472,9 +1859,9 @@ export class Repository {
       ...(run.answerCount !== undefined
         ? { answerCount: run.answerCount }
         : {}),
-      // Per-run XP earned, so the run sheet and summary can say "XP earned +N".
-      // Practice's award is 0, so it is naturally omitted.
-      ...(xp ? { xp } : {}),
+      // Per-run XP and its source breakdown. Zero-score performance runs omit
+      // both; later exact-once bonuses append to this same row.
+      ...(xp ? { xp, xpAwards: [runXpAward(run.mode, xp)] } : {}),
       ...tiebreakItem,
       // Historical unranked runs skip the sparse leaderboard index but still
       // count for history, totals, and Trophy Road.
@@ -1570,6 +1957,35 @@ export class Repository {
         },
       },
     ];
+
+    const practiceXpIndex = practiceXp ? transactionItems.length : -1;
+    if (practiceXp) {
+      transactionItems.push({
+        Put: {
+          TableName: this.tableName,
+          Item: {
+            pk: `PLAYER#${run.owner}`,
+            sk: "XP#PRACTICE",
+            version: practiceXp.version,
+            cards: practiceXp.cards,
+            carriedCards: practiceXp.carriedCards,
+            updatedAt: writeAt,
+          },
+          ConditionExpression:
+            practiceXp.expectedVersion === undefined
+              ? "attribute_not_exists(pk)"
+              : "#version = :expectedVersion",
+          ...(practiceXp.expectedVersion === undefined
+            ? {}
+            : {
+                ExpressionAttributeNames: { "#version": "version" },
+                ExpressionAttributeValues: {
+                  ":expectedVersion": practiceXp.expectedVersion,
+                },
+              }),
+        },
+      });
+    }
 
     // Recent-activity feed: one ephemeral (TTL'd) row per accepted
     // ranked run, keyed newest-first in the main table (pk = FEED#{season}, sk =
@@ -1688,6 +2104,11 @@ export class Repository {
         const reasons =
           (error as { CancellationReasons?: Array<{ Code?: string }> })
             .CancellationReasons ?? [];
+        if (
+          practiceXpIndex >= 0 &&
+          reasons[practiceXpIndex]?.Code === "ConditionalCheckFailed"
+        )
+          throw new PracticeXpConflict();
         const conditionFailed = reasons.some(
           (reason) => reason?.Code === "ConditionalCheckFailed",
         );
@@ -1708,7 +2129,12 @@ export class Repository {
 
     const profile = await this.getProfile(run.owner);
     if (!profile) throw new Error("Completed run profile could not be loaded");
-    return { totalGames: profile.totalGames, completedAt, profile };
+    return {
+      totalGames: profile.totalGames,
+      completedAt,
+      profile,
+      xpAward: xp,
+    };
   }
 
   async getRunRecovery(runId: string): Promise<RunRecoveryMarker | undefined> {
@@ -2123,7 +2549,17 @@ export class Repository {
   }
 
   async podiumFinishers(mode: GameMode, seasonId: string): Promise<string[]> {
-    return seasonPodiumFinishers(this.tableName, mode, seasonId);
+    return (await seasonFinalists(this.tableName, mode, seasonId, 3)).map(
+      ({ sub }) => sub,
+    );
+  }
+
+  async seasonFinalists(
+    mode: GameMode,
+    seasonId: string,
+    limit = 20,
+  ): Promise<SeasonFinalist[]> {
+    return seasonFinalists(this.tableName, mode, seasonId, limit);
   }
 
   async allTimeLeaderboard(

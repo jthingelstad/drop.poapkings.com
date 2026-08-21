@@ -173,6 +173,7 @@ a {
 }
 
 .static-section {
+  min-width: 0;
   padding: clamp(22px, 4vw, 34px);
   background: var(--panel);
   scroll-margin-top: 132px;

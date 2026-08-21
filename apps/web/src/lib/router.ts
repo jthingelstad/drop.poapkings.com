@@ -14,6 +14,7 @@ const STANDALONE_HASH_ROUTES: Record<string, string> = {
   '/learn-elixir-costs': '/learn-elixir-costs/',
   '/elixir-costs': '/elixir-costs/',
   '/badges': '/badges/',
+  '/xp': '/xp/',
   '/discord': '/discord/',
   '/about': '/about/',
   '/updates': '/updates/',

@@ -177,7 +177,9 @@ describe("run integrity rejection", () => {
       undefined,
       "score_below_ui_floor",
     );
-    expect(repository.getProfile).not.toHaveBeenCalled();
+    // Recorded reviewed runs still refresh progression around exact-once
+    // non-competitive awards; only PB XP is withheld pending review.
+    expect(repository.getProfile).toHaveBeenCalledTimes(2);
     expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: "run-fast",

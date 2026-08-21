@@ -2052,6 +2052,13 @@ body.modal-open {
   color: var(--muted);
   letter-spacing: 0.03em;
 }
+.rank-card__xp-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--gold-lite, #ffe9b3);
+  font-size: 12px;
+  font-weight: 700;
+}
 
 @media (width <= 520px) {
   .rank-card {
@@ -8391,6 +8398,17 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--gold-lite, #ffe9b3);
   font-weight: 700;
 }
+.ed-sum__changed-row--detail {
+  justify-content: space-between;
+  padding-left: 32px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ed-sum__changed-row--detail strong {
+  color: var(--gold-lite, #ffe9b3);
+  font-variant-numeric: tabular-nums;
+}
 .ed-sum__changed-xp {
   color: var(--gold);
   font-variant-numeric: tabular-nums;
@@ -8405,6 +8423,18 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 .ed-run-modal__xp strong {
   color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ed-run-modal__xp-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0 0 28px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ed-run-modal__xp-detail strong {
+  color: var(--gold-lite, #ffe9b3);
   font-variant-numeric: tabular-nums;
 }
 .ed-run-modal__rungs {

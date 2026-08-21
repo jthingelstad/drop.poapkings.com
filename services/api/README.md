@@ -19,7 +19,8 @@ Responsibilities in this release:
 - short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
-  arena (every mode but Practice, which is endless and so earns none);
+  arena: fixed, performance-banded, and Practice-card game awards plus exact-once
+  personal-best, featured, badge-rung, and season-final awards;
 - a site-wide Trophy Road advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
   plus an all-time board of each player's best-ever score per mode; and
@@ -90,6 +91,30 @@ Daily Drop is a cumulative distinct-played-day badge, not a streak: one recorded
 local calendar day in any mode (Practice included) advances it once. Repeated
 runs that day advance Marathon instead. Guest and offline runs move neither;
 legacy backfills use the UTC date already available on immutable history.
+
+## Player XP
+
+XP v2 values live in `@elixir-drop/contracts`; `/xp/` is generated from those
+same constants. `completeRun` atomically records the game award: Surge 15,
+Trade 100, performance bands for Higher / Lower, Survival, and Rain, or one XP
+per two Practice cards using the player's durable odd-card carry. Practice has
+no payout cap, remains unranked, and must pass its signed-deck validation plus
+the server wall-clock completion-rate floor. Guest and offline runs never reach
+this path.
+
+Post-run PB (+10, first result counts, three paid per UTC day) and featured
+(+5, once per UTC day) bonuses use immutable player-partition markers. Badge
+rungs pay 5/10/25/50 by visible tier, 25 for a hidden single rung, and 100 for
+Collector. `GET /me` and `GET /players/{id}` reconcile all already-earned badge
+markers and settle the finite Arena Climber cascade, so the badge migration is
+lazy, resumable, and needs no privileged bulk writer.
+
+Beginning with Season 135 (`2026-08`), the CR rollover result consumer uses final referee-aware standings
+with pending runs withheld. Each ranked mode's occupied top 20 pays
+500/350/250/150/100/50 by placement band, and a positive final score in all five
+ranked modes pays +100 Seasonal Circuit. The same SQS retry that protects the
+Podium badge protects these exact-once markers. Current XP is always the opening
+balance; only badge rungs are retroactive.
 
 ## Sharing a run
 

@@ -72,7 +72,8 @@ describe("Rain run recovery", () => {
     const plan = planRainRecovery(retained, run, 1);
 
     expect(plan.score).toBe(1);
-    expect(plan.xp).toBe(4);
+    // Rain score 1 is in the nuanced 0-4 anti-spam band: exact score XP.
+    expect(plan.xp).toBe(1);
     expect(plan.answerCount).toBe(4);
     expect(plan.ignoredAnswerCount).toBe(1);
     expect(plan.terminalInputDelayMs).toBe(50);

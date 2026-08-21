@@ -246,7 +246,7 @@ export async function crResultHandler(
       } else if (type === "podium-finalize") {
         const result = parsePodiumFinalizeResult(value);
         const summary = await finalizePodiumBadges(repository, result);
-        console.info("Podium season finalized", summary);
+        console.info("Season awards finalized", summary);
       } else {
         const result = parseCrPlayerResult(value);
         const saved = await saveCrPlayerResult(repository, result);

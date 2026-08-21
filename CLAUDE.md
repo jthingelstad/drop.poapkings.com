@@ -353,23 +353,31 @@ rank-oriented fields as part of unrelated work.
   current board epoch. Storage is one
   `PLAYER#{sub}/BADGES` item, written
   best-effort *outside* the `completeRun` transaction exactly like learning
-  stats — a badge failure must never roll back a recorded run. **Badges award no
-  XP**: they stand alone, so a retroactive backfill cannot jump a player several
-  arenas. Rungs were calibrated against the live boards on 2026-08-02, with
+  stats — a badge failure must never roll back a recorded run. Every earned
+  rung awards exact-once Player XP from the shared contract (copper 5, silver
+  10, gold 25, prismatic 50, hidden single-rung 25, Collector 100). The profile
+  read path retroactively reconciles every existing rung, and then settles the
+  finite badge XP → Arena Climber → badge XP cascade; markers prevent replay and
+  awarded XP is never clawed back. Rungs were calibrated against the live boards on 2026-08-02, with
   Sharp Trade rechecked against its expanded 10-exchange cohort on 2026-08-06,
   the five Tyler-tested volume/skill ladders plus Daily Drop reworked on
   2026-08-16, and five prismatic ceilings revised in the 2026-08-20 product
   review. Daily Drop counts distinct played days, never a streak. The rungs
   are not copied from the design draft; ladders with no live data behind them
   are marked "scaled" in the table and want a re-check.
-- **Player XP is a per-player ACTIVITY score; the leaderboard is SKILL.** XP is
-  server-computed in `services/api/src/xp.ts` (`runXp` = questions attempted in
-  a run, right or wrong; floor 1), added to the `PLAYER#/PROFILE` item inside
-  the `completeRun` transaction, and returned on `GET /me`, `/runs/complete`,
-  and leaderboard rows. It rewards practice volume, never correctness — a
-  beginner always progresses. **Practice earns zero XP**, excluded explicitly at
-  the `runs-complete.ts` call site: it is endless, so per-question XP would make
-  the arena farmable. XP drives the 28-tier arena in
+- **Player XP is permanent progression; the leaderboard is performance.**
+  `packages/contracts/src/index.ts` is the one XP v2 rulebook used by the API,
+  browser, and generated `/xp/` page. Recorded Surge pays 15 and Trade 100;
+  Higher / Lower, Survival, and Rain pay nuanced score bands (0–4 equals the
+  score, then 10–125); Practice pays one per two validated cards with a durable
+  odd-card carry and no payout cap. Exact-once marker transactions add +10 for
+  an official current-board personal best (first counts, max three per UTC day),
+  +5 for the first qualifying UTC featured completion, badge rung XP, top-20
+  season placement XP from Season 135 / `2026-08` onward
+  (500/350/250/150/100/50), and +100 Seasonal Circuit for
+  a positive final score in all five ranked modes. Current XP is the immutable
+  opening balance; only badge rungs backfill. Offline and guest runs award
+  nothing. XP drives the 28-tier arena in
   `apps/web/src/data/starRanks.ts` (thresholds scaled to XP), shown in the nav
   player block and profile. Leaderboards stay ranked purely on speed. The old
   games-derived "Level" is retired.

@@ -1093,8 +1093,16 @@ function RunDetail({
       </div>
 
       {run.xp !== undefined && run.xp > 0 && (
-        <div class="ed-run-modal__xp">
-          <Icon name="zap" /> XP earned <strong>+{run.xp}</strong>
+        <div>
+          <div class="ed-run-modal__xp">
+            <Icon name="zap" /> XP earned <strong>+{run.xp}</strong>
+          </div>
+          {run.xpAwards?.map((award, index) => (
+            <div class="ed-run-modal__xp-detail" key={`${award.source}-${award.label}-${index}`}>
+              <span>{award.label}</span>
+              <strong>+{award.amount}</strong>
+            </div>
+          ))}
         </div>
       )}
 

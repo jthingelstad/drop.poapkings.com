@@ -331,19 +331,44 @@ Important shared modules:
 
 Player XP and the per-player arena:
 
-- **XP is an activity score, not a skill score.** `services/api/src/xp.ts`
-  `runXp` awards one point per question attempted in a run — right or wrong —
-  with a floor of 1. It rewards practice volume so a longer session moves the
-  arena more than a quick one and a beginner always progresses. Skill lives
-  entirely on the leaderboard (speed). **Practice earns zero XP** — the exclusion
-  is applied at the `routes/runs-complete.ts` call site, not inside `runXp` —
-  because an endless mode paying per question would make the arena farmable.
-- XP is added to the `PLAYER#/PROFILE` item inside the same `completeRun`
-  transaction as the player and global counts, and is returned on `GET /me`,
-  `/runs/complete`, and leaderboard rows. Rejected runs earn nothing.
+- **The shared XP v2 contract is canonical.** Exact values and pure boundary
+  functions live in `packages/contracts/src/index.ts`; the API imports them and
+  `apps/web/scripts/static-pages.ts` generates the public `/xp/` tables from the
+  same constants. Do not copy an XP table into an API or UI module.
+- **Recorded game base awards:** Surge 15; Trade 100; Practice one per two
+  validated cards, with a `PLAYER#{sub}/XP#PRACTICE` odd-card carry and no
+  payout cap; Higher / Lower, Survival, and Rain use score bands from 0–125.
+  Scores 0–4 pay the exact score, so a zero-score performance completion has no
+  profitable floor. Practice remains unranked and unscored; signed deck
+  membership plus a server wall-clock completion-rate floor protect its
+  progression value. Guest/offline runs never award XP.
+- **Run bonuses:** an official current-board personal best pays 10 (the first
+  eligible result counts; normal mode tiebreaks decide; no more than three paid
+  PBs per player per UTC day). The first qualifying completion of the Home
+  featured mode pays 5 per UTC day regardless of entry route; count modes
+  require a positive score. These bonuses stack with the base and each other.
+- **Badge rung XP is retroactive and exact once:** copper 5, silver 10, gold 25,
+  prismatic 50, hidden single-rung 25, Collector 100. Profile reads reconcile
+  markers for every currently earned slug+rung and settle the finite Arena
+  Climber cascade. Later badge/referee changes never subtract XP.
+- **Season-final XP (Season 135 / `2026-08` onward):** the private result-queue finalizer reads referee-eligible,
+  positive, current-board standings with pending runs withheld and pays each
+  mode's occupied top 20: #1 500, #2 350, #3 250, #4–5 150, #6–10 100,
+  #11–20 50. A player with a final eligible positive score in all five ranked
+  modes also gets 100 Seasonal Circuit XP. Practice is excluded. Placement,
+  Circuit, and Podium badge rung XP all stack and are retry-safe.
+- **Persistence and compatibility:** game base XP is in the `completeRun`
+  transaction. Every other source uses an immutable `PLAYER#{sub}/XP#...`
+  marker and the profile increment in one transaction; PB day state atomically
+  enforces its cap. Run-linked bonuses append to the history row's `xp` and
+  `xpAwards`, and `/runs/complete` returns both total `xpEarned` and its source
+  list. Existing lifetime XP is the opening balance: no historical game,
+  Practice, PB, featured, placement, or Circuit recalculation occurs; only
+  earned badge rungs backfill.
 - The 28 arena tiers in `apps/web/src/data/starRanks.ts` are thresholded on
-  lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000, ~5,000
-  games), shown in the nav player block and the profile. The arena only climbs.
+  lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000), shown
+  in the nav player block and profile. The arena only climbs; thresholds remain
+  fixed through the first two fully completed XP seasons before review.
   The former games-derived "Level" is retired.
 
 Global games counter (site social proof):
@@ -468,6 +493,12 @@ and preserves forward-only state such as Podium, Reps, Clean Sweep, and hidden
 badges. Counter version 7 re-settles the August 20 prismatic targets and rebuilds
 Sharp Trade's per-rung counts for its new 40-second ceiling. `backfilled`
 tells the browser to show one summary instead of queueing celebrations.
+Badge XP uses sibling `PLAYER#{sub}/XP#BADGE#{slug}#{rung}` markers; Practice's
+carry is `XP#PRACTICE`; PB day caps use `XP-DAY#{yyyy-mm-dd}`; featured,
+season-placement, Circuit, and per-run PB markers use their event identities.
+All stay in the player partition so account deletion removes progression state
+with the profile. Marker + profile increment transactions are the exact-once
+boundary; no control-room or CR bridge surface writes XP directly.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Its identity projection also
 includes the unverified Clash player tag plus CR name and clan when the shared
@@ -673,8 +704,8 @@ join the immediate pending notice and owner history to the UUID-keyed evidence a
 referee decision. The referee tools accept either form and fail closed if a short
 tag is ever ambiguous. An unscored attempt has no
 history row or review-status badge because no ranked result exists. Practice is
-unranked, unscored, and XP-free — the run
-exists only to feed the server-owned learning stats. Guest runs use
+unranked and unscored; its validated online run feeds learning stats and Player
+XP without entering referee or leaderboard surfaces. Guest runs use
 strict scoring but skip the integrity/referee path because they are never
 recorded. Completion and the public read endpoints are also IP rate-limited
 (guests included, since the per-IP

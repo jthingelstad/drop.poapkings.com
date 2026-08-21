@@ -2,10 +2,9 @@ export interface StarRank {
   n: number
   name: string
   slug: string
-  // Lifetime Player XP required to reach this arena. XP is an activity score:
-  // one point per question practiced (a Surge sprint ≈ 15, a game averages
-  // ~12), so early arenas fall within a session and the summit (~5,000 games)
-  // is a genuine long-haul. Per-player, and only ever climbs.
+  // Lifetime Player XP required to reach this arena. XP v2 is permanent,
+  // event-awarded progression from games, badge rungs, improvements, featured
+  // play, and final season results. Per-player, and only ever climbs.
   //
   // These values are mirrored by `ARENA_XP_THRESHOLDS` in
   // `@elixir-drop/contracts`, which the server reads to resolve the Arena
