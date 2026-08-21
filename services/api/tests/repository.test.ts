@@ -28,6 +28,11 @@ describe("repository DynamoDB requests", () => {
     send.mockResolvedValueOnce({
       Items: [
         {
+          pk: "CONTROL#PLAYER#player-public-id",
+          sk: "CHANGE#2026-08-21T11:00:00.000Z#correction-id",
+          playerId: "player-public-id",
+        },
+        {
           pk: "PLAYER#private-sub",
           sk: "PROFILE",
           playerId: "player-public-id",
@@ -48,8 +53,12 @@ describe("repository DynamoDB requests", () => {
       TableName: "test-table",
       IndexName: "GSI3",
       KeyConditionExpression: "playerId = :playerId",
-      ExpressionAttributeValues: { ":playerId": "player-public-id" },
-      Limit: 1,
+      FilterExpression: "#sk = :profile",
+      ExpressionAttributeNames: { "#sk": "sk" },
+      ExpressionAttributeValues: {
+        ":playerId": "player-public-id",
+        ":profile": "PROFILE",
+      },
     });
     expect(result).toMatchObject({
       sub: "private-sub",
@@ -64,6 +73,46 @@ describe("repository DynamoDB requests", () => {
     });
     expect(result?.player).not.toHaveProperty("email");
     expect(result?.player).not.toHaveProperty("sub");
+  });
+
+  it("continues a filtered public-player lookup when a collision fills the first page", async () => {
+    const cursor = {
+      playerId: "player-public-id",
+      pk: "CONTROL#PLAYER#player-public-id",
+      sk: "CHANGE#2026-08-21T11:00:00.000Z#correction-id",
+    };
+    send
+      .mockResolvedValueOnce({ Items: [], LastEvaluatedKey: cursor })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#private-sub",
+            sk: "PROFILE",
+            playerId: "player-public-id",
+            publicName: "Log",
+            totalGames: 1_027,
+            xp: 15_198,
+          },
+        ],
+      });
+
+    const result = await new Repository("test-table").getPublicPlayer(
+      "player-public-id",
+    );
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1]?.[0].input).toMatchObject({
+      ExclusiveStartKey: cursor,
+    });
+    expect(result).toMatchObject({
+      sub: "private-sub",
+      player: {
+        id: "player-public-id",
+        publicName: "Log",
+        totalGames: 1_027,
+        xp: 15_198,
+      },
+    });
   });
 
   it("reads a reversible referee overlay for ranked access", async () => {

@@ -129,8 +129,10 @@ markers — a link that outlived the account would keep naming a player who left
 
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse
-`GSI3` index and returns only public identity, progress, the already-public
-player tag when present, and sanitized recent ranked runs. Email,
+`GSI3` index, filtering and paginating until it finds the `PROFILE` row because
+audited account-support records can carry the same pseudonymous ID, and returns
+only public identity, progress, the already-public player tag when present, and
+sanitized recent ranked runs. Email,
 authentication subject, and DynamoDB storage keys never cross this response
 boundary.
 

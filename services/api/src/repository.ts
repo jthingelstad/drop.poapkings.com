@@ -438,39 +438,51 @@ export class Repository {
   async getPublicPlayer(
     playerId: string,
   ): Promise<PublicPlayerLookup | undefined> {
-    const result = await client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: "GSI3",
-        KeyConditionExpression: "playerId = :playerId",
-        ExpressionAttributeValues: { ":playerId": playerId },
-        Limit: 1,
-      }),
-    );
-    const item = result.Items?.[0] as Partial<ProfileItem> | undefined;
-    if (
-      !item ||
-      item.sk !== "PROFILE" ||
-      typeof item.pk !== "string" ||
-      !item.pk.startsWith("PLAYER#") ||
-      typeof item.playerId !== "string" ||
-      typeof item.totalGames !== "number"
-    ) {
-      return undefined;
-    }
-    const sub = item.pk.slice("PLAYER#".length);
-    if (!sub) return undefined;
-    return {
-      sub,
-      player: publicProfile({
-        playerId: item.playerId,
-        publicName: item.publicName,
-        favoriteCardId: item.favoriteCardId,
-        playerTag: item.playerTag,
-        totalGames: item.totalGames,
-        xp: item.xp,
-      }),
-    };
+    // GSI3's hash key is shared by the profile and audited CONTROL# correction
+    // rows. DynamoDB filters after reading a page, so an empty Items array can
+    // still carry a cursor that must be followed to reach the PROFILE row.
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: "GSI3",
+          KeyConditionExpression: "playerId = :playerId",
+          FilterExpression: "#sk = :profile",
+          ExpressionAttributeNames: { "#sk": "sk" },
+          ExpressionAttributeValues: {
+            ":playerId": playerId,
+            ":profile": "PROFILE",
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+        }),
+      );
+      const item = result.Items?.find(
+        (candidate) =>
+          candidate.sk === "PROFILE" &&
+          typeof candidate.pk === "string" &&
+          candidate.pk.startsWith("PLAYER#") &&
+          candidate.playerId === playerId &&
+          typeof candidate.totalGames === "number",
+      ) as Partial<ProfileItem> | undefined;
+      if (item) {
+        const sub = item.pk?.slice("PLAYER#".length);
+        if (!sub) return undefined;
+        return {
+          sub,
+          player: publicProfile({
+            playerId: item.playerId as string,
+            publicName: item.publicName,
+            favoriteCardId: item.favoriteCardId,
+            playerTag: item.playerTag,
+            totalGames: item.totalGames as number,
+            xp: item.xp,
+          }),
+        };
+      }
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+    return undefined;
   }
 
   // The pseudonymous profile UUID for a subject, used to key the tag cluster
