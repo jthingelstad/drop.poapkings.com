@@ -2962,7 +2962,10 @@ html.reduce-motion .ed-btn--gold {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 20px;
+
+  /* MobileShell already clears the installed-iPhone status bar. Applying the
+     inset again here created a second, empty safe-area band above the hero. */
+  padding: 16px 16px 20px;
   background: linear-gradient(165deg, rgba(59, 29, 122, 0.9), rgba(11, 9, 32, 0.98) 72%);
 }
 .ed-hero-carousel__glow {

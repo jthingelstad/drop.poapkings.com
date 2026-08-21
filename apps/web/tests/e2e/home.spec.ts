@@ -353,8 +353,22 @@ test.describe('mobile primary navigation', () => {
     await applyTestSafeArea()
 
     await expect(page.locator('.ed-mobile')).toHaveCSS('padding-top', '47px')
+    // The shell owns the status-bar inset exactly once. The hero keeps its
+    // ordinary content padding instead of adding a second empty safe-area band.
+    const heroPaddingDeclaration = await page.evaluate(() => {
+      for (const sheet of document.styleSheets) {
+        for (const rule of sheet.cssRules) {
+          if (rule instanceof CSSStyleRule && rule.selectorText === '.ed-hero-carousel') {
+            return rule.style.paddingTop
+          }
+        }
+      }
+      return undefined
+    })
+    expect(heroPaddingDeclaration).toBe('16px')
+
     // The intro header and identity chip are gone; the hero leads the page and
-    // must clear the status-bar inset.
+    // clears the status-bar inset through the shell.
     const heroTop = await page
       .locator('.ed-hero')
       .first()
