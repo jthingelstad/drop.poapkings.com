@@ -356,6 +356,25 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
 test.describe('mobile primary navigation', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
+  test('shows Player XP to the left of the signed-in profile avatar', async ({ page }) => {
+    await page.goto('/')
+
+    const profile = page.getByRole('button', { name: 'Knight Main — 480 XP — open You' })
+    const xp = profile.locator('.ed-hero-carousel__xp')
+    const avatar = profile.locator('.player-avatar')
+    await expect(xp).toHaveText('480 XP')
+    await expect(xp).toHaveCSS('font-family', /Clash Royale/)
+
+    const [xpBounds, avatarBounds] = await Promise.all([xp.boundingBox(), avatar.boundingBox()])
+    expect(xpBounds).not.toBeNull()
+    expect(avatarBounds).not.toBeNull()
+    expect(xpBounds!.x + xpBounds!.width).toBeLessThanOrEqual(avatarBounds!.x)
+
+    await profile.click()
+    await expect(page).toHaveURL(/#\/profile$/)
+    await expect(page.getByRole('heading', { name: 'You' })).toBeVisible()
+  })
+
   test('puts the signed-out Guest shortcut in the avatar slot and opens You', async ({ page }) => {
     await useSignedOutState(page)
 

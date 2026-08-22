@@ -576,6 +576,7 @@ describe('Home', () => {
     expect(html).toContain('GUEST')
     expect(html).toContain('aria-label="Guest — open You"')
     expect(html).toContain('ed-cause--button')
+    expect(html).not.toContain('ed-hero-carousel__xp')
     // Every mode appears — the featured one in the hero, the rest as rows.
     for (const name of ['Surge', 'Higher / Lower', 'Rain', 'Trade', 'Survival']) {
       expect(html).toContain(name)
@@ -642,15 +643,18 @@ describe('Home', () => {
 
   it('shows no cause chip and no identity band when authed and online', async () => {
     accountStatus.value = 'authenticated'
-    player.value = { id: 'p2', publicName: 'Bob', level: 7 } as never
+    player.value = { id: 'p2', publicName: 'Bob', favoriteCardId: 26000000, xp: 480, level: 7 } as never
 
     homeData()
     const html = await renderToStringAsync(<Home />)
 
-    // Identity lives on the You page now; Home leads with the hero.
+    // Identity stays compact in the hero topbar; Home has no separate band.
     expect(html).not.toContain('GUEST')
     expect(html).not.toContain('ed-cause')
     expect(html).not.toContain('ed-idchip')
+    expect(html).toContain('ed-hero-carousel__xp')
+    expect(html).toContain('480 XP')
+    expect(html).toContain('aria-label="Bob — 480 XP — open You"')
   })
 
   it('shows the prominent install banner while installable and undismissed', async () => {

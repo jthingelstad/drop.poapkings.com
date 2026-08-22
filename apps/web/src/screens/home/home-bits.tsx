@@ -217,18 +217,21 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
       <span class="ed-hero-carousel__glow" aria-hidden="true" />
 
       {/* The app says its own name once, at the top of the screen, and the
-          player's own face sits opposite it — the one place identity appears on
-          Play. It is a shortcut to You, not a second profile surface. The Guest
-          shortcut occupies that same right-side slot while signed out. */}
+          player's XP and face sit opposite it — the one place identity appears
+          on Play. It is a shortcut to You, not a second profile surface. The
+          Guest shortcut occupies that same right-side slot while signed out. */}
       <div class="ed-hero-carousel__topbar">
         <span class="ed-hero-carousel__brand">ELIXIR DROP</span>
         {me && (
           <button
             type="button"
             class="ed-hero-carousel__me"
-            aria-label={`${me.publicName} — open You`}
+            aria-label={`${me.publicName} — ${me.xp.toLocaleString()} XP — open You`}
             onClick={() => navigate('/profile')}
           >
+            <span class="ed-hero-carousel__xp" aria-hidden="true">
+              {me.xp.toLocaleString()} XP
+            </span>
             <PlayerAvatar favoriteCardId={me.favoriteCardId} size="small" />
           </button>
         )}

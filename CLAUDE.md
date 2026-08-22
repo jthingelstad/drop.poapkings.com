@@ -317,10 +317,11 @@ rank-oriented fields as part of unrelated work.
   (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI; zero
   XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
 - **Play opens on a full-bleed hero panel** (`9a`). The panel runs to the top of
-  the screen and carries the `ELIXIR DROP` wordmark and the player's avatar
-  across its top — the one place identity appears on Play, and a shortcut to You
-  rather than a second profile surface. Signed out, a `GUEST` shortcut occupies
-  the avatar's right-side slot and opens that same You surface. Inside it: the
+  the screen and carries the `ELIXIR DROP` wordmark plus the player's XP and
+  avatar across its top — the one place identity appears on Play, and a shortcut
+  to You rather than a second profile surface. Signed out, a `GUEST` shortcut
+  occupies the avatar's right-side slot and opens that same You surface. Inside
+  it: the
   season pill (`Season 135 · 6d 04h`, lavender — distinct from the PLAY
   actions), 72px mode art, the name, one **full-width play-icon + PLAY** CTA
   that never repeats the mode name, and `Your best … │ Rank …` beneath it as a

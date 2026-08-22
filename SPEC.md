@@ -368,9 +368,10 @@ Player XP and the per-player arena:
   Practice, PB, featured, placement, or Circuit recalculation occurs; only
   earned badge rungs backfill.
 - The 28 arena tiers in `apps/web/src/data/starRanks.ts` are thresholded on
-  lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000), shown
-  in the nav player block and profile. The arena only climbs; thresholds remain
-  fixed through the first two fully completed XP seasons before review.
+  lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000). Play
+  shows the lifetime XP beside the signed-in avatar; the profile shows the full
+  arena progression. The arena only climbs; thresholds remain fixed through the
+  first two fully completed XP seasons before review.
   The former games-derived "Level" is retired.
 
 Global games counter (site social proof):
