@@ -754,8 +754,8 @@ function UpdatesScope() {
       )}
 
       <ul class="ed-updates__list">
-        {entries.map((entry) => (
-          <UpdateRow key={entry.id} entry={entry} unread={isUnread(entry.publishedAt, lastOpened)} />
+        {entries.map((entry, index) => (
+          <UpdateRow key={entry.id} entry={entry} unread={isUnread(entry.publishedAt, lastOpened, index)} />
         ))}
       </ul>
 

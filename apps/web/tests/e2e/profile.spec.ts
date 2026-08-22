@@ -81,25 +81,23 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Updates' }).click()
 
-  const unread = page.getByRole('button', { name: /Drop updates can follow you out of the arena/ })
-  const alreadyRead = page.getByRole('button', { name: /Shared runs show what each answer cost/ })
+  const unread = page.getByRole('button', { name: /Three community badges enter the arena/ })
+  const alreadyRead = page.getByRole('button', { name: /Desktop enters the arena/ })
   await expect(unread).toHaveAttribute('aria-expanded', 'true')
   await expect(alreadyRead).toHaveAttribute('aria-expanded', 'false')
   await expect.poll(() => markedRead).toBe(true)
   await expect(unread).toHaveAttribute('aria-expanded', 'true')
 
-  const message = page.getByRole('button', { name: /Updates, one card at a time/ })
-  await expect(message).toHaveAttribute('aria-expanded', 'false')
-  await message.click()
-  const body = message.locator('xpath=following-sibling::*[1]')
-  await expect(body).toContainText('POAP KINGS')
-  await expect(body.locator('strong')).toHaveText('POAP KINGS')
+  await alreadyRead.click()
+  const body = alreadyRead.locator('xpath=following-sibling::*[1]')
+  await expect(body).toContainText('Wide screens can now play every Drop mode')
+  await expect(body.locator('strong').first()).toHaveText('ASDFG')
+  await expect(body.getByRole('link', { name: 'Deal into Surge' })).toHaveAttribute('href', '/#/surge')
   await testInfo.attach('updates-feed.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
-  await body.getByRole('link', { name: 'read the full history' }).click()
-
+  await page.goto('/updates/')
   await expect(page).toHaveURL(/\/updates\/$/)
   await expect(page.getByRole('heading', { name: 'Elixir Drop Updates' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Your battle name found more personality' })).toBeVisible()

@@ -85,12 +85,13 @@ directly to `main`** — no feature branches or PR-based review. The full contra
 `AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
 
-Player-visible work ships with one concise entry in
-`apps/web/src/data/updates/features.json`: a subject and one Markdown paragraph, written for
-players with Clash energy. Do not announce refactors, tests, dependencies, deploys,
-observability, admin tools, or maintenance. Season results belong in `seasons.json`; other
-player messages belong in `messages.json`. Call the Season may publish routine, source-backed
-current leaders and Cleared final game results in `seasons.json`; naming the Free Pass
-recipient, awarding any prize, or sending broad communication still requires Jamie's
-authority. Grow Drop audits deployed changes daily for missed feature entries. There are no
+A player update is exceptional, not automatic. Only a material player outcome that
+passes the notification bar in `CLAUDE.md` ships with an impact category, one concise
+subject, and one Markdown paragraph in `apps/web/src/data/updates/features.json`.
+Player-visible is not sufficient, and related commits produce one card rather than a
+changelog sequence. Season results belong in `seasons.json`; other player messages
+belong in `messages.json`. Call the Season may publish source-backed current leaders
+and Cleared final game results in `seasons.json`; naming the Free Pass recipient,
+awarding any prize, or sending broad communication still requires Jamie's authority.
+Grow Drop audits editorial quality weekly with silence as the default. There are no
 named releases.

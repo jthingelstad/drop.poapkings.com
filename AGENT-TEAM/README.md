@@ -57,11 +57,13 @@ decisions. Cross-cutting work keeps one originating owner.
   ships only the validated production surfaces.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
-- `apps/web/src/data/updates/` holds the three static player-message streams. Every
-  owner authors a concise `features.json` entry with a player-visible change; Grow
-  Drop also audits deployed commits daily for omissions. Call the Season owns routine,
-  factual `seasons.json` checkpoints. Final Free Pass selection and award, other prize
-  action, and broad messages remain subject to the human boundary.
+- `apps/web/src/data/updates/` holds the three static player-message streams. An
+  owner authors a concise `features.json` entry only when the material player outcome
+  passes the canonical notification bar in `CLAUDE.md`; player-visible is not
+  sufficient. Grow Drop audits editorial quality weekly with silence as the default.
+  Call the Season owns qualifying factual `seasons.json` commentary. Final Free Pass
+  selection and award, other prize action, and broad messages remain subject to the
+  human boundary.
 
 ## Issue policy
 

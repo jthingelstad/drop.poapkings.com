@@ -52,8 +52,8 @@ test('the combined player-updates RSS feed is generated and discoverable', async
   expect(feed).toContain('<rss version="2.0"')
   expect(feed).toContain('<category>Feature</category>')
   expect(feed).toContain('<category>Season</category>')
-  expect(feed).toContain('<category>Message</category>')
-  expect(feed).toContain('https://drop.poapkings.com/updates/#updates-rss-feed')
+  expect(feed).not.toContain('<category>Message</category>')
+  expect(feed).toContain('https://drop.poapkings.com/updates/#community-badges-enter-the-arena')
 })
 
 test('legacy hash text routes redirect to their real pages', async ({ page }) => {

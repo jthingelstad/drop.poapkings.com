@@ -464,20 +464,35 @@ void test("season brief contains all five public boards and strips identity fiel
   );
 });
 
-void test("player-visible work carries a small update and Grow audits it daily", () => {
+void test("player updates pass one material-impact notification bar", () => {
   const agents = readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
+  const claude = readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8");
   const workflow = readFileSync(
     path.join(ROOT, "AGENT-TEAM/WORKFLOW.md"),
     "utf8",
   );
+  const improve = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/improve-drop.md"),
+    "utf8",
+  );
   const grow = readFileSync(path.join(ROOT, "AGENT-TEAM/grow-drop.md"), "utf8");
+  const season = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/call-the-season.md"),
+    "utf8",
+  );
 
   for (const contract of [agents, workflow, grow]) {
     assert.match(contract, /data\/updates\/features\.json/);
-    assert.match(contract, /maintenance/);
+    assert.match(contract, /notification bar/);
   }
-  assert.match(grow, /Cadence: daily/);
-  assert.match(grow, /exact deployed player-facing commits/);
+  assert.match(claude, /An Update is a notification, not a changelog/);
+  assert.match(claude, /Player-visible is not\s+sufficient/);
+  assert.match(workflow, /Player-visible is not\s+sufficient/);
+  assert.match(improve, /most polish\s+should ship quietly/);
+  assert.match(grow, /first run of each calendar week/);
+  assert.match(grow, /Silence is the\s+healthy default/);
+  assert.doesNotMatch(workflow, /visible behavior/);
+  assert.doesNotMatch(season, /still holding/);
   assert.match(grow, /seasons\.json/);
   assert.match(grow, /messages\.json/);
   assert.doesNotMatch(agents, /cut-release/);

@@ -454,12 +454,17 @@ player-message sources: `features.json`, `seasons.json`, and `messages.json` und
 `apps/web/src/data/updates/`. Every record is one timestamped subject and one Markdown
 paragraph; its source file supplies the type. The same merged history builds `/updates/`
 and its RSS 2.0 projection at `/feed.xml`; feed items link to stable anchored entries in
-the archive.
+the archive. Feature records also carry one validated material-impact category. The
+editorial notification bar lives in `CLAUDE.md`: player-visible alone is not enough,
+and one card represents one material player outcome rather than a commit or polish
+detail.
 Call the Season owns routine, source-backed current leaders and Cleared final game
 results in `seasons.json`; the Free Pass recipient and award remain a manual Jamie
 decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
 Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
 account-level and deliberately not per-device, so it never needs a browser key.
+Before that timestamp exists, only the newest three cards receive unread styling and
+open automatically; the remaining history starts collapsed.
 
 The `records` shape is `Records` in `apps/web/src/types.ts`; the settings shape is
 `Settings` there.

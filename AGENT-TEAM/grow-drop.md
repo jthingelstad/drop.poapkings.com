@@ -22,12 +22,12 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    health. Do not turn guest/offline preparation into durable activation.
 3. Compare the natural result of recent changes. A feature existing is not evidence
    that it helped.
-4. Compare the exact deployed player-facing commits since the last recorded run with
-   `apps/web/src/data/updates/features.json`. If a durable feature, visible behavior,
-   or player rule was missed, add one Clash-spirited subject and one Markdown paragraph
-   in the same run. Do not announce maintenance, refactors, tests, dependencies,
-   deployment, telemetry, admin tools, or work that has not deployed. A current feed
-   is a healthy no-op.
+4. On the first run of each calendar week, compare deployed material player outcomes
+   with `apps/web/src/data/updates/features.json`. Add a card only when an entire
+   outcome that passes the canonical notification bar in `CLAUDE.md` was omitted;
+   player-visible is not sufficient. Never backfill copy, layout, discovery, feed,
+   diagnostic, or follow-up-polish details, and never turn related commits into
+   separate cards. Silence is the healthy default.
 5. Inspect open `objective:grow` issues and discard growth ideas that lack a measured
    need. Route a directly observed experience-quality gap to Improve Drop without
    waiting for a funnel movement.

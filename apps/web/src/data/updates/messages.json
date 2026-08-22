@@ -1,11 +1,4 @@
 {
   "schemaVersion": 1,
-  "messages": [
-    {
-      "id": "updates-one-card-at-a-time",
-      "publishedAt": "2026-08-19T23:45:00-05:00",
-      "title": "Updates, one card at a time",
-      "body": "New games, sharper rules, season winners, and the occasional note from **POAP KINGS** land here as they happen. One card, one story—no giant release scrolls. You can also [read the full history](/updates/)."
-    }
-  ]
+  "messages": []
 }

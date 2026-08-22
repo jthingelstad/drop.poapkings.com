@@ -30,8 +30,10 @@ player-facing change ships.
    feedback over ornamental novelty. Do not manufacture polish work when the journey is
    already strong.
 4. For a bounded improvement, fix the source in the same run, add the business-rule or
-   browser regression, add the concise player Update, run the change-specific final
-   gate, push, verify deployment, and verify the changed journey in production.
+   browser regression, run the change-specific final gate, push, verify deployment,
+   and verify the changed journey in production. Add a player Update only when the
+   material outcome passes the canonical notification bar in `CLAUDE.md`; most polish
+   should ship quietly.
 5. Retain any required natural-acceptance watch under `objective:improve`. Grow Drop may
    later measure acquisition or retention effects, but that measurement is not a
    handoff required to prove that the experience itself works.

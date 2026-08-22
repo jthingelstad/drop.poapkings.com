@@ -40,10 +40,10 @@ publish no more than one routine standings report per calendar week.
 1. **Opening bell:** verify the live Home hero matches the designation, then name the
    Clash Royale season, its closing time, the five ranked boards, and that season's
    designated Free Pass game. Link to Boards and the stable Free Pass rules.
-2. **Weekly bridge report:** name the current public leader and score in all five ranked
-   games. Describe a one-entry board honestly; never manufacture a close race. If
-   nothing changed, a useful “still holding” checkpoint is allowed, but never publish
-   more than one routine entry that week.
+2. **Weekly bridge report:** publish only when a leader changed, multiple boards moved,
+   or the Free Pass race materially tightened. Name the current public leader and score
+   in all five ranked games, and describe a one-entry board honestly. If nothing
+   meaningful changed, publish nothing; never manufacture a close race or a checkpoint.
 3. **Final sprint:** when the close is near, identify real lead changes or close public
    chases and the current Free Pass front-runner.
 4. **Season results:** after the season closes, announce a game's champion only when

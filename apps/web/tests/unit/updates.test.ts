@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editorialEntries, isUnread } from '../../src/lib/update-data'
+import { FIRST_OPEN_UNREAD_LIMIT, UPDATE_IMPACTS, editorialEntries, isUnread } from '../../src/lib/update-data'
 import { renderUpdateMarkdownHtml, safeUpdateHref, updateMarkdownTokens } from '../../src/lib/update-markdown'
 import { renderUpdatesFeed } from '../../scripts/static-pages'
 
@@ -7,9 +7,14 @@ describe('player updates', () => {
   it('merges the three source files into one newest-first timeline', () => {
     const entries = editorialEntries()
 
-    expect(entries).toHaveLength(73)
-    expect(entries[0]).toMatchObject({ id: 'developer-tags-mark-the-builders', kind: 'feature' })
+    expect(entries.length).toBeGreaterThan(0)
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
+    expect(entries.some((entry) => entry.kind === 'season')).toBe(true)
+    expect(
+      entries
+        .filter((entry) => entry.kind === 'feature')
+        .every((entry) => entry.impact !== undefined && UPDATE_IMPACTS.includes(entry.impact))
+    ).toBe(true)
     expect(
       entries.every(
         (entry, index) => index === 0 || Date.parse(entries[index - 1]!.publishedAt) >= Date.parse(entry.publishedAt)
@@ -17,10 +22,11 @@ describe('player updates', () => {
     ).toBe(true)
   })
 
-  it('uses full timestamps for unread state, including updates on the same day', () => {
-    expect(isUnread('2026-08-19T23:35:25-05:00', undefined)).toBe(true)
-    expect(isUnread('2026-08-19T23:35:25-05:00', '2026-08-19T23:30:00-05:00')).toBe(true)
-    expect(isUnread('2026-08-19T23:35:25-05:00', '2026-08-19T23:40:00-05:00')).toBe(false)
+  it('bounds first-open unread cards and uses full timestamps after that', () => {
+    expect(isUnread('2026-08-19T23:35:25-05:00', undefined, FIRST_OPEN_UNREAD_LIMIT - 1)).toBe(true)
+    expect(isUnread('2026-08-19T23:35:25-05:00', undefined, FIRST_OPEN_UNREAD_LIMIT)).toBe(false)
+    expect(isUnread('2026-08-19T23:35:25-05:00', '2026-08-19T23:30:00-05:00', 20)).toBe(true)
+    expect(isUnread('2026-08-19T23:35:25-05:00', '2026-08-19T23:40:00-05:00', 0)).toBe(false)
   })
 
   it('renders the small Markdown vocabulary used by update copy', () => {
@@ -51,12 +57,8 @@ describe('player updates', () => {
     expect(items[0]?.querySelector('title')?.textContent).toBe(entries[0]?.title)
     expect(items[0]?.querySelector('guid')?.textContent).toBe(`https://drop.poapkings.com/updates/#${entries[0]?.id}`)
     expect(items[0]?.querySelector('pubDate')?.textContent).toBe(new Date(entries[0]!.publishedAt).toUTCString())
-    const feedAnnouncement = items.find((item) =>
-      item.querySelector('guid')?.textContent?.endsWith('/updates/#updates-rss-feed')
-    )
-    expect(feedAnnouncement?.querySelector('description')?.textContent).toContain('https://drop.poapkings.com/feed.xml')
     expect(new Set(items.map((item) => item.querySelector('category')?.textContent))).toEqual(
-      new Set(['Feature', 'Season', 'Message'])
+      new Set(['Feature', 'Season'])
     )
   })
 })

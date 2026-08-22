@@ -110,22 +110,34 @@ rank-oriented fields as part of unrelated work.
   and merges them newest-first for both the **Updates** scope and `/updates/`.
   Each entry is one subject plus one Markdown paragraph. Markdown is rendered
   through a deliberately small, safe vocabulary: emphasis, code, and approved
-  links; raw HTML, images, lists, and unsafe protocols fail validation. A coding
-  agent adds a `features.json` entry in the same change whenever it ships a
-  durable player-visible feature or rule change, and never for maintenance,
-  refactors, tests, dependencies, deploys, telemetry, private tools, **or a
-  restyle of a screen that already exists** — a player does not need to be told
-  their app was redrawn, they can see it. The test is whether a player could now
-  do, win, or lose something they could not before. Grow Drop
-  audits deployed commits daily for anything missed. Call the Season owns routine,
+  links; raw HTML, images, lists, and unsafe protocols fail validation. Feature
+  entries also declare one allowed player-impact category, and copy is bounded to
+  55 title characters and 60 body words.
+
+  **An Update is a notification, not a changelog.** Player-visible is not
+  sufficient. Add a `features.json` entry in the same change only when a returning
+  player needs to know about a material, durable change to playable modes,
+  learning, rules or scoring, competition, progression or rewards, access,
+  sharing, identity, or account/privacy behavior. The card must be worth an unread
+  dot. Never announce maintenance, bug-fix mechanics that preserve the existing
+  player contract, refactors, tests, dependencies, deploys, telemetry, private
+  tools, copy or naming changes, navigation or discovery tweaks, reordered content,
+  diagnostics, feed mechanics, developer identity, layout, artwork, animation,
+  visual restyles, or follow-up polish. A correctness fix qualifies only when it
+  changes fairness, saved progress, eligibility, player data, or a fact the game
+  teaches. One card represents one player outcome, not one commit; related details
+  fold into the strongest qualifying card instead of producing sequels. Grow Drop
+  audits editorial quality weekly and treats silence as the default. Call the Season owns routine,
   source-backed standings and Cleared final game results in `seasons.json` under its
   standing publication contract. Naming the Free Pass recipient, awarding a prize,
   other player messages, and broad communication retain the normal Jamie authority.
   Buttondown may occasionally summarize these updates for people who do not log
   in, but it is not the source of truth.
   Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
-  and deliberately not per-device, so it needs no browser key. The player feed is
-  also separate from `UpdateBanner`, which only says the open app build is stale.
+  and deliberately not per-device, so it needs no browser key. On a first open only
+  the newest three cards receive the unread/expanded treatment; the full history
+  remains collapsed below them. The player feed is also separate from
+  `UpdateBanner`, which only says the open app build is stale.
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
