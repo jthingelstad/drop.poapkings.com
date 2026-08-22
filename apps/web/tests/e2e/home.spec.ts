@@ -76,9 +76,18 @@ test('the hero features one ranked game and the rest are full-width rows', async
   await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
   const rowNames = await otherFour.locator('.ed-grow__name').allTextContents()
   expect(rowNames.map((name) => name.trim().toUpperCase())).not.toContain(wordmark)
-  // A row leads with its own best and never carries a gold PLAY.
+  // Each remaining ranked row keeps its own best and repeats the gold PLAY CTA.
   await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
-  await expect(otherFour.locator('.ed-btn--gold')).toHaveCount(0)
+  await expect(otherFour.locator('.ed-grow__play')).toHaveCount(4)
+  await expect(otherFour.locator('.ed-grow__play')).toHaveText(['PLAY', 'PLAY', 'PLAY', 'PLAY'])
+  const rankedPlayBackground = await otherFour
+    .locator('.ed-grow__play')
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundImage)
+  const practicePlayBackground = await page
+    .locator('.ed-grow--drill .ed-grow__play')
+    .evaluate((element) => getComputedStyle(element).backgroundImage)
+  expect(rankedPlayBackground).not.toBe(practicePlayBackground)
 })
 
 test('desktop keeps the mobile game order in a fixed-width center', async ({ page, viewport }) => {
@@ -142,9 +151,10 @@ test('Practice has one direct entry on desktop and mobile', async ({ page }) => 
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
   await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
   await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
+  await expect(practice.locator('.ed-grow__play')).toHaveText('PLAY')
   await expect(practice.getByRole('button', { name: /Practice/ })).toBeVisible()
 
-  await page.goto('/#/practice')
+  await practice.getByRole('button', { name: /Practice/ }).click()
   await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
 })
 
@@ -173,6 +183,8 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
   const pass = page.locator('.ed-hero--pass')
   await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  await expect(pass.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible()
+  await expect(pass).not.toContainText('PLAY SURGE')
   await expect(pass.locator('.ed-hero-podium')).toHaveCount(0)
   await expect(pass).not.toContainText('Provisional until Fair Play review')
   expect(await pass.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)

@@ -3169,8 +3169,7 @@ html.reduce-motion .ed-btn--gold {
   max-width: 280px;
 }
 
-/* Full-width and centred: one gold fill on the screen, so it does not compete
-   with anything beside it. */
+/* Full-width and centred. Every game-start CTA uses the same icon + PLAY face. */
 .ed-hero__play {
   width: 100%;
   margin-top: 5px;
@@ -3204,8 +3203,7 @@ html.reduce-motion .ed-btn--gold {
   background: rgba(215, 200, 255, 0.2);
 }
 
-/* The season pill is lavender-on-violet here, not gold: gold is the PLAY
-   button's alone on this screen. */
+/* The season pill is lavender-on-violet; game-start actions use gold. */
 .ed-pill--season {
   color: #e7ddff;
   background: rgba(139, 92, 246, 0.3);
@@ -7775,7 +7773,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 
 /* ── Home full-width rows (Play) ──────────────────────────────
-   art | name + meta | outlined play mark. The row is the button; no PLAY fill. */
+   art | name + meta | PLAY pill. The full row remains the button. */
 .ed-rows {
   display: flex;
   flex-direction: column;
@@ -7840,23 +7838,33 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--faint);
 }
 
-.ed-grow__mark {
+.ed-grow__play {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(245, 200, 76, 0.45);
-  color: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 72px;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 11px;
+  color: var(--ink-on-gold);
+  background: var(--gold-grad);
+  box-shadow: 0 4px 14px rgba(245, 200, 76, 0.28);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
-.ed-grow__mark svg {
-  width: 13px;
-  height: 13px;
+.ed-grow__play svg {
+  width: 12px;
+  height: 12px;
+  fill: currentcolor;
 }
-.ed-grow--drill .ed-grow__mark {
-  border-color: rgba(139, 92, 246, 0.5);
-  color: #c4b5fd;
+.ed-grow--drill .ed-grow__play {
+  color: #fff;
+  background: var(--purple-grad);
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35);
 }
 
 .ed-more__aside {

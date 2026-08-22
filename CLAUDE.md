@@ -321,11 +321,13 @@ rank-oriented fields as part of unrelated work.
   across its top — the one place identity appears on Play, and a shortcut to You
   rather than a second profile surface. Signed out, a `GUEST` shortcut occupies
   the avatar's right-side slot and opens that same You surface. Inside it: the
-  season pill (`Season 135 · 6d 04h`, lavender — gold
-  belongs to PLAY alone here), 72px mode art, the name, one **full-width PLAY**
-  with no glyph, and `Your best … │ Rank …` beneath it as a footnote to the
-  button. Dots only, no chevrons. Game rows are a flat list with hairline
-  separators, not a stack of cards. **On desktop the hero topbar is hidden**:
+  season pill (`Season 135 · 6d 04h`, lavender — distinct from the PLAY
+  actions), 72px mode art, the name, one **full-width play-icon + PLAY** CTA
+  that never repeats the mode name, and `Your best … │ Rank …` beneath it as a
+  footnote to the button. Dots only, no chevrons. Game rows are a flat list with
+  hairline separators, not a stack of cards; each remaining ranked row repeats
+  the gold play-icon + PLAY pill while Practice uses the one purple variant.
+  The full row remains the tap target. **On desktop the hero topbar is hidden**:
   `12a` keeps the wordmark and the player in the left rail, and the 34px it
   returns is what keeps the arena on one screen.
 - **Home lists every game and features one a day.** `home-games.ts` holds all

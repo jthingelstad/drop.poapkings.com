@@ -51,8 +51,8 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
           {game.name.toLocaleUpperCase()}
         </div>
         <p class="ed-hero__desc">{game.desc}</p>
-        {/* Full-width, and the word alone: the button is the only gold fill on
-            the screen, so it does not also need a glyph to be found. */}
+        {/* Every game-start action uses the same icon + PLAY language. The mode
+            name already sits immediately above it and never belongs in the CTA. */}
         <button
           class="ed-btn ed-btn--gold ed-hero__play tap-fx"
           aria-describedby={offlinePlay ? offlineDescriptionId : undefined}
@@ -61,13 +61,15 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
             navigate(game.path)
           }}
         >
-          <span class="tap-face">PLAY</span>
-          {offlinePlay && (
-            <span id={offlineDescriptionId} class="sr-only">
-              {game.name} is available offline. This run will not be saved or ranked.
-            </span>
-          )}
+          <span class="tap-face">
+            <Icon name="play" /> PLAY
+          </span>
         </button>
+        {offlinePlay && (
+          <span id={offlineDescriptionId} class="sr-only">
+            {game.name} is available offline. This run will not be saved or ranked.
+          </span>
+        )}
         {/* Under the button, not beside it — the result is what the button did
             last time, so it reads as a footnote to the action, not a rival. */}
         <div class="ed-hero__result">
@@ -93,8 +95,7 @@ function FreePassHero({ data }: { data: HomeData }) {
         <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
         <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
         {/* Two controls share this row, so the primary keeps the standard large
-            size rather than the featured hero's full-width one — at 20px the
-            display face breaks "PLAY SURGE" across two lines. */}
+            size rather than the featured hero's full-width one. */}
         <div class="ed-hero__cta ed-hero__cta--split">
           <button
             class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
@@ -105,7 +106,7 @@ function FreePassHero({ data }: { data: HomeData }) {
             }}
           >
             <span class="tap-face">
-              <Icon name="play" /> PLAY SURGE
+              <Icon name="play" /> PLAY
             </span>
           </button>
           <a
@@ -297,11 +298,9 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
   )
 }
 
-// A full-width Home row (mobile): art | name + meta | outlined play mark. The row
-// IS the button — no PLAY fill, because six gold fills would break the hero's
-// claim on the one gold thing to press (colour roles). The mark's ring is gold
-// for ranked rows, violet for drills; a mark, not a chevron, since it starts a
-// run rather than opening a screen.
+// A full-width Home row: art | name + meta | PLAY pill. The whole row remains the
+// button so its generous tap target is unchanged. Ranked actions are gold;
+// Practice is the one purple exception.
 export function HomeRow({
   visual,
   name,
@@ -328,8 +327,8 @@ export function HomeRow({
         <strong class="ed-grow__name">{name}</strong>
         <span class="ed-grow__meta">{meta}</span>
       </span>
-      <span class="ed-grow__mark" aria-hidden="true">
-        <Icon name="play" />
+      <span class="ed-grow__play" aria-hidden="true">
+        <Icon name="play" /> PLAY
       </span>
     </button>
   )

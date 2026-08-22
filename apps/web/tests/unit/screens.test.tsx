@@ -610,9 +610,12 @@ describe('Home', () => {
     expect(html.indexOf('>Games</span>')).toBeLessThan(html.indexOf('ed-grow__name">Practice</strong>'))
     expect(html.match(/ed-grow ed-grow--ranked/g)).toHaveLength(4)
     expect(html).not.toContain('Board →')
-    // Full-width, and the word alone — `9a` draws no glyph on the hero button.
-    expect(html).toContain('<span class="tap-face">PLAY</span>')
+    // Every game-start action uses the same icon + PLAY face and never repeats
+    // the mode name inside the CTA.
+    expect(html).toContain('<span class="tap-face"><span class="icon"')
+    expect(html).not.toContain('PLAY SURGE')
     expect(html).toContain('ed-hero__play')
+    expect(html.match(/ed-grow__play/g)).toHaveLength(5)
     expect(html).not.toContain('Ranked runs are played on your phone')
   })
 
