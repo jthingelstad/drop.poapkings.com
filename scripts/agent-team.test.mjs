@@ -699,6 +699,9 @@ void test("web activity reporting requires the read-only cloud auditor and stays
     WEB_ACTIVITY_QUERIES.overview,
     /fields .* as responseBytes/,
   );
+  for (const query of Object.values(WEB_ACTIVITY_QUERIES)) {
+    assert.match(query, /filter ispresent\(status\)/);
+  }
 });
 
 void test("run-report output is identity-free and triage writes one immutable audit", async () => {

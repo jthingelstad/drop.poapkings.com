@@ -17,27 +17,31 @@ const QUERY_TIMEOUT_ATTEMPTS = 60;
 
 export const WEB_ACTIVITY_QUERIES = Object.freeze({
   overview: [
-    "fields `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "fields `sc-status` as status, `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "| filter ispresent(status)",
     "| stats count(*) as requests, sum(bytes) as responseBytes, pct(ttfb, 95) as p95Ttfb, max(ttfb) as maxTtfb",
   ].join("\n"),
   statuses: [
     "fields `sc-status` as status",
+    "| filter ispresent(status)",
     "| stats count(*) as requests by status",
     "| sort requests desc",
   ].join("\n"),
   requestClasses: [
-    "fields `viewer-request-log-data` as requestClass, `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "fields `sc-status` as status, `viewer-request-log-data` as requestClass, `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "| filter ispresent(status)",
     "| stats count(*) as requests, sum(bytes) as responseBytes, pct(ttfb, 95) as p95Ttfb by requestClass",
     "| sort requests desc",
   ].join("\n"),
   cacheOutcomes: [
-    "fields `x-edge-response-result-type` as cacheOutcome",
+    "fields `sc-status` as status, `x-edge-response-result-type` as cacheOutcome",
+    "| filter ispresent(status)",
     "| stats count(*) as requests by cacheOutcome",
     "| sort requests desc",
   ].join("\n"),
   errors: [
     "fields `sc-status` as status, `viewer-request-log-data` as requestClass, `x-edge-detailed-result-type` as detail",
-    "| filter status >= 400",
+    "| filter ispresent(status) and status >= 400",
     "| stats count(*) as requests by status, requestClass, detail",
     "| sort requests desc",
     "| limit 50",
@@ -66,6 +70,10 @@ function numberOrZero(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function valueOrFallback(value, fallback) {
+  return value && value !== "-" ? value : fallback;
+}
+
 export function summarizeWebActivity(queryResults, window) {
   const overview = rowsFromQueryResult(queryResults.overview)[0] ?? {};
   const requests = numberOrZero(overview.requests);
@@ -82,7 +90,7 @@ export function summarizeWebActivity(queryResults, window) {
     })),
     requestClasses: rowsFromQueryResult(queryResults.requestClasses).map(
       (row) => ({
-        requestClass: row.requestClass || "unclassified",
+        requestClass: valueOrFallback(row.requestClass, "unclassified"),
         requests: numberOrZero(row.requests),
         responseBytes: numberOrZero(row.responseBytes),
         p95TtfbSeconds: numberOrZero(row.p95Ttfb),
@@ -90,14 +98,14 @@ export function summarizeWebActivity(queryResults, window) {
     ),
     cacheOutcomes: rowsFromQueryResult(queryResults.cacheOutcomes).map(
       (row) => ({
-        outcome: row.cacheOutcome || "unknown",
+        outcome: valueOrFallback(row.cacheOutcome, "unknown"),
         requests: numberOrZero(row.requests),
       }),
     ),
     errors: rowsFromQueryResult(queryResults.errors).map((row) => ({
       status: row.status,
-      requestClass: row.requestClass || "unclassified",
-      detail: row.detail || "unknown",
+      requestClass: valueOrFallback(row.requestClass, "unclassified"),
+      detail: valueOrFallback(row.detail, "unknown"),
       requests: numberOrZero(row.requests),
     })),
   };
