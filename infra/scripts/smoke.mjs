@@ -181,11 +181,8 @@ const [website, deployedConfig] = await Promise.all([
 if (!website.ok || !(await website.text()).includes("Elixir Drop")) {
   throw new Error("Production website check failed");
 }
-if (
-  !deployedConfig.ok ||
-  (await deployedConfig.json()).apiBaseUrl !== apiBaseUrl
-) {
-  throw new Error("Production website points to a different API");
+if (!deployedConfig.ok || (await deployedConfig.json()).apiBaseUrl !== "/api") {
+  throw new Error("Production website is not using the same-origin API");
 }
 
 console.log(
