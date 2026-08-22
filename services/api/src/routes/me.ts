@@ -480,7 +480,12 @@ export async function getPublicPlayer(
   }
   if (!playerId || playerId.length > 100)
     throw new HttpError(400, "Player ID is invalid.", "invalid_player_id");
-  await repository.useRateLimit("reads", clientIpHash(event), 1200, 60 * 60);
+  await repository.useRateLimit(
+    "reads",
+    clientIpHash(event, config.webOriginToken),
+    1200,
+    60 * 60,
+  );
   const lookup = await repository.getPublicPlayer(playerId);
   if (!lookup)
     throw new HttpError(
@@ -692,10 +697,17 @@ export async function patchMe({ event, config, repository }: RouteContext) {
       ),
     ),
     completedProfile
-      ? publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
-          event: "account.profile_completed",
-          path: "/profile",
-        })
+      ? publishTinylyticsEvent(
+          {
+            apiToken: config.tinylyticsApiToken,
+            webOriginToken: config.webOriginToken,
+          },
+          event,
+          {
+            event: "account.profile_completed",
+            path: "/profile",
+          },
+        )
       : Promise.resolve(),
   ]);
   const rankedAccess = await repository.rankedAccess(profile.playerId);

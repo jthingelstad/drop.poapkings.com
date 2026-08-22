@@ -117,6 +117,8 @@ jobs:
           ELIXIR_DROP_CFN_ROLE_ARN: ${{ vars.ELIXIR_DROP_CFN_ROLE_ARN }}
           ELIXIR_DROP_CODE_BUCKET: ${{ vars.ELIXIR_DROP_CODE_BUCKET }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
+          ELIXIR_DROP_WEB_CERTIFICATE_ARN: ${{ vars.ELIXIR_DROP_WEB_CERTIFICATE_ARN }}
+          ELIXIR_DROP_WEB_ORIGIN_TOKEN: ${{ secrets.ELIXIR_DROP_WEB_ORIGIN_TOKEN }}
           BUTTONDOWN_API_KEY: ${{ secrets.ELIXIR_DROP_BUTTONDOWN_API_KEY }}
           BUTTONDOWN_NEWSLETTER_ID: ${{ secrets.ELIXIR_DROP_BUTTONDOWN_NEWSLETTER_ID }}
           APP_URL: https://drop.poapkings.com
@@ -146,6 +148,19 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/dist/
+
+      # During the DNS cutover, the exact build continues to publish to Pages
+      # for rollback. deploy:web then changes only the AWS copy's API config to
+      # the same-origin /api route, uploads it to private S3, invalidates
+      # CloudFront, and smokes the distribution hostname.
+      - name: Publish website to AWS
+        if: needs.scope.outputs.deploy_web == 'true'
+        run: npm run deploy:web
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
+          ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
 
   deploy:
     name: Publish Pages

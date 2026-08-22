@@ -1,4 +1,5 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import { clientIp } from "./routes/context.js";
 import type { GameMode } from "./types.js";
 
 // Numeric API id for the same Elixir Drop property whose browser embed uid is
@@ -8,6 +9,7 @@ export const TINYLYTICS_SITE_ID = 3445;
 
 export interface TinylyticsConfig {
   apiToken?: string;
+  webOriginToken?: string;
 }
 
 export type TinylyticsServerEvent =
@@ -33,8 +35,9 @@ type TinylyticsFetch = (
 export function tinylyticsEventBody(
   request: APIGatewayProxyEventV2,
   event: TinylyticsEvent,
+  webOriginToken?: string,
 ) {
-  const ipAddress = request.requestContext.http.sourceIp?.trim();
+  const ipAddress = clientIp(request, webOriginToken);
   const userAgent =
     request.requestContext.http.userAgent?.trim() ||
     request.headers["user-agent"]?.trim();
@@ -42,8 +45,8 @@ export function tinylyticsEventBody(
     event: event.event,
     ...(event.value ? { value: event.value } : {}),
     path: event.path,
-    // sourceIp is API Gateway's trusted connection value. Never substitute a
-    // caller-controlled forwarding header here.
+    // clientIp trusts CloudFront's overwritten viewer IP only when the private origin
+    // marker matches; direct callers remain bound to API Gateway's sourceIp.
     ...(ipAddress ? { ip_address: ipAddress } : {}),
     ...(userAgent ? { user_agent: userAgent } : {}),
   };
@@ -68,7 +71,9 @@ export async function publishTinylyticsEvent(
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(tinylyticsEventBody(request, event)),
+        body: JSON.stringify(
+          tinylyticsEventBody(request, event, config.webOriginToken),
+        ),
         signal: AbortSignal.timeout(1_000),
       },
     );

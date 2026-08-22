@@ -14,6 +14,10 @@ export interface Config {
   emailFromName: string;
   nameModelId: string;
   discordWebhookUrl?: string;
+  // Private marker CloudFront overwrites onto origin requests. It lets the API
+  // trust the viewer IP overwritten by the request function without trusting a
+  // public forwarding header on direct execute-api requests.
+  webOriginToken?: string;
   crRequestQueueUrl: string;
   // Current front-end build id (first 12 chars of the git sha), reported on
   // /stats so stale tabs can prompt a reload. Absent until a deploy sets it.
@@ -75,6 +79,8 @@ export function getConfig(): Config {
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     discordWebhookUrl:
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
+    webOriginToken:
+      process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };

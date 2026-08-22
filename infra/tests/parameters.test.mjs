@@ -8,6 +8,15 @@ const base = {
   codeKey: "lambda/api.zip",
   environment: {},
 };
+const requiredCreateEnvironment = {
+  SESSION_SECRET: "session-secret",
+  TELEMETRY_PEPPER: "telemetry-pepper",
+  FASTMAIL_JMAP_TOKEN: "jmap-token",
+  ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+  ELIXIR_DROP_WEB_ORIGIN_TOKEN: "private-origin-token",
+  ELIXIR_DROP_WEB_CERTIFICATE_ARN:
+    "arn:aws:acm:us-east-1:999153317627:certificate/example",
+};
 const template = readFileSync(
   new URL("../template.yaml", import.meta.url),
   "utf8",
@@ -81,12 +90,7 @@ void describe("deployment parameters", () => {
     assert.equal(
       deploymentParameters({
         ...base,
-        environment: {
-          SESSION_SECRET: "session-secret",
-          TELEMETRY_PEPPER: "telemetry-pepper",
-          FASTMAIL_JMAP_TOKEN: "jmap-token",
-          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-        },
+        environment: requiredCreateEnvironment,
         stackExists: false,
       }).some((parameter) => parameter.ParameterKey === "NameModelId"),
       false,
@@ -134,12 +138,7 @@ void describe("deployment parameters", () => {
     assert.equal(
       deploymentParameters({
         ...base,
-        environment: {
-          SESSION_SECRET: "session-secret",
-          TELEMETRY_PEPPER: "telemetry-pepper",
-          FASTMAIL_JMAP_TOKEN: "jmap-token",
-          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-        },
+        environment: requiredCreateEnvironment,
         stackExists: false,
       }).some((parameter) => parameter.ParameterKey === "AllowedOrigins"),
       false,
@@ -183,12 +182,7 @@ void describe("deployment parameters", () => {
     assert.equal(
       deploymentParameters({
         ...base,
-        environment: {
-          SESSION_SECRET: "session-secret",
-          TELEMETRY_PEPPER: "telemetry-pepper",
-          FASTMAIL_JMAP_TOKEN: "jmap-token",
-          ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-        },
+        environment: requiredCreateEnvironment,
         stackExists: false,
       }).find((parameter) => parameter.ParameterKey === "WebVersion"),
       undefined,
@@ -218,12 +212,42 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("supplies the CDN certificate and private origin marker", () => {
+    const supplied = deploymentParameters({
+      ...base,
+      environment: requiredCreateEnvironment,
+      stackExists: false,
+    });
+    assert.deepEqual(
+      supplied.find(
+        (parameter) => parameter.ParameterKey === "WebCertificateArn",
+      ),
+      {
+        ParameterKey: "WebCertificateArn",
+        ParameterValue:
+          requiredCreateEnvironment.ELIXIR_DROP_WEB_CERTIFICATE_ARN,
+      },
+    );
+    assert.deepEqual(
+      supplied.find((parameter) => parameter.ParameterKey === "WebOriginToken"),
+      {
+        ParameterKey: "WebOriginToken",
+        ParameterValue: requiredCreateEnvironment.ELIXIR_DROP_WEB_ORIGIN_TOKEN,
+      },
+    );
+
+    const preserved = deploymentParameters({ ...base, stackExists: true });
+    for (const parameterKey of ["WebCertificateArn", "WebOriginToken"]) {
+      assert.deepEqual(
+        preserved.find((parameter) => parameter.ParameterKey === parameterKey),
+        { ParameterKey: parameterKey, UsePreviousValue: true },
+      );
+    }
+  });
+
   void it("passes supplied runtime secrets during local creation or rotation", () => {
     const environment = {
-      SESSION_SECRET: "session-secret",
-      TELEMETRY_PEPPER: "telemetry-pepper",
-      FASTMAIL_JMAP_TOKEN: "jmap-token",
-      ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+      ...requiredCreateEnvironment,
       BUTTONDOWN_API_KEY: "buttondown-key",
       BUTTONDOWN_NEWSLETTER_ID: "news_2d3heqk1789vyatbxaeg4b2c91",
     };
@@ -314,12 +338,7 @@ void describe("deployment parameters", () => {
   void it("keeps Tinylytics disabled on stack creation without a token", () => {
     const parameters = deploymentParameters({
       ...base,
-      environment: {
-        SESSION_SECRET: "session-secret",
-        TELEMETRY_PEPPER: "telemetry-pepper",
-        FASTMAIL_JMAP_TOKEN: "jmap-token",
-        ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-      },
+      environment: requiredCreateEnvironment,
       stackExists: false,
     });
     assert.equal(
@@ -335,12 +354,7 @@ void describe("deployment parameters", () => {
     // apply so a fresh stack comes up with Buttondown cleanly disabled.
     const parameters = deploymentParameters({
       ...base,
-      environment: {
-        SESSION_SECRET: "session-secret",
-        TELEMETRY_PEPPER: "telemetry-pepper",
-        FASTMAIL_JMAP_TOKEN: "jmap-token",
-        ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-      },
+      environment: requiredCreateEnvironment,
       stackExists: false,
     });
 
@@ -547,6 +561,16 @@ void describe("deployment parameters", () => {
       bootstrap,
       /arn:aws:cloudwatch::\$\{accountId\}:dashboard\/elixir-drop-\*/,
     );
+  });
+
+  void it("bounds web deployment permissions to the Drop bucket and invalidations", () => {
+    assert.match(bootstrap, /cloudfront:CreateDistribution/);
+    assert.match(bootstrap, /cloudfront:CreateOriginAccessControl/);
+    assert.match(bootstrap, /cloudfront:PublishFunction/);
+    assert.doesNotMatch(bootstrap, /Action: \["cloudfront:\*"\]/);
+    assert.match(bootstrap, /elixir-drop-web-\$\{accountId\}-\$\{region\}/);
+    assert.match(bootstrap, /cloudfront:CreateInvalidation/);
+    assert.match(bootstrap, /s3:DeleteObject/);
   });
 
   void it("lets CloudFormation inspect policies only for Elixir Drop roles", () => {

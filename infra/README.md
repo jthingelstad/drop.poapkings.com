@@ -1,7 +1,13 @@
 # Infrastructure
 
-`template.yaml` provisions the production Elixir Drop API as one CloudFormation
-stack:
+`template.yaml` provisions the production Elixir Drop web application and API
+as one CloudFormation stack:
+
+- a private S3 web bucket behind a CloudFront origin access control;
+- one CloudFront distribution that serves static assets and sends `/api/*` to
+  the existing HTTP API, plus a small request function for prefix and directory
+  index rewriting;
+- an ACM certificate supplied from `us-east-1`;
 
 - arm64 Node.js 24 Lambda with reserved concurrency caps;
 - API Gateway HTTP API with default-route throttling and Drop plus the standard
@@ -81,6 +87,12 @@ Secret values are never printed.
 the TypeScript Lambda, upload it, create or update the stack, and write the
 public API endpoint to `apps/web/public/api-config.json`.
 
+After the web workspace builds, `npm run deploy:web` rewrites only the generated
+`dist/api-config.json` to the same-origin `/api` base, uploads the build to the
+private bucket with explicit cache metadata, removes stale objects, invalidates
+CloudFront, and smokes the distribution hostname. The committed config remains
+the direct endpoint used by local development.
+
 ## Continuous deployment
 
 Every push to `main` first runs `.github/workflows/validate-main.yml`: a
@@ -92,9 +104,10 @@ each quality gate contains is documented in `CONTRIBUTING.md`.
 
 A successful validation triggers `.github/workflows/deploy.yml`, which requires
 that exact SHA still to be `main` and serializes production work. API/infra-only
-changes run `npm run deploy:api` and the API smoke without publishing Pages. Web
-and shared-package changes first update the API's referee `WEB_VERSION`, smoke
-the API, rebuild against the stack endpoint, and then publish Pages. Test-only,
+changes run `npm run deploy:api` and the API smoke without publishing the web
+build. During the DNS transition, web and shared-package changes first update
+the API's referee `WEB_VERSION`, smoke the API, build once, preserve a Pages
+rollback artifact, and then publish the AWS copy with `/api`. Test-only,
 fixed-host, tooling, and documentation changes stop after validation. This keeps
 incompatible web and Lambda versions from reaching production without paying
 for an unrelated surface on every commit. A validated SHA superseded while it
@@ -104,13 +117,15 @@ marker, so routine rapid pushes do not produce false failure notifications.
 Lambda artifacts use a SHA-256 content key. Re-running an identical bundle does
 not invent a new S3 key or force a Lambda publication, and CloudFormation's
 "No updates" response is a successful no-op. The website emits an uncached
-`version.json`; stale tabs poll that Pages-owned manifest rather than treating
+`version.json`; stale tabs poll the web-host-owned manifest rather than treating
 player API reachability as a web-version signal.
 
 GitHub Actions receives only the limited `elixir-drop` IAM deploy-user key through
 the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
 repository secrets. Region, CloudFormation role, code bucket, and stack name are
-repository variables. Fastmail, session-signing, and Discord secrets stay in
+repository variables. The non-secret ACM ARN is another variable. The private
+CloudFront origin marker is a repository secret and Lambda-only configuration.
+Fastmail, session-signing, and Discord secrets stay in
 CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
 copying those application secrets into GitHub. The CI smoke step therefore
 reports its Fastmail JMAP probe as "not checked" — live mail verification runs
@@ -123,6 +138,8 @@ construction.
 The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.
 
-The GitHub Pages website remains outside this AWS stack. CloudFormation owns the
-bridge queues and result consumer; the fixed-IP worker remains a local launchd
-service on the allowlisted Mac.
+CloudFormation now owns the AWS web origin and distribution as well as the API,
+bridge queues, and result consumer. GitHub Pages remains only as the rollback
+origin during the DNS convergence window described in
+[`docs/aws-web-migration.md`](../docs/aws-web-migration.md). The fixed-IP worker
+remains a local launchd service on the allowlisted Mac.

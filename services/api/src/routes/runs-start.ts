@@ -7,6 +7,7 @@ import { createChallenge } from "../scoring.js";
 import { signToken } from "../signing.js";
 import {
   bodyOf,
+  clientIp,
   clientIpHash,
   type RouteContext,
   sessionFor,
@@ -25,7 +26,12 @@ export async function startRun({ event, config, repository }: RouteContext) {
     throw new HttpError(400, "Choose a valid game mode.");
   // Rate-limit per IP FIRST, before any auth branch, so a signed-out (guest)
   // caller is covered exactly like a signed-in one.
-  await repository.useRateLimit("run-start", clientIpHash(event), 300, 60 * 60);
+  await repository.useRateLimit(
+    "run-start",
+    clientIpHash(event, config.webOriginToken),
+    300,
+    60 * 60,
+  );
   // The session is optional: a signed-in player gets the ranked flow; a
   // signed-out visitor gets a scored-but-never-recorded guest run.
   const session = sessionFor(event, config.sessionSecret, false);
@@ -66,7 +72,7 @@ export async function startRun({ event, config, repository }: RouteContext) {
   // never stored.
   const startCorrelation = deriveCorrelation(
     config.telemetryPepper,
-    event.requestContext.http.sourceIp,
+    clientIp(event, config.webOriginToken),
     event.headers["user-agent"],
   );
   const run = await repository.createRun(

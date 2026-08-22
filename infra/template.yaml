@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Elixir Drop API
+Description: Elixir Drop web application and API
 
 Parameters:
   CodeBucket:
@@ -31,6 +31,15 @@ Parameters:
   DiscordWebhookUrl:
     Type: String
     NoEcho: true
+  WebOriginToken:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Private CloudFront origin marker used to trust the viewer IP forwarded to the API.
+  WebCertificateArn:
+    Type: String
+    AllowedPattern: ^arn:[^:]+:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$
+    Description: ARN of the us-east-1 ACM certificate for drop.poapkings.com.
   AppUrl:
     Type: String
     Default: https://drop.poapkings.com
@@ -631,6 +640,7 @@ Resources:
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+          ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
           WEB_VERSION: !Ref WebVersion
 
@@ -1563,6 +1573,170 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
 
+  WebBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub elixir-drop-web-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WebOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: Private access from the Elixir Drop distribution to its web bucket
+        Name: elixir-drop-web
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  WebRequestFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: elixir-drop-request-router
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Strip the API prefix and resolve static directory indexes
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          if (uri.indexOf('/api/') === 0) {
+            request.headers['x-elixir-drop-viewer-ip'] = { value: event.viewer.ip };
+            request.uri = uri.slice(4) || '/';
+            return request;
+          }
+          if (uri === '/') {
+            request.uri = '/index.html';
+          } else if (uri.charAt(uri.length - 1) === '/') {
+            request.uri = uri + 'index.html';
+          } else if (uri.lastIndexOf('.') < uri.lastIndexOf('/')) {
+            request.uri = uri + '/index.html';
+          }
+          return request;
+        }
+
+  WebCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: elixir-drop-static
+        Comment: Honor web asset cache headers without varying on viewer state
+        DefaultTTL: 3600
+        MinTTL: 0
+        MaxTTL: 31536000
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - drop.poapkings.com
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            ViewerProtocolPolicy: redirect-to-https
+        Comment: Elixir Drop website and same-origin API
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: !Ref WebCachePolicy
+          Compress: true
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !Ref WebOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: api
+            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            OriginCustomHeaders:
+              - HeaderName: X-Elixir-Drop-Origin
+                HeaderValue: !Ref WebOriginToken
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref WebCertificateArn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+      Tags:
+        - Key: application
+          Value: elixir-drop
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${WebBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
+
 Outputs:
   ApiUrl:
     Value: !GetAtt HttpApi.ApiEndpoint
@@ -1570,6 +1744,12 @@ Outputs:
     Value: !Ref DataTable
   FunctionName:
     Value: !Ref ApiFunction
+  WebBucketName:
+    Value: !Ref WebBucket
+  WebDistributionId:
+    Value: !Ref WebDistribution
+  WebDistributionDomainName:
+    Value: !GetAtt WebDistribution.DomainName
   CrRequestQueueUrl:
     Value: !Ref CrRequestQueue
   CrResultQueueUrl:

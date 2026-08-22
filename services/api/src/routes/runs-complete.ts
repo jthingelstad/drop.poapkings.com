@@ -47,6 +47,7 @@ import { awardRunBonuses, settleBadgeXp } from "../xp-awards.js";
 import { runXp, runXpAward } from "../xp.js";
 import {
   bodyOf,
+  clientIp,
   clientIpHash,
   currentWarClock,
   type RouteContext,
@@ -67,7 +68,7 @@ export async function completeRun({ event, config, repository }: RouteContext) {
   // exactly like a signed-in one.
   await repository.useRateLimit(
     "run-complete",
-    clientIpHash(event),
+    clientIpHash(event, config.webOriginToken),
     300,
     60 * 60,
   );
@@ -202,7 +203,7 @@ async function recordSignedInRun(
   // discarded. A start/complete mismatch is itself a referee signal.
   const completeCorrelation = deriveCorrelation(
     config.telemetryPepper,
-    event.requestContext.http.sourceIp,
+    clientIp(event, config.webOriginToken),
     event.headers["user-agent"],
   );
   const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
@@ -517,17 +518,31 @@ async function recordSignedInRun(
           }),
         )
       : Promise.resolve(),
-    publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
-      event: "game.completed",
-      value: run.mode,
-      path: `/${run.mode}`,
-    }),
+    publishTinylyticsEvent(
+      {
+        apiToken: config.tinylyticsApiToken,
+        webOriginToken: config.webOriginToken,
+      },
+      event,
+      {
+        event: "game.completed",
+        value: run.mode,
+        path: `/${run.mode}`,
+      },
+    ),
     personalBest.improved
-      ? publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
-          event: "game.personal_best",
-          value: run.mode,
-          path: `/${run.mode}`,
-        })
+      ? publishTinylyticsEvent(
+          {
+            apiToken: config.tinylyticsApiToken,
+            webOriginToken: config.webOriginToken,
+          },
+          event,
+          {
+            event: "game.personal_best",
+            value: run.mode,
+            path: `/${run.mode}`,
+          },
+        )
       : Promise.resolve(),
   ]);
   return json(201, {

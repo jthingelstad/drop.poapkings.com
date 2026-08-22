@@ -9,6 +9,7 @@
   "scripts": {
     "bootstrap": "node scripts/bootstrap.mjs",
     "deploy": "node scripts/deploy.mjs",
+    "deploy:web": "node scripts/deploy-web.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test": "node --test tests/*.test.mjs",
     "knip": "knip --no-config-hints --include files,dependencies,unlisted",
@@ -16,6 +17,7 @@
     "verify:non-browser": "npm run verify"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "3.1101.0",
     "@aws-sdk/client-cloudformation": "^3.1101.0",
     "@aws-sdk/client-iam": "^3.1101.0",
     "@aws-sdk/client-s3": "^3.1101.0",

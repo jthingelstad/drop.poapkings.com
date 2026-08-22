@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { accountTagsForPlayerId } from "../account-tags.js";
 import type { Config } from "../config.js";
@@ -38,9 +39,41 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
 
+function header(
+  event: APIGatewayProxyEventV2,
+  name: string,
+): string | undefined {
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(event.headers)) {
+    if (key.toLowerCase() === target) return value?.trim() || undefined;
+  }
+  return undefined;
+}
+
+// API Gateway's sourceIp is authoritative for direct requests. Behind the
+// project's CloudFront distribution it is the edge server, so only a request
+// carrying CloudFront's private origin marker may use the viewer IP overwritten
+// by the distribution's viewer-request function.
+export function clientIp(
+  event: APIGatewayProxyEventV2,
+  webOriginToken?: string,
+): string {
+  if (
+    webOriginToken &&
+    header(event, "x-elixir-drop-origin") === webOriginToken
+  ) {
+    const forwarded = header(event, "x-elixir-drop-viewer-ip");
+    if (forwarded && isIP(forwarded)) return forwarded;
+  }
+  return event.requestContext.http.sourceIp || "unknown";
+}
+
 // The peppered per-IP identity used by every read/write rate limit.
-export function clientIpHash(event: APIGatewayProxyEventV2): string {
-  return sha256(event.requestContext.http.sourceIp || "unknown");
+export function clientIpHash(
+  event: APIGatewayProxyEventV2,
+  webOriginToken?: string,
+): string {
+  return sha256(clientIp(event, webOriginToken));
 }
 
 export function bodyOf(event: APIGatewayProxyEventV2): Record<string, unknown> {

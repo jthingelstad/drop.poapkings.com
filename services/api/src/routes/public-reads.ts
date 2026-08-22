@@ -15,10 +15,10 @@ const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
 // Public reads share one generous per-IP hourly budget.
 const READ_LIMIT_PER_HOUR = 1200;
 
-async function chargeRead({ event, repository }: RouteContext) {
+async function chargeRead({ event, config, repository }: RouteContext) {
   await repository.useRateLimit(
     "reads",
-    clientIpHash(event),
+    clientIpHash(event, config.webOriginToken),
     READ_LIMIT_PER_HOUR,
     60 * 60,
   );

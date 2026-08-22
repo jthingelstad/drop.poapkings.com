@@ -9,6 +9,7 @@ import {
 } from "../shares.js";
 import {
   bodyOf,
+  clientIp,
   clientIpHash,
   sessionFor,
   type RouteContext,
@@ -37,7 +38,7 @@ export async function createShare(context: RouteContext, runId: string) {
   const session = sessionFor(event, config.sessionSecret, true);
   await repository.useRateLimit(
     "share-mint",
-    clientIpHash(event),
+    clientIpHash(event, config.webOriginToken),
     MINT_LIMIT_PER_HOUR,
     60 * 60,
   );
@@ -97,7 +98,7 @@ export async function getShare(context: RouteContext, token: string) {
     throw new HttpError(404, "That link is not valid.", "not_found");
   await repository.useRateLimit(
     "share-open",
-    clientIpHash(event),
+    clientIpHash(event, config.webOriginToken),
     OPEN_LIMIT_PER_HOUR,
     60 * 60,
   );
@@ -117,7 +118,7 @@ export async function getShare(context: RouteContext, token: string) {
     // opened. Best-effort: the link opens whether or not the count lands.
     const visitorHash = hmac(
       config.telemetryPepper,
-      `share:${token}:${event.requestContext.http.sourceIp ?? "unknown"}:${
+      `share:${token}:${clientIp(event, config.webOriginToken)}:${
         event.headers["user-agent"] ?? "unknown"
       }`,
     );

@@ -94,7 +94,7 @@ export async function reportRunFailure({
   const body = bodyOf(event);
   await repository.useRateLimit(
     "run-report",
-    clientIpHash(event),
+    clientIpHash(event, config.webOriginToken),
     120,
     60 * 60,
   );

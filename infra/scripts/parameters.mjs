@@ -3,6 +3,11 @@ const SECRET_PARAMETERS = [
   ["TelemetryPepper", "TELEMETRY_PEPPER"],
   ["FastmailJmapToken", "FASTMAIL_JMAP_TOKEN"],
   ["DiscordWebhookUrl", "ELIXIR_DROP_DISCORD_WEBHOOK_URL"],
+  ["WebOriginToken", "ELIXIR_DROP_WEB_ORIGIN_TOKEN"],
+];
+
+const REQUIRED_PARAMETERS = [
+  ["WebCertificateArn", "ELIXIR_DROP_WEB_CERTIFICATE_ARN"],
 ];
 
 // Operator-owned configuration: everything the template declares that CI does
@@ -56,7 +61,7 @@ function preservedParameter(parameterKey, value, stackExists) {
   return undefined;
 }
 
-function secretParameter(
+function requiredParameter(
   parameterKey,
   environmentKey,
   environment,
@@ -93,7 +98,13 @@ export function deploymentParameters({
 
   for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {
     parameters.push(
-      secretParameter(parameterKey, environmentKey, environment, stackExists),
+      requiredParameter(parameterKey, environmentKey, environment, stackExists),
+    );
+  }
+
+  for (const [parameterKey, environmentKey] of REQUIRED_PARAMETERS) {
+    parameters.push(
+      requiredParameter(parameterKey, environmentKey, environment, stackExists),
     );
   }
   return parameters;

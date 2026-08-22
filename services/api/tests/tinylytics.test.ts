@@ -55,6 +55,20 @@ describe("Tinylytics server events", () => {
     });
   });
 
+  it("uses the trusted CloudFront viewer address for same-origin API traffic", () => {
+    const event = request();
+    event.headers["x-elixir-drop-origin"] = "private-origin-token";
+    event.headers["x-elixir-drop-viewer-ip"] = "198.51.100.8";
+
+    expect(
+      tinylyticsEventBody(
+        event,
+        { event: "game.completed", value: "surge", path: "/surge" },
+        "private-origin-token",
+      ).ip_address,
+    ).toBe("198.51.100.8");
+  });
+
   it("posts once with the full-access key kept in the authorization header", async () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true, status: 201 });
 

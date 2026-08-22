@@ -53,7 +53,7 @@ async function ensureUser(name) {
   }
 }
 
-async function ensureRole(accountId, bucketName) {
+async function ensureRole(accountId, bucketName, webBucketName) {
   let role;
   try {
     role = (await iam.send(new GetRoleCommand({ RoleName: executionRoleName })))
@@ -88,14 +88,53 @@ async function ensureRole(accountId, bucketName) {
         Version: "2012-10-17",
         Statement: [
           // API Gateway control-plane ARNs are not stack-name-scoped, so that
-          // one service keeps a wildcard resource; everything else is pinned
-          // to elixir-drop-* resources so a malicious or buggy template can
-          // no longer touch unrelated tables, functions, or log groups in
-          // the account.
+          // service keeps a wildcard resource. CloudFront create/list APIs are
+          // account-global, but its action list is limited to the four resource
+          // types this stack owns. Regional services stay pinned to
+          // elixir-drop-* resources.
           {
             Effect: "Allow",
             Action: ["apigateway:*"],
             Resource: "*",
+          },
+          {
+            Effect: "Allow",
+            Action: [
+              "cloudfront:CreateCachePolicy",
+              "cloudfront:CreateDistribution",
+              "cloudfront:CreateFunction",
+              "cloudfront:CreateOriginAccessControl",
+              "cloudfront:DeleteCachePolicy",
+              "cloudfront:DeleteDistribution",
+              "cloudfront:DeleteFunction",
+              "cloudfront:DeleteOriginAccessControl",
+              "cloudfront:DescribeFunction",
+              "cloudfront:GetCachePolicy",
+              "cloudfront:GetCachePolicyConfig",
+              "cloudfront:GetDistribution",
+              "cloudfront:GetDistributionConfig",
+              "cloudfront:GetFunction",
+              "cloudfront:GetOriginAccessControl",
+              "cloudfront:GetOriginAccessControlConfig",
+              "cloudfront:ListCachePolicies",
+              "cloudfront:ListDistributions",
+              "cloudfront:ListFunctions",
+              "cloudfront:ListOriginAccessControls",
+              "cloudfront:ListTagsForResource",
+              "cloudfront:PublishFunction",
+              "cloudfront:TagResource",
+              "cloudfront:UntagResource",
+              "cloudfront:UpdateCachePolicy",
+              "cloudfront:UpdateDistribution",
+              "cloudfront:UpdateFunction",
+              "cloudfront:UpdateOriginAccessControl",
+            ],
+            Resource: "*",
+          },
+          {
+            Effect: "Allow",
+            Action: ["acm:DescribeCertificate"],
+            Resource: `arn:aws:acm:us-east-1:${accountId}:certificate/*`,
           },
           {
             Effect: "Allow",
@@ -160,6 +199,14 @@ async function ensureRole(accountId, bucketName) {
             Effect: "Allow",
             Action: ["s3:GetObject", "s3:GetObjectVersion"],
             Resource: `arn:aws:s3:::${bucketName}/*`,
+          },
+          {
+            Effect: "Allow",
+            Action: ["s3:*"],
+            Resource: [
+              `arn:aws:s3:::${webBucketName}`,
+              `arn:aws:s3:::${webBucketName}/*`,
+            ],
           },
           {
             Effect: "Allow",
@@ -256,6 +303,7 @@ if (!identity.Account)
   throw new Error("AWS caller identity did not include an account ID");
 const accountId = identity.Account;
 const bucketName = `elixir-drop-deploy-${accountId}-${region}`;
+const webBucketName = `elixir-drop-web-${accountId}-${region}`;
 const [existingEnv, sourceEnv] = await Promise.all([
   loadEnv(envPath).catch(() => ({})),
   loadEnv(sourceEnvPath).catch(() => ({})),
@@ -268,7 +316,7 @@ const crApiKey = existingEnv.CR_API_KEY || sourceEnv.CR_API_KEY;
 if (!crApiKey) throw new Error(`CR_API_KEY was not found in ${sourceEnvPath}`);
 
 await Promise.all([ensureUser(userName), ensureUser(bridgeUserName)]);
-const role = await ensureRole(accountId, bucketName);
+const role = await ensureRole(accountId, bucketName, webBucketName);
 if (!role?.Arn) throw new Error("CloudFormation execution role has no ARN");
 await ensureBucket(bucketName);
 
@@ -301,6 +349,27 @@ await iam.send(
             `arn:aws:s3:::${bucketName}`,
             `arn:aws:s3:::${bucketName}/*`,
           ],
+        },
+        {
+          Effect: "Allow",
+          Action: [
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:ListBucket",
+            "s3:PutObject",
+          ],
+          Resource: [
+            `arn:aws:s3:::${webBucketName}`,
+            `arn:aws:s3:::${webBucketName}/*`,
+          ],
+        },
+        {
+          Effect: "Allow",
+          Action: [
+            "cloudfront:CreateInvalidation",
+            "cloudfront:GetInvalidation",
+          ],
+          Resource: `arn:aws:cloudfront::${accountId}:distribution/*`,
         },
         {
           Effect: "Allow",
@@ -415,6 +484,12 @@ const values = {
   ELIXIR_DROP_CODE_BUCKET: bucketName,
   ELIXIR_DROP_EMAIL_FROM:
     existingEnv.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com",
+  ELIXIR_DROP_WEB_ORIGIN_TOKEN:
+    existingEnv.ELIXIR_DROP_WEB_ORIGIN_TOKEN ||
+    randomBytes(32).toString("base64url"),
+  ELIXIR_DROP_WEB_CERTIFICATE_ARN:
+    existingEnv.ELIXIR_DROP_WEB_CERTIFICATE_ARN ||
+    process.env.ELIXIR_DROP_WEB_CERTIFICATE_ARN,
   ELIXIR_DROP_STACK_NAME: stackName,
   FASTMAIL_JMAP_TOKEN: jmapToken,
   NAME_MODEL_ID:

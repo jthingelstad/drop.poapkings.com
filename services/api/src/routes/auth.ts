@@ -17,6 +17,7 @@ import {
 } from "../validation.js";
 import {
   bodyOf,
+  clientIp,
   clientIpHash,
   issueSession,
   MAGIC_LINK_SECONDS,
@@ -41,7 +42,7 @@ export async function requestMagicLink({
   }
   const returnTo = normalizeGameReturnPath(body.returnTo);
   const sub = emailSubject(email);
-  const ip = event.requestContext.http.sourceIp || "unknown";
+  const ip = clientIp(event, config.webOriginToken);
   await Promise.all([
     repository.useRateLimit("magic-email", sub, 5, 60 * 60),
     repository.useRateLimit("magic-ip", sha256(ip), 20, 60 * 60),
@@ -100,10 +101,17 @@ export async function requestMagicLink({
     await repository.deleteMagicLink(tokenHash);
     throw error;
   }
-  await publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
-    event: "account.login_requested",
-    path: "/login",
-  });
+  await publishTinylyticsEvent(
+    {
+      apiToken: config.tinylyticsApiToken,
+      webOriginToken: config.webOriginToken,
+    },
+    event,
+    {
+      event: "account.login_requested",
+      path: "/login",
+    },
+  );
   return json(202, {
     ok: true,
     message: "If that address can receive mail, a login link is on its way.",
@@ -113,13 +121,18 @@ export async function requestMagicLink({
 
 // POST /auth/poll — pick up a session handed over by a redeem in another
 // browser context.
-export async function pollSession({ event, repository }: RouteContext) {
+export async function pollSession({ event, config, repository }: RouteContext) {
   const body = bodyOf(event);
   if (typeof body.pollId !== "string" || body.pollId.length < 16)
     throw new HttpError(400, "A poll id is required.");
   await Promise.all([
     repository.useRateLimit("poll-id", sha256(body.pollId), 120, 60 * 30),
-    repository.useRateLimit("poll-ip", clientIpHash(event), 600, 60 * 30),
+    repository.useRateLimit(
+      "poll-ip",
+      clientIpHash(event, config.webOriginToken),
+      600,
+      60 * 30,
+    ),
   ]);
   const session = await repository.takePollSession(
     body.pollId,
@@ -199,11 +212,18 @@ export async function redeemMagicLink({
           buttondownPlayerMetadata(login.profile, snapshot),
         ),
       ),
-      publishTinylyticsEvent({ apiToken: config.tinylyticsApiToken }, event, {
-        event: "account.login_completed",
-        value: login.created ? "new" : "returning",
-        path: "/login",
-      }),
+      publishTinylyticsEvent(
+        {
+          apiToken: config.tinylyticsApiToken,
+          webOriginToken: config.webOriginToken,
+        },
+        event,
+        {
+          event: "account.login_completed",
+          value: login.created ? "new" : "returning",
+          path: "/login",
+        },
+      ),
     ]);
   } catch (error) {
     console.warn("Post-login side effects failed", {
