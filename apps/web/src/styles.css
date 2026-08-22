@@ -4497,6 +4497,58 @@ html.reduce-motion .ed-game__bar-fill {
 .ed-sum-tile--green .ed-sum-tile__value {
   color: var(--green);
 }
+.ed-practice-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.ed-practice-stat {
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(38, 22, 78, 0.7), rgba(11, 9, 32, 0.8));
+  text-align: center;
+}
+.ed-practice-stat dt {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ed-practice-stat dd {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+}
+.ed-practice-stat strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  line-height: 1;
+}
+.ed-practice-stat span {
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.25;
+}
+.ed-practice-stat--recall strong {
+  color: var(--gold);
+}
+.ed-practice-stat--recovered strong {
+  color: var(--green);
+}
+.ed-practice-stat--due strong {
+  color: var(--gold-lite);
+}
+@media (width <= 520px) {
+  .ed-practice-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .ed-sum-bands {
   border-radius: 16px;
   border: 1px solid var(--hairline);

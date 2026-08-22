@@ -10,6 +10,12 @@ export interface PracticeReviewItem {
   stage: PracticeReviewStage
 }
 
+export interface PracticeReviewOutcome {
+  queue: PracticeReviewItem[]
+  recovered: boolean
+  locked: boolean
+}
+
 export const PRACTICE_RETRY_GAP = 4
 export const PRACTICE_REPEATED_MISS_GAP = 3
 export const PRACTICE_CONFIRM_GAP = 10
@@ -41,4 +47,47 @@ export function takeDuePracticeReview(
 
 export function queuedPracticeCardIds(queue: readonly PracticeReviewItem[]): Set<number> {
   return new Set(queue.map((item) => item.cardId))
+}
+
+// Recognition with choices can reinforce a cost, but only an unassisted recall
+// advances a missed card from retry to confirmation or clears its confirmation.
+export function resolvePracticeReview(
+  queue: readonly PracticeReviewItem[],
+  cardId: number,
+  answered: number,
+  stage: PracticeReviewStage | undefined,
+  correct: boolean,
+  assisted: boolean
+): PracticeReviewOutcome {
+  if (!stage) {
+    return {
+      queue: correct ? [...queue] : schedulePracticeReview(queue, cardId, answered, 'retry', PRACTICE_RETRY_GAP),
+      recovered: false,
+      locked: false
+    }
+  }
+
+  const withoutCurrent = queue.filter((item) => item.cardId !== cardId)
+  if (correct && !assisted) {
+    if (stage === 'retry') {
+      return {
+        queue: schedulePracticeReview(withoutCurrent, cardId, answered, 'confirm', PRACTICE_CONFIRM_GAP),
+        recovered: true,
+        locked: false
+      }
+    }
+    return { queue: withoutCurrent, recovered: false, locked: true }
+  }
+
+  return {
+    queue: schedulePracticeReview(
+      withoutCurrent,
+      cardId,
+      answered,
+      correct ? stage : 'retry',
+      PRACTICE_REPEATED_MISS_GAP
+    ),
+    recovered: false,
+    locked: false
+  }
 }

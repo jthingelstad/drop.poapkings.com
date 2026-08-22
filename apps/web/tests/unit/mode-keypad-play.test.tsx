@@ -663,7 +663,10 @@ describe('Practice gameplay', () => {
     expect(payload.answers).toHaveLength(23)
     expect(recordSession).toHaveBeenCalled()
     expect(saveResult).toHaveBeenCalledTimes(23)
-    expect(host.textContent).toContain('23 / 23 first try')
+    expect(host.textContent).toContain('23 cards practiced')
+    expect(host.querySelector('[data-practice-stat="recall"]')?.textContent).toContain('23 / 23')
+    expect(host.querySelector('[data-practice-stat="assisted"]')?.textContent).toContain('no help used')
+    expect(host.querySelector('[data-practice-stat="due"]')?.textContent).toContain('0')
     expect(host.querySelector('.shareline')).toBeNull()
   })
 
@@ -733,7 +736,10 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0') // correct count still 0
 
     endSession(host)
-    expect(host.textContent).toContain('0 / 1 first try')
+    expect(host.textContent).toContain('1 card practiced')
+    expect(host.querySelector('[data-practice-stat="recall"]')?.textContent).toContain('0 / 1')
+    expect(host.querySelector('[data-practice-stat="due"]')?.textContent).toContain('1')
+    expect(host.textContent).toContain('Review misses')
     const payload = session.complete.mock.calls[0]![0] as {
       answers: Array<{ cardId: number; guess: number; responseMs: number; assisted: boolean }>
     }
@@ -804,6 +810,12 @@ describe('Practice gameplay', () => {
     )
     void act(() => correctChoice?.click())
     expect(saveResult).toHaveBeenCalledWith(current.id, true, undefined, true)
+    advance(300)
+    endSession(host)
+    expect(host.textContent).toContain('1 card practiced')
+    expect(host.querySelector('[data-practice-stat="recall"]')?.textContent).toContain('no unassisted reads')
+    expect(host.querySelector('[data-practice-stat="assisted"]')?.textContent).toContain('1 / 1')
+    expect(host.textContent).not.toContain('Work on these')
   })
 
   it('narrows an idle recognition prompt from four choices to two', () => {
@@ -862,7 +874,7 @@ describe('Practice gameplay', () => {
       advance(300)
     }
     endSession(host)
-    expect(host.textContent).toContain('6 / 6 first try')
+    expect(host.textContent).toContain('6 cards practiced')
 
     const replay = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
       button.textContent?.includes('Practice again')

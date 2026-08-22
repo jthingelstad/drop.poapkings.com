@@ -162,8 +162,9 @@ Untimed and **endless**. A card appears; name its cost; repeat until you choose
 to stop, via the always-available icon-only close control in the top bar
 (accessibly named **End session**). There is no round
 length, no score, no record, and no personal best — the session closes on the
-shared learning summary showing **stats only**: first-read accuracy, average
-response time, recovered misses, cards still needing review, and cost bands.
+shared learning summary showing **stats only**: session volume, unassisted
+recall, correct answers with help, recovered misses, cards still needing review,
+and how returned cards held.
 Practice has no destination, so its running chrome counts cards practiced and
 first reads but renders no left-to-right progress bar.
 
@@ -188,15 +189,19 @@ The learning loop has three layers:
   uses the same teaching hold after its wrong beat rather than encouraging
   elimination guesses.
 - A miss is guaranteed to return after four other reads. A repeated review miss
-  returns after three; a successful retry receives a longer-gap confirmation
-  after ten. Recovery cues say `Got it back!` and `Locked in!`.
+  returns after three; a successful **unassisted** retry receives a longer-gap
+  confirmation after ten. Assisted recognition reinforces the answer but keeps
+  that review stage due. Only unassisted retrieval earns the recovery cues
+  `Got it back!` and `Locked in!`.
 
 First-response time is recorded invisibly after the card is paint-ready,
 excluding background-tab time and capped at 60 seconds. After seven idle seconds
 the player may request help: keypad recall becomes four choices, while an
 already-visible choice set narrows to two. Help is voluntary and never reveals
 the answer. Practice deliberately has no streak or ten-answer milestone effect;
-the summary's primary action becomes **Review misses** when the session has any.
+its summary separates unassisted recall, answers with help, recovered misses,
+and cards still due. The primary action becomes **Review misses** only while a
+card remains due.
 
 **Unranked and unscored by design.** Runs are created `ranked: false`, never
 write a leaderboard entry, and have no leaderboard tab. The validated

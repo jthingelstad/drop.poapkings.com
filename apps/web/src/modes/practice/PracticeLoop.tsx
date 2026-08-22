@@ -7,17 +7,13 @@ import { pointerVerb } from '../../lib/use-layout'
 import { makeChoices } from '../../lib/choices'
 import { pickPracticeCard } from '../../lib/practice-deal'
 import {
-  PRACTICE_CONFIRM_GAP,
-  PRACTICE_REPEATED_MISS_GAP,
-  PRACTICE_RETRY_GAP,
   queuedPracticeCardIds,
-  schedulePracticeReview,
+  resolvePracticeReview,
   type PracticeReviewItem,
   type PracticeReviewStage
 } from '../../lib/practice-review'
 import { saveResult, getCardStats, getSettings, saveSettings, recordSession } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
-import { formatSeconds } from '../../lib/format'
 import { playCorrect, playWrong } from '../../lib/sound'
 import { navigate } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
@@ -27,6 +23,7 @@ import FloatingCue from '../../components/FloatingCue'
 import Icon from '../../components/Icon'
 import Summary from '../../components/Summary'
 import DrillPanel from '../../components/summary/DrillPanel'
+import PracticeStats from '../../components/summary/PracticeStats'
 import { costRecallSignature } from '../../lib/signatures'
 import GameRunGate from '../../components/GameRunGate'
 import GameMotion from '../../components/GameMotion'
@@ -275,43 +272,21 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     achievementCue.value++
   }
 
-  function scheduleMissedCard(current: Hand, firstReadCorrect: boolean): void {
-    if (current.reviewStage) {
-      reviewQueue.current = reviewQueue.current.filter((item) => item.cardId !== current.card.id)
-      if (firstReadCorrect) {
-        if (current.reviewStage === 'retry') {
-          recovered.value++
-          celebrate('Got it back!')
-          reviewQueue.current = schedulePracticeReview(
-            reviewQueue.current,
-            current.card.id,
-            answered.peek(),
-            'confirm',
-            PRACTICE_CONFIRM_GAP
-          )
-        } else {
-          celebrate('Locked in!')
-        }
-      } else {
-        reviewQueue.current = schedulePracticeReview(
-          reviewQueue.current,
-          current.card.id,
-          answered.peek(),
-          'retry',
-          PRACTICE_REPEATED_MISS_GAP
-        )
-      }
-      return
-    }
-
-    if (!firstReadCorrect) {
-      reviewQueue.current = schedulePracticeReview(
-        reviewQueue.current,
-        current.card.id,
-        answered.peek(),
-        'retry',
-        PRACTICE_RETRY_GAP
-      )
+  function scheduleMissedCard(current: Hand, firstReadCorrect: boolean, assisted: boolean): void {
+    const outcome = resolvePracticeReview(
+      reviewQueue.current,
+      current.card.id,
+      answered.peek(),
+      current.reviewStage,
+      firstReadCorrect,
+      assisted
+    )
+    reviewQueue.current = outcome.queue
+    if (outcome.recovered) {
+      recovered.value++
+      celebrate('Got it back!')
+    } else if (outcome.locked) {
+      celebrate('Locked in!')
     }
   }
 
@@ -378,13 +353,15 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       card: current.card,
       guess: picked,
       correct: isCorrect,
-      ms: elapsed,
+      // Assisted recognition keeps its bounded response time in the server
+      // transcript, but it must not drive local fluent-recall coaching.
+      ...(assisted ? {} : { ms: elapsed }),
       assisted,
       ...(current.reviewStage ? { reviewStage: current.reviewStage } : {})
     })
     serverAnswers.current.push({ cardId: current.card.id, guess: picked, responseMs: elapsed, assisted })
     answered.value++
-    scheduleMissedCard(current, isCorrect)
+    scheduleMissedCard(current, isCorrect, assisted)
 
     if (isCorrect) {
       correct.value++
@@ -516,32 +493,41 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
 
   if (runtime.stage.value === 'summary' && insights.value) {
     const ins = insights.value
-    const needsReview = ins.weakest.length
+    const cardsById = new Map(deck.map((card) => [card.id, card]))
+    const reviewCards = reviewQueue.current
+      .map((item) => cardsById.get(item.cardId))
+      .filter((card): card is Card => card !== undefined)
+    const needsReview = reviewCards.length
+    const recallAnswers = answers.current.filter((answer) => !answer.assisted)
+    const assistedAnswers = answers.current.filter((answer) => answer.assisted)
     // The cards that came back after a gap this session, and whether they held.
     const returns = answers.current
       .filter((answer) => answer.reviewStage)
-      .map((answer) => ({ ms: answer.ms ?? 0, correct: answer.correct }))
+      .map((answer) => ({ ms: answer.ms ?? 0, correct: answer.correct && !answer.assisted }))
     const signature = costRecallSignature(returns)
     return (
       <div class="ed-gamewrap">
         <Summary
           eyebrow={eyebrow}
-          headline={`${ins.correct} / ${ins.total} first try`}
+          headline={`${ins.total} ${ins.total === 1 ? 'card' : 'cards'} practiced`}
           insights={ins}
-          moments={[
-            {
-              label: 'Avg answer',
-              value: ins.averageMs === undefined ? '—' : `${formatSeconds(ins.averageMs)}s`,
-              tone: 'gold'
-            },
-            { label: 'Got back', value: `${recovered.value}`, tone: recovered.value > 0 ? 'green' : 'purple' },
-            { label: 'Needs review', value: `${needsReview}`, tone: needsReview > 0 ? 'purple' : 'green' }
-          ]}
           share={{ mode: 'practice', score: '' }}
-          onReplay={() => replay(ins.weakest)}
+          onReplay={() => replay(reviewCards)}
           replayLabel={needsReview > 0 ? 'Review misses' : 'Practice again'}
           onHome={exit}
         >
+          <PracticeStats
+            recall={{
+              correct: recallAnswers.filter((answer) => answer.correct).length,
+              total: recallAnswers.length
+            }}
+            assisted={{
+              correct: assistedAnswers.filter((answer) => answer.correct).length,
+              total: assistedAnswers.length
+            }}
+            recovered={recovered.value}
+            stillDue={needsReview}
+          />
           {signature.bars.length > 0 && <DrillPanel {...signature} />}
         </Summary>
       </div>

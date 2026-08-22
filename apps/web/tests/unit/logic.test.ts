@@ -12,7 +12,12 @@ import { computeInsights, insightPhrase } from '../../src/lib/insights'
 import { tradeSummaryLine } from '../../src/lib/mode-insights'
 import { comparableBest, pbCallout } from '../../src/lib/pb-callout'
 import { cardWeight, pickPracticeCard } from '../../src/lib/practice-deal'
-import { queuedPracticeCardIds, schedulePracticeReview, takeDuePracticeReview } from '../../src/lib/practice-review'
+import {
+  queuedPracticeCardIds,
+  resolvePracticeReview,
+  schedulePracticeReview,
+  takeDuePracticeReview
+} from '../../src/lib/practice-review'
 import { clearTimers, elapsedWithPenalty, schedule, startCountdown } from '../../src/lib/run-loop'
 import { formatTrade, pickTradeHintCard, sideTotal, tradeValue, type TradeRound } from '../../src/lib/trade'
 import type { Card } from '../../src/types'
@@ -354,6 +359,38 @@ describe('practice spaced review', () => {
     const rescheduled = schedulePracticeReview(first, 42, 8, 'confirm', 10)
 
     expect(rescheduled).toEqual([{ cardId: 42, dueAtAnswered: 18, stage: 'confirm' }])
+  })
+
+  it('keeps assisted recognition due until recall advances and clears each review stage', () => {
+    const missed = resolvePracticeReview([], 42, 1, undefined, false, false)
+    expect(missed.queue).toEqual([{ cardId: 42, dueAtAnswered: 5, stage: 'retry' }])
+
+    const assistedRetry = resolvePracticeReview(missed.queue, 42, 5, 'retry', true, true)
+    expect(assistedRetry).toEqual({
+      queue: [{ cardId: 42, dueAtAnswered: 8, stage: 'retry' }],
+      recovered: false,
+      locked: false
+    })
+
+    const recalled = resolvePracticeReview(assistedRetry.queue, 42, 8, 'retry', true, false)
+    expect(recalled).toEqual({
+      queue: [{ cardId: 42, dueAtAnswered: 18, stage: 'confirm' }],
+      recovered: true,
+      locked: false
+    })
+
+    const assistedConfirm = resolvePracticeReview(recalled.queue, 42, 18, 'confirm', true, true)
+    expect(assistedConfirm).toEqual({
+      queue: [{ cardId: 42, dueAtAnswered: 21, stage: 'confirm' }],
+      recovered: false,
+      locked: false
+    })
+
+    expect(resolvePracticeReview(assistedConfirm.queue, 42, 21, 'confirm', true, false)).toEqual({
+      queue: [],
+      recovered: false,
+      locked: true
+    })
   })
 })
 

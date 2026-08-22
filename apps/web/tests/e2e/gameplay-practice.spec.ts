@@ -148,6 +148,16 @@ test(
     // A fresh card is dealt only after the teaching hold and attached exit.
     await expect(page.locator('.pcard__img')).not.toHaveAttribute('alt', card.name)
     await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+
+    await page.getByRole('button', { name: 'End session' }).click()
+    await expect(page.locator('[data-practice-stat="recall"]')).toContainText('0 / 1')
+    await expect(page.locator('[data-practice-stat="due"]')).toContainText('1')
+    await expect(page.getByRole('button', { name: /Review misses/ })).toBeVisible()
+    await expect(page.getByText(/Practice session (saved|complete)/, { exact: true })).toBeVisible()
+    await testInfo.attach('practice-review-due-summary.png', {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: 'image/png'
+    })
   }
 )
 
@@ -225,11 +235,39 @@ test('practice runs until the player ends it, then closes on stats with no perso
   await expect(endSession.locator('svg')).toBeVisible()
   await endSession.click()
   await expect(page.locator('[data-summary]')).toBeVisible()
-  await expect(page.locator('.ed-sum__headline')).toHaveText('16 / 16 first try')
+  await expect(page.locator('.ed-sum__headline')).toHaveText('16 cards practiced')
+  await expect(page.locator('[data-practice-stat="recall"]')).toContainText('16 / 16')
+  await expect(page.locator('[data-practice-stat="assisted"]')).toContainText('no help used')
+  await expect(page.locator('[data-practice-stat="due"]')).toContainText('0')
   // No score, no record, no personal best anywhere on the summary.
   await expect(page.locator('.ed-sum__pb')).toHaveCount(0)
   await expect(page.locator('.shareline')).toHaveCount(0)
   await expect(page.locator('[data-summary]')).not.toContainText(/personal best|New best/i)
+})
+
+test('practice summary separates recognition help from recall', async ({ page }, testInfo) => {
+  await useSignedOutState(page, '/practice')
+  await waitForKeypad(page)
+  await page.getByRole('button', { name: '4 choices' }).click()
+
+  const cardName = await page.locator('.pcard__img').getAttribute('alt')
+  const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+  expect(card).toBeTruthy()
+  await page.getByRole('button', { name: `${card!.elixir} elixir`, exact: true }).click()
+  await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced')
+  await page.getByRole('button', { name: 'End session' }).click()
+
+  await expect(page.locator('.ed-sum__headline')).toHaveText('1 card practiced')
+  await expect(page.locator('[data-practice-stat="recall"]')).toContainText('no unassisted reads')
+  await expect(page.locator('[data-practice-stat="assisted"]')).toContainText('1 / 1')
+  await expect(page.locator('[data-practice-stat="due"]')).toContainText('0')
+  await expect(page.locator('[data-summary]')).not.toContainText('Work on these')
+  await expect(page.getByRole('button', { name: /Practice again/ })).toBeVisible()
+  await expect(page.getByText(/Practice session (saved|complete)/, { exact: true })).toBeVisible()
+  await testInfo.attach('practice-assisted-summary.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
 })
 
 test('practice offers voluntary idle help without revealing the answer', { tag: '@deploy' }, async ({ page }) => {

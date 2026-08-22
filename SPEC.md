@@ -267,7 +267,9 @@ Product decisions currently in force:
   from recall, offers voluntary help after seven idle seconds, gives keypad
   recall one anchored higher/lower retry, then reveals the exact answer. Missed
   cards return through the short-term spaced-review queue documented in
-  `GAMES.md`.
+  `GAMES.md`; only an unassisted retrieval advances or clears a review stage.
+  The summary reports recall and assisted recognition separately and derives
+  its recovered/still-due counts and review action from that live queue.
 - Evolutions and Hero flags are flavor only; the answer is always base elixir.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
