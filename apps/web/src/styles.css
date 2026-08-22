@@ -7742,6 +7742,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
    while the state does. */
 .ed-cause {
   display: inline-block;
+  align-self: flex-start;
   margin: 2px 0 10px;
   padding: 3px 12px;
   border-radius: 999px;

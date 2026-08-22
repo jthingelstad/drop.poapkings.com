@@ -344,6 +344,16 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
 test.describe('mobile primary navigation', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
+  test('keeps the signed-out cause chip compact', async ({ page }) => {
+    await useSignedOutState(page)
+
+    const guest = page.locator('.ed-cause')
+    await expect(guest).toHaveText('GUEST')
+    const bounds = await guest.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.width).toBeLessThan(100)
+  })
+
   test('keeps home and game content below the installed-app status bar', async ({ page }) => {
     // Desktop browser engines report a zero safe-area inset, so override the
     // shell token with a representative modern-iPhone inset for regression QA.
