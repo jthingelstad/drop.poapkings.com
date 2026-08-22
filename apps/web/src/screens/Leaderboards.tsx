@@ -40,9 +40,8 @@ const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
   'higher-lower': 'HIGHER'
 }
 
-// The one line beside the title: the current season's close, on every Boards and
-// Clan scope. Badges say "never reset" instead — they are the one thing here
-// that does not.
+// The one line beside the title is the current season's close on Boards and
+// Clan. Badges omit it because the permanent collection needs no seasonal note.
 function seasonEndLine(season: Season | null): string {
   if (!season) return '—'
   const date = new Date(season.endsAt).toLocaleDateString(undefined, {
@@ -306,7 +305,7 @@ export default function Leaderboards() {
           <div class="ed-ladder__title" aria-hidden="true">
             Ladder
           </div>
-          <div class="ed-ladder__clock">{isBadges ? 'Badges never reset' : seasonEndLine(season.value)}</div>
+          {!isBadges && <div class="ed-ladder__clock">{seasonEndLine(season.value)}</div>}
         </div>
         {arena && (
           <div class={`ed-ladder__arena${offline.value ? ' ed-ladder__arena--stale' : ''}`}>
@@ -405,7 +404,6 @@ export default function Leaderboards() {
                 <strong>
                   {earnedBadges} of {BADGE_LIST.length} earned
                 </strong>
-                <span>Every badge, one screen</span>
               </div>
               <BadgeGrid states={badges.value} playerId={currentPlayer?.id} playerName={currentPlayer?.publicName} />
             </>
@@ -470,7 +468,6 @@ export default function Leaderboards() {
               </span>
               <span class="ed-clan-invite__text">
                 <strong>Bring a clanmate in</strong>
-                <small>More clanmates on Drop, more of a board to climb.</small>
               </span>
               <a class="ed-btn ed-btn--gold ed-btn--sm" href={CLAN_INVITE_URL} target="_blank" rel="noreferrer">
                 Invite
@@ -480,15 +477,17 @@ export default function Leaderboards() {
         </section>
       )}
 
-      <footer class="ed-board__key">
-        <ReviewStatusMark status="reviewed" size={18} />
-        <span>Cleared by a referee.</span>
-        <ReviewStatusMark status="pending" size={18} />
-        <span>means the run ranks while it is checked; excluded runs leave the board.</span>
-        <a class="ed-textlink" href="/fair-play/">
-          Fair Play
-        </a>
-      </footer>
+      {!isBadges && (
+        <footer class="ed-board__key">
+          <ReviewStatusMark status="reviewed" size={18} />
+          <span>Cleared by a referee.</span>
+          <ReviewStatusMark status="pending" size={18} />
+          <span>means the run ranks while it is checked; excluded runs leave the board.</span>
+          <a class="ed-textlink" href="/fair-play/">
+            Fair Play
+          </a>
+        </footer>
+      )}
     </div>
   )
 }

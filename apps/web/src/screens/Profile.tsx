@@ -749,7 +749,7 @@ function UpdatesScope() {
               </li>
             ))}
           </ul>
-          <p class="ed-updates__referee-note">Both rank while they are checked. This slot becomes the verdict.</p>
+          <p class="ed-updates__referee-note">Runs stay ranked while the referee checks them.</p>
         </div>
       )}
 

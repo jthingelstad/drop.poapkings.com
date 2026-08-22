@@ -80,6 +80,7 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
 
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Updates' }).click()
+  await expect(page.locator('.ed-updates__referee-note')).toHaveText('Runs stay ranked while the referee checks them.')
 
   const unread = page.getByRole('button', { name: /Three community badges enter the arena/ })
   const alreadyRead = page.getByRole('button', { name: /Desktop enters the arena/ })
@@ -209,14 +210,17 @@ test('the Settings scope has three toggles that persist per device', async ({ pa
   await expect(settings.getByRole('switch', { name: 'Enhance effects' })).toHaveAttribute('aria-checked', 'false')
 })
 
-test('the Ladder Badges scope shows every badge on one screen', async ({ page }) => {
+test('the Ladder Badges scope shows the full collection without unrelated helper copy', async ({ page }) => {
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()
 
-  // Every badge, one screen — no featured strip, no "+N more", no expand toggle.
+  // The full collection needs no helper copy, featured strip, "+N more", or expand toggle.
   // (The two Reach badges are specced but not built yet, so BADGE_LIST is 29.)
-  await expect(page.locator('.ed-ladder__badges-head')).toContainText(`of ${BADGE_LIST.length} earned`)
-  await expect(page.locator('.ed-ladder__badges-head')).toContainText('Every badge, one screen')
+  const badgesHead = page.locator('.ed-ladder__badges-head')
+  await expect(badgesHead).toContainText(`of ${BADGE_LIST.length} earned`)
+  await expect(badgesHead.locator('span')).toHaveCount(0)
+  await expect(page.locator('.ed-ladder__clock')).toHaveCount(0)
+  await expect(page.locator('.ed-board__key')).toHaveCount(0)
   await expect(page.locator('.ed-badges__grid--featured')).toHaveCount(0)
   await expect(page.locator('.ed-profile__badges-toggle')).toHaveCount(0)
   await expect(page.locator('.ed-badges__cell')).toHaveCount(BADGE_LIST.length)

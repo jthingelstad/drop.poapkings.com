@@ -5,7 +5,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await page.goto('/#/leaderboards')
 
   // One fixed title on every scope — always "Ladder" — with the current
-  // season's close as the one clock line beside it.
+  // season's close beside it on ranked boards.
   await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
   await expect(page.locator('.ed-ladder__clock')).toContainText('Ends')
   await expect(page.locator('.ed-ladder__clock')).toContainText('Aug 3 · 10:00 UTC')
@@ -74,6 +74,8 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(page.locator('.ed-board__clan')).toContainText('POAP KINGS')
   await expect(page.locator('.ed-board__clan')).toContainText('#J2RGCRVG')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
+  await expect(page.locator('.ed-clan-invite')).toContainText('Bring a clanmate in')
+  await expect(page.locator('.ed-clan-invite')).not.toContainText('More clanmates on Drop')
   await page.waitForTimeout(250)
   const clanScreenshot = testInfo.outputPath('clan-rankings.png')
   await page.screenshot({ path: clanScreenshot })
