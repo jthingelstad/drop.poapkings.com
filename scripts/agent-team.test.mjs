@@ -39,6 +39,12 @@ import {
   isDeliveryCanary,
   sanitizeBugReportEmail,
 } from "../AGENT-TEAM/scripts/mail-bug-reports.mjs";
+import {
+  CLOUD_AUDITOR_ROLE_NAME,
+  isExpectedCloudAuditorIdentity,
+  summarizeWebActivity,
+  WEB_ACTIVITY_QUERIES,
+} from "./web-activity.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
@@ -610,6 +616,84 @@ void test("run-report clients require their separate bounded assumed role", asyn
   });
   assert.deepEqual(dataClient, { verified: true });
   assert.equal(dataClientCreated, true);
+});
+
+void test("web activity reporting requires the read-only cloud auditor and stays aggregate", () => {
+  assert.equal(
+    isExpectedCloudAuditorIdentity({
+      Account: "999153317627",
+      Arn: `arn:aws:sts::999153317627:assumed-role/${CLOUD_AUDITOR_ROLE_NAME}/test-session`,
+    }),
+    true,
+  );
+  assert.equal(
+    isExpectedCloudAuditorIdentity({
+      Account: "999153317627",
+      Arn: "arn:aws:iam::999153317627:user/jamie",
+    }),
+    false,
+  );
+  assert.equal(
+    isExpectedCloudAuditorIdentity({
+      Account: "999153317627",
+      Arn: "arn:aws:sts::999153317627:assumed-role/AnotherRole/session",
+    }),
+    false,
+  );
+
+  const result = (row) => ({
+    results: [
+      Object.entries(row).map(([field, value]) => ({
+        field,
+        value: String(value),
+      })),
+    ],
+  });
+  const summary = summarizeWebActivity(
+    {
+      overview: result({
+        requests: 12,
+        responseBytes: 4096,
+        p95Ttfb: 0.08,
+        maxTtfb: 0.2,
+      }),
+      statuses: result({ status: 200, requests: 11 }),
+      requestClasses: result({
+        requestClass: "web-home",
+        requests: 8,
+        responseBytes: 2048,
+        p95Ttfb: 0.05,
+      }),
+      cacheOutcomes: result({ cacheOutcome: "Hit", requests: 10 }),
+      errors: result({
+        status: 404,
+        requestClass: "web-other",
+        detail: "Error",
+        requests: 1,
+      }),
+    },
+    {
+      hours: 24,
+      start: "2026-08-21T14:00:00.000Z",
+      end: "2026-08-22T14:00:00.000Z",
+    },
+  );
+  assert.equal(summary.status, "ok");
+  assert.equal(summary.requests, 12);
+  assert.deepEqual(summary.errors, [
+    {
+      status: "404",
+      requestClass: "web-other",
+      detail: "Error",
+      requests: 1,
+    },
+  ]);
+
+  const queries = JSON.stringify(Object.values(WEB_ACTIVITY_QUERIES));
+  assert.doesNotMatch(
+    queries,
+    /c-ip|User-Agent|uri-stem|Referer|Cookie|requestId/i,
+  );
 });
 
 void test("run-report output is identity-free and triage writes one immutable audit", async () => {

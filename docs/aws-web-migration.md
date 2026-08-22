@@ -22,6 +22,13 @@ headers policy so Buttondown's public archive can load Drop's font while static
 responses receive the standard transport, content-type, framing, and referrer
 protections. `/api/*` keeps the API's own CORS behavior.
 
+CloudFront standard logging v2 sends a privacy-minimized field set to CloudWatch Logs
+for 14 days. It records status, bytes, cache/edge outcome, timing, content type, and a
+bounded request class supplied by the routing function. It does not retain viewer IP,
+user-agent, referrer, cookies, query strings, raw paths, or request IDs. API and Lambda
+logs retain their existing 30-day incident window. Run Drop consumes the web records
+only through the aggregate `scripts/web-activity.mjs` report.
+
 The API behavior forwards viewer headers, cookies, and query strings except
 `Host`. The viewer-request function overwrites `X-Elixir-Drop-Viewer-Ip` from
 CloudFront's trusted `event.viewer.ip`, and CloudFront also overwrites a private

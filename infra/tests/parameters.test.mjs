@@ -437,6 +437,38 @@ void describe("deployment parameters", () => {
     assert.match(template, /- DELETE/);
   });
 
+  void it("retains privacy-minimized CloudFront access logs for two weeks", () => {
+    assert.match(
+      template,
+      /LogGroupName: \/elixir-drop\/web-access[\s\S]*?RetentionInDays: 14/,
+    );
+    assert.match(template, /Type: AWS::Logs::DeliverySource/);
+    assert.match(template, /LogType: ACCESS_LOGS/);
+    assert.match(template, /Type: AWS::Logs::DeliveryDestination/);
+    assert.match(template, /OutputFormat: json/);
+    assert.match(template, /Type: AWS::Logs::Delivery/);
+    assert.match(template, /Service: delivery\.logs\.amazonaws\.com/);
+
+    const recordFields = template.match(
+      /WebAccessLogDelivery:[\s\S]*?RecordFields:\s+([\s\S]*?)\n      Tags:/,
+    )?.[1];
+    assert.ok(recordFields);
+    for (const field of [
+      "sc-status",
+      "x-edge-response-result-type",
+      "x-edge-detailed-result-type",
+      "time-to-first-byte",
+      "cache-behavior-path-pattern",
+      "viewer-request-log-data",
+    ]) {
+      assert.match(recordFields, new RegExp(field));
+    }
+    assert.doesNotMatch(
+      recordFields,
+      /c-ip|x-forwarded-for|User-Agent|Referer|Cookie|uri-stem|uri-query|request-id/i,
+    );
+  });
+
   void it("records privacy-conscious route timing and detailed HTTP API metrics", () => {
     assert.match(
       template,
@@ -501,7 +533,7 @@ void describe("deployment parameters", () => {
     assert.equal(dashboard.start, "-PT8H");
     assert.equal(dashboard.periodOverride, "inherit");
     assert.equal(dashboard.widgets[0].type, "alarm");
-    assert.equal(dashboard.widgets.length, 9);
+    assert.equal(dashboard.widgets.length, 11);
 
     const routeRequests = dashboard.widgets.find(
       (widget) => widget.properties?.title === "Requests by API route",
@@ -509,8 +541,18 @@ void describe("deployment parameters", () => {
     const routeLatency = dashboard.widgets.find(
       (widget) => widget.properties?.title === "p95 latency by API route",
     );
+    const webRequests = dashboard.widgets.find(
+      (widget) => widget.properties?.title === "Web requests and bytes",
+    );
+    const webErrors = dashboard.widgets.find(
+      (widget) => widget.properties?.title === "Web error rate",
+    );
     assert.ok(routeRequests);
     assert.ok(routeLatency);
+    assert.ok(webRequests);
+    assert.ok(webErrors);
+    assert.equal(webRequests.properties.metrics[0][0], "AWS/CloudFront");
+    assert.equal(webErrors.properties.metrics[0][1], "TotalErrorRate");
     assert.match(
       routeRequests.properties.metrics[0][0].expression,
       /AWS\/ApiGateway,ApiId,Stage,Method,Resource.*MetricName="Count".*'Sum'/,
@@ -541,6 +583,11 @@ void describe("deployment parameters", () => {
     assert.match(template, /MetricName: WriteThrottleEvents/);
     assert.match(template, /AlarmName: elixir-drop-dynamodb-system-errors/);
     assert.match(template, /Expression: SUM\(METRICS\(\)\)/);
+    assert.match(template, /AlarmName: elixir-drop-web-5xx-rate/);
+    assert.match(
+      template,
+      /MetricName: 5xxErrorRate[\s\S]*?DatapointsToAlarm: 2[\s\S]*?Threshold: 5/,
+    );
   });
 
   void it("indexes public profile UUIDs without projecting email", () => {
@@ -561,6 +608,11 @@ void describe("deployment parameters", () => {
       bootstrap,
       /arn:aws:cloudwatch::\$\{accountId\}:dashboard\/elixir-drop-\*/,
     );
+    assert.match(bootstrap, /logs:CreateDelivery/);
+    assert.match(bootstrap, /logs:PutDeliverySource/);
+    assert.match(bootstrap, /logs:PutResourcePolicy/);
+    assert.match(bootstrap, /delivery-source:elixir-drop-\*/);
+    assert.match(bootstrap, /cloudfront:AllowVendedLogDeliveryForResource/);
   });
 
   void it("bounds web deployment permissions to the Drop bucket and invalidations", () => {

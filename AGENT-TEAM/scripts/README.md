@@ -1,5 +1,28 @@
 # Agent Team scripts
 
+## Run Drop web activity
+
+CloudFront standard logging v2 writes privacy-minimized JSON access logs to
+`/elixir-drop/web-access` for 14 days. The records omit IP addresses, forwarded
+addresses, user agents, referrers, cookies, query strings, raw URI paths, and request
+IDs. The viewer-request function supplies only a bounded request class such as
+`web-home`, `web-page-games`, `web-asset`, `web-card-art`, or `api`.
+
+Run Drop reads one aggregate window through the account's established read-only
+auditor role:
+
+```sh
+AWS_PROFILE=cloud-auditor AWS_REGION=us-east-1 \
+  node scripts/web-activity.mjs --hours 24
+```
+
+The script verifies the exact assumed role, delivery source/destination, JSON format,
+and 14-day retention before running bounded Logs Insights queries. It emits only
+aggregate request counts, response bytes, status codes, safe request classes, cache
+outcomes, TTFB, and grouped edge errors. Use `--hours 168` only for a trend or incident.
+This is operational request evidence, not a visitor, player, acquisition, or retention
+funnel.
+
 ## Run Drop failure intake
 
 Terminal game-completion failures are stored without player identity under the

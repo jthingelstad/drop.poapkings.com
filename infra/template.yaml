@@ -244,6 +244,32 @@ Resources:
       LogGroupName: /elixir-drop/mail-canary
       RetentionInDays: 30
 
+  WebAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/web-access
+      LogGroupClass: STANDARD
+      RetentionInDays: 14
+      ResourcePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontVendedLogs
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/elixir-drop/web-access:log-stream:*
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
+      Tags:
+        - Key: application
+          Value: elixir-drop
+
   ApiRole:
     Type: AWS::IAM::Role
     Properties:
@@ -781,6 +807,28 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  WebDistributionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: elixir-drop-web-5xx-rate
+      AlarmDescription: CloudFront returned more than 5% 5xx responses in two of three five-minute windows.
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref WebDistribution
+        - Name: Region
+          Value: Global
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlarmTopic
@@ -1408,6 +1456,7 @@ Resources:
                 "title": "Elixir Drop service alarms",
                 "sortBy": "stateUpdatedTimestamp",
                 "alarms": [
+                  "${WebDistributionErrorAlarm.Arn}",
                   "${ApiFunctionErrorAlarm.Arn}",
                   "${ApiFunctionThrottleAlarm.Arn}",
                   "${ApiLatencyP95Alarm.Arn}",
@@ -1561,6 +1610,42 @@ Resources:
                   [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]
                 ]
               }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 37,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Web requests and bytes",
+                "region": "us-east-1",
+                "period": 300,
+                "stat": "Sum",
+                "metrics": [
+                  ["AWS/CloudFront", "Requests", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Requests"}],
+                  [".", "BytesDownloaded", ".", ".", ".", ".", {"label": "Bytes", "yAxis": "right"}]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 37,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Web error rate",
+                "region": "us-east-1",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {"left": {"label": "Percent", "showUnits": false}},
+                "metrics": [
+                  ["AWS/CloudFront", "TotalErrorRate", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Total"}],
+                  [".", "4xxErrorRate", ".", ".", ".", ".", {"label": "4xx"}],
+                  [".", "5xxErrorRate", ".", ".", ".", ".", {"label": "5xx"}]
+                ]
+              }
             }
           ]
         }
@@ -1608,12 +1693,42 @@ Resources:
       Name: elixir-drop-request-router
       AutoPublish: true
       FunctionConfig:
-        Comment: Strip the API prefix and resolve static directory indexes
+        Comment: Classify requests, strip the API prefix, and resolve static directory indexes
         Runtime: cloudfront-js-2.0
       FunctionCode: |
+        function requestClass(uri) {
+          if (uri.indexOf('/api/') === 0) return 'api';
+          if (uri === '/' || uri === '/index.html') return 'web-home';
+
+          var pageClasses = {
+            '/about/': 'web-page-about',
+            '/badges/': 'web-page-badges',
+            '/discord/': 'web-page-discord',
+            '/elixir-costs/': 'web-page-elixir-costs',
+            '/faq/': 'web-page-faq',
+            '/fair-play/': 'web-page-fair-play',
+            '/games/': 'web-page-games',
+            '/install/': 'web-page-install',
+            '/learn-elixir-costs/': 'web-page-learn-elixir-costs',
+            '/privacy/': 'web-page-privacy',
+            '/updates/': 'web-page-updates',
+            '/xp/': 'web-page-xp'
+          };
+          var pageUri = uri.replace(/index\.html$/, '');
+          if (pageClasses[pageUri]) return pageClasses[pageUri];
+          if (uri.indexOf('/assets/') === 0) return 'web-asset';
+          if (uri.indexOf('/cards/') === 0) return 'web-card-art';
+          if (uri === '/card-art-sw.js') return 'web-service-worker';
+          if (uri === '/site.webmanifest') return 'web-manifest';
+          if (uri === '/api-config.json' || uri === '/version.json') return 'web-config';
+          if (uri === '/feed.xml' || uri === '/robots.txt' || uri === '/sitemap.xml') return 'web-discovery';
+          return 'web-other';
+        }
+
         function handler(event) {
           var request = event.request;
           var uri = request.uri;
+          cf.logCustomData(requestClass(uri));
           if (uri.indexOf('/api/') === 0) {
             request.headers['x-elixir-drop-viewer-ip'] = { value: event.viewer.ip };
             request.uri = uri.slice(4) || '/';
@@ -1721,6 +1836,50 @@ Resources:
         - Key: application
           Value: elixir-drop
 
+  WebAccessLogDeliverySource:
+    Type: AWS::Logs::DeliverySource
+    Properties:
+      Name: elixir-drop-web-access
+      LogType: ACCESS_LOGS
+      ResourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
+      Tags:
+        - Key: application
+          Value: elixir-drop
+
+  WebAccessLogDeliveryDestination:
+    Type: AWS::Logs::DeliveryDestination
+    Properties:
+      Name: elixir-drop-web-access
+      DestinationResourceArn: !GetAtt WebAccessLogGroup.Arn
+      OutputFormat: json
+      Tags:
+        - Key: application
+          Value: elixir-drop
+
+  WebAccessLogDelivery:
+    Type: AWS::Logs::Delivery
+    DependsOn: WebAccessLogDeliverySource
+    Properties:
+      DeliverySourceName: elixir-drop-web-access
+      DeliveryDestinationArn: !GetAtt WebAccessLogDeliveryDestination.Arn
+      RecordFields:
+        - "timestamp(ms)"
+        - x-edge-location
+        - cs-method
+        - sc-status
+        - sc-bytes
+        - x-edge-result-type
+        - x-edge-response-result-type
+        - x-edge-detailed-result-type
+        - time-taken
+        - time-to-first-byte
+        - sc-content-type
+        - cache-behavior-path-pattern
+        - viewer-request-log-data
+      Tags:
+        - Key: application
+          Value: elixir-drop
+
   WebBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -1751,6 +1910,8 @@ Outputs:
     Value: !Ref WebDistribution
   WebDistributionDomainName:
     Value: !GetAtt WebDistribution.DomainName
+  WebAccessLogGroupName:
+    Value: !Ref WebAccessLogGroup
   CrRequestQueueUrl:
     Value: !Ref CrRequestQueue
   CrResultQueueUrl:

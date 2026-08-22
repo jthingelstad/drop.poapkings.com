@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { runInNewContext } from "node:vm";
 import { cacheControlFor, contentTypeFor } from "../scripts/deploy-web.mjs";
 
 const template = readFileSync(
   new URL("../template.yaml", import.meta.url),
   "utf8",
 );
+
+const webRequestFunctionCode = template
+  .match(/FunctionCode: \|\n([\s\S]*?)\n\n  WebCachePolicy:/)?.[1]
+  .replaceAll(/^ {8}/gm, "");
 
 void describe("AWS web hosting", () => {
   void it("keeps mutable entry points fresh and fingerprints immutable bundles", () => {
@@ -69,5 +74,38 @@ void describe("AWS web hosting", () => {
     assert.match(template, /if \(uri\.indexOf\('\/api\/'\) === 0\)/);
     assert.match(template, /request\.uri = uri\.slice\(4\) \|\| '\/'/);
     assert.match(template, /request\.uri = uri \+ '\/index\.html'/);
+  });
+
+  void it("logs only safe request classes while preserving routing", () => {
+    assert.ok(webRequestFunctionCode);
+    const logged = [];
+    const handler = runInNewContext(`${webRequestFunctionCode}\nhandler`, {
+      cf: { logCustomData: (value) => logged.push(value) },
+    });
+    const request = (uri) =>
+      handler({
+        request: { headers: {}, uri },
+        viewer: { ip: "192.0.2.1" },
+      });
+
+    assert.equal(request("/").uri, "/index.html");
+    assert.equal(request("/about/").uri, "/about/index.html");
+    assert.equal(
+      request("/assets/index-12345678.js").uri,
+      "/assets/index-12345678.js",
+    );
+    assert.equal(request("/cards/26000000.png").uri, "/cards/26000000.png");
+    assert.equal(
+      request("/api/runs/private-run-id/share").uri,
+      "/runs/private-run-id/share",
+    );
+    assert.deepEqual(logged, [
+      "web-home",
+      "web-page-about",
+      "web-asset",
+      "web-card-art",
+      "api",
+    ]);
+    assert.doesNotMatch(logged.join(" "), /192\.0\.2\.1|private-run-id/);
   });
 });

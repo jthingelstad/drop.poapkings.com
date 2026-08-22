@@ -76,6 +76,19 @@ declared routes appear without another dashboard edit. Alarms cover API p95/p99
 latency, 80% of the API Lambda's reserved concurrency, DynamoDB throttle events,
 and DynamoDB service errors.
 
+CloudFront standard logging v2 writes JSON access records to the 14-day
+`/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
+forwarded address, user-agent, referrer, cookie, query string, raw URI path, and
+request ID. Instead, the viewer-request function contributes a bounded class for the
+home page, each public static page, assets, card art, app metadata, discovery files,
+the service worker, API traffic, and unknown requests. This makes cache outcomes,
+status codes, edge detail, bytes, and time-to-first-byte useful without turning the
+operational log into a player or visitor ledger. `node scripts/web-activity.mjs`
+verifies delivery and retention, then returns only aggregate Logs Insights results.
+The operations dashboard adds CloudFront request/byte and error-rate charts, and a
+sustained 5xx-rate alarm fires only when more than 5% of requests fail in two of three
+five-minute windows.
+
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, the
 queue-only `elixir-drop-cr-bridge` user, a CloudFormation execution role, a

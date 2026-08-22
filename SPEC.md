@@ -947,6 +947,12 @@ This Mac owns the allowlisted CR API token and runs both CR consumers:
   append an immutable audit row. The same objective reviews
   `drop@poapkings.com` through the read-only JMAP intake script; it excludes the
   known delivery canary and cannot send, move, delete, or mark mail read.
+- Run Drop reads CloudFront request health through `scripts/web-activity.mjs` under
+  the read-only `cloud-auditor` role. The 14-day JSON log excludes IP, forwarded
+  address, user-agent, referrer, cookie, query string, raw path, and request ID; its
+  viewer-request field is one bounded operational class. The script returns aggregate
+  volume, statuses, bytes, cache outcomes, timing, and grouped edge errors only. It is
+  not visitor, player, acquisition, or retention evidence.
 
 The implemented API, bridge, and deployment model are documented in their
 workspace READMEs.
