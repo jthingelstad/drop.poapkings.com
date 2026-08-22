@@ -344,14 +344,24 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
 test.describe('mobile primary navigation', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
-  test('keeps the signed-out cause chip compact', async ({ page }) => {
+  test('puts the signed-out Guest shortcut in the avatar slot and opens You', async ({ page }) => {
     await useSignedOutState(page)
 
-    const guest = page.locator('.ed-cause')
+    const guest = page.getByRole('button', { name: 'Guest — open You' })
     await expect(guest).toHaveText('GUEST')
     const bounds = await guest.boundingBox()
+    const topbarBounds = await page.locator('.ed-hero-carousel__topbar').boundingBox()
     expect(bounds).not.toBeNull()
+    expect(topbarBounds).not.toBeNull()
     expect(bounds!.width).toBeLessThan(100)
+    expect(bounds!.height).toBeCloseTo(topbarBounds!.height, 0)
+    expect(bounds!.y).toBeCloseTo(topbarBounds!.y, 0)
+    expect(bounds!.x + bounds!.width).toBeCloseTo(topbarBounds!.x + topbarBounds!.width, 0)
+
+    await guest.click()
+    await expect(page).toHaveURL(/#\/profile$/)
+    await expect(page.getByRole('heading', { name: 'You' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible()
   })
 
   test('keeps home and game content below the installed-app status bar', async ({ page }) => {

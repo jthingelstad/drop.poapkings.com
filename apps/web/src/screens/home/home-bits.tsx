@@ -217,8 +217,8 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
 
       {/* The app says its own name once, at the top of the screen, and the
           player's own face sits opposite it — the one place identity appears on
-          Play. It is a shortcut to You, not a second profile surface. A signed-
-          out visitor has no face to show, so the row is just the wordmark. */}
+          Play. It is a shortcut to You, not a second profile surface. The Guest
+          shortcut occupies that same right-side slot while signed out. */}
       <div class="ed-hero-carousel__topbar">
         <span class="ed-hero-carousel__brand">ELIXIR DROP</span>
         {me && (

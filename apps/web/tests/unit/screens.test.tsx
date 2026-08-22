@@ -562,7 +562,7 @@ describe('Home', () => {
     return data
   }
 
-  it('leads with the hero, names a guest with a cause chip, and lists every mode', async () => {
+  it('leads with the hero, puts the Guest shortcut in its identity slot, and lists every mode', async () => {
     layout.value = 'mobile'
     accountStatus.value = 'anonymous'
     player.value = null
@@ -571,8 +571,11 @@ describe('Home', () => {
     homeData()
     const html = await renderToStringAsync(<Home />)
 
-    // The nav never renames; a header cause chip names the state instead.
+    // The nav never renames; the header shortcut names the state instead and
+    // mirrors the signed-in avatar's route to You.
     expect(html).toContain('GUEST')
+    expect(html).toContain('aria-label="Guest — open You"')
+    expect(html).toContain('ed-cause--button')
     // Every mode appears — the featured one in the hero, the rest as rows.
     for (const name of ['Surge', 'Higher / Lower', 'Rain', 'Trade', 'Survival']) {
       expect(html).toContain(name)

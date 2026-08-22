@@ -2918,6 +2918,7 @@ html.reduce-motion .ed-btn--gold {
    and the game rows are a flat list whose separators reach both edges. Anything
    that is neither takes the 18px gutter back for itself. */
 .ed-home {
+  position: relative;
   padding: 0 0 8px;
   display: flex;
   flex-direction: column;
@@ -2928,6 +2929,20 @@ html.reduce-motion .ed-btn--gold {
 .ed-home > .ed-installrow,
 .ed-home > .ed-cause {
   margin: 8px 18px 0;
+}
+.ed-home > .ed-cause {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16px;
+  min-height: 34px;
+  margin: 0;
+}
+
+/* An authenticated offline player keeps both pieces of useful identity: the
+   cause sits beside the avatar instead of occupying the same slot. */
+.ed-home:has(.ed-hero-carousel__me) > .ed-cause {
+  right: 58px;
 }
 
 .ed-home-intro h1 {
@@ -7741,17 +7756,22 @@ html.reduce-motion .ed-profile-guest__halo::before {
    Names the cause of quiet data. Dotted lavender ring, outlined pill; persists
    while the state does. */
 .ed-cause {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   align-self: flex-start;
   margin: 2px 0 10px;
   padding: 3px 12px;
   border-radius: 999px;
   border: 1.5px dotted rgba(185, 170, 255, 0.6);
+  background: transparent;
   color: #cbbdf2;
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.18em;
+}
+.ed-cause--button {
+  cursor: pointer;
 }
 
 /* ── Home full-width rows (Play) ──────────────────────────────
@@ -8250,7 +8270,9 @@ html.reduce-motion .ed-profile-guest__halo::before {
     gap: 5px;
   }
   .ed-app--desktop .ed-cause {
+    position: static;
     width: max-content;
+    min-height: 0;
     margin: 0 0 2px;
   }
 

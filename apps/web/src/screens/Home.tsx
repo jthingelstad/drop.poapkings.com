@@ -86,7 +86,10 @@ export default function Home() {
   return (
     <div class="ed-home">
       <InstallBanner />
-      <CauseChip />
+      {/* On mobile this shares the hero's identity slot: Guest is the signed-
+          out equivalent of the avatar, and both open You. Desktop keeps the
+          compact cause mark above the hero. */}
+      <CauseChip onClick={() => navigate('/profile')} />
       <HomeHeroCarousel data={data} game={featured} />
 
       {rankedSection}
