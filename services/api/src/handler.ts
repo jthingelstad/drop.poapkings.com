@@ -46,11 +46,24 @@ async function route(event: APIGatewayProxyEventV2) {
     return json(200, { ok: true, service: "elixir-drop-api" });
 
   const config = loadConfig();
-  const context: RouteContext = {
+  return handleEvent(event, {
     event,
     config,
     repository: new Repository(config.tableName),
-  };
+  });
+}
+
+// The dispatch table, given a fully-built context. Split out from `route` as a
+// tiny dependency-injection seam: the local dev harness (services/api/dev/) can
+// hand it an in-memory repository + config instead of the DynamoDB-backed
+// defaults `route` builds above. Production always reaches this through `route`
+// with the real Repository, so its behavior is unchanged.
+export async function handleEvent(
+  event: APIGatewayProxyEventV2,
+  context: RouteContext,
+) {
+  const method = event.requestContext.http.method;
+  const path = event.rawPath;
 
   if (method === "POST" && path === "/auth/request")
     return requestMagicLink(context);
