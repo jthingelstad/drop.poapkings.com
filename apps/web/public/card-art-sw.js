@@ -7,16 +7,17 @@
  *   app shell — keyed to the BUILD id. It must NOT survive a release, or a
  *               player is stranded on an old app with no way to know.
  *
- * The shell exists so every game works with no network. Navigation is
- * network-first, so an online player always gets the newest document and the
- * cache is only ever a fallback — the stale-build failure mode this could have
- * introduced never happens while the network is reachable.
+ * The shell exists so every game works with no network. Navigation is bounded
+ * network-first: a responsive connection gets the newest document, while a
+ * stalled connection falls back to the last complete shell instead of leaving
+ * an installed app blank.
  *
  * The API is never cached. /api-config.json in particular points at the live
  * stack, and a stale copy would aim the app at the wrong endpoint. */
 const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'
 const CARD_CACHE_PREFIX = 'elixir-drop-card-art-base-'
 const SHELL_CACHE_PREFIX = 'elixir-drop-shell-'
+const NAVIGATION_NETWORK_TIMEOUT_MS = 3_000
 const params = new URL(self.location.href).searchParams
 const cardCacheName = `${CARD_CACHE_PREFIX}${params.get('catalog') || 'unknown'}`
 const shellCacheName = `${SHELL_CACHE_PREFIX}${params.get('build') || 'unknown'}`
@@ -41,23 +42,35 @@ function isShellRequest(request) {
   return shellPath.test(url.pathname)
 }
 
-// Network-first: the freshest document always wins when there is a network,
-// and the cached copy is strictly a fallback for when there is not.
+// Network-first with a ceiling: navigator.onLine can stay true behind captive
+// portals and failing Wi-Fi. A complete cached shell must win when the network
+// neither succeeds nor fails promptly. Buffer the small document before winning
+// the race so response headers followed by a stalled body cannot strand launch.
 async function shellNavigation(request) {
   const cache = await caches.open(shellCacheName)
+  const cached = (await cache.match('/index.html')) ?? (await previousShellMatch('/index.html'))
+  if (!cached) return fetch(request)
+
+  const network = fetch(request).then(async (response) => {
+    await response.clone().arrayBuffer()
+    return response
+  })
+  let timeout
+  const fallback = new Promise((resolve) => {
+    timeout = setTimeout(() => resolve(cached), NAVIGATION_NETWORK_TIMEOUT_MS)
+  })
+
   try {
     // Do not write a network navigation here: during a release, the retiring
     // worker serves the new document before the new worker exists. Caching it
     // under the old build would destroy the only complete offline fallback.
     // The new worker commits its own document through cacheShell only after
     // every game and every other shell dependency have loaded successfully.
-    return await fetch(request)
-  } catch (error) {
-    const cached = await cache.match('/index.html')
-    if (cached) return cached
-    const previous = await previousShellMatch('/index.html')
-    if (previous) return previous
-    throw error
+    return await Promise.race([network, fallback])
+  } catch {
+    return cached
+  } finally {
+    clearTimeout(timeout)
   }
 }
 

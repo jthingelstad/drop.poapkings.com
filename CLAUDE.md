@@ -252,8 +252,10 @@ rank-oriented fields as part of unrelated work.
 - **Every game runs offline; offline runs never record.** The service worker
   keeps two caches on two clocks: card art keyed to the CATALOG version
   (immutable, survives a release) and the app shell keyed to the BUILD id (must
-  not, or a player strands on an old app). Navigation is network-first, so the
-  cached shell is only a fallback. `/api-config.json` is never cached. Every
+  not, or a player strands on an old app). Navigation is bounded network-first:
+  a responsive connection gets the current document, while a connection that
+  stalls for three seconds falls back to the last complete shell.
+  `/api-config.json` is never cached. Every
   production visit warms all six lazy game chunks before atomically committing
   the shell, then fills the complete base-art pack in small serialized batches.
   When `navigator.onLine === false` **or the shared API boundary classifies a

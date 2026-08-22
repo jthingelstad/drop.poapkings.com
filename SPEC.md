@@ -689,10 +689,13 @@ existing completion-retry path and do not generate a misleading terminal
 report.
 
 The service worker atomically caches the document and every lazy game chunk by
-build ID, while card art lives in a catalog-versioned cache. Every production
-visit fills the 120-image base-art pack in small serialized batches; App Info
-shows its progress. Live API configuration, account data, and leaderboards are
-never cached. While disconnected, the primary navigation is unchanged — Play ·
+build ID, while card art lives in a catalog-versioned cache. Document navigation
+is bounded network-first: a responsive connection gets the current document,
+while a three-second stall falls back to the last atomically complete shell.
+Every production visit fills the 120-image base-art pack in small serialized batches;
+App Info shows its progress. Live API configuration, account data, and
+leaderboards are never cached. While disconnected, the primary navigation is
+unchanged — Play ·
 Ladder · You never rename themselves. The player stays on the real page they
 asked for, which names the cause with a header chip and renders absent server
 data quietly (personal bests and ranks as `—`, the arena bar greyed, the Boards

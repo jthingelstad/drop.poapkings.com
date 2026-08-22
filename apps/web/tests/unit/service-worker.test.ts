@@ -68,12 +68,12 @@ interface WorkerEvent {
 function workerHarness() {
   const listeners = new Map<string, (event: WorkerEvent) => void>()
   const caches = new MemoryCacheStorage()
-  const responses = new Map<string, Response>()
+  const responses = new Map<string, Response | Promise<Response>>()
   const failures = new Set<string>()
   const fetchMock = vi.fn(async (input: RequestInfo | URL | { url: string }) => {
     const url = requestUrl(input)
     if (failures.has(url)) throw new TypeError('offline')
-    const response = responses.get(url)
+    const response = await responses.get(url)
     return response?.clone() ?? new Response('not found', { status: 404 })
   })
   const workerSelf = {
@@ -95,8 +95,21 @@ function workerHarness() {
     Set,
     Promise,
     Error,
-    TypeError
+    TypeError,
+    setTimeout,
+    clearTimeout
   })
+
+  function deferResponse(url: string): (response: Response) => void {
+    let resolve!: (response: Response) => void
+    responses.set(
+      url,
+      new Promise<Response>((finish) => {
+        resolve = finish
+      })
+    )
+    return resolve
+  }
 
   async function dispatch(type: string, event: WorkerEvent): Promise<Response | undefined> {
     let pending: Promise<unknown> = Promise.resolve()
@@ -114,7 +127,7 @@ function workerHarness() {
     return response ? response : undefined
   }
 
-  return { caches, dispatch, failures, responses }
+  return { caches, deferResponse, dispatch, failures, responses }
 }
 
 describe('offline app-shell worker', () => {
@@ -159,5 +172,26 @@ describe('offline app-shell worker', () => {
     await expect((await current.match('/index.html'))?.text()).resolves.toBe('complete build B')
     await expect((await current.match('/assets/practice-b.js'))?.text()).resolves.toBe('B Practice')
     expect(await harness.caches.keys()).not.toContain('elixir-drop-shell-build-a')
+  })
+
+  it('serves a complete cached shell when a navigation remains stalled', async () => {
+    vi.useFakeTimers()
+    try {
+      const harness = workerHarness()
+      const current = await harness.caches.open('elixir-drop-shell-build-b')
+      await current.put('/index.html', new Response('complete build B'))
+      const releaseNetwork = harness.deferResponse(`${ORIGIN}/`)
+
+      const navigation = harness.dispatch('fetch', {
+        request: { method: 'GET', mode: 'navigate', url: `${ORIGIN}/` }
+      })
+      await vi.advanceTimersByTimeAsync(3_000)
+
+      await expect((await navigation)?.text()).resolves.toBe('complete build B')
+      releaseNetwork(new Response('late network response'))
+      await Promise.resolve()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

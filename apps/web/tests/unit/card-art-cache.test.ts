@@ -233,12 +233,14 @@ describe('card art cache', () => {
     expect(source).toContain("previousShellMatch('/index.html')")
   })
 
-  it('serves navigation network-first and never caches live deployment metadata', () => {
+  it('serves navigation bounded network-first and never caches live deployment metadata', () => {
     const source = readFileSync('public/card-art-sw.js', 'utf8')
-    // Network-first is what keeps the cached shell a fallback rather than a
-    // stale app: online players always get the newest document.
+    // A responsive network keeps the document fresh, while a stalled one cannot
+    // leave an installed app waiting forever when a complete shell is cached.
     expect(source).toContain('shellNavigation(event.request)')
-    expect(source).toContain('const response = await fetch(request)')
+    expect(source).toContain('const network = fetch(request)')
+    expect(source).toContain('const NAVIGATION_NETWORK_TIMEOUT_MS = 3_000')
+    expect(source).toContain('Promise.race([network, fallback])')
     expect(source).not.toContain("cache.put('/index.html', response.clone())")
     expect(source).toContain("NEVER_CACHE = new Set(['/api-config.json', '/version.json', '/card-art-sw.js'])")
   })
