@@ -169,7 +169,7 @@ void describe("deployment parameters", () => {
       }).find((parameter) => parameter.ParameterKey === "WebVersion"),
       { ParameterKey: "WebVersion", ParameterValue: "abc123def456" },
     );
-    // An API-only deploy leaves the live Pages build untouched, so the deployed
+    // An API-only deploy leaves the live web build untouched, so the deployed
     // version is unchanged rather than unknown. Blanking it would strip the
     // `web` provenance field from later referee evidence items.
     assert.deepEqual(
@@ -571,6 +571,18 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /elixir-drop-web-\$\{accountId\}-\$\{region\}/);
     assert.match(bootstrap, /cloudfront:CreateInvalidation/);
     assert.match(bootstrap, /s3:DeleteObject/);
+  });
+
+  void it("keeps simple CORS on static assets without changing the API behavior", () => {
+    assert.match(
+      template,
+      /DefaultCacheBehavior:[\s\S]*?ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c/,
+    );
+    const apiBehavior = template.match(
+      /CacheBehaviors:[\s\S]*?\n        Comment:/,
+    )?.[0];
+    assert.ok(apiBehavior);
+    assert.doesNotMatch(apiBehavior, /ResponseHeadersPolicyId/);
   });
 
   void it("lets CloudFormation inspect policies only for Elixir Drop roles", () => {

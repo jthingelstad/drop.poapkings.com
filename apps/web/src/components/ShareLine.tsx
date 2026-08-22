@@ -63,8 +63,8 @@ export default function ShareLine({ mode, score, runId, compact = false, card }:
     []
   )
 
-  // The permalink. Hash-routed because the site is GitHub Pages, so this is the
-  // address a shared run actually resolves at.
+  // The permalink. Hash routing is the stable public share contract, so this is
+  // the address a shared run actually resolves at.
   function permalink(token: string): string {
     return `${window.location.origin}/#/r/${token}`
   }

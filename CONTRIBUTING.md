@@ -86,7 +86,7 @@ TypeScript typecheck, Knip (unused code/deps), Vitest unit tests with coverage
 thresholds, Playwright e2e, and a production build.
 
 CI divides validation from mutation so obsolete checks can be cancelled without
-interrupting a CloudFormation or Pages deployment:
+interrupting a CloudFormation or CloudFront deployment:
 
 - **`validate-main.yml`** on a push to `main` — non-browser verification always
   runs. Player-reachable changes add two full Chromium shards plus the tagged
@@ -102,9 +102,10 @@ interrupting a CloudFormation or Pages deployment:
 
 The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
 infrastructure changes deploy and smoke the Lambda without rebuilding or
-publishing Pages. A web change updates the API first because `WEB_VERSION` is a
-referee-evidence boundary, then builds and publishes Pages from the endpoint the
-stack emitted. Test-only, fixed-host, tooling, and prose changes validate but do
+publishing the website. A web change updates the API first because `WEB_VERSION`
+is a referee-evidence boundary, then builds and publishes to private S3 behind
+CloudFront from the endpoint the stack emitted. Test-only, fixed-host, tooling,
+and prose changes validate but do
 not republish unrelated public surfaces. Unknown paths take the full fail-safe
 path; manual `workflow_dispatch` also deploys both surfaces.
 
@@ -134,7 +135,7 @@ npm run verify:non-browser # complete gate except Playwright
 
 ## Repository layout & boundaries
 
-- `apps/web` — the Preact + Vite browser game (GitHub Pages, hash routing).
+- `apps/web` — the Preact + Vite browser game (CloudFront, private S3, hash routing).
 - `apps/admin` — the desktop-first private Control Room (managed host + tailnet).
 - `services/api` — the TypeScript Lambda backend (DynamoDB, API Gateway).
 - `services/admin` — the loopback-only adapter over sanctioned referee scripts.

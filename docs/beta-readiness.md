@@ -32,7 +32,8 @@ GitHub Actions run must succeed for the exact head; it then triggers the
 serialized `Build and Deploy` workflow. Confirm that workflow finishes
 successfully for every affected production surface. API changes deploy and
 smoke the Lambda; web/shared changes update the API's referee version, smoke it,
-rebuild the web app against that API, and then deploy GitHub Pages. Prose,
+rebuild the web app against that API, and then deploy it through CloudFront from
+private S3. Prose,
 test-only, and fixed-host changes validate without republishing an unrelated
 surface. A failed API update blocks the website deployment.
 

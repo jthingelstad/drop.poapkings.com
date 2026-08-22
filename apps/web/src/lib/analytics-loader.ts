@@ -2,9 +2,10 @@
 // hash-routed SPA and its one-time login token lives in #/auth?...; loading a
 // collector there would create an unnecessary disclosure risk.
 //
-// Tinylytics' SPA collector follows History API navigation, but Drop must use
-// hash routing on GitHub Pages. Bridge safe hash changes to Tinylytics' browser
-// collector explicitly so its Pages view receives useful virtual paths.
+// Tinylytics' SPA collector follows History API navigation, while Drop retains
+// hash routing as its stable auth/share route contract. Bridge safe hash
+// changes to Tinylytics' browser collector so its site view receives useful
+// virtual paths.
 
 import { analyticsCollectorReady } from './analytics'
 

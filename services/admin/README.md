@@ -2,8 +2,8 @@
 
 The Control Room is the private, desktop-first operations surface for Elixir
 Drop. It runs only on the fixed host, binds to `127.0.0.1`, and is published to
-Jamie through Tailscale Serve. It is not part of GitHub Pages and has no public
-route.
+Jamie through Tailscale Serve. It is not part of the public web build and has no
+public route.
 
 The center column is a searchable player directory. The wide workspace on the
 right holds filterable run history, full retained submission/evidence JSON,

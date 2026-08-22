@@ -1,8 +1,8 @@
 # AWS web migration
 
-Elixir Drop is moving its static web build from GitHub Pages to the existing
-AWS stack. DNS remains at the current provider. This is deliberately a small
-hobby-project design:
+Elixir Drop moved its static web build from GitHub Pages to the existing AWS
+stack on August 22, 2026. DNS remains at the current provider. This is
+deliberately a small hobby-project design:
 
 ```text
 drop.poapkings.com -> CloudFront
@@ -14,6 +14,9 @@ CloudFront runs one viewer-request function. It removes the `/api` prefix
 before API Gateway sees the request and maps `/`, `/games/`, and the other
 directory URLs to their generated `index.html` objects. API caching is disabled;
 static objects follow the cache metadata assigned by `deploy-web.mjs`.
+The static behavior also attaches AWS's managed Simple CORS response policy so
+Buttondown's public archive can load Drop's font. `/api/*` keeps the API's own
+CORS behavior.
 
 The API behavior forwards viewer headers, cookies, and query strings except
 `Host`. The viewer-request function overwrites `X-Elixir-Drop-Viewer-Ip` from
@@ -23,28 +26,20 @@ execute-api requests continue to use API Gateway's connection address. This
 preserves per-player rate limits, analytics, and pseudonymous referee
 correlation through the CDN.
 
-## Cutover
+## Cutover record
 
-1. Add and retain the ACM DNS-validation CNAME. The certificate is
-   non-exportable and managed by ACM in `us-east-1`.
-2. Deploy the AWS resources and publish the exact web build to both GitHub Pages
-   and the private S3 bucket. The Pages copy keeps the direct API endpoint; the
-   AWS copy uses the same-origin `/api` base.
-3. Verify the CloudFront hostname: root page, generated static pages,
-   `api-config.json`, API health, authentication, a guest Practice run, and
-   offline fallback.
-4. At the DNS provider, replace the existing `drop` CNAME target
-   `jthingelstad.github.io` with the distribution hostname emitted as
-   `WebDistributionDomainName`. Leave TTL at the current automatic/default
-   value (about 30 minutes).
-5. Verify `https://drop.poapkings.com` through public DNS and allow one TTL for
-   caches to converge.
-6. Remove the Pages publish job and `apps/web/public/CNAME`, then disable GitHub
-   Pages after the AWS-only deployment succeeds.
+- The ACM DNS-validation CNAME remains at the DNS provider. The certificate is
+  non-exportable and managed by ACM in `us-east-1`.
+- The `drop` CNAME points to the value emitted as
+  `WebDistributionDomainName` (`d3pwhvwlrmohb1.cloudfront.net`).
+- The site uses a same-origin `/api` base. Root, generated static pages, the API
+  configuration and health route, and guest Practice were checked before the old
+  host was retired; the deployment suite covers offline fallback.
+- CI publishes only to private S3 and CloudFront. The repository no longer has a
+  Pages `CNAME` file or Pages deployment job, and GitHub Pages is disabled.
 
-Until step 6, rollback is one DNS edit: point the `drop` CNAME back to
-`jthingelstad.github.io`. Do not delete the Pages deployment during the
-convergence window.
+Rollback is a normal revert on `main`; the serialized pipeline republishes the
+prior API/web state. A DNS rollback to GitHub Pages is no longer maintained.
 
 ## Cost and protection
 

@@ -11,7 +11,7 @@ permissions:
   actions: read
   contents: read
 
-# A deployment already updating CloudFormation or Pages is allowed to finish.
+# A deployment already updating CloudFormation or CloudFront is allowed to finish.
 # A newer successful validation waits, then rechecks that its SHA is still main
 # before changing production. GitHub keeps only the newest pending run here.
 concurrency:
@@ -139,20 +139,14 @@ jobs:
 
       # deploy:api writes the stack's endpoint to api-config.json. A web release
       # deliberately passes through the API first so its referee version and
-      # the Pages bundle retain one production boundary.
+      # the web bundle retain one production boundary.
       - name: Build website with deployed API configuration
         if: needs.scope.outputs.deploy_web == 'true'
         run: npm run build --workspace=@elixir-drop/web
 
-      - if: needs.scope.outputs.deploy_web == 'true'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: apps/web/dist/
-
-      # During the DNS cutover, the exact build continues to publish to Pages
-      # for rollback. deploy:web then changes only the AWS copy's API config to
-      # the same-origin /api route, uploads it to private S3, invalidates
-      # CloudFront, and smokes the distribution hostname.
+      # deploy:web changes the build's API config to the same-origin /api route,
+      # uploads it to private S3, invalidates CloudFront, and smokes the
+      # distribution hostname.
       - name: Publish website to AWS
         if: needs.scope.outputs.deploy_web == 'true'
         run: npm run deploy:web
@@ -162,48 +156,16 @@ jobs:
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
 
-  deploy:
-    name: Publish Pages
-    needs: [scope, build]
-    if: needs.scope.outputs.latest == 'true' && needs.scope.outputs.deploy_web == 'true' && needs.build.result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
-        with:
-          # deploy-pages caps this input at ten minutes; a larger value only
-          # emits a warning and is silently reduced to this value.
-          timeout: 600000
-
-      - name: Verify deployed website and build manifest
-        env:
-          EXPECTED_SHA: ${{ needs.scope.outputs.head_sha }}
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/ | grep -q "Elixir Drop"
-          curl --fail --silent --show-error --retry 10 --retry-delay 3 https://drop.poapkings.com/api-config.json | grep -q "apiBaseUrl"
-          curl --fail --silent --show-error --retry 10 --retry-delay 3 "https://drop.poapkings.com/version.json?check=${EXPECTED_SHA}" | jq -e --arg version "$EXPECTED_SHA" '.webVersion == $version[0:12]'
-
   mark:
     name: Record production head
-    needs: [scope, build, deploy]
+    needs: [scope, build]
     if: >-
       always() &&
       needs.scope.result == 'success' &&
       needs.scope.outputs.latest == 'true' &&
       (
         needs.scope.outputs.ships != 'true' ||
-        (
-          needs.build.result == 'success' &&
-          (needs.scope.outputs.deploy_web != 'true' || needs.deploy.result == 'success')
-        )
+        needs.build.result == 'success'
       )
     runs-on: ubuntu-latest
     timeout-minutes: 5

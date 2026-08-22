@@ -47,7 +47,7 @@ describe('noteWebVersion', () => {
 })
 
 describe('checkForWebUpdate', () => {
-  it('reads the uncached Pages manifest and compares its version', async () => {
+  it('reads the uncached web manifest and compares its version', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ webVersion: 'bbbbbbbbbbbb' }), {
         headers: { 'Content-Type': 'application/json' }

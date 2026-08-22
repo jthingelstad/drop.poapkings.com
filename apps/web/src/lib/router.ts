@@ -1,5 +1,5 @@
-// Hash router — the only routing surface. No history API (it 404s on GitHub Pages).
-// All modes import { navigate } from here; App subscribes to { route }.
+// Hash router — the stable auth/share routing surface. All modes import
+// { navigate } from here; App subscribes to { route }.
 
 import { signal } from '@preact/signals'
 

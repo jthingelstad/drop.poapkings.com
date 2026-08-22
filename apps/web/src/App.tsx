@@ -248,9 +248,9 @@ export default function App() {
     }
   }, [apiOutage])
 
-  // Watch Pages for a newer front-end build. A startup check, periodic poll,
-  // and refocus check catch a stale installed PWA without coupling this signal
-  // to player API availability. Stops polling once an update is known.
+  // Watch the web host for a newer front-end build. A startup check, periodic
+  // poll, and refocus check catch a stale installed PWA without coupling this
+  // signal to player API availability. Stops polling once an update is known.
   useEffect(() => {
     if (!isUpdateNoticeEnabled()) return
     const check = () => {

@@ -30,7 +30,7 @@ const PRESERVED_PARAMETERS = [
   ["NameModelId", ["NAME_MODEL_ID"]],
   // The front-end build sha. CI always supplies it (deploy.yml sets
   // WEB_VERSION: github.sha), so preserving only affects an API-only deploy —
-  // and there the live Pages build is unchanged, not unknown. Blanking it would
+  // and there the live web build is unchanged, not unknown. Blanking it would
   // drop the `web` provenance field from every subsequent referee evidence item
   // (referee-evidence.ts) and silence the stale-tab update banner.
   ["WebVersion", ["WEB_VERSION"]],

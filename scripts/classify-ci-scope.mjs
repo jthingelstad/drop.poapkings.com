@@ -48,7 +48,7 @@ function marksApiRelease(path) {
  *
  * A web release also updates the API. WEB_VERSION is part of persisted referee
  * evidence, so the public build and Lambda configuration keep one release
- * boundary even though the stale-tab check itself is served by Pages.
+ * boundary even though the stale-tab check itself is served by the web origin.
  */
 export function classifyPaths(inputPaths) {
   const paths = [

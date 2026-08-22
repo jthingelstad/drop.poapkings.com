@@ -25,8 +25,9 @@
  */
 
 /* Supercell's official Clash display font, the same file the app serves, under
- * the Fan Content Policy the rest of Drop's card art already relies on. Pages
- * sends access-control-allow-origin: *, so the web archive can load it too.
+ * the Fan Content Policy the rest of Drop's card art already relies on. The
+ * CloudFront static behavior sends access-control-allow-origin: *, so the web
+ * archive can load it too.
  * Apple Mail honours this; Gmail ignores webfonts and takes the fallback. */
 @font-face {
   font-family: 'Clash Royale';

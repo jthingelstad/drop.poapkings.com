@@ -1,9 +1,9 @@
 # CLAUDE.md - Elixir Drop Monorepo
 
 Elixir Drop is a game for learning **Clash Royale elixir costs**, run by the POAP
-KINGS clan. The public Preact application is deployed to GitHub Pages at
-`drop.poapkings.com`; this monorepo also holds the Lambda player API and the
-implemented fixed-IP Clash Royale API bridge.
+KINGS clan. The public Preact application is deployed through CloudFront from a
+private S3 bucket at `drop.poapkings.com`; this monorepo also holds the Lambda
+player API and the implemented fixed-IP Clash Royale API bridge.
 
 **Doc map:** `AGENTS.md` → "Doc map" is the canonical list of every doc and what it
 owns. This file is the **working guide**: golden rules, architecture, and product
@@ -29,9 +29,9 @@ decisions.
    only implemented consumers on the allowlisted host.
    The bridge owns both queued player enrichment and the periodic Clan Wars
    clock relay; Lambda consumes normalized results only.
-4. **The public website remains GitHub Pages + hash routing.** Its custom domain
-   is in `apps/web/public/CNAME`; Vite uses `base: '/'`; history routing will 404
-   on Pages. The deploy build needs no secrets.
+4. **The public website remains private S3 + CloudFront with hash routing.**
+   Vite uses `base: '/'`; CloudFront routes `/api/*` to API Gateway and all other
+   requests to the private bucket. The deploy build needs no secrets.
 5. **Vendor the look; don't link it.** Copy POAP KINGS design tokens, fonts, and
    reused component CSS into `apps/web/src/styles.css` and its assets. No runtime
    asset link to the clan site. (The Elixir mascot emote set that this rule used
@@ -70,7 +70,7 @@ decisions.
 - npm workspaces at the repository root; Node 24 is authoritative.
 - `apps/web`: **Preact** + **@preact/signals**, **Vite**, **TypeScript**.
 - `apps/admin`: **Preact** + Vite, served only through `services/admin` and
-  Tailscale on the managed host; never include it in the Pages artifact.
+  Tailscale on the managed host; never include it in the public web artifact.
 - `npm run dev` · `npm run build` · `npm run preview` run from the repo root.
 - Before pushing, run the gate that matches what you changed. Routine web work
   uses `npm run verify:quick`; backend-only and non-player-runtime work uses
@@ -175,10 +175,11 @@ rank-oriented fields as part of unrelated work.
   returns a six-character token (`services/api/src/shares.ts`, an alphabet with
   no look-alike glyphs) and `GET /shares/{token}` resolves it. Sharing the same
   run twice mints two tokens — that is what makes reach countable per share
-  rather than per run. The permalink is `#/r/<token>`: the site is GitHub Pages
-  with hash routing, so there is no server to render `/r/<token>` or a per-run
-  unfurl preview, and a pasted link unfurls with the generic Drop card until
-  that changes. The link opens the RUN (`screens/SharedRun.tsx`) with the score
+  rather than per run. The permalink is `#/r/<token>`: Drop retains hash routing
+  as its stable auth/share route contract, and URL fragments never reach
+  CloudFront, so there is no server-side per-run unfurl preview. A pasted link
+  therefore unfurls with the generic Drop card. The link opens the RUN
+  (`screens/SharedRun.tsx`) with the score
   as the button, never the home page. **A not-recorded run has no share control
   at all** — offline and guest runs have no server record, so no permalink can
   exist; `Summary` renders nothing rather than a disabled button, and the mint
@@ -513,7 +514,8 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 
 - Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). The safe loader uses
   `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon` and explicitly
-  bridges credential-free hash routes into virtual page paths because Pages requires hash routing.
+  bridges credential-free hash routes into virtual page paths because Drop
+  retains hash routing.
   Browser events own interaction intent; `services/api/src/tinylytics.ts` sends authoritative
   login/profile and recorded-game outcomes through the numeric property API. The two surfaces
   must never emit the same logical occurrence.

@@ -105,10 +105,10 @@ each quality gate contains is documented in `CONTRIBUTING.md`.
 A successful validation triggers `.github/workflows/deploy.yml`, which requires
 that exact SHA still to be `main` and serializes production work. API/infra-only
 changes run `npm run deploy:api` and the API smoke without publishing the web
-build. During the DNS transition, web and shared-package changes first update
-the API's referee `WEB_VERSION`, smoke the API, build once, preserve a Pages
-rollback artifact, and then publish the AWS copy with `/api`. Test-only,
-fixed-host, tooling, and documentation changes stop after validation. This keeps
+build. Web and shared-package changes first update the API's referee
+`WEB_VERSION`, smoke the API, build once, and then publish the AWS web copy with
+`/api`. Test-only, fixed-host, tooling, and documentation changes stop after
+validation. This keeps
 incompatible web and Lambda versions from reaching production without paying
 for an unrelated surface on every commit. A validated SHA superseded while it
 waits for the production lock ends as a successful no-op and writes no production
@@ -138,8 +138,8 @@ construction.
 The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.
 
-CloudFormation now owns the AWS web origin and distribution as well as the API,
-bridge queues, and result consumer. GitHub Pages remains only as the rollback
-origin during the DNS convergence window described in
-[`docs/aws-web-migration.md`](../docs/aws-web-migration.md). The fixed-IP worker
-remains a local launchd service on the allowlisted Mac.
+CloudFormation owns the private web origin and CloudFront distribution as well
+as the API, bridge queues, and result consumer. The default static behavior uses
+AWS's managed Simple CORS response policy so Buttondown's public archive can load
+the same-origin app font; `/api/*` keeps the API's own CORS behavior. The
+fixed-IP worker remains a local launchd service on the allowlisted Mac.

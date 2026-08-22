@@ -7,7 +7,8 @@ continue on from here (`AGENTS.md → AGENT-TEAM/WORKFLOW.md → AGENT-TEAM/READ
 ## What Drop is
 
 Elixir Drop is a public web **game** for learning Clash Royale elixir costs, run by
-the POAP KINGS. A Preact SPA deploys to **GitHub Pages** at `drop.poapkings.com`; a
+the POAP KINGS. A Preact SPA deploys through **CloudFront** from private S3 at
+`drop.poapkings.com`; a
 **TypeScript Lambda** + one **DynamoDB** table back the player API; a fixed-IP
 **Clash Royale API bridge** is the only sanctioned CR ingress.
 
@@ -37,7 +38,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 1. Keep workspace boundaries explicit (`apps/web`, `apps/admin`, `services/api`, `services/admin`, `services/cr-api-bridge`, `infra`).
 2. Only the bridge calls the Clash Royale API at runtime; the browser and Lambda never do.
 3. The CR token lives only on the managed, allowlisted host — never committed, never in CI or Lambda config.
-4. The public website stays GitHub Pages + hash routing; `base: '/'`; the deploy build needs no secrets.
+4. The public website stays private S3 + CloudFront with hash routing; `base: '/'`; the deploy build needs no secrets.
 5. Vendor the look; don't link it.
 6. Fan-content & copyright — keep the disclaimer.
 7. Referee evidence is sanitized; decisions are a bounded overlay. `TELEMETRY_PEPPER` is Lambda-only.
@@ -62,9 +63,10 @@ and the replacement validates the cumulative change since the last successful
 production run. A successful exact-head validation triggers
 `.github/workflows/deploy.yml`.
 
-- API/infra changes deploy and smoke the Lambda without rebuilding Pages.
+- API/infra changes deploy and smoke the Lambda without rebuilding the website.
 - Web/shared changes update the API's referee `WEB_VERSION`, smoke it, rebuild the
-  web bundle against the emitted endpoint, and only then publish GitHub Pages.
+  web bundle against the emitted endpoint, and only then publish it to private S3
+  behind CloudFront.
 - Tests, fixed-host services, tooling, and prose validate without republishing an
   unrelated public surface. Unknown paths and manual deploys take the full path.
 - Content-addressed Lambda bundles make unchanged code a CloudFormation no-op.

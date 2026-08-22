@@ -23,16 +23,16 @@ remains the canonical source for shipped modes and game ideas.
   text-composited social card (`assets/og-image.png`, rebuilt by `npm run og`
   over the text-safe `assets/share/og-default.png` backdrop).
 
-The public website remains a static GitHub Pages app, but it now uses a separate
-Lambda API for email magic-link accounts, profiles, signed runs, progression,
-global game totals, and seasonal leaderboards. The site and leaderboards remain
-public. Anyone can play every mode **without an account as a guest**: a guest run
-is dealt the same server-signed challenge and scored the same way, but nothing is
-recorded (no leaderboard, no all-time, no XP, no history, no Discord) — the
-summary nudges the visitor to sign in before the next game so future scores can
-be recorded. An email-authenticated player session unlocks recording and
-ranking. Dynamic Clash Royale player enrichment and the global Clan Wars clock
-run asynchronously through the fixed-IP bridge.
+The public website remains a static app, served by CloudFront from private S3,
+and uses a separate Lambda API for email magic-link accounts, profiles, signed
+runs, progression, global game totals, and seasonal leaderboards. The site and
+leaderboards remain public. Anyone can play every mode **without an account as a
+guest**: a guest run is dealt the same server-signed challenge and scored the
+same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
+history, no Discord) — the summary nudges the visitor to sign in before the next
+game so future scores can be recorded. An email-authenticated player session
+unlocks recording and ranking. Dynamic Clash Royale player enrichment and the
+global Clan Wars clock run asynchronously through the fixed-IP bridge.
 
 The only outbound ties are ordinary links:
 
@@ -88,12 +88,12 @@ Current public website stack:
 | Styling     | Vendored tokens and components in `apps/web/src/styles.css` |
 | Persistence | `localStorage`; learning progress through `apps/web/src/lib/storage.ts` (§6) |
 | Analytics   | Tinylytics, Elixir Drop's own property                      |
-| Hosting     | GitHub Pages, custom domain `drop.poapkings.com`            |
-| Deployment  | Cancelable `Validate Main` → serialized, path-aware API/Pages promotion |
+| Hosting     | CloudFront + private S3, custom domain `drop.poapkings.com`         |
+| Deployment  | Cancelable `Validate Main` → serialized, path-aware AWS promotion  |
 
-The app builds to static files in `apps/web/dist/`. GitHub Pages serves the
-custom domain from root, so Vite `base` stays `/` and routes stay hash-based to
-avoid Pages 404s.
+The app builds to static files in `apps/web/dist/`. CloudFront serves the custom
+domain from root, so Vite `base` stays `/`. Hash routing remains the stable
+browser contract for authentication and shared-run URLs.
 
 ---
 
@@ -124,7 +124,7 @@ Refresh model:
 - `apps/web/scripts/refresh-cards.mjs` fetches `/cards`, normalizes the response,
   diffs it against `packages/game-data/cards.json`, and commits only when the
   snapshot changes.
-- A push from that host triggers the normal GitHub Pages build.
+- A push from that host triggers the normal GitHub Actions AWS deployment.
 - Card art is **mirrored and committed** under `apps/web/public/cards/`
   (`cards.json` icons point at local `/cards/{id}.png` paths). The refresh
   host keeps `MIRROR_IMAGES=true` in the root `.env` — a bare refresh would
@@ -592,9 +592,10 @@ previous best (today: Surge).
 six-character token from an alphabet with no look-alike glyphs (a player may read
 one aloud), and one token is minted per SHARE ACTION — sharing the same run twice
 mints two tokens, which is what makes reach countable per share rather than per
-run. `GET /shares/{token}` resolves it. The address is `#/r/<token>`: the site is
-GitHub Pages with hash routing, so there is no server to render `/r/<token>` or a
-per-run unfurl preview, and a pasted link unfurls with the generic Drop card.
+run. `GET /shares/{token}` resolves it. The address is `#/r/<token>`: Drop keeps
+hash routing as its stable auth/share route contract. URL fragments never reach
+CloudFront, so there is no server-side per-run unfurl preview and a pasted link
+unfurls with the generic Drop card.
 
 **What the browser does.** `components/ShareLine.tsx` mints, renders, and calls
 `navigator.share` with the image as a `File`, the URL and one line of text — the
@@ -811,8 +812,8 @@ Tinylytics property:
 Analytics are best-effort and must never block gameplay.
 
 The Tinylytics embed owns the initial document hit and browser interaction
-events. Because GitHub Pages requires hash routing and Tinylytics' SPA observer
-does not see those transitions, `apps/web/src/lib/analytics-loader.ts` sends a
+events. Because Drop retains hash routing and Tinylytics' SPA observer does not
+see those transitions, `apps/web/src/lib/analytics-loader.ts` sends a
 browser collector hit for each distinct credential-free virtual route. Query
 parameters are stripped, public player IDs collapse to `/players/profile`, and
 the one-time-token `#/auth` route is never loaded or reported.
@@ -896,8 +897,9 @@ project and is not endorsed by Supercell.
 each change-specific local command runs and where CI runs it. In short:
 `validate-main.yml` provides the cancelable per-push gate,
 `deploy.yml` promotes only a successful exact head, and `verify.yml` supplies
-the exhaustive pull-request/manual/daily matrix. The Pages artifact is uploaded
-from `apps/web/dist/` only after its required gate and API boundary pass.
+the exhaustive pull-request/manual/daily matrix. The static build is uploaded
+from `apps/web/dist/` to private S3 only after its required gate and API boundary
+pass, then CloudFront is invalidated and smoked.
 
 Playwright browser/device projects are declared in
 `apps/web/playwright.config.ts` — `chromium`, `firefox`, `webkit`, and `iphone-14`,
@@ -1072,7 +1074,7 @@ authentication key and therefore read-only; the role cannot read magic links,
 poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
 scores, evidence, XP, or delete data. Production requires the exact
 `Tailscale-User-Login`; every write additionally requires same-origin and CSRF
-proof. The public Pages deployment contains none of this admin bundle.
+proof. The public web deployment contains none of this admin bundle.
 
 Both subjects have deterministic read-aloud lookup aids: run UUIDs render as
 `#D` plus ten Crockford Base32 characters and player UUIDs as `#P` plus ten.

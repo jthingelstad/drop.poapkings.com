@@ -67,10 +67,10 @@ all, because there is no server record for a link to point at.
 ## Tech
 
 - `apps/web` — the current **Preact** + **@preact/signals** website, built with
-  **Vite** and TypeScript and deployed to GitHub Pages.
+  **Vite** and TypeScript and deployed through CloudFront from private S3.
 - `apps/admin` + `services/admin` — the private, tailnet-only **Drop Control
   Room**, its loopback referee adapter, and a separate audited account-support
-  adapter. It is never deployed to Pages.
+  adapter. It is never included in the public web deployment.
 - `services/api` — the TypeScript Lambda backend for email authentication,
   player profiles, signed game runs, progression, seasonal leaderboards, and
   notable Discord events.
@@ -151,8 +151,9 @@ So card data is refreshed out-of-band and **committed to the repo**:
   `node apps/web/scripts/refresh-cards.mjs`, which fetches `/cards`, normalizes
   it, **diffs** against the committed snapshot, and **commits only when something
   changed** (printing a changelog of new/changed/removed cards).
-- That push triggers the GitHub Actions build + deploy. The Pages build only ever
-  reads the committed `cards.json` — so the token stays off CI entirely.
+- That push triggers the normal GitHub Actions build + AWS deploy. The web build
+  only ever reads the committed `cards.json` — so the token stays off CI
+  entirely.
 
 Card art is mirrored same-origin under `apps/web/public/cards/` and preloaded
 before timed runs. The refresh script always runs with `MIRROR_IMAGES=true`
@@ -185,15 +186,17 @@ A push to `main` first runs cancelable, cumulative validation in
 `.github/workflows/validate-main.yml`. A successful exact head enters the
 serialized `.github/workflows/deploy.yml`: API-only work deploys and smokes only
 the Lambda, while web/shared work updates the API's referee version, smokes it,
-rebuilds against the stack endpoint, and then publishes Pages. Test-only and
+rebuilds against the stack endpoint, and then publishes to private S3 behind
+CloudFront. Test-only and
 fixed-host changes do not republish unrelated public surfaces. The exhaustive
 four-browser matrix runs on pull requests, manually, and daily in `verify.yml`.
 
-The website is GitHub Pages on the custom domain `drop.poapkings.com`:
+The website uses the custom domain `drop.poapkings.com` on CloudFront:
 
-- `apps/web/public/CNAME` contains the domain; Vite `base` is `/` (custom domain
-  serves from root).
-- "Enforce HTTPS" is on once the certificate provisions.
+- CloudFormation owns the private S3 bucket, origin access control, distribution,
+  and ACM certificate attachment; DNS remains with the existing provider.
+- Vite `base` stays `/`, and hash routing remains the stable browser route
+  contract for authentication and shared runs.
 
 The same deployment commands run locally for first-time setup, secret rotation, or
 recovering a deploy CI could not finish:
@@ -201,6 +204,7 @@ recovering a deploy CI could not finish:
 ```bash
 npm run bootstrap:aws  # one time: IAM deploy user, role, bucket, root .env
 npm run deploy:api     # SDK-based build, upload, stack update, web API config
+npm run deploy:web     # upload static web build, invalidate and smoke CloudFront
 ```
 
 Before inviting a new beta group, follow
@@ -227,11 +231,11 @@ npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
 elixir-drop/
 ├─ apps/
 │  ├─ web/                   # current public Preact/Vite application
-│  │  ├─ public/             # CNAME and static assets
+│  │  ├─ public/             # static assets
 │  │  ├─ src/                # modes, components, screens, and browser libraries
 │  │  ├─ scripts/            # card refresh and OG image maintenance
 │  │  └─ tests/              # unit and browser coverage
-│  └─ admin/                 # private tailnet-only Control Room UI (never on Pages)
+│  └─ admin/                 # private tailnet-only Control Room UI
 ├─ services/
 │  ├─ api/                   # TypeScript Lambda API backend
 │  ├─ admin/                 # loopback referee + account-support adapter

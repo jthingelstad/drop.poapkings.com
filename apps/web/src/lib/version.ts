@@ -1,9 +1,9 @@
 import { signal } from '@preact/signals'
 import { buildMeta } from './build'
 
-// Set once Pages reports a newer front-end build than the one running in this
-// tab. The app then invites the player to reload. Latches on: a shipped update
-// never becomes "un-shipped" within a session.
+// Set once the web host reports a newer front-end build than the one running in
+// this tab. The app then invites the player to reload. Latches on: a shipped
+// update never becomes "un-shipped" within a session.
 export const updateAvailable = signal(false)
 
 // Visual QA deliberately runs against the deployed API, whose build id will
@@ -13,9 +13,9 @@ export function isUpdateNoticeEnabled(): boolean {
   return import.meta.env.VITE_DISABLE_UPDATE_NOTICE !== '1'
 }
 
-// Compare Pages' current front-end build id against this tab's. Only real CI
-// builds carry a git-sha id, so dev/unknown builds and missing versions are
-// ignored to avoid false prompts.
+// Compare the web host's current front-end build id against this tab's. Only
+// real CI builds carry a git-sha id, so dev/unknown builds and missing versions
+// are ignored to avoid false prompts.
 export function noteWebVersion(serverVersion: string | undefined): void {
   if (!isUpdateNoticeEnabled() || updateAvailable.value || !serverVersion) return
   if (buildMeta.id === 'dev' || !buildMeta.id) return
@@ -23,9 +23,9 @@ export function noteWebVersion(serverVersion: string | undefined): void {
 }
 
 // The version manifest lives with the browser bundle, not behind the player
-// API. That means an API outage cannot masquerade as a stale app, and Pages can
-// authoritatively report which document is current. Failure is intentionally
-// silent: offline play must not create a second connectivity error path.
+// API. That means an API outage cannot masquerade as a stale app, and the web
+// origin can authoritatively report which document is current. Failure is
+// intentionally silent: offline play must not create another connectivity path.
 export async function checkForWebUpdate(fetcher: typeof fetch = globalThis.fetch, nonce = Date.now()): Promise<void> {
   if (!isUpdateNoticeEnabled() || updateAvailable.value || buildMeta.id === 'dev' || !buildMeta.id) return
 
