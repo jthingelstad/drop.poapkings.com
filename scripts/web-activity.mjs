@@ -17,8 +17,8 @@ const QUERY_TIMEOUT_ATTEMPTS = 60;
 
 export const WEB_ACTIVITY_QUERIES = Object.freeze({
   overview: [
-    "fields `sc-bytes` as responseBytes, `time-to-first-byte` as ttfb",
-    "| stats count(*) as requests, sum(responseBytes) as responseBytes, pct(ttfb, 95) as p95Ttfb, max(ttfb) as maxTtfb",
+    "fields `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "| stats count(*) as requests, sum(bytes) as responseBytes, pct(ttfb, 95) as p95Ttfb, max(ttfb) as maxTtfb",
   ].join("\n"),
   statuses: [
     "fields `sc-status` as status",
@@ -26,8 +26,8 @@ export const WEB_ACTIVITY_QUERIES = Object.freeze({
     "| sort requests desc",
   ].join("\n"),
   requestClasses: [
-    "fields `viewer-request-log-data` as requestClass, `sc-bytes` as responseBytes, `time-to-first-byte` as ttfb",
-    "| stats count(*) as requests, sum(responseBytes) as responseBytes, pct(ttfb, 95) as p95Ttfb by requestClass",
+    "fields `viewer-request-log-data` as requestClass, `sc-bytes` as bytes, `time-to-first-byte` as ttfb",
+    "| stats count(*) as requests, sum(bytes) as responseBytes, pct(ttfb, 95) as p95Ttfb by requestClass",
     "| sort requests desc",
   ].join("\n"),
   cacheOutcomes: [
