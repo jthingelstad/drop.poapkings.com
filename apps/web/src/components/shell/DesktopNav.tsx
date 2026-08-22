@@ -9,10 +9,12 @@
 // reference for anyone who goes looking.
 
 import { navigate, route } from '../../lib/router'
+import { player } from '../../lib/account'
 import { hasUnreadUpdates } from '../../lib/updates'
 import { cycleDesktopFallingCards, desktopFallingCardsMode } from '../../lib/screensaver'
 import { tapFxFrom } from '../../lib/tap-fx'
 import Icon from '../Icon'
+import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
 import { NAV_ITEMS, activeNavIndex } from './nav'
 
@@ -25,6 +27,7 @@ const META_LINKS = [
 
 export default function DesktopNav() {
   const active = activeNavIndex(route.value)
+  const me = player.value
   const fallingCardsMode = desktopFallingCardsMode.value
   const fallingCardsNext =
     fallingCardsMode === 'off' ? 'Subtle' : fallingCardsMode === 'subtle' ? 'Background' : 'Full screen'
@@ -32,6 +35,19 @@ export default function DesktopNav() {
   return (
     <aside class="ed-desktop__rail" aria-label="Desktop navigation">
       <Wordmark className="ed-desktop__brand" />
+      {me && (
+        <button
+          type="button"
+          class="ed-desktop__me"
+          aria-label={`${me.publicName} — ${me.xp.toLocaleString()} XP — open You`}
+          onClick={() => navigate('/profile')}
+        >
+          <span class="ed-desktop__xp" aria-hidden="true">
+            {me.xp.toLocaleString()} XP
+          </span>
+          <PlayerAvatar favoriteCardId={me.favoriteCardId} size="small" />
+        </button>
+      )}
       <nav class="ed-nav" aria-label="Primary">
         {NAV_ITEMS.map((item, index) => (
           <button

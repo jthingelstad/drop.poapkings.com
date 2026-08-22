@@ -2477,6 +2477,36 @@ body.modal-open {
   display: block;
   margin-top: 7px;
 }
+.ed-desktop__me {
+  width: 100%;
+  min-height: 44px;
+  margin: -8px 0 14px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(245, 200, 76, 0.22);
+  border-radius: 14px;
+  color: var(--gold-lite);
+  background: rgba(245, 200, 76, 0.07);
+  cursor: pointer;
+}
+.ed-desktop__me:hover {
+  border-color: rgba(245, 200, 76, 0.42);
+  background: rgba(245, 200, 76, 0.11);
+}
+.ed-desktop__xp {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.ed-desktop__me .player-avatar {
+  width: 30px;
+  height: 30px;
+}
 
 /* Left-rail nav items. */
 .ed-nav {

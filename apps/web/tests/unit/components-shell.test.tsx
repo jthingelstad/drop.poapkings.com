@@ -718,6 +718,25 @@ describe('MobileShell', () => {
 // --- DesktopNav (left rail: everything ABOUT the app) ---------------------
 
 describe('DesktopNav', () => {
+  it('keeps the signed-in player XP and avatar in the desktop rail', () => {
+    player.value = samplePlayer
+    accountStatus.value = 'authenticated'
+    draw(<DesktopNav />)
+
+    const shortcut = host.querySelector<HTMLButtonElement>('.ed-desktop__me')!
+    expect(shortcut.getAttribute('aria-label')).toBe('Knight Main — 60 XP — open You')
+    expect(shortcut.querySelector('.ed-desktop__xp')?.textContent).toBe('60 XP')
+    expect(shortcut.querySelector('.player-avatar img')?.getAttribute('alt')).toBe('Knight favorite card')
+
+    shortcut.click()
+    expect(window.location.hash).toBe('#/profile')
+  })
+
+  it('does not add an empty player control while signed out', () => {
+    draw(<DesktopNav />)
+    expect(host.querySelector('.ed-desktop__me')).toBeNull()
+  })
+
   it('launches the Falling Cards screensaver from the rail foot', () => {
     draw(<DesktopNav />)
     const saver = host.querySelector<HTMLButtonElement>('.ed-rail-foot .ed-rail-btn--saver')!

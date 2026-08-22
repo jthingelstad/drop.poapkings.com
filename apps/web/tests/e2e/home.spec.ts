@@ -145,6 +145,20 @@ test('desktop keeps its required size and clips instead of reflowing on resize',
   expect(clipped).toEqual({ width: 936, height: 720, clipsRight: true, clipsBottom: true })
 })
 
+test('desktop keeps Player XP and the profile shortcut in the left rail', async ({ page, viewport }) => {
+  test.skip(!isDesktopViewport(viewport), 'desktop rail coverage')
+  await page.goto('/')
+
+  const rail = page.locator('.ed-desktop__rail')
+  const profile = rail.getByRole('button', { name: 'Knight Main — 480 XP — open You' })
+  await expect(profile.locator('.ed-desktop__xp')).toHaveText('480 XP')
+  await expect(profile.locator('.player-avatar')).toBeVisible()
+
+  await profile.click()
+  await expect(page).toHaveURL(/#\/profile$/)
+  await expect(page.getByRole('heading', { name: 'You' })).toBeVisible()
+})
+
 test('Practice has one direct entry on desktop and mobile', async ({ page }) => {
   await page.goto('/')
 
