@@ -467,6 +467,7 @@ void describe("deployment parameters", () => {
       "PATCH /me",
       "POST /runs/start",
       "POST /runs/complete",
+      "POST /run-reports",
       "POST /runs/{runId}/share",
       "GET /shares/{token}",
       "GET /leaderboards",
@@ -611,6 +612,29 @@ void describe("deployment parameters", () => {
     // The only direct mutation is the badge-revision update inside a bounded
     // transaction; the REFEREE# LeadingKeys condition keeps canonical data out.
     assert.doesNotMatch(refereeRole, /dynamodb:(?:DeleteItem|BatchWriteItem)/);
+  });
+
+  void it("separates identity-free run report triage behind its own role", () => {
+    const reportsRole = template.match(
+      /  RunReportsRole:[\s\S]*?\n  DropControlRole:/,
+    )?.[0];
+    assert.ok(reportsRole);
+    assert.match(reportsRole, /RoleName: elixir-drop-run-reports/);
+    assert.match(reportsRole, /Action: dynamodb:Query/);
+    assert.match(reportsRole, /Action: dynamodb:TransactWriteItems/);
+    assert.match(reportsRole, /dynamodb:LeadingKeys:\s+- RUN_REPORTS/);
+    assert.doesNotMatch(
+      reportsRole,
+      /PLAYER#|REFEREE#|dynamodb:(?:Scan|GetItem|DeleteItem|UpdateItem|PutItem)/,
+    );
+    assert.match(
+      reportsRole,
+      /Principal:\s+AWS: !Sub arn:\$\{AWS::Partition\}:iam::\$\{AWS::AccountId\}:user\/elixir-drop/,
+    );
+    assert.match(
+      template,
+      /RunReportsRoleArn:\s+Value: !GetAtt RunReportsRole\.Arn/,
+    );
   });
 
   void it("separates account support from pseudonymous referee evidence", () => {

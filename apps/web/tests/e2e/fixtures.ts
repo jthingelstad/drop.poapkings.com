@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|shares|stats)(?:[/?]|$)/
+  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|run-reports|runs|shares|stats)(?:[/?]|$)/
 export const testSeason = {
   id: '2026-07',
   startsAt: '2026-07-06T10:00:00.000Z',

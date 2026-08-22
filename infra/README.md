@@ -20,6 +20,14 @@ The stack also exports a narrowly scoped leaderboard-maintenance role. The
 the game table and update only `GSI1PK`/`GSI1SK` on `PLAYER#` items, so it cannot
 change canonical runs, scores, profiles, XP, or referee evidence.
 
+Run Drop failure triage uses another exported role,
+`elixir-drop-run-reports`. It can query and transact only the `RUN_REPORTS`
+partition: list identity-free reports, change their triage status, and append an
+immutable audit row. It cannot scan the table, read player/account partitions,
+or access a secret. Its trust policy names the same-account `elixir-drop` user
+directly, so the ordinary stack deployment makes it assumable without an
+administrator bootstrap refresh.
+
 The private fixed-host Control Room assumes two other roles. The referee role
 remains pseudonymous and writes only `REFEREE#` overlays. The separate
 `elixir-drop-control` account-support role can project an explicit allowlist of

@@ -2,7 +2,8 @@ import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import { runReference, type GameMode, type RunChallenge, type StartedRun, type XpAward } from '@elixir-drop/contracts'
 import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
-import { ApiError, completeRun, startRun } from './api'
+import { ApiError, completeRun, reportRunFailure, startRun } from './api'
+import { buildMeta } from './build'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
 import { gamePathForRoute, loginRouteForGame } from './game-routes'
@@ -18,7 +19,21 @@ type RecordingNotice =
   | { state: 'scoring'; message: string }
   | { state: 'saving'; message: string }
   | { state: 'saved'; message: string; detail?: string }
-  | { state: 'error'; message: string; detail: string; actionLabel: string; action: () => void }
+  | {
+      state: 'error'
+      message: string
+      detail: string
+      actionLabel: string
+      action: () => void
+      report?: FailureReportControl
+    }
+
+export interface FailureReportControl {
+  runId: string
+  state: 'sending' | 'ready' | 'failed' | 'saving-context' | 'context-saved' | 'context-failed'
+  retry: () => void
+  submitContext: (context: string) => Promise<boolean>
+}
 
 export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 
@@ -60,6 +75,65 @@ function setRecordingNotice(notice: RecordingNotice): void {
       recordingNotice.value = { state: 'idle' }
       noticeTimer = undefined
     }, 2_000)
+  }
+}
+
+function reportClientMetadata() {
+  const visibility: 'hidden' | 'visible' = document.visibilityState === 'hidden' ? 'hidden' : 'visible'
+  return {
+    buildId: buildMeta.id,
+    online: navigator.onLine,
+    visibility,
+    displayMode:
+      typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches
+        ? ('standalone' as const)
+        : ('browser' as const)
+  }
+}
+
+function failureReportControl(active: StartedRun, error: unknown): FailureReportControl {
+  const failure = {
+    code: error instanceof ApiError ? error.code : 'unknown_failure',
+    status: error instanceof ApiError ? error.status : 0
+  }
+
+  const update = (state: FailureReportControl['state']) => {
+    const current = recordingNotice.value
+    if (current.state !== 'error' || current.report?.runId !== active.runId) return
+    recordingNotice.value = { ...current, report: { ...current.report, state } }
+  }
+
+  const send = async (context?: string): Promise<boolean> => {
+    update(context ? 'saving-context' : 'sending')
+    try {
+      await reportRunFailure(
+        {
+          runId: active.runId,
+          runToken: active.runToken,
+          failure,
+          client: reportClientMetadata(),
+          ...(context ? { context } : {})
+        },
+        sessionToken()
+      )
+      update(context ? 'context-saved' : 'ready')
+      return true
+    } catch (reportError) {
+      console.warn('Run error report could not be submitted', {
+        mode: active.mode,
+        runId: active.runId,
+        error: reportError instanceof Error ? reportError.name : 'unknown'
+      })
+      update(context ? 'context-failed' : 'failed')
+      return false
+    }
+  }
+
+  return {
+    runId: active.runId,
+    state: 'sending',
+    retry: () => void send(),
+    submitContext: (context: string) => send(context)
   }
 }
 
@@ -217,7 +291,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
         return
       }
       const runExpired = runTokenRejected || (error instanceof ApiError && error.status === 410)
-      if (runExpired || (error instanceof ApiError && [400, 403, 404].includes(error.status))) {
+      if (runExpired || (error instanceof ApiError && [400, 403, 404, 409].includes(error.status))) {
         pendingCompletion.current = null
         run.current = null
         console.warn('Online run completion could not be verified', {
@@ -225,6 +299,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
           runId: active.runId,
           code: error instanceof ApiError ? error.code : 'unknown'
         })
+        const report = failureReportControl(active, error)
         setRecordingNotice(
           runExpired
             ? {
@@ -232,16 +307,19 @@ export function useGameRun<T extends GameMode>(mode: T) {
                 message: 'This game ran past its signed time window and was not recorded.',
                 detail: `You are still signed in and your local result is visible. Close this message, then start a new game. Reference: ${runReference(active.runId)}`,
                 actionLabel: 'Close',
-                action: () => setRecordingNotice({ state: 'idle' })
+                action: () => setRecordingNotice({ state: 'idle' }),
+                report
               }
             : {
                 state: 'error',
                 message: 'This game could not be verified and was not recorded.',
                 detail: `Your result is still visible, but this run cannot be retried. Close this message, then start a new game. Reference: ${runReference(active.runId)}`,
                 actionLabel: 'Close',
-                action: () => setRecordingNotice({ state: 'idle' })
+                action: () => setRecordingNotice({ state: 'idle' }),
+                report
               }
         )
+        report.retry()
         onUnrecorded?.()
         return
       }

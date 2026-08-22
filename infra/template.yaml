@@ -411,6 +411,41 @@ Resources:
                     dynamodb:LeadingKeys:
                       - REFEREE#*
 
+  # Failure-report intake is deliberately separate from player accounts and
+  # Fair Play evidence. Run Drop can query and triage only the RUN_REPORTS
+  # partition; the reports themselves contain no player identity, token, raw
+  # request header, or transcript.
+  RunReportsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-run-reports
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-run-reports-bounded
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - RUN_REPORTS
+              - Effect: Allow
+                Action: dynamodb:TransactWriteItems
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - RUN_REPORTS
+
   # Private account-administration identity for the tailnet-only Drop Control
   # service. This is deliberately separate from RefereeReadRole: referee
   # evidence remains pseudonymous, while this role can project the small set of
@@ -1276,6 +1311,13 @@ Resources:
       RouteKey: POST /runs/complete
       Target: !Sub integrations/${ApiIntegration}
 
+  RunReportsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /run-reports
+      Target: !Sub integrations/${ApiIntegration}
+
   RunShareRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -1537,6 +1579,9 @@ Outputs:
   RefereeReadRoleArn:
     Value: !GetAtt RefereeReadRole.Arn
     Description: Bounded referee role for evidence reads and REFEREE# decision writes.
+  RunReportsRoleArn:
+    Value: !GetAtt RunReportsRole.Arn
+    Description: Bounded Run Drop role for identity-free failure-report triage.
   DropControlRoleArn:
     Value: !GetAtt DropControlRole.Arn
     Description: Tailnet-only account support role with audited public-profile corrections.

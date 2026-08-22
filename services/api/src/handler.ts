@@ -28,6 +28,7 @@ import {
   getStats,
 } from "./routes/public-reads.js";
 import { completeRun } from "./routes/runs-complete.js";
+import { reportRunFailure } from "./routes/run-reports.js";
 import { startRun } from "./routes/runs-start.js";
 import { createShare, getShare } from "./routes/shares.js";
 
@@ -73,6 +74,8 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/runs/start") return startRun(context);
   if (method === "POST" && path === "/runs/complete")
     return completeRun(context);
+  if (method === "POST" && path === "/run-reports")
+    return reportRunFailure(context);
   const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;
   if (runShareMatch) return createShare(context, runShareMatch[1] ?? "");
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;

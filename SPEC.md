@@ -671,6 +671,21 @@ durable acknowledgement parses, optional browser progress/badge application can
 never move the run back to the "not recorded" state; a manual retry is reserved
 for failures that remain after the bounded automatic recovery.
 
+A terminal completion rejection (`400`, `403`, `404`, `409`, `410`, or an
+invalid run token) leaves the local result visible and automatically submits an
+identity-free report to `POST /run-reports`. The API authenticates the signed
+run or its signed-in owner, derives the same player-visible `#D…` reference,
+and idempotently stores one report under `RUN_REPORTS/REPORT#{runId}` for 180
+days. It records mode, API failure code/status, web build, online/visibility and
+browser-versus-installed state, run age/existence/state, and optional player
+context. It never stores account identity, email, either token, raw IP,
+raw user-agent, or transcript. The blocking notice shows automatic delivery
+state and offers a 1,000-character context field with explicit guidance not to
+include personal information; report failure never hides the original result
+or changes completion behavior. Retryable network/5xx failures stay on the
+existing completion-retry path and do not generate a misleading terminal
+report.
+
 The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Every production
 visit fills the 120-image base-art pack in small serialized batches; App Info
@@ -924,6 +939,12 @@ This Mac owns the allowlisted CR API token and runs both CR consumers:
   or on a conservative cron.
 - Queue retries end in dedicated request/result dead-letter queues rather than
   silently dropping work.
+- Run Drop queries failure reports only through the assumed
+  `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
+  identity-free `RUN_REPORTS` partition. Status changes are transactional and
+  append an immutable audit row. The same objective reviews
+  `drop@poapkings.com` through the read-only JMAP intake script; it excludes the
+  known delivery canary and cannot send, move, delete, or mark mail read.
 
 The implemented API, bridge, and deployment model are documented in their
 workspace READMEs.

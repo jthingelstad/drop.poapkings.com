@@ -18,6 +18,8 @@ Responsibilities in this release:
   name/clan/account-age/card snapshots;
 - short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
+- identity-free, run-bound reports for terminal completion failures, with
+  optional player context and a 180-day TTL;
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
   arena: fixed, performance-banded, and Practice-card game awards plus exact-once
   personal-best, featured, badge-rung, and season-final awards;
@@ -53,7 +55,7 @@ first-Monday calendar instead of failing.
 
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
-- `POST /runs/start`, `POST /runs/complete`, `POST /runs/{runId}/share`
+- `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
@@ -71,6 +73,17 @@ returns the minimal shape `{ accepted: true, guest: true, mode, score, season }`
 A `/runs/complete` presenting a non-guest run token still requires a session
 that owns the run. The public site and leaderboards remain browsable without an
 account.
+
+`POST /run-reports` is the best-effort diagnostic path for a signed run whose
+completion reaches a terminal 4xx response. It accepts the run ID/token, the
+failure code/status, coarse client state (build, online/visibility, and browser
+versus installed display mode), and optional context capped at 1,000 characters.
+The API verifies the signed run or its signed-in owner, derives the `#D…`
+reference server-side, and idempotently upserts one `RUN_REPORTS/REPORT#{runId}`
+item. Repeating the request attaches context to the same report. Reports expire
+after 180 days and never contain email, account subject, session/run tokens, a
+raw IP/user-agent, or a transcript. The per-IP `run-report` rate limit is
+120/hour.
 
 Signed-in completions aggregate validated card outcomes into the player's
 server-owned `CARDSTATS` item and copy only the validated answer count—not the

@@ -28,6 +28,17 @@ import {
   createVerifiedDocumentClient,
   REFEREE_ROLE_NAME,
 } from "../AGENT-TEAM/scripts/_referee-lib.mjs";
+import {
+  createVerifiedDocumentClient as createVerifiedRunReportsClient,
+  RUN_REPORTS_ROLE_NAME,
+  sanitizeRunReport,
+  triageRunReport,
+} from "../AGENT-TEAM/scripts/run-reports.mjs";
+import {
+  fetchBugReports,
+  isDeliveryCanary,
+  sanitizeBugReportEmail,
+} from "../AGENT-TEAM/scripts/mail-bug-reports.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
@@ -563,4 +574,172 @@ void test("referee data clients require the bounded assumed role", async () => {
   });
   assert.deepEqual(dataClient, { verified: true });
   assert.equal(dataClientCreated, true);
+});
+
+void test("run-report clients require their separate bounded assumed role", async () => {
+  let dataClientCreated = false;
+  const createDataClient = () => {
+    dataClientCreated = true;
+    return { verified: true };
+  };
+
+  await assert.rejects(
+    createVerifiedRunReportsClient({
+      region: "us-east-1",
+      identityClient: {
+        send: async () => ({
+          Account: "999153317627",
+          Arn: "arn:aws:iam::999153317627:user/elixir-drop",
+        }),
+      },
+      documentClientFactory: createDataClient,
+    }),
+    new RegExp(`assumed-role session for ${RUN_REPORTS_ROLE_NAME}`),
+  );
+  assert.equal(dataClientCreated, false);
+
+  const dataClient = await createVerifiedRunReportsClient({
+    region: "us-east-1",
+    identityClient: {
+      send: async () => ({
+        Account: "999153317627",
+        Arn: `arn:aws:sts::999153317627:assumed-role/${RUN_REPORTS_ROLE_NAME}/test-session`,
+      }),
+    },
+    documentClientFactory: createDataClient,
+  });
+  assert.deepEqual(dataClient, { verified: true });
+  assert.equal(dataClientCreated, true);
+});
+
+void test("run-report output is identity-free and triage writes one immutable audit", async () => {
+  const report = {
+    pk: "RUN_REPORTS",
+    sk: "REPORT#run-1",
+    reportId: "report-1",
+    runId: "run-1",
+    runReference: "#DTEST",
+    mode: "surge",
+    status: "new",
+    firstReportedAt: "2026-08-21T20:00:00.000Z",
+    lastReportedAt: "2026-08-21T20:00:00.000Z",
+    reportCount: 1,
+    failureCode: "run_expired",
+    failureStatus: 410,
+    clientBuildId: "build-1",
+    clientOnline: true,
+    clientVisibility: "visible",
+    clientDisplayMode: "browser",
+    runFound: true,
+    runState: "started",
+    guest: false,
+    runAgeSeconds: 3_602,
+    context: "The final button froze.",
+    expiresAt: 1_800_000_000,
+  };
+  const output = sanitizeRunReport(report);
+  assert.equal(output.untrustedPlayerContext, "The final button froze.");
+  assert.equal("pk" in output, false);
+  assert.equal("sk" in output, false);
+  assert.equal("expiresAt" in output, false);
+
+  let command;
+  const doc = {
+    send: async (value) => {
+      command = value;
+      return {};
+    },
+  };
+  const updated = await triageRunReport(doc, report, {
+    nextStatus: "investigating",
+    note: "Reproducing the terminal completion failure",
+    now: new Date("2026-08-21T21:00:00.000Z"),
+    auditId: "audit-1",
+  });
+  assert.equal(updated.status, "investigating");
+  assert.deepEqual(
+    command.input.TransactItems.map((item) =>
+      item.Update ? item.Update.Key.pk : item.Put.Item.pk,
+    ),
+    ["RUN_REPORTS", "RUN_REPORTS"],
+  );
+  assert.equal(
+    command.input.TransactItems[1].Put.Item.sk,
+    "AUDIT#report-1#2026-08-21T21:00:00.000Z#audit-1",
+  );
+});
+
+void test("Fastmail bug intake excludes canaries and redacts contact addresses", async () => {
+  const canary = {
+    id: "canary-1",
+    subject: "Elixir Drop mail canary 2026-08-21",
+    from: [{ email: "elixir@poapkings.com" }],
+  };
+  assert.equal(isDeliveryCanary(canary), true);
+  const sanitized = sanitizeBugReportEmail({
+    id: "mail-1",
+    receivedAt: "2026-08-21T20:00:00.000Z",
+    subject: "Cannot finish Surge",
+    from: [{ email: "player@example.test" }],
+    preview: "Please reply to player@example.test. The last button froze.",
+  });
+  assert.deepEqual(sanitized, {
+    messageId: "mail-1",
+    receivedAt: "2026-08-21T20:00:00.000Z",
+    subject: "Cannot finish Surge",
+    senderDomain: "example.test",
+    untrustedReportText:
+      "Please reply to [email redacted]. The last button froze.",
+  });
+
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url, init });
+    if (url.endsWith("/jmap/session"))
+      return {
+        ok: true,
+        json: async () => ({
+          apiUrl: "https://api.fastmail.test/jmap/api/",
+          primaryAccounts: { "urn:ietf:params:jmap:mail": "account-1" },
+        }),
+      };
+    return {
+      ok: true,
+      json: async () => ({
+        methodResponses: [
+          ["Email/query", { ids: ["canary-1", "mail-1"] }, "query"],
+          [
+            "Email/get",
+            {
+              list: [
+                { ...canary, to: [{ email: "drop@poapkings.com" }] },
+                {
+                  id: "mail-1",
+                  receivedAt: "2026-08-21T20:00:00.000Z",
+                  from: [{ email: "player@example.test" }],
+                  to: [{ email: "drop@poapkings.com" }],
+                  subject: "Cannot finish Surge",
+                  preview: "The last button froze.",
+                },
+              ],
+            },
+            "get",
+          ],
+        ],
+      }),
+    };
+  };
+  const reports = await fetchBugReports({
+    token: "test-token",
+    since: Date.parse("2026-08-01T00:00:00.000Z"),
+    fetchImpl,
+  });
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].messageId, "mail-1");
+  const jmapBody = JSON.parse(requests[1].init.body);
+  assert.deepEqual(
+    jmapBody.methodCalls.map((call) => call[0]),
+    ["Email/query", "Email/get"],
+  );
+  assert.doesNotMatch(requests[1].init.body, /Email\/set/);
 });

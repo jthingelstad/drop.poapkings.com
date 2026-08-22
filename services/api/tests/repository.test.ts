@@ -140,6 +140,55 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
+  it("upserts one report per run and only writes optional context when supplied", async () => {
+    send.mockResolvedValue({
+      Attributes: {
+        pk: "RUN_REPORTS",
+        sk: "REPORT#run-1",
+        reportId: "report-1",
+        runId: "run-1",
+        runReference: "#DTEST",
+      },
+    });
+    const repository = new Repository("test-table");
+    const base = {
+      runId: "run-1",
+      runReference: "#DTEST",
+      mode: "surge" as const,
+      failureCode: "run_expired",
+      failureStatus: 410,
+      clientBuildId: "build-1",
+      clientOnline: true,
+      clientVisibility: "visible" as const,
+      clientDisplayMode: "browser" as const,
+      runFound: true,
+      runState: "started" as const,
+      guest: false,
+      runAgeSeconds: 3_601,
+      reportedAt: "2026-08-21T20:00:00.000Z",
+      expiresAt: 1_800_000_000,
+    };
+
+    await repository.upsertRunReport(base);
+    await repository.upsertRunReport({
+      ...base,
+      context: "Final button froze",
+    });
+
+    const first = send.mock.calls[0]?.[0].input;
+    const second = send.mock.calls[1]?.[0].input;
+    expect(first.Key).toEqual({ pk: "RUN_REPORTS", sk: "REPORT#run-1" });
+    expect(first.UpdateExpression).toContain(
+      "reportId = if_not_exists(reportId, :reportId)",
+    );
+    expect(first.UpdateExpression).not.toContain("context = :context");
+    expect(first.ExpressionAttributeValues).not.toHaveProperty(":context");
+    expect(second.UpdateExpression).toContain("context = :context");
+    expect(second.ExpressionAttributeValues[":context"]).toBe(
+      "Final button froze",
+    );
+  });
+
   it("reads the atomic badge decision revision for cache invalidation", async () => {
     send
       .mockResolvedValueOnce({ Item: { decisionRevision: 17 } })

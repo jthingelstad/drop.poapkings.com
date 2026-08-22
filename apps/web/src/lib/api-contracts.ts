@@ -302,6 +302,13 @@ const recordedRunSchema = z.object({
 
 export const completedRunSchema = z.union([guestRunSchema, recordedRunSchema])
 
+export const runReportResponseSchema = z.object({
+  accepted: z.literal(true),
+  reportId: nonEmptyString,
+  runReference: nonEmptyString,
+  contextSaved: z.boolean()
+})
+
 export const siteStatsSchema = z.object({
   trophyRoadGames: nonNegativeInteger,
   currentSeason: seasonSchema,

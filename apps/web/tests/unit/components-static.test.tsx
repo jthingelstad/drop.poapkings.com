@@ -576,4 +576,27 @@ describe('RunRecordingNotice', () => {
     expect(html).toContain('Network failed')
     expect(html).toContain('Retry save')
   })
+
+  it('shows automatic report status, optional context, and privacy guidance', async () => {
+    recordingNotice.value = {
+      state: 'error',
+      message: 'Could not record this game',
+      detail: 'Reference: #D123',
+      actionLabel: 'Close',
+      action: () => {},
+      report: {
+        runId: 'run-1',
+        state: 'ready',
+        retry: () => {},
+        submitContext: async () => true
+      }
+    }
+    const html = await render(<RunRecordingNotice />)
+    expect(html).toContain('Error report sent automatically.')
+    expect(html).toContain('What happened? (optional)')
+    expect(html).toContain('Don’t include email or personal information.')
+    expect(html).toContain('maxlength="1000"')
+    expect(html).toContain('Add context')
+    expect(html).toContain('Close')
+  })
 })

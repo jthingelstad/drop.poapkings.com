@@ -10,7 +10,8 @@ vi.mock('../../src/lib/api', async (importActual) => {
   return {
     ...actual,
     startRun: vi.fn(),
-    completeRun: vi.fn()
+    completeRun: vi.fn(),
+    reportRunFailure: vi.fn()
   }
 })
 
@@ -36,7 +37,7 @@ vi.mock('../../src/lib/analytics', () => ({
   track: vi.fn()
 }))
 
-import { ApiError, startRun, completeRun } from '../../src/lib/api'
+import { ApiError, startRun, completeRun, reportRunFailure } from '../../src/lib/api'
 import { signOut, applyBadgeSummary, applyRunProgress, recordRecentRun } from '../../src/lib/account'
 import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
@@ -439,6 +440,14 @@ describe('useGameRun', () => {
   beforeEach(() => {
     vi.mocked(startRun).mockReset()
     vi.mocked(completeRun).mockReset()
+    vi.mocked(reportRunFailure)
+      .mockReset()
+      .mockResolvedValue({
+        accepted: true,
+        reportId: 'report-1',
+        runReference: runReference('run-1'),
+        contextSaved: false
+      })
     vi.mocked(signOut).mockClear()
     vi.mocked(applyBadgeSummary).mockClear()
     vi.mocked(applyRunProgress).mockClear()
@@ -677,11 +686,69 @@ describe('useGameRun', () => {
     await act(async () => {
       await api().complete({ answers: [] }, onRecorded, onUnrecorded)
     })
+    await flush()
     expect(onUnrecorded).toHaveBeenCalledTimes(1)
     expect(onRecorded).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('error')
     expect((recordingNotice.value as { message: string }).message).toMatch(/signed time window/)
+    expect(reportRunFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        runToken: 'token-1',
+        failure: { code: 'run_expired', status: 410 },
+        client: expect.objectContaining({ buildId: expect.any(String), online: true })
+      }),
+      'session-token'
+    )
+    expect(recordingNotice.value).toMatchObject({ report: { state: 'ready' } })
     expect(track).not.toHaveBeenCalledWith('game.completed', 'surge')
+  })
+
+  it('adds optional player context to the automatic report without creating a second report identity', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun).mockRejectedValue(new ApiError(409, 'run_conflict', 'gone'))
+    const { api } = mountRun()
+    await flush()
+
+    await act(async () => {
+      await api().complete({ answers: [] })
+    })
+    await flush()
+    const notice = recordingNotice.value
+    expect(notice).toMatchObject({ state: 'error', report: { state: 'ready' } })
+    if (notice.state !== 'error' || !notice.report) throw new Error('Expected report controls')
+
+    await act(async () => {
+      await notice.report?.submitContext('The last answer stayed disabled.')
+    })
+
+    expect(reportRunFailure).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        context: 'The last answer stayed disabled.'
+      }),
+      'session-token'
+    )
+    expect(recordingNotice.value).toMatchObject({ report: { state: 'context-saved' } })
+  })
+
+  it('keeps the original result visible when the best-effort error report cannot be sent', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun).mockRejectedValue(new ApiError(410, 'run_expired', 'too late'))
+    vi.mocked(reportRunFailure).mockRejectedValue(new Error('report endpoint unavailable'))
+    const { api } = mountRun()
+    await flush()
+
+    await act(async () => {
+      await api().complete({ answers: [] })
+    })
+    await flush()
+
+    expect(recordingNotice.value).toMatchObject({
+      state: 'error',
+      message: expect.stringMatching(/signed time window/),
+      report: { state: 'failed' }
+    })
   })
 
   it('a transient failure leaves a retry notice and does not settle the run', async () => {
@@ -696,6 +763,7 @@ describe('useGameRun', () => {
     expect(onUnrecorded).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('error')
     expect((recordingNotice.value as { actionLabel: string }).actionLabel).toBe('Retry recording')
+    expect(reportRunFailure).not.toHaveBeenCalled()
   })
 
   // The all-time local best mirrors the leaderboard: it is written HERE, on the

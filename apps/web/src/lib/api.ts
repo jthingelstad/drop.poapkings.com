@@ -17,7 +17,8 @@ import {
   sharedRunSchema,
   shareTokenSchema,
   siteStatsSchema,
-  startedRunSchema
+  startedRunSchema,
+  runReportResponseSchema
 } from './api-contracts'
 import { reportApiAvailable, reportApiUnavailable } from './api-availability'
 
@@ -359,6 +360,30 @@ export async function completeRun(runToken: string, transcript: Record<string, u
     await retryDelay()
     return request()
   }
+}
+
+export interface RunFailureReportInput {
+  runId: string
+  runToken: string
+  failure: { code: string; status: number }
+  client: {
+    buildId: string
+    online: boolean
+    visibility: 'hidden' | 'visible' | 'prerender'
+    displayMode: 'browser' | 'standalone'
+  }
+  context?: string
+}
+
+// The endpoint is idempotent per run, so the automatic report and an optional
+// context update safely share the same POST and can retry without duplicates.
+export function reportRunFailure(report: RunFailureReportInput, sessionToken?: string) {
+  return apiRequest('/run-reports', runReportResponseSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify(report),
+    retry: true
+  })
 }
 
 export function getStats(signal?: AbortSignal) {

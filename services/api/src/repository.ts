@@ -165,6 +165,35 @@ export interface RunItem {
   startCorrelation?: Correlation;
 }
 
+export interface RunReportInput {
+  runId: string;
+  runReference: string;
+  mode: GameMode;
+  failureCode: string;
+  failureStatus: number;
+  clientBuildId: string;
+  clientOnline: boolean;
+  clientVisibility: "hidden" | "visible" | "prerender";
+  clientDisplayMode: "browser" | "standalone";
+  runFound: boolean;
+  runState: RunItem["state"] | "missing";
+  guest: boolean;
+  runAgeSeconds: number;
+  context?: string;
+  reportedAt: string;
+  expiresAt: number;
+}
+
+export interface RunReportItem extends Omit<RunReportInput, "reportedAt"> {
+  pk: "RUN_REPORTS";
+  sk: `REPORT#${string}`;
+  reportId: string;
+  status: "new" | "investigating" | "resolved" | "dismissed";
+  firstReportedAt: string;
+  lastReportedAt: string;
+  reportCount: number;
+}
+
 export interface RunRecoveryOptions {
   completedAt: string;
   recoveredAt: string;
@@ -1772,6 +1801,44 @@ export class Repository {
       }),
     );
     return result.Item as RunItem | undefined;
+  }
+
+  async upsertRunReport(input: RunReportInput): Promise<RunReportItem> {
+    const contextUpdate = input.context ? ", context = :context" : "";
+    const result = await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: "RUN_REPORTS", sk: `REPORT#${input.runId}` },
+        UpdateExpression: `SET reportId = if_not_exists(reportId, :reportId), runId = :runId, runReference = :runReference, #mode = :mode, #status = if_not_exists(#status, :newStatus), firstReportedAt = if_not_exists(firstReportedAt, :reportedAt), lastReportedAt = :reportedAt, failureCode = :failureCode, failureStatus = :failureStatus, clientBuildId = :clientBuildId, clientOnline = :clientOnline, clientVisibility = :clientVisibility, clientDisplayMode = :clientDisplayMode, runFound = :runFound, runState = :runState, guest = :guest, runAgeSeconds = :runAgeSeconds, expiresAt = :expiresAt${contextUpdate} ADD reportCount :one`,
+        ExpressionAttributeNames: {
+          "#mode": "mode",
+          "#status": "status",
+        },
+        ExpressionAttributeValues: {
+          ":reportId": randomUUID(),
+          ":runId": input.runId,
+          ":runReference": input.runReference,
+          ":mode": input.mode,
+          ":newStatus": "new",
+          ":reportedAt": input.reportedAt,
+          ":failureCode": input.failureCode,
+          ":failureStatus": input.failureStatus,
+          ":clientBuildId": input.clientBuildId,
+          ":clientOnline": input.clientOnline,
+          ":clientVisibility": input.clientVisibility,
+          ":clientDisplayMode": input.clientDisplayMode,
+          ":runFound": input.runFound,
+          ":runState": input.runState,
+          ":guest": input.guest,
+          ":runAgeSeconds": input.runAgeSeconds,
+          ":expiresAt": input.expiresAt,
+          ":one": 1,
+          ...(input.context ? { ":context": input.context } : {}),
+        },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes as RunReportItem;
   }
 
   async rankedAccess(playerId: string): Promise<RankedAccessStatus> {
