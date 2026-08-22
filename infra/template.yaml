@@ -1690,7 +1690,7 @@ Resources:
           FunctionAssociations:
             - EventType: viewer-request
               FunctionARN: !GetAtt WebRequestFunction.FunctionARN
-          ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c
+          ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c
           ViewerProtocolPolicy: redirect-to-https
         DefaultRootObject: index.html
         Enabled: true

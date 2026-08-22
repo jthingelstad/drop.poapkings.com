@@ -47,7 +47,8 @@ export function contentTypeFor(key) {
 
 export function cacheControlFor(key) {
   if (key === "api-config.json" || key === "version.json") return "no-store";
-  if (key === "card-art-sw.js" || key.endsWith(".html")) return "no-cache";
+  if (key === "card-art-sw.js" || key === "site.webmanifest") return "no-cache";
+  if (key.endsWith(".html")) return "public, max-age=0, s-maxage=300";
   if (/^assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:css|js)$/.test(key))
     return "public, max-age=31536000, immutable";
   if (

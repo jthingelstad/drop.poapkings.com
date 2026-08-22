@@ -42,6 +42,10 @@ function marksApiRelease(path) {
   return true;
 }
 
+function marksWebDeployment(path) {
+  return path === "infra/scripts/deploy-web.mjs";
+}
+
 /**
  * Classify a commit by the production surfaces and deployment tests it can
  * affect. Unknown paths fail safe to the complete web + API path.
@@ -111,6 +115,12 @@ export function classifyPaths(inputPaths) {
     }
 
     if (path.startsWith("apps/web/")) continue;
+
+    if (marksWebDeployment(path)) {
+      deployApi = true;
+      deployWeb = true;
+      continue;
+    }
 
     if (marksApiRelease(path)) {
       deployApi = true;

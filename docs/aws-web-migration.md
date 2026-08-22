@@ -13,10 +13,14 @@ drop.poapkings.com -> CloudFront
 CloudFront runs one viewer-request function. It removes the `/api` prefix
 before API Gateway sees the request and maps `/`, `/games/`, and the other
 directory URLs to their generated `index.html` objects. API caching is disabled;
-static objects follow the cache metadata assigned by `deploy-web.mjs`.
-The static behavior also attaches AWS's managed Simple CORS response policy so
-Buttondown's public archive can load Drop's font. `/api/*` keeps the API's own
-CORS behavior.
+static objects follow the cache metadata assigned by `deploy-web.mjs`. Browsers
+revalidate HTML while CloudFront may keep it for five minutes between the full
+invalidation performed by each deploy; hashed bundles remain immutable for one
+year. The web manifest and service worker revalidate on every use.
+The static behavior also attaches AWS's managed combined CORS and security-
+headers policy so Buttondown's public archive can load Drop's font while static
+responses receive the standard transport, content-type, framing, and referrer
+protections. `/api/*` keeps the API's own CORS behavior.
 
 The API behavior forwards viewer headers, cookies, and query strings except
 `Host`. The viewer-request function overwrites `X-Elixir-Drop-Viewer-Ip` from

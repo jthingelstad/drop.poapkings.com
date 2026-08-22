@@ -140,6 +140,8 @@ The first stack creation and any intentional secret rotation remain local
 
 CloudFormation owns the private web origin and CloudFront distribution as well
 as the API, bridge queues, and result consumer. The default static behavior uses
-AWS's managed Simple CORS response policy so Buttondown's public archive can load
-the same-origin app font; `/api/*` keeps the API's own CORS behavior. The
+AWS's managed combined CORS and security-headers policy so Buttondown's public
+archive can load the same-origin app font while every static response receives
+HSTS, content-type, framing, and referrer protections; `/api/*` keeps the API's
+own CORS behavior. The
 fixed-IP worker remains a local launchd service on the allowlisted Mac.

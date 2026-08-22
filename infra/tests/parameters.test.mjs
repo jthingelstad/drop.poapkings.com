@@ -573,10 +573,10 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /s3:DeleteObject/);
   });
 
-  void it("keeps simple CORS on static assets without changing the API behavior", () => {
+  void it("keeps CORS and security headers on static assets without changing the API behavior", () => {
     assert.match(
       template,
-      /DefaultCacheBehavior:[\s\S]*?ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c/,
+      /DefaultCacheBehavior:[\s\S]*?ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c/,
     );
     const apiBehavior = template.match(
       /CacheBehaviors:[\s\S]*?\n        Comment:/,

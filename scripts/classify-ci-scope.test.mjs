@@ -46,6 +46,15 @@ void test("API and infrastructure tests validate without redeploying", () => {
   );
 });
 
+void test("web deployment changes publish both production surfaces", () => {
+  assert.deepEqual(classifyPaths(["infra/scripts/deploy-web.mjs"]), {
+    browser: false,
+    deployApi: true,
+    deployWeb: true,
+    ships: true,
+  });
+});
+
 void test("web implementation changes run browsers and preserve the API evidence boundary", () => {
   assert.deepEqual(classifyPaths(["apps/web/src/screens/Practice.tsx"]), {
     browser: true,

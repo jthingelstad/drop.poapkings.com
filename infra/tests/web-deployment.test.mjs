@@ -10,11 +10,18 @@ const template = readFileSync(
 
 void describe("AWS web hosting", () => {
   void it("keeps mutable entry points fresh and fingerprints immutable bundles", () => {
-    assert.equal(cacheControlFor("index.html"), "no-cache");
-    assert.equal(cacheControlFor("privacy/index.html"), "no-cache");
+    assert.equal(
+      cacheControlFor("index.html"),
+      "public, max-age=0, s-maxage=300",
+    );
+    assert.equal(
+      cacheControlFor("privacy/index.html"),
+      "public, max-age=0, s-maxage=300",
+    );
     assert.equal(cacheControlFor("api-config.json"), "no-store");
     assert.equal(cacheControlFor("version.json"), "no-store");
     assert.equal(cacheControlFor("card-art-sw.js"), "no-cache");
+    assert.equal(cacheControlFor("site.webmanifest"), "no-cache");
     assert.equal(
       cacheControlFor("assets/index-AbCdEf123.js"),
       "public, max-age=31536000, immutable",
