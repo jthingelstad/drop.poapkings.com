@@ -1696,6 +1696,8 @@ Resources:
         Comment: Classify requests, strip the API prefix, and resolve static directory indexes
         Runtime: cloudfront-js-2.0
       FunctionCode: |
+        import cf from 'cloudfront';
+
         function requestClass(uri) {
           if (uri.indexOf('/api/') === 0) return 'api';
           if (uri === '/' || uri === '/index.html') return 'web-home';

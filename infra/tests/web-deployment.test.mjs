@@ -78,8 +78,13 @@ void describe("AWS web hosting", () => {
 
   void it("logs only safe request classes while preserving routing", () => {
     assert.ok(webRequestFunctionCode);
+    assert.match(webRequestFunctionCode, /import cf from 'cloudfront';/);
     const logged = [];
-    const handler = runInNewContext(`${webRequestFunctionCode}\nhandler`, {
+    const executableCode = webRequestFunctionCode.replace(
+      "import cf from 'cloudfront';",
+      "",
+    );
+    const handler = runInNewContext(`${executableCode}\nhandler`, {
       cf: { logCustomData: (value) => logged.push(value) },
     });
     const request = (uri) =>
