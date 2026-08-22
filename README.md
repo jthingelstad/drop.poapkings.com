@@ -20,7 +20,7 @@ Six ways to play, one card-cost engine:
   answers add a time penalty. Your score is your time, lower is better.
 - **Practice** — adaptive, unranked exact-cost training. Missed cards return
   until they stick, with optional recognition help when recall stalls. No score,
-  record, XP, or board.
+  personal best, or board; signed-in online sessions earn Player XP.
 - **Higher / Lower** — two cards, pick which costs more, on three lives. The gap
   between the two costs narrows as you go. Trains the relative read that wins
   elixir trades.
@@ -81,12 +81,13 @@ all, because there is no server record for a link to point at.
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-Every player signs in with an email magic link. Online games start from a signed
-server challenge; when the browser is offline, all six modes deal locally and
-say plainly that the run will not be saved. Local runs are never queued or
-promoted after reconnecting. Local display, input preferences, and adaptive
-card-learning hints stay in **localStorage**; game history, player profiles,
-per-player Player XP, and leaderboards live in DynamoDB. Player XP is a progression score
+Players can sign in with an email magic link when they want recorded progress;
+guest play needs no account. Online games start from a signed server challenge;
+when the browser is offline, all six modes deal locally and say plainly that the
+run will not be saved. Local runs are never queued or promoted after
+reconnecting. Local display, input preferences, and adaptive card-learning
+hints stay in **localStorage**; game history, player profiles, per-player Player
+XP, and leaderboards live in DynamoDB. Player XP is a progression score
 (fixed for Surge and Trade, performance-banded for Higher / Lower, Survival,
 and Rain, and one point per two saved Practice cards) that drives a per-player
 arena. Personal bests, the daily featured game, badge rungs, and final season

@@ -25,7 +25,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`docs/card-rendering.md`**                                          | Clash-style card rendering reference.                                                                                           |
 | **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
 | **`docs/referee-visibility.md`**                                     | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped.               |
-| **`docs/desktop-keyboard.md`**                                       | Assessment + proposal: keyboard support on desktop, and why unlocking ranked play there is a board decision, not a bindings one. |
+| **`docs/desktop-keyboard.md`**                                       | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                                           |
 | **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
 | **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** · **`services/admin/README.md`** | Backend, bridge, and private Control Room service references.                                                                    |
 | **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
@@ -51,8 +51,8 @@ Every other doc points back here instead of keeping its own copy of this list.
   JMAP** in `services/api/src/jmap.ts`; magic links keep that recognizable sender.
   `drop@poapkings.com` is the monitored administrative/general-contact address
   for alarms, the delivery-canary recipient, privacy questions, and Fair Play
-  disputes. Bulk release notes publish through the dedicated **Buttondown**
-  newsletter; none of these paths uses SES.
+  disputes. Occasional player-update digests publish through the dedicated
+  **Buttondown** newsletter; none of these paths uses SES.
 
 ## Deploy model (canonical)
 

@@ -23,7 +23,8 @@ Responsibilities in this release:
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
   arena: fixed, performance-banded, and Practice-card game awards plus exact-once
   personal-best, featured, badge-rung, and season-final awards;
-- a site-wide Trophy Road advanced by completed games from signed-in players;
+- a site-wide completed-games counter (the legacy response field is
+  `trophyRoadGames`) advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
   plus an all-time board of each player's best-ever score per mode; and
 - best-effort Discord notifications for successful magic-link logins and every
@@ -194,13 +195,14 @@ filter legacy zero projections defensively. Operators can remove stale sparse
 index keys without changing canonical history using the dry-run-first
 `cleanup:zero-leaderboards` script.
 
-`GET /stats` exposes `trophyRoadGames` as the site-wide Trophy Road counter. It
+`GET /stats` exposes the legacy-named `trophyRoadGames` field as the site-wide
+completed-games counter, surfaced on Home as **games played across Drop**. It
 has one stable launch seed of 592, then advances exactly once for each
-server-validated run—not for visits or analytics events. The Trophy Road
-counter, real tracked-game count, player count, immutable run history, and any
-eligible leaderboard entry are written in the same DynamoDB transaction, so a
-rejected or duplicate run cannot move Trophy Road. Seasonal leaderboard resets
-do not reset this counter.
+server-validated run—not for visits or analytics events. The public counter,
+real tracked-game count, player count, immutable run history, and any eligible
+leaderboard entry are written in the same DynamoDB transaction, so a rejected
+or duplicate run cannot move it. Seasonal leaderboard resets do not reset this
+counter.
 
 ## Player identity
 

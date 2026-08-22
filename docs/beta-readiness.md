@@ -27,10 +27,14 @@ reviewed change to the gate itself.
 
 ## 2. Deployment and automatic rollback boundary
 
-Push the reviewed commit to `main`. The `Build and Deploy` GitHub Actions run
-must finish successfully. It runs the same quality gate as step 1, deploys and
-smokes the API, rebuilds the web app against that API, and then deploys GitHub
-Pages. A failed API update blocks the website deployment.
+Push the reviewed commit to `main`. The cancelable, cumulative `Validate Main`
+GitHub Actions run must succeed for the exact head; it then triggers the
+serialized `Build and Deploy` workflow. Confirm that workflow finishes
+successfully for every affected production surface. API changes deploy and
+smoke the Lambda; web/shared changes update the API's referee version, smoke it,
+rebuild the web app against that API, and then deploy GitHub Pages. Prose,
+test-only, and fixed-host changes validate without republishing an unrelated
+surface. A failed API update blocks the website deployment.
 
 If the deployed app is unsafe for players, stop sending invites and revert the
 offending commit on `main`. The same pipeline will deploy the prior application
@@ -67,8 +71,9 @@ Use a normal browser session and an email address that is not already signed in:
 3. Choose a favorite card and generated name, then play one Surge run.
 4. Confirm the result leaves the reconnecting state, increments the player's
    games exactly once, and appears on the current seasonal leaderboard.
-5. Confirm Trophy Road advances exactly once. Refreshing the page must not
-   change it.
+5. Confirm the summary's Player XP breakdown matches the increase on the
+   player's inline arena, and that refreshing does not award it again. Confirm
+   Home's **games played across Drop** counter advances exactly once.
 6. Attach a Clash Royale tag. Confirm clan, account age, and card collection
    appear without trophies, arena, experience level, or card levels.
 7. Sign out and back in. Confirm that login queues one player refresh and that
@@ -85,8 +90,8 @@ Use a normal browser session and an email address that is not already signed in:
 
 Use a disposable account once per release candidate to verify account deletion:
 type `DELETE`, confirm the account disappears, and verify its prior runs no
-longer appear in its history or leaderboards. The anonymous site-wide Trophy
-Road total intentionally does not decrement.
+longer appear in its history or leaderboards. The anonymous site-wide games
+played counter intentionally does not decrement.
 
 ## 5. Device and accessibility spot check
 
@@ -96,8 +101,8 @@ browser:
 
 - sign in from the email link;
 - play Surge and one non-timed mode;
-- open and dismiss Trophy Road with the button, outside click, and Escape on
-  desktop;
+- confirm the inline Player XP arena is readable and its **How Player XP works**
+  link opens the public rulebook;
 - verify no horizontal scrolling, covered controls, or card-art framing; and
 - use keyboard-only navigation through login, profile, leaderboard, privacy,
   and account deletion without losing the focus indicator.
