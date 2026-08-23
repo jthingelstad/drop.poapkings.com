@@ -65,6 +65,7 @@ import type {
   RefereeDecision,
   RunTiebreaks,
   StoredCrWarClock,
+  XpAwardMarker,
 } from "./types.js";
 import { runXpAward } from "./xp.js";
 
@@ -2292,6 +2293,43 @@ export class Repository {
       startKey = page.LastEvaluatedKey;
     } while (startKey);
     return runs;
+  }
+
+  // Every immutable non-run XP award for one player. The mutable
+  // XP#PRACTICE carry row has neither award nor awardedAt, so it is ignored.
+  // Callers combine these markers with the base awards retained on RUN# rows;
+  // run-linked bonuses appear in both places and must not be counted twice.
+  async listXpAwardMarkers(sub: string): Promise<XpAwardMarker[]> {
+    const markers: XpAwardMarker[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const page = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":sk": "XP#",
+          },
+          ProjectionExpression: "award, awardedAt",
+          ConsistentRead: true,
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const item of page.Items ?? []) {
+        const award = item.award as Partial<XpAward> | undefined;
+        if (
+          typeof item.awardedAt === "string" &&
+          typeof award?.source === "string" &&
+          typeof award.label === "string" &&
+          Number.isInteger(award.amount) &&
+          (award.amount ?? 0) > 0
+        )
+          markers.push({ award: award as XpAward, awardedAt: item.awardedAt });
+      }
+      startKey = page.LastEvaluatedKey;
+    } while (startKey);
+    return markers;
   }
 
   // Every recorded run for one player — the input to a badge backfill.

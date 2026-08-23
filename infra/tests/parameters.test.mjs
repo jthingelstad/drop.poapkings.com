@@ -507,6 +507,7 @@ void describe("deployment parameters", () => {
       "POST /auth/refresh",
       "GET /me",
       "GET /me/seasons",
+      "GET /me/xp",
       "POST /me/share",
       "PUT /me/share",
       "GET /players/{playerId}",

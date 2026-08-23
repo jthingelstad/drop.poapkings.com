@@ -1121,9 +1121,7 @@ a {
   font-size: 7.5rem;
   font-weight: 700;
   line-height: 1;
-  filter:
-    drop-shadow(0 8px 7px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 28px rgba(245, 200, 76, 0.68));
+  filter: drop-shadow(0 8px 7px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 28px rgba(245, 200, 76, 0.68));
   pointer-events: none;
 }
 
@@ -1993,9 +1991,7 @@ body.modal-open {
   padding: 28px 20px 22px;
   border: 1px solid rgba(245, 200, 76, 0.4);
   border-radius: var(--r-lg);
-  background:
-    radial-gradient(90% 120% at 0% 0%, rgba(109, 40, 217, 0.24), transparent 56%),
-    rgba(18, 13, 40, 0.99);
+  background: radial-gradient(90% 120% at 0% 0%, rgba(109, 40, 217, 0.24), transparent 56%), rgba(18, 13, 40, 0.99);
   box-shadow: var(--shadow);
   animation: ed-overlay-rise 220ms var(--ease-drop);
 }
@@ -2199,7 +2195,14 @@ body.modal-open {
   line-height: 1;
   letter-spacing: 0.01em;
   text-decoration: none;
-  background: linear-gradient(100deg, var(--gold2) 0%, var(--gold) 30%, var(--gold-shine) 48%, var(--gold) 66%, var(--gold2) 100%);
+  background: linear-gradient(
+    100deg,
+    var(--gold2) 0%,
+    var(--gold) 30%,
+    var(--gold-shine) 48%,
+    var(--gold) 66%,
+    var(--gold2) 100%
+  );
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -3922,9 +3925,7 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   padding: 16px;
   border: 1px solid rgba(245, 200, 76, 0.3);
   border-radius: 16px;
-  background:
-    radial-gradient(90% 140% at 100% 0%, rgba(109, 40, 217, 0.24), transparent 58%),
-    rgba(18, 13, 40, 0.66);
+  background: radial-gradient(90% 140% at 100% 0%, rgba(109, 40, 217, 0.24), transparent 58%), rgba(18, 13, 40, 0.66);
 }
 .ed-appinfo__cache-icon {
   display: grid;
@@ -5927,9 +5928,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   padding: 16px 14px 14px;
   border: 1px solid rgba(245, 200, 76, 0.34);
   border-radius: 20px;
-  background:
-    radial-gradient(100% 120% at 0% 0%, rgba(245, 200, 76, 0.11), transparent 56%),
-    rgba(18, 13, 40, 0.58);
+  background: radial-gradient(100% 120% at 0% 0%, rgba(245, 200, 76, 0.11), transparent 56%), rgba(18, 13, 40, 0.58);
 }
 .ed-profile__badges--featured .ed-profile__recent-title {
   color: var(--gold-lite);
@@ -7231,18 +7230,19 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 
 /* ── Ladder header ────────────────────────────────────────────
-   A fixed title, with the season clock on ranked boards, then the arena
-   progression block. A soft violet radial glow stands in for the retired arena artwork. */
+   A fixed title with the season clock only on ranked boards. Lifetime arena
+   progression moved into the dedicated XP scope so seasonal and permanent
+   context no longer compete in the header. */
 .ed-ladder__head {
   position: relative;
-  margin: 6px 0 14px;
+  margin: 6px 0 12px;
   padding: 4px 2px 0;
 }
 .ed-ladder__head::before {
   content: '';
   position: absolute;
   inset: -20px -30px auto;
-  height: 160px;
+  height: 96px;
   background: radial-gradient(60% 100% at 50% 0%, rgba(139, 92, 246, 0.22), transparent 70%);
   pointer-events: none;
   z-index: 0;
@@ -7267,48 +7267,223 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-weight: 700;
   text-align: right;
 }
-.ed-ladder__arena {
+
+/* ── Ladder XP scope ──────────────────────────────────────────
+   One progression hero followed by a daily ledger. It stays player-facing:
+   source labels explain the climb while raw storage marker keys stay private. */
+.ed-xp__hero {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px solid rgba(245, 200, 76, 0.25);
+  border-radius: 22px;
+  background:
+    radial-gradient(80% 120% at 100% 0%, rgba(139, 92, 246, 0.3), transparent 68%),
+    linear-gradient(145deg, rgba(52, 24, 104, 0.86), rgba(18, 12, 43, 0.95));
+}
+.ed-xp__hero::after {
+  content: '';
+  position: absolute;
+  top: -34px;
+  right: -23px;
+  width: 128px;
+  height: 128px;
+  border: 19px solid rgba(56, 191, 147, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.ed-xp--stale .ed-xp__hero {
+  filter: saturate(0.72);
+}
+.ed-xp__arena-kicker,
+.ed-xp__arena-row,
+.ed-xp__progress,
+.ed-xp__progress-copy {
   position: relative;
   z-index: 1;
-  margin-top: 12px;
 }
-.ed-ladder__arena-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.ed-ladder__arena-name {
-  font-family: var(--font-display);
-  font-size: 15px;
+.ed-xp__arena-kicker {
+  color: #c3b5e9;
+  font-size: 10px;
   font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.ed-xp__arena-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 3px;
+}
+.ed-xp__arena-name,
+.ed-xp__total {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.ed-xp__arena-name {
   color: var(--gold);
+  font-size: 20px;
 }
-.ed-ladder__arena-xp {
-  font-size: 12px;
-  color: #ffe9b3;
+.ed-xp__total {
+  color: var(--ink);
+  font-size: 21px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.ed-ladder__arena-bar {
-  height: 8px;
+.ed-xp__progress {
+  height: 9px;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  overflow: hidden;
 }
-.ed-ladder__arena-fill {
+.ed-xp__progress span {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: inherit;
   background: linear-gradient(90deg, #8b5cf6, #f5c84c);
-  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.55);
   transition: width 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
-.ed-ladder__arena-togo {
-  margin-top: 6px;
-  font-size: 12px;
+.ed-xp__progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
   color: var(--muted);
+  font-size: 11px;
+}
+.ed-xp__progress-copy a {
+  flex: none;
+}
+.ed-xp__history-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 20px 2px 0;
+}
+.ed-xp__history-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+}
+.ed-xp__history-head strong {
+  color: var(--gold);
+  font-size: 11px;
+  text-align: right;
+}
+.ed-xp__utc {
+  margin: 5px 2px 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.ed-xp__days {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid rgba(197, 177, 242, 0.14);
+  border-radius: 18px;
+  background: rgba(19, 12, 43, 0.74);
+}
+.ed-xp__day {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 10px 13px;
+  border-bottom: 1px solid rgba(209, 194, 255, 0.1);
+}
+.ed-xp__day:last-child {
+  border-bottom: 0;
+}
+.ed-xp__day-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.17);
+  color: var(--gold);
+}
+.ed-xp__day-mark .icon {
+  width: 17px;
+  height: 17px;
+}
+.ed-xp__day-copy {
+  min-width: 0;
+}
+.ed-xp__day-copy strong,
+.ed-xp__day-copy small {
+  display: block;
+}
+.ed-xp__day-copy strong {
+  font-size: 12px;
+}
+.ed-xp__day-copy small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.ed-xp__day-total {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ed-xp__opening {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 3px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.ed-xp__opening strong {
+  flex: none;
+  color: #c8bddc;
+}
+.ed-xp__more {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 12px auto 0;
+}
+.ed-xp__more .icon {
+  width: 14px;
+  height: 14px;
+}
+.ed-xp__empty {
+  padding: 24px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (width <= 360px) {
+  .ed-xp__hero {
+    padding: 15px;
+  }
+  .ed-xp__arena-name {
+    font-size: 18px;
+  }
+  .ed-xp__total {
+    font-size: 19px;
+  }
+  .ed-xp__day {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-inline: 10px;
+  }
 }
 
 /* ── Boards period rail ───────────────────────────────────────
@@ -8237,247 +8412,247 @@ html.reduce-motion .ed-profile-guest__halo::before {
 }
 
 .ed-app--desktop .ed-desktop {
-    position: relative;
-    z-index: 1;
-    width: 936px;
-    min-width: 936px;
-    max-width: none;
-    height: 720px;
-    min-height: 720px;
-    margin-inline: auto;
-    padding: 16px 0;
-    display: grid;
-    grid-template-columns: 180px 440px 280px;
-    gap: 18px;
-  }
+  position: relative;
+  z-index: 1;
+  width: 936px;
+  min-width: 936px;
+  max-width: none;
+  height: 720px;
+  min-height: 720px;
+  margin-inline: auto;
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: 180px 440px 280px;
+  gap: 18px;
+}
 
-  /* All three panels run the full height of the column. The left rail's own
+/* All three panels run the full height of the column. The left rail's own
      foot is pushed down by `.ed-rail-foot`, so stretching it is what puts the
      ambient control and the meta links at the bottom of the screen rather than
      immediately under the nav. */
-  .ed-app--desktop .ed-desktop__rail,
-  .ed-app--desktop .ed-desktop__main,
-  .ed-app--desktop .ed-aside {
-    align-self: stretch;
-    min-width: 0;
-    min-height: 0;
-    border: 1px solid rgba(215, 200, 255, 0.13);
-    border-radius: 22px;
-    background: rgba(9, 7, 24, 0.88);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
-  }
+.ed-app--desktop .ed-desktop__rail,
+.ed-app--desktop .ed-desktop__main,
+.ed-app--desktop .ed-aside {
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(215, 200, 255, 0.13);
+  border-radius: 22px;
+  background: rgba(9, 7, 24, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
 
-  .ed-app--desktop .ed-desktop__rail {
-    padding: 20px 14px 14px;
-    overflow: hidden;
-  }
+.ed-app--desktop .ed-desktop__rail {
+  padding: 20px 14px 14px;
+  overflow: hidden;
+}
 
-  .ed-app--desktop .ed-desktop__main {
-    padding: 10px 18px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
+.ed-app--desktop .ed-desktop__main {
+  padding: 10px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
-  .ed-app--desktop .ed-aside {
-    position: relative;
-    inset: auto;
-    width: auto;
-    padding: 14px;
-    overflow-y: auto;
-    z-index: auto;
-  }
+.ed-app--desktop .ed-aside {
+  position: relative;
+  inset: auto;
+  width: auto;
+  padding: 14px;
+  overflow-y: auto;
+  z-index: auto;
+}
 
-  .ed-app--desktop .ed-aside .ed-rail-block {
-    padding: 13px;
-    border: 1px solid rgba(215, 200, 255, 0.14);
-    border-radius: 18px;
-    background: rgba(18, 13, 40, 0.68);
-    backdrop-filter: none;
-  }
+.ed-app--desktop .ed-aside .ed-rail-block {
+  padding: 13px;
+  border: 1px solid rgba(215, 200, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(18, 13, 40, 0.68);
+  backdrop-filter: none;
+}
 
-  /* The feed fills its stretched panel: ten rows rather than six. */
-  .ed-app--desktop .ed-aside > .ed-rail-block {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .ed-app--desktop .ed-aside .ed-rail-live {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-  .ed-app--desktop .ed-aside .ed-rail-live::-webkit-scrollbar {
-    width: 0;
-  }
+/* The feed fills its stretched panel: ten rows rather than six. */
+.ed-app--desktop .ed-aside > .ed-rail-block {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-app--desktop .ed-aside .ed-rail-live {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ed-app--desktop .ed-aside .ed-rail-live::-webkit-scrollbar {
+  width: 0;
+}
 
-  .ed-app--desktop .ed-desktop__brand {
-    padding: 4px 4px 20px;
-  }
-  .ed-app--desktop .ed-desktop__brand .ed-wordmark {
-    font-size: 1.08rem;
-  }
+.ed-app--desktop .ed-desktop__brand {
+  padding: 4px 4px 20px;
+}
+.ed-app--desktop .ed-desktop__brand .ed-wordmark {
+  font-size: 1.08rem;
+}
 
-  .ed-app--desktop .ed-nav__item {
-    width: 100%;
-    padding: 11px 12px;
-  }
+.ed-app--desktop .ed-nav__item {
+  width: 100%;
+  padding: 11px 12px;
+}
 
-  .ed-app--desktop .ed-home {
-    width: 100%;
-    max-width: 404px;
-    margin-inline: auto;
-    padding: 0 2px 8px;
-    gap: 5px;
-  }
-  .ed-app--desktop .ed-cause {
-    position: static;
-    width: max-content;
-    min-height: 0;
-    margin: 0 0 2px;
-  }
+.ed-app--desktop .ed-home {
+  width: 100%;
+  max-width: 404px;
+  margin-inline: auto;
+  padding: 0 2px 8px;
+  gap: 5px;
+}
+.ed-app--desktop .ed-cause {
+  position: static;
+  width: max-content;
+  min-height: 0;
+  margin: 0 0 2px;
+}
 
-  /* `12a` keeps the wordmark and the player in the LEFT RAIL on desktop, so the
+/* `12a` keeps the wordmark and the player in the LEFT RAIL on desktop, so the
      hero's own topbar is a mobile thing — the rail already says both, and the
      34px it returns is what lets the arena stay one screen. */
-  .ed-app--desktop .ed-hero-carousel {
-    padding: 10px 14px 12px;
-  }
-  .ed-app--desktop .ed-hero-carousel__topbar {
-    display: none;
-  }
-  .ed-app--desktop .ed-hero-carousel__slide {
-    height: 214px;
-  }
-  .ed-app--desktop .ed-hero-carousel__dots {
-    margin-top: 5px;
-  }
-  .ed-app--desktop .ed-hero__body {
-    gap: 6px;
-    padding-top: 2px;
-  }
-  .ed-app--desktop .ed-hero__art {
-    width: 46px !important;
-    height: 46px !important;
-    filter: none;
-  }
-  .ed-app--desktop .ed-hero__feature-icon {
-    width: 46px;
-    height: 46px;
-    font-size: 1.45rem;
-  }
-  .ed-app--desktop .ed-hero__wordmark {
-    font-size: 2.05rem;
-  }
+.ed-app--desktop .ed-hero-carousel {
+  padding: 10px 14px 12px;
+}
+.ed-app--desktop .ed-hero-carousel__topbar {
+  display: none;
+}
+.ed-app--desktop .ed-hero-carousel__slide {
+  height: 214px;
+}
+.ed-app--desktop .ed-hero-carousel__dots {
+  margin-top: 5px;
+}
+.ed-app--desktop .ed-hero__body {
+  gap: 6px;
+  padding-top: 2px;
+}
+.ed-app--desktop .ed-hero__art {
+  width: 46px !important;
+  height: 46px !important;
+  filter: none;
+}
+.ed-app--desktop .ed-hero__feature-icon {
+  width: 46px;
+  height: 46px;
+  font-size: 1.45rem;
+}
+.ed-app--desktop .ed-hero__wordmark {
+  font-size: 2.05rem;
+}
 
-  /* Long names still need their own step here: without this the desktop rule
+/* Long names still need their own step here: without this the desktop rule
      above out-specifies `--long` and "HIGHER / LOWER" breaks across two lines. */
-  .ed-app--desktop .ed-hero__wordmark--long {
-    font-size: 1.6rem;
-  }
-  .ed-app--desktop .ed-hero__wordmark--pass,
-  .ed-app--desktop .ed-hero__wordmark--share {
-    font-size: 1.7rem;
-  }
-  .ed-app--desktop .ed-hero__desc {
-    max-width: 370px;
-    font-size: 0.78rem;
-    line-height: 1.3;
-  }
-  .ed-app--desktop .ed-hero__cta {
-    max-width: 430px;
-  }
-  .ed-app--desktop .ed-hero__cta .ed-btn {
-    min-height: 42px;
-    padding-block: 8px;
-  }
-  .ed-app--desktop .ed-hero__play {
-    margin-top: 2px;
-    padding: 10px;
-    font-size: 1.05rem;
-  }
-  .ed-app--desktop .ed-hero__result {
-    margin-top: 0;
-  }
-  .ed-app--desktop .ed-more {
-    gap: 6px;
-  }
-  .ed-app--desktop .ed-more__title {
-    font-size: 0.82rem;
-  }
-  .ed-app--desktop .ed-more .ed-grow {
-    padding: 6px 8px;
-  }
-  .ed-app--desktop .ed-more .ed-grow__art,
-  .ed-app--desktop .ed-more--practice .ed-grow__art,
-  .ed-app--desktop .ed-more .ed-grow__glyph {
-    width: 38px;
-    height: 38px;
-  }
-  .ed-app--desktop .ed-more .ed-grow__art .mode-icon {
-    width: 38px !important;
-    height: 38px !important;
-  }
-  .ed-app--desktop .ed-more .ed-grow__name,
-  .ed-app--desktop .ed-more--practice .ed-grow__name {
-    font-size: 0.88rem;
-  }
-  .ed-app--desktop .ed-more .ed-grow__meta,
-  .ed-app--desktop .ed-more--practice .ed-grow__meta {
-    font-size: 0.61rem;
-  }
-  .ed-app--desktop .ed-more--practice .ed-grow {
-    min-height: 50px;
-    padding: 6px 8px;
-  }
-  .ed-app--desktop .ed-home__ready {
-    margin: 1px 0 0;
-    font-size: 0.62rem;
-  }
-  .ed-app--desktop .ed-home__foot,
-  .ed-app--desktop .ed-installbar,
-  .ed-app--desktop .ed-installrow {
-    display: none;
-  }
+.ed-app--desktop .ed-hero__wordmark--long {
+  font-size: 1.6rem;
+}
+.ed-app--desktop .ed-hero__wordmark--pass,
+.ed-app--desktop .ed-hero__wordmark--share {
+  font-size: 1.7rem;
+}
+.ed-app--desktop .ed-hero__desc {
+  max-width: 370px;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+.ed-app--desktop .ed-hero__cta {
+  max-width: 430px;
+}
+.ed-app--desktop .ed-hero__cta .ed-btn {
+  min-height: 42px;
+  padding-block: 8px;
+}
+.ed-app--desktop .ed-hero__play {
+  margin-top: 2px;
+  padding: 10px;
+  font-size: 1.05rem;
+}
+.ed-app--desktop .ed-hero__result {
+  margin-top: 0;
+}
+.ed-app--desktop .ed-more {
+  gap: 6px;
+}
+.ed-app--desktop .ed-more__title {
+  font-size: 0.82rem;
+}
+.ed-app--desktop .ed-more .ed-grow {
+  padding: 6px 8px;
+}
+.ed-app--desktop .ed-more .ed-grow__art,
+.ed-app--desktop .ed-more--practice .ed-grow__art,
+.ed-app--desktop .ed-more .ed-grow__glyph {
+  width: 38px;
+  height: 38px;
+}
+.ed-app--desktop .ed-more .ed-grow__art .mode-icon {
+  width: 38px !important;
+  height: 38px !important;
+}
+.ed-app--desktop .ed-more .ed-grow__name,
+.ed-app--desktop .ed-more--practice .ed-grow__name {
+  font-size: 0.88rem;
+}
+.ed-app--desktop .ed-more .ed-grow__meta,
+.ed-app--desktop .ed-more--practice .ed-grow__meta {
+  font-size: 0.61rem;
+}
+.ed-app--desktop .ed-more--practice .ed-grow {
+  min-height: 50px;
+  padding: 6px 8px;
+}
+.ed-app--desktop .ed-home__ready {
+  margin: 1px 0 0;
+  font-size: 0.62rem;
+}
+.ed-app--desktop .ed-home__foot,
+.ed-app--desktop .ed-installbar,
+.ed-app--desktop .ed-installrow {
+  display: none;
+}
 
-  .ed-app--desktop .ed-desktop--game {
-    width: 480px;
-    min-width: 480px;
-    grid-template-columns: minmax(0, 1fr);
-    justify-content: center;
-  }
-  .ed-app--desktop .ed-desktop--game .ed-desktop__main {
-    padding: 10px 22px;
-    background: rgba(9, 7, 24, 0.9);
-  }
+.ed-app--desktop .ed-desktop--game {
+  width: 480px;
+  min-width: 480px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+}
+.ed-app--desktop .ed-desktop--game .ed-desktop__main {
+  padding: 10px 22px;
+  background: rgba(9, 7, 24, 0.9);
+}
 
-  .ed-app--desktop .ed-game__top-l {
-    position: relative;
-    gap: 6px;
-  }
-  .ed-app--desktop .ed-game__help {
-    font-family: var(--font-display);
-    font-size: 1rem;
-  }
-  .ed-app--desktop .ed-game__quit-hint {
-    position: absolute;
-    top: 44px;
-    left: 0;
-    width: max-content;
-    padding: 5px 8px;
-    border: 1px solid rgba(248, 113, 113, 0.35);
-    border-radius: 8px;
-    background: rgba(35, 10, 20, 0.96);
-    color: #fecaca;
-    font-size: 0.62rem;
-    font-weight: 800;
-  }
-  .ed-app--desktop :is(button, a[href], [tabindex]):focus-visible {
-    outline: 3px solid var(--gold);
-    outline-offset: 2px;
-  }
+.ed-app--desktop .ed-game__top-l {
+  position: relative;
+  gap: 6px;
+}
+.ed-app--desktop .ed-game__help {
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.ed-app--desktop .ed-game__quit-hint {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  width: max-content;
+  padding: 5px 8px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  background: rgba(35, 10, 20, 0.96);
+  color: #fecaca;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+.ed-app--desktop :is(button, a[href], [tabindex]):focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
 
 .ed-app--screensaver .ed-desktop,
 .ed-app--screensaver .ed-keyhelp {
@@ -8784,7 +8959,12 @@ html.reduce-motion .charge-ring--reconnecting .charge-ring__arc {
 .ed-skeleton__row {
   height: 56px;
   border-radius: 14px;
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 70%
+  );
   background-size: 220% 100%;
   animation: ed-skeleton-shimmer 1.4s ease-in-out infinite;
 }

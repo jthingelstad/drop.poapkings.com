@@ -12,6 +12,7 @@ vi.mock('../../src/lib/api', async (importActual) => {
     requestLogin: vi.fn(),
     pollLogin: vi.fn(),
     getLeaderboard: vi.fn(),
+    getXpTimeline: vi.fn(),
     getPublicPlayer: vi.fn()
   }
 })
@@ -46,7 +47,14 @@ vi.mock('../../src/components/ScreensaverScene', () => ({
   createElixirRain: vi.fn(async () => ({ destroy: vi.fn() }))
 }))
 
-import { requestLogin, pollLogin, getLeaderboard, getPublicPlayer, type LeaderboardScope } from '../../src/lib/api'
+import {
+  requestLogin,
+  pollLogin,
+  getLeaderboard,
+  getXpTimeline,
+  getPublicPlayer,
+  type LeaderboardScope
+} from '../../src/lib/api'
 import { applyPolledSession, redeemAccount, player, accountStatus, recentRuns } from '../../src/lib/account'
 import { navigate, route } from '../../src/lib/router'
 import { installMode, installEligible, installDismissed } from '../../src/lib/pwa-install'
@@ -126,6 +134,7 @@ afterEach(() => {
   installEligible.value = false
   installDismissed.value = false
   publicPlayerPreview.value = null
+  localStorage.clear()
   vi.useRealTimers()
 })
 
@@ -386,6 +395,80 @@ describe('Leaderboards', () => {
     expect(strip.textContent).toContain('#J2RGCRVG')
     expect(strip.textContent).toContain('2 clanmates on Drop')
     expect(buttonWithText(host, '.ed-board__clan button', 'Change')).toBeTruthy()
+  })
+
+  it('moves lifetime progression into a fourth XP scope with daily source totals', async () => {
+    accountStatus.value = 'authenticated'
+    player.value = {
+      id: 'p1',
+      publicName: 'Hog Parade Charge',
+      xp: 1_521,
+      totalGames: 108
+    } as never
+    localStorage.setItem(
+      'elixirdrop:session:v1',
+      JSON.stringify({ token: 'xp-session', expiresAt: new Date(Date.now() + 3_600_000).toISOString() })
+    )
+    vi.mocked(getXpTimeline).mockResolvedValue({
+      totalXp: 1_521,
+      attributedXp: 1_092,
+      openingBalance: 429,
+      timeZone: 'UTC',
+      days: [
+        {
+          date: new Date().toISOString().slice(0, 10),
+          xp: 40,
+          events: 3,
+          sources: [
+            { source: 'game', xp: 35, events: 2 },
+            { source: 'daily-featured', xp: 5, events: 1 }
+          ]
+        },
+        {
+          date: '2026-08-22',
+          xp: 181,
+          events: 9,
+          sources: [
+            { source: 'practice', xp: 138, events: 2 },
+            { source: 'badge', xp: 15, events: 3 },
+            { source: 'personal-best', xp: 10, events: 1 },
+            { source: 'game', xp: 18, events: 3 }
+          ]
+        }
+      ]
+    })
+
+    const host = await mount(<Leaderboards />)
+    await flush()
+
+    expect(host.querySelector('.ed-ladder__arena')).toBeNull()
+    expect(host.querySelectorAll('.ed-scoperow [role="tab"]')).toHaveLength(4)
+    await click(buttonWithText(host, '.ed-scoperow button', 'XP'))
+    await flush()
+
+    expect(getXpTimeline).toHaveBeenCalledWith('xp-session', expect.any(AbortSignal))
+    expect(host.querySelector('.ed-ladder__clock')).toBeNull()
+    expect(host.querySelector('.ed-board__mode-strip')).toBeNull()
+    expect(host.querySelector('.ed-board__key')).toBeNull()
+    expect(host.querySelector('.ed-xp__arena-name')?.textContent).toBe('Jungle Arena')
+    expect(host.querySelector('.ed-xp__total')?.textContent).toBe('1,521 XP')
+    expect(host.textContent).toContain('479 XP to Hog Mountain')
+    expect(host.textContent).toContain('+1,092 across 2 days')
+    expect(host.textContent).toContain('Games +35 · Featured game +5')
+    expect(host.textContent).toContain('Earlier XP carried into this history')
+    expect(host.textContent).toContain('429 XP')
+  })
+
+  it('gates the XP history without starting a private read when signed out', async () => {
+    const host = await mount(<Leaderboards />)
+    await flush()
+
+    await click(buttonWithText(host, '.ed-scoperow button', 'XP'))
+    await flush()
+
+    expect(getXpTimeline).not.toHaveBeenCalled()
+    expect(host.textContent).toContain('Ladder signed out')
+    expect(host.textContent).toContain('how every game and milestone built your Player XP')
   })
 
   it('renders the empty state and its Play link when a mode has no scores', async () => {

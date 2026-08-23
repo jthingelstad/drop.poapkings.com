@@ -23,7 +23,8 @@ import {
   sharedRunSchema,
   siteStatsSchema,
   startedRunSchema,
-  runReportResponseSchema
+  runReportResponseSchema,
+  xpTimelineResponseSchema
 } from './api-contracts'
 import { reportApiAvailable, reportApiUnavailable } from './api-availability'
 
@@ -325,6 +326,10 @@ export function getSeasonHistory(
   return apiRequest(`/me/seasons${query ? `?${query}` : ''}`, seasonHistoryResponseSchema, { sessionToken, signal })
 }
 
+export function getXpTimeline(sessionToken: string, signal?: AbortSignal) {
+  return apiRequest('/me/xp', xpTimelineResponseSchema, { sessionToken, signal })
+}
+
 export function patchMe(
   sessionToken: string,
   updates: {
@@ -550,3 +555,4 @@ export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
 export type { ActivityEntry, SharedInvite, SharedRun } from './api-contracts'
 export type { LeaderboardEntry, RecentRun, SeasonHistory, SeasonIndexEntry } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'
+export type { XpTimeline } from './api-contracts'

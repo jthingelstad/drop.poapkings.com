@@ -81,10 +81,14 @@ test('offline keeps the same nav and names the cause on the page it stays on', a
   await expect(page.locator('.ed-ladder')).toBeVisible()
   await expect(page.locator('.ed-cause')).toContainText('OFFLINE')
   await expect(page.getByRole('heading', { name: 'Offline mode is ready' })).toHaveCount(0)
-  // Absent server data goes quiet rather than erroring: the Boards scope explains
-  // it needs a connection, and the arena bar reads "Last known".
+  // Absent server data goes quiet rather than erroring: Boards explains it
+  // needs a connection. Permanent arena progress moved into XP, where the
+  // profile's last-known total remains visible and daily detail waits for the
+  // connection.
   await expect(page.getByText('Boards need a connection')).toBeVisible()
-  await expect(page.locator('.ed-ladder__arena--stale')).toContainText('Last known')
+  await page.getByRole('tab', { name: 'XP', exact: true }).click()
+  await expect(page.locator('.ed-xp--stale')).toContainText('Last known')
+  await expect(page.locator('.ed-xp--stale')).toContainText('Reconnect to load the daily detail')
 
   if (!isMobile) {
     await expect(page.locator('.ed-rail-live')).toHaveText('Offline — reconnect for recent runs.')

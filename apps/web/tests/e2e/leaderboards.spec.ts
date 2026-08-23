@@ -67,6 +67,20 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await page.locator('.ed-ladder__periods').getByRole('button', { name: 'Season 134' }).click()
   await expect(page.locator('.ed-period--active')).toHaveText('Season 134')
 
+  // XP is permanent player progression, so it owns the arena and the daily
+  // source ledger while the seasonal controls leave the page.
+  await page.getByRole('tab', { name: 'XP', exact: true }).click()
+  await expect(page.locator('.ed-ladder__clock')).toHaveCount(0)
+  await expect(page.locator('.ed-ladder__periods')).toHaveCount(0)
+  await expect(page.locator('.ed-board__mode-strip')).toHaveCount(0)
+  await expect(page.locator('.ed-xp__total')).toHaveText('480 XP')
+  await expect(page.locator('.ed-xp__history-head')).toContainText('+380 across 3 days')
+  await expect(page.locator('.ed-xp__day').first()).toContainText('Games +100 · Personal bests +10 · Badges +30')
+  await expect(page.locator('.ed-xp__opening')).toContainText('100 XP')
+  const xpScreenshot = testInfo.outputPath('xp-history.png')
+  await page.screenshot({ path: xpScreenshot, fullPage: true })
+  await testInfo.attach('xp-history.png', { path: xpScreenshot, contentType: 'image/png' })
+
   // Clan is a scope of its own; ranks are recalculated inside the signed-in
   // player's current CR clan. Its identity lives in a strip; the header never moves.
   await page.getByRole('tab', { name: 'Clan' }).click()

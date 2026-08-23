@@ -7,6 +7,7 @@ const repository = vi.hoisted(() => ({
   getProfile: vi.fn(),
   listRecentRuns: vi.fn(),
   listRunHistory: vi.fn(),
+  listXpAwardMarkers: vi.fn(),
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("../src/repository.js", () => ({
     getProfile = repository.getProfile;
     listRecentRuns = repository.listRecentRuns;
     listRunHistory = repository.listRunHistory;
+    listXpAwardMarkers = repository.listXpAwardMarkers;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
@@ -256,6 +258,82 @@ describe("GET /me recent runs", () => {
       },
     ]);
     expect(JSON.stringify(body.recentRuns)).not.toContain("private");
+  });
+});
+
+describe("GET /me/xp", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.getProfile.mockResolvedValue({
+      sub,
+      playerId: "player-1",
+      email: "player@example.com",
+      totalGames: 1,
+      xp: 120,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-08-23T12:00:00.000Z",
+    });
+  });
+
+  it("returns owner-only UTC day buckets and an explicit opening balance", async () => {
+    repository.listRunHistory.mockResolvedValue([
+      {
+        runId: "run-1",
+        mode: "surge",
+        score: 12_000,
+        seasonId: "2026-08",
+        completedAt: "2026-08-23T12:00:00.000Z",
+        xp: 20,
+        xpAwards: [
+          { source: "game", label: "Surge completion", amount: 15 },
+          {
+            source: "daily-featured",
+            label: "Daily featured game",
+            amount: 5,
+          },
+        ],
+      },
+    ]);
+    repository.listXpAwardMarkers.mockResolvedValue([
+      {
+        awardedAt: "2026-08-23T12:00:00.000Z",
+        award: {
+          source: "daily-featured",
+          label: "Daily featured game",
+          amount: 5,
+        },
+      },
+    ]);
+
+    const result = await handler(meEvent("/me/xp"), {} as never, () => {});
+    if (!result || typeof result === "string") throw new Error("no result");
+
+    expect(result.statusCode).toBe(200);
+    expect(repository.listRunHistory).toHaveBeenCalledWith(sub);
+    expect(repository.listXpAwardMarkers).toHaveBeenCalledWith(sub);
+    expect(JSON.parse(result.body ?? "{}")).toEqual({
+      totalXp: 120,
+      attributedXp: 20,
+      openingBalance: 100,
+      timeZone: "UTC",
+      days: [
+        {
+          date: "2026-08-23",
+          xp: 20,
+          events: 2,
+          sources: [
+            { source: "game", xp: 15, events: 1 },
+            { source: "daily-featured", xp: 5, events: 1 },
+          ],
+        },
+      ],
+    });
   });
 });
 

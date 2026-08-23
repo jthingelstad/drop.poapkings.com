@@ -75,6 +75,43 @@ export const testRecentRuns = [
     completedAt: '2026-07-16T20:00:00.000Z'
   }
 ] as const
+export const testXpTimeline = {
+  totalXp: 480,
+  attributedXp: 380,
+  openingBalance: 100,
+  timeZone: 'UTC' as const,
+  days: [
+    {
+      date: '2026-07-18',
+      xp: 140,
+      events: 5,
+      sources: [
+        { source: 'game' as const, xp: 100, events: 2 },
+        { source: 'personal-best' as const, xp: 10, events: 1 },
+        { source: 'badge' as const, xp: 30, events: 2 }
+      ]
+    },
+    {
+      date: '2026-07-17',
+      xp: 125,
+      events: 3,
+      sources: [
+        { source: 'game' as const, xp: 100, events: 1 },
+        { source: 'daily-featured' as const, xp: 5, events: 1 },
+        { source: 'badge' as const, xp: 20, events: 1 }
+      ]
+    },
+    {
+      date: '2026-07-16',
+      xp: 115,
+      events: 2,
+      sources: [
+        { source: 'practice' as const, xp: 15, events: 1 },
+        { source: 'season-circuit' as const, xp: 100, events: 1 }
+      ]
+    }
+  ]
+}
 export const testBadges = [
   {
     slug: 'clockbreaker',
@@ -687,6 +724,14 @@ export const test = base.extend({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify(seasonHistoryResponse(route.request().url()))
+        })
+        return
+      }
+      if (path === '/me/xp') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(testXpTimeline)
         })
         return
       }

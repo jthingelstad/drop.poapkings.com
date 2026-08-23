@@ -18,6 +18,7 @@ import {
   deleteMe,
   getMe,
   getMySeasons,
+  getMyXp,
   getPublicPlayer,
   patchMe,
 } from "./routes/me.js";
@@ -90,6 +91,7 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "GET" && path === "/me") return getMe(context);
   if (method === "GET" && path === "/me/seasons") return getMySeasons(context);
+  if (method === "GET" && path === "/me/xp") return getMyXp(context);
   if (method === "POST" && path === "/me/share")
     return createPublishedProfileShare(context);
   if (method === "PUT" && path === "/me/share")

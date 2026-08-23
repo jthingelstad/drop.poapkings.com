@@ -237,9 +237,9 @@ Each ranked mode has three boards, selected by the `scope` query param on
   conditional write resets when the stored GSI partition belongs to a retired
   epoch, otherwise only a better current-board sort key wins. A run that is not
   a new best is silently skipped, so the recorded run never rolls back. Because
-  there is one item per player, the read needs no dedup. The web Leaderboards
-  screen offers a Season / All-time / Clan toggle; the all-time view shows no
-  season-reset line.
+  there is one item per player, the read needs no dedup. The Ladder's Boards
+  scope offers current-season, prior-season, and All-time periods; the all-time
+  view shows no season-reset line. Clan is a separate Ladder scope.
 - **Clan** is an authenticated view of that same all-time partition, filtered
   by each Drop player's latest stored Clash Royale clan snapshot and reranked
   within the signed-in player's current clan. The bounded read may page beyond
@@ -370,6 +370,14 @@ Player XP and the per-player arena:
   list. Existing lifetime XP is the opening balance: no historical game,
   Practice, PB, featured, placement, or Circuit recalculation occurs; only
   earned badge rungs backfill.
+- **Owner history:** authenticated `GET /me/xp` walks the complete run range and
+  immutable `XP#...` marker range, counts run base awards and marker awards
+  exactly once, and returns compact UTC day buckets with per-source XP and event
+  counts. The pre-v2 retained total is returned separately as `openingBalance`.
+  The Ladder's fourth **XP** scope owns arena progress and this daily history;
+  Boards and Clan retain the season clock, while Badges and XP are permanent
+  player views. The endpoint never exposes DynamoDB marker keys or another
+  player's ledger.
 - The 28 arena tiers in `apps/web/src/data/starRanks.ts` are thresholded on
   lifetime XP (Goblin Stadium at 0 through Summit of Heroes at 68,000). Play
   shows the lifetime XP beside the signed-in avatar; the profile shows the full
@@ -545,7 +553,7 @@ again and restores the run's contributions, including archived forward-only
 badge facts. Pending holds do not revoke badges. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.
 
-Profile history has two deliberately different reads. `GET /me` keeps the
+Profile history has three deliberately different reads. `GET /me` keeps the
 20-row recent feed used across the app; `GET /me/seasons` walks the player's
 complete `RUN#` range and filters retired modes, but its **response is bounded**:
 `index` lists every season the player has runs in with a game count (one row
@@ -563,7 +571,8 @@ the run that actually holds the player's position for its mode — one leaderboa
 read per ranked mode played, so it is opt-in and never spans `season=all`. `mode` and `status` narrow further; `status`
 takes `pending`, `reviewed`, `excluded`, or `unreviewed` — the last of which is
 the absence of a decision, which is what most runs are. A recent-feed cap must
-never be used as a season total.
+never be used as a season total. `GET /me/xp` is the progression read described
+above: it returns daily aggregates rather than raw runs and markers.
 
 The bound is the point: players are into the hundreds of games, and the old
 read shipped every one of them to render a single month. The You page's single

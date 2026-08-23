@@ -163,6 +163,14 @@ export interface RunRecord {
   shareVisual?: RunShareVisual;
 }
 
+// One immutable non-run XP award retained under PLAYER#{sub}/XP#.... Practice's
+// rolling odd-card carry shares that prefix but has no award/awardedAt and is
+// deliberately filtered out by the repository read.
+export interface XpAwardMarker {
+  award: XpAward;
+  awardedAt: string;
+}
+
 export interface RunShareVisual {
   mode: Exclude<GameMode, "practice">;
   unit: string;

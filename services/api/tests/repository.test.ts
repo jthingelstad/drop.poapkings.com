@@ -274,6 +274,61 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
+  it("paginates immutable XP awards while ignoring Practice carry state", async () => {
+    const cursor = { pk: "PLAYER#private-sub", sk: "XP#cursor" };
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            award: {
+              source: "daily-featured",
+              label: "Daily featured game",
+              amount: 5,
+            },
+            awardedAt: "2026-08-23T01:00:00.000Z",
+          },
+          { cards: 9, carriedCards: 1, updatedAt: "2026-08-23T01:00:00.000Z" },
+        ],
+        LastEvaluatedKey: cursor,
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            award: { source: "badge", label: "Badge milestone", amount: 25 },
+            awardedAt: "2026-08-22T01:00:00.000Z",
+          },
+        ],
+      });
+
+    await expect(
+      new Repository("test-table").listXpAwardMarkers("private-sub"),
+    ).resolves.toEqual([
+      {
+        award: {
+          source: "daily-featured",
+          label: "Daily featured game",
+          amount: 5,
+        },
+        awardedAt: "2026-08-23T01:00:00.000Z",
+      },
+      {
+        award: { source: "badge", label: "Badge milestone", amount: 25 },
+        awardedAt: "2026-08-22T01:00:00.000Z",
+      },
+    ]);
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+      ExpressionAttributeValues: {
+        ":pk": "PLAYER#private-sub",
+        ":sk": "XP#",
+      },
+      ProjectionExpression: "award, awardedAt",
+      ConsistentRead: true,
+    });
+    expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual(cursor);
+  });
+
   it("writes the cleared rungs onto a run's history row, guarded by its existence", async () => {
     send.mockResolvedValueOnce({});
     await new Repository("test-table").setRunRungs(

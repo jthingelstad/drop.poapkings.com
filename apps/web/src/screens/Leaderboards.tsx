@@ -7,13 +7,20 @@ import ModeIcon from '../components/ModeIcon'
 import ScopeRow from '../components/ScopeRow'
 import GateCard from '../components/GateCard'
 import BadgeGrid from '../components/BadgeGrid'
+import XpTimelinePanel from '../components/XpTimeline'
 import EmptyState from '../components/EmptyState'
 import SkeletonRows from '../components/Skeleton'
 import ReviewStatusMark from '../components/ReviewStatus'
 import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
 import { badgeViews, earnedCount } from '../lib/badges'
-import { arenaProgress } from '../components/ArenaProgress'
-import { ApiError, getLeaderboard, type LeaderboardEntry, type LeaderboardScope } from '../lib/api'
+import {
+  ApiError,
+  getLeaderboard,
+  getXpTimeline,
+  type LeaderboardEntry,
+  type LeaderboardScope,
+  type XpTimeline
+} from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
 import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-metadata'
 import { navigate, route } from '../lib/router'
@@ -24,12 +31,12 @@ import CauseChip from '../components/CauseChip'
 import AccountTags from '../components/AccountTags'
 import { offline } from '../lib/api-availability'
 
-// The Ladder is one page with three scopes — Boards, Badges, Clan — under a
+// The Ladder is one page with four scopes — Boards, Badges, Clan, XP — under a
 // fixed header. The <h1>Ladder</h1> is emitted sr-only by App.tsx ROUTE_LABELS,
 // so the visible title is decorative; the header's height never changes between
 // scopes, which is what kept the rows from jumping.
 
-type UiScope = 'boards' | 'badges' | 'clan'
+type UiScope = 'boards' | 'badges' | 'clan' | 'xp'
 type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
 
 const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
@@ -41,7 +48,8 @@ const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
 }
 
 // The one line beside the title is the current season's close on Boards and
-// Clan. Badges omit it because the permanent collection needs no seasonal note.
+// Clan. Badges and XP omit it because permanent progression has no seasonal
+// close.
 function seasonEndLine(season: Season | null): string {
   if (!season) return '—'
   const date = new Date(season.endsAt).toLocaleDateString(undefined, {
@@ -147,6 +155,10 @@ export default function Leaderboards() {
   const clanGate = useSignal<ClanGate>(null)
   const loading = useSignal(true)
   const error = useSignal('')
+  const xpTimeline = useSignal<XpTimeline | null>(null)
+  const xpLoading = useSignal(false)
+  const xpError = useSignal('')
+  const xpReload = useSignal(0)
 
   const currentPlayer = player.value
   const currentAccountStatus = accountStatus.value
@@ -155,14 +167,16 @@ export default function Leaderboards() {
 
   const isClan = uiScope.value === 'clan'
   const isBadges = uiScope.value === 'badges'
+  const isXp = uiScope.value === 'xp'
   // Local capture so the effect can depend on connectivity (a module-level
   // signal is not a valid hook dependency); reading it here also subscribes the
   // component, so a reconnect re-renders and re-runs the fetch.
   const isOffline = offline.value
 
   useEffect(() => {
-    // Badges read the local badge signal, not the board API.
-    if (isBadges) {
+    // Badges read the local badge signal and XP has its own owner-only read;
+    // neither should keep the board request alive.
+    if (isBadges || isXp) {
       loading.value = false
       error.value = ''
       return
@@ -227,6 +241,7 @@ export default function Leaderboards() {
     period.value,
     isOffline,
     isBadges,
+    isXp,
     isClan,
     currentAccountStatus,
     currentPlayer,
@@ -241,6 +256,36 @@ export default function Leaderboards() {
     seasons
   ])
 
+  useEffect(() => {
+    if (!isXp) return
+    if (currentAccountStatus !== 'authenticated' || !currentPlayer || isOffline) {
+      xpLoading.value = false
+      xpError.value = ''
+      return
+    }
+    const token = sessionToken()
+    if (!token) {
+      xpLoading.value = false
+      xpError.value = 'Your session could not be loaded. Sign in again.'
+      return
+    }
+    const controller = new AbortController()
+    xpLoading.value = true
+    xpError.value = ''
+    void getXpTimeline(token, controller.signal)
+      .then((response) => {
+        xpTimeline.value = response
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof ApiError && reason.code === 'request_cancelled') return
+        xpError.value = reason instanceof Error ? reason.message : 'XP history could not be loaded.'
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) xpLoading.value = false
+      })
+    return () => controller.abort()
+  }, [isXp, isOffline, currentAccountStatus, currentPlayer, xpReload.value, xpTimeline, xpLoading, xpError])
+
   // Keep polling while a just-saved player tag resolves to a clan.
   useEffect(() => {
     if (!isClan || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
@@ -252,7 +297,6 @@ export default function Leaderboards() {
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
   const activePeriod = period.value === 'all-time' ? 'all-time' : period.value || season.value?.id || ''
-  const arena = currentPlayer ? arenaProgress(currentPlayer.xp ?? 0) : null
   const views = badgeViews(badges.value)
   const earnedBadges = earnedCount(views)
 
@@ -305,24 +349,8 @@ export default function Leaderboards() {
           <div class="ed-ladder__title" aria-hidden="true">
             Ladder
           </div>
-          {!isBadges && <div class="ed-ladder__clock">{seasonEndLine(season.value)}</div>}
+          {!isBadges && !isXp && <div class="ed-ladder__clock">{seasonEndLine(season.value)}</div>}
         </div>
-        {arena && (
-          <div class={`ed-ladder__arena${offline.value ? ' ed-ladder__arena--stale' : ''}`}>
-            <div class="ed-ladder__arena-row">
-              <span class="ed-ladder__arena-name">{arena.current.name}</span>
-              <span class="ed-ladder__arena-xp">{(currentPlayer?.xp ?? 0).toLocaleString()} XP</span>
-            </div>
-            <div class="ed-ladder__arena-bar">
-              <span class="ed-ladder__arena-fill" style={{ width: `${arena.fillPct}%` }} />
-            </div>
-            <div class="ed-ladder__arena-togo">
-              {offline.value ? 'Last known · updated when you reconnect' : arena.toGoLabel}
-              {' · '}
-              <a href="/xp/">XP rules</a>
-            </div>
-          </div>
-        )}
       </header>
 
       <ScopeRow
@@ -332,7 +360,8 @@ export default function Leaderboards() {
         options={[
           { key: 'boards', label: 'Boards' },
           { key: 'badges', label: 'Badges' },
-          { key: 'clan', label: 'Clan' }
+          { key: 'clan', label: 'Clan' },
+          { key: 'xp', label: 'XP' }
         ]}
       />
 
@@ -378,7 +407,7 @@ export default function Leaderboards() {
         </div>
       )}
 
-      {!isBadges && (
+      {!isBadges && !isXp && (
         <div class="ed-board__mode-strip">
           <div class="ed-board__modes" aria-label="Choose a game leaderboard">
             {RANKED_GAMES.map((game) => (
@@ -414,6 +443,52 @@ export default function Leaderboards() {
               primary={{ label: 'Sign in', href: '/login' }}
             >
               Sign in to track your badges across every game you play.
+            </GateCard>
+          )}
+        </section>
+      ) : isXp ? (
+        <section class="ed-ladder__xp" aria-label="Your XP history">
+          {currentAccountStatus === 'anonymous' ? (
+            <GateCard
+              mark={<Icon name="zap" />}
+              state="Ladder signed out"
+              primary={{ label: 'Sign in', href: '/login' }}
+            >
+              Sign in to see how every game and milestone built your Player XP.
+            </GateCard>
+          ) : currentAccountStatus === 'loading' ? (
+            <SkeletonRows count={4} className="ed-skeleton--board" />
+          ) : xpTimeline.value ? (
+            <XpTimelinePanel timeline={xpTimeline.value} stale={isOffline} />
+          ) : isOffline && currentPlayer ? (
+            <XpTimelinePanel
+              timeline={{
+                totalXp: currentPlayer.xp,
+                attributedXp: 0,
+                openingBalance: 0,
+                timeZone: 'UTC',
+                days: []
+              }}
+              stale
+              historyUnavailable
+            />
+          ) : isOffline ? (
+            <GateCard
+              mark={<Icon name="zap" />}
+              state="XP history needs a connection"
+              primary={{ label: 'Choose a game', href: '/' }}
+            >
+              Reconnect once to load your detailed XP history. Offline games never change saved XP.
+            </GateCard>
+          ) : xpLoading.value ? (
+            <SkeletonRows count={4} className="ed-skeleton--board" />
+          ) : (
+            <GateCard
+              mark={<Icon name="zap" />}
+              state="XP history unavailable"
+              primary={{ label: 'Try again', onAction: () => (xpReload.value += 1) }}
+            >
+              {xpError.value || 'Drop could not load your XP history.'}
             </GateCard>
           )}
         </section>
@@ -477,7 +552,7 @@ export default function Leaderboards() {
         </section>
       )}
 
-      {!isBadges && (
+      {!isBadges && !isXp && (
         <footer class="ed-board__key">
           <ReviewStatusMark status="reviewed" size={18} />
           <span>Cleared by a referee.</span>

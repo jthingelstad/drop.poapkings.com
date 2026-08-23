@@ -31,6 +31,7 @@ import type {
 import type { Repository } from "../repository.js";
 import { normalizePlayerTag } from "../validation.js";
 import { settleBadgeXp } from "../xp-awards.js";
+import { buildXpTimeline } from "../xp-timeline.js";
 import {
   bodyOf,
   clientIpHash,
@@ -256,6 +257,28 @@ export async function getMySeasons({
       }),
     })),
   });
+}
+
+// GET /me/xp — the owner's complete, daily XP ledger. The browser receives
+// compact UTC buckets rather than raw DynamoDB marker keys, and the retained
+// pre-v2 lifetime total remains an explicit opening balance.
+export async function getMyXp({ event, config, repository }: RouteContext) {
+  const session = sessionFor(event, config.sessionSecret, true);
+  const [runs, markers] = await Promise.all([
+    repository.listRunHistory(session.sub),
+    repository.listXpAwardMarkers(session.sub),
+  ]);
+  // Read the profile last so a completion or exact-once marker committed while
+  // the two range reads were running is absorbed into the opening balance, not
+  // exposed as a negative or impossible total.
+  const profile = await repository.getProfile(session.sub);
+  if (!profile)
+    throw new HttpError(
+      404,
+      "Player profile was not found.",
+      "profile_not_found",
+    );
+  return json(200, buildXpTimeline(profile.xp ?? 0, runs, markers));
 }
 
 // One board read per ranked mode the player actually played that season, and

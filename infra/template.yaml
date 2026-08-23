@@ -1375,6 +1375,13 @@ Resources:
       RouteKey: GET /me/seasons
       Target: !Sub integrations/${ApiIntegration}
 
+  MeXpRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /me/xp
+      Target: !Sub integrations/${ApiIntegration}
+
   MeShareRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:

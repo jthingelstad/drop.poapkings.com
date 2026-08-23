@@ -146,6 +146,38 @@ export const xpAwardSchema = z.object({
   amount: nonNegativeInteger
 })
 
+export const xpTimelineSourceSchema = z.enum([
+  'game',
+  'practice',
+  'legacy-run',
+  'personal-best',
+  'daily-featured',
+  'badge',
+  'season-placement',
+  'season-circuit'
+])
+
+export const xpTimelineResponseSchema = z.object({
+  totalXp: nonNegativeInteger,
+  attributedXp: nonNegativeInteger,
+  openingBalance: nonNegativeInteger,
+  timeZone: z.literal('UTC'),
+  days: z.array(
+    z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      xp: nonNegativeInteger,
+      events: nonNegativeInteger,
+      sources: z.array(
+        z.object({
+          source: xpTimelineSourceSchema,
+          xp: nonNegativeInteger,
+          events: nonNegativeInteger
+        })
+      )
+    })
+  )
+})
+
 export const recentRunSchema = z.object({
   runId: nonEmptyString,
   mode: gameModeSchema,
@@ -487,6 +519,8 @@ export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
 export type ActivityEntry = z.infer<typeof activityEntrySchema>
 export type SharedRun = z.infer<typeof sharedRunSchema>
 export type SharedInvite = z.infer<typeof sharedInviteSchema>
+export type XpTimelineSource = z.infer<typeof xpTimelineSourceSchema>
+export type XpTimeline = z.infer<typeof xpTimelineResponseSchema>
 export type PublishedRunPreview = z.infer<typeof publishedRunShareSchema.shape.preview>
 export type PublishedBadgePreview = z.infer<typeof publishedBadgeShareSchema.shape.preview>
 export type PublishedProfilePreview = z.infer<typeof publishedProfileShareSchema.shape.preview>
