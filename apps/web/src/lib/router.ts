@@ -40,17 +40,23 @@ export const route = signal<string>(initialRoute)
 // without relying on the history API (which we don't use).
 let previousRoute = '/'
 
+function resetRouteScroll(): void {
+  window.scrollTo({ top: 0 })
+  const routeScroller = document.querySelector<HTMLElement>('[data-route-scroll]')
+  if (routeScroller) routeScroller.scrollTop = 0
+}
+
 window.addEventListener('hashchange', () => {
   const nextRoute = parseHash()
   if (redirectStandaloneRoute(nextRoute)) return
   previousRoute = route.peek()
   route.value = nextRoute
-  window.scrollTo({ top: 0 })
+  resetRouteScroll()
 })
 
 export function navigate(to: string): void {
   if (parseHash() === to) {
-    window.scrollTo({ top: 0 })
+    resetRouteScroll()
     return
   }
   window.location.hash = to
@@ -62,7 +68,7 @@ export function navigate(to: string): void {
 export function replace(to: string): void {
   window.history.replaceState(null, '', `#${to}`)
   route.value = to
-  window.scrollTo({ top: 0 })
+  resetRouteScroll()
 }
 
 // Return to wherever we came from, defaulting to Home.

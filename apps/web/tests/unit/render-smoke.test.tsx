@@ -62,14 +62,21 @@ describe('SSR render smoke', () => {
     ['/offline', 'Offline'],
     ['/leaderboards', 'Ladder'],
     ['/settings', 'You'],
-    ['/app-info', 'App info'],
-    ['/login', 'Sign in']
+    ['/app-info', 'App info']
   ])('announces %s as its own screen title', async (path, label) => {
     route.value = path
     const html = await renderToStringAsync(<App />)
 
     expect(html).toContain(`<h1 class="sr-only">${label}</h1>`)
     expect(html).not.toContain('<h1 class="sr-only">Elixir Drop</h1>')
+  })
+
+  it('lets the sign-in screen own its visible page heading', async () => {
+    route.value = '/login'
+    const html = await renderToStringAsync(<App />)
+
+    expect(html).toContain('<h1>Sign In</h1>')
+    expect(html).not.toContain('<h1 class="sr-only">Sign in</h1>')
   })
 
   it('keeps the direct Practice route on mobile', async () => {

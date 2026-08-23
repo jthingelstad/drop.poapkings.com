@@ -62,7 +62,9 @@ export default function MobileShell({ children }: { children: ComponentChildren 
         <DesktopWallpaper />
         <div class={`ed-desktop${gaming ? ' ed-desktop--game' : ''}`}>
           {!gaming && <DesktopNav />}
-          <main class="ed-desktop__main">{children}</main>
+          <main class="ed-desktop__main" data-route-scroll>
+            {children}
+          </main>
           {!gaming && <DesktopAside />}
         </div>
         <KeyboardHelp />
@@ -73,7 +75,9 @@ export default function MobileShell({ children }: { children: ComponentChildren 
   return (
     <div class="ed-app">
       <div class={`ed-mobile${gaming ? ' ed-mobile--game' : ''}`}>
-        <main class={`ed-mobile__scroll${gaming ? ' ed-mobile__scroll--game' : ''}`}>{children}</main>
+        <main class={`ed-mobile__scroll${gaming ? ' ed-mobile__scroll--game' : ''}`} data-route-scroll>
+          {children}
+        </main>
         {!gaming && <PillNav activeIdx={activeNavIndex(r, items)} items={items} />}
       </div>
     </div>

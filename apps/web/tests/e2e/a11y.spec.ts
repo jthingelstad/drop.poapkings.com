@@ -13,6 +13,8 @@ const a11yRoutes = [
   { hash: '#/players/player-2', label: 'Public player', ready: '.ed-public-profile' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-you' },
   { hash: '#/settings', label: 'Settings', ready: '.ed-you' },
+  { hash: '#/login', label: 'Sign in', ready: '.account-card' },
+  { hash: '#/auth', label: 'Missing login link', ready: '.account-card' },
   // A shared link is the one route a stranger reaches first, with no account and
   // often no prior visit — so it has to pass the same bar as the app itself.
   { hash: '#/r/SHRBBB', label: 'Shared run', ready: '.ed-sharedrun' }
@@ -23,6 +25,7 @@ for (const route of a11yRoutes) {
     await page.goto('/')
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
     if (route.hash === '#/practice') {
       await expect(page.getByRole('main')).toHaveCount(1)
     }

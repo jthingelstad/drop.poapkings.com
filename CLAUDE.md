@@ -331,9 +331,11 @@ rank-oriented fields as part of unrelated work.
 - **`apps/web/src/lib/mode-insights.ts`** — mode-specific summary lines (Trade).
 - **Modes** in `apps/web/src/modes/`. The six shipped, routed modes are `surge`,
   `practice`, `higher-lower`, `trade`, `survival`, and `rain`. Practice is an
-  endless, unranked drill that touches no competitive or progression surface
-  (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI; zero
-  XP; no record key). See `GAMES.md` for mechanics, backlog, and retired modes.
+  endless, unranked drill that touches no competitive performance surface
+  (`ranked: false` at /runs/start; completeRun skips the leaderboard GSI and
+  personal-best record). Signed-in online Practice still awards one Player XP
+  per two resolved cards with a durable odd-card carry. See `GAMES.md` for
+  mechanics, backlog, and retired modes.
 - **Play opens on a full-bleed hero panel** (`9a`). The panel runs to the top of
   the screen and carries the `ELIXIR DROP` wordmark plus the player's XP and
   avatar across its top — the one place identity appears on Play, and a shortcut

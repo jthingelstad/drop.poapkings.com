@@ -61,6 +61,7 @@ export default function PublicProfile() {
   if (!current) {
     return (
       <div class="ed-profile ed-public-profile">
+        <h1 class="sr-only">Player profile</h1>
         <button class="ed-textlink ed-public-profile__back" onClick={() => back('/leaderboards')}>
           <Icon name="arrow-left" /> Back to leaderboards
         </button>

@@ -191,6 +191,10 @@ function screenTitle(r: string): string | null {
   return ROUTE_LABELS.find((x) => r.startsWith(x.match))?.label ?? 'Elixir Drop'
 }
 
+function screenOwnsPageHeading(r: string): boolean {
+  return r.startsWith('/login') || r.startsWith('/auth') || r.startsWith('/players/')
+}
+
 export default function App() {
   useEffect(() => {
     void initializeAccount()
@@ -297,7 +301,7 @@ export default function App() {
   // and the real HTML pages remain reachable from both shells.
   const content = (
     <>
-      {title && <h1 class="sr-only">{title}</h1>}
+      {!screenOwnsPageHeading(route.value) && <h1 class="sr-only">{title ?? 'Elixir Drop'}</h1>}
       <Screen r={route.value} />
     </>
   )

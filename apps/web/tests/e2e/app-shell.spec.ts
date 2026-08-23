@@ -93,3 +93,27 @@ test('treats an API outage as offline and recovers without a retry panel', { tag
   await expect(primaryNav).toContainText('Ladder')
   await expect(primaryNav).toContainText('You')
 })
+
+test('route changes reset the active shell scroll position', async ({ page }) => {
+  await page.goto('/#/leaderboards')
+
+  const routeScroller = page.locator('[data-route-scroll]')
+  await expect(routeScroller).toBeVisible()
+  const desktop = (await page.locator('.ed-desktop__main').count()) > 0
+  const scrollPosition = () =>
+    desktop ? routeScroller.evaluate((element) => element.scrollTop) : page.evaluate(() => window.scrollY)
+  if (desktop) {
+    await routeScroller.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+  } else {
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }))
+  }
+  await expect.poll(scrollPosition).toBeGreaterThan(0)
+
+  await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'You' }).click()
+
+  await expect(page).toHaveURL(/#\/profile$/)
+  await expect(page.getByRole('heading', { name: 'You' })).toBeVisible()
+  await expect.poll(scrollPosition).toBe(0)
+})

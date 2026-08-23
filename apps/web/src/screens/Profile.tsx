@@ -286,7 +286,7 @@ export default function Profile() {
 
         {step.value === 'card' && (
           <section class="ed-idsetup__step">
-            <h1 class="ed-idsetup__h">Choose your Player Card</h1>
+            <h2 class="ed-idsetup__h">Choose your Player Card</h2>
             <p class="ed-idsetup__sub">This card becomes your avatar and inspires your player name.</p>
             <input
               type="search"
@@ -332,7 +332,7 @@ export default function Profile() {
             <div class="ed-idsetup__chosen">
               <PlayerAvatar favoriteCardId={selectedCard?.id ?? current.favoriteCardId} size="large" />
               <div>
-                <h1 class="ed-idsetup__h">Pick your name</h1>
+                <h2 class="ed-idsetup__h">Pick your name</h2>
                 <p class="ed-idsetup__sub">{selectedCard ? `Inspired by ${selectedCard.name}.` : ''}</p>
               </div>
             </div>
@@ -367,7 +367,7 @@ export default function Profile() {
 
         {step.value === 'tag' && (
           <section class="ed-idsetup__step">
-            <h1 class="ed-idsetup__h">Add your Clash Royale tag</h1>
+            <h2 class="ed-idsetup__h">Add your Clash Royale tag</h2>
             <form class="ed-idsetup__tagform" onSubmit={saveTagAndFinish}>
               <input
                 id="clash-player-tag"

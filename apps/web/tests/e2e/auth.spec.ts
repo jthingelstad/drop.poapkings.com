@@ -179,6 +179,8 @@ test('new players choose a favorite card and generated name before returning to 
   await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
   // Identity setup (redesign) is three steps; it opens at step 1 (the card).
   await expect(page.getByText('Step 1 of 3')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'You' })).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 2, name: 'Choose your Player Card' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
   const primary = page.locator('.ed-idsetup__actions .ed-btn--gold')
   // CONTINUE is disabled until a card is chosen.
