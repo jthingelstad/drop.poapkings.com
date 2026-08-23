@@ -18,6 +18,7 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
+  getPublishedBadgeShare: vi.fn(),
   getPublishedRunShare: vi.fn(),
   getRun: vi.fn(),
   getShare: vi.fn(),
@@ -50,6 +51,7 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
+    getPublishedBadgeShare = repository.getPublishedBadgeShare;
     getPublishedRunShare = repository.getPublishedRunShare;
     getRun = repository.getRun;
     getShare = repository.getShare;
@@ -317,6 +319,38 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.getPublishedRunShare).toHaveBeenCalledWith(
       playerId,
       runId,
+    );
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      "new-player@example.com",
+      expect.any(Number),
+      expect.any(String),
+      "recruiter-sub",
+    );
+  });
+
+  it("carries a deterministic badge share into a new account's magic link", async () => {
+    const playerId = "11111111-1111-4111-8111-111111111111";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(undefined);
+    repository.getPublishedBadgeShare.mockResolvedValue({
+      playerId,
+      slug: "clockbreaker",
+      rungIndex: 3,
+      owner: "recruiter-sub",
+    });
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: "new-player@example.com",
+      recruiterShare: { playerId, badgeSlug: "clockbreaker", rungIndex: 3 },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(repository.getPublishedBadgeShare).toHaveBeenCalledWith(
+      playerId,
+      "clockbreaker",
+      3,
     );
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),

@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|run-reports|runs|shares|stats)(?:[/?]|$)/
+  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|run-reports|runs|shares|stats)(?:[/?]|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
   id: '2026-07',
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -373,6 +373,10 @@ export function testPublishedRunUrl(runId: string): string {
   return `http://127.0.0.1:5173/share/${playerReference(testPlayer.id).slice(1)}/${runReference(runId).slice(1)}`
 }
 
+export function testPublishedBadgeUrl(slug: string, rungIndex: number): string {
+  return `http://127.0.0.1:5173/share/${playerReference(testPlayer.id).slice(1)}/badge/${slug}/${rungIndex + 1}`
+}
+
 function testPublishedRunPreview(runId: string) {
   const score = runId === 'run-surge' ? '17.412s' : '67.299s'
   return {
@@ -414,6 +418,38 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
         runId,
         url: testPublishedRunUrl(runId),
         preview: testPublishedRunPreview(runId)
+      })
+    })
+    return true
+  }
+  const badgeShare = /^\/badges\/([^/]+)\/share$/.exec(path)
+  if (badgeShare && route.request().method() === 'PUT') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+    return true
+  }
+  if (badgeShare && route.request().method() === 'POST') {
+    const slug = decodeURIComponent(badgeShare[1] ?? '')
+    const { rungIndex } = route.request().postDataJSON() as { rungIndex: number }
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        playerId: testPlayer.id,
+        slug,
+        rungIndex,
+        url: testPublishedBadgeUrl(slug, rungIndex),
+        preview: {
+          playerName: testPlayer.publicName,
+          favoriteCardId: testPlayer.favoriteCardId,
+          slug,
+          name: 'Clockbreaker',
+          tier: 'copper',
+          chip: '35s',
+          rungIndex,
+          rungCount: 12,
+          hidden: false,
+          requirement: 'Fastest Surge run'
+        }
       })
     })
     return true

@@ -98,6 +98,64 @@ describe('api.ts request helpers', () => {
     expect(JSON.parse(init.body as string)).toEqual({ email: 'new@example.com', recruiterToken: 'AB2CD3' })
   })
 
+  it('passes a deterministic badge-share recruiter with the login request', async () => {
+    const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.' }))
+    const { requestLogin } = await import('../../src/lib/api')
+    const playerId = '11111111-1111-4111-8111-111111111111'
+
+    await requestLogin('new@example.com', undefined, { playerId, badgeSlug: 'clockbreaker', rungIndex: 3 })
+
+    const { init } = endpointCall(fetchMock)
+    expect(JSON.parse(init.body as string)).toEqual({
+      email: 'new@example.com',
+      recruiterShare: { playerId, badgeSlug: 'clockbreaker', rungIndex: 3 }
+    })
+  })
+
+  it('publishes an earned badge rung with the current session', async () => {
+    const playerId = '11111111-1111-4111-8111-111111111111'
+    const response = {
+      playerId,
+      slug: 'clockbreaker',
+      rungIndex: 3,
+      url: 'https://drop.example/share/P1111111111/badge/clockbreaker/4',
+      preview: {
+        playerName: 'Ace',
+        slug: 'clockbreaker',
+        name: 'Clockbreaker',
+        tier: 'copper',
+        chip: '35s',
+        rungIndex: 3,
+        rungCount: 12,
+        requirement: 'Fastest Surge run'
+      }
+    }
+    const fetchMock = stubFetch(json(response, 201))
+    const { publishBadgeShare } = await import('../../src/lib/api')
+
+    await expect(publishBadgeShare('clockbreaker', 3, 'session-token')).resolves.toEqual(response)
+
+    const { url, init, headers } = endpointCall(fetchMock)
+    expect(url).toBe(`${API_BASE}/badges/clockbreaker/share`)
+    expect(init.method).toBe('POST')
+    expect(headers.get('authorization')).toBe('Bearer session-token')
+    expect(JSON.parse(init.body as string)).toEqual({ rungIndex: 3 })
+  })
+
+  it('uploads a rendered badge preview to the earned rung', async () => {
+    const fetchMock = stubFetch(json({ ok: true }))
+    const { uploadBadgeShareImage } = await import('../../src/lib/api')
+
+    await expect(
+      uploadBadgeShareImage('clockbreaker', 3, new Blob(['png'], { type: 'image/png' }), 'session-token')
+    ).resolves.toEqual({ ok: true })
+
+    const { url, init } = endpointCall(fetchMock)
+    expect(url).toBe(`${API_BASE}/badges/clockbreaker/share`)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ rungIndex: 3, image: 'cG5n' })
+  })
+
   it('mints a profile invitation with the current session', async () => {
     const fetchMock = stubFetch(json({ token: 'AB2CD3' }))
     const { createInviteShareToken } = await import('../../src/lib/api')

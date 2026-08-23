@@ -1427,6 +1427,57 @@ describe("repository DynamoDB requests", () => {
     );
   });
 
+  it("sweeps a published badge and its public tag alias when deleting the account", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3 } })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#player-sub",
+            sk: "SHARE#BADGE#player-id#clockbreaker#3",
+            sharePlayerId: "player-id",
+            sharePlayerTag: "P1111111111",
+            shareBadgeSlug: "clockbreaker",
+            shareBadgeRungIndex: 3,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").deleteAccount("player-sub");
+
+    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
+    expect(batch).toEqual(
+      expect.arrayContaining([
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "PLAYER#player-sub",
+              sk: "SHARE#BADGE#player-id#clockbreaker#3",
+            },
+          },
+        },
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "SHARE#BADGE#player-id#clockbreaker#3",
+              sk: "SHARE",
+            },
+          },
+        },
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "SHARE#TAG#P1111111111#BADGE#clockbreaker#4",
+              sk: "SHARE",
+            },
+          },
+        },
+      ]),
+    );
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {

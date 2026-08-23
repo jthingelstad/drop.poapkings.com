@@ -12,12 +12,16 @@ interface StoredRecruiter {
   token?: string
   playerId?: string
   runId?: string
+  badgeSlug?: string
+  rungIndex?: number
   capturedAt: number
 }
 
-export type RecruiterAttribution = { token: string } | { playerId: string; runId: string }
+export type RecruiterAttribution =
+  { token: string } | { playerId: string; runId: string } | { playerId: string; badgeSlug: string; rungIndex: number }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const BADGE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export function rememberRecruiter(token: string, capturedAt = Date.now()): void {
   const normalized = token.toUpperCase()
@@ -32,12 +36,17 @@ export function rememberRecruiter(token: string, capturedAt = Date.now()): void 
 export function recruiterAttribution(now = Date.now()): RecruiterAttribution | undefined {
   try {
     const stored = JSON.parse(localStorage.getItem(RECRUITER_KEY) || 'null') as StoredRecruiter | null
+    const hasRun = Boolean(stored?.playerId && stored.runId)
+    const hasBadge = Boolean(stored?.playerId && stored.badgeSlug && stored.rungIndex !== undefined)
     if (
       !stored ||
-      (!stored.token && !(stored.playerId && stored.runId)) ||
+      (!stored.token && !hasRun && !hasBadge) ||
       (stored.token !== undefined && !TOKEN_PATTERN.test(stored.token)) ||
       (stored.playerId !== undefined && !UUID_PATTERN.test(stored.playerId)) ||
       (stored.runId !== undefined && !UUID_PATTERN.test(stored.runId)) ||
+      (stored.badgeSlug !== undefined && !BADGE_SLUG_PATTERN.test(stored.badgeSlug)) ||
+      (stored.rungIndex !== undefined &&
+        (!Number.isSafeInteger(stored.rungIndex) || stored.rungIndex < 0 || stored.rungIndex > 100)) ||
       !Number.isFinite(stored.capturedAt) ||
       stored.capturedAt > now ||
       now - stored.capturedAt > RECRUITER_MAX_AGE_MS
@@ -45,7 +54,9 @@ export function recruiterAttribution(now = Date.now()): RecruiterAttribution | u
       localStorage.removeItem(RECRUITER_KEY)
       return undefined
     }
-    return stored.token ? { token: stored.token } : { playerId: stored.playerId!, runId: stored.runId! }
+    if (stored.token) return { token: stored.token }
+    if (hasRun) return { playerId: stored.playerId!, runId: stored.runId! }
+    return { playerId: stored.playerId!, badgeSlug: stored.badgeSlug!, rungIndex: stored.rungIndex! }
   } catch {
     try {
       localStorage.removeItem(RECRUITER_KEY)

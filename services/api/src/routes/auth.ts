@@ -28,6 +28,7 @@ import {
   sha256,
 } from "./context.js";
 import { isPublishedRunReference } from "./published-shares.js";
+import { isPublishedBadgeReference } from "./published-badges.js";
 
 // POST /auth/request — mail a single-use magic link.
 export async function requestMagicLink({
@@ -70,22 +71,40 @@ export async function requestMagicLink({
     typeof body.recruiterShare === "object" && body.recruiterShare !== null
       ? (body.recruiterShare as Record<string, unknown>)
       : undefined;
+  const publishedRunRecruiter = isPublishedRunReference(
+    recruiterShare?.playerId,
+    recruiterShare?.runId,
+  )
+    ? {
+        playerId: recruiterShare.playerId,
+        runId: recruiterShare.runId as string,
+      }
+    : undefined;
+  const publishedBadgeRecruiter = isPublishedBadgeReference(
+    recruiterShare?.playerId,
+    recruiterShare?.badgeSlug,
+    recruiterShare?.rungIndex,
+  )
+    ? {
+        playerId: recruiterShare.playerId,
+        slug: recruiterShare.badgeSlug as string,
+        rungIndex: recruiterShare.rungIndex as number,
+      }
+    : undefined;
   if (
     isShareToken(recruiterToken) ||
-    isPublishedRunReference(recruiterShare?.playerId, recruiterShare?.runId)
+    publishedRunRecruiter ||
+    publishedBadgeRecruiter
   ) {
     try {
       const existingProfile = await repository.getProfile(sub);
       if (!existingProfile && isShareToken(recruiterToken)) {
         const share = await repository.getShare(recruiterToken);
         if (share && share.owner !== sub) recruiterSub = share.owner;
-      } else if (
-        !existingProfile &&
-        isPublishedRunReference(recruiterShare?.playerId, recruiterShare?.runId)
-      ) {
+      } else if (!existingProfile && publishedRunRecruiter) {
         const share = await repository.getPublishedRunShare(
-          recruiterShare.playerId,
-          recruiterShare.runId as string,
+          publishedRunRecruiter.playerId,
+          publishedRunRecruiter.runId,
         );
         const decision = share
           ? (await repository.refereeDecisions([share.runId])).get(share.runId)
@@ -96,6 +115,13 @@ export async function requestMagicLink({
           refereeReviewStatus(decision) !== "excluded"
         )
           recruiterSub = share.owner;
+      } else if (!existingProfile && publishedBadgeRecruiter) {
+        const share = await repository.getPublishedBadgeShare(
+          publishedBadgeRecruiter.playerId,
+          publishedBadgeRecruiter.slug,
+          publishedBadgeRecruiter.rungIndex,
+        );
+        if (share && share.owner !== sub) recruiterSub = share.owner;
       }
     } catch (error) {
       // Attribution is optional. A share read must never keep a player from

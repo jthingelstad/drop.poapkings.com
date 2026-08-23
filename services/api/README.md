@@ -57,7 +57,9 @@ first-Monday calendar instead of failing.
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
+- `POST /badges/{badgeSlug}/share`, `PUT /badges/{badgeSlug}/share`
 - `GET /share/{playerTag}/{runTag}`, `GET /share-assets/{playerTag}/{runTag}`, `POST /share/{playerTag}/{runTag}/open`
+- `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
@@ -151,6 +153,16 @@ PNG. `share-assets.ts` keeps it permanently in the dedicated private S3 bucket.
 `GET /share-assets/{playerTag}/{runTag}` serves the PNG and uses the polished
 generic preview while a legacy run has not yet been reshared into the new image version.
 
+An earned badge rung publishes through the parallel owner-only `POST
+/badges/{badgeSlug}/share` contract at
+`/share/{playerTag}/badge/{badgeSlug}/{rung}`. The public rung is one-based; UUIDs
+and the zero-based index stay internal. The endpoint independently verifies the
+earned timestamp in server-owned badge counters and freezes the public player,
+badge, tier, milestone, and rung facts. The browser renders and `PUT`s the same
+bounded 1200 × 630 run-style card, and the retained PNG lives under the private
+`badge-images/{playerId}/` prefix. Badge and run landings share the metadata,
+visible alt text, CTA, profile, font, and fan-content shell.
+
 Metadata and preview-image GET/HEAD requests do not count toward Herald. A real
 landing page runs `POST /share/{playerTag}/{runTag}/open`; its peppered HMAC
 dedupes a visitor without retaining the raw IP or full user-agent. The owner's
@@ -158,11 +170,13 @@ session earns nothing, credit caps at 25 per run, and counter failure never
 blocks the page. The landing also carries the public player/run pair as 30-day
 last-touch Recruiter attribution.
 
-`POST /shares` still mints a six-character Home or public-profile invitation
-token for badge and Home sharing. `GET /shares/{token}` also remains as the
+Badge landings carry deterministic 30-day Recruiter attribution but never
+advance Herald. `POST /shares` still mints a six-character Home or public-profile invitation
+token for Home sharing. `GET /shares/{token}` also remains as the
 compatibility resolver for previously issued run tokens. Invitation opens never
-advance Herald. Account deletion follows both token and published-run pointers,
-sweeps their visitor markers and snapshots, and deletes the player's S3 prefix.
+advance Herald, and previously issued badge invitations remain readable.
+Account deletion follows token, published-run, and published-badge pointers,
+sweeps their visitor markers and snapshots, and deletes both player S3 prefixes.
 
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse

@@ -1,44 +1,78 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const api = vi.hoisted(() => ({ createInviteShareToken: vi.fn() }))
-vi.mock('../../src/lib/api', () => ({ createInviteShareToken: api.createInviteShareToken }))
+const api = vi.hoisted(() => ({
+  publishBadgeShare: vi.fn(),
+  uploadBadgeShareImage: vi.fn()
+}))
+const card = vi.hoisted(() => ({ renderBadgeSharePreview: vi.fn() }))
+
+vi.mock('../../src/lib/api', () => api)
 vi.mock('../../src/lib/account', () => ({ sessionToken: () => 'test-session' }))
+vi.mock('../../src/lib/share-card', () => card)
 
-import { badgeSharePayload, shareBadge, type BadgeShareInput } from '../../src/lib/share-badge'
+import { shareBadge, type BadgeShareInput } from '../../src/lib/share-badge'
 
-const badge: BadgeShareInput = {
+const badge: BadgeShareInput = { slug: 'clockbreaker', rungIndex: 2 }
+const url = 'https://drop.poapkings.com/share/P11111111/badge/clockbreaker/3'
+const preview = {
+  playerName: 'Knight Main',
+  favoriteCardId: 26000000,
   slug: 'clockbreaker',
   name: 'Clockbreaker',
+  tier: 'copper' as const,
   chip: '35s',
-  tier: 'silver',
-  requirement: 'Fastest Surge run',
-  playerId: 'player/one',
-  playerName: 'Knight Main'
+  rungIndex: 2,
+  rungCount: 4,
+  hidden: false,
+  requirement: 'Fastest Surge run'
 }
 
 describe('badge sharing', () => {
-  it('identifies the player and earned rung and links to the public badge wall', () => {
-    const payload = badgeSharePayload(badge, 'https://drop.poapkings.com/#/s/AB2CD3')
-
-    expect(payload.title).toBe('Knight Main earned Clockbreaker | Elixir Drop')
-    expect(payload.text).toBe('Knight Main earned the Clockbreaker badge on Elixir Drop — 35s.')
-    expect(payload.url).toBe('https://drop.poapkings.com/#/s/AB2CD3')
-    expect(payload.copyText).toBe(`${payload.text}\n${payload.url}`)
-  })
-
-  it('mints a Recruiter invitation before opening the share sheet', async () => {
-    api.createInviteShareToken.mockResolvedValue({ token: 'AB2CD3' })
+  it('publishes and uploads the unfurl before sharing only its permanent URL', async () => {
+    const image = new Blob(['png'], { type: 'image/png' })
+    api.publishBadgeShare.mockResolvedValue({ playerId: 'player-one', url, preview })
+    card.renderBadgeSharePreview.mockResolvedValue(image)
+    api.uploadBadgeShareImage.mockResolvedValue({ ok: true })
     const share = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'share', { value: share, configurable: true })
 
-    await expect(shareBadge(badge, 'https://drop.poapkings.com/#/profile')).resolves.toBe('shared')
+    await expect(shareBadge(badge)).resolves.toBe('shared')
 
-    expect(api.createInviteShareToken).toHaveBeenCalledWith('player', 'test-session', 'player/one')
-    expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://drop.poapkings.com/#/s/AB2CD3' }))
+    expect(api.publishBadgeShare).toHaveBeenCalledWith('clockbreaker', 2, 'test-session')
+    expect(card.renderBadgeSharePreview).toHaveBeenCalledWith(preview)
+    expect(api.uploadBadgeShareImage).toHaveBeenCalledWith('clockbreaker', 2, image, 'test-session')
+    expect(share).toHaveBeenCalledWith({ url })
+  })
+
+  it('copies only the permanent URL when native sharing is unavailable', async () => {
+    const image = new Blob(['png'], { type: 'image/png' })
+    api.publishBadgeShare.mockResolvedValue({ playerId: 'player-one', url, preview })
+    card.renderBadgeSharePreview.mockResolvedValue(image)
+    api.uploadBadgeShareImage.mockResolvedValue({ ok: true })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    await expect(shareBadge(badge)).resolves.toBe('copied')
+
+    expect(writeText).toHaveBeenCalledWith(url)
+  })
+
+  it('does not share a link when the preview cannot be rendered', async () => {
+    api.publishBadgeShare.mockResolvedValue({ playerId: 'player-one', url, preview })
+    card.renderBadgeSharePreview.mockResolvedValue(null)
+    const share = vi.fn()
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+
+    await expect(shareBadge(badge)).resolves.toBe('unavailable')
+
+    expect(api.uploadBadgeShareImage).not.toHaveBeenCalled()
+    expect(share).not.toHaveBeenCalled()
   })
 })
 
 afterEach(() => {
   Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+  Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
   vi.clearAllMocks()
 })

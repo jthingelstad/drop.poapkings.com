@@ -516,11 +516,17 @@ void describe("deployment parameters", () => {
       "POST /run-reports",
       "POST /runs/{runId}/share",
       "PUT /runs/{runId}/share",
+      "POST /badges/{slug}/share",
+      "PUT /badges/{slug}/share",
       "GET /share/{playerTag}/{runTag}",
       "HEAD /share/{playerTag}/{runTag}",
       "GET /share-assets/{playerTag}/{runTag}",
       "HEAD /share-assets/{playerTag}/{runTag}",
       "POST /share/{playerTag}/{runTag}/open",
+      "GET /share/{playerTag}/badge/{slug}/{rung}",
+      "HEAD /share/{playerTag}/badge/{slug}/{rung}",
+      "GET /share-assets/{playerTag}/badge/{slug}/{rung}",
+      "HEAD /share-assets/{playerTag}/badge/{slug}/{rung}",
       "GET /shares/{token}",
       "GET /leaderboards",
       "GET /seasons",
@@ -632,7 +638,7 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /s3:DeleteObject/);
   });
 
-  void it("keeps permanent run previews private and grants only their object prefix", () => {
+  void it("keeps permanent share previews private and grants only their object prefixes", () => {
     const bucket = template.match(
       /  ShareAssetBucket:[\s\S]*?\n  WebOriginAccessControl:/,
     )?.[0];
@@ -656,7 +662,9 @@ void describe("deployment parameters", () => {
     assert.match(apiRole, /s3:PutObject/);
     assert.match(apiRole, /s3:DeleteObject/);
     assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/run-images\/\*/);
-    assert.match(apiRole, /s3:prefix: run-images\/\*/);
+    assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/badge-images\/\*/);
+    assert.match(apiRole, /s3:prefix:\s+- run-images\/\*/);
+    assert.match(apiRole, /s3:prefix:\s+[\s\S]*- badge-images\/\*/);
 
     const executionBridge = template.match(
       /  CloudFormationShareAssetPolicy:[\s\S]*?\n  ApiLogGroup:/,

@@ -989,6 +989,21 @@ export function badgeTier(rungIndex: number, rungCount: number): BadgeTier {
   return "gold";
 }
 
+// The milestone label is public contract data: profile sheets, share previews,
+// and unfurl metadata must describe the same rung with the same compact text.
+export function formatBadgeRungValue(
+  value: number,
+  unit?: BadgeDefinition["unit"],
+): string {
+  if (unit === "seconds")
+    return `${value % 1 === 0 ? value : value.toFixed(1)}s`;
+  if (value >= 1_000) {
+    const thousands = value / 1_000;
+    return `${thousands % 1 === 0 ? thousands : thousands.toFixed(1)}K`;
+  }
+  return String(Math.round(value));
+}
+
 export const BADGE_TIER_XP = {
   copper: 5,
   silver: 10,

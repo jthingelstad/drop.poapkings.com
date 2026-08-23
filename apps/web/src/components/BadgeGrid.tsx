@@ -98,20 +98,16 @@ export function BadgeSheet({
   const [sharing, setSharing] = useState(false)
   const [outcome, setOutcome] = useState<RunShareOutcome | null>(null)
   const resetTimer = useRef<number | undefined>(undefined)
+  const ownsBadge = Boolean(playerId && playerName && player.value?.id === playerId)
   useEffect(() => () => window.clearTimeout(resetTimer.current), [])
 
   async function share() {
-    if (!playerId || !playerName || sharing) return
+    if (!ownsBadge || sharing) return
     setSharing(true)
     setOutcome(null)
     const result = await shareBadge({
       slug: badge.slug,
-      name: badge.name,
-      chip: badge.chip,
-      tier: badge.tier,
-      requirement: definition.requirement,
-      playerId,
-      playerName
+      rungIndex: badge.rungIndex
     })
     setSharing(false)
     setOutcome(result === 'cancelled' ? null : result)
@@ -142,7 +138,7 @@ export function BadgeSheet({
       ) : (
         <>
           {definition.requirement && <span class="ed-badges__sheet-req">{definition.requirement}</span>}
-          {badge.earned && playerId && playerName && player.value && (
+          {badge.earned && ownsBadge && (
             <div class="ed-badges__share">
               <button class="ed-btn ed-btn--ghost ed-badges__share-btn" disabled={sharing} onClick={() => void share()}>
                 <Icon name={outcome === 'shared' || outcome === 'copied' ? 'check' : 'share'} />

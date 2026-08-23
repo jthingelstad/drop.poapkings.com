@@ -1,5 +1,4 @@
 import type { GameMode } from '@elixir-drop/contracts'
-import { canShareImage } from './share-card'
 
 export type ShareableGameMode = Exclude<GameMode, 'practice'>
 
@@ -46,34 +45,6 @@ export function dropSharePayload(url: string): RunSharePayload {
 
 export function shareDrop(url: string): Promise<RunShareOutcome> {
   return shareRun(dropSharePayload(url))
-}
-
-// Common image-share upgrade used by score cards and badge cards. The caller
-// only owns rendering; capability checks, cancellation, and the text/clipboard
-// fallback stay identical on every share surface.
-export async function shareImage(
-  payload: RunSharePayload,
-  render: () => Promise<Blob | null>,
-  filename: string
-): Promise<RunShareOutcome> {
-  if (!canShareImage()) return shareRun(payload)
-  let file: File
-  try {
-    const blob = await render()
-    if (!blob) return shareRun(payload)
-    file = new File([blob], filename, { type: 'image/png' })
-    if (!navigator.canShare?.({ files: [file] })) return shareRun(payload)
-  } catch {
-    return shareRun(payload)
-  }
-  try {
-    await navigator.share({ title: payload.title, text: payload.text, url: payload.url, files: [file] })
-    return 'shared'
-  } catch (error) {
-    if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError')
-      return 'cancelled'
-    return shareRun(payload)
-  }
 }
 
 export async function shareRun(payload: RunSharePayload): Promise<RunShareOutcome> {

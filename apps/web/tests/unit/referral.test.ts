@@ -37,4 +37,15 @@ describe('shared-link recruitment attribution', () => {
     expect(recruiterAttribution(2_000)).toEqual({ playerId, runId })
     expect(recruiterToken(2_000)).toBeUndefined()
   })
+
+  it('reads the player/badge/rung attribution captured by a clean badge landing', () => {
+    const playerId = '11111111-1111-4111-8111-111111111111'
+    localStorage.setItem(
+      'elixirdrop:recruiter:v1',
+      JSON.stringify({ playerId, badgeSlug: 'clockbreaker', rungIndex: 3, capturedAt: 1_000 })
+    )
+
+    expect(recruiterAttribution(2_000)).toEqual({ playerId, badgeSlug: 'clockbreaker', rungIndex: 3 })
+    expect(recruiterToken(2_000)).toBeUndefined()
+  })
 })

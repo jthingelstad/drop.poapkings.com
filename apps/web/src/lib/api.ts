@@ -12,8 +12,10 @@ import {
   nameOptionsResponseSchema,
   playerResponseSchema,
   publicPlayerResponseSchema,
+  publishedBadgeShareSchema,
   publishedRunShareSchema,
   runShareImageUploadResponseSchema,
+  shareImageUploadResponseSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
   sharedInviteSchema,
@@ -244,7 +246,11 @@ export async function apiRequest<T>(
 export function requestLogin(
   email: string,
   returnTo?: string,
-  recruiter?: string | { token: string } | { playerId: string; runId: string }
+  recruiter?:
+    | string
+    | { token: string }
+    | { playerId: string; runId: string }
+    | { playerId: string; badgeSlug: string; rungIndex: number }
 ) {
   return apiRequest('/auth/request', loginRequestResponseSchema, {
     method: 'POST',
@@ -488,6 +494,25 @@ export async function uploadRunShareImage(runId: string, completedAt: string, im
     method: 'PUT',
     sessionToken,
     body: JSON.stringify({ completedAt, image: await imageBase64(image) }),
+    retry: false,
+    timeoutMs: 15_000
+  })
+}
+
+export function publishBadgeShare(slug: string, rungIndex: number, sessionToken: string) {
+  return apiRequest(`/badges/${encodeURIComponent(slug)}/share`, publishedBadgeShareSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify({ rungIndex }),
+    retry: false
+  })
+}
+
+export async function uploadBadgeShareImage(slug: string, rungIndex: number, image: Blob, sessionToken: string) {
+  return apiRequest(`/badges/${encodeURIComponent(slug)}/share`, shareImageUploadResponseSchema, {
+    method: 'PUT',
+    sessionToken,
+    body: JSON.stringify({ rungIndex, image: await imageBase64(image) }),
     retry: false,
     timeoutMs: 15_000
   })

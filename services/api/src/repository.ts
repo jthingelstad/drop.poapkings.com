@@ -14,6 +14,7 @@ import {
   practiceXpForCards,
   runReference,
   XP_RULES_VERSION,
+  type BadgeTier,
   type XpAward,
 } from "@elixir-drop/contracts";
 import { createHash, randomUUID } from "node:crypto";
@@ -302,6 +303,34 @@ export interface PublishedRunShareItem {
   >;
   visual?: RunShareVisual;
   opens?: number;
+}
+
+// One permanent public snapshot for one earned badge rung. The canonical item
+// remains UUID-keyed for ownership/deletion; its alias is the player-tag URL.
+export interface PublishedBadgeShareItem {
+  pk: string; // SHARE#BADGE#{playerId}#{slug}#{rungIndex}, or SHARE#TAG alias
+  sk: "SHARE";
+  kind: "published-badge";
+  owner: string;
+  playerId: string;
+  playerTag?: string;
+  slug: string;
+  rungIndex: number;
+  publishedAt: string;
+  player: Pick<
+    PublicProfile,
+    "id" | "publicName" | "favoriteCardId" | "xp" | "totalGames"
+  >;
+  badge: {
+    name: string;
+    tier: BadgeTier;
+    chip: string;
+    milestone: number;
+    rungCount: number;
+    earnedAt: string;
+    hidden?: boolean;
+    requirement?: string;
+  };
 }
 
 export interface InviteShareItem extends ShareItemBase {
@@ -821,6 +850,24 @@ export class Repository {
             keys.set(`${aliasKey.pk}\0${aliasKey.sk}`, aliasKey);
           }
         }
+        if (
+          typeof item.sharePlayerId === "string" &&
+          typeof item.shareBadgeSlug === "string" &&
+          typeof item.shareBadgeRungIndex === "number"
+        ) {
+          const canonicalKey = {
+            pk: `SHARE#BADGE#${item.sharePlayerId}#${item.shareBadgeSlug}#${item.shareBadgeRungIndex}`,
+            sk: "SHARE",
+          };
+          keys.set(`${canonicalKey.pk}\0${canonicalKey.sk}`, canonicalKey);
+          if (typeof item.sharePlayerTag === "string") {
+            const aliasKey = {
+              pk: `SHARE#TAG#${item.sharePlayerTag}#BADGE#${item.shareBadgeSlug}#${item.shareBadgeRungIndex + 1}`,
+              sk: "SHARE",
+            };
+            keys.set(`${aliasKey.pk}\0${aliasKey.sk}`, aliasKey);
+          }
+        }
       }
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
@@ -1319,6 +1366,103 @@ export class Repository {
                   sharePlayerTag: playerTag,
                   shareRunTag: runTag,
                   runId: item.runId,
+                  publishedAt: item.publishedAt,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "TransactionCanceledException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  async getPublishedBadgeShare(
+    playerId: string,
+    slug: string,
+    rungIndex: number,
+  ): Promise<PublishedBadgeShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          pk: `SHARE#BADGE#${playerId}#${slug}#${rungIndex}`,
+          sk: "SHARE",
+        },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedBadgeShareItem | undefined;
+  }
+
+  async getPublishedBadgeShareByTag(
+    playerTag: string,
+    slug: string,
+    rungNumber: number,
+  ): Promise<PublishedBadgeShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          pk: `SHARE#TAG#${playerTag}#BADGE#${slug}#${rungNumber}`,
+          sk: "SHARE",
+        },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedBadgeShareItem | undefined;
+  }
+
+  async putPublishedBadgeShare(
+    item: PublishedBadgeShareItem,
+  ): Promise<boolean> {
+    const playerTag = item.playerTag ?? playerReference(item.playerId).slice(1);
+    const taggedItem = { ...item, playerTag };
+    const rungNumber = item.rungIndex + 1;
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: taggedItem,
+                ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  ...taggedItem,
+                  pk: `SHARE#TAG#${playerTag}#BADGE#${item.slug}#${rungNumber}`,
+                },
+                ConditionExpression:
+                  "attribute_not_exists(pk) OR (playerId = :playerId AND slug = :slug AND rungIndex = :rungIndex)",
+                ExpressionAttributeValues: {
+                  ":playerId": item.playerId,
+                  ":slug": item.slug,
+                  ":rungIndex": item.rungIndex,
+                },
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  pk: `PLAYER#${item.owner}`,
+                  sk: `SHARE#BADGE#${item.playerId}#${item.slug}#${item.rungIndex}`,
+                  sharePlayerId: item.playerId,
+                  sharePlayerTag: playerTag,
+                  shareBadgeSlug: item.slug,
+                  shareBadgeRungIndex: item.rungIndex,
                   publishedAt: item.publishedAt,
                 },
               },

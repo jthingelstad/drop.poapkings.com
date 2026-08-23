@@ -1,4 +1,10 @@
-import { BADGE_LIST, badgeTier, type BadgeDefinition, type BadgeTier } from '@elixir-drop/contracts'
+import {
+  BADGE_LIST,
+  badgeTier,
+  formatBadgeRungValue,
+  type BadgeDefinition,
+  type BadgeTier
+} from '@elixir-drop/contracts'
 import type { z } from 'zod'
 import type { badgeStateSchema } from './api-contracts'
 
@@ -33,15 +39,7 @@ export interface BadgeView {
 // 2,500 -> "2.5K". Rungs run to five figures, and a medallion chip has room for
 // about four characters.
 export function formatRungValue(value: number, unit: BadgeDefinition['unit']): string {
-  if (unit === 'seconds') {
-    // Times are compared to the second; a stored best is fractional.
-    return `${value % 1 === 0 ? value : value.toFixed(1)}s`
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000
-    return `${thousands % 1 === 0 ? thousands : thousands.toFixed(1)}K`
-  }
-  return String(Math.round(value))
+  return formatBadgeRungValue(value, unit)
 }
 
 function progressToward(definition: BadgeDefinition, value: number, rungIndex: number): number {

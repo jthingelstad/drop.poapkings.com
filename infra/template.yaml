@@ -350,11 +350,19 @@ Resources:
                   - s3:DeleteObject
                 Resource: !Sub ${ShareAssetBucket.Arn}/run-images/*
               - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${ShareAssetBucket.Arn}/badge-images/*
+              - Effect: Allow
                 Action: s3:ListBucket
                 Resource: !GetAtt ShareAssetBucket.Arn
                 Condition:
                   StringLike:
-                    s3:prefix: run-images/*
+                    s3:prefix:
+                      - run-images/*
+                      - badge-images/*
 
   MailCanaryRole:
     Type: AWS::IAM::Role
@@ -1423,6 +1431,20 @@ Resources:
       RouteKey: PUT /runs/{runId}/share
       Target: !Sub integrations/${ApiIntegration}
 
+  BadgeShareRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /badges/{slug}/share
+      Target: !Sub integrations/${ApiIntegration}
+
+  BadgeShareUploadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /badges/{slug}/share
+      Target: !Sub integrations/${ApiIntegration}
+
   PublishedRunSharePageRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -1458,6 +1480,36 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: POST /share/{playerTag}/{runTag}/open
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedBadgeSharePageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share/{playerTag}/badge/{slug}/{rung}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedBadgeSharePageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share/{playerTag}/badge/{slug}/{rung}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedBadgeShareImageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share-assets/{playerTag}/badge/{slug}/{rung}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedBadgeShareImageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share-assets/{playerTag}/badge/{slug}/{rung}
       Target: !Sub integrations/${ApiIntegration}
 
   ShareRoute:

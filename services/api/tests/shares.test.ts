@@ -12,6 +12,7 @@ const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   getRun: vi.fn(),
   getProfile: vi.fn(),
+  getBadges: vi.fn(),
   putShare: vi.fn(),
   getShare: vi.fn(),
   getPublicPlayer: vi.fn(),
@@ -26,12 +27,17 @@ const repository = vi.hoisted(() => ({
   putPublishedRunShareAlias: vi.fn(),
   creditPublishedRunOpen: vi.fn(),
   addHeraldOpens: vi.fn(),
+  getPublishedBadgeShare: vi.fn(),
+  getPublishedBadgeShareByTag: vi.fn(),
+  putPublishedBadgeShare: vi.fn(),
 }));
 
 const shareAssets = vi.hoisted(() => ({
   put: vi.fn(),
   get: vi.fn(),
   remove: vi.fn(),
+  putBadge: vi.fn(),
+  getBadge: vi.fn(),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -39,6 +45,7 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
     getRun = repository.getRun;
     getProfile = repository.getProfile;
+    getBadges = repository.getBadges;
     putShare = repository.putShare;
     getShare = repository.getShare;
     getPublicPlayer = repository.getPublicPlayer;
@@ -53,6 +60,9 @@ vi.mock("../src/repository.js", () => ({
     putPublishedRunShareAlias = repository.putPublishedRunShareAlias;
     creditPublishedRunOpen = repository.creditPublishedRunOpen;
     addHeraldOpens = repository.addHeraldOpens;
+    getPublishedBadgeShare = repository.getPublishedBadgeShare;
+    getPublishedBadgeShareByTag = repository.getPublishedBadgeShareByTag;
+    putPublishedBadgeShare = repository.putPublishedBadgeShare;
   },
 }));
 
@@ -60,6 +70,8 @@ vi.mock("../src/share-assets.js", () => ({
   putRunShareImage: shareAssets.put,
   getRunShareImage: shareAssets.get,
   deleteRunShareImage: shareAssets.remove,
+  putBadgeShareImage: shareAssets.putBadge,
+  getBadgeShareImage: shareAssets.getBadge,
 }));
 
 import { handler } from "../src/handler.js";
@@ -428,6 +440,191 @@ function previewPng(width = 1_200, height = 630): Buffer {
   png.writeUInt32BE(height, 20);
   return png;
 }
+
+describe("published badge link", () => {
+  const slug = "clockbreaker";
+  const rungIndex = 3;
+  const badgeUrl = `https://drop.example/share/${playerTag}/badge/${slug}/4`;
+  const publishedBadge = {
+    pk: `SHARE#BADGE#${playerId}#${slug}#${rungIndex}`,
+    sk: "SHARE" as const,
+    kind: "published-badge" as const,
+    owner: "player-sub",
+    playerId,
+    playerTag,
+    slug,
+    rungIndex,
+    publishedAt: "2026-08-23T06:00:00.000Z",
+    player: {
+      id: playerId,
+      publicName: "Drop King",
+      favoriteCardId: 26000000,
+      totalGames: 40,
+      xp: 900,
+    },
+    badge: {
+      name: "Clockbreaker",
+      tier: "copper" as const,
+      chip: "35s",
+      milestone: 35,
+      rungCount: 12,
+      earnedAt: "2026-08-19T12:00:00.000Z",
+      requirement: "Fastest Surge run",
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId,
+      publicName: "Drop King",
+      favoriteCardId: 26000000,
+      totalGames: 40,
+      xp: 900,
+    });
+    repository.getBadges.mockResolvedValue({
+      version: 8,
+      values: { clockbreaker: 34.2 },
+      runsAtRung: { clockbreaker: [12, 9, 5, 2] },
+      aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
+      earned: {
+        clockbreaker: [
+          "2026-08-10T12:00:00.000Z",
+          "2026-08-12T12:00:00.000Z",
+          "2026-08-15T12:00:00.000Z",
+          "2026-08-19T12:00:00.000Z",
+        ],
+      },
+    });
+    repository.getPublishedBadgeShare.mockResolvedValue(undefined);
+    repository.putPublishedBadgeShare.mockResolvedValue(true);
+    repository.getPublishedBadgeShareByTag.mockResolvedValue(publishedBadge);
+    shareAssets.putBadge.mockResolvedValue(undefined);
+    shareAssets.getBadge.mockResolvedValue(Buffer.from("png"));
+  });
+
+  it("freezes an earned rung at its permanent player-tag address", async () => {
+    const response = await call(
+      event("POST", `/badges/${slug}/share`, {
+        sub: "player-sub",
+        body: { rungIndex },
+      }),
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
+      playerId,
+      slug,
+      rungIndex,
+      url: badgeUrl,
+      preview: {
+        playerName: "Drop King",
+        favoriteCardId: 26000000,
+        name: "Clockbreaker",
+        tier: "copper",
+        chip: "35s",
+        rungIndex,
+        rungCount: 12,
+        requirement: "Fastest Surge run",
+      },
+    });
+    expect(repository.putPublishedBadgeShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerId,
+        playerTag,
+        slug,
+        rungIndex,
+        badge: expect.objectContaining({ chip: "35s", tier: "copper" }),
+      }),
+    );
+  });
+
+  it("does not publish a rung the player has not earned", async () => {
+    const response = await call(
+      event("POST", `/badges/${slug}/share`, {
+        sub: "player-sub",
+        body: { rungIndex: 4 },
+      }),
+    );
+
+    expect(response.statusCode).toBe(404);
+    expect(repository.putPublishedBadgeShare).not.toHaveBeenCalled();
+  });
+
+  it("accepts the owner's exact 1200 by 630 PNG", async () => {
+    const image = previewPng();
+    repository.getPublishedBadgeShare.mockResolvedValue(publishedBadge);
+
+    const response = await call(
+      event("PUT", `/badges/${slug}/share`, {
+        sub: "player-sub",
+        body: { rungIndex, image: image.toString("base64") },
+      }),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(shareAssets.putBadge).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      slug,
+      rungIndex,
+      image,
+    );
+  });
+
+  it("serves complete unfurl metadata and visible image alt text", async () => {
+    const response = await call(
+      event("GET", `/share/${playerTag}/badge/${slug}/4`),
+    );
+    const alt =
+      "Drop King earned the Clockbreaker badge at the 35s milestone, rung 4 of 12. The milestone recognizes fastest surge run.";
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain(
+      `<link rel="canonical" href="${badgeUrl}">`,
+    );
+    expect(response.body).toContain(
+      `property="og:image" content="https://drop.example/share-assets/${playerTag}/badge/${slug}/4"`,
+    );
+    expect(response.body).toContain(`property="og:image:alt" content="${alt}"`);
+    expect(response.body).toContain(
+      `name="twitter:image:alt" content="${alt}"`,
+    );
+    expect(response.body).toContain(`alt="${alt}"`);
+    expect(response.body).toContain("EARN YOURS");
+    expect(response.body).toContain("/assets/share/badge-open.js");
+  });
+
+  it("serves the retained PNG and redirects a missing one to the default", async () => {
+    const path = `/share-assets/${playerTag}/badge/${slug}/4`;
+    const response = await call(event("GET", path));
+    expect(response.statusCode).toBe(200);
+    expect(response.headers?.["content-type"]).toBe("image/png");
+    expect(response.isBase64Encoded).toBe(true);
+    expect(shareAssets.getBadge).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      slug,
+      rungIndex,
+    );
+
+    shareAssets.getBadge.mockResolvedValue(undefined);
+    const missing = await call(event("GET", path));
+    expect(missing.statusCode).toBe(302);
+    expect(missing.headers?.location).toBe(
+      "https://drop.example/assets/share/og-default.png",
+    );
+  });
+});
 
 describe("PUT /runs/{runId}/share", () => {
   const published = {

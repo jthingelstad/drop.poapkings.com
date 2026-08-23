@@ -37,12 +37,7 @@ export default function BadgeCelebration() {
     setSharing(true)
     const outcome = await shareBadge({
       slug: view.slug,
-      name: view.name,
-      chip: view.chip,
-      tier: view.tier,
-      requirement: view.definition.requirement,
-      playerId: current.id,
-      playerName: current.publicName
+      rungIndex: view.rungIndex
     })
     setSharing(false)
     if (outcome === 'shared' || outcome === 'copied') track('badge.shared')

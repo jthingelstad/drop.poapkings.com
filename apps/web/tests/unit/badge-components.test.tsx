@@ -262,20 +262,14 @@ describe('BadgeGrid', () => {
       <BadgeGrid
         states={[badgeState('clockbreaker', 34.2, 3)]}
         earnedOnly
-        playerId="player/one"
+        playerId="signed-in-player"
         playerName="Knight Main"
       />
     )
     await click(buttonNamed('Clockbreaker, 35s'))
 
     await click(buttonNamed('Share badge'))
-    expect(shareMock.shareBadge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        slug: 'clockbreaker',
-        playerId: 'player/one',
-        playerName: 'Knight Main'
-      })
-    )
+    expect(shareMock.shareBadge).toHaveBeenCalledWith({ slug: 'clockbreaker', rungIndex: 3 })
     expect(host.querySelector('.ed-badges__share-status')?.textContent).toBe(status)
     expect(analyticsMock.track).toHaveBeenCalledTimes(tracked ? 1 : 0)
 
@@ -295,7 +289,14 @@ describe('BadgeGrid', () => {
         finishShare = resolve
       })
     )
-    draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" playerName="Knight Main" />)
+    draw(
+      <BadgeGrid
+        states={[badgeState('reps', 100, 0)]}
+        earnedOnly
+        playerId="signed-in-player"
+        playerName="Knight Main"
+      />
+    )
     await click(buttonNamed('Reps, 100'))
 
     const share = buttonNamed('Share badge')
@@ -322,6 +323,14 @@ describe('BadgeGrid', () => {
   it('does not offer an uncredited badge share to a signed-out visitor', async () => {
     player.value = null
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" playerName="Knight Main" />)
+    await click(buttonNamed('Reps, 100'))
+    expect(host.textContent).not.toContain('Share badge')
+  })
+
+  it("does not offer sharing from another player's badge wall", async () => {
+    draw(
+      <BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-two" playerName="Royal Ghosted" />
+    )
     await click(buttonNamed('Reps, 100'))
     expect(host.textContent).not.toContain('Share badge')
   })

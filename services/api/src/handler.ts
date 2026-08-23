@@ -32,6 +32,12 @@ import { reportRunFailure } from "./routes/run-reports.js";
 import { startRun } from "./routes/runs-start.js";
 import { createInviteShare, getShare } from "./routes/shares.js";
 import {
+  createPublishedBadgeShare,
+  getPublishedBadgeImage,
+  getPublishedBadgePage,
+  uploadPublishedBadgeImage,
+} from "./routes/published-badges.js";
+import {
   createPublishedRunShare,
   getPublishedRunImage,
   getPublishedRunPage,
@@ -45,6 +51,10 @@ const SHARE_PATH = /^\/shares\/([^/]+)$/;
 const PUBLISHED_SHARE_PATH = /^\/share\/([^/]+)\/([^/]+)$/;
 const PUBLISHED_SHARE_OPEN_PATH = /^\/share\/([^/]+)\/([^/]+)\/open$/;
 const PUBLISHED_SHARE_IMAGE_PATH = /^\/share-assets\/([^/]+)\/([^/]+)$/;
+const BADGE_SHARE_PATH = /^\/badges\/([^/]+)\/share$/;
+const PUBLISHED_BADGE_PATH = /^\/share\/([^/]+)\/badge\/([^/]+)\/([^/]+)$/;
+const PUBLISHED_BADGE_IMAGE_PATH =
+  /^\/share-assets\/([^/]+)\/badge\/([^/]+)\/([^/]+)$/;
 
 // The routing table. Every branch is one line: the handling lives in
 // ./routes/*, one module per group of related endpoints.
@@ -93,6 +103,11 @@ async function route(event: APIGatewayProxyEventV2) {
     method === "PUT" ? RUN_SHARE_PATH.exec(path) : null;
   if (runShareUploadMatch)
     return uploadPublishedRunImage(context, runShareUploadMatch[1] ?? "");
+  const badgeShareMatch = BADGE_SHARE_PATH.exec(path);
+  if (badgeShareMatch && method === "POST")
+    return createPublishedBadgeShare(context, badgeShareMatch[1] ?? "");
+  if (badgeShareMatch && method === "PUT")
+    return uploadPublishedBadgeImage(context, badgeShareMatch[1] ?? "");
   if (method === "POST" && path === "/shares")
     return createInviteShare(context);
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;
@@ -117,6 +132,30 @@ async function route(event: APIGatewayProxyEventV2) {
       context,
       publishedShareImageMatch[1] ?? "",
       publishedShareImageMatch[2] ?? "",
+      method === "HEAD",
+    );
+  const publishedBadgeMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_BADGE_PATH.exec(path)
+      : null;
+  if (publishedBadgeMatch)
+    return getPublishedBadgePage(
+      context,
+      publishedBadgeMatch[1] ?? "",
+      publishedBadgeMatch[2] ?? "",
+      publishedBadgeMatch[3] ?? "",
+      method === "HEAD",
+    );
+  const publishedBadgeImageMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_BADGE_IMAGE_PATH.exec(path)
+      : null;
+  if (publishedBadgeImageMatch)
+    return getPublishedBadgeImage(
+      context,
+      publishedBadgeImageMatch[1] ?? "",
+      publishedBadgeImageMatch[2] ?? "",
+      publishedBadgeImageMatch[3] ?? "",
       method === "HEAD",
     );
   const publishedShareOpenMatch =

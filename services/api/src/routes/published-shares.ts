@@ -10,6 +10,11 @@ import {
   putRunShareImage,
 } from "../share-assets.js";
 import { deriveRunShareVisual } from "../share-visual.js";
+import { uploadedSharePng } from "../share-preview.js";
+import {
+  publishedPageResponse,
+  renderPublishedSharePage,
+} from "../published-page.js";
 import { hmac } from "../referee-evidence.js";
 import { json } from "../http.js";
 import {
@@ -24,8 +29,6 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPEN_CREDIT_CAP = 25;
 const OPEN_LIMIT_PER_HOUR = 600;
-const MAX_PREVIEW_BYTES = 2_000_000;
-const PNG_SIGNATURE = "89504e470d0a1a0a";
 const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
 const RUN_TAG_PATTERN = /^D[0-9A-HJKMNP-TV-Z]{10}$/;
 
@@ -62,15 +65,6 @@ export function isPublishedRunTagReference(
     PLAYER_TAG_PATTERN.test(playerTag) &&
     RUN_TAG_PATTERN.test(runTag)
   );
-}
-
-function escaped(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function modeDetails(mode: PublishedRunShareItem["mode"]): {
@@ -228,69 +222,23 @@ export function renderPublishedRunPage(
   const imageAlt = runShareImageAlt(share);
   const challenge = `${appUrl}/#${game.path}`;
   const profile = `${appUrl}/#/players/${encodeURIComponent(share.playerId)}`;
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${escaped(title)}</title>
-  <meta name="description" content="${escaped(description)}">
-  <meta name="robots" content="noindex,nofollow">
-  <link rel="canonical" href="${escaped(canonical)}">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Elixir Drop">
-  <meta property="og:title" content="${escaped(title)}">
-  <meta property="og:description" content="${escaped(description)}">
-  <meta property="og:url" content="${escaped(canonical)}">
-  <meta property="og:image" content="${escaped(image)}">
-  <meta property="og:image:alt" content="${escaped(imageAlt)}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${escaped(title)}">
-  <meta name="twitter:description" content="${escaped(description)}">
-  <meta name="twitter:image" content="${escaped(image)}">
-  <meta name="twitter:image:alt" content="${escaped(imageAlt)}">
-  <style>
-    @font-face{font-family:"Clash Royale";src:url("/assets/fonts/Clash_Regular.otf") format("opentype");font-weight:400;font-style:normal;font-display:swap}
-    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#120a30;color:#fff}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 8%,#4a257c 0,transparent 32%),linear-gradient(180deg,#180d38,#0e0922);display:grid;place-items:center;padding:24px}
-    main{width:min(100%,760px)}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;font-family:"Clash Royale",system-ui,sans-serif;letter-spacing:.03em}.free{font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:.78rem;color:#c6afe9;letter-spacing:0}
-    .card{display:block;width:100%;border-radius:24px;border:1px solid #6a459d;box-shadow:0 24px 70px #090513;overflow:hidden;background:#1b1237}.card img{display:block;width:100%;height:auto}
-    .pitch{margin:24px auto 16px;max-width:620px;text-align:center;color:#d6c7ec;line-height:1.55}.cta{display:block;width:100%;padding:18px 24px;border-radius:16px;background:#ffd55c;color:#201238;text-decoration:none;text-align:center;font-family:"Clash Royale",system-ui,sans-serif;font-size:1.15rem;box-shadow:0 7px 0 #a56d13}.player{display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding:16px 18px;border:1px solid #4d356d;border-radius:16px;color:#fff;text-decoration:none;background:#1b1237}.player strong{font-family:"Clash Royale",system-ui,sans-serif}.player span:last-child{color:#d1b5ff}.fan{text-align:center;color:#907ba9;font-size:.75rem;margin:24px 0 0}
-    @media(max-width:520px){body{padding:16px}header{font-size:.88rem}.free{font-size:.7rem}.card{border-radius:16px}.pitch{font-size:.94rem}}
-  </style>
-</head>
-<body data-share-player-id="${escaped(share.playerId)}" data-share-run-id="${escaped(share.runId)}">
-  <main>
-    <header><span>ELIXIR DROP</span><span class="free">Free · no account needed</span></header>
-    <a class="card" href="${escaped(challenge)}"><img src="${escaped(image)}" width="1200" height="630" alt="${escaped(imageAlt)}"></a>
-    <p class="pitch">${escaped(game.pitch)}</p>
-    <a class="cta" href="${escaped(challenge)}">BEAT ${escaped(score)}</a>
-    <a class="player" href="${escaped(profile)}"><strong>${escaped(share.player.publicName)}</strong><span>View profile →</span></a>
-    <p class="fan">Fan content, not affiliated with Supercell.</p>
-  </main>
-  <script src="/assets/share/run-open.js" defer></script>
-</body>
-</html>`;
-}
-
-function html(body: string, head = false): APIGatewayProxyStructuredResultV2 {
-  return {
-    statusCode: 200,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "private, no-store",
-      "content-security-policy":
-        "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-      "referrer-policy": "strict-origin-when-cross-origin",
-      "x-content-type-options": "nosniff",
-      "x-frame-options": "DENY",
-      "x-robots-tag": "noindex, nofollow",
+  return renderPublishedSharePage({
+    title,
+    description,
+    canonical,
+    image,
+    imageAlt,
+    challenge,
+    cta: `BEAT ${score}`,
+    pitch: game.pitch,
+    profile,
+    playerName: share.player.publicName,
+    scriptSrc: "/assets/share/run-open.js",
+    bodyData: {
+      "share-player-id": share.playerId,
+      "share-run-id": share.runId,
     },
-    body: head ? "" : body,
-  };
+  });
 }
 
 export async function createPublishedRunShare(
@@ -424,37 +372,6 @@ export async function createPublishedRunShare(
   return json(created ? 201 : 200, publishedResponse(published, config.appUrl));
 }
 
-function uploadedPng(body: Record<string, unknown>): Buffer {
-  const encoded = body.image;
-  if (
-    typeof encoded !== "string" ||
-    encoded.length === 0 ||
-    encoded.length > Math.ceil((MAX_PREVIEW_BYTES * 4) / 3) + 4 ||
-    encoded.length % 4 !== 0 ||
-    !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)
-  )
-    throw new HttpError(
-      400,
-      "The share preview is invalid.",
-      "invalid_share_preview",
-    );
-  const image = Buffer.from(encoded, "base64");
-  if (
-    image.length < 24 ||
-    image.length > MAX_PREVIEW_BYTES ||
-    image.subarray(0, 8).toString("hex") !== PNG_SIGNATURE ||
-    image.subarray(12, 16).toString("ascii") !== "IHDR" ||
-    image.readUInt32BE(16) !== 1_200 ||
-    image.readUInt32BE(20) !== 630
-  )
-    throw new HttpError(
-      400,
-      "The share preview is invalid.",
-      "invalid_share_preview",
-    );
-  return image;
-}
-
 export async function uploadPublishedRunImage(
   context: RouteContext,
   runId: string,
@@ -499,7 +416,7 @@ export async function uploadPublishedRunImage(
     config.shareAssetBucket,
     share.playerId,
     share.runId,
-    uploadedPng(body),
+    uploadedSharePng(body.image),
   );
   return json(200, { ok: true });
 }
@@ -511,7 +428,10 @@ export async function getPublishedRunPage(
   head = false,
 ) {
   const share = await publishedShare(context, playerId, runId);
-  return html(renderPublishedRunPage(share, context.config.appUrl), head);
+  return publishedPageResponse(
+    renderPublishedRunPage(share, context.config.appUrl),
+    head,
+  );
 }
 
 export async function getPublishedRunImage(

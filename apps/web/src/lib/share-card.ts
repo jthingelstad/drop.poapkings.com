@@ -1,5 +1,5 @@
 import type { BadgeTier } from '@elixir-drop/contracts'
-import type { PublishedRunPreview } from './api-contracts'
+import type { PublishedBadgePreview, PublishedRunPreview } from './api-contracts'
 import { gameDisplay } from './game-metadata'
 
 // Badge and recorded-run previews use one browser canvas pipeline, the same
@@ -16,22 +16,10 @@ import { gameDisplay } from './game-metadata'
 // `@font-face`, so `fillText` can use it — but only after document.fonts says
 // it is ready, or the first export silently falls back to a system face.
 
-export const SHARE_WIDTH = 1080
-export const SHARE_HEIGHT = 1350
-export const RUN_SHARE_WIDTH = 1200
-export const RUN_SHARE_HEIGHT = 630
-
-// Bottom-right, ~15% of the card's width (46px on a 300px-wide preview).
-const STICKER_RATIO = 0.15
-
-export interface BadgeShareCardInput {
-  slug: string
-  name: string
-  chip: string
-  tier: BadgeTier
-  requirement?: string
-  playerName: string
-}
+export const SHARE_WIDTH = 1200
+export const SHARE_HEIGHT = 630
+export const RUN_SHARE_WIDTH = SHARE_WIDTH
+export const RUN_SHARE_HEIGHT = SHARE_HEIGHT
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -90,6 +78,64 @@ function fittedDisplayFont(
   return `700 ${minimum}px "Clash Royale", system-ui, sans-serif`
 }
 
+function drawShareFrame(ctx: CanvasRenderingContext2D, backdrop: HTMLImageElement): void {
+  drawCover(ctx, backdrop, 0, 0, SHARE_WIDTH, SHARE_HEIGHT)
+  roundedRect(ctx, 30, 28, 1140, 574, 34)
+  ctx.fillStyle = 'rgba(7, 6, 22, 0.78)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(245, 200, 76, 0.42)'
+  ctx.lineWidth = 3
+  ctx.stroke()
+}
+
+function drawPlayerHeader(
+  ctx: CanvasRenderingContext2D,
+  playerName: string,
+  label: string,
+  avatar: HTMLImageElement | null
+): void {
+  const avatarX = 78
+  const avatarY = 60
+  const avatarSize = 78
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+  ctx.clip()
+  if (avatar) drawCover(ctx, avatar, avatarX, avatarY, avatarSize, avatarSize)
+  else {
+    const plate = ctx.createRadialGradient(117, 83, 6, 117, 99, 40)
+    plate.addColorStop(0, '#f5c84c')
+    plate.addColorStop(1, '#6d28d9')
+    ctx.fillStyle = plate
+    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize)
+  }
+  ctx.restore()
+  ctx.beginPath()
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+  ctx.strokeStyle = '#f5c84c'
+  ctx.lineWidth = 4
+  ctx.stroke()
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = '#f7f4ff'
+  ctx.font = fittedDisplayFont(ctx, playerName, 650, 46, 30)
+  ctx.fillText(playerName, 178, 110)
+  ctx.fillStyle = '#c8c1e6'
+  ctx.font = '600 24px Inter, system-ui, sans-serif'
+  ctx.fillText(label, 180, 140)
+}
+
+function drawShareFooter(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = '#f5c84c'
+  ctx.textAlign = 'left'
+  ctx.font = '700 27px "Clash Royale", system-ui, sans-serif'
+  ctx.fillText('ELIXIR DROP', 76, 577)
+  ctx.fillStyle = '#c8c1e6'
+  ctx.textAlign = 'right'
+  ctx.font = '600 22px Inter, system-ui, sans-serif'
+  ctx.fillText('drop.poapkings.com', 1124, 577)
+}
+
 function modeContext(mode: PublishedRunPreview['mode'], count: number): string {
   const noun = {
     surge: 'CARDS',
@@ -128,43 +174,8 @@ export async function renderRunSharePreview(input: PublishedRunPreview): Promise
   const fontsReady = await readyFonts()
   if (!backdrop || !modeArt || !fontsReady) return null
 
-  drawCover(ctx, backdrop, 0, 0, RUN_SHARE_WIDTH, RUN_SHARE_HEIGHT)
-  roundedRect(ctx, 30, 28, 1140, 574, 34)
-  ctx.fillStyle = 'rgba(7, 6, 22, 0.78)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(245, 200, 76, 0.42)'
-  ctx.lineWidth = 3
-  ctx.stroke()
-
-  const avatarX = 78
-  const avatarY = 60
-  const avatarSize = 78
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
-  ctx.clip()
-  if (avatar) drawCover(ctx, avatar, avatarX, avatarY, avatarSize, avatarSize)
-  else {
-    const plate = ctx.createRadialGradient(117, 83, 6, 117, 99, 40)
-    plate.addColorStop(0, '#f5c84c')
-    plate.addColorStop(1, '#6d28d9')
-    ctx.fillStyle = plate
-    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize)
-  }
-  ctx.restore()
-  ctx.beginPath()
-  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
-  ctx.strokeStyle = '#f5c84c'
-  ctx.lineWidth = 4
-  ctx.stroke()
-
-  ctx.textAlign = 'left'
-  ctx.fillStyle = '#f7f4ff'
-  ctx.font = fittedDisplayFont(ctx, input.playerName, 650, 46, 30)
-  ctx.fillText(input.playerName, 178, 110)
-  ctx.fillStyle = '#c8c1e6'
-  ctx.font = '600 24px Inter, system-ui, sans-serif'
-  ctx.fillText('SHARED A RUN', 180, 140)
+  drawShareFrame(ctx, backdrop)
+  drawPlayerHeader(ctx, input.playerName, 'SHARED A RUN', avatar)
 
   ctx.save()
   ctx.shadowColor = 'rgba(139, 92, 246, 0.44)'
@@ -232,14 +243,7 @@ export async function renderRunSharePreview(input: PublishedRunPreview): Promise
     ctx.fillText(`${costly} ${costly === 1 ? 'COSTLY RESULT' : 'COSTLY RESULTS'}`, chartX + chartWidth, 528)
   }
 
-  ctx.fillStyle = '#f5c84c'
-  ctx.textAlign = 'left'
-  ctx.font = '700 27px "Clash Royale", system-ui, sans-serif'
-  ctx.fillText('ELIXIR DROP', 76, 577)
-  ctx.fillStyle = '#c8c1e6'
-  ctx.textAlign = 'right'
-  ctx.font = '600 22px Inter, system-ui, sans-serif'
-  ctx.fillText('drop.poapkings.com', 1124, 577)
+  drawShareFooter(ctx)
 
   return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
 }
@@ -254,26 +258,15 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.closePath()
 }
 
-function playerNameFont(ctx: CanvasRenderingContext2D, name: string): string {
-  for (let size = 58; size >= 36; size -= 2) {
-    const font = `700 ${size}px "Clash Royale", system-ui, sans-serif`
-    ctx.font = font
-    if (ctx.measureText(name).width <= 700) return font
-  }
-  return '700 36px "Clash Royale", system-ui, sans-serif'
-}
-
-function badgeRim(ctx: CanvasRenderingContext2D, tier: BadgeTier): CanvasGradient {
-  if (tier === 'prismatic' && 'createConicGradient' in ctx) {
-    const gradient = ctx.createConicGradient(Math.PI * 1.15, SHARE_WIDTH / 2, 490)
-    gradient.addColorStop(0, '#f5c84c')
-    gradient.addColorStop(0.25, '#8b5cf6')
-    gradient.addColorStop(0.5, '#3b82f6')
-    gradient.addColorStop(0.75, '#22c55e')
-    gradient.addColorStop(1, '#f5c84c')
-    return gradient
-  }
-  const gradient = ctx.createLinearGradient(365, 320, 715, 660)
+function badgeRim(
+  ctx: CanvasRenderingContext2D,
+  tier: BadgeTier,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): CanvasGradient {
+  const gradient = ctx.createLinearGradient(x1, y1, x2, y2)
   const colors: Record<BadgeTier, [string, string]> = {
     unlit: ['#37324f', '#1d1930'],
     copper: ['#d08a52', '#7a4520'],
@@ -282,107 +275,108 @@ function badgeRim(ctx: CanvasRenderingContext2D, tier: BadgeTier): CanvasGradien
     prismatic: ['#f5c84c', '#8b5cf6']
   }
   gradient.addColorStop(0, colors[tier][0])
+  if (tier === 'prismatic') {
+    gradient.addColorStop(0.35, '#8b5cf6')
+    gradient.addColorStop(0.68, '#3b82f6')
+  }
   gradient.addColorStop(1, colors[tier][1])
   return gradient
 }
 
-function badgeChip(ctx: CanvasRenderingContext2D, chip: string, tier: BadgeTier, y: number): void {
-  ctx.font = '700 42px "Clash Royale", system-ui, sans-serif'
-  const width = Math.max(126, ctx.measureText(chip).width + 58)
-  roundedRect(ctx, SHARE_WIDTH / 2 - width / 2, y, width, 68, 34)
-  ctx.fillStyle = badgeRim(ctx, tier)
+function drawBadgeMedallion(ctx: CanvasRenderingContext2D, art: HTMLImageElement, tier: BadgeTier): void {
+  const centreX = 258
+  const centreY = 348
+  ctx.save()
+  ctx.translate(centreX, centreY)
+  ctx.strokeStyle = 'rgba(245, 200, 76, 0.24)'
+  ctx.lineWidth = 8
+  ctx.lineCap = 'round'
+  for (let index = 0; index < 16; index += 1) {
+    ctx.rotate(Math.PI / 8)
+    ctx.beginPath()
+    ctx.moveTo(172, 0)
+    ctx.lineTo(index % 2 === 0 ? 194 : 184, 0)
+    ctx.stroke()
+  }
+  ctx.restore()
+  ctx.save()
+  ctx.shadowColor = 'rgba(139, 92, 246, 0.54)'
+  ctx.shadowBlur = 48
+  ctx.beginPath()
+  ctx.arc(centreX, centreY, 166, 0, Math.PI * 2)
+  ctx.fillStyle = badgeRim(ctx, tier, 92, 182, 424, 514)
   ctx.fill()
-  ctx.fillStyle = '#211100'
-  ctx.fillText(chip, SHARE_WIDTH / 2, y + 49)
+  ctx.restore()
+  const plate = ctx.createRadialGradient(210, 282, 20, centreX, centreY, 149)
+  plate.addColorStop(0, '#402f74')
+  plate.addColorStop(1, '#0c091e')
+  ctx.beginPath()
+  ctx.arc(centreX, centreY, 149, 0, Math.PI * 2)
+  ctx.fillStyle = plate
+  ctx.fill()
+  ctx.drawImage(art, centreX - 132, centreY - 132, 264, 264)
 }
 
-export async function renderBadgeShareCard(input: BadgeShareCardInput): Promise<Blob | null> {
+export async function renderBadgeSharePreview(input: PublishedBadgePreview): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
   canvas.width = SHARE_WIDTH
   canvas.height = SHARE_HEIGHT
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  const [backdrop, sticker, art] = await Promise.all([
+  const [backdrop, art, avatar] = await Promise.all([
     loadImage('/assets/share/share-backdrop.png'),
-    loadImage('/assets/share/share-sticker.png'),
-    loadImage(`/assets/badges/${input.slug}-384.png`)
+    loadImage(`/assets/badges/${input.slug}-384.png`),
+    input.favoriteCardId ? loadImage(`/cards/${input.favoriteCardId}.png`) : Promise.resolve(null)
   ])
   const fontsReady = await readyFonts()
   if (!backdrop || !art || !fontsReady) return null
 
-  ctx.drawImage(backdrop, 0, 0, SHARE_WIDTH, SHARE_HEIGHT)
-  const centreX = SHARE_WIDTH / 2
-  ctx.textAlign = 'center'
-
-  ctx.fillStyle = '#d7c8ff'
-  ctx.font = '700 44px "Clash Royale", system-ui, sans-serif'
-  ctx.fillText('EARNED BADGE', centreX, 206)
-
-  ctx.save()
-  ctx.shadowColor = 'rgba(139, 92, 246, 0.56)'
-  ctx.shadowBlur = 54
-  ctx.beginPath()
-  ctx.arc(centreX, 490, 188, 0, Math.PI * 2)
-  ctx.fillStyle = badgeRim(ctx, input.tier)
-  ctx.fill()
-  ctx.restore()
-
-  const plate = ctx.createRadialGradient(centreX, 430, 24, centreX, 490, 164)
-  plate.addColorStop(0, '#402f74')
-  plate.addColorStop(1, '#0c091e')
-  ctx.beginPath()
-  ctx.arc(centreX, 490, 162, 0, Math.PI * 2)
-  ctx.fillStyle = plate
-  ctx.fill()
-  ctx.drawImage(art, centreX - 130, 360, 260, 260)
-  if (input.chip) badgeChip(ctx, input.chip, input.tier, 624)
+  drawShareFrame(ctx, backdrop)
+  drawPlayerHeader(ctx, input.playerName, 'EARNED A BADGE', avatar)
+  drawBadgeMedallion(ctx, art, input.tier)
 
   ctx.fillStyle = '#f5c84c'
-  ctx.font = '700 82px "Clash Royale", system-ui, sans-serif'
-  ctx.fillText(input.name, centreX, 820)
+  ctx.textAlign = 'left'
+  ctx.font = fittedDisplayFont(ctx, input.name.toUpperCase(), 650, 88, 48)
+  ctx.fillText(input.name.toUpperCase(), 470, 266)
 
-  if (input.requirement) {
-    ctx.fillStyle = '#c8c1e6'
-    ctx.font = '600 34px Inter, system-ui, sans-serif'
-    ctx.fillText(input.requirement, centreX, 880)
-  }
-
-  roundedRect(ctx, 150, 930, 780, 142, 30)
-  ctx.fillStyle = 'rgba(7, 6, 16, 0.72)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(245, 200, 76, 0.72)'
-  ctx.lineWidth = 3
-  ctx.stroke()
+  const rungNumber = input.rungIndex + 1
   ctx.fillStyle = '#d7c8ff'
-  ctx.font = '700 24px Inter, system-ui, sans-serif'
-  ctx.fillText('EARNED BY', centreX, 974)
-  ctx.fillStyle = '#f5c84c'
-  ctx.font = playerNameFont(ctx, input.playerName)
-  ctx.fillText(input.playerName, centreX, 1045)
+  ctx.font = '700 31px "Clash Royale", system-ui, sans-serif'
+  ctx.fillText(
+    input.hidden ? `${input.tier.toUpperCase()} · SECRET BADGE` : `${input.tier.toUpperCase()} BADGE`,
+    474,
+    320
+  )
+  ctx.fillStyle = '#65e18b'
+  ctx.font = '700 30px Inter, system-ui, sans-serif'
+  ctx.fillText(input.hidden ? 'Secret discovered' : `${input.chip} milestone earned`, 474, 366)
 
-  ctx.fillStyle = '#c8c1e6'
-  ctx.font = '600 30px Inter, system-ui, sans-serif'
-  ctx.fillText('drop.poapkings.com', centreX, 1190)
+  const detailX = 470
+  const detailY = 402
+  const detailWidth = 654
+  const detailHeight = 116
+  roundedRect(ctx, detailX, detailY, detailWidth, detailHeight, 18)
+  ctx.fillStyle = 'rgba(11, 8, 31, 0.72)'
+  ctx.fill()
+  ctx.fillStyle = '#b9add6'
+  ctx.font = '600 18px Inter, system-ui, sans-serif'
+  ctx.fillText('BADGE CHALLENGE', detailX + 26, detailY + 34)
+  const requirement = (input.requirement ?? 'Secret badge discovered').toUpperCase()
+  ctx.fillStyle = '#f7f4ff'
+  ctx.font = fittedDisplayFont(ctx, requirement, detailWidth - 52, 29, 20)
+  ctx.fillText(requirement, detailX + 26, detailY + 76)
+  ctx.textAlign = 'right'
+  ctx.font = '600 18px Inter, system-ui, sans-serif'
+  ctx.fillStyle = '#b9add6'
+  ctx.fillText(
+    input.rungCount === 1 ? 'MILESTONE CLEARED' : `MILESTONE ${rungNumber} OF ${input.rungCount}`,
+    detailX + detailWidth - 26,
+    detailY + 34
+  )
 
-  if (sticker) {
-    const size = Math.round(SHARE_WIDTH * STICKER_RATIO)
-    const margin = 44
-    ctx.drawImage(sticker, SHARE_WIDTH - size - margin, SHARE_HEIGHT - size - margin, size, size)
-  }
+  drawShareFooter(ctx)
 
   return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
-}
-
-// Whether this browser can share a generated file at all. Checked BEFORE
-// spending time rendering: on a desktop browser with no file sharing, the card
-// would be built and then thrown away.
-export function canShareImage(): boolean {
-  if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false
-  try {
-    const probe = new File([new Blob([], { type: 'image/png' })], 'probe.png', { type: 'image/png' })
-    return navigator.canShare({ files: [probe] })
-  } catch {
-    return false
-  }
 }

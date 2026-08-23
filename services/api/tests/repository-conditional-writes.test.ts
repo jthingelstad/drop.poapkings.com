@@ -15,6 +15,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
 
 import {
   Repository,
+  type PublishedBadgeShareItem,
   type PublishedRunShareItem,
   type RunItem,
 } from "../src/repository.js";
@@ -335,6 +336,59 @@ describe("repository conditional writes", () => {
       UpdateExpression:
         "SET sharePlayerTag = :playerTag, shareRunTag = :runTag",
       ConditionExpression: "attribute_exists(pk)",
+    });
+  });
+
+  it("publishes a badge rung, its public tag alias, and deletion pointer atomically", async () => {
+    send.mockResolvedValueOnce({});
+    const share: PublishedBadgeShareItem = {
+      pk: "SHARE#BADGE#11111111-1111-4111-8111-111111111111#clockbreaker#3",
+      sk: "SHARE",
+      kind: "published-badge",
+      owner: "player-sub",
+      playerId: "11111111-1111-4111-8111-111111111111",
+      slug: "clockbreaker",
+      rungIndex: 3,
+      publishedAt: "2026-08-23T12:01:00.000Z",
+      player: {
+        id: "11111111-1111-4111-8111-111111111111",
+        publicName: "Drop King",
+        xp: 900,
+        totalGames: 40,
+      },
+      badge: {
+        name: "Clockbreaker",
+        tier: "copper",
+        chip: "35s",
+        milestone: 35,
+        rungCount: 12,
+        earnedAt: "2026-08-23T12:00:00.000Z",
+        requirement: "Fastest Surge run",
+      },
+    };
+
+    await expect(
+      new Repository("test-table").putPublishedBadgeShare(share),
+    ).resolves.toBe(true);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected published-badge transaction");
+    const items = command.input.TransactItems ?? [];
+    expect(items).toHaveLength(3);
+    const canonical = items[0]?.Put?.Item as Record<string, unknown>;
+    expect(canonical.playerTag).toMatch(/^P[0-9A-HJKMNP-TV-Z]{10}$/);
+    expect(items[1]?.Put?.Item?.pk).toBe(
+      `SHARE#TAG#${canonical.playerTag as string}#BADGE#clockbreaker#4`,
+    );
+    expect(items[2]?.Put?.Item).toMatchObject({
+      pk: "PLAYER#player-sub",
+      sk: `SHARE#BADGE#${share.playerId}#clockbreaker#3`,
+      sharePlayerId: share.playerId,
+      sharePlayerTag: canonical.playerTag,
+      shareBadgeSlug: "clockbreaker",
+      shareBadgeRungIndex: 3,
     });
   });
 

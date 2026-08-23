@@ -365,7 +365,27 @@ export const publishedRunShareSchema = z.object({
   })
 })
 
-export const runShareImageUploadResponseSchema = z.object({ ok: z.literal(true) })
+export const publishedBadgeShareSchema = z.object({
+  playerId: nonEmptyString,
+  slug: nonEmptyString,
+  rungIndex: nonNegativeInteger,
+  url: z.string().url(),
+  preview: z.object({
+    playerName: nonEmptyString,
+    favoriteCardId: z.optional(cardId),
+    slug: nonEmptyString,
+    name: nonEmptyString,
+    tier: z.enum(['copper', 'silver', 'gold', 'prismatic']),
+    chip: nonEmptyString,
+    rungIndex: nonNegativeInteger,
+    rungCount: safeInteger.positive(),
+    hidden: z.optional(z.boolean()),
+    requirement: z.optional(nonEmptyString)
+  })
+})
+
+export const shareImageUploadResponseSchema = z.object({ ok: z.literal(true) })
+export const runShareImageUploadResponseSchema = shareImageUploadResponseSchema
 
 export const sharedRunSchema = z.object({
   token: z.string().min(4).max(16),
@@ -448,3 +468,4 @@ export type ActivityEntry = z.infer<typeof activityEntrySchema>
 export type SharedRun = z.infer<typeof sharedRunSchema>
 export type SharedInvite = z.infer<typeof sharedInviteSchema>
 export type PublishedRunPreview = z.infer<typeof publishedRunShareSchema.shape.preview>
+export type PublishedBadgePreview = z.infer<typeof publishedBadgeShareSchema.shape.preview>

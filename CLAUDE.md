@@ -171,7 +171,7 @@ rank-oriented fields as part of unrelated work.
   preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
-- **A recorded run publishes one permanent, personalized link.**
+- **A recorded run or earned badge rung publishes one permanent, personalized link.**
   `POST /runs/{runId}/share` resolves the caller's immutable history row and
   idempotently publishes `/share/{playerTag}/{runTag}` using Drop's existing
   `P…` and `D…` public tags; UUIDs remain internal. Summary and You → Log use the
@@ -185,6 +185,13 @@ rank-oriented fields as part of unrelated work.
   bounded chart from validated referee evidence and retains the public-safe
   projection with history. The standard client renders that frozen projection;
   the API-owned title, description, alt text, and run facts remain authoritative.
+  An earned badge uses the parallel
+  `/share/{playerTag}/badge/{badgeSlug}/{rung}` address, where `rung` is the
+  one-based earned milestone. The owner can publish it from their badge modal;
+  the API independently verifies the earned rung, freezes its public badge and
+  player facts, and accepts the same exact 1200 × 630 canvas PNG. Badge and run
+  previews intentionally share one visual frame, real Clash font, local PNG
+  art, landing shell, URL-only native-share behavior, and retained S3 bucket.
   A frozen public snapshot keeps a published link stable. Practice,
   guest, offline, missing, and Fair Play-excluded runs fail closed; account
   deletion removes the snapshot, open markers, and S3 prefix. Existing
@@ -193,9 +200,10 @@ rank-oriented fields as part of unrelated work.
   the landing HTML or preview image earns nothing. Only the landing page's
   browser callback can record a distinct, non-owner open; a peppered one-way
   hash dedupes it and credit stops at 25 per published run. The clean run link
-  also supplies 30-day last-touch Recruiter attribution. Home and badge cards
-  continue to mint six-character `#/s/<token>` invitation links through `POST
-  /shares`; those links never touch Herald. Requesting a login email does not
+  also supplies 30-day last-touch Recruiter attribution. Badge links supply the
+  same Recruiter attribution but never advance Herald; Home continues to mint
+  six-character `#/s/<token>` invitation links through `POST /shares`.
+  Already-issued badge invitation links remain readable. Requesting a login email does not
   count, while successful magic-link redemption that creates a genuinely new
   profile advances Recruiter exactly once. Anonymous players are asked to sign
   in before sharing because no account exists to receive either badge.
