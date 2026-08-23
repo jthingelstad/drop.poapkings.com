@@ -335,7 +335,7 @@ test('earned badge sharing includes its artwork, rung, player, and public profil
   expect(payload).toMatchObject({
     title: 'Knight Main earned Clockbreaker | Elixir Drop',
     text: 'Knight Main earned the Clockbreaker badge on Elixir Drop — 35s.',
-    url: expect.stringMatching(/#\/players\/player-1$/),
+    url: expect.stringMatching(/#\/s\/NVT/),
     file: {
       name: 'elixir-drop-clockbreaker.png',
       type: 'image/png',
@@ -426,7 +426,7 @@ test('public profiles display earned badges prominently', async ({ page }, testI
     await page.evaluate(() => (window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload)
   ).toMatchObject({
     title: 'Royal Ghosted earned Clockbreaker | Elixir Drop',
-    url: expect.stringMatching(/#\/players\/player-2$/)
+    url: expect.stringMatching(/#\/s\/NVT/)
   })
   await testInfo.attach('public-profile-badges.png', {
     body: await page.screenshot({ fullPage: true }),

@@ -56,6 +56,15 @@ export function navigate(to: string): void {
   window.location.hash = to
 }
 
+// Resolve a one-time routing capability without leaving it in Back history.
+// This is what lets an invitation token hand off to Home or a public profile
+// after its attribution has been captured.
+export function replace(to: string): void {
+  window.history.replaceState(null, '', `#${to}`)
+  route.value = to
+  window.scrollTo({ top: 0 })
+}
+
 // Return to wherever we came from, defaulting to Home.
 export function back(fallback = '/'): void {
   const prev = previousRoute

@@ -1,4 +1,4 @@
-// Last-touch recruitment attribution from a valid shared run. The browser
+// Last-touch recruitment attribution from a valid shared link. The browser
 // stores only the six-character public share token, never either player's
 // identity. It expires after 30 days and is consumed when a login email is
 // successfully requested; the API decides whether the email is truly new.

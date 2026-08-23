@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearRecruiter, recruiterToken, rememberRecruiter } from '../../src/lib/referral'
 
-describe('shared-run recruitment attribution', () => {
+describe('shared-link recruitment attribution', () => {
   beforeEach(() => {
     localStorage.clear()
   })

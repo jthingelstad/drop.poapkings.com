@@ -14,6 +14,7 @@ import {
   publicPlayerResponseSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
+  sharedInviteSchema,
   sharedRunSchema,
   shareTokenSchema,
   siteStatsSchema,
@@ -457,12 +458,25 @@ export function createShareToken(runId: string, sessionToken: string, series?: n
   })
 }
 
+export function createInviteShareToken(destination: 'home' | 'player', sessionToken: string, playerId?: string) {
+  return apiRequest('/shares', shareTokenSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify({ destination, ...(playerId ? { playerId } : {}) }),
+    retry: false
+  })
+}
+
 export function getSharedRun(token: string, signal?: AbortSignal, sessionToken?: string) {
   return apiRequest(`/shares/${encodeURIComponent(token)}`, sharedRunSchema, { signal, sessionToken })
 }
 
+export function getSharedInvite(token: string, signal?: AbortSignal, sessionToken?: string) {
+  return apiRequest(`/shares/${encodeURIComponent(token)}`, sharedInviteSchema, { signal, sessionToken })
+}
+
 // Keep these public type aliases close to the request functions that return them.
 export type LeaderboardResponse = Awaited<ReturnType<typeof getLeaderboard>>
-export type { ActivityEntry, SharedRun } from './api-contracts'
+export type { ActivityEntry, SharedInvite, SharedRun } from './api-contracts'
 export type { LeaderboardEntry, RecentRun, SeasonHistory, SeasonIndexEntry } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'

@@ -88,7 +88,7 @@ describe('api.ts request helpers', () => {
     expect(JSON.parse(init.body as string)).toEqual({ email: 'ace@example.com', returnTo: '/surge' })
   })
 
-  it('passes a shared-run recruiter token with the login request', async () => {
+  it('passes an attributed-share recruiter token with the login request', async () => {
     const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.' }))
     const { requestLogin } = await import('../../src/lib/api')
 
@@ -96,6 +96,19 @@ describe('api.ts request helpers', () => {
 
     const { init } = endpointCall(fetchMock)
     expect(JSON.parse(init.body as string)).toEqual({ email: 'new@example.com', recruiterToken: 'AB2CD3' })
+  })
+
+  it('mints a profile invitation with the current session', async () => {
+    const fetchMock = stubFetch(json({ token: 'AB2CD3' }))
+    const { createInviteShareToken } = await import('../../src/lib/api')
+
+    await expect(createInviteShareToken('player', 'session-token', 'player/one')).resolves.toEqual({ token: 'AB2CD3' })
+
+    const { url, init, headers } = endpointCall(fetchMock)
+    expect(url).toBe(`${API_BASE}/shares`)
+    expect(init.method).toBe('POST')
+    expect(headers.get('authorization')).toBe('Bearer session-token')
+    expect(JSON.parse(init.body as string)).toEqual({ destination: 'player', playerId: 'player/one' })
   })
 
   it('sets accept and content-type headers on a body request', async () => {

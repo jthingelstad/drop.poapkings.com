@@ -130,10 +130,12 @@ ranked modes pays +100 Seasonal Circuit. The same SQS retry that protects the
 Podium badge protects these exact-once markers. Current XP is always the opening
 balance; only badge rungs are retroactive.
 
-## Sharing a run
+## Sharing and recruitment
 
 `POST /runs/{runId}/share` mints a share token for a run the caller owns, and
-`GET /shares/{token}` resolves it. The token is six characters from an alphabet
+`POST /shares` mints a Home or public-profile invitation for Recruiter
+attribution. `GET /shares/{token}` resolves either kind. The token is six
+characters from an alphabet
 with no look-alike glyphs (no I, L, O, U, 0, or 1) — a player may end up reading
 one aloud. See `src/shares.ts`.
 
@@ -145,12 +147,14 @@ not finished scoring, are refused `409 run_not_recorded`. The browser hides the
 control entirely rather than disabling it, and this endpoint is the second lock
 on the same rule — an endpoint that trusts the button has no rule at all.
 
-The share item carries a durable snapshot (mode, score, season, completedAt, the
+The run-share item carries a durable snapshot (mode, score, season, completedAt, the
 public `playerId`, and the run's own display-only series) rather than pointing at
 the ephemeral `RUN#` row, because a link a player already sent has to keep
 working after that row TTLs out. `owner` is stored but never returned: it exists
 so an open from the sharer's own device can be dropped. The response carries only
 what the public profile already shows — score, mode, name, arena.
+An invitation item stores only `home` or a validated public `playerId`
+destination plus its private owner attribution.
 
 **Counting opens.** A distinct visitor is credited once per token. The dedupe key
 is a peppered one-way HMAC of the request scoped to that token, so a refresh, a
@@ -160,6 +164,14 @@ device earns nothing, and credit stops at 25 per token so one lucky link cannot
 clear a badge ladder. Crediting is best-effort and never blocks the read: a link
 opens whether or not the count lands. `share-mint` is rate-limited at 60/hour and
 `share-open` at 600/hour per IP.
+
+Only run-share opens count toward Herald. Invitation links resolve at
+`#/s/{token}`, create no per-link Herald visitor marker, and never advance Herald; they
+exist to carry 30-day Recruiter attribution from the Home and badge share
+surfaces. A valid token of either kind may be attached to a login request for an
+email with no profile. Requesting the email earns nothing. Successful
+magic-link redemption creates the new profile and advances the sharer's
+Recruiter counter in an exact-once transaction.
 
 The share item lives outside `PLAYER#` so a stranger can resolve it by token
 alone. A `PLAYER#{sub}/SHARE#{token}` pointer is written in the same transaction,

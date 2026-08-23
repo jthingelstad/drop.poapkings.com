@@ -5,6 +5,7 @@ import { gameDisplay } from '../lib/game-metadata'
 import { createShareToken } from '../lib/api'
 import { sessionToken } from '../lib/account'
 import { canShareImage, renderShareCard, type ShareCardInput } from '../lib/share-card'
+import { sharePermalink } from '../lib/share-links'
 import { runSharePayload, shareRun, type RunShareOutcome, type ShareableGameMode } from '../lib/share-run'
 import Icon from './Icon'
 
@@ -63,12 +64,6 @@ export default function ShareLine({ mode, score, runId, compact = false, card }:
     []
   )
 
-  // The permalink. Hash routing is the stable public share contract, so this is
-  // the address a shared run actually resolves at.
-  function permalink(token: string): string {
-    return `${window.location.origin}/#/r/${token}`
-  }
-
   async function share() {
     if (sharing.value) return
     sharing.value = true
@@ -82,7 +77,7 @@ export default function ShareLine({ mode, score, runId, compact = false, card }:
       const session = sessionToken()
       if (!session) throw new Error('no session')
       const { token } = await createShareToken(runId, session, card?.series)
-      url = permalink(token)
+      url = sharePermalink('r', token)
     } catch {
       sharing.value = false
       outcome.value = 'unavailable'

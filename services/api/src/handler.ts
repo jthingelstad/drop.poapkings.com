@@ -30,7 +30,7 @@ import {
 import { completeRun } from "./routes/runs-complete.js";
 import { reportRunFailure } from "./routes/run-reports.js";
 import { startRun } from "./routes/runs-start.js";
-import { createShare, getShare } from "./routes/shares.js";
+import { createInviteShare, createShare, getShare } from "./routes/shares.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
@@ -78,6 +78,8 @@ async function route(event: APIGatewayProxyEventV2) {
     return reportRunFailure(context);
   const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;
   if (runShareMatch) return createShare(context, runShareMatch[1] ?? "");
+  if (method === "POST" && path === "/shares")
+    return createInviteShare(context);
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;
   if (shareMatch) return getShare(context, shareMatch[1] ?? "");
 

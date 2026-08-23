@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
+  creditRecruiter: vi.fn(),
   getProfile: vi.fn(),
   listRecentRuns: vi.fn(),
   listRunHistory: vi.fn(),
@@ -16,6 +17,7 @@ const repository = vi.hoisted(() => ({
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    creditRecruiter = repository.creditRecruiter;
     getProfile = repository.getProfile;
     listRecentRuns = repository.listRecentRuns;
     listRunHistory = repository.listRunHistory;
@@ -81,6 +83,7 @@ describe("GET /me recent runs", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.creditRecruiter.mockResolvedValue(true);
     repository.getCardStats.mockResolvedValue({});
     repository.getProfile.mockResolvedValue({
       sub,
@@ -93,6 +96,28 @@ describe("GET /me recent runs", () => {
       createdAt: "2026-07-01T00:00:00.000Z",
       updatedAt: "2026-07-19T12:00:00.000Z",
     });
+  });
+
+  it("reconciles an attributed account created under the former first-game rule", async () => {
+    repository.getProfile.mockResolvedValue({
+      sub,
+      playerId: "player-1",
+      email: "player@example.com",
+      totalGames: 0,
+      recruitedBy: "recruiter-sub",
+      createdAt: "2026-08-21T12:00:00.000Z",
+      updatedAt: "2026-08-21T12:00:00.000Z",
+    });
+    repository.listRecentRuns.mockResolvedValue([]);
+
+    const result = await handler(meEvent(), {} as never, () => {});
+
+    if (!result || typeof result === "string") throw new Error("no result");
+    expect(result.statusCode).toBe(200);
+    expect(repository.creditRecruiter).toHaveBeenCalledWith(
+      sub,
+      expect.any(String),
+    );
   });
 
   it("drops retired-mode runs so the response never carries a mode the client rejects", async () => {

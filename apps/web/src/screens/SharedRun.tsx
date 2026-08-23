@@ -7,6 +7,7 @@ import { rankFor } from '../data/starRanks'
 import { navigate } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
 import { rememberRecruiter } from '../lib/referral'
+import { shareTokenFromRoute } from '../lib/share-links'
 import ModeIcon from '../components/ModeIcon'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Wordmark from '../components/brand/Wordmark'
@@ -24,14 +25,8 @@ import Icon from '../components/Icon'
 // Nothing here is anything the public profile does not already show: score,
 // mode, name, arena, badge count.
 
-const TOKEN_PATTERN = /^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$/i
-
 export function sharedRunToken(route: string): string | undefined {
-  const token = route
-    .split('?')[0]!
-    .replace(/^\/r\//, '')
-    .trim()
-  return TOKEN_PATTERN.test(token) ? token.toUpperCase() : undefined
+  return shareTokenFromRoute(route, 'r')
 }
 
 function RunChart({ series }: { series: number[] }) {

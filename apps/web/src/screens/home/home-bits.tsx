@@ -7,13 +7,15 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
 import PlayerAvatar from '../../components/PlayerAvatar'
-import { player } from '../../lib/account'
+import { player, sessionToken } from '../../lib/account'
+import { createInviteShareToken } from '../../lib/api'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import { isReducedMotionEnabled } from '../../lib/motion'
 import { shareDrop } from '../../lib/share-run'
+import { sharePermalink } from '../../lib/share-links'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, seasonPillLabel, type HomeData } from './home-data'
@@ -122,12 +124,25 @@ function FreePassHero({ data }: { data: HomeData }) {
   )
 }
 
-function ShareHero() {
+function ShareHero({ signedIn }: { signedIn: boolean }) {
   const [status, setStatus] = useState<'idle' | 'sharing' | 'shared' | 'copied' | 'unavailable'>('idle')
 
   const share = async () => {
+    const session = sessionToken()
+    if (!signedIn || !session) {
+      navigate('/login')
+      return
+    }
     setStatus('sharing')
-    const outcome = await shareDrop()
+    let url: string
+    try {
+      const { token } = await createInviteShareToken('home', session)
+      url = sharePermalink('s', token)
+    } catch {
+      setStatus('unavailable')
+      return
+    }
+    const outcome = await shareDrop(url)
     if (outcome === 'shared' || outcome === 'copied') {
       track('home.shared')
       setStatus(outcome)
@@ -144,8 +159,10 @@ function ShareHero() {
         : status === 'copied'
           ? 'LINK COPIED'
           : status === 'unavailable'
-            ? 'COPY UNAVAILABLE'
-            : 'SHARE ELIXIR DROP'
+            ? 'SHARING UNAVAILABLE'
+            : signedIn
+              ? 'SHARE ELIXIR DROP'
+              : 'SIGN IN TO SHARE'
 
   return (
     <section class="ed-hero ed-hero--share">
@@ -154,7 +171,9 @@ function ShareHero() {
         <Icon name="share" className="ed-hero__feature-icon" />
         <div class="ed-hero__wordmark ed-hero__wordmark--share">BRING A FRIEND</div>
         <p class="ed-hero__desc">
-          Know someone who still has to count elixir costs? Send them Drop and race the same board.
+          {signedIn
+            ? 'Know someone who still has to count elixir costs? Send them Drop and race the same board.'
+            : 'Sign in before you send Drop so every new player you bring can count toward Recruiter.'}
         </p>
         <div class="ed-hero__cta">
           <button
@@ -280,7 +299,7 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
           aria-hidden={active !== 2}
           inert={active !== 2}
         >
-          <ShareHero />
+          <ShareHero signedIn={Boolean(me)} />
         </div>
       </div>
       {/* Dots only. The chevrons existed to frame a bordered card; the panel is

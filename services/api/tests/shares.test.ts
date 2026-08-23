@@ -171,6 +171,7 @@ describe("POST /runs/{runId}/share", () => {
       string,
       unknown
     >;
+    expect(stored.kind).toBe("run");
     expect(stored.runId).toBe("run-1");
     expect(stored.playerId).toBe("public-uuid");
     expect(stored.score).toBe(17_412);
@@ -234,6 +235,70 @@ describe("POST /runs/{runId}/share", () => {
   });
 });
 
+describe("POST /shares", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId: "owner-uuid",
+    });
+  });
+
+  it("mints a Recruiter-only invitation for Home", async () => {
+    const response = await call(
+      event("POST", "/shares", {
+        sub: "player-sub",
+        body: { destination: "home" },
+      }),
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(repository.putShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "invite",
+        owner: "player-sub",
+        destination: "home",
+      }),
+    );
+    expect(repository.putShare.mock.calls[0]![0]).not.toHaveProperty("runId");
+  });
+
+  it("mints a profile invitation only for a real public player", async () => {
+    repository.getPublicPlayer.mockResolvedValue({
+      sub: "badge-owner-sub",
+      player: { id: "badge-owner", publicName: "Badge Owner" },
+    });
+
+    const response = await call(
+      event("POST", "/shares", {
+        sub: "player-sub",
+        body: { destination: "player", playerId: "badge-owner" },
+      }),
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(repository.putShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "invite",
+        owner: "player-sub",
+        destination: "player",
+        destinationPlayerId: "badge-owner",
+      }),
+    );
+  });
+
+  it("requires an account session", async () => {
+    expect((await call(event("POST", "/shares"))).statusCode).toBe(401);
+  });
+});
+
 describe("GET /shares/{token}", () => {
   const share = {
     pk: "SHARE#AB2CD3",
@@ -288,6 +353,36 @@ describe("GET /shares/{token}", () => {
     expect(JSON.stringify(body)).not.toContain("player-sub");
     expect(body.owner).toBeUndefined();
     expect(repository.addHeraldOpens).toHaveBeenCalledWith("player-sub", 1);
+  });
+
+  it("resolves an invitation without granting Herald credit or fingerprinting the visitor", async () => {
+    repository.getShare.mockResolvedValue({
+      pk: "SHARE#AB2CD3",
+      sk: "SHARE",
+      token: "AB2CD3",
+      kind: "invite",
+      owner: "player-sub",
+      destination: "player",
+      destinationPlayerId: "badge-owner",
+      mintedAt: "2026-08-22T12:00:00.000Z",
+    });
+
+    const response = await call(
+      event("GET", "/shares/AB2CD3", {
+        ip: "8.8.8.8",
+        userAgent: "Safari",
+      }),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toEqual({
+      token: "AB2CD3",
+      kind: "invite",
+      destination: "player",
+      playerId: "badge-owner",
+    });
+    expect(repository.creditShareOpen).not.toHaveBeenCalled();
+    expect(repository.addHeraldOpens).not.toHaveBeenCalled();
   });
 
   it("keys the visitor by a peppered hash, never a raw IP or user-agent", async () => {

@@ -3,6 +3,7 @@ import { badgeTier } from '@elixir-drop/contracts'
 import { track } from '../lib/analytics'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
 import { shareBadge } from '../lib/share-badge'
+import { player } from '../lib/account'
 import type { RunShareOutcome } from '../lib/share-run'
 import BadgeMedallion from './BadgeMedallion'
 import DetailModal from './DetailModal'
@@ -141,7 +142,7 @@ export function BadgeSheet({
       ) : (
         <>
           {definition.requirement && <span class="ed-badges__sheet-req">{definition.requirement}</span>}
-          {badge.earned && playerId && playerName && (
+          {badge.earned && playerId && playerName && player.value && (
             <div class="ed-badges__share">
               <button class="ed-btn ed-btn--ghost ed-badges__share-btn" disabled={sharing} onClick={() => void share()}>
                 <Icon name={outcome === 'shared' || outcome === 'copied' ? 'check' : 'share'} />

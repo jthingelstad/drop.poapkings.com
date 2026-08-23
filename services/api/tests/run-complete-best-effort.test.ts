@@ -9,7 +9,6 @@ import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
-  creditRecruiter: vi.fn(),
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
@@ -33,7 +32,6 @@ const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     completeRun = repository.completeRun;
-    creditRecruiter = repository.creditRecruiter;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
@@ -177,7 +175,6 @@ describe("run completion side effects are best effort", () => {
     process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
-    repository.creditRecruiter.mockResolvedValue(false);
     repository.getCardStats.mockResolvedValue({});
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
@@ -227,18 +224,6 @@ describe("run completion side effects are best effort", () => {
         value: "surge",
         path: "/surge",
       },
-    );
-  });
-
-  it("settles Recruiter attribution after the recruit records a game", async () => {
-    repository.creditRecruiter.mockResolvedValue(true);
-
-    const result = await complete();
-
-    expect(result.statusCode).toBe(201);
-    expect(repository.creditRecruiter).toHaveBeenCalledWith(
-      profile.sub,
-      "2026-07-18T12:01:00.000Z",
     );
   });
 

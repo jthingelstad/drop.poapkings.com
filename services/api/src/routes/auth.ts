@@ -162,6 +162,21 @@ export async function redeemMagicLink({
   const sub = emailSubject(email);
   const login = await repository.ensureProfile(sub, email);
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
+  if (recruiterSub || login.profile.recruitedBy) {
+    // Recruiter means creating a real account. The exact-once transaction may
+    // safely retry if redemption was interrupted after profile creation, and
+    // also settles attributed accounts created under the former first-game
+    // rule. A counter write cannot strand the new player's login: /me retries
+    // any uncredited attribution on their first ordinary account load.
+    try {
+      await repository.creditRecruiter(sub, new Date().toISOString());
+    } catch (error) {
+      console.warn("Recruiter account-creation credit failed", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   await repository.consumeMagicLink(tokenHash, nowSeconds);
   const session = issueSession(sub, config.sessionSecret, nowSeconds);
   // Hand the session to a client waiting on this request's poll id (e.g. the

@@ -13,21 +13,18 @@ export interface RunSharePayload {
 
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
 
-export function dropSharePayload(href = window.location.href): RunSharePayload {
-  const url = new URL('/', href)
-  url.search = ''
-  url.hash = ''
+export function dropSharePayload(url: string): RunSharePayload {
   const text = 'Elixir Drop makes learning Clash Royale card costs feel like a game. How fast can you read the field?'
   return {
     title: 'Elixir Drop — Clash Royale Elixir Cost Trainer',
     text,
-    url: url.toString(),
-    copyText: `${text}\n${url.toString()}`
+    url,
+    copyText: `${text}\n${url}`
   }
 }
 
-export function shareDrop(href = window.location.href): Promise<RunShareOutcome> {
-  return shareRun(dropSharePayload(href))
+export function shareDrop(url: string): Promise<RunShareOutcome> {
+  return shareRun(dropSharePayload(url))
 }
 
 // `url` is the run's own permalink — a minted /#/r/<token> address. It is passed

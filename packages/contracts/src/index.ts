@@ -871,7 +871,7 @@ export const BADGES = [
     group: "community",
     kind: "count",
     rungs: [1, 3, 5, 10, 25, 50],
-    requirement: "New players brought to their first recorded game",
+    requirement: "New players who create an account through your shared links",
   },
 
   // ── Hidden — one rung, silhouette until earned (7). Six of the seven are

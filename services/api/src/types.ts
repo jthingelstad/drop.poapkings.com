@@ -91,9 +91,9 @@ export interface PlayerProfile {
   // Lifetime Player XP (event-awarded, only climbs). Absent on profiles
   // created before XP shipped — treat as 0.
   xp?: number;
-  // Community badge counters. Herald counts privacy-preserving distinct share
-  // opens; Recruiter counts attributed new players who reached a first
-  // recorded game. Both are monotonic and owner-internal.
+  // Community badge counters. Herald counts privacy-preserving distinct opens
+  // of shared runs; Recruiter counts attributed new account creations. Both
+  // are monotonic and owner-internal.
   heraldOpens?: number;
   recruiterCount?: number;
   // Internal last-touch recruitment attribution. Never returned by an API.

@@ -93,7 +93,7 @@ Current public website stack:
 
 The app builds to static files in `apps/web/dist/`. CloudFront serves the custom
 domain from root, so Vite `base` stays `/`. Hash routing remains the stable
-browser contract for authentication and shared-run URLs.
+browser contract for authentication and attributed share URLs.
 
 ---
 
@@ -442,7 +442,7 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
-elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid shared-run
+elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid attributed share
                                        token + capture time; expires after 30 days and is
                                        consumed by a successful login-email request
 ```
@@ -574,7 +574,7 @@ redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
-### Sharing a run
+### Sharing and recruitment
 
 Sharing is two things travelling together: an image, which is what gets looked
 at, and a link, which is what gets counted.
@@ -624,12 +624,15 @@ sharer's own device earns nothing, and credit stops at 25 per token so one lucky
 link cannot clear a ladder. The counter is written best-effort — a link opens
 whether or not the count lands. Privacy and Fair Play both state this, which was
 the stated condition for any share badge shipping. Herald reads that aggregate
-counter. Recruiter is separate: opening a valid shared run stores only its
-six-character token in the browser for up to 30 days. If the token is supplied
-with a login request for an email that has no Drop profile, the resulting
-account is privately attributed to the sharer; the Recruiter counter advances
-exactly once only after that new player finishes a recorded online game.
-Neither a link open nor a login-email request alone counts as a recruit.
+counter. Home and badge shares instead mint an invitation token through `POST
+/shares` and resolve at `#/s/<token>`. Invitation opens carry no Herald credit,
+create no per-link Herald visitor marker, and redirect to Home or the relevant public
+profile after storing attribution. Either a valid run or invitation token may
+be kept in the browser for up to 30 days. If that token is supplied with a login
+request for an email that has no Drop profile, the resulting account is
+privately attributed to the sharer; successful magic-link redemption that
+creates the profile advances Recruiter exactly once. Neither a link open nor a
+login-email request alone counts as a recruit.
 
 **Deletion.** The share item lives outside `PLAYER#` so a stranger can resolve it
 by token alone, so a `PLAYER#{sub}/SHARE#{token}` pointer is written in the same

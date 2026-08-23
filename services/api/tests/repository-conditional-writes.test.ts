@@ -213,6 +213,35 @@ describe("repository conditional writes", () => {
     ]);
   });
 
+  it("indexes an invitation for account deletion without inventing a run", async () => {
+    send.mockResolvedValueOnce({});
+
+    await new Repository("test-table").putShare({
+      pk: "SHARE#AB2CD3",
+      sk: "SHARE",
+      token: "AB2CD3",
+      kind: "invite",
+      owner: "player-sub",
+      destination: "home",
+      mintedAt: "2026-08-22T12:00:00.000Z",
+    });
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected share pointer transaction");
+    expect(command.input.TransactItems?.[1]).toEqual({
+      Put: expect.objectContaining({
+        Item: {
+          pk: "PLAYER#player-sub",
+          sk: "SHARE#AB2CD3",
+          shareToken: "AB2CD3",
+          mintedAt: "2026-08-22T12:00:00.000Z",
+        },
+      }),
+    });
+  });
+
   it("does not credit a recruit whose exact-once marker already exists", async () => {
     send.mockResolvedValueOnce({
       Item: {

@@ -355,6 +355,13 @@ export const sharedRunSchema = z.object({
   player: z.optional(publicPlayerSummarySchema)
 })
 
+export const sharedInviteSchema = z.object({
+  token: z.string().min(4).max(16),
+  kind: z.literal('invite'),
+  destination: z.enum(['home', 'player']),
+  playerId: z.optional(nonEmptyString)
+})
+
 export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
@@ -416,3 +423,4 @@ export type PublicPlayer = z.infer<typeof publicPlayerSchema>
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
 export type ActivityEntry = z.infer<typeof activityEntrySchema>
 export type SharedRun = z.infer<typeof sharedRunSchema>
+export type SharedInvite = z.infer<typeof sharedInviteSchema>

@@ -11,6 +11,7 @@ import BadgeCelebration from './components/BadgeCelebration'
 import ChargeRing from './components/ChargeRing'
 import GateCard from './components/GateCard'
 import SharedRun, { sharedRunToken } from './screens/SharedRun'
+import SharedInvite, { sharedInviteToken } from './screens/SharedInvite'
 import Screensaver from './components/Screensaver'
 import { createIdleWatcher, screensaverActive, startScreensaver } from './lib/screensaver'
 import { initInstallPrompt } from './lib/pwa-install'
@@ -63,6 +64,7 @@ const ROUTE_LABELS: { match: string; label: string }[] = [
   { match: '/rain', label: 'Rain' },
   { match: '/offline', label: 'Offline' },
   { match: '/r/', label: 'A shared run' },
+  { match: '/s/', label: 'A shared link' },
   { match: '/leaderboards', label: 'Ladder' },
   { match: '/profile', label: 'You' },
   { match: '/players', label: 'Player profile' },
@@ -136,6 +138,13 @@ function ScreenContent({ r }: { r: string }) {
   if (r.startsWith('/r/')) {
     const token = sharedRunToken(r)
     return token ? <SharedRun token={token} /> : <HomeRedirect />
+  }
+  // Home and badge shares carry Recruiter attribution but no Herald credit.
+  // Resolve them before the account gate, then replace this capability route
+  // with its ordinary destination so Back cannot loop through it.
+  if (r.startsWith('/s/')) {
+    const token = sharedInviteToken(r)
+    return token ? <SharedInvite token={token} /> : <HomeRedirect />
   }
   // An offline game is local and unrecorded, so account state cannot gate it.
   // The effective state covers both a transport disconnect and an unreachable

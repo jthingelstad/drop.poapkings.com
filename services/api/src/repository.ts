@@ -94,7 +94,7 @@ interface MagicItem {
   // The secret poll id (known only to the requesting client) so a PWA that can't
   // receive the emailed link's browser context can still pick up its session.
   pollId?: string;
-  // Owner of the last valid shared-run link this not-yet-registered email
+  // Owner of the last valid attributed share this not-yet-registered email
   // arrived through. Internal subjects never leave the API boundary.
   recruiterSub?: string;
 }
@@ -250,29 +250,40 @@ function calendarSeasonId(startsAt: string): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-// A minted share, and the durable snapshot the permalink renders from. It is
-// durable ON PURPOSE: the RUN# row is ephemeral (a one-hour TTL), while a link
-// a player has already sent to somebody has to keep working. Everything stored
-// here is already public — score, mode, arena, the run's own shape — and `owner`
-// never leaves the repository boundary: it exists so an open from the sharer's
-// own device can be dropped from their Herald count.
-export interface ShareItem {
+// Every attributed share has an owner so it can carry Recruiter credit. Run
+// shares additionally hold a durable public result snapshot: the RUN# row is
+// ephemeral, while a link a player already sent has to keep working.
+interface ShareItemBase {
   pk: string; // SHARE#{token}
   sk: "SHARE";
   token: string;
-  runId: string;
   owner: string;
+  mintedAt: string;
+}
+
+export interface RunShareItem extends ShareItemBase {
+  // Rows minted before invitation links shipped have no kind; they are run
+  // shares by definition and remain readable without a migration.
+  kind?: "run";
+  runId: string;
   playerId: string;
   mode: GameMode;
   score: number;
   seasonId: string;
   completedAt: string;
-  mintedAt: string;
   // Credited distinct opens, capped. Absent until the first one.
   opens?: number;
   // The player's own run shape, for the card. Display only.
   series?: number[];
 }
+
+export interface InviteShareItem extends ShareItemBase {
+  kind: "invite";
+  destination: "home" | "player";
+  destinationPlayerId?: string;
+}
+
+export type ShareItem = RunShareItem | InviteShareItem;
 
 export interface PublicPlayerLookup {
   // The subject key is retained inside the repository boundary only so callers
@@ -509,7 +520,7 @@ export class Repository {
     return result.Item as ProfileItem | undefined;
   }
 
-  // Bind a newly requested account to the shared-run owner who brought it in.
+  // Bind a newly requested account to the attributed share owner who brought it in.
   // First valid attribution wins; retries by the same magic link are a no-op.
   async attachRecruiter(
     recruitedSub: string,
@@ -540,9 +551,9 @@ export class Repository {
     }
   }
 
-  // A recruit becomes real at their first recorded online game, not when an
-  // email is merely entered. The recruited profile is the exact-once marker;
-  // the recruiter counter increments in the same transaction.
+  // A recruit becomes real when the new profile is created, not when an email
+  // is merely entered. The recruited profile is the exact-once marker; the
+  // recruiter counter increments in the same transaction.
   async creditRecruiter(
     recruitedSub: string,
     creditedAt: string,
@@ -1103,7 +1114,7 @@ export class Repository {
                 pk: `PLAYER#${item.owner}`,
                 sk: `SHARE#${item.token}`,
                 shareToken: item.token,
-                runId: item.runId,
+                ...(item.kind === "invite" ? {} : { runId: item.runId }),
                 mintedAt: item.mintedAt,
               },
             },
@@ -1177,7 +1188,7 @@ export class Repository {
     return true;
   }
 
-  // Herald's counter: distinct opens of everything this player has shared.
+  // Herald's counter: distinct opens of this player's shared run results.
   // Written best-effort outside any transaction, exactly like learning stats —
   // a counter failure must never break the link a stranger just opened.
   async addHeraldOpens(sub: string, count: number): Promise<void> {

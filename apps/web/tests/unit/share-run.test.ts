@@ -19,10 +19,10 @@ afterEach(() => {
 
 describe('run sharing', () => {
   it('builds a clean root link for sharing Elixir Drop itself', () => {
-    const payload = dropSharePayload('https://drop.poapkings.com/?source=test#/profile')
+    const payload = dropSharePayload('https://drop.poapkings.com/#/s/AB2CD3')
 
     expect(payload.title).toContain('Elixir Drop')
-    expect(payload.url).toBe('https://drop.poapkings.com/')
+    expect(payload.url).toBe('https://drop.poapkings.com/#/s/AB2CD3')
     expect(payload.copyText).toBe(`${payload.text}\n${payload.url}`)
   })
 

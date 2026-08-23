@@ -5,6 +5,7 @@ import BadgeEarned from '../../src/components/BadgeEarned'
 import BadgeGrid from '../../src/components/BadgeGrid'
 import DetailModal from '../../src/components/DetailModal'
 import type { BadgeState } from '../../src/lib/badges'
+import { player } from '../../src/lib/account'
 
 const shareMock = vi.hoisted(() => ({
   shareBadge: vi.fn()
@@ -55,6 +56,7 @@ beforeEach(() => {
   document.body.appendChild(host)
   shareMock.shareBadge.mockReset()
   analyticsMock.track.mockReset()
+  player.value = { id: 'signed-in-player' } as never
 })
 
 afterEach(() => {
@@ -62,6 +64,7 @@ afterEach(() => {
   host.remove()
   document.body.classList.remove('modal-open')
   vi.useRealTimers()
+  player.value = null
 })
 
 describe('DetailModal', () => {
@@ -312,6 +315,13 @@ describe('BadgeGrid', () => {
 
   it('does not offer sharing without a complete public identity', async () => {
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" />)
+    await click(buttonNamed('Reps, 100'))
+    expect(host.textContent).not.toContain('Share badge')
+  })
+
+  it('does not offer an uncredited badge share to a signed-out visitor', async () => {
+    player.value = null
+    draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" playerName="Knight Main" />)
     await click(buttonNamed('Reps, 100'))
     expect(host.textContent).not.toContain('Share badge')
   })

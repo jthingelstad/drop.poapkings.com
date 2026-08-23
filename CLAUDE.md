@@ -197,6 +197,15 @@ rank-oriented fields as part of unrelated work.
   all. Deleting an account deletes its minted links: the share item lives
   outside `PLAYER#` so a stranger can resolve it, and a `PLAYER#{sub}/SHARE#`
   pointer is what lets the deletion sweep find it.
+- **Herald is result reach; Recruiter is account creation.** Only a distinct,
+  non-owner open of a `#/r/<token>` shared run advances Herald. The Home hero
+  and badge cards mint `POST /shares` invitation tokens at `#/s/<token>`; those
+  links carry Recruiter attribution but never create a per-link Herald visitor
+  marker or touch Herald. Either token kind can become the browser's 30-day last-touch
+  Recruiter attribution. Requesting a login email does not count; successful
+  magic-link redemption that creates a genuinely new profile advances
+  Recruiter exactly once. Anonymous players are asked to sign in before sharing
+  because no account exists to receive either badge.
 - **Desktop is a viewport shell over the same routes and data.** On initial load
   at or above 1024px, `MobileShell` composes a fixed 936 × 720 navigation / stage
   / activity grid (`lib/use-layout.ts`); the document itself does not scroll.
@@ -387,8 +396,7 @@ rank-oriented fields as part of unrelated work.
   are marked "scaled" in the table and want a re-check.
   Battle Tag is a visible one-time badge derived from the optional unverified
   player tag. Herald reads the existing distinct shared-run open counter;
-  Recruiter credits the sharer only after a newly attributed account completes
-  its first recorded online game.
+  Recruiter credits the sharer when a newly attributed account is created.
 - **Player XP is permanent progression; the leaderboard is performance.**
   `packages/contracts/src/index.ts` is the one XP v2 rulebook used by the API,
   browser, and generated `/xp/` page. Recorded Surge pays 15 and Trade 100;

@@ -15,9 +15,10 @@ import {
   type RouteContext,
 } from "./context.js";
 
-// The share function. Two endpoints:
+// The share function. Three endpoints:
 //
 //   POST /runs/{runId}/share  — mint a token for a run the caller owns
+//   POST /shares              — mint an invitation token for Home or a profile
 //   GET  /shares/{token}      — resolve it, and count the open
 //
 // A NOT-RECORDED run has nothing to mint: offline and guest runs have no server
@@ -26,11 +27,57 @@ import {
 // rule — a disabled button invites a tap and then has to explain itself, and an
 // endpoint that trusts the button has no rule at all.
 //
-// Nothing shareable that is not already public: score, mode, name, arena, badge
-// count. The same set the public profile shows.
+// Nothing shareable that is not already public: a run exposes the same result
+// facts as a public profile, while an invitation exposes only its public
+// destination.
 
 const MINT_LIMIT_PER_HOUR = 60;
 const OPEN_LIMIT_PER_HOUR = 600;
+
+// POST /shares — Home and badge shares carry Recruiter attribution, but never
+// Herald credit. Herald remains specifically about reach from shared results.
+export async function createInviteShare(context: RouteContext) {
+  const { event, config, repository } = context;
+  const session = sessionFor(event, config.sessionSecret, true);
+  await repository.useRateLimit(
+    "share-mint",
+    clientIpHash(event, config.webOriginToken),
+    MINT_LIMIT_PER_HOUR,
+    60 * 60,
+  );
+
+  const body = bodyOf(event);
+  const destination = body.destination;
+  if (destination !== "home" && destination !== "player")
+    throw new HttpError(400, "A valid share destination is required.");
+
+  const profile = await repository.getProfile(session.sub);
+  if (!profile)
+    throw new HttpError(404, "Player profile not found.", "not_found");
+
+  let destinationPlayerId: string | undefined;
+  if (destination === "player") {
+    if (typeof body.playerId !== "string" || !body.playerId.trim())
+      throw new HttpError(400, "A player is required for this share.");
+    const destinationPlayer = await repository.getPublicPlayer(body.playerId);
+    if (!destinationPlayer)
+      throw new HttpError(404, "That player could not be found.", "not_found");
+    destinationPlayerId = destinationPlayer.player.id;
+  }
+
+  const token = mintShareToken();
+  await repository.putShare({
+    pk: `SHARE#${token}`,
+    sk: "SHARE",
+    token,
+    kind: "invite",
+    owner: session.sub,
+    destination,
+    ...(destinationPlayerId ? { destinationPlayerId } : {}),
+    mintedAt: new Date().toISOString(),
+  });
+  return json(201, { token });
+}
 
 // POST /runs/{runId}/share
 export async function createShare(context: RouteContext, runId: string) {
@@ -78,6 +125,7 @@ export async function createShare(context: RouteContext, runId: string) {
     pk: `SHARE#${token}`,
     sk: "SHARE",
     token,
+    kind: "run",
     runId,
     owner: session.sub,
     playerId: profile.playerId,
@@ -105,6 +153,20 @@ export async function getShare(context: RouteContext, token: string) {
 
   const share = await repository.getShare(token);
   if (!share) throw new HttpError(404, "That link is not valid.", "not_found");
+
+  // Invitation links are deliberately not Herald links. They carry the token
+  // into a new account journey, but an open alone earns no badge progress and
+  // therefore needs no per-link Herald visitor marker.
+  if (share.kind === "invite") {
+    return json(200, {
+      token: share.token,
+      kind: "invite",
+      destination: share.destination,
+      ...(share.destinationPlayerId
+        ? { playerId: share.destinationPlayerId }
+        : {}),
+    });
+  }
 
   const lookup = await repository.getPublicPlayer(share.playerId);
 

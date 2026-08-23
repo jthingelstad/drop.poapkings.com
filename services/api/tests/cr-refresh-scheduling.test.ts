@@ -9,6 +9,7 @@ import { emailSubject } from "../src/validation.js";
 
 const repository = vi.hoisted(() => ({
   attachRecruiter: vi.fn(),
+  creditRecruiter: vi.fn(),
   completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
   deleteMagicLink: vi.fn(),
@@ -39,6 +40,7 @@ const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     attachRecruiter = repository.attachRecruiter;
+    creditRecruiter = repository.creditRecruiter;
     completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
     deleteMagicLink = repository.deleteMagicLink;
@@ -266,7 +268,7 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
-  it("carries a valid shared-run recruiter into a new account's magic link", async () => {
+  it("carries a valid attributed share into a new account's magic link", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(undefined);
     repository.getShare.mockResolvedValue({
@@ -291,7 +293,7 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
-  it("does not attach shared-run recruitment to an existing account", async () => {
+  it("does not attach share recruitment to an existing account", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(profile);
     repository.getShare.mockResolvedValue({
@@ -315,7 +317,7 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
-  it("attaches magic-link recruitment before consuming the link", async () => {
+  it("credits Recruiter when the attributed account is created", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: "new-player@example.com",
       recruiterSub: "recruiter-sub",
@@ -325,6 +327,7 @@ describe("Clash Royale refresh scheduling", () => {
       created: true,
     });
     repository.attachRecruiter.mockResolvedValue(true);
+    repository.creditRecruiter.mockResolvedValue(true);
     repository.consumeMagicLink.mockResolvedValue("new-player@example.com");
 
     const response = await invoke("POST", "/auth/redeem", {
@@ -336,9 +339,45 @@ describe("Clash Royale refresh scheduling", () => {
       emailSubject("new-player@example.com"),
       "recruiter-sub",
     );
+    expect(repository.creditRecruiter).toHaveBeenCalledWith(
+      emailSubject("new-player@example.com"),
+      expect.any(String),
+    );
     expect(repository.attachRecruiter.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.creditRecruiter.mock.invocationCallOrder[0]!,
+    );
+    expect(repository.creditRecruiter.mock.invocationCallOrder[0]).toBeLessThan(
       repository.consumeMagicLink.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("does not strand account creation when Recruiter credit needs reconciliation", async () => {
+    repository.peekMagicLink.mockResolvedValue({
+      email: "new-player@example.com",
+      recruiterSub: "recruiter-sub",
+    });
+    repository.ensureProfile.mockResolvedValue({
+      profile: { ...profile, email: "new-player@example.com" },
+      created: true,
+    });
+    repository.attachRecruiter.mockResolvedValue(true);
+    repository.creditRecruiter.mockRejectedValueOnce(
+      new Error("temporary DynamoDB failure"),
+    );
+    repository.consumeMagicLink.mockResolvedValue("new-player@example.com");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.consumeMagicLink).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      "Recruiter account-creation credit failed",
+      expect.objectContaining({ error: "Error" }),
+    );
+    warn.mockRestore();
   });
 
   it("hands the new session to a waiting poll id (cross-context/PWA login)", async () => {

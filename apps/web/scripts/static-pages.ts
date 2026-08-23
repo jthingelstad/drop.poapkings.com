@@ -285,7 +285,7 @@ ${pageSections([
     )
   ),
   section(
-    'Sharing a run',
+    'Sharing and invitations',
     `${paragraph(
       'Sharing a run mints a unique link for that share, and Drop counts how many distinct visitors open it so Herald can credit real reach rather than repeat taps.'
     )}${paragraph(
@@ -339,9 +339,9 @@ ${pageSections([
     `${paragraph(
       'Sharing a run mints a unique link for that share. Drop counts how many distinct visitors open each link, so a share badge can credit the reach it earned. It does not learn who opened a link: an open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request, the same way Fair Play signals work. Drop does not store the raw IP address or full browser user-agent for this, opens from your own device are not counted, and credit per link stops at a fixed cap.'
     )}${paragraph(
-      'A shared link shows only what your public profile already shows: your Drop name, favorite card, arena, the mode, and the score. Deleting your account deletes your shared links along with everything else.'
+      'A shared run shows only what your public profile already shows: your Drop name, favorite card, arena, the mode, and the score. Home and badge invitations redirect to the shared destination without counting an open toward Herald. Deleting your account deletes your shared links along with everything else.'
     )}${paragraph(
-      'Opening a valid shared run stores only its six-character public token in that browser for up to 30 days. If that token leads to a genuinely new account and the new player finishes a recorded online game, Drop credits one Recruiter milestone to the sharer. The relationship is private, the token is consumed when the login email is requested, and neither player&rsquo;s identity is stored in the browser attribution.'
+      'Opening a valid shared run or invitation stores only its six-character public token in that browser for up to 30 days. If that token leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, the token is consumed when the login email is requested, and neither player&rsquo;s identity is stored in the browser attribution.'
     )}`
   ),
   section(

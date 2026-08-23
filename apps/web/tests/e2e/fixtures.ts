@@ -367,9 +367,17 @@ function testChallenge(mode: GameMode): RunChallenge {
 // Every mint returns a distinct token, because one token per SHARE ACTION is
 // the property that makes reach countable per share rather than per run.
 let shareTokenCounter = 0
+const inviteShares = new Map<string, { destination: 'home' | 'player'; playerId?: string }>()
 
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
+  if (route.request().method() === 'POST' && path === '/shares') {
+    shareTokenCounter += 1
+    const token = `NVT${'ABCDEFGHJKMNPQRSTVWXYZ'[shareTokenCounter % 22]!.repeat(3)}`
+    inviteShares.set(token, route.request().postDataJSON() as { destination: 'home' | 'player'; playerId?: string })
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ token }) })
+    return true
+  }
   const shareMint = /^\/runs\/[^/]+\/share$/.exec(path)
   if (shareMint) {
     shareTokenCounter += 1
@@ -384,6 +392,15 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
   }
   const sharedRun = /^\/shares\/([^/]+)$/.exec(path)
   if (sharedRun) {
+    const invite = inviteShares.get(sharedRun[1]!)
+    if (invite) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ token: sharedRun[1], kind: 'invite', ...invite })
+      })
+      return true
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

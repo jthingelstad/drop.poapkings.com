@@ -3,13 +3,21 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 
 const api = vi.hoisted(() => ({
+  getSharedInvite: vi.fn(),
   getSharedRun: vi.fn(),
+  createInviteShareToken: vi.fn(),
   createShareToken: vi.fn()
 }))
 
 vi.mock('../../src/lib/api', async (importActual) => {
   const actual = await importActual<typeof import('../../src/lib/api')>()
-  return { ...actual, getSharedRun: api.getSharedRun, createShareToken: api.createShareToken }
+  return {
+    ...actual,
+    getSharedInvite: api.getSharedInvite,
+    getSharedRun: api.getSharedRun,
+    createInviteShareToken: api.createInviteShareToken,
+    createShareToken: api.createShareToken
+  }
 })
 
 const shareCard = vi.hoisted(() => ({ renderShareCard: vi.fn(), canShareImage: vi.fn() }))
@@ -26,6 +34,7 @@ vi.mock('../../src/lib/account', async (importActual) => {
 import ShareLine from '../../src/components/ShareLine'
 import Summary from '../../src/components/Summary'
 import SharedRun, { sharedRunToken } from '../../src/screens/SharedRun'
+import SharedInvite, { sharedInviteToken } from '../../src/screens/SharedInvite'
 import { recordedRunId } from '../../src/lib/use-game-run'
 import { duelSignature, rainSignature, survivalSignature, tradeSignature } from '../../src/lib/signatures'
 
@@ -260,5 +269,46 @@ describe('the shared-run permalink', () => {
 
     expect(host.textContent).toContain('Link not found')
     expect(host.textContent).toContain('Open Elixir Drop')
+  })
+})
+
+describe('the Recruiter invitation permalink', () => {
+  let host: HTMLDivElement
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    localStorage.clear()
+    window.location.hash = ''
+  })
+
+  afterEach(() => {
+    render(null, host)
+    host.remove()
+    localStorage.clear()
+  })
+
+  it('accepts the same readable token alphabet on the invitation route', () => {
+    expect(sharedInviteToken('/s/AB2CD3')).toBe('AB2CD3')
+    expect(sharedInviteToken('/s/ab2cd3')).toBe('AB2CD3')
+    expect(sharedInviteToken('/s/AB0CD3')).toBeUndefined()
+  })
+
+  it('remembers attribution and replaces the capability route with its destination', async () => {
+    api.getSharedInvite.mockResolvedValue({
+      token: 'AB2CD3',
+      kind: 'invite',
+      destination: 'player',
+      playerId: 'player/one'
+    })
+
+    await act(async () => {
+      render(<SharedInvite token="AB2CD3" />, host)
+    })
+    await flush()
+
+    expect(JSON.parse(localStorage.getItem('elixirdrop:recruiter:v1') || 'null')).toMatchObject({ token: 'AB2CD3' })
+    expect(window.location.hash).toBe('#/players/player%2Fone')
   })
 })

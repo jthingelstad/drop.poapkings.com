@@ -54,6 +54,20 @@ export async function getMe({ event, config, repository }: RouteContext) {
       "Player profile was not found.",
       "profile_not_found",
     );
+  // Accounts attributed before Recruiter moved from first-game completion to
+  // account creation may already have an active session. Reconcile them on the
+  // next ordinary profile load without making profile availability depend on
+  // the best-effort counter write.
+  if (profile.recruitedBy && !profile.recruiterCreditedAt) {
+    try {
+      await repository.creditRecruiter(session.sub, new Date().toISOString());
+    } catch (error) {
+      console.warn("Recruiter account-creation reconciliation failed", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   const [recentRuns, crProfile, cardStats, rankedAccess] = await Promise.all([
     repository.listRecentRuns(session.sub),
     profile.playerTag ? repository.getCrProfile(profile.playerTag) : undefined,

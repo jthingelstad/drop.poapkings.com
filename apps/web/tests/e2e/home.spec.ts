@@ -176,7 +176,10 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
-      value: () => Promise.resolve()
+      value: (payload: ShareData) => {
+        ;(window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload = payload
+        return Promise.resolve()
+      }
     })
   })
   await page.goto('/')
@@ -225,6 +228,29 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   ).toBe(gamesTop)
   await share.getByRole('button', { name: /SHARE ELIXIR DROP/ }).click()
   await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload?.url))
+    .toMatch(/#\/s\/NVT/)
+
+  const invitationUrl = await page.evaluate(
+    () => (window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload?.url
+  )
+  expect(invitationUrl).toBeTruthy()
+  await page.goto(invitationUrl!)
+  await expect(page.locator('.ed-home')).toBeVisible()
+  await expect(page).toHaveURL(/#\/$/)
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem('elixirdrop:recruiter:v1')))
+    .toMatch(/"token":"NVT/)
+})
+
+test('the Share hero asks a guest to sign in instead of sending an uncredited link', async ({ page }) => {
+  await useSignedOutState(page)
+  await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
+  const share = page.locator('.ed-hero--share')
+  await expect(share).toContainText('every new player you bring can count toward Recruiter')
+  await share.getByRole('button', { name: 'SIGN IN TO SHARE' }).click()
+  await expect(page).toHaveURL(/#\/login$/)
 })
 
 test('the hero carousel is a finger-tracking horizontal scroll surface', async ({ page }) => {

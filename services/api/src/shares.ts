@@ -1,15 +1,15 @@
 import { randomInt } from "node:crypto";
 
-// Share tokens — the mechanism behind "Share this run".
+// Share tokens — attributed capabilities behind run, Home, and badge shares.
 //
-// One token per SHARE ACTION, not per run: sharing the same run twice mints two
-// tokens, which is exactly what makes Herald countable per share rather than per
-// run. Six characters, drawn from an alphabet with no look-alike glyphs, because
-// a player may end up reading one aloud.
+// One token per SHARE ACTION. A run token lets Herald count result reach per
+// share rather than per run; Home and badge invitation tokens carry Recruiter
+// attribution without counting an open. Six characters, drawn from an alphabet
+// with no look-alike glyphs, because a player may end up reading one aloud.
 //
-// A token is a capability to READ one already-public result. It carries nothing
-// that is not already on the public profile — score, mode, name, arena, badge
-// count — so guessing one leaks nothing that a leaderboard does not.
+// A token is a capability to read one already-public result or destination. It
+// carries no private player facts: run details are already on the public
+// profile, and invitations expose only Home or a public profile id.
 
 // Crockford-style: no I, L, O, U, or 0/1. 32 symbols, 6 characters, so a little
 // over a billion tokens — sparse enough that scanning for one is pointless.
