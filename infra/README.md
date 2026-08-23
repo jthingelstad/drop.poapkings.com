@@ -4,9 +4,11 @@
 as one CloudFormation stack:
 
 - a private S3 web bucket behind a CloudFront origin access control;
-- one CloudFront distribution that serves static assets and sends `/api/*` to
-  the existing HTTP API, plus a small request function for prefix and directory
-  index rewriting;
+- a retained private S3 bucket for permanent server-rendered run preview PNGs;
+- one CloudFront distribution that serves static assets and sends `/api/*`,
+  `/share/*`, and `/share-assets/*` to the existing HTTP API, plus a small
+  request function for classification, viewer-IP forwarding, prefix, and
+  directory-index rewriting;
 - an ACM certificate supplied from `us-east-1`;
 
 - arm64 Node.js 24 Lambda with reserved concurrency caps;
@@ -155,6 +157,6 @@ CloudFormation owns the private web origin and CloudFront distribution as well
 as the API, bridge queues, and result consumer. The default static behavior uses
 AWS's managed combined CORS and security-headers policy so Buttondown's public
 archive can load the same-origin app font while every static response receives
-HSTS, content-type, framing, and referrer protections; `/api/*` keeps the API's
-own CORS behavior. The
+HSTS, content-type, framing, and referrer protections; `/api/*`, `/share/*`, and
+`/share-assets/*` keep the API's own response and cache policy. The
 fixed-IP worker remains a local launchd service on the allowlisted Mac.

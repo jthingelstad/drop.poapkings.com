@@ -9,6 +9,7 @@ import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { sendMagicLink } from "../jmap.js";
 import { isShareToken } from "../shares.js";
+import { refereeReviewStatus } from "../referee-status.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
 import {
   emailSubject,
@@ -26,6 +27,7 @@ import {
   sessionFor,
   sha256,
 } from "./context.js";
+import { isPublishedRunReference } from "./published-shares.js";
 
 // POST /auth/request — mail a single-use magic link.
 export async function requestMagicLink({
@@ -64,14 +66,37 @@ export async function requestMagicLink({
     typeof body.recruiterToken === "string"
       ? body.recruiterToken.toUpperCase()
       : undefined;
-  if (isShareToken(recruiterToken)) {
+  const recruiterShare =
+    typeof body.recruiterShare === "object" && body.recruiterShare !== null
+      ? (body.recruiterShare as Record<string, unknown>)
+      : undefined;
+  if (
+    isShareToken(recruiterToken) ||
+    isPublishedRunReference(recruiterShare?.playerId, recruiterShare?.runId)
+  ) {
     try {
-      const [existingProfile, share] = await Promise.all([
-        repository.getProfile(sub),
-        repository.getShare(recruiterToken),
-      ]);
-      if (!existingProfile && share && share.owner !== sub)
-        recruiterSub = share.owner;
+      const existingProfile = await repository.getProfile(sub);
+      if (!existingProfile && isShareToken(recruiterToken)) {
+        const share = await repository.getShare(recruiterToken);
+        if (share && share.owner !== sub) recruiterSub = share.owner;
+      } else if (
+        !existingProfile &&
+        isPublishedRunReference(recruiterShare?.playerId, recruiterShare?.runId)
+      ) {
+        const share = await repository.getPublishedRunShare(
+          recruiterShare.playerId,
+          recruiterShare.runId as string,
+        );
+        const decision = share
+          ? (await repository.refereeDecisions([share.runId])).get(share.runId)
+          : undefined;
+        if (
+          share &&
+          share.owner !== sub &&
+          refereeReviewStatus(decision) !== "excluded"
+        )
+          recruiterSub = share.owner;
+      }
     } catch (error) {
       // Attribution is optional. A share read must never keep a player from
       // receiving the login email they asked for.

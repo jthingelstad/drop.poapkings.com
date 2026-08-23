@@ -10,9 +10,8 @@ import { gameDisplay } from '../lib/game-metadata'
 // player sees, and a mode tile that pops in after paint reads as a broken app.
 // Width and height are always set so 6 tiles cannot reflow as they decode.
 //
-// The 192px file covers every size we render (60px is the largest, in the Surge
-// hero), so it is the only one this component reaches for. The share card uses
-// the 384px file directly.
+// The 192px file covers every size this browser component renders (60px is the
+// largest, in the Surge hero).
 export default function ModeIcon({ mode, size, className }: { mode: GameMode; size: number; className?: string }) {
   const { art, name } = gameDisplay(mode)
   return (

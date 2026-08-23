@@ -57,6 +57,7 @@ first-Monday calendar instead of failing.
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`
+- `GET /share/{playerId}/{runId}`, `GET /share-assets/{playerId}/{runId}`, `POST /share/{playerId}/{runId}/open`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
@@ -132,51 +133,33 @@ balance; only badge rungs are retroactive.
 
 ## Sharing and recruitment
 
-`POST /runs/{runId}/share` mints a share token for a run the caller owns, and
-`POST /shares` mints a Home or public-profile invitation for Recruiter
-attribution. `GET /shares/{token}` resolves either kind. The token is six
-characters from an alphabet
-with no look-alike glyphs (no I, L, O, U, 0, or 1) — a player may end up reading
-one aloud. See `src/shares.ts`.
+`POST /runs/{runId}/share` publishes the caller's immutable history row at one
+deterministic `/share/{playerId}/{runId}` address. Repeated calls return the same
+URL. Because publication reads durable history, the finish screen and You → Log
+can use the same endpoint, including for older runs whose active `RUN#` row has
+expired. Practice, absent, and Fair Play-excluded results fail closed.
 
-**One token per share ACTION, not per run.** Sharing the same run twice mints two
-tokens; that is what makes reach countable per share rather than per run.
+The published item freezes only public result/profile facts. `share-visual.ts`
+derives a bounded chart from validated referee evidence; the browser never
+submits visual data. New completions retain that projection on the history row,
+while the first share of an older run backfills it. `share-image.ts` renders a
+1200 × 630 PNG without a browser or native graphics dependency, and
+`share-assets.ts` keeps it permanently in the dedicated private S3 bucket.
+`GET /share/{playerId}/{runId}` serves the standalone unfurl/landing HTML;
+`GET /share-assets/{playerId}/{runId}` serves or regenerates the PNG.
 
-**A not-recorded run cannot mint.** Guest and Practice runs, and any run that has
-not finished scoring, are refused `409 run_not_recorded`. The browser hides the
-control entirely rather than disabling it, and this endpoint is the second lock
-on the same rule — an endpoint that trusts the button has no rule at all.
+Metadata and preview-image GET/HEAD requests do not count toward Herald. A real
+landing page runs `POST /share/{playerId}/{runId}/open`; its peppered HMAC
+dedupes a visitor without retaining the raw IP or full user-agent. The owner's
+session earns nothing, credit caps at 25 per run, and counter failure never
+blocks the page. The landing also carries the public player/run pair as 30-day
+last-touch Recruiter attribution.
 
-The run-share item carries a durable snapshot (mode, score, season, completedAt, the
-public `playerId`, and the run's own display-only series) rather than pointing at
-the ephemeral `RUN#` row, because a link a player already sent has to keep
-working after that row TTLs out. `owner` is stored but never returned: it exists
-so an open from the sharer's own device can be dropped. The response carries only
-what the public profile already shows — score, mode, name, arena.
-An invitation item stores only `home` or a validated public `playerId`
-destination plus its private owner attribution.
-
-**Counting opens.** A distinct visitor is credited once per token. The dedupe key
-is a peppered one-way HMAC of the request scoped to that token, so a refresh, a
-link preview, and a second tap are one open; Drop counts opens per token and
-never learns who opened, and no raw IP or user-agent is stored. The sharer's own
-device earns nothing, and credit stops at 25 per token so one lucky link cannot
-clear a badge ladder. Crediting is best-effort and never blocks the read: a link
-opens whether or not the count lands. `share-mint` is rate-limited at 60/hour and
-`share-open` at 600/hour per IP.
-
-Only run-share opens count toward Herald. Invitation links resolve at
-`#/s/{token}`, create no per-link Herald visitor marker, and never advance Herald; they
-exist to carry 30-day Recruiter attribution from the Home and badge share
-surfaces. A valid token of either kind may be attached to a login request for an
-email with no profile. Requesting the email earns nothing. Successful
-magic-link redemption creates the new profile and advances the sharer's
-Recruiter counter in an exact-once transaction.
-
-The share item lives outside `PLAYER#` so a stranger can resolve it by token
-alone. A `PLAYER#{sub}/SHARE#{token}` pointer is written in the same transaction,
-and account deletion follows it to sweep the share and its per-visitor open
-markers — a link that outlived the account would keep naming a player who left.
+`POST /shares` still mints a six-character Home or public-profile invitation
+token for badge and Home sharing. `GET /shares/{token}` also remains as the
+compatibility resolver for previously issued run tokens. Invitation opens never
+advance Herald. Account deletion follows both token and published-run pointers,
+sweeps their visitor markers and snapshots, and deletes the player's S3 prefix.
 
 `GET /players/{playerId}` backs read-only profiles opened from leaderboards and
 recent activity. It resolves the pseudonymous player UUID through the sparse

@@ -1,6 +1,5 @@
 import type { GameMode } from '@elixir-drop/contracts'
-import { gameDisplay } from './game-metadata'
-import { canShareImage, renderShareCard, type ShareCardInput } from './share-card'
+import { canShareImage } from './share-card'
 
 export type ShareableGameMode = Exclude<GameMode, 'practice'>
 
@@ -12,6 +11,28 @@ export interface RunSharePayload {
 }
 
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
+
+// Published runs are link-native. The server-rendered URL carries its own
+// personalized unfurl image, so the browser shares exactly one portable thing:
+// the URL. Browsers without a native sheet copy that same URL.
+export async function shareLink(url: string): Promise<RunShareOutcome> {
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ url })
+      return 'shared'
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError')
+        return 'cancelled'
+    }
+  }
+  try {
+    if (!navigator.clipboard?.writeText) return 'unavailable'
+    await navigator.clipboard.writeText(url)
+    return 'copied'
+  } catch {
+    return 'unavailable'
+  }
+}
 
 export function dropSharePayload(url: string): RunSharePayload {
   const text = 'Elixir Drop makes learning Clash Royale card costs feel like a game. How fast can you read the field?'
@@ -25,40 +46,6 @@ export function dropSharePayload(url: string): RunSharePayload {
 
 export function shareDrop(url: string): Promise<RunShareOutcome> {
   return shareRun(dropSharePayload(url))
-}
-
-// `url` is the run's own permalink — a minted /#/r/<token> address. It is passed
-// through verbatim rather than rebuilt from a mode: the link is what gets
-// counted, and a payload that quietly rewrote it back to the mode's home page
-// would leave the image travelling with a link to nowhere in particular.
-export function runSharePayload(
-  mode: ShareableGameMode,
-  score: string,
-  url: string,
-  playerName?: string
-): RunSharePayload {
-  const game = gameDisplay(mode)
-  const text = playerName
-    ? `${playerName} scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
-    : `I scored ${score} in ${game.name} on Elixir Drop. Can you beat it?`
-  return {
-    title: `${playerName ? `${playerName} · ` : ''}${game.name}: ${score} | Elixir Drop`,
-    text,
-    url,
-    copyText: `${text}\n${url}`
-  }
-}
-
-// Share the run as a composited 1080×1350 image when the browser supports
-// sharing files, and as text when it does not.
-//
-// The image path is strictly an upgrade: every failure — no file sharing, a
-// backdrop that would not load, a canvas that refused to encode — falls through
-// to exactly the text share that shipped before, with the same outcome union.
-// A share button that does nothing because the compositor had a bad day is
-// worse than a plain text share.
-export async function shareRunCard(payload: RunSharePayload, card: ShareCardInput): Promise<RunShareOutcome> {
-  return shareImage(payload, () => renderShareCard(card), 'elixir-drop.png')
 }
 
 // Common image-share upgrade used by score cards and badge cards. The caller

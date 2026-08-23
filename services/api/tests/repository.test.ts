@@ -222,6 +222,11 @@ describe("repository DynamoDB requests", () => {
             boardEpoch: "r2",
             xp: 12,
             rungs: ["sharp-trade", "clockbreaker"],
+            shareVisual: {
+              mode: "trade",
+              unit: "SECONDS PER EXCHANGE",
+              values: [1_100, 900],
+            },
           },
         ],
         LastEvaluatedKey: { pk: "PLAYER#private-sub", sk: "RUN#cursor" },
@@ -247,6 +252,11 @@ describe("repository DynamoDB requests", () => {
         boardEpoch: "r2",
         xp: 12,
         rungs: ["sharp-trade", "clockbreaker"],
+        shareVisual: {
+          mode: "trade",
+          unit: "SECONDS PER EXCHANGE",
+          values: [1_100, 900],
+        },
       },
       { runId: "old" },
     ]);
@@ -255,7 +265,7 @@ describe("repository DynamoDB requests", () => {
       TableName: "test-table",
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
       ProjectionExpression:
-        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs",
+        "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs, shareVisual",
       ScanIndexForward: false,
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({

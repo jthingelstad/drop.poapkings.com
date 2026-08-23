@@ -4,7 +4,6 @@ import { hmac } from "../referee-evidence.js";
 import {
   isShareToken,
   mintShareToken,
-  normalizeShareSeries,
   SHARE_OPEN_CREDIT_CAP,
 } from "../shares.js";
 import {
@@ -15,21 +14,13 @@ import {
   type RouteContext,
 } from "./context.js";
 
-// The share function. Three endpoints:
+// Legacy and invitation share endpoints:
 //
-//   POST /runs/{runId}/share  — mint a token for a run the caller owns
 //   POST /shares              — mint an invitation token for Home or a profile
-//   GET  /shares/{token}      — resolve it, and count the open
+//   GET  /shares/{token}      — keep already-issued links readable
 //
-// A NOT-RECORDED run has nothing to mint: offline and guest runs have no server
-// record, so no permalink can exist. The browser hides the control entirely
-// rather than disabling it, and this endpoint is the second lock on the same
-// rule — a disabled button invites a tap and then has to explain itself, and an
-// endpoint that trusts the button has no rule at all.
-//
-// Nothing shareable that is not already public: a run exposes the same result
-// facts as a public profile, while an invitation exposes only its public
-// destination.
+// New run shares use the deterministic /share/{playerId}/{runId} surface in
+// published-shares.ts. The legacy resolver remains a compatibility contract.
 
 const MINT_LIMIT_PER_HOUR = 60;
 const OPEN_LIMIT_PER_HOUR = 600;
@@ -75,66 +66,6 @@ export async function createInviteShare(context: RouteContext) {
     destination,
     ...(destinationPlayerId ? { destinationPlayerId } : {}),
     mintedAt: new Date().toISOString(),
-  });
-  return json(201, { token });
-}
-
-// POST /runs/{runId}/share
-export async function createShare(context: RouteContext, runId: string) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
-  await repository.useRateLimit(
-    "share-mint",
-    clientIpHash(event, config.webOriginToken),
-    MINT_LIMIT_PER_HOUR,
-    60 * 60,
-  );
-
-  const run = await repository.getRun(runId);
-  if (!run || run.owner !== session.sub)
-    throw new HttpError(404, "That run could not be found.", "not_found");
-  // Guest and practice runs are not recorded, so there is nothing to point a
-  // permalink at. Same for a run that has not finished scoring.
-  if (run.guest || run.mode === "practice")
-    throw new HttpError(
-      409,
-      "That run was not recorded, so it has no link.",
-      "run_not_recorded",
-    );
-  if (
-    run.state !== "completed" ||
-    typeof run.score !== "number" ||
-    !run.seasonId ||
-    !run.completedAt
-  )
-    throw new HttpError(
-      409,
-      "That run has not finished yet.",
-      "run_not_recorded",
-    );
-
-  const profile = await repository.getProfile(session.sub);
-  if (!profile)
-    throw new HttpError(404, "Player profile not found.", "not_found");
-
-  const series = normalizeShareSeries(bodyOf(event).series);
-  // One token per share ACTION. Sharing the same run twice mints two tokens,
-  // which is what makes Herald countable per share rather than per run.
-  const token = mintShareToken();
-  await repository.putShare({
-    pk: `SHARE#${token}`,
-    sk: "SHARE",
-    token,
-    kind: "run",
-    runId,
-    owner: session.sub,
-    playerId: profile.playerId,
-    mode: run.mode,
-    score: run.score,
-    seasonId: run.seasonId,
-    completedAt: run.completedAt,
-    mintedAt: new Date().toISOString(),
-    ...(series ? { series } : {}),
   });
   return json(201, { token });
 }

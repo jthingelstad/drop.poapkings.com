@@ -19,6 +19,10 @@ export interface Config {
   // public forwarding header on direct execute-api requests.
   webOriginToken?: string;
   crRequestQueueUrl: string;
+  // Dedicated private bucket for permanent, server-rendered run preview PNGs.
+  // Optional only so reduced-entry-point and unit-test environments do not need
+  // an unrelated bucket; publication fails closed when production omits it.
+  shareAssetBucket?: string;
   // Current front-end build id (first 12 chars of the git sha), reported on
   // /stats so stale tabs can prompt a reload. Absent until a deploy sets it.
   webVersion?: string;
@@ -82,6 +86,7 @@ export function getConfig(): Config {
     webOriginToken:
       process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
+    shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };
 }

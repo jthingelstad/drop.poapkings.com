@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearRecruiter, recruiterToken, rememberRecruiter } from '../../src/lib/referral'
+import { clearRecruiter, recruiterAttribution, recruiterToken, rememberRecruiter } from '../../src/lib/referral'
 
 describe('shared-link recruitment attribution', () => {
   beforeEach(() => {
@@ -27,5 +27,14 @@ describe('shared-link recruitment attribution', () => {
     clearRecruiter()
 
     expect(recruiterToken()).toBeUndefined()
+  })
+
+  it('reads the player/run attribution captured by a clean share landing', () => {
+    const playerId = '11111111-1111-4111-8111-111111111111'
+    const runId = '22222222-2222-4222-8222-222222222222'
+    localStorage.setItem('elixirdrop:recruiter:v1', JSON.stringify({ playerId, runId, capturedAt: 1_000 }))
+
+    expect(recruiterAttribution(2_000)).toEqual({ playerId, runId })
+    expect(recruiterToken(2_000)).toBeUndefined()
   })
 })

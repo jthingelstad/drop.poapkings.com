@@ -18,7 +18,13 @@ import RunRecordingNotice from '../../src/components/RunRecordingNotice'
 
 import { player } from '../../src/lib/account'
 import { installMode, installEligible, installDismissed, standaloneApp } from '../../src/lib/pwa-install'
-import { earnedXp, earnedXpAwards, recordedRunId, recordingNotice } from '../../src/lib/use-game-run'
+import {
+  earnedXp,
+  earnedXpAwards,
+  recordedRunCompletedAt,
+  recordedRunId,
+  recordingNotice
+} from '../../src/lib/use-game-run'
 import { renderStaticPage, STATIC_PAGE_SLUGS } from '../../scripts/static-pages'
 import type { Insights } from '../../src/lib/insights'
 import type { Card } from '../../src/types'
@@ -196,15 +202,18 @@ describe('Summary', () => {
     }
 
     recordedRunId.value = null
+    recordedRunCompletedAt.value = null
     const unrecorded = await render(<Summary {...props} />)
     expect(unrecorded).not.toContain('shareline')
     expect(unrecorded).not.toContain('Share this run')
 
     recordedRunId.value = 'run-42'
+    recordedRunCompletedAt.value = '2026-08-23T00:00:00.000Z'
     const recorded = await render(<Summary {...props} />)
     expect(recorded).toContain('shareline')
     expect(recorded).toContain('Share this run')
     recordedRunId.value = null
+    recordedRunCompletedAt.value = null
   })
 })
 
@@ -423,13 +432,14 @@ describe('SignInToSave', () => {
 
 describe('ShareLine', () => {
   it('renders a share action against the run it will mint a token for', async () => {
-    const html = await render(<ShareLine mode="surge" score="28.60s" runId="run-1" />)
+    const html = await render(
+      <ShareLine mode="surge" score="28.60s" runId="run-1" completedAt="2026-08-19T12:00:20.000Z" />
+    )
     expect(html).toContain('shareline')
     expect(html).toContain('Share your score')
     expect(html).toContain('Surge · 28.60s')
     expect(html).toContain('Share this run')
-    // The unbundled copy/save path is the no-native-sheet branch, not a
-    // permanently visible second control.
+    // Link-only sharing has no image-save or fallback-panel surface.
     expect(html).not.toContain('shareline__unbundled')
   })
 })

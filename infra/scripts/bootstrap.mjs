@@ -53,7 +53,12 @@ async function ensureUser(name) {
   }
 }
 
-async function ensureRole(accountId, bucketName, webBucketName) {
+async function ensureRole(
+  accountId,
+  bucketName,
+  webBucketName,
+  shareBucketName,
+) {
   let role;
   try {
     role = (await iam.send(new GetRoleCommand({ RoleName: executionRoleName })))
@@ -247,6 +252,8 @@ async function ensureRole(accountId, bucketName, webBucketName) {
             Resource: [
               `arn:aws:s3:::${webBucketName}`,
               `arn:aws:s3:::${webBucketName}/*`,
+              `arn:aws:s3:::${shareBucketName}`,
+              `arn:aws:s3:::${shareBucketName}/*`,
             ],
           },
           {
@@ -345,6 +352,7 @@ if (!identity.Account)
 const accountId = identity.Account;
 const bucketName = `elixir-drop-deploy-${accountId}-${region}`;
 const webBucketName = `elixir-drop-web-${accountId}-${region}`;
+const shareBucketName = `elixir-drop-share-${accountId}-${region}`;
 const [existingEnv, sourceEnv] = await Promise.all([
   loadEnv(envPath).catch(() => ({})),
   loadEnv(sourceEnvPath).catch(() => ({})),
@@ -357,7 +365,12 @@ const crApiKey = existingEnv.CR_API_KEY || sourceEnv.CR_API_KEY;
 if (!crApiKey) throw new Error(`CR_API_KEY was not found in ${sourceEnvPath}`);
 
 await Promise.all([ensureUser(userName), ensureUser(bridgeUserName)]);
-const role = await ensureRole(accountId, bucketName, webBucketName);
+const role = await ensureRole(
+  accountId,
+  bucketName,
+  webBucketName,
+  shareBucketName,
+);
 if (!role?.Arn) throw new Error("CloudFormation execution role has no ARN");
 await ensureBucket(bucketName);
 

@@ -195,19 +195,8 @@ test('the surge summary is the one-frame layout without the accuracy chart', asy
   })
 })
 
-test('completed runs share a 1080x1350 score card with game, score, and Elixir Drop link', async ({
-  page
-}, testInfo) => {
-  // Completing the run and rendering its full-resolution share card can cross
-  // the suite's 30-second aggregate ceiling when several desktop Pixi scenes
-  // contend on the same CI host. The share operation itself retains
-  // its strict 10-second assertion below.
-  test.setTimeout(45_000)
+test('completed runs share only their clean personalized link', async ({ page }, testInfo) => {
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'canShare', {
-      configurable: true,
-      value: (payload: ShareData) => Boolean(payload.files?.length)
-    })
     Object.defineProperty(navigator, 'share', {
       configurable: true,
       value: async (payload: ShareData) => {
@@ -239,50 +228,20 @@ test('completed runs share a 1080x1350 score card with game, score, and Elixir D
   }
   await shareButton.click()
   await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
-  const payload = await page.evaluate(async () => {
+  const payload = await page.evaluate(() => {
     const shared = (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload
-    const file = shared?.files?.[0]
-    let dimensions: { width: number; height: number } | undefined
-    let imageBase64: string | undefined
-    if (file) {
-      // PNG stores its big-endian width/height in the IHDR header. Reading the
-      // bytes avoids loading a blob: URL, which the production img-src CSP
-      // deliberately disallows.
-      const header = new DataView(await file.slice(0, 24).arrayBuffer())
-      dimensions = { width: header.getUint32(16), height: header.getUint32(20) }
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      let binary = ''
-      for (let offset = 0; offset < bytes.length; offset += 16_384) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384))
-      }
-      imageBase64 = btoa(binary)
-    }
     return {
       title: shared?.title,
       text: shared?.text,
       url: shared?.url,
-      file: file ? { name: file.name, type: file.type, size: file.size, ...dimensions } : undefined,
-      imageBase64
+      files: shared?.files
     }
   })
-  expect(payload).toMatchObject({
-    title: expect.stringContaining('Knight Main · Surge:'),
-    text: expect.stringMatching(/Knight Main scored .+ in Surge on Elixir Drop\. Can you beat it\?/),
-    // The link is a minted permalink to THIS run, never the mode's home. It is
-    // what makes the share countable, and what a stranger actually opens.
-    url: expect.stringMatching(/#\/r\/[A-Z2-9]{6}$/),
-    file: {
-      name: 'elixir-drop.png',
-      type: 'image/png',
-      size: expect.any(Number),
-      width: 1080,
-      height: 1350
-    }
-  })
-  expect(payload.file!.size).toBeGreaterThan(50_000)
-  await testInfo.attach('share-card.png', {
-    body: Buffer.from(payload.imageBase64!, 'base64'),
-    contentType: 'image/png'
+  expect(payload).toEqual({
+    title: undefined,
+    text: undefined,
+    url: 'http://127.0.0.1:5173/share/player-1/run-surge',
+    files: undefined
   })
 })
 
@@ -302,12 +261,7 @@ test('a shared link opens the run itself, with the score as the button', async (
   await expect(page).toHaveURL(/#\/surge$/)
 })
 
-test('a share mints a new token every time, so reach counts per share', async ({ page }) => {
-  // Two complete share-card renders can cross the suite's 30-second ceiling
-  // when several WebGL-backed desktop tests contend for the same CI worker.
-  // Each individual share still has its own strict 10-second assertion below.
-  test.setTimeout(45_000)
-  const minted: string[] = []
+test('sharing the same run again returns the same permanent link', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
@@ -328,9 +282,11 @@ test('a share mints a new token every time, so reach counts per share', async ({
   await shareButton.click()
   await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
 
-  minted.push(...(await page.evaluate(() => (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? [])))
-  expect(minted).toHaveLength(2)
-  expect(minted[0]).not.toBe(minted[1])
+  const shared = await page.evaluate(() => (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? [])
+  expect(shared).toEqual([
+    'http://127.0.0.1:5173/share/player-1/run-surge',
+    'http://127.0.0.1:5173/share/player-1/run-surge'
+  ])
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {

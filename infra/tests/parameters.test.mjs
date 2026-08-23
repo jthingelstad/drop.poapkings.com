@@ -515,6 +515,11 @@ void describe("deployment parameters", () => {
       "POST /runs/complete",
       "POST /run-reports",
       "POST /runs/{runId}/share",
+      "GET /share/{playerId}/{runId}",
+      "HEAD /share/{playerId}/{runId}",
+      "GET /share-assets/{playerId}/{runId}",
+      "HEAD /share-assets/{playerId}/{runId}",
+      "POST /share/{playerId}/{runId}/open",
       "GET /shares/{token}",
       "GET /leaderboards",
       "GET /seasons",
@@ -621,8 +626,50 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /cloudfront:PublishFunction/);
     assert.doesNotMatch(bootstrap, /Action: \["cloudfront:\*"\]/);
     assert.match(bootstrap, /elixir-drop-web-\$\{accountId\}-\$\{region\}/);
+    assert.match(bootstrap, /elixir-drop-share-\$\{accountId\}-\$\{region\}/);
     assert.match(bootstrap, /cloudfront:CreateInvalidation/);
     assert.match(bootstrap, /s3:DeleteObject/);
+  });
+
+  void it("keeps permanent run previews private and grants only their object prefix", () => {
+    const bucket = template.match(
+      /  ShareAssetBucket:[\s\S]*?\n  WebOriginAccessControl:/,
+    )?.[0];
+    assert.ok(bucket);
+    assert.match(bucket, /DeletionPolicy: Retain/);
+    assert.match(bucket, /UpdateReplacePolicy: Retain/);
+    assert.match(bucket, /DependsOn: CloudFormationShareAssetPolicy/);
+    assert.match(bucket, /SSEAlgorithm: AES256/);
+    assert.match(bucket, /BlockPublicAcls: true/);
+    assert.match(bucket, /RestrictPublicBuckets: true/);
+    assert.doesNotMatch(
+      bucket,
+      /LifecycleConfiguration|VersioningConfiguration/,
+    );
+
+    const apiRole = template.match(
+      /  ApiRole:[\s\S]*?\n  MailCanaryRole:/,
+    )?.[0];
+    assert.ok(apiRole);
+    assert.match(apiRole, /s3:GetObject/);
+    assert.match(apiRole, /s3:PutObject/);
+    assert.match(apiRole, /s3:DeleteObject/);
+    assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/run-images\/\*/);
+    assert.match(apiRole, /s3:prefix: run-images\/\*/);
+
+    const executionBridge = template.match(
+      /  CloudFormationShareAssetPolicy:[\s\S]*?\n  ApiLogGroup:/,
+    )?.[0];
+    assert.ok(executionBridge);
+    assert.match(
+      executionBridge,
+      /PolicyName: elixir-drop-share-asset-management/,
+    );
+    assert.match(executionBridge, /- elixir-drop-cloudformation-execution/);
+    assert.match(
+      executionBridge,
+      /arn:\$\{AWS::Partition\}:s3:::elixir-drop-share-\$\{AWS::AccountId\}-\$\{AWS::Region\}\/\*/,
+    );
   });
 
   void it("keeps CORS and security headers on static assets without changing the API behavior", () => {

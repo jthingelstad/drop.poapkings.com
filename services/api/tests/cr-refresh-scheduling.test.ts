@@ -18,6 +18,7 @@ const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getCrWarClock: vi.fn(),
   getProfile: vi.fn(),
+  getPublishedRunShare: vi.fn(),
   getRun: vi.fn(),
   getShare: vi.fn(),
   listRecentRuns: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("../src/repository.js", () => ({
     getCrProfile = repository.getCrProfile;
     getCrWarClock = repository.getCrWarClock;
     getProfile = repository.getProfile;
+    getPublishedRunShare = repository.getPublishedRunShare;
     getRun = repository.getRun;
     getShare = repository.getShare;
     listRecentRuns = repository.listRecentRuns;
@@ -284,6 +286,38 @@ describe("Clash Royale refresh scheduling", () => {
 
     expect(response.statusCode).toBe(202);
     expect(repository.getShare).toHaveBeenCalledWith("AB2CD3");
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      "new-player@example.com",
+      expect.any(Number),
+      expect.any(String),
+      "recruiter-sub",
+    );
+  });
+
+  it("carries a deterministic run share into a new account's magic link", async () => {
+    const playerId = "11111111-1111-4111-8111-111111111111";
+    const runId = "22222222-2222-4222-8222-222222222222";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(undefined);
+    repository.getPublishedRunShare.mockResolvedValue({
+      playerId,
+      runId,
+      owner: "recruiter-sub",
+    });
+    repository.refereeDecisions.mockResolvedValue(new Map());
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: "new-player@example.com",
+      recruiterShare: { playerId, runId },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(repository.getPublishedRunShare).toHaveBeenCalledWith(
+      playerId,
+      runId,
+    );
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
       "new-player@example.com",

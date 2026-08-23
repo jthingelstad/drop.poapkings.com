@@ -33,20 +33,3 @@ export function isShareToken(value: unknown): value is string {
 // clear a whole ladder. Specced in Badge Set.md against a share function that
 // did not exist; this is that function.
 export const SHARE_OPEN_CREDIT_CAP = 25;
-
-// The chart the share card and the permalink draw. It is the player's own run
-// shape and nothing else — display only, never a score, and never an input to
-// anything ranked. Bounded on the way in all the same: a stranger's browser
-// renders it, so it cannot be an unbounded array of arbitrary numbers.
-export const SHARE_SERIES_MAX = 30;
-const SHARE_SERIES_MAX_MS = 3_600_000;
-
-export function normalizeShareSeries(value: unknown): number[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  const series: number[] = [];
-  for (const entry of value.slice(0, SHARE_SERIES_MAX)) {
-    if (typeof entry !== "number" || !Number.isFinite(entry)) return undefined;
-    series.push(Math.min(SHARE_SERIES_MAX_MS, Math.max(0, Math.round(entry))));
-  }
-  return series;
-}

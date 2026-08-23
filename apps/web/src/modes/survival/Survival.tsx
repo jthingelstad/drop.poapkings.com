@@ -300,15 +300,7 @@ export default function Survival() {
           ]}
           share={{
             mode: 'survival',
-            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`,
-            // Red marks the fatal answer. No `refs`: the window is the game's
-            // machinery, not a reference the player owns.
-            ...(signature.value
-              ? {
-                  series: signature.value.values,
-                  ...(signature.value.bad ? { bad: signature.value.bad } : {})
-                }
-              : {})
+            score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`
           }}
           onReplay={replay}
           onHome={() => navigate('/')}

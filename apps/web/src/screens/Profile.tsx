@@ -41,6 +41,7 @@ import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
+import ShareLine from '../components/ShareLine'
 import { editorialEntries, isUnread, hasUnreadUpdates, type UpdateEntry } from '../lib/updates'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
@@ -1138,6 +1139,16 @@ function RunDetail({
           playerName={player.value?.publicName}
           onClose={() => (openBadge.value = null)}
           returnFocus={rungTriggerRef.current}
+        />
+      )}
+
+      {run.mode !== 'practice' && run.reviewStatus !== 'excluded' && (
+        <ShareLine
+          mode={run.mode}
+          score={scoreLabel(run.mode, run.score)}
+          runId={run.runId}
+          completedAt={run.completedAt}
+          compact
         />
       )}
 

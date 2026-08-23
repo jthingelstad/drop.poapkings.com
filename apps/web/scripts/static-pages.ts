@@ -287,9 +287,9 @@ ${pageSections([
   section(
     'Sharing and invitations',
     `${paragraph(
-      'Sharing a run mints a unique link for that share, and Drop counts how many distinct visitors open it so Herald can credit real reach rather than repeat taps.'
+      'Each recorded run can publish one permanent player-and-run link. Drop counts distinct non-owner browser opens so Herald can credit real reach rather than crawler previews or repeat taps.'
     )}${paragraph(
-      'Drop counts opens per link and does not learn who opened one. An open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request; no raw IP address or full browser user-agent is stored. Opens from your own device are not counted, and credit per link stops at a fixed cap, so one lucky link cannot clear a ladder.'
+      'A small callback after the landing page opens is matched to earlier callbacks through a one-way, salted fingerprint of the request; no raw IP address or full browser user-agent is stored. Opens from your own device are not counted, preview HTML and image fetches never count, and credit per run stops at a fixed cap. A Fair Play-excluded run stops being shareable.'
     )}`
   ),
   section(
@@ -337,11 +337,11 @@ ${pageSections([
   section(
     'Sharing a run',
     `${paragraph(
-      'Sharing a run mints a unique link for that share. Drop counts how many distinct visitors open each link, so a share badge can credit the reach it earned. It does not learn who opened a link: an open is matched to earlier opens of the same link through a one-way, salted fingerprint of the request, the same way Fair Play signals work. Drop does not store the raw IP address or full browser user-agent for this, opens from your own device are not counted, and credit per link stops at a fixed cap.'
+      'Each recorded run can publish one permanent link with a server-rendered score image and a small public result snapshot. The same link is returned every time and can be created from the finish screen or later from your run Log. The snapshot and image remain until you delete your account; a Fair Play exclusion makes them unavailable.'
     )}${paragraph(
-      'A shared run shows only what your public profile already shows: your Drop name, favorite card, arena, the mode, and the score. Home and badge invitations redirect to the shared destination without counting an open toward Herald. Deleting your account deletes your shared links along with everything else.'
+      'A shared run shows your public Drop name, favorite card, arena, mode, score, completion date, and a bounded chart derived from the validated game record. Drop counts only the landing page&rsquo;s browser callback toward Herald—not link-preview HTML or image requests. The callback is deduplicated through a one-way, salted request fingerprint; Drop does not store the raw IP address or full browser user-agent, your own device is not counted, and credit per run stops at a fixed cap. Home and badge invitations do not count toward Herald.'
     )}${paragraph(
-      'Opening a valid shared run or invitation stores only its six-character public token in that browser for up to 30 days. If that token leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, the token is consumed when the login email is requested, and neither player&rsquo;s identity is stored in the browser attribution.'
+      'Opening a valid shared run or invitation stores either its public player-and-run IDs or its six-character invitation token in that browser for up to 30 days. If that attribution leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, and the attribution is consumed when the login email is requested.'
     )}`
   ),
   section(
@@ -349,11 +349,11 @@ ${pageSections([
     `${paragraph(
       'Magic links and signed run challenges expire quickly. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
     )}${paragraph(
-      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, and any links you shared from the active database and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
+      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, and any links you shared from the active database, and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
-])}<p class="static-updated">Last updated August 21, 2026.</p>`
+])}<p class="static-updated">Last updated August 23, 2026.</p>`
 
 const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([

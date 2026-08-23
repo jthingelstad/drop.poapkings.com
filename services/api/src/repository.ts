@@ -58,6 +58,7 @@ import type {
   RankedAccessStatus,
   RunChallenge,
   RunRecord,
+  RunShareVisual,
   RefereeDecision,
   RunTiebreaks,
   StoredCrWarClock,
@@ -275,6 +276,28 @@ export interface RunShareItem extends ShareItemBase {
   opens?: number;
   // The player's own run shape, for the card. Display only.
   series?: number[];
+}
+
+// Deterministic published run shares. Unlike legacy token shares, one run has
+// one permanent public address and one frozen public snapshot.
+export interface PublishedRunShareItem {
+  pk: string; // SHARE#RUN#{playerId}#{runId}
+  sk: "SHARE";
+  kind: "published-run";
+  owner: string;
+  playerId: string;
+  runId: string;
+  mode: Exclude<GameMode, "practice">;
+  score: number;
+  seasonId: string;
+  completedAt: string;
+  publishedAt: string;
+  player: Pick<
+    PublicProfile,
+    "id" | "publicName" | "favoriteCardId" | "xp" | "totalGames"
+  >;
+  visual?: RunShareVisual;
+  opens?: number;
 }
 
 export interface InviteShareItem extends ShareItemBase {
@@ -755,6 +778,7 @@ export class Repository {
     const keys = new Map<string, { pk: string; sk: string }>();
     const runIds = new Set<string>();
     const shareTokens = new Set<string>();
+    const runSharePartitions = new Set<string>();
     let lastKey: Record<string, unknown> | undefined;
     do {
       const result = await client.send(
@@ -775,6 +799,13 @@ export class Repository {
         }
         if (typeof item.shareToken === "string")
           shareTokens.add(item.shareToken);
+        if (
+          typeof item.sharePlayerId === "string" &&
+          typeof item.shareRunId === "string"
+        )
+          runSharePartitions.add(
+            `SHARE#RUN#${item.sharePlayerId}#${item.shareRunId}`,
+          );
       }
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
@@ -791,6 +822,26 @@ export class Repository {
             KeyConditionExpression: "pk = :pk",
             ProjectionExpression: "pk, sk",
             ExpressionAttributeValues: { ":pk": `SHARE#${token}` },
+            ExclusiveStartKey: shareLastKey,
+          }),
+        );
+        for (const item of result.Items ?? []) {
+          const key = { pk: String(item.pk), sk: String(item.sk) };
+          keys.set(`${key.pk}\0${key.sk}`, key);
+        }
+        shareLastKey = result.LastEvaluatedKey;
+      } while (shareLastKey);
+    }
+
+    for (const partition of runSharePartitions) {
+      let shareLastKey: Record<string, unknown> | undefined;
+      do {
+        const result = await client.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: "pk = :pk",
+            ProjectionExpression: "pk, sk",
+            ExpressionAttributeValues: { ":pk": partition },
             ExclusiveStartKey: shareLastKey,
           }),
         );
@@ -1132,6 +1183,111 @@ export class Repository {
       }),
     );
     return result.Item as ShareItem | undefined;
+  }
+
+  async getPublishedRunShare(
+    playerId: string,
+    runId: string,
+  ): Promise<PublishedRunShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          pk: `SHARE#RUN#${playerId}#${runId}`,
+          sk: "SHARE",
+        },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedRunShareItem | undefined;
+  }
+
+  async putPublishedRunShare(item: PublishedRunShareItem): Promise<boolean> {
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: item,
+                ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  pk: `PLAYER#${item.owner}`,
+                  sk: `SHARE#RUN#${item.playerId}#${item.runId}`,
+                  sharePlayerId: item.playerId,
+                  shareRunId: item.runId,
+                  runId: item.runId,
+                  publishedAt: item.publishedAt,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "TransactionCanceledException"
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  async creditPublishedRunOpen(
+    playerId: string,
+    runId: string,
+    visitorHash: string,
+    cap: number,
+  ): Promise<boolean> {
+    const key = `SHARE#RUN#${playerId}#${runId}`;
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: key,
+            sk: `OPEN#${visitorHash}`,
+            openedAt: new Date().toISOString(),
+          },
+          ConditionExpression: "attribute_not_exists(sk)",
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+    try {
+      await client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: key, sk: "SHARE" },
+          UpdateExpression: "ADD opens :one",
+          ConditionExpression:
+            "attribute_exists(pk) AND (attribute_not_exists(opens) OR opens < :cap)",
+          ExpressionAttributeValues: { ":one": 1, ":cap": cap },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return false;
+      throw error;
+    }
+    return true;
   }
 
   // Credit one distinct open. The conditional put IS the dedupe: a visitor that
@@ -1711,6 +1867,7 @@ export class Repository {
       xp?: number;
       xpAwards?: XpAward[];
       rungs?: string[];
+      shareVisual?: RunShareVisual;
     }>
   > {
     const runs: Array<{
@@ -1724,6 +1881,7 @@ export class Repository {
       xp?: number;
       xpAwards?: XpAward[];
       rungs?: string[];
+      shareVisual?: RunShareVisual;
     }> = [];
     let startKey: Record<string, unknown> | undefined;
     do {
@@ -1736,7 +1894,7 @@ export class Repository {
             ":sk": "RUN#",
           },
           ProjectionExpression:
-            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs",
+            "runId, #mode, score, seasonId, completedAt, answerCount, boardEpoch, xp, xpAwards, rungs, shareVisual",
           ExpressionAttributeNames: { "#mode": "mode" },
           ScanIndexForward: false,
           ExclusiveStartKey: startKey,
@@ -1764,6 +1922,9 @@ export class Repository {
               ? { xpAwards: item.xpAwards as XpAward[] }
               : {}),
             ...(Array.isArray(item.rungs) ? { rungs: item.rungs } : {}),
+            ...(item.shareVisual && typeof item.shareVisual === "object"
+              ? { shareVisual: item.shareVisual as RunShareVisual }
+              : {}),
             ...(typeof item.boardEpoch === "string"
               ? { boardEpoch: item.boardEpoch }
               : {}),
@@ -1812,6 +1973,24 @@ export class Repository {
       }),
     );
     return result.Item as RunItem | undefined;
+  }
+
+  async setRunShareVisual(
+    sub: string,
+    runId: string,
+    completedAt: string,
+    visual: RunShareVisual,
+  ): Promise<void> {
+    await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: `RUN#${completedAt}#${runId}` },
+        UpdateExpression:
+          "SET shareVisual = if_not_exists(shareVisual, :visual)",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeValues: { ":visual": visual },
+      }),
+    );
   }
 
   async upsertRunReport(input: RunReportInput): Promise<RunReportItem> {

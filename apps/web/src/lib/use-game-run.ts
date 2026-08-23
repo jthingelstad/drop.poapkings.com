@@ -43,6 +43,7 @@ export const recordingNotice = signal<RecordingNotice>({ state: 'idle' })
 // share control absent rather than disabled: a disabled button invites a tap
 // and then has to explain itself.
 export const recordedRunId = signal<string | null>(null)
+export const recordedRunCompletedAt = signal<string | null>(null)
 
 // Rungs the last completed run cleared. Read straight from here by Summary,
 // because six modes render that component and none of them know anything about
@@ -186,6 +187,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     challenge.value = null
     startError.value = ''
     recordedRunId.value = null
+    recordedRunCompletedAt.value = null
     earnedBadges.value = []
     earnedXp.value = 0
     earnedXpAwards.value = []
@@ -381,6 +383,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
     run.current = null
     pendingCompletion.current = null
     recordedRunId.value = isRecordedMode(result.mode) ? result.runId : null
+    recordedRunCompletedAt.value = isRecordedMode(result.mode) ? result.completedAt : null
     earnedBadges.value = result.earnedBadges ?? []
     earnedXp.value = result.xpEarned ?? 0
     earnedXpAwards.value = result.xpAwards ?? []

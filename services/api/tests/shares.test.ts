@@ -5,12 +5,7 @@ import type {
 } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
-import {
-  isShareToken,
-  mintShareToken,
-  normalizeShareSeries,
-  SHARE_SERIES_MAX,
-} from "../src/shares.js";
+import { isShareToken, mintShareToken } from "../src/shares.js";
 
 const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
@@ -20,7 +15,20 @@ const repository = vi.hoisted(() => ({
   getShare: vi.fn(),
   getPublicPlayer: vi.fn(),
   creditShareOpen: vi.fn(),
+  listRunHistory: vi.fn(),
+  refereeDecisions: vi.fn(),
+  getPublishedRunShare: vi.fn(),
+  refereeEvidenceForRuns: vi.fn(),
+  setRunShareVisual: vi.fn(),
+  putPublishedRunShare: vi.fn(),
+  creditPublishedRunOpen: vi.fn(),
   addHeraldOpens: vi.fn(),
+}));
+
+const shareAssets = vi.hoisted(() => ({
+  put: vi.fn(),
+  get: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -32,8 +40,21 @@ vi.mock("../src/repository.js", () => ({
     getShare = repository.getShare;
     getPublicPlayer = repository.getPublicPlayer;
     creditShareOpen = repository.creditShareOpen;
+    listRunHistory = repository.listRunHistory;
+    refereeDecisions = repository.refereeDecisions;
+    getPublishedRunShare = repository.getPublishedRunShare;
+    refereeEvidenceForRuns = repository.refereeEvidenceForRuns;
+    setRunShareVisual = repository.setRunShareVisual;
+    putPublishedRunShare = repository.putPublishedRunShare;
+    creditPublishedRunOpen = repository.creditPublishedRunOpen;
     addHeraldOpens = repository.addHeraldOpens;
   },
+}));
+
+vi.mock("../src/share-assets.js", () => ({
+  putRunShareImage: shareAssets.put,
+  getRunShareImage: shareAssets.get,
+  deleteRunShareImage: shareAssets.remove,
 }));
 
 import { handler } from "../src/handler.js";
@@ -101,19 +122,19 @@ async function call(input: APIGatewayProxyEventV2) {
   )) as APIGatewayProxyStructuredResultV2;
 }
 
+const playerId = "11111111-1111-4111-8111-111111111111";
+const runId = "22222222-2222-4222-8222-222222222222";
 const completedRun = {
-  pk: "RUN#run-1",
-  sk: "RUN" as const,
-  runId: "run-1",
-  owner: "player-sub",
+  runId,
   mode: "surge" as const,
-  challenge: { mode: "surge" as const, cardIds: [] },
-  state: "completed" as const,
-  startedAt: "2026-08-19T12:00:00.000Z",
-  expiresAt: nowSeconds + 3_600,
   score: 17_412,
   seasonId: "2026-08",
   completedAt: "2026-08-19T12:00:20.000Z",
+  shareVisual: {
+    mode: "surge" as const,
+    unit: "SECONDS PER CARD",
+    values: [1_200, 900],
+  },
 };
 
 describe("share tokens", () => {
@@ -126,15 +147,6 @@ describe("share tokens", () => {
       expect(token).not.toMatch(/[ILOU01]/);
     }
   });
-
-  it("bounds the run shape a stranger's browser will render", () => {
-    expect(normalizeShareSeries([1.4, -20, 9e9])).toEqual([1, 0, 3_600_000]);
-    expect(normalizeShareSeries([])).toBeUndefined();
-    expect(normalizeShareSeries(["nope"])).toBeUndefined();
-    expect(
-      normalizeShareSeries(Array.from({ length: 90 }, () => 100)),
-    ).toHaveLength(SHARE_SERIES_MAX);
-  });
 });
 
 describe("POST /runs/{runId}/share", () => {
@@ -144,94 +156,219 @@ describe("POST /runs/{runId}/share", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
       sub: "player-sub",
-      playerId: "public-uuid",
+      playerId,
+      publicName: "Drop King",
+      totalGames: 40,
+      xp: 900,
     });
+    repository.listRunHistory.mockResolvedValue([completedRun]);
+    repository.refereeDecisions.mockResolvedValue(new Map());
+    repository.getPublishedRunShare.mockResolvedValue(undefined);
+    repository.putPublishedRunShare.mockResolvedValue(true);
+    shareAssets.put.mockResolvedValue(undefined);
   });
 
-  it("mints a token against a recorded run the caller owns", async () => {
-    repository.getRun.mockResolvedValue(completedRun);
-
+  it("publishes one clean deterministic link from durable run history", async () => {
     const response = await call(
-      event("POST", "/runs/run-1/share", {
+      event("POST", `/runs/${runId}/share`, {
         sub: "player-sub",
-        body: { series: [1200, 900] },
+        body: { completedAt: completedRun.completedAt },
       }),
     );
 
     expect(response.statusCode).toBe(201);
-    const token = (JSON.parse(response.body ?? "{}") as { token: string })
-      .token;
-    expect(isShareToken(token)).toBe(true);
-    const stored = repository.putShare.mock.calls[0]![0] as Record<
-      string,
-      unknown
-    >;
-    expect(stored.kind).toBe("run");
-    expect(stored.runId).toBe("run-1");
-    expect(stored.playerId).toBe("public-uuid");
-    expect(stored.score).toBe(17_412);
-    expect(stored.series).toEqual([1200, 900]);
-  });
-
-  it("mints a NEW token every time, so reach counts per share not per run", async () => {
-    repository.getRun.mockResolvedValue(completedRun);
-
-    const first = await call(
-      event("POST", "/runs/run-1/share", { sub: "player-sub" }),
-    );
-    const second = await call(
-      event("POST", "/runs/run-1/share", { sub: "player-sub" }),
-    );
-
-    expect(JSON.parse(first.body ?? "{}").token).not.toBe(
-      JSON.parse(second.body ?? "{}").token,
-    );
-  });
-
-  it("refuses a run the caller does not own", async () => {
-    repository.getRun.mockResolvedValue(completedRun);
-
-    const response = await call(
-      event("POST", "/runs/run-1/share", { sub: "someone-else" }),
-    );
-
-    expect(response.statusCode).toBe(404);
-    expect(repository.putShare).not.toHaveBeenCalled();
-  });
-
-  it("refuses a guest run: no server record, so no permalink can exist", async () => {
-    repository.getRun.mockResolvedValue({ ...completedRun, guest: true });
-
-    const response = await call(
-      event("POST", "/runs/run-1/share", { sub: "player-sub" }),
-    );
-
-    expect(response.statusCode).toBe(409);
-    expect(repository.putShare).not.toHaveBeenCalled();
-  });
-
-  it("refuses a run that has not finished scoring", async () => {
-    repository.getRun.mockResolvedValue({
-      ...completedRun,
-      state: "started",
-      score: undefined,
+    expect(JSON.parse(response.body ?? "{}")).toEqual({
+      playerId,
+      runId,
+      url: `https://drop.example/share/${playerId}/${runId}`,
     });
+    const stored = repository.putPublishedRunShare.mock.calls[0]![0];
+    expect(stored).toMatchObject({
+      kind: "published-run",
+      owner: "player-sub",
+      playerId,
+      runId,
+      score: 17_412,
+      player: { publicName: "Drop King" },
+    });
+    expect(JSON.stringify(stored)).not.toContain("transcript");
+    expect(shareAssets.put).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      runId,
+      expect.any(Buffer),
+    );
+    const png = shareAssets.put.mock.calls[0]![3] as Buffer;
+    expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  });
 
+  it("returns the same link without regenerating an already-published run", async () => {
+    repository.getPublishedRunShare.mockResolvedValue({
+      kind: "published-run",
+      playerId,
+      runId,
+    });
     const response = await call(
-      event("POST", "/runs/run-1/share", { sub: "player-sub" }),
+      event("POST", `/runs/${runId}/share`, { sub: "player-sub" }),
     );
 
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}").url).toBe(
+      `https://drop.example/share/${playerId}/${runId}`,
+    );
+    expect(shareAssets.put).not.toHaveBeenCalled();
+    expect(repository.putPublishedRunShare).not.toHaveBeenCalled();
+  });
+
+  it("refuses a run excluded from public competition", async () => {
+    repository.refereeDecisions.mockResolvedValue(
+      new Map([
+        [
+          runId,
+          {
+            runId,
+            decidedBy: "fair-play-referee",
+            visibility: "hidden",
+            disposition: "review",
+          },
+        ],
+      ]),
+    );
+    const response = await call(
+      event("POST", `/runs/${runId}/share`, { sub: "player-sub" }),
+    );
     expect(response.statusCode).toBe(409);
+    expect(shareAssets.put).not.toHaveBeenCalled();
   });
 
   it("requires a session", async () => {
-    const response = await call(event("POST", "/runs/run-1/share"));
+    const response = await call(event("POST", `/runs/${runId}/share`));
     expect(response.statusCode).toBe(401);
+  });
+});
+
+describe("published run link", () => {
+  const published = {
+    pk: `SHARE#RUN#${playerId}#${runId}`,
+    sk: "SHARE" as const,
+    kind: "published-run" as const,
+    owner: "player-sub",
+    playerId,
+    runId,
+    mode: "surge" as const,
+    score: 17_412,
+    seasonId: "2026-08",
+    completedAt: completedRun.completedAt,
+    publishedAt: "2026-08-23T06:00:00.000Z",
+    player: {
+      id: playerId,
+      publicName: "Drop King",
+      totalGames: 40,
+      xp: 900,
+    },
+    visual: completedRun.shareVisual,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getPublishedRunShare.mockResolvedValue(published);
+    repository.refereeDecisions.mockResolvedValue(new Map());
+    repository.creditPublishedRunOpen.mockResolvedValue(true);
+    shareAssets.get.mockResolvedValue(Buffer.from("png"));
+    shareAssets.remove.mockResolvedValue(undefined);
+  });
+
+  it("serves a clean unfurl page without counting crawler fetches", async () => {
+    const response = await call(event("GET", `/share/${playerId}/${runId}`));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers?.["content-type"]).toContain("text/html");
+    expect(response.body).toContain(
+      `property="og:image" content="https://drop.example/share-assets/${playerId}/${runId}"`,
+    );
+    expect(response.body).toContain("BEAT 17.412s");
+    expect(response.body).toContain("Free · no account needed");
+    expect(repository.creditPublishedRunOpen).not.toHaveBeenCalled();
+  });
+
+  it("serves the permanent PNG without counting an unfurl image fetch", async () => {
+    const response = await call(
+      event("GET", `/share-assets/${playerId}/${runId}`),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers?.["content-type"]).toBe("image/png");
+    expect(response.isBase64Encoded).toBe(true);
+    expect(repository.creditPublishedRunOpen).not.toHaveBeenCalled();
+  });
+
+  it("credits only the explicit browser-open callback and dedupes in the repository", async () => {
+    const response = await call(
+      event("POST", `/share/${playerId}/${runId}/open`, {
+        ip: "8.8.8.8",
+        userAgent: "Safari",
+      }),
+    );
+
+    expect(response.statusCode).toBe(204);
+    expect(repository.creditPublishedRunOpen).toHaveBeenCalledWith(
+      playerId,
+      runId,
+      expect.not.stringContaining("8.8.8.8"),
+      25,
+    );
+    expect(repository.addHeraldOpens).toHaveBeenCalledWith("player-sub", 1);
+  });
+
+  it("does not credit the owner opening their own run", async () => {
+    const response = await call(
+      event("POST", `/share/${playerId}/${runId}/open`, {
+        sub: "player-sub",
+      }),
+    );
+
+    expect(response.statusCode).toBe(204);
+    expect(repository.creditPublishedRunOpen).not.toHaveBeenCalled();
+    expect(repository.addHeraldOpens).not.toHaveBeenCalled();
+  });
+
+  it("fails closed and removes the image when a referee excludes the run", async () => {
+    repository.refereeDecisions.mockResolvedValue(
+      new Map([
+        [
+          runId,
+          {
+            runId,
+            decidedBy: "fair-play-referee",
+            visibility: "hidden",
+            disposition: "review",
+          },
+        ],
+      ]),
+    );
+
+    const response = await call(event("GET", `/share/${playerId}/${runId}`));
+
+    expect(response.statusCode).toBe(404);
+    expect(shareAssets.remove).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      runId,
+    );
   });
 });
 

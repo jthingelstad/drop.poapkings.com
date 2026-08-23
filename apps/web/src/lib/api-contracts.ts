@@ -344,6 +344,12 @@ export const publicPlayerResponseSchema = z.object({
 // a deleted account takes its profile with it while the link is being read.
 export const shareTokenSchema = z.object({ token: z.string().min(4).max(16) })
 
+export const publishedRunShareSchema = z.object({
+  playerId: nonEmptyString,
+  runId: nonEmptyString,
+  url: z.string().url()
+})
+
 export const sharedRunSchema = z.object({
   token: z.string().min(4).max(16),
   mode: gameModeSchema,

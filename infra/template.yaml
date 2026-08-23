@@ -220,6 +220,25 @@ Resources:
               - cloudwatch:PutDashboard
             Resource: !Sub arn:${AWS::Partition}:cloudwatch::${AWS::AccountId}:dashboard/elixir-drop-*
 
+  # Existing production execution roles predate the share bucket. The role is
+  # already allowed to manage bounded policies on elixir-drop-* roles, so this
+  # stack-owned bridge grants the exact new bucket before CloudFormation creates
+  # it. Bootstrap writes the same scope for fresh environments.
+  CloudFormationShareAssetPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: elixir-drop-share-asset-management
+      Roles:
+        - elixir-drop-cloudformation-execution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::elixir-drop-share-${AWS::AccountId}-${AWS::Region}
+              - !Sub arn:${AWS::Partition}:s3:::elixir-drop-share-${AWS::AccountId}-${AWS::Region}/*
+
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -324,6 +343,18 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt CrResultQueue.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${ShareAssetBucket.Arn}/run-images/*
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt ShareAssetBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: run-images/*
 
   MailCanaryRole:
     Type: AWS::IAM::Role
@@ -668,6 +699,7 @@ Resources:
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+          SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
           WEB_VERSION: !Ref WebVersion
 
   CrResultFunction:
@@ -1383,6 +1415,43 @@ Resources:
       RouteKey: POST /runs/{runId}/share
       Target: !Sub integrations/${ApiIntegration}
 
+  PublishedRunSharePageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share/{playerId}/{runId}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedRunSharePageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share/{playerId}/{runId}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedRunShareImageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share-assets/{playerId}/{runId}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedRunShareImageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share-assets/{playerId}/{runId}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedRunShareOpenRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /share/{playerId}/{runId}/open
+      Target: !Sub integrations/${ApiIntegration}
+
   ShareRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -1677,6 +1746,30 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
+  # Permanent derived preview images live outside WebBucket so the static web
+  # deploy's mirror-and-delete step can never remove a player's published run.
+  # Versioning is intentionally omitted: account deletion must remove the
+  # derived image itself, not leave a retained object version behind.
+  ShareAssetBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: CloudFormationShareAssetPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub elixir-drop-share-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   WebOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -1693,13 +1786,15 @@ Resources:
       Name: elixir-drop-request-router
       AutoPublish: true
       FunctionConfig:
-        Comment: Classify requests, strip the API prefix, and resolve static directory indexes
+        Comment: Classify requests, route clean shares, strip the API prefix, and resolve static directory indexes
         Runtime: cloudfront-js-2.0
       FunctionCode: |
         import cf from 'cloudfront';
 
         function requestClass(uri) {
           if (uri.indexOf('/api/') === 0) return 'api';
+          if (uri.indexOf('/share-assets/') === 0) return 'share-asset';
+          if (uri.indexOf('/share/') === 0) return 'share-page';
           if (uri === '/' || uri === '/index.html') return 'web-home';
 
           var pageClasses = {
@@ -1731,11 +1826,14 @@ Resources:
           var request = event.request;
           var uri = request.uri;
           cf.logCustomData(requestClass(uri));
-          if (uri.indexOf('/api/') === 0) {
+          if (uri.indexOf('/api/') === 0 || uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0) {
             request.headers['x-elixir-drop-viewer-ip'] = { value: event.viewer.ip };
+          }
+          if (uri.indexOf('/api/') === 0) {
             request.uri = uri.slice(4) || '/';
             return request;
           }
+          if (uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0) return request;
           if (uri === '/') {
             request.uri = '/index.html';
           } else if (uri.charAt(uri.length - 1) === '/') {
@@ -1772,6 +1870,42 @@ Resources:
         Aliases:
           - drop.poapkings.com
         CacheBehaviors:
+          - PathPattern: /share-assets/*
+            TargetOriginId: api
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: false
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            ViewerProtocolPolicy: redirect-to-https
+          - PathPattern: /share/*
+            TargetOriginId: api
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            ViewerProtocolPolicy: redirect-to-https
           - PathPattern: /api/*
             TargetOriginId: api
             AllowedMethods:
@@ -1908,6 +2042,8 @@ Outputs:
     Value: !Ref ApiFunction
   WebBucketName:
     Value: !Ref WebBucket
+  ShareAssetBucketName:
+    Value: !Ref ShareAssetBucket
   WebDistributionId:
     Value: !Ref WebDistribution
   WebDistributionDomainName:

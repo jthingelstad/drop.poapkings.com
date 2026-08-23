@@ -12,6 +12,7 @@ import {
   nameOptionsResponseSchema,
   playerResponseSchema,
   publicPlayerResponseSchema,
+  publishedRunShareSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
   sharedInviteSchema,
@@ -239,10 +240,24 @@ export async function apiRequest<T>(
   return validateResponse(schema, payload, path)
 }
 
-export function requestLogin(email: string, returnTo?: string, recruiterToken?: string) {
+export function requestLogin(
+  email: string,
+  returnTo?: string,
+  recruiter?: string | { token: string } | { playerId: string; runId: string }
+) {
   return apiRequest('/auth/request', loginRequestResponseSchema, {
     method: 'POST',
-    body: JSON.stringify({ email, returnTo, recruiterToken })
+    body: JSON.stringify({
+      email,
+      returnTo,
+      ...(!recruiter
+        ? {}
+        : typeof recruiter === 'string'
+          ? { recruiterToken: recruiter }
+          : 'token' in recruiter
+            ? { recruiterToken: recruiter.token }
+            : { recruiterShare: recruiter })
+    })
   })
 }
 
@@ -445,15 +460,15 @@ export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
   return apiRequest(`/players/${encodeURIComponent(playerId)}`, publicPlayerResponseSchema, { signal })
 }
 
-// One token per share ACTION — sharing the same run twice mints two tokens,
-// which is what makes Herald countable per share rather than per run. Only a
-// recorded run can mint: an offline or guest run has no server record, so the
-// browser never offers the control at all.
-export function createShareToken(runId: string, sessionToken: string, series?: number[]) {
-  return apiRequest(`/runs/${encodeURIComponent(runId)}/share`, shareTokenSchema, {
+// Publishing is deterministic: one recorded run has one permanent clean URL.
+// `completedAt` binds Log shares to the exact immutable history row instead of
+// relying on the short-lived RUN# item that powered the original summary-only
+// flow.
+export function publishRunShare(runId: string, completedAt: string, sessionToken: string) {
+  return apiRequest(`/runs/${encodeURIComponent(runId)}/share`, publishedRunShareSchema, {
     method: 'POST',
     sessionToken,
-    body: JSON.stringify(series?.length ? { series } : {}),
+    body: JSON.stringify({ completedAt }),
     retry: false
   })
 }

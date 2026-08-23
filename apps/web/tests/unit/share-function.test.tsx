@@ -6,7 +6,7 @@ const api = vi.hoisted(() => ({
   getSharedInvite: vi.fn(),
   getSharedRun: vi.fn(),
   createInviteShareToken: vi.fn(),
-  createShareToken: vi.fn()
+  publishRunShare: vi.fn()
 }))
 
 vi.mock('../../src/lib/api', async (importActual) => {
@@ -16,14 +16,8 @@ vi.mock('../../src/lib/api', async (importActual) => {
     getSharedInvite: api.getSharedInvite,
     getSharedRun: api.getSharedRun,
     createInviteShareToken: api.createInviteShareToken,
-    createShareToken: api.createShareToken
+    publishRunShare: api.publishRunShare
   }
-})
-
-const shareCard = vi.hoisted(() => ({ renderShareCard: vi.fn(), canShareImage: vi.fn() }))
-vi.mock('../../src/lib/share-card', async (importActual) => {
-  const actual = await importActual<typeof import('../../src/lib/share-card')>()
-  return { ...actual, renderShareCard: shareCard.renderShareCard, canShareImage: shareCard.canShareImage }
 })
 
 vi.mock('../../src/lib/account', async (importActual) => {
@@ -32,10 +26,8 @@ vi.mock('../../src/lib/account', async (importActual) => {
 })
 
 import ShareLine from '../../src/components/ShareLine'
-import Summary from '../../src/components/Summary'
 import SharedRun, { sharedRunToken } from '../../src/screens/SharedRun'
 import SharedInvite, { sharedInviteToken } from '../../src/screens/SharedInvite'
-import { recordedRunId } from '../../src/lib/use-game-run'
 import { duelSignature, rainSignature, survivalSignature, tradeSignature } from '../../src/lib/signatures'
 
 const flush = () => act(async () => await Promise.resolve())
@@ -57,12 +49,12 @@ const sharedPayload = {
   }
 }
 
-// The share function itself: mint, then hand the OS sheet an image and the link
-// that makes the share countable.
+// A published run is one link. The server owns its image and unfurl; the browser
+// hands the native sheet only that URL, or copies it when no sheet exists.
 describe('sharing a run', () => {
   let host: HTMLDivElement
 
-  function setNavigator(key: 'share' | 'canShare', value: unknown) {
+  function setNavigator(key: 'share' | 'clipboard', value: unknown) {
     Object.defineProperty(navigator, key, { value, configurable: true })
   }
 
@@ -70,21 +62,23 @@ describe('sharing a run', () => {
     vi.clearAllMocks()
     host = document.createElement('div')
     document.body.appendChild(host)
-    shareCard.renderShareCard.mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
-    shareCard.canShareImage.mockReturnValue(true)
-    api.createShareToken.mockResolvedValue({ token: 'AB2CD3' })
+    api.publishRunShare.mockResolvedValue({
+      playerId: '2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf',
+      runId: 'fc6fd2d1-c341-463f-aa95-a6a28e019d34',
+      url: 'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
+    })
   })
 
   afterEach(() => {
     render(null, host)
     host.remove()
     setNavigator('share', undefined)
-    setNavigator('canShare', undefined)
+    setNavigator('clipboard', undefined)
   })
 
   async function tapShare() {
     await act(async () => {
-      render(<ShareLine mode="surge" score="17.412s" runId="run-1" card={{ series: [1200, 900] }} />, host)
+      render(<ShareLine mode="surge" score="17.412s" runId="run-1" completedAt="2026-08-19T12:00:20.000Z" />, host)
     })
     await act(async () => {
       host.querySelector<HTMLButtonElement>('.shareline__btn')!.click()
@@ -93,89 +87,43 @@ describe('sharing a run', () => {
     await flush()
   }
 
-  it('hands the sheet the image and the minted permalink together', async () => {
+  it('publishes once and hands the native sheet only the clean link', async () => {
     const shared: ShareData[] = []
-    setNavigator('canShare', () => true)
     setNavigator('share', async (payload: ShareData) => void shared.push(payload))
 
     await tapShare()
 
-    // The run's own shape rides along on the token, so the permalink can draw it.
-    expect(api.createShareToken).toHaveBeenCalledWith('run-1', 'test-session', [1200, 900])
+    expect(api.publishRunShare).toHaveBeenCalledWith('run-1', '2026-08-19T12:00:20.000Z', 'test-session')
     expect(shared).toHaveLength(1)
-    expect(shared[0]!.url).toBe(`${window.location.origin}/#/r/AB2CD3`)
-    expect(shared[0]!.files).toHaveLength(1)
+    expect(shared[0]).toEqual({
+      url: 'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
+    })
     expect(host.textContent).toContain('Shared')
   })
 
-  it('unbundles into copy-the-link and save-the-image with no native sheet', async () => {
+  it('copies that same link with no fallback panel when native sharing is unavailable', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
     setNavigator('share', undefined)
-    setNavigator('canShare', undefined)
+    setNavigator('clipboard', { writeText })
 
     await tapShare()
 
-    // Not a degraded dialog: the same two things the sheet offers, spelled out.
-    const unbundled = host.querySelector('.shareline__unbundled')!
-    expect(unbundled).toBeTruthy()
-    expect(unbundled.querySelector('.shareline__url')?.textContent).toBe(`${window.location.origin}/#/r/AB2CD3`)
-    expect(unbundled.querySelector('.shareline__save')?.getAttribute('download')).toBe('elixir-drop.png')
+    expect(writeText).toHaveBeenCalledWith(
+      'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
+    )
+    expect(host.querySelector('.shareline__unbundled')).toBeNull()
+    expect(host.textContent).toContain('Link copied.')
   })
 
   it('says so rather than sharing a link to nowhere when minting fails', async () => {
-    api.createShareToken.mockRejectedValue(new Error('offline'))
+    api.publishRunShare.mockRejectedValue(new Error('offline'))
     const shared: ShareData[] = []
-    setNavigator('canShare', () => true)
     setNavigator('share', async (payload: ShareData) => void shared.push(payload))
 
     await tapShare()
 
     expect(shared).toHaveLength(0)
     expect(host.textContent).toContain('Sharing is unavailable right now.')
-  })
-
-  // Red means "this bar cost you". Bars with nothing marked are the shape of a
-  // run with the comparison stripped out — a chart rather than a story. Every
-  // mode knows which bars those are, so every mode sends them.
-  it("carries the run's red bars onto the card, and only a reference the player owns", async () => {
-    setNavigator('canShare', () => true)
-    setNavigator('share', async () => undefined)
-    recordedRunId.value = 'run-9'
-
-    // Rain's own signature: red is a life lost, and the fall time is the GAME's
-    // reference — correctly excluded from a card a stranger will see.
-    const rain = rainSignature([900, 1400, 1100], [1200, 1200, 1200], [false, true, false])
-    await act(async () => {
-      render(
-        <Summary
-          eyebrow="Rain complete"
-          headline="41 cleared"
-          insights={{
-            bands: [],
-            total: 3,
-            correct: 2,
-            accuracyPct: 67,
-            weakest: [],
-            slowestCards: [],
-            hasTiming: true
-          }}
-          share={{ mode: 'rain', score: '41 cleared', series: rain.values, bad: rain.bad }}
-          onReplay={() => {}}
-          onHome={() => {}}
-        />,
-        host
-      )
-    })
-    await act(async () => {
-      host.querySelector<HTMLButtonElement>('.shareline__btn')!.click()
-    })
-    await flush()
-    await flush()
-
-    expect(shareCard.renderShareCard).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'rain', bad: [false, true, false] })
-    )
-    expect(shareCard.renderShareCard.mock.calls.at(-1)![0]).not.toHaveProperty('refs')
-    recordedRunId.value = null
   })
 })
 

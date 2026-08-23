@@ -9,6 +9,7 @@ import { signToken } from "../src/signing.js";
 const deleteAccount = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
 const deleteButtondownSubscriber = vi.hoisted(() => vi.fn());
+const deletePlayerShareImages = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -21,6 +22,8 @@ vi.mock("../src/buttondown.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/buttondown.js")>();
   return { ...actual, deleteButtondownSubscriber };
 });
+
+vi.mock("../src/share-assets.js", () => ({ deletePlayerShareImages }));
 
 import { handler } from "../src/handler.js";
 
@@ -76,6 +79,7 @@ describe("account deletion", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
@@ -89,6 +93,7 @@ describe("account deletion", () => {
       createdAt: "2026-07-01T00:00:00.000Z",
       updatedAt: "2026-07-01T00:00:00.000Z",
     });
+    deletePlayerShareImages.mockResolvedValue(undefined);
   });
 
   it("requires an exact destructive-action confirmation", async () => {
@@ -114,6 +119,10 @@ describe("account deletion", () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body || "{}")).toEqual({ ok: true });
     expect(deleteAccount).toHaveBeenCalledWith("player-sub");
+    expect(deletePlayerShareImages).toHaveBeenCalledWith(
+      "share-assets",
+      "player-1",
+    );
     expect(deleteButtondownSubscriber).toHaveBeenCalledWith(
       {
         apiKey: "buttondown-key",

@@ -2,9 +2,14 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef } from 'preact/hooks'
 import type { GameMode } from '@elixir-drop/contracts'
 import type { Insights } from '../lib/insights'
-import { earnedBadges, earnedXp, earnedXpAwards, offlineRunMode, recordedRunId } from '../lib/use-game-run'
-import { player } from '../lib/account'
-import { rankFor } from '../data/starRanks'
+import {
+  earnedBadges,
+  earnedXp,
+  earnedXpAwards,
+  offlineRunMode,
+  recordedRunCompletedAt,
+  recordedRunId
+} from '../lib/use-game-run'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
 import Icon from './Icon'
@@ -45,7 +50,7 @@ interface Props {
   pbCallout?: string
   insights: Insights
   moments?: SummaryMoment[]
-  share: { mode: GameMode; score: string; series?: number[]; refs?: number[]; bad?: boolean[] }
+  share: { mode: GameMode; score: string }
   // The mode's signature panel — a chart or read-back drawn from data the mode
   // already records. Falls back to the "Work on these" list below.
   children?: ComponentChildren
@@ -76,10 +81,9 @@ export default function Summary({
   onHome
 }: Props) {
   const headingRef = useRef<HTMLDivElement>(null)
-  const { bands, weakest, slowestCards, hasTiming } = insights
+  const { weakest, slowestCards, hasTiming } = insights
   const offline = offlineRunMode.value === share.mode
   const visiblePbCallout = offline ? undefined : pbCallout
-  const shareArena = player.value ? rankFor(player.value.xp ?? 0).current : undefined
 
   // The only seal a summary draws: this run was not recorded at all.
   const seal: ReviewSeal | null = offline ? 'not-recorded' : null
@@ -172,22 +176,12 @@ export default function Summary({
       {/* 4 — What to do next: share, then the actions.
           A not-recorded run has NO share control: offline and guest runs have no
           server record, so no permalink can exist. Absent, not disabled. */}
-      {share.mode !== 'practice' && recordedRunId.value && (
+      {share.mode !== 'practice' && recordedRunId.value && recordedRunCompletedAt.value && (
         <ShareLine
           mode={share.mode}
           score={share.score}
           runId={recordedRunId.value}
-          card={{
-            bands: bands.filter((band) => band.total > 0),
-            ...(share.series && share.series.length ? { series: share.series } : {}),
-            // A share card drops the game's half of the chart. Only a reference
-            // the PLAYER owns travels, so a mode passes `refs` when and only
-            // when it is their own previous best.
-            ...(share.refs && share.refs.length ? { refs: share.refs } : {}),
-            ...(share.bad && share.bad.length ? { bad: share.bad } : {}),
-            ...(player.value?.publicName ? { playerName: player.value.publicName } : {}),
-            ...(shareArena ? { arenaName: shareArena.name } : {})
-          }}
+          completedAt={recordedRunCompletedAt.value}
         />
       )}
 

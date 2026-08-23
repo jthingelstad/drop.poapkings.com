@@ -36,6 +36,7 @@ import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
 import { analyzeTimingEvidence } from "../timing-evidence.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
+import { deriveRunShareVisual } from "../share-visual.js";
 import type {
   Correlation,
   PlayerProfile,
@@ -332,29 +333,43 @@ async function recordSignedInRun(
     // fails or rolls back the recorded run. Practice is ranked:false, so this
     // branch naturally excludes it — practice writes no evidence.
     try {
-      await repository.putRefereeEvidence(
-        buildEvidenceItem({
-          sub: run.owner,
+      const evidence = buildEvidenceItem({
+        sub: run.owner,
+        runId: run.runId,
+        mode: run.mode,
+        seasonId: season.id,
+        runType: "ranked",
+        integrityOutcome: automaticReviewReason ?? "accepted",
+        reviewSignals: automaticReviewSignals,
+        timing: timing.evidence,
+        score,
+        tiebreaks,
+        challenge: run.challenge,
+        transcript,
+        startedAt: run.startedAt,
+        completedAt: result.completedAt,
+        wallElapsedMs,
+        webVersion: config.webVersion,
+        startCorrelation: run.startCorrelation,
+        completeCorrelation,
+        playerTag: result.profile.playerTag,
+      });
+      await repository.putRefereeEvidence(evidence);
+      try {
+        const shareVisual = deriveRunShareVisual(evidence);
+        if (shareVisual)
+          await repository.setRunShareVisual(
+            run.owner,
+            run.runId,
+            result.completedAt,
+            shareVisual,
+          );
+      } catch (error) {
+        console.warn("Run share visual write failed", {
           runId: run.runId,
-          mode: run.mode,
-          seasonId: season.id,
-          runType: "ranked",
-          integrityOutcome: automaticReviewReason ?? "accepted",
-          reviewSignals: automaticReviewSignals,
-          timing: timing.evidence,
-          score,
-          tiebreaks,
-          challenge: run.challenge,
-          transcript,
-          startedAt: run.startedAt,
-          completedAt: result.completedAt,
-          wallElapsedMs,
-          webVersion: config.webVersion,
-          startCorrelation: run.startCorrelation,
-          completeCorrelation,
-          playerTag: result.profile.playerTag,
-        }),
-      );
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      }
     } catch (error) {
       console.warn("Referee evidence write failed", {
         runId: run.runId,

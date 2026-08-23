@@ -5,7 +5,7 @@ import { pollLogin, requestLogin } from '../lib/api'
 import { applyPolledSession } from '../lib/account'
 import { gameReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
-import { clearRecruiter, recruiterToken } from '../lib/referral'
+import { clearRecruiter, recruiterAttribution } from '../lib/referral'
 
 export default function Login() {
   const returnTo = gameReturnPathFromRoute(route.value)
@@ -56,7 +56,7 @@ export default function Login() {
     }
     status.value = 'sending'
     try {
-      const response = await requestLogin(email.value.trim(), returnTo, recruiterToken())
+      const response = await requestLogin(email.value.trim(), returnTo, recruiterAttribution())
       clearRecruiter()
       message.value = response.message
       pollId.value = response.pollId ?? ''

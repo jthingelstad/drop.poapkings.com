@@ -358,6 +358,14 @@ test('earned badge sharing includes its artwork, rung, player, and public profil
 })
 
 test('the Log groups games by day, filters flagged, and pages older games in', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        ;(window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare = payload
+      }
+    })
+  })
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
   const games = page.locator('.ed-games')
@@ -382,6 +390,16 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   await expect.poll(() => seasonRequests).toContain('2026-06')
   await expect(games.locator('.ed-games__row')).toHaveCount(32)
   await expect(games.getByRole('button', { name: 'Older games' })).toHaveCount(0)
+
+  // Any eligible historical run can publish the same native, link-only share
+  // after the fact; the player does not have to share from the finish screen.
+  await games.locator('.ed-games__row').first().click()
+  const runSheet = page.getByRole('dialog')
+  await runSheet.getByRole('button', { name: 'Share this run' }).click()
+  await expect(runSheet.getByRole('button', { name: 'Shared' })).toBeVisible()
+  expect(await page.evaluate(() => (window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare)).toEqual({
+    url: 'http://127.0.0.1:5173/share/player-1/season-run-1'
+  })
 
   await testInfo.attach('your-games.png', {
     body: await page.screenshot({ fullPage: false }),

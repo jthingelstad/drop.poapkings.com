@@ -484,15 +484,7 @@ export default function Rain() {
           ]}
           share={{
             mode: 'rain',
-            score: `${score.value} cleared`,
-            // Red marks the answers that lost a life. No `refs`: Rain's fall
-            // time is the game's machinery, not a reference the player owns.
-            ...(signature.value
-              ? {
-                  series: signature.value.values,
-                  ...(signature.value.bad ? { bad: signature.value.bad } : {})
-                }
-              : {})
+            score: `${score.value} cleared`
           }}
           onReplay={replay}
           replayLabel="Play again"

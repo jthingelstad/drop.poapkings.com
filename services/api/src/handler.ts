@@ -30,11 +30,20 @@ import {
 import { completeRun } from "./routes/runs-complete.js";
 import { reportRunFailure } from "./routes/run-reports.js";
 import { startRun } from "./routes/runs-start.js";
-import { createInviteShare, createShare, getShare } from "./routes/shares.js";
+import { createInviteShare, getShare } from "./routes/shares.js";
+import {
+  createPublishedRunShare,
+  getPublishedRunImage,
+  getPublishedRunPage,
+  openPublishedRunShare,
+} from "./routes/published-shares.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
 const SHARE_PATH = /^\/shares\/([^/]+)$/;
+const PUBLISHED_SHARE_PATH = /^\/share\/([^/]+)\/([^/]+)$/;
+const PUBLISHED_SHARE_OPEN_PATH = /^\/share\/([^/]+)\/([^/]+)\/open$/;
+const PUBLISHED_SHARE_IMAGE_PATH = /^\/share-assets\/([^/]+)\/([^/]+)$/;
 
 // The routing table. Every branch is one line: the handling lives in
 // ./routes/*, one module per group of related endpoints.
@@ -77,11 +86,42 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/run-reports")
     return reportRunFailure(context);
   const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;
-  if (runShareMatch) return createShare(context, runShareMatch[1] ?? "");
+  if (runShareMatch)
+    return createPublishedRunShare(context, runShareMatch[1] ?? "");
   if (method === "POST" && path === "/shares")
     return createInviteShare(context);
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;
   if (shareMatch) return getShare(context, shareMatch[1] ?? "");
+  const publishedShareMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_SHARE_PATH.exec(path)
+      : null;
+  if (publishedShareMatch)
+    return getPublishedRunPage(
+      context,
+      publishedShareMatch[1] ?? "",
+      publishedShareMatch[2] ?? "",
+      method === "HEAD",
+    );
+  const publishedShareImageMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_SHARE_IMAGE_PATH.exec(path)
+      : null;
+  if (publishedShareImageMatch)
+    return getPublishedRunImage(
+      context,
+      publishedShareImageMatch[1] ?? "",
+      publishedShareImageMatch[2] ?? "",
+      method === "HEAD",
+    );
+  const publishedShareOpenMatch =
+    method === "POST" ? PUBLISHED_SHARE_OPEN_PATH.exec(path) : null;
+  if (publishedShareOpenMatch)
+    return openPublishedRunShare(
+      context,
+      publishedShareOpenMatch[1] ?? "",
+      publishedShareOpenMatch[2] ?? "",
+    );
 
   if (method === "GET" && path === "/leaderboards")
     return getLeaderboards(context);

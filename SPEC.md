@@ -93,7 +93,9 @@ Current public website stack:
 
 The app builds to static files in `apps/web/dist/`. CloudFront serves the custom
 domain from root, so Vite `base` stays `/`. Hash routing remains the stable
-browser contract for authentication and attributed share URLs.
+browser contract for app navigation, authentication, invitation links, and
+legacy run shares. New personalized run links use server-routed `/share/...`
+addresses so crawlers can receive per-run metadata.
 
 ---
 
@@ -322,13 +324,13 @@ Important shared modules:
   desktop input contract: `ASDFG` = costs 1–5, `JKL;` = 6–9, digits are aliases,
   Space is the safe default/replay action, `?` opens help, and Escape uses a
   two-step abandon flow during a run.
-- `services/api/src/shares.ts` - share-token minting, the look-alike-free
-  alphabet, the per-token open credit cap, and the bounds on the run shape a
-  stranger's browser renders.
-- `services/api/src/routes/shares.ts` - `POST /runs/{runId}/share` and
-  `GET /shares/{token}`, including the peppered per-visitor dedupe and the rule
-  that the sharer's own device earns nothing.
-- `apps/web/src/screens/SharedRun.tsx` - what `#/r/<token>` opens.
+- `services/api/src/routes/published-shares.ts`, `share-visual.ts`,
+  `share-image.ts`, and `share-assets.ts` - deterministic recorded-run
+  publication, evidence-derived chart projections, 1200 × 630 PNG rendering,
+  private S3 storage, clean landing HTML, and browser-open credit.
+- `services/api/src/shares.ts`, `routes/shares.ts`, and
+  `apps/web/src/screens/SharedRun.tsx` - invitation tokens plus compatibility
+  reads for already-issued `#/r/<token>` run links.
 - `apps/web/src/lib/analytics.ts` - Tinylytics custom event bridge.
 
 Player XP and the per-player arena:
@@ -442,9 +444,10 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
-elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid attributed share
-                                       token + capture time; expires after 30 days and is
-                                       consumed by a successful login-email request
+elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid invitation token
+                                       or published player/run pair + capture time; expires
+                                       after 30 days and is consumed by a successful
+                                       login-email request
 ```
 
 (The `elixirdrop:playerTagNudge` key was retired with the PlayerTagNudge modal in
@@ -576,34 +579,26 @@ predate the field show no recorded login until their next redemption.
 
 ### Sharing and recruitment
 
-Sharing is two things travelling together: an image, which is what gets looked
-at, and a link, which is what gets counted.
+One recorded run has one permanent address:
+`/share/{playerId}/{runId}`. `POST /runs/{runId}/share` looks up the caller's
+immutable history row (not the expiring active `RUN#` item), rejects Practice or
+a Fair Play exclusion, and idempotently writes a frozen public snapshot. The
+same URL comes back on every later action. Summary offers it immediately; the
+run sheet in You → Log can publish any eligible historical run after the fact.
 
-**The image** is composited in the browser (`apps/web/src/lib/share-card.ts`): a
-1080×1350 canvas over `assets/share/share-backdrop.png` with the mode emblem,
-score, the run's own signature series (cost-band squares when a mode has no
-series), arena and sticker drawn on top. Every source is same-origin so the
-canvas never taints. A share card drops the GAME's half of the summary chart —
-the window, the fall time and the "seconds to answer" framing explain a run to
-the person who made it and mean nothing to a stranger. Only the player's own
-series travels, and `refs` carries a reference only when it is the player's own
-previous best (today: Surge).
+**What gets shared.** `components/ShareLine.tsx` calls `navigator.share({ url })`.
+If no native share sheet is available it copies only that URL. No client canvas,
+attached file, custom picker, or save-image panel remains for run sharing.
 
-**The link** is a minted permalink. `POST /runs/{runId}/share` returns a
-six-character token from an alphabet with no look-alike glyphs (a player may read
-one aloud), and one token is minted per SHARE ACTION — sharing the same run twice
-mints two tokens, which is what makes reach countable per share rather than per
-run. `GET /shares/{token}` resolves it. The address is `#/r/<token>`: Drop keeps
-hash routing as its stable auth/share route contract. URL fragments never reach
-CloudFront, so there is no server-side per-run unfurl preview and a pasted link
-unfurls with the generic Drop card.
-
-**What the browser does.** `components/ShareLine.tsx` mints, renders, and calls
-`navigator.share` with the image as a `File`, the URL and one line of text — the
-native sheet, always, with no Drop-branded picker in between. Without a native
-sheet the same payload is unbundled into copy-the-link and save-the-image; that
-is not a degraded dialog but the same two things spelled out. If minting fails
-the button says so rather than sharing a link to nowhere.
+**The unfurl.** CloudFront routes the clean address to Lambda. The response is a
+small standalone landing page with canonical Open Graph and Twitter metadata,
+the score card, a score-first challenge CTA, public profile link, and fan-content
+disclaimer. `/share-assets/{playerId}/{runId}` serves its 1200 × 630 PNG from a
+dedicated private, retained S3 bucket. `share-visual.ts` derives at most 30 chart
+bars from the server-validated transcript; the browser cannot submit a chart.
+That public-safe projection is retained on the durable history row at completion
+and backfilled from referee evidence when an older run is first shared. The
+published snapshot and derived image do not expire.
 
 **A not-recorded run has no share control at all.** Offline, guest, and Practice
 runs have no server record, so no permalink can exist. `Summary` renders nothing
@@ -612,32 +607,20 @@ itself) and the mint endpoint refuses independently rather than trusting the
 button. Practice is excluded for a second reason too: session length and accuracy
 in an endless drill are not comparable results.
 
-**What the link opens** (`apps/web/src/screens/SharedRun.tsx`) is the RUN, with
-the score as the button — never the home page. Nothing travels that the public
-profile does not already show: score, mode, name, arena.
+**Counting opens.** Metadata and image GET/HEAD requests never count. The landing
+script makes a separate `POST /share/{playerId}/{runId}/open` from a real browser.
+A peppered HMAC scoped to that run dedupes the request without storing the raw IP
+or full user-agent; the owner's session is excluded and credit stops at 25 per
+run. Counter failure never blocks the page. The same landing stores the public
+player/run pair as 30-day last-touch Recruiter attribution. Home and badge
+shares continue to use `#/s/<token>` invitations, which never advance Herald.
 
-**Counting opens.** A distinct visitor opening `/shares/{token}` is credited
-once. The visitor key is a peppered one-way HMAC of the request scoped to that
-token, so Drop counts opens per token and never learns who opened; no raw IP or
-user-agent is stored, which is the same rule referee evidence works under. The
-sharer's own device earns nothing, and credit stops at 25 per token so one lucky
-link cannot clear a ladder. The counter is written best-effort — a link opens
-whether or not the count lands. Privacy and Fair Play both state this, which was
-the stated condition for any share badge shipping. Herald reads that aggregate
-counter. Home and badge shares instead mint an invitation token through `POST
-/shares` and resolve at `#/s/<token>`. Invitation opens carry no Herald credit,
-create no per-link Herald visitor marker, and redirect to Home or the relevant public
-profile after storing attribution. Either a valid run or invitation token may
-be kept in the browser for up to 30 days. If that token is supplied with a login
-request for an email that has no Drop profile, the resulting account is
-privately attributed to the sharer; successful magic-link redemption that
-creates the profile advances Recruiter exactly once. Neither a link open nor a
-login-email request alone counts as a recruit.
-
-**Deletion.** The share item lives outside `PLAYER#` so a stranger can resolve it
-by token alone, so a `PLAYER#{sub}/SHARE#{token}` pointer is written in the same
-transaction; account deletion follows the pointer and sweeps the share and its
-per-visitor open markers with everything else.
+**Compatibility and deletion.** Already-issued `#/r/<token>` links and their
+`GET /shares/{token}` resolver remain readable. New run links store a
+`PLAYER#{sub}` pointer to the `SHARE#RUN#{playerId}#{runId}` partition. Account
+deletion follows those pointers, removes every visitor marker and snapshot, and
+deletes `run-images/{playerId}/` from S3. A later Fair Play exclusion makes the
+page and image fail closed; the next request also deletes the stored PNG.
 
 Local card-learning signals and personal browser records remain local. Every
 mode also obtains a short-lived, single-use signed run from the API. The server

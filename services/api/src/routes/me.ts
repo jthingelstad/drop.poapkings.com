@@ -22,6 +22,7 @@ import {
 import { generateNameOptions, isSafeGeneratedName } from "../names.js";
 import { signToken, verifyToken } from "../signing.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
+import { deletePlayerShareImages } from "../share-assets.js";
 import type {
   CrProfileSnapshot,
   NameClaims,
@@ -592,6 +593,8 @@ export async function deleteMe({ event, config, repository }: RouteContext) {
       "deletion_confirmation_required",
     );
   const profile = await repository.getProfile(session.sub);
+  if (profile && config.shareAssetBucket)
+    await deletePlayerShareImages(config.shareAssetBucket, profile.playerId);
   const deleted = await repository.deleteAccount(session.sub);
   if (profile) {
     await deleteButtondownSubscriber(

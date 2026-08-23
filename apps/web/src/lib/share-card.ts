@@ -1,7 +1,7 @@
-import type { BadgeTier, GameMode } from '@elixir-drop/contracts'
-import { gameDisplay } from './game-metadata'
+import type { BadgeTier } from '@elixir-drop/contracts'
 
-// The 1080×1350 share cards.
+// The 1080×1350 earned-badge share card. Recorded runs use a server-rendered
+// link preview instead; this browser compositor remains only for badges.
 //
 // `share-backdrop.png` is the fixed background and everything else is composited
 // on top at export. The centre of the backdrop is intentionally dark and flat,
@@ -18,34 +18,6 @@ export const SHARE_HEIGHT = 1350
 
 // Bottom-right, ~15% of the card's width (46px on a 300px-wide preview).
 const STICKER_RATIO = 0.15
-
-export interface ShareCardInput {
-  mode: GameMode
-  // Already formatted for humans: "18.4s", "42 cleared".
-  score: string
-  playerName?: string
-  // Per-cost accuracy, drawn as the row of squares (the fallback when a mode has
-  // no signature series).
-  bands?: Array<{ label: string; correct: number; total: number }>
-  // The mode's signature series — the shape of the run. Drawn as a bar chart in
-  // place of the band squares, because the shape of a run is what someone who
-  // never played can read.
-  //
-  // A share card drops the GAME's half of the summary chart. The window, the
-  // fall time and the "seconds to answer" framing are Drop's machinery: they
-  // explain a run to the person who made it and mean nothing to a stranger
-  // seeing a post. Only the player's own series travels, and `refs` only ever
-  // carries the player's OWN previous best — never a reference the game owns.
-  series?: number[]
-  refs?: number[]
-  // Marks a bar as one that cost the player something. What it cost is the
-  // summary's business; here it is only "this one went wrong".
-  bad?: boolean[]
-  // The arena NAME is progression context and stays; the arena artwork was
-  // retired in the 2026-08 refresh, so no arena image is composited.
-  arenaName?: string
-  rank?: number
-}
 
 export interface BadgeShareCardInput {
   slug: string
@@ -127,126 +99,6 @@ function badgeChip(ctx: CanvasRenderingContext2D, chip: string, tier: BadgeTier,
   ctx.fill()
   ctx.fillStyle = '#211100'
   ctx.fillText(chip, SHARE_WIDTH / 2, y + 49)
-}
-
-export async function renderShareCard(input: ShareCardInput): Promise<Blob | null> {
-  const canvas = document.createElement('canvas')
-  canvas.width = SHARE_WIDTH
-  canvas.height = SHARE_HEIGHT
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-
-  const game = gameDisplay(input.mode)
-  const [backdrop, sticker, emblem] = await Promise.all([
-    loadImage('/assets/share/share-backdrop.png'),
-    loadImage('/assets/share/share-sticker.png'),
-    loadImage(`/assets/modes/${input.mode}-384.png`)
-  ])
-  await readyFonts()
-
-  // The backdrop IS the background. If it fails to load the card is not worth
-  // exporting half-drawn — fall back to the text share instead.
-  if (!backdrop) return null
-  ctx.drawImage(backdrop, 0, 0, SHARE_WIDTH, SHARE_HEIGHT)
-
-  const centreX = SHARE_WIDTH / 2
-  ctx.textAlign = 'center'
-
-  if (emblem) {
-    const size = 260
-    ctx.drawImage(emblem, centreX - size / 2, 250, size, size)
-  }
-
-  ctx.fillStyle = '#d7c8ff'
-  ctx.font = '700 46px "Clash Royale", system-ui, sans-serif'
-  ctx.fillText(game.name.toUpperCase(), centreX, 590)
-
-  ctx.fillStyle = '#f5c84c'
-  ctx.font = '700 150px "Clash Royale", system-ui, sans-serif'
-  ctx.fillText(input.score, centreX, 730)
-
-  if (input.playerName) {
-    roundedRect(ctx, 150, 766, 780, 112, 30)
-    ctx.fillStyle = 'rgba(7, 6, 16, 0.72)'
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(245, 200, 76, 0.72)'
-    ctx.lineWidth = 3
-    ctx.stroke()
-    ctx.fillStyle = '#d7c8ff'
-    ctx.font = '700 24px Inter, system-ui, sans-serif'
-    ctx.fillText('PLAYED BY', centreX, 803)
-    ctx.fillStyle = '#f5c84c'
-    ctx.font = playerNameFont(ctx, input.playerName)
-    ctx.fillText(input.playerName, centreX, 854)
-  }
-
-  // The signature series is the run's shape — a bar chart someone who never
-  // played can still read. It stands in for the cost-band squares when present.
-  const series = (input.series ?? []).filter((v) => Number.isFinite(v) && v >= 0)
-  const bands = (input.bands ?? []).filter((band) => band.total > 0)
-  const refs = (input.refs ?? []).filter((v) => Number.isFinite(v) && v >= 0)
-  if (series.length) {
-    const peak = Math.max(1, ...series, ...refs)
-    const chartW = 800
-    const chartH = 220
-    const x0 = centreX - chartW / 2
-    const baseY = 914 + chartH
-    const bw = chartW / series.length
-    for (let i = 0; i < series.length; i += 1) {
-      const h = (series[i] / peak) * chartH
-      ctx.fillStyle = input.bad?.[i] ? 'rgba(220, 38, 38, 0.8)' : 'rgba(139, 92, 246, 0.75)'
-      roundedRect(ctx, x0 + i * bw + 3, baseY - h, Math.max(1, bw - 6), h, 6)
-      ctx.fill()
-    }
-    // The player's own previous best, per bar. It is the one reference that
-    // means something to a stranger: it says the poster beat themselves.
-    if (refs.length === series.length) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
-      for (let i = 0; i < refs.length; i += 1) {
-        const y = baseY - (refs[i] / peak) * chartH
-        ctx.fillRect(x0 + i * bw + 1, y - 2, Math.max(1, bw - 2), 4)
-      }
-    }
-  } else if (bands.length) {
-    const box = 96
-    const gap = 18
-    const totalWidth = bands.length * box + (bands.length - 1) * gap
-    let x = centreX - totalWidth / 2
-    const y = 914
-    for (const band of bands) {
-      const ratio = band.correct / band.total
-      ctx.fillStyle = 'rgba(215, 200, 255, 0.16)'
-      roundedRect(ctx, x, y, box, box, 18)
-      ctx.fill()
-      ctx.fillStyle = ratio >= 0.99 ? '#22c55e' : '#8b5cf6'
-      const fill = Math.round(box * ratio)
-      roundedRect(ctx, x, y + (box - fill), box, fill, 18)
-      ctx.fill()
-      ctx.fillStyle = '#f7f4ff'
-      ctx.font = '700 34px Inter, system-ui, sans-serif'
-      ctx.fillText(band.label, x + box / 2, y + box + 44)
-      x += box + gap
-    }
-  }
-
-  if (input.arenaName) {
-    ctx.fillStyle = '#c8c1e6'
-    ctx.font = '600 34px Inter, system-ui, sans-serif'
-    ctx.fillText(input.arenaName, centreX, 1180)
-  }
-  if (input.rank !== undefined) {
-    ctx.fillStyle = '#f5c84c'
-    ctx.font = '700 44px "Clash Royale", system-ui, sans-serif'
-    ctx.fillText(`#${input.rank}`, centreX, 1278)
-  }
-
-  if (sticker) {
-    const size = Math.round(SHARE_WIDTH * STICKER_RATIO)
-    const margin = 44
-    ctx.drawImage(sticker, SHARE_WIDTH - size - margin, SHARE_HEIGHT - size - margin, size, size)
-  }
-
-  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
 }
 
 export async function renderBadgeShareCard(input: BadgeShareCardInput): Promise<Blob | null> {

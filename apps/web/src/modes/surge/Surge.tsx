@@ -241,16 +241,7 @@ export default function Surge() {
           ]}
           share={{
             mode: 'surge',
-            score: `${formatSeconds(totalMs.value)}s`,
-            // Surge's reference IS the player's own best run, so it is the one
-            // mode whose reference may travel onto a share card.
-            ...(signature.value
-              ? {
-                  series: signature.value.values,
-                  ...(signature.value.refs ? { refs: signature.value.refs } : {}),
-                  ...(signature.value.bad ? { bad: signature.value.bad } : {})
-                }
-              : {})
+            score: `${formatSeconds(totalMs.value)}s`
           }}
           onReplay={replay}
           replayLabel="Play again"

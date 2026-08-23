@@ -157,6 +157,18 @@ export interface RunRecord {
   // The badge slugs whose rungs this run cleared, written best-effort after
   // completion. Surfaced as "Rungs moved" medallions in the run sheet.
   rungs?: string[];
+  // Bounded, public-safe chart projection derived from the validated
+  // transcript. It is retained with history so a run can be shared long after
+  // the private referee evidence reaches its TTL.
+  shareVisual?: RunShareVisual;
+}
+
+export interface RunShareVisual {
+  mode: Exclude<GameMode, "practice">;
+  unit: string;
+  values: number[];
+  refs?: number[];
+  bad?: boolean[];
 }
 
 export type RunReviewStatus = "pending" | "reviewed" | "excluded";

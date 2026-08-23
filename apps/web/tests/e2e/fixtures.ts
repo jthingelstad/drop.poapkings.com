@@ -364,8 +364,8 @@ function testChallenge(mode: GameMode): RunChallenge {
   }
 }
 
-// Every mint returns a distinct token, because one token per SHARE ACTION is
-// the property that makes reach countable per share rather than per run.
+// Invitation shares retain their compact token contract. Recorded-run shares
+// below are deterministic and return one clean player/run URL.
 let shareTokenCounter = 0
 const inviteShares = new Map<string, { destination: 'home' | 'player'; playerId?: string }>()
 
@@ -380,13 +380,15 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
   }
   const shareMint = /^\/runs\/[^/]+\/share$/.exec(path)
   if (shareMint) {
-    shareTokenCounter += 1
+    const runId = decodeURIComponent(path.split('/')[2] ?? '')
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
-      // The real alphabet excludes look-alike glyphs (no I, L, O, U, 0, 1), and
-      // the app validates against it — so the stub has to speak it too.
-      body: JSON.stringify({ token: `SHR${'ABCDEFGHJKMNPQRSTVWXYZ'[shareTokenCounter % 22]!.repeat(3)}` })
+      body: JSON.stringify({
+        playerId: testPlayer.id,
+        runId,
+        url: `http://127.0.0.1:5173/share/${testPlayer.id}/${runId}`
+      })
     })
     return true
   }

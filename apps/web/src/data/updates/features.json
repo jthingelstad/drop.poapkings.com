@@ -39,9 +39,9 @@
     {
       "id": "share-every-run",
       "impact": "sharing",
-      "publishedAt": "2026-08-19T09:01:52-05:00",
-      "title": "Every finish can leave the arena",
-      "body": "The Share button on each summary now opens your device’s real share sheet—or copies a clean fallback—so a personal best can reach the clan in one tap."
+      "publishedAt": "2026-08-23T02:00:08-05:00",
+      "title": "Your best runs have their own links",
+      "body": "Every recorded run can now become one clean link with its own score card and challenge preview. Share from the finish, or reopen a great run in **You → Log** and send it later—the same link works anywhere."
     },
     {
       "id": "full-badge-gallery",

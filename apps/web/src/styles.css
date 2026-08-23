@@ -1673,61 +1673,6 @@ html.reduce-motion .game-motion {
   min-width: 0;
 }
 
-/* 10b — the no-native-sheet path. Not a degraded dialog: the same two things
-   the OS sheet offers, spelled out. The link to paste and the image to save. */
-.shareline__unbundled {
-  flex: 1 0 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.shareline__link {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 12px 13px;
-  border-radius: 13px;
-  border: 1px solid rgba(167, 139, 250, 0.45);
-  background: rgba(11, 9, 32, 0.75);
-}
-.shareline__url {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.shareline__copy {
-  flex: 0 0 auto;
-  min-height: 36px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-family: var(--font-body);
-  font-weight: 800;
-  font-size: 0.68rem;
-}
-.shareline__save {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 13px;
-  border: 1px solid rgba(215, 200, 255, 0.22);
-  color: var(--lavender);
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.75rem;
-  text-decoration: none;
-}
-.shareline__save .icon {
-  width: 15px;
-  height: 15px;
-}
 .shareline__score {
   margin-top: 3px;
   color: var(--gold);

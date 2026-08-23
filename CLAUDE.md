@@ -171,41 +171,30 @@ rank-oriented fields as part of unrelated work.
   preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
-- **Sharing a run mints one token per share action.** `POST /runs/{runId}/share`
-  returns a six-character token (`services/api/src/shares.ts`, an alphabet with
-  no look-alike glyphs) and `GET /shares/{token}` resolves it. Sharing the same
-  run twice mints two tokens — that is what makes reach countable per share
-  rather than per run. The permalink is `#/r/<token>`: Drop retains hash routing
-  as its stable auth/share route contract, and URL fragments never reach
-  CloudFront, so there is no server-side per-run unfurl preview. A pasted link
-  therefore unfurls with the generic Drop card. The link opens the RUN
-  (`screens/SharedRun.tsx`) with the score
-  as the button, never the home page. **A not-recorded run has no share control
-  at all** — offline and guest runs have no server record, so no permalink can
-  exist; `Summary` renders nothing rather than a disabled button, and the mint
-  endpoint refuses independently. Nothing travels that is not already public:
-  score, mode, name, arena. **The card's chart carries every mode's red bars**
-  (`bad`) — red means *this bar cost you*, and bars with nothing marked are a
-  run with the comparison stripped out. `refs` is different: only a reference
-  the PLAYER owns travels, which today is Surge's per-card personal best alone.
-  Rain's fall time, Survival's window, and Trade's and Higher / Lower's
-  this-run average are the game's own machinery and stay in the summary.
-  **Opens are counted per token, never per person** —
-  a peppered one-way hash of the request dedupes a visitor, the sharer's own
-  device is dropped, and credit stops at 25 per token. Privacy and Fair Play
-  both say so out loud, which is the condition for a share badge shipping at
-  all. Deleting an account deletes its minted links: the share item lives
-  outside `PLAYER#` so a stranger can resolve it, and a `PLAYER#{sub}/SHARE#`
-  pointer is what lets the deletion sweep find it.
-- **Herald is result reach; Recruiter is account creation.** Only a distinct,
-  non-owner open of a `#/r/<token>` shared run advances Herald. The Home hero
-  and badge cards mint `POST /shares` invitation tokens at `#/s/<token>`; those
-  links carry Recruiter attribution but never create a per-link Herald visitor
-  marker or touch Herald. Either token kind can become the browser's 30-day last-touch
-  Recruiter attribution. Requesting a login email does not count; successful
-  magic-link redemption that creates a genuinely new profile advances
-  Recruiter exactly once. Anonymous players are asked to sign in before sharing
-  because no account exists to receive either badge.
+- **A recorded run publishes one permanent, personalized link.**
+  `POST /runs/{runId}/share` resolves the caller's immutable history row and
+  idempotently publishes `/share/{playerId}/{runId}`. Summary and You → Log use
+  the same action, so an old run can be shared later. The browser gives the
+  native share sheet only `{ url }`; without a native sheet it copies that same
+  URL. There is no client canvas, attached file, or save-image fallback.
+  CloudFront sends the clean route to Lambda, which serves crawlable Open Graph
+  HTML and a 1200 × 630 PNG from a dedicated retained private S3 bucket. The API
+  derives the bounded chart from validated referee evidence and retains the
+  public-safe projection with history, never accepting chart data from the
+  browser. A frozen public snapshot keeps a published link stable. Practice,
+  guest, offline, missing, and Fair Play-excluded runs fail closed; account
+  deletion removes the snapshot, open markers, and S3 prefix. Existing
+  `#/r/<token>` links remain readable as a compatibility route.
+- **Herald is result reach; Recruiter is account creation.** A crawler fetching
+  the landing HTML or preview image earns nothing. Only the landing page's
+  browser callback can record a distinct, non-owner open; a peppered one-way
+  hash dedupes it and credit stops at 25 per published run. The clean run link
+  also supplies 30-day last-touch Recruiter attribution. Home and badge cards
+  continue to mint six-character `#/s/<token>` invitation links through `POST
+  /shares`; those links never touch Herald. Requesting a login email does not
+  count, while successful magic-link redemption that creates a genuinely new
+  profile advances Recruiter exactly once. Anonymous players are asked to sign
+  in before sharing because no account exists to receive either badge.
 - **Desktop is a viewport shell over the same routes and data.** On initial load
   at or above 1024px, `MobileShell` composes a fixed 936 × 720 navigation / stage
   / activity grid (`lib/use-layout.ts`); the document itself does not scroll.
