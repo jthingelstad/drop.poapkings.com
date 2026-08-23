@@ -1656,7 +1656,7 @@ html.reduce-motion .game-motion {
 
 /* ── Share line ───────────────────────────────────────────── */
 
-.shareline {
+.ed-permalink {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1668,50 +1668,50 @@ html.reduce-motion .game-motion {
   background: rgba(18, 13, 40, 0.72);
 }
 
-.shareline__copy-block {
+.ed-permalink__copy-block {
   flex: 1;
   min-width: 0;
 }
 
-.shareline__score {
+.ed-permalink__score {
   margin-top: 3px;
   color: var(--gold);
   font-family: var(--font-display);
   font-size: 0.92rem;
 }
-.shareline__status {
+.ed-permalink__status {
   min-height: 1.2em;
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.7rem;
 }
 
-.shareline__btn {
+.ed-permalink__btn {
   flex-shrink: 0;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
-.shareline__btn.ed-btn--ghost {
+.ed-permalink__btn.ed-btn--ghost {
   border-color: rgba(245, 200, 76, 0.48);
   color: var(--gold);
 }
-.shareline__btn .icon {
+.ed-permalink__btn .icon {
   width: 16px;
   height: 16px;
 }
-.shareline--compact {
+.ed-permalink--compact {
   padding: 0;
   border: 0;
   background: transparent;
 }
 @media (width <= 520px) {
-  .shareline:not(.shareline--compact) {
+  .ed-permalink:not(.ed-permalink--compact) {
     align-items: stretch;
     flex-direction: column;
   }
-  .shareline:not(.shareline--compact) .shareline__btn {
+  .ed-permalink:not(.ed-permalink--compact) .ed-permalink__btn {
     justify-content: center;
     width: 100%;
   }

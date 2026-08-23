@@ -146,7 +146,7 @@ describe('Summary', () => {
     )
     expect(html).not.toContain('signin-save')
     expect(html).not.toContain('Sign in to save')
-    expect(html).not.toContain('shareline')
+    expect(html).not.toContain('ed-permalink')
     expect(html).not.toContain('Share score')
     // No pbCallout → no pb block.
     expect(html).not.toContain('ed-sum__pb')
@@ -204,13 +204,13 @@ describe('Summary', () => {
     recordedRunId.value = null
     recordedRunCompletedAt.value = null
     const unrecorded = await render(<Summary {...props} />)
-    expect(unrecorded).not.toContain('shareline')
+    expect(unrecorded).not.toContain('ed-permalink')
     expect(unrecorded).not.toContain('Share this run')
 
     recordedRunId.value = 'run-42'
     recordedRunCompletedAt.value = '2026-08-23T00:00:00.000Z'
     const recorded = await render(<Summary {...props} />)
-    expect(recorded).toContain('shareline')
+    expect(recorded).toContain('ed-permalink')
     expect(recorded).toContain('Share this run')
     recordedRunId.value = null
     recordedRunCompletedAt.value = null
@@ -435,7 +435,7 @@ describe('ShareLine', () => {
     const html = await render(
       <ShareLine mode="surge" score="28.60s" runId="run-1" completedAt="2026-08-19T12:00:20.000Z" />
     )
-    expect(html).toContain('shareline')
+    expect(html).toContain('ed-permalink')
     expect(html).toContain('Share your score')
     expect(html).toContain('Surge · 28.60s')
     expect(html).toContain('Share this run')

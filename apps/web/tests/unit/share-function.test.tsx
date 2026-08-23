@@ -81,7 +81,7 @@ describe('sharing a run', () => {
       render(<ShareLine mode="surge" score="17.412s" runId="run-1" completedAt="2026-08-19T12:00:20.000Z" />, host)
     })
     await act(async () => {
-      host.querySelector<HTMLButtonElement>('.shareline__btn')!.click()
+      host.querySelector<HTMLButtonElement>('.ed-permalink__btn')!.click()
     })
     await flush()
     await flush()

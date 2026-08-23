@@ -358,7 +358,7 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.querySelector('.ed-duel')).toBeNull()
     // The harness mocks completion, so nothing recorded and the share control
     // is correctly absent (see the Summary tests for both branches).
-    expect(c.querySelector('.shareline')).toBeNull()
+    expect(c.querySelector('.ed-permalink')).toBeNull()
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Play again')
     expect(c.querySelector('.ed-sum__actions')?.textContent).toContain('Home')
   })
@@ -519,7 +519,7 @@ describe('Trade — gameplay', () => {
     expect(c.textContent).toContain('Trade complete')
     // The harness mocks completion, so nothing recorded and the share control
     // is correctly absent (see the Summary tests for both branches).
-    expect(c.querySelector('.shareline')).toBeNull()
+    expect(c.querySelector('.ed-permalink')).toBeNull()
 
     // The run was reported with one transcript entry per solved round.
     expect(session.complete).toHaveBeenCalledTimes(1)
@@ -666,7 +666,7 @@ describe('Rain — gameplay', () => {
     expect(c.textContent).toContain('1 cleared') // score = one cleared card
     // The harness mocks completion, so nothing recorded and the share control
     // is correctly absent (see the Summary tests for both branches).
-    expect(c.querySelector('.shareline')).toBeNull()
+    expect(c.querySelector('.ed-permalink')).toBeNull()
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0][0] as { answers: Array<{ cardId: number; guess: number | null }> }
     // The cleared card is recorded with its cost; landed cards with a null guess.

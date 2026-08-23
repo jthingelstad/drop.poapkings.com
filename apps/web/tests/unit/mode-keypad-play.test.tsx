@@ -243,7 +243,7 @@ describe('Surge gameplay', () => {
     expect(host.textContent).toContain('First Surge logged')
     // The harness mocks completion, so nothing recorded and the share control
     // is correctly absent (see the Summary tests for both branches).
-    expect(host.querySelector('.shareline')).toBeNull()
+    expect(host.querySelector('.ed-permalink')).toBeNull()
   })
 
   it('penalizes a wrong tap, keeps the same card, then the correct tap advances', async () => {
@@ -385,7 +385,7 @@ describe('Survival gameplay', () => {
     expect(host.textContent).toContain('New personal best!')
     // The harness mocks completion, so nothing recorded and the share control
     // is correctly absent (see the Summary tests for both branches).
-    expect(host.querySelector('.shareline')).toBeNull()
+    expect(host.querySelector('.ed-permalink')).toBeNull()
     expect(session.complete).toHaveBeenCalledTimes(1)
     const payload = session.complete.mock.calls[0]![0] as { answers: unknown[] }
     expect(payload.answers).toHaveLength(3) // two cleared + the death entry
@@ -667,7 +667,7 @@ describe('Practice gameplay', () => {
     expect(host.querySelector('[data-practice-stat="recall"]')?.textContent).toContain('23 / 23')
     expect(host.querySelector('[data-practice-stat="assisted"]')?.textContent).toContain('no help used')
     expect(host.querySelector('[data-practice-stat="due"]')?.textContent).toContain('0')
-    expect(host.querySelector('.shareline')).toBeNull()
+    expect(host.querySelector('.ed-permalink')).toBeNull()
   })
 
   it('closes on session stats only — no personal best, no record line', () => {

@@ -241,7 +241,7 @@ test('practice runs until the player ends it, then closes on stats with no perso
   await expect(page.locator('[data-practice-stat="due"]')).toContainText('0')
   // No score, no record, no personal best anywhere on the summary.
   await expect(page.locator('.ed-sum__pb')).toHaveCount(0)
-  await expect(page.locator('.shareline')).toHaveCount(0)
+  await expect(page.locator('.ed-permalink')).toHaveCount(0)
   await expect(page.locator('[data-summary]')).not.toContainText(/personal best|New best/i)
 })
 

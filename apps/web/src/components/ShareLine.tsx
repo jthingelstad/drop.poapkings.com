@@ -53,13 +53,13 @@ export default function ShareLine({ mode, score, runId, completedAt, compact = f
   }
 
   const button = (
-    <button class="ed-btn ed-btn--ghost shareline__btn" disabled={sharing.value} onClick={() => void share()}>
+    <button class="ed-btn ed-btn--ghost ed-permalink__btn" disabled={sharing.value} onClick={() => void share()}>
       <Icon name={outcome.value === 'shared' || outcome.value === 'copied' ? 'check' : 'share'} />
       {buttonLabel(outcome.value, sharing.value)}
     </button>
   )
   const status = (
-    <span class="shareline__status" aria-live="polite">
+    <span class="ed-permalink__status" aria-live="polite">
       {outcome.value === 'copied' && 'Link copied.'}
       {outcome.value === 'unavailable' && 'Sharing is unavailable right now.'}
       {outcome.value === 'shared' && 'Run shared.'}
@@ -68,17 +68,17 @@ export default function ShareLine({ mode, score, runId, completedAt, compact = f
 
   if (compact)
     return (
-      <div class="shareline shareline--compact">
+      <div class="ed-permalink ed-permalink--compact">
         {button}
         {status}
       </div>
     )
 
   return (
-    <div class="shareline">
-      <div class="shareline__copy-block">
+    <div class="ed-permalink">
+      <div class="ed-permalink__copy-block">
         <div class="ed-sum__label">Share your score</div>
-        <div class="shareline__score">
+        <div class="ed-permalink__score">
           {game.name} · {score}
         </div>
         {status}

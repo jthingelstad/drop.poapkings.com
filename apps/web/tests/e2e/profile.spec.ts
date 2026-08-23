@@ -398,7 +398,12 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   const runSheet = page.getByRole('dialog')
   const referenceRow = runSheet.locator('.ed-run-modal__ref')
   await expect(referenceRow.getByRole('button', { name: 'Copy' })).toHaveCount(0)
+  // Safari content blockers commonly apply cosmetic rules to class names that
+  // contain "share". The permalink action uses neutral DOM classes so it stays
+  // visible even when that broad social-filter rule is active.
+  await page.addStyleTag({ content: '[class*="share"] { display: none !important; }' })
   const shareRun = referenceRow.getByRole('button', { name: 'Share this run' })
+  await expect(shareRun).toBeVisible()
   await shareRun.click()
   await expect(runSheet.getByRole('button', { name: 'Shared' })).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare)).toEqual({
