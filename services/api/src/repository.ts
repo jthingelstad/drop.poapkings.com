@@ -1563,7 +1563,8 @@ export class Repository {
               TableName: this.tableName,
               Item: taggedItem,
               ConditionExpression:
-                "attribute_not_exists(pk) OR (playerId = :playerId AND owner = :owner)",
+                "attribute_not_exists(pk) OR (playerId = :playerId AND #owner = :owner)",
+              ExpressionAttributeNames: { "#owner": "owner" },
               ExpressionAttributeValues: {
                 ":playerId": item.playerId,
                 ":owner": item.owner,
@@ -1575,7 +1576,8 @@ export class Repository {
               TableName: this.tableName,
               Item: { ...taggedItem, pk: `SHARE#TAG#${playerTag}` },
               ConditionExpression:
-                "attribute_not_exists(pk) OR (playerId = :playerId AND owner = :owner)",
+                "attribute_not_exists(pk) OR (playerId = :playerId AND #owner = :owner)",
+              ExpressionAttributeNames: { "#owner": "owner" },
               ExpressionAttributeValues: {
                 ":playerId": item.playerId,
                 ":owner": item.owner,

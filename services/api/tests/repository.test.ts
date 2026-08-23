@@ -1533,6 +1533,47 @@ describe("repository DynamoDB requests", () => {
     );
   });
 
+  it("aliases the reserved owner field when publishing a profile", async () => {
+    send.mockResolvedValueOnce({});
+
+    await new Repository("test-table").putPublishedProfileShare({
+      pk: "SHARE#PROFILE#player-id",
+      sk: "SHARE",
+      kind: "published-profile",
+      owner: "player-sub",
+      playerId: "player-id",
+      playerTag: "P1111111111",
+      publishedAt: "2026-08-23T21:55:00.000Z",
+      player: {
+        id: "player-id",
+        publicName: "Drop King",
+        totalGames: 40,
+        xp: 900,
+      },
+      arena: 7,
+      badgeCount: 0,
+      badges: [],
+    });
+
+    const transaction = send.mock.calls[0]?.[0].input.TransactItems;
+    expect(transaction.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        Put: expect.objectContaining({
+          ConditionExpression:
+            "attribute_not_exists(pk) OR (playerId = :playerId AND #owner = :owner)",
+          ExpressionAttributeNames: { "#owner": "owner" },
+        }),
+      }),
+      expect.objectContaining({
+        Put: expect.objectContaining({
+          ConditionExpression:
+            "attribute_not_exists(pk) OR (playerId = :playerId AND #owner = :owner)",
+          ExpressionAttributeNames: { "#owner": "owner" },
+        }),
+      }),
+    ]);
+  });
+
   it("sweeps a published profile and its public tag alias when deleting the account", async () => {
     send
       .mockResolvedValueOnce({ Item: { totalGames: 3 } })
