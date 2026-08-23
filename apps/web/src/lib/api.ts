@@ -13,6 +13,7 @@ import {
   playerResponseSchema,
   publicPlayerResponseSchema,
   publishedRunShareSchema,
+  runShareImageUploadResponseSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
   sharedInviteSchema,
@@ -470,6 +471,25 @@ export function publishRunShare(runId: string, completedAt: string, sessionToken
     sessionToken,
     body: JSON.stringify({ completedAt }),
     retry: false
+  })
+}
+
+async function imageBase64(image: Blob): Promise<string> {
+  const bytes = new Uint8Array(await image.arrayBuffer())
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += 16_384) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384))
+  }
+  return btoa(binary)
+}
+
+export async function uploadRunShareImage(runId: string, completedAt: string, image: Blob, sessionToken: string) {
+  return apiRequest(`/runs/${encodeURIComponent(runId)}/share`, runShareImageUploadResponseSchema, {
+    method: 'PUT',
+    sessionToken,
+    body: JSON.stringify({ completedAt, image: await imageBase64(image) }),
+    retry: false,
+    timeoutMs: 15_000
   })
 }
 

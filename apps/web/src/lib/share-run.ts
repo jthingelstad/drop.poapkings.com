@@ -12,7 +12,7 @@ export interface RunSharePayload {
 
 export type RunShareOutcome = 'shared' | 'copied' | 'cancelled' | 'unavailable'
 
-// Published runs are link-native. The server-rendered URL carries its own
+// Published runs are link-native. The published URL carries its own
 // personalized unfurl image, so the browser shares exactly one portable thing:
 // the URL. Browsers without a native sheet copy that same URL.
 export async function shareLink(url: string): Promise<RunShareOutcome> {

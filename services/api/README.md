@@ -56,8 +56,8 @@ first-Monday calendar instead of failing.
 
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
-- `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`
-- `GET /share/{playerId}/{runId}`, `GET /share-assets/{playerId}/{runId}`, `POST /share/{playerId}/{runId}/open`
+- `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
+- `GET /share/{playerTag}/{runTag}`, `GET /share-assets/{playerTag}/{runTag}`, `POST /share/{playerTag}/{runTag}/open`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
@@ -134,22 +134,25 @@ balance; only badge rungs are retroactive.
 ## Sharing and recruitment
 
 `POST /runs/{runId}/share` publishes the caller's immutable history row at one
-deterministic `/share/{playerId}/{runId}` address. Repeated calls return the same
-URL. Because publication reads durable history, the finish screen and You → Log
+deterministic `/share/{playerTag}/{runTag}` address. The public path uses Drop's
+existing `P…` player tag and `D…` run tag while UUIDs remain internal. Repeated
+calls return the same URL. Because publication reads durable history, the finish screen and You → Log
 can use the same endpoint, including for older runs whose active `RUN#` row has
 expired. Practice, absent, and Fair Play-excluded results fail closed.
 
 The published item freezes only public result/profile facts. `share-visual.ts`
-derives a bounded chart from validated referee evidence; the browser never
-submits visual data. New completions retain that projection on the history row,
-while the first share of an older run backfills it. `share-image.ts` renders a
-1200 × 630 PNG without a browser or native graphics dependency, and
-`share-assets.ts` keeps it permanently in the dedicated private S3 bucket.
-`GET /share/{playerId}/{runId}` serves the standalone unfurl/landing HTML;
-`GET /share-assets/{playerId}/{runId}` serves or regenerates the PNG.
+derives a bounded chart from validated referee evidence. New completions retain
+that projection on the history row, while the first share of an older run
+backfills it. The web canvas compositor renders that server-owned projection
+with the same real Clash font and PNG art pipeline as badge cards, then `PUT
+/runs/{runId}/share` accepts only the authenticated owner's bounded 1200 × 630
+PNG. `share-assets.ts` keeps it permanently in the dedicated private S3 bucket.
+`GET /share/{playerTag}/{runTag}` serves the standalone unfurl/landing HTML;
+`GET /share-assets/{playerTag}/{runTag}` serves the PNG and uses the polished
+generic preview while a legacy run has not yet been reshared into the new image version.
 
 Metadata and preview-image GET/HEAD requests do not count toward Herald. A real
-landing page runs `POST /share/{playerId}/{runId}/open`; its peppered HMAC
+landing page runs `POST /share/{playerTag}/{runTag}/open`; its peppered HMAC
 dedupes a visitor without retaining the raw IP or full user-agent. The owner's
 session earns nothing, credit caps at 25 per run, and counter failure never
 blocks the page. The landing also carries the public player/run pair as 30-day

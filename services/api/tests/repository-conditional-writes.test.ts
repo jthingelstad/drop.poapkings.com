@@ -13,7 +13,11 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
   };
 });
 
-import { Repository, type RunItem } from "../src/repository.js";
+import {
+  Repository,
+  type PublishedRunShareItem,
+  type RunItem,
+} from "../src/repository.js";
 
 function awsError(name: string, extra: Record<string, unknown> = {}): Error {
   const error = new Error(name);
@@ -239,6 +243,98 @@ describe("repository conditional writes", () => {
           mintedAt: "2026-08-22T12:00:00.000Z",
         },
       }),
+    });
+  });
+
+  it("publishes canonical IDs, public tags, and the deletion pointer atomically", async () => {
+    send.mockResolvedValueOnce({});
+    const share: PublishedRunShareItem = {
+      pk: "SHARE#RUN#11111111-1111-4111-8111-111111111111#22222222-2222-4222-8222-222222222222",
+      sk: "SHARE",
+      kind: "published-run",
+      owner: "player-sub",
+      playerId: "11111111-1111-4111-8111-111111111111",
+      runId: "22222222-2222-4222-8222-222222222222",
+      mode: "surge",
+      score: 17_412,
+      seasonId: "2026-08",
+      completedAt: "2026-08-23T12:00:00.000Z",
+      publishedAt: "2026-08-23T12:01:00.000Z",
+      player: {
+        id: "11111111-1111-4111-8111-111111111111",
+        publicName: "Drop King",
+        xp: 900,
+        totalGames: 40,
+      },
+    };
+
+    await expect(
+      new Repository("test-table").putPublishedRunShare(share),
+    ).resolves.toBe(true);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected published-share transaction");
+    const items = command.input.TransactItems ?? [];
+    expect(items).toHaveLength(3);
+    const canonical = items[0]?.Put?.Item as Record<string, unknown>;
+    const alias = items[1]?.Put?.Item as Record<string, unknown>;
+    expect(canonical.pk).toBe(share.pk);
+    expect(canonical.playerTag).toMatch(/^P[0-9A-HJKMNP-TV-Z]{10}$/);
+    expect(canonical.runTag).toMatch(/^D[0-9A-HJKMNP-TV-Z]{10}$/);
+    expect(alias.pk).toBe(
+      `SHARE#TAG#${canonical.playerTag as string}#${canonical.runTag as string}`,
+    );
+    expect(items[2]?.Put?.Item).toMatchObject({
+      pk: "PLAYER#player-sub",
+      sharePlayerId: share.playerId,
+      shareRunId: share.runId,
+      sharePlayerTag: canonical.playerTag,
+      shareRunTag: canonical.runTag,
+    });
+  });
+
+  it("backfills a public-tag alias and deletion metadata for an older share", async () => {
+    send.mockResolvedValueOnce({});
+    const share: PublishedRunShareItem = {
+      pk: "SHARE#RUN#11111111-1111-4111-8111-111111111111#22222222-2222-4222-8222-222222222222",
+      sk: "SHARE",
+      kind: "published-run",
+      owner: "player-sub",
+      playerId: "11111111-1111-4111-8111-111111111111",
+      runId: "22222222-2222-4222-8222-222222222222",
+      mode: "surge",
+      score: 17_412,
+      seasonId: "2026-08",
+      completedAt: "2026-08-23T12:00:00.000Z",
+      publishedAt: "2026-08-23T12:01:00.000Z",
+      player: {
+        id: "11111111-1111-4111-8111-111111111111",
+        publicName: "Drop King",
+        xp: 900,
+        totalGames: 40,
+      },
+    };
+
+    await new Repository("test-table").putPublishedRunShareAlias(share);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected published-share alias transaction");
+    expect(command.input.TransactItems).toHaveLength(2);
+    expect(command.input.TransactItems?.[0]?.Put?.Item?.pk).toMatch(
+      /^SHARE#TAG#P[0-9A-HJKMNP-TV-Z]{10}#D[0-9A-HJKMNP-TV-Z]{10}$/,
+    );
+    expect(command.input.TransactItems?.[1]?.Update).toMatchObject({
+      Key: {
+        pk: "PLAYER#player-sub",
+        sk: `SHARE#RUN#${share.playerId}#${share.runId}`,
+      },
+      UpdateExpression:
+        "SET sharePlayerTag = :playerTag, shareRunTag = :runTag",
+      ConditionExpression: "attribute_exists(pk)",
     });
   });
 

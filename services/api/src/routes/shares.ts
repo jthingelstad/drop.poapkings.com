@@ -19,7 +19,7 @@ import {
 //   POST /shares              — mint an invitation token for Home or a profile
 //   GET  /shares/{token}      — keep already-issued links readable
 //
-// New run shares use the deterministic /share/{playerId}/{runId} surface in
+// New run shares use the deterministic /share/{playerTag}/{runTag} surface in
 // published-shares.ts. The legacy resolver remains a compatibility contract.
 
 const MINT_LIMIT_PER_HOUR = 60;

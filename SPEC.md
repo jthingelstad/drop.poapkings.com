@@ -325,9 +325,10 @@ Important shared modules:
   Space is the safe default/replay action, `?` opens help, and Escape uses a
   two-step abandon flow during a run.
 - `services/api/src/routes/published-shares.ts`, `share-visual.ts`,
-  `share-image.ts`, and `share-assets.ts` - deterministic recorded-run
-  publication, evidence-derived chart projections, 1200 × 630 PNG rendering,
-  private S3 storage, clean landing HTML, and browser-open credit.
+  `share-assets.ts`, and `apps/web/src/lib/share-card.ts` - deterministic
+  recorded-run publication, evidence-derived chart projections, 1200 × 630 PNG
+  composition with the real Clash font and existing art, private S3 storage,
+  clean landing HTML, and browser-open credit.
 - `services/api/src/shares.ts`, `routes/shares.ts`, and
   `apps/web/src/screens/SharedRun.tsx` - invitation tokens plus compatibility
   reads for already-issued `#/r/<token>` run links.
@@ -580,25 +581,31 @@ predate the field show no recorded login until their next redemption.
 ### Sharing and recruitment
 
 One recorded run has one permanent address:
-`/share/{playerId}/{runId}`. `POST /runs/{runId}/share` looks up the caller's
+`/share/{playerTag}/{runTag}`. The URL uses the existing deterministic `P…`
+player tag and `D…` run tag, without their display-only `#`; canonical UUIDs stay
+inside the API and storage layer. `POST /runs/{runId}/share` looks up the caller's
 immutable history row (not the expiring active `RUN#` item), rejects Practice or
 a Fair Play exclusion, and idempotently writes a frozen public snapshot. The
 same URL comes back on every later action. Summary offers it immediately; the
 run sheet in You → Log can publish any eligible historical run after the fact.
 
-**What gets shared.** `components/ShareLine.tsx` calls `navigator.share({ url })`.
-If no native share sheet is available it copies only that URL. No client canvas,
-attached file, custom picker, or save-image panel remains for run sharing.
+**What gets shared.** `components/ShareLine.tsx` renders the frozen preview data
+with `lib/share-card.ts`, uploads that PNG through authenticated `PUT
+/runs/{runId}/share`, and then calls `navigator.share({ url })`. If no native
+share sheet is available it copies only that URL. The generated image is never
+attached to the share payload; no custom picker or save-image panel remains.
 
 **The unfurl.** CloudFront routes the clean address to Lambda. The response is a
 small standalone landing page with canonical Open Graph and Twitter metadata,
 the score card, a score-first challenge CTA, public profile link, and fan-content
-disclaimer. `/share-assets/{playerId}/{runId}` serves its 1200 × 630 PNG from a
+disclaimer. `/share-assets/{playerTag}/{runTag}` serves its 1200 × 630 PNG from a
 dedicated private, retained S3 bucket. `share-visual.ts` derives at most 30 chart
-bars from the server-validated transcript; the browser cannot submit a chart.
-That public-safe projection is retained on the durable history row at completion
-and backfilled from referee evidence when an older run is first shared. The
-published snapshot and derived image do not expire.
+bars from the server-validated transcript. The browser receives only that frozen
+public-safe projection, composites it with the same Clash font and PNG assets as
+badge sharing, and uploads a size/signature/dimension-bounded PNG. The projection
+is retained on the durable history row at completion and backfilled from referee
+evidence when an older run is first shared. The published snapshot and derived
+image do not expire.
 
 **A not-recorded run has no share control at all.** Offline, guest, and Practice
 runs have no server record, so no permalink can exist. `Summary` renders nothing
@@ -608,7 +615,7 @@ button. Practice is excluded for a second reason too: session length and accurac
 in an endless drill are not comparable results.
 
 **Counting opens.** Metadata and image GET/HEAD requests never count. The landing
-script makes a separate `POST /share/{playerId}/{runId}/open` from a real browser.
+script makes a separate `POST /share/{playerTag}/{runTag}/open` from a real browser.
 A peppered HMAC scoped to that run dedupes the request without storing the raw IP
 or full user-agent; the owner's session is excluded and credit stops at 25 per
 run. Counter failure never blocks the page. The same landing stores the public

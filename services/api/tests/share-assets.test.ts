@@ -37,7 +37,9 @@ describe("private run share assets", () => {
   });
 
   it("uses the permanent player/run PNG key for writes and reads", async () => {
-    expect(runShareAssetKey("player", "run")).toBe("run-images/player/run.png");
+    expect(runShareAssetKey("player", "run")).toBe(
+      "run-images/player/run.v2.png",
+    );
     aws.send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3]) },
     });
@@ -49,13 +51,13 @@ describe("private run share assets", () => {
 
     expect(aws.send.mock.calls[0]?.[0].input).toMatchObject({
       Bucket: "bucket",
-      Key: "run-images/player/run.png",
+      Key: "run-images/player/run.v2.png",
       ContentType: "image/png",
       CacheControl: "private, no-store",
     });
     expect(aws.send.mock.calls[1]?.[0].input).toEqual({
       Bucket: "bucket",
-      Key: "run-images/player/run.png",
+      Key: "run-images/player/run.v2.png",
     });
   });
 
@@ -74,7 +76,12 @@ describe("private run share assets", () => {
     await deleteRunShareImage("bucket", "player", "run");
     expect(aws.send.mock.calls[0]?.[0].input).toMatchObject({
       Bucket: "bucket",
-      Delete: { Objects: [{ Key: "run-images/player/run.png" }] },
+      Delete: {
+        Objects: [
+          { Key: "run-images/player/run.v2.png" },
+          { Key: "run-images/player/run.png" },
+        ],
+      },
     });
 
     aws.pages.push(

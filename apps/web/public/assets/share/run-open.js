@@ -1,10 +1,11 @@
 (() => {
   const match = /^\/share\/([^/]+)\/([^/]+)$/.exec(window.location.pathname)
   if (!match) return
-  const playerId = match[1]
-  const runId = match[2]
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-  if (!uuid.test(playerId) || !uuid.test(runId)) return
+  const playerTag = match[1]
+  const runTag = match[2]
+  const playerId = document.body.dataset.sharePlayerId
+  const runId = document.body.dataset.shareRunId
+  if (!playerId || !runId) return
 
   try {
     localStorage.setItem(
@@ -29,7 +30,7 @@
   } catch {
     // An invalid local session is equivalent to an anonymous open.
   }
-  fetch(`/share/${encodeURIComponent(playerId)}/${encodeURIComponent(runId)}/open`, {
+  fetch(`/share/${encodeURIComponent(playerTag)}/${encodeURIComponent(runTag)}/open`, {
     method: 'POST',
     headers,
     body: '{}',

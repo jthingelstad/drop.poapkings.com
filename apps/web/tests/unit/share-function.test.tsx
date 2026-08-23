@@ -6,8 +6,11 @@ const api = vi.hoisted(() => ({
   getSharedInvite: vi.fn(),
   getSharedRun: vi.fn(),
   createInviteShareToken: vi.fn(),
-  publishRunShare: vi.fn()
+  publishRunShare: vi.fn(),
+  uploadRunShareImage: vi.fn()
 }))
+
+const shareCard = vi.hoisted(() => ({ renderRunSharePreview: vi.fn() }))
 
 vi.mock('../../src/lib/api', async (importActual) => {
   const actual = await importActual<typeof import('../../src/lib/api')>()
@@ -16,9 +19,12 @@ vi.mock('../../src/lib/api', async (importActual) => {
     getSharedInvite: api.getSharedInvite,
     getSharedRun: api.getSharedRun,
     createInviteShareToken: api.createInviteShareToken,
-    publishRunShare: api.publishRunShare
+    publishRunShare: api.publishRunShare,
+    uploadRunShareImage: api.uploadRunShareImage
   }
 })
+
+vi.mock('../../src/lib/share-card', () => ({ renderRunSharePreview: shareCard.renderRunSharePreview }))
 
 vi.mock('../../src/lib/account', async (importActual) => {
   const actual = await importActual<typeof import('../../src/lib/account')>()
@@ -49,8 +55,8 @@ const sharedPayload = {
   }
 }
 
-// A published run is one link. The server owns its image and unfurl; the browser
-// hands the native sheet only that URL, or copies it when no sheet exists.
+// A published run is one link. The browser builds and uploads a preview from
+// server-owned facts first, then hands the native sheet only that URL.
 describe('sharing a run', () => {
   let host: HTMLDivElement
 
@@ -65,8 +71,17 @@ describe('sharing a run', () => {
     api.publishRunShare.mockResolvedValue({
       playerId: '2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf',
       runId: 'fc6fd2d1-c341-463f-aa95-a6a28e019d34',
-      url: 'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
+      url: 'https://drop.poapkings.com/share/P1111111111/D2222222222',
+      preview: {
+        mode: 'surge',
+        score: '17.412s',
+        playerName: 'Drop King',
+        favoriteCardId: 26000000,
+        visual: { mode: 'surge', unit: 'SECONDS PER CARD', values: [1200, 900] }
+      }
     })
+    shareCard.renderRunSharePreview.mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+    api.uploadRunShareImage.mockResolvedValue({ ok: true })
   })
 
   afterEach(() => {
@@ -94,9 +109,18 @@ describe('sharing a run', () => {
     await tapShare()
 
     expect(api.publishRunShare).toHaveBeenCalledWith('run-1', '2026-08-19T12:00:20.000Z', 'test-session')
+    expect(shareCard.renderRunSharePreview).toHaveBeenCalledWith(
+      expect.objectContaining({ playerName: 'Drop King', score: '17.412s' })
+    )
+    expect(api.uploadRunShareImage).toHaveBeenCalledWith(
+      'run-1',
+      '2026-08-19T12:00:20.000Z',
+      expect.any(Blob),
+      'test-session'
+    )
     expect(shared).toHaveLength(1)
     expect(shared[0]).toEqual({
-      url: 'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
+      url: 'https://drop.poapkings.com/share/P1111111111/D2222222222'
     })
     expect(host.textContent).toContain('Shared')
   })
@@ -108,11 +132,21 @@ describe('sharing a run', () => {
 
     await tapShare()
 
-    expect(writeText).toHaveBeenCalledWith(
-      'https://drop.poapkings.com/share/2ab53b64-57d7-42a4-b7d6-86bbce2ffcdf/fc6fd2d1-c341-463f-aa95-a6a28e019d34'
-    )
+    expect(writeText).toHaveBeenCalledWith('https://drop.poapkings.com/share/P1111111111/D2222222222')
     expect(host.querySelector('.shareline__unbundled')).toBeNull()
     expect(host.textContent).toContain('Link copied.')
+  })
+
+  it('does not open the share sheet when the PNG cannot be rendered', async () => {
+    shareCard.renderRunSharePreview.mockResolvedValue(null)
+    const shared: ShareData[] = []
+    setNavigator('share', async (payload: ShareData) => void shared.push(payload))
+
+    await tapShare()
+
+    expect(api.uploadRunShareImage).not.toHaveBeenCalled()
+    expect(shared).toHaveLength(0)
+    expect(host.textContent).toContain('Sharing is unavailable right now.')
   })
 
   it('says so rather than sharing a link to nowhere when minting fails', async () => {

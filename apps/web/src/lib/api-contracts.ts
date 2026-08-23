@@ -344,11 +344,28 @@ export const publicPlayerResponseSchema = z.object({
 // a deleted account takes its profile with it while the link is being read.
 export const shareTokenSchema = z.object({ token: z.string().min(4).max(16) })
 
+const publishedRunVisualSchema = z.object({
+  mode: gameModeSchema,
+  unit: nonEmptyString,
+  values: z.array(nonNegativeInteger).max(30),
+  refs: z.optional(z.array(nonNegativeInteger).max(30)),
+  bad: z.optional(z.array(z.boolean()).max(30))
+})
+
 export const publishedRunShareSchema = z.object({
   playerId: nonEmptyString,
   runId: nonEmptyString,
-  url: z.string().url()
+  url: z.string().url(),
+  preview: z.object({
+    mode: gameModeSchema,
+    score: nonEmptyString,
+    playerName: nonEmptyString,
+    favoriteCardId: z.optional(cardId),
+    visual: z.optional(publishedRunVisualSchema)
+  })
 })
+
+export const runShareImageUploadResponseSchema = z.object({ ok: z.literal(true) })
 
 export const sharedRunSchema = z.object({
   token: z.string().min(4).max(16),
@@ -430,3 +447,4 @@ export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>
 export type ActivityEntry = z.infer<typeof activityEntrySchema>
 export type SharedRun = z.infer<typeof sharedRunSchema>
 export type SharedInvite = z.infer<typeof sharedInviteSchema>
+export type PublishedRunPreview = z.infer<typeof publishedRunShareSchema.shape.preview>

@@ -19,7 +19,7 @@ export interface Config {
   // public forwarding header on direct execute-api requests.
   webOriginToken?: string;
   crRequestQueueUrl: string;
-  // Dedicated private bucket for permanent, server-rendered run preview PNGs.
+  // Dedicated private bucket for permanent, browser-composited run preview PNGs.
   // Optional only so reduced-entry-point and unit-test environments do not need
   // an unrelated bucket; publication fails closed when production omits it.
   shareAssetBucket?: string;

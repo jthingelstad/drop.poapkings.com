@@ -36,6 +36,7 @@ import {
   getPublishedRunImage,
   getPublishedRunPage,
   openPublishedRunShare,
+  uploadPublishedRunImage,
 } from "./routes/published-shares.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
@@ -88,6 +89,10 @@ async function route(event: APIGatewayProxyEventV2) {
   const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;
   if (runShareMatch)
     return createPublishedRunShare(context, runShareMatch[1] ?? "");
+  const runShareUploadMatch =
+    method === "PUT" ? RUN_SHARE_PATH.exec(path) : null;
+  if (runShareUploadMatch)
+    return uploadPublishedRunImage(context, runShareUploadMatch[1] ?? "");
   if (method === "POST" && path === "/shares")
     return createInviteShare(context);
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;

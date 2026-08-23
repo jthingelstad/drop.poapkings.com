@@ -14,7 +14,7 @@ Weight present:
 | `Clash_Regular.otf` | Regular |
 
 **Regular** is wired up by the `Clash Royale` `@font-face` in
-`apps/web/src/styles.css` and the OG-image render script. Unused weights are not
+`apps/web/src/styles.css` and the browser share-card compositor. Unused weights are not
 shipped in the public bundle.
 
 > This material is unofficial and is not endorsed by Supercell. For more information
@@ -29,7 +29,7 @@ is available to canvas/WebGL text rendering, which requires same-origin resource
 ## Compliance notes
 
 - The font is used **unmodified**. It is referenced via `@font-face` in
-  `apps/web/src/styles.css` (family `Clash Royale`) and by the OG-image render script;
+  `apps/web/src/styles.css` (family `Clash Royale`) and by the browser share-card compositor;
   the file itself is not altered. The policy prohibits modifying Supercell Assets.
 - This is a **non-commercial fan project** (a Clash Royale elixir-cost learning app).
   No fees are charged.

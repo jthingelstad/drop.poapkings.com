@@ -1287,6 +1287,7 @@ Resources:
         AllowMethods:
           - GET
           - POST
+          - PUT
           - PATCH
           - DELETE
           - OPTIONS
@@ -1415,11 +1416,18 @@ Resources:
       RouteKey: POST /runs/{runId}/share
       Target: !Sub integrations/${ApiIntegration}
 
+  RunShareUploadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /runs/{runId}/share
+      Target: !Sub integrations/${ApiIntegration}
+
   PublishedRunSharePageRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: GET /share/{playerId}/{runId}
+      RouteKey: GET /share/{playerTag}/{runTag}
       Target: !Sub integrations/${ApiIntegration}
 
   PublishedRunSharePageHeadRoute:
@@ -1427,14 +1435,14 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       AuthorizationType: NONE
-      RouteKey: HEAD /share/{playerId}/{runId}
+      RouteKey: HEAD /share/{playerTag}/{runTag}
       Target: !Sub integrations/${ApiIntegration}
 
   PublishedRunShareImageRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: GET /share-assets/{playerId}/{runId}
+      RouteKey: GET /share-assets/{playerTag}/{runTag}
       Target: !Sub integrations/${ApiIntegration}
 
   PublishedRunShareImageHeadRoute:
@@ -1442,14 +1450,14 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       AuthorizationType: NONE
-      RouteKey: HEAD /share-assets/{playerId}/{runId}
+      RouteKey: HEAD /share-assets/{playerTag}/{runTag}
       Target: !Sub integrations/${ApiIntegration}
 
   PublishedRunShareOpenRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: POST /share/{playerId}/{runId}/open
+      RouteKey: POST /share/{playerTag}/{runTag}/open
       Target: !Sub integrations/${ApiIntegration}
 
   ShareRoute:

@@ -2,8 +2,9 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { track } from '../lib/analytics'
 import { gameDisplay } from '../lib/game-metadata'
-import { publishRunShare } from '../lib/api'
+import { publishRunShare, uploadRunShareImage } from '../lib/api'
 import { sessionToken } from '../lib/account'
+import { renderRunSharePreview } from '../lib/share-card'
 import { shareLink, type RunShareOutcome, type ShareableGameMode } from '../lib/share-run'
 import Icon from './Icon'
 
@@ -38,6 +39,9 @@ export default function ShareLine({ mode, score, runId, completedAt, compact = f
       const session = sessionToken()
       if (!session) throw new Error('no session')
       const published = await publishRunShare(runId, completedAt, session)
+      const image = await renderRunSharePreview(published.preview)
+      if (!image) throw new Error('share preview unavailable')
+      await uploadRunShareImage(runId, completedAt, image, session)
       const result = await shareLink(published.url)
       outcome.value = result === 'cancelled' ? null : result
       if (result === 'shared' || result === 'copied') {

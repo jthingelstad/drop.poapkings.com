@@ -4,6 +4,7 @@ import type {
   Context,
 } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { playerReference, runReference } from "@elixir-drop/contracts";
 import { signToken } from "../src/signing.js";
 import { isShareToken, mintShareToken } from "../src/shares.js";
 
@@ -18,9 +19,11 @@ const repository = vi.hoisted(() => ({
   listRunHistory: vi.fn(),
   refereeDecisions: vi.fn(),
   getPublishedRunShare: vi.fn(),
+  getPublishedRunShareByTags: vi.fn(),
   refereeEvidenceForRuns: vi.fn(),
   setRunShareVisual: vi.fn(),
   putPublishedRunShare: vi.fn(),
+  putPublishedRunShareAlias: vi.fn(),
   creditPublishedRunOpen: vi.fn(),
   addHeraldOpens: vi.fn(),
 }));
@@ -43,9 +46,11 @@ vi.mock("../src/repository.js", () => ({
     listRunHistory = repository.listRunHistory;
     refereeDecisions = repository.refereeDecisions;
     getPublishedRunShare = repository.getPublishedRunShare;
+    getPublishedRunShareByTags = repository.getPublishedRunShareByTags;
     refereeEvidenceForRuns = repository.refereeEvidenceForRuns;
     setRunShareVisual = repository.setRunShareVisual;
     putPublishedRunShare = repository.putPublishedRunShare;
+    putPublishedRunShareAlias = repository.putPublishedRunShareAlias;
     creditPublishedRunOpen = repository.creditPublishedRunOpen;
     addHeraldOpens = repository.addHeraldOpens;
   },
@@ -124,6 +129,9 @@ async function call(input: APIGatewayProxyEventV2) {
 
 const playerId = "11111111-1111-4111-8111-111111111111";
 const runId = "22222222-2222-4222-8222-222222222222";
+const playerTag = playerReference(playerId).slice(1);
+const runTag = runReference(runId).slice(1);
+const publishedUrl = `https://drop.example/share/${playerTag}/${runTag}`;
 const completedRun = {
   runId,
   mode: "surge" as const,
@@ -134,6 +142,7 @@ const completedRun = {
     mode: "surge" as const,
     unit: "SECONDS PER CARD",
     values: [1_200, 900],
+    bad: [false, true],
   },
 };
 
@@ -171,6 +180,7 @@ describe("POST /runs/{runId}/share", () => {
     repository.refereeDecisions.mockResolvedValue(new Map());
     repository.getPublishedRunShare.mockResolvedValue(undefined);
     repository.putPublishedRunShare.mockResolvedValue(true);
+    repository.putPublishedRunShareAlias.mockResolvedValue(undefined);
     shareAssets.put.mockResolvedValue(undefined);
   });
 
@@ -186,7 +196,13 @@ describe("POST /runs/{runId}/share", () => {
     expect(JSON.parse(response.body ?? "{}")).toEqual({
       playerId,
       runId,
-      url: `https://drop.example/share/${playerId}/${runId}`,
+      url: publishedUrl,
+      preview: {
+        mode: "surge",
+        score: "17.412s",
+        playerName: "Drop King",
+        visual: completedRun.shareVisual,
+      },
     });
     const stored = repository.putPublishedRunShare.mock.calls[0]![0];
     expect(stored).toMatchObject({
@@ -198,14 +214,8 @@ describe("POST /runs/{runId}/share", () => {
       player: { publicName: "Drop King" },
     });
     expect(JSON.stringify(stored)).not.toContain("transcript");
-    expect(shareAssets.put).toHaveBeenCalledWith(
-      "share-assets",
-      playerId,
-      runId,
-      expect.any(Buffer),
-    );
-    const png = shareAssets.put.mock.calls[0]![3] as Buffer;
-    expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(stored).toMatchObject({ playerTag, runTag });
+    expect(shareAssets.put).not.toHaveBeenCalled();
   });
 
   it("returns the same link without regenerating an already-published run", async () => {
@@ -213,17 +223,20 @@ describe("POST /runs/{runId}/share", () => {
       kind: "published-run",
       playerId,
       runId,
+      owner: "player-sub",
+      mode: "surge",
+      score: 17_412,
+      player: { publicName: "Drop King" },
     });
     const response = await call(
       event("POST", `/runs/${runId}/share`, { sub: "player-sub" }),
     );
 
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}").url).toBe(
-      `https://drop.example/share/${playerId}/${runId}`,
-    );
+    expect(JSON.parse(response.body ?? "{}").url).toBe(publishedUrl);
     expect(shareAssets.put).not.toHaveBeenCalled();
     expect(repository.putPublishedRunShare).not.toHaveBeenCalled();
+    expect(repository.putPublishedRunShareAlias).toHaveBeenCalled();
   });
 
   it("refuses a run excluded from public competition", async () => {
@@ -261,6 +274,8 @@ describe("published run link", () => {
     owner: "player-sub",
     playerId,
     runId,
+    playerTag,
+    runTag,
     mode: "surge" as const,
     score: 17_412,
     seasonId: "2026-08",
@@ -286,6 +301,7 @@ describe("published run link", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getPublishedRunShare.mockResolvedValue(published);
+    repository.getPublishedRunShareByTags.mockResolvedValue(published);
     repository.refereeDecisions.mockResolvedValue(new Map());
     repository.creditPublishedRunOpen.mockResolvedValue(true);
     shareAssets.get.mockResolvedValue(Buffer.from("png"));
@@ -293,12 +309,22 @@ describe("published run link", () => {
   });
 
   it("serves a clean unfurl page without counting crawler fetches", async () => {
-    const response = await call(event("GET", `/share/${playerId}/${runId}`));
+    const response = await call(event("GET", `/share/${playerTag}/${runTag}`));
 
     expect(response.statusCode).toBe(200);
     expect(response.headers?.["content-type"]).toContain("text/html");
     expect(response.body).toContain(
-      `property="og:image" content="https://drop.example/share-assets/${playerId}/${runId}"`,
+      `property="og:image" content="https://drop.example/share-assets/${playerTag}/${runTag}"`,
+    );
+    const alt =
+      "Drop King scored 17.412s in Surge. The run chart shows 2 results in seconds per card. 1 result is marked as costly.";
+    expect(response.body).toContain(`property="og:image:alt" content="${alt}"`);
+    expect(response.body).toContain(
+      `name="twitter:image:alt" content="${alt}"`,
+    );
+    expect(response.body).toContain(`alt="${alt}"`);
+    expect(response.headers?.["content-security-policy"]).toContain(
+      "font-src 'self'",
     );
     expect(response.body).toContain("BEAT 17.412s");
     expect(response.body).toContain("Free · no account needed");
@@ -307,7 +333,7 @@ describe("published run link", () => {
 
   it("serves the permanent PNG without counting an unfurl image fetch", async () => {
     const response = await call(
-      event("GET", `/share-assets/${playerId}/${runId}`),
+      event("GET", `/share-assets/${playerTag}/${runTag}`),
     );
 
     expect(response.statusCode).toBe(200);
@@ -318,7 +344,7 @@ describe("published run link", () => {
 
   it("credits only the explicit browser-open callback and dedupes in the repository", async () => {
     const response = await call(
-      event("POST", `/share/${playerId}/${runId}/open`, {
+      event("POST", `/share/${playerTag}/${runTag}/open`, {
         ip: "8.8.8.8",
         userAgent: "Safari",
       }),
@@ -336,7 +362,7 @@ describe("published run link", () => {
 
   it("does not credit the owner opening their own run", async () => {
     const response = await call(
-      event("POST", `/share/${playerId}/${runId}/open`, {
+      event("POST", `/share/${playerTag}/${runTag}/open`, {
         sub: "player-sub",
       }),
     );
@@ -361,7 +387,7 @@ describe("published run link", () => {
       ]),
     );
 
-    const response = await call(event("GET", `/share/${playerId}/${runId}`));
+    const response = await call(event("GET", `/share/${playerTag}/${runTag}`));
 
     expect(response.statusCode).toBe(404);
     expect(shareAssets.remove).toHaveBeenCalledWith(
@@ -369,6 +395,123 @@ describe("published run link", () => {
       playerId,
       runId,
     );
+  });
+
+  it("keeps an old UUID address readable while making the tag address canonical", async () => {
+    const response = await call(event("GET", `/share/${playerId}/${runId}`));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain(
+      `<link rel="canonical" href="${publishedUrl}">`,
+    );
+  });
+
+  it("redirects a missing v2 preview to the polished generic PNG", async () => {
+    shareAssets.get.mockResolvedValue(undefined);
+    const response = await call(
+      event("GET", `/share-assets/${playerTag}/${runTag}`),
+    );
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers?.location).toBe(
+      "https://drop.example/assets/share/og-default.png",
+    );
+  });
+});
+
+function previewPng(width = 1_200, height = 630): Buffer {
+  const png = Buffer.alloc(64);
+  Buffer.from("89504e470d0a1a0a", "hex").copy(png, 0);
+  png.writeUInt32BE(13, 8);
+  png.write("IHDR", 12, "ascii");
+  png.writeUInt32BE(width, 16);
+  png.writeUInt32BE(height, 20);
+  return png;
+}
+
+describe("PUT /runs/{runId}/share", () => {
+  const published = {
+    pk: `SHARE#RUN#${playerId}#${runId}`,
+    sk: "SHARE" as const,
+    kind: "published-run" as const,
+    owner: "player-sub",
+    playerId,
+    runId,
+    playerTag,
+    runTag,
+    mode: "surge" as const,
+    score: 17_412,
+    seasonId: "2026-08",
+    completedAt: completedRun.completedAt,
+    publishedAt: "2026-08-23T06:00:00.000Z",
+    player: { id: playerId, publicName: "Drop King", totalGames: 40, xp: 900 },
+    visual: completedRun.shareVisual,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId,
+      publicName: "Drop King",
+    });
+    repository.getPublishedRunShare.mockResolvedValue(published);
+    repository.refereeDecisions.mockResolvedValue(new Map());
+    repository.useRateLimit.mockResolvedValue(undefined);
+    shareAssets.put.mockResolvedValue(undefined);
+  });
+
+  it("accepts only the owner's 1200 by 630 PNG", async () => {
+    const image = previewPng();
+    const response = await call(
+      event("PUT", `/runs/${runId}/share`, {
+        sub: "player-sub",
+        body: {
+          completedAt: completedRun.completedAt,
+          image: image.toString("base64"),
+        },
+      }),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toEqual({ ok: true });
+    expect(shareAssets.put).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      runId,
+      image,
+    );
+  });
+
+  it("rejects a PNG with the wrong dimensions", async () => {
+    const response = await call(
+      event("PUT", `/runs/${runId}/share`, {
+        sub: "player-sub",
+        body: { image: previewPng(1080, 1350).toString("base64") },
+      }),
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(shareAssets.put).not.toHaveBeenCalled();
+  });
+
+  it("does not accept an upload from another account", async () => {
+    const response = await call(
+      event("PUT", `/runs/${runId}/share`, {
+        sub: "other-player",
+        body: { image: previewPng().toString("base64") },
+      }),
+    );
+
+    expect(response.statusCode).toBe(404);
+    expect(shareAssets.put).not.toHaveBeenCalled();
   });
 });
 

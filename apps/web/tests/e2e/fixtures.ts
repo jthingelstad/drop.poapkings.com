@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test'
 import { test as base, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { TRADE_LADDER, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
+import { playerReference, runReference, TRADE_LADDER, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
 import type { CardsData } from '../../src/types'
 
 export const cardsData = JSON.parse(
@@ -369,6 +369,27 @@ function testChallenge(mode: GameMode): RunChallenge {
 let shareTokenCounter = 0
 const inviteShares = new Map<string, { destination: 'home' | 'player'; playerId?: string }>()
 
+export function testPublishedRunUrl(runId: string): string {
+  return `http://127.0.0.1:5173/share/${playerReference(testPlayer.id).slice(1)}/${runReference(runId).slice(1)}`
+}
+
+function testPublishedRunPreview(runId: string) {
+  const score = runId === 'run-surge' ? '17.412s' : '67.299s'
+  return {
+    mode: 'surge' as const,
+    score,
+    playerName: testPlayer.publicName,
+    favoriteCardId: testPlayer.favoriteCardId,
+    visual: {
+      mode: 'surge' as const,
+      unit: 'SECONDS PER CARD',
+      values: [920, 1040, 870, 1310, 980, 1100, 840, 1240, 1010, 940, 1180, 890, 970, 1080, 1028],
+      refs: [1100, 1160, 1050, 1400, 1080, 1210, 990, 1380, 1140, 1080, 1270, 1010, 1090, 1190, 1150],
+      bad: [false, false, false, true, false, false, false, true, false, false, false, false, false, false, false]
+    }
+  }
+}
+
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
   if (route.request().method() === 'POST' && path === '/shares') {
@@ -379,7 +400,11 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
     return true
   }
   const shareMint = /^\/runs\/[^/]+\/share$/.exec(path)
-  if (shareMint) {
+  if (shareMint && route.request().method() === 'PUT') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+    return true
+  }
+  if (shareMint && route.request().method() === 'POST') {
     const runId = decodeURIComponent(path.split('/')[2] ?? '')
     await route.fulfill({
       status: 201,
@@ -387,7 +412,8 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
       body: JSON.stringify({
         playerId: testPlayer.id,
         runId,
-        url: `http://127.0.0.1:5173/share/${testPlayer.id}/${runId}`
+        url: testPublishedRunUrl(runId),
+        preview: testPublishedRunPreview(runId)
       })
     })
     return true

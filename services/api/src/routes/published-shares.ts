@@ -1,4 +1,5 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import { playerReference, runReference } from "@elixir-drop/contracts";
 import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { refereeReviewStatus } from "../referee-status.js";
@@ -8,7 +9,6 @@ import {
   getRunShareImage,
   putRunShareImage,
 } from "../share-assets.js";
-import { renderRunShareImage, shareScore } from "../share-image.js";
 import { deriveRunShareVisual } from "../share-visual.js";
 import { hmac } from "../referee-evidence.js";
 import { json } from "../http.js";
@@ -24,6 +24,21 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPEN_CREDIT_CAP = 25;
 const OPEN_LIMIT_PER_HOUR = 600;
+const MAX_PREVIEW_BYTES = 2_000_000;
+const PNG_SIGNATURE = "89504e470d0a1a0a";
+const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
+const RUN_TAG_PATTERN = /^D[0-9A-HJKMNP-TV-Z]{10}$/;
+
+function shareScore(
+  mode: PublishedRunShareItem["mode"],
+  score: number,
+): string {
+  if (mode === "surge" || mode === "trade")
+    return `${(score / 1_000).toFixed(3)}s`;
+  if (mode === "rain") return `${score} CLEARED`;
+  if (mode === "survival") return `${score} STREAK`;
+  return `${score} CORRECT`;
+}
 
 export function isPublishedRunReference(
   playerId: unknown,
@@ -34,6 +49,18 @@ export function isPublishedRunReference(
     typeof runId === "string" &&
     UUID_PATTERN.test(playerId) &&
     UUID_PATTERN.test(runId)
+  );
+}
+
+export function isPublishedRunTagReference(
+  playerTag: unknown,
+  runTag: unknown,
+): playerTag is string {
+  return (
+    typeof playerTag === "string" &&
+    typeof runTag === "string" &&
+    PLAYER_TAG_PATTERN.test(playerTag) &&
+    RUN_TAG_PATTERN.test(runTag)
   );
 }
 
@@ -84,12 +111,59 @@ function modeDetails(mode: PublishedRunShareItem["mode"]): {
   }[mode];
 }
 
-function shareUrl(appUrl: string, playerId: string, runId: string): string {
-  return `${appUrl}/share/${playerId}/${runId}`;
+function publicTags(share: PublishedRunShareItem): {
+  playerTag: string;
+  runTag: string;
+} {
+  return {
+    playerTag: share.playerTag ?? playerReference(share.playerId).slice(1),
+    runTag: share.runTag ?? runReference(share.runId).slice(1),
+  };
 }
 
-function imageUrl(appUrl: string, playerId: string, runId: string): string {
-  return `${appUrl}/share-assets/${playerId}/${runId}`;
+function shareUrl(appUrl: string, share: PublishedRunShareItem): string {
+  const { playerTag, runTag } = publicTags(share);
+  return `${appUrl}/share/${playerTag}/${runTag}`;
+}
+
+function imageUrl(appUrl: string, share: PublishedRunShareItem): string {
+  const { playerTag, runTag } = publicTags(share);
+  return `${appUrl}/share-assets/${playerTag}/${runTag}`;
+}
+
+function previewOf(share: PublishedRunShareItem) {
+  return {
+    mode: share.mode,
+    score: shareScore(share.mode, share.score),
+    playerName: share.player.publicName,
+    ...(share.player.favoriteCardId
+      ? { favoriteCardId: share.player.favoriteCardId }
+      : {}),
+    ...(share.visual ? { visual: share.visual } : {}),
+  };
+}
+
+function publishedResponse(share: PublishedRunShareItem, appUrl: string) {
+  return {
+    playerId: share.playerId,
+    runId: share.runId,
+    url: shareUrl(appUrl, share),
+    preview: previewOf(share),
+  };
+}
+
+export function runShareImageAlt(share: PublishedRunShareItem): string {
+  const game = modeDetails(share.mode);
+  const score = shareScore(share.mode, share.score);
+  const visual = share.visual;
+  if (!visual?.values.length)
+    return `${share.player.publicName} scored ${score} in ${game.name} on Elixir Drop.`;
+  const costly = visual.bad?.filter(Boolean).length ?? 0;
+  const bars = `${visual.values.length} ${visual.values.length === 1 ? "result" : "results"}`;
+  const mistakes = costly
+    ? ` ${costly} ${costly === 1 ? "result is" : "results are"} marked as costly.`
+    : "";
+  return `${share.player.publicName} scored ${score} in ${game.name}. The run chart shows ${bars} in ${visual.unit.toLowerCase()}.${mistakes}`;
 }
 
 async function publishedShare(
@@ -97,28 +171,40 @@ async function publishedShare(
   playerId: string,
   runId: string,
 ): Promise<PublishedRunShareItem> {
-  if (!isPublishedRunReference(playerId, runId))
+  const byId = isPublishedRunReference(playerId, runId);
+  const normalizedPlayerTag = playerId.toUpperCase();
+  const normalizedRunTag = runId.toUpperCase();
+  const byTag = isPublishedRunTagReference(
+    normalizedPlayerTag,
+    normalizedRunTag,
+  );
+  if (!byId && !byTag)
     throw new HttpError(
       404,
       "That shared run could not be found.",
       "not_found",
     );
-  const share = await context.repository.getPublishedRunShare(playerId, runId);
+  const share = byId
+    ? await context.repository.getPublishedRunShare(playerId, runId)
+    : await context.repository.getPublishedRunShareByTags(
+        normalizedPlayerTag,
+        normalizedRunTag,
+      );
   if (!share)
     throw new HttpError(
       404,
       "That shared run could not be found.",
       "not_found",
     );
-  const decision = (await context.repository.refereeDecisions([runId])).get(
-    runId,
-  );
+  const decision = (
+    await context.repository.refereeDecisions([share.runId])
+  ).get(share.runId);
   if (refereeReviewStatus(decision) === "excluded") {
     if (context.config.shareAssetBucket)
       await deleteRunShareImage(
         context.config.shareAssetBucket,
-        playerId,
-        runId,
+        share.playerId,
+        share.runId,
       ).catch(() => undefined);
     throw new HttpError(
       404,
@@ -137,8 +223,9 @@ export function renderPublishedRunPage(
   const score = shareScore(share.mode, share.score);
   const title = `${share.player.publicName} scored ${score} in ${game.name} | Elixir Drop`;
   const description = `${share.player.publicName} put up ${score} in ${game.name}. Can you beat it?`;
-  const canonical = shareUrl(appUrl, share.playerId, share.runId);
-  const image = imageUrl(appUrl, share.playerId, share.runId);
+  const canonical = shareUrl(appUrl, share);
+  const image = imageUrl(appUrl, share);
+  const imageAlt = runShareImageAlt(share);
   const challenge = `${appUrl}/#${game.path}`;
   const profile = `${appUrl}/#/players/${encodeURIComponent(share.playerId)}`;
   return `<!doctype html>
@@ -156,6 +243,7 @@ export function renderPublishedRunPage(
   <meta property="og:description" content="${escaped(description)}">
   <meta property="og:url" content="${escaped(canonical)}">
   <meta property="og:image" content="${escaped(image)}">
+  <meta property="og:image:alt" content="${escaped(imageAlt)}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:type" content="image/png">
@@ -163,19 +251,21 @@ export function renderPublishedRunPage(
   <meta name="twitter:title" content="${escaped(title)}">
   <meta name="twitter:description" content="${escaped(description)}">
   <meta name="twitter:image" content="${escaped(image)}">
+  <meta name="twitter:image:alt" content="${escaped(imageAlt)}">
   <style>
+    @font-face{font-family:"Clash Royale";src:url("/assets/fonts/Clash_Regular.otf") format("opentype");font-weight:400;font-style:normal;font-display:swap}
     :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#120a30;color:#fff}
     *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 8%,#4a257c 0,transparent 32%),linear-gradient(180deg,#180d38,#0e0922);display:grid;place-items:center;padding:24px}
-    main{width:min(100%,760px)}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;font-weight:900;letter-spacing:.08em}.free{font-size:.78rem;color:#c6afe9;letter-spacing:0}
+    main{width:min(100%,760px)}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;font-family:"Clash Royale",system-ui,sans-serif;letter-spacing:.03em}.free{font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:.78rem;color:#c6afe9;letter-spacing:0}
     .card{display:block;width:100%;border-radius:24px;border:1px solid #6a459d;box-shadow:0 24px 70px #090513;overflow:hidden;background:#1b1237}.card img{display:block;width:100%;height:auto}
-    .pitch{margin:24px auto 16px;max-width:620px;text-align:center;color:#d6c7ec;line-height:1.55}.cta{display:block;width:100%;padding:18px 24px;border-radius:16px;background:#ffd55c;color:#201238;text-decoration:none;text-align:center;font-size:1.15rem;font-weight:950;box-shadow:0 7px 0 #a56d13}.player{display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding:16px 18px;border:1px solid #4d356d;border-radius:16px;color:#fff;text-decoration:none;background:#1b1237}.player span:last-child{color:#d1b5ff}.fan{text-align:center;color:#907ba9;font-size:.75rem;margin:24px 0 0}
+    .pitch{margin:24px auto 16px;max-width:620px;text-align:center;color:#d6c7ec;line-height:1.55}.cta{display:block;width:100%;padding:18px 24px;border-radius:16px;background:#ffd55c;color:#201238;text-decoration:none;text-align:center;font-family:"Clash Royale",system-ui,sans-serif;font-size:1.15rem;box-shadow:0 7px 0 #a56d13}.player{display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding:16px 18px;border:1px solid #4d356d;border-radius:16px;color:#fff;text-decoration:none;background:#1b1237}.player strong{font-family:"Clash Royale",system-ui,sans-serif}.player span:last-child{color:#d1b5ff}.fan{text-align:center;color:#907ba9;font-size:.75rem;margin:24px 0 0}
     @media(max-width:520px){body{padding:16px}header{font-size:.88rem}.free{font-size:.7rem}.card{border-radius:16px}.pitch{font-size:.94rem}}
   </style>
 </head>
-<body>
+<body data-share-player-id="${escaped(share.playerId)}" data-share-run-id="${escaped(share.runId)}">
   <main>
     <header><span>ELIXIR DROP</span><span class="free">Free · no account needed</span></header>
-    <a class="card" href="${escaped(challenge)}"><img src="${escaped(image)}" width="1200" height="630" alt="${escaped(`${share.player.publicName}'s ${game.name} run: ${score}`)}"></a>
+    <a class="card" href="${escaped(challenge)}"><img src="${escaped(image)}" width="1200" height="630" alt="${escaped(imageAlt)}"></a>
     <p class="pitch">${escaped(game.pitch)}</p>
     <a class="cta" href="${escaped(challenge)}">BEAT ${escaped(score)}</a>
     <a class="player" href="${escaped(profile)}"><strong>${escaped(share.player.publicName)}</strong><span>View profile →</span></a>
@@ -193,7 +283,7 @@ function html(body: string, head = false): APIGatewayProxyStructuredResultV2 {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "private, no-store",
       "content-security-policy":
-        "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
       "referrer-policy": "strict-origin-when-cross-origin",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
@@ -245,12 +335,10 @@ export async function createPublishedRunShare(
     profile.playerId,
     run.runId,
   );
-  if (existing)
-    return json(200, {
-      playerId: existing.playerId,
-      runId: existing.runId,
-      url: shareUrl(config.appUrl, existing.playerId, existing.runId),
-    });
+  if (existing) {
+    await repository.putPublishedRunShareAlias(existing);
+    return json(200, publishedResponse(existing, config.appUrl));
+  }
 
   let visual = run.shareVisual;
   if (!visual) {
@@ -305,6 +393,8 @@ export async function createPublishedRunShare(
     owner: session.sub,
     playerId: profile.playerId,
     runId: run.runId,
+    playerTag: playerReference(profile.playerId).slice(1),
+    runTag: runReference(run.runId).slice(1),
     mode: run.mode,
     score: run.score,
     seasonId: run.seasonId,
@@ -321,12 +411,6 @@ export async function createPublishedRunShare(
     },
     ...(visual ? { visual } : {}),
   };
-  await putRunShareImage(
-    config.shareAssetBucket,
-    item.playerId,
-    item.runId,
-    renderRunShareImage(item),
-  );
   const created = await repository.putPublishedRunShare(item);
   const published = created
     ? item
@@ -337,11 +421,87 @@ export async function createPublishedRunShare(
       "Run sharing is unavailable right now.",
       "share_unavailable",
     );
-  return json(created ? 201 : 200, {
-    playerId: published.playerId,
-    runId: published.runId,
-    url: shareUrl(config.appUrl, published.playerId, published.runId),
-  });
+  return json(created ? 201 : 200, publishedResponse(published, config.appUrl));
+}
+
+function uploadedPng(body: Record<string, unknown>): Buffer {
+  const encoded = body.image;
+  if (
+    typeof encoded !== "string" ||
+    encoded.length === 0 ||
+    encoded.length > Math.ceil((MAX_PREVIEW_BYTES * 4) / 3) + 4 ||
+    encoded.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)
+  )
+    throw new HttpError(
+      400,
+      "The share preview is invalid.",
+      "invalid_share_preview",
+    );
+  const image = Buffer.from(encoded, "base64");
+  if (
+    image.length < 24 ||
+    image.length > MAX_PREVIEW_BYTES ||
+    image.subarray(0, 8).toString("hex") !== PNG_SIGNATURE ||
+    image.subarray(12, 16).toString("ascii") !== "IHDR" ||
+    image.readUInt32BE(16) !== 1_200 ||
+    image.readUInt32BE(20) !== 630
+  )
+    throw new HttpError(
+      400,
+      "The share preview is invalid.",
+      "invalid_share_preview",
+    );
+  return image;
+}
+
+export async function uploadPublishedRunImage(
+  context: RouteContext,
+  runId: string,
+) {
+  const { event, config, repository } = context;
+  const session = sessionFor(event, config.sessionSecret, true);
+  const body = bodyOf(event);
+  const completedAt =
+    typeof body.completedAt === "string" ? body.completedAt : undefined;
+  const profile = await repository.getProfile(session.sub);
+  if (!profile || !config.shareAssetBucket)
+    throw new HttpError(
+      503,
+      "Run sharing is unavailable right now.",
+      "share_unavailable",
+    );
+  const share = await repository.getPublishedRunShare(profile.playerId, runId);
+  if (
+    !share ||
+    share.owner !== session.sub ||
+    (completedAt !== undefined && completedAt !== share.completedAt)
+  )
+    throw new HttpError(
+      404,
+      "That shared run could not be found.",
+      "not_found",
+    );
+  const decisions = await repository.refereeDecisions([runId]);
+  if (refereeReviewStatus(decisions.get(runId)) === "excluded")
+    throw new HttpError(
+      409,
+      "That run is not publicly shareable.",
+      "run_not_shareable",
+    );
+  await repository.useRateLimit(
+    "share-image",
+    clientIpHash(event, config.webOriginToken),
+    60,
+    60 * 60,
+  );
+  await putRunShareImage(
+    config.shareAssetBucket,
+    share.playerId,
+    share.runId,
+    uploadedPng(body),
+  );
+  return json(200, { ok: true });
 }
 
 export async function getPublishedRunPage(
@@ -368,11 +528,18 @@ export async function getPublishedRunImage(
       "That shared run could not be found.",
       "not_found",
     );
-  let image = await getRunShareImage(bucket, playerId, runId);
-  if (!image) {
-    image = renderRunShareImage(share);
-    await putRunShareImage(bucket, playerId, runId, image);
-  }
+  const image = await getRunShareImage(bucket, share.playerId, share.runId);
+  if (!image)
+    return {
+      statusCode: 302,
+      headers: {
+        location: `${context.config.appUrl}/assets/share/og-default.png`,
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "x-robots-tag": "noindex, nofollow",
+      },
+      body: "",
+    };
   return {
     statusCode: 200,
     headers: {
@@ -404,20 +571,20 @@ export async function openPublishedRunShare(
   if (viewer?.sub !== share.owner) {
     const visitorHash = hmac(
       config.telemetryPepper,
-      `share-run:${playerId}:${runId}:${clientIp(event, config.webOriginToken)}:${event.headers["user-agent"] ?? "unknown"}`,
+      `share-run:${share.playerId}:${share.runId}:${clientIp(event, config.webOriginToken)}:${event.headers["user-agent"] ?? "unknown"}`,
     );
     try {
       const credited = await repository.creditPublishedRunOpen(
-        playerId,
-        runId,
+        share.playerId,
+        share.runId,
         visitorHash,
         OPEN_CREDIT_CAP,
       );
       if (credited) await repository.addHeraldOpens(share.owner, 1);
     } catch (error) {
       console.warn("Published run open could not be credited", {
-        playerId,
-        runId,
+        playerId: share.playerId,
+        runId: share.runId,
         error: error instanceof Error ? error.name : "unknown",
       });
     }

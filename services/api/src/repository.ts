@@ -10,7 +10,9 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
+  playerReference,
   practiceXpForCards,
+  runReference,
   XP_RULES_VERSION,
   type XpAward,
 } from "@elixir-drop/contracts";
@@ -281,12 +283,14 @@ export interface RunShareItem extends ShareItemBase {
 // Deterministic published run shares. Unlike legacy token shares, one run has
 // one permanent public address and one frozen public snapshot.
 export interface PublishedRunShareItem {
-  pk: string; // SHARE#RUN#{playerId}#{runId}
+  pk: string; // canonical SHARE#RUN#{playerId}#{runId}, or its SHARE#TAG alias
   sk: "SHARE";
   kind: "published-run";
   owner: string;
   playerId: string;
   runId: string;
+  playerTag?: string;
+  runTag?: string;
   mode: Exclude<GameMode, "practice">;
   score: number;
   seasonId: string;
@@ -802,10 +806,21 @@ export class Repository {
         if (
           typeof item.sharePlayerId === "string" &&
           typeof item.shareRunId === "string"
-        )
+        ) {
           runSharePartitions.add(
             `SHARE#RUN#${item.sharePlayerId}#${item.shareRunId}`,
           );
+          if (
+            typeof item.sharePlayerTag === "string" &&
+            typeof item.shareRunTag === "string"
+          ) {
+            const aliasKey = {
+              pk: `SHARE#TAG#${item.sharePlayerTag}#${item.shareRunTag}`,
+              sk: "SHARE",
+            };
+            keys.set(`${aliasKey.pk}\0${aliasKey.sk}`, aliasKey);
+          }
+        }
       }
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
@@ -1202,7 +1217,71 @@ export class Repository {
     return result.Item as PublishedRunShareItem | undefined;
   }
 
+  async getPublishedRunShareByTags(
+    playerTag: string,
+    runTag: string,
+  ): Promise<PublishedRunShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          pk: `SHARE#TAG#${playerTag}#${runTag}`,
+          sk: "SHARE",
+        },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedRunShareItem | undefined;
+  }
+
+  async putPublishedRunShareAlias(item: PublishedRunShareItem): Promise<void> {
+    const playerTag = item.playerTag ?? playerReference(item.playerId).slice(1);
+    const runTag = item.runTag ?? runReference(item.runId).slice(1);
+    await client.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                ...item,
+                pk: `SHARE#TAG#${playerTag}#${runTag}`,
+                playerTag,
+                runTag,
+              },
+              ConditionExpression:
+                "attribute_not_exists(pk) OR (playerId = :playerId AND runId = :runId)",
+              ExpressionAttributeValues: {
+                ":playerId": item.playerId,
+                ":runId": item.runId,
+              },
+            },
+          },
+          {
+            Update: {
+              TableName: this.tableName,
+              Key: {
+                pk: `PLAYER#${item.owner}`,
+                sk: `SHARE#RUN#${item.playerId}#${item.runId}`,
+              },
+              UpdateExpression:
+                "SET sharePlayerTag = :playerTag, shareRunTag = :runTag",
+              ConditionExpression: "attribute_exists(pk)",
+              ExpressionAttributeValues: {
+                ":playerTag": playerTag,
+                ":runTag": runTag,
+              },
+            },
+          },
+        ],
+      }),
+    );
+  }
+
   async putPublishedRunShare(item: PublishedRunShareItem): Promise<boolean> {
+    const playerTag = item.playerTag ?? playerReference(item.playerId).slice(1);
+    const runTag = item.runTag ?? runReference(item.runId).slice(1);
+    const taggedItem = { ...item, playerTag, runTag };
     try {
       await client.send(
         new TransactWriteCommand({
@@ -1210,8 +1289,23 @@ export class Repository {
             {
               Put: {
                 TableName: this.tableName,
-                Item: item,
+                Item: taggedItem,
                 ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: {
+                  ...taggedItem,
+                  pk: `SHARE#TAG#${playerTag}#${runTag}`,
+                },
+                ConditionExpression:
+                  "attribute_not_exists(pk) OR (playerId = :playerId AND runId = :runId)",
+                ExpressionAttributeValues: {
+                  ":playerId": item.playerId,
+                  ":runId": item.runId,
+                },
               },
             },
             {
@@ -1222,6 +1316,8 @@ export class Repository {
                   sk: `SHARE#RUN#${item.playerId}#${item.runId}`,
                   sharePlayerId: item.playerId,
                   shareRunId: item.runId,
+                  sharePlayerTag: playerTag,
+                  shareRunTag: runTag,
                   runId: item.runId,
                   publishedAt: item.publishedAt,
                 },

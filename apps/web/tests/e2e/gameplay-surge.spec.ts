@@ -1,5 +1,14 @@
 import AxeBuilder from '@axe-core/playwright'
-import { cardsData, completeSurge, expect, fulfillTestRun, test, testApiBaseUrl, waitForKeypad } from './fixtures'
+import {
+  cardsData,
+  completeSurge,
+  expect,
+  fulfillTestRun,
+  test,
+  testApiBaseUrl,
+  testPublishedRunUrl,
+  waitForKeypad
+} from './fixtures'
 
 test('preparing, loading, and countdown keep one stable game stage', { tag: '@deploy' }, async ({ page }, testInfo) => {
   let releaseStart!: () => void
@@ -196,6 +205,12 @@ test('the surge summary is the one-frame layout without the accuracy chart', asy
 })
 
 test('completed runs share only their clean personalized link', async ({ page }, testInfo) => {
+  let previewUpload: { completedAt?: string; image?: string } | undefined
+  page.on('request', (request) => {
+    if (request.method() === 'PUT' && new URL(request.url()).pathname === '/runs/run-surge/share') {
+      previewUpload = request.postDataJSON() as { completedAt?: string; image?: string }
+    }
+  })
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
@@ -240,9 +255,16 @@ test('completed runs share only their clean personalized link', async ({ page },
   expect(payload).toEqual({
     title: undefined,
     text: undefined,
-    url: 'http://127.0.0.1:5173/share/player-1/run-surge',
+    url: testPublishedRunUrl('run-surge'),
     files: undefined
   })
+  await expect.poll(() => previewUpload?.image).toBeTruthy()
+  const preview = Buffer.from(previewUpload!.image!, 'base64')
+  expect(preview.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+  expect(preview.readUInt32BE(16)).toBe(1200)
+  expect(preview.readUInt32BE(20)).toBe(630)
+  expect(preview.length).toBeGreaterThan(50_000)
+  await testInfo.attach('run-share-preview.png', { body: preview, contentType: 'image/png' })
 })
 
 // Two things depend on the share function: reach is counted per opened link,
@@ -283,10 +305,7 @@ test('sharing the same run again returns the same permanent link', async ({ page
   await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
 
   const shared = await page.evaluate(() => (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? [])
-  expect(shared).toEqual([
-    'http://127.0.0.1:5173/share/player-1/run-surge',
-    'http://127.0.0.1:5173/share/player-1/run-surge'
-  ])
+  expect(shared).toEqual([testPublishedRunUrl('run-surge'), testPublishedRunUrl('run-surge')])
 })
 
 test('surge runtime cues drive card motion and the optional effects canvas', async ({ page }, testInfo) => {

@@ -7,6 +7,7 @@ import {
   isDesktopViewport,
   test,
   testApiBaseUrl,
+  testPublishedRunUrl,
   testApiRoute,
   testBadges,
   testPlayer,
@@ -407,7 +408,7 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   await shareRun.click()
   await expect(runSheet.getByRole('button', { name: 'Shared' })).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare)).toEqual({
-    url: 'http://127.0.0.1:5173/share/player-1/season-run-1'
+    url: testPublishedRunUrl('season-run-1')
   })
 
   await testInfo.attach('your-games.png', {

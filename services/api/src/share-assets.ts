@@ -8,8 +8,13 @@ import {
 
 const s3 = new S3Client({});
 const PREFIX = "run-images";
+const CURRENT_VERSION = "v2";
 
 export function runShareAssetKey(playerId: string, runId: string): string {
+  return `${PREFIX}/${playerId}/${runId}.${CURRENT_VERSION}.png`;
+}
+
+function legacyRunShareAssetKey(playerId: string, runId: string): string {
   return `${PREFIX}/${playerId}/${runId}.png`;
 }
 
@@ -62,7 +67,12 @@ export async function deleteRunShareImage(
   await s3.send(
     new DeleteObjectsCommand({
       Bucket: bucket,
-      Delete: { Objects: [{ Key: runShareAssetKey(playerId, runId) }] },
+      Delete: {
+        Objects: [
+          { Key: runShareAssetKey(playerId, runId) },
+          { Key: legacyRunShareAssetKey(playerId, runId) },
+        ],
+      },
     }),
   );
 }

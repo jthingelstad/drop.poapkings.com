@@ -173,15 +173,19 @@ rank-oriented fields as part of unrelated work.
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
 - **A recorded run publishes one permanent, personalized link.**
   `POST /runs/{runId}/share` resolves the caller's immutable history row and
-  idempotently publishes `/share/{playerId}/{runId}`. Summary and You → Log use
-  the same action, so an old run can be shared later. The browser gives the
-  native share sheet only `{ url }`; without a native sheet it copies that same
-  URL. There is no client canvas, attached file, or save-image fallback.
-  CloudFront sends the clean route to Lambda, which serves crawlable Open Graph
-  HTML and a 1200 × 630 PNG from a dedicated retained private S3 bucket. The API
-  derives the bounded chart from validated referee evidence and retains the
-  public-safe projection with history, never accepting chart data from the
-  browser. A frozen public snapshot keeps a published link stable. Practice,
+  idempotently publishes `/share/{playerTag}/{runTag}` using Drop's existing
+  `P…` and `D…` public tags; UUIDs remain internal. Summary and You → Log use the
+  same action, so an old run can be shared later. The browser renders the
+  server-supplied frozen snapshot through the same canvas, Clash font, and PNG
+  art pipeline as badge cards, then uploads the validated 1200 × 630 PNG before
+  giving the native share sheet only `{ url }`. Without a native sheet it copies
+  that same URL; there is no attached file or save-image fallback. CloudFront
+  sends the clean route to Lambda, which serves crawlable Open Graph HTML and
+  the preview from a dedicated retained private S3 bucket. The API derives the
+  bounded chart from validated referee evidence and retains the public-safe
+  projection with history. The standard client renders that frozen projection;
+  the API-owned title, description, alt text, and run facts remain authoritative.
+  A frozen public snapshot keeps a published link stable. Practice,
   guest, offline, missing, and Fair Play-excluded runs fail closed; account
   deletion removes the snapshot, open markers, and S3 prefix. Existing
   `#/r/<token>` links remain readable as a compatibility route.
