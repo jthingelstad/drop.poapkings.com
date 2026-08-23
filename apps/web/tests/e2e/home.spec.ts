@@ -227,6 +227,12 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
       .evaluate((element) => element.getBoundingClientRect().top)
   ).toBe(gamesTop)
   const shareAction = share.getByRole('button', { name: 'SHARE', exact: true })
+  expect(
+    await shareAction.evaluate((element) => {
+      const styles = getComputedStyle(element)
+      return { transform: styles.transform, transition: styles.transition }
+    })
+  ).toEqual({ transform: 'none', transition: 'none' })
   await shareAction.click()
   await expect(shareAction).toHaveText('SHARE')
   await expect(share.locator('.ed-link-action__status')).toHaveText('Shared.')

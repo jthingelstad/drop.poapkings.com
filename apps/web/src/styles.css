@@ -1723,8 +1723,11 @@ html.reduce-motion .game-motion {
   transform: none;
   transition: none;
 }
+.ed-link-action__button.ed-btn--gold,
 .ed-link-action__button.ed-btn--gold:hover {
   box-shadow: 0 6px 24px rgba(245, 200, 76, 0.45);
+  transform: none;
+  transition: none;
 }
 .ed-link-action__fallback {
   display: grid;
