@@ -12,7 +12,11 @@ drop.poapkings.com -> CloudFront
 
 CloudFront runs one viewer-request function. It removes the `/api` prefix
 before API Gateway sees the request and maps `/`, `/games/`, and the other
-directory URLs to their generated `index.html` objects. API caching is disabled;
+directory URLs to their generated `index.html` objects. If a mail client strips
+the fragment from a magic link, the function redirects the resulting `/auth`
+request back to the app's `/#/auth` route with its query intact; the token is
+therefore returned to the browser fragment before the app loads and is not sent
+to the private S3 origin. API caching is disabled;
 static objects follow the cache metadata assigned by `deploy-web.mjs`. Browsers
 revalidate HTML while CloudFront may keep it for five minutes between the full
 invalidation performed by each deploy; hashed bundles remain immutable for one

@@ -1855,6 +1855,7 @@ Resources:
           if (uri.indexOf('/api/') === 0) return 'api';
           if (uri.indexOf('/share-assets/') === 0) return 'share-asset';
           if (uri.indexOf('/share/') === 0) return 'share-page';
+          if (uri === '/auth' || uri === '/auth/') return 'web-auth-recovery';
           if (uri === '/' || uri === '/index.html') return 'web-home';
 
           var pageClasses = {
@@ -1886,6 +1887,21 @@ Resources:
           var request = event.request;
           var uri = request.uri;
           cf.logCustomData(requestClass(uri));
+          // Some desktop mail clients strip a URL fragment while opening the
+          // magic link. Recover the resulting clean path at the edge so the
+          // private S3 origin never sees a missing /auth object, and move the
+          // token back into the fragment before the app loads.
+          if (uri === '/auth' || uri === '/auth/') {
+            var query = request.rawQueryString();
+            return {
+              statusCode: 302,
+              statusDescription: 'Found',
+              headers: {
+                'cache-control': { value: 'no-store' },
+                'location': { value: '/#/auth' + (query === undefined ? '' : '?' + query) }
+              }
+            };
+          }
           if (uri.indexOf('/api/') === 0 || uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0) {
             request.headers['x-elixir-drop-viewer-ip'] = { value: event.viewer.ip };
           }

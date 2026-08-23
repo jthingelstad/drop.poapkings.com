@@ -87,14 +87,29 @@ void describe("AWS web hosting", () => {
     const handler = runInNewContext(`${executableCode}\nhandler`, {
       cf: { logCustomData: (value) => logged.push(value) },
     });
-    const request = (uri) =>
+    const request = (uri, querystring) =>
       handler({
-        request: { headers: {}, uri },
+        request: {
+          headers: {},
+          rawQueryString: () => querystring,
+          uri,
+        },
         viewer: { ip: "192.0.2.1" },
       });
 
     assert.equal(request("/").uri, "/index.html");
     assert.equal(request("/about/").uri, "/about/index.html");
+    const authRedirect = request(
+      "/auth",
+      "token=private-token&returnTo=%2Fsurge",
+    );
+    assert.equal(authRedirect.statusCode, 302);
+    assert.equal(authRedirect.headers["cache-control"].value, "no-store");
+    assert.equal(
+      authRedirect.headers.location.value,
+      "/#/auth?token=private-token&returnTo=%2Fsurge",
+    );
+    assert.equal(request("/auth/").headers.location.value, "/#/auth");
     assert.equal(
       request("/assets/index-12345678.js").uri,
       "/assets/index-12345678.js",
@@ -107,10 +122,15 @@ void describe("AWS web hosting", () => {
     assert.deepEqual(logged, [
       "web-home",
       "web-page-about",
+      "web-auth-recovery",
+      "web-auth-recovery",
       "web-asset",
       "web-card-art",
       "api",
     ]);
-    assert.doesNotMatch(logged.join(" "), /192\.0\.2\.1|private-run-id/);
+    assert.doesNotMatch(
+      logged.join(" "),
+      /192\.0\.2\.1|private-run-id|private-token/,
+    );
   });
 });
