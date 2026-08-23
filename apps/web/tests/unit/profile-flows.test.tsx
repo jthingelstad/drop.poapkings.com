@@ -796,7 +796,7 @@ describe('Profile interactive flows', () => {
     // The D-tag stays visible for support, while its action slot publishes the
     // permanent run link instead of copying an internal reference.
     expect(container.querySelector('.ed-run-modal__ref code')?.textContent).toBe(runReference('r3'))
-    expect(byText(container, 'Share this run')).toBeTruthy()
+    expect(byText(container, 'SHARE')).toBeTruthy()
     expect(byText(container, 'Copy')).toBeUndefined()
   })
 

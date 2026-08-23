@@ -111,9 +111,6 @@ export function BadgeSheet({
           {badge.earned && ownsBadge && (
             <ShareAction
               prepare={() => prepareBadgeShare({ slug: badge.slug, rungIndex: badge.rungIndex })}
-              idleLabel="Share badge"
-              preparingLabel="Opening…"
-              sharedMessage="Badge shared."
               className="ed-badges__permalink"
               buttonClassName="ed-btn ed-btn--ghost ed-badges__permalink-btn"
               statusClassName="ed-badges__permalink-status"

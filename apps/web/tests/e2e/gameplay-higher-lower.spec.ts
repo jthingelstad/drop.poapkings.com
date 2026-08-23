@@ -188,7 +188,7 @@ test('higher/lower: a timeout costs a life, and the last life ends the run', asy
   ).toBe(true)
   // The run recorded, so it has a permalink to point at and the control is
   // offered. A not-recorded run has none at all — see the offline spec.
-  const share = page.getByRole('button', { name: 'Share this run' })
+  const share = page.getByRole('button', { name: 'SHARE', exact: true })
   await expect(share).toBeVisible()
   expect(
     await share.evaluate((element) => {

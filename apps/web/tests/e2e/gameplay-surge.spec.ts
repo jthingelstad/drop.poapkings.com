@@ -227,7 +227,7 @@ test('completed runs share only their clean personalized link', async ({ page },
     axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
   ).toEqual([])
 
-  const shareButton = page.getByRole('button', { name: 'Share this run' })
+  const shareButton = page.getByRole('button', { name: 'SHARE', exact: true })
   await expect(shareButton).toBeVisible()
   expect(
     await shareButton.evaluate((element) => {
@@ -242,7 +242,8 @@ test('completed runs share only their clean personalized link', async ({ page },
     })
   }
   await shareButton.click()
-  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  await expect(shareButton).toHaveText('SHARE')
+  await expect(page.locator('.ed-permalink__status')).toHaveText('Shared.', { timeout: 10_000 })
   const payload = await page.evaluate(() => {
     const shared = (window as unknown as { __runSharePayload?: ShareData }).__runSharePayload
     return {
@@ -297,12 +298,12 @@ test('sharing the same run again returns the same permanent link', async ({ page
   await page.goto('/#/surge')
   await completeSurge(page)
 
-  const shareButton = page.getByRole('button', { name: 'Share this run' })
+  const shareButton = page.getByRole('button', { name: 'SHARE', exact: true })
   await shareButton.click()
-  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('.ed-permalink__status')).toHaveText('Shared.', { timeout: 10_000 })
   await expect(shareButton).toBeVisible({ timeout: 10_000 })
   await shareButton.click()
-  await expect(page.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('.ed-permalink__status')).toHaveText('Shared.', { timeout: 10_000 })
 
   const shared = await page.evaluate(() => (window as unknown as { __sharedUrls?: string[] }).__sharedUrls ?? [])
   expect(shared).toEqual([testPublishedRunUrl('run-surge'), testPublishedRunUrl('run-surge')])

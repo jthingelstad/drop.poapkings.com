@@ -139,27 +139,13 @@ function ShareHero({ signedIn }: { signedIn: boolean }) {
           {signedIn ? (
             <ShareAction
               prepare={prepareProfileShare}
-              idleLabel="SHARE ELIXIR DROP"
-              preparingLabel="PREPARING…"
-              sharedLabel="SHARED"
-              copiedLabel="LINK COPIED"
-              sharedMessage="Profile shared."
               className="ed-link-action ed-link-action--hero"
-              buttonClassName="ed-btn ed-btn--gold ed-hero__play tap-fx"
-              tapFace
+              buttonClassName="ed-btn ed-btn--gold ed-hero__play"
               onComplete={() => track('home.shared')}
             />
           ) : (
-            <button
-              class="ed-btn ed-btn--gold ed-hero__play tap-fx"
-              onClick={(event) => {
-                tapFxFrom(event)
-                navigate('/login')
-              }}
-            >
-              <span class="tap-face">
-                <Icon name="share" /> SIGN IN TO SHARE
-              </span>
+            <button class="ed-btn ed-btn--gold ed-hero__play ed-link-action__button" onClick={() => navigate('/login')}>
+              <Icon name="share" /> SHARE
             </button>
           )}
         </div>

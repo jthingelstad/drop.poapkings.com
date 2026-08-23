@@ -428,9 +428,6 @@ export default function Profile() {
         <div class="ed-you__identity-actions">
           <ShareAction
             prepare={prepareProfileShare}
-            idleLabel="Share"
-            preparingLabel="Preparing…"
-            sharedMessage="Profile shared."
             className="ed-link-action ed-link-action--profile"
             buttonClassName="ed-profile__edit"
             onComplete={() => track('profile.shared')}

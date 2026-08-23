@@ -82,8 +82,10 @@ test('your profile publishes a Clash-rendered image and shares only its permanen
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
 
   const identity = page.locator('.ed-you__identity')
-  await identity.getByRole('button', { name: 'Share' }).click()
-  await expect(identity.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  const share = identity.getByRole('button', { name: 'SHARE', exact: true })
+  await share.click()
+  await expect(share).toHaveText('SHARE')
+  await expect(identity.locator('.ed-link-action__status')).toHaveText('Shared.', { timeout: 10_000 })
   expect(
     await page.evaluate(() => (window as unknown as { __profileSharePayload?: ShareData }).__profileSharePayload)
   ).toEqual({ url: testPublishedProfileUrl() })
@@ -348,8 +350,10 @@ test('earned badge sharing publishes its unfurl and shares only the permanent UR
   expect(
     axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
   ).toEqual([])
-  await dialog.getByRole('button', { name: 'Share badge' }).click()
-  await expect(dialog.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  const share = dialog.getByRole('button', { name: 'SHARE', exact: true })
+  await share.click()
+  await expect(share).toHaveText('SHARE')
+  await expect(dialog.locator('.ed-badges__permalink-status')).toHaveText('Shared.', { timeout: 10_000 })
 
   expect(
     await page.evaluate(() => (window as unknown as { __badgeSharePayload?: ShareData }).__badgeSharePayload)
@@ -366,9 +370,9 @@ test('earned badge sharing publishes its unfurl and shares only the permanent UR
 
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'All Six' }).click()
-  await expect(page.getByRole('dialog', { name: 'All Six' }).getByRole('button', { name: 'Share badge' })).toHaveCount(
-    0
-  )
+  await expect(
+    page.getByRole('dialog', { name: 'All Six' }).getByRole('button', { name: 'SHARE', exact: true })
+  ).toHaveCount(0)
 })
 
 test('the Log groups games by day, filters flagged, and pages older games in', async ({ page }, testInfo) => {
@@ -416,10 +420,11 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   // contain "share". The permalink action uses neutral DOM classes so it stays
   // visible even when that broad social-filter rule is active.
   await page.addStyleTag({ content: '[class*="share"] { display: none !important; }' })
-  const shareRun = referenceRow.getByRole('button', { name: 'Share this run' })
+  const shareRun = referenceRow.getByRole('button', { name: 'SHARE', exact: true })
   await expect(shareRun).toBeVisible()
   await shareRun.click()
-  await expect(runSheet.getByRole('button', { name: 'Shared' })).toBeVisible()
+  await expect(shareRun).toHaveText('SHARE')
+  await expect(referenceRow.locator('.ed-permalink__status')).toHaveText('Shared.')
   expect(await page.evaluate(() => (window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare)).toEqual({
     url: testPublishedRunUrl('season-run-1')
   })
@@ -445,13 +450,13 @@ test('public profiles display earned badges prominently', async ({ page }, testI
     'https://royaleapi.com/clan/J2RGCRVG'
   )
   await expect(badgeWall).toContainText('4 earned')
-  await expect(page.getByRole('button', { name: /Share profile/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
   expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)
   await badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
   await expect(
-    page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'Share badge' })
+    page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'SHARE', exact: true })
   ).toHaveCount(0)
   await testInfo.attach('public-profile-badges.png', {
     body: await page.screenshot({ fullPage: true }),

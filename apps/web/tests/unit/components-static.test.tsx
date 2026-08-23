@@ -205,13 +205,13 @@ describe('Summary', () => {
     recordedRunCompletedAt.value = null
     const unrecorded = await render(<Summary {...props} />)
     expect(unrecorded).not.toContain('ed-permalink')
-    expect(unrecorded).not.toContain('Share this run')
+    expect(unrecorded).not.toContain('ed-link-action__button')
 
     recordedRunId.value = 'run-42'
     recordedRunCompletedAt.value = '2026-08-23T00:00:00.000Z'
     const recorded = await render(<Summary {...props} />)
     expect(recorded).toContain('ed-permalink')
-    expect(recorded).toContain('Share this run')
+    expect(recorded).toContain('SHARE')
     recordedRunId.value = null
     recordedRunCompletedAt.value = null
   })
@@ -438,7 +438,7 @@ describe('ShareLine', () => {
     expect(html).toContain('ed-permalink')
     expect(html).toContain('Share your score')
     expect(html).toContain('Surge · 28.60s')
-    expect(html).toContain('Share this run')
+    expect(html).toContain('SHARE')
     // Link-only sharing has no image-save or fallback-panel surface.
     expect(html).not.toContain('shareline__unbundled')
   })

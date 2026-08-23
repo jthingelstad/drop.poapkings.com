@@ -5,29 +5,17 @@ import Icon from './Icon'
 interface Props {
   prepare: () => Promise<string>
   onComplete?: (outcome: 'shared' | 'copied') => void
-  idleLabel: string
-  sharedMessage: string
-  preparingLabel?: string
-  sharedLabel?: string
-  copiedLabel?: string
   className?: string
   buttonClassName?: string
   statusClassName?: string
-  tapFace?: boolean
 }
 
 export default function ShareAction({
   prepare,
   onComplete,
-  idleLabel,
-  sharedMessage,
-  preparingLabel = 'Preparing…',
-  sharedLabel = 'Shared',
-  copiedLabel = 'Copied',
   className = 'ed-link-action',
   buttonClassName = 'ed-btn ed-btn--ghost',
-  statusClassName = 'ed-link-action__status',
-  tapFace = false
+  statusClassName = 'ed-link-action__status'
 }: Props) {
   const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<RunShareOutcome | null>(null)
@@ -62,27 +50,19 @@ export default function ShareAction({
     }
   }
 
-  const label = busy
-    ? preparingLabel
-    : outcome === 'shared'
-      ? sharedLabel
-      : outcome === 'copied'
-        ? copiedLabel
-        : idleLabel
-  const face = (
-    <>
-      <Icon name={outcome === 'shared' || outcome === 'copied' ? 'check' : 'share'} /> {label}
-    </>
-  )
-
   return (
     <div class={className}>
-      <button class={buttonClassName} disabled={busy} onClick={() => void share()}>
-        {tapFace ? <span class="tap-face">{face}</span> : face}
+      <button
+        class={`${buttonClassName} ed-link-action__button`}
+        disabled={busy}
+        aria-busy={busy}
+        onClick={() => void share()}
+      >
+        <Icon name="share" /> SHARE
       </button>
       <span class={statusClassName} aria-live="polite">
         {outcome === 'copied' && 'Link copied.'}
-        {outcome === 'shared' && sharedMessage}
+        {outcome === 'shared' && 'Shared.'}
         {outcome === 'unavailable' && !url && 'Sharing is unavailable right now.'}
         {outcome === 'unavailable' && url && (
           <label class="ed-link-action__fallback">

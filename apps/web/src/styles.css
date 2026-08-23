@@ -1718,6 +1718,14 @@ html.reduce-motion .game-motion {
   color: var(--muted);
   font-size: 0.7rem;
 }
+.ed-link-action__button,
+.ed-link-action__button:hover {
+  transform: none;
+  transition: none;
+}
+.ed-link-action__button.ed-btn--gold:hover {
+  box-shadow: 0 6px 24px rgba(245, 200, 76, 0.45);
+}
 .ed-link-action__fallback {
   display: grid;
   gap: 4px;

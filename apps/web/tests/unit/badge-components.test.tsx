@@ -255,7 +255,7 @@ describe('BadgeGrid', () => {
 
   it.each([
     ['copied', 'Link copied.', true],
-    ['shared', 'Badge shared.', true],
+    ['shared', 'Shared.', true],
     ['unavailable', 'Copy this link:', false],
     ['cancelled', '', false]
   ] as const)('handles the %s badge-sharing outcome', async (outcome, status, tracked) => {
@@ -283,7 +283,7 @@ describe('BadgeGrid', () => {
     )
     await click(buttonNamed('Clockbreaker, 35s'))
 
-    await click(buttonNamed('Share badge'))
+    await click(buttonNamed('SHARE'))
     await vi.waitFor(() => {
       expect(shareMock.prepareBadgeShare).toHaveBeenCalledWith({ slug: 'clockbreaker', rungIndex: 3 })
       expect(host.querySelector('.ed-badges__permalink-status')?.textContent).toBe(status)
@@ -291,11 +291,11 @@ describe('BadgeGrid', () => {
     })
 
     if (tracked) {
-      expect(buttonNamed(outcome === 'copied' ? 'Copied' : 'Shared').disabled).toBe(false)
+      expect(buttonNamed('SHARE').disabled).toBe(false)
       void act(() => {
         vi.advanceTimersByTime(1_800)
       })
-      expect(buttonNamed('Share badge').disabled).toBe(false)
+      expect(buttonNamed('SHARE').disabled).toBe(false)
     }
   })
 
@@ -319,32 +319,32 @@ describe('BadgeGrid', () => {
     )
     await click(buttonNamed('Reps, 100'))
 
-    const share = buttonNamed('Share badge')
+    const share = buttonNamed('SHARE')
     void act(() => {
       share.click()
     })
-    expect(buttonNamed('Opening…').disabled).toBe(true)
-    buttonNamed('Opening…').click()
+    expect(buttonNamed('SHARE').disabled).toBe(true)
+    buttonNamed('SHARE').click()
     expect(shareMock.prepareBadgeShare).toHaveBeenCalledOnce()
 
     await act(async () => {
       finishShare?.()
       await Promise.resolve()
     })
-    await vi.waitFor(() => expect(buttonNamed('Share badge').disabled).toBe(false))
+    await vi.waitFor(() => expect(buttonNamed('SHARE').disabled).toBe(false))
   })
 
   it('does not offer sharing without a complete public identity', async () => {
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" />)
     await click(buttonNamed('Reps, 100'))
-    expect(host.textContent).not.toContain('Share badge')
+    expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 
   it('does not offer an uncredited badge share to a signed-out visitor', async () => {
     player.value = null
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" playerName="Knight Main" />)
     await click(buttonNamed('Reps, 100'))
-    expect(host.textContent).not.toContain('Share badge')
+    expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 
   it("does not offer sharing from another player's badge wall", async () => {
@@ -352,6 +352,6 @@ describe('BadgeGrid', () => {
       <BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-two" playerName="Royal Ghosted" />
     )
     await click(buttonNamed('Reps, 100'))
-    expect(host.textContent).not.toContain('Share badge')
+    expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 })

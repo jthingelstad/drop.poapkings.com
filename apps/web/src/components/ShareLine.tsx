@@ -30,9 +30,6 @@ export default function ShareLine({ mode, score, runId, completedAt, compact = f
   const action = (
     <ShareAction
       prepare={prepare}
-      idleLabel="Share this run"
-      preparingLabel="Opening…"
-      sharedMessage="Run shared."
       className="ed-permalink__action"
       buttonClassName="ed-btn ed-btn--ghost ed-permalink__btn"
       statusClassName="ed-permalink__status"

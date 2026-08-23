@@ -226,8 +226,10 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
       .first()
       .evaluate((element) => element.getBoundingClientRect().top)
   ).toBe(gamesTop)
-  await share.getByRole('button', { name: /SHARE ELIXIR DROP/ }).click()
-  await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
+  const shareAction = share.getByRole('button', { name: 'SHARE', exact: true })
+  await shareAction.click()
+  await expect(shareAction).toHaveText('SHARE')
+  await expect(share.locator('.ed-link-action__status')).toHaveText('Shared.')
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload?.url))
     .toBe(testPublishedProfileUrl())
@@ -238,7 +240,7 @@ test('the Share hero asks a guest to sign in instead of sending an uncredited li
   await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
   const share = page.locator('.ed-hero--share')
   await expect(share).toContainText('every new player you bring can count toward Recruiter')
-  await share.getByRole('button', { name: 'SIGN IN TO SHARE' }).click()
+  await share.getByRole('button', { name: 'SHARE', exact: true }).click()
   await expect(page).toHaveURL(/#\/login$/)
 })
 

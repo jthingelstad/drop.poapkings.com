@@ -44,9 +44,6 @@ export default function BadgeCelebration() {
           {canShare && (
             <ShareAction
               prepare={() => prepareBadgeShare({ slug: view.slug, rungIndex: view.rungIndex })}
-              idleLabel="Share badge"
-              preparingLabel="Opening…"
-              sharedMessage="Badge shared."
               className="ed-link-action ed-link-action--celebration"
               onComplete={() => track('badge.shared')}
             />
