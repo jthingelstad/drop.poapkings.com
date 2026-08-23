@@ -1045,7 +1045,6 @@ function RunDetail({
   returnFocus: HTMLElement | null
 }) {
   const game = gameDisplay(run.mode)
-  const copied = useSignal(false)
   const reference = runReference(run.runId)
   const openBadge = useSignal<BadgeView | null>(null)
   const rungTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -1059,16 +1058,6 @@ function RunDetail({
       .map((slug) => views.find((view) => view.slug === slug))
       .filter((view): view is BadgeView => Boolean(view))
   })()
-
-  async function copyReference() {
-    try {
-      await navigator.clipboard.writeText(reference)
-      copied.value = true
-      window.setTimeout(() => (copied.value = false), 1600)
-    } catch {
-      // Clipboard denied — the reference is still visible to select by hand.
-    }
-  }
 
   const placement = run.placement === undefined ? '' : `#${run.placement}`
 
@@ -1142,16 +1131,6 @@ function RunDetail({
         />
       )}
 
-      {run.mode !== 'practice' && run.reviewStatus !== 'excluded' && (
-        <ShareLine
-          mode={run.mode}
-          score={scoreLabel(run.mode, run.score)}
-          runId={run.runId}
-          completedAt={run.completedAt}
-          compact
-        />
-      )}
-
       {run.reviewStatus === 'excluded' ? (
         <>
           {run.reviewExplanation && <p class="ed-run-modal__note">{run.reviewExplanation}</p>}
@@ -1162,9 +1141,15 @@ function RunDetail({
       ) : (
         <div class="ed-run-modal__ref">
           <code>{reference}</code>
-          <button class="ed-textlink" onClick={() => void copyReference()}>
-            {copied.value ? 'Copied' : 'Copy'}
-          </button>
+          {run.mode !== 'practice' && (
+            <ShareLine
+              mode={run.mode}
+              score={scoreLabel(run.mode, run.score)}
+              runId={run.runId}
+              completedAt={run.completedAt}
+              compact
+            />
+          )}
         </div>
       )}
     </DetailModal>

@@ -784,7 +784,7 @@ describe('Profile interactive flows', () => {
     expect(container.querySelector('.ed-run-modal__ref')).toBeNull()
   })
 
-  it('shows the run reference with a Copy affordance in the run sheet', async () => {
+  it('shows the run reference with Share in place of Copy in the run sheet', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
@@ -793,9 +793,11 @@ describe('Profile interactive flows', () => {
     await mount()
 
     await fire(container.querySelector('.ed-games__row') as HTMLButtonElement)
-    // The D-tag lives in the sheet now (never in a list row), with a Copy button.
+    // The D-tag stays visible for support, while its action slot publishes the
+    // permanent run link instead of copying an internal reference.
     expect(container.querySelector('.ed-run-modal__ref code')?.textContent).toBe(runReference('r3'))
-    expect(byText(container, 'Copy')).toBeTruthy()
+    expect(byText(container, 'Share this run')).toBeTruthy()
+    expect(byText(container, 'Copy')).toBeUndefined()
   })
 
   it('shows the rungs a run moved and opens the badge sheet from one', async () => {

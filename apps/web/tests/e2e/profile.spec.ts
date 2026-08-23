@@ -392,10 +392,14 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   await expect(games.getByRole('button', { name: 'Older games' })).toHaveCount(0)
 
   // Any eligible historical run can publish the same native, link-only share
-  // after the fact; the player does not have to share from the finish screen.
+  // after the fact. Share replaces the old run-reference Copy action in the
+  // modal rather than adding another control to the Log row.
   await games.locator('.ed-games__row').first().click()
   const runSheet = page.getByRole('dialog')
-  await runSheet.getByRole('button', { name: 'Share this run' }).click()
+  const referenceRow = runSheet.locator('.ed-run-modal__ref')
+  await expect(referenceRow.getByRole('button', { name: 'Copy' })).toHaveCount(0)
+  const shareRun = referenceRow.getByRole('button', { name: 'Share this run' })
+  await shareRun.click()
   await expect(runSheet.getByRole('button', { name: 'Shared' })).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { __loggedRunShare?: ShareData }).__loggedRunShare)).toEqual({
     url: 'http://127.0.0.1:5173/share/player-1/season-run-1'
