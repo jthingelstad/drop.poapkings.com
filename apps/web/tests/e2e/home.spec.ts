@@ -1,4 +1,4 @@
-import { expect, isDesktopViewport, test, useSignedOutState, waitForKeypad } from './fixtures'
+import { expect, isDesktopViewport, test, testPublishedProfileUrl, useSignedOutState, waitForKeypad } from './fixtures'
 
 test(
   'home surfaces season standings and the featured game result',
@@ -230,18 +230,7 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await expect(share.getByRole('button', { name: /SHARED/ })).toBeVisible()
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload?.url))
-    .toMatch(/#\/s\/NVT/)
-
-  const invitationUrl = await page.evaluate(
-    () => (window as unknown as { __homeSharePayload?: ShareData }).__homeSharePayload?.url
-  )
-  expect(invitationUrl).toBeTruthy()
-  await page.goto(invitationUrl!)
-  await expect(page.locator('.ed-home')).toBeVisible()
-  await expect(page).toHaveURL(/#\/$/)
-  await expect
-    .poll(() => page.evaluate(() => window.localStorage.getItem('elixirdrop:recruiter:v1')))
-    .toMatch(/"token":"NVT/)
+    .toBe(testPublishedProfileUrl())
 })
 
 test('the Share hero asks a guest to sign in instead of sending an uncredited link', async ({ page }) => {

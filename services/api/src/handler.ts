@@ -44,6 +44,12 @@ import {
   openPublishedRunShare,
   uploadPublishedRunImage,
 } from "./routes/published-shares.js";
+import {
+  createPublishedProfileShare,
+  getPublishedProfileImage,
+  getPublishedProfilePage,
+  uploadPublishedProfileImage,
+} from "./routes/published-profiles.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
@@ -55,6 +61,8 @@ const BADGE_SHARE_PATH = /^\/badges\/([^/]+)\/share$/;
 const PUBLISHED_BADGE_PATH = /^\/share\/([^/]+)\/badge\/([^/]+)\/([^/]+)$/;
 const PUBLISHED_BADGE_IMAGE_PATH =
   /^\/share-assets\/([^/]+)\/badge\/([^/]+)\/([^/]+)$/;
+const PUBLISHED_PROFILE_PATH = /^\/share\/([^/]+)$/;
+const PUBLISHED_PROFILE_IMAGE_PATH = /^\/share-assets\/([^/]+)$/;
 
 // The routing table. Every branch is one line: the handling lives in
 // ./routes/*, one module per group of related endpoints.
@@ -82,6 +90,10 @@ async function route(event: APIGatewayProxyEventV2) {
 
   if (method === "GET" && path === "/me") return getMe(context);
   if (method === "GET" && path === "/me/seasons") return getMySeasons(context);
+  if (method === "POST" && path === "/me/share")
+    return createPublishedProfileShare(context);
+  if (method === "PUT" && path === "/me/share")
+    return uploadPublishedProfileImage(context);
   const publicPlayerMatch =
     method === "GET" ? PUBLIC_PLAYER_PATH.exec(path) : null;
   if (publicPlayerMatch)
@@ -156,6 +168,26 @@ async function route(event: APIGatewayProxyEventV2) {
       publishedBadgeImageMatch[1] ?? "",
       publishedBadgeImageMatch[2] ?? "",
       publishedBadgeImageMatch[3] ?? "",
+      method === "HEAD",
+    );
+  const publishedProfileMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_PROFILE_PATH.exec(path)
+      : null;
+  if (publishedProfileMatch)
+    return getPublishedProfilePage(
+      context,
+      publishedProfileMatch[1] ?? "",
+      method === "HEAD",
+    );
+  const publishedProfileImageMatch =
+    method === "GET" || method === "HEAD"
+      ? PUBLISHED_PROFILE_IMAGE_PATH.exec(path)
+      : null;
+  if (publishedProfileImageMatch)
+    return getPublishedProfileImage(
+      context,
+      publishedProfileImageMatch[1] ?? "",
       method === "HEAD",
     );
   const publishedShareOpenMatch =

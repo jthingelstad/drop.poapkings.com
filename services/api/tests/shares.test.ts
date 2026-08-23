@@ -30,6 +30,11 @@ const repository = vi.hoisted(() => ({
   getPublishedBadgeShare: vi.fn(),
   getPublishedBadgeShareByTag: vi.fn(),
   putPublishedBadgeShare: vi.fn(),
+  getPublishedProfileShare: vi.fn(),
+  getPublishedProfileShareByTag: vi.fn(),
+  putPublishedProfileShare: vi.fn(),
+  badgeDecisionRevision: vi.fn(),
+  badgeXpKeys: vi.fn(),
 }));
 
 const shareAssets = vi.hoisted(() => ({
@@ -38,6 +43,8 @@ const shareAssets = vi.hoisted(() => ({
   remove: vi.fn(),
   putBadge: vi.fn(),
   getBadge: vi.fn(),
+  putProfile: vi.fn(),
+  getProfile: vi.fn(),
 }));
 
 vi.mock("../src/repository.js", () => ({
@@ -63,6 +70,11 @@ vi.mock("../src/repository.js", () => ({
     getPublishedBadgeShare = repository.getPublishedBadgeShare;
     getPublishedBadgeShareByTag = repository.getPublishedBadgeShareByTag;
     putPublishedBadgeShare = repository.putPublishedBadgeShare;
+    getPublishedProfileShare = repository.getPublishedProfileShare;
+    getPublishedProfileShareByTag = repository.getPublishedProfileShareByTag;
+    putPublishedProfileShare = repository.putPublishedProfileShare;
+    badgeDecisionRevision = repository.badgeDecisionRevision;
+    badgeXpKeys = repository.badgeXpKeys;
   },
 }));
 
@@ -72,6 +84,8 @@ vi.mock("../src/share-assets.js", () => ({
   deleteRunShareImage: shareAssets.remove,
   putBadgeShareImage: shareAssets.putBadge,
   getBadgeShareImage: shareAssets.getBadge,
+  putProfileShareImage: shareAssets.putProfile,
+  getProfileShareImage: shareAssets.getProfile,
 }));
 
 import { handler } from "../src/handler.js";
@@ -426,7 +440,7 @@ describe("published run link", () => {
 
     expect(response.statusCode).toBe(302);
     expect(response.headers?.location).toBe(
-      "https://drop.example/assets/share/og-default.png",
+      "https://drop.example/assets/og-image.png",
     );
   });
 });
@@ -621,7 +635,156 @@ describe("published badge link", () => {
     const missing = await call(event("GET", path));
     expect(missing.statusCode).toBe(302);
     expect(missing.headers?.location).toBe(
-      "https://drop.example/assets/share/og-default.png",
+      "https://drop.example/assets/og-image.png",
+    );
+  });
+});
+
+describe("published profile link", () => {
+  const profileUrl = `https://drop.example/share/${playerTag}`;
+  const publishedProfile = {
+    pk: `SHARE#PROFILE#${playerId}`,
+    sk: "SHARE" as const,
+    kind: "published-profile" as const,
+    owner: "player-sub",
+    playerId,
+    playerTag,
+    publishedAt: "2026-08-23T06:00:00.000Z",
+    player: {
+      id: playerId,
+      publicName: "Drop King",
+      favoriteCardId: 26000000,
+      totalGames: 40,
+      xp: 900,
+    },
+    arena: 8,
+    badgeCount: 1,
+    badges: [
+      {
+        slug: "clockbreaker",
+        name: "Clockbreaker",
+        tier: "copper" as const,
+        chip: "35s",
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue({
+      sub: "player-sub",
+      playerId,
+      publicName: "Drop King",
+      favoriteCardId: 26000000,
+      totalGames: 40,
+      xp: 900,
+    });
+    repository.getBadges.mockResolvedValue({
+      version: 8,
+      refereeReconciled: true,
+      values: { clockbreaker: 34, "arena-climber": 8 },
+      runsAtRung: {},
+      aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
+      earned: {},
+    });
+    repository.badgeDecisionRevision.mockResolvedValue(undefined);
+    repository.badgeXpKeys.mockResolvedValue(new Set());
+    repository.putPublishedProfileShare.mockResolvedValue(undefined);
+    repository.getPublishedProfileShare.mockResolvedValue(publishedProfile);
+    repository.getPublishedProfileShareByTag.mockResolvedValue(
+      publishedProfile,
+    );
+    shareAssets.putProfile.mockResolvedValue(undefined);
+    shareAssets.getProfile.mockResolvedValue(Buffer.from("png"));
+  });
+
+  it("refreshes the owner's current profile at one permanent player-tag URL", async () => {
+    const response = await call(
+      event("POST", "/me/share", { sub: "player-sub" }),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
+      playerId,
+      url: profileUrl,
+      preview: {
+        playerName: "Drop King",
+        favoriteCardId: 26000000,
+        xp: 900,
+        arena: 7,
+        badgeCount: expect.any(Number),
+      },
+    });
+    expect(repository.putPublishedProfileShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "published-profile",
+        playerId,
+        playerTag,
+        arena: 7,
+      }),
+    );
+  });
+
+  it("accepts only the owner's exact 1200 by 630 profile PNG", async () => {
+    const image = previewPng();
+    const response = await call(
+      event("PUT", "/me/share", {
+        sub: "player-sub",
+        body: { image: image.toString("base64") },
+      }),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(shareAssets.putProfile).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+      image,
+    );
+  });
+
+  it("serves complete profile unfurl metadata and visible alt text", async () => {
+    const response = await call(event("GET", `/share/${playerTag}`));
+    const alt =
+      "Elixir Drop profile for Drop King: Arena 8, 900 Player XP, and 1 earned badge. Highlights include Clockbreaker.";
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain(
+      `<link rel="canonical" href="${profileUrl}">`,
+    );
+    expect(response.body).toContain(
+      `property="og:image" content="https://drop.example/share-assets/${playerTag}"`,
+    );
+    expect(response.body).toContain(`property="og:image:alt" content="${alt}"`);
+    expect(response.body).toContain(
+      `name="twitter:image:alt" content="${alt}"`,
+    );
+    expect(response.body).toContain(`alt="${alt}"`);
+    expect(response.body).toContain("PLAY ELIXIR DROP");
+    expect(response.body).toContain("/assets/share/profile-open.js");
+  });
+
+  it("serves the profile PNG and falls back to the current generic card", async () => {
+    const path = `/share-assets/${playerTag}`;
+    const response = await call(event("GET", path));
+    expect(response.statusCode).toBe(200);
+    expect(shareAssets.getProfile).toHaveBeenCalledWith(
+      "share-assets",
+      playerId,
+    );
+
+    shareAssets.getProfile.mockResolvedValue(undefined);
+    const missing = await call(event("GET", path));
+    expect(missing.statusCode).toBe(302);
+    expect(missing.headers?.location).toBe(
+      "https://drop.example/assets/og-image.png",
     );
   });
 });

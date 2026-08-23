@@ -13,6 +13,7 @@ import {
   playerResponseSchema,
   publicPlayerResponseSchema,
   publishedBadgeShareSchema,
+  publishedProfileShareSchema,
   publishedRunShareSchema,
   runShareImageUploadResponseSchema,
   shareImageUploadResponseSchema,
@@ -20,7 +21,6 @@ import {
   sessionResponseSchema,
   sharedInviteSchema,
   sharedRunSchema,
-  shareTokenSchema,
   siteStatsSchema,
   startedRunSchema,
   runReportResponseSchema
@@ -251,6 +251,7 @@ export function requestLogin(
     | { token: string }
     | { playerId: string; runId: string }
     | { playerId: string; badgeSlug: string; rungIndex: number }
+    | { playerId: string; profile: true }
 ) {
   return apiRequest('/auth/request', loginRequestResponseSchema, {
     method: 'POST',
@@ -518,12 +519,21 @@ export async function uploadBadgeShareImage(slug: string, rungIndex: number, ima
   })
 }
 
-export function createInviteShareToken(destination: 'home' | 'player', sessionToken: string, playerId?: string) {
-  return apiRequest('/shares', shareTokenSchema, {
+export function publishProfileShare(sessionToken: string) {
+  return apiRequest('/me/share', publishedProfileShareSchema, {
     method: 'POST',
     sessionToken,
-    body: JSON.stringify({ destination, ...(playerId ? { playerId } : {}) }),
     retry: false
+  })
+}
+
+export async function uploadProfileShareImage(image: Blob, sessionToken: string) {
+  return apiRequest('/me/share', shareImageUploadResponseSchema, {
+    method: 'PUT',
+    sessionToken,
+    body: JSON.stringify({ image: await imageBase64(image) }),
+    retry: false,
+    timeoutMs: 15_000
   })
 }
 

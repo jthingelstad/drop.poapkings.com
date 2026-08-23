@@ -151,6 +151,7 @@ describe("GET /players/:id", () => {
     });
     expect(body.player).not.toHaveProperty("email");
     expect(body.player).not.toHaveProperty("sub");
+    expect(body).not.toHaveProperty("shareUrl");
     expect(body.badges.badges).toContainEqual(
       expect.objectContaining({ slug: "clockbreaker", rungIndex: 1 }),
     );

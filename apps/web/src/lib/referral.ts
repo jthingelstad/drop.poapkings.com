@@ -14,11 +14,15 @@ interface StoredRecruiter {
   runId?: string
   badgeSlug?: string
   rungIndex?: number
+  profile?: true
   capturedAt: number
 }
 
 export type RecruiterAttribution =
-  { token: string } | { playerId: string; runId: string } | { playerId: string; badgeSlug: string; rungIndex: number }
+  | { token: string }
+  | { playerId: string; runId: string }
+  | { playerId: string; badgeSlug: string; rungIndex: number }
+  | { playerId: string; profile: true }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const BADGE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -38,9 +42,10 @@ export function recruiterAttribution(now = Date.now()): RecruiterAttribution | u
     const stored = JSON.parse(localStorage.getItem(RECRUITER_KEY) || 'null') as StoredRecruiter | null
     const hasRun = Boolean(stored?.playerId && stored.runId)
     const hasBadge = Boolean(stored?.playerId && stored.badgeSlug && stored.rungIndex !== undefined)
+    const hasProfile = Boolean(stored?.playerId && stored.profile === true)
     if (
       !stored ||
-      (!stored.token && !hasRun && !hasBadge) ||
+      (!stored.token && !hasRun && !hasBadge && !hasProfile) ||
       (stored.token !== undefined && !TOKEN_PATTERN.test(stored.token)) ||
       (stored.playerId !== undefined && !UUID_PATTERN.test(stored.playerId)) ||
       (stored.runId !== undefined && !UUID_PATTERN.test(stored.runId)) ||
@@ -56,6 +61,7 @@ export function recruiterAttribution(now = Date.now()): RecruiterAttribution | u
     }
     if (stored.token) return { token: stored.token }
     if (hasRun) return { playerId: stored.playerId!, runId: stored.runId! }
+    if (hasProfile) return { playerId: stored.playerId!, profile: true }
     return { playerId: stored.playerId!, badgeSlug: stored.badgeSlug!, rungIndex: stored.rungIndex! }
   } catch {
     try {

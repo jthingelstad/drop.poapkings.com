@@ -171,7 +171,7 @@ rank-oriented fields as part of unrelated work.
   preserve the same coaching behavior offline.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
-- **A recorded run or earned badge rung publishes one permanent, personalized link.**
+- **A recorded run, earned badge rung, or the signed-in player's profile publishes one permanent, personalized link.**
   `POST /runs/{runId}/share` resolves the caller's immutable history row and
   idempotently publishes `/share/{playerTag}/{runTag}` using Drop's existing
   `P…` and `D…` public tags; UUIDs remain internal. Summary and You → Log use the
@@ -192,6 +192,12 @@ rank-oriented fields as part of unrelated work.
   player facts, and accepts the same exact 1200 × 630 canvas PNG. Badge and run
   previews intentionally share one visual frame, real Clash font, local PNG
   art, landing shell, URL-only native-share behavior, and retained S3 bucket.
+  A profile uses `/share/{playerTag}` and is refreshed through owner-only `POST
+  /me/share`; the browser publishes its current arena, Player XP, and prominent
+  badge highlights through the same compositor and PNG upload path. Profile
+  sharing is available from the signed-in player's You header and Home hero,
+  never from another player's public profile. The permanent landing remains
+  public and carries Recruiter attribution without advancing Herald.
   A frozen public snapshot keeps a published link stable. Practice,
   guest, offline, missing, and Fair Play-excluded runs fail closed; account
   deletion removes the snapshot, open markers, and S3 prefix. Existing
@@ -201,9 +207,9 @@ rank-oriented fields as part of unrelated work.
   browser callback can record a distinct, non-owner open; a peppered one-way
   hash dedupes it and credit stops at 25 per published run. The clean run link
   also supplies 30-day last-touch Recruiter attribution. Badge links supply the
-  same Recruiter attribution but never advance Herald; Home continues to mint
-  six-character `#/s/<token>` invitation links through `POST /shares`.
-  Already-issued badge invitation links remain readable. Requesting a login email does not
+  same Recruiter attribution but never advance Herald; signed-in Home shares the
+  player's permanent profile link. Already-issued six-character `#/s/<token>`
+  invitation and badge invitation links remain readable. Requesting a login email does not
   count, while successful magic-link redemption that creates a genuinely new
   profile advances Recruiter exactly once. Anonymous players are asked to sign
   in before sharing because no account exists to receive either badge.

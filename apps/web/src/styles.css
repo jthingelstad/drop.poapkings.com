@@ -1706,6 +1706,48 @@ html.reduce-motion .game-motion {
   border: 0;
   background: transparent;
 }
+
+.ed-link-action,
+.ed-permalink__action {
+  display: grid;
+  gap: 4px;
+}
+.ed-link-action__status {
+  display: block;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.ed-link-action__fallback {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+.ed-link-action__fallback input {
+  width: min(100%, 360px);
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid rgba(245, 200, 76, 0.42);
+  border-radius: 8px;
+  background: rgba(7, 6, 16, 0.86);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+.ed-permalink__action {
+  justify-items: end;
+}
+.ed-link-action--hero {
+  width: 100%;
+  justify-items: center;
+}
+.ed-link-action--hero .ed-link-action__status {
+  max-width: 360px;
+  text-align: center;
+}
+.ed-link-action--celebration {
+  justify-items: stretch;
+}
 @media (width <= 520px) {
   .ed-permalink:not(.ed-permalink--compact) {
     align-items: stretch;
@@ -1714,6 +1756,10 @@ html.reduce-motion .game-motion {
   .ed-permalink:not(.ed-permalink--compact) .ed-permalink__btn {
     justify-content: center;
     width: 100%;
+  }
+  .ed-permalink__action {
+    width: 100%;
+    justify-items: stretch;
   }
 }
 
@@ -5823,6 +5869,18 @@ html.reduce-motion .ed-profile-guest__halo::before {
   width: 13px;
   height: 13px;
 }
+.ed-you__identity-actions {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+.ed-link-action--profile {
+  justify-items: end;
+}
+.ed-link-action--profile .ed-link-action__fallback {
+  width: min(220px, 52vw);
+}
 .ed-profile__stats {
   border-radius: 18px;
   border: 1px solid var(--hairline);
@@ -6897,14 +6955,14 @@ html.reduce-motion .ed-profile-guest__halo::before {
   color: var(--muted);
   font-size: 0.78rem;
 }
-.ed-badges__share {
+.ed-badges__permalink {
   width: min(100%, 320px);
   display: grid;
   justify-items: center;
   gap: 4px;
   margin-top: 4px;
 }
-.ed-badges__share-btn {
+.ed-badges__permalink-btn {
   width: 100%;
   min-height: 44px;
   display: inline-flex;
@@ -6914,11 +6972,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
   border-color: rgba(245, 200, 76, 0.48);
   color: var(--gold);
 }
-.ed-badges__share-btn .icon {
+.ed-badges__permalink-btn .icon {
   width: 16px;
   height: 16px;
 }
-.ed-badges__share-status {
+.ed-badges__permalink-status {
   min-height: 1.2em;
   color: var(--muted);
   font-size: 0.68rem;

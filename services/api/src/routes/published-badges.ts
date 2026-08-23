@@ -367,7 +367,7 @@ export async function getPublishedBadgeImage(
     return {
       statusCode: 302,
       headers: {
-        location: `${context.config.appUrl}/assets/share/og-default.png`,
+        location: `${context.config.appUrl}/assets/og-image.png`,
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
         "x-robots-tag": "noindex, nofollow",

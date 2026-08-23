@@ -16,16 +16,17 @@ import {
 
 // Legacy and invitation share endpoints:
 //
-//   POST /shares              — mint an invitation token for Home or a profile
+//   POST /shares              — legacy invitation mint retained for API compatibility
 //   GET  /shares/{token}      — keep already-issued links readable
 //
-// New run shares use the deterministic /share/{playerTag}/{runTag} surface in
-// published-shares.ts. The legacy resolver remains a compatibility contract.
+// New run, badge, and owner-profile shares use deterministic /share/{playerTag}/...
+// surfaces. The invitation mint and resolver remain compatibility contracts for
+// already-shipped clients and links; the current web app does not mint them.
 
 const MINT_LIMIT_PER_HOUR = 60;
 const OPEN_LIMIT_PER_HOUR = 600;
 
-// POST /shares — Home and badge shares carry Recruiter attribution, but never
+// POST /shares — legacy invitations carry Recruiter attribution, but never
 // Herald credit. Herald remains specifically about reach from shared results.
 export async function createInviteShare(context: RouteContext) {
   const { event, config, repository } = context;

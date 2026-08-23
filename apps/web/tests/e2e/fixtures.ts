@@ -377,6 +377,10 @@ export function testPublishedBadgeUrl(slug: string, rungIndex: number): string {
   return `http://127.0.0.1:5173/share/${playerReference(testPlayer.id).slice(1)}/badge/${slug}/${rungIndex + 1}`
 }
 
+export function testPublishedProfileUrl(): string {
+  return `http://127.0.0.1:5173/share/${playerReference(testPlayer.id).slice(1)}`
+}
+
 function testPublishedRunPreview(runId: string) {
   const score = runId === 'run-surge' ? '17.412s' : '67.299s'
   return {
@@ -396,6 +400,33 @@ function testPublishedRunPreview(runId: string) {
 
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
+  if (path === '/me/share' && route.request().method() === 'PUT') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+    return true
+  }
+  if (path === '/me/share' && route.request().method() === 'POST') {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        playerId: testPlayer.id,
+        url: testPublishedProfileUrl(),
+        preview: {
+          playerName: testPlayer.publicName,
+          favoriteCardId: testPlayer.favoriteCardId,
+          xp: testPlayer.xp,
+          arena: 5,
+          badgeCount: testBadges.length,
+          badges: [
+            { slug: 'clockbreaker', name: 'Clockbreaker', tier: 'silver', chip: '30s' },
+            { slug: 'night-shift', name: 'Night Shift', tier: 'copper', chip: '1' },
+            { slug: 'reps', name: 'Reps', tier: 'copper', chip: '175' }
+          ]
+        }
+      })
+    })
+    return true
+  }
   if (route.request().method() === 'POST' && path === '/shares') {
     shareTokenCounter += 1
     const token = `NVT${'ABCDEFGHJKMNPQRSTVWXYZ'[shareTokenCounter % 22]!.repeat(3)}`

@@ -507,6 +507,8 @@ void describe("deployment parameters", () => {
       "POST /auth/refresh",
       "GET /me",
       "GET /me/seasons",
+      "POST /me/share",
+      "PUT /me/share",
       "GET /players/{playerId}",
       "POST /me/name-options",
       "DELETE /me",
@@ -527,6 +529,10 @@ void describe("deployment parameters", () => {
       "HEAD /share/{playerTag}/badge/{slug}/{rung}",
       "GET /share-assets/{playerTag}/badge/{slug}/{rung}",
       "HEAD /share-assets/{playerTag}/badge/{slug}/{rung}",
+      "GET /share/{playerTag}",
+      "HEAD /share/{playerTag}",
+      "GET /share-assets/{playerTag}",
+      "HEAD /share-assets/{playerTag}",
       "GET /shares/{token}",
       "GET /leaderboards",
       "GET /seasons",
@@ -663,8 +669,10 @@ void describe("deployment parameters", () => {
     assert.match(apiRole, /s3:DeleteObject/);
     assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/run-images\/\*/);
     assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/badge-images\/\*/);
+    assert.match(apiRole, /\$\{ShareAssetBucket\.Arn\}\/profile-images\/\*/);
     assert.match(apiRole, /s3:prefix:\s+- run-images\/\*/);
     assert.match(apiRole, /s3:prefix:\s+[\s\S]*- badge-images\/\*/);
+    assert.match(apiRole, /s3:prefix:\s+[\s\S]*- profile-images\/\*/);
 
     const executionBridge = template.match(
       /  CloudFormationShareAssetPolicy:[\s\S]*?\n  ApiLogGroup:/,

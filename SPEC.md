@@ -324,7 +324,7 @@ Important shared modules:
   desktop input contract: `ASDFG` = costs 1–5, `JKL;` = 6–9, digits are aliases,
   Space is the safe default/replay action, `?` opens help, and Escape uses a
   two-step abandon flow during a run.
-- `services/api/src/routes/published-shares.ts`, `routes/published-badges.ts`, `share-visual.ts`,
+- `services/api/src/routes/published-shares.ts`, `routes/published-badges.ts`, `routes/published-profiles.ts`, `share-visual.ts`,
   `share-assets.ts`, and `apps/web/src/lib/share-card.ts` - deterministic
   recorded-run publication, evidence-derived chart projections, 1200 × 630 PNG
   composition with the real Clash font and existing art, private S3 storage,
@@ -597,19 +597,30 @@ against server-owned badge counters and timestamps, and freezes the public
 player/badge facts. This action appears only on the signed-in player's own
 earned-badge modal, including badges revisited after the original celebration.
 
-**What gets shared.** `components/ShareLine.tsx` and `lib/share-badge.ts` render
-their frozen preview data with the unified `lib/share-card.ts` compositor, then
-upload through authenticated `PUT /runs/{runId}/share` or `PUT
-/badges/{badgeSlug}/share` before calling `navigator.share({ url })`. If no native
-share sheet is available it copies only that URL. The generated image is never
-attached to the share payload; no custom picker or save-image panel remains.
+The signed-in player's profile has one permanent address:
+`/share/{playerTag}`. Owner-only `POST /me/share` refreshes its public snapshot
+with the current arena, Player XP, earned-badge count, and up to three badge
+highlights. The Share action appears in the owner's You identity header and the
+signed-in Home promotion only. Other players' public profiles deliberately have
+no Share action or share URL; the resulting personalized landing is still
+public and can be shared anywhere after its owner publishes it.
+
+**What gets shared.** `components/ShareLine.tsx`, `lib/share-badge.ts`, and
+`lib/share-profile.ts` render their frozen preview data with the unified
+`lib/share-card.ts` compositor, then upload through authenticated `PUT
+/runs/{runId}/share`, `PUT /badges/{badgeSlug}/share`, or `PUT /me/share` before
+calling `navigator.share({ url })`. If no native share sheet is available it
+copies only that URL; when neither API exists it exposes a labeled, selectable
+URL. The generated image is never attached to the share payload; no custom
+picker or save-image panel remains.
 
 **The unfurl.** CloudFront routes the clean address to Lambda. The response is a
 small standalone landing page with canonical Open Graph and Twitter metadata,
 the score card, a score-first challenge CTA, public profile link, and fan-content
 disclaimer. `/share-assets/{playerTag}/{runTag}` and
-`/share-assets/{playerTag}/badge/{badgeSlug}/{rung}` serve their 1200 × 630 PNGs from a
-dedicated private, retained S3 bucket. `share-visual.ts` derives at most 30 chart
+`/share-assets/{playerTag}/badge/{badgeSlug}/{rung}` plus the profile-level
+`/share-assets/{playerTag}` serve their 1200 × 630 PNGs from a dedicated private,
+retained S3 bucket. `share-visual.ts` derives at most 30 chart
 bars from the server-validated transcript. The browser receives only that frozen
 public-safe projection. Run and badge previews use the same frame, real Clash
 font, and local PNG art; both uploads are size/signature/dimension bounded. The
@@ -630,10 +641,11 @@ script makes a separate `POST /share/{playerTag}/{runTag}/open` from a real brow
 A peppered HMAC scoped to that run dedupes the request without storing the raw IP
 or full user-agent; the owner's session is excluded and credit stops at 25 per
 run. Counter failure never blocks the page. The same landing stores the public
-player/run pair as 30-day last-touch Recruiter attribution. Badge landings store
-the public player/badge/rung tuple for Recruiter but have no open callback and
-never advance Herald. Home uses `#/s/<token>` invitations; already-issued badge
-invitations remain compatible.
+player/run pair as 30-day last-touch Recruiter attribution. Badge and profile
+landings store their public player attribution for Recruiter but have no open
+callback and never advance Herald. Signed-in Home uses the owner's permanent
+profile link. Already-issued `#/s/<token>` and badge invitations remain
+compatible.
 
 **Compatibility and deletion.** Already-issued `#/r/<token>` links and their
 `GET /shares/{token}` resolver remain readable. New run links store a
@@ -641,7 +653,9 @@ invitations remain compatible.
 deletion follows those pointers, removes every visitor marker and snapshot, and
 deletes `run-images/{playerId}/` from S3. Badge snapshots use parallel canonical,
 tag-alias, and player-deletion pointers; deletion also removes
-`badge-images/{playerId}/`. A later Fair Play exclusion makes the
+`badge-images/{playerId}/`. Profile snapshots use one canonical item plus a
+public-tag alias and deletion pointer; deletion also removes
+`profile-images/{playerId}.v1.png`. A later Fair Play exclusion makes the
 page and image fail closed; the next request also deletes the stored PNG.
 
 Local card-learning signals and personal browser records remain local. Every
@@ -836,7 +850,7 @@ makes them authoritative succeeds. A logical occurrence has exactly one owner:
 
 | Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                           |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                                           |
+| Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, `profile.shared`, `home.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                                           |
 | API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
 
 Names are `category.action`, with at most one low-cardinality value (game mode,

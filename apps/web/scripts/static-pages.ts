@@ -923,14 +923,15 @@ export function renderStaticPage(slug: StaticPageSlug): string {
   <meta property="og:title" content="${escapeHtml(page.title)} | Elixir Drop">
   <meta property="og:description" content="${escapeHtml(page.description)}">
   <meta property="og:url" content="${canonical}">
-  <meta property="og:image" content="${SITE_URL}/assets/share/og-default.png">
-  <meta property="og:image:alt" content="Elixir Drop">
+  <meta property="og:image" content="${SITE_URL}/assets/og-image.png">
+  <meta property="og:image:alt" content="${escapeHtml(`${page.title} on Elixir Drop — ${page.description}`)}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(page.title)} | Elixir Drop">
   <meta name="twitter:description" content="${escapeHtml(page.description)}">
-  <meta name="twitter:image" content="${SITE_URL}/assets/share/og-default.png">
+  <meta name="twitter:image" content="${SITE_URL}/assets/og-image.png">
+  <meta name="twitter:image:alt" content="${escapeHtml(`${page.title} on Elixir Drop — ${page.description}`)}">
   <link rel="icon" href="/assets/icon/drop-icon-192.png">
   <link rel="stylesheet" href="/static-pages.css">
   <script type="application/ld+json">${schema}</script>

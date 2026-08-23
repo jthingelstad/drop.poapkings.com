@@ -7,15 +7,14 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import Icon from '../../components/Icon'
 import ModeIcon from '../../components/ModeIcon'
 import PlayerAvatar from '../../components/PlayerAvatar'
-import { player, sessionToken } from '../../lib/account'
-import { createInviteShareToken } from '../../lib/api'
+import ShareAction from '../../components/ShareAction'
+import { player } from '../../lib/account'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
 import { scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import { isReducedMotionEnabled } from '../../lib/motion'
-import { shareDrop } from '../../lib/share-run'
-import { sharePermalink } from '../../lib/share-links'
+import { prepareProfileShare } from '../../lib/share-profile'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
 import { seasonEndsLabel, seasonPillLabel, type HomeData } from './home-data'
@@ -125,45 +124,6 @@ function FreePassHero({ data }: { data: HomeData }) {
 }
 
 function ShareHero({ signedIn }: { signedIn: boolean }) {
-  const [status, setStatus] = useState<'idle' | 'sharing' | 'shared' | 'copied' | 'unavailable'>('idle')
-
-  const share = async () => {
-    const session = sessionToken()
-    if (!signedIn || !session) {
-      navigate('/login')
-      return
-    }
-    setStatus('sharing')
-    let url: string
-    try {
-      const { token } = await createInviteShareToken('home', session)
-      url = sharePermalink('s', token)
-    } catch {
-      setStatus('unavailable')
-      return
-    }
-    const outcome = await shareDrop(url)
-    if (outcome === 'shared' || outcome === 'copied') {
-      track('home.shared')
-      setStatus(outcome)
-      return
-    }
-    setStatus(outcome === 'cancelled' ? 'idle' : 'unavailable')
-  }
-
-  const label =
-    status === 'sharing'
-      ? 'SHARING…'
-      : status === 'shared'
-        ? 'SHARED'
-        : status === 'copied'
-          ? 'LINK COPIED'
-          : status === 'unavailable'
-            ? 'SHARING UNAVAILABLE'
-            : signedIn
-              ? 'SHARE ELIXIR DROP'
-              : 'SIGN IN TO SHARE'
-
   return (
     <section class="ed-hero ed-hero--share">
       <div class="ed-hero__body">
@@ -172,22 +132,36 @@ function ShareHero({ signedIn }: { signedIn: boolean }) {
         <div class="ed-hero__wordmark ed-hero__wordmark--share">BRING A FRIEND</div>
         <p class="ed-hero__desc">
           {signedIn
-            ? 'Know someone who still has to count elixir costs? Send them Drop and race the same board.'
+            ? 'Send your player card anywhere. Your arena, Player XP, and badge highlights arrive in the link preview.'
             : 'Sign in before you send Drop so every new player you bring can count toward Recruiter.'}
         </p>
         <div class="ed-hero__cta">
-          <button
-            class="ed-btn ed-btn--gold ed-hero__play tap-fx"
-            disabled={status === 'sharing'}
-            onClick={(event) => {
-              tapFxFrom(event)
-              void share()
-            }}
-          >
-            <span class="tap-face">
-              <Icon name="share" /> {label}
-            </span>
-          </button>
+          {signedIn ? (
+            <ShareAction
+              prepare={prepareProfileShare}
+              idleLabel="SHARE ELIXIR DROP"
+              preparingLabel="PREPARING…"
+              sharedLabel="SHARED"
+              copiedLabel="LINK COPIED"
+              sharedMessage="Profile shared."
+              className="ed-link-action ed-link-action--hero"
+              buttonClassName="ed-btn ed-btn--gold ed-hero__play tap-fx"
+              tapFace
+              onComplete={() => track('home.shared')}
+            />
+          ) : (
+            <button
+              class="ed-btn ed-btn--gold ed-hero__play tap-fx"
+              onClick={(event) => {
+                tapFxFrom(event)
+                navigate('/login')
+              }}
+            >
+              <span class="tap-face">
+                <Icon name="share" /> SIGN IN TO SHARE
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </section>

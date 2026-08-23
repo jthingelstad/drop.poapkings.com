@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useRef, useState } from 'preact/hooks'
 import { badgeTier } from '@elixir-drop/contracts'
 import { track } from '../lib/analytics'
 import { badgeViews, earnedCount, formatRungValue, sortForGrid, type BadgeState, type BadgeView } from '../lib/badges'
-import { shareBadge } from '../lib/share-badge'
+import { prepareBadgeShare } from '../lib/share-badge'
 import { player } from '../lib/account'
-import type { RunShareOutcome } from '../lib/share-run'
 import BadgeMedallion from './BadgeMedallion'
 import DetailModal from './DetailModal'
-import Icon from './Icon'
+import ShareAction from './ShareAction'
 
 // The badge wall: medallions open a real modal, so a tap never changes content
 // several screens below the pressed badge.
@@ -95,36 +94,7 @@ export function BadgeSheet({
   returnFocus: HTMLElement | null
 }) {
   const { definition } = badge
-  const [sharing, setSharing] = useState(false)
-  const [outcome, setOutcome] = useState<RunShareOutcome | null>(null)
-  const resetTimer = useRef<number | undefined>(undefined)
   const ownsBadge = Boolean(playerId && playerName && player.value?.id === playerId)
-  useEffect(() => () => window.clearTimeout(resetTimer.current), [])
-
-  async function share() {
-    if (!ownsBadge || sharing) return
-    setSharing(true)
-    setOutcome(null)
-    const result = await shareBadge({
-      slug: badge.slug,
-      rungIndex: badge.rungIndex
-    })
-    setSharing(false)
-    setOutcome(result === 'cancelled' ? null : result)
-    if (result === 'shared' || result === 'copied') {
-      track('badge.shared')
-      window.clearTimeout(resetTimer.current)
-      resetTimer.current = window.setTimeout(() => setOutcome(null), 1800)
-    }
-  }
-
-  const shareLabel = sharing
-    ? 'Opening…'
-    : outcome === 'shared'
-      ? 'Shared'
-      : outcome === 'copied'
-        ? 'Copied'
-        : 'Share badge'
 
   return (
     <DetailModal label={badge.name} onClose={onClose} className="ed-badges__sheet" returnFocus={returnFocus}>
@@ -139,17 +109,16 @@ export function BadgeSheet({
         <>
           {definition.requirement && <span class="ed-badges__sheet-req">{definition.requirement}</span>}
           {badge.earned && ownsBadge && (
-            <div class="ed-badges__share">
-              <button class="ed-btn ed-btn--ghost ed-badges__share-btn" disabled={sharing} onClick={() => void share()}>
-                <Icon name={outcome === 'shared' || outcome === 'copied' ? 'check' : 'share'} />
-                {shareLabel}
-              </button>
-              <span class="ed-badges__share-status" aria-live="polite">
-                {outcome === 'copied' && 'Native sharing is unavailable, so the badge was copied.'}
-                {outcome === 'unavailable' && 'Sharing is unavailable in this browser.'}
-                {outcome === 'shared' && 'Badge shared.'}
-              </span>
-            </div>
+            <ShareAction
+              prepare={() => prepareBadgeShare({ slug: badge.slug, rungIndex: badge.rungIndex })}
+              idleLabel="Share badge"
+              preparingLabel="Opening…"
+              sharedMessage="Badge shared."
+              className="ed-badges__permalink"
+              buttonClassName="ed-btn ed-btn--ghost ed-badges__permalink-btn"
+              statusClassName="ed-badges__permalink-status"
+              onComplete={() => track('badge.shared')}
+            />
           )}
           <div class="ed-badges__milestone">
             <div class="ed-badges__milestone-head">

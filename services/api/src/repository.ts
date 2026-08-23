@@ -333,6 +333,31 @@ export interface PublishedBadgeShareItem {
   };
 }
 
+// One permanent public profile address. Unlike run and badge snapshots, the
+// owner deliberately refreshes this snapshot when they share again so the
+// card can show their current arena, XP, and badge wall without changing URL.
+export interface PublishedProfileShareItem {
+  pk: string; // canonical SHARE#PROFILE#{playerId}, or its SHARE#TAG alias
+  sk: "SHARE";
+  kind: "published-profile";
+  owner: string;
+  playerId: string;
+  playerTag?: string;
+  publishedAt: string;
+  player: Pick<
+    PublicProfile,
+    "id" | "publicName" | "favoriteCardId" | "xp" | "totalGames"
+  >;
+  arena: number;
+  badgeCount: number;
+  badges: Array<{
+    slug: string;
+    name: string;
+    tier: BadgeTier;
+    chip: string;
+  }>;
+}
+
 export interface InviteShareItem extends ShareItemBase {
   kind: "invite";
   destination: "home" | "player";
@@ -863,6 +888,23 @@ export class Repository {
           if (typeof item.sharePlayerTag === "string") {
             const aliasKey = {
               pk: `SHARE#TAG#${item.sharePlayerTag}#BADGE#${item.shareBadgeSlug}#${item.shareBadgeRungIndex + 1}`,
+              sk: "SHARE",
+            };
+            keys.set(`${aliasKey.pk}\0${aliasKey.sk}`, aliasKey);
+          }
+        }
+        if (
+          typeof item.sharePlayerId === "string" &&
+          item.shareProfile === true
+        ) {
+          const canonicalKey = {
+            pk: `SHARE#PROFILE#${item.sharePlayerId}`,
+            sk: "SHARE",
+          };
+          keys.set(`${canonicalKey.pk}\0${canonicalKey.sk}`, canonicalKey);
+          if (typeof item.sharePlayerTag === "string") {
+            const aliasKey = {
+              pk: `SHARE#TAG#${item.sharePlayerTag}`,
               sk: "SHARE",
             };
             keys.set(`${aliasKey.pk}\0${aliasKey.sk}`, aliasKey);
@@ -1479,6 +1521,82 @@ export class Repository {
         return false;
       throw error;
     }
+  }
+
+  async getPublishedProfileShare(
+    playerId: string,
+  ): Promise<PublishedProfileShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `SHARE#PROFILE#${playerId}`, sk: "SHARE" },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedProfileShareItem | undefined;
+  }
+
+  async getPublishedProfileShareByTag(
+    playerTag: string,
+  ): Promise<PublishedProfileShareItem | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `SHARE#TAG#${playerTag}`, sk: "SHARE" },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PublishedProfileShareItem | undefined;
+  }
+
+  async putPublishedProfileShare(
+    item: PublishedProfileShareItem,
+  ): Promise<void> {
+    const playerTag = item.playerTag ?? playerReference(item.playerId).slice(1);
+    const taggedItem = { ...item, playerTag };
+    await client.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: taggedItem,
+              ConditionExpression:
+                "attribute_not_exists(pk) OR (playerId = :playerId AND owner = :owner)",
+              ExpressionAttributeValues: {
+                ":playerId": item.playerId,
+                ":owner": item.owner,
+              },
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: { ...taggedItem, pk: `SHARE#TAG#${playerTag}` },
+              ConditionExpression:
+                "attribute_not_exists(pk) OR (playerId = :playerId AND owner = :owner)",
+              ExpressionAttributeValues: {
+                ":playerId": item.playerId,
+                ":owner": item.owner,
+              },
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                pk: `PLAYER#${item.owner}`,
+                sk: `SHARE#PROFILE#${item.playerId}`,
+                sharePlayerId: item.playerId,
+                sharePlayerTag: playerTag,
+                shareProfile: true,
+                publishedAt: item.publishedAt,
+              },
+            },
+          },
+        ],
+      }),
+    );
   }
 
   async creditPublishedRunOpen(

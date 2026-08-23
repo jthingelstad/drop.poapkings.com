@@ -11,6 +11,8 @@ const PREFIX = "run-images";
 const CURRENT_VERSION = "v2";
 const BADGE_PREFIX = "badge-images";
 const BADGE_VERSION = "v1";
+const PROFILE_PREFIX = "profile-images";
+const PROFILE_VERSION = "v1";
 
 export function runShareAssetKey(playerId: string, runId: string): string {
   return `${PREFIX}/${playerId}/${runId}.${CURRENT_VERSION}.png`;
@@ -26,6 +28,10 @@ export function badgeShareAssetKey(
   rungIndex: number,
 ): string {
   return `${BADGE_PREFIX}/${playerId}/${slug}/${rungIndex}.${BADGE_VERSION}.png`;
+}
+
+export function profileShareAssetKey(playerId: string): string {
+  return `${PROFILE_PREFIX}/${playerId}.${PROFILE_VERSION}.png`;
 }
 
 async function putImage(bucket: string, key: string, image: Buffer) {
@@ -96,6 +102,21 @@ export async function getBadgeShareImage(
   return getImage(bucket, badgeShareAssetKey(playerId, slug, rungIndex));
 }
 
+export async function putProfileShareImage(
+  bucket: string,
+  playerId: string,
+  image: Buffer,
+): Promise<void> {
+  await putImage(bucket, profileShareAssetKey(playerId), image);
+}
+
+export async function getProfileShareImage(
+  bucket: string,
+  playerId: string,
+): Promise<Buffer | undefined> {
+  return getImage(bucket, profileShareAssetKey(playerId));
+}
+
 export async function deleteRunShareImage(
   bucket: string,
   playerId: string,
@@ -121,6 +142,7 @@ export async function deletePlayerShareImages(
   for (const prefix of [
     `${PREFIX}/${playerId}/`,
     `${BADGE_PREFIX}/${playerId}/`,
+    `${PROFILE_PREFIX}/${playerId}.`,
   ]) {
     for await (const page of paginateListObjectsV2(
       { client: s3 },

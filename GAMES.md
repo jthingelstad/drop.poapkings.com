@@ -585,12 +585,12 @@ timezone.
 **Community badges.** Battle Tag is a visible one-time badge for adding the
 optional, unverified Clash Royale player tag and pays a special +100 XP. Herald
 counts deduplicated non-owner browser opens on each permanent
-`/share/{playerId}/{runId}` link, with a 25-credit cap per run; crawler metadata
+`/share/{playerTag}/{runTag}` link, with a 25-credit cap per run; crawler metadata
 and preview-image fetches do not count. Home and badge invitation opens do not
-count toward Herald. Recruiter uses 30-day last-touch attribution from either a
-published run link or a valid invitation token and counts when a genuinely new
-account is created; merely opening a link or requesting a login email is not a
-recruit.
+count toward Herald. Recruiter uses 30-day last-touch attribution from a
+published run, badge, or owner-published profile link, or a valid legacy
+invitation token, and counts when a genuinely new account is created; merely
+opening a link or requesting a login email is not a recruit.
 Herald and Recruiter use the normal rung-tier XP schedule. Their scaled ladders
 are `1·5·10·25·50·100·250·500` and
 `1·3·5·10·25·50` respectively and should be recalibrated after a month of live

@@ -156,17 +156,41 @@ describe('api.ts request helpers', () => {
     expect(JSON.parse(init.body as string)).toEqual({ rungIndex: 3, image: 'cG5n' })
   })
 
-  it('mints a profile invitation with the current session', async () => {
-    const fetchMock = stubFetch(json({ token: 'AB2CD3' }))
-    const { createInviteShareToken } = await import('../../src/lib/api')
+  it('publishes the signed-in player profile at its permanent link', async () => {
+    const payload = {
+      playerId: 'player-one',
+      url: 'https://drop.poapkings.com/share/P1111111111',
+      preview: {
+        playerName: 'Drop King',
+        xp: 900,
+        arena: 8,
+        badgeCount: 1,
+        badges: [{ slug: 'clockbreaker', name: 'Clockbreaker', tier: 'gold', chip: '25s' }]
+      }
+    }
+    const fetchMock = stubFetch(json(payload))
+    const { publishProfileShare } = await import('../../src/lib/api')
 
-    await expect(createInviteShareToken('player', 'session-token', 'player/one')).resolves.toEqual({ token: 'AB2CD3' })
+    await expect(publishProfileShare('session-token')).resolves.toEqual(payload)
 
     const { url, init, headers } = endpointCall(fetchMock)
-    expect(url).toBe(`${API_BASE}/shares`)
+    expect(url).toBe(`${API_BASE}/me/share`)
     expect(init.method).toBe('POST')
     expect(headers.get('authorization')).toBe('Bearer session-token')
-    expect(JSON.parse(init.body as string)).toEqual({ destination: 'player', playerId: 'player/one' })
+  })
+
+  it('uploads the rendered profile preview', async () => {
+    const fetchMock = stubFetch(json({ ok: true }))
+    const { uploadProfileShareImage } = await import('../../src/lib/api')
+
+    await expect(uploadProfileShareImage(new Blob(['png'], { type: 'image/png' }), 'session-token')).resolves.toEqual({
+      ok: true
+    })
+
+    const { url, init } = endpointCall(fetchMock)
+    expect(url).toBe(`${API_BASE}/me/share`)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ image: 'cG5n' })
   })
 
   it('sets accept and content-type headers on a body request', async () => {

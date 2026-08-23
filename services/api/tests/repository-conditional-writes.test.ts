@@ -16,6 +16,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
 import {
   Repository,
   type PublishedBadgeShareItem,
+  type PublishedProfileShareItem,
   type PublishedRunShareItem,
   type RunItem,
 } from "../src/repository.js";
@@ -389,6 +390,55 @@ describe("repository conditional writes", () => {
       sharePlayerTag: canonical.playerTag,
       shareBadgeSlug: "clockbreaker",
       shareBadgeRungIndex: 3,
+    });
+  });
+
+  it("refreshes a profile, its public tag alias, and deletion pointer atomically", async () => {
+    send.mockResolvedValueOnce({});
+    const share: PublishedProfileShareItem = {
+      pk: "SHARE#PROFILE#11111111-1111-4111-8111-111111111111",
+      sk: "SHARE",
+      kind: "published-profile",
+      owner: "player-sub",
+      playerId: "11111111-1111-4111-8111-111111111111",
+      publishedAt: "2026-08-23T12:01:00.000Z",
+      player: {
+        id: "11111111-1111-4111-8111-111111111111",
+        publicName: "Drop King",
+        xp: 900,
+        totalGames: 40,
+      },
+      arena: 8,
+      badgeCount: 1,
+      badges: [
+        {
+          slug: "clockbreaker",
+          name: "Clockbreaker",
+          tier: "copper",
+          chip: "35s",
+        },
+      ],
+    };
+
+    await new Repository("test-table").putPublishedProfileShare(share);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    if (!(command instanceof TransactWriteCommand))
+      throw new Error("Expected published-profile transaction");
+    const items = command.input.TransactItems ?? [];
+    expect(items).toHaveLength(3);
+    const canonical = items[0]?.Put?.Item as Record<string, unknown>;
+    expect(canonical.playerTag).toMatch(/^P[0-9A-HJKMNP-TV-Z]{10}$/);
+    expect(items[1]?.Put?.Item?.pk).toBe(
+      `SHARE#TAG#${canonical.playerTag as string}`,
+    );
+    expect(items[2]?.Put?.Item).toMatchObject({
+      pk: "PLAYER#player-sub",
+      sk: `SHARE#PROFILE#${share.playerId}`,
+      sharePlayerId: share.playerId,
+      sharePlayerTag: canonical.playerTag,
+      shareProfile: true,
     });
   });
 

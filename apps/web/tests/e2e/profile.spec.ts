@@ -8,6 +8,7 @@ import {
   test,
   testApiBaseUrl,
   testPublishedBadgeUrl,
+  testPublishedProfileUrl,
   testPublishedRunUrl,
   testApiRoute,
   testBadges,
@@ -15,7 +16,9 @@ import {
   testRecentRuns
 } from './fixtures'
 
-test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({ page }) => {
+test('the You page is reachable and shows identity, the day-grouped log, and the account', async ({
+  page
+}, testInfo) => {
   await page.goto('/')
   // One shell now: the bottom pill nav's "You" tab is the You entry point on
   // every width. The nav never renames itself. (A non-exact name so the tab's
@@ -23,6 +26,11 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
   await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'You' }).click()
 
   await expect(page.locator('.ed-you__name')).toHaveText('Knight Main')
+  await expect(page.locator('.ed-you__identity').getByRole('button', { name: 'Share' })).toBeVisible()
+  await testInfo.attach('owner-profile-actions.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
 
   // The Log scope is the default: recorded games grouped by day, and only a run
   // a referee handled is sealed. The held and excluded runs are marked; the
@@ -55,6 +63,37 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
   await expect(page.locator('.ed-account')).toContainText('player@example.com')
   await expect(page.locator('.ed-account')).toContainText(playerReference('player-1'))
   await expect(page.locator('.ed-account')).toContainText('Sign out')
+})
+
+test('your profile publishes a Clash-rendered image and shares only its permanent URL', async ({ page }, testInfo) => {
+  let imageBase64: string | undefined
+  page.on('request', (request) => {
+    if (request.method() !== 'PUT' || new URL(request.url()).pathname !== '/me/share') return
+    imageBase64 = (request.postDataJSON() as { image?: string }).image
+  })
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (payload: ShareData) => {
+        ;(window as unknown as { __profileSharePayload?: ShareData }).__profileSharePayload = payload
+      }
+    })
+  })
+  await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
+
+  const identity = page.locator('.ed-you__identity')
+  await identity.getByRole('button', { name: 'Share' }).click()
+  await expect(identity.getByRole('button', { name: 'Shared' })).toBeVisible({ timeout: 10_000 })
+  expect(
+    await page.evaluate(() => (window as unknown as { __profileSharePayload?: ShareData }).__profileSharePayload)
+  ).toEqual({ url: testPublishedProfileUrl() })
+
+  await expect.poll(() => imageBase64).toBeTruthy()
+  const image = Buffer.from(imageBase64!, 'base64')
+  expect(image.byteLength).toBeGreaterThan(30_000)
+  expect(image.readUInt32BE(16)).toBe(1200)
+  expect(image.readUInt32BE(20)).toBe(630)
+  await testInfo.attach('profile-share-card.png', { body: image, contentType: 'image/png' })
 })
 
 test('Updates opens unread cards and links Markdown to the public history', async ({ page }, testInfo) => {
@@ -406,6 +445,7 @@ test('public profiles display earned badges prominently', async ({ page }, testI
     'https://royaleapi.com/clan/J2RGCRVG'
   )
   await expect(badgeWall).toContainText('4 earned')
+  await expect(page.getByRole('button', { name: /Share profile/i })).toHaveCount(0)
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
   expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)

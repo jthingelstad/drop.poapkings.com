@@ -1,6 +1,7 @@
 import type { BadgeTier } from '@elixir-drop/contracts'
-import type { PublishedBadgePreview, PublishedRunPreview } from './api-contracts'
+import type { PublishedBadgePreview, PublishedProfilePreview, PublishedRunPreview } from './api-contracts'
 import { gameDisplay } from './game-metadata'
+import { rankFor } from '../data/starRanks'
 
 // Badge and recorded-run previews use one browser canvas pipeline, the same
 // same-origin PNG art, and the real Clash face. Run previews are uploaded to
@@ -315,6 +316,135 @@ function drawBadgeMedallion(ctx: CanvasRenderingContext2D, art: HTMLImageElement
   ctx.fillStyle = plate
   ctx.fill()
   ctx.drawImage(art, centreX - 132, centreY - 132, 264, 264)
+}
+
+function drawProfileBadgeMedallion(
+  ctx: CanvasRenderingContext2D,
+  art: HTMLImageElement,
+  tier: BadgeTier,
+  centreX: number,
+  centreY: number
+): void {
+  const radius = 84
+  ctx.save()
+  ctx.shadowColor = 'rgba(139, 92, 246, 0.5)'
+  ctx.shadowBlur = 34
+  ctx.beginPath()
+  ctx.arc(centreX, centreY, radius, 0, Math.PI * 2)
+  ctx.fillStyle = badgeRim(ctx, tier, centreX - radius, centreY - radius, centreX + radius, centreY + radius)
+  ctx.fill()
+  ctx.restore()
+  const plate = ctx.createRadialGradient(centreX - 18, centreY - 24, 8, centreX, centreY, radius - 8)
+  plate.addColorStop(0, '#402f74')
+  plate.addColorStop(1, '#0c091e')
+  ctx.beginPath()
+  ctx.arc(centreX, centreY, radius - 9, 0, Math.PI * 2)
+  ctx.fillStyle = plate
+  ctx.fill()
+  ctx.drawImage(art, centreX - 67, centreY - 67, 134, 134)
+}
+
+export async function renderProfileSharePreview(input: PublishedProfilePreview): Promise<Blob | null> {
+  const canvas = document.createElement('canvas')
+  canvas.width = SHARE_WIDTH
+  canvas.height = SHARE_HEIGHT
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  const [backdrop, avatar, badgeArt] = await Promise.all([
+    loadImage('/assets/share/share-backdrop.png'),
+    input.favoriteCardId ? loadImage(`/cards/${input.favoriteCardId}.png`) : Promise.resolve(null),
+    Promise.all(input.badges.map((badge) => loadImage(`/assets/badges/${badge.slug}-384.png`)))
+  ])
+  const fontsReady = await readyFonts()
+  if (!backdrop || !fontsReady || badgeArt.some((art) => !art)) return null
+
+  drawShareFrame(ctx, backdrop)
+
+  const avatarX = 76
+  const avatarY = 86
+  const avatarSize = 176
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+  ctx.clip()
+  if (avatar) drawCover(ctx, avatar, avatarX, avatarY, avatarSize, avatarSize)
+  else {
+    const plate = ctx.createRadialGradient(164, 126, 12, 164, 174, 88)
+    plate.addColorStop(0, '#f5c84c')
+    plate.addColorStop(1, '#6d28d9')
+    ctx.fillStyle = plate
+    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize)
+  }
+  ctx.restore()
+  ctx.beginPath()
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+  ctx.strokeStyle = '#f5c84c'
+  ctx.lineWidth = 6
+  ctx.stroke()
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = '#c8c1e6'
+  ctx.font = '800 22px Inter, system-ui, sans-serif'
+  ctx.fillText('PLAYER PROFILE', 292, 112)
+  ctx.fillStyle = '#f7f4ff'
+  // The identity column ends before the first medallion. Fit long community
+  // names and arena names inside it instead of letting text disappear behind
+  // the badge highlight row.
+  ctx.font = fittedDisplayFont(ctx, input.playerName, 308, 54, 28)
+  ctx.fillText(input.playerName, 288, 181)
+  const arena = rankFor(input.xp).current.name.toUpperCase()
+  ctx.fillStyle = '#f5c84c'
+  ctx.font = fittedDisplayFont(ctx, arena, 306, 38, 22)
+  ctx.fillText(arena, 290, 233)
+
+  roundedRect(ctx, 76, 306, 520, 164, 22)
+  ctx.fillStyle = 'rgba(11, 8, 31, 0.72)'
+  ctx.fill()
+  ctx.fillStyle = '#f5c84c'
+  ctx.font = fittedDisplayFont(ctx, input.xp.toLocaleString(), 310, 58, 40)
+  ctx.fillText(input.xp.toLocaleString(), 106, 380)
+  ctx.fillStyle = '#c8c1e6'
+  ctx.font = '800 21px Inter, system-ui, sans-serif'
+  ctx.fillText('PLAYER XP', 108, 415)
+  ctx.fillStyle = '#f7f4ff'
+  ctx.font = fittedDisplayFont(ctx, String(input.badgeCount), 130, 58, 40)
+  ctx.fillText(String(input.badgeCount), 414, 380)
+  ctx.fillStyle = '#c8c1e6'
+  ctx.font = '800 21px Inter, system-ui, sans-serif'
+  ctx.fillText(input.badgeCount === 1 ? 'BADGE' : 'BADGES', 416, 415)
+
+  ctx.fillStyle = '#d7c8ff'
+  ctx.font = '700 26px "Clash Royale", system-ui, sans-serif'
+  ctx.fillText(input.badges.length ? 'BADGE HIGHLIGHTS' : 'BADGE WALL', 654, 112)
+  if (input.badges.length) {
+    const centres = input.badges.length === 1 ? [890] : input.badges.length === 2 ? [785, 1010] : [704, 904, 1090]
+    input.badges.forEach((badge, index) => {
+      const centre = centres[index] ?? 904
+      drawProfileBadgeMedallion(ctx, badgeArt[index]!, badge.tier, centre, 282)
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#f7f4ff'
+      ctx.font = fittedDisplayFont(ctx, badge.name.toUpperCase(), 170, 22, 16)
+      ctx.fillText(badge.name.toUpperCase(), centre, 390)
+      ctx.fillStyle = '#65e18b'
+      ctx.font = '800 19px Inter, system-ui, sans-serif'
+      ctx.fillText(badge.chip, centre, 421)
+    })
+  } else {
+    roundedRect(ctx, 654, 150, 470, 320, 22)
+    ctx.fillStyle = 'rgba(11, 8, 31, 0.72)'
+    ctx.fill()
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#f5c84c'
+    ctx.font = '700 35px "Clash Royale", system-ui, sans-serif'
+    ctx.fillText('THE WALL STARTS HERE', 889, 300)
+    ctx.fillStyle = '#c8c1e6'
+    ctx.font = '700 23px Inter, system-ui, sans-serif'
+    ctx.fillText('Play a recorded run to earn the first badge.', 889, 350)
+  }
+
+  drawShareFooter(ctx)
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
 }
 
 export async function renderBadgeSharePreview(input: PublishedBadgePreview): Promise<Blob | null> {

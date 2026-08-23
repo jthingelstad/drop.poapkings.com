@@ -5,7 +5,6 @@ import { act } from 'preact/test-utils'
 const api = vi.hoisted(() => ({
   getSharedInvite: vi.fn(),
   getSharedRun: vi.fn(),
-  createInviteShareToken: vi.fn(),
   publishRunShare: vi.fn(),
   uploadRunShareImage: vi.fn()
 }))
@@ -18,7 +17,6 @@ vi.mock('../../src/lib/api', async (importActual) => {
     ...actual,
     getSharedInvite: api.getSharedInvite,
     getSharedRun: api.getSharedRun,
-    createInviteShareToken: api.createInviteShareToken,
     publishRunShare: api.publishRunShare,
     uploadRunShareImage: api.uploadRunShareImage
   }

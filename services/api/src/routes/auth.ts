@@ -29,6 +29,7 @@ import {
 } from "./context.js";
 import { isPublishedRunReference } from "./published-shares.js";
 import { isPublishedBadgeReference } from "./published-badges.js";
+import { isPublishedProfileReference } from "./published-profiles.js";
 
 // POST /auth/request — mail a single-use magic link.
 export async function requestMagicLink({
@@ -91,10 +92,16 @@ export async function requestMagicLink({
         rungIndex: recruiterShare.rungIndex as number,
       }
     : undefined;
+  const publishedProfileRecruiter =
+    recruiterShare?.profile === true &&
+    isPublishedProfileReference(recruiterShare.playerId)
+      ? { playerId: recruiterShare.playerId }
+      : undefined;
   if (
     isShareToken(recruiterToken) ||
     publishedRunRecruiter ||
-    publishedBadgeRecruiter
+    publishedBadgeRecruiter ||
+    publishedProfileRecruiter
   ) {
     try {
       const existingProfile = await repository.getProfile(sub);
@@ -120,6 +127,11 @@ export async function requestMagicLink({
           publishedBadgeRecruiter.playerId,
           publishedBadgeRecruiter.slug,
           publishedBadgeRecruiter.rungIndex,
+        );
+        if (share && share.owner !== sub) recruiterSub = share.owner;
+      } else if (!existingProfile && publishedProfileRecruiter) {
+        const share = await repository.getPublishedProfileShare(
+          publishedProfileRecruiter.playerId,
         );
         if (share && share.owner !== sub) recruiterSub = share.owner;
       }

@@ -56,11 +56,13 @@ seal; most runs are never reviewed and carry no mark at all. The standalone Fair
 Play page explains allowed settings and accessibility tools, prohibited
 automation, private review, and re-review.
 
-Finishing a recorded run gives you a link to it. Sharing mints a fresh permalink
-for that share, hands your phone's own share sheet a rendered card and the link
-together, and opens on the run itself — the score as the button — rather than the
-home page. A run that was not recorded (offline or guest) has no share control at
-all, because there is no server record for a link to point at.
+Finishing a recorded run gives you its permanent personalized link, and You →
+Log can publish the same link later. Your earned badges and your own player
+profile can publish permanent links too. Drop renders each link's Clash-style
+preview card for unfurling, then gives the phone's native share sheet only the
+URL so it works anywhere. Other players' public profiles have no Share action.
+A run that was not recorded (offline or guest) has no share control because
+there is no server record for a link to point at.
 
 ---
 

@@ -1478,6 +1478,50 @@ describe("repository DynamoDB requests", () => {
     );
   });
 
+  it("sweeps a published profile and its public tag alias when deleting the account", async () => {
+    send
+      .mockResolvedValueOnce({ Item: { totalGames: 3 } })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#player-sub",
+            sk: "SHARE#PROFILE#player-id",
+            sharePlayerId: "player-id",
+            sharePlayerTag: "P1111111111",
+            shareProfile: true,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").deleteAccount("player-sub");
+
+    const batch = send.mock.calls[2]?.[0].input.RequestItems["test-table"];
+    expect(batch).toEqual(
+      expect.arrayContaining([
+        {
+          DeleteRequest: {
+            Key: {
+              pk: "PLAYER#player-sub",
+              sk: "SHARE#PROFILE#player-id",
+            },
+          },
+        },
+        {
+          DeleteRequest: {
+            Key: { pk: "SHARE#PROFILE#player-id", sk: "SHARE" },
+          },
+        },
+        {
+          DeleteRequest: {
+            Key: { pk: "SHARE#TAG#P1111111111", sk: "SHARE" },
+          },
+        },
+      ]),
+    );
+  });
+
   it("exposes the seeded Trophy Road counter without leaking internal totals", async () => {
     send.mockResolvedValueOnce({
       Item: {

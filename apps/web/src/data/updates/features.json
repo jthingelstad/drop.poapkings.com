@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "share-your-player-card",
+      "impact": "sharing",
+      "publishedAt": "2026-08-23T11:54:07-05:00",
+      "title": "Your player card has its own link",
+      "body": "Share your arena, Player XP, favorite card, and badge highlights from Home or your **You** header. The link unfurls as a polished Clash-style player card anywhere you send it."
+    },
+    {
       "id": "community-badges-enter-the-arena",
       "impact": "progression",
       "publishedAt": "2026-08-21T17:45:00-05:00",

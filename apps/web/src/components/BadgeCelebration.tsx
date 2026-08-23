@@ -1,13 +1,12 @@
 import { signal } from '@preact/signals'
-import { useState } from 'preact/hooks'
 import { earnedBadges } from '../lib/use-game-run'
 import { currentInterrupt } from '../lib/interrupt-ladder'
 import { player } from '../lib/account'
-import { shareBadge } from '../lib/share-badge'
+import { prepareBadgeShare } from '../lib/share-badge'
 import { track } from '../lib/analytics'
 import BadgeMedallion from './BadgeMedallion'
 import { earnedRungViews, type EarnedRung } from './BadgeEarned'
-import Icon from './Icon'
+import ShareAction from './ShareAction'
 
 function batchKey(earned: EarnedRung[]): string {
   return earned.map((rung) => `${rung.slug}:${rung.rungIndex}`).join(',')
@@ -22,7 +21,6 @@ function batchKey(earned: EarnedRung[]): string {
 const dismissedKey = signal<string | null>(null)
 
 export default function BadgeCelebration() {
-  const [sharing, setSharing] = useState(false)
   const earned = earnedBadges.value
   const key = batchKey(earned)
   if (currentInterrupt.value !== 1 || !earned.length || dismissedKey.value === key) return null
@@ -31,17 +29,6 @@ export default function BadgeCelebration() {
   const view = views[0]
   const current = player.value
   const canShare = Boolean(current?.id && current.publicName)
-
-  const share = async () => {
-    if (!current?.id || !current.publicName || sharing) return
-    setSharing(true)
-    const outcome = await shareBadge({
-      slug: view.slug,
-      rungIndex: view.rungIndex
-    })
-    setSharing(false)
-    if (outcome === 'shared' || outcome === 'copied') track('badge.shared')
-  }
 
   return (
     <div class="badge-celebrate" role="dialog" aria-modal="true" aria-label={`${view.name} earned`}>
@@ -55,9 +42,14 @@ export default function BadgeCelebration() {
         {views.length > 1 && <div class="badge-celebrate__more">and {views.length - 1} more this run</div>}
         <div class="badge-celebrate__actions">
           {canShare && (
-            <button class="ed-btn ed-btn--ghost" disabled={sharing} onClick={() => void share()}>
-              <Icon name="share" /> {sharing ? 'Opening…' : 'Share badge'}
-            </button>
+            <ShareAction
+              prepare={() => prepareBadgeShare({ slug: view.slug, rungIndex: view.rungIndex })}
+              idleLabel="Share badge"
+              preparingLabel="Opening…"
+              sharedMessage="Badge shared."
+              className="ed-link-action ed-link-action--celebration"
+              onComplete={() => track('badge.shared')}
+            />
           )}
           <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => (dismissedKey.value = key)}>
             <span class="tap-face">Carry on</span>

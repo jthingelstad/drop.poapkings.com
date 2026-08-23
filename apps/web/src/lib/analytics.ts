@@ -15,6 +15,7 @@ export type TinyEvent =
   | 'home.shared'
   | 'campaign.opened'
   | 'badge.shared'
+  | 'profile.shared'
   | 'install.suggestion_shown'
   | 'install.suggestion_dismissed'
   | 'install.instructions_opened'

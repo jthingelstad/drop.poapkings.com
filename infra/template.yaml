@@ -356,6 +356,12 @@ Resources:
                   - s3:DeleteObject
                 Resource: !Sub ${ShareAssetBucket.Arn}/badge-images/*
               - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${ShareAssetBucket.Arn}/profile-images/*
+              - Effect: Allow
                 Action: s3:ListBucket
                 Resource: !GetAtt ShareAssetBucket.Arn
                 Condition:
@@ -363,6 +369,7 @@ Resources:
                     s3:prefix:
                       - run-images/*
                       - badge-images/*
+                      - profile-images/*
 
   MailCanaryRole:
     Type: AWS::IAM::Role
@@ -1368,6 +1375,20 @@ Resources:
       RouteKey: GET /me/seasons
       Target: !Sub integrations/${ApiIntegration}
 
+  MeShareRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /me/share
+      Target: !Sub integrations/${ApiIntegration}
+
+  MeShareUploadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /me/share
+      Target: !Sub integrations/${ApiIntegration}
+
   PublicPlayerRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -1510,6 +1531,36 @@ Resources:
       ApiId: !Ref HttpApi
       AuthorizationType: NONE
       RouteKey: HEAD /share-assets/{playerTag}/badge/{slug}/{rung}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedProfileSharePageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share/{playerTag}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedProfileSharePageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share/{playerTag}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedProfileShareImageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /share-assets/{playerTag}
+      Target: !Sub integrations/${ApiIntegration}
+
+  PublishedProfileShareImageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: HEAD /share-assets/{playerTag}
       Target: !Sub integrations/${ApiIntegration}
 
   ShareRoute:

@@ -330,7 +330,7 @@ async function settleBadgeXpOnRead(
   }
 }
 
-async function badgeSummary(
+export async function badgeSummary(
   { event, repository }: RouteContext,
   sub: string,
   playerId: string,

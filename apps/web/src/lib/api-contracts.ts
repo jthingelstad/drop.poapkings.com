@@ -384,6 +384,26 @@ export const publishedBadgeShareSchema = z.object({
   })
 })
 
+const publishedProfileBadgeSchema = z.object({
+  slug: nonEmptyString,
+  name: nonEmptyString,
+  tier: z.enum(['copper', 'silver', 'gold', 'prismatic']),
+  chip: nonEmptyString
+})
+
+export const publishedProfileShareSchema = z.object({
+  playerId: nonEmptyString,
+  url: z.string().url(),
+  preview: z.object({
+    playerName: nonEmptyString,
+    favoriteCardId: z.optional(cardId),
+    xp: nonNegativeInteger,
+    arena: safeInteger.positive(),
+    badgeCount: nonNegativeInteger,
+    badges: z.array(publishedProfileBadgeSchema).max(3)
+  })
+})
+
 export const shareImageUploadResponseSchema = z.object({ ok: z.literal(true) })
 export const runShareImageUploadResponseSchema = shareImageUploadResponseSchema
 
@@ -469,3 +489,4 @@ export type SharedRun = z.infer<typeof sharedRunSchema>
 export type SharedInvite = z.infer<typeof sharedInviteSchema>
 export type PublishedRunPreview = z.infer<typeof publishedRunShareSchema.shape.preview>
 export type PublishedBadgePreview = z.infer<typeof publishedBadgeShareSchema.shape.preview>
+export type PublishedProfilePreview = z.infer<typeof publishedProfileShareSchema.shape.preview>

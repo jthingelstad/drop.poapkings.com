@@ -42,7 +42,10 @@ import PlayerPreferences from '../components/PlayerPreferences'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
+import ShareAction from '../components/ShareAction'
 import { editorialEntries, isUnread, hasUnreadUpdates, type UpdateEntry } from '../lib/updates'
+import { prepareProfileShare } from '../lib/share-profile'
+import { track } from '../lib/analytics'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
 
@@ -422,11 +425,22 @@ export default function Profile() {
               .join(' · ')}
           </div>
         </div>
-        <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
-          <span class="tap-face">
-            <Icon name="pencil" /> Edit
-          </span>
-        </button>
+        <div class="ed-you__identity-actions">
+          <ShareAction
+            prepare={prepareProfileShare}
+            idleLabel="Share"
+            preparingLabel="Preparing…"
+            sharedMessage="Profile shared."
+            className="ed-link-action ed-link-action--profile"
+            buttonClassName="ed-profile__edit"
+            onComplete={() => track('profile.shared')}
+          />
+          <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
+            <span class="tap-face">
+              <Icon name="pencil" /> Edit
+            </span>
+          </button>
+        </div>
       </header>
 
       <ScopeRow

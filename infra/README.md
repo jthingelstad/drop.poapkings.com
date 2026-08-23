@@ -4,7 +4,7 @@
 as one CloudFormation stack:
 
 - a private S3 web bucket behind a CloudFront origin access control;
-- a retained private S3 bucket for permanent server-rendered run preview PNGs;
+- a retained private S3 bucket for permanent run, badge, and profile preview PNGs;
 - one CloudFront distribution that serves static assets and sends `/api/*`,
   `/share/*`, and `/share-assets/*` to the existing HTTP API, plus a small
   request function for classification, viewer-IP forwarding, prefix, and

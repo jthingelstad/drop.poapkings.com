@@ -32,10 +32,13 @@ import {
   deletePlayerShareImages,
   deleteRunShareImage,
   getBadgeShareImage,
+  getProfileShareImage,
   getRunShareImage,
   putBadgeShareImage,
+  putProfileShareImage,
   putRunShareImage,
   runShareAssetKey,
+  profileShareAssetKey,
 } from "../src/share-assets.js";
 
 describe("private run share assets", () => {
@@ -101,6 +104,24 @@ describe("private run share assets", () => {
     });
   });
 
+  it("uses one retained profile PNG key per player", async () => {
+    expect(profileShareAssetKey("player")).toBe("profile-images/player.v1.png");
+    aws.send.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Body: { transformToByteArray: async () => new Uint8Array([7, 8, 9]) },
+    });
+
+    await putProfileShareImage("bucket", "player", Buffer.from("png"));
+    await expect(getProfileShareImage("bucket", "player")).resolves.toEqual(
+      Buffer.from([7, 8, 9]),
+    );
+
+    expect(aws.send.mock.calls[0]?.[0].input).toMatchObject({
+      Bucket: "bucket",
+      Key: "profile-images/player.v1.png",
+      ContentType: "image/png",
+    });
+  });
+
   it("treats a missing object as a regenerable cache miss", async () => {
     const missing = new Error("missing");
     missing.name = "NoSuchKey";
@@ -132,9 +153,10 @@ describe("private run share assets", () => {
     expect(aws.lists).toEqual([
       { Bucket: "bucket", Prefix: "run-images/player/" },
       { Bucket: "bucket", Prefix: "badge-images/player/" },
+      { Bucket: "bucket", Prefix: "profile-images/player." },
     ]);
-    expect(aws.send).toHaveBeenCalledTimes(5);
-    expect(aws.send.mock.calls[4]?.[0].input).toMatchObject({
+    expect(aws.send).toHaveBeenCalledTimes(7);
+    expect(aws.send.mock.calls[6]?.[0].input).toMatchObject({
       Delete: {
         Objects: [{ Key: "run-images/player/b.png" }],
         Quiet: true,

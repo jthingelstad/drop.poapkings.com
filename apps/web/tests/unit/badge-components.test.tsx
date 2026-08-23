@@ -8,7 +8,7 @@ import type { BadgeState } from '../../src/lib/badges'
 import { player } from '../../src/lib/account'
 
 const shareMock = vi.hoisted(() => ({
-  shareBadge: vi.fn()
+  prepareBadgeShare: vi.fn()
 }))
 
 const analyticsMock = vi.hoisted(() => ({
@@ -54,7 +54,10 @@ function buttonNamed(name: string): HTMLButtonElement {
 beforeEach(() => {
   host = document.createElement('div')
   document.body.appendChild(host)
-  shareMock.shareBadge.mockReset()
+  shareMock.prepareBadgeShare.mockReset()
+  shareMock.prepareBadgeShare.mockResolvedValue('https://drop.poapkings.com/share/P1111111111/badge/clockbreaker/4')
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+  Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
   analyticsMock.track.mockReset()
   player.value = { id: 'signed-in-player' } as never
 })
@@ -251,13 +254,25 @@ describe('BadgeGrid', () => {
   })
 
   it.each([
-    ['copied', 'Native sharing is unavailable, so the badge was copied.', true],
+    ['copied', 'Link copied.', true],
     ['shared', 'Badge shared.', true],
-    ['unavailable', 'Sharing is unavailable in this browser.', false],
+    ['unavailable', 'Copy this link:', false],
     ['cancelled', '', false]
   ] as const)('handles the %s badge-sharing outcome', async (outcome, status, tracked) => {
     vi.useFakeTimers()
-    shareMock.shareBadge.mockResolvedValue(outcome)
+    if (outcome === 'shared') {
+      Object.defineProperty(navigator, 'share', { value: vi.fn().mockResolvedValue(undefined), configurable: true })
+    } else if (outcome === 'copied') {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        configurable: true
+      })
+    } else if (outcome === 'cancelled') {
+      Object.defineProperty(navigator, 'share', {
+        value: vi.fn().mockRejectedValue(Object.assign(new Error('cancelled'), { name: 'AbortError' })),
+        configurable: true
+      })
+    }
     draw(
       <BadgeGrid
         states={[badgeState('clockbreaker', 34.2, 3)]}
@@ -269,9 +284,11 @@ describe('BadgeGrid', () => {
     await click(buttonNamed('Clockbreaker, 35s'))
 
     await click(buttonNamed('Share badge'))
-    expect(shareMock.shareBadge).toHaveBeenCalledWith({ slug: 'clockbreaker', rungIndex: 3 })
-    expect(host.querySelector('.ed-badges__share-status')?.textContent).toBe(status)
-    expect(analyticsMock.track).toHaveBeenCalledTimes(tracked ? 1 : 0)
+    await vi.waitFor(() => {
+      expect(shareMock.prepareBadgeShare).toHaveBeenCalledWith({ slug: 'clockbreaker', rungIndex: 3 })
+      expect(host.querySelector('.ed-badges__permalink-status')?.textContent).toBe(status)
+      expect(analyticsMock.track).toHaveBeenCalledTimes(tracked ? 1 : 0)
+    })
 
     if (tracked) {
       expect(buttonNamed(outcome === 'copied' ? 'Copied' : 'Shared').disabled).toBe(false)
@@ -283,12 +300,15 @@ describe('BadgeGrid', () => {
   })
 
   it('disables duplicate share attempts while the native sheet is opening', async () => {
-    let finishShare: ((outcome: 'cancelled') => void) | undefined
-    shareMock.shareBadge.mockReturnValue(
-      new Promise((resolve) => {
-        finishShare = resolve
-      })
-    )
+    let finishShare: (() => void) | undefined
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(
+        new Promise((_resolve, reject) => {
+          finishShare = () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' }))
+        })
+      )
+    })
     draw(
       <BadgeGrid
         states={[badgeState('reps', 100, 0)]}
@@ -305,13 +325,13 @@ describe('BadgeGrid', () => {
     })
     expect(buttonNamed('Opening…').disabled).toBe(true)
     buttonNamed('Opening…').click()
-    expect(shareMock.shareBadge).toHaveBeenCalledOnce()
+    expect(shareMock.prepareBadgeShare).toHaveBeenCalledOnce()
 
     await act(async () => {
-      finishShare?.('cancelled')
+      finishShare?.()
       await Promise.resolve()
     })
-    expect(buttonNamed('Share badge').disabled).toBe(false)
+    await vi.waitFor(() => expect(buttonNamed('Share badge').disabled).toBe(false))
   })
 
   it('does not offer sharing without a complete public identity', async () => {
