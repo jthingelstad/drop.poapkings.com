@@ -704,20 +704,23 @@ durable acknowledgement parses, optional browser progress/badge application can
 never move the run back to the "not recorded" state; a manual retry is reserved
 for failures that remain after the bounded automatic recovery.
 
-A terminal completion rejection (`400`, `403`, `404`, `409`, `410`, or an
-invalid run token) leaves the local result visible and automatically submits an
+Every completion failure that survives bounded automatic recovery submits an
 identity-free report to `POST /run-reports`. The API authenticates the signed
 run or its signed-in owner, derives the same player-visible `#D…` reference,
 and idempotently stores one report under `RUN_REPORTS/REPORT#{runId}` for 180
-days. It records mode, API failure code/status, web build, online/visibility and
-browser-versus-installed state, run age/existence/state, and optional player
-context. It never stores account identity, email, either token, raw IP,
-raw user-agent, or transcript. The blocking notice shows automatic delivery
-state and offers a 1,000-character context field with explicit guidance not to
-include personal information; report failure never hides the original result
-or changes completion behavior. Retryable network/5xx failures stay on the
-existing completion-retry path and do not generate a misleading terminal
-report.
+days. It records mode, API failure code/status (including client transport
+status `0`), web build, online/visibility and browser-versus-installed state,
+run age/existence/state, and optional player context. It never stores account
+identity, email, either token, raw IP, raw user-agent, or transcript.
+
+A terminal rejection (`400`, `403`, `404`, `409`, `410`, or an invalid run
+token) leaves the local result visible; its blocking notice shows automatic
+delivery state and offers a 1,000-character context field with explicit
+guidance not to include personal information. Retryable network/5xx failures
+stay on the existing completion-retry path and report silently. If their first
+report cannot cross the same outage, the Retry recording action replays it
+alongside completion so the diagnostic can arrive when connectivity returns.
+Report delivery never hides the original result or changes completion behavior.
 
 The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Document navigation

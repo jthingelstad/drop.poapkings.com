@@ -751,9 +751,11 @@ describe('useGameRun', () => {
     })
   })
 
-  it('a transient failure leaves a retry notice and does not settle the run', async () => {
+  it('a transient failure reports itself, leaves a retry notice, and does not settle the run', async () => {
     vi.mocked(startRun).mockResolvedValue(startedRun() as never)
-    vi.mocked(completeRun).mockRejectedValue(new Error('network down'))
+    vi.mocked(completeRun).mockRejectedValue(
+      new ApiError(0, 'network_unavailable', 'Drop could not reach player services.')
+    )
     const { api } = mountRun()
     await flush()
     const onUnrecorded = vi.fn()
@@ -763,7 +765,52 @@ describe('useGameRun', () => {
     expect(onUnrecorded).not.toHaveBeenCalled()
     expect(recordingNotice.value.state).toBe('error')
     expect((recordingNotice.value as { actionLabel: string }).actionLabel).toBe('Retry recording')
-    expect(reportRunFailure).not.toHaveBeenCalled()
+    expect(reportRunFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        runToken: 'token-1',
+        failure: { code: 'network_unavailable', status: 0 },
+        client: expect.objectContaining({ buildId: expect.any(String), online: true })
+      }),
+      'session-token'
+    )
+    expect(recordingNotice.value).not.toHaveProperty('report')
+  })
+
+  it('retries an unsent transient report alongside the player recording retry', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun)
+      .mockRejectedValueOnce(new ApiError(0, 'request_timeout', 'Player services took too long to respond.'))
+      .mockResolvedValueOnce(acceptedResult('surge', 3_100) as never)
+    vi.mocked(reportRunFailure)
+      .mockRejectedValueOnce(new Error('report network down'))
+      .mockResolvedValueOnce({
+        accepted: true,
+        reportId: 'report-1',
+        runReference: runReference('run-1'),
+        contextSaved: false
+      })
+    const { api } = mountRun()
+    await flush()
+
+    await act(async () => {
+      await api().complete({ answers: [] })
+    })
+    await flush()
+    const notice = recordingNotice.value
+    expect(notice).toMatchObject({ state: 'error', actionLabel: 'Retry recording' })
+    if (notice.state !== 'error') throw new Error('Expected retry notice')
+
+    await act(async () => {
+      notice.action()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await flush()
+
+    expect(reportRunFailure).toHaveBeenCalledTimes(2)
+    expect(completeRun).toHaveBeenCalledTimes(2)
+    expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Game recorded' })
   })
 
   // The all-time local best mirrors the leaderboard: it is written HERE, on the

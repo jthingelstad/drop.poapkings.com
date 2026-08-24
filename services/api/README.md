@@ -18,8 +18,8 @@ Responsibilities in this release:
   name/clan/account-age/card snapshots;
 - short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
-- identity-free, run-bound reports for terminal completion failures, with
-  optional player context and a 180-day TTL;
+- identity-free, run-bound reports for terminal and retryable completion
+  failures, with optional player context and a 180-day TTL;
 - lifetime player game counts and server-computed Player XP feeding the 28-tier
   arena: fixed, performance-banded, and Practice-card game awards plus exact-once
   personal-best, featured, badge-rung, and season-final awards;
@@ -79,9 +79,10 @@ that owns the run. The public site and leaderboards remain browsable without an
 account.
 
 `POST /run-reports` is the best-effort diagnostic path for a signed run whose
-completion reaches a terminal 4xx response. It accepts the run ID/token, the
-failure code/status, coarse client state (build, online/visibility, and browser
-versus installed display mode), and optional context capped at 1,000 characters.
+completion fails after bounded automatic recovery. It accepts the run ID/token,
+the failure code/status (`0` for client transport failures, or HTTP `4xx`/`5xx`),
+coarse client state (build, online/visibility, and browser versus installed
+display mode), and optional context capped at 1,000 characters.
 The API verifies the signed run or its signed-in owner, derives the `#D…`
 reference server-side, and idempotently upserts one `RUN_REPORTS/REPORT#{runId}`
 item. Repeating the request attaches context to the same report. Reports expire

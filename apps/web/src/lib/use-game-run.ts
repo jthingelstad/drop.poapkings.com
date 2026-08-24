@@ -2,7 +2,7 @@ import { signal, useSignal } from '@preact/signals'
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import { runReference, type GameMode, type RunChallenge, type StartedRun, type XpAward } from '@elixir-drop/contracts'
 import { applyBadgeSummary, applyRunProgress, recordRecentRun, sessionToken, signOut } from './account'
-import { ApiError, completeRun, reportRunFailure, startRun } from './api'
+import { ApiError, completeRun, reportRunFailure, startRun, type RunFailureReportInput } from './api'
 import { buildMeta } from './build'
 import { betterScore, isRecordedMode, LOWER_IS_BETTER, RECORD_KEYS } from './game-metadata'
 import { getRecords, getSeasonRecords, saveRecords, saveSeasonRecord } from './storage'
@@ -92,11 +92,20 @@ function reportClientMetadata() {
   }
 }
 
-function failureReportControl(active: StartedRun, error: unknown): FailureReportControl {
-  const failure = {
-    code: error instanceof ApiError ? error.code : 'unknown_failure',
-    status: error instanceof ApiError ? error.status : 0
+function failureReportInput(active: StartedRun, error: unknown): RunFailureReportInput {
+  return {
+    runId: active.runId,
+    runToken: active.runToken,
+    failure: {
+      code: error instanceof ApiError ? error.code : 'unknown_failure',
+      status: error instanceof ApiError ? error.status : 0
+    },
+    client: reportClientMetadata()
   }
+}
+
+function failureReportControl(active: StartedRun, error: unknown): FailureReportControl {
+  const report = failureReportInput(active, error)
 
   const update = (state: FailureReportControl['state']) => {
     const current = recordingNotice.value
@@ -109,10 +118,7 @@ function failureReportControl(active: StartedRun, error: unknown): FailureReport
     try {
       await reportRunFailure(
         {
-          runId: active.runId,
-          runToken: active.runToken,
-          failure,
-          client: reportClientMetadata(),
+          ...report,
           ...(context ? { context } : {})
         },
         sessionToken()
@@ -135,6 +141,31 @@ function failureReportControl(active: StartedRun, error: unknown): FailureReport
     state: 'sending',
     retry: () => void send(),
     submitContext: (context: string) => send(context)
+  }
+}
+
+// A retryable completion failure is still an operational failure worth seeing.
+// Keep its report out of the blocking UI, but retain one reporter beside the
+// Retry action: an immediate attempt captures a live 5xx, while a failed
+// network report is replayed when the player retries after connectivity returns.
+function retryableFailureReporter(active: StartedRun, error: unknown): () => void {
+  const report = failureReportInput(active, error)
+  let state: 'idle' | 'sending' | 'sent' | 'failed' = 'idle'
+  return () => {
+    if (state === 'sending' || state === 'sent') return
+    state = 'sending'
+    void reportRunFailure(report, sessionToken()).then(
+      () => {
+        state = 'sent'
+      },
+      (reportError: unknown) => {
+        state = 'failed'
+        console.warn('Retryable run error report could not be submitted', {
+          mode: active.mode,
+          error: reportError instanceof Error ? reportError.name : 'unknown'
+        })
+      }
+    )
   }
 }
 
@@ -329,12 +360,15 @@ export function useGameRun<T extends GameMode>(mode: T) {
         mode,
         error: error instanceof Error ? error.message : 'unknown'
       })
+      const reportRetryableFailure = retryableFailureReporter(active, error)
+      reportRetryableFailure()
       setRecordingNotice({
         state: 'error',
         message: 'This game has not been recorded yet. Keep this page open and try again.',
         detail: 'Your score and progress will stay here while Drop reconnects.',
         actionLabel: 'Retry recording',
         action: () => {
+          reportRetryableFailure()
           const pending = pendingCompletion.current
           if (pending) void submitCompletion(pending.run, pending.transcript, pending.onRecorded, pending.onUnrecorded)
         }

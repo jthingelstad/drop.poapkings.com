@@ -152,6 +152,85 @@ test(
 )
 
 test(
+  'a completion failure that reaches Retry recording reports itself and still saves on retry',
+  { tag: '@deploy' },
+  async ({ page }) => {
+    allowExpectedApiErrors.add(page)
+    let completionAttempts = 0
+    const reportBodies: Array<Record<string, unknown>> = []
+    await page.unroute(testApiRoute)
+    await page.route(testApiRoute, async (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/auth/refresh') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ session: testSession })
+        })
+        return
+      }
+      if (path === '/me') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ player: testPlayer, recentRuns: [] })
+        })
+        return
+      }
+      if (path === '/runs/complete') {
+        completionAttempts += 1
+        if (completionAttempts <= 2) {
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Try again.' } })
+          })
+          return
+        }
+      }
+      if (path === '/run-reports') {
+        reportBodies.push(route.request().postDataJSON() as Record<string, unknown>)
+        await route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            accepted: true,
+            reportId: 'report-retryable',
+            runReference: '#DRETRY',
+            contextSaved: false
+          })
+        })
+        return
+      }
+      if (await fulfillTestRun(route)) return
+      if (await fulfillSupportData(route)) return
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+    })
+
+    await page.goto('/#/survival')
+    await waitForKeypad(page)
+    const cardName = await page.locator('.pcard__img').getAttribute('alt')
+    const card = cardsData.cards.find((candidate) => candidate.name === cardName)
+    expect(card).toBeTruthy()
+    const wrongCost = card?.elixir === 1 ? 2 : 1
+    await page.getByRole('button', { name: `${wrongCost} elixir`, exact: true }).click()
+
+    await expect(page.getByRole('button', { name: 'Retry recording' })).toBeVisible()
+    await expect.poll(() => reportBodies.length).toBe(1)
+    expect(reportBodies[0]).toMatchObject({
+      runId: expect.any(String),
+      failure: { code: 'temporarily_unavailable', status: 503 },
+      client: { buildId: expect.any(String), online: true, visibility: 'visible', displayMode: 'browser' }
+    })
+
+    await page.getByRole('button', { name: 'Retry recording' }).click()
+    await expect(page.getByText('Game recorded', { exact: true })).toBeVisible()
+    expect(completionAttempts).toBe(3)
+    expect(reportBodies).toHaveLength(1)
+  }
+)
+
+test(
   'a permanently rejected game reports itself and accepts optional context',
   { tag: '@deploy' },
   async ({ page }) => {

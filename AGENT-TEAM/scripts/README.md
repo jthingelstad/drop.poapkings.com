@@ -25,9 +25,11 @@ funnel.
 
 ## Run Drop failure intake
 
-Terminal game-completion failures are stored without player identity under the
-single `RUN_REPORTS` DynamoDB partition. Run Drop lists and triages them through
-the dedicated `elixir-drop-run-reports` role:
+Game-completion failures that survive the browser's bounded automatic recovery
+are stored without player identity under the single `RUN_REPORTS` DynamoDB
+partition. This includes terminal rejections and retryable transport/5xx
+failures; a later successful recording does not erase the diagnostic. Run Drop
+lists and triages them through the dedicated `elixir-drop-run-reports` role:
 
 ```sh
 AWS_PROFILE=run-reports AWS_REGION=us-east-1 \

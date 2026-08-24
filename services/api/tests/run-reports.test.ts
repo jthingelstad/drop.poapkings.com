@@ -219,15 +219,23 @@ describe("run failure reports", () => {
     expect(repository.upsertRunReport).not.toHaveBeenCalled();
   });
 
-  it("rejects a retryable server failure as a terminal report", async () => {
-    const response = await invoke(
-      reportBody({
-        failure: { code: "service_unavailable", status: 503 },
-      }),
-      sessionToken(),
-    );
+  it.each([
+    ["network_unavailable", 0],
+    ["service_unavailable", 503],
+  ])(
+    "stores retryable %s failures for operational diagnosis",
+    async (code, status) => {
+      const response = await invoke(
+        reportBody({
+          failure: { code, status },
+        }),
+        sessionToken(),
+      );
 
-    expect(response.statusCode).toBe(400);
-    expect(repository.upsertRunReport).not.toHaveBeenCalled();
-  });
+      expect(response.statusCode).toBe(202);
+      expect(repository.upsertRunReport).toHaveBeenCalledWith(
+        expect.objectContaining({ failureCode: code, failureStatus: status }),
+      );
+    },
+  );
 });

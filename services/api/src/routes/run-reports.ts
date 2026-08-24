@@ -45,8 +45,7 @@ function failureFrom(value: unknown): {
   if (
     typeof failure.status !== "number" ||
     !Number.isSafeInteger(failure.status) ||
-    failure.status < 400 ||
-    failure.status > 499
+    (failure.status !== 0 && (failure.status < 400 || failure.status > 599))
   )
     throw new Error("Failure status is invalid");
   return { code: failure.code, status: failure.status };
@@ -82,10 +81,11 @@ function clientFrom(value: unknown): {
   };
 }
 
-// POST /run-reports — capture a terminal completion failure without collecting
+// POST /run-reports — capture a completion failure without collecting
 // account identity, request headers, or play transcripts. Repeating the request
-// for the same run updates the existing report, which lets the player attach
-// optional context after the automatic report succeeds.
+// for the same run updates the existing report. Terminal failures may attach
+// optional player context; retryable network/5xx reports remain operational
+// diagnostics and do not change the run's completion/retry behavior.
 export async function reportRunFailure({
   event,
   config,
