@@ -12,20 +12,25 @@ import { seasonForDate } from "../seasons.js";
 import type { PlayerProfile } from "../types.js";
 
 const RECOVERY_REASON = "practice_client_state_lost";
-const EVIDENCE_REFERENCE = "BROWSER#CARD_STATS_MINUS_SERVER";
+const BROWSER_DELTA_EVIDENCE = "BROWSER#CARD_STATS_MINUS_SERVER";
+const ATTESTED_LOWER_BOUND_EVIDENCE =
+  "PLAYER_ATTESTATION#PHOTO_CLOCK_LOWER_BOUND";
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface PracticeRecoveryArgs {
   apply: boolean;
   tableName: string;
+  sourceTableName?: string;
   runId: string;
   playerId: string;
   completedAt: string;
-  localSeen: number;
-  localCorrect: number;
-  serverSeen: number;
-  serverCorrect: number;
+  localSeen?: number;
+  localCorrect?: number;
+  serverSeen?: number;
+  serverCorrect?: number;
+  attestedAnswers?: number;
+  estimatedAccuracy?: number;
 }
 
 export interface PracticeRecoveryPlan {
@@ -35,6 +40,7 @@ export interface PracticeRecoveryPlan {
   seasonId: number;
   score: number;
   evidence: PracticeRecoveryEvidence;
+  evidenceSk: string;
   wallElapsedMs: number;
 }
 
@@ -66,12 +72,15 @@ export function parsePracticeRecoveryArgs(
 ): PracticeRecoveryArgs {
   const flagsWithValues = new Set([
     "--table",
+    "--source-table",
     "--player-id",
     "--completed-at",
     "--local-seen",
     "--local-correct",
     "--server-seen",
     "--server-correct",
+    "--attested-answers",
+    "--estimated-accuracy",
   ]);
   const consumed = new Set<number>();
   for (let index = 0; index < argv.length; index += 1) {
@@ -92,17 +101,68 @@ export function parsePracticeRecoveryArgs(
     tableIndex >= 0
       ? valueAfter(argv, "--table")
       : process.env.DROP_TABLE_NAME || process.env.TABLE_NAME || "elixir-drop";
+  const sourceTableName = argv.includes("--source-table")
+    ? valueAfter(argv, "--source-table")
+    : undefined;
+  if (
+    sourceTableName &&
+    (!sourceTableName.startsWith("elixir-drop-recovery-") ||
+      sourceTableName === tableName)
+  )
+    throw new Error(
+      "--source-table must name a separate elixir-drop-recovery-* table",
+    );
+
+  const browserFlags = [
+    "--local-seen",
+    "--local-correct",
+    "--server-seen",
+    "--server-correct",
+  ];
+  const browserFlagCount = browserFlags.filter((flag) =>
+    argv.includes(flag),
+  ).length;
+  const hasAttestedAnswers = argv.includes("--attested-answers");
+  const hasEstimatedAccuracy = argv.includes("--estimated-accuracy");
+  if (browserFlagCount && (hasAttestedAnswers || hasEstimatedAccuracy))
+    throw new Error(
+      "Use either browser-delta evidence or attested lower-bound evidence",
+    );
+  if (browserFlagCount !== 0 && browserFlagCount !== browserFlags.length)
+    throw new Error("Browser-delta recovery requires all four counter flags");
+  if (hasAttestedAnswers !== hasEstimatedAccuracy)
+    throw new Error(
+      "Attested recovery requires --attested-answers and --estimated-accuracy",
+    );
+  if (browserFlagCount === 0 && !hasAttestedAnswers)
+    throw new Error(
+      "Pass browser-delta counters or an attested answer lower bound",
+    );
+
+  const estimatedAccuracy = hasEstimatedAccuracy
+    ? countAfter(argv, "--estimated-accuracy")
+    : undefined;
+  if (estimatedAccuracy !== undefined && estimatedAccuracy > 100)
+    throw new Error("--estimated-accuracy must be between 0 and 100");
 
   return {
     apply: argv.includes("--apply"),
     tableName,
+    ...(sourceTableName ? { sourceTableName } : {}),
     runId: positional[0]!,
     playerId,
     completedAt: isoAfter(argv, "--completed-at"),
-    localSeen: countAfter(argv, "--local-seen"),
-    localCorrect: countAfter(argv, "--local-correct"),
-    serverSeen: countAfter(argv, "--server-seen"),
-    serverCorrect: countAfter(argv, "--server-correct"),
+    ...(browserFlagCount
+      ? {
+          localSeen: countAfter(argv, "--local-seen"),
+          localCorrect: countAfter(argv, "--local-correct"),
+          serverSeen: countAfter(argv, "--server-seen"),
+          serverCorrect: countAfter(argv, "--server-correct"),
+        }
+      : {
+          attestedAnswers: countAfter(argv, "--attested-answers"),
+          estimatedAccuracy,
+        }),
   };
 }
 
@@ -120,18 +180,62 @@ export function planPracticeRecovery(
     );
   if (profile.sub !== run.owner || profile.playerId !== input.playerId)
     throw new Error("The expected player does not own the retained run");
-  if (input.localCorrect > input.localSeen)
-    throw new Error("Local correct count exceeds local seen count");
-  if (input.serverCorrect > input.serverSeen)
-    throw new Error("Server correct count exceeds server seen count");
-  const answerCount = input.localSeen - input.serverSeen;
-  const correctCount = input.localCorrect - input.serverCorrect;
+  const isAttested = input.attestedAnswers !== undefined;
+  let answerCount: number;
+  let correctCount: number;
+  let score: number;
+  let evidence: PracticeRecoveryEvidence;
+  let evidenceSk: string;
+  if (isAttested) {
+    if (
+      input.estimatedAccuracy === undefined ||
+      !Number.isSafeInteger(input.estimatedAccuracy) ||
+      input.estimatedAccuracy < 0 ||
+      input.estimatedAccuracy > 100
+    )
+      throw new Error("Attested recovery has invalid estimated accuracy");
+    answerCount = input.attestedAnswers!;
+    score = input.estimatedAccuracy;
+    correctCount = Math.round((answerCount * score) / 100);
+    evidenceSk = ATTESTED_LOWER_BOUND_EVIDENCE;
+    evidence = {
+      playerId: input.playerId,
+      method: "attested_lower_bound",
+      estimatedAccuracy: score,
+      answerCount,
+      correctCount,
+    };
+  } else {
+    const { localSeen, localCorrect, serverSeen, serverCorrect } = input;
+    if (
+      localSeen === undefined ||
+      localCorrect === undefined ||
+      serverSeen === undefined ||
+      serverCorrect === undefined
+    )
+      throw new Error("Browser-delta recovery is missing counter evidence");
+    if (localCorrect > localSeen)
+      throw new Error("Local correct count exceeds local seen count");
+    if (serverCorrect > serverSeen)
+      throw new Error("Server correct count exceeds server seen count");
+    answerCount = localSeen - serverSeen;
+    correctCount = localCorrect - serverCorrect;
+    score = Math.round((correctCount / answerCount) * 100);
+    evidenceSk = BROWSER_DELTA_EVIDENCE;
+    evidence = {
+      playerId: input.playerId,
+      localSeen,
+      localCorrect,
+      serverSeen,
+      serverCorrect,
+      answerCount,
+      correctCount,
+    };
+  }
   if (answerCount < 1 || answerCount > PRACTICE_MAX_ANSWERS)
-    throw new Error(
-      "Local-minus-server answer count is outside Practice limits",
-    );
+    throw new Error("Recovery answer count is outside Practice limits");
   if (correctCount < 0 || correctCount > answerCount)
-    throw new Error("Local-minus-server correct count is inconsistent");
+    throw new Error("Recovery correct count is inconsistent");
 
   const completedAtMs = Date.parse(input.completedAt);
   const startedAtMs = Date.parse(run.startedAt);
@@ -142,7 +246,6 @@ export function planPracticeRecovery(
   )
     throw new Error("Recovery completion time is outside the retained run");
   const wallElapsedMs = completedAtMs - startedAtMs;
-  const score = Math.round((correctCount / answerCount) * 100);
   const integrity = assessRunIntegrity(
     "practice",
     score,
@@ -154,15 +257,6 @@ export function planPracticeRecovery(
       `Aggregate Practice evidence fails integrity: ${integrity.reason}`,
     );
 
-  const evidence: PracticeRecoveryEvidence = {
-    playerId: input.playerId,
-    localSeen: input.localSeen,
-    localCorrect: input.localCorrect,
-    serverSeen: input.serverSeen,
-    serverCorrect: input.serverCorrect,
-    answerCount,
-    correctCount,
-  };
   return {
     run: { ...run, answerCount },
     profile,
@@ -170,6 +264,7 @@ export function planPracticeRecovery(
     seasonId,
     score,
     evidence,
+    evidenceSk,
     wallElapsedMs,
   };
 }
@@ -201,8 +296,16 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     throw new Error("Practice recovery requires ProjectsCloudEngineer");
 
   const repository = new Repository(args.tableName);
-  const run = await repository.getRun(args.runId);
+  const retainedRun = await repository.getRun(args.runId);
+  const sourceRun =
+    !retainedRun && args.sourceTableName
+      ? await new Repository(args.sourceTableName).getRun(args.runId)
+      : undefined;
+  const run = retainedRun ?? sourceRun;
   if (!run) throw new Error("The retained Practice run was not found");
+  const createRun = !retainedRun && sourceRun !== undefined;
+  if (createRun && run.state !== "started")
+    throw new Error("The source Practice run is not in started state");
   const profile = await repository.getProfile(run.owner);
   if (!profile)
     throw new Error("The retained Practice run has no player profile");
@@ -211,7 +314,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const plan = planPracticeRecovery(run, profile, args, season.id);
   let marker = await repository.getRunRecovery(run.runId);
 
-  if (run.state === "completed" && !marker) {
+  if (retainedRun?.state === "completed" && !marker) {
     if (
       run.score !== plan.score ||
       run.answerCount !== plan.evidence.answerCount
@@ -224,14 +327,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     );
     return;
   }
-  if (run.state === "started" && marker)
+  if (retainedRun?.state === "started" && marker)
     throw new Error("A recovery marker exists for a started Practice run");
   if (
     marker &&
     (marker.mode !== "practice" ||
       marker.score !== plan.score ||
       marker.seasonId !== plan.seasonId ||
-      marker.evidenceSk !== EVIDENCE_REFERENCE ||
+      marker.evidenceSk !== plan.evidenceSk ||
       !sameEvidence(marker.practiceEvidence, plan.evidence))
   )
     throw new Error("The existing Practice recovery does not match this plan");
@@ -248,6 +351,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     wallElapsedMs: plan.wallElapsedMs,
     xpBasis: { practiceCards: plan.evidence.answerCount },
     learningDetail: "not_reconstructed",
+    evidence: plan.evidenceSk,
+    reconstructExpiredRun: createRun,
   };
   if (!args.apply) {
     process.stdout.write(
@@ -281,9 +386,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       {
         completedAt: plan.completedAt,
         recoveredAt,
-        evidenceSk: EVIDENCE_REFERENCE,
+        evidenceSk: plan.evidenceSk,
         reason: RECOVERY_REASON,
         practiceEvidence: plan.evidence,
+        ...(createRun ? { createRun: true } : {}),
       },
     );
     finalProfile = completed.profile;

@@ -69,9 +69,63 @@ describe("Practice run recovery", () => {
 
     expect(plan.evidence.answerCount).toBe(2600);
     expect(plan.evidence.correctCount).toBe(2100);
+    expect(plan.evidence.method).toBeUndefined();
     expect(plan.score).toBe(81);
     expect(plan.wallElapsedMs).toBe(60 * 60 * 1000);
     expect(plan.run.answerCount).toBe(2600);
+  });
+
+  it("records an attested lower bound without presenting accuracy as measured", () => {
+    const parsed = parsePracticeRecoveryArgs([
+      run.runId,
+      "--player-id",
+      profile.playerId,
+      "--completed-at",
+      "2026-08-25T17:00:00.000Z",
+      "--source-table",
+      "elixir-drop-recovery-20260825-1227",
+      "--attested-answers",
+      "2000",
+      "--estimated-accuracy",
+      "92",
+    ]);
+    const plan = planPracticeRecovery(run, profile, parsed, 136);
+
+    expect(parsed.sourceTableName).toBe("elixir-drop-recovery-20260825-1227");
+    expect(plan).toMatchObject({
+      score: 92,
+      evidenceSk: expect.stringContaining("PLAYER_ATTESTATION"),
+    });
+    expect(plan.evidence).toEqual({
+      playerId: profile.playerId,
+      method: "attested_lower_bound",
+      estimatedAccuracy: 92,
+      answerCount: 2000,
+      correctCount: 1840,
+    });
+  });
+
+  it("refuses mixed or incomplete recovery evidence", () => {
+    expect(() =>
+      parsePracticeRecoveryArgs([
+        ...argv,
+        "--attested-answers",
+        "2000",
+        "--estimated-accuracy",
+        "92",
+      ]),
+    ).toThrow(/either browser-delta evidence or attested/);
+    expect(() =>
+      parsePracticeRecoveryArgs([
+        run.runId,
+        "--player-id",
+        profile.playerId,
+        "--completed-at",
+        "2026-08-25T17:00:00.000Z",
+        "--attested-answers",
+        "2000",
+      ]),
+    ).toThrow(/requires --attested-answers and --estimated-accuracy/);
   });
 
   it("refuses the wrong owner or inconsistent browser delta", () => {
@@ -87,6 +141,22 @@ describe("Practice run recovery", () => {
     expect(() =>
       planPracticeRecovery(run, profile, { ...parsed, serverSeen: 3001 }, 136),
     ).toThrow(/outside Practice limits/);
+    expect(() =>
+      planPracticeRecovery(
+        run,
+        profile,
+        {
+          ...parsed,
+          localSeen: undefined,
+          localCorrect: undefined,
+          serverSeen: undefined,
+          serverCorrect: undefined,
+          attestedAnswers: 2000,
+          estimatedAccuracy: 101,
+        },
+        136,
+      ),
+    ).toThrow(/estimated accuracy/);
   });
 
   it("refuses an aggregate faster than the Practice UI can produce", () => {

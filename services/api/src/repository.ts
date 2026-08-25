@@ -216,10 +216,12 @@ export interface RunRecoveryOptions {
 
 export interface PracticeRecoveryEvidence {
   playerId: string;
-  localSeen: number;
-  localCorrect: number;
-  serverSeen: number;
-  serverCorrect: number;
+  method?: "browser_delta" | "attested_lower_bound";
+  localSeen?: number;
+  localCorrect?: number;
+  serverSeen?: number;
+  serverCorrect?: number;
+  estimatedAccuracy?: number;
   answerCount: number;
   correctCount: number;
 }
