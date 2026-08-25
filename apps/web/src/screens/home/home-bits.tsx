@@ -280,20 +280,22 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
   )
 }
 
-// A full-width Home row: art | name + meta | PLAY pill. The whole row remains the
-// button so its generous tap target is unchanged. Ranked actions are gold;
-// Practice is the one purple exception.
+// A full-width Home row: art | name + meta | action pill. The whole row remains
+// the button so its generous tap target is unchanged. Ranked actions are gold;
+// Practice is the one purple exception and may resume its durable draft.
 export function HomeRow({
   visual,
   name,
   meta,
   tone,
+  actionLabel = 'PLAY',
   onClick
 }: {
   visual: ComponentChildren
   name: string
   meta: string
   tone: 'ranked' | 'drill'
+  actionLabel?: 'PLAY' | 'RESUME'
   onClick: () => void
 }) {
   return (
@@ -310,7 +312,7 @@ export function HomeRow({
         <span class="ed-grow__meta">{meta}</span>
       </span>
       <span class="ed-grow__play" aria-hidden="true">
-        <Icon name="play" /> PLAY
+        <Icon name="play" /> {actionLabel}
       </span>
     </button>
   )

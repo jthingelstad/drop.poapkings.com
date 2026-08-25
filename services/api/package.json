@@ -12,6 +12,7 @@
     "migrate:season-numbers": "esbuild scripts/migrate-season-numbers.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=dist/migrate-season-numbers.cjs && node dist/migrate-season-numbers.cjs",
     "cleanup:zero-leaderboards": "node scripts/cleanup-zero-leaderboards.mjs",
     "recover:rain-runs": "esbuild src/maintenance/recover-rain-runs.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-rain-runs.cjs && node dist/recover-rain-runs.cjs",
+    "recover:practice-run": "esbuild src/maintenance/recover-practice-run.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-practice-run.cjs && node dist/recover-practice-run.cjs",
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/handler.cjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

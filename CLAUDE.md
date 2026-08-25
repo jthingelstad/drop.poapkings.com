@@ -519,7 +519,9 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   from recall; offer a voluntary scaffold after seven idle seconds; give keypad
   recall one anchored higher/lower retry before revealing the exact value; and
   return misses through the spaced-review queue. The solved cost must hold over
-  the card for at least 300ms and leave attached to that card.
+  the card for at least 300ms and leave attached to that card. Journal the active
+  signed run, first-read transcript, and review queue on-device until completion
+  succeeds so a route loss or reload can resume the same session.
 - **Two-row keypad:** the pip keypad is always dealt as two full-width rows (1–5
   over 6–9), roughly doubling key width because mistaps happen sideways. Asked for
   by Drop's fastest Surge players, and now the ONLY layout — the old single row of

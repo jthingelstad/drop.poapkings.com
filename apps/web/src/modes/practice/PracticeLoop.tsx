@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { Card, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
@@ -35,6 +35,15 @@ import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
+import { player } from '../../lib/account'
+import {
+  beginPracticeDraft,
+  clearPracticeDraft,
+  loadPracticeDraft,
+  savePracticeDraft,
+  type PracticeDraft,
+  type PracticeDraftAnswer
+} from '../../lib/practice-draft'
 
 const CORRECT_HOLD_MS = 300
 const REVEALED_ANSWER_HOLD_MS = 1_600
@@ -109,14 +118,31 @@ function narrowedChoices(choices: readonly number[], answer: number): number[] {
 // to return after a retrieval gap; and the correct value remains attached to the
 // card through its art-ready exit animation.
 export default function PracticeLoop({ eyebrow, onExit }: Props) {
-  const gameRun = useGameSession('practice', challengePreparers.practice)
-  const runtime = useGameRuntime({ initialStage: 'running', guardActiveRun: false, trackElapsed: false })
+  const restoredDraft = useMemo(() => loadPracticeDraft(player.peek()?.id ?? null), [])
+  const draft = useRef<PracticeDraft | null>(restoredDraft)
+  const gameRun = useGameSession('practice', challengePreparers.practice, {
+    run: {
+      initialRun: restoredDraft?.run,
+      onRunPrepared: (run) => {
+        draft.current = beginPracticeDraft(run, player.peek()?.id ?? null)
+      }
+    }
+  })
+  const runtime = useGameRuntime({
+    initialStage: 'running',
+    guardActiveRun: Boolean(gameRun.content),
+    trackElapsed: false
+  })
   const exit = onExit ?? (() => navigate('/'))
   const answers = useRef<Answer[]>([])
-  const serverAnswers = useRef<Array<{ cardId: number; guess: number; responseMs: number; assisted: boolean }>>([])
+  const draftAnswers = useRef<PracticeDraftAnswer[]>(restoredDraft?.answers ?? [])
+  const serverAnswers = useRef(
+    draftAnswers.current.map(({ cardId, guess, responseMs, assisted }) => ({ cardId, guess, responseMs, assisted }))
+  )
+  const restoredHydrated = useRef(restoredDraft === null || restoredDraft.answers.length === 0)
   const recorded = useRef(false)
   const wrongAttempts = useRef(0)
-  const reviewQueue = useRef<PracticeReviewItem[]>([])
+  const reviewQueue = useRef<PracticeReviewItem[]>(restoredDraft?.reviewQueue ?? [])
   const promptStartedAt = useRef(0)
   const promptPausedAt = useRef<number | null>(null)
   const promptPausedMs = useRef(0)
@@ -138,7 +164,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const dealt = useSignal<Hand | null>(null)
   const openingGeneration = useSignal(0)
   const openingReadyId = useSignal<number | null>(null)
-  const answered = useSignal(0)
+  const answered = useSignal(restoredDraft?.answers.length ?? 0)
   const phase = useSignal<'playing' | 'correct' | 'wrong'>('playing')
   const hint = useSignal<'higher' | 'lower' | null>(null)
   const hintGuess = useSignal<number | null>(null)
@@ -152,9 +178,33 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const achievementCue = useSignal(0)
   const achievementText = useSignal('')
   const reinforcedCost = useSignal<number | null>(null)
-  const correct = useSignal(0)
-  const recovered = useSignal(0)
+  const correct = useSignal(restoredDraft?.answers.filter((answer) => answer.correct).length ?? 0)
+  const recovered = useSignal(restoredDraft?.recovered ?? 0)
   const insights = useSignal<Insights | null>(null)
+
+  useEffect(() => {
+    if (!deck || restoredHydrated.current) return
+    const cards = new Map(deck.map((card) => [card.id, card]))
+    const hydrated = draftAnswers.current.flatMap((answer) => {
+      const card = cards.get(answer.cardId)
+      return card
+        ? [
+            {
+              card,
+              guess: answer.guess,
+              correct: answer.correct,
+              ...(answer.assisted ? {} : { ms: answer.responseMs }),
+              assisted: answer.assisted,
+              ...(answer.reviewStage ? { reviewStage: answer.reviewStage } : {})
+            } satisfies Answer
+          ]
+        : []
+    })
+    if (hydrated.length === draftAnswers.current.length) {
+      answers.current = hydrated
+      restoredHydrated.current = true
+    }
+  }, [deck])
 
   useEffect(() => {
     preloadGameFx()
@@ -332,6 +382,8 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     pendingExit.current = null
     const list = answers.current
     if (list.length === 0) {
+      clearPracticeDraft(draft.current?.run.runId)
+      draft.current = null
       exit()
       return
     }
@@ -340,7 +392,12 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     // Online sessions persist validated recall, response time, and assistance.
     // Offline completion is swallowed by use-game-run; the same local learning
     // signals still drive this device and nothing is queued for reconnect.
-    void gameRun.complete({ answers: serverAnswers.current })
+    const runId = draft.current?.run.runId
+    const clearRecordedDraft = () => {
+      clearPracticeDraft(runId)
+      if (draft.current?.run.runId === runId) draft.current = null
+    }
+    void gameRun.complete({ answers: serverAnswers.current }, clearRecordedDraft, clearRecordedDraft)
     runtime.finish()
   }
 
@@ -360,12 +417,26 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       ...(current.reviewStage ? { reviewStage: current.reviewStage } : {})
     })
     serverAnswers.current.push({ cardId: current.card.id, guess: picked, responseMs: elapsed, assisted })
+    draftAnswers.current.push({
+      cardId: current.card.id,
+      guess: picked,
+      responseMs: elapsed,
+      assisted,
+      correct: isCorrect,
+      ...(current.reviewStage ? { reviewStage: current.reviewStage } : {})
+    })
     answered.value++
     scheduleMissedCard(current, isCorrect, assisted)
 
     if (isCorrect) {
       correct.value++
     }
+    if (draft.current)
+      savePracticeDraft(draft.current, {
+        answers: draftAnswers.current,
+        reviewQueue: reviewQueue.current,
+        recovered: recovered.peek()
+      })
   }
 
   function revealAnswer(current: Hand): void {
@@ -438,6 +509,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     runtime.reset('running')
     answers.current = []
     serverAnswers.current = []
+    draftAnswers.current = []
     reviewQueue.current = reviewCards.map((card, index) => ({
       cardId: card.id,
       dueAtAnswered: index,

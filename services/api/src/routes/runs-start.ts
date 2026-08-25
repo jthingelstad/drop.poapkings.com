@@ -14,6 +14,7 @@ import {
 } from "./context.js";
 
 export const RUN_SECONDS = 60 * 60;
+export const PRACTICE_RUN_SECONDS = 24 * 60 * 60;
 // The run token stays verifiable well past run.expiresAt so a late completion
 // reaches the explicit 410 run_expired branch instead of dying in verifyToken
 // as a generic 401 (which the web app treats as session loss).
@@ -40,6 +41,8 @@ export async function startRun({ event, config, repository }: RouteContext) {
   // not influence challenge selection. Guests are dealt the same challenge.
   const challenge = createChallenge(body.mode, randomInt);
   const nowSeconds = Math.floor(Date.now() / 1_000);
+  const runSeconds =
+    body.mode === "practice" ? PRACTICE_RUN_SECONDS : RUN_SECONDS;
   // "guest" is a sentinel owner that can never collide with a real sub: real
   // subs are base64url SHA-256 email hashes, never the literal string.
   const owner = session?.sub ?? "guest";
@@ -79,7 +82,7 @@ export async function startRun({ event, config, repository }: RouteContext) {
     owner,
     body.mode,
     challenge,
-    nowSeconds + RUN_SECONDS,
+    nowSeconds + runSeconds,
     ranked,
     isGuest,
     startCorrelation,
@@ -92,7 +95,7 @@ export async function startRun({ event, config, repository }: RouteContext) {
       mode: body.mode,
       ...(isGuest ? { guest: true } : {}),
       iat: nowSeconds,
-      exp: nowSeconds + RUN_SECONDS + RUN_TOKEN_GRACE_SECONDS,
+      exp: nowSeconds + runSeconds + RUN_TOKEN_GRACE_SECONDS,
     },
     config.sessionSecret,
   );
@@ -103,6 +106,6 @@ export async function startRun({ event, config, repository }: RouteContext) {
     challenge: run.challenge,
     ranked,
     ...(isGuest ? { guest: true } : {}),
-    expiresAt: new Date((nowSeconds + RUN_SECONDS) * 1_000).toISOString(),
+    expiresAt: new Date((nowSeconds + runSeconds) * 1_000).toISOString(),
   });
 }

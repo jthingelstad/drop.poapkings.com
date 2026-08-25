@@ -66,6 +66,11 @@ export const earnedXpAwards = signal<XpAward[]>([])
 // before, during, and after play instead of being discovered in history later.
 export const offlineRunMode = signal<GameMode | null>(null)
 
+export interface GameRunOptions {
+  initialRun?: StartedRun | null
+  onRunPrepared?: (run: StartedRun) => void
+}
+
 let noticeTimer: number | undefined
 
 function setRecordingNotice(notice: RecordingNotice): void {
@@ -199,8 +204,11 @@ function recordAllTimeBest(result: { mode: GameMode; score: number }): boolean {
   return better
 }
 
-export function useGameRun<T extends GameMode>(mode: T) {
+export function useGameRun<T extends GameMode>(mode: T, options?: GameRunOptions) {
   const run = useRef<StartedRun | null>(null)
+  const initialRun = useRef(options?.initialRun ?? null)
+  const onRunPrepared = useRef(options?.onRunPrepared)
+  onRunPrepared.current = options?.onRunPrepared
   const pendingCompletion = useRef<{
     run: StartedRun
     transcript: Record<string, unknown>
@@ -230,9 +238,18 @@ export function useGameRun<T extends GameMode>(mode: T) {
       run.current = local
       challenge.value = local.challenge as Extract<RunChallenge, { mode: T }>
       offlineRunMode.value = mode
+      onRunPrepared.current?.(local)
       track('game.started', mode)
     }
     try {
+      const resumable = initialRun.current
+      initialRun.current = null
+      if (resumable?.mode === mode && Date.parse(resumable.expiresAt) > Date.now()) {
+        run.current = resumable
+        challenge.value = resumable.challenge as Extract<RunChallenge, { mode: T }>
+        if (isOfflineRun(resumable)) offlineRunMode.value = mode
+        return
+      }
       // A known transport or API outage means there is nowhere safe to create
       // an official attempt. Deal locally without spending another timeout.
       if (offline.value) {
@@ -244,6 +261,7 @@ export function useGameRun<T extends GameMode>(mode: T) {
       const started = await startRun(mode, sessionToken())
       run.current = started
       challenge.value = started.challenge as Extract<RunChallenge, { mode: T }>
+      onRunPrepared.current?.(started)
       track('game.started', mode)
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {

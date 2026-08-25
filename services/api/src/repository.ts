@@ -211,6 +211,17 @@ export interface RunRecoveryOptions {
   evidenceSk: string;
   reason: string;
   createRun?: boolean;
+  practiceEvidence?: PracticeRecoveryEvidence;
+}
+
+export interface PracticeRecoveryEvidence {
+  playerId: string;
+  localSeen: number;
+  localCorrect: number;
+  serverSeen: number;
+  serverCorrect: number;
+  answerCount: number;
+  correctCount: number;
 }
 
 export interface RunRecoveryMarker {
@@ -223,6 +234,7 @@ export interface RunRecoveryMarker {
   evidenceSk: string;
   reason: string;
   recoveredAt: string;
+  practiceEvidence?: PracticeRecoveryEvidence;
   badgesAppliedAt?: string;
   recoveryCompletedAt?: string;
 }
@@ -3062,6 +3074,9 @@ export class Repository {
             evidenceSk: recovery.evidenceSk,
             reason: recovery.reason,
             recoveredAt: recovery.recoveredAt,
+            ...(recovery.practiceEvidence
+              ? { practiceEvidence: recovery.practiceEvidence }
+              : {}),
           } satisfies RunRecoveryMarker,
           ConditionExpression: "attribute_not_exists(pk)",
         },
@@ -3129,7 +3144,7 @@ export class Repository {
   }
 
   // Badge counters are the only non-idempotent post-completion effect for a
-  // Rain recovery. Pair their optimistic write with the recovery marker so a
+  // recovered run. Pair their optimistic write with the recovery marker so a
   // rerun after interruption can prove whether this exact game was folded in.
   async saveRecoveredBadges(
     sub: string,

@@ -612,6 +612,10 @@ export async function updateBadges(
     firstDrop?: boolean;
     tzOffsetMinutes: unknown;
     personalBest: { improved: boolean; previousScore?: number };
+    // Aggregate-only Practice recovery knows how many answers were correct but
+    // not which cards produced them. Preserve Reps/Clean Sweep without
+    // fabricating card-specific badge evidence.
+    aggregatePractice?: { answered: number; correct: number };
   },
   save: (
     sub: string,
@@ -659,10 +663,12 @@ export async function updateBadges(
         context.completedAt,
         context.tzOffsetMinutes,
       );
-      const answers = Array.isArray(transcript.answers)
-        ? transcript.answers.length
-        : 0;
-      const cardResults = cardResultsFromTranscript(run.challenge, transcript);
+      const answers =
+        context.aggregatePractice?.answered ??
+        (Array.isArray(transcript.answers) ? transcript.answers.length : 0);
+      const cardResults = context.aggregatePractice
+        ? []
+        : cardResultsFromTranscript(run.challenge, transcript);
       // Photo Finish is a time-mode idea: "beat your best by under 0.1s" has no
       // meaning on a streak or a cleared count, so it is scoped to the two modes
       // whose score IS a duration in milliseconds.
@@ -702,8 +708,10 @@ export async function updateBadges(
         practiceClean:
           run.mode === "practice" &&
           answers >= 20 &&
-          cardResults.length === answers &&
-          cardResults.every((result) => result.correct),
+          (context.aggregatePractice
+            ? context.aggregatePractice.correct === answers
+            : cardResults.length === answers &&
+              cardResults.every((result) => result.correct)),
         ...(photoFinish ? { photoFinish: true } : {}),
         ...(coldOpen ? { coldOpen: true } : {}),
         ...hiddenSignals(run.mode, transcript),

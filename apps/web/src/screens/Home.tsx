@@ -18,6 +18,8 @@ import { InstallBanner, InstallRow } from '../components/InstallPrompt'
 import { useHomeData } from './home/home-data'
 import { ALL_GAMES, featuredGame } from './home/home-games'
 import { HomeHeroCarousel, HomeRow } from './home/home-bits'
+import { player } from '../lib/account'
+import { loadPracticeDraft } from '../lib/practice-draft'
 
 export default function Home() {
   const data = useHomeData()
@@ -26,6 +28,7 @@ export default function Home() {
   // This is the order on every shell — desktop does not reshuffle the game.
   const others = ALL_GAMES.filter((game) => game.key !== featured.key)
   const seasonLabel = data.season ? `Season ${data.season.id}` : ''
+  const practiceAction = loadPracticeDraft(player.peek()?.id ?? null) ? 'RESUME' : 'PLAY'
 
   // Offline, personal bests and ranks go quiet rather than apologise: the whole
   // meta line is season context the device cannot vouch for while disconnected.
@@ -77,6 +80,7 @@ export default function Home() {
           name="Practice"
           meta="Card knowledge · no clock"
           visual={<ModeIcon mode="practice" size={46} />}
+          actionLabel={practiceAction}
           onClick={() => navigate('/practice')}
         />
       </div>

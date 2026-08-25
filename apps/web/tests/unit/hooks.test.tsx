@@ -43,7 +43,13 @@ import { preloadImages } from '../../src/lib/preload'
 import { track } from '../../src/lib/analytics'
 import { useGameRuntime } from '../../src/lib/use-game-runtime'
 import { GAME_MODES, runReference, type GameMode } from '@elixir-drop/contracts'
-import { offlineRunMode, recordedRunId, useGameRun, recordingNotice } from '../../src/lib/use-game-run'
+import {
+  offlineRunMode,
+  recordedRunId,
+  useGameRun,
+  recordingNotice,
+  type GameRunOptions
+} from '../../src/lib/use-game-run'
 import { apiAvailability, reportApiUnavailable, transportOffline } from '../../src/lib/api-availability'
 import { useGameSession } from '../../src/lib/use-game-session'
 import { useRunUnloadGuard } from '../../src/lib/use-run-unload-guard'
@@ -409,10 +415,10 @@ function startedRun(overrides: Record<string, unknown> = {}) {
 
 type RunApi = ReturnType<typeof useGameRun>
 
-function mountRun(mode: GameMode = 'surge'): { api: () => RunApi } {
+function mountRun(mode: GameMode = 'surge', options?: GameRunOptions): { api: () => RunApi } {
   let current: RunApi
   function Probe() {
-    current = useGameRun(mode)
+    current = useGameRun(mode, options)
     return null
   }
   const host = makeHost()
@@ -469,6 +475,16 @@ describe('useGameRun', () => {
     expect(api().startError.value).toBe('')
     expect(api().challenge.value).toEqual({ mode: 'surge', cardIds: [1, 2, 3] })
     expect(track).toHaveBeenCalledWith('game.started', 'surge')
+  })
+
+  it('resumes a fresh journaled run without dealing a replacement', async () => {
+    const resumed = startedRun({ mode: 'practice', challenge: { mode: 'practice', cardIds: [1, 2, 3] } })
+    const { api } = mountRun('practice', { initialRun: resumed as never })
+    await flush()
+
+    expect(startRun).not.toHaveBeenCalled()
+    expect(api().challenge.value).toEqual({ mode: 'practice', cardIds: [1, 2, 3] })
+    expect(track).not.toHaveBeenCalledWith('game.started', 'practice')
   })
 
   it('a 401 on prepare signs the player out and clears the challenge', async () => {

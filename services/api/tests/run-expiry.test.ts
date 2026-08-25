@@ -236,6 +236,9 @@ describe("run expiry", () => {
     // for the client to weight across — not a fixed 15-card round.
     expect(body.challenge.cardIds).toHaveLength(CATALOG_SIZE);
     expect(new Set(body.challenge.cardIds).size).toBe(CATALOG_SIZE);
+    expect(Date.parse(body.expiresAt)).toBe(
+      (nowSeconds + 24 * 60 * 60) * 1_000,
+    );
     expect(repository.getCardStats).not.toHaveBeenCalled();
     expect(repository.rankedAccess).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(

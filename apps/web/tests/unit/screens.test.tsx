@@ -71,6 +71,7 @@ import { useHomeData, type HomeData } from '../../src/screens/home/home-data'
 import type { LeaderboardEntry } from '../../src/lib/api'
 import PublicProfile from '../../src/screens/PublicProfile'
 import { publicPlayerPreview } from '../../src/lib/public-player'
+import { beginPracticeDraft } from '../../src/lib/practice-draft'
 
 // --- Harness ------------------------------------------------------------------
 const hosts: HTMLElement[] = []
@@ -758,6 +759,23 @@ describe('Home', () => {
     // differently read as unfinished.
     expect(html).not.toContain('ed-grow__glyph')
     expect(html).toContain('/assets/modes/practice-192.png')
+  })
+
+  it('offers RESUME only while the current player has a valid Practice draft', async () => {
+    homeData()
+    beginPracticeDraft(
+      {
+        runId: 'practice-draft',
+        runToken: 'signed-run-token',
+        mode: 'practice',
+        challenge: { mode: 'practice', cardIds: [26000000] },
+        ranked: false,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      null
+    )
+
+    expect(await renderToStringAsync(<Home />)).toContain('RESUME')
   })
 
   it('puts the screensaver tap door on the logo, not on a section heading', async () => {

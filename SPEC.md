@@ -212,7 +212,8 @@ number that has to clear the integrity floor is the same number that ranks the
 tie and there is nothing extra to forge.
 
 Practice runs are created `ranked: false` server-side: they record to history
-but never write a leaderboard entry, earn no Player XP, and Practice has no
+but never write a leaderboard entry, award one Player XP per two validated
+cards using the durable odd-card carry, and Practice has no
 leaderboard tab and no record key in `RECORD_KEYS` (its `GameMode` is excluded
 from the type, so a Practice best is unrepresentable rather than merely
 discouraged). Its transcript validates answer-card set membership because the
@@ -445,10 +446,15 @@ elixirdrop:seasonRecords -> { seasonId, records } (numeric CR season ID and
 elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
 ```
 
-Session, install, and player-nudge state, owned by their own modules:
+Session, active-run recovery, install, and player-nudge state, owned by their
+own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
+elixirdrop:practiceDraft:v1         -> lib/practice-draft.ts localStorage active Practice run,
+                                       first-read transcript, review queue, and
+                                       owning public player id; removed after
+                                       completion settles
 elixirdrop:installDismissed         -> lib/pwa-install.ts localStorage   Home banner dismissed
 elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinct browser
                                        sessions (install is suggested on the third)

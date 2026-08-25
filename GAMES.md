@@ -168,6 +168,15 @@ and how returned cards held.
 Practice has no destination, so its running chrome counts cards practiced and
 first reads but renders no left-to-right progress bar.
 
+The browser journals the active signed run, every first read, and the spaced-
+review queue under `elixirdrop:practiceDraft:v1`. Reopening Practice after a
+route loss or reload resumes that same session; Home labels its Practice action
+**RESUME** while that valid current-player draft exists. A successful completion (or a
+terminal rejection) clears the draft. New online Practice runs use a 24-hour
+signed window so an endless human session is not invalidated by the one-hour
+window used for finite games. This is crash recovery, not background sync:
+offline and guest Practice remain unrecorded under the normal completion rules.
+
 The signed challenge deals the **whole shuffled catalog as a pool**, not a
 sequence; `apps/web/src/lib/practice-deal.ts` draws from it weighted by the
 player's own local `elixirdrop:cardStats`, so cards on a miss streak come back
