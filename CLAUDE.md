@@ -465,8 +465,9 @@ rank-oriented fields as part of unrelated work.
   `2026-08` is a storage key; "Season 135" is the season. `crSeasonIdFor` in
   `services/api/src/seasons.ts` derives the number for a past season (monthly and
   sequential from the live war clock, or the id's own `-NN` suffix) and returns
-  undefined rather than guessing. Any surface naming a season shows the number
-  and falls back to the raw id only when there isn't one.
+  undefined rather than guessing. Any surface naming or linking a season uses
+  the Clash number (`season=135`); unresolved internal ids are omitted rather
+  than exposed in labels or browser navigation.
 
 ---
 

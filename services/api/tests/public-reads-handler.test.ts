@@ -237,6 +237,62 @@ describe("public read routes", () => {
     expect(repository.leaderboard).toHaveBeenCalledWith("surge", "2026-07-136");
   });
 
+  it("resolves a player-facing Clash season number to its storage partition", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-25T12:00:00.000Z"));
+    try {
+      repository.getCrWarClock.mockResolvedValue({
+        crSeasonId: 135,
+        sectionIndex: 3,
+        periodIndex: 20,
+        periodType: "warDay",
+        seasonStartsAt: "2026-08-03T10:00:00.000Z",
+        observedAt: "2026-08-25T11:55:00.000Z",
+        sourceClanTag: "#J2RGCRVG",
+        leaderboardSeasonId: "2026-08",
+        updatedAt: "2026-08-25T11:55:00.000Z",
+      });
+      repository.leaderboard.mockResolvedValue([]);
+
+      const result = await call(
+        request("GET", "/leaderboards", "mode=rain&season=134"),
+      );
+
+      expect(result.statusCode).toBe(200);
+      expect(result.body.seasonId).toBe("2026-07");
+      expect(repository.leaderboard).toHaveBeenCalledWith("rain", "2026-07");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a Clash season number outside the available Drop boards", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-25T12:00:00.000Z"));
+    try {
+      repository.getCrWarClock.mockResolvedValue({
+        crSeasonId: 135,
+        sectionIndex: 3,
+        periodIndex: 20,
+        periodType: "warDay",
+        seasonStartsAt: "2026-08-03T10:00:00.000Z",
+        observedAt: "2026-08-25T11:55:00.000Z",
+        sourceClanTag: "#J2RGCRVG",
+        leaderboardSeasonId: "2026-08",
+        updatedAt: "2026-08-25T11:55:00.000Z",
+      });
+
+      const result = await call(
+        request("GET", "/leaderboards", "mode=surge&season=133"),
+      );
+
+      expect(result.statusCode).toBe(400);
+      expect(repository.leaderboard).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps serving seasons when the war clock read fails", async () => {
     repository.getCrWarClock.mockRejectedValue(new Error("dynamo down"));
 

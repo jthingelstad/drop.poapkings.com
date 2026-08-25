@@ -36,11 +36,27 @@ describe("player input validation", () => {
     expect(normalizeAuthReturnPath("/profile?edit=player-tag")).toBe(
       "/profile?edit=player-tag",
     );
+    expect(normalizeAuthReturnPath("/profile?scope=settings")).toBe(
+      "/profile?scope=settings",
+    );
+    expect(
+      normalizeAuthReturnPath("/leaderboards?scope=clan&mode=rain&season=135"),
+    ).toBe("/leaderboards?scope=clan&mode=rain&season=135");
     expect(normalizeAuthReturnPath("/profile")).toBeUndefined();
+    expect(normalizeAuthReturnPath("/profile?scope=log")).toBeUndefined();
+    expect(
+      normalizeAuthReturnPath("/profile?scope=settings&next=/admin"),
+    ).toBeUndefined();
     expect(
       normalizeAuthReturnPath("/profile?edit=player-tag&next=/admin"),
     ).toBeUndefined();
     expect(normalizeAuthReturnPath("/leaderboards")).toBeUndefined();
+    expect(
+      normalizeAuthReturnPath("/leaderboards?mode=rain&scope=clan"),
+    ).toBeUndefined();
+    expect(
+      normalizeAuthReturnPath("/leaderboards?scope=clan&season=2026-08"),
+    ).toBeUndefined();
     expect(normalizeAuthReturnPath("https://example.com")).toBeUndefined();
     expect(normalizeAuthReturnPath("//evil.example.com")).toBeUndefined();
     expect(normalizeAuthReturnPath("/surge?next=/admin")).toBeUndefined();

@@ -70,6 +70,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   // Switch the per-mode tab to Survival. The tabs are labeled tiles now, with an
   // uppercase short name (SURVIVE) over the mode art.
   await page.locator('.ed-board__modes').getByRole('button', { name: 'SURVIVE' }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?mode=survival$/)
   await expect(page.locator('.ed-modetab--active')).toContainText('SURVIVE')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-lbrow__score').first()).toContainText('42')
@@ -79,17 +80,24 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   // Toggling the period rail to All-time keeps the header fixed and only moves
   // the pressed chip, while the ranked player rows still render.
   await page.locator('.ed-ladder__periods').getByRole('button', { name: 'All-time' }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?mode=survival&period=all-time$/)
   await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
   await expect(page.locator('.ed-period--active')).toHaveText('All-time')
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
 
   // And back to Season 134 restores the current-season board.
   await page.locator('.ed-ladder__periods').getByRole('button', { name: 'Season 134' }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?mode=survival&season=134$/)
+  await expect(page).not.toHaveURL(/2026-07/)
+  await expect(page.locator('.ed-period--active')).toHaveText('Season 134')
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('.ed-modetab--active')).toContainText('SURVIVE')
   await expect(page.locator('.ed-period--active')).toHaveText('Season 134')
 
   // XP is permanent player progression, so it owns the arena and the daily
   // source ledger while the seasonal controls leave the page.
   await page.getByRole('tab', { name: 'XP', exact: true }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?scope=xp&mode=survival&season=134$/)
   await expect(page.locator('.ed-ladder__clock')).toHaveCount(0)
   await expect(page.locator('.ed-ladder__periods')).toHaveCount(0)
   await expect(page.locator('.ed-board__mode-strip')).toHaveCount(0)
@@ -104,6 +112,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   // Clan is a scope of its own; ranks are recalculated inside the signed-in
   // player's current CR clan. Its identity lives in a strip; the header never moves.
   await page.getByRole('tab', { name: 'Clan' }).click()
+  await expect(page).toHaveURL(/#\/leaderboards\?scope=clan&mode=survival&season=134$/)
   await expect(page.locator('.ed-ladder__title')).toHaveText('Ladder')
   await expect(page.locator('.ed-board__clan')).toContainText('POAP KINGS')
   await expect(page.locator('.ed-board__clan')).toContainText('#J2RGCRVG')

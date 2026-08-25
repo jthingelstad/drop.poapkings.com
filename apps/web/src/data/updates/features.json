@@ -244,7 +244,7 @@
       "impact": "competition",
       "publishedAt": "2026-07-19T22:20:12-05:00",
       "title": "The all-time greats got their own boards",
-      "body": "Every ranked mode now has an all-time leaderboard beside the live season, preserving the scores that remain worth chasing after a season crown changes hands. [Open the Ladder](/#/leaderboards)."
+      "body": "Every ranked mode now has an all-time leaderboard beside the live season, preserving the scores that remain worth chasing after a season crown changes hands. [Open the Ladder](/#/leaderboards?period=all-time)."
     },
     {
       "id": "survival-clear-the-deck",
@@ -314,7 +314,7 @@
       "impact": "access",
       "publishedAt": "2026-06-13T14:23:32Z",
       "title": "The arena plays your way",
-      "body": "Choose the pip keypad or four choices for Practice, turn battle sounds on or off, and calm the arena with **Reduce motion**. [Tune your setup](/#/settings)."
+      "body": "Choose the pip keypad or four choices for Practice, turn battle sounds on or off, and calm the arena with **Reduce motion**. [Tune your setup](/#/profile?scope=settings)."
     },
     {
       "id": "higher-lower-arrives",

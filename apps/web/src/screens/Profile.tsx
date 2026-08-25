@@ -1,5 +1,12 @@
 import { useSignal } from '@preact/signals'
-import { PLAYER_TAG_RETURN_PATH, playerReference, runReference } from '@elixir-drop/contracts'
+import {
+  normalizeAuthReturnPath,
+  playerReference,
+  profileRouteForScope,
+  runReference,
+  youScopeFromRoute,
+  type YouScope
+} from '@elixir-drop/contracts'
 import type { GameMode } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
@@ -33,7 +40,7 @@ import SkeletonRows from '../components/Skeleton'
 import { gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
 import { gameReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
-import { navigate, route } from '../lib/router'
+import { navigate, replace, route } from '../lib/router'
 import { buildMeta } from '../lib/build'
 import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
@@ -48,8 +55,6 @@ import { prepareProfileShare } from '../lib/share-profile'
 import { track } from '../lib/analytics'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
-
-type YouScope = 'log' | 'updates' | 'settings' | 'account'
 
 // `3y 41d playing` — compact enough to sit on one line with the tag.
 function accountAgeText(years: number | undefined, days: number | undefined): string {
@@ -69,6 +74,7 @@ function joinedText(iso: string): string {
 export default function Profile() {
   const profileRoute = route.value
   const returnTo = gameReturnPathFromRoute(profileRoute)
+  const scope = youScopeFromRoute(profileRoute)
   const tag = useSignal(player.value?.playerTag || '')
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
@@ -79,7 +85,6 @@ export default function Profile() {
   const step = useSignal<'card' | 'name' | 'tag'>('card')
   const flow = useSignal<'setup' | 'edit'>(player.value?.favoriteCardId ? 'edit' : 'setup')
   const chosenName = useSignal('')
-  const scope = useSignal<YouScope>('log')
   const names = useSignal<string[]>([])
   const nameToken = useSignal('')
   const busy = useSignal(false)
@@ -88,6 +93,16 @@ export default function Profile() {
   const tagInputRef = useRef<HTMLInputElement | null>(null)
   const handledTagEditRequest = useRef(false)
   const pollingCrStatus = player.value?.clashRoyale?.status
+
+  useEffect(() => {
+    const path = profileRoute.split('?', 1)[0]
+    if (path !== '/profile' && path !== '/settings') return
+    const query = profileRoute.split('?', 2)[1] || ''
+    const params = new URLSearchParams(query)
+    const ownsFlowState = params.has('edit') || params.has('returnTo')
+    const canonical = profileRouteForScope(scope)
+    if ((path === '/settings' || !ownsFlowState) && profileRoute !== canonical) replace(canonical)
+  }, [profileRoute, scope])
 
   useEffect(() => {
     const authenticatedPlayer = player.value
@@ -123,8 +138,8 @@ export default function Profile() {
 
   // Opening Updates stamps the read time server-side, clearing the unread dot.
   useEffect(() => {
-    if (scope.value === 'updates' && hasUnreadUpdates.value) void markUpdatesOpened()
-  }, [scope.value])
+    if (scope === 'updates' && hasUnreadUpdates.value) void markUpdatesOpened()
+  }, [scope])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -142,11 +157,10 @@ export default function Profile() {
         </div>
         <button
           class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-          onClick={() =>
-            navigate(
-              profileRoute === PLAYER_TAG_RETURN_PATH ? loginRouteForReturnPath(PLAYER_TAG_RETURN_PATH) : '/login'
-            )
-          }
+          onClick={() => {
+            const returnPath = normalizeAuthReturnPath(profileRoute)
+            navigate(returnPath ? loginRouteForReturnPath(returnPath) : '/login')
+          }}
         >
           <span class="tap-face">Sign In</span>
         </button>
@@ -449,8 +463,8 @@ export default function Profile() {
 
       <ScopeRow
         ariaLabel="Choose a You scope"
-        active={scope.value}
-        onSelect={(key) => (scope.value = key)}
+        active={scope}
+        onSelect={(scope: YouScope) => replace(profileRouteForScope(scope))}
         options={[
           { key: 'log', label: 'Log' },
           { key: 'updates', label: 'Updates', dot: hasUnreadUpdates.value },
@@ -465,10 +479,10 @@ export default function Profile() {
         </div>
       )}
 
-      {scope.value === 'log' && <LogScope playerId={current.id} />}
-      {scope.value === 'updates' && <UpdatesScope />}
-      {scope.value === 'settings' && <SettingsScope />}
-      {scope.value === 'account' && <AccountScope current={current} />}
+      {scope === 'log' && <LogScope playerId={current.id} />}
+      {scope === 'updates' && <UpdatesScope />}
+      {scope === 'settings' && <SettingsScope />}
+      {scope === 'account' && <AccountScope current={current} />}
     </div>
   )
 }

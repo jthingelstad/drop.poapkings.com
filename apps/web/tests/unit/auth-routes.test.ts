@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ladderRoutePath, ladderRouteState, profileRouteForScope, youScopeFromRoute } from '@elixir-drop/contracts'
 import {
   authReturnPathFromRoute,
   gamePathForRoute,
@@ -9,6 +10,7 @@ import {
   boardRouteForMode,
   boardModeFromRoute
 } from '../../src/lib/game-routes'
+import { publicProfilePath, publicProfileScopeFromRoute } from '../../src/lib/public-player'
 
 describe('authenticated game routes', () => {
   it('recognizes every game path without treating public screens as games', () => {
@@ -42,5 +44,36 @@ describe('authenticated game routes', () => {
     expect(board).toBe('/leaderboards?mode=rain')
     expect(boardModeFromRoute(board)).toBe('rain')
     expect(boardModeFromRoute('/leaderboards')).toBeUndefined()
+  })
+
+  it('round-trips every Ladder control with Clash season numbers only', () => {
+    const state = ladderRouteState('/leaderboards?scope=xp&mode=survival&season=134')
+    expect(state).toEqual({ scope: 'xp', mode: 'survival', period: 134 })
+    expect(ladderRoutePath(state)).toBe('/leaderboards?scope=xp&mode=survival&season=134')
+    expect(ladderRouteState('/leaderboards?mode=rain&period=all-time&season=134')).toEqual({
+      scope: 'boards',
+      mode: 'rain',
+      period: 'all-time'
+    })
+    expect(ladderRouteState('/leaderboards?season=2026-08')).toEqual({
+      scope: 'boards',
+      mode: 'surge',
+      period: 'current'
+    })
+  })
+
+  it('round-trips You and public-player scopes', () => {
+    expect(youScopeFromRoute('/settings')).toBe('settings')
+    expect(youScopeFromRoute('/profile?scope=updates')).toBe('updates')
+    expect(profileRouteForScope('account')).toBe('/profile?scope=account')
+    expect(publicProfileScopeFromRoute('/players/player-2?scope=log')).toBe('log')
+    expect(publicProfilePath('player 2', 'xp')).toBe('/players/player%202?scope=xp')
+  })
+
+  it('carries scoped navigation through the sign-in round trip', () => {
+    const ladder = '/leaderboards?scope=clan&mode=rain&season=135'
+    expect(authReturnPathFromRoute(loginRouteForReturnPath(ladder))).toBe(ladder)
+    const settings = '/profile?scope=settings'
+    expect(authReturnPathFromRoute(loginRouteForReturnPath(settings))).toBe(settings)
   })
 })

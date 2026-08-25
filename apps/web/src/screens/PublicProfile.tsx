@@ -9,24 +9,34 @@ import { ApiError, getPublicPlayer, type PublicPlayer as PublicPlayerData, type 
 import { challengeCard } from '../lib/challenge-cards'
 import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
-import { playerIdFromRoute, publicPlayerPreview } from '../lib/public-player'
+import {
+  playerIdFromRoute,
+  publicProfilePath,
+  publicPlayerPreview,
+  publicProfileScopeFromRoute
+} from '../lib/public-player'
 import { royaleApiClanUrl, royaleApiPlayerUrl } from '../lib/royale-api'
-import { back, navigate, route } from '../lib/router'
+import { back, navigate, replace, route } from '../lib/router'
 import { badgeViews, earnedCount, type BadgeState } from '../lib/badges'
 import AccountTags from '../components/AccountTags'
 import ScopeRow from '../components/ScopeRow'
 
-type PublicProfileScope = 'badges' | 'xp' | 'log'
-
 export default function PublicProfile() {
-  const playerId = playerIdFromRoute(route.value)
+  const publicRoute = route.value
+  const playerId = playerIdFromRoute(publicRoute)
+  const scope = publicProfileScopeFromRoute(publicRoute)
   const cached = publicPlayerPreview.value?.id === playerId ? publicPlayerPreview.value : null
   const viewedPlayer = useSignal<PublicPlayerData | typeof cached>(cached)
   const runs = useSignal<RecentRun[]>([])
   const publicBadges = useSignal<BadgeState[]>([])
   const loading = useSignal(true)
   const error = useSignal('')
-  const scope = useSignal<PublicProfileScope>('badges')
+
+  useEffect(() => {
+    if (!playerId) return
+    const canonical = publicProfilePath(playerId, scope)
+    if (publicRoute !== canonical) replace(canonical)
+  }, [playerId, publicRoute, scope])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -129,8 +139,8 @@ export default function PublicProfile() {
 
       <ScopeRow
         ariaLabel="Choose a player profile scope"
-        active={scope.value}
-        onSelect={(key) => (scope.value = key)}
+        active={scope}
+        onSelect={(scope) => replace(publicProfilePath(current.id, scope))}
         options={[
           { key: 'badges', label: 'Badges' },
           { key: 'xp', label: 'XP' },
@@ -138,7 +148,7 @@ export default function PublicProfile() {
         ]}
       />
 
-      {scope.value === 'badges' && (
+      {scope === 'badges' && (
         <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
           <div class="ed-profile__recent-head">
             <span class="ed-profile__recent-title">Badges</span>
@@ -148,7 +158,7 @@ export default function PublicProfile() {
         </section>
       )}
 
-      {scope.value === 'xp' && (
+      {scope === 'xp' && (
         <div class="ed-profile__stats profile-xp">
           <div class="ed-profile__stat-row">
             <div class="ed-profile__stat">
@@ -164,7 +174,7 @@ export default function PublicProfile() {
         </div>
       )}
 
-      {scope.value === 'log' && (
+      {scope === 'log' && (
         <section class="ed-profile__recent">
           <div class="ed-profile__recent-head">
             <span class="ed-profile__recent-title">Recent games</span>

@@ -373,6 +373,7 @@ describe('analytics loader', () => {
 
   it('normalizes virtual page paths without exposing credentials or player ids', () => {
     expect(analyticsPagePath('#/surge?returnTo=%2Fprofile')).toBe('/surge')
+    expect(analyticsPagePath('#/leaderboards?scope=xp&season=135')).toBe('/leaderboards')
     expect(analyticsPagePath('#/players/player-secret')).toBe('/players/profile')
     expect(analyticsPagePath('#/not-a-real-route?token=secret')).toBe('/')
     expect(analyticsPagePath('#/auth?token=secret-token')).toBeNull()
@@ -399,6 +400,10 @@ describe('analytics loader', () => {
     expect(pageHit.toString()).not.toContain('secret-token')
 
     window.location.hash = '#/profile?returnTo=%2Fsurge'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(sendBeacon).toHaveBeenCalledTimes(1)
+
+    window.location.hash = '#/profile?scope=settings'
     window.dispatchEvent(new HashChangeEvent('hashchange'))
     expect(sendBeacon).toHaveBeenCalledTimes(1)
 

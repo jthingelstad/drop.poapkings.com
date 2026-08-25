@@ -49,12 +49,103 @@ export function emailValidationMessage(value: unknown): string | undefined {
 
 export type GameMode = (typeof GAME_MODES)[number];
 
+export const RANKED_GAME_MODES = [
+  "surge",
+  "higher-lower",
+  "trade",
+  "survival",
+  "rain",
+] as const satisfies readonly Exclude<GameMode, "practice">[];
+
+export type RankedGameMode = (typeof RANKED_GAME_MODES)[number];
+
+export const LADDER_SCOPES = ["boards", "badges", "clan", "xp"] as const;
+export type LadderScope = (typeof LADDER_SCOPES)[number];
+export type LadderPeriod = "current" | "all-time" | number;
+
+export interface LadderRouteState {
+  scope: LadderScope;
+  mode: RankedGameMode;
+  // A number is always the Clash Royale season number. Drop's calendar-shaped
+  // storage key never belongs in browser navigation.
+  period: LadderPeriod;
+}
+
+export const DEFAULT_LADDER_ROUTE_STATE: LadderRouteState = {
+  scope: "boards",
+  mode: "surge",
+  period: "current",
+};
+
+const RANKED_GAME_MODE_SET = new Set<string>(RANKED_GAME_MODES);
+const LADDER_SCOPE_SET = new Set<string>(LADDER_SCOPES);
+const CR_SEASON_NUMBER_PATTERN = /^[1-9]\d*$/;
+
+export function ladderRouteState(value: string): LadderRouteState {
+  const query = value.split("?", 2)[1] || "";
+  const params = new URLSearchParams(query);
+  const requestedScope = params.get("scope");
+  const requestedMode = params.get("mode");
+  const requestedSeason = params.get("season");
+  const seasonNumber =
+    requestedSeason && CR_SEASON_NUMBER_PATTERN.test(requestedSeason)
+      ? Number(requestedSeason)
+      : undefined;
+  const period =
+    params.get("period") === "all-time"
+      ? "all-time"
+      : Number.isSafeInteger(seasonNumber) && (seasonNumber ?? 0) > 0
+        ? (seasonNumber as number)
+        : "current";
+  return {
+    scope: LADDER_SCOPE_SET.has(requestedScope ?? "")
+      ? (requestedScope as LadderScope)
+      : "boards",
+    mode: RANKED_GAME_MODE_SET.has(requestedMode ?? "")
+      ? (requestedMode as RankedGameMode)
+      : "surge",
+    period,
+  };
+}
+
+export function ladderRoutePath(state: Partial<LadderRouteState> = {}): string {
+  const resolved = { ...DEFAULT_LADDER_ROUTE_STATE, ...state };
+  const params = new URLSearchParams();
+  if (resolved.scope !== "boards") params.set("scope", resolved.scope);
+  if (resolved.mode !== "surge") params.set("mode", resolved.mode);
+  if (resolved.period === "all-time") params.set("period", "all-time");
+  else if (typeof resolved.period === "number")
+    params.set("season", String(resolved.period));
+  const query = params.toString();
+  return `/leaderboards${query ? `?${query}` : ""}`;
+}
+
+export const YOU_SCOPES = ["log", "updates", "settings", "account"] as const;
+export type YouScope = (typeof YOU_SCOPES)[number];
+
+const YOU_SCOPE_SET = new Set<string>(YOU_SCOPES);
+
+export function youScopeFromRoute(value: string): YouScope {
+  if (value.split("?", 1)[0] === "/settings") return "settings";
+  const query = value.split("?", 2)[1] || "";
+  const requested = new URLSearchParams(query).get("scope");
+  return YOU_SCOPE_SET.has(requested ?? "") ? (requested as YouScope) : "log";
+}
+
+export function profileRouteForScope(scope: YouScope): string {
+  return scope === "log" ? "/profile" : `/profile?scope=${scope}`;
+}
+
 // Magic-link return destinations are capabilities, not arbitrary URLs. Keep
 // the exact allowlist shared by the browser and API so a campaign deep link can
 // survive authentication without creating an open-redirect surface.
 export const PLAYER_TAG_RETURN_PATH = "/profile?edit=player-tag" as const;
 
-export type AuthReturnPath = `/${GameMode}` | typeof PLAYER_TAG_RETURN_PATH;
+export type AuthReturnPath =
+  | `/${GameMode}`
+  | typeof PLAYER_TAG_RETURN_PATH
+  | `/profile?scope=${Exclude<YouScope, "log">}`
+  | `/leaderboards?${string}`;
 
 const AUTH_RETURN_PATHS = new Set<string>([
   ...GAME_MODES.map((mode) => `/${mode}`),
@@ -65,9 +156,17 @@ export function normalizeAuthReturnPath(
   value: unknown,
 ): AuthReturnPath | undefined {
   if (value === null || value === undefined || value === "") return undefined;
-  return typeof value === "string" && AUTH_RETURN_PATHS.has(value)
-    ? (value as AuthReturnPath)
-    : undefined;
+  if (typeof value !== "string") return undefined;
+  if (AUTH_RETURN_PATHS.has(value)) return value as AuthReturnPath;
+
+  const youScope = youScopeFromRoute(value);
+  if (youScope !== "log" && profileRouteForScope(youScope) === value)
+    return value as AuthReturnPath;
+
+  const ladderState = ladderRouteState(value);
+  if (ladderState.scope !== "boards" && ladderRoutePath(ladderState) === value)
+    return value as AuthReturnPath;
+  return undefined;
 }
 
 // Player XP v2 is progression with several explicit sources: completing games,

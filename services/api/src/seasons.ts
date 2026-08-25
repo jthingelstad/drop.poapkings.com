@@ -222,7 +222,7 @@ export function recentSeasons(
 // over the arithmetic.
 //
 // Returns undefined rather than a guess when there is no live clock to anchor
-// on, or when the offset is implausible; callers fall back to the raw id.
+// on, or when the offset is implausible; player-facing callers omit that id.
 const MAX_DERIVED_SEASON_OFFSET = 120;
 
 export function crSeasonIdFor(

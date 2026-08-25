@@ -60,6 +60,7 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
 
   // The email and player reference live in the Account scope.
   await page.getByRole('tab', { name: 'Account' }).click()
+  await expect(page).toHaveURL(/#\/profile\?scope=account$/)
   await expect(page.locator('.ed-account')).toContainText('player@example.com')
   await expect(page.locator('.ed-account')).toContainText(playerReference('player-1'))
   await expect(page.locator('.ed-account')).toContainText('Sign out')
@@ -153,15 +154,17 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
 })
 
 test('the Settings scope persists input and motion preferences across reload', async ({ page }) => {
-  // /settings folds into the You page; Settings is a scope there now.
+  // /settings folds into the canonical, directly linkable You scope.
   await page.goto('/#/settings', { waitUntil: 'domcontentloaded' })
-  await page.getByRole('tab', { name: 'Settings' }).click()
+  await expect(page).toHaveURL(/#\/profile\?scope=settings$/)
+  await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
   await page.getByRole('button', { name: '4 choices' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  // Reload lands on the default Log scope; reopen Settings to verify persistence.
-  await page.getByRole('tab', { name: 'Settings' }).click()
+  // Both the selected scope and its settings survive a reload.
+  await expect(page).toHaveURL(/#\/profile\?scope=settings$/)
+  await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('button', { name: '4 choices' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
   await expect(page.locator('.ed-settings__note')).toContainText('per-device and never sync')
@@ -466,16 +469,21 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
   await page.getByRole('button', { name: 'Close' }).click()
 
   await tabs.getByRole('tab', { name: 'XP' }).click()
+  await expect(page).toHaveURL(/#\/players\/player-2\?scope=xp$/)
   await expect(tabs.getByRole('tab', { name: 'XP' })).toHaveAttribute('aria-selected', 'true')
   await expect(stats).toContainText('1,000')
   await expect(stats).toContainText('Player XP')
   await expect(badgeWall).toHaveCount(0)
 
   await tabs.getByRole('tab', { name: 'Log' }).click()
+  await expect(page).toHaveURL(/#\/players\/player-2\?scope=log$/)
   await expect(tabs.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
   await expect(recentGames).toContainText('Recent games')
   await expect(recentGames).toContainText('Surge')
   await expect(stats).toHaveCount(0)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('.ed-profile__recent').filter({ hasText: 'Recent games' })).toContainText('Surge')
   await testInfo.attach('public-profile-tabs.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'

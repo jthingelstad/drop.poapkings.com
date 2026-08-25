@@ -12,6 +12,7 @@ import {
 } from "./context.js";
 
 const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
+const CR_SEASON_NUMBER_PATTERN = /^[1-9]\d*$/;
 // Public reads share one generous per-IP hourly budget.
 const READ_LIMIT_PER_HOUR = 1200;
 
@@ -36,7 +37,7 @@ export async function getLeaderboards(context: RouteContext) {
   const currentSeason = seasonForDate(now, clock);
   // The period rail's chips: the current season back through Drop's first
   // board. Only the Boards scope (season/all-time) shows the rail, so the clan
-  // reply omits it. Undefined CR numbers fall back to the raw id on the client.
+  // reply omits it. Undefined CR numbers are omitted from player navigation.
   const seasons = recentSeasons(now, 12, clock);
   // All-time ranks a player's best-ever score per mode across every season;
   // season (default) keeps the existing per-season board untouched.
@@ -99,9 +100,25 @@ export async function getLeaderboards(context: RouteContext) {
       entries,
     });
   }
-  const seasonId = event.queryStringParameters?.season || currentSeason.id;
-  if (!SEASON_ID_PATTERN.test(seasonId))
-    throw new HttpError(400, "Season ID is invalid.");
+  const requestedSeason = event.queryStringParameters?.season;
+  let seasonId = currentSeason.id;
+  if (requestedSeason) {
+    if (SEASON_ID_PATTERN.test(requestedSeason)) {
+      // Retained for rolling-deploy and internal-client compatibility. Browser
+      // routes and current web clients send the Clash Royale season number.
+      seasonId = requestedSeason;
+    } else if (CR_SEASON_NUMBER_PATTERN.test(requestedSeason)) {
+      const crSeasonId = Number(requestedSeason);
+      const matched = Number.isSafeInteger(crSeasonId)
+        ? seasons.find((candidate) => candidate.crSeasonId === crSeasonId)
+        : undefined;
+      if (!matched)
+        throw new HttpError(400, "Clash Royale season number is unavailable.");
+      seasonId = matched.id;
+    } else {
+      throw new HttpError(400, "Season ID is invalid.");
+    }
+  }
   const entries = await repository.leaderboard(mode, seasonId);
   return json(200, {
     mode,

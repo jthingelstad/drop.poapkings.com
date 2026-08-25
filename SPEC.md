@@ -237,7 +237,9 @@ Each ranked mode has three boards, selected by the `scope` query param on
   a new best is silently skipped, so the recorded run never rolls back. Because
   there is one item per player, the read needs no dedup. The Ladder's Boards
   scope offers current-season, prior-season, and All-time periods; the all-time
-  view shows no season-reset line. Clan is a separate Ladder scope.
+  view shows no season-reset line. Browser deep links name the Clash season
+  number (`season=135`), which the API resolves to the internal leaderboard
+  partition. Clan is a separate Ladder scope.
 - **Clan** is an authenticated view of that same all-time partition, filtered
   by each Drop player's latest stored Clash Royale clan snapshot and reranked
   within the signed-in player's current clan. The bounded read may page beyond
@@ -564,8 +566,8 @@ Royale season number players recognise. Nothing stores a past season's number
 so it is derived: Clan Wars seasons are monthly and sequential, so a season's
 number is the current one offset by the months between them, and an id carrying
 an explicit `-NN` suffix states its own. `crSeasonIdFor` returns undefined
-rather than a guess when no clock can anchor it, and the UI falls back to the
-raw id. `placements=1` additionally returns each run's board rank, but only for
+rather than a guess when no clock can anchor it, and the UI omits the unresolved
+internal id rather than exposing it. `placements=1` additionally returns each run's board rank, but only for
 the run that actually holds the player's position for its mode — one leaderboard
 read per ranked mode played, so it is opt-in and never spans `season=all`. `mode` and `status` narrow further; `status`
 takes `pending`, `reviewed`, `excluded`, or `unreviewed` — the last of which is

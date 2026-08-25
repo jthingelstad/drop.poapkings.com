@@ -424,6 +424,15 @@ describe('api.ts request helpers', () => {
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/leaderboards?mode=surge&scope=all-time`)
   })
 
+  it('getLeaderboard sends a Clash season number for a historical board', async () => {
+    const fetchMock = stubFetch(json({ mode: 'rain', scope: 'season', currentSeason: season, entries: [] }))
+    const { getLeaderboard } = await import('../../src/lib/api')
+
+    await getLeaderboard('rain', 'season', undefined, undefined, '135')
+    expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/leaderboards?mode=rain&season=135`)
+    expect(endpointCall(fetchMock).url).not.toContain('2026-')
+  })
+
   it('bounds leaderboard fan-out to two requests while all boards still resolve', async () => {
     const releases: Array<() => void> = []
     let active = 0

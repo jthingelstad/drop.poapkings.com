@@ -1,6 +1,14 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
-import { BADGE_LIST, type GameMode, type Season } from '@elixir-drop/contracts'
+import {
+  BADGE_LIST,
+  ladderRoutePath,
+  ladderRouteState,
+  normalizeAuthReturnPath,
+  type GameMode,
+  type LadderRouteState,
+  type Season
+} from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
 import Icon from '../components/Icon'
 import ModeIcon from '../components/ModeIcon'
@@ -24,8 +32,8 @@ import {
 } from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
 import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
-import { navigate, route } from '../lib/router'
-import { boardModeFromRoute } from '../lib/game-routes'
+import { loginRouteForReturnPath } from '../lib/game-routes'
+import { navigate, replace, route } from '../lib/router'
 import { playerProfilePath } from '../lib/public-player'
 import CauseChip from '../components/CauseChip'
 import AccountTags from '../components/AccountTags'
@@ -36,7 +44,6 @@ import { offline } from '../lib/api-availability'
 // so the visible title is decorative; the header's height never changes between
 // scopes, which is what kept the rows from jumping.
 
-type UiScope = 'boards' | 'badges' | 'clan' | 'xp'
 type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
 
 const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
@@ -134,20 +141,11 @@ function LeaderboardRow({
   )
 }
 
-// Desktop's mode rows read rather than play, so the Ladder has to be openable
-// ON a board rather than only at its default one. Read once at mount: the board
-// picker owns the mode from then on, and a later navigation within the Ladder
-// must not yank it back to the query it arrived with.
-function initialBoardMode(value: string): GameMode {
-  const requested = boardModeFromRoute(value)
-  return RANKED_GAMES.some((game) => game.mode === requested) ? (requested as GameMode) : 'surge'
-}
-
 export default function Leaderboards() {
-  const mode = useSignal<GameMode>(initialBoardMode(route.peek()))
-  const uiScope = useSignal<UiScope>('boards')
-  // '' = the current season (default), 'all-time', or a specific season id.
-  const period = useSignal<string>('')
+  const ladderRoute = route.value
+  const routeState = ladderRouteState(ladderRoute)
+  const canonicalLadderRoute = ladderRoutePath(routeState)
+  const { mode, scope: uiScope, period } = routeState
   const entries = useSignal<LeaderboardEntry[]>([])
   const season = useSignal<Season | null>(null)
   const seasons = useSignal<Array<{ id: string; crSeasonId?: number }>>([])
@@ -167,13 +165,24 @@ export default function Leaderboards() {
   const currentClan = currentPlayer?.clashRoyale?.clan
   const crStatus = currentPlayer?.clashRoyale?.status
 
-  const isClan = uiScope.value === 'clan'
-  const isBadges = uiScope.value === 'badges'
-  const isXp = uiScope.value === 'xp'
+  const isClan = uiScope === 'clan'
+  const isBadges = uiScope === 'badges'
+  const isXp = uiScope === 'xp'
   // Local capture so the effect can depend on connectivity (a module-level
   // signal is not a valid hook dependency); reading it here also subscribes the
   // component, so a reconnect re-renders and re-runs the fetch.
   const isOffline = offline.value
+
+  // Query state is the Ladder state. Canonicalize malformed/legacy variants
+  // once so a copied URL always reproduces exactly what the tabs show.
+  useEffect(() => {
+    if (!ladderRoute.startsWith('/leaderboards')) return
+    if (ladderRoute !== canonicalLadderRoute) replace(canonicalLadderRoute)
+  }, [canonicalLadderRoute, ladderRoute])
+
+  function updateLadderRoute(change: Partial<LadderRouteState>) {
+    replace(ladderRoutePath({ ...routeState, ...change }))
+  }
 
   useEffect(() => {
     // Badges read the local badge signal and XP has its own owner-only read;
@@ -220,9 +229,9 @@ export default function Leaderboards() {
       }
     }
 
-    const apiScope: LeaderboardScope = isClan ? 'clan' : period.value === 'all-time' ? 'all-time' : 'season'
-    const seasonId = !isClan && period.value && period.value !== 'all-time' ? period.value : undefined
-    void getLeaderboard(mode.value, apiScope, controller.signal, isClan ? sessionToken() : undefined, seasonId)
+    const apiScope: LeaderboardScope = isClan ? 'clan' : period === 'all-time' ? 'all-time' : 'season'
+    const clashSeasonNumber = !isClan && typeof period === 'number' ? String(period) : undefined
+    void getLeaderboard(mode, apiScope, controller.signal, isClan ? sessionToken() : undefined, clashSeasonNumber)
       .then((response) => {
         entries.value = response.entries
         season.value = response.currentSeason
@@ -238,9 +247,9 @@ export default function Leaderboards() {
       })
     return () => controller.abort()
   }, [
-    mode.value,
-    uiScope.value,
-    period.value,
+    mode,
+    uiScope,
+    period,
     isOffline,
     isBadges,
     isXp,
@@ -295,18 +304,20 @@ export default function Leaderboards() {
     return () => window.clearInterval(interval)
   }, [isClan, currentPlayer?.playerTag, currentClan, crStatus])
 
-  const selectedGame = GAME_BY_MODE.get(mode.value)!
+  const selectedGame = GAME_BY_MODE.get(mode)!
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
-  const activePeriod = period.value === 'all-time' ? 'all-time' : period.value || season.value?.id || ''
+  const activePeriod = period === 'current' ? season.value?.crSeasonId : period
   const playerEntryIndex = entries.value.findIndex((entry) => entry.player.id === currentPlayer?.id)
   const playerEntry = playerEntryIndex >= 0 ? entries.value[playerEntryIndex] : undefined
   const invitePlayerName = currentPlayer?.publicName ?? currentPlayer?.clashRoyale?.name ?? 'A clanmate'
   const inviteResult = playerEntry
-    ? { rank: playerEntryIndex + 1, score: scoreLabel(mode.value, playerEntry.score) }
+    ? { rank: playerEntryIndex + 1, score: scoreLabel(mode, playerEntry.score) }
     : undefined
   const views = badgeViews(badges.value)
   const earnedBadges = earnedCount(views)
+  const canonicalReturnPath = normalizeAuthReturnPath(canonicalLadderRoute)
+  const scopedSignInHref = canonicalReturnPath ? loginRouteForReturnPath(canonicalReturnPath) : '/login'
 
   const clanGateCard = (gate: Exclude<ClanGate, null>) => {
     const cards: Record<Exclude<ClanGate, null>, { state: string; line: string; label: string; href: string }> = {
@@ -314,7 +325,7 @@ export default function Leaderboards() {
         state: 'Ladder signed out',
         line: 'Connect your Drop player to see how you rank against clanmates.',
         label: 'Sign in',
-        href: '/login'
+        href: scopedSignInHref
       },
       'tag-required': {
         state: 'Clan tag needed',
@@ -363,8 +374,8 @@ export default function Leaderboards() {
 
       <ScopeRow
         ariaLabel="Choose a Ladder scope"
-        active={uiScope.value}
-        onSelect={(key) => (uiScope.value = key)}
+        active={uiScope}
+        onSelect={(scope) => updateLadderRoute({ scope })}
         options={[
           { key: 'boards', label: 'Boards' },
           { key: 'badges', label: 'Badges' },
@@ -391,26 +402,28 @@ export default function Leaderboards() {
         </div>
       )}
 
-      {uiScope.value === 'boards' && (
+      {uiScope === 'boards' && (
         <div class="ed-ladder__periods" aria-label="Choose a board period">
           <div class="ed-ladder__periods-track">
             <button
               class={`ed-period${activePeriod === 'all-time' ? ' ed-period--active' : ''}`}
               aria-pressed={activePeriod === 'all-time'}
-              onClick={() => (period.value = 'all-time')}
+              onClick={() => updateLadderRoute({ period: 'all-time' })}
             >
               All-time
             </button>
-            {seasons.value.map((s) => (
-              <button
-                key={s.id}
-                class={`ed-period${activePeriod === s.id ? ' ed-period--active' : ''}`}
-                aria-pressed={activePeriod === s.id}
-                onClick={() => (period.value = s.id)}
-              >
-                {s.crSeasonId ? `Season ${s.crSeasonId}` : s.id}
-              </button>
-            ))}
+            {seasons.value
+              .filter((s) => s.crSeasonId !== undefined)
+              .map((s) => (
+                <button
+                  key={s.id}
+                  class={`ed-period${activePeriod === s.crSeasonId ? ' ed-period--active' : ''}`}
+                  aria-pressed={activePeriod === s.crSeasonId}
+                  onClick={() => updateLadderRoute({ period: s.crSeasonId })}
+                >
+                  Season {s.crSeasonId}
+                </button>
+              ))}
           </div>
         </div>
       )}
@@ -420,9 +433,9 @@ export default function Leaderboards() {
           <div class="ed-board__modes" aria-label="Choose a game leaderboard">
             {RANKED_GAMES.map((game) => (
               <button
-                aria-pressed={mode.value === game.mode}
-                class={`ed-modetab${mode.value === game.mode ? ' ed-modetab--active' : ''}`}
-                onClick={() => (mode.value = game.mode)}
+                aria-pressed={mode === game.mode}
+                class={`ed-modetab${mode === game.mode ? ' ed-modetab--active' : ''}`}
+                onClick={() => updateLadderRoute({ mode: game.mode as LadderRouteState['mode'] })}
                 key={game.mode}
               >
                 <ModeIcon mode={game.mode} size={28} />
@@ -448,7 +461,7 @@ export default function Leaderboards() {
             <GateCard
               mark={<Icon name="trophy" />}
               state="Ladder signed out"
-              primary={{ label: 'Sign in', href: '/login' }}
+              primary={{ label: 'Sign in', href: scopedSignInHref }}
             >
               Sign in to track your badges across every game you play.
             </GateCard>
@@ -460,7 +473,7 @@ export default function Leaderboards() {
             <GateCard
               mark={<Icon name="zap" />}
               state="Ladder signed out"
-              primary={{ label: 'Sign in', href: '/login' }}
+              primary={{ label: 'Sign in', href: scopedSignInHref }}
             >
               Sign in to see how every game and milestone built your Player XP.
             </GateCard>
@@ -513,7 +526,7 @@ export default function Leaderboards() {
               {entries.value.map((entry, index) => (
                 <LeaderboardRow
                   entry={entry}
-                  mode={mode.value}
+                  mode={mode}
                   index={index}
                   rankOverride={isClan ? index + 1 : undefined}
                   key={entry.player.id}

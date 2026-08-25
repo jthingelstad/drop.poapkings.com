@@ -1,4 +1,4 @@
-import { normalizeAuthReturnPath, type AuthReturnPath } from '@elixir-drop/contracts'
+import { ladderRoutePath, ladderRouteState, normalizeAuthReturnPath, type AuthReturnPath } from '@elixir-drop/contracts'
 
 // The launch six (Rain joined as a ranked mode).
 export const GAME_PATHS = ['/practice', '/surge', '/higher-lower', '/trade', '/survival', '/rain'] as const
@@ -26,12 +26,15 @@ export function profileRouteForGame(path: GamePath): string {
 // play, so they need a destination that arrives on the right board instead of
 // the default one.
 export function boardRouteForMode(mode: string): string {
-  return `/leaderboards?mode=${encodeURIComponent(mode)}`
+  const state = ladderRouteState(`/leaderboards?mode=${encodeURIComponent(mode)}`)
+  return ladderRoutePath(state)
 }
 
 export function boardModeFromRoute(value: string): string | undefined {
-  const query = value.split('?')[1] || ''
-  return new URLSearchParams(query).get('mode') ?? undefined
+  const state = ladderRouteState(value)
+  return state.mode === 'surge' && !new URLSearchParams(value.split('?', 2)[1] || '').has('mode')
+    ? undefined
+    : state.mode
 }
 
 export function gameReturnPathFromRoute(value: string): GamePath | undefined {

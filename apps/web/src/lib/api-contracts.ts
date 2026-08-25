@@ -486,8 +486,7 @@ export const leaderboardResponseSchema = z.object({
   currentSeason: seasonSchema,
   // The period rail's chips (Boards scope only): the current season back
   // through Drop's first board, newest first. crSeasonId is the derived Clash
-  // Royale number; absent when it cannot be derived, so the client shows the
-  // raw id.
+  // Royale number; entries without one stay out of player-facing navigation.
   seasons: z.optional(z.array(z.object({ id: nonEmptyString, crSeasonId: z.optional(safeInteger.positive()) }))),
   entries: z.array(leaderboardEntrySchema)
 })
