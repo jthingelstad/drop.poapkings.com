@@ -935,7 +935,7 @@ Resources:
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-api-latency-p95
-      AlarmDescription: Elixir Drop API p95 response latency exceeded 1.2 seconds in two of three five-minute windows.
+      AlarmDescription: Elixir Drop API p95 response latency exceeded 1.2 seconds in five of fifteen one-minute windows.
       Namespace: AWS/ApiGateway
       MetricName: Latency
       Dimensions:
@@ -944,9 +944,9 @@ Resources:
         - Name: Stage
           Value: $default
       ExtendedStatistic: p95
-      Period: 300
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 2
+      Period: 60
+      EvaluationPeriods: 15
+      DatapointsToAlarm: 5
       Threshold: 1200
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching

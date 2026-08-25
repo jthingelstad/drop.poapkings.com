@@ -588,8 +588,14 @@ void describe("deployment parameters", () => {
       /OperationsDashboard:[\s\S]*?DependsOn: CloudFormationDashboardPolicy/,
     );
 
-    assert.match(template, /AlarmName: elixir-drop-api-latency-p95/);
-    assert.match(template, /ExtendedStatistic: p95[\s\S]*?Threshold: 1200/);
+    const p95Alarm = template.match(
+      /ApiLatencyP95Alarm:[\s\S]*?(?=\n  ApiLatencyP99Alarm:)/,
+    )?.[0];
+    assert.ok(p95Alarm);
+    assert.match(
+      p95Alarm,
+      /five of fifteen one-minute windows[\s\S]*?ExtendedStatistic: p95[\s\S]*?Period: 60[\s\S]*?EvaluationPeriods: 15[\s\S]*?DatapointsToAlarm: 5[\s\S]*?Threshold: 1200/,
+    );
     assert.match(template, /AlarmName: elixir-drop-api-latency-p99/);
     assert.match(template, /ExtendedStatistic: p99[\s\S]*?Threshold: 2000/);
     assert.match(template, /AlarmName: elixir-drop-api-concurrency/);
