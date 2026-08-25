@@ -25,7 +25,7 @@ export default function Home() {
   // The featured game leads in the hero; it must not appear again in the list.
   // This is the order on every shell — desktop does not reshuffle the game.
   const others = ALL_GAMES.filter((game) => game.key !== featured.key)
-  const seasonLabel = data.season?.crSeasonId ? `Season ${data.season.crSeasonId}` : ''
+  const seasonLabel = data.season ? `Season ${data.season.id}` : ''
 
   // Offline, personal bests and ranks go quiet rather than apologise: the whole
   // meta line is season context the device cannot vouch for while disconnected.

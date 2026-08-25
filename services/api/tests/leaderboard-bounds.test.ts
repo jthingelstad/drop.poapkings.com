@@ -63,16 +63,11 @@ describe("leaderboard read bounds", () => {
       ]),
     );
 
-    const entries = await seasonLeaderboard(
-      "test-table",
-      "surge",
-      "2026-06",
-      50,
-    );
+    const entries = await seasonLeaderboard("test-table", "surge", 133, 50);
 
-    // 10 board pages, each with its own decision BatchGet, then one profile
-    // hydration — and nothing more.
-    expect(send).toHaveBeenCalledTimes(21);
+    // 10 board pages, one decision BatchGet, then one profile hydration — and
+    // nothing more.
+    expect(send).toHaveBeenCalledTimes(12);
     expect(entries).toHaveLength(1);
   });
 
@@ -353,12 +348,9 @@ describe("leaderboard read bounds", () => {
         },
       });
 
-    const error = await seasonLeaderboard(
-      "test-table",
-      "surge",
-      "2026-06",
-      50,
-    ).catch((thrown: unknown) => thrown);
+    const error = await seasonLeaderboard("test-table", "surge", 133, 50).catch(
+      (thrown: unknown) => thrown,
+    );
 
     expect(error).toBeInstanceOf(HttpError);
     expect(error).toMatchObject({
@@ -375,7 +367,7 @@ describe("leaderboard read bounds", () => {
     });
 
     await expect(
-      seasonLeaderboard("test-table", "surge", "2026-06", 50),
+      seasonLeaderboard("test-table", "surge", 133, 50),
     ).rejects.toMatchObject({
       statusCode: 503,
       code: "leaderboard_history_unavailable",
@@ -409,7 +401,7 @@ describe("leaderboard read bounds", () => {
       .mockResolvedValueOnce({ Responses: {} });
 
     await expect(
-      seasonPodiumFinishers("test-table", "surge", "2026-06"),
+      seasonPodiumFinishers("test-table", "surge", 133),
     ).resolves.toEqual(["player-a", "player-b", "player-c"]);
     expect(send).toHaveBeenCalledTimes(2);
   });
@@ -441,7 +433,7 @@ describe("leaderboard row tiebreak display", () => {
         });
       return Promise.resolve({ Responses: {} });
     });
-    return seasonLeaderboard("test-table", mode as never, "2026-07", 50);
+    return seasonLeaderboard("test-table", mode as never, 134, 50);
   }
 
   it("shows Survival's cumulative time, its single tiebreak", async () => {

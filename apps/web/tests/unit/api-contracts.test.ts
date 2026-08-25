@@ -13,9 +13,10 @@ const season = {
   durationWeeks: 5
 }
 
-describe('numeric season rolling compatibility', () => {
-  it('accepts numeric season identifiers before the API cutover', () => {
-    expect(seasonSchema.parse(season).id).toBe('135')
+describe('numeric season contracts', () => {
+  it('normalizes numeric and retired calendar identifiers to Clash season numbers', () => {
+    expect(seasonSchema.parse(season).id).toBe(135)
+    expect(seasonSchema.parse({ ...season, id: '2026-08' }).id).toBe(135)
     expect(
       leaderboardResponseSchema.parse({
         mode: 'surge',
@@ -25,13 +26,13 @@ describe('numeric season rolling compatibility', () => {
         seasons: [{ id: 135 }],
         entries: []
       })
-    ).toMatchObject({ seasonId: '135', seasons: [{ id: '135' }] })
+    ).toMatchObject({ seasonId: 135, seasons: [{ id: 135 }] })
     expect(
       seasonHistoryResponseSchema.parse({
         index: [{ id: 135, games: 1 }],
         seasons: [{ id: 135, games: 1, runs: [] }]
       })
-    ).toMatchObject({ index: [{ id: '135' }], seasons: [{ id: '135' }] })
-    expect(activityResponseSchema.parse({ seasonId: 135, windowHours: 24, entries: [] }).seasonId).toBe('135')
+    ).toMatchObject({ index: [{ id: 135 }], seasons: [{ id: 135 }] })
+    expect(activityResponseSchema.parse({ seasonId: 135, windowHours: 24, entries: [] }).seasonId).toBe(135)
   })
 })

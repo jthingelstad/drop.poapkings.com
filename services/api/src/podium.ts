@@ -24,12 +24,12 @@ const RANKED_MODES = GAME_MODES.filter(
 const MAX_BADGE_WRITE_ATTEMPTS = 4;
 
 export interface PodiumFinalization {
-  seasonId: string;
+  seasonId: number;
   finalizedAt: string;
 }
 
 export interface PodiumFinalizationSummary {
-  seasonId: string;
+  seasonId: number;
   finishes: number;
   awarded: number;
   duplicates: number;
@@ -80,7 +80,7 @@ async function baselineCounters(
 async function awardFinish(
   repository: Repository,
   sub: string,
-  seasonId: string,
+  seasonId: number,
   mode: GameMode,
   at: string,
 ): Promise<boolean> {
@@ -251,7 +251,7 @@ export async function finalizePreviousSeasonIfNeeded(
   )
     return undefined;
   return finalizePodiumBadges(repository, {
-    seasonId: current.leaderboardSeasonId,
+    seasonId: current.crSeasonId,
     finalizedAt: incoming.observedAt,
   });
 }

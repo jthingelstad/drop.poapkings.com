@@ -1,4 +1,8 @@
-import { arenaForXp, type GameMode } from "@elixir-drop/contracts";
+import {
+  arenaForXp,
+  seasonNumber,
+  type GameMode,
+} from "@elixir-drop/contracts";
 import {
   BADGE_COUNTERS_VERSION,
   badgeStates,
@@ -13,7 +17,6 @@ import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
-import { crSeasonIdFor } from "../seasons.js";
 import {
   cardResultsFromTranscript,
   costAccuracy,
@@ -122,7 +125,6 @@ export async function getMe({ event, config, repository }: RouteContext) {
   });
 }
 
-const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
 // `unreviewed` is not a stored decision — it is the absence of one, and the
 // filter needs a name for it because it is what most runs are.
 const REVIEW_STATUSES = [
@@ -166,7 +168,7 @@ export async function getMySeasons({
   if (
     seasonFilter !== undefined &&
     seasonFilter !== "all" &&
-    !SEASON_ID_PATTERN.test(seasonFilter)
+    seasonNumber(seasonFilter) === undefined
   )
     throw new HttpError(400, "Season ID is invalid.");
   const modeFilter = event.queryStringParameters?.mode;
@@ -181,23 +183,20 @@ export async function getMySeasons({
   );
 
   // Built from the whole history because it has to be complete, but it costs
-  // one row per season on the wire. `crSeasonId` is what the player actually
-  // recognizes — "Season 135", not "2026-08" — so it travels with the index
-  // rather than leaving the browser to guess at an internal id.
-  const clock = await repository.getCrWarClock();
+  // one row per season on the wire. The id is already the Clash season number.
   const index = [...new Set(history.map((run) => run.seasonId))]
-    .sort((left, right) => right.localeCompare(left))
-    .map((id) => {
-      const crSeasonId = crSeasonIdFor(id, clock);
-      return {
-        id,
-        games: history.filter((run) => run.seasonId === id).length,
-        ...(crSeasonId === undefined ? {} : { crSeasonId }),
-      };
-    });
+    .sort((left, right) => right - left)
+    .map((id) => ({
+      id,
+      games: history.filter((run) => run.seasonId === id).length,
+    }));
 
   const requestedSeason =
-    seasonFilter === undefined ? index[0]?.id : seasonFilter;
+    seasonFilter === undefined
+      ? index[0]?.id
+      : seasonFilter === "all"
+        ? "all"
+        : seasonNumber(seasonFilter);
   const scoped = history.filter(
     (run) =>
       (requestedSeason === undefined ||
@@ -223,7 +222,7 @@ export async function getMySeasons({
         ownerRunReviewExplanation(decision),
       );
     });
-  const grouped = new Map<string, typeof runs>();
+  const grouped = new Map<number, typeof runs>();
   for (const run of runs) {
     const season = grouped.get(run.seasonId) ?? [];
     season.push(run);
@@ -287,7 +286,7 @@ export async function getMyXp({ event, config, repository }: RouteContext) {
 async function seasonPlacements(
   repository: Repository,
   sub: string,
-  seasonId: string,
+  seasonId: number,
   runs: Array<{ runId: string; mode: GameMode; completedAt: string }>,
 ): Promise<Map<string, number>> {
   const placements = new Map<string, number>();

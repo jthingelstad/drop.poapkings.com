@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ACCOUNT_TAGS, GAME_MODES } from '@elixir-drop/contracts'
+import { ACCOUNT_TAGS, GAME_MODES, seasonNumber } from '@elixir-drop/contracts'
 
 // Drop ships a strict CSP without unsafe-eval. Disable Zod's optional JIT probe
 // so Firefox does not report a security-policy violation for every API parse.
@@ -11,11 +11,18 @@ const safeInteger = z.number().int().safe()
 const nonNegativeInteger = safeInteger.nonnegative()
 const cardId = safeInteger.positive()
 const accountTagSchema = z.enum(ACCOUNT_TAGS)
-// Rolling-deploy bridge for the season-key migration. The next API writes and
-// returns Clash season numbers; the currently deployed browser expects strings.
-// Normalize either wire shape to the existing browser type so this build can be
-// deployed first without coupling the API and web cutovers.
-const compatibleSeasonId = z.union([nonEmptyString, safeInteger.positive()]).transform(String)
+// Rolling-deploy and retained-data bridge for the season-key migration. New
+// application values are numeric Clash season numbers; the decoder still
+// accepts the retired calendar shape long enough to read an older API response
+// or local record and immediately normalizes it to the canonical number.
+const compatibleSeasonId = z.union([nonEmptyString, safeInteger.positive()]).transform((value, context) => {
+  const resolved = seasonNumber(value)
+  if (resolved === undefined) {
+    context.addIssue({ code: 'custom', message: 'Invalid season number' })
+    return z.NEVER
+  }
+  return resolved
+})
 
 export const apiConfigSchema = z.object({
   apiBaseUrl: z.string()
@@ -38,7 +45,6 @@ export const seasonSchema = z.object({
   endsAt: isoDateTime,
   durationWeeks: safeInteger.positive(),
   source: z.optional(z.enum(['clash-royale', 'calendar-fallback'])),
-  crSeasonId: z.optional(nonNegativeInteger),
   currentWeek: z.optional(safeInteger.positive()),
   daysRemainingInWeek: z.optional(nonNegativeInteger),
   periodType: z.optional(z.enum(['training', 'warDay', 'colosseum'])),
@@ -241,10 +247,7 @@ export const seasonHistorySchema = z.object({
 // picker and the "load the season before this" control never need the runs.
 export const seasonIndexEntrySchema = z.object({
   id: compatibleSeasonId,
-  games: nonNegativeInteger,
-  // The Clash Royale season number players actually recognise. Absent when the
-  // server cannot anchor the internal id to a live war clock.
-  crSeasonId: z.optional(nonNegativeInteger)
+  games: nonNegativeInteger
 })
 
 export const seasonHistoryResponseSchema = z.object({
@@ -490,9 +493,9 @@ export const leaderboardResponseSchema = z.object({
   clan: z.optional(z.object({ tag: nonEmptyString, name: nonEmptyString })),
   currentSeason: seasonSchema,
   // The period rail's chips (Boards scope only): the current season back
-  // through Drop's first board, newest first. crSeasonId is the derived Clash
-  // Royale number; entries without one stay out of player-facing navigation.
-  seasons: z.optional(z.array(z.object({ id: compatibleSeasonId, crSeasonId: z.optional(safeInteger.positive()) }))),
+  // through Drop's first board, newest first. The id itself is the Clash season
+  // number; no parallel calendar-derived key is exposed.
+  seasons: z.optional(z.array(z.object({ id: compatibleSeasonId }))),
   entries: z.array(leaderboardEntrySchema)
 })
 

@@ -99,7 +99,7 @@ export interface BuildEvidenceInput {
   sub: string;
   runId: string;
   mode: GameMode;
-  seasonId: string;
+  seasonId: number;
   runType: "ranked" | "unscored" | "rejected";
   integrityOutcome: string;
   reviewSignals?: string[];

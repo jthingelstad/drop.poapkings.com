@@ -101,19 +101,17 @@ describe("Buttondown metadata backfill", () => {
   });
 
   it("derives and repairs only a player's newest Clash Royale season number", () => {
-    const clock = { leaderboardSeasonId: "2026-08", crSeasonId: 135 };
-    expect(
-      reconcileButtondownLastSeasonPlayed({ totalGames: 7 }, "2026-08", clock),
-    ).toEqual({
-      resolved: true,
-      lastSeasonPlayed: 135,
-      profileUpdate: true,
-    });
+    expect(reconcileButtondownLastSeasonPlayed({ totalGames: 7 }, 135)).toEqual(
+      {
+        resolved: true,
+        lastSeasonPlayed: 135,
+        profileUpdate: true,
+      },
+    );
     expect(
       reconcileButtondownLastSeasonPlayed(
         { totalGames: 8, lastSeasonPlayed: 135 },
-        "2026-08",
-        clock,
+        135,
       ),
     ).toEqual({
       resolved: true,
@@ -123,8 +121,7 @@ describe("Buttondown metadata backfill", () => {
     expect(
       reconcileButtondownLastSeasonPlayed(
         { totalGames: 8, lastSeasonPlayed: 134 },
-        "2026-08",
-        clock,
+        135,
       ),
     ).toEqual({
       resolved: true,
@@ -134,8 +131,7 @@ describe("Buttondown metadata backfill", () => {
     expect(
       reconcileButtondownLastSeasonPlayed(
         { totalGames: 8, lastSeasonPlayed: 136 },
-        "2026-08",
-        clock,
+        135,
       ),
     ).toEqual({ resolved: false });
   });

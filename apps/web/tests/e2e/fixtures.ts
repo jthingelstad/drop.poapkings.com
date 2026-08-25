@@ -16,12 +16,11 @@ export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
   /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|run-reports|runs|shares|stats)(?:[/?]|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
-  id: '2026-07',
+  id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
   endsAt: '2026-08-03T10:00:00.000Z',
   durationWeeks: 4,
   source: 'clash-royale',
-  crSeasonId: 134,
   currentWeek: 2,
   daysRemainingInWeek: 2,
   periodType: 'warDay',
@@ -53,7 +52,7 @@ export const testRecentRuns = [
     runId: 'recent-surge',
     mode: 'surge',
     score: 67_299,
-    seasonId: '2026-07',
+    seasonId: 134,
     completedAt: '2026-07-18T18:42:00.000Z',
     reviewStatus: 'pending',
     placement: 2
@@ -62,7 +61,7 @@ export const testRecentRuns = [
     runId: 'recent-trade',
     mode: 'trade',
     score: 11_800,
-    seasonId: '2026-07',
+    seasonId: 134,
     completedAt: '2026-07-17T20:00:00.000Z',
     reviewStatus: 'excluded',
     reviewExplanation: 'This run was excluded because its recorded response timing was not consistent with human play.'
@@ -71,7 +70,7 @@ export const testRecentRuns = [
     runId: 'recent-practice',
     mode: 'practice',
     score: 64,
-    seasonId: '2026-07',
+    seasonId: 134,
     completedAt: '2026-07-16T20:00:00.000Z'
   }
 ] as const
@@ -153,7 +152,7 @@ const seasonRuns = [
     runId: `season-run-${index + 1}`,
     mode: index % 2 === 0 ? ('surge' as const) : ('trade' as const),
     score: index % 2 === 0 ? 67_299 - index * 100 : 91_000 - index * 250,
-    seasonId: '2026-07',
+    seasonId: 134,
     completedAt: `2026-07-${String(28 - index).padStart(2, '0')}T18:00:00.000Z`
   }))
 ]
@@ -161,27 +160,27 @@ const seasonRuns = [
 export const testSeasonHistory = {
   seasons: [
     {
-      id: '2026-07',
+      id: 134,
       // Deliberately greater than the old 20-row profile feed cap.
       games: seasonRuns.length,
       runs: seasonRuns
     },
     {
-      id: '2026-06',
+      id: 133,
       games: 2,
       runs: [
         {
           runId: 'older-1',
           mode: 'surge' as const,
           score: 71_000,
-          seasonId: '2026-06',
+          seasonId: 133,
           completedAt: '2026-06-20T18:00:00.000Z'
         },
         {
           runId: 'older-2',
           mode: 'trade' as const,
           score: 84_000,
-          seasonId: '2026-06',
+          seasonId: 133,
           completedAt: '2026-06-19T18:00:00.000Z'
         }
       ]
@@ -195,17 +194,15 @@ export const testSeasonHistory = {
 // rather than mocked away.
 export function seasonHistoryResponse(url: string) {
   const requested = new URL(url).searchParams.get('season')
-  // The season index numbers each season the way players read it.
-  const crSeasonIds: Record<string, number> = { '2026-07': 134, '2026-06': 133 }
   const index = testSeasonHistory.seasons.map((season) => ({
     id: season.id,
-    games: season.games,
-    ...(crSeasonIds[season.id] === undefined ? {} : { crSeasonId: crSeasonIds[season.id] })
+    games: season.games
   }))
+  const requestedSeason = requested && /^\d+$/.test(requested) ? Number(requested) : undefined
   const seasons =
     requested === 'all'
       ? testSeasonHistory.seasons
-      : testSeasonHistory.seasons.filter((season) => season.id === (requested ?? index[0]?.id))
+      : testSeasonHistory.seasons.filter((season) => season.id === (requestedSeason ?? index[0]?.id))
   return { index, seasons }
 }
 
@@ -241,7 +238,7 @@ export function leaderboardEntries(mode: GameMode) {
 // from 404-ing (which the console-error guard would flag) and lets the desktop
 // home test assert the recent-activity surface.
 export const testActivity = {
-  seasonId: '2026-07',
+  seasonId: 134,
   entries: [
     {
       mode: 'trade' as GameMode,
@@ -311,7 +308,7 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
         ...(scope === 'clan' ? { clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' } } : {}),
         ...(scope === 'all-time' || scope === 'clan' ? {} : { seasonId: testSeason.id }),
         currentSeason: testSeason,
-        seasons: [{ id: testSeason.id, crSeasonId: 134 }],
+        seasons: [{ id: testSeason.id }],
         entries: leaderboardEntries(mode)
       })
     })
@@ -540,7 +537,7 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
         token: sharedRun[1],
         mode: 'surge',
         score: 17_412,
-        seasonId: '2026-07',
+        seasonId: 134,
         completedAt: '2026-07-18T00:00:00.000Z',
         series: [1200, 900, 1500],
         player: {
@@ -578,7 +575,7 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
     const { runToken } = route.request().postDataJSON() as { runToken: string }
     const mode = runToken.replace(/^run-/, '') as GameMode
     const season = {
-      id: '2026-07',
+      id: 134,
       startsAt: '2026-07-06T08:00:00.000Z',
       endsAt: '2026-08-03T08:00:00.000Z',
       durationWeeks: 4
@@ -756,7 +753,7 @@ export const test = base.extend({
                   mode,
                   scope: 'all-time',
                   currentSeason: testSeason,
-                  seasons: [{ id: testSeason.id, crSeasonId: 134 }],
+                  seasons: [{ id: testSeason.id }],
                   entries: leaderboardEntries(mode)
                 }
               : scope === 'clan'
@@ -770,9 +767,9 @@ export const test = base.extend({
                 : {
                     mode,
                     scope: 'season',
-                    seasonId: '2026-07',
+                    seasonId: 134,
                     currentSeason: testSeason,
-                    seasons: [{ id: testSeason.id, crSeasonId: 134 }],
+                    seasons: [{ id: testSeason.id }],
                     entries: leaderboardEntries(mode)
                   }
           )

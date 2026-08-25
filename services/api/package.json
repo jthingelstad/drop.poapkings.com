@@ -9,6 +9,7 @@
   "scripts": {
     "backfill:all-time": "node scripts/backfill-all-time.mjs",
     "backfill:buttondown-metadata": "esbuild scripts/backfill-buttondown-metadata.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=dist/backfill-buttondown-metadata.cjs && node dist/backfill-buttondown-metadata.cjs",
+    "migrate:season-numbers": "esbuild scripts/migrate-season-numbers.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=dist/migrate-season-numbers.cjs && node dist/migrate-season-numbers.cjs",
     "cleanup:zero-leaderboards": "node scripts/cleanup-zero-leaderboards.mjs",
     "recover:rain-runs": "esbuild src/maintenance/recover-rain-runs.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-rain-runs.cjs && node dist/recover-rain-runs.cjs",
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/handler.cjs",

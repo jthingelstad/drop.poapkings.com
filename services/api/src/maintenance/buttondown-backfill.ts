@@ -2,7 +2,7 @@ import {
   buttondownPlayerMetadata,
   buttondownSubscriberMetadataBody,
 } from "../buttondown.js";
-import { crSeasonIdFor } from "../seasons.js";
+import { seasonNumber } from "@elixir-drop/contracts";
 import type { CrProfileSnapshot, PlayerProfile } from "../types.js";
 
 export interface ButtondownBackfillArgs {
@@ -62,8 +62,8 @@ export function desiredButtondownBackfillMetadata(
 
 export function reconcileButtondownLastSeasonPlayed(
   profile: Pick<PlayerProfile, "totalGames" | "lastSeasonPlayed">,
-  latestRunSeasonId: string | undefined,
-  clock: { leaderboardSeasonId: string; crSeasonId: number } | undefined,
+  latestRunSeasonId: unknown,
+  _clock?: unknown,
 ):
   | { resolved: false }
   | { resolved: true; lastSeasonPlayed?: number; profileUpdate: boolean } {
@@ -71,9 +71,7 @@ export function reconcileButtondownLastSeasonPlayed(
     return profile.lastSeasonPlayed === undefined
       ? { resolved: true, profileUpdate: false }
       : { resolved: false };
-  const lastSeasonPlayed = latestRunSeasonId
-    ? crSeasonIdFor(latestRunSeasonId, clock)
-    : undefined;
+  const lastSeasonPlayed = seasonNumber(latestRunSeasonId);
   if (
     !lastSeasonPlayed ||
     (profile.lastSeasonPlayed !== undefined &&

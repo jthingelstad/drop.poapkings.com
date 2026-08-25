@@ -1,5 +1,6 @@
 import {
   CLASH_ROYALE_TAG_PATTERN,
+  seasonNumber,
   type ClashRoyaleAccountAge,
   type ClashRoyaleCard,
   type ClashRoyaleClan,
@@ -95,17 +96,14 @@ function parsePlayer(value: unknown): CrPlayerSnapshot {
   };
 }
 
-const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
-
 export function parsePodiumFinalizeResult(
   value: unknown,
 ): PodiumFinalizeResult {
   const source = object(value, "Result");
   if (source.version !== 1 || source.type !== "podium-finalize")
     throw new Error("Unsupported podium finalization message");
-  const seasonId = text(source.seasonId, "Season ID", 30);
-  if (!SEASON_ID_PATTERN.test(seasonId))
-    throw new Error("Season ID is invalid");
+  const seasonId = seasonNumber(source.seasonId);
+  if (seasonId === undefined) throw new Error("Season ID is invalid");
   return {
     version: 1,
     type: "podium-finalize",

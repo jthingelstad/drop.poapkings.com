@@ -300,11 +300,11 @@ async function recordSignedInRun(
     automaticReviewReason,
   );
   let buttondownSeasonChanged = false;
-  if (season.crSeasonId) {
+  if (season.id) {
     try {
       buttondownSeasonChanged = await repository.advanceLastSeasonPlayed(
         run.owner,
-        season.crSeasonId,
+        season.id,
       );
     } catch (error) {
       // The recorded run is authoritative. Weekly reconciliation repairs this
@@ -517,7 +517,7 @@ async function recordSignedInRun(
   // Royale season. Later games produce no external metadata request; routine
   // profile/session sync and the weekly reconciliation repair a failed write.
   await Promise.all([
-    buttondownSeasonChanged && season.crSeasonId
+    buttondownSeasonChanged
       ? updateButtondownSubscriberMetadata(
           {
             apiKey: config.buttondownApiKey,
@@ -525,7 +525,7 @@ async function recordSignedInRun(
           },
           finalProfile.email,
           buttondownPlayerMetadata(
-            { ...finalProfile, lastSeasonPlayed: season.crSeasonId },
+            { ...finalProfile, lastSeasonPlayed: season.id },
             config.appUrl,
             crProfile,
           ),

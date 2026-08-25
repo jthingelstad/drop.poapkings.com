@@ -417,7 +417,7 @@ rank-oriented fields as part of unrelated work.
   odd-card carry and no payout cap. Exact-once marker transactions add +10 for
   an official current-board personal best (first counts, max three per UTC day),
   +5 for the first qualifying UTC featured completion, badge rung XP, top-20
-  season placement XP from Season 135 / `2026-08` onward
+  season placement XP from Season 135 onward
   (500/350/250/150/100/50), and +100 Seasonal Circuit for
   a positive final score in all five ranked modes. Current XP is the immutable
   opening balance; only badge rungs backfill. Offline and guest runs award
@@ -461,13 +461,12 @@ rank-oriented fields as part of unrelated work.
 - **`GET /me/seasons` is bounded.** It returns a one-row-per-season `index` plus
   a single season's runs (`season=all` is an explicit opt-in). Never reintroduce
   a read that ships a player's whole career to render one month.
-- **Players read Clash Royale season numbers, never Drop's internal ids.**
-  `2026-08` is a storage key; "Season 135" is the season. `crSeasonIdFor` in
-  `services/api/src/seasons.ts` derives the number for a past season (monthly and
-  sequential from the live war clock, or the id's own `-NN` suffix) and returns
-  undefined rather than guessing. Any surface naming or linking a season uses
-  the Clash number (`season=135`); unresolved internal ids are omitted rather
-  than exposed in labels or browser navigation.
+- **A season ID is the positive Clash Royale season number everywhere.**
+  Season 135 is stored and returned as numeric `135`; calendar-shaped values
+  such as `2026-08` are retired migration inputs, never application keys. Every
+  label and deep link uses the same number (`season=135`). The CR war clock is
+  authoritative; the calendar fallback advances from Drop's verified Season
+  134 launch anchor only when no usable clock remains.
 
 ---
 

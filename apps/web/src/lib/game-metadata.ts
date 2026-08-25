@@ -95,12 +95,12 @@ export function betterScore(mode: GameMode, candidate: number, current: number |
 }
 
 export function bestScoresFromRuns(
-  runs: Array<{ mode: GameMode; score: number; seasonId: string }>,
-  seasonId?: string
+  runs: Array<{ mode: GameMode; score: number; seasonId: number }>,
+  seasonId?: number
 ): Partial<Record<GameMode, number>> {
   const scores: Partial<Record<GameMode, number>> = {}
   for (const run of runs) {
-    if (seasonId && run.seasonId !== seasonId) continue
+    if (seasonId !== undefined && run.seasonId !== seasonId) continue
     if (betterScore(run.mode, run.score, scores[run.mode])) scores[run.mode] = run.score
   }
   return scores

@@ -426,7 +426,7 @@ function acceptedResult(mode: 'surge' | 'rain', score: number) {
     runId: 'run-1',
     mode,
     score,
-    season: { id: 'season-1', startsAt: '', endsAt: '', durationWeeks: 1 },
+    season: { id: 134, startsAt: '', endsAt: '', durationWeeks: 1 },
     completedAt: '2026-07-24T00:00:00.000Z',
     totalGames: 5,
     xp: 12,
@@ -521,7 +521,7 @@ describe('useGameRun', () => {
       guest: true,
       mode: 'surge',
       score: 4_200,
-      season: { id: 'season-1', startsAt: '', endsAt: '', durationWeeks: 1 }
+      season: { id: 134, startsAt: '', endsAt: '', durationWeeks: 1 }
     } as never)
     const { api } = mountRun()
     await flush()
@@ -543,7 +543,7 @@ describe('useGameRun', () => {
       runId: 'run-1',
       mode: 'surge',
       score: 3_100,
-      season: { id: 'season-1', startsAt: '', endsAt: '', durationWeeks: 1 },
+      season: { id: 134, startsAt: '', endsAt: '', durationWeeks: 1 },
       completedAt: '2026-07-21T00:00:00.000Z',
       totalGames: 5,
       xp: 12,
@@ -869,7 +869,7 @@ describe('useGameRun', () => {
       guest: true,
       mode: 'surge',
       score: 1,
-      season: { id: 'season-1', startsAt: '', endsAt: '', durationWeeks: 1 }
+      season: { id: 134, startsAt: '', endsAt: '', durationWeeks: 1 }
     } as never)
     const { api } = mountRun()
     await flush()

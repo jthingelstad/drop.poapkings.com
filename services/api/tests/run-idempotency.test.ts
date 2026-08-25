@@ -109,7 +109,7 @@ describe("idempotent run completion", () => {
       expiresAt: nowSeconds + 1_800,
       completedAt: "2026-07-18T12:01:00.000Z",
       score: 12_345,
-      seasonId: "2026-07",
+      seasonId: 134,
     });
     repository.getProfile.mockResolvedValue({
       sub: "player-sub",
@@ -137,7 +137,7 @@ describe("idempotent run completion", () => {
       score: 12_345,
       completedAt: "2026-07-18T12:01:00.000Z",
       totalGames: 8,
-      season: { id: "2026-07" },
+      season: { id: 134 },
     });
     expect(publishTinylyticsEvent).not.toHaveBeenCalled();
   });

@@ -173,7 +173,7 @@ function retryableFailureReporter(active: StartedRun, error: unknown): () => voi
 // server-side expiry (a Ready screen left open, a long break before Start).
 const RUN_FRESHNESS_BUFFER_MS = 2 * 60_000
 
-function recordSeasonBest(result: { mode: GameMode; score: number; season: { id: string } }): boolean {
+function recordSeasonBest(result: { mode: GameMode; score: number; season: { id: number } }): boolean {
   // Practice keeps no record of any kind — not seasonal, not all-time.
   if (!isRecordedMode(result.mode)) return false
   const key = RECORD_KEYS[result.mode]

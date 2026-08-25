@@ -558,7 +558,7 @@ function LogScope({ playerId }: { playerId: string }) {
   const missingSeasonIds = scopedSeasonIds.filter((id) => !(id in loaded.value))
   const nextOlderSeasonId = seasonIds[pagedSeasons.value]
 
-  async function fetchSeason(season: string): Promise<void> {
+  async function fetchSeason(season: number): Promise<void> {
     const token = sessionToken()
     if (!token) return
     loadingMore.value = true

@@ -90,7 +90,8 @@ if (
 }
 if (
   statsBody.currentSeason.source !== "clash-royale" ||
-  !statsBody.currentSeason.crSeasonId ||
+  !Number.isSafeInteger(statsBody.currentSeason.id) ||
+  statsBody.currentSeason.id <= 0 ||
   !statsBody.currentSeason.clockUpdatedAt
 ) {
   throw new Error("Stats are not using the live Clash Royale season clock");

@@ -76,6 +76,7 @@ const BOARD_EPOCH = {
   trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };
 
+/** @param {number | "ALLTIME"} seasonId */
 export function leaderboardPartition(seasonId, mode) {
   const epoch = BOARD_EPOCH[mode]?.id;
   return epoch
@@ -540,6 +541,7 @@ export async function resolveAllTimeEarningRun(doc, row, mode) {
   );
 }
 
+/** @param {number | "ALLTIME"} seasonId */
 export async function visibleLeaderboardRows(
   doc,
   seasonId,
@@ -620,19 +622,20 @@ export function parseFlags(argv) {
   return { flags, positional };
 }
 
-// The current leaderboard season id, read from the CR war-clock singleton the
-// bridge maintains. Falls back to the UTC calendar month if the clock is absent.
+// The current leaderboard season number, read from the CR war-clock singleton
+// the bridge maintains. Referee work fails closed when the authoritative clock
+// is absent; it never invents a calendar-shaped storage key.
 export async function currentSeasonId(doc) {
   const result = await doc.send(
     new GetCommand({
       TableName: TABLE_NAME,
       Key: { pk: "CR_WAR_CLOCK", sk: "CURRENT" },
-      ProjectionExpression: "leaderboardSeasonId",
+      ProjectionExpression: "crSeasonId",
     }),
   );
-  if (result.Item?.leaderboardSeasonId) return result.Item.leaderboardSeasonId;
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (Number.isSafeInteger(result.Item?.crSeasonId) && result.Item.crSeasonId > 0)
+    return result.Item.crSeasonId;
+  throw new Error("CR war clock has no current season number");
 }
 
 export { GetCommand, QueryCommand, ScanCommand, TransactWriteCommand };

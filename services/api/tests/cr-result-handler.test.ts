@@ -33,7 +33,7 @@ describe("CR result queue handler", () => {
     repository.saveCrWarClock.mockResolvedValue(true);
     podium.finalizePreviousSeasonIfNeeded.mockResolvedValue(undefined);
     podium.finalizePodiumBadges.mockResolvedValue({
-      seasonId: "2026-07",
+      seasonId: 134,
       finishes: 3,
       awarded: 3,
       duplicates: 0,
@@ -77,7 +77,7 @@ describe("CR result queue handler", () => {
     const body = {
       version: 1,
       type: "podium-finalize",
-      seasonId: "2026-07",
+      seasonId: 134,
       finalizedAt: "2026-08-03T10:12:48.768Z",
     };
     const response = await crResultHandler({
@@ -103,7 +103,7 @@ describe("CR result queue handler", () => {
           body: JSON.stringify({
             version: 1,
             type: "podium-finalize",
-            seasonId: "2026-07",
+            seasonId: 134,
             finalizedAt: "2026-08-03T10:12:48.768Z",
           }),
         },

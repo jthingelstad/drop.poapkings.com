@@ -210,7 +210,7 @@ test('an empty leaderboard offers a play call-to-action', async ({ page }) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ seasonId: '2026-07', entries: [] })
+        body: JSON.stringify({ seasonId: 134, entries: [] })
       })
       return
     }

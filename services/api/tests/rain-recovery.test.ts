@@ -29,7 +29,7 @@ function evidence(): EvidenceItem {
     runId: run.runId,
     playerSub: run.owner,
     mode: "rain",
-    seasonId: "2026-08",
+    seasonId: 135,
     runType: "unscored",
     integrityOutcome: "Rain continued past three lives",
     challenge: run.challenge,

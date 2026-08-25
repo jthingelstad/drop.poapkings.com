@@ -79,7 +79,7 @@ import {
 // Practice is unranked by design and never writes a leaderboard row.
 const UNRANKED_MODES = new Set(["practice"]);
 
-const SEASON_ID = "2026-07";
+const SEASON_ID = 134;
 
 it("keeps player-facing run references stable across the app and referee tools", () => {
   const runId = "7b89d7fa-3ad6-4fa8-9048-2f7a96d85488";
@@ -335,14 +335,19 @@ async function boardAgreement(options: {
   table: Item[];
   mode: GameMode;
   scope: "season" | "all-time";
-  seasonId: string;
+  seasonId: number | "ALLTIME";
   limit: number;
 }) {
   const { table, mode, scope, seasonId, limit } = options;
   send.mockImplementation(serveTable(table));
   const apiRows =
     scope === "season"
-      ? await seasonLeaderboard(TABLE_NAME, mode, seasonId, limit)
+      ? await seasonLeaderboard(
+          TABLE_NAME,
+          mode,
+          typeof seasonId === "number" ? seasonId : SEASON_ID,
+          limit,
+        )
       : await allTimeLeaderboard(TABLE_NAME, mode, limit);
   const { rows } = await visibleLeaderboardRows(
     { send },
@@ -483,7 +488,7 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
   // -------------------------------------------------------------------------
   it("resolves the same partition as the API for every mode and scope", () => {
     for (const mode of RANKED_MODES) {
-      for (const seasonId of ["ALLTIME", "2026-07"]) {
+      for (const seasonId of ["ALLTIME", 134] as const) {
         expect(scriptsLeaderboardPartition(seasonId, mode)).toBe(
           leaderboardPartition(seasonId, mode as GameMode),
         );
@@ -494,17 +499,17 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
   it("keeps the modes that were reset onto their current board epoch", () => {
     // Guards the epochs themselves: dropping one silently resurrects a retired
     // board (Survival's pre-rework scores, Rain's pre-difficulty-redesign ones).
-    expect(scriptsLeaderboardPartition("2026-07", "survival")).toBe(
-      "LEADERBOARD#2026-07#survival#r2",
+    expect(scriptsLeaderboardPartition(134, "survival")).toBe(
+      "LEADERBOARD#134#survival#r2",
     );
-    expect(scriptsLeaderboardPartition("2026-07", "rain")).toBe(
-      "LEADERBOARD#2026-07#rain#r3",
+    expect(scriptsLeaderboardPartition(134, "rain")).toBe(
+      "LEADERBOARD#134#rain#r3",
     );
-    expect(scriptsLeaderboardPartition("2026-07", "higher-lower")).toBe(
-      "LEADERBOARD#2026-07#higher-lower#r3",
+    expect(scriptsLeaderboardPartition(134, "higher-lower")).toBe(
+      "LEADERBOARD#134#higher-lower#r3",
     );
-    expect(scriptsLeaderboardPartition("2026-07", "trade")).toBe(
-      "LEADERBOARD#2026-07#trade#r2",
+    expect(scriptsLeaderboardPartition(134, "trade")).toBe(
+      "LEADERBOARD#134#trade#r2",
     );
   });
 

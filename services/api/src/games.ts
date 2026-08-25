@@ -210,7 +210,7 @@ export function isStrictlyBetterPerformance(
 }
 
 export function leaderboardPartition(
-  seasonId: string,
+  seasonId: number | "ALLTIME",
   mode: GameMode,
   dealtEpoch?: string,
 ): string {

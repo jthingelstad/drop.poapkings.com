@@ -5,7 +5,10 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
   export const TABLE_NAME: string;
   export const RANKED_MODES: string[];
   export const FORBIDDEN_KEYS: readonly string[];
-  export function leaderboardPartition(seasonId: string, mode: string): string;
+  export function leaderboardPartition(
+    seasonId: number | "ALLTIME",
+    mode: string,
+  ): string;
   export function leaderboardSortKey(
     mode: string,
     score: number,
@@ -49,7 +52,7 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
   ): Promise<Record<string, unknown>>;
   export function visibleLeaderboardRows(
     doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
-    seasonId: string,
+    seasonId: number | "ALLTIME",
     mode: string,
     scope: "season" | "all-time",
     limit: number,

@@ -62,7 +62,7 @@ describe("repository conditional writes", () => {
     );
 
     await expect(
-      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+      new Repository("test-table").completeRun(startedRun, 12.3, 134, 45),
     ).rejects.toMatchObject({ statusCode: 409, code: "run_conflict" });
   });
 
@@ -76,7 +76,7 @@ describe("repository conditional writes", () => {
     );
 
     await expect(
-      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+      new Repository("test-table").completeRun(startedRun, 12.3, 134, 45),
     ).rejects.toMatchObject({ statusCode: 503, code: "run_record_busy" });
   });
 
@@ -84,7 +84,7 @@ describe("repository conditional writes", () => {
     send.mockRejectedValueOnce(awsError("ProvisionedThroughputExceeded"));
 
     await expect(
-      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+      new Repository("test-table").completeRun(startedRun, 12.3, 134, 45),
     ).rejects.toMatchObject({ name: "ProvisionedThroughputExceeded" });
   });
 
@@ -92,7 +92,7 @@ describe("repository conditional writes", () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
     await expect(
-      new Repository("test-table").completeRun(startedRun, 12.3, "2026-07", 45),
+      new Repository("test-table").completeRun(startedRun, 12.3, 134, 45),
     ).rejects.toThrow("Completed run profile could not be loaded");
   });
 
@@ -293,7 +293,7 @@ describe("repository conditional writes", () => {
       runId: "22222222-2222-4222-8222-222222222222",
       mode: "surge",
       score: 17_412,
-      seasonId: "2026-08",
+      seasonId: 135,
       completedAt: "2026-08-23T12:00:00.000Z",
       publishedAt: "2026-08-23T12:01:00.000Z",
       player: {
@@ -342,7 +342,7 @@ describe("repository conditional writes", () => {
       runId: "22222222-2222-4222-8222-222222222222",
       mode: "surge",
       score: 17_412,
-      seasonId: "2026-08",
+      seasonId: 135,
       completedAt: "2026-08-23T12:00:00.000Z",
       publishedAt: "2026-08-23T12:01:00.000Z",
       player: {
@@ -676,7 +676,6 @@ describe("repository conditional writes", () => {
       .mockResolvedValueOnce({
         Item: {
           crSeasonId: 135,
-          leaderboardSeasonId: "2026-07",
           observedAt: "2026-07-18T12:00:00.000Z",
           seasonStartsAt: "2026-07-01T10:00:00.000Z",
         },

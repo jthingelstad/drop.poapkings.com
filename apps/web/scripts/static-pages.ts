@@ -705,7 +705,7 @@ function xpBody(): string {
     section(
       'Season rollover',
       `${paragraph(
-        `Beginning with Season 135 (${XP_FIRST_SEASON_ID}), each of the five ranked modes pays its final referee-eligible top 20 at rollover. A pending result is withheld until it can be finalized, a score must be above zero, and a sparse board still pays the positions it actually contains. Placement XP stacks across modes.`
+        `Beginning with Season ${XP_FIRST_SEASON_ID}, each of the five ranked modes pays its final referee-eligible top 20 at rollover. A pending result is withheld until it can be finalized, a score must be above zero, and a sparse board still pays the positions it actually contains. Placement XP stacks across modes.`
       )}<div class="static-table-wrap" role="region" aria-label="Season placement XP table" tabindex="0"><table><thead><tr><th>Final position</th><th>XP per mode</th></tr></thead><tbody>${seasonRows}</tbody></table></div>${paragraph(
         `<strong>Seasonal Circuit: +${SEASON_CIRCUIT_XP} XP.</strong> Earned once at rollover by recording at least one final eligible positive score in every ranked mode that season. Practice is not part of the circuit. A #1 finish, a first copper Podium rung, and the Circuit stack to 500 + 5 + 100 = 605 XP.`
       )}`

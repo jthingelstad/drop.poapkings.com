@@ -5,6 +5,7 @@
 // inventory.
 // v2: replace the body of each function with fetch() without touching game logic.
 
+import { seasonNumber } from '@elixir-drop/contracts'
 import type { CardStats, CardStat, Records, Profile, Settings } from '../types'
 
 const K = {
@@ -98,16 +99,16 @@ export function saveRecords(r: Partial<Records>): void {
 // slate — a fresh "season best" chase every four weeks.
 
 interface SeasonRecords {
-  seasonId: string
+  seasonId: unknown
   records: Records
 }
 
-export function getSeasonRecords(seasonId: string): Records {
+export function getSeasonRecords(seasonId: number): Records {
   const stored = load<SeasonRecords | null>(K.seasonRecords, null)
-  return stored && stored.seasonId === seasonId ? stored.records : {}
+  return stored && seasonNumber(stored.seasonId) === seasonId ? stored.records : {}
 }
 
-export function saveSeasonRecord(seasonId: string, records: Partial<Records>): void {
+export function saveSeasonRecord(seasonId: number, records: Partial<Records>): void {
   save(K.seasonRecords, {
     seasonId,
     records: { ...getSeasonRecords(seasonId), ...records }

@@ -663,7 +663,6 @@ describe("Clash Royale refresh scheduling", () => {
       seasonStartsAt: "2026-07-06T10:00:00.000Z",
       observedAt: new Date().toISOString(),
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-07",
       updatedAt: new Date().toISOString(),
     });
     const runToken = signToken(
@@ -710,14 +709,14 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(Number),
-      "2026-07",
+      134,
       { practiceCards: 1 },
       undefined, // no Survival time tiebreak for a Practice run
       undefined, // no automatic referee quarantine for a valid Practice run
     );
     expect(JSON.parse(response.body || "{}").season).toMatchObject({
       source: "clash-royale",
-      crSeasonId: 134,
+      id: 134,
       currentWeek: 2,
     });
     expect(repository.advanceLastSeasonPlayed).toHaveBeenCalledWith(

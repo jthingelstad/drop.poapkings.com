@@ -30,7 +30,7 @@ describe("podium award repository writes", () => {
     await expect(
       new Repository("test-table").savePodiumAward(
         "player-a",
-        "2026-07",
+        134,
         "surge",
         counters,
         at,
@@ -43,8 +43,8 @@ describe("podium award repository writes", () => {
     expect(transaction[0].Put).toMatchObject({
       Item: {
         pk: "PLAYER#player-a",
-        sk: "PODIUM#2026-07#surge",
-        seasonId: "2026-07",
+        sk: "PODIUM#134#surge",
+        seasonId: 134,
         mode: "surge",
       },
       ConditionExpression: "attribute_not_exists(pk)",
@@ -68,7 +68,7 @@ describe("podium award repository writes", () => {
     await expect(
       new Repository("test-table").savePodiumAward(
         "player-a",
-        "2026-07",
+        134,
         "surge",
         recordPodiumFinish(emptyCounters(), "2026-08-03T10:12:48.768Z")
           .counters,
@@ -84,7 +84,7 @@ describe("podium award repository writes", () => {
     await expect(
       new Repository("test-table").savePodiumAward(
         "player-a",
-        "2026-07",
+        134,
         "surge",
         recordPodiumFinish(emptyCounters(), "2026-08-03T10:12:48.768Z")
           .counters,

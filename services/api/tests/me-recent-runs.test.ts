@@ -129,28 +129,28 @@ describe("GET /me recent runs", () => {
         runId: "r1",
         mode: "surge",
         score: 15_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
       {
         runId: "r2",
         mode: "identify",
         score: 20_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T17:00:00.000Z",
       },
       {
         runId: "r3",
         mode: "blitz",
         score: 40,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T16:00:00.000Z",
       },
       {
         runId: "r4",
         mode: "survival",
         score: 12,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T15:00:00.000Z",
       },
     ]);
@@ -171,28 +171,28 @@ describe("GET /me recent runs", () => {
         runId: "pending-run",
         mode: "surge",
         score: 9_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-12T17:00:00.000Z",
       },
       {
         runId: "reviewed-run",
         mode: "trade",
         score: 50_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-12T16:00:00.000Z",
       },
       {
         runId: "reopened-run",
         mode: "surge",
         score: 10_230,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-12T15:30:00.000Z",
       },
       {
         runId: "excluded-run",
         mode: "survival",
         score: 80,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-12T15:00:00.000Z",
       },
     ]);
@@ -287,7 +287,7 @@ describe("GET /me/xp", () => {
         runId: "run-1",
         mode: "surge",
         score: 12_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-23T12:00:00.000Z",
         xp: 20,
         xpAwards: [
@@ -354,21 +354,21 @@ describe("GET /me/seasons", () => {
         runId: "new-1",
         mode: "trade",
         score: 91_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
         score: 22_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
       {
         runId: "old-2",
         mode: "practice",
         score: 0,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
       {
@@ -389,12 +389,12 @@ describe("GET /me/seasons", () => {
     // The index covers the career — a row per season, no runs — while the
     // payload carries one season. Retired modes are dropped from both.
     expect(body.index).toEqual([
-      { id: "2026-08", games: 1 },
-      { id: "2026-07", games: 2 },
+      { id: 135, games: 1 },
+      { id: 134, games: 2 },
     ]);
     expect(body.seasons).toEqual([
       {
-        id: "2026-08",
+        id: 135,
         games: 1,
         runs: [expect.objectContaining({ runId: "new-1", mode: "trade" })],
       },
@@ -407,47 +407,41 @@ describe("GET /me/seasons", () => {
         runId: "a",
         mode: "surge",
         score: 1,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "b",
         mode: "surge",
         score: 2,
-        seasonId: "2026-06",
+        seasonId: 133,
         completedAt: "2026-06-02T18:00:00.000Z",
       },
       {
         runId: "c",
         mode: "surge",
         score: 3,
-        seasonId: "2026-05-131",
+        seasonId: 131,
         completedAt: "2026-05-20T18:00:00.000Z",
       },
     ]);
-    repository.getCrWarClock.mockResolvedValue({
-      leaderboardSeasonId: "2026-08",
-      crSeasonId: 135,
-    });
-
     const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
     if (!result || typeof result === "string") throw new Error("no result");
-    // Sequential monthly seasons count back from the live clock; an id that
-    // states its own number is trusted over the arithmetic.
+    // Season IDs are already the Clash numbers players recognize.
     expect(JSON.parse(result.body ?? "{}").index).toEqual([
-      { id: "2026-08", games: 1, crSeasonId: 135 },
-      { id: "2026-06", games: 1, crSeasonId: 133 },
-      { id: "2026-05-131", games: 1, crSeasonId: 131 },
+      { id: 135, games: 1 },
+      { id: 133, games: 1 },
+      { id: 131, games: 1 },
     ]);
   });
 
-  it("omits the season number when no clock can anchor it", async () => {
+  it("keeps the season number when no clock is available", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "a",
         mode: "surge",
         score: 1,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
     ]);
@@ -456,7 +450,7 @@ describe("GET /me/seasons", () => {
     const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
     if (!result || typeof result === "string") throw new Error("no result");
     expect(JSON.parse(result.body ?? "{}").index).toEqual([
-      { id: "2026-08", games: 1 },
+      { id: 135, games: 1 },
     ]);
   });
 
@@ -466,14 +460,14 @@ describe("GET /me/seasons", () => {
         runId: "best",
         mode: "surge",
         score: 12_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "worse",
         mode: "surge",
         score: 19_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-01T18:00:00.000Z",
       },
     ]);
@@ -505,7 +499,7 @@ describe("GET /me/seasons", () => {
         runId: "best",
         mode: "surge",
         score: 12_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
     ]);
@@ -529,14 +523,14 @@ describe("GET /me/seasons", () => {
         runId: "new-1",
         mode: "trade",
         score: 91_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
         score: 22_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
     ]);
@@ -551,7 +545,7 @@ describe("GET /me/seasons", () => {
       JSON.parse(result.body ?? "{}").seasons.map(
         (season: { id: string }) => season.id,
       ),
-    ).toEqual(["2026-08", "2026-07"]);
+    ).toEqual([135, 134]);
   });
 
   it("narrows the history by season and mode", async () => {
@@ -560,27 +554,27 @@ describe("GET /me/seasons", () => {
         runId: "new-1",
         mode: "trade",
         score: 91_000,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
         score: 22_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
       {
         runId: "old-2",
         mode: "practice",
         score: 0,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
     ]);
 
     const result = await handler(
-      meEvent("/me/seasons", { season: "2026-07", mode: "surge" }),
+      meEvent("/me/seasons", { season: "134", mode: "surge" }),
       {} as never,
       () => {},
     );
@@ -589,12 +583,12 @@ describe("GET /me/seasons", () => {
     expect(result.statusCode).toBe(200);
     const narrowed = JSON.parse(result.body ?? "{}");
     expect(narrowed.index).toEqual([
-      { id: "2026-08", games: 1 },
-      { id: "2026-07", games: 2 },
+      { id: 135, games: 1 },
+      { id: 134, games: 2 },
     ]);
     expect(narrowed.seasons).toEqual([
       {
-        id: "2026-07",
+        id: 134,
         games: 1,
         runs: [expect.objectContaining({ runId: "old-1" })],
       },
@@ -607,14 +601,14 @@ describe("GET /me/seasons", () => {
         runId: "held",
         mode: "surge",
         score: 20_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
       {
         runId: "untouched",
         mode: "surge",
         score: 22_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
     ]);

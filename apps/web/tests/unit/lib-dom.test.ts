@@ -482,16 +482,16 @@ describe('game-metadata', () => {
   })
 
   it('bestScoresFromRuns picks the best per mode and honors the season filter', () => {
-    const runs: Array<{ mode: GameMode; score: number; seasonId: string }> = [
-      { mode: 'surge', score: 5000, seasonId: 's1' },
-      { mode: 'surge', score: 4000, seasonId: 's1' }, // better (lower)
-      { mode: 'survival', score: 8, seasonId: 's1' },
-      { mode: 'survival', score: 12, seasonId: 's2' } // filtered out below
+    const runs: Array<{ mode: GameMode; score: number; seasonId: number }> = [
+      { mode: 'surge', score: 5000, seasonId: 134 },
+      { mode: 'surge', score: 4000, seasonId: 134 }, // better (lower)
+      { mode: 'survival', score: 8, seasonId: 134 },
+      { mode: 'survival', score: 12, seasonId: 135 } // filtered out below
     ]
     const all = bestScoresFromRuns(runs)
     expect(all.surge).toBe(4000)
     expect(all.survival).toBe(12) // higher wins across all seasons
-    const s1 = bestScoresFromRuns(runs, 's1')
+    const s1 = bestScoresFromRuns(runs, 134)
     expect(s1.surge).toBe(4000)
     expect(s1.survival).toBe(8)
   })

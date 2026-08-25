@@ -177,7 +177,7 @@ describe("public read routes", () => {
     await call(request("GET", "/activity"));
 
     expect(repository.recentActivity).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.any(Number),
       8,
     );
   });
@@ -186,7 +186,7 @@ describe("public read routes", () => {
     const result = await call(request("GET", "/activity", "limit=9999"));
 
     expect(repository.recentActivity).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.any(Number),
       25,
     );
     expect(result.body.windowHours).toBe(24);
@@ -196,7 +196,7 @@ describe("public read routes", () => {
     await call(request("GET", "/activity", "limit=-5"));
 
     expect(repository.recentActivity).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.any(Number),
       1,
     );
   });
@@ -205,7 +205,7 @@ describe("public read routes", () => {
     await call(request("GET", "/activity", "limit=all"));
 
     expect(repository.recentActivity).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.any(Number),
       8,
     );
   });
@@ -230,11 +230,11 @@ describe("public read routes", () => {
     repository.leaderboard.mockResolvedValue([]);
 
     const result = await call(
-      request("GET", "/leaderboards", "mode=surge&season=2026-07-136"),
+      request("GET", "/leaderboards", "mode=surge&season=2026-07-134"),
     );
 
     expect(result.statusCode).toBe(200);
-    expect(repository.leaderboard).toHaveBeenCalledWith("surge", "2026-07-136");
+    expect(repository.leaderboard).toHaveBeenCalledWith("surge", 134);
   });
 
   it("resolves a player-facing Clash season number to its storage partition", async () => {
@@ -249,7 +249,6 @@ describe("public read routes", () => {
         seasonStartsAt: "2026-08-03T10:00:00.000Z",
         observedAt: "2026-08-25T11:55:00.000Z",
         sourceClanTag: "#J2RGCRVG",
-        leaderboardSeasonId: "2026-08",
         updatedAt: "2026-08-25T11:55:00.000Z",
       });
       repository.leaderboard.mockResolvedValue([]);
@@ -259,8 +258,8 @@ describe("public read routes", () => {
       );
 
       expect(result.statusCode).toBe(200);
-      expect(result.body.seasonId).toBe("2026-07");
-      expect(repository.leaderboard).toHaveBeenCalledWith("rain", "2026-07");
+      expect(result.body.seasonId).toBe(134);
+      expect(repository.leaderboard).toHaveBeenCalledWith("rain", 134);
     } finally {
       vi.useRealTimers();
     }
@@ -278,7 +277,6 @@ describe("public read routes", () => {
         seasonStartsAt: "2026-08-03T10:00:00.000Z",
         observedAt: "2026-08-25T11:55:00.000Z",
         sourceClanTag: "#J2RGCRVG",
-        leaderboardSeasonId: "2026-08",
         updatedAt: "2026-08-25T11:55:00.000Z",
       });
 

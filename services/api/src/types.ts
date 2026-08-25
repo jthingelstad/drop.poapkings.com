@@ -151,7 +151,7 @@ export interface RunRecord {
   runId: string;
   mode: GameMode;
   score: number;
-  seasonId: string;
+  seasonId: number;
   completedAt: string;
   // Stored for server-side badge recovery and aggregate analysis. Deliberately
   // omitted by runRecordResponse, so it is not part of public run history.
@@ -208,7 +208,7 @@ export interface EvidenceItem {
   runId: string;
   playerSub: string;
   mode: GameMode;
-  seasonId: string;
+  seasonId: number;
   // "rejected" is retained for evidence written by pre-v2 scorers.
   runType: "ranked" | "unscored" | "rejected";
   // "accepted" for a clear ranked run, an automatic-review reason, or why no
@@ -286,6 +286,5 @@ export interface CrProfileSnapshot {
 }
 
 export interface StoredCrWarClock extends CrWarClock {
-  leaderboardSeasonId: string;
   updatedAt: string;
 }

@@ -518,37 +518,31 @@ describe("server-side game scoring", () => {
   });
 
   it("puts the reworked modes on reset board epochs while others stay put", () => {
-    expect(leaderboardPartition("2026-07", "survival")).toBe(
-      "LEADERBOARD#2026-07#survival#r2",
+    expect(leaderboardPartition(134, "survival")).toBe(
+      "LEADERBOARD#134#survival#r2",
     );
     // Rain restarted at r2 when its difficulty stopped capping, then at r3 when
     // it gained two tiebreaks: an r2 row carries no tiebreak segment and its
     // transcript holds no timing to backfill one from, so the two key shapes
     // cannot share a partition.
-    expect(leaderboardPartition("2026-07", "rain")).toBe(
-      "LEADERBOARD#2026-07#rain#r3",
-    );
+    expect(leaderboardPartition(134, "rain")).toBe("LEADERBOARD#134#rain#r3");
     expect(leaderboardPartition("ALLTIME", "rain")).toBe(
       "LEADERBOARD#ALLTIME#rain#r3",
     );
     // Higher/Lower restarted at r2 with three lives + the gap ramp, then at r3
     // when its clock stopped flattening at 2s. Production showed the same
     // player's best falling from 87 to 35, so those boards cannot mix.
-    expect(leaderboardPartition("2026-07", "higher-lower")).toBe(
-      "LEADERBOARD#2026-07#higher-lower#r3",
+    expect(leaderboardPartition(134, "higher-lower")).toBe(
+      "LEADERBOARD#134#higher-lower#r3",
     );
     // Trade restarted at ten exchanges on a fixed ladder: two more exchanges
     // alone make every eight-exchange time unbeatable.
-    expect(leaderboardPartition("2026-07", "trade")).toBe(
-      "LEADERBOARD#2026-07#trade#r2",
-    );
-    expect(leaderboardPartition("2026-07", "surge")).toBe(
-      "LEADERBOARD#2026-07#surge",
-    );
+    expect(leaderboardPartition(134, "trade")).toBe("LEADERBOARD#134#trade#r2");
+    expect(leaderboardPartition(134, "surge")).toBe("LEADERBOARD#134#surge");
     // An already-open retired run stays on the board that dealt it even when
     // it completes after a deploy changes the current epoch.
-    expect(leaderboardPartition("2026-07", "rain", "r2")).toBe(
-      "LEADERBOARD#2026-07#rain#r2",
+    expect(leaderboardPartition(134, "rain", "r2")).toBe(
+      "LEADERBOARD#134#rain#r2",
     );
   });
 

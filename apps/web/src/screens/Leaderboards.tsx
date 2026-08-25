@@ -148,7 +148,7 @@ export default function Leaderboards() {
   const { mode, scope: uiScope, period } = routeState
   const entries = useSignal<LeaderboardEntry[]>([])
   const season = useSignal<Season | null>(null)
-  const seasons = useSignal<Array<{ id: string; crSeasonId?: number }>>([])
+  const seasons = useSignal<Array<{ id: number }>>([])
   const activeClan = useSignal<{ tag: string; name: string } | null>(null)
   const clanGate = useSignal<ClanGate>(null)
   const loading = useSignal(true)
@@ -307,7 +307,7 @@ export default function Leaderboards() {
   const selectedGame = GAME_BY_MODE.get(mode)!
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
-  const activePeriod = period === 'current' ? season.value?.crSeasonId : period
+  const activePeriod = period === 'current' ? season.value?.id : period
   const playerEntryIndex = entries.value.findIndex((entry) => entry.player.id === currentPlayer?.id)
   const playerEntry = playerEntryIndex >= 0 ? entries.value[playerEntryIndex] : undefined
   const invitePlayerName = currentPlayer?.publicName ?? currentPlayer?.clashRoyale?.name ?? 'A clanmate'
@@ -412,18 +412,16 @@ export default function Leaderboards() {
             >
               All-time
             </button>
-            {seasons.value
-              .filter((s) => s.crSeasonId !== undefined)
-              .map((s) => (
-                <button
-                  key={s.id}
-                  class={`ed-period${activePeriod === s.crSeasonId ? ' ed-period--active' : ''}`}
-                  aria-pressed={activePeriod === s.crSeasonId}
-                  onClick={() => updateLadderRoute({ period: s.crSeasonId })}
-                >
-                  Season {s.crSeasonId}
-                </button>
-              ))}
+            {seasons.value.map((s) => (
+              <button
+                key={s.id}
+                class={`ed-period${activePeriod === s.id ? ' ed-period--active' : ''}`}
+                aria-pressed={activePeriod === s.id}
+                onClick={() => updateLadderRoute({ period: s.id })}
+              >
+                Season {s.id}
+              </button>
+            ))}
           </div>
         </div>
       )}

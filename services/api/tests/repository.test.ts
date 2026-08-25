@@ -267,7 +267,7 @@ describe("repository DynamoDB requests", () => {
             runId: "new",
             mode: "trade",
             score: 91_000,
-            seasonId: "2026-08",
+            seasonId: 135,
             completedAt: "2026-08-02T18:00:00.000Z",
             boardEpoch: "r2",
             xp: 12,
@@ -287,7 +287,7 @@ describe("repository DynamoDB requests", () => {
             runId: "old",
             mode: "surge",
             score: 22_000,
-            seasonId: "2026-07",
+            seasonId: 134,
             completedAt: "2026-07-20T18:00:00.000Z",
           },
           { runId: "partial", mode: "surge" },
@@ -467,7 +467,7 @@ describe("repository DynamoDB requests", () => {
             completedAt: "2026-07-22T14:52:00.000Z",
           },
         ],
-        LastEvaluatedKey: { pk: "FEED#2026-07", sk: "cursor" },
+        LastEvaluatedKey: { pk: "FEED#134", sk: "cursor" },
       })
       .mockResolvedValueOnce({
         Items: [
@@ -510,19 +510,16 @@ describe("repository DynamoDB requests", () => {
         },
       });
 
-    const entries = await new Repository("test-table").recentActivity(
-      "2026-07",
-      4,
-    );
+    const entries = await new Repository("test-table").recentActivity(134, 4);
 
     const firstQuery = send.mock.calls[0]?.[0].input;
     expect(firstQuery.KeyConditionExpression).toBe("pk = :pk AND sk >= :since");
     expect(firstQuery.ExpressionAttributeValues).toMatchObject({
-      ":pk": "FEED#2026-07",
+      ":pk": "FEED#134",
       ":since": "2026-07-21T15:00:00.000Z",
     });
     expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual({
-      pk: "FEED#2026-07",
+      pk: "FEED#134",
       sk: "cursor",
     });
     expect(entries).toMatchObject([
@@ -585,7 +582,7 @@ describe("repository DynamoDB requests", () => {
 
     const entries = await new Repository("test-table").leaderboard(
       "surge",
-      "2026-07",
+      134,
       10,
     );
     const batchGet = send.mock.calls[2]?.[0];
@@ -630,7 +627,7 @@ describe("repository DynamoDB requests", () => {
 
     const entries = await new Repository("test-table").leaderboard(
       "higher-lower",
-      "2026-07",
+      134,
       10,
     );
 
@@ -701,7 +698,7 @@ describe("repository DynamoDB requests", () => {
 
     const entries = await new Repository("test-table").leaderboard(
       "surge",
-      "2026-07",
+      134,
       10,
     );
     const decisionRead = send.mock.calls[1]?.[0];
@@ -767,7 +764,7 @@ describe("repository DynamoDB requests", () => {
 
     const entries = await new Repository("test-table").leaderboard(
       "surge",
-      "2026-07",
+      134,
       10,
     );
 
@@ -817,7 +814,7 @@ describe("repository DynamoDB requests", () => {
 
     const finishers = await new Repository("test-table").podiumFinishers(
       "surge",
-      "2026-07",
+      134,
     );
 
     expect(finishers).toEqual(["player-b"]);
@@ -876,7 +873,7 @@ describe("repository DynamoDB requests", () => {
 
     const entries = await new Repository("test-table").leaderboard(
       "surge",
-      "2026-07",
+      134,
       10,
     );
 
@@ -907,7 +904,7 @@ describe("repository DynamoDB requests", () => {
     expect(update.input.UpdateExpression).not.toContain("if_not_exists");
   });
 
-  it("keeps the existing monthly leaderboard ID when first saving the live clock", async () => {
+  it("stores the Clash season number on the live clock", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
     await new Repository("test-table").saveCrWarClock({
@@ -925,16 +922,15 @@ describe("repository DynamoDB requests", () => {
       pk: "CR_WAR_CLOCK",
       sk: "CURRENT",
       crSeasonId: 134,
-      leaderboardSeasonId: "2026-07",
     });
+    expect(put.input.Item).not.toHaveProperty("leaderboardSeasonId");
   });
 
-  it("creates a distinct key if CR starts another season in the same month", async () => {
+  it("uses the next Clash number when another season starts in the same month", async () => {
     send
       .mockResolvedValueOnce({
         Item: {
           crSeasonId: 134,
-          leaderboardSeasonId: "2026-07",
         },
       })
       .mockResolvedValueOnce({});
@@ -950,15 +946,15 @@ describe("repository DynamoDB requests", () => {
     });
     const put = send.mock.calls[1]?.[0];
 
-    expect(put.input.Item.leaderboardSeasonId).toBe("2026-07-135");
+    expect(put.input.Item.crSeasonId).toBe(135);
+    expect(put.input.Item).not.toHaveProperty("leaderboardSeasonId");
   });
 
-  it("keeps a third CR season in one month distinct from the first", async () => {
+  it("keeps a third CR season in one month distinct by number", async () => {
     send
       .mockResolvedValueOnce({
         Item: {
           crSeasonId: 135,
-          leaderboardSeasonId: "2026-07-135",
         },
       })
       .mockResolvedValueOnce({});
@@ -974,9 +970,8 @@ describe("repository DynamoDB requests", () => {
     });
     const put = send.mock.calls[1]?.[0];
 
-    // Falling back to the bare calendar id here would collide with the
-    // month's first season and merge two leaderboards.
-    expect(put.input.Item.leaderboardSeasonId).toBe("2026-07-136");
+    expect(put.input.Item.crSeasonId).toBe(136);
+    expect(put.input.Item).not.toHaveProperty("leaderboardSeasonId");
     // The save is also guarded against a concurrent CR-season change.
     expect(put.input.ConditionExpression).toContain("crSeasonId");
   });
@@ -1004,7 +999,7 @@ describe("repository DynamoDB requests", () => {
       expiresAt: 1_800_000_000,
     };
 
-    await new Repository("test-table").completeRun(run, 12.3, "2026-07", 45);
+    await new Repository("test-table").completeRun(run, 12.3, 134, 45);
 
     const transaction = send.mock.calls[0]?.[0];
     const globalUpdate = transaction.input.TransactItems[1]?.Update;
@@ -1052,7 +1047,7 @@ describe("repository DynamoDB requests", () => {
     await new Repository("test-table").completeRun(
       run,
       81,
-      "2026-08",
+      135,
       84,
       { wrongGuesses: 8, avgLatencyMs: 700 },
       undefined,
@@ -1081,7 +1076,7 @@ describe("repository DynamoDB requests", () => {
     expect(items[2]?.Put?.Item).toMatchObject({
       runId: "recovered-rain",
       completedAt: "2026-08-07T02:00:36.821Z",
-      GSI1PK: "LEADERBOARD#2026-08#rain#r3",
+      GSI1PK: "LEADERBOARD#135#rain#r3",
     });
     expect(items[3]?.Update?.ExpressionAttributeValues[":updatedAt"]).toBe(
       "2026-08-07T18:00:00.000Z",
@@ -1121,7 +1116,7 @@ describe("repository DynamoDB requests", () => {
     await new Repository("test-table").completeRun(
       run,
       81,
-      "2026-08",
+      135,
       84,
       { wrongGuesses: 8, avgLatencyMs: 700 },
       undefined,
@@ -1140,7 +1135,7 @@ describe("repository DynamoDB requests", () => {
         pk: "RUN#expired-rain",
         state: "completed",
         score: 81,
-        seasonId: "2026-08",
+        seasonId: 135,
         completedAt: "2026-08-07T02:00:36.821Z",
       },
     });
@@ -1207,14 +1202,14 @@ describe("repository DynamoDB requests", () => {
       boardEpoch: "r1",
     };
 
-    await new Repository("test-table").completeRun(run, 67_126, "2026-08", 10);
+    await new Repository("test-table").completeRun(run, 67_126, 135, 10);
 
     const transaction = send.mock.calls[0]?.[0];
     expect(transaction.input.TransactItems[2]?.Put?.Item).toMatchObject({
       runId: "run-trade",
       mode: "trade",
       boardEpoch: "r1",
-      GSI1PK: "LEADERBOARD#2026-08#trade#r1",
+      GSI1PK: "LEADERBOARD#135#trade#r1",
     });
   });
 
@@ -1244,7 +1239,7 @@ describe("repository DynamoDB requests", () => {
     await new Repository("test-table").completeRun(
       run,
       1_000,
-      "2026-07",
+      134,
       45,
       undefined,
       "score_below_ui_floor",
@@ -1300,7 +1295,7 @@ describe("repository DynamoDB requests", () => {
       answerCount: 37,
     };
 
-    await new Repository("test-table").completeRun(run, 12.3, "2026-07", 20);
+    await new Repository("test-table").completeRun(run, 12.3, 134, 20);
 
     const transaction = send.mock.calls[0]?.[0];
     const history = transaction.input.TransactItems[2]?.Put?.Item;
@@ -1339,7 +1334,7 @@ describe("repository DynamoDB requests", () => {
       expiresAt: 1_800_000_000,
     };
 
-    await new Repository("test-table").completeRun(run, 0, "2026-07", 1);
+    await new Repository("test-table").completeRun(run, 0, 134, 1);
 
     const transaction = send.mock.calls[0]?.[0];
     const history = transaction.input.TransactItems[2]?.Put?.Item;
@@ -1375,7 +1370,7 @@ describe("repository DynamoDB requests", () => {
             pk: "PLAYER#player-sub",
             sk: "RUN#2026-07-18T12:00:00.000Z#run-1",
             runId: "run-1",
-            GSI1PK: "LEADERBOARD#2026-07#surge",
+            GSI1PK: "LEADERBOARD#134#surge",
           },
         ],
       })

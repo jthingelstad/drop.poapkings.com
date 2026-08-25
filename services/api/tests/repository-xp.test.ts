@@ -119,7 +119,7 @@ describe("XP repository writes", () => {
     const result = await new Repository("test-table").completeRun(
       run,
       100,
-      "2026-08",
+      135,
       { practiceCards: 1 },
     );
 

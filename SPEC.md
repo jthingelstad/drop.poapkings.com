@@ -140,8 +140,8 @@ The runtime clock combines POAP KINGS' `/currentriverrace` section, period, and
 phase with the sequential season ID in `/riverracelog`. Daily-reset math is
 anchored on the latest observed race close (the reset hour drifts per season),
 falling back to 10:00 UTC. The result Lambda stores one current clock in
-DynamoDB. Completed runs and leaderboard reads use its stable
-leaderboard-season mapping; a changed CR season ID is the authoritative reset
+DynamoDB. Completed runs, history, feeds, and leaderboard partitions use that
+positive integer CR season ID directly; a changed ID is the authoritative reset
 signal. The UI shows the CR season, current week, phase, and days left in the
 war week. A clock older than two hours keeps naming the stored leaderboard
 season for as long as the season it observed can run (five weeks) — a bridge
@@ -356,7 +356,7 @@ Player XP and the per-player arena:
   prismatic 50, hidden single-rung 25, Battle Tag 100, Collector 100. Profile reads reconcile
   markers for every currently earned slug+rung and settle the finite Arena
   Climber cascade. Later badge/referee changes never subtract XP.
-- **Season-final XP (Season 135 / `2026-08` onward):** the private result-queue finalizer reads referee-eligible,
+- **Season-final XP (Season 135 onward):** the private result-queue finalizer reads referee-eligible,
   positive, current-board standings with pending runs withheld and pays each
   mode's occupied top 20: #1 500, #2 350, #3 250, #4–5 150, #6–10 100,
   #11–20 50. A player with a final eligible positive score in all five ranked
@@ -439,8 +439,8 @@ elixirdrop:cardStats     -> { [id]: { seen, correct, missStreak, lastSeen,
 elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBest,
                               survivalBest, tradeLadderBest, rainBest }
                             (no Practice key — Practice keeps no record)
-elixirdrop:seasonRecords -> { seasonId, records } (season-scoped bests; a new
-                             server season id resets the slate)
+elixirdrop:seasonRecords -> { seasonId, records } (numeric CR season ID and
+                             season-scoped bests; a new ID resets the slate)
 elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
 ```
 

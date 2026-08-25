@@ -8,7 +8,7 @@ import {
 describe("Clan Wars seasons", () => {
   it("starts at 10:00 UTC on the first Monday and can span five weeks", () => {
     expect(seasonForDate(new Date("2026-08-15T12:00:00Z"))).toEqual({
-      id: "2026-08",
+      id: 135,
       startsAt: "2026-08-03T10:00:00.000Z",
       endsAt: "2026-09-07T10:00:00.000Z",
       durationWeeks: 5,
@@ -28,16 +28,14 @@ describe("Clan Wars seasons", () => {
         seasonStartsAt: "2026-07-06T10:00:00.000Z",
         observedAt: "2026-07-18T18:55:00.000Z",
         sourceClanTag: "#J2RGCRVG",
-        leaderboardSeasonId: "2026-07",
         updatedAt: "2026-07-18T18:55:00.000Z",
       }),
     ).toEqual({
-      id: "2026-07",
+      id: 134,
       startsAt: "2026-07-06T10:00:00.000Z",
       endsAt: "2026-08-03T10:00:00.000Z",
       durationWeeks: 4,
       source: "clash-royale",
-      crSeasonId: 134,
       currentWeek: 2,
       daysRemainingInWeek: 2,
       periodType: "warDay",
@@ -56,13 +54,11 @@ describe("Clan Wars seasons", () => {
       seasonStartsAt: "2026-07-06T10:00:00.000Z",
       observedAt: "2026-07-18T12:00:00.000Z",
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-07-134",
       updatedAt: "2026-07-18T12:00:00.000Z",
     });
 
     expect(season.source).toBe("calendar-fallback");
-    expect(season.id).toBe("2026-07-134");
-    expect(season.crSeasonId).toBe(134);
+    expect(season.id).toBe(134);
     expect(season.currentWeek).toBe(2);
     expect(season.clockUpdatedAt).toBe("2026-07-18T12:00:00.000Z");
   });
@@ -76,19 +72,17 @@ describe("Clan Wars seasons", () => {
       seasonStartsAt: "2026-07-06T10:00:00.000Z",
       observedAt: "2026-08-03T09:00:00.000Z",
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-07",
       updatedAt: "2026-08-03T09:00:00.000Z",
     };
     // Week 5 of a five-week season: the calendar alone would have flipped to
     // 2026-08 on August 3rd, vanishing outage-window runs from the board.
     const carried = seasonForDate(new Date("2026-08-06T12:00:00.000Z"), clock);
-    expect(carried.id).toBe("2026-07");
+    expect(carried.id).toBe(134);
     expect(carried.currentWeek).toBe(5);
     // Five weeks after the observed season start the clock cannot describe
     // the current season; the calendar takes over.
     const released = seasonForDate(new Date("2026-08-11T12:00:00.000Z"), clock);
-    expect(released.id).toBe("2026-08");
-    expect(released.crSeasonId).toBeUndefined();
+    expect(released.id).toBe(135);
   });
 
   it("extends a live clock's season end once a fifth week is observed", () => {
@@ -100,7 +94,6 @@ describe("Clan Wars seasons", () => {
       seasonStartsAt: "2026-07-06T10:00:00.000Z",
       observedAt: "2026-08-04T11:30:00.000Z",
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-07",
       updatedAt: "2026-08-04T11:30:00.000Z",
     });
     expect(season.source).toBe("clash-royale");
@@ -109,8 +102,8 @@ describe("Clan Wars seasons", () => {
   });
 
   it("keeps the previous season until the exact reset instant", () => {
-    expect(seasonForDate(new Date("2026-09-07T09:59:59Z")).id).toBe("2026-08");
-    expect(seasonForDate(new Date("2026-09-07T10:00:00Z")).id).toBe("2026-09");
+    expect(seasonForDate(new Date("2026-09-07T09:59:59Z")).id).toBe(135);
+    expect(seasonForDate(new Date("2026-09-07T10:00:00Z")).id).toBe(136);
   });
 
   it("returns consecutive boundaries", () => {
@@ -127,16 +120,12 @@ describe("Clan Wars seasons", () => {
       seasonStartsAt: "2026-08-03T10:00:00.000Z",
       observedAt: "2026-08-20T11:55:00.000Z",
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-08",
       updatedAt: "2026-08-20T11:55:00.000Z",
     };
 
     expect(
       recentSeasons(new Date("2026-08-20T12:00:00.000Z"), 12, clock),
-    ).toEqual([
-      { id: "2026-08", crSeasonId: 135 },
-      { id: "2026-07", crSeasonId: 134 },
-    ]);
+    ).toEqual([{ id: 135 }, { id: 134 }]);
   });
 
   it("keeps the Drop launch boundary when the CR clock is unavailable", () => {
@@ -144,7 +133,7 @@ describe("Clan Wars seasons", () => {
       recentSeasons(new Date("2026-10-20T12:00:00.000Z"), 12).map(
         (season) => season.id,
       ),
-    ).toEqual(["2026-10", "2026-09", "2026-08", "2026-07"]);
+    ).toEqual([137, 136, 135, 134]);
     expect(recentSeasons(new Date("2026-06-20T12:00:00.000Z"), 12)).toEqual([]);
   });
 });

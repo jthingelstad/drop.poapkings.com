@@ -311,7 +311,7 @@ export function getSeasonHistory(
   sessionToken: string,
   signal?: AbortSignal,
   filters: {
-    season?: string
+    season?: number | 'all'
     mode?: GameMode
     status?: 'pending' | 'reviewed' | 'excluded' | 'unreviewed'
     // Board placements cost one leaderboard read per mode played, so they are

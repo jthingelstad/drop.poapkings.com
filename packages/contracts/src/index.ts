@@ -205,7 +205,7 @@ export const DAILY_FEATURED_XP = 5;
 export const SEASON_CIRCUIT_XP = 100;
 // Season 135 is the first season that can pay placement/Circuit XP. Earlier
 // Podium repairs remain badge-only so activation never backfills old boards.
-export const XP_FIRST_SEASON_ID = "2026-08";
+export const XP_FIRST_SEASON_ID = 135;
 
 export const PERFORMANCE_XP_BANDS = {
   "higher-lower": [
@@ -420,16 +420,66 @@ export type RunChallenge =
   | { mode: "trade"; rounds: Array<{ blueIds: number[]; redIds: number[] }> };
 
 export interface Season {
-  id: string;
+  id: number;
   startsAt: string;
   endsAt: string;
   durationWeeks: number;
   source?: "clash-royale" | "calendar-fallback";
-  crSeasonId?: number;
   currentWeek?: number;
   daysRemainingInWeek?: number;
   periodType?: ClanWarPeriodType;
   clockUpdatedAt?: string;
+}
+
+export const FIRST_DROP_SEASON_ID = 134;
+const FIRST_DROP_SEASON_MONTH = 2026 * 12 + 6;
+const LEGACY_SEASON_ID_PATTERN = /^(\d{4})-(\d{2})(?:-(\d+))?$/;
+
+// Decode the retired calendar-derived storage keys during the bounded live
+// migration. A suffixed key states its CR number directly; an ordinary key is
+// measured from Drop's first board, Season 134 in July 2026. Numeric strings
+// remain accepted at HTTP/query boundaries, where every value is text.
+export function seasonNumber(value: unknown): number | undefined {
+  if (typeof value === "number")
+    return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+  if (typeof value !== "string") return undefined;
+  if (/^[1-9]\d*$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : undefined;
+  }
+  const legacy = LEGACY_SEASON_ID_PATTERN.exec(value);
+  if (!legacy) return undefined;
+  const explicit = Number(legacy[3]);
+  if (legacy[3])
+    return Number.isSafeInteger(explicit) && explicit > 0
+      ? explicit
+      : undefined;
+  const year = Number(legacy[1]);
+  const month = Number(legacy[2]);
+  if (!Number.isSafeInteger(year) || month < 1 || month > 12) return undefined;
+  const derived =
+    FIRST_DROP_SEASON_ID + (year * 12 + month - 1 - FIRST_DROP_SEASON_MONTH);
+  return derived > 0 ? derived : undefined;
+}
+
+function legacyCalendarId(seasonId: number, monthOffset = 0): string {
+  const monthIndex =
+    FIRST_DROP_SEASON_MONTH + (seasonId - FIRST_DROP_SEASON_ID) + monthOffset;
+  const year = Math.floor(monthIndex / 12);
+  const month = (monthIndex % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// Transitional GSI reads include the ordinary legacy month plus the suffixed
+// shapes the old rollover guard could create when two CR seasons shared a
+// month. Remove these aliases only after the production migration converges.
+export function legacySeasonIdsFor(seasonId: number): string[] {
+  return [
+    legacyCalendarId(seasonId),
+    `${legacyCalendarId(seasonId)}-${seasonId}`,
+    `${legacyCalendarId(seasonId, -1)}-${seasonId}`,
+    `${legacyCalendarId(seasonId, 1)}-${seasonId}`,
+  ];
 }
 
 export interface SiteStats {
@@ -546,7 +596,7 @@ export interface CrWarClockResult {
 export interface PodiumFinalizeResult {
   version: 1;
   type: "podium-finalize";
-  seasonId: string;
+  seasonId: number;
   finalizedAt: string;
 }
 

@@ -111,7 +111,7 @@ describe("CR bridge results", () => {
     ).toEqual({
       version: 1,
       type: "podium-finalize",
-      seasonId: "2026-07-134",
+      seasonId: 134,
       finalizedAt: "2026-08-03T10:12:48.768Z",
     });
     expect(() =>

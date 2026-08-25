@@ -416,11 +416,10 @@ void test("season brief contains all five public boards and strips identity fiel
     "rain",
   ]);
   const season = {
-    id: "2026-09",
+    id: 136,
     startsAt: "2026-09-07T09:00:00.000Z",
     endsAt: "2026-10-05T09:00:00.000Z",
     durationWeeks: 4,
-    crSeasonId: 136,
   };
   const fetchImpl = async (input) => {
     const url = new URL(input);
@@ -433,7 +432,7 @@ void test("season brief contains all five public boards and strips identity fiel
     }
     const mode = url.searchParams.get("mode");
     assert.ok(RANKED_MODE_FIXTURES.includes(mode));
-    assert.equal(url.searchParams.get("season"), season.id);
+    assert.equal(url.searchParams.get("season"), String(season.id));
     return {
       ok: true,
       status: 200,

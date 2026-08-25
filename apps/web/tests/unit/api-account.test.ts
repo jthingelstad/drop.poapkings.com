@@ -7,7 +7,7 @@ const ISO = '2026-07-10T00:00:00.000Z'
 const FUTURE = () => new Date(Date.now() + 1_000_000).toISOString()
 
 const season = {
-  id: '2026-07',
+  id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
   endsAt: '2026-08-03T10:00:00.000Z',
   durationWeeks: 4
@@ -255,13 +255,13 @@ describe('api.ts request helpers', () => {
       runId: 'run-1',
       mode: 'surge',
       score: 21_000,
-      seasonId: '2026-07',
+      seasonId: 134,
       completedAt: ISO
     }
-    const fetchMock = stubFetch(json({ seasons: [{ id: '2026-07', games: 1, runs: [run] }] }))
+    const fetchMock = stubFetch(json({ seasons: [{ id: 134, games: 1, runs: [run] }] }))
     const { getSeasonHistory } = await import('../../src/lib/api')
 
-    await expect(getSeasonHistory('tok')).resolves.toEqual({ seasons: [{ id: '2026-07', games: 1, runs: [run] }] })
+    await expect(getSeasonHistory('tok')).resolves.toEqual({ seasons: [{ id: 134, games: 1, runs: [run] }] })
     const { url, headers } = endpointCall(fetchMock)
     expect(url).toBe(`${API_BASE}/me/seasons`)
     expect(headers.get('authorization')).toBe('Bearer tok')
@@ -474,12 +474,12 @@ describe('api.ts request helpers', () => {
 
   it('getActivity requests the given limit', async () => {
     const fetchMock = stubFetch(
-      json({ seasonId: '2026-07', entries: [{ mode: 'surge', score: 9, achievedAt: ISO, player: publicPlayer }] })
+      json({ seasonId: 134, entries: [{ mode: 'surge', score: 9, achievedAt: ISO, player: publicPlayer }] })
     )
     const { getActivity } = await import('../../src/lib/api')
 
     const result = await getActivity(5)
-    expect(result.seasonId).toBe('2026-07')
+    expect(result.seasonId).toBe(134)
     expect(result.windowHours).toBe(24)
     expect(result.entries[0]?.runCount).toBe(1)
     expect(endpointCall(fetchMock).url).toBe(`${API_BASE}/activity?limit=5`)
@@ -602,7 +602,7 @@ describe('account.ts state machine', () => {
   const SESSION_KEY = 'elixirdrop:session:v1'
   const meResponse = {
     player: playerFixture,
-    recentRuns: [{ runId: 'run1', mode: 'surge' as const, score: 5, seasonId: '2026-07', completedAt: ISO }]
+    recentRuns: [{ runId: 'run1', mode: 'surge' as const, score: 5, seasonId: 134, completedAt: ISO }]
   }
 
   async function load() {
@@ -797,7 +797,7 @@ describe('account.ts state machine', () => {
 
   it('recordRecentRun prepends, de-duplicates by runId, and caps at 20', async () => {
     const { account } = await load()
-    const run = (id: string) => ({ runId: id, mode: 'surge' as const, score: 1, seasonId: '2026-07', completedAt: ISO })
+    const run = (id: string) => ({ runId: id, mode: 'surge' as const, score: 1, seasonId: 134, completedAt: ISO })
 
     account.recentRuns.value = Array.from({ length: 20 }, (_, i) => run(`old-${i}`))
     account.recordRecentRun(run('new'))

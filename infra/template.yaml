@@ -582,7 +582,6 @@ Resources:
                     dynamodb:Attributes:
                       - pk
                       - sk
-                      - leaderboardSeasonId
                       - crSeasonId
               - Effect: Allow
                 Action: dynamodb:Query

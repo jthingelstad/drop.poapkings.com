@@ -13,6 +13,8 @@ import {
   playerReference,
   practiceXpForCards,
   runReference,
+  legacySeasonIdsFor,
+  seasonNumber,
   XP_RULES_VERSION,
   type BadgeTier,
   type XpAward,
@@ -160,7 +162,7 @@ export interface RunItem {
   answerCount?: number;
   completedAt?: string;
   score?: number;
-  seasonId?: string;
+  seasonId?: number;
   // The mode definition that dealt this challenge. Stored at start rather than
   // inferred at completion so an in-flight run cannot cross a deploy boundary.
   boardEpoch?: string;
@@ -213,7 +215,7 @@ export interface RunRecoveryMarker {
   runId: string;
   mode: GameMode;
   score: number;
-  seasonId: string;
+  seasonId: number;
   evidenceSk: string;
   reason: string;
   recoveredAt: string;
@@ -246,19 +248,20 @@ export interface StoredBadgeCounters extends BadgeCounters {
   updatedAt?: string;
 }
 
+function numericSeasonItem<T extends Record<string, unknown>>(
+  item: T | undefined,
+): T | undefined {
+  if (!item || !("seasonId" in item)) return item;
+  const seasonId = seasonNumber(item.seasonId);
+  return seasonId === undefined ? undefined : { ...item, seasonId };
+}
+
 function crProfileKey(tag: string) {
   return { pk: `CR_PLAYER#${tag}`, sk: "PROFILE" as const };
 }
 
 function crWarClockKey() {
   return { pk: "CR_WAR_CLOCK" as const, sk: "CURRENT" as const };
-}
-
-function calendarSeasonId(startsAt: string): string {
-  const date = new Date(startsAt);
-  if (!Number.isFinite(date.getTime()))
-    throw new Error("CR war clock has an invalid season start");
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 // Every attributed share has an owner so it can carry Recruiter credit. Run
@@ -280,7 +283,7 @@ export interface RunShareItem extends ShareItemBase {
   playerId: string;
   mode: GameMode;
   score: number;
-  seasonId: string;
+  seasonId: number;
   completedAt: string;
   // Credited distinct opens, capped. Absent until the first one.
   opens?: number;
@@ -301,7 +304,7 @@ export interface PublishedRunShareItem {
   runTag?: string;
   mode: Exclude<GameMode, "practice">;
   score: number;
-  seasonId: string;
+  seasonId: number;
   completedAt: string;
   publishedAt: string;
   player: Pick<
@@ -1245,20 +1248,9 @@ export class Repository {
   }
 
   async saveCrWarClock(
-    clock: Omit<StoredCrWarClock, "leaderboardSeasonId" | "updatedAt">,
+    clock: Omit<StoredCrWarClock, "updatedAt">,
   ): Promise<boolean> {
     const existing = await this.getCrWarClock();
-    const calendarId = calendarSeasonId(clock.seasonStartsAt);
-    // A new CR season inside a calendar month already using that id gets a
-    // crSeasonId-suffixed id. Matching on the prefix (not equality) keeps a
-    // third season in one month unique instead of colliding back onto the
-    // month's first id.
-    const leaderboardSeasonId =
-      existing?.crSeasonId === clock.crSeasonId
-        ? existing.leaderboardSeasonId
-        : existing?.leaderboardSeasonId.startsWith(calendarId)
-          ? `${calendarId}-${clock.crSeasonId}`
-          : calendarId;
     try {
       await client.send(
         new PutCommand({
@@ -1266,7 +1258,6 @@ export class Repository {
           Item: {
             ...crWarClockKey(),
             ...clock,
-            leaderboardSeasonId,
             updatedAt: clock.observedAt,
           } satisfies CrWarClockItem,
           // Guard the read-modify-write id derivation: a concurrent save that
@@ -1376,7 +1367,9 @@ export class Repository {
         Key: { pk: `SHARE#${token}`, sk: "SHARE" },
       }),
     );
-    return result.Item as ShareItem | undefined;
+    const item = result.Item as Record<string, unknown> | undefined;
+    if (!item || item.kind === "invite") return item as ShareItem | undefined;
+    return numericSeasonItem(item) as RunShareItem | undefined;
   }
 
   async getPublishedRunShare(
@@ -1393,7 +1386,7 @@ export class Repository {
         ConsistentRead: true,
       }),
     );
-    return result.Item as PublishedRunShareItem | undefined;
+    return numericSeasonItem(result.Item) as PublishedRunShareItem | undefined;
   }
 
   async getPublishedRunShareByTags(
@@ -1410,7 +1403,7 @@ export class Repository {
         ConsistentRead: true,
       }),
     );
-    return result.Item as PublishedRunShareItem | undefined;
+    return numericSeasonItem(result.Item) as PublishedRunShareItem | undefined;
   }
 
   async putPublishedRunShareAlias(item: PublishedRunShareItem): Promise<void> {
@@ -2206,7 +2199,7 @@ export class Repository {
   // overwritten by the season job.
   async savePodiumAward(
     sub: string,
-    seasonId: string,
+    seasonId: number,
     mode: GameMode,
     counters: BadgeCounters,
     awardedAt: string,
@@ -2310,7 +2303,7 @@ export class Repository {
       runId: string;
       mode: string;
       score: number;
-      seasonId: string;
+      seasonId: number;
       completedAt: string;
       answerCount?: number;
       boardEpoch?: string;
@@ -2324,7 +2317,7 @@ export class Repository {
       runId: string;
       mode: string;
       score: number;
-      seasonId: string;
+      seasonId: number;
       completedAt: string;
       answerCount?: number;
       boardEpoch?: string;
@@ -2351,18 +2344,19 @@ export class Repository {
         }),
       );
       for (const item of page.Items ?? []) {
+        const seasonId = seasonNumber(item.seasonId);
         if (
           typeof item.runId === "string" &&
           typeof item.mode === "string" &&
           typeof item.score === "number" &&
-          typeof item.seasonId === "string" &&
+          seasonId !== undefined &&
           typeof item.completedAt === "string"
         ) {
           runs.push({
             runId: item.runId,
             mode: item.mode,
             score: item.score,
-            seasonId: item.seasonId,
+            seasonId,
             completedAt: item.completedAt,
             ...(typeof item.answerCount === "number"
               ? { answerCount: item.answerCount }
@@ -2459,7 +2453,10 @@ export class Repository {
         ConsistentRead: true,
       }),
     );
-    return result.Item as RunItem | undefined;
+    const item = result.Item as Record<string, unknown> | undefined;
+    if (!item || item.seasonId === undefined)
+      return item as RunItem | undefined;
+    return numericSeasonItem(item) as RunItem | undefined;
   }
 
   async setRunShareVisual(
@@ -2591,7 +2588,7 @@ export class Repository {
   async completeRun(
     run: RunItem,
     score: number,
-    seasonId: string,
+    seasonId: number,
     xp: number | { practiceCards: number },
     tiebreaks?: RunTiebreaks,
     automaticReviewReason?: string,
@@ -2667,7 +2664,7 @@ export class Repository {
   private async completeRunAward(
     run: RunItem,
     score: number,
-    seasonId: string,
+    seasonId: number,
     xp: number,
     tiebreaks?: RunTiebreaks,
     automaticReviewReason?: string,
@@ -3102,7 +3099,10 @@ export class Repository {
         Limit: limit,
       }),
     );
-    return (result.Items ?? []) as RunRecord[];
+    return (result.Items ?? []).flatMap((item) => {
+      const normalized = numericSeasonItem(item);
+      return normalized ? [normalized as unknown as RunRecord] : [];
+    });
   }
 
   // Recent runs — collapse the last 24 hours by player + mode before applying
@@ -3110,40 +3110,44 @@ export class Repository {
   // while still letting distinct games tell separate stories. Raw feed rows
   // remain immutable and TTL'd; this is a read-only display projection.
   async recentActivity(
-    seasonId: string,
+    seasonId: number,
     limit = 8,
   ): Promise<Array<Record<string, unknown>>> {
     const visibleLimit = Math.max(1, Math.min(limit, 25));
     const since = new Date(Date.now() - ACTIVITY_WINDOW_MS).toISOString();
     const items: Array<Record<string, unknown>> = [];
-    let cursor: Record<string, unknown> | undefined;
-
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: "pk = :pk AND sk >= :since",
-          ExpressionAttributeValues: {
-            ":pk": `FEED#${seasonId}`,
-            ":since": since,
-          },
-          ScanIndexForward: false,
-          Limit: Math.min(
-            ACTIVITY_QUERY_PAGE_SIZE,
-            ACTIVITY_SCAN_LIMIT - items.length,
-          ),
-          ...(cursor ? { ExclusiveStartKey: cursor } : {}),
-        }),
-      );
-      const remaining = ACTIVITY_SCAN_LIMIT - items.length;
-      items.push(
-        ...((result.Items ?? []) as Array<Record<string, unknown>>).slice(
-          0,
-          remaining,
-        ),
-      );
-      cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (cursor && items.length < ACTIVITY_SCAN_LIMIT);
+    const feedPartitions = [
+      `FEED#${seasonId}`,
+      ...legacySeasonIdsFor(seasonId).map((legacyId) => `FEED#${legacyId}`),
+    ];
+    for (const partition of new Set(feedPartitions)) {
+      let cursor: Record<string, unknown> | undefined;
+      let read = 0;
+      do {
+        const result = await client.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: "pk = :pk AND sk >= :since",
+            ExpressionAttributeValues: { ":pk": partition, ":since": since },
+            ScanIndexForward: false,
+            Limit: Math.min(
+              ACTIVITY_QUERY_PAGE_SIZE,
+              ACTIVITY_SCAN_LIMIT - read,
+            ),
+            ...(cursor ? { ExclusiveStartKey: cursor } : {}),
+          }),
+        );
+        const rows = (result.Items ?? []) as Array<Record<string, unknown>>;
+        items.push(...rows);
+        read += rows.length;
+        cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (cursor && read < ACTIVITY_SCAN_LIMIT);
+      if (items.length) break;
+    }
+    items.sort((left, right) =>
+      String(right.sk).localeCompare(String(left.sk)),
+    );
+    items.splice(ACTIVITY_SCAN_LIMIT);
 
     const grouped = new Map<string, ActivityGroup>();
     for (const item of items) {
@@ -3358,7 +3362,7 @@ export class Repository {
 
   async wouldLeadSeason(
     mode: GameMode,
-    seasonId: string,
+    seasonId: number,
     score: number,
     tiebreaks: RunTiebreaks | undefined,
   ): Promise<boolean> {
@@ -3384,13 +3388,13 @@ export class Repository {
   // so callers keep one repository surface.
   async leaderboard(
     mode: GameMode,
-    seasonId: string,
+    seasonId: number,
     limit = 50,
   ): Promise<Array<Record<string, unknown>>> {
     return seasonLeaderboard(this.tableName, mode, seasonId, limit);
   }
 
-  async podiumFinishers(mode: GameMode, seasonId: string): Promise<string[]> {
+  async podiumFinishers(mode: GameMode, seasonId: number): Promise<string[]> {
     return (await seasonFinalists(this.tableName, mode, seasonId, 3)).map(
       ({ sub }) => sub,
     );
@@ -3398,7 +3402,7 @@ export class Repository {
 
   async seasonFinalists(
     mode: GameMode,
-    seasonId: string,
+    seasonId: number,
     limit = 20,
   ): Promise<SeasonFinalist[]> {
     return seasonFinalists(this.tableName, mode, seasonId, limit);

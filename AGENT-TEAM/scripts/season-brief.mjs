@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../..");
 const API_CONFIG_PATH = path.join(REPO_ROOT, "apps/web/public/api-config.json");
-const SEASON_ID_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
+const SEASON_NUMBER_PATTERN = /^[1-9]\d*$/;
 
 export const RANKED_MODES = Object.freeze([
   "surge",
@@ -33,7 +33,12 @@ export function parseArgs(args) {
       options.freePassMode = valueAfter(args, index, option);
       index += 1;
     } else if (option === "--season") {
-      options.seasonId = valueAfter(args, index, option);
+      const season = valueAfter(args, index, option);
+      options.seasonId = SEASON_NUMBER_PATTERN.test(season)
+        ? Number(season)
+        : undefined;
+      if (options.seasonId === undefined)
+        throw new Error("--season must be a Clash season number such as 135");
       index += 1;
     } else if (option === "--api-base-url") {
       options.apiBaseUrl = valueAfter(args, index, option);
@@ -46,9 +51,6 @@ export function parseArgs(args) {
     throw new Error(
       `--free-pass-mode must be one of ${RANKED_MODES.join(", ")}`,
     );
-  }
-  if (options.seasonId && !SEASON_ID_PATTERN.test(options.seasonId)) {
-    throw new Error("--season must be a Drop season id such as 2026-08");
   }
   return options;
 }
@@ -86,8 +88,15 @@ function requiredString(value, label) {
   return value;
 }
 
+function requiredSeasonNumber(value, label) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label} is missing`);
+  }
+  return value;
+}
+
 function seasonSummary(season, phase) {
-  const id = requiredString(season?.id, "season id");
+  const id = requiredSeasonNumber(season?.id, "season number");
   const startsAt = requiredString(season?.startsAt, "season startsAt");
   const endsAt = requiredString(season?.endsAt, "season endsAt");
   if (Number.isNaN(Date.parse(startsAt)) || Number.isNaN(Date.parse(endsAt))) {
@@ -95,9 +104,6 @@ function seasonSummary(season, phase) {
   }
   return {
     id,
-    ...(Number.isSafeInteger(season.crSeasonId)
-      ? { crSeasonId: season.crSeasonId }
-      : {}),
     startsAt,
     endsAt,
     phase,
@@ -159,10 +165,10 @@ export async function buildSeasonBrief(options) {
   const seasons = await readPublicJson(fetchImpl, `${apiBaseUrl}/seasons`);
   const current = seasons?.current;
   const upcoming = Array.isArray(seasons?.upcoming) ? seasons.upcoming : [];
-  const currentId = requiredString(current?.id, "current season id");
+  const currentId = requiredSeasonNumber(current?.id, "current season number");
   const seasonId = options.seasonId ?? currentId;
-  if (!SEASON_ID_PATTERN.test(seasonId)) {
-    throw new Error("season id is invalid");
+  if (!Number.isSafeInteger(seasonId) || seasonId <= 0) {
+    throw new Error("season number is invalid");
   }
   const upcomingSeason = upcoming.find((season) => season?.id === seasonId);
   const selectedSeason =

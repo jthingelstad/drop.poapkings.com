@@ -196,7 +196,7 @@ describe("Practice completion", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-practice" }),
       100,
-      expect.any(String),
+      expect.any(Number),
       { practiceCards: 40 },
       undefined,
       undefined,

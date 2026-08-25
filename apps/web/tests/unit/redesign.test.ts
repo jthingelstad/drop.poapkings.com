@@ -34,7 +34,7 @@ describe('shell nav model', () => {
 describe('season-ends label', () => {
   const season = (endsAt: string): Season =>
     ({
-      id: '2026-07',
+      id: 134,
       startsAt: '2026-07-06T10:00:00.000Z',
       endsAt,
       durationWeeks: 4
@@ -57,11 +57,11 @@ describe('season-ends label', () => {
   // resolved number falls back to the sentence rather than guessing one.
   it('names the season and its clock in the hero pill', () => {
     const future = new Date(Date.now() + (6 * 86_400_000 + 4 * 3_600_000 + 30 * 60_000)).toISOString()
-    const numbered = { ...season(future), crSeasonId: 135 } as Season
+    const numbered = { ...season(future), id: 135 } as Season
     expect(seasonPillLabel(numbered)).toBe('Season 135 · 6d 04h')
-    expect(seasonPillLabel(season(future))).toBe('Season ends in 6d 04h')
+    expect(seasonPillLabel(season(future))).toBe('Season 134 · 6d 04h')
     expect(seasonPillLabel(null)).toBe('Season in progress')
-    const done = { ...season(new Date(Date.now() - 1000).toISOString()), crSeasonId: 135 } as Season
+    const done = { ...season(new Date(Date.now() - 1000).toISOString()), id: 135 } as Season
     expect(seasonPillLabel(done)).toBe('Season ending')
   })
 })

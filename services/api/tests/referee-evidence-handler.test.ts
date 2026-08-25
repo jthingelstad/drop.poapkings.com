@@ -246,7 +246,7 @@ describe("referee evidence write path", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-leader" }),
       expect.any(Number),
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       undefined,
       "new_all_time_leader_pending_review",
@@ -301,7 +301,7 @@ describe("referee evidence write path", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-season-leader" }),
       expect.any(Number),
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       undefined,
       "new_season_leader_pending_review",
@@ -393,7 +393,7 @@ describe("referee evidence write path", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-rejected" }),
       expect.any(Number),
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       undefined,
       "score_below_ui_floor",
@@ -451,7 +451,7 @@ describe("referee evidence write path", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-scorer-flag" }),
       36_000,
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       undefined,
       "end_time_outside_wall_clock",

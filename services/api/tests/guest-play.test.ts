@@ -213,7 +213,7 @@ describe("guest play", () => {
       guest: true,
       mode: "surge",
       score: expect.any(Number),
-      season: { id: expect.any(String) },
+      season: { id: expect.any(Number) },
     });
     // A guest completion returns no recorded fields.
     expect(body.runId).toBeUndefined();

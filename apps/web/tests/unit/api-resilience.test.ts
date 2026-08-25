@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const currentSeason = {
-  id: '2026-07',
+  id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
   endsAt: '2026-08-03T10:00:00.000Z',
   durationWeeks: 4

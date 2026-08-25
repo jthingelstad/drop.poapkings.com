@@ -265,19 +265,15 @@ describe('Leaderboards', () => {
       mode,
       scope,
       ...(scope === 'clan' ? { clan: { tag: '#J2RGCRVG', name: 'POAP KINGS' } } : {}),
-      seasonId: 'season-60',
+      seasonId: 60,
       currentSeason: {
-        id: 'season-60',
+        id: 60,
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-08-01T00:00:00.000Z',
         durationWeeks: 4,
-        source: 'clash-royale',
-        crSeasonId: 60
+        source: 'clash-royale'
       },
-      seasons: [
-        { id: 'season-60', crSeasonId: 60 },
-        { id: 'season-59', crSeasonId: 59 }
-      ],
+      seasons: [{ id: 60 }, { id: 59 }],
       entries:
         mode === 'survival'
           ? []
@@ -538,7 +534,7 @@ describe('PublicProfile', () => {
           runId: 'run-1',
           mode: 'surge',
           score: 52_000,
-          seasonId: '2026-07',
+          seasonId: 134,
           completedAt: '2026-07-22T17:00:00.000Z'
         }
       ]

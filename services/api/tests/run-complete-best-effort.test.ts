@@ -387,7 +387,6 @@ describe("run completion side effects are best effort", () => {
       seasonStartsAt: "2026-08-03T10:00:00.000Z",
       observedAt: new Date().toISOString(),
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-08",
       updatedAt: new Date().toISOString(),
     });
     repository.advanceLastSeasonPlayed.mockResolvedValue(true);
@@ -433,7 +432,6 @@ describe("run completion side effects are best effort", () => {
       seasonStartsAt: "2026-08-03T10:00:00.000Z",
       observedAt: new Date().toISOString(),
       sourceClanTag: "#J2RGCRVG",
-      leaderboardSeasonId: "2026-08",
       updatedAt: new Date().toISOString(),
     });
     repository.advanceLastSeasonPlayed.mockResolvedValue(false);

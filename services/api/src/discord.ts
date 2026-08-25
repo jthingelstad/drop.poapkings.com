@@ -16,7 +16,7 @@ interface CompletedGameEvent {
   runId: string;
   mode: GameMode;
   score: number;
-  seasonId: string;
+  seasonId: number;
   completedAt: string;
   profile?: PlayerProfile;
   crProfile?: CrProfileSnapshot;
@@ -91,7 +91,7 @@ export function completedGameWebhookPayload(
       player,
       ...clashRoyalePlayerLabels(event),
       ...(event.profile ? [gameCount(event.profile.totalGames)] : []),
-      event.seasonId,
+      `Season ${event.seasonId}`,
     ].join(" · "),
   };
 }

@@ -40,7 +40,7 @@ const sharedPayload = {
   token: 'AB2CD3',
   mode: 'surge' as const,
   score: 17_412,
-  seasonId: '2026-08',
+  seasonId: 135,
   completedAt: '2026-08-19T12:00:20.000Z',
   series: [1200, 900, 1500],
   player: {

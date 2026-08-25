@@ -15,7 +15,7 @@ function evidence(
     runId: "run",
     playerSub: "sub",
     mode,
-    seasonId: "2026-08",
+    seasonId: 135,
     runType,
     integrityOutcome: "accepted",
     challenge,

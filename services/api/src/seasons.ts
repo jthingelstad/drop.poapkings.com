@@ -1,4 +1,8 @@
-import type { Season } from "@elixir-drop/contracts";
+import {
+  FIRST_DROP_SEASON_ID,
+  seasonNumber,
+  type Season,
+} from "@elixir-drop/contracts";
 import type { StoredCrWarClock } from "./types.js";
 
 const RESET_HOUR_UTC = 10;
@@ -12,7 +16,7 @@ const MAX_SEASON_MS = 5 * WEEK_MS;
 // The period rail is a catalog of Drop boards, not a generic CR calendar, so
 // it must never advertise the empty seasons before the game existed.
 const FIRST_DROP_SEASON_START_MS = Date.UTC(2026, 6, 6, RESET_HOUR_UTC);
-const FIRST_DROP_CR_SEASON_ID = 134;
+const FIRST_DROP_SEASON_MONTH = 2026 * 12 + 6;
 
 function firstMondayAtReset(year: number, monthIndex: number): Date {
   const first = new Date(Date.UTC(year, monthIndex, 1, RESET_HOUR_UTC));
@@ -21,12 +25,18 @@ function firstMondayAtReset(year: number, monthIndex: number): Date {
   return first;
 }
 
-function seasonStartingAt(date: Date): Season {
+function calendarSeasonNumber(date: Date): number {
+  return (
+    FIRST_DROP_SEASON_ID +
+    (date.getUTCFullYear() * 12 + date.getUTCMonth() - FIRST_DROP_SEASON_MONTH)
+  );
+}
+
+function seasonStartingAt(date: Date, id = calendarSeasonNumber(date)): Season {
   const next = firstMondayAtReset(
     date.getUTCFullYear(),
     date.getUTCMonth() + 1,
   );
-  const id = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   return {
     id,
     startsAt: date.toISOString(),
@@ -76,9 +86,8 @@ function seasonFromWarClock(
   const season = withObservedWeeks(seasonStartingAt(startsAt), currentWeek);
   return {
     ...season,
-    id: clock.leaderboardSeasonId,
+    id: clock.crSeasonId,
     source: "clash-royale",
-    crSeasonId: clock.crSeasonId,
     currentWeek,
     daysRemainingInWeek: daysRemainingInWeek(input, startsAt, currentWeek),
     periodType: clock.periodType,
@@ -104,9 +113,8 @@ function seasonFromStaleClock(
   );
   return {
     ...season,
-    id: clock.leaderboardSeasonId,
+    id: clock.crSeasonId,
     source: "calendar-fallback",
-    crSeasonId: clock.crSeasonId,
     currentWeek,
     daysRemainingInWeek: daysRemainingInWeek(input, startsAt, currentWeek),
     clockUpdatedAt: clock.observedAt,
@@ -158,6 +166,7 @@ export function upcomingSeasons(
           start.getUTCFullYear(),
           start.getUTCMonth() + offset,
         ),
+        current.id + offset,
       ),
     );
   }
@@ -173,74 +182,32 @@ export function recentSeasons(
   input: Date = new Date(),
   count = 12,
   clock?: StoredCrWarClock,
-): Array<{ id: string; crSeasonId?: number }> {
+): Array<{ id: number }> {
   if (count <= 0) return [];
   const current = seasonForDate(input, clock);
   const currentStart = new Date(current.startsAt).getTime();
   if (
     currentStart < FIRST_DROP_SEASON_START_MS ||
-    (current.crSeasonId !== undefined &&
-      current.crSeasonId < FIRST_DROP_CR_SEASON_ID)
+    current.id < FIRST_DROP_SEASON_ID
   )
     return [];
-  const seasons: Array<{ id: string; crSeasonId?: number }> = [
-    {
-      id: current.id,
-      ...(current.crSeasonId ? { crSeasonId: current.crSeasonId } : {}),
-    },
-  ];
+  const seasons: Array<{ id: number }> = [{ id: current.id }];
   const start = new Date(current.startsAt);
-  const clockRef = clock
-    ? {
-        leaderboardSeasonId: clock.leaderboardSeasonId,
-        crSeasonId: clock.crSeasonId,
-      }
-    : undefined;
   for (let offset = 1; offset < count; offset += 1) {
     const monthStart = firstMondayAtReset(
       start.getUTCFullYear(),
       start.getUTCMonth() - offset,
     );
     if (monthStart.getTime() < FIRST_DROP_SEASON_START_MS) break;
-    const id = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`;
-    const crSeasonId = crSeasonIdFor(id, clockRef);
-    if (crSeasonId !== undefined && crSeasonId < FIRST_DROP_CR_SEASON_ID) break;
-    seasons.push({ id, ...(crSeasonId ? { crSeasonId } : {}) });
+    const id = current.id - offset;
+    if (id < FIRST_DROP_SEASON_ID) break;
+    seasons.push({ id });
   }
   return seasons;
 }
 
-// Leaderboard season IDs are calendar-derived (`2026-08`, or `2026-08-74` when
-// one calendar month carried two CR seasons). Players do not think in those
-// ids — they think in Clash Royale season numbers — but only the live war
-// clock stores both, and it is overwritten each rollover, so a past season's
-// number is not recorded anywhere.
-//
-// Derive it instead. Clan Wars seasons are monthly and sequential, so a
-// season's number is the current one offset by the months between them. An id
-// that carries an explicit `-NN` suffix states its own number and is trusted
-// over the arithmetic.
-//
-// Returns undefined rather than a guess when there is no live clock to anchor
-// on, or when the offset is implausible; player-facing callers omit that id.
-const MAX_DERIVED_SEASON_OFFSET = 120;
-
-export function crSeasonIdFor(
-  seasonId: string,
-  clock: { leaderboardSeasonId: string; crSeasonId: number } | undefined,
-): number | undefined {
-  const explicit = /^\d{4}-\d{2}-(\d+)$/.exec(seasonId);
-  if (explicit) return Number(explicit[1]);
-  if (!clock?.crSeasonId) return undefined;
-  const months = (id: string): number | undefined => {
-    const parts = /^(\d{4})-(\d{2})/.exec(id);
-    return parts ? Number(parts[1]) * 12 + Number(parts[2]) : undefined;
-  };
-  const target = months(seasonId);
-  const current = months(clock.leaderboardSeasonId);
-  if (target === undefined || current === undefined) return undefined;
-  const offset = target - current;
-  if (Math.abs(offset) > MAX_DERIVED_SEASON_OFFSET) return undefined;
-  const derived = clock.crSeasonId + offset;
-  return derived > 0 ? derived : undefined;
+// Repository reads retain this one decoder while the production table is being
+// migrated. Every new application value is already numeric.
+export function storedSeasonNumber(value: unknown): number | undefined {
+  return seasonNumber(value);
 }

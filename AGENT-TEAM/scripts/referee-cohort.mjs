@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// referee-cohort.mjs --mode <m> --scope season|all-time [--limit 25] [--season <id>]
+// referee-cohort.mjs --mode <m> --scope season|all-time [--limit 25] [--season <number>]
 //
 // The top cohort for one ranked mode. Queries the leaderboard GSI1 partition and
 // returns ranked rows resolved to { rank, playerId, runId, score }. Feed each
@@ -36,12 +36,19 @@ if (!Number.isInteger(limit) || limit < 1 || limit > 200)
 
 const doc = await client();
 
+const requestedSeason =
+  flags.season && flags.season !== true && /^[1-9]\d*$/.test(flags.season)
+    ? Number(flags.season)
+    : undefined;
+if (flags.season && requestedSeason === undefined)
+  failClosed(
+    "invalid_season",
+    "--season must be a positive Clash season number",
+  );
 const seasonId =
   scope === "all-time"
     ? "ALLTIME"
-    : flags.season && flags.season !== true
-      ? flags.season
-      : await currentSeasonId(doc);
+    : (requestedSeason ?? (await currentSeasonId(doc)));
 // Resolve current visibility before ranking. A hidden seasonal run falls back
 // to that player's next-best run; all-time does the same reconciliation rather
 // than dropping the player entirely.

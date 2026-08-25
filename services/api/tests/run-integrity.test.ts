@@ -172,7 +172,7 @@ describe("run integrity rejection", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-fast" }),
       expect.any(Number),
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       undefined,
       "score_below_ui_floor",
@@ -249,7 +249,7 @@ describe("run integrity rejection", () => {
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-rain" }),
       20,
-      expect.any(String),
+      expect.any(Number),
       expect.any(Number),
       // The tiebreaks still ride onto the row: derived, not reported.
       { wrongGuesses: 2, avgLatencyMs: 0 },

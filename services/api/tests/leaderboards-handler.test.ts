@@ -148,7 +148,7 @@ describe("GET /leaderboards scope", () => {
     expect(repository.leaderboard).toHaveBeenCalledOnce();
     expect(repository.allTimeLeaderboard).not.toHaveBeenCalled();
     expect(body.scope).toBe("season");
-    expect(typeof body.seasonId).toBe("string");
+    expect(typeof body.seasonId).toBe("number");
   });
 
   it("requires authentication for the clan board", async () => {

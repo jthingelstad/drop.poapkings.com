@@ -76,7 +76,7 @@ current and Rain is next; never infer a later designation.
 
 ```sh
 node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode surge
-node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode rain --season 2026-09
+node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode rain --season 136
 ```
 
 The default endpoint comes from `apps/web/public/api-config.json`. A source-only test
@@ -184,7 +184,7 @@ Configuration:
 | Script                  | Arguments                                                                | Returns                                                                                                                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `referee-run.mjs`       | `<runId-or-#Dreference>`                                                  | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves the UUID or player-facing Drop run tag by scanning for the `EVIDENCE#` item. |
-| `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <id>]`       | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                              |
+| `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <number>]`   | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                              |
 | `referee-players.mjs`   | `[--limit 500]`                                                        | Sanitized Control Room directory with player tags, run/review counts, badge totals, ranked access, and recent run tags.                                                                            |
 | `referee-player.mjs`    | `<playerId>`                                                             | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                               |
 | `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |

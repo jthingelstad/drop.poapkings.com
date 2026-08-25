@@ -47,7 +47,7 @@ describe("Discord event notifications", () => {
         runId: "run-124",
         mode: "practice",
         score: 80,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-18T12:01:00.000Z",
         profile: anonymousProfile,
       }).content,
@@ -65,7 +65,7 @@ describe("Discord event notifications", () => {
       runId: "run-123",
       mode: "surge",
       score: 67_299,
-      seasonId: "2026-07",
+      seasonId: 134,
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: firstGameProfile,
       crProfile: {
@@ -81,7 +81,7 @@ describe("Discord event notifications", () => {
       },
     });
     expect(completed.content).toBe(
-      "🎮 Surge · 67.299s · Inferno Dragon Ace · King Thing (#20JJJ2CCRU) · POAP KINGS · 1 game · 2026-07",
+      "🎮 Surge · 67.299s · Inferno Dragon Ace · King Thing (#20JJJ2CCRU) · POAP KINGS · 1 game · Season 134",
     );
     expect(completed.content).not.toContain("run-123");
     expect(completed.content).not.toContain("troph");
@@ -132,7 +132,7 @@ describe("Discord event notifications", () => {
         runId: "run-123",
         mode: "survival",
         score: 4,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-18T12:02:00.000Z",
         profile,
       }),

@@ -97,7 +97,7 @@ describe("GET /players/:id", () => {
         runId: "run-1",
         mode: "surge",
         score: 52_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-22T17:00:00.000Z",
         pk: "PLAYER#private-sub",
         sk: "RUN#private",
@@ -113,7 +113,7 @@ describe("GET /players/:id", () => {
         runId: "practice-1",
         mode: "practice",
         score: 0,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-22T16:00:00.000Z",
       },
     ]);
@@ -160,7 +160,7 @@ describe("GET /players/:id", () => {
         runId: "run-1",
         mode: "surge",
         score: 52_000,
-        seasonId: "2026-07",
+        seasonId: 134,
         completedAt: "2026-07-22T17:00:00.000Z",
       },
     ]);

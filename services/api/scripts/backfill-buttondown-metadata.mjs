@@ -172,29 +172,6 @@ async function loadProfiles(documentClient, tableName) {
   return profiles;
 }
 
-async function loadWarClockAnchor(documentClient, tableName) {
-  const result = await documentClient.send(
-    new GetCommand({
-      TableName: tableName,
-      Key: { pk: "CR_WAR_CLOCK", sk: "CURRENT" },
-      ConsistentRead: true,
-      ProjectionExpression: "leaderboardSeasonId, crSeasonId",
-    }),
-  );
-  const item = result.Item;
-  if (
-    !item ||
-    typeof item.leaderboardSeasonId !== "string" ||
-    !Number.isSafeInteger(item.crSeasonId) ||
-    item.crSeasonId <= 0
-  )
-    return undefined;
-  return {
-    leaderboardSeasonId: item.leaderboardSeasonId,
-    crSeasonId: item.crSeasonId,
-  };
-}
-
 async function latestRunSeasonId(documentClient, tableName, profile) {
   const result = await documentClient.send(
     new QueryCommand({
@@ -210,16 +187,10 @@ async function latestRunSeasonId(documentClient, tableName, profile) {
       ConsistentRead: true,
     }),
   );
-  const seasonId = result.Items?.[0]?.seasonId;
-  return typeof seasonId === "string" ? seasonId : undefined;
+  return result.Items?.[0]?.seasonId;
 }
 
-async function hydrateLastSeasonPlayed(
-  documentClient,
-  tableName,
-  profiles,
-  clock,
-) {
+async function hydrateLastSeasonPlayed(documentClient, tableName, profiles) {
   const hydrated = [];
   const profileUpdates = [];
   let unresolvedLastSeasonPlayed = 0;
@@ -230,7 +201,6 @@ async function hydrateLastSeasonPlayed(
     const reconciliation = reconcileButtondownLastSeasonPlayed(
       profile,
       seasonId,
-      clock,
     );
     if (!reconciliation.resolved) {
       unresolvedLastSeasonPlayed += 1;
@@ -366,17 +336,11 @@ async function main() {
     { marshallOptions: { removeUndefinedValues: true } },
   );
   const loadedProfiles = await loadProfiles(documentClient, tableName);
-  const clock = await loadWarClockAnchor(documentClient, tableName);
   const {
     hydrated: profiles,
     profileUpdates,
     unresolvedLastSeasonPlayed,
-  } = await hydrateLastSeasonPlayed(
-    documentClient,
-    tableName,
-    loadedProfiles,
-    clock,
-  );
+  } = await hydrateLastSeasonPlayed(documentClient, tableName, loadedProfiles);
   const snapshots = await loadCrSnapshots(documentClient, tableName, profiles);
   const plans = [];
   let matchedSubscribers = 0;

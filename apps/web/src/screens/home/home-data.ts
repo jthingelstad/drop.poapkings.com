@@ -72,12 +72,11 @@ export function seasonEndsLabel(season: Season | null): string {
 }
 
 // "Season 135 · 6d 04h" — the featured hero's pill. Players read Clash Royale
-// season numbers, never Drop's internal ids, so this names the number and falls
-// back to the sentence form rather than guessing one that isn't there.
+// season numbers, never retired calendar-shaped storage keys.
 export function seasonPillLabel(season: Season | null): string {
   const clock = seasonClock(season)
-  if (!season || !clock || !season.crSeasonId) return seasonEndsLabel(season)
-  return `Season ${season.crSeasonId} · ${clock}`
+  if (!season || !clock) return seasonEndsLabel(season)
+  return `Season ${season.id} · ${clock}`
 }
 
 function mergedBestScores(season: Season | null): Partial<Record<GameMode, number>> {

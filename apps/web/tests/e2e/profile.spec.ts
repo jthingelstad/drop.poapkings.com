@@ -408,7 +408,7 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
     if (url.pathname === '/me/seasons') seasonRequests.push(url.searchParams.get('season') ?? '')
   })
   await games.getByRole('button', { name: 'Older games' }).click()
-  await expect.poll(() => seasonRequests).toContain('2026-06')
+  await expect.poll(() => seasonRequests).toContain('133')
   await expect(games.locator('.ed-games__row')).toHaveCount(32)
   await expect(games.getByRole('button', { name: 'Older games' })).toHaveCount(0)
 

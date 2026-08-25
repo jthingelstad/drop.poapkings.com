@@ -112,7 +112,7 @@ describe("buildEvidenceItem", () => {
     sub: "player-sub",
     runId: "run-1",
     mode: "surge" as const,
-    seasonId: "2026-07",
+    seasonId: 134,
     runType: "ranked" as const,
     integrityOutcome: "accepted",
     score: 12_345,

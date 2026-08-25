@@ -153,7 +153,7 @@ describe('seasonEndsLabel', () => {
   })
 
   const seasonEndingIn = (ms: number) => ({
-    id: '2026-07',
+    id: 134,
     startsAt: '2026-07-06T10:00:00.000Z',
     endsAt: new Date(Date.now() + ms).toISOString(),
     durationWeeks: 4
@@ -189,7 +189,7 @@ describe('useHomeData derivations', () => {
   let api: typeof import('../../src/lib/api')
 
   const season = {
-    id: '2026-07',
+    id: 134,
     startsAt: '2026-07-06T10:00:00.000Z',
     endsAt: FUTURE(),
     durationWeeks: 4
@@ -700,7 +700,7 @@ describe('Profile interactive flows', () => {
       runId: 'r1',
       mode: 'surge' as const,
       score: 12_500,
-      seasonId: '2026-07',
+      seasonId: 134,
       completedAt: '2026-07-19T00:00:00.000Z',
       reviewStatus: 'pending' as const
     },
@@ -708,7 +708,7 @@ describe('Profile interactive flows', () => {
       runId: 'r2',
       mode: 'survival' as const,
       score: 8,
-      seasonId: '2026-07',
+      seasonId: 134,
       completedAt: '2026-07-18T00:00:00.000Z',
       reviewStatus: 'excluded' as const
     },
@@ -716,7 +716,7 @@ describe('Profile interactive flows', () => {
       runId: 'r3',
       mode: 'surge' as const,
       score: 9_900,
-      seasonId: '2026-07',
+      seasonId: 134,
       completedAt: '2026-07-17T00:00:00.000Z'
     }
   ]
@@ -724,8 +724,8 @@ describe('Profile interactive flows', () => {
   it('groups your games by day, seals each row, and signs out from the Account scope', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
-      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+      index: [{ id: 134, games: historyRuns.length }],
+      seasons: [{ id: 134, games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
 
@@ -754,8 +754,8 @@ describe('Profile interactive flows', () => {
   it('counts flagged games in the chip and toggles the filter', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
-      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+      index: [{ id: 134, games: historyRuns.length }],
+      seasons: [{ id: 134, games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
 
@@ -775,8 +775,8 @@ describe('Profile interactive flows', () => {
   it('opens a run detail with its reference and the dispute link for an excluded run', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: historyRuns.length, crSeasonId: 134 }],
-      seasons: [{ id: '2026-07', games: historyRuns.length, runs: historyRuns }]
+      index: [{ id: 134, games: historyRuns.length }],
+      seasons: [{ id: 134, games: historyRuns.length, runs: historyRuns }]
     })
     await mount()
 
@@ -797,8 +797,8 @@ describe('Profile interactive flows', () => {
   it('shows the run reference with Share in place of Copy in the run sheet', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
-      seasons: [{ id: '2026-07', games: 1, runs: [historyRuns[2]] }]
+      index: [{ id: 134, games: 1 }],
+      seasons: [{ id: 134, games: 1, runs: [historyRuns[2]] }]
     })
     await mount()
 
@@ -814,8 +814,8 @@ describe('Profile interactive flows', () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     account.badges.value = [{ slug: 'clockbreaker', value: 15, rungIndex: 5 }] as never
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
-      index: [{ id: '2026-07', games: 1, crSeasonId: 134 }],
-      seasons: [{ id: '2026-07', games: 1, runs: [{ ...historyRuns[2], rungs: ['clockbreaker'] }] }]
+      index: [{ id: 134, games: 1 }],
+      seasons: [{ id: 134, games: 1, runs: [{ ...historyRuns[2], rungs: ['clockbreaker'] }] }]
     } as never)
     await mount()
 
@@ -908,7 +908,7 @@ describe('api.ts remaining branches', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json({ apiBaseUrl: API_BASE }))
-      .mockResolvedValueOnce(json({ seasonId: '2026-07', entries: [] }))
+      .mockResolvedValueOnce(json({ seasonId: 134, entries: [] }))
     vi.stubGlobal('fetch', fetchMock)
     const { getActivity } = await import('../../src/lib/api')
 
@@ -947,12 +947,12 @@ describe('api.ts remaining branches', () => {
       .mockRejectedValueOnce(new Error('down'))
       .mockRejectedValueOnce(new Error('down'))
       .mockResolvedValueOnce(json({ apiBaseUrl: API_BASE }))
-      .mockResolvedValueOnce(json({ seasonId: '2026-07', entries: [] }))
+      .mockResolvedValueOnce(json({ seasonId: 134, entries: [] }))
     vi.stubGlobal('fetch', fetchMock)
     const { getActivity } = await import('../../src/lib/api')
 
     await expect(getActivity()).rejects.toMatchObject({ code: 'network_unavailable' })
     // configPromise was cleared, so the retry re-fetches config and succeeds.
-    await expect(getActivity()).resolves.toMatchObject({ seasonId: '2026-07' })
+    await expect(getActivity()).resolves.toMatchObject({ seasonId: 134 })
   })
 })

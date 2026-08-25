@@ -43,14 +43,13 @@ catalog. Attached collection data remains stored but not rendered; only the
 card count is shown, and it does not affect challenge generation.
 
 The bridge also publishes a five-minute Clan Wars clock snapshot from
-`/currentriverrace` plus `/riverracelog`. The API stores the latest CR season
-ID, current section/week, period/day, and phase in a singleton DynamoDB item.
-A CR season-ID change creates the next leaderboard partition; the first live
-snapshot deliberately retains the existing `YYYY-MM` partition so deployment
-does not split an in-progress leaderboard. The API derives week countdown copy
-from CR's period index and the agreed 10:00 UTC cutoff. If the clock is more
-than two hours old, season reads and run completion fall back to the UTC
-first-Monday calendar instead of failing.
+`/currentriverrace` plus `/riverracelog`. The API stores the latest positive
+integer CR season ID, current section/week, period/day, and phase in a singleton
+DynamoDB item. That number is the season ID on runs, feeds, history, and
+leaderboard partitions; a CR season-ID change creates the next partition. The
+API derives week countdown copy from CR's period index and the agreed 10:00 UTC
+cutoff. If no usable clock remains after the bounded stale-clock window, the
+first-Monday fallback advances from Drop's verified Season 134 launch anchor.
 
 ## Routes
 
@@ -128,7 +127,7 @@ Collector. `GET /me` and `GET /players/{id}` reconcile all already-earned badge
 markers and settle the finite Arena Climber cascade, so the badge migration is
 lazy, resumable, and needs no privileged bulk writer.
 
-Beginning with Season 135 (`2026-08`), the CR rollover result consumer uses final referee-aware standings
+Beginning with Season 135, the CR rollover result consumer uses final referee-aware standings
 with pending runs withheld. Each ranked mode's occupied top 20 pays
 500/350/250/150/100/50 by placement band, and a positive final score in all five
 ranked modes pays +100 Seasonal Circuit. The same SQS retry that protects the
@@ -266,8 +265,7 @@ metadata uses segment-friendly `player_tag`, `drop_player_tag`,
 `last_season_played`. The three tag values omit their display-only `#`.
 `drop_player_tag` and the Recruiter URL use the public `P…` Drop player tag and
 never expose the underlying UUID. `last_season_played` is the Clash Royale
-season number as a string (for example `"135"`), not Drop's internal
-leaderboard season id. It advances after the player's first recorded game in a
+season number as a string (for example `"135"`). It advances after the player's first recorded game in a
 new season; later games in that season make no Buttondown request. The full
 metadata projection also refreshes at verified login, each returning-session
 renewal, and a profile/tag change. The current clan comes only from the latest
@@ -294,6 +292,21 @@ by default and idempotent:
 ```sh
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env"
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env" --apply
+```
+
+## Season-number storage migration
+
+`scripts/migrate-season-numbers.mjs` is the bounded one-time DynamoDB migration
+from retired calendar keys to numeric Clash season IDs. It scans without
+printing player or run identifiers, classifies every affected shape, and is a
+dry run by default. Apply is restricted to the production table, region,
+account, and operator identity; attribute updates use exact old-value
+conditions, primary-key moves are transactional, and apply finishes by running
+the inventory again and requiring zero remaining actions or unresolved shapes.
+
+```sh
+npm run migrate:season-numbers --workspace=@elixir-drop/api
+npm run migrate:season-numbers --workspace=@elixir-drop/api -- --apply
 ```
 
 ## Tinylytics product events
