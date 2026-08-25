@@ -237,6 +237,29 @@ describe('BadgeGrid', () => {
     expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Night Shift')
     expect(host.textContent).toContain('Earned by completing a game between midnight and 5:00 a.m. local time.')
     expect(host.textContent).not.toContain('Secret badge — earn it to reveal how.')
+    expect(host.querySelector('.ed-badges__milestone')).toBeNull()
+    expect(host.querySelector('.ed-badges__rungs')).toBeNull()
+    expect(host.querySelector('[role="progressbar"]')).toBeNull()
+  })
+
+  it('keeps one-time recognition details and sharing without progress or rung meters', async () => {
+    draw(
+      <BadgeGrid
+        states={[badgeState('first-drop', 100, 0)]}
+        earnedOnly
+        playerId="signed-in-player"
+        playerName="Knight Main"
+      />
+    )
+
+    await click(buttonNamed('First Drop, 100'))
+    expect(host.textContent).toContain('Be one of the first 100 registered Elixir Drop players')
+    expect(buttonNamed('SHARE')).not.toBeNull()
+    expect(host.querySelector('.ed-badges__milestone')).toBeNull()
+    expect(host.querySelector('.ed-badges__rungs')).toBeNull()
+    expect(host.querySelector('[role="progressbar"]')).toBeNull()
+    expect(host.textContent).not.toContain('Milestones complete')
+    expect(host.textContent).not.toContain('Rung 1 of 1')
   })
 
   it('describes descending time progress and a completed milestone ladder', async () => {

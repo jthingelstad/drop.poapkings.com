@@ -95,6 +95,7 @@ export function BadgeSheet({
 }) {
   const { definition } = badge
   const ownsBadge = Boolean(playerId && playerName && player.value?.id === playerId)
+  const showsProgress = definition.progressive !== false
 
   return (
     <DetailModal label={badge.name} onClose={onClose} className="ed-badges__sheet" returnFocus={returnFocus}>
@@ -117,33 +118,37 @@ export function BadgeSheet({
               onComplete={() => track('badge.shared')}
             />
           )}
-          <div class="ed-badges__milestone">
-            <div class="ed-badges__milestone-head">
-              <span class="ed-badges__milestone-kicker">
-                {badge.nextRung === undefined ? 'Milestones complete' : 'Next milestone'}
-              </span>
-              <strong class="ed-badges__milestone-value">
-                {formatRungValue(badge.nextRung ?? badge.value, definition.unit)}
-              </strong>
-            </div>
-            {(badge.value > 0 || definition.kind !== 'time') && (
-              <>
-                <span
-                  class="ed-badges__progress"
-                  role="progressbar"
-                  aria-label={`${badge.name} progress`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(badge.progress * 100)}
-                  aria-valuetext={progressLabel(badge)}
-                >
-                  <span class="ed-badges__progress-fill" style={{ width: `${badge.progress * 100}%` }} />
-                </span>
-                <span class="ed-badges__progress-label">{progressLabel(badge)}</span>
-              </>
-            )}
-          </div>
-          <RungLadder badge={badge} />
+          {showsProgress && (
+            <>
+              <div class="ed-badges__milestone">
+                <div class="ed-badges__milestone-head">
+                  <span class="ed-badges__milestone-kicker">
+                    {badge.nextRung === undefined ? 'Milestones complete' : 'Next milestone'}
+                  </span>
+                  <strong class="ed-badges__milestone-value">
+                    {formatRungValue(badge.nextRung ?? badge.value, definition.unit)}
+                  </strong>
+                </div>
+                {(badge.value > 0 || definition.kind !== 'time') && (
+                  <>
+                    <span
+                      class="ed-badges__progress"
+                      role="progressbar"
+                      aria-label={`${badge.name} progress`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(badge.progress * 100)}
+                      aria-valuetext={progressLabel(badge)}
+                    >
+                      <span class="ed-badges__progress-fill" style={{ width: `${badge.progress * 100}%` }} />
+                    </span>
+                    <span class="ed-badges__progress-label">{progressLabel(badge)}</span>
+                  </>
+                )}
+              </div>
+              <RungLadder badge={badge} />
+            </>
+          )}
         </>
       )}
     </DetailModal>

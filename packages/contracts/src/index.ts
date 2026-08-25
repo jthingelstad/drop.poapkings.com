@@ -786,6 +786,9 @@ export interface BadgeDefinition {
   // Badge XP is normally derived from the rung tier. A recognition badge can
   // explicitly opt out without teaching the award engine about its slug.
   awardsXp?: false;
+  // One-time achievements still use one internal rung for durable awarding,
+  // but have no player-facing progress or rung ladder.
+  progressive?: false;
   // One line shown on the detail sheet. Hidden-badge requirements are revealed
   // only after earning them.
   requirement?: string;
@@ -1015,6 +1018,7 @@ export const BADGES = [
     group: "community",
     kind: "count",
     rungs: [1],
+    progressive: false,
     requirement: "Add a Clash Royale player tag to your profile",
   },
   {
@@ -1041,6 +1045,7 @@ export const BADGES = [
     rungs: [100],
     limited: true,
     awardsXp: false,
+    progressive: false,
     requirement: "Be one of the first 100 registered Elixir Drop players",
   },
 
@@ -1054,6 +1059,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by completing a game between midnight and 5:00 a.m. local time.",
   },
@@ -1064,6 +1070,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by setting a new Surge or Trade best by less than one tenth of a second.",
   },
@@ -1074,6 +1081,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by clearing every 6+ elixir card on the first guess in one Surge run.",
   },
@@ -1084,6 +1092,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by responding to every card in a Survival run in under one second.",
   },
@@ -1094,6 +1103,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by clearing 20 cards in Rain after falling to your final life.",
   },
@@ -1104,6 +1114,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by setting a new all-time best on your first completed game of the local day.",
   },
@@ -1114,6 +1125,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     hidden: true,
+    progressive: false,
     requirement:
       "Earned by unlocking at least one milestone in every game badge.",
   },

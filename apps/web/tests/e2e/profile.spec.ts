@@ -376,6 +376,28 @@ test('the Ladder Badges scope shows the full collection without unrelated helper
   await expect(page.getByRole('button', { name: 'First Drop, 100' })).toBeVisible()
 })
 
+test('a one-time badge keeps sharing but omits progress and rung meters', async ({ page }, testInfo) => {
+  await page.goto('/#/leaderboards')
+  await page.getByRole('tab', { name: 'Badges' }).click()
+  await page.getByRole('button', { name: 'First Drop, 100' }).click()
+
+  const sheet = page.getByRole('dialog', { name: 'First Drop' })
+  await expect(sheet).toContainText('first 100 registered Elixir Drop players')
+  await expect(sheet.getByRole('button', { name: 'SHARE', exact: true })).toBeVisible()
+  await expect(sheet.locator('.ed-badges__milestone')).toHaveCount(0)
+  await expect(sheet.locator('.ed-badges__rungs')).toHaveCount(0)
+  await expect(sheet.getByRole('progressbar')).toHaveCount(0)
+  await expect(sheet).not.toContainText('Milestones complete')
+  await expect(sheet).not.toContainText('Rung 1 of 1')
+  await sheet.evaluate(async (element) => {
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished))
+  })
+  await testInfo.attach('first-drop-one-time-modal.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+})
+
 test('opening a badge on the Ladder uses a focused modal with the rung ladder', async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()
@@ -573,6 +595,14 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
   await expect(firstDropSheet).toContainText('first 100 registered Elixir Drop players')
   await expect(firstDropSheet).toContainText('100')
   await expect(firstDropSheet.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
+  await expect(firstDropSheet.locator('.ed-badges__milestone')).toHaveCount(0)
+  await expect(firstDropSheet.locator('.ed-badges__rungs')).toHaveCount(0)
+  await expect(firstDropSheet.getByRole('progressbar')).toHaveCount(0)
+  await expect(firstDropSheet).not.toContainText('Milestones complete')
+  await expect(firstDropSheet).not.toContainText('Rung 1 of 1')
+  await firstDropSheet.evaluate(async (element) => {
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished))
+  })
   await testInfo.attach('public-profile-first-drop.png', {
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
