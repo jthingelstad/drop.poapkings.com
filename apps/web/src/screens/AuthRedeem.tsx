@@ -1,6 +1,11 @@
 import { useSignal } from '@preact/signals'
 import { redeemAccount } from '../lib/account'
-import { gameReturnPathFromRoute, profileRouteForGame } from '../lib/game-routes'
+import {
+  authReturnPathFromRoute,
+  gamePathForRoute,
+  loginRouteForReturnPath,
+  profileRouteForGame
+} from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import Icon from '../components/Icon'
 
@@ -10,7 +15,8 @@ export default function AuthRedeem() {
 
   const query = route.value.split('?')[1] || ''
   const token = new URLSearchParams(query).get('token')
-  const returnTo = gameReturnPathFromRoute(route.value)
+  const returnTo = authReturnPathFromRoute(route.value)
+  const returnToGame = returnTo ? gamePathForRoute(returnTo) : undefined
 
   // Redemption waits for a real click: mail-security scanners follow and
   // execute login links, and an auto-redeeming page let them burn the
@@ -22,7 +28,7 @@ export default function AuthRedeem() {
     try {
       const authenticatedPlayer = await redeemAccount(token)
       if (!authenticatedPlayer.favoriteCardId || !authenticatedPlayer.publicName) {
-        navigate(returnTo ? profileRouteForGame(returnTo) : '/profile')
+        navigate(returnToGame ? profileRouteForGame(returnToGame) : '/profile')
         return
       }
       navigate(returnTo || '/profile')
@@ -50,7 +56,10 @@ export default function AuthRedeem() {
         {(error.value || !token) && (
           <>
             {error.value && <p class="account-message account-message--error">{error.value}</p>}
-            <button class="btn btn--gold" onClick={() => navigate('/login')}>
+            <button
+              class="btn btn--gold"
+              onClick={() => navigate(returnTo ? loginRouteForReturnPath(returnTo) : '/login')}
+            >
               Request another link
             </button>
           </>

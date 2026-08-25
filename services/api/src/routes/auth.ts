@@ -14,8 +14,8 @@ import { refereeReviewStatus } from "../referee-status.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
 import {
   emailSubject,
+  normalizeAuthReturnPath,
   normalizeEmail,
-  normalizeGameReturnPath,
 } from "../validation.js";
 import {
   bodyOf,
@@ -45,7 +45,7 @@ export async function requestMagicLink({
   } catch (error) {
     throw badRequest(error);
   }
-  const returnTo = normalizeGameReturnPath(body.returnTo);
+  const returnTo = normalizeAuthReturnPath(body.returnTo);
   const sub = emailSubject(email);
   const ip = clientIp(event, config.webOriginToken);
   await Promise.all([

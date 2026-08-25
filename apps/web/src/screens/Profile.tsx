@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { playerReference, runReference } from '@elixir-drop/contracts'
+import { PLAYER_TAG_RETURN_PATH, playerReference, runReference } from '@elixir-drop/contracts'
 import type { GameMode } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
@@ -31,7 +31,7 @@ import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import SkeletonRows from '../components/Skeleton'
 import { gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
-import { gameReturnPathFromRoute } from '../lib/game-routes'
+import { gameReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
 import { navigate, route } from '../lib/router'
 import { buildMeta } from '../lib/build'
@@ -140,7 +140,14 @@ export default function Profile() {
             Sign in to save your games, earn badges, and climb the seasonal leaderboards.
           </p>
         </div>
-        <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" onClick={() => navigate('/login')}>
+        <button
+          class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
+          onClick={() =>
+            navigate(
+              profileRoute === PLAYER_TAG_RETURN_PATH ? loginRouteForReturnPath(PLAYER_TAG_RETURN_PATH) : '/login'
+            )
+          }
+        >
           <span class="tap-face">Sign In</span>
         </button>
         <div class="ed-profile-guest__note">No password — we email you a one-tap link.</div>

@@ -284,6 +284,25 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
+  it("carries the exact player-tag editor into the magic link", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: profile.email,
+      returnTo: "/profile?edit=player-tag",
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(sendMagicLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        magicLink: expect.stringMatching(
+          /^https:\/\/drop\.example\/#\/auth\?token=[^&]+&returnTo=%2Fprofile%3Fedit%3Dplayer-tag$/,
+        ),
+      }),
+    );
+  });
+
   it("carries a valid attributed share into a new account's magic link", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(undefined);

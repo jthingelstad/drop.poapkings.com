@@ -2,13 +2,8 @@ import { createHash } from "node:crypto";
 import {
   CLASH_ROYALE_TAG_PATTERN,
   emailValidationMessage,
-  GAME_MODES,
+  normalizeAuthReturnPath,
 } from "@elixir-drop/contracts";
-
-// The magic link may carry a player back to the game they were starting.
-// Derived from the shipped mode list rather than restated as literals, so a new
-// mode's return path can never be forgotten and a retired one cannot linger.
-const GAME_RETURN_PATHS = new Set<string>(GAME_MODES.map((mode) => `/${mode}`));
 
 export function normalizeEmail(value: unknown): string {
   const validationMessage = emailValidationMessage(value);
@@ -34,12 +29,7 @@ export function normalizePlayerTag(value: unknown): string | undefined {
   return tag;
 }
 
-export function normalizeGameReturnPath(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === "") return undefined;
-  return typeof value === "string" && GAME_RETURN_PATHS.has(value)
-    ? value
-    : undefined;
-}
+export { normalizeAuthReturnPath };
 
 export function requireObject(
   value: unknown,

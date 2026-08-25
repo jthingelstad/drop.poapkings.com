@@ -3,12 +3,12 @@ import { useEffect } from 'preact/hooks'
 import { emailValidationMessage } from '@elixir-drop/contracts'
 import { pollLogin, requestLogin } from '../lib/api'
 import { applyPolledSession } from '../lib/account'
-import { gameReturnPathFromRoute } from '../lib/game-routes'
+import { authReturnPathFromRoute } from '../lib/game-routes'
 import { navigate, route } from '../lib/router'
 import { clearRecruiter, recruiterAttribution } from '../lib/referral'
 
 export default function Login() {
-  const returnTo = gameReturnPathFromRoute(route.value)
+  const returnTo = authReturnPathFromRoute(route.value)
   const email = useSignal('')
   const status = useSignal<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const message = useSignal('')

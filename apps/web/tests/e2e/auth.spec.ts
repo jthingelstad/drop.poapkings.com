@@ -127,6 +127,58 @@ test('signing in from the login screen returns the player to the requested game'
   await waitForKeypad(page)
 })
 
+test('the player-tag deep link survives sign-in and focuses the tag field', { tag: '@deploy' }, async ({ page }) => {
+  const noTagPlayer = { ...testPlayer, playerTag: undefined, clashRoyale: undefined }
+  let loginBody: Record<string, unknown> | undefined
+  await page.unroute(testApiRoute)
+  await page.route(testApiRoute, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/auth/request') {
+      loginBody = route.request().postDataJSON() as Record<string, unknown>
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
+      })
+      return
+    }
+    if (path === '/auth/redeem') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ session: testSession })
+      })
+      return
+    }
+    if (path === '/me') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ player: noTagPlayer, recentRuns: [] })
+      })
+      return
+    }
+    if (await fulfillSupportData(route)) return
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await useSignedOutState(page, '/profile?edit=player-tag')
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  await expect(page).toHaveURL(/#\/login\?returnTo=%2Fprofile%3Fedit%3Dplayer-tag$/)
+
+  await page.getByLabel('Email address').fill('player@example.com')
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/profile?edit=player-tag' })
+
+  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
+  await page.getByRole('button', { name: 'Continue to Drop' }).click()
+
+  await expect(page).toHaveURL(/#\/profile\?edit=player-tag$/)
+  const tagInput = page.getByRole('textbox', { name: 'Clash Royale player tag' })
+  await expect(tagInput).toBeVisible()
+  await expect(tagInput).toBeFocused()
+})
+
 test('new players choose a favorite card and generated name before returning to a game', async ({ page }) => {
   const newPlayer = { ...testPlayer, publicName: undefined, favoriteCardId: undefined, totalGames: 0 }
   const configuredPlayer = { ...newPlayer, publicName: 'Knight Main', favoriteCardId: 26000000 }

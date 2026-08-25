@@ -3,8 +3,8 @@ import { GAME_MODES } from "@elixir-drop/contracts";
 import { favoriteCard } from "../src/cards.js";
 import { isSafeGeneratedName } from "../src/names.js";
 import {
+  normalizeAuthReturnPath,
   normalizeEmail,
-  normalizeGameReturnPath,
   normalizePlayerTag,
 } from "../src/validation.js";
 
@@ -31,21 +31,28 @@ describe("player input validation", () => {
     expect(() => normalizeEmail(email)).toThrow();
   });
 
-  it("only carries game routes through magic-link authentication", () => {
-    expect(normalizeGameReturnPath("/surge")).toBe("/surge");
-    expect(normalizeGameReturnPath("/leaderboards")).toBeUndefined();
-    expect(normalizeGameReturnPath("https://example.com")).toBeUndefined();
-    expect(normalizeGameReturnPath("//evil.example.com")).toBeUndefined();
-    expect(normalizeGameReturnPath("/surge?next=/admin")).toBeUndefined();
-    expect(normalizeGameReturnPath(42)).toBeUndefined();
-    expect(normalizeGameReturnPath("")).toBeUndefined();
+  it("only carries exact approved routes through magic-link authentication", () => {
+    expect(normalizeAuthReturnPath("/surge")).toBe("/surge");
+    expect(normalizeAuthReturnPath("/profile?edit=player-tag")).toBe(
+      "/profile?edit=player-tag",
+    );
+    expect(normalizeAuthReturnPath("/profile")).toBeUndefined();
+    expect(
+      normalizeAuthReturnPath("/profile?edit=player-tag&next=/admin"),
+    ).toBeUndefined();
+    expect(normalizeAuthReturnPath("/leaderboards")).toBeUndefined();
+    expect(normalizeAuthReturnPath("https://example.com")).toBeUndefined();
+    expect(normalizeAuthReturnPath("//evil.example.com")).toBeUndefined();
+    expect(normalizeAuthReturnPath("/surge?next=/admin")).toBeUndefined();
+    expect(normalizeAuthReturnPath(42)).toBeUndefined();
+    expect(normalizeAuthReturnPath("")).toBeUndefined();
   });
 
   // The allowlist is derived from GAME_MODES rather than restated, so this is
   // the guard that the derivation still covers every shipped mode: a new mode
   // must be returnable, and a retired one must stop being.
   it.each(GAME_MODES)("carries every shipped mode home: %s", (mode) => {
-    expect(normalizeGameReturnPath(`/${mode}`)).toBe(`/${mode}`);
+    expect(normalizeAuthReturnPath(`/${mode}`)).toBe(`/${mode}`);
   });
 
   it("allows creative card-inspired names without requiring the exact title", () => {

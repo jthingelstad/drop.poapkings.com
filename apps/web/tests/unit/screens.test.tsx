@@ -190,6 +190,27 @@ describe('Login', () => {
     expect(navigate).toHaveBeenCalledWith('/surge')
   })
 
+  it('sends and polls with the approved player-tag editor return path', async () => {
+    vi.useFakeTimers()
+    route.value = '/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag'
+    const session = { token: 'sess-tag', expiresAt: laterExpiry() }
+    vi.mocked(requestLogin).mockResolvedValue({ message: 'Sent.', pollId: 'poll-tag' } as never)
+    vi.mocked(pollLogin).mockResolvedValue({ ready: true, session } as never)
+
+    const host = await mount(<Login />)
+    await typeInto(host.querySelector<HTMLInputElement>('#login-email')!, 'me@example.com')
+    await act(async () => {
+      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    await flush()
+
+    expect(requestLogin).toHaveBeenCalledWith('me@example.com', '/profile?edit=player-tag', undefined)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600)
+    })
+    expect(navigate).toHaveBeenCalledWith('/profile?edit=player-tag')
+  })
+
   it('surfaces the error branch when the request rejects', async () => {
     route.value = '/login'
     vi.mocked(requestLogin).mockRejectedValue(new Error('The mailer is down.'))
@@ -603,6 +624,33 @@ describe('AuthRedeem', () => {
     await flush()
 
     expect(navigate).toHaveBeenCalledWith('/profile?returnTo=%2Fsurge')
+  })
+
+  it('returns a complete profile directly to the player-tag editor', async () => {
+    route.value = '/auth?token=tok9&returnTo=%2Fprofile%3Fedit%3Dplayer-tag'
+    vi.mocked(redeemAccount).mockResolvedValue({
+      id: 'p1',
+      publicName: 'Knight Main',
+      favoriteCardId: 26000000
+    } as never)
+
+    const host = await mount(<AuthRedeem />)
+    await click(buttonWithText(host, 'button', 'Continue to Drop'))
+    await flush()
+
+    expect(navigate).toHaveBeenCalledWith('/profile?edit=player-tag')
+  })
+
+  it('preserves the player-tag editor when requesting a replacement link', async () => {
+    route.value = '/auth?token=dead&returnTo=%2Fprofile%3Fedit%3Dplayer-tag'
+    vi.mocked(redeemAccount).mockRejectedValue(new Error('This link was already used.'))
+
+    const host = await mount(<AuthRedeem />)
+    await click(buttonWithText(host, 'button', 'Continue to Drop'))
+    await flush()
+    await click(buttonWithText(host, 'button', 'Request another link'))
+
+    expect(navigate).toHaveBeenCalledWith('/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
   })
 
   it('shows the error state when redemption fails', async () => {

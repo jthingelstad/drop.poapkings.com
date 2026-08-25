@@ -588,6 +588,13 @@ redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
+Magic-link return destinations are an exact shared allowlist, never an arbitrary
+internal or external URL. The browser and API accept each shipped game route plus
+`/profile?edit=player-tag`; the latter lets a signed-out player reach the Clash
+Royale tag editor after redemption. Other profile queries, appended parameters,
+protocol-relative URLs, and absolute URLs are discarded. A player whose identity
+setup is incomplete still finishes that setup before reaching the tag step.
+
 ### Sharing and recruitment
 
 One recorded run has one permanent address:

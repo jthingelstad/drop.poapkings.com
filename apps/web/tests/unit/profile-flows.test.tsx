@@ -394,6 +394,16 @@ describe('Profile interactive flows', () => {
     expect(router.route.value).toBe('/login')
   })
 
+  it('preserves the exact player-tag editor when a guest signs in', async () => {
+    router.route.value = '/profile?edit=player-tag'
+    account.accountStatus.value = 'anonymous'
+    account.player.value = null
+    await mount()
+
+    await fire(byText(container, 'Sign In') as Element)
+    expect(router.route.value).toBe('/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
+  })
+
   // Identity setup is three steps (card → name → tag). These helpers reach into
   // the step chrome.
   const primary = () => container.querySelector('.ed-idsetup__actions .ed-btn--gold') as HTMLButtonElement

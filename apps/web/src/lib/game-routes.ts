@@ -1,3 +1,5 @@
+import { normalizeAuthReturnPath, type AuthReturnPath } from '@elixir-drop/contracts'
+
 // The launch six (Rain joined as a ranked mode).
 export const GAME_PATHS = ['/practice', '/surge', '/higher-lower', '/trade', '/survival', '/rain'] as const
 
@@ -9,6 +11,10 @@ export function gamePathForRoute(value: string): GamePath | undefined {
 }
 
 export function loginRouteForGame(path: GamePath): string {
+  return loginRouteForReturnPath(path)
+}
+
+export function loginRouteForReturnPath(path: AuthReturnPath): string {
   return `/login?returnTo=${encodeURIComponent(path)}`
 }
 
@@ -29,7 +35,12 @@ export function boardModeFromRoute(value: string): string | undefined {
 }
 
 export function gameReturnPathFromRoute(value: string): GamePath | undefined {
+  const returnTo = authReturnPathFromRoute(value)
+  return returnTo ? gamePathForRoute(returnTo) : undefined
+}
+
+export function authReturnPathFromRoute(value: string): AuthReturnPath | undefined {
   const query = value.split('?')[1] || ''
   const returnTo = new URLSearchParams(query).get('returnTo')
-  return returnTo ? gamePathForRoute(returnTo) : undefined
+  return normalizeAuthReturnPath(returnTo)
 }

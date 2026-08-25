@@ -49,6 +49,27 @@ export function emailValidationMessage(value: unknown): string | undefined {
 
 export type GameMode = (typeof GAME_MODES)[number];
 
+// Magic-link return destinations are capabilities, not arbitrary URLs. Keep
+// the exact allowlist shared by the browser and API so a campaign deep link can
+// survive authentication without creating an open-redirect surface.
+export const PLAYER_TAG_RETURN_PATH = "/profile?edit=player-tag" as const;
+
+export type AuthReturnPath = `/${GameMode}` | typeof PLAYER_TAG_RETURN_PATH;
+
+const AUTH_RETURN_PATHS = new Set<string>([
+  ...GAME_MODES.map((mode) => `/${mode}`),
+  PLAYER_TAG_RETURN_PATH,
+]);
+
+export function normalizeAuthReturnPath(
+  value: unknown,
+): AuthReturnPath | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  return typeof value === "string" && AUTH_RETURN_PATHS.has(value)
+    ? (value as AuthReturnPath)
+    : undefined;
+}
+
 // Player XP v2 is progression with several explicit sources: completing games,
 // improving, showing up for the featured game, earning badge rungs, and placing
 // at season close. Keep every amount and boundary here so the API, browser, and

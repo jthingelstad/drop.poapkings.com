@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  authReturnPathFromRoute,
   gamePathForRoute,
   gameReturnPathFromRoute,
   loginRouteForGame,
+  loginRouteForReturnPath,
   profileRouteForGame,
   boardRouteForMode,
   boardModeFromRoute
@@ -22,6 +24,15 @@ describe('authenticated game routes', () => {
     expect(gameReturnPathFromRoute('/login?returnTo=https%3A%2F%2Fexample.com')).toBeUndefined()
     expect(profileRouteForGame('/surge')).toBe('/profile?returnTo=%2Fsurge')
     expect(gameReturnPathFromRoute(profileRouteForGame('/surge'))).toBe('/surge')
+  })
+
+  it('round-trips only the exact player-tag editor through authentication', () => {
+    const loginRoute = loginRouteForReturnPath('/profile?edit=player-tag')
+    expect(loginRoute).toBe('/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
+    expect(authReturnPathFromRoute(loginRoute)).toBe('/profile?edit=player-tag')
+    expect(gameReturnPathFromRoute(loginRoute)).toBeUndefined()
+    expect(authReturnPathFromRoute('/login?returnTo=%2Fprofile')).toBeUndefined()
+    expect(authReturnPathFromRoute('/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag%26next%3D%2Fadmin')).toBeUndefined()
   })
 
   // Desktop's mode rows read the board rather than starting a run, so the
