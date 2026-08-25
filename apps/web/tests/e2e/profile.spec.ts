@@ -435,11 +435,13 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   })
 })
 
-test('public profiles display earned badges prominently', async ({ page }, testInfo) => {
+test('public profiles organize badges, XP, and recent games into scopes', async ({ page }, testInfo) => {
   await page.goto('/#/players/player-2', { waitUntil: 'domcontentloaded' })
 
   const badgeWall = page.locator('.ed-profile__badges')
   const stats = page.locator('.ed-profile__stats')
+  const recentGames = page.locator('.ed-profile__recent').filter({ hasText: 'Recent games' })
+  const tabs = page.getByRole('tablist', { name: 'Choose a player profile scope' })
   await expect(page.locator('.ed-profile__clash')).toContainText('King Thing')
   await expect(page.getByRole('link', { name: 'View King Thing on RoyaleAPI' })).toHaveAttribute(
     'href',
@@ -449,17 +451,33 @@ test('public profiles display earned badges prominently', async ({ page }, testI
     'href',
     'https://royaleapi.com/clan/J2RGCRVG'
   )
+  await expect(tabs.getByRole('tab')).toHaveText(['Badges', 'XP', 'Log'])
+  await expect(tabs.getByRole('tab', { name: 'Badges' })).toHaveAttribute('aria-selected', 'true')
   await expect(badgeWall).toContainText('4 earned')
+  await expect(stats).toHaveCount(0)
+  await expect(recentGames).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
-  expect((await badgeWall.boundingBox())!.y).toBeLessThan((await stats.boundingBox())!.y)
   await badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
   await expect(
     page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'SHARE', exact: true })
   ).toHaveCount(0)
-  await testInfo.attach('public-profile-badges.png', {
-    body: await page.screenshot({ fullPage: true }),
+  await page.getByRole('button', { name: 'Close' }).click()
+
+  await tabs.getByRole('tab', { name: 'XP' }).click()
+  await expect(tabs.getByRole('tab', { name: 'XP' })).toHaveAttribute('aria-selected', 'true')
+  await expect(stats).toContainText('1,000')
+  await expect(stats).toContainText('Player XP')
+  await expect(badgeWall).toHaveCount(0)
+
+  await tabs.getByRole('tab', { name: 'Log' }).click()
+  await expect(tabs.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+  await expect(recentGames).toContainText('Recent games')
+  await expect(recentGames).toContainText('Surge')
+  await expect(stats).toHaveCount(0)
+  await testInfo.attach('public-profile-tabs.png', {
+    body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
 })

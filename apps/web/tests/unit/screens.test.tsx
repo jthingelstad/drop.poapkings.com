@@ -513,7 +513,7 @@ describe('Leaderboards', () => {
 // PublicProfile
 // =============================================================================
 describe('PublicProfile', () => {
-  it('renders the selected public identity and recent games without private account fields', async () => {
+  it('renders the selected public identity and reveals recent games in Log without private account fields', async () => {
     route.value = '/players/p2'
     vi.mocked(getPublicPlayer).mockResolvedValue({
       player: {
@@ -553,6 +553,8 @@ describe('PublicProfile', () => {
     expect(host.textContent).toContain('Clan POAP KINGS · #J2RGCRVG')
     expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/player/UL2V9QRGO"]')).not.toBeNull()
     expect(host.querySelector<HTMLAnchorElement>('a[href="https://royaleapi.com/clan/J2RGCRVG"]')).not.toBeNull()
+    expect(host.textContent).not.toContain('52.000s')
+    await click(buttonWithText(host, '.ed-scoperow button', 'Log'))
     expect(host.textContent).toContain('52.000s')
     expect(host.textContent).not.toContain('player@example.com')
     expect(host.textContent).not.toContain('Edit')
@@ -573,6 +575,7 @@ describe('PublicProfile', () => {
     await flush()
 
     expect(host.querySelector('h1')?.textContent).toBe('Royal Ghosted')
+    await click(buttonWithText(host, '.ed-scoperow button', 'Log'))
     expect(host.textContent).toContain('Recent games are temporarily unavailable.')
   })
 })

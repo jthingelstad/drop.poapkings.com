@@ -14,6 +14,9 @@ import { royaleApiClanUrl, royaleApiPlayerUrl } from '../lib/royale-api'
 import { back, navigate, route } from '../lib/router'
 import { badgeViews, earnedCount, type BadgeState } from '../lib/badges'
 import AccountTags from '../components/AccountTags'
+import ScopeRow from '../components/ScopeRow'
+
+type PublicProfileScope = 'badges' | 'xp' | 'log'
 
 export default function PublicProfile() {
   const playerId = playerIdFromRoute(route.value)
@@ -23,6 +26,7 @@ export default function PublicProfile() {
   const publicBadges = useSignal<BadgeState[]>([])
   const loading = useSignal(true)
   const error = useSignal('')
+  const scope = useSignal<PublicProfileScope>('badges')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -123,65 +127,82 @@ export default function PublicProfile() {
         </div>
       </div>
 
-      <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Badges</span>
-          {badgeCount > 0 && <span class="ed-profile__recent-score">{badgeCount} earned</span>}
-        </div>
-        <BadgeGrid states={publicBadges.value} earnedOnly playerId={current.id} playerName={current.publicName} />
-      </section>
+      <ScopeRow
+        ariaLabel="Choose a player profile scope"
+        active={scope.value}
+        onSelect={(key) => (scope.value = key)}
+        options={[
+          { key: 'badges', label: 'Badges' },
+          { key: 'xp', label: 'XP' },
+          { key: 'log', label: 'Log' }
+        ]}
+      />
 
-      <div class="ed-profile__stats profile-xp">
-        <div class="ed-profile__stat-row">
-          <div class="ed-profile__stat">
-            <div class="ed-profile__stat-val ed-profile__stat-val--gold">{current.xp.toLocaleString()}</div>
-            <div class="ed-profile__stat-label">Player XP</div>
+      {scope.value === 'badges' && (
+        <section class="ed-profile__recent ed-profile__badges ed-profile__badges--featured">
+          <div class="ed-profile__recent-head">
+            <span class="ed-profile__recent-title">Badges</span>
+            {badgeCount > 0 && <span class="ed-profile__recent-score">{badgeCount} earned</span>}
           </div>
-          <div class="ed-profile__stat">
-            <div class="ed-profile__stat-val">{current.totalGames.toLocaleString()}</div>
-            <div class="ed-profile__stat-label">lifetime games</div>
-          </div>
-        </div>
-        <ArenaProgress xp={current.xp} />
-      </div>
+          <BadgeGrid states={publicBadges.value} earnedOnly playerId={current.id} playerName={current.publicName} />
+        </section>
+      )}
 
-      <section class="ed-profile__recent">
-        <div class="ed-profile__recent-head">
-          <span class="ed-profile__recent-title">Recent games</span>
-          <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
-            Leaderboards <Icon name="arrow-right" />
-          </button>
+      {scope.value === 'xp' && (
+        <div class="ed-profile__stats profile-xp">
+          <div class="ed-profile__stat-row">
+            <div class="ed-profile__stat">
+              <div class="ed-profile__stat-val ed-profile__stat-val--gold">{current.xp.toLocaleString()}</div>
+              <div class="ed-profile__stat-label">Player XP</div>
+            </div>
+            <div class="ed-profile__stat">
+              <div class="ed-profile__stat-val">{current.totalGames.toLocaleString()}</div>
+              <div class="ed-profile__stat-label">lifetime games</div>
+            </div>
+          </div>
+          <ArenaProgress xp={current.xp} />
         </div>
-        {runs.value.length ? (
-          <ul class="ed-profile__recent-list">
-            {runs.value.slice(0, 5).map((run) => {
-              const game = gameDisplay(run.mode)
-              return (
-                <li key={run.runId}>
-                  <span class="ed-profile__recent-name">
-                    <ModeIcon mode={run.mode} size={24} /> {game.name}
-                  </span>
-                  <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
-                  <time dateTime={run.completedAt}>
-                    {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </time>
-                  <div class="ed-review-details">
-                    <small class="ed-review-reference">Run {runReference(run.runId)}</small>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        ) : (
-          <p class="ed-profile__recent-empty">
-            {loading.value
-              ? 'Loading recent games…'
-              : error.value
-                ? 'Recent games are temporarily unavailable.'
-                : 'No recent ranked games to show.'}
-          </p>
-        )}
-      </section>
+      )}
+
+      {scope.value === 'log' && (
+        <section class="ed-profile__recent">
+          <div class="ed-profile__recent-head">
+            <span class="ed-profile__recent-title">Recent games</span>
+            <button class="ed-textlink" onClick={() => navigate('/leaderboards')}>
+              Leaderboards <Icon name="arrow-right" />
+            </button>
+          </div>
+          {runs.value.length ? (
+            <ul class="ed-profile__recent-list">
+              {runs.value.slice(0, 5).map((run) => {
+                const game = gameDisplay(run.mode)
+                return (
+                  <li key={run.runId}>
+                    <span class="ed-profile__recent-name">
+                      <ModeIcon mode={run.mode} size={24} /> {game.name}
+                    </span>
+                    <span class="ed-profile__recent-score">{scoreLabel(run.mode, run.score)}</span>
+                    <time dateTime={run.completedAt}>
+                      {new Date(run.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </time>
+                    <div class="ed-review-details">
+                      <small class="ed-review-reference">Run {runReference(run.runId)}</small>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p class="ed-profile__recent-empty">
+              {loading.value
+                ? 'Loading recent games…'
+                : error.value
+                  ? 'Recent games are temporarily unavailable.'
+                  : 'No recent ranked games to show.'}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   )
 }

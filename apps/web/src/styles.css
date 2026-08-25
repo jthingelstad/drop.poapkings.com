@@ -6013,6 +6013,9 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-public-profile__back {
   align-self: flex-start;
 }
+.ed-public-profile .ed-scoperow {
+  margin-bottom: 0;
+}
 .ed-public-profile__state {
   display: grid;
   min-height: 240px;
