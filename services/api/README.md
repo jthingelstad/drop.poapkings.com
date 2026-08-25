@@ -60,6 +60,7 @@ first-Monday calendar instead of failing.
 - `POST /badges/{badgeSlug}/share`, `PUT /badges/{badgeSlug}/share`
 - `GET /share/{playerTag}/{runTag}`, `GET /share-assets/{playerTag}/{runTag}`, `POST /share/{playerTag}/{runTag}/open`
 - `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
+- `GET /share/{playerTag}/invite`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
 
 Starting and completing a run make the player session **optional**, so anyone
@@ -261,18 +262,23 @@ regular subscriber, so Buttondown does not send a redundant confirmation
 message. Repeat login collisions never overwrite Buttondown's unsubscribe or
 suppression state: collisions and later syncs PATCH metadata only. Subscriber
 metadata uses segment-friendly `player_tag`, optional `clan_tag`, and numeric
-`total_games` keys. It refreshes at verified login, each returning-session
+`total_games` keys. Stable campaign fields add `drop_player_tag`,
+`recruiter_url`, and optional `clan_name`; the URL uses the public `P…` Drop
+player tag and never exposes the underlying UUID. It refreshes at verified login, each returning-session
 renewal, a profile/tag change, and every recorded game; the current clan comes
 only from the latest bridge-owned CR snapshot. A known no-clan result clears a
-stale clan value, while an unavailable/pending snapshot preserves the last
-known value. Account deletion removes the subscriber by email. These calls are
+stale clan tag and name, while an unavailable/pending snapshot preserves the
+last known values. Account deletion removes the subscriber by email. These calls are
 best effort with a three-second timeout and never change an otherwise
 successful login, profile update, run completion, or deletion response.
 
 ## Buttondown metadata backfill
 
-`scripts/backfill-buttondown-metadata.mjs` synchronizes `player_tag`, known
-`clan_tag`, and numeric `total_games` onto existing Buttondown subscribers. It
+`scripts/backfill-buttondown-metadata.mjs` synchronizes `player_tag`, the public
+`drop_player_tag`, stable `recruiter_url`, known `clan_tag` and `clan_name`, and
+numeric `total_games` onto existing Buttondown subscribers. On apply it also
+ensures the pseudonymous public-tag alias required to resolve each Recruiter URL;
+the alias contains no email or account subject. It
 reads only the bounded account-directory projection through `drop-control`,
 never prints email addresses or credentials, preserves unrelated subscriber
 metadata and lifecycle state, and refuses an apply if any current player has no

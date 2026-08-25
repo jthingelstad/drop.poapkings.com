@@ -506,7 +506,7 @@ async function recordSignedInRun(
         newsletterId: config.buttondownNewsletterId,
       },
       finalProfile.email,
-      buttondownPlayerMetadata(finalProfile, crProfile),
+      buttondownPlayerMetadata(finalProfile, config.appUrl, crProfile),
     ),
     !automaticReviewReason && run.mode !== "practice"
       ? publishDiscordEvent(

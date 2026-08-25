@@ -37,6 +37,11 @@ describe('public visual assets', () => {
       'share-backdrop.png',
       'share-sticker.png'
     ])
-    expect(files('../../public/assets/share/', '.js')).toEqual(['badge-open.js', 'profile-open.js', 'run-open.js'])
+    expect(files('../../public/assets/share/', '.js')).toEqual([
+      'badge-open.js',
+      'invite-open.js',
+      'profile-open.js',
+      'run-open.js'
+    ])
   })
 })

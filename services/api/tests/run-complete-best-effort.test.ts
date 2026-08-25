@@ -74,7 +74,7 @@ const cards = (
 ).cards.slice(0, 15);
 const profile = {
   sub: "player-sub",
-  playerId: "player-1",
+  playerId: "11111111-1111-4111-8111-111111111111",
   email: "player@example.com",
   publicName: "Knight Main",
   favoriteCardId: 26000000,
@@ -400,7 +400,10 @@ describe("run completion side effects are best effort", () => {
       profile.email,
       {
         playerTag: profile.playerTag,
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
         clanTag: "#J2RGCRVG",
+        clanName: "POAP KINGS",
         totalGames: 5,
       },
     );

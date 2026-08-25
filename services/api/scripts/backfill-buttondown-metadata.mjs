@@ -13,6 +13,7 @@ import {
   BatchGetCommand,
   DynamoDBDocumentClient,
   paginateScan,
+  PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
   desiredButtondownBackfillMetadata,
@@ -20,6 +21,7 @@ import {
   mergeButtondownBackfillMetadata,
   parseButtondownBackfillArgs,
 } from "../src/maintenance/buttondown-backfill.js";
+import { dropPlayerTag } from "../src/recruiter.js";
 
 const BUTTONDOWN_API = "https://api.buttondown.com/v1";
 const BUTTONDOWN_API_VERSION = "2026-04-01";
@@ -29,6 +31,8 @@ const VALID_CR_STATUSES = new Set([
   "not_found",
   "unavailable",
 ]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sleep(milliseconds) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
@@ -45,11 +49,12 @@ async function loadButtondownConfig(envFile) {
   }
   const apiKey = values.BUTTONDOWN_API_KEY?.trim();
   const newsletterId = values.BUTTONDOWN_NEWSLETTER_ID?.trim();
-  if (!apiKey || !newsletterId)
+  const appUrl = values.APP_URL?.trim();
+  if (!apiKey || !newsletterId || !appUrl)
     throw new Error(
-      "BUTTONDOWN_API_KEY and BUTTONDOWN_NEWSLETTER_ID are required",
+      "BUTTONDOWN_API_KEY, BUTTONDOWN_NEWSLETTER_ID, and APP_URL are required",
     );
-  return { apiKey, newsletterId };
+  return { apiKey, newsletterId, appUrl };
 }
 
 function buttondownHeaders(config, json = false) {
@@ -126,7 +131,7 @@ async function loadProfiles(documentClient, tableName) {
         ":profile": "PROFILE",
         ":player": "PLAYER#",
       },
-      ProjectionExpression: "pk, sk, email, playerTag, totalGames",
+      ProjectionExpression: "pk, sk, email, playerId, playerTag, totalGames",
       Select: "SPECIFIC_ATTRIBUTES",
     },
   )) {
@@ -135,6 +140,8 @@ async function loadProfiles(documentClient, tableName) {
       if (
         typeof item.email !== "string" ||
         !item.email ||
+        typeof item.playerId !== "string" ||
+        !UUID_PATTERN.test(item.playerId) ||
         !Number.isSafeInteger(totalGames) ||
         totalGames < 0 ||
         (item.playerTag !== undefined && typeof item.playerTag !== "string")
@@ -142,12 +149,31 @@ async function loadProfiles(documentClient, tableName) {
         throw new Error("A player profile cannot be safely backfilled");
       profiles.push({
         email: item.email,
+        playerId: item.playerId,
         ...(item.playerTag ? { playerTag: item.playerTag } : {}),
         totalGames,
       });
     }
   }
   return profiles;
+}
+
+async function ensureRecruiterAlias(documentClient, tableName, profile) {
+  const playerTag = dropPlayerTag(profile.playerId).slice(1);
+  await documentClient.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: {
+        pk: `RECRUITER#${playerTag}`,
+        sk: "INVITE",
+        playerId: profile.playerId,
+      },
+      ConditionExpression: "attribute_not_exists(pk) OR playerId = :playerId",
+      ExpressionAttributeValues: {
+        ":playerId": profile.playerId,
+      },
+    }),
+  );
 }
 
 async function loadCrSnapshots(documentClient, tableName, profiles) {
@@ -232,7 +258,11 @@ async function main() {
       continue;
     }
     matchedSubscribers += 1;
-    const desired = desiredButtondownBackfillMetadata(profile, snapshot);
+    const desired = desiredButtondownBackfillMetadata(
+      profile,
+      buttondown.appUrl,
+      snapshot,
+    );
     const metadata = mergeButtondownBackfillMetadata(
       subscriber.metadata,
       desired,
@@ -258,6 +288,7 @@ async function main() {
     appliedUpdates: 0,
     verifiedUpdates: 0,
     failedUpdates: 0,
+    recruiterAliasesEnsured: 0,
   };
 
   if (!apply) {
@@ -268,6 +299,11 @@ async function main() {
     throw new Error(
       `${missingSubscribers} player profile(s) have no Buttondown subscriber; refusing metadata-only apply`,
     );
+
+  for (const profile of profiles) {
+    await ensureRecruiterAlias(documentClient, tableName, profile);
+    summary.recruiterAliasesEnsured += 1;
+  }
 
   const failures = {};
   for (const plan of plans) {

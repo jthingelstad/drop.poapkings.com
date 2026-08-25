@@ -10,9 +10,15 @@ const config = {
   apiKey: "buttondown-key",
   newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
 };
+const playerId = "11111111-1111-4111-8111-111111111111";
+const appUrl = "https://drop.example";
+const inviteUrl = `${appUrl}/share/P7H47PSTT93/invite`;
 const metadata = {
   playerTag: "#2PYQ0",
+  dropPlayerTag: "#P7H47PSTT93",
+  recruiterUrl: inviteUrl,
   clanTag: "#J2RGCRVG",
+  clanName: "POAP KINGS",
   totalGames: 42,
 };
 
@@ -60,7 +66,10 @@ describe("Buttondown subscriber lifecycle", () => {
       metadata: {
         source: "elixir-drop-magic-link",
         player_tag: "#2PYQ0",
+        drop_player_tag: "#P7H47PSTT93",
+        recruiter_url: inviteUrl,
         clan_tag: "#J2RGCRVG",
+        clan_name: "POAP KINGS",
         total_games: 42,
       },
     });
@@ -91,7 +100,10 @@ describe("Buttondown subscriber lifecycle", () => {
       metadata: {
         source: "elixir-drop-magic-link",
         player_tag: "#2PYQ0",
+        drop_player_tag: "#P7H47PSTT93",
+        recruiter_url: inviteUrl,
         clan_tag: "#J2RGCRVG",
+        clan_name: "POAP KINGS",
         total_games: 42,
       },
     });
@@ -101,23 +113,45 @@ describe("Buttondown subscriber lifecycle", () => {
   it("clears a known missing clan while preserving unknown clan metadata", async () => {
     expect(
       buttondownPlayerMetadata(
-        { playerTag: "#2PYQ0", totalGames: 7 },
+        { playerId, playerTag: "#2PYQ0", totalGames: 7 },
+        appUrl,
         { status: "ready", clan: undefined },
       ),
-    ).toEqual({ playerTag: "#2PYQ0", clanTag: null, totalGames: 7 });
+    ).toEqual({
+      playerTag: "#2PYQ0",
+      dropPlayerTag: "#P7H47PSTT93",
+      recruiterUrl: inviteUrl,
+      clanTag: null,
+      clanName: null,
+      totalGames: 7,
+    });
     expect(
       buttondownPlayerMetadata(
-        { playerTag: "#2PYQ0", totalGames: 8 },
+        { playerId, playerTag: "#2PYQ0", totalGames: 8 },
+        appUrl,
         { status: "pending", clan: undefined },
       ),
-    ).toEqual({ playerTag: "#2PYQ0", totalGames: 8 });
+    ).toEqual({
+      playerTag: "#2PYQ0",
+      dropPlayerTag: "#P7H47PSTT93",
+      recruiterUrl: inviteUrl,
+      totalGames: 8,
+    });
     expect(
       buttondownPlayerMetadata(
-        { playerTag: "#NEW", totalGames: 8 },
+        { playerId, playerTag: "#NEW", totalGames: 8 },
+        appUrl,
         { status: "pending", clan: undefined },
         true,
       ),
-    ).toEqual({ playerTag: "#NEW", clanTag: null, totalGames: 8 });
+    ).toEqual({
+      playerTag: "#NEW",
+      dropPlayerTag: "#P7H47PSTT93",
+      recruiterUrl: inviteUrl,
+      clanTag: null,
+      clanName: null,
+      totalGames: 8,
+    });
   });
 
   it("patches current activity and a known no-clan state by email", async () => {
@@ -126,7 +160,14 @@ describe("Buttondown subscriber lifecycle", () => {
     await updateButtondownSubscriberMetadata(
       config,
       "player+drop@example.com",
-      { playerTag: "#2PYQ0", clanTag: null, totalGames: 43 },
+      {
+        playerTag: "#2PYQ0",
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: inviteUrl,
+        clanTag: null,
+        clanName: null,
+        totalGames: 43,
+      },
       fetcher,
     );
 
@@ -138,7 +179,10 @@ describe("Buttondown subscriber lifecycle", () => {
     expect(JSON.parse(request.body as string)).toMatchObject({
       metadata: {
         player_tag: "#2PYQ0",
+        drop_player_tag: "#P7H47PSTT93",
+        recruiter_url: inviteUrl,
         clan_tag: null,
+        clan_name: null,
         total_games: 43,
       },
     });

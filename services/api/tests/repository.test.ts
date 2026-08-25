@@ -115,6 +115,56 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
+  it("maps a public Drop player tag to its internal owner without exposing the UUID in the link", async () => {
+    const playerId = "11111111-1111-4111-8111-111111111111";
+    const repository = new Repository("test-table");
+    send.mockResolvedValueOnce({});
+
+    await repository.putRecruiterInviteAlias({
+      playerId,
+    });
+
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      Item: {
+        pk: "RECRUITER#P7H47PSTT93",
+        sk: "INVITE",
+        playerId,
+      },
+    });
+
+    send
+      .mockResolvedValueOnce({
+        Item: {
+          pk: "RECRUITER#P7H47PSTT93",
+          sk: "INVITE",
+          playerId,
+        },
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PLAYER#private-sub",
+            sk: "PROFILE",
+            playerId,
+            publicName: "Royal Ghosted",
+            totalGames: 42,
+          },
+        ],
+      });
+
+    await expect(
+      repository.getRecruiterInvite("P7H47PSTT93"),
+    ).resolves.toMatchObject({
+      sub: "private-sub",
+      player: { id: playerId, publicName: "Royal Ghosted" },
+    });
+    expect(send.mock.calls[1]?.[0].input.Key).toEqual({
+      pk: "RECRUITER#P7H47PSTT93",
+      sk: "INVITE",
+    });
+  });
+
   it("reads a reversible referee overlay for ranked access", async () => {
     send
       .mockResolvedValueOnce({
@@ -1307,9 +1357,17 @@ describe("repository DynamoDB requests", () => {
   });
 
   it("deletes the player partition, CR snapshot, and profile last", async () => {
+    const playerId = "11111111-1111-4111-8111-111111111111";
     send
       .mockResolvedValueOnce({
-        Item: { totalGames: 42, playerTag: "#2PYQ0" },
+        Item: { totalGames: 42, playerTag: "#2PYQ0", playerId },
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          pk: "RECRUITER#P7H47PSTT93",
+          sk: "INVITE",
+          playerId,
+        },
       })
       .mockResolvedValueOnce({
         Items: [
@@ -1343,7 +1401,7 @@ describe("repository DynamoDB requests", () => {
     const firstCall = send.mock.calls[0]?.[0].input;
     expect(firstCall.Key).toEqual({ pk: "PLAYER#player-sub", sk: "PROFILE" });
     expect(firstCall.ReturnValues).toBeUndefined();
-    const batch = send.mock.calls[3]?.[0].input.RequestItems["test-table"];
+    const batch = send.mock.calls[4]?.[0].input.RequestItems["test-table"];
     expect(batch).toEqual(
       expect.arrayContaining([
         {
@@ -1352,6 +1410,11 @@ describe("repository DynamoDB requests", () => {
               pk: "PLAYER#player-sub",
               sk: "RUN#2026-07-18T12:00:00.000Z#run-1",
             },
+          },
+        },
+        {
+          DeleteRequest: {
+            Key: { pk: "RECRUITER#P7H47PSTT93", sk: "INVITE" },
           },
         },
         { DeleteRequest: { Key: { pk: "RUN#run-1", sk: "RUN" } } },
@@ -1370,12 +1433,12 @@ describe("repository DynamoDB requests", () => {
     );
     expect(JSON.stringify(batch)).not.toContain('"pk":"GLOBAL"');
     // The privacy page promises deletion removes CR-derived data too.
-    const snapshotDelete = send.mock.calls[4]?.[0].input;
+    const snapshotDelete = send.mock.calls[5]?.[0].input;
     expect(snapshotDelete.Key).toEqual({
       pk: "CR_PLAYER##2PYQ0",
       sk: "PROFILE",
     });
-    const profileDelete = send.mock.calls[5]?.[0].input;
+    const profileDelete = send.mock.calls[6]?.[0].input;
     expect(profileDelete.Key).toEqual({
       pk: "PLAYER#player-sub",
       sk: "PROFILE",

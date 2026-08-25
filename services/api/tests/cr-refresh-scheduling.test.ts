@@ -21,12 +21,14 @@ const repository = vi.hoisted(() => ({
   getPublishedBadgeShare: vi.fn(),
   getPublishedProfileShare: vi.fn(),
   getPublishedRunShare: vi.fn(),
+  getRecruiterInvite: vi.fn(),
   getRun: vi.fn(),
   getShare: vi.fn(),
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
   saveMagicLink: vi.fn(),
   savePollSession: vi.fn(),
+  putRecruiterInviteAlias: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
   wouldLeadAllTime: vi.fn(async () => false),
@@ -55,12 +57,14 @@ vi.mock("../src/repository.js", () => ({
     getPublishedBadgeShare = repository.getPublishedBadgeShare;
     getPublishedProfileShare = repository.getPublishedProfileShare;
     getPublishedRunShare = repository.getPublishedRunShare;
+    getRecruiterInvite = repository.getRecruiterInvite;
     getRun = repository.getRun;
     getShare = repository.getShare;
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
     saveMagicLink = repository.saveMagicLink;
     savePollSession = repository.savePollSession;
+    putRecruiterInviteAlias = repository.putRecruiterInviteAlias;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
     wouldLeadAllTime = repository.wouldLeadAllTime;
@@ -101,7 +105,7 @@ const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1_000);
 const profile = {
   sub: "player-sub",
-  playerId: "player-1",
+  playerId: "11111111-1111-4111-8111-111111111111",
   email: "player@example.com",
   publicName: "Knight Main",
   favoriteCardId: 26000000,
@@ -221,7 +225,10 @@ describe("Clash Royale refresh scheduling", () => {
       profile.email,
       {
         playerTag: profile.playerTag,
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
         clanTag: "#J2RGCRVG",
+        clanName: "POAP KINGS",
         totalGames: 4,
       },
     );
@@ -250,7 +257,10 @@ describe("Clash Royale refresh scheduling", () => {
       profile.email,
       {
         playerTag: profile.playerTag,
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
         clanTag: "#J2RGCRVG",
+        clanName: "POAP KINGS",
         totalGames: 4,
       },
     );
@@ -380,6 +390,31 @@ describe("Clash Royale refresh scheduling", () => {
 
     expect(response.statusCode).toBe(202);
     expect(repository.getPublishedProfileShare).toHaveBeenCalledWith(playerId);
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      "new-player@example.com",
+      expect.any(Number),
+      expect.any(String),
+      "recruiter-sub",
+    );
+  });
+
+  it("carries a stable Drop player invitation into a new account's magic link", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.getProfile.mockResolvedValue(undefined);
+    repository.getRecruiterInvite.mockResolvedValue({
+      sub: "recruiter-sub",
+      player: { id: profile.playerId },
+    });
+    repository.saveMagicLink.mockResolvedValue(undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: "new-player@example.com",
+      recruiterShare: { dropPlayerTag: "P7H47PSTT93", invite: true },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(repository.getRecruiterInvite).toHaveBeenCalledWith("P7H47PSTT93");
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
       "new-player@example.com",
@@ -553,7 +588,10 @@ describe("Clash Royale refresh scheduling", () => {
       profile.email,
       {
         playerTag: profile.playerTag,
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
         clanTag: "#J2RGCRVG",
+        clanName: "POAP KINGS",
         totalGames: 4,
       },
     );

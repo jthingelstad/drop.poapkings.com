@@ -54,7 +54,7 @@ const nowSeconds = Math.floor(Date.now() / 1_000);
 const FAVORITE_CARD_ID = 26000018;
 const profile = {
   sub: "player-sub",
-  playerId: "player-1",
+  playerId: "11111111-1111-4111-8111-111111111111",
   email: "player@example.com",
   publicName: "Knight Main",
   favoriteCardId: FAVORITE_CARD_ID,
@@ -277,7 +277,14 @@ describe("player identity binding", () => {
         newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
       },
       profile.email,
-      { playerTag: undefined, clanTag: null, totalGames: 4 },
+      {
+        playerTag: undefined,
+        dropPlayerTag: "#P7H47PSTT93",
+        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
+        clanTag: null,
+        clanName: null,
+        totalGames: 4,
+      },
     );
   });
 

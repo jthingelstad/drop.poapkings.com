@@ -8,6 +8,7 @@ import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { sendMagicLink } from "../jmap.js";
+import { isRecruiterInviteReference } from "../recruiter.js";
 import { isShareToken } from "../shares.js";
 import { refereeReviewStatus } from "../referee-status.js";
 import { publishTinylyticsEvent } from "../tinylytics.js";
@@ -97,11 +98,17 @@ export async function requestMagicLink({
     isPublishedProfileReference(recruiterShare.playerId)
       ? { playerId: recruiterShare.playerId }
       : undefined;
+  const directInviteRecruiter =
+    recruiterShare?.invite === true &&
+    isRecruiterInviteReference(recruiterShare.dropPlayerTag)
+      ? { dropPlayerTag: recruiterShare.dropPlayerTag.toUpperCase() }
+      : undefined;
   if (
     isShareToken(recruiterToken) ||
     publishedRunRecruiter ||
     publishedBadgeRecruiter ||
-    publishedProfileRecruiter
+    publishedProfileRecruiter ||
+    directInviteRecruiter
   ) {
     try {
       const existingProfile = await repository.getProfile(sub);
@@ -134,6 +141,11 @@ export async function requestMagicLink({
           publishedProfileRecruiter.playerId,
         );
         if (share && share.owner !== sub) recruiterSub = share.owner;
+      } else if (!existingProfile && directInviteRecruiter) {
+        const player = await repository.getRecruiterInvite(
+          directInviteRecruiter.dropPlayerTag,
+        );
+        if (player && player.sub !== sub) recruiterSub = player.sub;
       }
     } catch (error) {
       // Attribution is optional. A share read must never keep a player from
@@ -267,6 +279,7 @@ export async function redeemMagicLink({
   // Side channels are best-effort: a Discord or CR hiccup must not fail a
   // login whose link is already spent.
   try {
+    await repository.putRecruiterInviteAlias(login.profile);
     const crProfile = refreshedCrProfile(
       repository,
       config.crRequestQueueUrl,
@@ -287,7 +300,7 @@ export async function redeemMagicLink({
             newsletterId: config.buttondownNewsletterId,
           },
           login.profile.email,
-          buttondownPlayerMetadata(login.profile, snapshot),
+          buttondownPlayerMetadata(login.profile, config.appUrl, snapshot),
         ),
       ),
       publishTinylyticsEvent(
@@ -344,7 +357,7 @@ export async function refreshSession({
       newsletterId: config.buttondownNewsletterId,
     },
     profile.email,
-    buttondownPlayerMetadata(profile, crProfile),
+    buttondownPlayerMetadata(profile, config.appUrl, crProfile),
   );
   return json(200, {
     session: issueSession(

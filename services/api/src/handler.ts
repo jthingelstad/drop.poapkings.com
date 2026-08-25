@@ -51,11 +51,13 @@ import {
   getPublishedProfilePage,
   uploadPublishedProfileImage,
 } from "./routes/published-profiles.js";
+import { getRecruiterInvitePage } from "./routes/recruiter-invites.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
 const SHARE_PATH = /^\/shares\/([^/]+)$/;
 const PUBLISHED_SHARE_PATH = /^\/share\/([^/]+)\/([^/]+)$/;
+const RECRUITER_INVITE_PATH = /^\/share\/([^/]+)\/invite$/;
 const PUBLISHED_SHARE_OPEN_PATH = /^\/share\/([^/]+)\/([^/]+)\/open$/;
 const PUBLISHED_SHARE_IMAGE_PATH = /^\/share-assets\/([^/]+)\/([^/]+)$/;
 const BADGE_SHARE_PATH = /^\/badges\/([^/]+)\/share$/;
@@ -126,6 +128,16 @@ async function route(event: APIGatewayProxyEventV2) {
     return createInviteShare(context);
   const shareMatch = method === "GET" ? SHARE_PATH.exec(path) : null;
   if (shareMatch) return getShare(context, shareMatch[1] ?? "");
+  const recruiterInviteMatch =
+    method === "GET" || method === "HEAD"
+      ? RECRUITER_INVITE_PATH.exec(path)
+      : null;
+  if (recruiterInviteMatch)
+    return getRecruiterInvitePage(
+      context,
+      recruiterInviteMatch[1] ?? "",
+      method === "HEAD",
+    );
   const publishedShareMatch =
     method === "GET" || method === "HEAD"
       ? PUBLISHED_SHARE_PATH.exec(path)

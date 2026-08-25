@@ -226,6 +226,12 @@ interface ProfileItem extends PlayerProfile {
   sk: "PROFILE";
 }
 
+interface RecruiterInviteItem {
+  pk: `RECRUITER#${string}`;
+  sk: "INVITE";
+  playerId: string;
+}
+
 interface CrProfileItem extends CrProfileSnapshot {
   pk: string;
   sk: "PROFILE";
@@ -741,6 +747,44 @@ export class Repository {
     return undefined;
   }
 
+  async putRecruiterInviteAlias(
+    profile: Pick<PlayerProfile, "playerId">,
+  ): Promise<void> {
+    const playerTag = playerReference(profile.playerId).slice(1);
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `RECRUITER#${playerTag}`,
+          sk: "INVITE",
+          playerId: profile.playerId,
+        } satisfies RecruiterInviteItem,
+        ConditionExpression: "attribute_not_exists(pk) OR playerId = :playerId",
+        ExpressionAttributeValues: {
+          ":playerId": profile.playerId,
+        },
+      }),
+    );
+  }
+
+  async getRecruiterInvite(
+    dropPlayerTag: string,
+  ): Promise<PublicPlayerLookup | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `RECRUITER#${dropPlayerTag}`, sk: "INVITE" },
+        ConsistentRead: true,
+      }),
+    );
+    const invite = result.Item as RecruiterInviteItem | undefined;
+    if (!invite?.playerId) return undefined;
+    const player = await this.getPublicPlayer(invite.playerId);
+    if (!player || playerReference(player.player.id).slice(1) !== dropPlayerTag)
+      return undefined;
+    return player;
+  }
+
   // The pseudonymous profile UUID for a subject, used to key the tag cluster
   // index without exposing sub. Projects only playerId.
   private async playerIdFor(sub: string): Promise<string | undefined> {
@@ -839,6 +883,19 @@ export class Repository {
     const shareTokens = new Set<string>();
     const runSharePartitions = new Set<string>();
     let lastKey: Record<string, unknown> | undefined;
+    if (profile?.playerId) {
+      const playerTag = playerReference(profile.playerId).slice(1);
+      const inviteKey = { pk: `RECRUITER#${playerTag}`, sk: "INVITE" };
+      const invite = await client.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: inviteKey,
+          ConsistentRead: true,
+        }),
+      );
+      if (invite.Item?.playerId === profile.playerId)
+        keys.set(`${inviteKey.pk}\0${inviteKey.sk}`, inviteKey);
+    }
     do {
       const result = await client.send(
         new QueryCommand({

@@ -16,6 +16,7 @@ const repository = vi.hoisted(() => ({
   putShare: vi.fn(),
   getShare: vi.fn(),
   getPublicPlayer: vi.fn(),
+  getRecruiterInvite: vi.fn(),
   creditShareOpen: vi.fn(),
   listRunHistory: vi.fn(),
   refereeDecisions: vi.fn(),
@@ -56,6 +57,7 @@ vi.mock("../src/repository.js", () => ({
     putShare = repository.putShare;
     getShare = repository.getShare;
     getPublicPlayer = repository.getPublicPlayer;
+    getRecruiterInvite = repository.getRecruiterInvite;
     creditShareOpen = repository.creditShareOpen;
     listRunHistory = repository.listRunHistory;
     refereeDecisions = repository.refereeDecisions;
@@ -181,6 +183,54 @@ describe("share tokens", () => {
       // A player may end up reading one of these aloud.
       expect(token).not.toMatch(/[ILOU01]/);
     }
+  });
+});
+
+describe("GET /share/{dropPlayerTag}/invite", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TABLE_NAME = "test-table";
+    process.env.SESSION_SECRET = secret;
+    process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
+    process.env.APP_URL = "https://drop.example";
+    process.env.SHARE_ASSET_BUCKET = "share-assets";
+    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
+    process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
+    repository.getRecruiterInvite.mockResolvedValue({
+      sub: "player-sub",
+      player: { id: playerId, publicName: "Drop King", totalGames: 40 },
+    });
+  });
+
+  it("serves a generic invitation keyed only by the public Drop player tag", async () => {
+    const response = await call(event("GET", `/share/${playerTag}/invite`));
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.getRecruiterInvite).toHaveBeenCalledWith(playerTag);
+    expect(response.body).toContain(
+      `data-share-drop-player-tag="${playerTag}"`,
+    );
+    expect(response.body).toContain("/assets/share/invite-open.js");
+    expect(response.body).not.toContain(playerId);
+    expect(response.body).not.toContain("Drop King");
+    expect(response.body).not.toContain("View profile");
+  });
+
+  it("supports HEAD and rejects unknown or malformed Drop player tags", async () => {
+    const head = await call(event("HEAD", `/share/${playerTag}/invite`));
+    expect(head.statusCode).toBe(200);
+    expect(head.body).toBe("");
+
+    repository.getRecruiterInvite.mockResolvedValue(undefined);
+    expect(
+      (await call(event("GET", `/share/${playerTag}/invite`))).statusCode,
+    ).toBe(404);
+
+    repository.getRecruiterInvite.mockClear();
+    expect(
+      (await call(event("GET", "/share/raw-uuid/invite"))).statusCode,
+    ).toBe(404);
+    expect(repository.getRecruiterInvite).not.toHaveBeenCalled();
   });
 });
 

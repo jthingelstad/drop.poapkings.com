@@ -48,4 +48,13 @@ describe('shared-link recruitment attribution', () => {
     expect(recruiterAttribution(2_000)).toEqual({ playerId, badgeSlug: 'clockbreaker', rungIndex: 3 })
     expect(recruiterToken(2_000)).toBeUndefined()
   })
+
+  it('reads a generic invitation by public Drop player tag without retaining a UUID', () => {
+    localStorage.setItem(
+      'elixirdrop:recruiter:v1',
+      JSON.stringify({ dropPlayerTag: 'P7H47PSTT93', invite: true, capturedAt: 1_000 })
+    )
+
+    expect(recruiterAttribution(2_000)).toEqual({ dropPlayerTag: 'P7H47PSTT93', invite: true })
+  })
 })

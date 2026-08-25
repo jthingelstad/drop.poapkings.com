@@ -803,9 +803,13 @@ void describe("deployment parameters", () => {
     assert.match(controlRole, /- email/);
     assert.match(controlRole, /Action: dynamodb:TransactWriteItems/);
     assert.match(controlRole, /- CONTROL#PLAYER#\*/);
+    assert.match(
+      controlRole,
+      /Action: dynamodb:PutItem[\s\S]*?- RECRUITER#\*[\s\S]*?- playerId/,
+    );
     assert.doesNotMatch(
       controlRole,
-      /dynamodb:(?:DeleteItem|PutItem|UpdateItem|BatchWriteItem)/,
+      /dynamodb:(?:DeleteItem|UpdateItem|BatchWriteItem)/,
     );
     assert.doesNotMatch(
       controlRole.match(/dynamodb:TransactWriteItems[\s\S]*$/)?.[0] ?? "",

@@ -253,6 +253,7 @@ export function requestLogin(
     | { playerId: string; runId: string }
     | { playerId: string; badgeSlug: string; rungIndex: number }
     | { playerId: string; profile: true }
+    | { dropPlayerTag: string; invite: true }
 ) {
   return apiRequest('/auth/request', loginRequestResponseSchema, {
     method: 'POST',

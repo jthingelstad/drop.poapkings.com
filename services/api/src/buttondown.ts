@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { dropPlayerTag, recruiterInviteUrl } from "./recruiter.js";
 import type { CrProfileSnapshot, PlayerProfile } from "./types.js";
 
 export interface ButtondownConfig {
@@ -13,8 +14,11 @@ type ButtondownFetch = (
 
 export interface ButtondownSubscriberMetadata {
   playerTag?: string;
-  // undefined preserves an unknown existing clan; null clears a known absence.
+  dropPlayerTag: string;
+  recruiterUrl: string;
+  // undefined preserves unknown existing clan data; null clears a known absence.
   clanTag?: string | null;
+  clanName?: string | null;
   totalGames: number;
 }
 
@@ -34,20 +38,28 @@ function configured(
 }
 
 export function buttondownPlayerMetadata(
-  profile: Pick<PlayerProfile, "playerTag" | "totalGames">,
+  profile: Pick<PlayerProfile, "playerId" | "playerTag" | "totalGames">,
+  appUrl: string,
   crProfile?: Pick<CrProfileSnapshot, "status" | "clan">,
   clearUnknownClan = false,
 ): ButtondownSubscriberMetadata {
-  const clanTag = !profile.playerTag
+  const clan = !profile.playerTag
     ? null
     : crProfile?.status === "ready"
-      ? (crProfile.clan?.tag ?? null)
+      ? (crProfile.clan ?? null)
       : clearUnknownClan
         ? null
         : undefined;
   return {
     playerTag: profile.playerTag,
-    ...(clanTag !== undefined ? { clanTag } : {}),
+    dropPlayerTag: dropPlayerTag(profile.playerId),
+    recruiterUrl: recruiterInviteUrl(appUrl, profile.playerId),
+    ...(clan !== undefined
+      ? {
+          clanTag: clan?.tag ?? null,
+          clanName: clan?.name ?? null,
+        }
+      : {}),
     totalGames: profile.totalGames,
   };
 }
@@ -58,7 +70,12 @@ export function buttondownSubscriberMetadataBody(
   return {
     source: "elixir-drop-magic-link",
     player_tag: metadata.playerTag ?? null,
+    drop_player_tag: metadata.dropPlayerTag,
+    recruiter_url: metadata.recruiterUrl,
     ...(metadata.clanTag !== undefined ? { clan_tag: metadata.clanTag } : {}),
+    ...(metadata.clanName !== undefined
+      ? { clan_name: metadata.clanName }
+      : {}),
     total_games: metadata.totalGames,
   };
 }

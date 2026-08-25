@@ -732,6 +732,7 @@ export async function patchMe({ event, config, repository }: RouteContext) {
       profile.email,
       buttondownPlayerMetadata(
         profile,
+        config.appUrl,
         crProfile,
         updates.playerTag !== undefined || updates.clearPlayerTag === true,
       ),

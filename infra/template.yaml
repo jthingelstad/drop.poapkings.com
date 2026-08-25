@@ -571,6 +571,18 @@ Resources:
                       - updatedAt
                       - lastLoginAt
               - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - RECRUITER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - playerId
+              - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:BatchGetItem

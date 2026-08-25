@@ -18,8 +18,8 @@ export interface PublishedSharePageInput {
   challenge: string;
   cta: string;
   pitch: string;
-  profile: string;
-  playerName: string;
+  profile?: string;
+  playerName?: string;
   scriptSrc: string;
   bodyData: Record<string, string>;
 }
@@ -30,6 +30,10 @@ export function renderPublishedSharePage(
   const bodyData = Object.entries(input.bodyData)
     .map(([name, value]) => ` data-${name}="${escaped(value)}"`)
     .join("");
+  const player =
+    input.profile && input.playerName
+      ? `\n    <a class="player" href="${escaped(input.profile)}"><strong>${escaped(input.playerName)}</strong><span>View profile →</span></a>`
+      : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -70,7 +74,7 @@ export function renderPublishedSharePage(
     <a class="card" href="${escaped(input.challenge)}"><img src="${escaped(input.image)}" width="1200" height="630" alt="${escaped(input.imageAlt)}"></a>
     <p class="pitch">${escaped(input.pitch)}</p>
     <a class="cta" href="${escaped(input.challenge)}">${escaped(input.cta)}</a>
-    <a class="player" href="${escaped(input.profile)}"><strong>${escaped(input.playerName)}</strong><span>View profile →</span></a>
+    ${player}
     <p class="fan">Fan content, not affiliated with Supercell.</p>
   </main>
   <script src="${escaped(input.scriptSrc)}" defer></script>

@@ -209,7 +209,10 @@ rank-oriented fields as part of unrelated work.
   also supplies 30-day last-touch Recruiter attribution. Badge links supply the
   same Recruiter attribution but never advance Herald; signed-in Home shares the
   player's permanent profile link. Already-issued six-character `#/s/<token>`
-  invitation and badge invitation links remain readable. Requesting a login email does not
+  invitation and badge invitation links remain readable. Buttondown uses the
+  generic `/share/{playerTag}/invite` landing: its immutable public `P…` Drop
+  tag replaces the raw UUID, the page exposes no player or clan identity, and
+  its 30-day attribution never advances Herald. Requesting a login email does not
   count, while successful magic-link redemption that creates a genuinely new
   profile advances Recruiter exactly once. Anonymous players are asked to sign
   in before sharing because no account exists to receive either badge.

@@ -453,8 +453,9 @@ elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinc
                                        sessions (install is suggested on the third)
 elixirdrop:installSessionCounted    -> lib/pwa-install.ts sessionStorage per-session marker so
                                        one session counts once
-elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid invitation token
-                                       or published player/run pair + capture time; expires
+elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last valid invitation token,
+                                       published share reference, or public Drop player tag
+                                       + capture time; expires
                                        after 30 days and is consumed by a successful
                                        login-email request
 ```
@@ -614,6 +615,16 @@ signed-in Home promotion only. Other players' public profiles deliberately have
 no Share action or share URL; the resulting personalized landing is still
 public and can be shared anywhere after its owner publishes it.
 
+Buttondown campaigns use the separate generic
+`/share/{playerTag}/invite` address. `{playerTag}` is the same immutable public
+`P…` Drop player tag (without its display-only `#`), never a raw UUID. The page
+contains no player or clan identity and does not publish a profile; its only
+personalization is the internal tag-to-owner attribution. A small alias record
+containing only the pseudonymous internal player UUID lets the API resolve that
+tag without scanning profiles; it stores neither email nor account subject. The landing stores the
+public tag for 30-day Recruiter attribution, and a genuinely new account still
+advances Recruiter exactly once at magic-link redemption.
+
 **What gets shared.** `components/ShareLine.tsx`, `lib/share-badge.ts`, and
 `lib/share-profile.ts` render their frozen preview data with the unified
 `lib/share-card.ts` compositor, then upload through authenticated `PUT
@@ -652,7 +663,9 @@ or full user-agent; the owner's session is excluded and credit stops at 25 per
 run. Counter failure never blocks the page. The same landing stores the public
 player/run pair as 30-day last-touch Recruiter attribution. Badge and profile
 landings store their public player attribution for Recruiter but have no open
-callback and never advance Herald. Signed-in Home uses the owner's permanent
+callback and never advance Herald. The generic `/share/{playerTag}/invite`
+landing likewise has no Herald callback and stores only the public Drop player
+tag. Signed-in Home uses the owner's permanent
 profile link. Already-issued `#/s/<token>` and badge invitations remain
 compatible.
 
@@ -664,7 +677,8 @@ deletes `run-images/{playerId}/` from S3. Badge snapshots use parallel canonical
 tag-alias, and player-deletion pointers; deletion also removes
 `badge-images/{playerId}/`. Profile snapshots use one canonical item plus a
 public-tag alias and deletion pointer; deletion also removes
-`profile-images/{playerId}.v1.png`. A later Fair Play exclusion makes the
+`profile-images/{playerId}.v1.png`. The generic Recruiter tag alias is also
+removed with the account. A later Fair Play exclusion makes the
 page and image fail closed; the next request also deletes the stored PNG.
 
 Local card-learning signals and personal browser records remain local. Every

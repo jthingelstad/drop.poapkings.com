@@ -12,7 +12,7 @@ export interface ButtondownBackfillArgs {
 
 export type ButtondownBackfillProfile = Pick<
   PlayerProfile,
-  "email" | "playerTag" | "totalGames"
+  "email" | "playerId" | "playerTag" | "totalGames"
 >;
 
 export type ButtondownBackfillSnapshot = Pick<
@@ -51,10 +51,11 @@ export function parseButtondownBackfillArgs(
 
 export function desiredButtondownBackfillMetadata(
   profile: ButtondownBackfillProfile,
+  appUrl: string,
   snapshot?: ButtondownBackfillSnapshot,
 ) {
   return buttondownSubscriberMetadataBody(
-    buttondownPlayerMetadata(profile, snapshot),
+    buttondownPlayerMetadata(profile, appUrl, snapshot),
   );
 }
 
