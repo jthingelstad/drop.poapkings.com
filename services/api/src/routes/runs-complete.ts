@@ -300,6 +300,19 @@ async function recordSignedInRun(
     tiebreaks,
     automaticReviewReason,
   );
+  if (run.mode === "practice") {
+    try {
+      await repository.clearPracticeCheckpoint(run.owner, run.runId);
+    } catch (error) {
+      // The run is already authoritative. Removing the active recovery pointer
+      // is cleanup only; immutable chunks have the run TTL and cannot award
+      // progress on their own.
+      console.warn("Practice checkpoint cleanup failed", {
+        runId: run.runId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   let buttondownSeasonChanged = false;
   if (season.id) {
     try {

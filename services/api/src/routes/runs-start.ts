@@ -18,7 +18,7 @@ export const PRACTICE_RUN_SECONDS = 24 * 60 * 60;
 // The run token stays verifiable well past run.expiresAt so a late completion
 // reaches the explicit 410 run_expired branch instead of dying in verifyToken
 // as a generic 401 (which the web app treats as session loss).
-const RUN_TOKEN_GRACE_SECONDS = 24 * 60 * 60;
+export const RUN_TOKEN_GRACE_SECONDS = 24 * 60 * 60;
 
 // POST /runs/start — deal a signed challenge for a signed-in or guest player.
 export async function startRun({ event, config, repository }: RouteContext) {

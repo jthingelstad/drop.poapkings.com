@@ -176,6 +176,43 @@ export interface RunItem {
   startCorrelation?: Correlation;
 }
 
+export interface PracticeCheckpointAnswer {
+  cardId: number;
+  guess: number;
+  responseMs: number;
+  assisted: boolean;
+  correct: boolean;
+  reviewStage?: "retry" | "confirm";
+}
+
+export interface PracticeCheckpointReview {
+  cardId: number;
+  dueAtAnswered: number;
+  stage: "retry" | "confirm";
+}
+
+export interface PracticeCheckpointMeta {
+  pk: string;
+  sk: "PRACTICE#ACTIVE";
+  runId: string;
+  answerCount: number;
+  chunkCount: number;
+  reviewQueue: PracticeCheckpointReview[];
+  recovered: number;
+  updatedAt: string;
+  expiresAt: number;
+}
+
+interface PracticeCheckpointChunk {
+  pk: string;
+  sk: string;
+  runId: string;
+  startIndex: number;
+  answers: PracticeCheckpointAnswer[];
+  digest: string;
+  expiresAt: number;
+}
+
 export interface RunReportInput {
   runId: string;
   runReference: string;
@@ -2612,6 +2649,194 @@ export class Repository {
     if (!item || item.seasonId === undefined)
       return item as RunItem | undefined;
     return numericSeasonItem(item) as RunItem | undefined;
+  }
+
+  async getPracticeCheckpoint(
+    sub: string,
+  ): Promise<PracticeCheckpointMeta | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "PRACTICE#ACTIVE" },
+        ConsistentRead: true,
+      }),
+    );
+    return result.Item as PracticeCheckpointMeta | undefined;
+  }
+
+  async savePracticeCheckpoint(input: {
+    sub: string;
+    runId: string;
+    startIndex: number;
+    answers: PracticeCheckpointAnswer[];
+    reviewQueue: PracticeCheckpointReview[];
+    recovered: number;
+    updatedAt: string;
+    expiresAt: number;
+    nowSeconds: number;
+  }): Promise<PracticeCheckpointMeta> {
+    const pk = `PLAYER#${input.sub}`;
+    const chunkIndex = input.startIndex / 20;
+    const chunkKey = `${pk}\0PRACTICE#${input.runId}#CHUNK#${String(chunkIndex).padStart(6, "0")}`;
+    const digest = createHash("sha256")
+      .update(
+        JSON.stringify({
+          startIndex: input.startIndex,
+          answers: input.answers,
+        }),
+      )
+      .digest("base64url");
+    const chunk: PracticeCheckpointChunk = {
+      pk,
+      sk: chunkKey.slice(pk.length + 1),
+      runId: input.runId,
+      startIndex: input.startIndex,
+      answers: input.answers,
+      digest,
+      expiresAt: input.expiresAt,
+    };
+    const meta: PracticeCheckpointMeta = {
+      pk,
+      sk: "PRACTICE#ACTIVE",
+      runId: input.runId,
+      answerCount: input.startIndex + input.answers.length,
+      chunkCount: chunkIndex + 1,
+      reviewQueue: input.reviewQueue,
+      recovered: input.recovered,
+      updatedAt: input.updatedAt,
+      expiresAt: input.expiresAt,
+    };
+
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              ConditionCheck: {
+                TableName: this.tableName,
+                Key: { pk: `RUN#${input.runId}`, sk: "RUN" },
+                ConditionExpression:
+                  "#state = :started AND #owner = :owner AND expiresAt > :now",
+                ExpressionAttributeNames: {
+                  "#state": "state",
+                  "#owner": "owner",
+                },
+                ExpressionAttributeValues: {
+                  ":started": "started",
+                  ":owner": input.sub,
+                  ":now": input.nowSeconds,
+                },
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: chunk,
+                ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: meta,
+                ConditionExpression:
+                  "attribute_not_exists(pk) OR (runId = :runId AND answerCount = :startIndex) OR expiresAt < :now",
+                ExpressionAttributeValues: {
+                  ":runId": input.runId,
+                  ":startIndex": input.startIndex,
+                  ":now": input.nowSeconds,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      return meta;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "TransactionCanceledException"
+      )
+        throw error;
+      // A lost response or the same chunk arriving from a second open tab is
+      // an ordinary idempotent retry. Accept it only when both the immutable
+      // chunk and the active cursor match what this request would have written.
+      const [storedMeta, storedChunk] = await Promise.all([
+        this.getPracticeCheckpoint(input.sub),
+        client.send(
+          new GetCommand({
+            TableName: this.tableName,
+            Key: { pk: chunk.pk, sk: chunk.sk },
+            ConsistentRead: true,
+          }),
+        ),
+      ]);
+      const existing = storedChunk.Item as PracticeCheckpointChunk | undefined;
+      if (
+        existing?.digest === digest &&
+        storedMeta?.runId === input.runId &&
+        storedMeta.answerCount >= meta.answerCount
+      )
+        return { ...storedMeta, answerCount: meta.answerCount };
+      throw new HttpError(
+        409,
+        "Practice recovery is already ahead of this checkpoint.",
+        "practice_checkpoint_conflict",
+      );
+    }
+  }
+
+  async listPracticeCheckpointAnswers(
+    sub: string,
+    runId: string,
+  ): Promise<PracticeCheckpointAnswer[]> {
+    const answers: PracticeCheckpointAnswer[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const page = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": `PLAYER#${sub}`,
+            ":prefix": `PRACTICE#${runId}#CHUNK#`,
+          },
+          ConsistentRead: true,
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      const chunks = (page.Items ?? []) as PracticeCheckpointChunk[];
+      for (const chunk of chunks) {
+        if (
+          chunk.startIndex !== answers.length ||
+          !Array.isArray(chunk.answers)
+        )
+          throw new Error("Practice checkpoint chunks are not contiguous");
+        answers.push(...chunk.answers);
+      }
+      startKey = page.LastEvaluatedKey;
+    } while (startKey);
+    return answers;
+  }
+
+  async clearPracticeCheckpoint(sub: string, runId: string): Promise<void> {
+    try {
+      await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: { pk: `PLAYER#${sub}`, sk: "PRACTICE#ACTIVE" },
+          ConditionExpression: "runId = :runId",
+          ExpressionAttributeValues: { ":runId": runId },
+        }),
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      )
+        return;
+      throw error;
+    }
   }
 
   async setRunShareVisual(

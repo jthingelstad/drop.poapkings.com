@@ -284,6 +284,50 @@ export const startedRunSchema = z
   })
   .refine((run) => run.mode === run.challenge.mode, { message: 'Run mode does not match its challenge.' })
 
+export const practiceDraftAnswerSchema = z.object({
+  cardId,
+  guess: safeInteger,
+  responseMs: nonNegativeInteger.max(60_000),
+  assisted: z.boolean(),
+  correct: z.boolean(),
+  reviewStage: z.optional(z.enum(['retry', 'confirm']))
+})
+
+export const practiceReviewSchema = z.object({
+  cardId,
+  dueAtAnswered: nonNegativeInteger,
+  stage: z.enum(['retry', 'confirm'])
+})
+
+const practiceResumeSummarySchema = z.object({
+  runId: nonEmptyString,
+  answerCount: nonNegativeInteger,
+  updatedAt: isoDateTime,
+  expiresAt: isoDateTime
+})
+
+export const practiceResumeSummaryResponseSchema = z.object({
+  draft: z.nullable(practiceResumeSummarySchema)
+})
+
+export const practiceResumeResponseSchema = z.object({
+  draft: z.nullable(
+    practiceResumeSummarySchema.extend({
+      run: startedRunSchema.refine((run) => run.mode === 'practice'),
+      answers: z.array(practiceDraftAnswerSchema).max(10_000),
+      reviewQueue: z.array(practiceReviewSchema).max(250),
+      recovered: nonNegativeInteger
+    })
+  )
+})
+
+export const practiceCheckpointResponseSchema = z.object({
+  accepted: z.literal(true),
+  runId: nonEmptyString,
+  answerCount: nonNegativeInteger,
+  updatedAt: isoDateTime
+})
+
 const runCompletionFields = {
   runId: nonEmptyString,
   mode: gameModeSchema,

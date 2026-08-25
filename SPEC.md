@@ -220,6 +220,19 @@ discouraged). Its transcript validates answer-card set membership because the
 client adaptively reorders the signed pool. That relaxation is safe only because
 nothing about Practice is competitive. `GAMES.md` owns the mechanics.
 
+Signed-in online Practice writes recovery-only chunks every 20 validated-shape
+first reads through `POST /practice/checkpoint`. The API binds each request to
+the session, signed run token, owner, active 24-hour run, and original card pool;
+the repository atomically appends an immutable
+`PLAYER#{sub}/PRACTICE#{runId}#CHUNK#{index}` item and advances the single
+`PLAYER#{sub}/PRACTICE#ACTIVE` cursor. Both carry the run TTL. `GET
+/practice/resume?summary=1` gives Home only the cursor; the full read reassembles
+contiguous chunks and reissues the still-active run token. Checkpoints are not
+completions and cannot mutate XP, badges, learning stats, history, Trophy Road,
+or any board. Completion removes the active cursor; chunks expire naturally,
+and account deletion sweeps them with the player partition. Guest and offline
+Practice never use either endpoint.
+
 Each ranked mode has three boards, selected by the `scope` query param on
 `GET /leaderboards` (`season`, the default, `all-time`, or `clan`):
 
@@ -451,10 +464,15 @@ own modules:
 
 ```text
 elixirdrop:session:v1               -> lib/account.ts     localStorage   { token, expiresAt }
-elixirdrop:practiceDraft:v1         -> lib/practice-draft.ts localStorage active Practice run,
-                                       first-read transcript, review queue, and
-                                       owning public player id; removed after
-                                       completion settles
+elixirdrop:practiceDraft:v2         -> lib/practice-draft.ts localStorage active Practice run,
+                                       sub-20-answer tail, review queue, server
+                                       checkpoint cursor, and owning public
+                                       player id; removed after completion settles
+elixirdrop:practiceDraft:v2:chunk:* -> lib/practice-draft.ts localStorage immutable 20-answer
+                                       chunks for the active run
+elixirdrop:practiceDraft:v1         -> lib/practice-draft.ts migration-only reader for an
+                                       in-flight pre-chunk journal; removed only
+                                       after v2 is written
 elixirdrop:installDismissed         -> lib/pwa-install.ts localStorage   Home banner dismissed
 elixirdrop:installSessionCount      -> lib/pwa-install.ts localStorage   distinct browser
                                        sessions (install is suggested on the third)
@@ -782,7 +800,8 @@ build ID, while card art lives in a catalog-versioned cache. Document navigation
 is bounded network-first: a responsive connection gets the current document,
 while a three-second stall falls back to the last atomically complete shell.
 Every production visit fills the 120-image base-art pack in small serialized batches;
-App Info shows its progress. For developer-tagged accounts it also shows a
+App Info shows its progress and the current device/server Practice recovery
+cursor. For developer-tagged accounts it also shows a
 read-only Practice Recovery diagnostic: device learning totals, saved learning
 totals, their difference, and a copyable owner-bound code. The tag controls
 discovery only; it grants no recovery authority, and the separately secured

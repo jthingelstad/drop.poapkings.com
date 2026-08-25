@@ -169,6 +169,12 @@ rank-oriented fields as part of unrelated work.
   the browser never uploads aggregate stats. They do not affect official
   challenge selection. Device-local stats drive Practice's adaptive deal and
   preserve the same coaching behavior offline.
+- **Practice checkpoints are recovery, not progress.** Signed-in online Practice
+  may append authenticated 20-answer chunks under the player's partition so a
+  lost device journal can resume. The chunks expire with the 24-hour run and
+  never award learning, XP, badges, Trophy Road, a game count, or any board
+  result; `/runs/complete` remains the only settlement path. Guest and offline
+  Practice never upload checkpoints or become recorded after reconnecting.
 - **Glyphs come from lucide-static** through `apps/web/src/components/Icon.tsx`
   (build-time inlined, currentColor). Don't hand-type arrows or symbols.
 - **A recorded run, earned badge rung, or the signed-in player's profile publishes one permanent, personalized link.**

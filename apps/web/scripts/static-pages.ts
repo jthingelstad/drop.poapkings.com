@@ -305,7 +305,7 @@ ${pageSections([
   section(
     'Your account',
     `${paragraph(
-      'Your email address is used for one-time magic-link sign-in and occasional player updates. It is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. Those statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
+      'Your email address is used for one-time magic-link sign-in and occasional player updates. It is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
     )}${paragraph('Magic-link messages come from elixir@poapkings.com.')}`
   ),
   section(
@@ -347,13 +347,13 @@ ${pageSections([
   section(
     'Retention and deletion',
     `${paragraph(
-      'Magic links and signed run challenges expire quickly. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
+      'Magic links and signed run challenges expire quickly. Practice recovery chunks expire with their 24-hour signed run. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
     )}${paragraph(
       'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, and any links you shared from the active database, and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
-])}<p class="static-updated">Last updated August 23, 2026.</p>`
+])}<p class="static-updated">Last updated August 25, 2026.</p>`
 
 const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([

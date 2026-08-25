@@ -15,6 +15,9 @@ import {
   publishedBadgeShareSchema,
   publishedProfileShareSchema,
   publishedRunShareSchema,
+  practiceCheckpointResponseSchema,
+  practiceResumeResponseSchema,
+  practiceResumeSummaryResponseSchema,
   runShareImageUploadResponseSchema,
   shareImageUploadResponseSchema,
   seasonHistoryResponseSchema,
@@ -390,6 +393,41 @@ export async function completeRun(runToken: string, transcript: Record<string, u
     await retryDelay()
     return request()
   }
+}
+
+export function getPracticeResume(sessionToken: string, signal?: AbortSignal) {
+  return apiRequest('/practice/resume', practiceResumeResponseSchema, { sessionToken, signal })
+}
+
+export function getPracticeResumeSummary(sessionToken: string, signal?: AbortSignal) {
+  return apiRequest('/practice/resume?summary=1', practiceResumeSummaryResponseSchema, { sessionToken, signal })
+}
+
+export function savePracticeCheckpoint(
+  sessionToken: string,
+  checkpoint: {
+    runToken: string
+    startIndex: number
+    answers: Array<{
+      cardId: number
+      guess: number
+      responseMs: number
+      assisted: boolean
+      correct: boolean
+      reviewStage?: 'retry' | 'confirm'
+    }>
+    reviewQueue: Array<{ cardId: number; dueAtAnswered: number; stage: 'retry' | 'confirm' }>
+    recovered: number
+  }
+) {
+  return apiRequest('/practice/checkpoint', practiceCheckpointResponseSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify(checkpoint),
+    // Immutable chunk writes are idempotent. A lost acknowledgement is safe to
+    // replay and must not leave the client cursor behind the server cursor.
+    retry: true
+  })
 }
 
 export interface RunFailureReportInput {

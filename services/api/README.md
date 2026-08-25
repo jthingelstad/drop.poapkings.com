@@ -56,6 +56,7 @@ first-Monday fallback advances from Drop's verified Season 134 launch anchor.
 - `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
+- `GET /practice/resume`, `POST /practice/checkpoint`
 - `POST /badges/{badgeSlug}/share`, `PUT /badges/{badgeSlug}/share`
 - `GET /share/{playerTag}/{runTag}`, `GET /share-assets/{playerTag}/{runTag}`, `POST /share/{playerTag}/{runTag}/open`
 - `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
@@ -77,6 +78,17 @@ returns the minimal shape `{ accepted: true, guest: true, mode, score, season }`
 A `/runs/complete` presenting a non-guest run token still requires a session
 that owns the run. The public site and leaderboards remain browsable without an
 account.
+
+Signed-in Practice checkpoints are recovery data, never partial completions.
+`POST /practice/checkpoint` accepts one contiguous 20-answer chunk, validates
+its session/run ownership and signed-deck membership, recomputes correctness,
+and atomically advances a player-partition cursor. Identical retries are
+idempotent; gaps and divergent chunks fail closed. `GET /practice/resume` returns
+the contiguous active draft and a reissued token only while the original
+24-hour run is valid; `?summary=1` omits the transcript for Home. Items use the
+run TTL, account deletion sweeps them, and successful completion removes the
+active cursor. No checkpoint path writes history, learning, XP, badges, Trophy
+Road, or a board. Guest and offline Practice never call it.
 
 `POST /run-reports` is the best-effort diagnostic path for a signed run whose
 completion fails after bounded automatic recovery. It accepts the run ID/token,

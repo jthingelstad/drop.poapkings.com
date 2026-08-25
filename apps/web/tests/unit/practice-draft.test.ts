@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StartedRun } from '@elixir-drop/contracts'
 import {
   beginPracticeDraft,
   clearPracticeDraft,
+  LEGACY_PRACTICE_DRAFT_KEY,
   loadPracticeDraft,
   PRACTICE_DRAFT_KEY,
+  practiceDraftHealth,
   savePracticeDraft
 } from '../../src/lib/practice-draft'
 
@@ -22,7 +24,10 @@ function run(runId = 'run-practice'): StartedRun {
 }
 
 describe('Practice draft journal', () => {
-  beforeEach(() => localStorage.removeItem(PRACTICE_DRAFT_KEY))
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
 
   it('restores the signed run, aggregate counters, and spaced-review state', () => {
     const draft = beginPracticeDraft(run(), playerId)
@@ -74,5 +79,64 @@ describe('Practice draft journal', () => {
       recovered: 0
     })
     expect(loadPracticeDraft(playerId)).toBeNull()
+  })
+
+  it('migrates an in-flight v1 draft without losing an answer', () => {
+    localStorage.setItem(
+      LEGACY_PRACTICE_DRAFT_KEY,
+      JSON.stringify({
+        version: 1,
+        playerId,
+        run: run(),
+        answers: [{ cardId: 26000000, guess: 3, responseMs: 812, assisted: false, correct: true }],
+        reviewQueue: [],
+        recovered: 0,
+        updatedAt: new Date().toISOString()
+      })
+    )
+
+    expect(loadPracticeDraft(playerId)?.answers).toHaveLength(1)
+    expect(localStorage.getItem(LEGACY_PRACTICE_DRAFT_KEY)).toBeNull()
+    expect(localStorage.getItem(PRACTICE_DRAFT_KEY)).not.toBeNull()
+  })
+
+  it('keeps a 2,600-answer run in small append-only chunks', () => {
+    const writes: number[] = []
+    const original = localStorage.setItem.bind(localStorage)
+    vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      writes.push(value.length)
+      original(key, value)
+    })
+    const draft = beginPracticeDraft(run(), playerId)
+    const answers: Array<{
+      cardId: number
+      guess: number
+      responseMs: number
+      assisted: boolean
+      correct: boolean
+    }> = []
+    for (let index = 0; index < 2_600; index += 1) {
+      answers.push({
+        cardId: index % 2 === 0 ? 26000000 : 26000001,
+        guess: 3,
+        responseMs: 800,
+        assisted: false,
+        correct: true
+      })
+      expect(savePracticeDraft(draft, { answers, reviewQueue: [], recovered: 0 })).toBe(true)
+    }
+
+    expect(loadPracticeDraft(playerId)?.answers).toHaveLength(2_600)
+    expect(Math.max(...writes)).toBeLessThan(10_000)
+    expect(writes.reduce((sum, bytes) => sum + bytes, 0)).toBeLessThan(10_000_000)
+  })
+
+  it('surfaces browser storage failure instead of silently claiming durability', () => {
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError')
+    })
+
+    beginPracticeDraft(run(), playerId)
+    expect(practiceDraftHealth.value).toMatchObject({ state: 'error', answerCount: 0 })
   })
 })

@@ -169,13 +169,26 @@ Practice has no destination, so its running chrome counts cards practiced and
 first reads but renders no left-to-right progress bar.
 
 The browser journals the active signed run, every first read, and the spaced-
-review queue under `elixirdrop:practiceDraft:v1`. Reopening Practice after a
-route loss or reload resumes that same session; Home labels its Practice action
-**RESUME** while that valid current-player draft exists. A successful completion (or a
-terminal rejection) clears the draft. New online Practice runs use a 24-hour
-signed window so an endless human session is not invalidated by the one-hour
-window used for finite games. This is crash recovery, not background sync:
-offline and guest Practice remain unrecorded under the normal completion rules.
+review queue under chunked `elixirdrop:practiceDraft:v2` keys. Completed local
+chunks are immutable and only the sub-20-answer tail is rewritten, so a long
+session does not repeatedly serialize its whole transcript. The reader migrates
+an in-flight `v1` draft before removing it. Reopening Practice after a route loss
+or reload resumes that same session; Home labels its Practice action **RESUME**
+while that valid current-player draft exists. A local write failure is visible
+during play and in App Info rather than silently discarding durability.
+
+Signed-in online Practice also sends one authenticated, idempotent checkpoint
+after each 20 first reads. Each server chunk is validated against the original
+signed deck, stores the server-computed correctness plus the latest review
+queue, and expires with the 24-hour run. Checkpoints award no XP, badge, learning
+credit, game count, or leaderboard result; only the ordinary validated
+`/runs/complete` path settles progress. If the device journal is absent, Home
+can discover the lightweight active cursor and Practice rebuilds the ordinary
+local draft from the server chunks before play. At most the newest 19 answers
+depend on the device copy while checkpoints are healthy; the complete local
+journal remains authoritative through a network outage. A successful completion (or a terminal rejection)
+clears the active recovery pointer. Offline and guest Practice never upload a
+checkpoint and remain unrecorded under the normal completion rules.
 
 The signed challenge deals the **whole shuffled catalog as a pool**, not a
 sequence; `apps/web/src/lib/practice-deal.ts` draws from it weighted by the

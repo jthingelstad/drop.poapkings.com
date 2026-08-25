@@ -35,11 +35,13 @@ import { useGameSession } from '../../lib/use-game-session'
 import { useGameRuntime } from '../../lib/use-game-runtime'
 import { track } from '../../lib/analytics'
 import { preloadImages } from '../../lib/preload'
-import { player } from '../../lib/account'
+import { player, sessionToken } from '../../lib/account'
+import { clearPracticeResumeAvailability, syncPracticeCheckpoints } from '../../lib/practice-checkpoint'
 import {
   beginPracticeDraft,
   clearPracticeDraft,
   loadPracticeDraft,
+  practiceDraftHealth,
   savePracticeDraft,
   type PracticeDraft,
   type PracticeDraftAnswer
@@ -158,6 +160,10 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     hand: Hand | null
   }>()
   const deck = gameRun.content
+
+  useEffect(() => {
+    if (draft.current) void syncPracticeCheckpoints(draft.current, sessionToken())
+  }, [])
 
   const settings = getSettings()
   const inputStyle = useSignal<InputStyle>(settings.inputStyle)
@@ -395,6 +401,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     const runId = draft.current?.run.runId
     const clearRecordedDraft = () => {
       clearPracticeDraft(runId)
+      clearPracticeResumeAvailability()
       if (draft.current?.run.runId === runId) draft.current = null
     }
     void gameRun.complete({ answers: serverAnswers.current }, clearRecordedDraft, clearRecordedDraft)
@@ -431,12 +438,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     if (isCorrect) {
       correct.value++
     }
-    if (draft.current)
+    if (draft.current) {
       savePracticeDraft(draft.current, {
         answers: draftAnswers.current,
         reviewQueue: reviewQueue.current,
         recovered: recovered.peek()
       })
+      void syncPracticeCheckpoints(draft.current, sessionToken())
+    }
   }
 
   function revealAnswer(current: Hand): void {
@@ -628,6 +637,11 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
       metric={{ value: String(correct.value), label: 'first try' }}
     >
       <div class="ed-kstage ed-kstage--practice">
+        {practiceDraftHealth.value.state === 'error' && (
+          <div class="practice-save-warning" role="alert">
+            Progress is not being saved on this device. Keep Practice open and end the session when you can.
+          </div>
+        )}
         <div class="ed-kstage__card">
           <div class="practice-card-feedback">
             <GameMotion

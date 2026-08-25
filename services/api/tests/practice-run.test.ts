@@ -10,6 +10,7 @@ import { signToken } from "../src/signing.js";
 // Practice completions end to end: endless and unranked, with one XP per two
 // validated cards. The repository owns the odd-card carry between sessions.
 const repository = vi.hoisted(() => ({
+  clearPracticeCheckpoint: vi.fn(),
   completeRun: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   getCrWarClock: vi.fn(),
@@ -28,6 +29,7 @@ const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    clearPracticeCheckpoint = repository.clearPracticeCheckpoint;
     completeRun = repository.completeRun;
     getCardStats = repository.getCardStats;
     getCrWarClock = repository.getCrWarClock;
@@ -175,6 +177,7 @@ describe("Practice completion", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.clearPracticeCheckpoint.mockResolvedValue(undefined);
     repository.getBadges.mockImplementation(
       async () => repository.saveBadges.mock.calls.at(-1)?.[1],
     );
@@ -200,6 +203,10 @@ describe("Practice completion", () => {
       { practiceCards: 40 },
       undefined,
       undefined,
+    );
+    expect(repository.clearPracticeCheckpoint).toHaveBeenCalledWith(
+      profile.sub,
+      "run-practice",
     );
     expect(JSON.parse(response.body || "{}")).toMatchObject({
       xpEarned: 20,

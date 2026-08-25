@@ -4504,6 +4504,24 @@ html.reduce-motion .ed-game__bar-fill {
   width: 100%;
   max-width: 340px;
 }
+
+.practice-save-warning {
+  position: absolute;
+  z-index: 8;
+  top: 0.5rem;
+  left: 50%;
+  width: min(90vw, 32rem);
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgb(255 197 92 / 65%);
+  border-radius: 0.75rem;
+  background: rgb(42 24 63 / 94%);
+  color: #fff3c4;
+  font-size: 0.85rem;
+  line-height: 1.25;
+  text-align: center;
+  transform: translateX(-50%);
+  box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 30%);
+}
 .game-cues--practice {
   z-index: 7;
   overflow: visible;

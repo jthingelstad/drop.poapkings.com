@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|run-reports|runs|shares|stats)(?:[/?]|$)|badges\/[^/?]+\/share(?:[/?]|$))/
+  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
   id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -440,6 +440,24 @@ function testPublishedRunPreview(runId: string) {
 
 export async function fulfillTestRun(route: Route): Promise<boolean> {
   const path = new URL(route.request().url()).pathname
+  if (path === '/practice/resume' && route.request().method() === 'GET') {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ draft: null }) })
+    return true
+  }
+  if (path === '/practice/checkpoint' && route.request().method() === 'POST') {
+    const checkpoint = route.request().postDataJSON() as { startIndex: number; answers: unknown[] }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        accepted: true,
+        runId: 'run-practice',
+        answerCount: checkpoint.startIndex + checkpoint.answers.length,
+        updatedAt: '2026-08-25T19:00:00.000Z'
+      })
+    })
+    return true
+  }
   if (path === '/me/share' && route.request().method() === 'PUT') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
     return true

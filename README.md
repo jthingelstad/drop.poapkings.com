@@ -99,6 +99,15 @@ best, but signed-in online sessions earn XP. A separate global games
 counter began at a one-time launch seed of 592 and advances once for every
 server-accepted completed game — shown on Home as social proof; page views and
 Tinylytics analytics never contribute to it.
+
+Practice is also the one deliberately long-running mode. Its browser journal is
+chunked so thousands of answers remain cheap to save, and signed-in online
+sessions add an idempotent recovery checkpoint every 20 cards. Home shows
+**RESUME** for either copy. Checkpoints expire with the run and award nothing by
+themselves; only ending the session through the normal validated completion path
+records learning, XP, badges, and a game. Guest and offline Practice remain
+device-only and unrecorded.
+
 Each signed-in player chooses a favorite Clash Royale card as their profile
 image and selects a safe, playful name inspired by that card, including its
 community nicknames and character.

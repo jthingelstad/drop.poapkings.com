@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "practice-resumes-across-interruptions",
+      "impact": "learning",
+      "publishedAt": "2026-08-25T15:10:00-05:00",
+      "title": "Practice can pick up where you left off",
+      "body": "Long Practice sessions now save in small device chunks, and signed-in online play also checkpoints every 20 cards. If an update, reload, or closed app interrupts the run, **RESUME** restores the newest protected point instead of making you start over. Guest and offline Practice remain device-only and unrecorded."
+    },
+    {
       "id": "collector-counts-game-badges",
       "impact": "progression",
       "publishedAt": "2026-08-25T12:50:00-05:00",

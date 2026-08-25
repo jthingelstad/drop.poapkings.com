@@ -30,6 +30,10 @@ import {
 } from "./routes/public-reads.js";
 import { completeRun } from "./routes/runs-complete.js";
 import { reportRunFailure } from "./routes/run-reports.js";
+import {
+  getPracticeResume,
+  savePracticeCheckpoint,
+} from "./routes/practice-checkpoints.js";
 import { startRun } from "./routes/runs-start.js";
 import { createInviteShare, getShare } from "./routes/shares.js";
 import {
@@ -110,6 +114,10 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/runs/start") return startRun(context);
   if (method === "POST" && path === "/runs/complete")
     return completeRun(context);
+  if (method === "GET" && path === "/practice/resume")
+    return getPracticeResume(context);
+  if (method === "POST" && path === "/practice/checkpoint")
+    return savePracticeCheckpoint(context);
   if (method === "POST" && path === "/run-reports")
     return reportRunFailure(context);
   const runShareMatch = method === "POST" ? RUN_SHARE_PATH.exec(path) : null;

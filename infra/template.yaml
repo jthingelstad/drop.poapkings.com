@@ -1487,6 +1487,20 @@ Resources:
       RouteKey: POST /runs/complete
       Target: !Sub integrations/${ApiIntegration}
 
+  PracticeResumeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /practice/resume
+      Target: !Sub integrations/${ApiIntegration}
+
+  PracticeCheckpointRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /practice/checkpoint
+      Target: !Sub integrations/${ApiIntegration}
+
   RunReportsRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:

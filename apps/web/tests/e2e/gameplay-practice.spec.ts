@@ -69,6 +69,61 @@ test('Home offers RESUME and restores a Practice draft after route loss', { tag:
   await expect(practice.locator('.ed-grow__play')).toHaveText('PLAY')
 })
 
+test(
+  'Home offers RESUME and restores a signed-in server checkpoint on a new browser',
+  { tag: '@deploy' },
+  async ({ page }) => {
+    const card = cardsData.cards[0]!
+    const challenge = { mode: 'practice' as const, cardIds: cardsData.cards.map((candidate) => candidate.id) }
+    const answers = Array.from({ length: 40 }, () => ({
+      cardId: card.id,
+      guess: card.elixir,
+      responseMs: 800,
+      assisted: false,
+      correct: true
+    }))
+    await page.route(`${testApiBaseUrl}/practice/resume**`, async (route) => {
+      const summary = new URL(route.request().url()).searchParams.get('summary') === '1'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          draft: summary
+            ? {
+                runId: 'practice-recovered',
+                answerCount: answers.length,
+                updatedAt: '2026-08-25T19:00:00.000Z',
+                expiresAt: '2099-01-01T00:00:00.000Z'
+              }
+            : {
+                runId: 'practice-recovered',
+                answerCount: answers.length,
+                updatedAt: '2026-08-25T19:00:00.000Z',
+                expiresAt: '2099-01-01T00:00:00.000Z',
+                run: {
+                  runId: 'practice-recovered',
+                  runToken: 'run-practice',
+                  mode: 'practice',
+                  challenge,
+                  ranked: false,
+                  expiresAt: '2099-01-01T00:00:00.000Z'
+                },
+                answers,
+                reviewQueue: [],
+                recovered: 0
+              }
+        })
+      })
+    })
+
+    await page.goto('/#/')
+    const practice = page.locator('section[aria-labelledby="home-practice-title"]')
+    await expect(practice.locator('.ed-grow__play')).toHaveText('RESUME')
+    await practice.getByRole('button', { name: /Practice/ }).click()
+    await expect(page.locator('.ed-game__progress')).toHaveText('40 practiced', { timeout: 12_000 })
+  }
+)
+
 test('continuous play modes expose working controls with low chrome', async ({ page }, testInfo) => {
   // Higher/Lower has its own tap-the-card coverage in gameplay-higher-lower.spec.ts.
   const modes = [{ hash: '#/practice', control: '.pip-keypad', answer: '4 elixir' }]

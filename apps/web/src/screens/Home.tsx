@@ -7,6 +7,8 @@
 // `layout.value` branch here, and there should never be one again.
 
 import type { GameMode } from '@elixir-drop/contracts'
+import { useSignal } from '@preact/signals'
+import { useEffect } from 'preact/hooks'
 import ModeIcon from '../components/ModeIcon'
 import CauseChip from '../components/CauseChip'
 import Wordmark from '../components/brand/Wordmark'
@@ -18,17 +20,33 @@ import { InstallBanner, InstallRow } from '../components/InstallPrompt'
 import { useHomeData } from './home/home-data'
 import { ALL_GAMES, featuredGame } from './home/home-games'
 import { HomeHeroCarousel, HomeRow } from './home/home-bits'
-import { player } from '../lib/account'
+import { player, sessionToken } from '../lib/account'
+import { refreshPracticeResumeAvailability, serverPracticeResumeAvailable } from '../lib/practice-checkpoint'
 import { loadPracticeDraft } from '../lib/practice-draft'
 
 export default function Home() {
+  const remotePractice = useSignal(serverPracticeResumeAvailable.peek())
   const data = useHomeData()
   const featured = featuredGame()
   // The featured game leads in the hero; it must not appear again in the list.
   // This is the order on every shell — desktop does not reshuffle the game.
   const others = ALL_GAMES.filter((game) => game.key !== featured.key)
   const seasonLabel = data.season ? `Season ${data.season.id}` : ''
-  const practiceAction = loadPracticeDraft(player.peek()?.id ?? null) ? 'RESUME' : 'PLAY'
+  const localPractice = loadPracticeDraft(player.peek()?.id ?? null)
+  const practiceAction = localPractice || remotePractice.value ? 'RESUME' : 'PLAY'
+
+  useEffect(() => {
+    const token = sessionToken()
+    if (localPractice || !token || offline.peek()) return
+    const controller = new AbortController()
+    void refreshPracticeResumeAvailability(token, controller.signal).then(
+      (available) => {
+        remotePractice.value = available
+      },
+      () => undefined
+    )
+    return () => controller.abort()
+  }, [localPractice, remotePractice])
 
   // Offline, personal bests and ranks go quiet rather than apologise: the whole
   // meta line is season context the device cannot vouch for while disconnected.

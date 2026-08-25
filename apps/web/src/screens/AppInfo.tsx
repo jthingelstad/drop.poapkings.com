@@ -18,6 +18,7 @@ import {
   serverLearningTotals,
   type PracticeRecoveryCode
 } from '../lib/practice-recovery'
+import { practiceDraftDiagnostics } from '../lib/practice-draft'
 
 function workerLabel(state: CardArtCacheInfo['workerState']): string {
   if (state === 'activated') return 'Active'
@@ -212,6 +213,7 @@ export default function AppInfo() {
   const recoveryDelta = recovery ? practiceRecoveryDelta(recovery) : null
   const recoveryState = recovery ? practiceRecoveryState(recovery) : null
   const recoveryCode = recovery ? serializePracticeRecoveryCode(recovery) : ''
+  const draftDiagnostic = practiceDraftDiagnostics(currentPlayer?.id ?? null)
 
   async function copyRecoveryCode() {
     if (!recoveryCode || !navigator.clipboard?.writeText) {
@@ -277,6 +279,31 @@ export default function AppInfo() {
           Cached images load from this device in every mode. A connection is needed only to save runs, update progress
           and rankings, read live player data, and receive app updates.
         </p>
+      </section>
+
+      <section class="ed-appinfo__api" aria-labelledby="practice-draft-title" aria-live="polite">
+        <div>
+          <div class="ed-appinfo__label">Practice durability</div>
+          <h2 id="practice-draft-title">{draftDiagnostic ? 'Resume ready' : 'No active session'}</h2>
+        </div>
+        {draftDiagnostic ? (
+          <>
+            <p>
+              {draftDiagnostic.answers.toLocaleString()} answers are saved on this device.{' '}
+              {draftDiagnostic.checkpointedAnswers > 0
+                ? `Signed-in recovery is protected through answer ${draftDiagnostic.checkpointedAnswers.toLocaleString()}.`
+                : currentPlayer
+                  ? 'The first signed-in server checkpoint lands at 20 answers.'
+                  : 'Guest and offline Practice stay on this device only.'}
+            </p>
+            <p>
+              Last local save: <time dateTime={draftDiagnostic.updatedAt}>{draftDiagnostic.updatedAt}</time>
+              {draftDiagnostic.health.state === 'error' ? ' · device storage needs attention' : ''}
+            </p>
+          </>
+        ) : (
+          <p>Practice creates a resumable journal as soon as a session starts.</p>
+        )}
       </section>
 
       {showPracticeRecovery && (
