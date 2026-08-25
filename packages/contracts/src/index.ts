@@ -435,10 +435,10 @@ export const FIRST_DROP_SEASON_ID = 134;
 const FIRST_DROP_SEASON_MONTH = 2026 * 12 + 6;
 const LEGACY_SEASON_ID_PATTERN = /^(\d{4})-(\d{2})(?:-(\d+))?$/;
 
-// Decode the retired calendar-derived storage keys during the bounded live
-// migration. A suffixed key states its CR number directly; an ordinary key is
-// measured from Drop's first board, Season 134 in July 2026. Numeric strings
-// remain accepted at HTTP/query boundaries, where every value is text.
+// Decode retired calendar-derived values at retained-data and compatibility
+// boundaries. A suffixed value states its CR number directly; an ordinary
+// value is measured from Drop's first board, Season 134 in July 2026. Numeric
+// strings remain accepted at HTTP/query boundaries, where every value is text.
 export function seasonNumber(value: unknown): number | undefined {
   if (typeof value === "number")
     return Number.isSafeInteger(value) && value > 0 ? value : undefined;
@@ -460,26 +460,6 @@ export function seasonNumber(value: unknown): number | undefined {
   const derived =
     FIRST_DROP_SEASON_ID + (year * 12 + month - 1 - FIRST_DROP_SEASON_MONTH);
   return derived > 0 ? derived : undefined;
-}
-
-function legacyCalendarId(seasonId: number, monthOffset = 0): string {
-  const monthIndex =
-    FIRST_DROP_SEASON_MONTH + (seasonId - FIRST_DROP_SEASON_ID) + monthOffset;
-  const year = Math.floor(monthIndex / 12);
-  const month = (monthIndex % 12) + 1;
-  return `${year}-${String(month).padStart(2, "0")}`;
-}
-
-// Transitional GSI reads include the ordinary legacy month plus the suffixed
-// shapes the old rollover guard could create when two CR seasons shared a
-// month. Remove these aliases only after the production migration converges.
-export function legacySeasonIdsFor(seasonId: number): string[] {
-  return [
-    legacyCalendarId(seasonId),
-    `${legacyCalendarId(seasonId)}-${seasonId}`,
-    `${legacyCalendarId(seasonId, -1)}-${seasonId}`,
-    `${legacyCalendarId(seasonId, 1)}-${seasonId}`,
-  ];
 }
 
 export interface SiteStats {

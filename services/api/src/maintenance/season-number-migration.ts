@@ -24,15 +24,18 @@ export interface SeasonMigrationPlan {
 }
 
 const LEGACY_SEASON_PATTERN = /^\d{4}-\d{2}(?:-\d+)?$/;
+const CANONICAL_SEASON_PATTERN = /^[1-9]\d*$/;
 
 function legacySeason(
   value: unknown,
+  allowNumericString = false,
 ): { legacy: string; number: number } | undefined {
   if (typeof value !== "string") return undefined;
   const number = seasonNumber(value);
   if (
     number === undefined ||
-    (!LEGACY_SEASON_PATTERN.test(value) && !/^\d+$/.test(value))
+    (!LEGACY_SEASON_PATTERN.test(value) &&
+      !(allowNumericString && /^\d+$/.test(value)))
   )
     return undefined;
   return { legacy: value, number };
@@ -53,6 +56,7 @@ function rewrittenKey(
   const feed = /^FEED#([^#]+)$/.exec(pk);
   if (feed) {
     const parsed = legacySeason(feed[1]);
+    if (CANONICAL_SEASON_PATTERN.test(feed[1] ?? "")) return undefined;
     if (!parsed) return { unresolved: "feed key has an invalid season" };
     return {
       pk: `FEED#${parsed.number}`,
@@ -65,6 +69,7 @@ function rewrittenKey(
   const podium = /^PODIUM#([^#]+)#(.+)$/.exec(sk);
   if (podium) {
     const parsed = legacySeason(podium[1]);
+    if (CANONICAL_SEASON_PATTERN.test(podium[1] ?? "")) return undefined;
     if (!parsed) return { unresolved: "podium key has an invalid season" };
     return {
       pk,
@@ -77,6 +82,7 @@ function rewrittenKey(
   const placement = /^XP#SEASON-PLACEMENT#([^#]+)#(.+)$/.exec(sk);
   if (placement) {
     const parsed = legacySeason(placement[1]);
+    if (CANONICAL_SEASON_PATTERN.test(placement[1] ?? "")) return undefined;
     if (!parsed)
       return { unresolved: "placement XP key has an invalid season" };
     return {
@@ -90,6 +96,7 @@ function rewrittenKey(
   const circuit = /^XP#SEASON-CIRCUIT#([^#]+)$/.exec(sk);
   if (circuit) {
     const parsed = legacySeason(circuit[1]);
+    if (CANONICAL_SEASON_PATTERN.test(circuit[1] ?? "")) return undefined;
     if (!parsed) return { unresolved: "circuit XP key has an invalid season" };
     return {
       pk,
@@ -127,7 +134,10 @@ export function planSeasonNumberMigration(
   const rewrite = rewrittenKey(key.pk, key.sk);
   if (rewrite && "unresolved" in rewrite) return rewrite;
 
-  const season = legacySeason(source.seasonId);
+  // A numeric string still needs an attribute-type rewrite. Numeric key
+  // segments are already canonical, so embedded-key callers intentionally
+  // retain the stricter calendar-only shape.
+  const season = legacySeason(source.seasonId, true);
   if (typeof source.seasonId === "string" && !season)
     return { unresolved: "seasonId string cannot be mapped" };
 

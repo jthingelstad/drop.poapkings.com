@@ -65,9 +65,9 @@ describe("leaderboard read bounds", () => {
 
     const entries = await seasonLeaderboard("test-table", "surge", 133, 50);
 
-    // 10 board pages, one decision BatchGet, then one profile hydration — and
-    // nothing more.
-    expect(send).toHaveBeenCalledTimes(12);
+    // 10 board pages, each with its own decision BatchGet, then one profile
+    // hydration — and nothing more.
+    expect(send).toHaveBeenCalledTimes(21);
     expect(entries).toHaveLength(1);
   });
 

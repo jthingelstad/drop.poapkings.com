@@ -75,4 +75,47 @@ describe("season number migration planning", () => {
       }),
     ).toEqual({ unresolved: "embedded key and seasonId disagree" });
   });
+
+  it("leaves canonical numeric key segments alone", () => {
+    expect(
+      planSeasonNumberMigration({
+        pk: "FEED#135",
+        sk: "2026-08-25T16:00:00.000Z#run",
+        seasonId: 135,
+      }),
+    ).toEqual({});
+    expect(
+      planSeasonNumberMigration({
+        pk: "PLAYER#private",
+        sk: "PODIUM#135#surge",
+        seasonId: 135,
+      }),
+    ).toEqual({});
+    expect(
+      planSeasonNumberMigration({
+        pk: "PLAYER#private",
+        sk: "RUN#run",
+        seasonId: 135,
+        GSI1PK: "LEADERBOARD#135#surge",
+      }),
+    ).toEqual({});
+  });
+
+  it("still converts numeric strings stored as season attributes", () => {
+    expect(
+      planSeasonNumberMigration({
+        pk: "PLAYER#private",
+        sk: "RUN#run",
+        seasonId: "135",
+      }),
+    ).toEqual({
+      action: {
+        kind: "update",
+        key: { pk: "PLAYER#private", sk: "RUN#run" },
+        legacySeasonId: "135",
+        seasonId: 135,
+        removeLeaderboardSeasonId: false,
+      },
+    });
+  });
 });

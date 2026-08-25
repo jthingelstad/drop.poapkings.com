@@ -13,7 +13,6 @@ import {
   playerReference,
   practiceXpForCards,
   runReference,
-  legacySeasonIdsFor,
   seasonNumber,
   XP_RULES_VERSION,
   type BadgeTier,
@@ -3116,38 +3115,34 @@ export class Repository {
     const visibleLimit = Math.max(1, Math.min(limit, 25));
     const since = new Date(Date.now() - ACTIVITY_WINDOW_MS).toISOString();
     const items: Array<Record<string, unknown>> = [];
-    const feedPartitions = [
-      `FEED#${seasonId}`,
-      ...legacySeasonIdsFor(seasonId).map((legacyId) => `FEED#${legacyId}`),
-    ];
-    for (const partition of new Set(feedPartitions)) {
-      let cursor: Record<string, unknown> | undefined;
-      let read = 0;
-      do {
-        const result = await client.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: "pk = :pk AND sk >= :since",
-            ExpressionAttributeValues: { ":pk": partition, ":since": since },
-            ScanIndexForward: false,
-            Limit: Math.min(
-              ACTIVITY_QUERY_PAGE_SIZE,
-              ACTIVITY_SCAN_LIMIT - read,
-            ),
-            ...(cursor ? { ExclusiveStartKey: cursor } : {}),
-          }),
-        );
-        const rows = (result.Items ?? []) as Array<Record<string, unknown>>;
-        items.push(...rows);
-        read += rows.length;
-        cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (cursor && read < ACTIVITY_SCAN_LIMIT);
-      if (items.length) break;
-    }
-    items.sort((left, right) =>
-      String(right.sk).localeCompare(String(left.sk)),
-    );
-    items.splice(ACTIVITY_SCAN_LIMIT);
+    let cursor: Record<string, unknown> | undefined;
+
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND sk >= :since",
+          ExpressionAttributeValues: {
+            ":pk": `FEED#${seasonId}`,
+            ":since": since,
+          },
+          ScanIndexForward: false,
+          Limit: Math.min(
+            ACTIVITY_QUERY_PAGE_SIZE,
+            ACTIVITY_SCAN_LIMIT - items.length,
+          ),
+          ...(cursor ? { ExclusiveStartKey: cursor } : {}),
+        }),
+      );
+      const remaining = ACTIVITY_SCAN_LIMIT - items.length;
+      items.push(
+        ...((result.Items ?? []) as Array<Record<string, unknown>>).slice(
+          0,
+          remaining,
+        ),
+      );
+      cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (cursor && items.length < ACTIVITY_SCAN_LIMIT);
 
     const grouped = new Map<string, ActivityGroup>();
     for (const item of items) {

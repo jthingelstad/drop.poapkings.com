@@ -1,9 +1,7 @@
 import { BatchGetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { legacySeasonIdsFor } from "@elixir-drop/contracts";
 import { client } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
-  boardEpochFor,
   isCurrentBoardRun,
   isLeaderboardEligibleScore,
   leaderboardPartition,
@@ -140,66 +138,46 @@ async function seasonLeaderboardItems(
   limit: number,
   pending: PendingPolicy = "rank",
 ): Promise<BoardItem[]> {
-  const epoch = boardEpochFor(mode);
-  const legacyPartitions = legacySeasonIdsFor(seasonId).map((legacyId) =>
-    epoch
-      ? `LEADERBOARD#${legacyId}#${mode}#${epoch}`
-      : `LEADERBOARD#${legacyId}#${mode}`,
-  );
-  const partitions = [
-    leaderboardPartition(seasonId, mode),
-    ...legacyPartitions,
-  ];
-  const candidates: BoardItem[] = [];
-
-  // The numeric partition is authoritative once it has rows. Until the live
-  // migration moves the old GSI projection, fall through the retired aliases
-  // in order and stop at the first populated partition.
-  for (const partition of new Set(partitions)) {
-    let lastKey: Record<string, unknown> | undefined;
-    let pagesRead = 0;
-    do {
-      const result = await client.send(
-        new QueryCommand({
-          TableName: tableName,
-          IndexName: "GSI1",
-          KeyConditionExpression: "GSI1PK = :pk",
-          ExpressionAttributeValues: { ":pk": partition },
-          ScanIndexForward: true,
-          Limit: BOARD_PAGE_SIZE,
-          ExclusiveStartKey: lastKey,
-        }),
-      );
-      pagesRead += 1;
-      candidates.push(
-        ...((result.Items ?? []) as BoardItem[]).filter((item) =>
-          isLeaderboardEligibleScore(Number(item.score)),
-        ),
-      );
-      lastKey = result.LastEvaluatedKey;
-    } while (lastKey && pagesRead < MAX_BOARD_PAGES);
-    if (candidates.length) break;
-  }
-
-  candidates.sort((left, right) =>
-    String(left.GSI1SK).localeCompare(String(right.GSI1SK)),
-  );
-  if (candidates.some((item) => typeof item.runId !== "string"))
-    throw historyUnavailable();
-  const decisions = await refereeDecisions(tableName, runIdsOf(candidates));
   const items: BoardItem[] = [];
   const seenPlayers = new Set<string>();
-  for (const item of candidates) {
-    const decision = decisions.get(String(item.runId));
-    if (isExcludedFromBoards(decision)) continue;
-    if (pending === "withhold" && refereeReviewStatus(decision) === "pending")
-      continue;
-    const sub = String(item.playerSub);
-    if (seenPlayers.has(sub)) continue;
-    seenPlayers.add(sub);
-    items.push(reviewedItem(item, decision));
-    if (items.length >= limit) break;
-  }
+  let lastKey: Record<string, unknown> | undefined;
+  let pagesRead = 0;
+  do {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: "GSI1",
+        KeyConditionExpression: "GSI1PK = :pk",
+        ExpressionAttributeValues: {
+          ":pk": leaderboardPartition(seasonId, mode),
+        },
+        ScanIndexForward: true,
+        Limit: BOARD_PAGE_SIZE,
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    pagesRead += 1;
+    const pageItems = ((result.Items ?? []) as BoardItem[]).filter((item) =>
+      isLeaderboardEligibleScore(Number(item.score)),
+    );
+    if (pageItems.some((item) => typeof item.runId !== "string"))
+      throw historyUnavailable();
+    const decisions = await refereeDecisions(tableName, runIdsOf(pageItems));
+    for (const item of pageItems) {
+      const decision = decisions.get(String(item.runId));
+      if (isExcludedFromBoards(decision)) continue;
+      if (pending === "withhold" && refereeReviewStatus(decision) === "pending")
+        continue;
+      const sub = String(item.playerSub);
+      if (!seenPlayers.has(sub)) {
+        seenPlayers.add(sub);
+        items.push(reviewedItem(item, decision));
+        if (items.length >= limit) break;
+      }
+    }
+    lastKey = result.LastEvaluatedKey;
+  } while (items.length < limit && lastKey && pagesRead < MAX_BOARD_PAGES);
+
   return items;
 }
 
