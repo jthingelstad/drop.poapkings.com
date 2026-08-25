@@ -545,7 +545,11 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   login/profile and recorded-game outcomes through the numeric property API. The two surfaces
   must never emit the same logical occurrence.
   (kudos removed — the like button was only on game summaries and is gone)
-- Clan invite: `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
+- Clan Ladder invitations are copy-only. Clan Chat gets personalized plain text
+  with `DROP . POAPKINGS . COM` because its chat rejects URLs; Discord gets
+  Markdown with the owner's permanent profile share link so Recruiter
+  attribution survives. Both use the currently selected Clan board and the
+  player's standing, never the current Free Pass mode.
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).
 - Drop contact: `drop@poapkings.com` for administration, general questions,

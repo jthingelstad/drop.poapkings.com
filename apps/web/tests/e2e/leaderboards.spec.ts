@@ -1,7 +1,27 @@
 import type { GameMode } from '@elixir-drop/contracts'
-import { expect, test, testApiRoute, testPlayer, testSeason, testSession, testStats } from './fixtures'
+import {
+  expect,
+  test,
+  testApiRoute,
+  testPlayer,
+  testPublishedProfileUrl,
+  testSeason,
+  testSession,
+  testStats
+} from './fixtures'
 
 test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText(message: string) {
+          ;(window as unknown as { __clanInviteMessage?: string }).__clanInviteMessage = message
+          return Promise.resolve()
+        }
+      }
+    })
+  })
   await page.goto('/#/leaderboards')
 
   // One fixed title on every scope — always "Ladder" — with the current
@@ -90,6 +110,41 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(page.locator('.ed-board__list')).toContainText('Knight Main')
   await expect(page.locator('.ed-clan-invite')).toContainText('Bring a clanmate in')
   await expect(page.locator('.ed-clan-invite')).not.toContainText('More clanmates on Drop')
+
+  // Invite is an in-game copy flow, not an outbound Clash Royale clan link.
+  const inviteButton = page.locator('.ed-clan-invite').getByRole('button', { name: 'Invite', exact: true })
+  await expect(inviteButton).toBeVisible()
+  await expect(page.locator('.ed-clan-invite').getByRole('link', { name: 'Invite', exact: true })).toHaveCount(0)
+  await inviteButton.click()
+  const inviteDialog = page.getByRole('dialog', { name: 'Invite clanmates' })
+  await expect(inviteDialog).toBeVisible()
+  await expect(inviteDialog.getByRole('tab', { name: 'Clan Chat' })).toHaveAttribute('aria-selected', 'true')
+  await expect(inviteDialog.getByLabel('Clan Chat message preview')).toHaveText(
+    "I'm #4 in Survival (best: 24 streak). Beat me on our Drop ladder: DROP . POAPKINGS . COM"
+  )
+  await expect(inviteDialog).not.toContainText('Free Pass')
+  await inviteDialog.getByRole('button', { name: 'Copy for Clan Chat' }).click()
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __clanInviteMessage?: string }).__clanInviteMessage))
+    .toBe("I'm #4 in Survival (best: 24 streak). Beat me on our Drop ladder: DROP . POAPKINGS . COM")
+  await inviteDialog.getByRole('tab', { name: 'Discord' }).click()
+  await expect(inviteDialog.getByLabel('Discord message preview')).toContainText(
+    'Knight Main, currently #4 in Survival on POAP KINGS Clan Ladder'
+  )
+  await expect(inviteDialog.getByRole('button', { name: 'Copy for Discord' })).toBeVisible()
+  const inviteScreenshot = testInfo.outputPath('clan-invite-modal.png')
+  await page.screenshot({ path: inviteScreenshot })
+  await testInfo.attach('clan-invite-modal.png', { path: inviteScreenshot, contentType: 'image/png' })
+  await inviteDialog.getByRole('button', { name: 'Copy for Discord' }).click()
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __clanInviteMessage?: string }).__clanInviteMessage))
+    .toBe(
+      `I'm **Knight Main**, currently **#4 in Survival** on the **POAP KINGS Clan Ladder** (best: **24 streak**).\n\nThink you can beat me? [Take the challenge on Elixir Drop](${testPublishedProfileUrl()})`
+    )
+  await page.keyboard.press('Escape')
+  await expect(inviteDialog).toHaveCount(0)
+  await expect(inviteButton).toBeFocused()
+
   await page.waitForTimeout(250)
   const clanScreenshot = testInfo.outputPath('clan-rankings.png')
   await page.screenshot({ path: clanScreenshot })

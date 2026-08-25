@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import { BADGE_LIST, type GameMode, type Season } from '@elixir-drop/contracts'
 import PlayerAvatar from '../components/PlayerAvatar'
@@ -11,6 +11,7 @@ import XpTimelinePanel from '../components/XpTimeline'
 import EmptyState from '../components/EmptyState'
 import SkeletonRows from '../components/Skeleton'
 import ReviewStatusMark from '../components/ReviewStatus'
+import ClanInviteModal from '../components/ClanInviteModal'
 import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
 import { badgeViews, earnedCount } from '../lib/badges'
 import {
@@ -22,11 +23,10 @@ import {
   type XpTimeline
 } from '../lib/api'
 import { formatLeaderboardSeconds } from '../lib/format'
-import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES } from '../lib/game-metadata'
+import { GAME_BY_MODE, leaderboardScoreLabel, RANKED_GAMES, scoreLabel } from '../lib/game-metadata'
 import { navigate, route } from '../lib/router'
 import { boardModeFromRoute } from '../lib/game-routes'
 import { playerProfilePath } from '../lib/public-player'
-import { CLAN_INVITE_URL } from '../lib/links'
 import CauseChip from '../components/CauseChip'
 import AccountTags from '../components/AccountTags'
 import { offline } from '../lib/api-availability'
@@ -159,6 +159,8 @@ export default function Leaderboards() {
   const xpLoading = useSignal(false)
   const xpError = useSignal('')
   const xpReload = useSignal(0)
+  const inviteOpen = useSignal(false)
+  const inviteTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   const currentPlayer = player.value
   const currentAccountStatus = accountStatus.value
@@ -297,6 +299,12 @@ export default function Leaderboards() {
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
   const activePeriod = period.value === 'all-time' ? 'all-time' : period.value || season.value?.id || ''
+  const playerEntryIndex = entries.value.findIndex((entry) => entry.player.id === currentPlayer?.id)
+  const playerEntry = playerEntryIndex >= 0 ? entries.value[playerEntryIndex] : undefined
+  const invitePlayerName = currentPlayer?.publicName ?? currentPlayer?.clashRoyale?.name ?? 'A clanmate'
+  const inviteResult = playerEntry
+    ? { rank: playerEntryIndex + 1, score: scoreLabel(mode.value, playerEntry.score) }
+    : undefined
   const views = badgeViews(badges.value)
   const earnedBadges = earnedCount(views)
 
@@ -544,12 +552,27 @@ export default function Leaderboards() {
               <span class="ed-clan-invite__text">
                 <strong>Bring a clanmate in</strong>
               </span>
-              <a class="ed-btn ed-btn--gold ed-btn--sm" href={CLAN_INVITE_URL} target="_blank" rel="noreferrer">
+              <button
+                ref={inviteTriggerRef}
+                class="ed-btn ed-btn--gold ed-btn--sm"
+                onClick={() => (inviteOpen.value = true)}
+              >
                 Invite
-              </a>
+              </button>
             </div>
           )}
         </section>
+      )}
+
+      {inviteOpen.value && currentPlayer && (
+        <ClanInviteModal
+          gameName={selectedGame.name}
+          playerName={invitePlayerName}
+          clanName={clanName}
+          result={inviteResult}
+          onClose={() => (inviteOpen.value = false)}
+          returnFocus={inviteTriggerRef.current}
+        />
       )}
 
       {!isBadges && !isXp && (

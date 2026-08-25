@@ -168,7 +168,10 @@ test('the player-tag deep link survives sign-in and focuses the tag field', { ta
 
   await page.getByLabel('Email address').fill('player@example.com')
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
-  expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/profile?edit=player-tag' })
+  // Under the full mobile matrix the tap can settle before the routed request
+  // handler records its body. Assert the request outcome, not that scheduling
+  // happens synchronously with Playwright's click promise.
+  await expect.poll(() => loginBody).toEqual({ email: 'player@example.com', returnTo: '/profile?edit=player-tag' })
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
   await page.getByRole('button', { name: 'Continue to Drop' }).click()

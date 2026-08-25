@@ -7577,6 +7577,107 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 14px;
 }
 
+/* The Clan Ladder invitation reuses the shared detail modal and violet scope
+   tabs; these rules only arrange the message-specific content inside them. */
+.ed-clan-invite-modal {
+  display: grid;
+  gap: 14px;
+}
+.ed-clan-invite-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 42px 2px 2px;
+}
+.ed-clan-invite-modal__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(245, 200, 76, 0.4);
+  border-radius: 12px;
+  background: rgba(109, 40, 217, 0.28);
+  color: var(--gold);
+  font-size: 19px;
+}
+.ed-clan-invite-modal__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+.ed-clan-invite-modal__head p,
+.ed-clan-invite-modal__hint {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.ed-clan-invite-modal .ed-scoperow {
+  margin: 0;
+}
+.ed-clan-invite-modal__hint {
+  margin: -2px 2px 0;
+}
+.ed-clan-invite-modal__preview {
+  min-height: 128px;
+  padding: 15px 16px;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  border-radius: 14px;
+  background: rgba(109, 40, 217, 0.12);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.ed-clan-invite-modal__preview p {
+  margin: 0;
+}
+.ed-clan-invite-modal__preview p + p {
+  margin-top: 12px;
+}
+.ed-clan-invite-modal__preview strong {
+  color: var(--lavender-2);
+}
+.ed-clan-invite-modal__preview-link {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ed-clan-invite-modal__copy {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-color: rgba(245, 200, 76, 0.48);
+  color: var(--gold);
+}
+.ed-clan-invite-modal__copy .icon {
+  width: 17px;
+  height: 17px;
+}
+.ed-clan-invite-modal__status {
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.ed-clan-invite-modal__fallback {
+  display: grid;
+  gap: 6px;
+}
+.ed-clan-invite-modal__fallback textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid rgba(245, 200, 76, 0.42);
+  border-radius: 10px;
+  background: rgba(7, 6, 16, 0.86);
+  color: var(--ink);
+  font: 0.72rem/1.45 var(--font-body);
+}
+
 /* ── You page (identity header + scopes) ──────────────────────── */
 .ed-you {
   display: flex;

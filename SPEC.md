@@ -37,8 +37,6 @@ global Clan Wars clock run asynchronously through the fixed-IP bridge.
 The only outbound ties are ordinary links:
 
 - POAP KINGS site: `https://poapkings.com`
-- Clan invite:
-  `https://link.clashroyale.com/invite/clan/en?tag=J2RGCRVG&token=dtw94pzg`
 - Discord: `https://discord.gg/SdvKfJW5kA`
 - General contact, privacy requests, and Fair Play disputes:
   `drop@poapkings.com`
@@ -621,6 +619,15 @@ highlights. The Share action appears in the owner's You identity header and the
 signed-in Home promotion only. Other players' public profiles deliberately have
 no Share action or share URL; the resulting personalized landing is still
 public and can be shared anywhere after its owner publishes it.
+
+The Clan Ladder's Invite action is a copy-only detail modal with the shared
+violet scope tabs. Clan Chat copy is personalized from the selected mode and
+the player's current clan placement, but uses the URL-free text
+`DROP . POAPKINGS . COM` because Clash Royale chat rejects URLs. Discord copy
+uses Markdown plus the same permanent owner profile URL above, prepared through
+`POST /me/share`, so its landing can retain 30-day Recruiter attribution. A
+profile-publish failure never falls back to an unattributed generic URL. The
+selected board drives the message independently of the current Free Pass mode.
 
 Buttondown campaigns use the separate generic
 `/share/{playerTag}/invite` address. `{playerTag}` is the same immutable public

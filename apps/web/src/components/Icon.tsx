@@ -10,6 +10,7 @@ import chevronRight from 'lucide-static/icons/chevron-right.svg?raw'
 import chevronUp from 'lucide-static/icons/chevron-up.svg?raw'
 import circleHelp from 'lucide-static/icons/circle-help.svg?raw'
 import clock from 'lucide-static/icons/clock.svg?raw'
+import copy from 'lucide-static/icons/copy.svg?raw'
 import download from 'lucide-static/icons/download.svg?raw'
 import externalLink from 'lucide-static/icons/arrow-up-right.svg?raw'
 import flame from 'lucide-static/icons/flame.svg?raw'
@@ -58,6 +59,7 @@ const ICONS = {
   'chevron-up': chevronUp,
   'circle-help': circleHelp,
   clock,
+  copy,
   download,
   'external-link': externalLink,
   flame,
