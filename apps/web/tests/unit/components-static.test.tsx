@@ -242,6 +242,7 @@ describe('standalone pages', () => {
     expect(badges).toContain('Battle Tag')
     expect(badges).toContain('Herald')
     expect(badges).toContain('Recruiter')
+    expect(badges).not.toContain('First Drop')
     expect(badges).toContain('7 hidden badges')
     expect(badges).not.toContain('Night Shift')
     const xp = renderStaticPage('xp')

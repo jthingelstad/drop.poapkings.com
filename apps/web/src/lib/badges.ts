@@ -55,26 +55,31 @@ function progressToward(definition: BadgeDefinition, value: number, rungIndex: n
 
 export function badgeViews(states: BadgeState[]): BadgeView[] {
   const bySlug = new Map(states.map((state) => [state.slug, state]))
-  return BADGE_LIST.map((definition) => {
+  return BADGE_LIST.flatMap((definition) => {
     const state = bySlug.get(definition.slug)
     const rungIndex = state?.rungIndex ?? -1
     const value = state?.value ?? 0
     const earned = rungIndex >= 0
+    // Earned-only visibility still shows the badge on another player's public
+    // profile; it merely omits the impossible locked tile from non-earners.
+    if (definition.limited && !earned) return []
     const reached = definition.rungs[rungIndex]
-    return {
-      definition,
-      slug: definition.slug,
-      name: definition.name,
-      value,
-      rungIndex,
-      tier: badgeTier(rungIndex, definition.rungs.length),
-      earned,
-      concealed: Boolean(definition.hidden) && !earned,
-      chip: earned && reached !== undefined ? formatRungValue(reached, definition.unit) : '',
-      nextRung: definition.rungs[rungIndex + 1],
-      progress: progressToward(definition, value, rungIndex),
-      runsAtRung: state?.runsAtRung
-    }
+    return [
+      {
+        definition,
+        slug: definition.slug,
+        name: definition.name,
+        value,
+        rungIndex,
+        tier: badgeTier(rungIndex, definition.rungs.length),
+        earned,
+        concealed: Boolean(definition.hidden) && !earned,
+        chip: earned && reached !== undefined ? formatRungValue(reached, definition.unit) : '',
+        nextRung: definition.rungs[rungIndex + 1],
+        progress: progressToward(definition, value, rungIndex),
+        runsAtRung: state?.runsAtRung
+      }
+    ]
   })
 }
 

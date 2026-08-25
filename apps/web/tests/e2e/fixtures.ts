@@ -141,6 +141,12 @@ export const testBadges = [
     value: 7,
     rungIndex: 0,
     earnedAt: ['2026-07-21T18:00:00.000Z']
+  },
+  {
+    slug: 'first-drop',
+    value: 100,
+    rungIndex: 0,
+    earnedAt: ['2026-08-25T12:00:00.000Z']
   }
 ] as const
 // The You page's single Your games panel reads this, so the reviewed runs live

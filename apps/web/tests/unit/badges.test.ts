@@ -43,4 +43,23 @@ describe('badge milestone progress', () => {
 
     expect(clockbreaker?.progress).toBeCloseTo(0.16)
   })
+
+  it('shows First Drop on any earned player profile and omits it for non-earners', () => {
+    expect(badgeViews([]).find((badge) => badge.slug === 'first-drop')).toBeUndefined()
+
+    const earned = badgeViews([
+      {
+        slug: 'first-drop',
+        value: 100,
+        rungIndex: 0,
+        earnedAt: ['2026-08-25T12:00:00.000Z']
+      }
+    ]).find((badge) => badge.slug === 'first-drop')
+
+    expect(earned).toMatchObject({
+      name: 'First Drop',
+      earned: true,
+      chip: '100'
+    })
+  })
 })

@@ -733,7 +733,7 @@ export function arenaForXp(xp: number): number {
 // motivating the player who cared most, and rung one can land in a first session
 // while the top rung remains a genuine long-haul target.
 //
-// Three counter kinds cover all 32 badges:
+// Three counter kinds cover every badge:
 //   count — events, only ever climbs;      rung clears at value >= rung
 //   best  — personal best, higher better;  rung clears at value >= rung
 //   time  — personal best in seconds, LOWER better; rung clears at value <= rung
@@ -779,6 +779,13 @@ export interface BadgeDefinition {
   // visible, but the earning condition, progress bar, and aggregate hidden
   // count remain secret until the badge is earned.
   hidden?: true;
+  // Limited recognition badges exist outside the standard collectible set.
+  // They are omitted from a player profile until that player has earned them,
+  // do not inflate the public badge denominator, and never gate Collector.
+  limited?: true;
+  // Badge XP is normally derived from the rung tier. A recognition badge can
+  // explicitly opt out without teaching the award engine about its slug.
+  awardsXp?: false;
   // One line shown on the detail sheet. Hidden-badge requirements are revealed
   // only after earning them.
   requirement?: string;
@@ -999,8 +1006,9 @@ export const BADGES = [
     requirement: "Most games in a single day",
   },
 
-  // ── Community (3). Herald and Recruiter are scaled until their live
-  // counters have enough history to calibrate; Battle Tag is one-time. ──────
+  // ── Community (4). Herald and Recruiter are scaled until their live
+  // counters have enough history to calibrate; Battle Tag and First Drop are
+  // one-time. Community badges never gate Collector. ────────────────────────
   {
     slug: "battle-tag",
     name: "Battle Tag",
@@ -1024,6 +1032,16 @@ export const BADGES = [
     kind: "count",
     rungs: [1, 3, 5, 10, 25, 50],
     requirement: "New players who create an account through your shared links",
+  },
+  {
+    slug: "first-drop",
+    name: "First Drop",
+    group: "community",
+    kind: "count",
+    rungs: [100],
+    limited: true,
+    awardsXp: false,
+    requirement: "Be one of the first 100 registered Elixir Drop players",
   },
 
   // ── Hidden — one rung, silhouette until earned (7). Six of the seven are
@@ -1097,7 +1115,7 @@ export const BADGES = [
     rungs: [1],
     hidden: true,
     requirement:
-      "Earned by unlocking at least one milestone in every other badge.",
+      "Earned by unlocking at least one milestone in every game badge.",
   },
 ] as const satisfies readonly BadgeDefinition[];
 
@@ -1109,6 +1127,16 @@ export type BadgeSlug = (typeof BADGES)[number]["slug"];
 // Iterate this widened view instead; use BADGES only where the literal slug
 // union matters.
 export const BADGE_LIST: readonly BadgeDefinition[] = BADGES;
+
+// Limited recognition badges stay visible on every earned player's public and
+// private profile but do not make the standard collection look impossible.
+export const STANDARD_BADGE_LIST = BADGE_LIST.filter((badge) => !badge.limited);
+
+// Collector represents complete game mastery. Community recognition is a
+// separate lane and therefore never participates in this requirement.
+export const COLLECTOR_BADGE_LIST = BADGE_LIST.filter(
+  (badge) => badge.slug !== "collector" && badge.group !== "community",
+);
 
 export const BADGE_BY_SLUG = new Map(
   BADGE_LIST.map((badge) => [badge.slug, badge]),
@@ -1171,6 +1199,7 @@ export function badgeRungXp(
   rungIndex: number,
 ): number {
   if (rungIndex < 0 || rungIndex >= definition.rungs.length) return 0;
+  if (definition.awardsXp === false) return 0;
   if (definition.slug === "collector") return COLLECTOR_BADGE_XP;
   if (definition.slug === "battle-tag") return BATTLE_TAG_XP;
   if (definition.hidden) return HIDDEN_BADGE_XP;

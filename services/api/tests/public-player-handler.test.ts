@@ -83,7 +83,7 @@ describe("GET /players/:id", () => {
     repository.refereeEvidenceForRuns.mockResolvedValue([]);
     repository.saveBadges.mockResolvedValue(true);
     repository.getBadges.mockResolvedValue({
-      version: 8,
+      version: 9,
       refereeReconciled: true,
       values: { clockbreaker: 49 },
       runsAtRung: { clockbreaker: [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -317,7 +317,7 @@ describe("GET /players/:id", () => {
     );
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
-      expect.objectContaining({ version: 8, refereeReconciled: true }),
+      expect.objectContaining({ version: 9, refereeReconciled: true }),
       expect.any(String),
       {
         version: 1,
@@ -426,7 +426,7 @@ describe("GET /players/:id", () => {
     expect(repository.saveBadges).toHaveBeenCalledWith(
       "private-sub",
       expect.objectContaining({
-        version: 8,
+        version: 9,
         refereeReconciled: true,
         refereeDecisionRevision: 2,
       }),

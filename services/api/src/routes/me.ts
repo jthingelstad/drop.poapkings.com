@@ -15,6 +15,7 @@ import {
 } from "../buttondown.js";
 import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
+import { hasFirstDropBadge } from "../first-drop.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
 import {
@@ -362,6 +363,8 @@ export async function badgeSummary(
     playerTag?: string;
     heraldOpens?: number;
     recruiterCount?: number;
+    firstDrop?: boolean;
+    createdAt?: string;
   },
   cardStats?: Record<string, { correct: number }>,
 ) {
@@ -377,7 +380,8 @@ export async function badgeSummary(
       stored.refereeDecisionRevision === badgeDecisionRevision &&
       (!profile.playerTag || (stored.values["battle-tag"] ?? 0) >= 1) &&
       (stored.values.herald ?? 0) >= (profile.heraldOpens ?? 0) &&
-      (stored.values.recruiter ?? 0) >= (profile.recruiterCount ?? 0)
+      (stored.values.recruiter ?? 0) >= (profile.recruiterCount ?? 0) &&
+      (!hasFirstDropBadge(profile) || (stored.values["first-drop"] ?? 0) >= 100)
     ) {
       const settled = await settleBadgeXpOnRead(
         repository,
@@ -429,6 +433,7 @@ export async function badgeSummary(
         playerTag: profile.playerTag,
         heraldOpens: profile.heraldOpens,
         recruiterCount: profile.recruiterCount,
+        firstDrop: hasFirstDropBadge(profile),
       },
       excluded.flatMap((run) => {
         if (!run.runId) return [];

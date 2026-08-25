@@ -353,7 +353,8 @@ Player XP and the per-player arena:
   featured mode pays 5 per UTC day regardless of entry route; count modes
   require a positive score. These bonuses stack with the base and each other.
 - **Badge rung XP is retroactive and exact once:** copper 5, silver 10, gold 25,
-  prismatic 50, hidden single-rung 25, Battle Tag 100, Collector 100. Profile reads reconcile
+  prismatic 50, hidden single-rung 25, Battle Tag 100, Collector 100. First Drop
+  is an explicit no-XP recognition. Profile reads reconcile
   markers for every currently earned slug+rung and settle the finite Arena
   Climber cascade. Later badge/referee changes never subtract XP.
 - **Season-final XP (Season 135 onward):** the private result-queue finalizer reads referee-eligible,
@@ -520,6 +521,12 @@ tells the browser to show one summary instead of queueing celebrations.
 Counter version 8 adds the profile-backed community set: Battle Tag backfills
 from an existing optional player tag, Herald from the existing distinct-open
 counter, and Recruiter advances from new post-launch attribution.
+Counter version 9 adds First Drop and narrows Collector to the first rung of
+every non-community game badge. Existing Collector awards remain permanent.
+First Drop is a limited, earned-only community badge: it appears on owner and
+public profiles for eligible players, is absent from non-earners and the public
+badge guide, is excluded from the standard collection denominator, and awards
+no XP.
 Badge XP uses sibling `PLAYER#{sub}/XP#BADGE#{slug}#{rung}` markers; Practice's
 carry is `XP#PRACTICE`; PB day caps use `XP-DAY#{yyyy-mm-dd}`; featured,
 season-placement, Circuit, and per-run PB markers use their event identities.
@@ -541,7 +548,7 @@ merely because the owner has not opened Profile since badges shipped.
 `/runs/complete` returns `earnedBadges`, the rungs that run cleared, plus the
 current badge summary so the in-memory Profile updates without another request.
 Awarding is a pure function of the counters
-(`services/api/src/badges.ts`), every earned rung awards exact-once XP, and no valid achievement is
+(`services/api/src/badges.ts`), every XP-bearing earned rung awards exact-once XP, and no valid achievement is
 ever revoked; a versioned correction may remove a retired-board result that
 never met the badge's stated requirement, and a final referee exclusion removes
 that ineligible run from the derived award projection. Every ranked-run referee
@@ -587,6 +594,14 @@ The private profile also records `lastLoginAt` when a magic link is successfully
 redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
+
+That same successful redemption defines account registration for First Drop.
+The 25 production profiles present at rollout are recognized through the
+measured legacy timestamp boundary; later registrations atomically increment a
+`SYSTEM#FIRST_DROP/COUNTER` item and create the profile with an internal marker
+in one DynamoDB transaction. Allocation stops at 100 and never decrements on
+account deletion, so a vacated place is not reissued. The marker and legacy
+timestamp remain internal; only the earned badge is public.
 
 Magic-link return destinations are an exact shared allowlist, never an arbitrary
 internal or external URL. The browser and API accept each shipped game route,

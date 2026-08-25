@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "collector-counts-game-badges",
+      "impact": "progression",
+      "publishedAt": "2026-08-25T12:50:00-05:00",
+      "title": "Collector belongs to the games",
+      "body": "**Collector** now unlocks from game badges alone. Community milestones such as Battle Tag, Herald, and Recruiter no longer stand between you and the complete gameplay collection—and any Collector you already earned stays yours."
+    },
+    {
       "id": "share-your-player-card",
       "impact": "sharing",
       "publishedAt": "2026-08-23T11:54:07-05:00",

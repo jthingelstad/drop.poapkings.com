@@ -396,7 +396,7 @@ rank-oriented fields as part of unrelated work.
   stats — a badge failure must never roll back a recorded run. Every earned
   rung awards exact-once Player XP from the shared contract (copper 5, silver
   10, gold 25, prismatic 50, hidden single-rung 25, Battle Tag 100, Collector
-  100). The profile
+  100). First Drop is an explicit no-XP limited recognition. The profile
   read path retroactively reconciles every existing rung, and then settles the
   finite badge XP → Arena Climber → badge XP cascade; markers prevent replay and
   awarded XP is never clawed back. Rungs were calibrated against the live boards on 2026-08-02, with
@@ -409,6 +409,9 @@ rank-oriented fields as part of unrelated work.
   Battle Tag is a visible one-time badge derived from the optional unverified
   player tag. Herald reads the existing distinct shared-run open counter;
   Recruiter credits the sharer when a newly attributed account is created.
+  First Drop recognizes the first 100 registered players, appears on any
+  eligible player's public profile, stays absent for non-earners, and never
+  gates Collector. Collector requires all non-community game badges.
 - **Player XP is permanent progression; the leaderboard is performance.**
   `packages/contracts/src/index.ts` is the one XP v2 rulebook used by the API,
   browser, and generated `/xp/` page. Recorded Surge pays 15 and Trade 100;

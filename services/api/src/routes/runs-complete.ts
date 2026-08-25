@@ -18,6 +18,7 @@ import {
   updateButtondownSubscriberMetadata,
 } from "../buttondown.js";
 import { badRequest, HttpError } from "../errors.js";
+import { hasFirstDropBadge } from "../first-drop.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
 import { assessRunIntegrity } from "../integrity.js";
@@ -433,6 +434,7 @@ async function recordSignedInRun(
     playerTag: progressionProfile.playerTag,
     heraldOpens: progressionProfile.heraldOpens,
     recruiterCount: progressionProfile.recruiterCount,
+    firstDrop: hasFirstDropBadge(progressionProfile),
     tzOffsetMinutes: body.tzOffsetMinutes,
     personalBest,
   });
@@ -607,6 +609,7 @@ export async function updateBadges(
     playerTag?: string;
     heraldOpens?: number;
     recruiterCount?: number;
+    firstDrop?: boolean;
     tzOffsetMinutes: unknown;
     personalBest: { improved: boolean; previousScore?: number };
   },
@@ -636,7 +639,8 @@ export async function updateBadges(
         stored.version === 4 ||
         stored.version === 5 ||
         stored.version === 6 ||
-        stored.version === 7
+        stored.version === 7 ||
+        stored.version === 8
       ) {
         // completeRun already wrote this run to history. Migrate from every
         // prior row, then fold the current transcript exactly once below so
@@ -694,6 +698,7 @@ export async function updateBadges(
         playerTag: context.playerTag,
         heraldOpens: context.heraldOpens,
         recruiterCount: context.recruiterCount,
+        firstDrop: context.firstDrop,
         practiceClean:
           run.mode === "practice" &&
           answers >= 20 &&

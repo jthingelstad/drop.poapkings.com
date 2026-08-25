@@ -543,9 +543,10 @@ unless it is re-approved.
 
 ## Badges
 
-32 badges over 212 rungs, backed by `BADGES` in `packages/contracts` and the pure
-engine in `services/api/src/badges.ts`. 25 visible badges plus 7 hidden
-single-rung badges.
+32 standard badges over 212 rungs, backed by `BADGES` in `packages/contracts`
+and the pure engine in `services/api/src/badges.ts`: 25 published badges plus 7
+hidden single-rung badges. First Drop is a 33rd, earned-only limited recognition
+badge outside that standard collection.
 
 **Why ladders, not tiers.** Three tiers means a player who clears tier III is done
 with that badge forever — it stops motivating exactly the player who cared most.
@@ -594,7 +595,10 @@ opening a link or requesting a login email is not a recruit.
 Herald and Recruiter use the normal rung-tier XP schedule. Their scaled ladders
 are `1·5·10·25·50·100·250·500` and
 `1·3·5·10·25·50` respectively and should be recalibrated after a month of live
-counter history.
+counter history. First Drop recognizes the first 100 accounts at successful
+magic-link redemption, awards no XP, and is shown on every eligible player's
+owner and public profiles. Non-earners see no locked tile, and the public badge
+guide omits it. Its allocation never decrements after account deletion.
 
 **Hidden badges.** Shown as a flat black silhouette of the real glyph until
 earned. The badge name stays visible, but its art and earning condition are the
@@ -602,11 +606,14 @@ mystery; once earned, the detail sheet explains exactly what triggered it.
 **Never show a hidden count**: "3 of 7 found" turns discovery into a checklist
 and makes players feel behind. Six of the seven are earnable in a single run;
 only Collector is a long game.
+Collector requires the first rung of every non-community game badge. Battle
+Tag, Herald, Recruiter, First Drop, and future community badges never gate it;
+an already-earned Collector is never revoked.
 
 **What backfills and what does not.** Run history stores mode, score, seasonId,
 completedAt, and the board epoch that dealt new runs — not transcripts. So the
 volume and skill ladders, Drop Regular, Arena Climber, All Six, Daily Drop,
-Marathon, Night Shift, Battle Tag, Herald, and the four card-knowledge badges
+Marathon, Night Shift, Battle Tag, Herald, First Drop, and the four card-knowledge badges
 rebuild from profile/history plus the `CARDSTATS` item; Recruiter is
 forward-only from the attribution launch. Reps, Clean Sweep and the five transcript-derived
 hidden badges are forward-only. Mode-mastery ladders keep legitimate historical

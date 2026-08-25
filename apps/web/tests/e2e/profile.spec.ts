@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { BADGE_LIST, playerReference, runReference } from '@elixir-drop/contracts'
+import { STANDARD_BADGE_LIST, playerReference, runReference } from '@elixir-drop/contracts'
 import {
   cardsData,
   expect,
@@ -292,13 +292,14 @@ test('the Ladder Badges scope shows the full collection without unrelated helper
   // The full collection needs no helper copy, featured strip, "+N more", or expand toggle.
   // (The two Reach badges are specced but not built yet, so BADGE_LIST is 29.)
   const badgesHead = page.locator('.ed-ladder__badges-head')
-  await expect(badgesHead).toContainText(`of ${BADGE_LIST.length} earned`)
+  await expect(badgesHead).toContainText(`of ${STANDARD_BADGE_LIST.length} earned`)
   await expect(badgesHead.locator('span')).toHaveCount(0)
   await expect(page.locator('.ed-ladder__clock')).toHaveCount(0)
   await expect(page.locator('.ed-board__key')).toHaveCount(0)
   await expect(page.locator('.ed-badges__grid--featured')).toHaveCount(0)
   await expect(page.locator('.ed-profile__badges-toggle')).toHaveCount(0)
-  await expect(page.locator('.ed-badges__cell')).toHaveCount(BADGE_LIST.length)
+  await expect(page.locator('.ed-badges__cell')).toHaveCount(STANDARD_BADGE_LIST.length + 1)
+  await expect(page.getByRole('button', { name: 'First Drop, 100' })).toBeVisible()
 })
 
 test('opening a badge on the Ladder uses a focused modal with the rung ladder', async ({ page }, testInfo) => {
@@ -485,12 +486,24 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
   )
   await expect(tabs.getByRole('tab')).toHaveText(['Badges', 'XP', 'Log'])
   await expect(tabs.getByRole('tab', { name: 'Badges' })).toHaveAttribute('aria-selected', 'true')
-  await expect(badgeWall).toContainText('4 earned')
+  await expect(badgeWall).toContainText('5 earned')
   await expect(stats).toHaveCount(0)
   await expect(recentGames).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
   await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
   await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
+  const firstDrop = badgeWall.getByRole('button', { name: 'First Drop, 100' })
+  await expect(firstDrop).toBeVisible()
+  await firstDrop.click()
+  const firstDropSheet = page.getByRole('dialog', { name: 'First Drop' })
+  await expect(firstDropSheet).toContainText('first 100 registered Elixir Drop players')
+  await expect(firstDropSheet).toContainText('100')
+  await expect(firstDropSheet.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
+  await testInfo.attach('public-profile-first-drop.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+  await page.getByRole('button', { name: 'Close' }).click()
   await badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
   await expect(
     page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'SHARE', exact: true })
@@ -517,6 +530,25 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
     body: await page.screenshot({ fullPage: false }),
     contentType: 'image/png'
   })
+})
+
+test('public profiles omit the First Drop tile when that player did not earn it', async ({ page }) => {
+  await page.route(testApiRoute, async (route) => {
+    if (new URL(route.request().url()).pathname !== '/players/player-2') return route.fallback()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        player: testPlayer,
+        recentRuns: [],
+        badges: { badges: testBadges.filter((badge) => badge.slug !== 'first-drop') }
+      })
+    })
+  })
+
+  await page.goto('/#/players/player-2', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('button', { name: /First Drop/ })).toHaveCount(0)
+  await expect(page.getByText('First Drop', { exact: true })).toHaveCount(0)
 })
 
 test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {

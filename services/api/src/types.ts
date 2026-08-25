@@ -101,6 +101,10 @@ export interface PlayerProfile {
   // are monotonic and owner-internal.
   heraldOpens?: number;
   recruiterCount?: number;
+  // Durable allocation marker for accounts registered after the First Drop
+  // legacy boundary. Older eligible accounts are recognized by createdAt.
+  // Internal only: the public surface is the earned badge itself.
+  firstDrop?: boolean;
   // Internal last-touch recruitment attribution. Never returned by an API.
   recruitedBy?: string;
   recruiterCreditedAt?: string;

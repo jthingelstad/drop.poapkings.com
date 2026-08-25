@@ -1,6 +1,6 @@
 import {
   ARENA_XP_THRESHOLDS,
-  BADGE_LIST,
+  STANDARD_BADGE_LIST,
   badgeRungXp,
   BADGE_TIER_XP,
   BATTLE_TAG_XP,
@@ -610,8 +610,8 @@ function formatRung(rung: number, badge: BadgeDefinition): string {
 }
 
 function badgesBody(): string {
-  const publicBadges = BADGE_LIST.filter((badge) => !badge.hidden)
-  const hiddenCount = BADGE_LIST.length - publicBadges.length
+  const publicBadges = STANDARD_BADGE_LIST.filter((badge) => !badge.hidden)
+  const hiddenCount = STANDARD_BADGE_LIST.length - publicBadges.length
   const groups = BADGE_GROUPS.map((group) => {
     const badges = publicBadges.filter((badge) => badge.group === group.key)
     return section(
@@ -644,7 +644,7 @@ function badgesBody(): string {
       `${paragraph(
         'Badges are progress ladders, not one-time checkboxes. Each badge has several meaningful milestones. Your medallion shows the strongest tier you have reached and the exact rung that earned it.'
       )}${paragraph(
-        'Every rung also awards Player XP once: copper +5, silver +10, gold +25, and prismatic +50. Hidden single-rung badges award +25; Collector awards +100. Previously earned rungs receive their XP automatically, with no loss of existing XP. Badge progress is saved for signed-in online play; guest and offline runs do not add progress.'
+        'The badge ladders in this guide award Player XP once per rung: copper +5, silver +10, gold +25, and prismatic +50. Hidden single-rung badges award +25; Collector awards +100. Previously earned rungs receive their XP automatically, with no loss of existing XP. Badge progress is saved for signed-in online play; guest and offline runs do not add progress.'
       )}`
     ),
     ...groups,
@@ -793,7 +793,7 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
       'Explore Elixir Drop badge ladders for mode mastery, personal bests, progression, card knowledge, and practice habits.',
     body: badgesBody(),
     schemaType: 'CollectionPage',
-    schemaItems: BADGE_LIST.filter((badge) => !badge.hidden).map((badge) => ({
+    schemaItems: STANDARD_BADGE_LIST.filter((badge) => !badge.hidden).map((badge) => ({
       name: badge.name,
       url: `${SITE_URL}/badges/#${badge.slug}`,
       description: badge.requirement

@@ -28,6 +28,7 @@ function awsError(name: string, extra: Record<string, unknown> = {}): Error {
 }
 
 const conditionFailed = () => awsError("ConditionalCheckFailedException");
+const transactionCanceled = () => awsError("TransactionCanceledException");
 
 const startedRun: RunItem = {
   pk: "RUN#run-1",
@@ -494,9 +495,41 @@ describe("repository conditional writes", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
-  it("treats a lost create race as a returning player, not an error", async () => {
+  it("atomically allocates First Drop when creating an eligible profile", async () => {
+    send.mockResolvedValueOnce({});
+
+    const login = await new Repository("test-table").ensureProfile(
+      "player-sub",
+      "player@example.com",
+    );
+
+    expect(login).toMatchObject({
+      created: true,
+      profile: { firstDrop: true },
+    });
+    const transaction = send.mock.calls[0]?.[0];
+    expect(transaction).toBeInstanceOf(TransactWriteCommand);
+    if (!(transaction instanceof TransactWriteCommand))
+      throw new Error("Expected the First Drop allocation transaction");
+    expect(transaction.input.TransactItems).toHaveLength(2);
+    expect(transaction.input.TransactItems?.[0]?.Update).toMatchObject({
+      Key: { pk: "SYSTEM#FIRST_DROP", sk: "COUNTER" },
+      ConditionExpression: "attribute_not_exists(claimed) OR claimed < :limit",
+      ExpressionAttributeValues: expect.objectContaining({
+        ":baseline": 25,
+        ":limit": 100,
+      }),
+    });
+    expect(transaction.input.TransactItems?.[1]?.Put?.Item).toMatchObject({
+      pk: "PLAYER#player-sub",
+      sk: "PROFILE",
+      firstDrop: true,
+    });
+  });
+
+  it("treats a lost create race as a returning legacy player", async () => {
     send
-      .mockRejectedValueOnce(conditionFailed())
+      .mockRejectedValueOnce(transactionCanceled())
       .mockResolvedValueOnce({
         Item: {
           sub: "player-sub",
@@ -535,15 +568,65 @@ describe("repository conditional writes", () => {
     );
   });
 
-  it("fails rather than inventing a profile when the race leaves nothing", async () => {
-    send.mockRejectedValueOnce(conditionFailed()).mockResolvedValueOnce({});
+  it("retries a contended First Drop allocation while slots remain", async () => {
+    send
+      .mockRejectedValueOnce(transactionCanceled())
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { claimed: 99 } })
+      .mockResolvedValueOnce({});
 
     await expect(
       new Repository("test-table").ensureProfile(
         "player-sub",
         "player@example.com",
       ),
-    ).rejects.toThrow("Player profile disappeared during login");
+    ).resolves.toMatchObject({ created: true, profile: { firstDrop: true } });
+    expect(send).toHaveBeenCalledTimes(4);
+  });
+
+  it("creates a normal profile without consuming a slot after the first 100", async () => {
+    send
+      .mockRejectedValueOnce(transactionCanceled())
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { claimed: 100 } })
+      .mockResolvedValueOnce({});
+
+    const login = await new Repository("test-table").ensureProfile(
+      "player-sub",
+      "player@example.com",
+    );
+
+    expect(login.created).toBe(true);
+    expect(login.profile.firstDrop).toBeUndefined();
+    expect(send.mock.calls[3]?.[0]?.constructor.name).toBe("PutCommand");
+  });
+
+  it("allocates a rollout-gap account exactly once on its next login", async () => {
+    const existing = {
+      sub: "player-sub",
+      playerId: "existing-player",
+      email: "player@example.com",
+      totalGames: 0,
+      createdAt: "2026-08-20T00:00:00.000Z",
+      updatedAt: "2026-08-20T00:00:00.000Z",
+    };
+    send
+      .mockRejectedValueOnce(transactionCanceled())
+      .mockResolvedValueOnce({ Item: existing })
+      .mockResolvedValueOnce({ Item: { claimed: 25 } })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Attributes: { ...existing, firstDrop: true } });
+
+    const login = await new Repository("test-table").ensureProfile(
+      "player-sub",
+      "player@example.com",
+    );
+
+    expect(login).toMatchObject({
+      created: false,
+      profile: { firstDrop: true },
+    });
+    expect(send.mock.calls[3]?.[0]).toBeInstanceOf(TransactWriteCommand);
   });
 
   it("hands an expired poll session back as nothing", async () => {
@@ -734,6 +817,8 @@ describe("repository conditional writes", () => {
     expect(result).toEqual({ deletedGames: 3 });
     // The unprocessed batch was written again before the profile delete.
     expect(send).toHaveBeenCalledTimes(5);
+    for (const [command] of send.mock.calls)
+      expect(JSON.stringify(command.input)).not.toContain("SYSTEM#FIRST_DROP");
   });
 
   it("refuses to report a half-finished deletion as done", async () => {

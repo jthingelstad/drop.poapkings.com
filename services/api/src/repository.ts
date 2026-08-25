@@ -23,6 +23,11 @@ import type { BadgeCounters } from "./badges.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
+  FIRST_DROP_LEGACY_COUNT,
+  FIRST_DROP_LIMIT,
+  hasFirstDropBadge,
+} from "./first-drop.js";
+import {
   boardEpochFor,
   isGameMode,
   isCurrentBoardRun,
@@ -226,6 +231,20 @@ interface ProfileItem extends PlayerProfile {
   pk: string;
   sk: "PROFILE";
 }
+
+interface FirstDropCounterItem {
+  pk: "SYSTEM#FIRST_DROP";
+  sk: "COUNTER";
+  claimed: number;
+  limit: number;
+  updatedAt: string;
+}
+
+const FIRST_DROP_COUNTER_KEY = {
+  pk: "SYSTEM#FIRST_DROP" as const,
+  sk: "COUNTER" as const,
+};
+const FIRST_DROP_WRITE_ATTEMPTS = 5;
 
 interface RecruiterInviteItem {
   pk: `RECRUITER#${string}`;
@@ -559,44 +578,167 @@ export class Repository {
       updatedAt: now,
       lastLoginAt: now,
     };
-    try {
-      await client.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: {
-            ...profileKey(sub),
-            ...profile,
-          } satisfies ProfileItem,
-          ConditionExpression: "attribute_not_exists(pk)",
-        }),
-      );
-      return { profile, created: true };
-    } catch (error) {
-      if (!(
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      ))
+    for (let attempt = 0; attempt < FIRST_DROP_WRITE_ATTEMPTS; attempt += 1) {
+      try {
+        await client.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              {
+                Update: {
+                  TableName: this.tableName,
+                  Key: FIRST_DROP_COUNTER_KEY,
+                  UpdateExpression:
+                    "SET claimed = if_not_exists(claimed, :baseline) + :one, #limit = if_not_exists(#limit, :limit), updatedAt = :updatedAt",
+                  ConditionExpression:
+                    "attribute_not_exists(claimed) OR claimed < :limit",
+                  ExpressionAttributeNames: { "#limit": "limit" },
+                  ExpressionAttributeValues: {
+                    ":baseline": FIRST_DROP_LEGACY_COUNT,
+                    ":one": 1,
+                    ":limit": FIRST_DROP_LIMIT,
+                    ":updatedAt": now,
+                  },
+                },
+              },
+              {
+                Put: {
+                  TableName: this.tableName,
+                  Item: {
+                    ...profileKey(sub),
+                    ...profile,
+                    firstDrop: true,
+                  } satisfies ProfileItem,
+                  ConditionExpression: "attribute_not_exists(pk)",
+                },
+              },
+            ],
+          }),
+        );
+        return { profile: { ...profile, firstDrop: true }, created: true };
+      } catch (error) {
+        if (!(
+          error instanceof Error &&
+          error.name === "TransactionCanceledException"
+        ))
+          throw error;
+      }
+
+      const existing = await this.getProfile(sub);
+      if (existing) {
+        const claimed = hasFirstDropBadge(existing)
+          ? existing
+          : await this.claimFirstDropForExisting(existing, now);
+        const result = await client.send(
+          new UpdateCommand({
+            TableName: this.tableName,
+            Key: profileKey(sub),
+            UpdateExpression: "SET lastLoginAt = :lastLoginAt",
+            ConditionExpression: "attribute_exists(pk)",
+            ExpressionAttributeValues: { ":lastLoginAt": now },
+            ReturnValues: "ALL_NEW",
+          }),
+        );
+        return {
+          profile: (result.Attributes as ProfileItem | undefined) ?? {
+            ...claimed,
+            lastLoginAt: now,
+          },
+          created: false,
+        };
+      }
+
+      if ((await this.firstDropClaimCount()) < FIRST_DROP_LIMIT) continue;
+      try {
+        await client.send(
+          new PutCommand({
+            TableName: this.tableName,
+            Item: { ...profileKey(sub), ...profile } satisfies ProfileItem,
+            ConditionExpression: "attribute_not_exists(pk)",
+          }),
+        );
+        return { profile, created: true };
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.name === "ConditionalCheckFailedException"
+        )
+          continue;
         throw error;
+      }
     }
-    const existing = await this.getProfile(sub);
-    if (!existing) throw new Error("Player profile disappeared during login");
+    throw new Error("Player profile creation remained busy after retries");
+  }
+
+  private async firstDropClaimCount(): Promise<number> {
     const result = await client.send(
-      new UpdateCommand({
+      new GetCommand({
         TableName: this.tableName,
-        Key: profileKey(sub),
-        UpdateExpression: "SET lastLoginAt = :lastLoginAt",
-        ConditionExpression: "attribute_exists(pk)",
-        ExpressionAttributeValues: { ":lastLoginAt": now },
-        ReturnValues: "ALL_NEW",
+        Key: FIRST_DROP_COUNTER_KEY,
+        ConsistentRead: true,
       }),
     );
-    return {
-      profile: (result.Attributes as ProfileItem | undefined) ?? {
-        ...existing,
-        lastLoginAt: now,
-      },
-      created: false,
-    };
+    const claimed = Number(
+      (result.Item as FirstDropCounterItem | undefined)?.claimed ??
+        FIRST_DROP_LEGACY_COUNT,
+    );
+    return Number.isFinite(claimed) ? claimed : FIRST_DROP_LEGACY_COUNT;
+  }
+
+  private async claimFirstDropForExisting(
+    profile: PlayerProfile,
+    at: string,
+  ): Promise<PlayerProfile> {
+    if ((await this.firstDropClaimCount()) >= FIRST_DROP_LIMIT) return profile;
+    for (let attempt = 0; attempt < FIRST_DROP_WRITE_ATTEMPTS; attempt += 1) {
+      try {
+        await client.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              {
+                Update: {
+                  TableName: this.tableName,
+                  Key: FIRST_DROP_COUNTER_KEY,
+                  UpdateExpression:
+                    "SET claimed = if_not_exists(claimed, :baseline) + :one, #limit = if_not_exists(#limit, :limit), updatedAt = :updatedAt",
+                  ConditionExpression:
+                    "attribute_not_exists(claimed) OR claimed < :limit",
+                  ExpressionAttributeNames: { "#limit": "limit" },
+                  ExpressionAttributeValues: {
+                    ":baseline": FIRST_DROP_LEGACY_COUNT,
+                    ":one": 1,
+                    ":limit": FIRST_DROP_LIMIT,
+                    ":updatedAt": at,
+                  },
+                },
+              },
+              {
+                Update: {
+                  TableName: this.tableName,
+                  Key: profileKey(profile.sub),
+                  UpdateExpression: "SET firstDrop = :true",
+                  ConditionExpression:
+                    "attribute_exists(pk) AND attribute_not_exists(firstDrop)",
+                  ExpressionAttributeValues: { ":true": true },
+                },
+              },
+            ],
+          }),
+        );
+        return { ...profile, firstDrop: true };
+      } catch (error) {
+        if (!(
+          error instanceof Error &&
+          error.name === "TransactionCanceledException"
+        ))
+          throw error;
+      }
+      const current = await this.getProfile(profile.sub);
+      if (!current) throw new Error("Player profile disappeared during login");
+      if (current.firstDrop === true) return current;
+      if ((await this.firstDropClaimCount()) >= FIRST_DROP_LIMIT)
+        return current;
+    }
+    throw new Error("First Drop allocation remained busy after retries");
   }
 
   async getProfile(sub: string): Promise<PlayerProfile | undefined> {

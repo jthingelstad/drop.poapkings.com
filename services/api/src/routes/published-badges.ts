@@ -144,8 +144,11 @@ export function renderPublishedBadgePage(
   appUrl: string,
 ): string {
   const rung = share.rungIndex + 1;
+  const limited = BADGE_BY_SLUG.get(share.slug)?.limited === true;
   const title = `${share.player.publicName} earned ${share.badge.name} — ${share.badge.chip} | Elixir Drop`;
-  const description = `${share.player.publicName} reached rung ${rung} of ${share.badge.rungCount} in ${share.badge.name}. Can you earn yours?`;
+  const description = limited
+    ? `${share.player.publicName} earned the limited ${share.badge.name} community badge in Elixir Drop.`
+    : `${share.player.publicName} reached rung ${rung} of ${share.badge.rungCount} in ${share.badge.name}. Can you earn yours?`;
   return renderPublishedSharePage({
     title,
     description,
@@ -153,7 +156,7 @@ export function renderPublishedBadgePage(
     image: imageUrl(appUrl, share),
     imageAlt: badgeShareImageAlt(share),
     challenge: `${appUrl}/#/`,
-    cta: "EARN YOURS",
+    cta: limited ? "PLAY ELIXIR DROP" : "EARN YOURS",
     pitch:
       share.badge.requirement ??
       "Learn Clash Royale elixir costs, clear milestones, and build your badge wall.",

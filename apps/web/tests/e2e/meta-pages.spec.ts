@@ -128,6 +128,7 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(badge('Battle Tag')).toContainText('1 (+100 XP)')
   await expect(badge('Herald')).toContainText('500 (+50 XP)')
   await expect(badge('Recruiter')).toContainText('50 (+50 XP)')
+  await expect(page.getByText('First Drop', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Night Shift', { exact: true })).toHaveCount(0)
   await expect(page.getByText(/midnight and 5:00/)).toHaveCount(0)
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import {
-  BADGE_LIST,
+  STANDARD_BADGE_LIST,
   ladderRoutePath,
   ladderRouteState,
   normalizeAuthReturnPath,
@@ -21,7 +21,7 @@ import SkeletonRows from '../components/Skeleton'
 import ReviewStatusMark from '../components/ReviewStatus'
 import ClanInviteModal from '../components/ClanInviteModal'
 import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
-import { badgeViews, earnedCount } from '../lib/badges'
+import { badgeViews } from '../lib/badges'
 import {
   ApiError,
   getLeaderboard,
@@ -315,7 +315,8 @@ export default function Leaderboards() {
     ? { rank: playerEntryIndex + 1, score: scoreLabel(mode, playerEntry.score) }
     : undefined
   const views = badgeViews(badges.value)
-  const earnedBadges = earnedCount(views)
+  const earnedBadges = views.filter((view) => view.earned && !view.definition.limited).length
+  const limitedBadges = views.filter((view) => view.earned && view.definition.limited).length
   const canonicalReturnPath = normalizeAuthReturnPath(canonicalLadderRoute)
   const scopedSignInHref = canonicalReturnPath ? loginRouteForReturnPath(canonicalReturnPath) : '/login'
 
@@ -450,7 +451,8 @@ export default function Leaderboards() {
             <>
               <div class="ed-ladder__badges-head">
                 <strong>
-                  {earnedBadges} of {BADGE_LIST.length} earned
+                  {earnedBadges} of {STANDARD_BADGE_LIST.length} earned
+                  {limitedBadges ? ` · ${limitedBadges} limited` : ''}
                 </strong>
               </div>
               <BadgeGrid states={badges.value} playerId={currentPlayer?.id} playerName={currentPlayer?.publicName} />

@@ -1,4 +1,8 @@
-import { BADGE_LIST, type BadgeDefinition } from "@elixir-drop/contracts";
+import {
+  BADGE_LIST,
+  COLLECTOR_BADGE_LIST,
+  type BadgeDefinition,
+} from "@elixir-drop/contracts";
 import { isCurrentBoardRun } from "./games.js";
 import { cardElixir } from "./scoring.js";
 import type { GameMode } from "./types.js";
@@ -30,7 +34,9 @@ import type { GameMode } from "./types.js";
 // per-rung run counts rebuild because its final time boundary changed.
 // Version 8 adds Battle Tag, Herald, and Recruiter. Their profile-backed facts
 // join the history rebuild so existing tags and share opens award immediately.
-export const BADGE_COUNTERS_VERSION = 8;
+// Version 9 adds the no-XP First Drop recognition and scopes Collector to game
+// badges, excluding every community badge.
+export const BADGE_COUNTERS_VERSION = 9;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -87,6 +93,7 @@ export interface RunFacts {
   playerTag?: string;
   heraldOpens?: number;
   recruiterCount?: number;
+  firstDrop?: boolean;
   practiceClean?: boolean;
   photoFinish?: boolean;
   fullCup?: boolean;
@@ -324,6 +331,7 @@ export function advanceBadges(
   if (facts.playerTag) raise(values, "battle-tag", 1);
   raise(values, "herald", facts.heraldOpens ?? 0);
   raise(values, "recruiter", facts.recruiterCount ?? 0);
+  if (facts.firstDrop) raise(values, "first-drop", 100);
 
   // ── Hidden. Single-rung moments; once set they never move again. ──────────
   if (facts.localHour < 5) raise(values, "night-shift", 1);
@@ -371,15 +379,19 @@ export function recordArenaProgress(
 }
 
 // Derive rung positions from the counters and stamp any newly cleared rung.
-// Collector resolves last: it depends on every other badge's position, so it
-// can only be decided once the rest of this pass has settled.
+// Collector resolves last: it depends on every game badge's position, so it can
+// only be decided once the rest of this pass has settled. Community badges are
+// a separate recognition lane and never participate.
 function settle(counters: BadgeCounters, at: string): BadgeCounters {
   for (const definition of BADGE_LIST) {
     if (definition.slug === "collector") continue;
     stampRungs(counters, definition, at);
   }
-  const others = BADGE_LIST.filter((badge) => badge.slug !== "collector");
-  if (others.every((badge) => (counters.earned[badge.slug]?.length ?? 0) > 0)) {
+  if (
+    COLLECTOR_BADGE_LIST.every(
+      (badge) => (counters.earned[badge.slug]?.length ?? 0) > 0,
+    )
+  ) {
     raise(counters.values, "collector", 1);
   }
   const collector = BADGE_LIST.find((badge) => badge.slug === "collector");
@@ -548,6 +560,7 @@ export function recomputeCounters(
     playerTag?: string;
     heraldOpens?: number;
     recruiterCount?: number;
+    firstDrop?: boolean;
   },
   arenaFor: (xp: number) => number,
   at: string,
@@ -600,6 +613,7 @@ export function recomputeCounters(
   if (profile.playerTag) raise(values, "battle-tag", 1);
   raise(values, "herald", profile.heraldOpens ?? 0);
   raise(values, "recruiter", profile.recruiterCount ?? 0);
+  if (profile.firstDrop) raise(values, "first-drop", 100);
 
   for (const [key, stat] of Object.entries(cardStats)) {
     if (!stat || stat.correct <= 0) continue;
@@ -648,6 +662,7 @@ export function reconcileBadgeCounters(
     playerTag?: string;
     heraldOpens?: number;
     recruiterCount?: number;
+    firstDrop?: boolean;
   },
   excludedRuns: ExcludedBadgeRun[],
   arenaFor: (xp: number) => number,
@@ -685,6 +700,7 @@ export function reconcileBadgeCounters(
       ...(profile.playerTag ? { playerTag: profile.playerTag } : {}),
       heraldOpens: profile.heraldOpens ?? 0,
       recruiterCount: profile.recruiterCount ?? 0,
+      firstDrop: profile.firstDrop ?? false,
     },
     arenaFor,
     at,
@@ -844,7 +860,7 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (![1, 2, 3, 4, 5, 6, 7].includes(input.version))
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(input.version))
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
   const rebuildVersionedSkillBadges = input.version <= 4;

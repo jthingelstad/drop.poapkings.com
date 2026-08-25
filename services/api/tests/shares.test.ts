@@ -556,7 +556,7 @@ describe("published badge link", () => {
       xp: 900,
     });
     repository.getBadges.mockResolvedValue({
-      version: 8,
+      version: 9,
       values: { clockbreaker: 34.2 },
       runsAtRung: { clockbreaker: [12, 9, 5, 2] },
       aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
@@ -668,6 +668,33 @@ describe("published badge link", () => {
     expect(response.body).toContain("/assets/share/badge-open.js");
   });
 
+  it("uses neutral play copy when an earned-only community badge is shared", async () => {
+    repository.getPublishedBadgeShareByTag.mockResolvedValueOnce({
+      ...publishedBadge,
+      pk: `SHARE#BADGE#${playerId}#first-drop#0`,
+      slug: "first-drop",
+      rungIndex: 0,
+      badge: {
+        name: "First Drop",
+        tier: "prismatic",
+        chip: "100",
+        milestone: 100,
+        rungCount: 1,
+        earnedAt: "2026-08-25T12:00:00.000Z",
+        requirement: "Be one of the first 100 registered Elixir Drop players",
+      },
+    });
+
+    const response = await call(
+      event("GET", `/share/${playerTag}/badge/first-drop/1`),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("PLAY ELIXIR DROP");
+    expect(response.body).toContain("limited First Drop community badge");
+    expect(response.body).not.toContain("EARN YOURS");
+  });
+
   it("serves the retained PNG and redirects a missing one to the default", async () => {
     const path = `/share-assets/${playerTag}/badge/${slug}/4`;
     const response = await call(event("GET", path));
@@ -738,7 +765,7 @@ describe("published profile link", () => {
       xp: 900,
     });
     repository.getBadges.mockResolvedValue({
-      version: 8,
+      version: 9,
       refereeReconciled: true,
       values: { clockbreaker: 34, "arena-climber": 8 },
       runsAtRung: {},

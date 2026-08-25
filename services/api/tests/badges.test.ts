@@ -1,4 +1,10 @@
-import { arenaForXp, BADGE_LIST, badgeRungXp } from "@elixir-drop/contracts";
+import {
+  arenaForXp,
+  BADGE_LIST,
+  COLLECTOR_BADGE_LIST,
+  STANDARD_BADGE_LIST,
+  badgeRungXp,
+} from "@elixir-drop/contracts";
 import { describe, expect, it } from "vitest";
 import {
   advanceBadges,
@@ -44,12 +50,16 @@ function play(runs: Array<Partial<RunFacts>>): BadgeCounters {
 }
 
 describe("the badge table", () => {
-  it("holds 32 badges, 25 visible and 7 hidden", () => {
-    expect(BADGE_LIST).toHaveLength(32);
+  it("holds 32 standard badges plus one earned-only limited badge", () => {
+    expect(BADGE_LIST).toHaveLength(33);
+    expect(STANDARD_BADGE_LIST).toHaveLength(32);
+    expect(STANDARD_BADGE_LIST.filter((badge) => !badge.hidden)).toHaveLength(
+      25,
+    );
     expect(BADGE_LIST.filter((badge) => badge.hidden)).toHaveLength(7);
     expect(
       BADGE_LIST.reduce((total, badge) => total + badge.rungs.length, 0),
-    ).toBe(212);
+    ).toBe(213);
   });
 
   it("orders count/best rungs upward and time rungs downward", () => {
@@ -72,6 +82,13 @@ describe("the badge table", () => {
       expect(badgeRungXp(badge, 0), slug).toBe(5);
       expect(badgeRungXp(badge, badge.rungs.length - 1), slug).toBe(50);
     }
+  });
+
+  it("awards First Drop no XP", () => {
+    const badge = BADGE_LIST.find(
+      (candidate) => candidate.slug === "first-drop",
+    )!;
+    expect(badgeRungXp(badge, 0)).toBe(0);
   });
 });
 
@@ -165,6 +182,7 @@ describe("advanceBadges", () => {
         totalGames: 10_000,
         arena: 28,
         playerTag: "#2PYQ0",
+        firstDrop: true,
         localHour: 2,
         photoFinish: true,
         fullCup: true,
@@ -193,14 +211,16 @@ describe("advanceBadges", () => {
     ).map((badge) => badge.slug);
     expect(missingWriters).toEqual([]);
 
-    // Collector is a derived writer: once every other badge has rung one, a
-    // normal settle pass activates it too.
+    // Collector is a derived writer: once every game badge has rung one, a
+    // normal settle pass activates it too. Community badges remain absent.
     const forged = emptyCounters();
-    for (const badge of BADGE_LIST) {
-      if (badge.slug !== "collector")
-        forged.earned[badge.slug] = ["2026-08-03T10:12:48.768Z"];
-    }
+    for (const badge of COLLECTOR_BADGE_LIST)
+      forged.earned[badge.slug] = ["2026-08-03T10:12:48.768Z"];
     expect(advanceBadges(forged, facts()).counters.values.collector).toBe(1);
+    for (const badge of BADGE_LIST.filter(
+      (candidate) => candidate.group === "community",
+    ))
+      expect(forged.earned[badge.slug]).toBeUndefined();
   });
 
   it("counts a Surge run toward volume and speed at once", () => {
@@ -361,18 +381,25 @@ describe("advanceBadges", () => {
     );
   });
 
-  it("awards Collector only once every other badge has its first rung", () => {
+  it("awards Collector from every game badge and excludes community badges", () => {
     const counters = play([{ mode: "surge", score: 19_000 }]);
     expect(stateOf(counters, "collector").rungIndex).toBe(-1);
 
-    // Forge a bag where all 28 others are on rung one.
+    // Community achievements are deliberately absent from the forged bag.
     const forged = emptyCounters();
-    for (const badge of BADGE_LIST) {
-      if (badge.slug === "collector") continue;
+    for (const badge of COLLECTOR_BADGE_LIST) {
       forged.earned[badge.slug] = ["2026-08-02T00:00:00.000Z"];
     }
     const settled = advanceBadges(forged, facts()).counters;
     expect(stateOf(settled, "collector").rungIndex).toBe(0);
+
+    const incomplete = emptyCounters();
+    for (const badge of COLLECTOR_BADGE_LIST.slice(1))
+      incomplete.earned[badge.slug] = ["2026-08-02T00:00:00.000Z"];
+    expect(
+      stateOf(advanceBadges(incomplete, facts()).counters, "collector")
+        .rungIndex,
+    ).toBe(-1);
   });
 });
 
@@ -480,6 +507,7 @@ describe("recomputeCounters", () => {
         playerTag: "#2PYQ0",
         heraldOpens: 26,
         recruiterCount: 4,
+        firstDrop: true,
       },
       arenaForXp,
       "2026-08-21T12:00:00.000Z",
@@ -496,6 +524,10 @@ describe("recomputeCounters", () => {
     expect(stateOf(counters, "recruiter")).toMatchObject({
       value: 4,
       rungIndex: 1,
+    });
+    expect(stateOf(counters, "first-drop")).toMatchObject({
+      value: 100,
+      rungIndex: 0,
     });
   });
 
@@ -661,7 +693,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(9);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -722,7 +754,7 @@ describe("recomputeCounters", () => {
     );
 
     expect(migrated).toMatchObject({
-      version: 8,
+      version: 9,
       aux: {
         playedDays: ["2026-08-01", "2026-08-07", "2026-08-21"],
         dayRuns: 1,
@@ -780,7 +812,7 @@ describe("recomputeCounters", () => {
       "2026-08-20T03:30:00.000Z",
     );
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(9);
     for (const slug of [
       "bridge-read",
       "stormchaser",
@@ -798,6 +830,26 @@ describe("recomputeCounters", () => {
     expect(migrated.earned["sharp-trade"]).toEqual(
       stored.earned["sharp-trade"],
     );
+  });
+
+  it("migrates version 8 into the community-independent Collector rules", () => {
+    const stored = emptyCounters();
+    stored.version = 8;
+    for (const badge of COLLECTOR_BADGE_LIST)
+      stored.earned[badge.slug] = ["2026-08-24T12:00:00.000Z"];
+
+    const migrated = migrateBadgeCounters(
+      stored,
+      [],
+      "2026-08-25T12:00:00.000Z",
+    );
+
+    expect(migrated.version).toBe(9);
+    expect(stateOf(migrated, "collector").rungIndex).toBe(0);
+    for (const badge of BADGE_LIST.filter(
+      (candidate) => candidate.group === "community",
+    ))
+      expect(migrated.earned[badge.slug]).toBeUndefined();
   });
 
   it("leaves the transcript-derived badges at zero — they are forward-only", () => {
@@ -965,7 +1017,7 @@ describe("recomputeCounters", () => {
       { "full-cup": [excludedAt] },
     );
     expect(reconciled).toMatchObject({
-      version: 8,
+      version: 9,
       refereeReconciled: true,
       refereeDecisionRevision: 1,
     });
