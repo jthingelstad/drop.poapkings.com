@@ -79,7 +79,7 @@ vi.mock('../../src/lib/storage', () => ({
   saveSettings: vi.fn()
 }))
 
-import { rainFallDurationMs, rainSpawnIntervalMs } from '@elixir-drop/contracts'
+import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
 import { saveResult, recordSession, saveRecords, saveSettings } from '../../src/lib/storage'
 import { route } from '../../src/lib/router'
 import Surge from '../../src/modes/surge/Surge'
@@ -199,7 +199,6 @@ afterEach(() => {
     render(null as never, c)
     c.remove()
   }
-  document.documentElement.classList.remove('reduce-motion')
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -972,64 +971,33 @@ describe('Rain gameplay', () => {
     )
   })
 
-  it('spends one life, pushes the field back, and guarantees a recovery window', async () => {
+  it('stops resolving landed cards when simultaneous drops spend the final lives', async () => {
+    // Four drops converge on the same 40ms fall tick. Their speeds compensate
+    // for the 1160ms spawn gaps: this is the deep-game shape that can occur as
+    // Rain accelerates and several cards reach the floor together.
+    const randomValues = [
+      0,
+      0, // drop 1: left, minimum speed
+      0,
+      0.25, // drop 2
+      0,
+      0.585_714, // drop 3
+      0,
+      0.985_714 // drop 4
+    ]
+    let randomIndex = 0
+    const random = vi.spyOn(Math, 'random').mockImplementation(() => randomValues[randomIndex++] ?? 0)
+
     const host = await startRain(fakeCards(20))
-    advance(rainSpawnIntervalMs(0))
-    const secondTile = host.querySelectorAll<HTMLElement>('.ed-rain__tile')[1]!
-    advance(rainFallDurationMs(0) - rainSpawnIntervalMs(0) - 80)
-    const beforeRecoveryTop = Number.parseFloat(secondTile.style.top)
+    advance(12_800) // four land together; finish waits 200ms before submitting
+    random.mockRestore()
 
-    advance(120)
-
-    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
-    expect(host.querySelector('[data-testid="rain-storm-break"]')).not.toBeNull()
-    expect(Number.parseFloat(secondTile.style.top)).toBeLessThan(beforeRecoveryTop)
-    expect(
-      [...host.querySelectorAll<HTMLButtonElement>('.ed-rain__pad button')].every((button) => button.disabled)
-    ).toBe(true)
-
-    // The transition unlocks input, but the shifted logical deadline still
-    // keeps the next card safely above the line for the rest of the 2.4s window.
-    advance(450)
-    expect(
-      [...host.querySelectorAll<HTMLButtonElement>('.ed-rain__pad button')].some((button) => !button.disabled)
-    ).toBe(true)
-    advance(1_800)
-    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
-    advance(200)
-    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('1 of 3 lives left')
-  })
-
-  it('keeps the recovery window playable when motion is reduced', async () => {
-    document.documentElement.classList.add('reduce-motion')
-    const host = await startRain(fakeCards(20))
-
-    advance(rainSpawnIntervalMs(0))
-    advance(rainFallDurationMs(0) - rainSpawnIntervalMs(0) - 80)
-    advance(120)
-    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
-    expect(host.querySelector('[data-testid="rain-storm-break"]')).not.toBeNull()
-
-    advance(1_000)
-    expect(
-      [...host.querySelectorAll<HTMLButtonElement>('.ed-rain__pad button')].some((button) => !button.disabled)
-    ).toBe(true)
-  })
-
-  it('does not accept a keypad answer delivered after the logical impact deadline', async () => {
-    const cards = fakeCards(20)
-    const host = await startRain(cards)
-    advance(40)
-
-    // Advance the monotonic clock without delivering the interval callback,
-    // then tap. answer() settles the deadline before it accepts the input.
-    const now = performance.now()
-    const clock = vi.spyOn(performance, 'now').mockReturnValue(now + rainFallDurationMs(0) + 1)
-    press(host, cards[0]!.elixir)
-    clock.mockRestore()
-
-    expect(host.querySelector('.ed-game__metric')?.textContent).toBe('0')
-    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
+    expect(host.textContent).toContain('The rain stopped')
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const { answers } = session.complete.mock.calls[0]![0] as {
+      answers: Array<{ cardId: number; guess: number | null; atMs: number }>
+    }
+    expect(answers.filter((answer) => answer.guess === null)).toHaveLength(3)
   })
 
   it('locks input synchronously when the third life is spent', async () => {

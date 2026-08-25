@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   higherLowerWindowMs,
-  rainFallDurationMs,
   rainSpawnFloorMs,
   rainSpawnIntervalMs,
   survivalWindowMs,
@@ -63,43 +62,30 @@ describe("shared mode difficulty curves", () => {
   });
 
   it("matches Rain's documented spawn cadence", () => {
-    expect(Math.round(rainSpawnIntervalMs(0))).toBe(1_500);
-    expect(Math.round(rainSpawnIntervalMs(50))).toBe(750);
-    expect(Math.round(rainSpawnIntervalMs(200))).toBe(300);
+    expect(Math.round(rainSpawnIntervalMs(0))).toBe(1_160);
+    expect(Math.round(rainSpawnIntervalMs(50))).toBe(710);
+    expect(Math.round(rainSpawnIntervalMs(200))).toBe(440);
 
-    // Always positive and always tightening: the gap closes forever, which is
-    // what makes Rain endless but not survivable.
+    // Always positive and always tightening: the gap closes forever without ever
+    // reaching its floor, which is what makes Rain endless but not survivable.
     for (let cleared = 1; cleared <= 1_000; cleared += 1) {
       expect(rainSpawnIntervalMs(cleared)).toBeLessThan(
         rainSpawnIntervalMs(cleared - 1),
       );
-      expect(rainSpawnIntervalMs(cleared)).toBeGreaterThan(0);
-    }
-  });
-
-  it("matches Rain's deterministic fall deadlines", () => {
-    expect(Math.round(rainFallDurationMs(0))).toBe(8_500);
-    expect(Math.round(rainFallDurationMs(50))).toBe(4_627);
-    expect(Math.round(rainFallDurationMs(200))).toBe(2_217);
-
-    for (let cleared = 1; cleared <= 1_000; cleared += 1) {
-      expect(rainFallDurationMs(cleared)).toBeLessThan(
-        rainFallDurationMs(cleared - 1),
-      );
-      expect(rainFallDurationMs(cleared)).toBeGreaterThan(0);
+      expect(rainSpawnIntervalMs(cleared)).toBeGreaterThan(260);
     }
   });
 
   it("computes Rain's minimum-time floor from the spawn curve alone", () => {
-    // Hand-checked against sum(1500 / (1 + 0.02n)) for n = 0 … N-1. These
+    // Hand-checked against sum(260 + 900 / (1 + 0.02n)) for n = 0 … N-1. These
     // are the numbers GAMES.md quotes, and they are the whole reason Rain is
     // bounded: below them, a score is not a thing a human could have played.
     expect(rainSpawnFloorMs(0)).toBe(0);
-    expect(rainSpawnFloorMs(1)).toBe(1_500);
-    expect(rainSpawnFloorMs(10)).toBe(13_800);
-    expect(rainSpawnFloorMs(50)).toBe(52_363);
-    expect(rainSpawnFloorMs(100)).toBe(82_898);
-    expect(rainSpawnFloorMs(200)).toBe(121_310);
+    expect(rainSpawnFloorMs(1)).toBe(1_160);
+    expect(rainSpawnFloorMs(10)).toBe(10_880);
+    expect(rainSpawnFloorMs(50)).toBe(44_418);
+    expect(rainSpawnFloorMs(100)).toBe(75_739);
+    expect(rainSpawnFloorMs(200)).toBe(124_786);
 
     // It is exactly the running sum of the shared curve — the scorer walks the
     // transcript accumulating the same additions in the same order rather than

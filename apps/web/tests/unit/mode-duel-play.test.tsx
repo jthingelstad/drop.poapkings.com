@@ -533,19 +533,6 @@ describe('Trade — gameplay', () => {
 // Rain — clear vs wrong tap (lives + hint), run end → score = cleared count
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Rain — gameplay', () => {
-  // Rain now runs from monotonic deadlines rather than pixels per callback.
-  // This suite owns performance.now(), so advance it alongside fake timers in
-  // 40ms slices to model the browser's fall interval faithfully.
-  async function advanceRain(ms: number): Promise<void> {
-    let remaining = ms
-    while (remaining > 0) {
-      const slice = Math.min(40, remaining)
-      mockNow += slice
-      await advance(slice)
-      remaining -= slice
-    }
-  }
-
   function deck(): Card[] {
     // deck[0] (the first spawned/lit target) is a 3-cost.
     return [
@@ -583,7 +570,7 @@ describe('Rain — gameplay', () => {
 
     // First real drop spawns ~900ms into the run (onBegin.s pre-render spawn is a
     // no-op); step past it so exactly one drop is falling and lit as the target.
-    await advanceRain(1000)
+    await advance(1000)
 
     // The first drop (deck[0], cost 3) is the live target once a tick has run.
     await click(c.querySelector('[aria-label="3 elixir"]'))
@@ -595,7 +582,7 @@ describe('Rain — gameplay', () => {
     stage(deck())
     const c = mount(<Rain />)
     await toRunning(c)
-    await advanceRain(1000) // let the first drop spawn + light up as the target
+    await advance(1000) // let the first drop spawn + light up as the target
 
     // Target cost is 3; tapping 5 is too high → "Lower" nudge, no score, no life lost.
     await click(c.querySelector('[aria-label="5 elixir"]'))
@@ -614,10 +601,10 @@ describe('Rain — gameplay', () => {
     const c = mount(<Rain />)
     await toRunning(c)
 
-    // Each beat waits past one spawn gap (1500ms at the opening score) so a fresh card
+    // Each beat waits past one spawn gap (>1160ms at low scores) so a fresh card
     // is on the field and a tick has lit it as the target, then clears it.
     const tap = async () => {
-      await advanceRain(1600)
+      await advance(1300)
       await click(c.querySelector('[aria-label="3 elixir"]'))
     }
 
@@ -631,7 +618,7 @@ describe('Rain — gameplay', () => {
     expect(c.querySelector('.game-milestone__num')?.textContent).toBe('10')
 
     // It is transient: gone after the ~0.5s window.
-    await advanceRain(600)
+    await advance(600)
     expect(c.querySelector('.game-milestone')).toBeNull()
   })
 
@@ -647,14 +634,14 @@ describe('Rain — gameplay', () => {
     await toRunning(c)
 
     const tap = async () => {
-      await advanceRain(1600)
+      await advance(1300)
       await click(c.querySelector('[aria-label="3 elixir"]'))
     }
     await tap()
     await tap()
     expect(metricValue(c)).toBe('2') // beats the standing best of 1
 
-    await advanceRain(20000) // drops land, 3 lives gone → endRain → finish → 'over'
+    await advance(20000) // drops land, 3 lives gone → endRain → finish → 'over'
 
     expect(c.textContent).toContain('The rain stopped')
     expect(saveRecords).not.toHaveBeenCalled()
@@ -667,13 +654,13 @@ describe('Rain — gameplay', () => {
     const session = stage(deck())
     const c = mount(<Rain />)
     await toRunning(c)
-    await advanceRain(1000) // let the first drop spawn + light up as the target
+    await advance(1000) // let the first drop spawn + light up as the target
 
     // Clear one card first, then let cards fall and land until 3 lives are gone.
     await click(c.querySelector('[aria-label="3 elixir"]'))
     expect(metricValue(c)).toBe('1')
 
-    await advanceRain(20000) // drops land (3 lives lost) → endRain → finish → 'over'
+    await advance(20000) // drops land (3 lives lost) → endRain → finish → 'over'
 
     expect(c.textContent).toContain('The rain stopped')
     expect(c.textContent).toContain('1 cleared') // score = one cleared card

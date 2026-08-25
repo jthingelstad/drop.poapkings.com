@@ -234,65 +234,6 @@ test('rain flashes the running total every 10 clears', async ({ page }) => {
   await expect(page.locator('.game-milestone')).toHaveCount(0, { timeout: 4_000 })
 })
 
-test(
-  'rain lands on the line and Storm Break restores a playable field',
-  { tag: '@deploy' },
-  async ({ page }, testInfo) => {
-    test.setTimeout(30_000)
-    await page.goto('/#/rain')
-    await page.evaluate(() => {
-      const testWindow = window as unknown as {
-        __rainImpact?: { firstTileAt?: number; impactAt?: number; bottomDelta?: number }
-      }
-      const state: { firstTileAt?: number; impactAt?: number; bottomDelta?: number } = (testWindow.__rainImpact = {})
-      const observer = new MutationObserver((records) => {
-        for (const record of records) {
-          for (const added of record.addedNodes) {
-            if (!(added instanceof HTMLElement)) continue
-            if (added.matches('.ed-rain__tile:not(.ed-rain__tile--fragment)') && state.firstTileAt === undefined) {
-              state.firstTileAt = performance.now()
-            }
-            if (added.matches('.ed-rain__tile--fragment') && state.impactAt === undefined) {
-              const line = document.querySelector('.ed-rain__killline')
-              if (!(line instanceof HTMLElement)) continue
-              state.impactAt = performance.now()
-              state.bottomDelta = Math.abs(added.getBoundingClientRect().bottom - line.getBoundingClientRect().top)
-            }
-          }
-        }
-      })
-      observer.observe(document.body, { childList: true, subtree: true })
-    })
-    await waitForKeypad(page)
-
-    const stormBreak = page.getByTestId('rain-storm-break')
-    await expect(page.getByTestId('rain-lives')).toHaveAttribute('aria-label', '2 of 3 lives left', { timeout: 12_000 })
-    await expect(stormBreak).toHaveCSS('opacity', /0\.[1-9]|1/)
-
-    const impact = await page.evaluate(
-      () =>
-        (
-          window as unknown as {
-            __rainImpact?: { firstTileAt?: number; impactAt?: number; bottomDelta?: number }
-          }
-        ).__rainImpact
-    )
-    expect(impact?.firstTileAt).toBeTruthy()
-    expect(impact?.impactAt).toBeTruthy()
-    expect(impact!.impactAt! - impact!.firstTileAt!).toBeGreaterThanOrEqual(8_400)
-    expect(impact!.impactAt! - impact!.firstTileAt!).toBeLessThan(8_750)
-    expect(impact?.bottomDelta).toBeLessThan(1.5)
-
-    await page.waitForTimeout(500)
-    await expect(page.locator('.ed-rain__pad button').first()).toBeEnabled()
-    await expect(page.locator('.ed-rain__tile--lit')).toHaveCount(1)
-    await testInfo.attach('rain-storm-break.png', {
-      body: await page.screenshot({ fullPage: false }),
-      contentType: 'image/png'
-    })
-  }
-)
-
 test('trade auto-advances the ten-exchange ladder with one cost hint per wrong guess', async ({ page }) => {
   await page.goto('/#/trade')
   const teams = page.locator('.ed-xboard')
