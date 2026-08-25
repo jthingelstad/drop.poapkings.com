@@ -36,10 +36,15 @@ Cadence: weekly, after every relevant deploy, and after a reported incident.
    audit rows. A mailbox report has no mutable queue state and remains read-only.
 4. Inspect cost, dependency/security advisories, supported runtime drift, card-catalog
    freshness, and open `objective:run` issues.
-5. If a concrete defect exists, fix it with the smallest regression, run the final
+5. On the first run of each calendar week, reconcile Buttondown metadata with
+   the dry-run/apply/dry-run sequence documented in `services/api/README.md`.
+   Apply only when the preview is complete and reports mismatches; require the
+   final dry run to converge to zero planned updates. This maintenance changes
+   subscriber metadata only and never sends an email.
+6. If a concrete defect exists, fix it with the smallest regression, run the final
    gate required by `CONTRIBUTING.md`, push, and verify validation plus every surface
    the path-aware deploy ships.
-6. Use `npm run deploy:api` only when the normal pipeline failed, never as the routine
+7. Use `npm run deploy:api` only when the normal pipeline failed, never as the routine
    path. Never expose or relocate the CR token, `TELEMETRY_PEPPER`, or JMAP token.
 
 Do not turn release mail, player communication, new game design, scoring changes, or a

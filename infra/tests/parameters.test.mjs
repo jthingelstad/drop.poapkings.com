@@ -805,12 +805,21 @@ void describe("deployment parameters", () => {
     assert.match(controlRole, /- CONTROL#PLAYER#\*/);
     assert.match(
       controlRole,
+      /Action: dynamodb:UpdateItem[\s\S]*?- PLAYER#\*[\s\S]*?- lastSeasonPlayed/,
+    );
+    assert.match(
+      controlRole,
+      /Action: dynamodb:Query[\s\S]*?- PLAYER#\*[\s\S]*?- seasonId/,
+    );
+    assert.match(
+      controlRole,
+      /Action: dynamodb:GetItem[\s\S]*?- CR_WAR_CLOCK[\s\S]*?- crSeasonId/,
+    );
+    assert.match(
+      controlRole,
       /Action: dynamodb:PutItem[\s\S]*?- RECRUITER#\*[\s\S]*?- playerId/,
     );
-    assert.doesNotMatch(
-      controlRole,
-      /dynamodb:(?:DeleteItem|UpdateItem|BatchWriteItem)/,
-    );
+    assert.doesNotMatch(controlRole, /dynamodb:(?:DeleteItem|BatchWriteItem)/);
     assert.doesNotMatch(
       controlRole.match(/dynamodb:TransactWriteItems[\s\S]*$/)?.[0] ?? "",
       /- email/,

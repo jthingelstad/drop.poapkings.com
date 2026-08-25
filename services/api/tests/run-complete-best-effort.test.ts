@@ -8,6 +8,7 @@ import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
+  advanceLastSeasonPlayed: vi.fn(),
   completeRun: vi.fn(),
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
@@ -31,6 +32,7 @@ const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    advanceLastSeasonPlayed = repository.advanceLastSeasonPlayed;
     completeRun = repository.completeRun;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
@@ -175,6 +177,7 @@ describe("run completion side effects are best effort", () => {
     process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
     repository.getCardStats.mockResolvedValue({});
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
@@ -376,6 +379,18 @@ describe("run completion side effects are best effort", () => {
   });
 
   it("attaches the cached Clash Royale identity to the announcement", async () => {
+    repository.getCrWarClock.mockResolvedValue({
+      crSeasonId: 135,
+      sectionIndex: 3,
+      periodIndex: 25,
+      periodType: "warDay",
+      seasonStartsAt: "2026-08-03T10:00:00.000Z",
+      observedAt: new Date().toISOString(),
+      sourceClanTag: "#J2RGCRVG",
+      leaderboardSeasonId: "2026-08",
+      updatedAt: new Date().toISOString(),
+    });
+    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
     repository.getCrProfile.mockResolvedValue({
       tag: profile.playerTag,
       status: "ready",
@@ -399,14 +414,38 @@ describe("run completion side effects are best effort", () => {
       },
       profile.email,
       {
-        playerTag: profile.playerTag,
-        dropPlayerTag: "#P7H47PSTT93",
+        playerTag: "2PYQ0",
+        dropPlayerTag: "P7H47PSTT93",
         recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "#J2RGCRVG",
+        clanTag: "J2RGCRVG",
         clanName: "POAP KINGS",
-        totalGames: 5,
+        lastSeasonPlayed: 135,
       },
     );
+  });
+
+  it("does not update Buttondown again after the player's season is current", async () => {
+    repository.getCrWarClock.mockResolvedValue({
+      crSeasonId: 135,
+      sectionIndex: 3,
+      periodIndex: 25,
+      periodType: "warDay",
+      seasonStartsAt: "2026-08-03T10:00:00.000Z",
+      observedAt: new Date().toISOString(),
+      sourceClanTag: "#J2RGCRVG",
+      leaderboardSeasonId: "2026-08",
+      updatedAt: new Date().toISOString(),
+    });
+    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
+
+    const result = await complete();
+
+    expect(result.statusCode).toBe(201);
+    expect(repository.advanceLastSeasonPlayed).toHaveBeenCalledWith(
+      profile.sub,
+      135,
+    );
+    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 
   it("propagates a failed completeRun instead of pretending the game counted", async () => {

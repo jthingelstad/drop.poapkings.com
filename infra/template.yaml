@@ -532,8 +532,9 @@ Resources:
   # evidence remains pseudonymous, while this role can project the small set of
   # account and CR snapshot fields Jamie needs for support. It cannot read
   # magic links, sessions, run/evidence bodies, scores, or secrets, and its only
-  # write is an atomic public-profile correction plus an immutable CONTROL#
-  # audit event. Email is readable for support but absent from the write list.
+  # writes are an atomic public-profile correction plus immutable CONTROL#
+  # audit event, and the monotonic last-season campaign projection. Email is
+  # readable for support but absent from both write lists.
   DropControlRole:
     Type: AWS::IAM::Role
     Properties:
@@ -566,10 +567,47 @@ Resources:
                       - favoriteCardId
                       - playerTag
                       - totalGames
+                      - lastSeasonPlayed
                       - xp
                       - createdAt
                       - updatedAt
                       - lastLoginAt
+              - Effect: Allow
+                Action: dynamodb:GetItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - CR_WAR_CLOCK
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - leaderboardSeasonId
+                      - crSeasonId
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - seasonId
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - PLAYER#*
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - lastSeasonPlayed
               - Effect: Allow
                 Action: dynamodb:PutItem
                 Resource: !GetAtt DataTable.Arn

@@ -299,6 +299,22 @@ async function recordSignedInRun(
     tiebreaks,
     automaticReviewReason,
   );
+  let buttondownSeasonChanged = false;
+  if (season.crSeasonId) {
+    try {
+      buttondownSeasonChanged = await repository.advanceLastSeasonPlayed(
+        run.owner,
+        season.crSeasonId,
+      );
+    } catch (error) {
+      // The recorded run is authoritative. Weekly reconciliation repairs this
+      // optional campaign projection if its best-effort advance fails.
+      console.warn("Last season played update failed", {
+        runId: run.runId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   const baseXp =
     result.xpAward ?? (typeof completionXp === "number" ? completionXp : 0);
   const xpAwards: XpAward[] = baseXp ? [runXpAward(run.mode, baseXp)] : [];
@@ -497,17 +513,24 @@ async function recordSignedInRun(
   // Practice never reaches the clan feed. It is a private drill — no board, no
   // XP, no record — and an endless session has no comparable number to post:
   // one correct answer then quitting would broadcast "Practice · 100%".
-  // Buttondown still receives the authoritative recorded-game total for every
-  // mode; only the Discord branch below excludes Practice and reviewed runs.
+  // Buttondown changes only on a player's first recorded game in a new Clash
+  // Royale season. Later games produce no external metadata request; routine
+  // profile/session sync and the weekly reconciliation repair a failed write.
   await Promise.all([
-    updateButtondownSubscriberMetadata(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      finalProfile.email,
-      buttondownPlayerMetadata(finalProfile, config.appUrl, crProfile),
-    ),
+    buttondownSeasonChanged && season.crSeasonId
+      ? updateButtondownSubscriberMetadata(
+          {
+            apiKey: config.buttondownApiKey,
+            newsletterId: config.buttondownNewsletterId,
+          },
+          finalProfile.email,
+          buttondownPlayerMetadata(
+            { ...finalProfile, lastSeasonPlayed: season.crSeasonId },
+            config.appUrl,
+            crProfile,
+          ),
+        )
+      : Promise.resolve(),
     !automaticReviewReason && run.mode !== "practice"
       ? publishDiscordEvent(
           config.discordWebhookUrl,

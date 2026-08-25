@@ -88,6 +88,11 @@ export interface PlayerProfile {
   favoriteCardId?: number;
   playerTag?: string;
   totalGames: number;
+  // Latest Clash Royale season number with a recorded signed-in run. This is
+  // a monotonic internal projection for slow-moving campaign metadata; unlike
+  // the leaderboard season id, it is the player-facing number (for example
+  // 135) and never needs a rollover reset.
+  lastSeasonPlayed?: number;
   // Lifetime Player XP (event-awarded, only climbs). Absent on profiles
   // created before XP shipped — treat as 0.
   xp?: number;

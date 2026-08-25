@@ -8,6 +8,7 @@ import { signToken } from "../src/signing.js";
 import { emailSubject } from "../src/validation.js";
 
 const repository = vi.hoisted(() => ({
+  advanceLastSeasonPlayed: vi.fn(),
   attachRecruiter: vi.fn(),
   creditRecruiter: vi.fn(),
   completeRun: vi.fn(),
@@ -44,6 +45,7 @@ const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
+    advanceLastSeasonPlayed = repository.advanceLastSeasonPlayed;
     attachRecruiter = repository.attachRecruiter;
     creditRecruiter = repository.creditRecruiter;
     completeRun = repository.completeRun;
@@ -111,6 +113,7 @@ const profile = {
   favoriteCardId: 26000000,
   playerTag: "#2PYQ0",
   totalGames: 4,
+  lastSeasonPlayed: 133,
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
@@ -197,6 +200,7 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
+    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
     requestCrProfileRefresh.mockResolvedValue(snapshot);
     sendMagicLink.mockResolvedValue(undefined);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -224,12 +228,12 @@ describe("Clash Royale refresh scheduling", () => {
       },
       profile.email,
       {
-        playerTag: profile.playerTag,
-        dropPlayerTag: "#P7H47PSTT93",
+        playerTag: "2PYQ0",
+        dropPlayerTag: "P7H47PSTT93",
         recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "#J2RGCRVG",
+        clanTag: "J2RGCRVG",
         clanName: "POAP KINGS",
-        totalGames: 4,
+        lastSeasonPlayed: 133,
       },
     );
     expect(publishTinylyticsEvent).toHaveBeenCalledWith(
@@ -256,12 +260,12 @@ describe("Clash Royale refresh scheduling", () => {
       },
       profile.email,
       {
-        playerTag: profile.playerTag,
-        dropPlayerTag: "#P7H47PSTT93",
+        playerTag: "2PYQ0",
+        dropPlayerTag: "P7H47PSTT93",
         recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "#J2RGCRVG",
+        clanTag: "J2RGCRVG",
         clanName: "POAP KINGS",
-        totalGames: 4,
+        lastSeasonPlayed: 133,
       },
     );
   });
@@ -606,12 +610,12 @@ describe("Clash Royale refresh scheduling", () => {
       expect.anything(),
       profile.email,
       {
-        playerTag: profile.playerTag,
-        dropPlayerTag: "#P7H47PSTT93",
+        playerTag: "2PYQ0",
+        dropPlayerTag: "P7H47PSTT93",
         recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "#J2RGCRVG",
+        clanTag: "J2RGCRVG",
         clanName: "POAP KINGS",
-        totalGames: 4,
+        lastSeasonPlayed: 133,
       },
     );
   });
@@ -716,6 +720,10 @@ describe("Clash Royale refresh scheduling", () => {
       crSeasonId: 134,
       currentWeek: 2,
     });
+    expect(repository.advanceLastSeasonPlayed).toHaveBeenCalledWith(
+      profile.sub,
+      134,
+    );
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });

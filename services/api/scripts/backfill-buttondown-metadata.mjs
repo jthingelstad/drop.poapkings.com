@@ -12,14 +12,18 @@ import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import {
   BatchGetCommand,
   DynamoDBDocumentClient,
+  GetCommand,
   paginateScan,
   PutCommand,
+  QueryCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
   desiredButtondownBackfillMetadata,
   managedButtondownMetadataMatches,
   mergeButtondownBackfillMetadata,
   parseButtondownBackfillArgs,
+  reconcileButtondownLastSeasonPlayed,
 } from "../src/maintenance/buttondown-backfill.js";
 import { dropPlayerTag } from "../src/recruiter.js";
 
@@ -131,31 +135,159 @@ async function loadProfiles(documentClient, tableName) {
         ":profile": "PROFILE",
         ":player": "PLAYER#",
       },
-      ProjectionExpression: "pk, sk, email, playerId, playerTag, totalGames",
+      ProjectionExpression:
+        "pk, sk, email, playerId, playerTag, totalGames, lastSeasonPlayed",
       Select: "SPECIFIC_ATTRIBUTES",
     },
   )) {
     for (const item of page.Items ?? []) {
       const totalGames = Number(item.totalGames ?? 0);
       if (
+        typeof item.pk !== "string" ||
+        !item.pk.startsWith("PLAYER#") ||
         typeof item.email !== "string" ||
         !item.email ||
         typeof item.playerId !== "string" ||
         !UUID_PATTERN.test(item.playerId) ||
         !Number.isSafeInteger(totalGames) ||
         totalGames < 0 ||
+        (item.lastSeasonPlayed !== undefined &&
+          (!Number.isSafeInteger(item.lastSeasonPlayed) ||
+            item.lastSeasonPlayed <= 0)) ||
         (item.playerTag !== undefined && typeof item.playerTag !== "string")
       )
         throw new Error("A player profile cannot be safely backfilled");
       profiles.push({
+        pk: item.pk,
         email: item.email,
         playerId: item.playerId,
         ...(item.playerTag ? { playerTag: item.playerTag } : {}),
         totalGames,
+        ...(item.lastSeasonPlayed !== undefined
+          ? { lastSeasonPlayed: item.lastSeasonPlayed }
+          : {}),
       });
     }
   }
   return profiles;
+}
+
+async function loadWarClockAnchor(documentClient, tableName) {
+  const result = await documentClient.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: { pk: "CR_WAR_CLOCK", sk: "CURRENT" },
+      ConsistentRead: true,
+      ProjectionExpression: "leaderboardSeasonId, crSeasonId",
+    }),
+  );
+  const item = result.Item;
+  if (
+    !item ||
+    typeof item.leaderboardSeasonId !== "string" ||
+    !Number.isSafeInteger(item.crSeasonId) ||
+    item.crSeasonId <= 0
+  )
+    return undefined;
+  return {
+    leaderboardSeasonId: item.leaderboardSeasonId,
+    crSeasonId: item.crSeasonId,
+  };
+}
+
+async function latestRunSeasonId(documentClient, tableName, profile) {
+  const result = await documentClient.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+      ExpressionAttributeValues: {
+        ":pk": profile.pk,
+        ":prefix": "RUN#",
+      },
+      ProjectionExpression: "seasonId",
+      ScanIndexForward: false,
+      Limit: 1,
+      ConsistentRead: true,
+    }),
+  );
+  const seasonId = result.Items?.[0]?.seasonId;
+  return typeof seasonId === "string" ? seasonId : undefined;
+}
+
+async function hydrateLastSeasonPlayed(
+  documentClient,
+  tableName,
+  profiles,
+  clock,
+) {
+  const hydrated = [];
+  const profileUpdates = [];
+  let unresolvedLastSeasonPlayed = 0;
+  for (const profile of profiles) {
+    const seasonId = profile.totalGames
+      ? await latestRunSeasonId(documentClient, tableName, profile)
+      : undefined;
+    const reconciliation = reconcileButtondownLastSeasonPlayed(
+      profile,
+      seasonId,
+      clock,
+    );
+    if (!reconciliation.resolved) {
+      unresolvedLastSeasonPlayed += 1;
+      hydrated.push(profile);
+      continue;
+    }
+    if (!reconciliation.profileUpdate) {
+      hydrated.push(profile);
+      continue;
+    }
+    const next = {
+      ...profile,
+      lastSeasonPlayed: reconciliation.lastSeasonPlayed,
+    };
+    hydrated.push(next);
+    profileUpdates.push(next);
+  }
+  return { hydrated, profileUpdates, unresolvedLastSeasonPlayed };
+}
+
+async function applyLastSeasonPlayed(documentClient, tableName, profile) {
+  try {
+    const result = await documentClient.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { pk: profile.pk, sk: "PROFILE" },
+        UpdateExpression: "SET lastSeasonPlayed = :season",
+        ConditionExpression:
+          "attribute_exists(pk) AND (attribute_not_exists(lastSeasonPlayed) OR lastSeasonPlayed < :season)",
+        ExpressionAttributeValues: { ":season": profile.lastSeasonPlayed },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    if (result.Attributes?.lastSeasonPlayed !== profile.lastSeasonPlayed)
+      throw new Error("Last season played profile verification failed");
+    return true;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.name !== "ConditionalCheckFailedException"
+    )
+      throw error;
+    const current = await documentClient.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: { pk: profile.pk, sk: "PROFILE" },
+        ConsistentRead: true,
+        ProjectionExpression: "lastSeasonPlayed",
+      }),
+    );
+    if (
+      Number.isSafeInteger(current.Item?.lastSeasonPlayed) &&
+      current.Item.lastSeasonPlayed >= profile.lastSeasonPlayed
+    )
+      return false;
+    throw new Error("Last season played profile update raced an unsafe state");
+  }
 }
 
 async function ensureRecruiterAlias(documentClient, tableName, profile) {
@@ -233,7 +365,18 @@ async function main() {
     new DynamoDBClient({ region }),
     { marshallOptions: { removeUndefinedValues: true } },
   );
-  const profiles = await loadProfiles(documentClient, tableName);
+  const loadedProfiles = await loadProfiles(documentClient, tableName);
+  const clock = await loadWarClockAnchor(documentClient, tableName);
+  const {
+    hydrated: profiles,
+    profileUpdates,
+    unresolvedLastSeasonPlayed,
+  } = await hydrateLastSeasonPlayed(
+    documentClient,
+    tableName,
+    loadedProfiles,
+    clock,
+  );
   const snapshots = await loadCrSnapshots(documentClient, tableName, profiles);
   const plans = [];
   let matchedSubscribers = 0;
@@ -283,12 +426,20 @@ async function main() {
     missingSubscribers,
     linkedPlayerTags,
     knownClanTags,
+    profilesWithStoredLastSeasonPlayed: loadedProfiles.filter(
+      (profile) => profile.lastSeasonPlayed !== undefined,
+    ).length,
+    derivedLastSeasonPlayed: profileUpdates.length,
+    unresolvedLastSeasonPlayed,
     alreadyCurrent,
     plannedUpdates: plans.length,
+    plannedProfileUpdates: profileUpdates.length,
     appliedUpdates: 0,
     verifiedUpdates: 0,
     failedUpdates: 0,
     recruiterAliasesEnsured: 0,
+    appliedProfileUpdates: 0,
+    profileUpdatesAlreadyCurrent: 0,
   };
 
   if (!apply) {
@@ -299,10 +450,20 @@ async function main() {
     throw new Error(
       `${missingSubscribers} player profile(s) have no Buttondown subscriber; refusing metadata-only apply`,
     );
+  if (unresolvedLastSeasonPlayed)
+    throw new Error(
+      `${unresolvedLastSeasonPlayed} player profile(s) have recorded games without a resolvable Clash Royale season number; refusing partial apply`,
+    );
 
   for (const profile of profiles) {
     await ensureRecruiterAlias(documentClient, tableName, profile);
     summary.recruiterAliasesEnsured += 1;
+  }
+
+  for (const profile of profileUpdates) {
+    if (await applyLastSeasonPlayed(documentClient, tableName, profile))
+      summary.appliedProfileUpdates += 1;
+    else summary.profileUpdatesAlreadyCurrent += 1;
   }
 
   const failures = {};

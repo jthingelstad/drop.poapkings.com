@@ -4,6 +4,7 @@ import {
   managedButtondownMetadataMatches,
   mergeButtondownBackfillMetadata,
   parseButtondownBackfillArgs,
+  reconcileButtondownLastSeasonPlayed,
 } from "../src/maintenance/buttondown-backfill.js";
 
 describe("Buttondown metadata backfill", () => {
@@ -42,6 +43,7 @@ describe("Buttondown metadata backfill", () => {
           playerId,
           playerTag: "#2PYQ0",
           totalGames: 42,
+          lastSeasonPlayed: 135,
         },
         appUrl,
         {
@@ -55,12 +57,12 @@ describe("Buttondown metadata backfill", () => {
       ),
     ).toEqual({
       source: "elixir-drop-magic-link",
-      player_tag: "#2PYQ0",
-      drop_player_tag: "#P7H47PSTT93",
+      player_tag: "2PYQ0",
+      drop_player_tag: "P7H47PSTT93",
       recruiter_url: inviteUrl,
-      clan_tag: "#J2RGCRVG",
+      clan_tag: "J2RGCRVG",
       clan_name: "POAP KINGS",
-      total_games: 42,
+      last_season_played: "135",
     });
   });
 
@@ -71,6 +73,7 @@ describe("Buttondown metadata backfill", () => {
         playerId,
         playerTag: "#2PYQ0",
         totalGames: 43,
+        lastSeasonPlayed: 135,
       },
       appUrl,
       { status: "unavailable" },
@@ -88,13 +91,53 @@ describe("Buttondown metadata backfill", () => {
     ).toEqual({
       first_name: "King",
       source: "elixir-drop-magic-link",
-      player_tag: "#2PYQ0",
-      drop_player_tag: "#P7H47PSTT93",
+      player_tag: "2PYQ0",
+      drop_player_tag: "P7H47PSTT93",
       recruiter_url: inviteUrl,
-      clan_tag: "#OLD",
+      clan_tag: "OLD",
       clan_name: "Old Clan",
-      total_games: 43,
+      last_season_played: "135",
     });
+  });
+
+  it("derives and repairs only a player's newest Clash Royale season number", () => {
+    const clock = { leaderboardSeasonId: "2026-08", crSeasonId: 135 };
+    expect(
+      reconcileButtondownLastSeasonPlayed({ totalGames: 7 }, "2026-08", clock),
+    ).toEqual({
+      resolved: true,
+      lastSeasonPlayed: 135,
+      profileUpdate: true,
+    });
+    expect(
+      reconcileButtondownLastSeasonPlayed(
+        { totalGames: 8, lastSeasonPlayed: 135 },
+        "2026-08",
+        clock,
+      ),
+    ).toEqual({
+      resolved: true,
+      lastSeasonPlayed: 135,
+      profileUpdate: false,
+    });
+    expect(
+      reconcileButtondownLastSeasonPlayed(
+        { totalGames: 8, lastSeasonPlayed: 134 },
+        "2026-08",
+        clock,
+      ),
+    ).toEqual({
+      resolved: true,
+      lastSeasonPlayed: 135,
+      profileUpdate: true,
+    });
+    expect(
+      reconcileButtondownLastSeasonPlayed(
+        { totalGames: 8, lastSeasonPlayed: 136 },
+        "2026-08",
+        clock,
+      ),
+    ).toEqual({ resolved: false });
   });
 
   it("clears known missing identity and skips an already-current subscriber", () => {
@@ -109,21 +152,19 @@ describe("Buttondown metadata backfill", () => {
     const current = {
       source: "elixir-drop-magic-link",
       player_tag: null,
-      drop_player_tag: "#P7H47PSTT93",
+      drop_player_tag: "P7H47PSTT93",
       recruiter_url: inviteUrl,
       clan_tag: null,
       clan_name: null,
-      total_games: 7,
       retained: true,
     };
     expect(desired).toEqual({
       source: "elixir-drop-magic-link",
       player_tag: null,
-      drop_player_tag: "#P7H47PSTT93",
+      drop_player_tag: "P7H47PSTT93",
       recruiter_url: inviteUrl,
       clan_tag: null,
       clan_name: null,
-      total_games: 7,
     });
     expect(managedButtondownMetadataMatches(current, desired)).toBe(true);
     expect(mergeButtondownBackfillMetadata(current, desired)).toBeUndefined();

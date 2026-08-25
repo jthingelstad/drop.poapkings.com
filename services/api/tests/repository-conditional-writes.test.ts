@@ -96,6 +96,40 @@ describe("repository conditional writes", () => {
     ).rejects.toThrow("Completed run profile could not be loaded");
   });
 
+  it("advances the last played season only when the monotonic projection changes", async () => {
+    send.mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").advanceLastSeasonPlayed("player-sub", 135),
+    ).resolves.toBe(true);
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(UpdateCommand);
+    expect(command.input).toMatchObject({
+      Key: { pk: "PLAYER#player-sub", sk: "PROFILE" },
+      UpdateExpression: "SET lastSeasonPlayed = :season",
+      ExpressionAttributeValues: { ":season": 135 },
+    });
+    expect(command.input.ConditionExpression).toContain(
+      "lastSeasonPlayed < :season",
+    );
+  });
+
+  it("skips the external season transition when the profile is already current", async () => {
+    send.mockRejectedValueOnce(conditionFailed());
+
+    await expect(
+      new Repository("test-table").advanceLastSeasonPlayed("player-sub", 135),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects an invalid Clash Royale season number before writing", async () => {
+    await expect(
+      new Repository("test-table").advanceLastSeasonPlayed("player-sub", 0),
+    ).rejects.toThrow("positive integer");
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("rejects a spent or expired magic link with 401, never 500", async () => {
     send.mockRejectedValueOnce(conditionFailed());
 

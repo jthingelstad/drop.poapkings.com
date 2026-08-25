@@ -59,6 +59,7 @@ const profile = {
   publicName: "Knight Main",
   favoriteCardId: FAVORITE_CARD_ID,
   totalGames: 4,
+  lastSeasonPlayed: 134,
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
@@ -279,11 +280,11 @@ describe("player identity binding", () => {
       profile.email,
       {
         playerTag: undefined,
-        dropPlayerTag: "#P7H47PSTT93",
+        dropPlayerTag: "P7H47PSTT93",
         recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
         clanTag: null,
         clanName: null,
-        totalGames: 4,
+        lastSeasonPlayed: 134,
       },
     );
   });

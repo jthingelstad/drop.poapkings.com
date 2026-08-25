@@ -261,28 +261,35 @@ settings. A successful magic-link redemption adds the verified address as a
 regular subscriber, so Buttondown does not send a redundant confirmation
 message. Repeat login collisions never overwrite Buttondown's unsubscribe or
 suppression state: collisions and later syncs PATCH metadata only. Subscriber
-metadata uses segment-friendly `player_tag`, optional `clan_tag`, and numeric
-`total_games` keys. Stable campaign fields add `drop_player_tag`,
-`recruiter_url`, and optional `clan_name`; the URL uses the public `P…` Drop
-player tag and never exposes the underlying UUID. It refreshes at verified login, each returning-session
-renewal, a profile/tag change, and every recorded game; the current clan comes
-only from the latest bridge-owned CR snapshot. A known no-clan result clears a
-stale clan tag and name, while an unavailable/pending snapshot preserves the
-last known values. Account deletion removes the subscriber by email. These calls are
-best effort with a three-second timeout and never change an otherwise
-successful login, profile update, run completion, or deletion response.
+metadata uses segment-friendly `player_tag`, `drop_player_tag`,
+`recruiter_url`, optional `clan_tag` and `clan_name`, and optional
+`last_season_played`. The three tag values omit their display-only `#`.
+`drop_player_tag` and the Recruiter URL use the public `P…` Drop player tag and
+never expose the underlying UUID. `last_season_played` is the Clash Royale
+season number as a string (for example `"135"`), not Drop's internal
+leaderboard season id. It advances after the player's first recorded game in a
+new season; later games in that season make no Buttondown request. The full
+metadata projection also refreshes at verified login, each returning-session
+renewal, and a profile/tag change. The current clan comes only from the latest
+bridge-owned CR snapshot. A known no-clan result clears a stale clan tag and
+name, while an unavailable/pending snapshot preserves the last known values.
+Account deletion removes the subscriber by email. These calls are best effort
+with a three-second timeout and never change an otherwise successful login,
+profile update, run completion, or deletion response.
 
 ## Buttondown metadata backfill
 
-`scripts/backfill-buttondown-metadata.mjs` synchronizes `player_tag`, the public
-`drop_player_tag`, stable `recruiter_url`, known `clan_tag` and `clan_name`, and
-numeric `total_games` onto existing Buttondown subscribers. On apply it also
-ensures the pseudonymous public-tag alias required to resolve each Recruiter URL;
-the alias contains no email or account subject. It
+`scripts/backfill-buttondown-metadata.mjs` synchronizes the metadata projection
+above, removes retired `total_games`, and strips the display-only `#` from all
+three tag fields. For a legacy player, it derives `last_season_played` from only
+their newest run and stores that monotonic projection on the profile. On apply
+it also ensures the pseudonymous public-tag alias required to resolve each
+Recruiter URL; the alias contains no email or account subject. It
 reads only the bounded account-directory projection through `drop-control`,
 never prints email addresses or credentials, preserves unrelated subscriber
 metadata and lifecycle state, and refuses an apply if any current player has no
-matching subscriber. It is dry-run by default and idempotent:
+matching subscriber or a played season cannot be resolved safely. It is dry-run
+by default and idempotent:
 
 ```sh
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env"

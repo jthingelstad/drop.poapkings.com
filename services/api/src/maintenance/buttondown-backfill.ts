@@ -2,6 +2,7 @@ import {
   buttondownPlayerMetadata,
   buttondownSubscriberMetadataBody,
 } from "../buttondown.js";
+import { crSeasonIdFor } from "../seasons.js";
 import type { CrProfileSnapshot, PlayerProfile } from "../types.js";
 
 export interface ButtondownBackfillArgs {
@@ -12,7 +13,7 @@ export interface ButtondownBackfillArgs {
 
 export type ButtondownBackfillProfile = Pick<
   PlayerProfile,
-  "email" | "playerId" | "playerTag" | "totalGames"
+  "email" | "playerId" | "playerTag" | "totalGames" | "lastSeasonPlayed"
 >;
 
 export type ButtondownBackfillSnapshot = Pick<
@@ -59,10 +60,50 @@ export function desiredButtondownBackfillMetadata(
   );
 }
 
+export function reconcileButtondownLastSeasonPlayed(
+  profile: Pick<PlayerProfile, "totalGames" | "lastSeasonPlayed">,
+  latestRunSeasonId: string | undefined,
+  clock: { leaderboardSeasonId: string; crSeasonId: number } | undefined,
+):
+  | { resolved: false }
+  | { resolved: true; lastSeasonPlayed?: number; profileUpdate: boolean } {
+  if (profile.totalGames === 0)
+    return profile.lastSeasonPlayed === undefined
+      ? { resolved: true, profileUpdate: false }
+      : { resolved: false };
+  const lastSeasonPlayed = latestRunSeasonId
+    ? crSeasonIdFor(latestRunSeasonId, clock)
+    : undefined;
+  if (
+    !lastSeasonPlayed ||
+    (profile.lastSeasonPlayed !== undefined &&
+      profile.lastSeasonPlayed > lastSeasonPlayed)
+  )
+    return { resolved: false };
+  return {
+    resolved: true,
+    lastSeasonPlayed,
+    profileUpdate: profile.lastSeasonPlayed !== lastSeasonPlayed,
+  };
+}
+
 function metadataRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? { ...(value as Record<string, unknown>) }
     : {};
+}
+
+const RETIRED_METADATA_KEYS = ["total_games"] as const;
+const TAG_METADATA_KEYS = [
+  "player_tag",
+  "drop_player_tag",
+  "clan_tag",
+] as const;
+
+function normalizedMetadataTag(value: unknown): unknown {
+  return typeof value === "string" && value.startsWith("#")
+    ? value.slice(1)
+    : value;
 }
 
 export function managedButtondownMetadataMatches(
@@ -70,6 +111,19 @@ export function managedButtondownMetadataMatches(
   desired: Record<string, unknown>,
 ): boolean {
   const existing = metadataRecord(current);
+  if (RETIRED_METADATA_KEYS.some((key) => Object.hasOwn(existing, key)))
+    return false;
+  if (
+    !Object.hasOwn(desired, "last_season_played") &&
+    Object.hasOwn(existing, "last_season_played")
+  )
+    return false;
+  if (
+    TAG_METADATA_KEYS.some(
+      (key) => !Object.is(existing[key], normalizedMetadataTag(existing[key])),
+    )
+  )
+    return false;
   return Object.entries(desired).every(([key, value]) =>
     Object.is(existing[key], value),
   );
@@ -80,5 +134,11 @@ export function mergeButtondownBackfillMetadata(
   desired: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
   if (managedButtondownMetadataMatches(current, desired)) return undefined;
-  return { ...metadataRecord(current), ...desired };
+  const merged = metadataRecord(current);
+  for (const key of RETIRED_METADATA_KEYS) delete merged[key];
+  if (!Object.hasOwn(desired, "last_season_played"))
+    delete merged.last_season_played;
+  for (const key of TAG_METADATA_KEYS)
+    merged[key] = normalizedMetadataTag(merged[key]);
+  return { ...merged, ...desired };
 }

@@ -39,10 +39,13 @@ administrator bootstrap refresh.
 The private fixed-host Control Room assumes two other roles. The referee role
 remains pseudonymous and writes only `REFEREE#` overlays. The separate
 `elixir-drop-control` account-support role can project an explicit allowlist of
-profile and Clash snapshot fields (including email) and can only transact an
-audited public-profile correction with a `CONTROL#PLAYER#` event. Email is not
-in its write allowlist, and magic links, sessions, run/evidence bodies, scores,
-XP, deletes, and secrets are outside the role.
+profile and Clash snapshot fields (including email), query only a player's
+newest run season for Buttondown reconciliation, and can only transact an
+audited public-profile correction with a `CONTROL#PLAYER#` event. Its one
+standalone profile write can advance only the monotonic `lastSeasonPlayed`
+campaign projection. Email is not in either write allowlist, and magic links,
+sessions, run/evidence bodies, scores, XP, deletes, and secrets are outside the
+role.
 
 The gitignored root `.env` also supplies
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL`, `BUTTONDOWN_API_KEY`, and the explicit
