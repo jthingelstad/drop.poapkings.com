@@ -205,6 +205,8 @@ describe('the shared-run permalink', () => {
     expect(sharedRunToken('/r/AB0CD3')).toBeUndefined()
     expect(sharedRunToken('/r/ABCD')).toBeUndefined()
     expect(sharedRunToken('/r/')).toBeUndefined()
+    expect(sharedRunToken('/r/AB2CD3/extra')).toBeUndefined()
+    expect(sharedRunToken('/r/AB2CD3?extra=1')).toBeUndefined()
   })
 
   it('shows the run, the score as the button, and the player behind it', async () => {
@@ -273,6 +275,7 @@ describe('the Recruiter invitation permalink', () => {
     expect(sharedInviteToken('/s/AB2CD3')).toBe('AB2CD3')
     expect(sharedInviteToken('/s/ab2cd3')).toBe('AB2CD3')
     expect(sharedInviteToken('/s/AB0CD3')).toBeUndefined()
+    expect(sharedInviteToken('/s/AB2CD3/extra')).toBeUndefined()
   })
 
   it('remembers attribution and replaces the capability route with its destination', async () => {

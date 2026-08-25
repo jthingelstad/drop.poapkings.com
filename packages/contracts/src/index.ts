@@ -81,9 +81,13 @@ const RANKED_GAME_MODE_SET = new Set<string>(RANKED_GAME_MODES);
 const LADDER_SCOPE_SET = new Set<string>(LADDER_SCOPES);
 const CR_SEASON_NUMBER_PATTERN = /^[1-9]\d*$/;
 
+function routeQuery(value: string): string {
+  const separator = value.indexOf("?");
+  return separator === -1 ? "" : value.slice(separator + 1);
+}
+
 export function ladderRouteState(value: string): LadderRouteState {
-  const query = value.split("?", 2)[1] || "";
-  const params = new URLSearchParams(query);
+  const params = new URLSearchParams(routeQuery(value));
   const requestedScope = params.get("scope");
   const requestedMode = params.get("mode");
   const requestedSeason = params.get("season");
@@ -126,9 +130,7 @@ export type YouScope = (typeof YOU_SCOPES)[number];
 const YOU_SCOPE_SET = new Set<string>(YOU_SCOPES);
 
 export function youScopeFromRoute(value: string): YouScope {
-  if (value.split("?", 1)[0] === "/settings") return "settings";
-  const query = value.split("?", 2)[1] || "";
-  const requested = new URLSearchParams(query).get("scope");
+  const requested = new URLSearchParams(routeQuery(value)).get("scope");
   return YOU_SCOPE_SET.has(requested ?? "") ? (requested as YouScope) : "log";
 }
 

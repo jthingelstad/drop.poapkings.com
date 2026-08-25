@@ -12,7 +12,7 @@ const a11yRoutes = [
   { hash: '#/leaderboards', label: 'Leaderboards', ready: '.ed-board' },
   { hash: '#/players/player-2', label: 'Public player', ready: '.ed-public-profile' },
   { hash: '#/profile', label: 'Profile', ready: '.ed-you' },
-  { hash: '#/settings', label: 'Settings', ready: '.ed-you' },
+  { hash: '#/profile?scope=settings', label: 'Settings', ready: '.ed-you' },
   { hash: '#/login', label: 'Sign in', ready: '.account-card' },
   { hash: '#/auth', label: 'Missing login link', ready: '.account-card' },
   // A shared link is the one route a stranger reaches first, with no account and

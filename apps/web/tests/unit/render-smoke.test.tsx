@@ -15,7 +15,7 @@ const CASES = [
   ['/survival', 'Charging'],
   ['/rain', 'Charging'],
   ['/offline', 'Elixir Drop'],
-  ['/settings', 'Settings'],
+  ['/profile?scope=settings', 'Settings'],
   ['/app-info', 'App Info']
 ] as const
 
@@ -61,7 +61,7 @@ describe('SSR render smoke', () => {
     ['/rain', 'Rain'],
     ['/offline', 'Offline'],
     ['/leaderboards', 'Ladder'],
-    ['/settings', 'You'],
+    ['/profile?scope=settings', 'You'],
     ['/app-info', 'App info']
   ])('announces %s as its own screen title', async (path, label) => {
     route.value = path
@@ -88,6 +88,17 @@ describe('SSR render smoke', () => {
     expect(html).toContain('Practice')
     expect(html).toContain('<h1 class="sr-only">Practice</h1>')
   })
+
+  it.each(['/settings', '/surgeon', '/surge/extra', '/profile-old', '/leaderboards-old', '/not-a-route'])(
+    'renders Home while canonicalizing unsupported route %s',
+    async (path) => {
+      route.value = path
+      const html = await renderToStringAsync(<App />)
+
+      expect(html).toContain('ed-home')
+      expect(html).not.toContain('Ranked restricted')
+    }
+  )
 
   it('keeps a restricted player in Practice while blocking ranked routes', async () => {
     player.value = { ...player.value!, rankedAccess: 'restricted' }

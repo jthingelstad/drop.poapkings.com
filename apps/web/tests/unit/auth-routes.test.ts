@@ -7,6 +7,7 @@ import {
   loginRouteForGame,
   loginRouteForReturnPath,
   profileRouteForGame,
+  canonicalProfileRoute,
   boardRouteForMode,
   boardModeFromRoute
 } from '../../src/lib/game-routes'
@@ -16,6 +17,8 @@ describe('authenticated game routes', () => {
   it('recognizes every game path without treating public screens as games', () => {
     expect(gamePathForRoute('/surge')).toBe('/surge')
     expect(gamePathForRoute('/higher-lower?round=2')).toBe('/higher-lower')
+    expect(gamePathForRoute('/surgeon')).toBeUndefined()
+    expect(gamePathForRoute('/surge/extra')).toBeUndefined()
     expect(gamePathForRoute('/leaderboards')).toBeUndefined()
   })
 
@@ -63,11 +66,21 @@ describe('authenticated game routes', () => {
   })
 
   it('round-trips You and public-player scopes', () => {
-    expect(youScopeFromRoute('/settings')).toBe('settings')
     expect(youScopeFromRoute('/profile?scope=updates')).toBe('updates')
     expect(profileRouteForScope('account')).toBe('/profile?scope=account')
     expect(publicProfileScopeFromRoute('/players/player-2?scope=log')).toBe('log')
     expect(publicProfilePath('player 2', 'xp')).toBe('/players/player%202?scope=xp')
+  })
+
+  it('canonicalizes Profile scopes and exact flow capabilities', () => {
+    expect(canonicalProfileRoute('/profile?scope=log')).toBe('/profile')
+    expect(canonicalProfileRoute('/profile?scope=settings')).toBe('/profile?scope=settings')
+    expect(canonicalProfileRoute('/profile?edit=player-tag')).toBe('/profile?edit=player-tag')
+    expect(canonicalProfileRoute('/profile?returnTo=/surge')).toBe('/profile?returnTo=%2Fsurge')
+    expect(canonicalProfileRoute('/profile?edit=nope')).toBe('/profile')
+    expect(canonicalProfileRoute('/profile?returnTo=/surge?next=/admin')).toBe('/profile')
+    expect(canonicalProfileRoute('/profile?edit=player-tag&scope=settings')).toBe('/profile?scope=settings')
+    expect(canonicalProfileRoute('/profile?scope=settings&extra=1')).toBe('/profile?scope=settings')
   })
 
   it('carries scoped navigation through the sign-in round trip', () => {

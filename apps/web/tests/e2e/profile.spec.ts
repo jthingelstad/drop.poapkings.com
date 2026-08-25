@@ -154,8 +154,7 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
 })
 
 test('the Settings scope persists input and motion preferences across reload', async ({ page }) => {
-  // /settings folds into the canonical, directly linkable You scope.
-  await page.goto('/#/settings', { waitUntil: 'domcontentloaded' })
+  await page.goto('/#/profile?scope=settings', { waitUntil: 'domcontentloaded' })
   await expect(page).toHaveURL(/#\/profile\?scope=settings$/)
   await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
   await page.getByRole('button', { name: '4 choices' }).click()
@@ -168,6 +167,36 @@ test('the Settings scope persists input and motion preferences across reload', a
   await expect(page.getByRole('button', { name: '4 choices' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('html')).toHaveClass(/reduce-motion/)
   await expect(page.locator('.ed-settings__note')).toContainText('per-device and never sync')
+})
+
+test('unsupported routes and invalid Profile flow queries return to canonical navigation', async ({
+  page
+}, testInfo) => {
+  for (const hash of ['#/settings', '#/surgeon', '#/surge/extra', '#/profile-old', '#/leaderboards-old']) {
+    await page.goto(`/${hash}`)
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(page.locator('.ed-home')).toBeVisible()
+  }
+  await testInfo.attach('canonical-home-fallback.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
+
+  await page.goto('/#/profile?edit=nope')
+  await expect(page).toHaveURL(/#\/profile$/)
+  await expect(page.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
+
+  await page.goto('/#/profile?returnTo=/surge?next=/admin')
+  await expect(page).toHaveURL(/#\/profile$/)
+
+  await page.goto('/#/profile?edit=player-tag&scope=settings')
+  await expect(page).toHaveURL(/#\/profile\?scope=settings$/)
+  await expect(page.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByLabel('Clash Royale player tag')).toHaveCount(0)
+  await testInfo.attach('canonical-profile-query.png', {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: 'image/png'
+  })
 })
 
 test('an installed PWA replaces Install app with live App Info diagnostics', async ({ page, viewport }, testInfo) => {

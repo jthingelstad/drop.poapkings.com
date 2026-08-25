@@ -9,6 +9,15 @@ export function parseHash(): string {
   return h.startsWith('#') ? h.slice(1) : h
 }
 
+export function routePathname(value: string): string {
+  return value.split('?', 1)[0] || '/'
+}
+
+export function routeQuery(value: string): string {
+  const separator = value.indexOf('?')
+  return separator === -1 ? '' : value.slice(separator + 1)
+}
+
 const STANDALONE_HASH_ROUTES: Record<string, string> = {
   '/games': '/games/',
   '/learn-elixir-costs': '/learn-elixir-costs/',
@@ -25,7 +34,7 @@ const STANDALONE_HASH_ROUTES: Record<string, string> = {
 }
 
 function redirectStandaloneRoute(value: string): boolean {
-  const path = value.split('?')[0] ?? value
+  const path = routePathname(value)
   const destination = STANDALONE_HASH_ROUTES[path]
   if (!destination) return false
   window.location.replace(destination)

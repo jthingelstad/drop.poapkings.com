@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals'
 import type { PublicPlayerSummary } from './api-contracts'
+import { routeQuery } from './router'
 
 export const publicPlayerPreview = signal<PublicPlayerSummary | null>(null)
 
@@ -7,8 +8,7 @@ export const PUBLIC_PROFILE_SCOPES = ['badges', 'xp', 'log'] as const
 export type PublicProfileScope = (typeof PUBLIC_PROFILE_SCOPES)[number]
 
 export function publicProfileScopeFromRoute(value: string): PublicProfileScope {
-  const query = value.split('?', 2)[1] || ''
-  const requested = new URLSearchParams(query).get('scope')
+  const requested = new URLSearchParams(routeQuery(value)).get('scope')
   return PUBLIC_PROFILE_SCOPES.find((scope) => scope === requested) ?? 'badges'
 }
 

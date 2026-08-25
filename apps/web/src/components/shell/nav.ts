@@ -4,10 +4,11 @@
 // rewriting a control. The tabs stay put so muscle memory does.
 
 import type { IconName } from '../Icon'
+import { routePathname } from '../../lib/router'
 
 export interface NavItem {
   route: string
-  // Which routes count as "on" this tab (prefix match). Home matches only '/'.
+  // Which exact routes count as "on" this tab. Home matches only '/'.
   matches: (r: string) => boolean
   icon: IconName
   label: string
@@ -16,7 +17,7 @@ export interface NavItem {
 
 const GAMES_ITEM: NavItem = {
   route: '/',
-  matches: (r) => r === '/' || isGameRoute(r),
+  matches: (r) => routePathname(r) === '/' || isGameRoute(r),
   icon: 'gamepad',
   label: 'Play',
   shortLabel: 'Play'
@@ -29,14 +30,14 @@ export const NAV_ITEMS: NavItem[] = [
   GAMES_ITEM,
   {
     route: '/leaderboards',
-    matches: (r) => r.startsWith('/leaderboards') || r.startsWith('/players/'),
+    matches: (r) => routePathname(r) === '/leaderboards' || routePathname(r).startsWith('/players/'),
     icon: 'trophy',
     label: 'Ladder',
     shortLabel: 'Ladder'
   },
   {
     route: '/profile',
-    matches: (r) => r.startsWith('/profile') || isMoreRoute(r),
+    matches: (r) => routePathname(r) === '/profile' || isMoreRoute(r),
     icon: 'user',
     label: 'You',
     shortLabel: 'You'
@@ -45,19 +46,19 @@ export const NAV_ITEMS: NavItem[] = [
 
 const GAME_PREFIXES = ['/surge', '/practice', '/higher-lower', '/trade', '/survival', '/rain']
 
-// App Info and Settings are the in-app pages reached from Profile's More list.
+// App Info is the in-app page reached from Profile's More list.
 // The public text pages leave the app shell and therefore do not participate in
 // this navigation state.
-const MORE_PREFIXES = ['/app-info', '/settings']
+const MORE_ROUTES = new Set(['/app-info'])
 
 export function isMoreRoute(r: string): boolean {
-  return MORE_PREFIXES.some((p) => r.startsWith(p))
+  return MORE_ROUTES.has(routePathname(r))
 }
 
 // Home owns the game routes so the Games tab stays lit while playing. Also used
 // by the shells to hide the nav / dim the rail during a game.
 export function isGameRoute(r: string): boolean {
-  return GAME_PREFIXES.some((p) => r.startsWith(p))
+  return GAME_PREFIXES.includes(routePathname(r))
 }
 
 // Falls back to Games only for genuinely unclaimed routes. Every route a player

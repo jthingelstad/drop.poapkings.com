@@ -7,7 +7,7 @@ import {
   isEnhancedEffectsEnabled,
   initReducedMotion
 } from '../../src/lib/motion'
-import { navigate, back, parseHash, route } from '../../src/lib/router'
+import { navigate, back, parseHash, route, routePathname, routeQuery } from '../../src/lib/router'
 import { analyticsCollectorReady, track } from '../../src/lib/analytics'
 import { analyticsPagePath, initAnalytics } from '../../src/lib/analytics-loader'
 import {
@@ -313,6 +313,12 @@ describe('router', () => {
     expect(parseHash()).toBe('/foo')
   })
 
+  it('separates route pathnames from complete query strings', () => {
+    expect(routePathname('/profile?returnTo=/surge?next=/admin')).toBe('/profile')
+    expect(routeQuery('/profile?returnTo=/surge?next=/admin')).toBe('returnTo=/surge?next=/admin')
+    expect(routeQuery('/profile')).toBe('')
+  })
+
   it('navigate updates the hash and route signal on hashchange', () => {
     navigate('/surge')
     fireHashChange()
@@ -375,6 +381,8 @@ describe('analytics loader', () => {
     expect(analyticsPagePath('#/surge?returnTo=%2Fprofile')).toBe('/surge')
     expect(analyticsPagePath('#/leaderboards?scope=xp&season=135')).toBe('/leaderboards')
     expect(analyticsPagePath('#/players/player-secret')).toBe('/players/profile')
+    expect(analyticsPagePath('#/surgeon')).toBe('/')
+    expect(analyticsPagePath('#/surge/extra')).toBe('/')
     expect(analyticsPagePath('#/not-a-real-route?token=secret')).toBe('/')
     expect(analyticsPagePath('#/auth?token=secret-token')).toBeNull()
   })

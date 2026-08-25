@@ -51,6 +51,7 @@ describe("player input validation", () => {
       normalizeAuthReturnPath("/profile?edit=player-tag&next=/admin"),
     ).toBeUndefined();
     expect(normalizeAuthReturnPath("/leaderboards")).toBeUndefined();
+    expect(normalizeAuthReturnPath("/settings")).toBeUndefined();
     expect(
       normalizeAuthReturnPath("/leaderboards?mode=rain&scope=clan"),
     ).toBeUndefined();

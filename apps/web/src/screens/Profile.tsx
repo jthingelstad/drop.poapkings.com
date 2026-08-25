@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import {
   normalizeAuthReturnPath,
+  PLAYER_TAG_RETURN_PATH,
   playerReference,
   profileRouteForScope,
   runReference,
@@ -38,9 +39,9 @@ import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import SkeletonRows from '../components/Skeleton'
 import { gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
-import { gameReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
+import { canonicalProfileRoute, gameReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
-import { navigate, replace, route } from '../lib/router'
+import { navigate, replace, route, routePathname } from '../lib/router'
 import { buildMeta } from '../lib/build'
 import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
@@ -95,14 +96,10 @@ export default function Profile() {
   const pollingCrStatus = player.value?.clashRoyale?.status
 
   useEffect(() => {
-    const path = profileRoute.split('?', 1)[0]
-    if (path !== '/profile' && path !== '/settings') return
-    const query = profileRoute.split('?', 2)[1] || ''
-    const params = new URLSearchParams(query)
-    const ownsFlowState = params.has('edit') || params.has('returnTo')
-    const canonical = profileRouteForScope(scope)
-    if ((path === '/settings' || !ownsFlowState) && profileRoute !== canonical) replace(canonical)
-  }, [profileRoute, scope])
+    if (routePathname(profileRoute) !== '/profile' || route.peek() !== profileRoute) return
+    const canonical = canonicalProfileRoute(profileRoute)
+    if (profileRoute !== canonical) replace(canonical)
+  }, [profileRoute])
 
   useEffect(() => {
     const authenticatedPlayer = player.value
@@ -116,8 +113,7 @@ export default function Profile() {
   })
 
   useEffect(() => {
-    const query = profileRoute.split('?', 2)[1]
-    if (handledTagEditRequest.current || new URLSearchParams(query).get('edit') !== 'player-tag') return
+    if (handledTagEditRequest.current || canonicalProfileRoute(profileRoute) !== PLAYER_TAG_RETURN_PATH) return
     handledTagEditRequest.current = true
     // Account's player-tag edit opens step 3 directly (reusing the setup screen).
     flow.value = 'edit'

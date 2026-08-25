@@ -9,6 +9,8 @@ describe('shell nav model', () => {
   it('keeps the Play tab active across the game routes', () => {
     expect(isGameRoute('/surge')).toBe(true)
     expect(isGameRoute('/rain')).toBe(true)
+    expect(isGameRoute('/surgeon')).toBe(false)
+    expect(isGameRoute('/surge/extra')).toBe(false)
     expect(isGameRoute('/leaderboards')).toBe(false)
     expect(activeNavIndex('/surge')).toBe(0)
     expect(activeNavIndex('/')).toBe(0)
@@ -19,12 +21,13 @@ describe('shell nav model', () => {
     expect(NAV_ITEMS.map((item) => item.shortLabel)).toEqual(['Play', 'Ladder', 'You'])
   })
 
-  // App Info and Settings remain app routes opened from Profile, so the pill
-  // stays on You. Public information pages are now standalone documents.
+  // App Info remains an app route opened from Profile, so the pill stays on
+  // You. Public information pages are standalone documents.
   it('keeps the pill on You for app routes reached from the More list', () => {
-    for (const route of ['/app-info', '/settings']) {
-      expect(activeNavIndex(route)).toBe(2)
-    }
+    expect(activeNavIndex('/app-info')).toBe(2)
+    expect(activeNavIndex('/profile?scope=settings')).toBe(2)
+    expect(activeNavIndex('/profile-old')).toBe(0)
+    expect(activeNavIndex('/leaderboards-old')).toBe(0)
     expect(activeNavIndex('/about')).toBe(0)
     // The fallback still belongs to Games for genuinely unclaimed routes.
     expect(activeNavIndex('/nonsense')).toBe(0)

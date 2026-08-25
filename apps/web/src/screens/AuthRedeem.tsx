@@ -6,15 +6,14 @@ import {
   loginRouteForReturnPath,
   profileRouteForGame
 } from '../lib/game-routes'
-import { navigate, route } from '../lib/router'
+import { navigate, route, routeQuery } from '../lib/router'
 import Icon from '../components/Icon'
 
 export default function AuthRedeem() {
   const error = useSignal('')
   const redeeming = useSignal(false)
 
-  const query = route.value.split('?')[1] || ''
-  const token = new URLSearchParams(query).get('token')
+  const token = new URLSearchParams(routeQuery(route.value)).get('token')
   const returnTo = authReturnPathFromRoute(route.value)
   const returnToGame = returnTo ? gamePathForRoute(returnTo) : undefined
 

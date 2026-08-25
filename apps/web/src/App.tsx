@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
-import { route, navigate } from './lib/router'
+import { route, navigate, replace, routePathname } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute } from './lib/game-routes'
 import UpdateBanner from './components/UpdateBanner'
@@ -55,23 +55,22 @@ const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 // One entry per routed path in ScreenContent below (the dev-only avatar audit
 // aside). A missing entry is not harmless: the route silently announces the
 // generic "Elixir Drop" as its page heading.
-const ROUTE_LABELS: { match: string; label: string }[] = [
-  { match: '/practice', label: 'Practice' },
-  { match: '/surge', label: 'Surge' },
-  { match: '/higher-lower', label: 'Higher / Lower' },
-  { match: '/trade', label: 'Trade' },
-  { match: '/survival', label: 'Survival' },
-  { match: '/rain', label: 'Rain' },
-  { match: '/offline', label: 'Offline' },
-  { match: '/r/', label: 'A shared run' },
-  { match: '/s/', label: 'A shared link' },
-  { match: '/leaderboards', label: 'Ladder' },
-  { match: '/profile', label: 'You' },
-  { match: '/players', label: 'Player profile' },
-  { match: '/settings', label: 'You' },
-  { match: '/app-info', label: 'App info' },
-  { match: '/login', label: 'Sign in' },
-  { match: '/auth', label: 'Signing in' }
+const ROUTE_LABELS: { path: string; label: string; nested?: boolean }[] = [
+  { path: '/practice', label: 'Practice' },
+  { path: '/surge', label: 'Surge' },
+  { path: '/higher-lower', label: 'Higher / Lower' },
+  { path: '/trade', label: 'Trade' },
+  { path: '/survival', label: 'Survival' },
+  { path: '/rain', label: 'Rain' },
+  { path: '/offline', label: 'Offline' },
+  { path: '/r/', label: 'A shared run', nested: true },
+  { path: '/s/', label: 'A shared link', nested: true },
+  { path: '/leaderboards', label: 'Ladder' },
+  { path: '/profile', label: 'You' },
+  { path: '/players/', label: 'Player profile', nested: true },
+  { path: '/app-info', label: 'App info' },
+  { path: '/login', label: 'Sign in' },
+  { path: '/auth', label: 'Signing in' }
 ]
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -121,37 +120,38 @@ function AccountUnavailable() {
   )
 }
 
-function HomeRedirect() {
-  useEffect(() => navigate('/'), [])
+function HomeRedirect({ from }: { from: string }) {
+  useEffect(() => replace('/'), [from])
   return <Home />
 }
 
 function ScreenContent({ r }: { r: string }) {
+  const pathname = routePathname(r)
   const gamePath = gamePathForRoute(r)
   // Offline, the player stays on the real page they asked for: it names its cause
   // with a header chip and shows what it has, never a takeover. The Ladder and You
   // are live views that go quiet offline, not offline destinations — so the bundled
   // /offline explainer is retired; a legacy link to it lands Home.
-  if (r.startsWith('/offline')) return <HomeRedirect />
+  if (pathname === '/offline') return <HomeRedirect from={r} />
   // A shared run opens the RUN, never the home page. It needs no account and no
   // network state beyond its own read, so it sits above every account gate.
-  if (r.startsWith('/r/')) {
+  if (pathname.startsWith('/r/')) {
     const token = sharedRunToken(r)
-    return token ? <SharedRun token={token} /> : <HomeRedirect />
+    return token ? <SharedRun token={token} /> : <HomeRedirect from={r} />
   }
   // Home and badge shares carry Recruiter attribution but no Herald credit.
   // Resolve them before the account gate, then replace this capability route
   // with its ordinary destination so Back cannot loop through it.
-  if (r.startsWith('/s/')) {
+  if (pathname.startsWith('/s/')) {
     const token = sharedInviteToken(r)
-    return token ? <SharedInvite token={token} /> : <HomeRedirect />
+    return token ? <SharedInvite token={token} /> : <HomeRedirect from={r} />
   }
   // An offline game is local and unrecorded, so account state cannot gate it.
   // The effective state covers both a transport disconnect and an unreachable
   // player API; either way there is no official run to protect or record.
   const gameWithoutServices = Boolean(gamePath) && offline.value
   if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
-  if ((gamePath || r.startsWith('/profile')) && !gameWithoutServices && accountStatus.value === 'unavailable')
+  if ((gamePath || pathname === '/profile') && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
   // Identity never blocks a run: profile setup fires when the magic link lands
   // (screens/Profile identity steps), not when a game starts, so a signed-in
@@ -160,22 +160,20 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && gamePath !== '/practice' && player.value?.rankedAccess === 'restricted') {
     return <RankedAccessRestricted />
   }
-  if (import.meta.env.DEV && AvatarAudit && r.startsWith('/avatar-audit')) return <AvatarAudit />
-  if (r.startsWith('/practice')) return <Practice />
-  if (r.startsWith('/surge')) return <Surge />
-  if (r.startsWith('/higher-lower')) return <HigherLower />
-  if (r.startsWith('/trade')) return <Trade />
-  if (r.startsWith('/survival')) return <Survival />
-  if (r.startsWith('/rain')) return <Rain />
-  // Settings moved into the You page (a scope). Legacy /settings links land there.
-  if (r.startsWith('/settings')) return <Profile />
-  if (r.startsWith('/login')) return <Login />
-  if (r.startsWith('/auth')) return <AuthRedeem />
-  if (r.startsWith('/players/')) return <PublicProfile />
-  if (r.startsWith('/profile')) return <Profile />
-  if (r.startsWith('/leaderboards')) return <Leaderboards />
-  if (r.startsWith('/app-info')) return <AppInfo />
-  return <Home />
+  if (import.meta.env.DEV && AvatarAudit && pathname === '/avatar-audit') return <AvatarAudit />
+  if (gamePath === '/practice') return <Practice />
+  if (gamePath === '/surge') return <Surge />
+  if (gamePath === '/higher-lower') return <HigherLower />
+  if (gamePath === '/trade') return <Trade />
+  if (gamePath === '/survival') return <Survival />
+  if (gamePath === '/rain') return <Rain />
+  if (pathname === '/login') return <Login />
+  if (pathname === '/auth') return <AuthRedeem />
+  if (pathname.startsWith('/players/')) return <PublicProfile />
+  if (pathname === '/profile') return <Profile />
+  if (pathname === '/leaderboards') return <Leaderboards />
+  if (pathname === '/app-info') return <AppInfo />
+  return <HomeRedirect from={r} />
 }
 
 function Screen({ r }: { r: string }) {
@@ -187,12 +185,17 @@ function Screen({ r }: { r: string }) {
 }
 
 function screenTitle(r: string): string | null {
-  if (r === '/') return null
-  return ROUTE_LABELS.find((x) => r.startsWith(x.match))?.label ?? 'Elixir Drop'
+  const pathname = routePathname(r)
+  if (pathname === '/') return null
+  return (
+    ROUTE_LABELS.find((entry) => (entry.nested ? pathname.startsWith(entry.path) : pathname === entry.path))?.label ??
+    null
+  )
 }
 
 function screenOwnsPageHeading(r: string): boolean {
-  return r.startsWith('/login') || r.startsWith('/auth') || r.startsWith('/players/')
+  const pathname = routePathname(r)
+  return pathname === '/login' || pathname === '/auth' || pathname.startsWith('/players/')
 }
 
 export default function App() {

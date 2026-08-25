@@ -8,7 +8,7 @@ export function sharePermalink(kind: 'r' | 's', token: string, href = window.loc
 }
 
 export function shareTokenFromRoute(value: string, kind: 'r' | 's'): string | undefined {
-  const match = value.match(new RegExp(`^/${kind}/([^/?#]+)`))
+  const match = value.match(new RegExp(`^/${kind}/([^/?#]+)$`))
   const token = match?.[1]?.toUpperCase()
   return token && TOKEN_PATTERN.test(token) ? token : undefined
 }

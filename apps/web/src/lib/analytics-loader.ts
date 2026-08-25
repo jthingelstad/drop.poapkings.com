@@ -23,7 +23,6 @@ const PAGE_PATHS = [
   '/rain',
   '/leaderboards',
   '/profile',
-  '/settings',
   '/login'
 ] as const
 
@@ -36,7 +35,7 @@ export function analyticsPagePath(hash = window.location.hash): string | null {
   const path = (hash.startsWith('#') ? hash.slice(1) : hash).split('?')[0] || '/'
   if (path === '/auth' || path.startsWith('/auth/')) return null
   if (path.startsWith('/players/')) return '/players/profile'
-  return PAGE_PATHS.find((candidate) => path === candidate || path.startsWith(`${candidate}/`)) ?? '/'
+  return PAGE_PATHS.find((candidate) => path === candidate) ?? '/'
 }
 
 function virtualPageUrl(path: string): string {

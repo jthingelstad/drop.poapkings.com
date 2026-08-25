@@ -589,10 +589,14 @@ activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
 Magic-link return destinations are an exact shared allowlist, never an arbitrary
-internal or external URL. The browser and API accept each shipped game route plus
-`/profile?edit=player-tag`; the latter lets a signed-out player reach the Clash
-Royale tag editor after redemption. Other profile queries, appended parameters,
-protocol-relative URLs, and absolute URLs are discarded. A player whose identity
+internal or external URL. The browser and API accept each shipped game route,
+`/profile?edit=player-tag`, canonical non-default You scopes, and canonical
+account-owned Ladder scopes. The tag route lets a signed-out player reach the Clash
+Royale tag editor after redemption. App routes match exact pathnames; resource
+identity stays in path segments, while canonical `scope`, `mode`, `season`, and
+`period` query parameters own view selection. Defaults are omitted, unknown routes
+return Home, and unknown, appended, or conflicting parameters are discarded.
+Protocol-relative and absolute URLs are never accepted. A player whose identity
 setup is incomplete still finishes that setup before reaching the tag step.
 
 ### Sharing and recruitment

@@ -344,7 +344,7 @@ test('surge runtime cues drive card motion and the optional effects canvas', asy
 })
 
 test('surge keeps gameplay still and skips optional effects when reduced motion is enabled', async ({ page }) => {
-  await page.goto('/#/settings')
+  await page.goto('/#/profile?scope=settings')
   await page.getByRole('tab', { name: 'Settings' }).click()
   await page.getByRole('switch', { name: 'Reduce motion' }).click()
   await page.goto('/#/surge')
