@@ -11,6 +11,11 @@ const safeInteger = z.number().int().safe()
 const nonNegativeInteger = safeInteger.nonnegative()
 const cardId = safeInteger.positive()
 const accountTagSchema = z.enum(ACCOUNT_TAGS)
+// Rolling-deploy bridge for the season-key migration. The next API writes and
+// returns Clash season numbers; the currently deployed browser expects strings.
+// Normalize either wire shape to the existing browser type so this build can be
+// deployed first without coupling the API and web cutovers.
+const compatibleSeasonId = z.union([nonEmptyString, safeInteger.positive()]).transform(String)
 
 export const apiConfigSchema = z.object({
   apiBaseUrl: z.string()
@@ -28,7 +33,7 @@ export const apiErrorSchema = z.object({
 export const gameModeSchema = z.enum(GAME_MODES)
 
 export const seasonSchema = z.object({
-  id: nonEmptyString,
+  id: compatibleSeasonId,
   startsAt: isoDateTime,
   endsAt: isoDateTime,
   durationWeeks: safeInteger.positive(),
@@ -182,7 +187,7 @@ export const recentRunSchema = z.object({
   runId: nonEmptyString,
   mode: gameModeSchema,
   score: z.number().finite(),
-  seasonId: nonEmptyString,
+  seasonId: compatibleSeasonId,
   completedAt: isoDateTime,
   // All XP that stacked on this completion, plus its source breakdown.
   xp: z.optional(nonNegativeInteger),
@@ -227,7 +232,7 @@ export const meResponseSchema = z.object({
 })
 
 export const seasonHistorySchema = z.object({
-  id: nonEmptyString,
+  id: compatibleSeasonId,
   games: nonNegativeInteger,
   runs: z.array(recentRunSchema)
 })
@@ -235,7 +240,7 @@ export const seasonHistorySchema = z.object({
 // Every season the player has runs in, newest first — one row each, so the
 // picker and the "load the season before this" control never need the runs.
 export const seasonIndexEntrySchema = z.object({
-  id: nonEmptyString,
+  id: compatibleSeasonId,
   games: nonNegativeInteger,
   // The Clash Royale season number players actually recognise. Absent when the
   // server cannot anchor the internal id to a live war clock.
@@ -443,7 +448,7 @@ export const sharedRunSchema = z.object({
   token: z.string().min(4).max(16),
   mode: gameModeSchema,
   score: z.number().finite(),
-  seasonId: nonEmptyString,
+  seasonId: compatibleSeasonId,
   completedAt: isoDateTime,
   // The player's own run shape, for the card. Display only.
   series: z.optional(z.array(z.number().finite())),
@@ -481,13 +486,13 @@ export const leaderboardResponseSchema = z.object({
   // 'clan' ranks best-ever among the signed-in player's current clanmates.
   // seasonId is present only for the season board.
   scope: z.optional(z.enum(['season', 'all-time', 'clan'])),
-  seasonId: z.optional(nonEmptyString),
+  seasonId: z.optional(compatibleSeasonId),
   clan: z.optional(z.object({ tag: nonEmptyString, name: nonEmptyString })),
   currentSeason: seasonSchema,
   // The period rail's chips (Boards scope only): the current season back
   // through Drop's first board, newest first. crSeasonId is the derived Clash
   // Royale number; entries without one stay out of player-facing navigation.
-  seasons: z.optional(z.array(z.object({ id: nonEmptyString, crSeasonId: z.optional(safeInteger.positive()) }))),
+  seasons: z.optional(z.array(z.object({ id: compatibleSeasonId, crSeasonId: z.optional(safeInteger.positive()) }))),
   entries: z.array(leaderboardEntrySchema)
 })
 
@@ -504,7 +509,7 @@ export const activityEntrySchema = z.object({
 })
 
 export const activityResponseSchema = z.object({
-  seasonId: nonEmptyString,
+  seasonId: compatibleSeasonId,
   windowHours: z.optional(safeInteger.positive()).default(24),
   entries: z.array(activityEntrySchema)
 })
