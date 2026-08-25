@@ -1,4 +1,5 @@
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import { BADGE_COUNTERS_VERSION, type BadgeCounters } from "../badges.js";
 import { hasFirstDropBadge } from "../first-drop.js";
 import { assessRunIntegrity } from "../integrity.js";
 import {
@@ -10,6 +11,7 @@ import { updateBadges } from "../routes/runs-complete.js";
 import { PRACTICE_MAX_ANSWERS } from "../scoring.js";
 import { seasonForDate } from "../seasons.js";
 import type { PlayerProfile } from "../types.js";
+import { settleBadgeXp } from "../xp-awards.js";
 
 const RECOVERY_REASON = "practice_client_state_lost";
 const BROWSER_DELTA_EVIDENCE = "BROWSER#CARD_STATS_MINUS_SERVER";
@@ -281,6 +283,15 @@ function sameEvidence(
   );
 }
 
+export function recoveredRungSlugs(
+  counters: BadgeCounters,
+  completedAt: string,
+): string[] {
+  return Object.entries(counters.earned)
+    .filter(([, timestamps]) => timestamps.includes(completedAt))
+    .map(([slug]) => slug);
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const args = parsePracticeRecoveryArgs(argv);
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
@@ -432,9 +443,47 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (!badgeUpdate.applied)
       throw new Error("Practice badge recovery did not apply");
   }
+  const recoveredBadges = await repository.getBadges(run.owner);
+  if (!recoveredBadges || recoveredBadges.version !== BADGE_COUNTERS_VERSION)
+    throw new Error("Recovered Practice badges could not be loaded");
+  const badgeXp = await settleBadgeXp(
+    repository,
+    run.owner,
+    recoveredBadges,
+    marker.recoveredAt,
+    {
+      version: recoveredBadges.version,
+      updatedAt: recoveredBadges.updatedAt,
+    },
+    { runId: run.runId, completedAt: plan.completedAt },
+  );
+  const rungSlugs = [
+    ...new Set([
+      ...recoveredRungSlugs(recoveredBadges, plan.completedAt),
+      ...badgeXp.newlyEarned.map((rung) => rung.slug),
+    ]),
+  ];
+  await repository.setRunRungs(
+    run.owner,
+    run.runId,
+    plan.completedAt,
+    rungSlugs,
+  );
   await repository.finishRunRecovery(run.runId, recoveredAt);
   process.stdout.write(
-    `${JSON.stringify({ status: "recovered", table: args.tableName, recovery: preview }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        status: "recovered",
+        table: args.tableName,
+        recovery: {
+          ...preview,
+          badgeXpAwarded: badgeXp.awarded,
+          rungSlugs,
+        },
+      },
+      null,
+      2,
+    )}\n`,
   );
 }
 

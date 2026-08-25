@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parsePracticeRecoveryArgs,
   planPracticeRecovery,
+  recoveredRungSlugs,
 } from "../src/maintenance/recover-practice-run.js";
 import type { RunItem } from "../src/repository.js";
 import type { Repository } from "../src/repository.js";
@@ -103,6 +104,24 @@ describe("Practice run recovery", () => {
       answerCount: 2000,
       correctCount: 1840,
     });
+  });
+
+  it("identifies only badge rungs stamped by the recovered run", () => {
+    expect(
+      recoveredRungSlugs(
+        {
+          version: 9,
+          values: { reps: 8_463, "drop-regular": 1_216 },
+          runsAtRung: {},
+          aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
+          earned: {
+            reps: ["2026-08-01T00:00:00.000Z", "2026-08-25T17:55:12.000Z"],
+            "drop-regular": ["2026-08-01T00:00:00.000Z"],
+          },
+        },
+        "2026-08-25T17:55:12.000Z",
+      ),
+    ).toEqual(["reps"]);
   });
 
   it("refuses mixed or incomplete recovery evidence", () => {
