@@ -3983,6 +3983,105 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
   width: 16px;
   height: 16px;
 }
+.ed-appinfo__recovery {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 16px;
+  background: radial-gradient(90% 130% at 100% 0%, rgba(109, 40, 217, 0.22), transparent 62%), rgba(18, 13, 40, 0.66);
+}
+.ed-appinfo__recovery h2 {
+  margin: -6px 0 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.ed-appinfo__recovery > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.ed-appinfo__recovery-state {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(7, 6, 16, 0.46);
+  color: var(--lavender-2);
+  font-size: 0.78rem;
+}
+.ed-appinfo__recovery-state strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+.ed-appinfo__recovery-state--found {
+  border: 1px solid rgba(245, 200, 76, 0.32);
+}
+.ed-appinfo__recovery-state--clear {
+  border: 1px solid rgba(52, 211, 153, 0.34);
+}
+.ed-appinfo__recovery-state--inconsistent,
+.ed-appinfo__recovery-state--error {
+  border: 1px solid rgba(248, 113, 113, 0.44);
+  color: #fecaca;
+}
+.ed-appinfo__recovery-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.ed-appinfo__recovery-totals > div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(7, 6, 16, 0.4);
+}
+.ed-appinfo__recovery-totals dt {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ed-appinfo__recovery-totals dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+.ed-appinfo__recovery-code {
+  max-width: 100%;
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: rgba(7, 6, 16, 0.72);
+  color: var(--lavender-2);
+  font:
+    0.68rem/1.45 ui-monospace,
+    SFMono-Regular,
+    'SF Mono',
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  -webkit-overflow-scrolling: touch;
+}
+.ed-appinfo__recovery .ed-btn {
+  justify-self: start;
+}
+.ed-appinfo__recovery .ed-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+.ed-appinfo__recovery-copy {
+  color: #6ee7b7;
+  font-size: 0.75rem;
+}
+.ed-appinfo__recovery-note {
+  padding-top: 2px;
+}
 
 /* Mobile More list (Profile entry points to public information and app tools). */
 .ed-morelist {

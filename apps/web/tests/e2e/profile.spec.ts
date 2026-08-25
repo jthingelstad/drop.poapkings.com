@@ -64,6 +64,80 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
   await expect(page.locator('.ed-account')).toContainText('player@example.com')
   await expect(page.locator('.ed-account')).toContainText(playerReference('player-1'))
   await expect(page.locator('.ed-account')).toContainText('Sign out')
+  await expect(page.getByRole('link', { name: 'Game Setup' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'App Info' })).toHaveCount(0)
+})
+
+test('developer App Info shows a copyable device recovery code', { tag: '@deploy' }, async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'elixirdrop:cardStats',
+      JSON.stringify({
+        '26000000': { seen: 2500, correct: 2000, missStreak: 0, lastSeen: 1 },
+        '26000001': { seen: 500, correct: 350, missStreak: 1, lastSeen: 2 }
+      })
+    )
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          ;(window as unknown as { __recoveryCode?: string }).__recoveryCode = value
+        }
+      }
+    })
+  })
+  await page.route(testApiRoute, async (route) => {
+    const request = route.request()
+    if (request.method() !== 'GET' || new URL(request.url()).pathname !== '/me') return route.fallback()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        player: { ...testPlayer, accountTags: ['developer'] },
+        recentRuns: testRecentRuns,
+        learning: {
+          weakCardIds: [],
+          costAccuracy: {
+            '3': { seen: 250, correct: 190 },
+            '4': { seen: 150, correct: 110 }
+          }
+        },
+        badges: { badges: testBadges }
+      })
+    })
+  })
+
+  await page.goto('/#/profile?scope=account')
+  await page.getByRole('button', { name: 'App Info' }).click()
+  await expect(page).toHaveURL(/#\/app-info$/)
+
+  const recovery = page.locator('.ed-appinfo__recovery')
+  await expect(recovery.getByRole('heading', { name: 'Practice Recovery' })).toBeVisible()
+  await expect(recovery).toContainText('2,600 unsaved answers found')
+  await expect(recovery).toContainText('2,050 correct')
+  await expect(recovery).toContainText('3,000 seen · 2,350 correct')
+  await expect(recovery).toContainText('400 seen · 300 correct')
+
+  const code = JSON.parse(await recovery.getByLabel('Practice recovery code').innerText()) as Record<string, unknown>
+  expect(code).toMatchObject({
+    version: 1,
+    playerId: testPlayer.id,
+    localSeen: 3000,
+    localCorrect: 2350,
+    serverSeen: 400,
+    serverCorrect: 300
+  })
+
+  await recovery.getByRole('button', { name: 'Copy recovery code' }).click()
+  await expect(recovery.getByRole('status')).toHaveText('Recovery code copied.')
+  expect(
+    JSON.parse(await page.evaluate(() => (window as unknown as { __recoveryCode?: string }).__recoveryCode ?? '{}'))
+  ).toMatchObject(code)
+
+  await testInfo.attach('developer-practice-recovery.png', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png'
+  })
 })
 
 test('your profile publishes a Clash-rendered image and shares only its permanent URL', async ({ page }, testInfo) => {

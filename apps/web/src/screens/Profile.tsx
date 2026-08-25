@@ -922,9 +922,10 @@ function AccountScope({ current }: { current: NonNullable<(typeof player)['value
     }
   }
 
-  const gameSetup: { label: string; href?: string; to?: string } = standaloneApp.value
-    ? { label: 'App Info', to: '/app-info' }
-    : { label: 'Game Setup', href: '/install/' }
+  const gameSetup: { label: string; href?: string; to?: string } =
+    standaloneApp.value || current.accountTags?.includes('developer')
+      ? { label: 'App Info', to: '/app-info' }
+      : { label: 'Game Setup', href: '/install/' }
   const aboutRows = [...ABOUT_LINKS.slice(0, 4), gameSetup, ...ABOUT_LINKS.slice(4)]
 
   return (

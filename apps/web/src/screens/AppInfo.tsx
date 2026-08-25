@@ -5,8 +5,19 @@ import MetaPageHead from '../components/MetaPageHead'
 import { buildMeta } from '../lib/build'
 import { allCards, cardCatalogVersion } from '../lib/card-catalog'
 import { getCardArtCacheInfo, type CardArtCacheInfo } from '../lib/card-art-cache'
-import { getApiDiagnostics, type ApiDiagnostics } from '../lib/api'
+import { getApiDiagnostics, getMe, type ApiDiagnostics } from '../lib/api'
 import { standaloneApp } from '../lib/pwa-install'
+import { player, sessionToken } from '../lib/account'
+import { getCardStats } from '../lib/storage'
+import {
+  buildPracticeRecoveryCode,
+  localLearningTotals,
+  practiceRecoveryDelta,
+  practiceRecoveryState,
+  serializePracticeRecoveryCode,
+  serverLearningTotals,
+  type PracticeRecoveryCode
+} from '../lib/practice-recovery'
 
 function workerLabel(state: CardArtCacheInfo['workerState']): string {
   if (state === 'activated') return 'Active'
@@ -119,6 +130,42 @@ async function updateApiInfo(
   }
 }
 
+async function updatePracticeRecovery(
+  mounted: MountedRef,
+  refreshing: Signal<boolean>,
+  evidence: Signal<PracticeRecoveryCode | null>,
+  failed: Signal<boolean>,
+  expectedPlayerId: string
+) {
+  if (refreshing.value) return
+  const token = sessionToken()
+  if (!token) {
+    failed.value = true
+    return
+  }
+  refreshing.value = true
+  try {
+    const me = await getMe(token)
+    if (me.player.id !== expectedPlayerId || !me.player.accountTags?.includes('developer')) {
+      throw new Error('Practice recovery identity changed')
+    }
+    const next = buildPracticeRecoveryCode(
+      me.player.id,
+      localLearningTotals(getCardStats()),
+      serverLearningTotals(me.learning?.costAccuracy)
+    )
+    if (!mounted.current) return
+    evidence.value = next
+    failed.value = false
+  } catch {
+    if (!mounted.current) return
+    evidence.value = null
+    failed.value = true
+  } finally {
+    if (mounted.current) refreshing.value = false
+  }
+}
+
 export default function AppInfo() {
   const cacheInfo = useSignal<CardArtCacheInfo | null>(null)
   const cacheFailed = useSignal(false)
@@ -126,7 +173,15 @@ export default function AppInfo() {
   const apiInfo = useSignal<ApiDiagnostics | null>(null)
   const apiFailed = useSignal(false)
   const apiRefreshing = useSignal(false)
+  const recoveryEvidence = useSignal<PracticeRecoveryCode | null>(null)
+  const recoveryFailed = useSignal(false)
+  const recoveryRefreshing = useSignal(false)
+  const recoveryCopyStatus = useSignal('')
   const mounted = useRef(true)
+  const currentPlayer = player.value
+  // Account tags control discovery only. The page is read-only and the
+  // operator recovery remains separately authenticated and owner-checked.
+  const showPracticeRecovery = currentPlayer?.accountTags?.includes('developer') ?? false
 
   useEffect(() => {
     mounted.current = true
@@ -143,11 +198,33 @@ export default function AppInfo() {
     }
   }, [apiFailed, apiInfo, apiRefreshing, cacheFailed, cacheInfo, cacheRefreshing])
 
+  useEffect(() => {
+    if (!showPracticeRecovery || !currentPlayer) return
+    void updatePracticeRecovery(mounted, recoveryRefreshing, recoveryEvidence, recoveryFailed, currentPlayer.id)
+  }, [currentPlayer, recoveryEvidence, recoveryFailed, recoveryRefreshing, showPracticeRecovery])
+
   const info = cacheInfo.value
   const progress = info?.totalCount ? Math.min(100, (info.cachedCount / info.totalCount) * 100) : 0
   const connection = apiInfo.value
   const ready = readiness(connection, apiFailed.value, info)
   const refreshing = cacheRefreshing.value || apiRefreshing.value
+  const recovery = recoveryEvidence.value
+  const recoveryDelta = recovery ? practiceRecoveryDelta(recovery) : null
+  const recoveryState = recovery ? practiceRecoveryState(recovery) : null
+  const recoveryCode = recovery ? serializePracticeRecoveryCode(recovery) : ''
+
+  async function copyRecoveryCode() {
+    if (!recoveryCode || !navigator.clipboard?.writeText) {
+      recoveryCopyStatus.value = 'Copy is unavailable here. Take a screenshot of the code instead.'
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(recoveryCode)
+      recoveryCopyStatus.value = 'Recovery code copied.'
+    } catch {
+      recoveryCopyStatus.value = 'Copy was blocked. Take a screenshot of the code instead.'
+    }
+  }
 
   return (
     <article class="ed-page ed-appinfo">
@@ -202,6 +279,77 @@ export default function AppInfo() {
         </p>
       </section>
 
+      {showPracticeRecovery && (
+        <section class="ed-appinfo__recovery" aria-labelledby="practice-recovery-title" aria-live="polite">
+          <div class="ed-appinfo__label">Developer diagnostic</div>
+          <h2 id="practice-recovery-title">Practice Recovery</h2>
+          <p>
+            This read-only check compares learning counters in this iPhone app or browser with validated learning saved
+            to your Drop account. It does not submit or change anything.
+          </p>
+
+          {recoveryRefreshing.value && !recovery && <div class="ed-appinfo__recovery-state">Checking this device…</div>}
+          {recoveryFailed.value && (
+            <div class="ed-appinfo__recovery-state ed-appinfo__recovery-state--error" role="alert">
+              Recovery totals could not be read. Stay signed in and try Refresh status.
+            </div>
+          )}
+          {recovery && recoveryDelta && (
+            <>
+              <div class={`ed-appinfo__recovery-state ed-appinfo__recovery-state--${recoveryState}`}>
+                <strong>
+                  {recoveryState === 'found'
+                    ? `${recoveryDelta.seen.toLocaleString()} unsaved answers found`
+                    : recoveryState === 'clear'
+                      ? 'No unsaved answers found'
+                      : 'These totals need operator review'}
+                </strong>
+                <span>
+                  {recoveryState === 'found'
+                    ? `${recoveryDelta.correct.toLocaleString()} correct on this device beyond the saved account totals.`
+                    : recoveryState === 'clear'
+                      ? 'This device and the saved account have the same learning totals.'
+                      : 'Do not estimate from these totals; send the full code for review.'}
+                </span>
+              </div>
+
+              <dl class="ed-appinfo__recovery-totals">
+                <div>
+                  <dt>Device</dt>
+                  <dd>
+                    {recovery.localSeen.toLocaleString()} seen · {recovery.localCorrect.toLocaleString()} correct
+                  </dd>
+                </div>
+                <div>
+                  <dt>Saved</dt>
+                  <dd>
+                    {recovery.serverSeen.toLocaleString()} seen · {recovery.serverCorrect.toLocaleString()} correct
+                  </dd>
+                </div>
+              </dl>
+
+              <pre class="ed-appinfo__recovery-code" aria-label="Practice recovery code">
+                {recoveryCode}
+              </pre>
+              <button class="ed-btn ed-btn--gold ed-btn--sm tap-fx" onClick={() => void copyRecoveryCode()}>
+                <span class="tap-face">
+                  <Icon name="copy" /> Copy recovery code
+                </span>
+              </button>
+              {recoveryCopyStatus.value && (
+                <div class="ed-appinfo__recovery-copy" role="status">
+                  {recoveryCopyStatus.value}
+                </div>
+              )}
+              <p class="ed-appinfo__recovery-note">
+                Keep using this same app or browser. Do not clear website data or play another learning game until the
+                recovery is reviewed. A screenshot of this section is enough.
+              </p>
+            </>
+          )}
+        </section>
+      )}
+
       <dl class="settings-meta ed-appinfo__meta" aria-label="App information">
         <div class="settings-meta__row">
           <dt>Running as</dt>
@@ -250,7 +398,18 @@ export default function AppInfo() {
         onClick={() =>
           void Promise.all([
             updateCacheInfo(mounted, cacheRefreshing, cacheInfo, cacheFailed),
-            updateApiInfo(mounted, apiRefreshing, apiInfo, apiFailed)
+            updateApiInfo(mounted, apiRefreshing, apiInfo, apiFailed),
+            ...(showPracticeRecovery && currentPlayer
+              ? [
+                  updatePracticeRecovery(
+                    mounted,
+                    recoveryRefreshing,
+                    recoveryEvidence,
+                    recoveryFailed,
+                    currentPlayer.id
+                  )
+                ]
+              : [])
           ])
         }
         disabled={refreshing}
