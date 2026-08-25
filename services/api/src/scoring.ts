@@ -36,7 +36,7 @@ const CARD_BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 // file or integrity.ts changes so historical referee evidence stays
 // interpretable across builds that did not change the rules. Stamped onto every
 // evidence item alongside the front-end build sha (WEB_VERSION).
-export const SCORING_RULES_VERSION = "8";
+export const SCORING_RULES_VERSION = "9";
 
 export function cardElixir(id: number): number | undefined {
   return CARD_BY_ID.get(id)?.elixir;
@@ -63,7 +63,7 @@ const RAIN_MAX_WRONG_PER_CARD = 60;
 // review. The same 2s this file already allows every other mode's timing, and
 // the right size here for three reasons: the floor sums ONE spawn gap more than
 // the strictly unavoidable minimum (a player who cleared every tile the instant
-// it appeared would still owe the last gap, ≤1,160ms and shrinking with score);
+// it appeared would still owe the last gap, ≤1,500ms and shrinking with score);
 // the wall clock it is checked against also carries the ~1.95s 3-2-1 countdown
 // and the round trip, which no in-game timing can spend; and the outcome is
 // quarantine rather than rejection, so buying certainty with a larger tolerance

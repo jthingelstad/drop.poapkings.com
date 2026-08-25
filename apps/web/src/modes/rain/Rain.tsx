@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
+import { animate } from 'motion'
+import { rainFallDurationMs, rainSpawnIntervalMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import { computeInsights, type Insights } from '../../lib/insights'
 import { track } from '../../lib/analytics'
@@ -26,6 +27,7 @@ import LivesRow from '../../components/LivesRow'
 import GameMilestone from '../../components/GameMilestone'
 import { preloadImages } from '../../lib/preload'
 import { runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
+import { rainLaneLeftPct, rainRecoveryShiftMs, rainVisualProgress } from './rain-physics'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
@@ -33,37 +35,25 @@ import { runInputEvidence, type InputObservation, type RunInputEvidence } from '
 // guess=cost, landed → guess=null) is recorded in the transcript the server
 // scores, stamped with the elapsed time at resolution and the wrong taps it cost.
 //
-// Difficulty scales with cleared count (demonstrated skill) and NEVER caps, on
-// BOTH axes: cards fall faster AND spawn closer together as you clear more. It
-// starts a touch gentler than a fixed pace and then ramps without limit, so a
-// player in flow keeps accelerating until the field outruns human reaction and
-// the run ends — you cannot play forever. Both curves key off the live score, so
-// difficulty only advances when you actually clear cards (struggling is
-// self-forgiving). See rainFallBoost / rainSpawnMs for the tuning.
+// Difficulty scales with cleared count (demonstrated skill) on BOTH axes: cards
+// have shorter deterministic deadlines and spawn closer together. The two
+// shared curves keep the field pressure rising instead of beginning crowded and
+// ending as a sparse reflex test. Both key off live score, so struggling never
+// makes the storm harder.
 const MAX_CONCURRENT = 8
 const TICK_MS = 40
-// Field percentage at which a tile strikes the kill line. The landing test and
-// the remaining-fall-time maths both key off this one number.
-const KILL_LINE_Y = 96
 const RAIN_LIVES = 3
 const COUNTDOWN_STEP_MS = 700
-
-// Fall speed = RAIN_BASE_SPEED + per-drop jitter + rainFallBoost(score), in field
-// %-per-tick. A card falls 112 units, so time ≈ 4480ms / speed. At score 0 that
-// is ~9–12s (gentler than before); the linear+quadratic boost has no ceiling, so
-// the deep game turns brutal (~0.7s/card in the high 200s ≈ impossible).
-//
-// This axis stays local on purpose: the jitter makes it non-deterministic, so it
-// can play no part in the server's minimum-time floor. The SPAWN axis is shared —
-// `rainSpawnIntervalMs` comes from packages/contracts, which is what the scorer
-// computes that floor from.
-const RAIN_BASE_SPEED = 0.36
-const RAIN_SPEED_JITTER = 0.14
-const RAIN_FALL_LINEAR = 0.011
-const RAIN_FALL_QUAD = 0.00003
-function rainFallBoost(score: number): number {
-  return score * RAIN_FALL_LINEAR + score * score * RAIN_FALL_QUAD
-}
+const RAIN_RECOVERY_MIN_WINDOW_MS = 2_400
+const RAIN_RECOVERY_TRANSITION_MS = 450
+const RAIN_SHARD_CLIP_PATHS = [
+  'polygon(0 0, 52% 0, 44% 48%, 0 55%)',
+  'polygon(52% 0, 100% 0, 100% 42%, 44% 48%)',
+  'polygon(0 55%, 44% 48%, 48% 100%, 0 100%)',
+  'polygon(44% 48%, 100% 42%, 100% 100%, 48% 100%)',
+  'polygon(24% 18%, 76% 14%, 70% 72%, 30% 78%)',
+  'polygon(8% 30%, 30% 8%, 86% 72%, 62% 94%)'
+] as const
 
 // Progress flash: every 10th clear, the running total pulses briefly in the
 // middle of the field so the player feels the count without reading the top bar.
@@ -78,8 +68,10 @@ const MAX_WRONG_PER_CARD = 60
 interface Drop {
   el: HTMLDivElement
   card: Card
-  y: number
-  speed: number
+  spawnedAt: number
+  durationMs: number
+  deadlineAt: number
+  topPct: number
   // Wrong taps spent on this card so far; rides into the transcript when it
   // resolves and feeds the leaderboard's first tiebreak.
   wrong: number
@@ -94,11 +86,6 @@ interface Drop {
   targeted: boolean
 }
 
-// Milliseconds a tile at `y` still has before it strikes the kill line.
-function fallTimeLeftMs(y: number, speed: number): number {
-  return Math.max(0, ((KILL_LINE_Y - y) / speed) * TICK_MS)
-}
-
 export default function Rain() {
   const gameRun = useGameSession('rain', challengePreparers.rain)
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, trackElapsed: false })
@@ -106,19 +93,20 @@ export default function Rain() {
   const fieldRef = useRef<HTMLDivElement>(null)
   const killLineRef = useRef<HTMLDivElement>(null)
 
-  // The kill line flashes bright for ~120ms where a card strikes it — the one
-  // new animation in this build, and what makes the line read as a floor.
+  // The kill line flashes where a card strikes it, making the rule read as a
+  // physical floor. Motion is progressive enhancement; reduced motion keeps a
+  // stable line and the same simulation.
   function flashKillLine() {
     const el = killLineRef.current
-    if (!el || isReducedMotionEnabled() || typeof el.animate !== 'function') return
-    el.animate([{ filter: 'brightness(2.6)' }, { filter: 'brightness(1)' }], { duration: 120, easing: 'ease-out' })
+    if (!el || isReducedMotionEnabled()) return
+    void animate(el, { filter: ['brightness(2.6)', 'brightness(1)'] }, { duration: 0.12, ease: 'easeOut' })
   }
   const drops = useRef<Drop[]>([])
   const target = useRef<Drop | null>(null)
-  const rainSpd = useRef(0)
   const cursor = useRef(0)
   const spawnTimer = useRef<number | undefined>(undefined)
   const fallTimer = useRef<number | undefined>(undefined)
+  const recoveryTimer = useRef<number | undefined>(undefined)
   const spawnGeneration = useRef(0)
   // Server transcript: one entry per resolved card, in resolution order, each
   // stamped with the elapsed time at resolution. `atMs` is what lets the scorer
@@ -144,6 +132,8 @@ export default function Rain() {
   // own synchronous terminal lock: otherwise a tap after the third miss can be
   // appended to the signed transcript and the strict server rejects the run.
   const inputLocked = useSignal(false)
+  const recovering = useSignal(false)
+  const stormPulse = useSignal(0)
   // Directional hint after a wrong tap (like Surge): aim higher or lower.
   const hint = useSignal<'higher' | 'lower' | null>(null)
   const hintPulse = useSignal(0)
@@ -161,6 +151,7 @@ export default function Rain() {
       spawnGeneration.current += 1
       if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
       if (fallTimer.current) window.clearInterval(fallTimer.current)
+      if (recoveryTimer.current) window.clearTimeout(recoveryTimer.current)
     }
   }, [])
 
@@ -169,20 +160,29 @@ export default function Rain() {
   function clearLoops() {
     if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
     if (fallTimer.current) window.clearInterval(fallTimer.current)
+    if (recoveryTimer.current) window.clearTimeout(recoveryTimer.current)
     spawnTimer.current = undefined
     fallTimer.current = undefined
+    recoveryTimer.current = undefined
   }
 
-  // Spawn cadence is dynamic (tightens with score), so it self-reschedules with
-  // the current gap instead of a fixed interval. Stops when the run is no longer
-  // live so a late timer never spawns onto a torn-down field.
-  function scheduleSpawn() {
+  // Spawn against absolute monotonic deadlines rather than chaining each gap
+  // from whenever the browser happened to deliver the previous callback. A
+  // busy device can render late, but cannot silently grant a slower game.
+  function armSpawn(scheduledAt: number) {
     if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
-    spawnTimer.current = window.setTimeout(() => {
-      spawnDrop(() => {
-        if (stage.peek() === 'running') scheduleSpawn()
-      })
-    }, rainSpawnIntervalMs(score.value))
+    spawnTimer.current = window.setTimeout(
+      () => {
+        spawnDrop(scheduledAt, () => {
+          if (stage.peek() === 'running' && !recovering.peek()) scheduleSpawnAfter(scheduledAt)
+        })
+      },
+      Math.max(0, scheduledAt - performance.now())
+    )
+  }
+
+  function scheduleSpawnAfter(previousSpawnAt: number) {
+    armSpawn(previousSpawnAt + rainSpawnIntervalMs(score.peek()))
   }
 
   // Show the running total for RAIN_MILESTONE_MS, then get out of the way. The
@@ -201,6 +201,8 @@ export default function Rain() {
     score.value = 0
     milestone.value = null
     inputLocked.value = false
+    recovering.value = false
+    stormPulse.value = 0
     serverAnswers.current = []
     inputEvents.current = []
     nextInputRound.current = 0
@@ -212,7 +214,6 @@ export default function Rain() {
       spawnGeneration.current += 1
       drops.current = []
       target.current = null
-      rainSpd.current = 0
       cursor.current = 0
       fallTimer.current = window.setInterval(tick, TICK_MS)
     })
@@ -221,17 +222,18 @@ export default function Rain() {
   // The falling-cards field only mounts on the 'running' render, which happens
   // *after* runtime.start()'s begin callback runs — so the eager first drop has
   // to wait for that mount, otherwise fieldRef is null and spawnDrop() no-ops
-  // (leaving the field empty until the first scheduled spawn ~1160ms later). Clear
+  // (leaving the field empty until the first scheduled spawn ~1500ms later). Clear
   // any prior run's tiles and deal the opening card as soon as the stage is live.
   // spawnDrop is reached through a ref so this only fires on the stage flip.
-  const spawnRef = useRef<(onSpawned?: () => void) => void>(() => {})
-  const scheduleSpawnRef = useRef<() => void>(() => {})
+  const spawnRef = useRef<(scheduledAt: number, onSpawned?: () => void) => void>(() => {})
+  const scheduleSpawnRef = useRef<(previousSpawnAt: number) => void>(() => {})
   spawnRef.current = spawnDrop
-  scheduleSpawnRef.current = scheduleSpawn
+  scheduleSpawnRef.current = scheduleSpawnAfter
   useEffect(() => {
     if (stage.value !== 'running') return
     if (fieldRef.current) fieldRef.current.innerHTML = ''
-    spawnRef.current(scheduleSpawnRef.current)
+    const openingSpawnAt = runStartedAt.current
+    spawnRef.current(openingSpawnAt, () => scheduleSpawnRef.current(openingSpawnAt))
   }, [stage.value])
 
   function nextCard(): Card | null {
@@ -242,9 +244,33 @@ export default function Rain() {
     return c
   }
 
-  function spawnDrop(onSpawned: () => void = () => {}) {
+  function tileHeightPct(el: HTMLElement, field: HTMLElement): number {
+    const fieldHeight = field.getBoundingClientRect().height || field.clientHeight
+    const tileHeight = el.getBoundingClientRect().height || el.offsetHeight
+    return fieldHeight > 0 && tileHeight > 0 ? (tileHeight / fieldHeight) * 100 : 16
+  }
+
+  function renderDrop(d: Drop, now: number): number {
     const field = fieldRef.current
-    if (!field || drops.current.length > MAX_CONCURRENT) {
+    if (!field) return d.topPct
+    const fieldBounds = field.getBoundingClientRect()
+    const killLineBounds = killLineRef.current?.getBoundingClientRect()
+    const heightPct = tileHeightPct(d.el, field)
+    const startTopPct = -heightPct
+    const impactBottomPct =
+      fieldBounds.height > 0 && killLineBounds
+        ? ((killLineBounds.top - fieldBounds.top) / fieldBounds.height) * 100
+        : 100
+    const impactTopPct = impactBottomPct - heightPct
+    const progress = rainVisualProgress(now - d.spawnedAt, d.durationMs)
+    d.topPct = startTopPct + (impactTopPct - startTopPct) * progress
+    d.el.style.top = `${d.topPct}%`
+    return progress
+  }
+
+  function spawnDrop(scheduledAt: number, onSpawned: () => void = () => {}) {
+    const field = fieldRef.current
+    if (!field || drops.current.length >= MAX_CONCURRENT) {
       onSpawned()
       return
     }
@@ -261,28 +287,29 @@ export default function Rain() {
       if (generation !== spawnGeneration.current || stage.peek() !== 'running' || !field.isConnected) return
       const el = document.createElement('div')
       el.className = 'ed-rain__tile'
-      el.style.left = `${6 + Math.random() * 72}%`
-      el.style.top = '-16%'
+      const inputRound = nextInputRound.current++
+      el.style.left = `${rainLaneLeftPct(card.id, inputRound)}%`
       el.innerHTML =
         `<img src="${card.icon}" alt="" class="ed-rain__tile-img" loading="eager" decoding="sync"/>` +
         `<span class="ed-rain__tile-name">${card.name}</span>`
       field.appendChild(el)
-      // Named rather than inlined so the tile's starting fall window is derived
-      // from the same speed it is dealt. Drawn AFTER the position above: the
-      // spawn's two Math.random() reads are position then speed, in that order.
-      const speed = RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current
-      drops.current.push({
+      const durationMs = rainFallDurationMs(score.peek())
+      const drop: Drop = {
         el,
         card,
-        y: -16,
-        speed,
+        spawnedAt: scheduledAt,
+        durationMs,
+        deadlineAt: scheduledAt + durationMs,
+        topPct: 0,
         wrong: 0,
-        inputRound: nextInputRound.current++,
+        inputRound,
         inputEnabledAt: performance.now(),
         answerableAt: performance.now(),
-        windowMs: fallTimeLeftMs(-16, speed),
+        windowMs: durationMs,
         targeted: false
-      })
+      }
+      drops.current.push(drop)
+      renderDrop(drop, performance.now())
       onSpawned()
     })
   }
@@ -310,59 +337,138 @@ export default function Rain() {
     })
   }
 
-  function tick() {
-    if (stage.value !== 'running' || inputLocked.value) return
-    const survivors: Drop[] = []
-    let lost = 0
-    const remainingLives = Math.max(0, lives.value)
-    for (const d of drops.current) {
-      d.y += d.speed
-      // The field now stops at the kill line (its bottom edge), so a tile lands
-      // on the line, in view — not behind the keypad as it used to.
-      if (d.y >= KILL_LINE_Y) {
-        popTile(d, true)
-        flashKillLine()
-        // Several accelerated cards can reach the floor on the same 40ms
-        // tick. Remove every landed tile from the field, but stop the signed
-        // transcript exactly when the remaining lives are spent: recording a
-        // fourth miss makes an honest run look as though it continued after
-        // game over, which the server correctly rejects.
-        if (lost < remainingLives) {
-          recordResolved(d, null)
-          lost++
-        }
-        continue
-      }
-      d.el.style.top = `${d.y}%`
-      survivors.push(d)
-    }
-    drops.current = survivors
-    // The lowest card (largest y) is the live target.
+  function updateTarget(now: number) {
+    // The lowest card (largest rendered top) is the live target.
     let t: Drop | null = null
-    for (const d of drops.current) if (!t || d.y > t.y) t = d
+    for (const d of drops.current) if (!t || d.topPct > t.topPct) t = d
     if (target.current !== t && t) {
-      t.inputEnabledAt = performance.now()
+      t.inputEnabledAt = now
       // A tile is only answerable while it is lit, so the read clock and the
       // fall it is racing both start here — once, the first time it lights up.
       if (!t.targeted) {
         t.targeted = true
-        t.answerableAt = performance.now()
-        t.windowMs = fallTimeLeftMs(t.y, t.speed)
+        t.answerableAt = now
+        t.windowMs = Math.max(0, t.deadlineAt - now)
       }
     }
     target.current = t
     for (const d of drops.current) d.el.classList.toggle('ed-rain__tile--lit', d === t)
-    if (lost) {
-      const next = lives.value - lost
+  }
+
+  function beginRecovery(now: number) {
+    recovering.value = true
+    stormPulse.value += 1
+    hint.value = null
+    target.current = null
+    for (const d of drops.current) d.el.classList.remove('ed-rain__tile--lit')
+
+    // Move every surviving deadline by the same amount, preserving order and
+    // ensuring the next impact cannot arrive before the player has regrouped.
+    const shiftMs = rainRecoveryShiftMs(
+      now,
+      drops.current.map((d) => d.deadlineAt),
+      RAIN_RECOVERY_MIN_WINDOW_MS
+    )
+    const fieldHeight = fieldRef.current?.getBoundingClientRect().height ?? 0
+    for (const d of drops.current) {
+      const previousTopPct = d.topPct
+      d.spawnedAt += shiftMs
+      d.deadlineAt += shiftMs
+      if (d.targeted) d.windowMs += shiftMs
+      renderDrop(d, now)
+      if (!isReducedMotionEnabled()) {
+        const pushPixels = ((previousTopPct - d.topPct) / 100) * fieldHeight
+        void animate(
+          d.el,
+          { transform: [`translate3d(0, ${pushPixels}px, 0)`, 'translate3d(0, 0, 0)'] },
+          { duration: RAIN_RECOVERY_TRANSITION_MS / 1000, ease: [0.22, 0.8, 0.24, 1] }
+        )
+      }
+    }
+
+    // Any in-flight image decode belongs to the old spawn schedule. Restart
+    // after the recovery beat with one complete score-appropriate gap.
+    spawnGeneration.current += 1
+    if (spawnTimer.current) window.clearTimeout(spawnTimer.current)
+    armSpawn(now + RAIN_RECOVERY_TRANSITION_MS + rainSpawnIntervalMs(score.peek()))
+
+    if (recoveryTimer.current) window.clearTimeout(recoveryTimer.current)
+    recoveryTimer.current = window.setTimeout(() => {
+      recoveryTimer.current = undefined
+      if (stage.peek() !== 'running' || inputLocked.peek()) return
+      recovering.value = false
+      updateTarget(performance.now())
+    }, RAIN_RECOVERY_TRANSITION_MS)
+  }
+
+  function tick(now = performance.now()) {
+    if (stage.value !== 'running' || inputLocked.value) return
+    const impacted: Drop[] = []
+    for (const d of drops.current) {
+      if (renderDrop(d, now) >= 1) impacted.push(d)
+    }
+    if (recovering.value) return
+
+    // Spend at most one life before recovery changes the simulation. The old
+    // loop could consume all three from cards landing on one 40ms tick.
+    const missed = impacted.sort((a, b) => a.deadlineAt - b.deadlineAt)[0]
+    if (missed) {
+      drops.current = drops.current.filter((d) => d !== missed)
+      target.current = null
+      popTile(missed, true)
+      flashKillLine()
+      recordResolved(missed, null)
+      const next = lives.value - 1
       lives.value = next
       playRainMiss()
       if (next <= 0) endRain()
+      else beginRecovery(now)
+      return
     }
+
+    updateTarget(now)
+  }
+
+  function explodeTile(el: HTMLDivElement) {
+    const field = fieldRef.current
+    if (!field || isReducedMotionEnabled()) {
+      el.remove()
+      return
+    }
+
+    RAIN_SHARD_CLIP_PATHS.forEach((clipPath, index) => {
+      const shard = el.cloneNode(true) as HTMLDivElement
+      shard.className = 'ed-rain__tile ed-rain__tile--fragment'
+      shard.style.clipPath = clipPath
+      field.appendChild(shard)
+      const direction = index % 2 === 0 ? -1 : 1
+      const x = direction * (20 + index * 7)
+      const y = -32 - (index % 3) * 18
+      const rotation = direction * (14 + index * 9)
+      const motion = animate(
+        shard,
+        {
+          opacity: [1, 0],
+          transform: [
+            'translate3d(0, 0, 0) rotate(0deg) scale(1)',
+            `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg) scale(0.72)`
+          ]
+        },
+        { duration: 0.42, ease: 'easeOut' }
+      )
+      void motion.finished.then(() => shard.remove()).catch(() => shard.remove())
+      window.setTimeout(() => shard.remove(), 500)
+    })
+    el.remove()
   }
 
   function popTile(d: Drop, missed: boolean) {
     const el = d.el
     if (!el) return
+    if (missed) {
+      explodeTile(el)
+      return
+    }
     if (isReducedMotionEnabled()) {
       el.remove()
       return
@@ -371,13 +477,17 @@ export default function Rain() {
     // its exit animation, and a second lit tile on the field misreads as two
     // answerable cards.
     el.classList.remove('ed-rain__tile--lit')
-    el.classList.add(missed ? 'ed-rain__tile--miss' : 'ed-rain__tile--clear')
+    el.classList.add('ed-rain__tile--clear')
     el.addEventListener('animationend', () => el.remove(), { once: true })
     window.setTimeout(() => el.remove(), 500)
   }
 
   function answer(value: number, observation: InputObservation) {
-    if (stage.value !== 'running' || inputLocked.value) return
+    if (stage.value !== 'running' || inputLocked.value || recovering.value) return
+    // An input delivered after the logical deadline cannot beat a delayed fall
+    // callback. Settle the field against the same monotonic clock first.
+    tick(observation.inputAt)
+    if (inputLocked.value || recovering.value) return
     const t = target.current
     if (!t) return
     const recordInput = value === t.card.elixir || t.wrong < MAX_WRONG_PER_CARD
@@ -392,9 +502,6 @@ export default function Rain() {
       recordResolved(t, t.card.elixir)
       const next = score.value + 1
       score.value = next
-      // Uncapped: both fall speed (here) and spawn cadence (rainSpawnIntervalMs,
-      // read by the self-rescheduling spawn timer) keep ramping with every clear.
-      rainSpd.current = rainFallBoost(next)
       if (next % RAIN_MILESTONE_EVERY === 0) showMilestone(next)
       hint.value = null
       playRainClear()
@@ -415,6 +522,7 @@ export default function Rain() {
   function endRain() {
     if (inputLocked.value) return
     inputLocked.value = true
+    recovering.value = false
     spawnGeneration.current += 1
     target.current = null
     for (const d of drops.current) d.el.classList.remove('ed-rain__tile--lit')
@@ -455,6 +563,7 @@ export default function Rain() {
     clearLoops()
     spawnGeneration.current += 1
     inputLocked.value = false
+    recovering.value = false
     rearmAutoStart()
     insights.value = null
     runtime.reset('ready')
@@ -534,11 +643,27 @@ export default function Rain() {
             )}
           </FloatingCue>
         </div>
+        <div class="ed-rain__storm-cue" aria-hidden="true">
+          <FloatingCue
+            trigger={stormPulse.value}
+            className="floating-cue--rain-recovery"
+            testId="rain-storm-break"
+            holdMs={800}
+          >
+            Storm Break
+          </FloatingCue>
+        </div>
         <div class="ed-rain__pad">
-          <PipKeypad onPick={answer} disabled={counting || inputLocked.value} />
+          <PipKeypad onPick={answer} disabled={counting || inputLocked.value || recovering.value} />
         </div>
         <span class="sr-only" aria-live="assertive">
-          {hint.value === 'higher' ? 'Higher' : hint.value === 'lower' ? 'Lower' : ''}
+          {recovering.value
+            ? 'Storm break. Regroup.'
+            : hint.value === 'higher'
+              ? 'Higher'
+              : hint.value === 'lower'
+                ? 'Lower'
+                : ''}
         </span>
       </div>
     </GameFrame>

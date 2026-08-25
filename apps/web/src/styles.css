@@ -6739,13 +6739,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
     opacity: 0;
   }
 }
-@keyframes ed-rain-miss {
-  to {
-    transform: scale(0.6);
-    opacity: 0;
-    border-color: var(--red);
-  }
-}
 @keyframes ed-rain-shake {
   0%,
   100% {
@@ -6827,6 +6820,23 @@ html.reduce-motion .ed-profile-guest__halo::before {
   justify-content: center;
   pointer-events: none;
 }
+.ed-rain__storm-cue {
+  position: absolute;
+  inset: 0 0 150px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.floating-cue--rain-recovery {
+  border: 1px solid rgba(245, 200, 76, 0.72);
+  background: rgba(27, 16, 58, 0.88);
+  color: var(--gold);
+  box-shadow:
+    0 0 28px rgba(109, 40, 217, 0.58),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  text-transform: uppercase;
+}
 
 /* Shared every-10 progress flash, centered above the keypad. Echoes the 3-2-1
    countdown (gold display numeral + expanding ring); composited over play so it
@@ -6890,7 +6900,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   background: linear-gradient(165deg, #3a2470, #1a1030);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
   opacity: 0.66;
-  will-change: top;
+  will-change: top, transform;
 }
 .ed-rain__tile--lit {
   border-color: var(--gold);
@@ -6913,8 +6923,10 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-rain__tile--clear {
   animation: ed-rain-clear 0.4s cubic-bezier(0.32, 0, 0.2, 1) forwards;
 }
-.ed-rain__tile--miss {
-  animation: ed-rain-miss 0.3s forwards;
+.ed-rain__tile--fragment {
+  z-index: 3;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 .ed-rain__shake {
   animation: ed-rain-shake 0.3s;

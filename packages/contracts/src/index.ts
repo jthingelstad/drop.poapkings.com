@@ -345,23 +345,38 @@ export function higherLowerWindowMs(round: number): number {
 }
 
 // Rain's spawn cadence: the gap between falling tiles tightens as the cleared
-// count climbs, from RAIN_SPAWN_BASE_MS toward (never reaching) the floor —
-// 1,160ms at 0 clears, ~710ms by 50, ~440ms by 200. Always positive, so it keeps
-// closing without a hard limit.
+// count climbs — 1,500ms at 0 clears, 750ms by 50, 300ms by 200. The old
+// 260ms-asymptote tightened too little compared with the quadratic fall-speed
+// boost: Rain began with a crowded field and ended with only a few nearly
+// unreadable cards. This hyperbola keeps the workload rising with the fall
+// curve instead of changing the game from crowd management into pure reflex.
 //
 // One curve, shared by the browser's spawn timer and the server's integrity
 // floor below. Rain has no round length and no clock, so this curve is the ONLY
 // thing that bounds the mode: a private copy on either side would silently
 // un-bound it the moment the two drifted.
-export const RAIN_SPAWN_BASE_MS = 1_160;
-export const RAIN_SPAWN_FLOOR_MS = 260;
+export const RAIN_SPAWN_BASE_MS = 1_500;
 export const RAIN_SPAWN_TIGHTEN = 0.02;
 
 export function rainSpawnIntervalMs(cleared: number): number {
+  return RAIN_SPAWN_BASE_MS / (1 + Math.max(0, cleared) * RAIN_SPAWN_TIGHTEN);
+}
+
+// Every player gets the same fall deadline for a given cleared count. The old
+// local speed jitter made an opening card last anywhere from roughly 9 to 12.4
+// seconds, while its linear + quadratic boost made late cards accelerate much
+// faster than spawns tightened. This curve starts at 8.5 seconds, reaches about
+// 4.6 seconds at 50 and 2.2 seconds at 200, and keeps tightening without a
+// discontinuity. Rendering may ease near the line, but never changes this
+// logical deadline.
+export const RAIN_FALL_BASE_MS = 8_500;
+export const RAIN_FALL_TIGHTEN = 0.025;
+export const RAIN_FALL_EXPONENT = 0.75;
+
+export function rainFallDurationMs(cleared: number): number {
   return (
-    RAIN_SPAWN_FLOOR_MS +
-    (RAIN_SPAWN_BASE_MS - RAIN_SPAWN_FLOOR_MS) /
-      (1 + Math.max(0, cleared) * RAIN_SPAWN_TIGHTEN)
+    RAIN_FALL_BASE_MS /
+    Math.pow(1 + Math.max(0, cleared) * RAIN_FALL_TIGHTEN, RAIN_FALL_EXPONENT)
   );
 }
 
@@ -373,9 +388,9 @@ export function rainSpawnIntervalMs(cleared: number): number {
 // can appear (tile 0 spawns at 0).
 //
 // That makes it a real lower bound on the time behind a score: you cannot clear
-// a tile that has not spawned. 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
-// 124.8s for 200. Only the SPAWN curve belongs here — fall speed carries a random
-// per-tile component (see Rain.tsx) and can never be part of a floor.
+// a tile that has not spawned. Only the SPAWN curve belongs here: a card may be
+// answered any time after it appears, while the deterministic fall deadline is
+// the upper bound on that opportunity rather than a minimum completion time.
 export function rainSpawnFloorMs(gaps: number): number {
   let total = 0;
   for (let gap = 0; gap < gaps; gap += 1) total += rainSpawnIntervalMs(gap);

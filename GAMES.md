@@ -373,12 +373,25 @@ look like problems and are not:
 **Rain** — `/rain` · `apps/web/src/modes/rain/`
 Cards fall through the playfield and the lowest lit card is the live target.
 Enter its elixir cost before it lands; a wrong tap gives a higher/lower hint but
-does not stop the fall. The player has three lives. Rain is **endless and
-uncapped**: difficulty scales with cleared count on **both** axes — cards fall
-faster _and_ spawn closer together the more you clear — starting a touch gentler
-than a fixed pace, then ramping with no ceiling, so a player in flow keeps
-accelerating until the field outruns human reaction and the run ends (you cannot
-play forever). Both curves key off the live score, so difficulty only advances
+does not stop the fall. A card fails exactly when its bottom edge touches the
+kill line. Its movement is linear through most of the field and visibly eases
+near the floor, while one monotonic deadline keeps the actual opportunity
+identical on every screen size and under delayed render callbacks.
+
+The player has three lives. The first two misses trigger **Storm Break**: the
+missed card bursts into fragments, surviving cards keep their order but their
+deadlines shift together so the next impact is at least 2.4 seconds away, and
+spawning resumes after a brief recovery beat. Only one life can be spent before
+that recovery is applied; the third miss ends the run. Difficulty and score do
+not reset, so a life restores footing rather than clearing an inconvenient
+field or lowering the storm.
+
+Rain is **endless and uncapped**: difficulty scales with cleared count on
+**both** axes — deterministic fall deadlines shorten and cards spawn closer
+together. The balanced curves start at an 8.5s fall / 1.5s spawn gap, reach
+about 4.6s / 750ms at 50 clears and 2.2s / 300ms at 200. Field density rises
+with demonstrated skill instead of beginning overcrowded and ending as a sparse
+reaction test. Both curves key off the live score, so difficulty only advances
 when you actually clear cards. The signed server deck supplies the cards and
 **wraps** when exhausted (a deep run resolves more cards than the deck holds);
 every resolved card records its correct cost or a landed miss, the elapsed time
@@ -403,7 +416,9 @@ deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript siz
   and two key shapes in one partition would let a new row outrank an equal
   old one purely on segment ordering. (`r2` itself retired the pre-redesign
   board on 2026-07-24, whose curve capped at 50 clears.) Old rows are orphaned,
-  not deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
+  not deleted (`BOARD_EPOCH` in `services/api/src/games.ts`). The beta recovery
+  and curve rework deliberately remains on `r3` during its production playtest;
+  rotate the board only after the new rules have been accepted.
 
 **The minimum-time floor.** Rain has no round length and no clock, so nothing
 about its shape bounded a run: a transcript of deck-valid card ids scored up to
@@ -411,11 +426,12 @@ the 10,000 anti-abuse ceiling, instantly and clean. It is bounded now by the one
 thing that is deterministic — the spawn curve. Difficulty is a function of the
 cleared count and the count only rises by one per clear, so the n-th spawn gap is
 never shorter than `rainSpawnIntervalMs(n)`, and **a score of N needs at least the
-first N gaps of elapsed time**: 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
-124.8s for 200 (`rainSpawnFloorMs`, with the curve, in `packages/contracts` —
+first N gaps of elapsed time**: 13.8s for 10 clears, 52.4s for 50, 82.9s for 100,
+121.3s for 200 (`rainSpawnFloorMs`, with the curve, in `packages/contracts` —
 shared with the browser so the floor always describes the game actually being
-played). The fall speed is deliberately **not** part of it; it carries a random
-per-tile component.
+played). The deterministic fall deadline is deliberately **not** part of it: it
+limits how late a card may resolve, while a minimum-time floor can only use the
+earliest moment a card could exist.
 
 The floor is checked twice: against the transcript's own `atMs` stamps per card,
 and against the server's wall clock, which no client can write. A run under it,
