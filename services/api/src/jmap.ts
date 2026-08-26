@@ -31,14 +31,6 @@ interface SendMagicLinkInput {
   expiresMinutes: number;
 }
 
-interface SendMailCanaryInput {
-  token: string;
-  fromEmail: string;
-  fromName: string;
-  to: string;
-  observedAt?: Date;
-}
-
 interface SendEmailInput {
   token: string;
   fromEmail: string;
@@ -377,28 +369,5 @@ export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
     subject: magicLinkEmailSubject(),
     text: magicLinkEmailText(input),
     html: magicLinkEmailHtml(input),
-  });
-}
-
-export function mailCanaryEmailSubject(): string {
-  return "Elixir Drop mail canary";
-}
-
-export async function sendMailCanary(
-  input: SendMailCanaryInput,
-): Promise<void> {
-  const observedAt = (input.observedAt ?? new Date()).toISOString();
-  const subject = mailCanaryEmailSubject();
-  const text = [
-    "Elixir Drop email delivery canary.",
-    "",
-    `Submitted at ${observedAt}.`,
-    "This automated message confirms the same Fastmail JMAP submission path used by player magic links.",
-  ].join("\n");
-  await sendEmail({
-    ...input,
-    subject,
-    text,
-    html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title></head><body><p>Elixir Drop email delivery canary.</p><p>Submitted at ${observedAt}.</p><p>This automated message confirms the same Fastmail JMAP submission path used by player magic links.</p></body></html>`,
   });
 }

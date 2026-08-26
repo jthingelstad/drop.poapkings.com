@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  mailCanaryEmailSubject,
   magicLinkEmailHtml,
   magicLinkEmailSubject,
   magicLinkEmailText,
@@ -76,9 +75,5 @@ describe("magic-link email", () => {
     expect(html).toContain("Button being stubborn?");
     expect(html).toContain("&amp;unsafe=&lt;script&gt;");
     expect(html).not.toContain("<script>");
-  });
-
-  it("uses an unmistakable subject for automated delivery canaries", () => {
-    expect(mailCanaryEmailSubject()).toBe("Elixir Drop mail canary");
   });
 });

@@ -263,4 +263,3 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 };
 
 export { crResultHandler } from "./cr-results.js";
-export { mailCanaryHandler } from "./mail-canary.js";

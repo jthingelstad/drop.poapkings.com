@@ -1062,8 +1062,9 @@ This Mac owns the allowlisted CR API token and runs both CR consumers:
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
   identity-free `RUN_REPORTS` partition. Status changes are transactional and
   append an immutable audit row. The same objective reviews
-  `drop@poapkings.com` through the read-only JMAP intake script; it excludes the
-  known delivery canary and cannot send, move, delete, or mark mail read.
+  `drop@poapkings.com` through the read-only JMAP intake script; it excludes
+  historical delivery-canary messages and cannot send, move, delete, or mark
+  mail read.
 - Run Drop reads CloudFront request health through `scripts/web-activity.mjs` under
   the read-only `cloud-auditor` role. The 14-day JSON log excludes IP, forwarded
   address, user-agent, referrer, cookie, query string, raw path, and request ID; its

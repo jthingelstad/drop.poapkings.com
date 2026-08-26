@@ -118,7 +118,6 @@ void describe("deployment parameters", () => {
       "AppUrl",
       "EmailFrom",
       "AlarmEmail",
-      "MailCanaryEmail",
       "NameModelId",
       "AllowedOrigins",
     ]) {
@@ -379,30 +378,14 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("separates Drop admin recipients from the Elixir magic-link sender", () => {
+  void it("separates the alarm recipient from the Elixir magic-link sender", () => {
     // The default lives in the template (it applies on create); an env-less
     // update preserves whatever address is deployed, asserted above.
-    assert.equal(parameterDefault("MailCanaryEmail"), "drop@poapkings.com");
     assert.equal(parameterDefault("AlarmEmail"), "drop@poapkings.com");
     assert.equal(parameterDefault("EmailFrom"), "elixir@poapkings.com");
 
-    const overridden = deploymentParameters({
-      ...base,
-      environment: { ELIXIR_DROP_CANARY_EMAIL: "canary@example.com" },
-      stackExists: true,
-    });
-    assert.deepEqual(
-      overridden.find(
-        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
-      ),
-      {
-        ParameterKey: "MailCanaryEmail",
-        ParameterValue: "canary@example.com",
-      },
-    );
-
-    // The sender is independent: changing it must not retarget administrative
-    // mail, so only EmailFrom is present in this update.
+    // The sender is independent: changing it must not retarget alarms, so only
+    // EmailFrom is present in this update.
     const fromOnly = deploymentParameters({
       ...base,
       environment: { ELIXIR_DROP_EMAIL_FROM: "drop@example.com" },
@@ -416,12 +399,6 @@ void describe("deployment parameters", () => {
       fromOnly.find((parameter) => parameter.ParameterKey === "AlarmEmail"),
       { ParameterKey: "AlarmEmail", UsePreviousValue: true },
     );
-    assert.deepEqual(
-      fromOnly.find(
-        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
-      ),
-      { ParameterKey: "MailCanaryEmail", UsePreviousValue: true },
-    );
   });
 
   void it("alarms on observable API 5xx responses and retains structured logs", () => {
@@ -430,11 +407,18 @@ void describe("deployment parameters", () => {
       template,
       /LogGroupName: \/elixir-drop\/api\s+RetentionInDays: 30/,
     );
-    assert.match(template, /Handler: handler\.mailCanaryHandler/);
-    assert.match(template, /ScheduleExpression: cron\(0 13 \* \* \? \*\)/);
-    assert.match(template, /AlarmName: elixir-drop-mail-canary-missing/);
     assert.match(template, /dynamodb:BatchWriteItem/);
     assert.match(template, /- DELETE/);
+  });
+
+  void it("does not deploy the retired daily mail canary", () => {
+    assert.doesNotMatch(template, /MailCanary|mail-canary|mailCanaryHandler/);
+    assert.equal(
+      deploymentParameters({ ...base, stackExists: true }).some(
+        (parameter) => parameter.ParameterKey === "MailCanaryEmail",
+      ),
+      false,
+    );
   });
 
   void it("retains privacy-minimized CloudFront access logs for two weeks", () => {
@@ -670,7 +654,7 @@ void describe("deployment parameters", () => {
     );
 
     const apiRole = template.match(
-      /  ApiRole:[\s\S]*?\n  MailCanaryRole:/,
+      /  ApiRole:[\s\S]*?\n  # Referee identity/,
     )?.[0];
     assert.ok(apiRole);
     assert.match(apiRole, /s3:GetObject/);

@@ -28,9 +28,6 @@ export interface Config {
   webVersion?: string;
 }
 
-// Shared with the entry points that read their own environment: the mail
-// canary runs with a deliberately reduced variable set and must not pull in the
-// whole API config, but it should fail on a missing variable the same way.
 export function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -95,14 +92,6 @@ let cachedConfig: Config | undefined;
 
 // The API's config, resolved on the container's first request and reused for
 // every warm one after it — not re-derived per request.
-//
-// It deliberately is NOT a module-scope constant: the CR-result and mail-canary
-// Lambdas share this one bundle (infra/template.yaml, `handler.crResultHandler`
-// and `handler.mailCanaryHandler`), and the canary runs with only its four mail
-// variables. A top-level resolve would therefore fail the canary's init on
-// variables it has no business holding. Splitting the canary into its own
-// bundle is the infra-side fix that would let this become a true cold-start
-// constant.
 export function loadConfig(): Config {
   cachedConfig ??= getConfig();
   return cachedConfig;

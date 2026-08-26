@@ -532,8 +532,6 @@ const values = {
   ELIXIR_DROP_CR_RESULT_QUEUE_NAME: "elixir-drop-cr-results",
   ELIXIR_DROP_ALARM_EMAIL:
     existingEnv.ELIXIR_DROP_ALARM_EMAIL || "drop@poapkings.com",
-  ELIXIR_DROP_CANARY_EMAIL:
-    existingEnv.ELIXIR_DROP_CANARY_EMAIL || "drop@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
   ELIXIR_DROP_CODE_BUCKET: bucketName,
   ELIXIR_DROP_EMAIL_FROM:

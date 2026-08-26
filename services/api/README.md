@@ -7,8 +7,6 @@ Responsibilities in this release:
 
 - 15-minute, single-use email magic links sent from `elixir@poapkings.com`
   through Fastmail JMAP;
-- a daily Fastmail JMAP delivery canary using the same submission path as magic
-  links, sent to the monitored `drop@poapkings.com` administrative mailbox;
 - Buttondown enrollment only after successful magic-link redemption, with
   current player/clan/activity metadata and matching removal on account
   deletion;
