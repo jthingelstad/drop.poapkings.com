@@ -179,6 +179,50 @@ describe("Practice checkpoints", () => {
     );
   });
 
+  it("reports checkpoint storage failures as server errors", async () => {
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const card = catalog[0]!;
+    const answers = Array.from({ length: 20 }, () => ({
+      cardId: card.id,
+      guess: card.elixir,
+      responseMs: 900,
+      assisted: false,
+    }));
+    repository.savePracticeCheckpoint.mockRejectedValue(
+      new Error("storage unavailable"),
+    );
+
+    const response = (await handler(
+      event("POST", "/practice/checkpoint", {
+        runToken: runToken(),
+        startIndex: 0,
+        answers,
+        reviewQueue: [],
+        recovered: 0,
+      }),
+      {} as Context,
+      vi.fn(),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body || "{}")).toMatchObject({
+      error: {
+        code: "internal_error",
+        message: "The API could not complete the request.",
+      },
+    });
+    expect(error).toHaveBeenCalledWith(
+      "API request failed",
+      expect.objectContaining({
+        path: "/practice/checkpoint",
+        statusCode: 500,
+        code: "internal_error",
+      }),
+    );
+  });
+
   it("returns only a lightweight summary for Home", async () => {
     repository.getPracticeCheckpoint.mockResolvedValue({
       pk: "PLAYER#player-sub",

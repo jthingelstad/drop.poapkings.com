@@ -682,6 +682,15 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("grants the API role every action used by Practice checkpoint transactions", () => {
+    const apiRole = template.match(
+      /  ApiRole:[\s\S]*?\n  # Referee identity/,
+    )?.[0];
+    assert.ok(apiRole);
+    assert.match(apiRole, /dynamodb:ConditionCheckItem/);
+    assert.match(apiRole, /dynamodb:TransactWriteItems/);
+  });
+
   void it("keeps CORS and security headers on static assets without changing the API behavior", () => {
     assert.match(
       template,

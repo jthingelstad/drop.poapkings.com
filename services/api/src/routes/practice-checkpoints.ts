@@ -166,6 +166,12 @@ export async function savePracticeCheckpoint({
       "run_expired",
     );
 
+  let checkpoint: {
+    startIndex: number;
+    answers: PracticeCheckpointAnswer[];
+    reviewQueue: PracticeCheckpointReview[];
+    recovered: number;
+  };
   try {
     const startIndex = Number(body.startIndex);
     if (
@@ -184,27 +190,25 @@ export async function savePracticeCheckpoint({
       recovered > startIndex + answers.length
     )
       throw new Error("Practice checkpoint recovery count is invalid");
-    const updatedAt = new Date().toISOString();
-    const saved = await repository.savePracticeCheckpoint({
-      sub: session.sub,
-      runId: run.runId,
-      startIndex,
-      answers,
-      reviewQueue,
-      recovered,
-      updatedAt,
-      expiresAt: run.expiresAt,
-      nowSeconds,
-    });
-    return json(200, {
-      accepted: true,
-      runId: run.runId,
-      answerCount: saved.answerCount,
-      updatedAt: saved.updatedAt,
-    });
+    checkpoint = { startIndex, answers, reviewQueue, recovered };
   } catch (error) {
     throw badRequest(error);
   }
+  const updatedAt = new Date().toISOString();
+  const saved = await repository.savePracticeCheckpoint({
+    sub: session.sub,
+    runId: run.runId,
+    ...checkpoint,
+    updatedAt,
+    expiresAt: run.expiresAt,
+    nowSeconds,
+  });
+  return json(200, {
+    accepted: true,
+    runId: run.runId,
+    answerCount: saved.answerCount,
+    updatedAt: saved.updatedAt,
+  });
 }
 
 export async function getPracticeResume({

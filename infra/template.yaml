@@ -309,6 +309,7 @@ Resources:
                 Action:
                   - dynamodb:BatchGetItem
                   - dynamodb:BatchWriteItem
+                  - dynamodb:ConditionCheckItem
                   - dynamodb:DeleteItem
                   - dynamodb:GetItem
                   - dynamodb:PutItem
