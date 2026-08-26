@@ -344,10 +344,26 @@ export function higherLowerWindowMs(round: number): number {
   return survivalWindowMs(round);
 }
 
-// Rain's spawn cadence: the gap between falling tiles tightens as the cleared
-// count climbs, from RAIN_SPAWN_BASE_MS toward (never reaching) the floor —
-// 1,160ms at 0 clears, ~710ms by 50, ~440ms by 200. Always positive, so it keeps
-// closing without a hard limit.
+// Rain's difficulty follows the real clear count through 80. After that shoulder,
+// every two clears advance the difficulty by one step. Both the shared spawn
+// cadence and the browser's fall-speed boost use this exact progression, so the
+// late ramp is half-strength without a discontinuity or a hard ceiling.
+export const RAIN_DIFFICULTY_SHOULDER = 80;
+export const RAIN_LATE_DIFFICULTY_RATE = 0.5;
+
+export function rainDifficultyProgress(cleared: number): number {
+  const score = Math.max(0, cleared);
+  if (score <= RAIN_DIFFICULTY_SHOULDER) return score;
+  return (
+    RAIN_DIFFICULTY_SHOULDER +
+    (score - RAIN_DIFFICULTY_SHOULDER) * RAIN_LATE_DIFFICULTY_RATE
+  );
+}
+
+// Rain's spawn cadence: the gap between falling tiles tightens as difficulty
+// climbs, from RAIN_SPAWN_BASE_MS toward (never reaching) the floor — 1,160ms
+// at 0 clears, ~710ms by 50, and ~497ms by 200 with the late-game shoulder.
+// Always positive, so it keeps closing without a hard limit.
 //
 // One curve, shared by the browser's spawn timer and the server's integrity
 // floor below. Rain has no round length and no clock, so this curve is the ONLY
@@ -358,10 +374,11 @@ export const RAIN_SPAWN_FLOOR_MS = 260;
 export const RAIN_SPAWN_TIGHTEN = 0.02;
 
 export function rainSpawnIntervalMs(cleared: number): number {
+  const difficulty = rainDifficultyProgress(cleared);
   return (
     RAIN_SPAWN_FLOOR_MS +
     (RAIN_SPAWN_BASE_MS - RAIN_SPAWN_FLOOR_MS) /
-      (1 + Math.max(0, cleared) * RAIN_SPAWN_TIGHTEN)
+      (1 + difficulty * RAIN_SPAWN_TIGHTEN)
   );
 }
 
@@ -373,9 +390,9 @@ export function rainSpawnIntervalMs(cleared: number): number {
 // can appear (tile 0 spawns at 0).
 //
 // That makes it a real lower bound on the time behind a score: you cannot clear
-// a tile that has not spawned. 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
-// 124.8s for 200. Only the SPAWN curve belongs here — fall speed carries a random
-// per-tile component (see Rain.tsx) and can never be part of a floor.
+// a tile that has not spawned. Only the SPAWN curve belongs here — fall speed
+// carries a random per-tile component (see Rain.tsx) and can never be part of a
+// floor. The sum deliberately walks real clears so it includes the late shoulder.
 export function rainSpawnFloorMs(gaps: number): number {
   let total = 0;
   for (let gap = 0; gap < gaps; gap += 1) total += rainSpawnIntervalMs(gap);

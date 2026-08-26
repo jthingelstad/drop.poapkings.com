@@ -533,6 +533,19 @@ describe('Trade — gameplay', () => {
 // Rain — clear vs wrong tap (lives + hint), run end → score = cleared count
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Rain — gameplay', () => {
+  async function advanceRain(ms: number): Promise<void> {
+    // This suite owns performance.now() independently from Vitest's timers so
+    // rAF-driven modes can set exact frame timestamps. Rain is clock-driven too:
+    // advance that monotonic clock alongside each 40ms fall tick.
+    let remaining = ms
+    while (remaining > 0) {
+      const slice = Math.min(40, remaining)
+      mockNow += slice
+      await advance(slice)
+      remaining -= slice
+    }
+  }
+
   function deck(): Card[] {
     // deck[0] (the first spawned/lit target) is a 3-cost.
     return [
@@ -641,7 +654,7 @@ describe('Rain — gameplay', () => {
     await tap()
     expect(metricValue(c)).toBe('2') // beats the standing best of 1
 
-    await advance(20000) // drops land, 3 lives gone → endRain → finish → 'over'
+    await advanceRain(20_000) // drops land, 3 lives gone → endRain → finish → 'over'
 
     expect(c.textContent).toContain('The rain stopped')
     expect(saveRecords).not.toHaveBeenCalled()
@@ -660,7 +673,7 @@ describe('Rain — gameplay', () => {
     await click(c.querySelector('[aria-label="3 elixir"]'))
     expect(metricValue(c)).toBe('1')
 
-    await advance(20000) // drops land (3 lives lost) → endRain → finish → 'over'
+    await advanceRain(20_000) // drops land (3 lives lost) → endRain → finish → 'over'
 
     expect(c.textContent).toContain('The rain stopped')
     expect(c.textContent).toContain('1 cleared') // score = one cleared card

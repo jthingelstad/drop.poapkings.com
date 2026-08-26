@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import { animate } from 'motion'
 import { rainSpawnIntervalMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import { computeInsights, type Insights } from '../../lib/insights'
@@ -26,6 +27,14 @@ import LivesRow from '../../components/LivesRow'
 import GameMilestone from '../../components/GameMilestone'
 import { preloadImages } from '../../lib/preload'
 import { runInputEvidence, type InputObservation, type RunInputEvidence } from '../../lib/input-evidence'
+import {
+  RAIN_FRAGMENT_CLIP_PATHS,
+  rainFallBoost,
+  rainFallProgress,
+  rainFallTimeLeftMs,
+  rainFallTotalDurationMs,
+  rainTileTopPx
+} from './rain-physics'
 
 // Rain — cards fall; clear the lit (lowest) card's cost before it lands. Three
 // lives. RANKED: tiles are drawn in order from the server's signed deck (wrapping
@@ -33,25 +42,22 @@ import { runInputEvidence, type InputObservation, type RunInputEvidence } from '
 // guess=cost, landed → guess=null) is recorded in the transcript the server
 // scores, stamped with the elapsed time at resolution and the wrong taps it cost.
 //
-// Difficulty scales with cleared count (demonstrated skill) and NEVER caps, on
-// BOTH axes: cards fall faster AND spawn closer together as you clear more. It
-// starts a touch gentler than a fixed pace and then ramps without limit, so a
-// player in flow keeps accelerating until the field outruns human reaction and
-// the run ends — you cannot play forever. Both curves key off the live score, so
-// difficulty only advances when you actually clear cards (struggling is
-// self-forgiving). See rainFallBoost / rainSpawnMs for the tuning.
+// Difficulty scales with cleared count (demonstrated skill) on BOTH axes: cards
+// fall faster and spawn closer together. The ramp has a shoulder at 80 clears;
+// beyond it, every two clears advance difficulty by one step. Both curves key
+// off the live score, so struggling is self-forgiving and the mode remains
+// endless without putting its deepest play behind an abrupt wall.
 const MAX_CONCURRENT = 8
 const TICK_MS = 40
-// Field percentage at which a tile strikes the kill line. The landing test and
-// the remaining-fall-time maths both key off this one number.
-const KILL_LINE_Y = 96
 const RAIN_LIVES = 3
 const COUNTDOWN_STEP_MS = 700
+const RAIN_LOGICAL_TRAVEL = 112
+const RAIN_FRAGMENT_DURATION_MS = 480
 
 // Fall speed = RAIN_BASE_SPEED + per-drop jitter + rainFallBoost(score), in field
 // %-per-tick. A card falls 112 units, so time ≈ 4480ms / speed. At score 0 that
-// is ~9–12s (gentler than before); the linear+quadratic boost has no ceiling, so
-// the deep game turns brutal (~0.7s/card in the high 200s ≈ impossible).
+// is ~9–12s before the final-10% slowdown adds 10% to the full fall. The
+// linear+quadratic boost has no ceiling, while its post-80 progression is half.
 //
 // This axis stays local on purpose: the jitter makes it non-deterministic, so it
 // can play no part in the server's minimum-time floor. The SPAWN axis is shared —
@@ -59,12 +65,6 @@ const COUNTDOWN_STEP_MS = 700
 // computes that floor from.
 const RAIN_BASE_SPEED = 0.36
 const RAIN_SPEED_JITTER = 0.14
-const RAIN_FALL_LINEAR = 0.011
-const RAIN_FALL_QUAD = 0.00003
-function rainFallBoost(score: number): number {
-  return score * RAIN_FALL_LINEAR + score * score * RAIN_FALL_QUAD
-}
-
 // Progress flash: every 10th clear, the running total pulses briefly in the
 // middle of the field so the player feels the count without reading the top bar.
 const RAIN_MILESTONE_EVERY = 10
@@ -78,8 +78,10 @@ const MAX_WRONG_PER_CARD = 60
 interface Drop {
   el: HTMLDivElement
   card: Card
-  y: number
-  speed: number
+  spawnedAt: number
+  linearDurationMs: number
+  progress: number
+  topPx: number
   // Wrong taps spent on this card so far; rides into the transcript when it
   // resolves and feeds the leaderboard's first tiebreak.
   wrong: number
@@ -94,11 +96,6 @@ interface Drop {
   targeted: boolean
 }
 
-// Milliseconds a tile at `y` still has before it strikes the kill line.
-function fallTimeLeftMs(y: number, speed: number): number {
-  return Math.max(0, ((KILL_LINE_Y - y) / speed) * TICK_MS)
-}
-
 export default function Rain() {
   const gameRun = useGameSession('rain', challengePreparers.rain)
   const runtime = useGameRuntime({ countdownStepMs: COUNTDOWN_STEP_MS, trackElapsed: false })
@@ -106,12 +103,12 @@ export default function Rain() {
   const fieldRef = useRef<HTMLDivElement>(null)
   const killLineRef = useRef<HTMLDivElement>(null)
 
-  // The kill line flashes bright for ~120ms where a card strikes it — the one
-  // new animation in this build, and what makes the line read as a floor.
+  // Motion owns the impact feedback. Reduced motion keeps the exact same
+  // deadline and collision rule, but removes the flash and fragments.
   function flashKillLine() {
     const el = killLineRef.current
-    if (!el || isReducedMotionEnabled() || typeof el.animate !== 'function') return
-    el.animate([{ filter: 'brightness(2.6)' }, { filter: 'brightness(1)' }], { duration: 120, easing: 'ease-out' })
+    if (!el || isReducedMotionEnabled()) return
+    void animate(el, { filter: ['brightness(2.6)', 'brightness(1)'] }, { duration: 0.12, ease: 'easeOut' })
   }
   const drops = useRef<Drop[]>([])
   const target = useRef<Drop | null>(null)
@@ -262,29 +259,50 @@ export default function Rain() {
       const el = document.createElement('div')
       el.className = 'ed-rain__tile'
       el.style.left = `${6 + Math.random() * 72}%`
-      el.style.top = '-16%'
       el.innerHTML =
         `<img src="${card.icon}" alt="" class="ed-rain__tile-img" loading="eager" decoding="sync"/>` +
         `<span class="ed-rain__tile-name">${card.name}</span>`
       field.appendChild(el)
-      // Named rather than inlined so the tile's starting fall window is derived
-      // from the same speed it is dealt. Drawn AFTER the position above: the
-      // spawn's two Math.random() reads are position then speed, in that order.
+      // The original random pace remains, but it is converted to a monotonic
+      // duration. Field height now affects only pixel travel, never answer time.
+      // The spawn's two Math.random() reads remain position then speed.
       const speed = RAIN_BASE_SPEED + Math.random() * RAIN_SPEED_JITTER + rainSpd.current
-      drops.current.push({
+      const spawnedAt = performance.now()
+      const linearDurationMs = (RAIN_LOGICAL_TRAVEL / speed) * TICK_MS
+      const drop: Drop = {
         el,
         card,
-        y: -16,
-        speed,
+        spawnedAt,
+        linearDurationMs,
+        progress: 0,
+        topPx: 0,
         wrong: 0,
         inputRound: nextInputRound.current++,
-        inputEnabledAt: performance.now(),
-        answerableAt: performance.now(),
-        windowMs: fallTimeLeftMs(-16, speed),
+        inputEnabledAt: spawnedAt,
+        answerableAt: spawnedAt,
+        windowMs: rainFallTotalDurationMs(linearDurationMs),
         targeted: false
-      })
+      }
+      drops.current.push(drop)
+      renderDrop(drop, spawnedAt)
       onSpawned()
     })
+  }
+
+  function renderDrop(d: Drop, now: number): number {
+    const field = fieldRef.current
+    if (!field) return d.progress
+    const fieldBounds = field.getBoundingClientRect()
+    const tileBounds = d.el.getBoundingClientRect()
+    const killLineBounds = killLineRef.current?.getBoundingClientRect()
+    const fieldHeight = fieldBounds.height || field.clientHeight || 500
+    const tileHeight = tileBounds.height || d.el.offsetHeight || 100
+    const killLineOffset = killLineBounds && fieldBounds.height > 0 ? killLineBounds.top - fieldBounds.top : fieldHeight
+
+    d.progress = rainFallProgress(now - d.spawnedAt, d.linearDurationMs)
+    d.topPx = rainTileTopPx(d.progress, tileHeight, killLineOffset)
+    d.el.style.top = `${d.topPx}px`
+    return d.progress
   }
 
   // Elapsed run time at the moment a card resolves. The clock starts when the
@@ -310,16 +328,16 @@ export default function Rain() {
     })
   }
 
-  function tick() {
+  function tick(now = performance.now()) {
     if (stage.value !== 'running' || inputLocked.value) return
     const survivors: Drop[] = []
     let lost = 0
     const remainingLives = Math.max(0, lives.value)
     for (const d of drops.current) {
-      d.y += d.speed
-      // The field now stops at the kill line (its bottom edge), so a tile lands
-      // on the line, in view — not behind the keypad as it used to.
-      if (d.y >= KILL_LINE_Y) {
+      // Progress is clock-driven and therefore independent of field height or a
+      // delayed interval callback. At 1, rainTileTopPx places the tile's bottom
+      // edge on the top edge of the visible kill line.
+      if (renderDrop(d, now) >= 1) {
         popTile(d, true)
         flashKillLine()
         // Several accelerated cards can reach the floor on the same 40ms
@@ -333,21 +351,20 @@ export default function Rain() {
         }
         continue
       }
-      d.el.style.top = `${d.y}%`
       survivors.push(d)
     }
     drops.current = survivors
-    // The lowest card (largest y) is the live target.
+    // The card furthest through its device-independent fall is the live target.
     let t: Drop | null = null
-    for (const d of drops.current) if (!t || d.y > t.y) t = d
+    for (const d of drops.current) if (!t || d.progress > t.progress) t = d
     if (target.current !== t && t) {
-      t.inputEnabledAt = performance.now()
+      t.inputEnabledAt = now
       // A tile is only answerable while it is lit, so the read clock and the
       // fall it is racing both start here — once, the first time it lights up.
       if (!t.targeted) {
         t.targeted = true
-        t.answerableAt = performance.now()
-        t.windowMs = fallTimeLeftMs(t.y, t.speed)
+        t.answerableAt = now
+        t.windowMs = rainFallTimeLeftMs(now - t.spawnedAt, t.linearDurationMs)
       }
     }
     target.current = t
@@ -360,9 +377,50 @@ export default function Rain() {
     }
   }
 
+  function explodeTile(el: HTMLDivElement) {
+    const field = fieldRef.current
+    if (!field || isReducedMotionEnabled()) {
+      el.remove()
+      return
+    }
+
+    el.classList.remove('ed-rain__tile--lit', 'ed-rain__shake')
+    RAIN_FRAGMENT_CLIP_PATHS.forEach((clipPath, index) => {
+      const fragment = el.cloneNode(true) as HTMLDivElement
+      fragment.className = 'ed-rain__tile ed-rain__tile--fragment'
+      fragment.style.clipPath = clipPath
+      field.appendChild(fragment)
+
+      const direction = index % 2 === 0 ? -1 : 1
+      const spreadX = direction * (26 + (index % 4) * 15)
+      const liftY = -28 - (index % 3) * 16
+      const settleY = 26 + (index % 4) * 10
+      const rotation = direction * (18 + index * 11)
+      const animation = animate(
+        fragment,
+        {
+          opacity: [1, 1, 0],
+          transform: [
+            'translate3d(0, 0, 0) rotate(0deg) scale(1)',
+            `translate3d(${spreadX * 0.7}px, ${liftY}px, 0) rotate(${rotation * 0.55}deg) scale(0.9)`,
+            `translate3d(${spreadX}px, ${settleY}px, 0) rotate(${rotation}deg) scale(0.68)`
+          ]
+        },
+        { duration: RAIN_FRAGMENT_DURATION_MS / 1000, ease: 'easeOut' }
+      )
+      void animation.finished.then(() => fragment.remove()).catch(() => fragment.remove())
+      window.setTimeout(() => fragment.remove(), RAIN_FRAGMENT_DURATION_MS + 80)
+    })
+    el.remove()
+  }
+
   function popTile(d: Drop, missed: boolean) {
     const el = d.el
     if (!el) return
+    if (missed) {
+      explodeTile(el)
+      return
+    }
     if (isReducedMotionEnabled()) {
       el.remove()
       return
@@ -371,13 +429,18 @@ export default function Rain() {
     // its exit animation, and a second lit tile on the field misreads as two
     // answerable cards.
     el.classList.remove('ed-rain__tile--lit')
-    el.classList.add(missed ? 'ed-rain__tile--miss' : 'ed-rain__tile--clear')
+    el.classList.add('ed-rain__tile--clear')
     el.addEventListener('animationend', () => el.remove(), { once: true })
     window.setTimeout(() => el.remove(), 500)
   }
 
   function answer(value: number, observation: InputObservation) {
     if (stage.value !== 'running' || inputLocked.value) return
+    // Settle any logical impact before accepting an input delivered between
+    // interval callbacks. A busy device cannot turn delayed rendering into
+    // extra answer time.
+    tick(observation.inputAt)
+    if (inputLocked.value) return
     const t = target.current
     if (!t) return
     const recordInput = value === t.card.elixir || t.wrong < MAX_WRONG_PER_CARD
@@ -392,8 +455,8 @@ export default function Rain() {
       recordResolved(t, t.card.elixir)
       const next = score.value + 1
       score.value = next
-      // Uncapped: both fall speed (here) and spawn cadence (rainSpawnIntervalMs,
-      // read by the self-rescheduling spawn timer) keep ramping with every clear.
+      // Both axes use the same shoulder: full-strength through 80 clears, then
+      // half-strength forever with no cap.
       rainSpd.current = rainFallBoost(next)
       if (next % RAIN_MILESTONE_EVERY === 0) showMilestone(next)
       hint.value = null
@@ -419,7 +482,7 @@ export default function Rain() {
     target.current = null
     for (const d of drops.current) d.el.classList.remove('ed-rain__tile--lit')
     clearLoops()
-    runtime.later(finish, 200)
+    runtime.later(finish, RAIN_FRAGMENT_DURATION_MS)
   }
 
   function finish() {

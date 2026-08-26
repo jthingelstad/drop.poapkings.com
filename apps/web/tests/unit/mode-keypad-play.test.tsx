@@ -15,7 +15,17 @@ import type { Card } from '../../src/types'
 const hoisted = vi.hoisted(() => ({
   session: { current: null as unknown },
   records: { current: {} as Record<string, unknown> },
-  preloadImages: vi.fn()
+  preloadImages: vi.fn(),
+  animate: vi.fn((_target: Element, _keyframes: Record<string, unknown>) => {
+    const settled = { catch: () => settled }
+    return {
+      stop: () => {},
+      // Practice owns the next deal from the exit animation's completion. A
+      // synchronous thenable keeps these timer-driven unit tests deterministic;
+      // browser coverage verifies the real animation timing.
+      finished: { then: (done: () => void) => (done(), settled) }
+    }
+  })
 }))
 
 // Mock the session hook only — the runtime hook is left real on purpose.
@@ -40,18 +50,7 @@ vi.mock('../../src/lib/sound', () => ({
   playRainMiss: vi.fn()
 }))
 vi.mock('../../src/lib/analytics', () => ({ track: vi.fn() }))
-vi.mock('motion', () => ({
-  animate: () => {
-    const settled = { catch: () => settled }
-    return {
-      stop: () => {},
-      // Practice owns the next deal from the exit animation's completion. A
-      // synchronous thenable keeps these timer-driven unit tests deterministic;
-      // browser coverage verifies the real 350ms ride-out.
-      finished: { then: (done: () => void) => (done(), settled) }
-    }
-  }
-}))
+vi.mock('motion', () => ({ animate: hoisted.animate }))
 vi.mock('../../src/components/GameFxLayer', () => ({
   default: () => null,
   preloadGameFx: vi.fn()
@@ -191,6 +190,7 @@ beforeEach(() => {
     vi.fn(() => {})
   )
   hoisted.records.current = {}
+  document.documentElement.classList.remove('reduce-motion')
   hoisted.preloadImages.mockImplementation((cards: Card[], done: (loaded: number) => void) => done(cards.length))
 })
 
@@ -201,6 +201,7 @@ afterEach(() => {
   }
   vi.unstubAllGlobals()
   vi.useRealTimers()
+  document.documentElement.classList.remove('reduce-motion')
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -972,24 +973,24 @@ describe('Rain gameplay', () => {
   })
 
   it('stops resolving landed cards when simultaneous drops spend the final lives', async () => {
-    // Four drops converge on the same 40ms fall tick. Their speeds compensate
-    // for the 1160ms spawn gaps: this is the deep-game shape that can occur as
-    // Rain accelerates and several cards reach the floor together.
+    // Four drops converge at 13.69s. Their speeds compensate for the 1,160ms
+    // opening spawn gaps and the final-10% slowdown, reproducing the clustered
+    // impacts that happen in deep Rain play.
     const randomValues = [
       0,
       0, // drop 1: left, minimum speed
       0,
-      0.25, // drop 2
+      0.238_078, // drop 2
       0,
-      0.585_714, // drop 3
+      0.524_74, // drop 3
       0,
-      0.985_714 // drop 4
+      0.876_547 // drop 4
     ]
     let randomIndex = 0
     const random = vi.spyOn(Math, 'random').mockImplementation(() => randomValues[randomIndex++] ?? 0)
 
     const host = await startRain(fakeCards(20))
-    advance(12_800) // four land together; finish waits 200ms before submitting
+    advance(14_200) // impact tick plus the 480ms fragment hold
     random.mockRestore()
 
     expect(host.textContent).toContain('The rain stopped')
@@ -1000,11 +1001,42 @@ describe('Rain gameplay', () => {
     expect(answers.filter((answer) => answer.guess === null)).toHaveLength(3)
   })
 
+  it('bursts a missed card into eight Motion fragments at the kill line', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const host = await startRain(fakeCards(20))
+
+    advance(13_800)
+    random.mockRestore()
+
+    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
+    const fragmentCalls = hoisted.animate.mock.calls.filter(([target]) =>
+      (target as HTMLElement).classList?.contains('ed-rain__tile--fragment')
+    )
+    expect(fragmentCalls).toHaveLength(8)
+    expect(fragmentCalls.every(([, keyframes]) => 'transform' in (keyframes as object))).toBe(true)
+  })
+
+  it('keeps the same miss deadline without fragments when motion is reduced', async () => {
+    document.documentElement.classList.add('reduce-motion')
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const host = await startRain(fakeCards(20))
+
+    advance(13_800)
+    random.mockRestore()
+
+    expect(host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('2 of 3 lives left')
+    expect(host.querySelector('.ed-rain__tile--fragment')).toBeNull()
+    const fragmentCalls = hoisted.animate.mock.calls.filter(([target]) =>
+      (target as HTMLElement).classList?.contains('ed-rain__tile--fragment')
+    )
+    expect(fragmentCalls).toHaveLength(0)
+  })
+
   it('locks input synchronously when the third life is spent', async () => {
     const host = await startRain(fakeCards(20))
 
     // Stop on the exact 40ms tick that spends the final life. Rain deliberately
-    // holds this frame for another 200ms before the summary, which used to leave
+    // holds this frame for the 480ms burst before the summary, which used to leave
     // the keypad and the next surviving target live during that window.
     for (let i = 0; i < 500; i += 1) {
       if (host.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label') === '0 of 3 lives left') break
@@ -1019,7 +1051,7 @@ describe('Rain gameplay', () => {
     expect(keypad.every((button) => button.disabled)).toBe(true)
     for (const button of keypad) press(host, Number(button.getAttribute('aria-label')?.split(' ')[0]))
 
-    advance(200)
+    advance(480)
     expect(session.complete).toHaveBeenCalledTimes(1)
     const { answers } = session.complete.mock.calls[0]![0] as {
       answers: Array<{ guess: number | null }>

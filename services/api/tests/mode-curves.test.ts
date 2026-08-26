@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   higherLowerWindowMs,
+  rainDifficultyProgress,
   rainSpawnFloorMs,
   rainSpawnIntervalMs,
   survivalWindowMs,
@@ -64,7 +65,21 @@ describe("shared mode difficulty curves", () => {
   it("matches Rain's documented spawn cadence", () => {
     expect(Math.round(rainSpawnIntervalMs(0))).toBe(1_160);
     expect(Math.round(rainSpawnIntervalMs(50))).toBe(710);
-    expect(Math.round(rainSpawnIntervalMs(200))).toBe(440);
+    expect(Math.round(rainSpawnIntervalMs(80))).toBe(606);
+    expect(Math.round(rainSpawnIntervalMs(100))).toBe(581);
+    expect(Math.round(rainSpawnIntervalMs(200))).toBe(497);
+
+    expect(rainDifficultyProgress(79)).toBe(79);
+    expect(rainDifficultyProgress(80)).toBe(80);
+    expect(rainDifficultyProgress(81)).toBe(80.5);
+    expect(rainDifficultyProgress(100)).toBe(90);
+
+    const fullStep = rainSpawnIntervalMs(79) - rainSpawnIntervalMs(80);
+    const lateStep = rainSpawnIntervalMs(80) - rainSpawnIntervalMs(81);
+    // The difficulty input advances by exactly half a step. The reciprocal
+    // cadence curve makes the resulting millisecond delta just under one half.
+    expect(lateStep / fullStep).toBeGreaterThan(0.49);
+    expect(lateStep / fullStep).toBeLessThan(0.5);
 
     // Always positive and always tightening: the gap closes forever without ever
     // reaching its floor, which is what makes Rain endless but not survivable.
@@ -77,15 +92,14 @@ describe("shared mode difficulty curves", () => {
   });
 
   it("computes Rain's minimum-time floor from the spawn curve alone", () => {
-    // Hand-checked against sum(260 + 900 / (1 + 0.02n)) for n = 0 … N-1. These
-    // are the numbers GAMES.md quotes, and they are the whole reason Rain is
-    // bounded: below them, a score is not a thing a human could have played.
+    // These are the numbers GAMES.md quotes, including the half-strength ramp
+    // after clear 80. Below them, a score is not a thing a human could play.
     expect(rainSpawnFloorMs(0)).toBe(0);
     expect(rainSpawnFloorMs(1)).toBe(1_160);
     expect(rainSpawnFloorMs(10)).toBe(10_880);
     expect(rainSpawnFloorMs(50)).toBe(44_418);
-    expect(rainSpawnFloorMs(100)).toBe(75_739);
-    expect(rainSpawnFloorMs(200)).toBe(124_786);
+    expect(rainSpawnFloorMs(100)).toBe(75_958);
+    expect(rainSpawnFloorMs(200)).toBe(129_485);
 
     // It is exactly the running sum of the shared curve — the scorer walks the
     // transcript accumulating the same additions in the same order rather than

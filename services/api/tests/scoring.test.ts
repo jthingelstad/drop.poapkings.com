@@ -671,7 +671,7 @@ describe("server-side game scoring", () => {
 
   it("quarantines a Rain run below the spawn-curve floor without rejecting it", () => {
     const rain = createChallenge("rain", randomInt);
-    // 100 clears is 75.7s of spawn gaps at the very least; this run claims them
+    // 100 clears is 76.0s of spawn gaps at the very least; this run claims them
     // in a tenth of that. It still scores, still records, and goes to a referee.
     const answers = rainRun(rain, 100).map((answer, index) => ({
       ...answer,

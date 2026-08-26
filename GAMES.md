@@ -373,13 +373,15 @@ look like problems and are not:
 **Rain** — `/rain` · `apps/web/src/modes/rain/`
 Cards fall through the playfield and the lowest lit card is the live target.
 Enter its elixir cost before it lands; a wrong tap gives a higher/lower hint but
-does not stop the fall. The player has three lives. Rain is **endless and
+does not stop the fall. A card travels normally through 90% of its path, then
+decelerates through the final 10%; it fails exactly when its bottom edge touches
+the kill line and breaks into Motion-powered fragments (reduced motion removes
+the burst, not the deadline). The player has three lives. Rain is **endless and
 uncapped**: difficulty scales with cleared count on **both** axes — cards fall
-faster _and_ spawn closer together the more you clear — starting a touch gentler
-than a fixed pace, then ramping with no ceiling, so a player in flow keeps
-accelerating until the field outruns human reaction and the run ends (you cannot
-play forever). Both curves key off the live score, so difficulty only advances
-when you actually clear cards. The signed server deck supplies the cards and
+faster _and_ spawn closer together. The ramp is full-strength through 80 clears,
+then advances at half-strength (one difficulty step per two clears) with no hard
+ceiling. Both curves key off the live score, so difficulty only advances when
+you actually clear cards. The signed server deck supplies the cards and
 **wraps** when exhausted (a deep run resolves more cards than the deck holds);
 every resolved card records its correct cost or a landed miss, the elapsed time
 at resolution, and the wrong taps it cost. Every 10
@@ -411,8 +413,8 @@ the 10,000 anti-abuse ceiling, instantly and clean. It is bounded now by the one
 thing that is deterministic — the spawn curve. Difficulty is a function of the
 cleared count and the count only rises by one per clear, so the n-th spawn gap is
 never shorter than `rainSpawnIntervalMs(n)`, and **a score of N needs at least the
-first N gaps of elapsed time**: 10.9s for 10 clears, 44.4s for 50, 75.7s for 100,
-124.8s for 200 (`rainSpawnFloorMs`, with the curve, in `packages/contracts` —
+first N gaps of elapsed time**: 10.9s for 10 clears, 44.4s for 50, 76.0s for 100,
+129.5s for 200 (`rainSpawnFloorMs`, with the curve, in `packages/contracts` —
 shared with the browser so the floor always describes the game actually being
 played). The fall speed is deliberately **not** part of it; it carries a random
 per-tile component.

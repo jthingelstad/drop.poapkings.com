@@ -6739,13 +6739,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
     opacity: 0;
   }
 }
-@keyframes ed-rain-miss {
-  to {
-    transform: scale(0.6);
-    opacity: 0;
-    border-color: var(--red);
-  }
-}
 @keyframes ed-rain-shake {
   0%,
   100% {
@@ -6913,8 +6906,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-rain__tile--clear {
   animation: ed-rain-clear 0.4s cubic-bezier(0.32, 0, 0.2, 1) forwards;
 }
-.ed-rain__tile--miss {
-  animation: ed-rain-miss 0.3s forwards;
+.ed-rain__tile--fragment {
+  z-index: 3;
+  opacity: 1;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 .ed-rain__shake {
   animation: ed-rain-shake 0.3s;

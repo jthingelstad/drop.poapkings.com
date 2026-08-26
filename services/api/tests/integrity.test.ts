@@ -67,7 +67,7 @@ describe("competition integrity check", () => {
   // against the server's own wall clock, which is the one number in a completion
   // no client can write.
   it("holds a Rain score the wall clock is too short to contain", () => {
-    // 100 clears cannot happen in under 75.7s of spawn gaps, tolerance aside.
+    // 100 clears cannot happen in under 76.0s of spawn gaps, tolerance aside.
     expect(assessRunIntegrity("rain", 100, 30_000)).toEqual({
       eligible: false,
       reason: "completion_rate_above_ui_limit",
