@@ -94,6 +94,9 @@ test('desktop can repeat Surge entirely from the home row and Space', async ({ p
   }
 
   await expect(page.locator('[data-summary]')).toBeVisible()
+  const summaryHeading = page.locator('.ed-sum__head')
+  await expect(summaryHeading).toBeFocused()
+  await expect(summaryHeading).toHaveCSS('outline-style', 'none')
   await page.keyboard.press('Space')
   await waitForKeypad(page)
   await expect(page.locator('.ed-game__progress')).toHaveText('Card 1 / 15')

@@ -8866,9 +8866,14 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.62rem;
   font-weight: 800;
 }
-.ed-app--desktop :is(button, a[href], [tabindex]):focus-visible {
+
+/* Negative tabindex is a programmatic focus handoff, not a keyboard action. */
+.ed-app--desktop :is(button, a[href], [tabindex]:not([tabindex='-1'])):focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
+}
+.ed-app--desktop [tabindex='-1']:focus-visible {
+  outline: none;
 }
 
 .ed-app--screensaver .ed-desktop,
