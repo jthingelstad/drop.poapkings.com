@@ -12,7 +12,7 @@
 //
 // NEVER call this from CI or the browser. The CR token is not in CI.
 
-import { readFile, writeFile, mkdir } from 'fs/promises'
+import { access, readFile, writeFile, mkdir } from 'fs/promises'
 import { execSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -88,6 +88,41 @@ async function imageIsAvailable(url) {
   }
 }
 
+async function fileExists(path) {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function mirrorOptionalImage({ cardName, fullPath, kind, localPath, url }) {
+  if (!url) return ''
+
+  const existingMirror = await fileExists(fullPath)
+  if (DRY_RUN) {
+    if (existingMirror || (await imageIsAvailable(url))) return localPath
+  } else {
+    try {
+      const response = await fetch(url)
+      if (response.ok) {
+        await writeFile(fullPath, Buffer.from(await response.arrayBuffer()))
+        return localPath
+      }
+    } catch {
+      // Fall through to the existing-mirror check and bounded warning below.
+    }
+    if (existingMirror) {
+      console.warn(`\nFailed to refresh ${cardName} ${kind} artwork; keeping the existing mirror.`)
+      return localPath
+    }
+  }
+
+  console.warn(`\n${cardName} ${kind} artwork is unavailable; omitting it until the official asset is published.`)
+  return ''
+}
+
 if (MIRROR && !DRY_RUN) {
   await mkdir(join(WEB_ROOT, 'public/cards'), { recursive: true })
 }
@@ -112,8 +147,8 @@ for (const card of data.items ?? []) {
   else if (idStr.startsWith('28')) type = 'spell'
 
   const mel = card.maxEvolutionLevel ?? 0
-  const evo = mel === 1 || mel === 3
-  const hero = mel === 2 || mel === 3
+  let evo = mel === 1 || mel === 3
+  let hero = mel === 2 || mel === 3
 
   let icon = card.iconUrls?.medium ?? ''
   let iconEvo = card.iconUrls?.evolutionMedium ?? ''
@@ -144,32 +179,30 @@ for (const card of data.items ?? []) {
     // Mirror evo/hero images when present
     if (iconEvo) {
       const evoPath = join(WEB_ROOT, 'public/cards', `${card.id}_evo.png`)
-      if (!DRY_RUN) {
-        try {
-          const r = await fetch(iconEvo)
-          if (r.ok) {
-            await writeFile(evoPath, Buffer.from(await r.arrayBuffer()))
-          }
-        } catch {
-          /* non-fatal */
-        }
-      }
-      iconEvo = `/cards/${card.id}_evo.png`
+      iconEvo = await mirrorOptionalImage({
+        cardName: card.name,
+        fullPath: evoPath,
+        kind: 'evolution',
+        localPath: `/cards/${card.id}_evo.png`,
+        url: iconEvo
+      })
     }
     if (iconHero) {
       const heroPath = join(WEB_ROOT, 'public/cards', `${card.id}_hero.png`)
-      if (!DRY_RUN) {
-        try {
-          const r = await fetch(iconHero)
-          if (r.ok) {
-            await writeFile(heroPath, Buffer.from(await r.arrayBuffer()))
-          }
-        } catch {
-          /* non-fatal */
-        }
-      }
-      iconHero = `/cards/${card.id}_hero.png`
+      iconHero = await mirrorOptionalImage({
+        cardName: card.name,
+        fullPath: heroPath,
+        kind: 'hero',
+        localPath: `/cards/${card.id}_hero.png`,
+        url: iconHero
+      })
     }
+
+    // The API can announce a variant before its official asset is published.
+    // Keep the committed flag/artwork contract atomic so the app never exposes
+    // a variant whose local image cannot ship with it.
+    evo = evo && Boolean(iconEvo)
+    hero = hero && Boolean(iconHero)
   }
 
   const entry = {
@@ -222,6 +255,12 @@ if (existing) {
       }
       if (old.rarity !== card.rarity) {
         changelog.push(`~ Changed: ${card.name} rarity ${old.rarity} → ${card.rarity}`)
+      }
+      if (old.evo !== card.evo) {
+        changelog.push(`~ Changed: ${card.name} evolution ${old.evo} → ${card.evo}`)
+      }
+      if (old.hero !== card.hero) {
+        changelog.push(`~ Changed: ${card.name} hero ${old.hero} → ${card.hero}`)
       }
       if (old.icon !== card.icon || old.iconEvo !== card.iconEvo || old.iconHero !== card.iconHero) {
         changelog.push(`~ Changed: ${card.name} artwork`)
