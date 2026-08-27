@@ -1,5 +1,13 @@
 import { expect, isDesktopViewport, test, testPublishedProfileUrl, useSignedOutState, waitForKeypad } from './fixtures'
 
+const BOARD_BEST_BY_GAME: Record<string, string> = {
+  SURGE: '67.299s',
+  'HIGHER / LOWER': '24 correct',
+  TRADE: '0.024s',
+  SURVIVAL: '24 streak',
+  RAIN: '24 cleared'
+}
+
 test(
   'home surfaces season standings and the featured game result',
   { tag: '@deploy' },
@@ -46,14 +54,10 @@ test(
     // The hero rotates by UTC day. Its result must follow the featured mode
     // instead of permanently asserting Surge's best on a non-Surge hero.
     const featured = (await page.locator('.ed-hero__wordmark').first().innerText()).trim()
-    const expectedBest: Record<string, string> = {
-      SURGE: '67.299s',
-      TRADE: '11.800s'
-    }
     // `9a` splits the old "BEST · RANK" block into a labelled line under the
     // button: "Your best 17.4s │ Rank #7".
     const result = page.locator('.ed-hero__result')
-    await expect(result).toContainText(`Your best ${expectedBest[featured] ?? '—'}`)
+    await expect(result).toContainText(`Your best ${BOARD_BEST_BY_GAME[featured] ?? '—'}`)
     await expect(result).toContainText('Rank #4')
 
     await testInfo.attach('home.png', {
@@ -76,8 +80,12 @@ test('the hero features one ranked game and the rest are full-width rows', async
   await expect(otherFour.locator('.ed-grow--ranked')).toHaveCount(4)
   const rowNames = await otherFour.locator('.ed-grow__name').allTextContents()
   expect(rowNames.map((name) => name.trim().toUpperCase())).not.toContain(wordmark)
-  // Each remaining ranked row keeps its own best and repeats the gold PLAY CTA.
-  await expect(otherFour.locator('.ed-grow__meta').first()).toContainText('Best')
+  // Each row pairs the signed-in player's authoritative board score with the
+  // rank from that same row, even though the account fixture's recent runs are
+  // intentionally incomplete and disagree with some of these values.
+  await expect(otherFour.locator('.ed-grow__meta')).toHaveText(
+    rowNames.map((name) => `Best ${BOARD_BEST_BY_GAME[name.trim().toUpperCase()]} · #4 this season`)
+  )
   await expect(otherFour.locator('.ed-grow__play')).toHaveCount(4)
   await expect(otherFour.locator('.ed-grow__play')).toHaveText(['PLAY', 'PLAY', 'PLAY', 'PLAY'])
   const rankedPlayBackground = await otherFour

@@ -125,6 +125,18 @@ export function useHomeData(): HomeData {
   const personalBestScores = mergedBestScores(null)
   const bestScores = mergedBestScores(season)
 
+  // A signed-in player's current-season score and rank are one leaderboard
+  // fact. Device records and the capped recent-run feed are useful fallbacks,
+  // but they can be stale when the best was set elsewhere or has fallen out of
+  // recent history. Whenever Home can show a server rank, use that same row's
+  // score so the pair cannot contradict the board.
+  if (meId) {
+    for (const game of RANKED_GAMES) {
+      const playerEntry = boards.value[game.mode]?.find((entry) => entry.player.id === meId)
+      if (playerEntry) bestScores[game.mode] = playerEntry.score
+    }
+  }
+
   return {
     loading: loading.value,
     stats: stats.value,

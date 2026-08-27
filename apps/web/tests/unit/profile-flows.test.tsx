@@ -216,7 +216,7 @@ describe('useHomeData derivations', () => {
     vi.doUnmock('../../src/lib/api')
   })
 
-  it('derives champion, surge standings, the player rank, and merges best scores', async () => {
+  it('pairs the player season rank with its authoritative board score', async () => {
     const entry = (id: string, rank: number, score: number) => ({
       rank,
       score,
@@ -247,9 +247,16 @@ describe('useHomeData derivations', () => {
       createdAt: season.startsAt,
       updatedAt: season.startsAt
     }
-    // A recent surge run that beats any stored record (lower is better).
+    // This device only knows a newer, slower run. The player's real season
+    // best was set elsewhere and is already reflected by the board row.
     account.recentRuns.value = [
-      { runId: 'r1', mode: 'surge', score: 8_500, seasonId: season.id, completedAt: '2026-07-11T00:00:00.000Z' }
+      {
+        runId: 'r1',
+        mode: 'surge',
+        score: 17_020,
+        seasonId: season.id,
+        completedAt: '2026-07-11T00:00:00.000Z'
+      }
     ]
 
     let captured: import('../../src/screens/home/home-data').HomeData | undefined
@@ -270,9 +277,10 @@ describe('useHomeData derivations', () => {
     // The signed-in player's rank is still pulled from the board for the hero.
     expect(captured?.rankFor('surge')).toBe(2)
     expect(captured?.standingsFor('surge').map((entry) => entry.player.id)).toEqual(['ace', 'me'])
-    // The recent run (8_500) beats the empty stored record and merges in.
-    expect(captured?.personalBestScores.surge).toBe(8_500)
-    expect(captured?.bestScores.surge).toBe(8_500)
+    // Device/all-time fallback remains available, but the current-season Home
+    // score comes from the same authoritative row as rank #2.
+    expect(captured?.personalBestScores.surge).toBe(17_020)
+    expect(captured?.bestScores.surge).toBe(11_000)
   })
 
   it('leaves every rank undefined for an anonymous visitor', async () => {
