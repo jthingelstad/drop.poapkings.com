@@ -191,7 +191,7 @@ describe("advanceBadges", () => {
       { mode: "trade", boardEpoch: "r2", score: 39_000 },
       { mode: "higher-lower", boardEpoch: "r3", score: 10_000 },
       { mode: "survival", score: 10_000, zeroHesitation: true },
-      { mode: "rain", score: 10_000, comeback: true },
+      { mode: "rain", boardEpoch: "r4", score: 10_000, comeback: true },
       {
         mode: "practice",
         answered: 21_000,
@@ -267,12 +267,13 @@ describe("advanceBadges", () => {
       { mode: "survival", boardEpoch: "r2", score: 117 },
       { mode: "rain", boardEpoch: "r2", score: 110 },
       { mode: "rain", boardEpoch: "r3", score: 102 },
+      { mode: "rain", boardEpoch: "r4", score: 97 },
     ]);
 
     // Mastery still credits real historical activity across formats.
     expect(stateOf(counters, "bridge-read").value).toBe(122);
     expect(stateOf(counters, "last-stand").value).toBe(2);
-    expect(stateOf(counters, "stormchaser").value).toBe(212);
+    expect(stateOf(counters, "stormchaser").value).toBe(309);
     // Skill proof is comparable only inside the current board definition.
     expect(stateOf(counters, "coin-flip-killer")).toMatchObject({
       value: 35,
@@ -282,7 +283,7 @@ describe("advanceBadges", () => {
       value: 117,
       rungIndex: 7,
     });
-    expect(stateOf(counters, "downpour").value).toBe(102);
+    expect(stateOf(counters, "downpour").value).toBe(97);
   });
 
   it("counts every run at or under each time rung, not just the best", () => {
@@ -302,12 +303,18 @@ describe("advanceBadges", () => {
 
   it("reports each newly cleared rung exactly once", () => {
     let counters = emptyCounters();
-    const first = advanceBadges(counters, facts({ mode: "rain", score: 30 }));
+    const first = advanceBadges(
+      counters,
+      facts({ mode: "rain", boardEpoch: "r4", score: 30 }),
+    );
     counters = first.counters;
     // Rain 30 clears Downpour rung one (25) and Stormchaser has none yet (100).
     expect(first.newlyEarned.map((rung) => rung.slug)).toContain("downpour");
 
-    const again = advanceBadges(counters, facts({ mode: "rain", score: 30 }));
+    const again = advanceBadges(
+      counters,
+      facts({ mode: "rain", boardEpoch: "r4", score: 30 }),
+    );
     // The same rung must not be celebrated twice.
     expect(again.newlyEarned.map((rung) => rung.slug)).not.toContain(
       "downpour",
@@ -474,7 +481,7 @@ describe("recomputeCounters", () => {
     },
     {
       mode: "rain" as const,
-      boardEpoch: "r3",
+      boardEpoch: "r4",
       score: 40,
       completedAt: "2026-07-03T12:00:00.000Z",
     },
@@ -685,7 +692,7 @@ describe("recomputeCounters", () => {
         },
         {
           mode: "rain",
-          boardEpoch: "r3",
+          boardEpoch: "r4",
           score: 102,
           completedAt: "2026-08-02T12:00:00.000Z",
         },

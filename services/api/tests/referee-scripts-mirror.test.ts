@@ -503,7 +503,7 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
       "LEADERBOARD#134#survival#r2",
     );
     expect(scriptsLeaderboardPartition(134, "rain")).toBe(
-      "LEADERBOARD#134#rain#r3",
+      "LEADERBOARD#134#rain#r4",
     );
     expect(scriptsLeaderboardPartition(134, "higher-lower")).toBe(
       "LEADERBOARD#134#higher-lower#r3",
@@ -515,6 +515,20 @@ describe("referee scripts mirror the API leaderboard conventions", () => {
 
   it("agrees with the API on current-board history across epoch cutovers", () => {
     const samples = [
+      {
+        mode: "rain" as GameMode,
+        boardEpoch: "r3",
+        completedAt: "2026-08-27T00:00:00.000Z",
+      },
+      {
+        mode: "rain" as GameMode,
+        boardEpoch: "r4",
+        completedAt: "2026-08-01T00:00:00.000Z",
+      },
+      {
+        mode: "rain" as GameMode,
+        completedAt: "2026-08-26T00:09:08.000Z",
+      },
       {
         mode: "higher-lower" as GameMode,
         boardEpoch: "r3",

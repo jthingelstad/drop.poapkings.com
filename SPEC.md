@@ -182,11 +182,12 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
 (`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
 `AGENT-TEAM/scripts/_referee-lib.mjs`): a material rules change restarts the
-board rather than deleting data, and old rows are orphaned. Rain is on `r3`
-(it gained tiebreaks its old rows cannot carry), Higher / Lower is on `r3`
-(its clock now tightens continuously instead of flattening at 2s), and Survival
-and Trade are on `r2`. A mode whose scoring shape or attainable distribution
-changes usually renames its local record key in the same move (`longestStreak`
+board rather than deleting data, and old rows are orphaned. Rain is on `r4`
+(fresh competition for the accepted kill-line, slowdown, and late-difficulty
+structure), Higher / Lower is on `r3` (its clock now tightens continuously
+instead of flattening at 2s), and Survival and Trade are on `r2`. A mode whose
+scoring shape or attainable distribution changes usually renames its local
+record key in the same move (`longestStreak`
 → `higherLowerBest` → `higherLowerContinuousBest`, `tradeBest` →
 `tradeLadderBest`), so an on-device best from retired rules orphans the same way
 the board did instead of standing as an unbeatable target.

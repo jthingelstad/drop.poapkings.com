@@ -65,13 +65,15 @@ export const RANKED_MODES = [
 // Mirror of services/api/src/games.ts BOARD_EPOCH: Survival's board was reset to
 // "r2" when it became a clear-the-deck, time-ranked game, Rain's to "r2" on
 // 2026-07-24 when its difficulty stopped capping and to "r3" on 2026-07-25 when
-// it gained two tiebreaks its old rows carry no segments for, Higher/Lower's to
-// "r2" on 2026-07-25 when it gained three lives and a gap-ramped deal and to
-// "r3" on 2026-08-08 when its clock began tightening continuously, and Trade's
-// on 2026-07-25 when it went to ten exchanges on a fixed board ladder.
+// it gained two tiebreaks its old rows carry no segments for, then to "r4" on
+// 2026-08-27 after the accepted kill-line, slowdown, and late-difficulty rules;
+// Higher/Lower's to "r2" on 2026-07-25 when it gained three lives and a
+// gap-ramped deal and to "r3" on 2026-08-08 when its clock began tightening
+// continuously; and Trade's on 2026-07-25 when it went to ten exchanges on a
+// fixed board ladder.
 const BOARD_EPOCH = {
   survival: { id: "r2", startedAt: "2026-07-19T18:00:58.000Z" },
-  rain: { id: "r3", startedAt: "2026-07-25T15:45:05.000Z" },
+  rain: { id: "r4", startedAt: "2026-08-26T00:09:08.000Z" },
   "higher-lower": { id: "r3", startedAt: "2026-08-08T09:05:51.000Z" },
   trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };

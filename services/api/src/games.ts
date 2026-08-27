@@ -94,7 +94,11 @@ const MAX_TIEBREAK = 999_999_999;
 // hold no timing whatsoever — so an old row and a new one would emit different
 // key shapes inside one partition, and a new row could outrank an equal-scoring
 // old one purely on where its segments fall in the byte order. The board has to
-// restart for the ranking to mean anything.
+// restart for the ranking to mean anything. It moved again to "r4" after the
+// exact kill-line deadline, final-10% slowdown, and half-strength progression
+// beyond 80 clears were accepted on 2026-08-27. Those rules materially change
+// the late score distribution, and the r3 playtest runs are deliberately kept
+// out of the fresh competition.
 interface BoardEpoch {
   id: string;
   // Verified cutover boundary for legacy history rows that predate the
@@ -104,7 +108,7 @@ interface BoardEpoch {
 
 const BOARD_EPOCH: Partial<Record<GameMode, BoardEpoch>> = {
   survival: { id: "r2", startedAt: "2026-07-19T18:00:58.000Z" },
-  rain: { id: "r3", startedAt: "2026-07-25T15:45:05.000Z" },
+  rain: { id: "r4", startedAt: "2026-08-26T00:09:08.000Z" },
   "higher-lower": { id: "r3", startedAt: "2026-08-08T09:05:51.000Z" },
   trade: { id: "r2", startedAt: "2026-07-25T15:45:05.000Z" },
 };

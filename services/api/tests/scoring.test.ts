@@ -521,13 +521,12 @@ describe("server-side game scoring", () => {
     expect(leaderboardPartition(134, "survival")).toBe(
       "LEADERBOARD#134#survival#r2",
     );
-    // Rain restarted at r2 when its difficulty stopped capping, then at r3 when
-    // it gained two tiebreaks: an r2 row carries no tiebreak segment and its
-    // transcript holds no timing to backfill one from, so the two key shapes
-    // cannot share a partition.
-    expect(leaderboardPartition(134, "rain")).toBe("LEADERBOARD#134#rain#r3");
+    // Rain restarted at r2 when its difficulty stopped capping, at r3 when it
+    // gained two tiebreaks, and at r4 for fresh competition on the accepted
+    // kill-line, slowdown, and late-difficulty structure.
+    expect(leaderboardPartition(134, "rain")).toBe("LEADERBOARD#134#rain#r4");
     expect(leaderboardPartition("ALLTIME", "rain")).toBe(
-      "LEADERBOARD#ALLTIME#rain#r3",
+      "LEADERBOARD#ALLTIME#rain#r4",
     );
     // Higher/Lower restarted at r2 with three lives + the gap ramp, then at r3
     // when its clock stopped flattening at 2s. Production showed the same
@@ -547,6 +546,20 @@ describe("server-side game scoring", () => {
   });
 
   it("recognizes current-board history without accepting retired scores", () => {
+    expect(
+      isCurrentBoardRun({
+        mode: "rain",
+        boardEpoch: "r3",
+        completedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "rain",
+        boardEpoch: "r4",
+        completedAt: "2026-08-01T00:00:00.000Z",
+      }),
+    ).toBe(true);
     expect(
       isCurrentBoardRun({
         mode: "higher-lower",
@@ -591,7 +604,13 @@ describe("server-side game scoring", () => {
     expect(
       isCurrentBoardRun({
         mode: "rain",
-        completedAt: "2026-07-25T15:45:05.000Z",
+        completedAt: "2026-08-26T00:09:07.999Z",
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentBoardRun({
+        mode: "rain",
+        completedAt: "2026-08-26T00:09:08.000Z",
       }),
     ).toBe(true);
     expect(

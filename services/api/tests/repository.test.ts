@@ -1794,14 +1794,14 @@ describe("repository DynamoDB requests", () => {
   it("resets a retired all-time partition without comparing its score", async () => {
     send.mockResolvedValueOnce({
       Attributes: {
-        GSI1PK: "LEADERBOARD#ALLTIME#rain#r2",
+        GSI1PK: "LEADERBOARD#ALLTIME#rain#r3",
         score: 110,
       },
     });
 
     await expect(
       new Repository("test-table").updateAllTimeBest(
-        { ...allTimeRun, mode: "rain", boardEpoch: "r3" },
+        { ...allTimeRun, mode: "rain", boardEpoch: "r4" },
         102,
         { wrongGuesses: 1, avgLatencyMs: 650 },
         "2026-08-01T12:05:00.000Z",
@@ -1810,7 +1810,7 @@ describe("repository DynamoDB requests", () => {
 
     const update = send.mock.calls[0]?.[0].input;
     expect(update.ExpressionAttributeValues[":gsi1pk"]).toBe(
-      "LEADERBOARD#ALLTIME#rain#r3",
+      "LEADERBOARD#ALLTIME#rain#r4",
     );
     expect(update.ConditionExpression).toContain("GSI1PK <> :gsi1pk");
   });

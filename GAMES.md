@@ -400,12 +400,14 @@ deck length — only a far-out-of-reach anti-abuse ceiling bounds transcript siz
   is each clear's `atMs` minus the earliest moment that tile could have spawned,
   so it measures the player's answer rather than the pace the game happened to
   run at, and there is no separate number a client could inflate.
-- Board epoch `r3` (2026-07-25). `r2` is retired because it carries no tiebreak
-  segment and cannot be backfilled — those transcripts hold no timing at all —
-  and two key shapes in one partition would let a new row outrank an equal
-  old one purely on segment ordering. (`r2` itself retired the pre-redesign
-  board on 2026-07-24, whose curve capped at 50 clears.) Old rows are orphaned,
-  not deleted (`BOARD_EPOCH` in `services/api/src/games.ts`).
+- Board epoch `r4` (2026-08-27). `r3` introduced the current tiebreak key shape,
+  then spanned earlier Rain rules and the accepted structure's production
+  playtest. Fresh competition now starts with the exact kill-line deadline,
+  final-10% slowdown, and half-strength progression beyond 80 clears. `r2` is
+  also retired because it carries no tiebreak segment and cannot be backfilled;
+  `r2` itself retired the pre-redesign board whose curve capped at 50 clears.
+  Old rows are orphaned, not deleted (`BOARD_EPOCH` in
+  `services/api/src/games.ts`).
 
 **The minimum-time floor.** Rain has no round length and no clock, so nothing
 about its shape bounded a run: a transcript of deck-valid card ids scored up to

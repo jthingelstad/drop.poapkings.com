@@ -32,7 +32,7 @@ const MAX_SORT_SCORE = 999_999_999_999;
 const MAX_TIEBREAK = 999_999_999;
 const BOARD_EPOCH = {
   survival: "r2",
-  rain: "r3",
+  rain: "r4",
   "higher-lower": "r3",
   trade: "r2",
 };
