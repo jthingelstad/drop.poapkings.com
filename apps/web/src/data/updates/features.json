@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "rain-final-curve-fresh-board",
+      "impact": "gameplay",
+      "publishedAt": "2026-08-27T13:45:23-05:00",
+      "title": "Rain locks in a fresh fight",
+      "body": "**Rain** now slows through the final 10% before cards burst at the kill line, and the difficulty climb eases after 80 clears. With the new battle curve locked in, both Rain leaderboards have started fresh. [Chase the first score](/#/rain)."
+    },
+    {
       "id": "practice-resumes-across-interruptions",
       "impact": "learning",
       "publishedAt": "2026-08-25T15:10:00-05:00",
