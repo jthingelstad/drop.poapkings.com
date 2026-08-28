@@ -688,7 +688,7 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
         </div>
 
         <div class="ed-kstage__hint">
-          {idleHintAvailable.value ? (
+          {hint.value !== null ? null : idleHintAvailable.value ? (
             <button class="practice-idle-assist" onClick={useIdleHint}>
               <Icon name="circle-help" />
               {choicesVisible ? 'Narrow it down' : 'Need a nudge? Show choices'}

@@ -181,6 +181,9 @@ test(
     await page.getByRole('button', { name: `${card.elixir - 1} elixir`, exact: true }).click()
     const directionalHint = page.getByTestId('practice-hint')
     await expect(directionalHint).toContainText(`Higher than ${card.elixir - 1}`)
+    // The directional cue owns the retry instruction. Keeping the generic
+    // pointer prompt visible underneath makes the two lines overlap.
+    await expect(page.locator('.ed-kstage__hint')).toHaveText('')
     const { cardBounds, hintBounds, hintFontSize } = await page.evaluate(() => {
       const displayedCard = document.querySelector('.pcard')
       const displayedHint = document.querySelector('[data-testid="practice-hint"]')
