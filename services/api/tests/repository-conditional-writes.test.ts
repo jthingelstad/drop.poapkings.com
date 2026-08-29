@@ -142,6 +142,85 @@ describe("repository conditional writes", () => {
     });
   });
 
+  it("stores the email link and code alias atomically with the same expiry", async () => {
+    send.mockResolvedValueOnce({});
+
+    await new Repository("test-table").saveMagicLink(
+      "token-hash",
+      "code-hash",
+      "player@example.com",
+      1_900_000,
+      "poll-id",
+      "recruiter-sub",
+    );
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(TransactWriteCommand);
+    expect(command.input.TransactItems).toEqual([
+      {
+        Put: {
+          TableName: "test-table",
+          Item: {
+            pk: "MAGIC#token-hash",
+            sk: "MAGIC",
+            email: "player@example.com",
+            expiresAt: 1_900_000,
+            pollId: "poll-id",
+            recruiterSub: "recruiter-sub",
+          },
+        },
+      },
+      {
+        Put: {
+          TableName: "test-table",
+          Item: {
+            pk: "MAGIC_CODE#code-hash",
+            sk: "MAGIC_CODE",
+            tokenHash: "token-hash",
+            expiresAt: 1_900_000,
+          },
+        },
+      },
+    ]);
+  });
+
+  it("resolves a live email code alias to its single-use token record", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        pk: "MAGIC_CODE#code-hash",
+        sk: "MAGIC_CODE",
+        tokenHash: "token-hash",
+        expiresAt: 1_900_000,
+      },
+    });
+
+    await expect(
+      new Repository("test-table").tokenHashForMagicCode(
+        "code-hash",
+        1_800_000,
+      ),
+    ).resolves.toBe("token-hash");
+  });
+
+  it("rejects a missing or expired email code alias", async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        tokenHash: "token-hash",
+        expiresAt: 1_700_000,
+      },
+    });
+
+    await expect(
+      new Repository("test-table").tokenHashForMagicCode(
+        "code-hash",
+        1_800_000,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      code: "invalid_magic_code",
+    });
+  });
+
   it("refuses to redeem a link that was already used", async () => {
     send.mockResolvedValueOnce({
       Item: {

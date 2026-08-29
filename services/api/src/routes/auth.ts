@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes, randomInt } from "node:crypto";
 import {
   buttondownPlayerMetadata,
   enrollButtondownSubscriber,
@@ -32,7 +32,28 @@ import { isPublishedRunReference } from "./published-shares.js";
 import { isPublishedBadgeReference } from "./published-badges.js";
 import { isPublishedProfileReference } from "./published-profiles.js";
 
-// POST /auth/request — mail a single-use magic link.
+const LOGIN_CODE_DIGITS = 6;
+const LOGIN_CODE_LIMIT = 10 ** LOGIN_CODE_DIGITS;
+
+function createLoginCode(): string {
+  return String(randomInt(LOGIN_CODE_LIMIT)).padStart(LOGIN_CODE_DIGITS, "0");
+}
+
+function loginCodeHash(secret: string, sub: string, code: string): string {
+  return createHmac("sha256", secret)
+    .update(`elixir-drop-login-code:${sub}:${code}`)
+    .digest("base64url");
+}
+
+function invalidMagicCode(): HttpError {
+  return new HttpError(
+    401,
+    "This sign-in code is invalid, expired, or already used.",
+    "invalid_magic_code",
+  );
+}
+
+// POST /auth/request — mail one single-use credential as a code and link.
 export async function requestMagicLink({
   event,
   config,
@@ -59,6 +80,8 @@ export async function requestMagicLink({
 
   const token = randomBytes(32).toString("base64url");
   const tokenHash = sha256(token);
+  const code = createLoginCode();
+  const codeHash = loginCodeHash(config.sessionSecret, sub, code);
   // Secret handoff id, returned only to this client (never emailed). Lets a
   // waiting client — e.g. an installed PWA whose storage is isolated from the
   // browser that opens the emailed link — poll for its session.
@@ -158,6 +181,7 @@ export async function requestMagicLink({
   }
   await repository.saveMagicLink(
     tokenHash,
+    codeHash,
     email,
     expiresAt,
     pollId,
@@ -170,10 +194,11 @@ export async function requestMagicLink({
       fromName: config.emailFromName,
       to: email,
       magicLink: `${config.appUrl}/#/auth?token=${encodeURIComponent(token)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`,
+      code,
       expiresMinutes: MAGIC_LINK_SECONDS / 60,
     });
   } catch (error) {
-    await repository.deleteMagicLink(tokenHash);
+    await repository.deleteMagicLink(tokenHash, codeHash);
     throw error;
   }
   await publishTinylyticsEvent(
@@ -189,7 +214,8 @@ export async function requestMagicLink({
   );
   return json(202, {
     ok: true,
-    message: "If that address can receive mail, a login link is on its way.",
+    message:
+      "If that address can receive mail, a sign-in code and link are on the way.",
     pollId,
   });
 }
@@ -216,24 +242,64 @@ export async function pollSession({ event, config, repository }: RouteContext) {
   return json(200, session ? { ready: true, session } : { ready: false });
 }
 
-// POST /auth/redeem — burn the link, ensure the profile, issue the session.
+// POST /auth/redeem — burn the code/link credential, ensure the profile, and
+// issue the session. Both inputs resolve to the same single-use record.
 export async function redeemMagicLink({
   event,
   config,
   repository,
 }: RouteContext) {
   const body = bodyOf(event);
-  if (typeof body.token !== "string" || body.token.length < 32)
-    throw new HttpError(400, "A login token is required.");
   const nowSeconds = Math.floor(Date.now() / 1_000);
-  const tokenHash = sha256(body.token);
+  let tokenHash: string;
+  let redeemedWithCode = false;
+  if (typeof body.token === "string") {
+    if (body.token.length < 32)
+      throw new HttpError(400, "A login token is required.");
+    tokenHash = sha256(body.token);
+  } else {
+    let email: string;
+    try {
+      email = normalizeEmail(body.email);
+    } catch (error) {
+      throw badRequest(error);
+    }
+    const code = typeof body.code === "string" ? body.code.trim() : "";
+    if (!new RegExp(`^\\d{${LOGIN_CODE_DIGITS}}$`).test(code))
+      throw new HttpError(400, "A six-digit sign-in code is required.");
+    const sub = emailSubject(email);
+    await Promise.all([
+      repository.useRateLimit("magic-code-email", sub, 10, 30 * 60),
+      repository.useRateLimit(
+        "magic-code-ip",
+        clientIpHash(event, config.webOriginToken),
+        30,
+        30 * 60,
+      ),
+      repository.useRateLimit("magic-code-global", "all", 1_000, 30 * 60),
+    ]);
+    tokenHash = await repository.tokenHashForMagicCode(
+      loginCodeHash(config.sessionSecret, sub, code),
+      nowSeconds,
+    );
+    redeemedWithCode = true;
+  }
   // Validate and complete the durable work before burning the single-use
-  // link: a transient failure mid-login used to consume the link and strand
+  // credential: a transient failure mid-login used to consume it and strand
   // the player on "already used" with no way to retry.
-  const { email, pollId, recruiterSub } = await repository.peekMagicLink(
-    tokenHash,
-    nowSeconds,
-  );
+  let magicLink;
+  try {
+    magicLink = await repository.peekMagicLink(tokenHash, nowSeconds);
+  } catch (error) {
+    if (
+      redeemedWithCode &&
+      error instanceof HttpError &&
+      error.code === "invalid_magic_link"
+    )
+      throw invalidMagicCode();
+    throw error;
+  }
+  const { email, pollId, recruiterSub } = magicLink;
   const sub = emailSubject(email);
   const login = await repository.ensureProfile(sub, email);
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
@@ -252,7 +318,17 @@ export async function redeemMagicLink({
       });
     }
   }
-  await repository.consumeMagicLink(tokenHash, nowSeconds);
+  try {
+    await repository.consumeMagicLink(tokenHash, nowSeconds);
+  } catch (error) {
+    if (
+      redeemedWithCode &&
+      error instanceof HttpError &&
+      error.code === "invalid_magic_link"
+    )
+      throw invalidMagicCode();
+    throw error;
+  }
   const session = issueSession(sub, config.sessionSecret, nowSeconds);
   // Hand the session to a client waiting on this request's poll id (e.g. the
   // installed PWA, when the link opened in a different browser). Best-effort:

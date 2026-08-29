@@ -7,7 +7,7 @@ a static single-page app in the Elixir Drop monorepo.
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
 **Contact:** [drop@poapkings.com](mailto:drop@poapkings.com) for questions,
-privacy requests, and Fair Play re-review. Player magic links are sent from
+privacy requests, and Fair Play re-review. Player sign-in codes and magic links are sent from
 `elixir@poapkings.com`.
 
 ---
@@ -83,7 +83,7 @@ there is no server record for a link to point at.
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-Players can sign in with an email magic link when they want recorded progress;
+Players can sign in with a six-digit email code or magic link when they want recorded progress;
 guest play needs no account. Online games start from a signed server challenge;
 when the browser is offline, all six modes deal locally and say plainly that the
 run will not be saved. Local runs are never queued or promoted after
@@ -178,7 +178,7 @@ allowlisted host, calls `/players/{tag}`, and puts a narrow result on a second
 queue. A result Lambda stores the player's CR name, clan, Years Played badge
 day count (used to calculate account age), and card collection without
 competitive fields or card levels. Saving a tag fetches its first snapshot.
-Later snapshots refresh only when the player completes a new magic-link login;
+Later snapshots refresh only when the player completes a new email-authenticated login;
 routine session restoration, profile reads, and games use cached data without
 creating bridge work.
 

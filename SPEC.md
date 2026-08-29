@@ -24,7 +24,7 @@ remains the canonical source for shipped modes and game ideas.
   over the text-safe `assets/share/og-default.png` backdrop).
 
 The public website remains a static app, served by CloudFront from private S3,
-and uses a separate Lambda API for email magic-link accounts, profiles, signed
+and uses a separate Lambda API for email code/magic-link accounts, profiles, signed
 runs, progression, global game totals, and seasonal leaderboards. The site and
 leaderboards remain public. Anyone can play every mode **without an account as a
 guest**: a guest run is dealt the same server-signed challenge and scored the
@@ -40,7 +40,7 @@ The only outbound ties are ordinary links:
 - Discord: `https://discord.gg/SdvKfJW5kA`
 - General contact, privacy requests, and Fair Play disputes:
   `drop@poapkings.com`
-- Transactional player-mail sender (including magic links):
+- Transactional player-mail sender (including sign-in codes and magic links):
   `elixir@poapkings.com`
 - Supercell / fan-policy attribution links
 
@@ -615,8 +615,8 @@ season per press of its paging control. Its three status count tiles double as
 the status filter, so counts are computed in the browser over the loaded,
 status-unfiltered rows; season and mode scope them.
 
-The private profile also records `lastLoginAt` when a magic link is successfully
-redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
+The private profile also records `lastLoginAt` when an email sign-in code or magic
+link is successfully redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
@@ -943,7 +943,7 @@ makes them authoritative succeeds. A logical occurrence has exactly one owner:
 | Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                           |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, `profile.shared`, `home.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                                           |
-| API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
+| API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after code or link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
 
 Names are `category.action`, with at most one low-cardinality value (game mode,
 login cohort, or browser/install family). Player ids, emails, public names,
@@ -1195,7 +1195,7 @@ under `DropControlRole`: it can project only account/profile and CR snapshot
 fields, and can atomically correct `publicName` + `favoriteCardId` and/or the
 unverified `playerTag` while writing an immutable
 `CONTROL#PLAYER#{playerId}/CHANGE#...` audit item. Email is visible but is the
-authentication key and therefore read-only; the role cannot read magic links,
+authentication key and therefore read-only; the role cannot read sign-in codes, magic links,
 poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
 scores, evidence, XP, or delete data. Production requires the exact
 `Tailscale-User-Login`; every write additionally requires same-origin and CSRF

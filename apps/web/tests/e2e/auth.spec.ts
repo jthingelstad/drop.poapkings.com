@@ -65,6 +65,7 @@ test(
 
 test('signing in from the login screen returns the player to the requested game', async ({ page }) => {
   let loginBody: Record<string, unknown> | undefined
+  let redeemBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
@@ -78,6 +79,7 @@ test('signing in from the login screen returns the player to the requested game'
       return
     }
     if (path === '/auth/redeem') {
+      redeemBody = route.request().postDataJSON() as Record<string, unknown>
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -119,9 +121,13 @@ test('signing in from the login screen returns the player to the requested game'
   await expect(page.locator('.account-card > .account-message--success')).toContainText('Check your email')
   expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
 
-  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
-  // Redemption is click-gated so mail scanners cannot burn the single-use link.
-  await page.getByRole('button', { name: 'Continue to Drop' }).click()
+  const codeInput = page.getByLabel('Six-digit sign-in code')
+  await expect(codeInput).toHaveAttribute('autocomplete', 'one-time-code')
+  await expect(codeInput).toHaveAttribute('inputmode', 'numeric')
+  await expect(codeInput).toBeFocused()
+  await codeInput.fill('042761')
+  await page.getByRole('button', { name: 'Verify code' }).click()
+  await expect.poll(() => redeemBody).toEqual({ email: 'player@example.com', code: '042761' })
   await expect(page).toHaveURL(/#\/surge$/)
   // The requested game opens and auto-starts.
   await waitForKeypad(page)

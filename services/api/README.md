@@ -5,9 +5,9 @@ Lambda artifact and uses one DynamoDB table.
 
 Responsibilities in this release:
 
-- 15-minute, single-use email magic links sent from `elixir@poapkings.com`
-  through Fastmail JMAP;
-- Buttondown enrollment only after successful magic-link redemption, with
+- 15-minute, single-use email sign-in codes with magic-link fallback sent from
+  `elixir@poapkings.com` through Fastmail JMAP;
+- Buttondown enrollment only after successful sign-in credential redemption, with
   current player/clan/activity metadata and matching removal on account
   deletion;
 - renewable 28-day sliding HMAC bearer sessions;
@@ -25,11 +25,11 @@ Responsibilities in this release:
   `trophyRoadGames`) advanced by completed games from signed-in players;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
   plus an all-time board of each player's best-ever score per mode; and
-- best-effort Discord notifications for successful magic-link logins and every
+- best-effort Discord notifications for successful email-authenticated logins and every
   server-validated completed game.
 
 The API never calls the Clash Royale API. Saving a player tag queues its first
-fixed-IP bridge fetch. After that, a successful magic-link login queues a
+fixed-IP bridge fetch. After that, a successful email-authenticated login queues a
 refresh when the cached snapshot is stale; routine session restoration,
 profile reads, polling, and games remain cache-only. The result consumer stores
 only CR name, clan, the gameplay-derived `YearsPlayed` badge day count, and
@@ -60,6 +60,14 @@ first-Monday fallback advances from Drop's verified Season 134 launch anchor.
 - `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
 - `GET /share/{playerTag}/invite`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
+
+`POST /auth/request` creates one 15-minute, single-use credential and emails it
+in two forms: a six-digit numeric code and a magic link. `POST /auth/redeem`
+accepts either `{ email, code }` or `{ token }`; both resolve to and consume the
+same hashed DynamoDB record, so using one invalidates the other. Code lookups are
+HMAC-keyed by normalized email and independently rate-limited by email, source,
+and global budget. The web input uses `autocomplete="one-time-code"` so platform
+email-code autofill can offer the visible code.
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow
@@ -252,7 +260,7 @@ name. `playerTag` remains an independent, unverified profile field.
 magic-link redemption and completed games each post one compact text line with
 the useful player, progress, mode, score, and season context. Completed-game
 events also include the cached CR name, tag, and clan when attached; they never
-request a CR refresh. Session tokens, magic links, IP addresses, verbose
+request a CR refresh. Session tokens, sign-in codes, magic links, IP addresses, verbose
 clients, and correlation IDs stay out of Discord; request/run IDs remain in
 CloudWatch logs. Delivery is best effort with a three-second timeout and never
 changes an otherwise successful API response.

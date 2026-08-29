@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
 import type { BadgeState } from './badges'
-import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin, type RecentRun } from './api'
+import { ApiError, deleteMe, getMe, patchMe, redeemLogin, redeemLoginCode, refreshLogin, type RecentRun } from './api'
 
 interface StoredSession {
   token: string
@@ -112,6 +112,11 @@ async function hydrateSession(newSession: StoredSession): Promise<Player> {
 
 export async function redeemAccount(token: string): Promise<Player> {
   const response = await redeemLogin(token)
+  return hydrateSession(response.session)
+}
+
+export async function redeemCodeAccount(email: string, code: string): Promise<Player> {
+  const response = await redeemLoginCode(email, code)
   return hydrateSession(response.session)
 }
 

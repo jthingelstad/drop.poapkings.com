@@ -468,6 +468,20 @@ a {
   font: inherit;
 }
 
+.account-form--code input {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-align: center;
+}
+
+.account-form--code .account-privacy {
+  margin: 0 0 6px;
+  text-align: center;
+}
+
 .account-message {
   margin: 18px 0;
   padding: 12px 14px;

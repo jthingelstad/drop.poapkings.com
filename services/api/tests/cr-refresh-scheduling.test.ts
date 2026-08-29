@@ -29,6 +29,7 @@ const repository = vi.hoisted(() => ({
   peekMagicLink: vi.fn(),
   saveMagicLink: vi.fn(),
   savePollSession: vi.fn(),
+  tokenHashForMagicCode: vi.fn(),
   putRecruiterInviteAlias: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
@@ -66,6 +67,7 @@ vi.mock("../src/repository.js", () => ({
     peekMagicLink = repository.peekMagicLink;
     saveMagicLink = repository.saveMagicLink;
     savePollSession = repository.savePollSession;
+    tokenHashForMagicCode = repository.tokenHashForMagicCode;
     putRecruiterInviteAlias = repository.putRecruiterInviteAlias;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
@@ -247,6 +249,56 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
+  it("redeems a six-digit email code through the same single-use record", async () => {
+    repository.tokenHashForMagicCode.mockResolvedValue("resolved-token-hash");
+    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
+    repository.consumeMagicLink.mockResolvedValue(profile.email);
+    repository.ensureProfile.mockResolvedValue({ profile, created: false });
+
+    const response = await invoke("POST", "/auth/redeem", {
+      email: " Player@Example.com ",
+      code: "042761",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.tokenHashForMagicCode).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Number),
+    );
+    expect(repository.peekMagicLink).toHaveBeenCalledWith(
+      "resolved-token-hash",
+      expect.any(Number),
+    );
+    expect(repository.useRateLimit).toHaveBeenCalledWith(
+      "magic-code-email",
+      emailSubject(profile.email),
+      10,
+      30 * 60,
+    );
+    expect(repository.useRateLimit).toHaveBeenCalledWith(
+      "magic-code-ip",
+      expect.any(String),
+      30,
+      30 * 60,
+    );
+    expect(repository.useRateLimit).toHaveBeenCalledWith(
+      "magic-code-global",
+      "all",
+      1_000,
+      30 * 60,
+    );
+  });
+
+  it("rejects a malformed sign-in code before any credential lookup", async () => {
+    const response = await invoke("POST", "/auth/redeem", {
+      email: profile.email,
+      code: "12345",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(repository.tokenHashForMagicCode).not.toHaveBeenCalled();
+  });
+
   it("refreshes Buttondown metadata when an existing session returns", async () => {
     repository.getProfile.mockResolvedValue(profile);
 
@@ -279,13 +331,41 @@ describe("Clash Royale refresh scheduling", () => {
     });
 
     expect(response.statusCode).toBe(202);
-    expect(sendMagicLink).toHaveBeenCalledOnce();
+    expect(sendMagicLink).toHaveBeenCalledWith(
+      expect.objectContaining({ code: expect.stringMatching(/^\d{6}$/) }),
+    );
+    expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      profile.email,
+      expect.any(Number),
+      expect.any(String),
+      undefined,
+    );
     expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
     expect(publishTinylyticsEvent).toHaveBeenCalledWith(
       { apiToken: "tinylytics-key" },
       expect.objectContaining({ rawPath: "/auth/request" }),
       { event: "account.login_requested", path: "/login" },
     );
+  });
+
+  it("removes both credential lookups when email delivery fails", async () => {
+    repository.useRateLimit.mockResolvedValue(undefined);
+    repository.saveMagicLink.mockResolvedValue(undefined);
+    sendMagicLink.mockRejectedValueOnce(new Error("Fastmail unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await invoke("POST", "/auth/request", {
+      email: profile.email,
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(repository.deleteMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(publishTinylyticsEvent).not.toHaveBeenCalled();
   });
 
   it("carries the exact player-tag editor into the magic link", async () => {
@@ -325,6 +405,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.getShare).toHaveBeenCalledWith("AB2CD3");
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
+      expect.any(String),
       "new-player@example.com",
       expect.any(Number),
       expect.any(String),
@@ -356,6 +437,7 @@ describe("Clash Royale refresh scheduling", () => {
       runId,
     );
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
       expect.any(String),
       "new-player@example.com",
       expect.any(Number),
@@ -389,6 +471,7 @@ describe("Clash Royale refresh scheduling", () => {
     );
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
+      expect.any(String),
       "new-player@example.com",
       expect.any(Number),
       expect.any(String),
@@ -415,6 +498,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.getPublishedProfileShare).toHaveBeenCalledWith(playerId);
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
+      expect.any(String),
       "new-player@example.com",
       expect.any(Number),
       expect.any(String),
@@ -440,6 +524,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.getRecruiterInvite).toHaveBeenCalledWith("P7H47PSTT93");
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
       expect.any(String),
+      expect.any(String),
       "new-player@example.com",
       expect.any(Number),
       expect.any(String),
@@ -463,6 +548,7 @@ describe("Clash Royale refresh scheduling", () => {
 
     expect(response.statusCode).toBe(202);
     expect(repository.saveMagicLink).toHaveBeenCalledWith(
+      expect.any(String),
       expect.any(String),
       profile.email,
       expect.any(Number),

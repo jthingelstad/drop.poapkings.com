@@ -565,7 +565,7 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   Discord when it is (mirror the site's JOIN/WAIT pattern).
 - Drop contact: `drop@poapkings.com` for administration, general questions,
   privacy requests, and Fair Play re-review. Transactional player mail and
-  magic links continue to send from `elixir@poapkings.com`; do not collapse the
+  sign-in codes and magic links continue to send from `elixir@poapkings.com`; do not collapse the
   contact and sender roles back into one deployment parameter.
 - Clan presence is **chrome, not moments**: a quiet, always-present "Run by POAP
   KINGS" footer link and the Discord link. The triggered Recruit CTA (fire on a

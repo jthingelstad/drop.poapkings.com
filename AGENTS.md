@@ -49,7 +49,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 - `npm run dev` · `npm run build` · `npm run verify:quick` · `npm run verify` —
   use the change-specific pre-push gate in `CONTRIBUTING.md` → "The quality gate".
 - Transactional player email sends from `elixir@poapkings.com` through **Fastmail
-  JMAP** in `services/api/src/jmap.ts`; magic links keep that recognizable sender.
+  JMAP** in `services/api/src/jmap.ts`; sign-in codes and magic links keep that recognizable sender.
   `drop@poapkings.com` is the monitored administrative/general-contact address
   for alarms, the delivery-canary recipient, privacy questions, and Fair Play
   disputes. Occasional player-update digests publish through the dedicated

@@ -278,6 +278,13 @@ export function redeemLogin(token: string) {
   return apiRequest('/auth/redeem', sessionResponseSchema, { method: 'POST', body: JSON.stringify({ token }) })
 }
 
+export function redeemLoginCode(email: string, code: string) {
+  return apiRequest('/auth/redeem', sessionResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify({ email, code })
+  })
+}
+
 // Poll for a session handed off by a magic link redeemed in another browser
 // context (e.g. the emailed link opened Safari while the player waits in the
 // installed PWA). Returns { ready: false } until the link is opened.

@@ -110,6 +110,13 @@ interface MagicItem {
   recruiterSub?: string;
 }
 
+interface MagicCodeItem {
+  pk: string;
+  sk: "MAGIC_CODE";
+  tokenHash: string;
+  expiresAt: number;
+}
+
 interface SessionEnvelope {
   token: string;
   expiresAt: string;
@@ -485,22 +492,40 @@ export class Repository {
 
   async saveMagicLink(
     tokenHash: string,
+    codeHash: string,
     email: string,
     expiresAt: number,
     pollId?: string,
     recruiterSub?: string,
   ): Promise<void> {
     await client.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: {
-          pk: `MAGIC#${tokenHash}`,
-          sk: "MAGIC",
-          email,
-          expiresAt,
-          ...(pollId ? { pollId } : {}),
-          ...(recruiterSub ? { recruiterSub } : {}),
-        } satisfies MagicItem,
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                pk: `MAGIC#${tokenHash}`,
+                sk: "MAGIC",
+                email,
+                expiresAt,
+                ...(pollId ? { pollId } : {}),
+                ...(recruiterSub ? { recruiterSub } : {}),
+              } satisfies MagicItem,
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                pk: `MAGIC_CODE#${codeHash}`,
+                sk: "MAGIC_CODE",
+                tokenHash,
+                expiresAt,
+              } satisfies MagicCodeItem,
+            },
+          },
+        ],
       }),
     );
   }
@@ -540,13 +565,54 @@ export class Repository {
     return item.session;
   }
 
-  async deleteMagicLink(tokenHash: string): Promise<void> {
+  async deleteMagicLink(tokenHash: string, codeHash?: string): Promise<void> {
     await client.send(
       new DeleteCommand({
         TableName: this.tableName,
         Key: { pk: `MAGIC#${tokenHash}`, sk: "MAGIC" },
       }),
     );
+    if (!codeHash) return;
+    try {
+      await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: { pk: `MAGIC_CODE#${codeHash}`, sk: "MAGIC_CODE" },
+          ConditionExpression: "tokenHash = :tokenHash",
+          ExpressionAttributeValues: { ":tokenHash": tokenHash },
+        }),
+      );
+    } catch (error) {
+      // A same-code request can replace this lookup before an older mail send
+      // fails. Never delete the newer request's alias during cleanup.
+      if (
+        !(error instanceof Error) ||
+        error.name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+    }
+  }
+
+  async tokenHashForMagicCode(
+    codeHash: string,
+    nowSeconds: number,
+  ): Promise<string> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `MAGIC_CODE#${codeHash}`, sk: "MAGIC_CODE" },
+        ConsistentRead: true,
+      }),
+    );
+    const item = result.Item as MagicCodeItem | undefined;
+    if (!item?.tokenHash || item.expiresAt < nowSeconds) {
+      throw new HttpError(
+        401,
+        "This sign-in code is invalid, expired, or already used.",
+        "invalid_magic_code",
+      );
+    }
+    return item.tokenHash;
   }
 
   // Read-only validity check so redemption can do its durable work (profile

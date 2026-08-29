@@ -203,7 +203,7 @@ const ABOUT_BODY = pageSections([
   section(
     'Help shape Drop',
     paragraph(
-      `Share feedback and strategies in the <a href="/discord/">Elixir Drop Discord</a>. For private questions, privacy requests, or help with a result, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Sign-in magic links come from elixir@poapkings.com.`
+      `Share feedback and strategies in the <a href="/discord/">Elixir Drop Discord</a>. For private questions, privacy requests, or help with a result, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Sign-in codes and magic links come from elixir@poapkings.com.`
     )
   ),
   section(
@@ -222,7 +222,7 @@ const FAQ_ITEMS = [
   ],
   [
     'How does sign-in work?',
-    'There is no password. Enter your email and Drop sends a one-tap magic link from elixir@poapkings.com.'
+    'There is no password. Enter your email and Drop sends a six-digit sign-in code with a magic-link fallback from elixir@poapkings.com.'
   ],
   [
     'Are the elixir costs official?',
