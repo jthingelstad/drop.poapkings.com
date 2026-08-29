@@ -423,6 +423,54 @@ describe('Higher / Lower — gameplay', () => {
     expect(metricValue(c)).toBe('0')
   })
 
+  it('a right pick after the window closes costs a life, exactly as the server grades it', async () => {
+    const session = stage(pairs())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    // Starve the clock: the round window passes with no frame delivered, then
+    // the player taps the HIGHER card. The server grades a late pick as a lost
+    // life, so the client must agree — playing on past three server-graded
+    // lives voids the whole transcript.
+    const lateCorrectTap = async () => {
+      mockNow += 6000
+      await click(higher(c))
+      await advance(1500)
+    }
+
+    await lateCorrectTap()
+    expect(metricValue(c)).toBe('0')
+    expect(livesLabel(c)).toBe('2 of 3 lives left')
+
+    await lateCorrectTap()
+    await lateCorrectTap()
+    expect(session.complete).toHaveBeenCalledTimes(1)
+    const payload = session.complete.mock.calls[0][0] as {
+      answers: Array<{ pickedId?: number; timedOut?: boolean; elapsedMs: number }>
+    }
+    // The transcript records the real taps — never a synthesized timeout — and
+    // the server's own window check grades each one as the lost life.
+    expect(payload.answers).toHaveLength(3)
+    expect(payload.answers.every((answer) => answer.timedOut === undefined)).toBe(true)
+    expect(payload.answers.every((answer) => typeof answer.pickedId === 'number')).toBe(true)
+    expect(payload.answers.every((answer) => answer.elapsedMs >= 6000)).toBe(true)
+  })
+
+  it('a late right pick reads as time running out, not a wrong card', async () => {
+    stage(pairs())
+    const c = mount(<HigherLower />)
+    await toRunning(c)
+
+    mockNow += 6000
+    await click(higher(c))
+
+    expect(c.querySelector('[data-testid="higher-lower-prompt"]')?.textContent).toContain("Time's up")
+    // The pick was right, so no card is marked as a wrong tap; the higher card
+    // keeps its correct highlight.
+    expect(c.querySelector('.ed-duel__card--wrong')).toBeNull()
+    expect(c.querySelector('.ed-duel__card--correct')).toBeTruthy()
+  })
+
   it('a timeout says "Time\'s up" instead of blaming a card the player never tapped', async () => {
     stage(pairs())
     const c = mount(<HigherLower />)

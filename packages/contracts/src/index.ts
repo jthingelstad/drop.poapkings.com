@@ -326,6 +326,12 @@ export const SURVIVAL_BASE_WINDOW_MS = 5_000;
 export const SURVIVAL_MIN_WINDOW_MS = 800;
 export const SURVIVAL_WINDOW_RAMP = 10;
 
+// The server scorer accepts an answer this far past the shrinking window to
+// absorb client timing jitter on the boundary. The browser grades answers with
+// the same tolerance, so both sides always agree on which card ended a run —
+// even when a stalled frame loop kept the visual clock from expiring first.
+export const RESPONSE_WINDOW_TOLERANCE_MS = 250;
+
 export function survivalWindowMs(streak: number): number {
   const span = SURVIVAL_BASE_WINDOW_MS - SURVIVAL_MIN_WINDOW_MS;
   return Math.round(

@@ -392,6 +392,42 @@ describe('Survival gameplay', () => {
     expect(payload.answers).toHaveLength(3) // two cleared + the death entry
   })
 
+  it('a correct cost past the closed window is the death, matching the server', async () => {
+    const cards = fakeCards(20)
+    session = makeSession(cards)
+    hoisted.session.current = session
+    // Own the run clock. rAF is already inert in this suite, so the per-card
+    // countdown can never expire on its own — a stalled frame loop for real.
+    // (This suite's afterEach does not restore spies, hence the finally.)
+    let now = 0
+    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    try {
+      const host = await startTimed(<Survival />)
+      press(host, cards[0]!.elixir)
+      advance(230) // nextCard beat
+
+      // The full window (~4.6s at streak 1) passes without a frame, then the
+      // player answers CORRECTLY. The server grades that answer as the death,
+      // so the client must agree — playing on builds a transcript the server
+      // can only void as "continued after death".
+      now += 6000
+      press(host, cards[1]!.elixir)
+      advance(1100) // DEATH_BEAT_MS → finish('over')
+
+      expect(host.textContent).toContain('Sudden death')
+      expect(host.textContent).toContain('1 streak')
+      expect(session.complete).toHaveBeenCalledTimes(1)
+      const payload = session.complete.mock.calls[0]![0] as {
+        answers: Array<{ guess: number | null; elapsedMs: number }>
+      }
+      expect(payload.answers).toHaveLength(2) // one cleared + the late-correct death
+      expect(payload.answers[1]!.guess).toBe(cards[1]!.elixir) // the real pick is recorded
+      expect(payload.answers[1]!.elapsedMs).toBeGreaterThanOrEqual(6000)
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
   it('clearing the whole deck is a win', async () => {
     const cards = fakeCards(3)
     session = makeSession(cards)

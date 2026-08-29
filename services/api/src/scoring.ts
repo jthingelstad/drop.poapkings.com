@@ -3,6 +3,7 @@ import {
   higherLowerWindowMs,
   rainSpawnFloorMs,
   rainSpawnIntervalMs,
+  RESPONSE_WINDOW_TOLERANCE_MS,
   survivalWindowMs,
 } from "@elixir-drop/contracts";
 import {
@@ -332,7 +333,8 @@ function gradeHigherLower(
     // the client drew. A small tolerance absorbs client timing jitter.
     const correct =
       card(pickedId).elixir >= card(otherId).elixir &&
-      elapsedMs <= higherLowerWindowMs(roundIndex) + 250;
+      elapsedMs <=
+        higherLowerWindowMs(roundIndex) + RESPONSE_WINDOW_TOLERANCE_MS;
     if (!correct) livesLost += 1;
     rounds.push({ correct, elapsedMs });
   });
@@ -456,7 +458,7 @@ function scoreSurvival(
     // timing jitter on the boundary.
     const correct =
       answer.guess === card(cardId).elixir &&
-      elapsedMs <= survivalWindowMs(score) + 250;
+      elapsedMs <= survivalWindowMs(score) + RESPONSE_WINDOW_TOLERANCE_MS;
     if (correct && elapsedMs < 100) lightningTaps += 1;
     if (correct) score += 1;
     else ended = true;

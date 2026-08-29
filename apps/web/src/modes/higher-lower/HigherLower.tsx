@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import { higherLowerWindowMs } from '@elixir-drop/contracts'
+import { higherLowerWindowMs, RESPONSE_WINDOW_TOLERANCE_MS } from '@elixir-drop/contracts'
 import type { Insights } from '../../lib/insights'
 import type { Card } from '../../types'
 import { getRecords } from '../../lib/storage'
@@ -179,13 +179,19 @@ export default function HigherLower() {
     const [left, right] = activePair
     // Pairs never tie, so exactly one card is the higher cost.
     const higherId = left.elixir > right.elixir ? left.id : right.id
-    const correct = pickedId === higherId
+    // Grade with the server's exact acceptance (scoreHigherLower): a right pick
+    // past the shrinking window (+ shared tolerance) is a lost life, not a
+    // scored read. The rAF clock normally times the round out first; this guard
+    // covers a stalled frame loop, which otherwise lets the run continue past
+    // three server-graded lives and voids the transcript.
+    const elapsedMs = Math.round(performance.now() - roundStart.current)
+    const withinWindow = elapsedMs <= higherLowerWindowMs(pairIndex.value) + RESPONSE_WINDOW_TOLERANCE_MS
+    const correct = pickedId === higherId && withinWindow
     if (pickedId !== null && observation) {
       inputEvents.current.push(
         runInputEvidence(observation, runStartedAt.current, roundStart.current, pairIndex.value, pickedId)
       )
     }
-    const elapsedMs = Math.round(performance.now() - roundStart.current)
     serverAnswers.current.push({
       leftId: left.id,
       rightId: right.id,
@@ -195,7 +201,9 @@ export default function HigherLower() {
     gradedAnswers.current.push({ correct, higher: left.id === higherId ? left : right })
 
     picked.value = pickedId
-    timedOut.value = pickedId === null
+    // A late tap is graded as time running out, and the reveal says so — the
+    // recorded answer still carries the real pick, never a synthesized timeout.
+    timedOut.value = pickedId === null || !withinWindow
     revealed.value = true
     remainingFrac.value = 0
 

@@ -1,5 +1,6 @@
 import {
   rainSpawnIntervalMs,
+  RESPONSE_WINDOW_TOLERANCE_MS,
   survivalWindowMs,
   type GameMode,
 } from "@elixir-drop/contracts";
@@ -211,7 +212,8 @@ function survivalVisual(evidence: EvidenceItem): RunShareVisual | undefined {
       expectedCard === undefined ? undefined : cards.get(expectedCard);
     if (
       final.guess !== expectedCost ||
-      (values[finalIndex] ?? 0) > (refs[finalIndex] ?? 0) + 250
+      (values[finalIndex] ?? 0) >
+        (refs[finalIndex] ?? 0) + RESPONSE_WINDOW_TOLERANCE_MS
     )
       bad[finalIndex] = true;
   }

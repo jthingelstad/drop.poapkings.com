@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import { survivalWindowMs } from '@elixir-drop/contracts'
+import { RESPONSE_WINDOW_TOLERANCE_MS, survivalWindowMs } from '@elixir-drop/contracts'
 import type { Card } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import { saveResult, getRecords } from '../../lib/storage'
@@ -227,12 +227,17 @@ export default function Survival() {
     const card = current.value
     if (!card) return
 
-    if (picked === card.elixir) {
+    // Grade with the server's exact acceptance (scoreSurvival): the right cost
+    // past the shrinking window (+ shared tolerance) is the death, not a
+    // cleared card. The rAF clock normally times the card out first; this guard
+    // covers a stalled frame loop, which otherwise keeps dealing and builds a
+    // transcript the server can only void as "continued after death".
+    const ms = performance.now() - cardStart.current
+    if (picked === card.elixir && ms <= survivalWindowMs(streak.value) + RESPONSE_WINDOW_TOLERANCE_MS) {
       inputEvents.current.push(
         runInputEvidence(observation, runStartedAt.current, cardStart.current, streak.value, picked)
       )
       playCorrect()
-      const ms = performance.now() - cardStart.current
       serverAnswers.current.push({ cardId: card.id, guess: picked, elapsedMs: ms })
       reads.current.push({ ms: Math.round(ms), windowMs: survivalWindowMs(streak.value) })
       answers.current.push({ card, guess: picked, correct: true, ms })
