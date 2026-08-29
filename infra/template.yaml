@@ -490,7 +490,13 @@ Resources:
                     dynamodb:LeadingKeys:
                       - RUN_REPORTS
               - Effect: Allow
-                Action: dynamodb:TransactWriteItems
+                # DynamoDB authorizes each operation inside TransactWriteItems
+                # against its corresponding item action as well as the
+                # transaction API. Triage uses exactly one Update + one Put.
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:TransactWriteItems
+                  - dynamodb:UpdateItem
                 Resource: !GetAtt DataTable.Arn
                 Condition:
                   ForAllValues:StringEquals:

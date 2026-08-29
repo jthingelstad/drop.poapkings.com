@@ -775,11 +775,14 @@ void describe("deployment parameters", () => {
     assert.ok(reportsRole);
     assert.match(reportsRole, /RoleName: elixir-drop-run-reports/);
     assert.match(reportsRole, /Action: dynamodb:Query/);
-    assert.match(reportsRole, /Action: dynamodb:TransactWriteItems/);
+    assert.match(
+      reportsRole,
+      /Action:\s+- dynamodb:PutItem\s+- dynamodb:TransactWriteItems\s+- dynamodb:UpdateItem/,
+    );
     assert.match(reportsRole, /dynamodb:LeadingKeys:\s+- RUN_REPORTS/);
     assert.doesNotMatch(
       reportsRole,
-      /PLAYER#|REFEREE#|dynamodb:(?:Scan|GetItem|DeleteItem|UpdateItem|PutItem)/,
+      /PLAYER#|REFEREE#|dynamodb:(?:Scan|GetItem|DeleteItem|BatchWriteItem)/,
     );
     assert.match(
       reportsRole,
