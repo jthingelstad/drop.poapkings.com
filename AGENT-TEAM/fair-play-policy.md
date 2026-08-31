@@ -138,12 +138,14 @@ badge bag from eligible history after the audited decision, while leaving
 canonical XP and learning records intact. Pending holds do not remove badges,
 and a later audited restoration restores the run's badge contribution.
 
-Player-visible status uses explicit text with the agreed marks: `🔎 Pending`, `✅
-Reviewed`, and `🚫 Excluded`. Pending and excluded runs stay private to their owner;
-only a reviewed visible run carries a public status. Private dispositions, signals, and
-reasons never leave the referee surface. Every referee-excluded run also requires one
-approved player-reason category. The API turns that category into a concise owner-only
-sentence beneath the run; arbitrary referee notes are never exposed.
+Player-visible status uses the CSS struck-wax seal and the agreed vocabulary:
+`Awaiting`, `Cleared`, and `Excluded` — no emoji or art file. An Awaiting run ranks
+provisionally and carries that status on the public board; an Excluded run stays
+owner-visible and leaves every public board; a Cleared visible run carries its public
+status. An unreviewed run has no seal. Private dispositions, signals, and reasons never
+leave the referee surface. Every referee-excluded run also requires one approved
+player-reason category. The API turns that category into a concise owner-only sentence
+beneath the run; arbitrary referee notes are never exposed.
 
 ## Ranked-access enforcement and re-review
 

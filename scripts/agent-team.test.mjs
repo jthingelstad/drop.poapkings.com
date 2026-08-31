@@ -385,6 +385,11 @@ void test("objective contract requires the lease and contains no retired queue l
   assert.match(fairPlayPolicy, /Jamie-confirmed direct playtesting/);
   assert.match(fairPlayPolicy, /never a blanket exemption/);
   assert.match(fairPlayPolicy, /missing.*evidence remains fail-closed/s);
+  assert.match(
+    fairPlayPolicy,
+    /`Awaiting`, `Cleared`, and `Excluded`.*Awaiting run ranks\s+provisionally/s,
+  );
+  assert.doesNotMatch(fairPlayPolicy, /🔎|✅|🚫|`Pending`|`Reviewed`/);
   const improve = readFileSync(
     path.join(ROOT, "AGENT-TEAM/improve-drop.md"),
     "utf8",
