@@ -529,6 +529,16 @@ void test("automation registry passes the common contract audit", () => {
   assert.match(result.stdout, /OK\s+registry\s+5 objective owners/);
 });
 
+void test("implementation spec names the committed card snapshot", () => {
+  const spec = readFileSync(path.join(ROOT, "SPEC.md"), "utf8");
+  const cards = JSON.parse(
+    readFileSync(path.join(ROOT, "packages/game-data/cards.json"), "utf8"),
+  );
+
+  assert.match(spec, new RegExp("- `version`: `" + cards.version + "`"));
+  assert.match(spec, new RegExp("- `count`: `" + cards.count + "`"));
+});
+
 void test("browser CI uses the version-matched Playwright image", () => {
   const packageLock = JSON.parse(
     readFileSync(path.join(ROOT, "package-lock.json"), "utf8"),
