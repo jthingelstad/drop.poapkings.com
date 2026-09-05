@@ -130,9 +130,12 @@ npm run check:beta # full quality gate plus production API smoke
 The root commands use npm workspaces. The repo ships with a committed
 `packages/game-data/cards.json` snapshot and mirrored card art, so the **UI**
 runs locally with no API key or secrets — you can browse and reach every game's
-ready screen without signing in. There is no local API stack yet:
-`apps/web/public/api-config.json` points the dev server at the **deployed
-production API**, so signing in and recording games hit the live backend. See
+ready screen without signing in. Plain `npm run dev` still points at the
+**deployed production API** (via the committed `apps/web/public/api-config.json`),
+so signing in and recording games there hit the live backend. To run against a
+**local, in-memory API instead** — no Docker, no AWS — use `npm run dev:local`:
+it starts a Node-only dev backend (seeded data, magic-link login printed to the
+terminal) and points the web app at it. See
 [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full local-development story, the
 quality gate, and repo conventions.
 

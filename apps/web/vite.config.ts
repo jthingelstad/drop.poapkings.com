@@ -75,10 +75,33 @@ function staticPagesPlugin(): Plugin {
   }
 }
 
+// Dev-only: when LOCAL_API is set, serve /api-config.json pointing at the local
+// dev API (services/api/dev/server.ts) instead of the committed prod file. The
+// committed public/api-config.json (prod) and production builds are untouched.
+function localApiConfigPlugin(): Plugin {
+  const port = process.env.LOCAL_API_PORT ?? '8787'
+  const source = `${JSON.stringify({ apiBaseUrl: `http://localhost:${port}` })}\n`
+  return {
+    name: 'elixir-drop-local-api-config',
+    apply: 'serve',
+    configureServer(server) {
+      if (!process.env.LOCAL_API) return
+      server.middlewares.use('/api-config.json', (request, response, next) => {
+        if (request.method !== 'GET' && request.method !== 'HEAD') return next()
+        response.statusCode = 200
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.setHeader('Cache-Control', 'no-store')
+        response.end(request.method === 'HEAD' ? undefined : source)
+      })
+      server.config.logger.info(`  ➜ LOCAL_API: /api-config.json → http://localhost:${port}`)
+    }
+  }
+}
+
 const currentBuildId = buildId()
 
 export default defineConfig({
-  plugins: [preact(), versionManifestPlugin(currentBuildId), staticPagesPlugin()],
+  plugins: [preact(), versionManifestPlugin(currentBuildId), staticPagesPlugin(), localApiConfigPlugin()],
   base: '/',
   define: {
     __ELIXIR_DROP_BUILD_ID__: JSON.stringify(currentBuildId),
