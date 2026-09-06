@@ -216,11 +216,12 @@ describe("Practice checkpoints", () => {
     expect(error).toHaveBeenCalledWith(
       "API request failed",
       expect.objectContaining({
-        path: "/practice/checkpoint",
+        routeKey: "$default",
         statusCode: 500,
         code: "internal_error",
       }),
     );
+    expect(error.mock.calls[0]?.[1]).not.toHaveProperty("path");
   });
 
   it("returns only a lightweight summary for Home", async () => {

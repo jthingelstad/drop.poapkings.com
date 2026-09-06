@@ -76,6 +76,10 @@ declared routes appear without another dashboard edit. Alarms cover API p95/p99
 latency, 80% of the API Lambda's reserved concurrency, DynamoDB throttle events,
 and DynamoDB service errors.
 
+The Lambda's JSON rejection and failure records use the same bounded API Gateway
+route key rather than the concrete request path, so application diagnostics do
+not retain player/share identifiers or arbitrary path input either.
+
 CloudFront standard logging v2 writes JSON access records to the 14-day
 `/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
 forwarded address, user-agent, referrer, cookie, query string, raw URI path, and

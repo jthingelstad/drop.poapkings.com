@@ -245,7 +245,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     const logContext = {
       requestId: event.requestContext.requestId,
       method: event.requestContext.http.method,
-      path: event.rawPath,
+      routeKey: event.requestContext.routeKey,
       statusCode: safeError.statusCode,
       code: safeError.code,
       error: error instanceof Error ? error.name : "unknown",

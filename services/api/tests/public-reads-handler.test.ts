@@ -126,8 +126,13 @@ describe("public read routes", () => {
     expect(result.body).toMatchObject({ error: { code: "not_found" } });
     expect(warn).toHaveBeenCalledWith(
       "API request rejected",
-      expect.objectContaining({ statusCode: 404, code: "not_found" }),
+      expect.objectContaining({
+        routeKey: "$default",
+        statusCode: 404,
+        code: "not_found",
+      }),
     );
+    expect(warn.mock.calls[0]?.[1]).not.toHaveProperty("path");
     expect(error).not.toHaveBeenCalled();
   });
 
