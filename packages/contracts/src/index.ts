@@ -779,7 +779,7 @@ export const BADGES = [
     name: "Bridge Read",
     group: "mode-mastery",
     kind: "count",
-    rungs: [50, 125, 300, 600, 1_200, 2_000, 3_000, 4_000, 5_000],
+    rungs: [50, 125, 300, 600, 1_000, 1_600, 2_400, 3_200, 4_000],
     requirement: "Correct reads in Higher / Lower",
   },
   {
@@ -787,7 +787,7 @@ export const BADGES = [
     name: "Trade Reader",
     group: "mode-mastery",
     kind: "count",
-    rungs: [3, 5, 10, 15, 25, 35, 50, 75, 100, 125, 150],
+    rungs: [3, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100],
     requirement: "Trade runs finished",
   },
   {
@@ -954,7 +954,7 @@ export const BADGES = [
     name: "Big Spender",
     group: "card-knowledge",
     kind: "count",
-    rungs: [50, 125, 300, 600, 1_200, 2_500, 4_000],
+    rungs: [50, 125, 300, 600, 1_000, 2_000, 3_000],
     requirement: "Correct reads on 6+ cost cards",
   },
 
@@ -977,8 +977,8 @@ export const BADGES = [
     requirement: "Most games in a single day",
   },
 
-  // ── Community (4). Herald and Recruiter are scaled until their live
-  // counters have enough history to calibrate; Battle Tag and First Drop are
+  // ── Community (4). Herald and Recruiter were recalibrated after September
+  // playtesting; Battle Tag and First Drop are
   // one-time. Community badges never gate Collector. ────────────────────────
   {
     slug: "battle-tag",
@@ -994,7 +994,7 @@ export const BADGES = [
     name: "Herald",
     group: "community",
     kind: "count",
-    rungs: [1, 5, 10, 25, 50, 100, 250, 500],
+    rungs: [1, 2, 3, 4, 5, 6, 8, 10],
     requirement: "Credited visitors across your shared-run links",
   },
   {
@@ -1002,7 +1002,7 @@ export const BADGES = [
     name: "Recruiter",
     group: "community",
     kind: "count",
-    rungs: [1, 3, 5, 10, 25, 50],
+    rungs: [1, 2, 3, 4, 5],
     requirement: "New players who create an account through your shared links",
   },
   {

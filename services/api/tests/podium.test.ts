@@ -72,6 +72,39 @@ describe("podium finalization", () => {
     });
   });
 
+  it("migrates version 9 badges before awarding a season finish", async () => {
+    const stored = emptyCounters();
+    stored.version = 9;
+    stored.values = { recruiter: 50, reps: 400, podium: 2 };
+    stored.earned.recruiter = Array(6).fill("2026-08-25T12:00:00.000Z");
+    const savePodiumAward = vi.fn().mockResolvedValue(true);
+    const repo = repository({
+      getBadges: vi.fn().mockResolvedValue(stored),
+      listAllRuns: vi.fn().mockResolvedValue([]),
+      getCardStats: vi.fn().mockResolvedValue({}),
+      seasonFinalists: vi
+        .fn()
+        .mockImplementation((mode: string) =>
+          Promise.resolve(
+            mode === "surge"
+              ? [{ sub: "player-a", rank: 1, score: 12_000 }]
+              : [],
+          ),
+        ),
+      savePodiumAward,
+    });
+    await finalizePodiumBadges(repo, {
+      seasonId: 135,
+      finalizedAt: "2026-09-07T10:00:00.000Z",
+    });
+    const counters = savePodiumAward.mock.calls[0]?.[3];
+    expect(counters).toMatchObject({
+      version: 10,
+      values: { recruiter: 50, reps: 400, podium: 3 },
+    });
+    expect(counters.earned.recruiter).toHaveLength(5);
+  });
+
   it("finalizes the stored season before a newer observed CR season is saved", async () => {
     const repo = repository({
       getCrWarClock: vi.fn().mockResolvedValue({

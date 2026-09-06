@@ -569,7 +569,7 @@ unless it is re-approved.
 
 ## Badges
 
-32 standard badges over 212 rungs, backed by `BADGES` in `packages/contracts`
+32 standard badges over 211 rungs, backed by `BADGES` in `packages/contracts`
 and the pure engine in `services/api/src/badges.ts`: 25 published badges plus 7
 hidden single-rung badges. First Drop is a 33rd, earned-only limited recognition
 badge outside that standard collection.
@@ -598,8 +598,21 @@ then produced the approved follow-up: Trade Reader runs
 steps and ends `135·150`; and Coin Flip Killer keeps `5–50` before new `60·70`
 steps. The live Rain best was 145 and the live Higher/Lower best was 68, leaving
 150 and 70 respectively as the next prismatic targets. The 2026-08-20 product
-review then set the current top rungs: Bridge Read `5K`, Stormchaser `10K`, Reps
+review then set the top rungs: Bridge Read `5K`, Stormchaser `10K`, Reps
 `10K`, Spellcaster `3K`, and Sharp Trade `40s`.
+
+The 2026-09-06 play-test review recalibrated five ladders:
+
+- Big Spender: `50·125·300·600·1,000·2,000·3,000` correct reads on 6+ cost cards.
+- Trade Reader: `3·5·10·15·20·30·40·50·65·80·100` completed Trade runs.
+- Herald: `1·2·3·4·5·6·8·10` credited shared-run visitors.
+- Recruiter: `1·2·3·4·5` attributed new accounts.
+- Bridge Read: `50·125·300·600·1,000·1,600·2,400·3,200·4,000` correct Higher / Lower reads.
+
+Existing counters settle against these thresholds on the next profile read or
+recorded run. Recruiter's retired sixth rung leaves the active ladder, while
+previously awarded XP and published badge snapshots remain intact. Existing XP
+markers are not paid again; newly earned rungs use the normal tier schedule.
 
 **Daily Drop counts days, not streaks.** Each distinct recorded local calendar
 day advances it once, whether the player uses a ranked mode or Practice. Days do
@@ -618,10 +631,9 @@ count toward Herald. Recruiter uses 30-day last-touch attribution from a
 published run, badge, or owner-published profile link, or a valid legacy
 invitation token, and counts when a genuinely new account is created; merely
 opening a link or requesting a login email is not a recruit.
-Herald and Recruiter use the normal rung-tier XP schedule. Their scaled ladders
-are `1·5·10·25·50·100·250·500` and
-`1·3·5·10·25·50` respectively and should be recalibrated after a month of live
-counter history. First Drop recognizes the first 100 accounts at successful
+Herald and Recruiter use the normal rung-tier XP schedule. Their play-tested
+ladders are `1·2·3·4·5·6·8·10` and `1·2·3·4·5` respectively. Recruiter's
+five rungs award `5·10·10·25·50` XP. First Drop recognizes the first 100 accounts at successful
 magic-link redemption, awards no XP, and is shown on every eligible player's
 owner and public profiles. Non-earners see no locked tile, and the public badge
 guide omits it. Its allocation never decrements after account deletion.

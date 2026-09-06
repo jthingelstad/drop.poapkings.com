@@ -341,11 +341,34 @@ describe("run completion side effects are best effort", () => {
     expect(result.statusCode).toBe(201);
     const saved = repository.saveBadges.mock.calls[0]?.[1];
     expect(saved).toMatchObject({
-      version: 9,
+      version: 10,
       values: { "sharp-trade": 67.126, podium: 5 },
     });
     expect(saved.runsAtRung["sharp-trade"]).toHaveLength(16);
     expect(repository.listAllRuns).toHaveBeenCalledWith("player-sub");
+  });
+
+  it("migrates version 9 during completion without losing progress or retaining a sixth Recruiter rung", async () => {
+    repository.getBadges.mockResolvedValue({
+      version: 9,
+      values: { recruiter: 50, "surge-runner": 4, reps: 400 },
+      runsAtRung: {},
+      aux: { modes: ["surge"], cards: [], playedDays: [], dayRuns: 0 },
+      earned: { recruiter: Array(6).fill("2026-08-25T12:00:00.000Z") },
+      updatedAt: "2026-09-01T12:00:00.000Z",
+    });
+    repository.listAllRuns.mockResolvedValue([]);
+    const result = await complete();
+    expect(result.statusCode).toBe(201);
+    const saved = repository.saveBadges.mock.calls[0]?.[1];
+    expect(saved).toMatchObject({
+      version: 10,
+      values: { recruiter: 50, "surge-runner": 5, reps: 400 },
+    });
+    expect(saved.earned.recruiter).toHaveLength(5);
+    expect(result.body.earnedBadges).toContainEqual(
+      expect.objectContaining({ slug: "surge-runner", rungIndex: 0 }),
+    );
   });
 
   it("records the run when the all-time projection fails", async () => {

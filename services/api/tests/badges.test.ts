@@ -59,7 +59,7 @@ describe("the badge table", () => {
     expect(BADGE_LIST.filter((badge) => badge.hidden)).toHaveLength(7);
     expect(
       BADGE_LIST.reduce((total, badge) => total + badge.rungs.length, 0),
-    ).toBe(213);
+    ).toBe(212);
   });
 
   it("orders count/best rungs upward and time rungs downward", () => {
@@ -90,6 +90,35 @@ describe("the badge table", () => {
     )!;
     expect(badgeRungXp(badge, 0)).toBe(0);
   });
+
+  it("awards each of Recruiter's five whole-account milestones", () => {
+    const badge = BADGE_LIST.find(
+      (candidate) => candidate.slug === "recruiter",
+    )!;
+    expect(badge.rungs).toEqual([1, 2, 3, 4, 5]);
+    expect(badge.rungs.map((_, index) => badgeRungXp(badge, index))).toEqual([
+      5, 10, 10, 25, 50,
+    ]);
+    for (let accounts = 0; accounts <= 6; accounts += 1)
+      expect(rungIndexFor(badge, accounts)).toBe(Math.min(accounts, 5) - 1);
+  });
+
+  it.each([
+    ["big-spender", 3_000],
+    ["trade-reader", 100],
+    ["herald", 10],
+    ["recruiter", 5],
+    ["bridge-read", 4_000],
+  ] as const)(
+    "makes %s prismatic at %i, but not one count earlier",
+    (slug, maximum) => {
+      const badge = BADGE_LIST.find((candidate) => candidate.slug === slug)!;
+      expect(badge.rungs.at(-1)).toBe(maximum);
+      expect(rungIndexFor(badge, maximum - 1)).toBe(badge.rungs.length - 2);
+      expect(rungIndexFor(badge, maximum)).toBe(badge.rungs.length - 1);
+      expect(rungIndexFor(badge, maximum + 1)).toBe(badge.rungs.length - 1);
+    },
+  );
 });
 
 describe("rung derivation", () => {
@@ -142,11 +171,17 @@ describe("rung derivation", () => {
   });
 
   it("uses the approved mastery and card-knowledge ladders", () => {
+    expect(BADGE_LIST.find((b) => b.slug === "big-spender")?.rungs).toEqual([
+      50, 125, 300, 600, 1_000, 2_000, 3_000,
+    ]);
+    expect(BADGE_LIST.find((b) => b.slug === "herald")?.rungs).toEqual([
+      1, 2, 3, 4, 5, 6, 8, 10,
+    ]);
     expect(BADGE_LIST.find((b) => b.slug === "bridge-read")?.rungs).toEqual([
-      50, 125, 300, 600, 1_200, 2_000, 3_000, 4_000, 5_000,
+      50, 125, 300, 600, 1_000, 1_600, 2_400, 3_200, 4_000,
     ]);
     expect(BADGE_LIST.find((b) => b.slug === "trade-reader")?.rungs).toEqual([
-      3, 5, 10, 15, 25, 35, 50, 75, 100, 125, 150,
+      3, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100,
     ]);
     expect(BADGE_LIST.find((b) => b.slug === "surge-runner")?.rungs).toEqual([
       5, 10, 25, 50, 75, 100, 125, 150, 200, 250, 300, 450,
@@ -526,11 +561,11 @@ describe("recomputeCounters", () => {
     });
     expect(stateOf(counters, "herald")).toMatchObject({
       value: 26,
-      rungIndex: 3,
+      rungIndex: 7,
     });
     expect(stateOf(counters, "recruiter")).toMatchObject({
       value: 4,
-      rungIndex: 1,
+      rungIndex: 3,
     });
     expect(stateOf(counters, "first-drop")).toMatchObject({
       value: 100,
@@ -700,7 +735,7 @@ describe("recomputeCounters", () => {
       "2026-08-06T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(9);
+    expect(migrated.version).toBe(10);
     expect(stateOf(migrated, "sharp-trade")).toMatchObject({
       value: 67.126,
       rungIndex: 10,
@@ -761,7 +796,7 @@ describe("recomputeCounters", () => {
     );
 
     expect(migrated).toMatchObject({
-      version: 9,
+      version: 10,
       aux: {
         playedDays: ["2026-08-01", "2026-08-07", "2026-08-21"],
         dayRuns: 1,
@@ -819,7 +854,7 @@ describe("recomputeCounters", () => {
       "2026-08-20T03:30:00.000Z",
     );
 
-    expect(migrated.version).toBe(9);
+    expect(migrated.version).toBe(10);
     for (const slug of [
       "bridge-read",
       "stormchaser",
@@ -839,6 +874,92 @@ describe("recomputeCounters", () => {
     );
   });
 
+  it("migrates version 9 progress into all five easier ladders without replaying earned rungs", () => {
+    const oldAt = "2026-09-01T12:00:00.000Z";
+    const at = "2026-09-06T22:51:18.000Z";
+    const stored = emptyCounters();
+    stored.version = 9;
+    stored.values = {
+      "big-spender": 3_000,
+      "trade-reader": 100,
+      herald: 10,
+      recruiter: 5,
+      "bridge-read": 4_000,
+      reps: 400,
+    };
+    for (const [slug, count] of Object.entries({
+      "big-spender": 6,
+      "trade-reader": 9,
+      herald: 3,
+      recruiter: 3,
+      "bridge-read": 8,
+      reps: 2,
+    }))
+      stored.earned[slug] = Array<string>(count).fill(oldAt);
+
+    const migrated = migrateBadgeCounters(stored, [], at);
+    expect(migrated.version).toBe(10);
+    expect(stored.version).toBe(9);
+    expect(migrated.values).toMatchObject(stored.values);
+    for (const slug of [
+      "big-spender",
+      "trade-reader",
+      "herald",
+      "recruiter",
+      "bridge-read",
+    ]) {
+      const badge = BADGE_LIST.find((candidate) => candidate.slug === slug)!;
+      const original = stored.earned[slug]!;
+      expect(stateOf(migrated, slug).rungIndex).toBe(badge.rungs.length - 1);
+      expect(migrated.earned[slug]).toEqual([
+        ...original,
+        ...Array<string>(badge.rungs.length - original.length).fill(at),
+      ]);
+    }
+    expect(migrated.earned.reps).toEqual(stored.earned.reps);
+    expect(
+      advanceBadges(migrated, facts({ completedAt: at })).newlyEarned.filter(
+        (rung) =>
+          [
+            "big-spender",
+            "trade-reader",
+            "herald",
+            "recruiter",
+            "bridge-read",
+          ].includes(rung.slug),
+      ),
+    ).toEqual([]);
+  });
+
+  it("retires Recruiter's sixth stamp while preserving a veteran's counter and active award dates", () => {
+    const stored = emptyCounters();
+    stored.version = 9;
+    stored.values.recruiter = 50;
+    stored.earned.recruiter = Array.from(
+      { length: 6 },
+      (_, index) => `2026-08-${20 + index}T12:00:00.000Z`,
+    );
+    const at = "2026-09-06T22:51:18.000Z";
+    const migrated = migrateBadgeCounters(stored, [], at);
+    const reconciled = reconcileBadgeCounters(
+      stored,
+      [],
+      {},
+      { totalGames: 0, xp: 0, recruiterCount: 50 },
+      [],
+      arenaForXp,
+      at,
+    );
+    for (const counters of [migrated, reconciled]) {
+      expect(stateOf(counters, "recruiter")).toMatchObject({
+        value: 50,
+        rungIndex: 4,
+        earnedAt: stored.earned.recruiter.slice(0, 5),
+      });
+    }
+    expect(stored.earned.recruiter).toHaveLength(6);
+  });
+
   it("migrates version 8 into the community-independent Collector rules", () => {
     const stored = emptyCounters();
     stored.version = 8;
@@ -851,7 +972,7 @@ describe("recomputeCounters", () => {
       "2026-08-25T12:00:00.000Z",
     );
 
-    expect(migrated.version).toBe(9);
+    expect(migrated.version).toBe(10);
     expect(stateOf(migrated, "collector").rungIndex).toBe(0);
     for (const badge of BADGE_LIST.filter(
       (candidate) => candidate.group === "community",
@@ -1024,7 +1145,7 @@ describe("recomputeCounters", () => {
       { "full-cup": [excludedAt] },
     );
     expect(reconciled).toMatchObject({
-      version: 9,
+      version: 10,
       refereeReconciled: true,
       refereeDecisionRevision: 1,
     });

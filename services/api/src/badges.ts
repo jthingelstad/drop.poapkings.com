@@ -36,7 +36,10 @@ import type { GameMode } from "./types.js";
 // join the history rebuild so existing tags and share opens award immediately.
 // Version 9 adds the no-XP First Drop recognition and scopes Collector to game
 // badges, excluding every community badge.
-export const BADGE_COUNTERS_VERSION = 9;
+// Version 10 re-settles the September play-test ladders for Big Spender,
+// Trade Reader, Herald, Recruiter, and Bridge Read. Recruiter now has five
+// rungs; previously paid XP and published milestone snapshots stay intact.
+export const BADGE_COUNTERS_VERSION = 10;
 
 export interface BadgeAux {
   // Distinct modes played, for All Six.
@@ -860,9 +863,20 @@ export function migrateBadgeCounters(
   runs: HistoricalRun[],
   at: string,
 ): BadgeCounters {
-  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(input.version))
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(input.version))
     throw new Error(`Unsupported badge counter version ${input.version}`);
   const counters = cloneCounters(input);
+  // Retire stamps beyond the current ladder (Recruiter's former sixth rung).
+  // Keep the counter and active rung dates; XP markers and published shares
+  // are independent historical records and are never rewritten here.
+  for (const definition of BADGE_LIST) {
+    const stamps = counters.earned[definition.slug];
+    if (stamps)
+      counters.earned[definition.slug] = stamps.slice(
+        0,
+        definition.rungs.length,
+      );
+  }
   const rebuildVersionedSkillBadges = input.version <= 4;
   const rebuildSharpTradeRungCounts = input.version === 6;
   if (rebuildVersionedSkillBadges) {

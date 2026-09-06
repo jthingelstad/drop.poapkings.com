@@ -548,6 +548,12 @@ from an existing optional player tag, Herald from the existing distinct-open
 counter, and Recruiter advances from new post-launch attribution.
 Counter version 9 adds First Drop and narrows Collector to the first rung of
 every non-community game badge. Existing Collector awards remain permanent.
+Counter version 10 re-settles the September 6 thresholds for Big Spender,
+Trade Reader, Herald, Recruiter, and Bridge Read. Recruiter now has five active
+rungs; the retired sixth stamp is omitted from the active projection. Existing
+XP and its exact-once markers remain unchanged, and published badge shares keep
+their frozen milestone snapshots. Newly earned rungs receive their normal XP
+once when the account is next reconciled.
 First Drop is a limited, earned-only community badge: it appears on owner and
 public profiles for eligible players, is absent from non-earners and the public
 badge guide, is excluded from the standard collection denominator, and awards

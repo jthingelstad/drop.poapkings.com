@@ -398,6 +398,54 @@ test('a one-time badge keeps sharing but omits progress and rung meters', async 
   })
 })
 
+test('the play-tested badge ladders show the new ceilings and five Recruiter steps', async ({ page }, testInfo) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.route(testApiRoute, async (route) => {
+    if (route.request().method() !== 'GET' || new URL(route.request().url()).pathname !== '/me') return route.fallback()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        player: testPlayer,
+        recentRuns: testRecentRuns,
+        badges: {
+          badges: [
+            ...testBadges,
+            { slug: 'recruiter', value: 4, rungIndex: 3, earnedAt: Array(4).fill('2026-09-06T22:51:18.000Z') }
+          ]
+        }
+      })
+    })
+  })
+  await page.goto('/#/leaderboards')
+  await page.getByRole('tab', { name: 'Badges' }).click()
+  for (const [name, maximum, count] of [
+    ['Big Spender', '3K', 7],
+    ['Trade Reader', '100', 11],
+    ['Herald', '10', 8],
+    ['Bridge Read', '4K', 9],
+    ['Recruiter', '5', 5]
+  ] as const) {
+    await page.getByRole('button', { name: new RegExp(`^${name}(,|$)`) }).click()
+    const dialog = page.getByRole('dialog', { name, exact: true })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('.ed-badges__rung')).toHaveCount(count)
+    await expect(dialog.locator('.ed-badges__rung-num').last()).toHaveText(maximum)
+    if (name === 'Recruiter') {
+      await expect(dialog.locator('.ed-badges__rung-num')).toHaveText(['1', '2', '3', '4', '5'])
+      await expect(dialog).toContainText('Rung 4 of 5 · Gold')
+      await expect(dialog.locator('.ed-badges__milestone-value')).toHaveText('5')
+      const screenshot = testInfo.outputPath('recruiter-five-steps.png')
+      await page.screenshot({ path: screenshot })
+      await testInfo.attach('recruiter-five-steps.png', { path: screenshot, contentType: 'image/png' })
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+  }
+  expect(errors).toEqual([])
+})
+
 test('opening a badge on the Ladder uses a focused modal with the rung ladder', async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()

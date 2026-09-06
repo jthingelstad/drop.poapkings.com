@@ -556,7 +556,7 @@ describe("published badge link", () => {
       xp: 900,
     });
     repository.getBadges.mockResolvedValue({
-      version: 9,
+      version: 10,
       values: { clockbreaker: 34.2 },
       runsAtRung: { clockbreaker: [12, 9, 5, 2] },
       aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },
@@ -668,6 +668,37 @@ describe("published badge link", () => {
     expect(response.body).toContain("/assets/share/badge-open.js");
   });
 
+  it("keeps a published sixth Recruiter rung readable after the ladder shrinks to five", async () => {
+    repository.getPublishedBadgeShareByTag.mockResolvedValueOnce({
+      ...publishedBadge,
+      slug: "recruiter",
+      rungIndex: 5,
+      badge: {
+        name: "Recruiter",
+        tier: "prismatic",
+        chip: "50",
+        milestone: 50,
+        rungCount: 6,
+        earnedAt: "2026-09-01T12:00:00.000Z",
+        requirement:
+          "New players who create an account through your shared links",
+      },
+    });
+    const response = await call(
+      event("GET", `/share/${playerTag}/badge/recruiter/6`),
+    );
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("50 milestone, rung 6 of 6");
+    expect(response.body).toContain(
+      `/share-assets/${playerTag}/badge/recruiter/6`,
+    );
+    expect(repository.getPublishedBadgeShareByTag).toHaveBeenCalledWith(
+      playerTag,
+      "recruiter",
+      6,
+    );
+  });
+
   it("uses neutral play copy when an earned-only community badge is shared", async () => {
     repository.getPublishedBadgeShareByTag.mockResolvedValueOnce({
       ...publishedBadge,
@@ -765,7 +796,7 @@ describe("published profile link", () => {
       xp: 900,
     });
     repository.getBadges.mockResolvedValue({
-      version: 9,
+      version: 10,
       refereeReconciled: true,
       values: { clockbreaker: 34, "arena-climber": 8 },
       runsAtRung: {},

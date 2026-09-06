@@ -110,7 +110,7 @@ describe("Practice run recovery", () => {
     expect(
       recoveredRungSlugs(
         {
-          version: 9,
+          version: 10,
           values: { reps: 8_463, "drop-regular": 1_216 },
           runsAtRung: {},
           aux: { modes: [], cards: [], playedDays: [], dayRuns: 0 },

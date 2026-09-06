@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "playtested-badge-milestones",
+      "impact": "progression",
+      "publishedAt": "2026-09-06T22:51:18Z",
+      "title": "Five badge climbs are within closer reach",
+      "body": "Playtesting brought five badge ladders down to earth. The top milestones are now **Big Spender: 3,000**, **Trade Reader: 100**, **Herald: 10**, **Recruiter: 5**, and **Bridge Read: 4,000**, with easier steps along the way. Your recorded progress counts toward the new targets, and previously earned XP stays yours. [See the badge guide](/badges/)."
+    },
+    {
       "id": "rain-final-curve-fresh-board",
       "impact": "gameplay",
       "publishedAt": "2026-08-27T13:45:23-05:00",
