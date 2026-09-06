@@ -4,6 +4,7 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { accountTagsForPlayerId } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { fetchWarClockFromHub } from "../elixir-war-clock.js";
+import { finalizePreviousSeasonIfNeeded } from "../podium.js";
 import { publicCrProfile, requestCrProfileRefresh } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
@@ -283,6 +284,13 @@ export async function currentWarClock(
   // answer even when the hub is unreachable.
   try {
     const clock = await fetchWarClockFromHub(config);
+    // A new Clash Royale season id arriving is what closes the previous
+    // Drop season: podium badges and placement XP are awarded here. It
+    // MUST run before the new clock is stored, because it compares the
+    // incoming season against the one on record. This used to hang off
+    // the bridge's war-clock result; when the bridge went, it came with
+    // the clock rather than being left behind.
+    await finalizePreviousSeasonIfNeeded(repository, clock);
     await repository.saveCrWarClock(clock);
     return repository.getCrWarClock();
   } catch (error) {

@@ -421,3 +421,39 @@ describe("enrichment prefers the record over a live read", () => {
     expect(second.params.name).toBe("live_fetch");
   });
 });
+
+describe("a season rollover still closes the previous season", () => {
+  it("finalizes before storing, and only when the season id moves", async () => {
+    // This ran off the bridge's war-clock result. When the bridge was
+    // retired it had to come with the clock; missing it would have meant
+    // podium badges and placement XP silently stopped being awarded at
+    // the season boundary, with nothing failing.
+    const { finalizePreviousSeasonIfNeeded } = await import("../src/podium.js");
+    const calls: { seasonId: number }[] = [];
+    const repository = {
+      getCrWarClock: async () => ({
+        crSeasonId: 134,
+        observedAt: "2026-08-01T10:00:00.000Z",
+      }),
+      seasonFinalists: async () => {
+        calls.push({ seasonId: 134 });
+        return [];
+      },
+    } as never;
+
+    // A newer clock carrying a NEW season closes the old one.
+    await finalizePreviousSeasonIfNeeded(repository, {
+      crSeasonId: 135,
+      observedAt: "2026-09-01T10:00:00.000Z",
+    });
+    expect(calls.length).toBeGreaterThan(0);
+
+    // The same season, arriving repeatedly, must not re-finalize.
+    calls.length = 0;
+    await finalizePreviousSeasonIfNeeded(repository, {
+      crSeasonId: 134,
+      observedAt: "2026-09-01T10:00:00.000Z",
+    });
+    expect(calls).toEqual([]);
+  });
+});
