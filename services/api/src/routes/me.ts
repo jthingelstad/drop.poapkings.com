@@ -1,3 +1,4 @@
+import { rememberPlayerInCollection } from "../elixir-collection.js";
 import {
   arenaForXp,
   seasonNumber,
@@ -714,6 +715,12 @@ export async function patchMe({ event, config, repository }: RouteContext) {
     ? await repository.getProfile(session.sub)
     : undefined;
   const profile = await repository.updateProfile(session.sub, updates);
+  // Saving a tag is the moment a Drop account becomes a recordable
+  // player, so it is the primary place membership is asserted. Login
+  // re-asserts it for accounts that had a tag before the hub existed.
+  if (updates.playerTag) {
+    void rememberPlayerInCollection(config, profile.playerTag);
+  }
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? updates.playerTag
       ? await refreshedCrProfile(

@@ -56,9 +56,17 @@ try {
   const cloudformation = new CloudFormationClient({ region });
 
   let exists = true;
+  // Which parameters the DEPLOYED stack actually has. UsePreviousValue is
+  // only legal for one that already exists, so a parameter added to the
+  // template since the last deploy has to fall through to its Default
+  // instead — otherwise the first deploy carrying it fails outright.
+  let existingParameterKeys = [];
   try {
-    await cloudformation.send(
+    const described = await cloudformation.send(
       new DescribeStacksCommand({ StackName: stackName }),
+    );
+    existingParameterKeys = (described.Stacks?.[0]?.Parameters ?? []).map(
+      (parameter) => parameter.ParameterKey,
     );
   } catch (error) {
     if (error?.name === "ValidationError") exists = false;
@@ -70,6 +78,7 @@ try {
     codeKey,
     environment: process.env,
     stackExists: exists,
+    existingParameterKeys,
   });
   await s3.send(
     new PutObjectCommand({

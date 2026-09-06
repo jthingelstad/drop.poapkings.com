@@ -28,6 +28,18 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: Full-access API token used only by the API Lambda to publish authoritative Tinylytics events.
+  ElixirMcpKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Service token for the Elixir MCP hub. Drop reads recorded Clash Royale history from the hub and keeps its player collection current there. Not the Clash Royale token, which never leaves the allowlisted host.
+  ElixirMcpBaseUrl:
+    Type: String
+    Default: https://elixir.poapkings.com
+  ElixirMcpCollectionSlug:
+    Type: String
+    Default: elixir-drop
+    Description: The hub collection holding every Drop player who has saved a Clash Royale tag.
   DiscordWebhookUrl:
     Type: String
     NoEcho: true
@@ -739,6 +751,9 @@ Resources:
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
+          ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
+          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
           WEB_VERSION: !Ref WebVersion
 
@@ -778,6 +793,9 @@ Resources:
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
+          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
+          ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
+          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
 
   CrResultEventSource:
     Type: AWS::Lambda::EventSourceMapping

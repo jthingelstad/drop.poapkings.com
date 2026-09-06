@@ -19,6 +19,12 @@ export interface Config {
   // public forwarding header on direct execute-api requests.
   webOriginToken?: string;
   crRequestQueueUrl: string;
+  // The Elixir MCP hub: Drop reads recorded Clash Royale history from it
+  // and keeps its player collection current there. Optional so the app
+  // runs unwired; every call site treats an absent hub as a no-op.
+  elixirMcpBaseUrl: string;
+  elixirMcpKey?: string;
+  elixirMcpCollectionSlug: string;
   // Dedicated private bucket for permanent, browser-composited run preview PNGs.
   // Optional only so reduced-entry-point and unit-test environments do not need
   // an unrelated bucket; publication fails closed when production omits it.
@@ -83,6 +89,12 @@ export function getConfig(): Config {
     webOriginToken:
       process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
     crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
+    elixirMcpBaseUrl: (
+      process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
+    ).replace(/\/$/, ""),
+    elixirMcpKey: process.env.ELIXIR_MCP_KEY?.trim() || undefined,
+    elixirMcpCollectionSlug:
+      process.env.ELIXIR_MCP_COLLECTION_SLUG?.trim() || "elixir-drop",
     shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };

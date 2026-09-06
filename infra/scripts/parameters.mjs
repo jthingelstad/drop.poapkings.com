@@ -40,6 +40,13 @@ const PRESERVED_PARAMETERS = [
   ["ButtondownApiKey", ["BUTTONDOWN_API_KEY"]],
   ["ButtondownNewsletterId", ["BUTTONDOWN_NEWSLETTER_ID"]],
   ["TinylyticsApiToken", ["TINYLYTICS_API_TOKEN"]],
+  // The hub seam. Operator-owned like the rest: CI never carries the
+  // service token, so these preserve rather than reset. Blanking
+  // ElixirMcpKey would silently stop new players reaching the Elixir
+  // MCP collection, with every login still returning 200.
+  ["ElixirMcpKey", ["ELIXIR_MCP_KEY"]],
+  ["ElixirMcpBaseUrl", ["ELIXIR_MCP_BASE_URL"]],
+  ["ElixirMcpCollectionSlug", ["ELIXIR_MCP_COLLECTION_SLUG"]],
 ];
 
 function firstValue(environment, environmentKeys) {
@@ -53,9 +60,15 @@ function firstValue(environment, environmentKeys) {
 // Explicit value wins; otherwise reuse what is already deployed; on stack
 // creation there is no previous value, so omit the parameter and let the
 // template Default apply.
-function preservedParameter(parameterKey, value, stackExists) {
+//
+// A parameter ADDED to the template since the last deploy has no previous
+// value either, and CloudFormation rejects UsePreviousValue for one it has
+// never stored. Treat it like stack creation: omit it and take the Default,
+// which the next deploy carrying a real value then sets.
+function preservedParameter(parameterKey, value, stackExists, deployedKeys) {
   if (value) return { ParameterKey: parameterKey, ParameterValue: value };
-  if (stackExists)
+  const alreadyDeployed = !deployedKeys || deployedKeys.includes(parameterKey);
+  if (stackExists && alreadyDeployed)
     return { ParameterKey: parameterKey, UsePreviousValue: true };
   return undefined;
 }
@@ -80,6 +93,10 @@ export function deploymentParameters({
   codeKey,
   environment,
   stackExists,
+  // Parameter keys the deployed stack actually carries. Omitted by
+  // callers that do not know, in which case every preserved parameter is
+  // assumed to exist, which is the old behaviour.
+  existingParameterKeys,
 }) {
   const parameters = [
     { ParameterKey: "CodeBucket", ParameterValue: bucket },
@@ -91,6 +108,7 @@ export function deploymentParameters({
       parameterKey,
       firstValue(environment, environmentKeys),
       stackExists,
+      existingParameterKeys,
     );
     if (parameter) parameters.push(parameter);
   }

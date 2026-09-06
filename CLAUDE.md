@@ -23,6 +23,12 @@ decisions.
    `packages/game-data/cards.json` snapshot; dynamic backend requests (player
    enrichment, the Clan Wars clock) go through the asynchronous SQS bridge
    boundary.
+   **Elixir MCP is not the Clash Royale API.** It is the hub that records CR
+   history, and Lambda may call it directly with Drop's own service token
+   (`services/api/src/elixir-mcp.ts`). Drop is a downstream reader of that seam
+   and never reaches into another app; the hub never pushes into Drop. Reading
+   the hub is not a route around this rule, because the hub holds recorded
+   history rather than a live Supercell connection.
 3. **The CR token lives only on the managed, allowlisted host.** It is
    gitignored. Never commit it, expose it to the browser, place it in CI, or put
    it in Lambda configuration. The static refresher and local bridge are the

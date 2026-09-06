@@ -4,6 +4,7 @@ import {
   enrollButtondownSubscriber,
   updateButtondownSubscriberMetadata,
 } from "../buttondown.js";
+import { rememberPlayerInCollection } from "../elixir-collection.js";
 import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
@@ -356,6 +357,10 @@ export async function redeemMagicLink({
   // login whose link is already spent.
   try {
     await repository.putRecruiterInviteAlias(login.profile);
+    // Every login re-asserts collection membership rather than only new
+    // accounts: it is idempotent, and it is how the players who saved a
+    // tag before the hub existed get picked up.
+    void rememberPlayerInCollection(config, login.profile.playerTag);
     const crProfile = refreshedCrProfile(
       repository,
       config.crRequestQueueUrl,

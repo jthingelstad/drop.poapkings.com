@@ -853,3 +853,57 @@ void describe("deployment parameters", () => {
     );
   });
 });
+
+void describe("parameters added since the last deploy", () => {
+  void it("a parameter added since the last deploy takes its Default, not UsePreviousValue", () => {
+    // CloudFormation rejects UsePreviousValue for a parameter it has never
+    // stored, so the first deploy carrying a new one would fail outright.
+    const parameters = deploymentParameters({
+      bucket: "code-bucket",
+      codeKey: "code/api.zip",
+      environment: {},
+      stackExists: true,
+      existingParameterKeys: ["AppUrl", "NameModelId"],
+    });
+    const byKey = Object.fromEntries(
+      parameters.map((parameter) => [parameter.ParameterKey, parameter]),
+    );
+    assert.deepEqual(byKey.AppUrl, {
+      ParameterKey: "AppUrl",
+      UsePreviousValue: true,
+    });
+    assert.equal(
+      byKey.ElixirMcpKey,
+      undefined,
+      "a brand-new parameter is omitted so its template Default applies",
+    );
+  });
+
+  void it("a new parameter with a value in the environment is set on that same deploy", () => {
+    const parameters = deploymentParameters({
+      bucket: "code-bucket",
+      codeKey: "code/api.zip",
+      environment: { ELIXIR_MCP_KEY: "svt_example" },
+      stackExists: true,
+      existingParameterKeys: ["AppUrl"],
+    });
+    assert.deepEqual(
+      parameters.find((p) => p.ParameterKey === "ElixirMcpKey"),
+      { ParameterKey: "ElixirMcpKey", ParameterValue: "svt_example" },
+    );
+  });
+
+  void it("without existingParameterKeys every preserved parameter still preserves", () => {
+    // Callers that do not know keep the old behaviour.
+    const parameters = deploymentParameters({
+      bucket: "code-bucket",
+      codeKey: "code/api.zip",
+      environment: {},
+      stackExists: true,
+    });
+    assert.deepEqual(
+      parameters.find((p) => p.ParameterKey === "ElixirMcpKey"),
+      { ParameterKey: "ElixirMcpKey", UsePreviousValue: true },
+    );
+  });
+});
