@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { accountTagsForPlayerId } from "../account-tags.js";
 import type { Config } from "../config.js";
+import { fetchWarClockFromHub } from "../elixir-war-clock.js";
 import { publicCrProfile, requestCrProfileRefresh } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
@@ -253,15 +254,41 @@ export async function refreshedCrProfile(
   }
 }
 
+// The bridge used to push this every five minutes forever. Reading it
+// on demand behind the same interval costs a call only when somebody is
+// actually using Drop, and the stored clock is the cache.
+const WAR_CLOCK_TTL_MS = 5 * 60 * 1_000;
+
 export async function currentWarClock(
   repository: Repository,
+  config?: Config,
 ): Promise<StoredCrWarClock | undefined> {
+  let stored: StoredCrWarClock | undefined;
   try {
-    return await repository.getCrWarClock();
+    stored = await repository.getCrWarClock();
   } catch (error) {
     console.warn("CR war clock lookup failed; using calendar fallback", {
       error: error instanceof Error ? error.name : "unknown",
     });
     return undefined;
+  }
+  if (!config?.elixirMcpKey) return stored;
+
+  const observedAt = stored?.observedAt ? Date.parse(stored.observedAt) : 0;
+  if (Number.isFinite(observedAt) && Date.now() - observedAt < WAR_CLOCK_TTL_MS)
+    return stored;
+
+  // A stale clock is not a broken one: the season maths falls back to
+  // the calendar, and every caller here is on a read path that must
+  // answer even when the hub is unreachable.
+  try {
+    const clock = await fetchWarClockFromHub(config);
+    await repository.saveCrWarClock(clock);
+    return repository.getCrWarClock();
+  } catch (error) {
+    console.warn("Elixir MCP war clock refresh failed; serving what we have", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return stored;
   }
 }

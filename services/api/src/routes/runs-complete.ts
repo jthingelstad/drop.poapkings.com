@@ -1,4 +1,5 @@
 import { arenaForXp, type XpAward } from "@elixir-drop/contracts";
+import type { Config } from "../config.js";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import {
   advanceBadges,
@@ -100,7 +101,7 @@ export async function completeRun({ event, config, repository }: RouteContext) {
   // owner/session check, no integrity gate, no completeRun, XP, leaderboard,
   // all-time, Discord, or learning stats. The run row simply TTL-expires.
   if (run.guest === true || claims.guest === true)
-    return completeGuestRun(event, repository, run, body);
+    return completeGuestRun(event, repository, config, run, body);
   // From here the run is a recorded, signed-in run: it requires a valid
   // session that owns the run.
   if (!session)
@@ -111,7 +112,8 @@ export async function completeRun({ event, config, repository }: RouteContext) {
       "This run belongs to another player.",
       "run_owner_mismatch",
     );
-  if (run.state === "completed") return replayCompletedRun(repository, run);
+  if (run.state === "completed")
+    return replayCompletedRun(repository, config, run);
   const nowSeconds = Math.floor(Date.now() / 1_000);
   if (run.expiresAt <= nowSeconds)
     throw new HttpError(
@@ -126,6 +128,7 @@ export async function completeRun({ event, config, repository }: RouteContext) {
 async function completeGuestRun(
   event: APIGatewayProxyEventV2,
   repository: Repository,
+  config: Config,
   run: RunItem,
   body: Record<string, unknown>,
 ) {
@@ -151,7 +154,10 @@ async function completeGuestRun(
     });
     throw badRequest(error);
   }
-  const season = seasonForDate(new Date(), await currentWarClock(repository));
+  const season = seasonForDate(
+    new Date(),
+    await currentWarClock(repository, config),
+  );
   return json(200, {
     accepted: true,
     guest: true,
@@ -163,7 +169,11 @@ async function completeGuestRun(
 
 // A retry of an already-recorded run replays the stored result rather than
 // scoring (and charging) the same game twice.
-async function replayCompletedRun(repository: Repository, run: RunItem) {
+async function replayCompletedRun(
+  repository: Repository,
+  config: Config,
+  run: RunItem,
+) {
   if (!run.completedAt || typeof run.score !== "number" || !run.seasonId)
     throw new HttpError(
       409,
@@ -179,7 +189,7 @@ async function replayCompletedRun(repository: Repository, run: RunItem) {
     );
   const season = seasonForDate(
     new Date(run.completedAt),
-    await currentWarClock(repository),
+    await currentWarClock(repository, config),
   );
   const progress = levelForGames(profile.totalGames);
   return json(200, {
@@ -211,7 +221,10 @@ async function recordSignedInRun(
   const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
   // The season is resolved before scoring so a rejected run's evidence can be
   // filed against the season it was attempted in.
-  const season = seasonForDate(new Date(), await currentWarClock(repository));
+  const season = seasonForDate(
+    new Date(),
+    await currentWarClock(repository, config),
+  );
   const scored = await scoreOrFileRejection(
     { event, config, repository },
     run,

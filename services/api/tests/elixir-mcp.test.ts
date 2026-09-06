@@ -5,6 +5,7 @@ import {
   fetchPlayerFromHub,
   normalizeHubPlayer,
 } from "../src/elixir-player.js";
+import { fetchWarClockFromHub, toWarClock } from "../src/elixir-war-clock.js";
 import type { Config } from "../src/config.js";
 
 const config = {
@@ -216,5 +217,92 @@ describe("player enrichment from the hub", () => {
       JSON.parse(fetcher.mock.calls[0]![1].body as string);
     expect(sent.params.name).toBe("live_fetch");
     expect(sent.params.arguments.path).toBe("/players/%23UL2V9QRG0");
+  });
+});
+
+describe("the Clan Wars clock from the hub", () => {
+  const warCurrent = {
+    clan_tag: "#J2RGCRVG",
+    season_id: 135,
+    section_index: 4,
+    is_colosseum: false,
+    period: {
+      period_index: 34,
+      kind: "war",
+      started_observed_at: "2026-09-06T09:57:37.000Z",
+    },
+  };
+
+  it("maps the hub's clock onto the shape Drop stores", () => {
+    const clock = toWarClock(
+      warCurrent,
+      "#J2RGCRVG",
+      new Date("2026-09-06T12:00:00.000Z"),
+    );
+    expect(clock.crSeasonId).toBe(135);
+    expect(clock.sectionIndex).toBe(4);
+    expect(clock.periodIndex).toBe(34);
+    expect(clock.periodType).toBe("warDay");
+    // The season opened periodIndex days before this period did. The
+    // anchor is the OBSERVED open, not an assumed 10:00 UTC reset.
+    expect(clock.seasonStartsAt).toBe("2026-08-03T09:57:37.000Z");
+    expect(clock.sourceClanTag).toBe("#J2RGCRVG");
+  });
+
+  it("calls colosseum weeks colosseum, whatever the period kind says", () => {
+    const clock = toWarClock(
+      { ...warCurrent, is_colosseum: true },
+      "#J2RGCRVG",
+    );
+    expect(clock.periodType).toBe("colosseum");
+  });
+
+  it("maps a training day", () => {
+    const clock = toWarClock(
+      {
+        ...warCurrent,
+        period: { ...warCurrent.period, kind: "training", period_index: 2 },
+      },
+      "#J2RGCRVG",
+    );
+    expect(clock.periodType).toBe("training");
+  });
+
+  it("refuses an out-of-range index rather than back-dating a season", () => {
+    // A five-week season has at most 5 sections of 7 periods; a glitched
+    // index would move the season start by months.
+    expect(() =>
+      toWarClock(
+        { ...warCurrent, period: { ...warCurrent.period, period_index: 99 } },
+        "#J2RGCRVG",
+      ),
+    ).toThrow(/out-of-range/);
+  });
+
+  it("refuses when the hub has not observed a period open", () => {
+    expect(() =>
+      toWarClock(
+        { ...warCurrent, period: { period_index: 1, kind: "war" } },
+        "#J2RGCRVG",
+      ),
+    ).toThrow(/observed period start/);
+  });
+
+  it("asks the hub for the configured clan", async () => {
+    const fetcher = hubReply(warCurrent);
+    const clock = await fetchWarClockFromHub(
+      {
+        elixirMcpBaseUrl: "https://elixir.example",
+        elixirMcpKey: "svt_test",
+        warClockClanTag: "#J2RGCRVG",
+      } as Config,
+      new Date("2026-09-06T12:00:00.000Z"),
+      fetcher,
+    );
+    expect(clock.crSeasonId).toBe(135);
+    const sent: { params: { name: string; arguments: { clan_tag: string } } } =
+      JSON.parse(fetcher.mock.calls[0]![1].body as string);
+    expect(sent.params.name).toBe("war_current");
+    expect(sent.params.arguments.clan_tag).toBe("#J2RGCRVG");
   });
 });

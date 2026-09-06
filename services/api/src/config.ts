@@ -25,6 +25,9 @@ export interface Config {
   elixirMcpBaseUrl: string;
   elixirMcpKey?: string;
   elixirMcpCollectionSlug: string;
+  // The clan whose river race defines the Clan Wars calendar Drop's
+  // seasons follow. Read from the hub now, not polled from Supercell.
+  warClockClanTag: string;
   // Dedicated private bucket for permanent, browser-composited run preview PNGs.
   // Optional only so reduced-entry-point and unit-test environments do not need
   // an unrelated bucket; publication fails closed when production omits it.
@@ -95,6 +98,8 @@ export function getConfig(): Config {
     elixirMcpKey: process.env.ELIXIR_MCP_KEY?.trim() || undefined,
     elixirMcpCollectionSlug:
       process.env.ELIXIR_MCP_COLLECTION_SLUG?.trim() || "elixir-drop",
+    warClockClanTag:
+      process.env.CR_WAR_CLOCK_CLAN_TAG?.trim().toUpperCase() || "#J2RGCRVG",
     shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };

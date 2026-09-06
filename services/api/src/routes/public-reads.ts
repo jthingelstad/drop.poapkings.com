@@ -31,7 +31,7 @@ export async function getLeaderboards(context: RouteContext) {
   const mode = event.queryStringParameters?.mode;
   if (!isGameMode(mode)) throw new HttpError(400, "Choose a valid game mode.");
   const now = new Date();
-  const clock = await currentWarClock(repository);
+  const clock = await currentWarClock(repository, config);
   const currentSeason = seasonForDate(now, clock);
   // The period rail's chips: the current season back through Drop's first
   // board. Only the Boards scope (season/all-time) shows the rail, so the clan
@@ -125,18 +125,18 @@ export async function getLeaderboards(context: RouteContext) {
 export async function getSeasons(context: RouteContext) {
   await chargeRead(context);
   const now = new Date();
-  const clock = await currentWarClock(context.repository);
+  const clock = await currentWarClock(context.repository, context.config);
   const current = seasonForDate(now, clock);
   return json(200, { current, upcoming: upcomingSeasons(now, 3, clock) });
 }
 
 // GET /activity — the recent-runs rail.
 export async function getActivity(context: RouteContext) {
-  const { event, repository } = context;
+  const { event, repository, config } = context;
   await chargeRead(context);
   const currentSeason = seasonForDate(
     new Date(),
-    await currentWarClock(repository),
+    await currentWarClock(repository, config),
   );
   const rawLimit = Number(event.queryStringParameters?.limit);
   const limit = Number.isFinite(rawLimit)
@@ -157,7 +157,10 @@ export async function getStats(context: RouteContext) {
   const stats = await repository.globalStats();
   const response: SiteStats = {
     ...stats,
-    currentSeason: seasonForDate(new Date(), await currentWarClock(repository)),
+    currentSeason: seasonForDate(
+      new Date(),
+      await currentWarClock(repository, config),
+    ),
     ...(config.webVersion ? { webVersion: config.webVersion } : {}),
   };
   return json(200, response);
