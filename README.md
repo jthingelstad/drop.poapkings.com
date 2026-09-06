@@ -76,9 +76,6 @@ there is no server record for a link to point at.
 - `services/api` — the TypeScript Lambda backend for email authentication,
   player profiles, signed game runs, progression, seasonal leaderboards, and
   notable Discord events.
-- `services/cr-api-bridge` — the TypeScript queue worker running on this fixed,
-  Clash Royale API-allowlisted host. It relays player snapshots and the live
-  Clan Wars season clock.
 - `packages/contracts` and `packages/game-data` — shared TypeScript API contracts
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
@@ -172,15 +169,11 @@ on the managed host (kept in its `.env`); a bare refresh would revert the
 snapshot to hotlinked CDN URLs, which the page CSP blocks for WebGL texture
 use and which reintroduces a CDN dependency for gameplay art.
 
-The application backend does not call the Clash Royale API directly. It writes
-tag refresh work to SQS. `services/cr-api-bridge` long-polls that queue from this
-allowlisted host, calls `/players/{tag}`, and puts a narrow result on a second
-queue. A result Lambda stores the player's CR name, clan, Years Played badge
-day count (used to calculate account age), and card collection without
-competitive fields or card levels. Saving a tag fetches its first snapshot.
-Later snapshots refresh only when the player completes a new email-authenticated login;
-routine session restoration, profile reads, and games use cached data without
-creating bridge work.
+Drop reads Clash Royale data from Elixir MCP, the hub that records it, using
+Drop's own service token. Player enrichment is a `live_fetch`; the Clan Wars
+clock is `war_current` on the recorded source clan. The fixed-IP bridge and
+both SQS queues were retired 2026-09-06 — Drop no longer calls Supercell at
+runtime at all.
 
 The bridge also reads POAP KINGS' `/currentriverrace` and `/riverracelog` every
 five minutes. It sends CR's sequential season ID, section/week, period/day, and
@@ -222,17 +215,11 @@ Before inviting a new beta group, follow
 [`docs/beta-readiness.md`](docs/beta-readiness.md). It separates automated
 release gates from the few real-user checks that should not be faked in CI.
 
-Bootstrap copies the existing Fastmail JMAP and CR tokens into the gitignored
-root `.env`, generates a Drop-specific signing secret, and creates separate
-access credentials for the limited `elixir-drop` deploy user and the even
-narrower `elixir-drop-cr-bridge` queue user. Routine deployment and bridge work
-use the AWS SDK and do not invoke the AWS CLI.
-
-On the allowlisted Mac, install the built worker as a persistent launch agent:
-
-```bash
-npm run install:launchd --workspace=@elixir-drop/cr-api-bridge
-```
+Bootstrap copies the existing Fastmail JMAP token into the gitignored root
+`.env`, generates a Drop-specific signing secret, and creates access
+credentials for the limited `elixir-drop` deploy user. Routine deployment uses
+the AWS SDK and does not invoke the AWS CLI. The Clash Royale token that
+remains is only for the manual card-snapshot refresher.
 
 ---
 
@@ -249,8 +236,7 @@ elixir-drop/
 │  └─ admin/                 # private tailnet-only Control Room UI
 ├─ services/
 │  ├─ api/                   # TypeScript Lambda API backend
-│  ├─ admin/                 # loopback referee + account-support adapter
-│  └─ cr-api-bridge/         # fixed-IP TypeScript Clash Royale API worker
+│  └─ admin/                 # loopback referee + account-support adapter
 ├─ packages/
 │  ├─ contracts/             # browser/server TypeScript contracts
 │  └─ game-data/             # canonical cards.json snapshot

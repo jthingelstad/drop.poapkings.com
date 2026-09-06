@@ -16,26 +16,26 @@ the POAP KINGS. A Preact SPA deploys through **CloudFront** from private S3 at
 
 Every other doc points back here instead of keeping its own copy of this list.
 
-| Doc                                                                   | What it owns                                                                                                                    |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **`CLAUDE.md`**                                                       | The working guide: golden rules, architecture, product decisions. **The primary agent doc — read it before changing anything.** |
-| **`SPEC.md`**                                                         | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.                 |
-| **`GAMES.md`**                                                        | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                                       |
-| **`CONTRIBUTING.md`**                                                 | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                                     |
-| **`README.md`**                                                       | Public overview + local-development entry point.                                                                                |
-| **`docs/card-rendering.md`**                                          | Clash-style card rendering reference.                                                                                           |
-| **`docs/beta-readiness.md`**                                          | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
-| **`docs/referee-visibility.md`**                                     | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped.               |
-| **`docs/desktop-keyboard.md`**                                       | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                                           |
-| **`infra/README.md`**                                                 | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
-| **`services/api/README.md`** · **`services/cr-api-bridge/README.md`** · **`services/admin/README.md`** | Backend, bridge, and private Control Room service references.                                                                    |
-| **`AGENT-TEAM/`**                                                     | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
-| **`AGENT-TEAM/fair-play-policy.md`**                                 | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
-| **`apps/web/src/data/updates/`**                                      | Player-facing feature, season, and message history merged into the Updates tab and public archive.                             |
+| Doc                                                           | What it owns                                                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **`CLAUDE.md`**                                               | The working guide: golden rules, architecture, product decisions. **The primary agent doc — read it before changing anything.** |
+| **`SPEC.md`**                                                 | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.                 |
+| **`GAMES.md`**                                                | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                                       |
+| **`CONTRIBUTING.md`**                                         | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                                     |
+| **`README.md`**                                               | Public overview + local-development entry point.                                                                                |
+| **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                                           |
+| **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
+| **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped.               |
+| **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                                          |
+| **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
+| **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                                            |
+| **`AGENT-TEAM/`**                                             | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
+| **`AGENT-TEAM/fair-play-policy.md`**                          | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
+| **`apps/web/src/data/updates/`**                              | Player-facing feature, season, and message history merged into the Updates tab and public archive.                              |
 
 ## Golden rules (full text in `CLAUDE.md` — do not violate)
 
-1. Keep workspace boundaries explicit (`apps/web`, `apps/admin`, `services/api`, `services/admin`, `services/cr-api-bridge`, `infra`).
+1. Keep workspace boundaries explicit (`apps/web`, `apps/admin`, `services/api`, `services/admin`, `infra`).
 2. Only the bridge calls the Clash Royale API at runtime; the browser and Lambda never do.
 3. The CR token lives only on the managed, allowlisted host — never committed, never in CI or Lambda config.
 4. The public website stays private S3 + CloudFront with hash routing; `base: '/'`; the deploy build needs no secrets.

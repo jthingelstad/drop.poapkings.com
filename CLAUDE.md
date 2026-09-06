@@ -16,25 +16,25 @@ decisions.
 1. **Keep workspace boundaries explicit.** `apps/web` owns the public browser product,
    `apps/admin` owns the private Control Room UI, `services/admin` owns its
    loopback referee adapter, `services/api` owns the TypeScript Lambda backend,
-   `services/cr-api-bridge` owns fixed-IP Clash Royale access, and `infra` owns cloud definitions. Do
+   and `infra` owns cloud definitions. Do
    not import service implementation files directly across those boundaries.
-2. **Only the bridge may call the Clash Royale API at runtime.** The browser and
-   Lambda backend must never call it directly. The website reads the committed
-   `packages/game-data/cards.json` snapshot; dynamic backend requests (player
-   enrichment, the Clan Wars clock) go through the asynchronous SQS bridge
-   boundary.
-   **Elixir MCP is not the Clash Royale API.** It is the hub that records CR
-   history, and Lambda may call it directly with Drop's own service token
-   (`services/api/src/elixir-mcp.ts`). Drop is a downstream reader of that seam
-   and never reaches into another app; the hub never pushes into Drop. Reading
-   the hub is not a route around this rule, because the hub holds recorded
-   history rather than a live Supercell connection.
-3. **The CR token lives only on the managed, allowlisted host.** It is
-   gitignored. Never commit it, expose it to the browser, place it in CI, or put
-   it in Lambda configuration. The static refresher and local bridge are the
-   only implemented consumers on the allowlisted host.
-   The bridge owns both queued player enrichment and the periodic Clan Wars
-   clock relay; Lambda consumes normalized results only.
+2. **Drop never calls the Clash Royale API.** Not the browser, not Lambda, not
+   any script. It reads Clash Royale data from **Elixir MCP**, the hub that
+   records that history, using Drop's own service token
+   (`services/api/src/elixir-mcp.ts`). Player enrichment is `live_fetch`; the
+   Clan Wars clock is `war_current` on the recorded source clan. Drop is a
+   downstream reader of that seam and never reaches into another app; the hub
+   never pushes into Drop. The website still reads the committed
+   `packages/game-data/cards.json` snapshot.
+   The fixed-IP `cr-api-bridge`, both of its SQS queues, its IAM user and its
+   Mac host were **retired 2026-09-06**. Do not reintroduce a direct Supercell
+   call: if the hub cannot answer something, the fix is to record it in the hub.
+3. **Drop holds no Clash Royale token at runtime.** The only remaining CR
+   credential is for `apps/web/scripts/refresh-cards.mjs`, a manual, host-only
+   script that regenerates the committed card snapshot. It is gitignored: never
+   commit it, expose it to the browser, place it in CI, or put it in Lambda
+   configuration. The runtime credential Drop does hold is `ELIXIR_MCP_KEY`,
+   which reaches only the API Lambda.
 4. **The public website remains private S3 + CloudFront with hash routing.**
    Vite uses `base: '/'`; CloudFront routes `/api/*` to API Gateway and all other
    requests to the private bucket. The deploy build needs no secrets.
@@ -101,7 +101,7 @@ rank-oriented fields as part of unrelated work.
 ## Architecture
 
 - **`apps/web/src/lib/storage.ts` is the local learning-data boundary.**
-  All *progress* reads/writes go through it (`getProfile`, `getRecords`,
+  All _progress_ reads/writes go through it (`getProfile`, `getRecords`,
   `getCardStats`, `saveResult`, …) — never read or write a progress key directly.
   It is not the only browser-storage owner: the session token, install-prompt
   state, install notice, and player-tag nudge are deliberately owned by their
@@ -144,6 +144,7 @@ rank-oriented fields as part of unrelated work.
   the newest three cards receive the unread/expanded treatment; the full history
   remains collapsed below them. The player feed is also separate from
   `UpdateBanner`, which only says the open app build is stale.
+
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
@@ -205,7 +206,7 @@ rank-oriented fields as part of unrelated work.
   previews intentionally share one visual frame, real Clash font, local PNG
   art, landing shell, URL-only native-share behavior, and retained S3 bucket.
   A profile uses `/share/{playerTag}` and is refreshed through owner-only `POST
-  /me/share`; the browser publishes its current arena, Player XP, and prominent
+/me/share`; the browser publishes its current arena, Player XP, and prominent
   badge highlights through the same compositor and PNG upload path. Profile
   sharing is available from the signed-in player's You header and Home hero,
   never from another player's public profile. The permanent landing remains
@@ -237,9 +238,9 @@ rank-oriented fields as part of unrelated work.
   no `layout.value` branch) in the exact mobile sequence: featured game, the
   remaining ranked games, then Practice. The featured mode is never duplicated;
   standings stay in the persistent Ladder navigation. Both rails stretch to the
-  column's height, and they split by kind: the LEFT rail is everything *about*
+  column's height, and they split by kind: the LEFT rail is everything _about_
   the app — nav, then the Falling Cards control and the meta links at its foot —
-  and the right aside is the one thing *happening*, which is why the live feed
+  and the right aside is the one thing _happening_, which is why the live feed
   gets the height and the controls do not. Active games
   drop both rails, use a bounded 480px stage, and remain playable with mouse or
   keyboard on the existing boards. **Falling Cards is optional desktop
@@ -254,7 +255,7 @@ rank-oriented fields as part of unrelated work.
   opacity; full screen hides the game panels over the same canvas, its
   dismissing input restores the panels with cards off, and the next press deals
   the Subtle scene back in. The home-row mapping (`ASDFG` = 1–5, `JKL;` = 6–9)
-  binds `event.code`, never `event.key` — AZERTY's home row is *qsdfg* — and is
+  binds `event.code`, never `event.key` — AZERTY's home row is _qsdfg_ — and is
   stated in exactly one place in the running app: **the letter on each keycap
   mid-run**, gated on `(hover: hover) and (pointer: fine)` rather than viewport
   width. No hero hint and no rail key block: both teach a mapping where it
@@ -404,7 +405,7 @@ rank-oriented fields as part of unrelated work.
   historical activity, but format-comparable skill badges accept only the
   current board epoch. Storage is one
   `PLAYER#{sub}/BADGES` item, written
-  best-effort *outside* the `completeRun` transaction exactly like learning
+  best-effort _outside_ the `completeRun` transaction exactly like learning
   stats — a badge failure must never roll back a recorded run. Every earned
   rung awards exact-once Player XP from the shared contract (copper 5, silver
   10, gold 25, prismatic 50, hidden single-rung 25, Battle Tag 100, Collector

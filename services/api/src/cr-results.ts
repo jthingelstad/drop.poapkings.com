@@ -1,21 +1,11 @@
 import {
-  CLASH_ROYALE_TAG_PATTERN,
   seasonNumber,
-  type ClashRoyaleAccountAge,
-  type ClashRoyaleCard,
-  type ClashRoyaleClan,
-  type CrPlayerRefreshResult,
-  type CrPlayerSnapshot,
-  type CrWarClockResult,
   type PodiumFinalizeResult,
 } from "@elixir-drop/contracts";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { loadConfig } from "./config.js";
 import { Repository } from "./repository.js";
-import {
-  finalizePodiumBadges,
-  finalizePreviousSeasonIfNeeded,
-} from "./podium.js";
+import { finalizePodiumBadges } from "./podium.js";
 import { requireObject as object, requireText as text } from "./validation.js";
 
 function isoDate(value: unknown, label: string): string {
@@ -23,77 +13,6 @@ function isoDate(value: unknown, label: string): string {
   if (!Number.isFinite(Date.parse(result)))
     throw new Error(`${label} must be an ISO date`);
   return result;
-}
-
-function nonnegativeInteger(value: unknown, label: string): number | undefined {
-  if (value === undefined) return undefined;
-  if (!Number.isSafeInteger(value) || Number(value) < 0)
-    throw new Error(`${label} must be a nonnegative integer`);
-  return Number(value);
-}
-
-function parseClan(value: unknown): ClashRoyaleClan | undefined {
-  if (value === undefined) return undefined;
-  const source = object(value, "Clan");
-  const tag = text(source.tag, "Clan tag", 20);
-  if (!CLASH_ROYALE_TAG_PATTERN.test(tag))
-    throw new Error("Clan tag is invalid");
-  const badgeId = nonnegativeInteger(source.badgeId, "Clan badge ID");
-  if (badgeId === undefined) throw new Error("Clan badge ID is required");
-  return {
-    tag,
-    name: text(source.name, "Clan name", 100),
-    badgeId,
-    ...(source.role === undefined
-      ? {}
-      : { role: text(source.role, "Clan role", 30) }),
-  };
-}
-
-function parseAccountAge(value: unknown): ClashRoyaleAccountAge | undefined {
-  if (value === undefined) return undefined;
-  const source = object(value, "Account age");
-  const days = nonnegativeInteger(source.days, "Account age days");
-  const age = {
-    days,
-    years:
-      days === undefined
-        ? nonnegativeInteger(source.years, "Account age years")
-        : Math.floor(days / 365),
-  };
-  return age.days === undefined && age.years === undefined ? undefined : age;
-}
-
-function parseCard(value: unknown): ClashRoyaleCard {
-  const source = object(value, "Card");
-  const id = nonnegativeInteger(source.id, "Card ID");
-  if (id === undefined) throw new Error("Card ID is required");
-  const iconUrl =
-    source.iconUrl === undefined
-      ? undefined
-      : text(source.iconUrl, "Card icon URL", 1_000);
-  if (iconUrl && !iconUrl.startsWith("https://"))
-    throw new Error("Card icon URL must use HTTPS");
-  return {
-    id,
-    name: text(source.name, "Card name", 100),
-    ...(iconUrl ? { iconUrl } : {}),
-  };
-}
-
-function parsePlayer(value: unknown): CrPlayerSnapshot {
-  const source = object(value, "Player");
-  if (!Array.isArray(source.cards) || source.cards.length > 200)
-    throw new Error("Player cards must be an array of at most 200 cards");
-  const cards = source.cards.map(parseCard);
-  if (new Set(cards.map((card) => card.id)).size !== cards.length)
-    throw new Error("Player cards must have unique IDs");
-  return {
-    name: text(source.name, "Player name", 100),
-    clan: parseClan(source.clan),
-    accountAge: parseAccountAge(source.accountAge),
-    cards,
-  };
 }
 
 export function parsePodiumFinalizeResult(
@@ -112,117 +31,6 @@ export function parsePodiumFinalizeResult(
   };
 }
 
-export function parseCrPlayerResult(value: unknown): CrPlayerRefreshResult {
-  const source = object(value, "Result");
-  if (source.version !== 1 || source.type !== "player-result")
-    throw new Error("Unsupported CR result message");
-  const playerTag = text(source.playerTag, "Player tag", 20);
-  if (!CLASH_ROYALE_TAG_PATTERN.test(playerTag))
-    throw new Error("Player tag is invalid");
-  const base = {
-    version: 1 as const,
-    type: "player-result" as const,
-    jobId: text(source.jobId, "Job ID", 100),
-    playerTag,
-    requestedAt: isoDate(source.requestedAt, "Requested at"),
-    completedAt: isoDate(source.completedAt, "Completed at"),
-  };
-  if (source.outcome === "not_found") return { ...base, outcome: "not_found" };
-  if (source.outcome === "unavailable")
-    return { ...base, outcome: "unavailable" };
-  if (source.outcome !== "success")
-    throw new Error("CR result outcome is invalid");
-  return { ...base, outcome: "success", player: parsePlayer(source.player) };
-}
-
-export function parseCrWarClockResult(value: unknown): CrWarClockResult {
-  const source = object(value, "Result");
-  if (source.version !== 1 || source.type !== "war-clock-result")
-    throw new Error("Unsupported CR result message");
-  const clock = object(source.clock, "War clock");
-  const crSeasonId = nonnegativeInteger(clock.crSeasonId, "CR season ID");
-  const sectionIndex = nonnegativeInteger(
-    clock.sectionIndex,
-    "War clock section index",
-  );
-  const periodIndex = nonnegativeInteger(
-    clock.periodIndex,
-    "War clock period index",
-  );
-  if (crSeasonId === undefined || crSeasonId === 0)
-    throw new Error("CR season ID is required");
-  if (sectionIndex === undefined || periodIndex === undefined)
-    throw new Error("War clock indexes are required");
-  // A five-week season has at most 5 sections of 7 periods. A glitched index
-  // (e.g. periodIndex 500) would back-date seasonStartsAt by over a year and
-  // silently rewrite the leaderboard season, so bound both.
-  if (sectionIndex > 5 || periodIndex > 34)
-    throw new Error("War clock indexes are out of range");
-  if (
-    clock.periodType !== "training" &&
-    clock.periodType !== "warDay" &&
-    clock.periodType !== "colosseum"
-  )
-    throw new Error("War clock period type is invalid");
-  const seasonStartsAt = isoDate(
-    clock.seasonStartsAt,
-    "War clock season start",
-  );
-  const observedAt = isoDate(clock.observedAt, "War clock observation");
-  if (Date.parse(seasonStartsAt) > Date.parse(observedAt))
-    throw new Error("War clock season start is after its observation");
-  const sourceClanTag = text(clock.sourceClanTag, "War clock clan tag", 20);
-  if (!CLASH_ROYALE_TAG_PATTERN.test(sourceClanTag))
-    throw new Error("War clock clan tag is invalid");
-  return {
-    version: 1,
-    type: "war-clock-result",
-    clock: {
-      crSeasonId,
-      sectionIndex,
-      periodIndex,
-      periodType: clock.periodType,
-      seasonStartsAt,
-      observedAt,
-      sourceClanTag,
-    },
-  };
-}
-
-export async function saveCrPlayerResult(
-  repository: Repository,
-  result: CrPlayerRefreshResult,
-): Promise<boolean> {
-  if (result.outcome === "unavailable") {
-    // Resolve the pending claim without touching an existing snapshot: a
-    // player with older ready data keeps it, while a first-time link shows
-    // "unavailable" instead of polling "pending" forever. The claim's retry
-    // window re-queues on the next login, session renewal, or tag save.
-    await repository.markCrRefreshUnavailable(
-      result.playerTag,
-      result.jobId,
-      result.completedAt,
-    );
-    return true;
-  }
-  return repository.saveCrProfileResult({
-    tag: result.playerTag,
-    status: result.outcome === "success" ? "ready" : "not_found",
-    ...(result.outcome === "success" ? result.player : {}),
-    fetchedAt: result.completedAt,
-    refreshRequestedAt: result.requestedAt,
-    updatedAt: result.completedAt,
-  });
-}
-
-export async function saveCrWarClockResult(
-  repository: Repository,
-  result: CrWarClockResult,
-): Promise<boolean> {
-  await finalizePreviousSeasonIfNeeded(repository, result.clock);
-  return repository.saveCrWarClock(result.clock);
-}
-
 export async function crResultHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
@@ -231,30 +39,9 @@ export async function crResultHandler(
   for (const record of event.Records) {
     try {
       const value = JSON.parse(record.body) as unknown;
-      const type = object(value, "Result").type;
-      if (type === "war-clock-result") {
-        const result = parseCrWarClockResult(value);
-        const saved = await saveCrWarClockResult(repository, result);
-        console.info("CR war clock processed", {
-          crSeasonId: result.clock.crSeasonId,
-          sectionIndex: result.clock.sectionIndex,
-          periodIndex: result.clock.periodIndex,
-          saved,
-        });
-      } else if (type === "podium-finalize") {
-        const result = parsePodiumFinalizeResult(value);
-        const summary = await finalizePodiumBadges(repository, result);
-        console.info("Season awards finalized", summary);
-      } else {
-        const result = parseCrPlayerResult(value);
-        const saved = await saveCrPlayerResult(repository, result);
-        console.info("CR player result processed", {
-          jobId: result.jobId,
-          playerTag: result.playerTag,
-          outcome: result.outcome,
-          saved,
-        });
-      }
+      const result = parsePodiumFinalizeResult(value);
+      const summary = await finalizePodiumBadges(repository, result);
+      console.info("Season awards finalized", summary);
     } catch (error) {
       console.error("CR bridge result failed", {
         messageId: record.messageId,

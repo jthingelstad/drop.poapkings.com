@@ -129,14 +129,10 @@ export function classifyPaths(inputPaths) {
 
     if (path.startsWith("services/api/") || path.startsWith("infra/")) continue;
 
-    // The bridge and Control Room have their own fixed-host operations. Their
-    // tests still run in non-browser verification, but this pipeline does not
-    // pretend to deploy them by republishing unrelated public surfaces.
-    if (
-      path.startsWith("services/cr-api-bridge/") ||
-      path.startsWith("services/admin/") ||
-      path.startsWith("apps/admin/")
-    ) {
+    // The Control Room has its own fixed-host operations. Its tests still
+    // run in non-browser verification, but this pipeline does not pretend
+    // to deploy it by republishing unrelated public surfaces.
+    if (path.startsWith("services/admin/") || path.startsWith("apps/admin/")) {
       continue;
     }
 

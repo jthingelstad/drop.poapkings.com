@@ -103,8 +103,8 @@ void test("shared packages and workflow changes take the fail-safe full path", (
 void test("fixed-host applications do not republish the unrelated public surfaces", () => {
   assert.deepEqual(
     classifyPaths([
-      "services/cr-api-bridge/src/index.ts",
       "apps/admin/src/App.tsx",
+      "services/admin/scripts/control-players.mjs",
     ]),
     {
       browser: false,

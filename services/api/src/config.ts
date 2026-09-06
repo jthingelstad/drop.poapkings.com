@@ -18,7 +18,6 @@ export interface Config {
   // trust the viewer IP overwritten by the request function without trusting a
   // public forwarding header on direct execute-api requests.
   webOriginToken?: string;
-  crRequestQueueUrl: string;
   // The Elixir MCP hub: Drop reads recorded Clash Royale history from it
   // and keeps its player collection current there. Optional so the app
   // runs unwired; every call site treats an absent hub as a no-op.
@@ -91,7 +90,6 @@ export function getConfig(): Config {
       process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
     webOriginToken:
       process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
-    crRequestQueueUrl: required("CR_REQUEST_QUEUE_URL"),
     elixirMcpBaseUrl: (
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),

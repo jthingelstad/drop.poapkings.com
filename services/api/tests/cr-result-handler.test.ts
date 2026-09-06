@@ -21,7 +21,9 @@ vi.mock("../src/podium.js", () => podium);
 
 import { crResultHandler } from "../src/cr-results.js";
 
-describe("CR result queue handler", () => {
+// The war-clock and player branches went with the bridge: both are
+// read from Elixir MCP now. Season repair is the last message here.
+describe("season repair queue handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
@@ -39,38 +41,6 @@ describe("CR result queue handler", () => {
       duplicates: 0,
     });
     vi.spyOn(console, "info").mockImplementation(() => undefined);
-  });
-
-  it("routes a war clock result to the singleton clock record", async () => {
-    const body = {
-      version: 1,
-      type: "war-clock-result",
-      clock: {
-        crSeasonId: 134,
-        sectionIndex: 1,
-        periodIndex: 12,
-        periodType: "warDay",
-        seasonStartsAt: "2026-07-06T10:00:00.000Z",
-        observedAt: "2026-07-18T19:00:00.000Z",
-        sourceClanTag: "#J2RGCRVG",
-      },
-    };
-    const response = await crResultHandler({
-      Records: [
-        {
-          messageId: "message-1",
-          body: JSON.stringify(body),
-        },
-      ],
-    } as SQSEvent);
-
-    expect(response.batchItemFailures).toEqual([]);
-    expect(repository.saveCrWarClock).toHaveBeenCalledWith(body.clock);
-    expect(podium.finalizePreviousSeasonIfNeeded).toHaveBeenCalledWith(
-      expect.anything(),
-      body.clock,
-    );
-    expect(repository.saveCrProfileResult).not.toHaveBeenCalled();
   });
 
   it("routes an explicit historical podium finalization through the same retrying consumer", async () => {

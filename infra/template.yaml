@@ -147,24 +147,9 @@ Resources:
         AttributeName: expiresAt
         Enabled: true
 
-  CrRequestDeadLetterQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: elixir-drop-cr-requests-dlq
-      MessageRetentionPeriod: 1209600
-      SqsManagedSseEnabled: true
-
-  CrRequestQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: elixir-drop-cr-requests
-      MessageRetentionPeriod: 345600
-      VisibilityTimeout: 60
-      SqsManagedSseEnabled: true
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt CrRequestDeadLetterQueue.Arn
-        maxReceiveCount: 5
-
+  # The bridge is retired; this pair survives as the season-repair
+  # channel only. podium-finalize is a manual command with no producer in
+  # the repo, and it is the last thing that rides this queue.
   CrResultDeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -182,22 +167,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt CrResultDeadLetterQueue.Arn
         maxReceiveCount: 5
-
-  CrBridgeHeartbeatPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: elixir-drop-cr-bridge-heartbeat
-      Users:
-        - elixir-drop-cr-bridge
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action: cloudwatch:PutMetricData
-            Resource: "*"
-            Condition:
-              StringEquals:
-                cloudwatch:namespace: ElixirDrop/CRBridge
 
   AlarmTopic:
     Type: AWS::SNS::Topic
@@ -338,9 +307,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${NameModelId}
                   - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*
-              - Effect: Allow
-                Action: sqs:SendMessage
-                Resource: !GetAtt CrRequestQueue.Arn
               - Effect: Allow
                 Action:
                   - sqs:ReceiveMessage
@@ -750,7 +716,6 @@ Resources:
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
-          CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
@@ -792,7 +757,6 @@ Resources:
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
-          CR_REQUEST_QUEUE_URL: !Ref CrRequestQueue
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
@@ -1145,32 +1109,12 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
-  CrRequestDeadLetterAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-cr-request-dlq
-      AlarmDescription: A Clash Royale player refresh request reached the dead-letter queue.
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt CrRequestDeadLetterQueue.QueueName
-      Statistic: Maximum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
   CrResultDeadLetterAlarm:
     Type: AWS::CloudWatch::Alarm
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-cr-result-dlq
-      AlarmDescription: A Clash Royale player or Clan Wars clock result reached the dead-letter queue.
+      AlarmDescription: A season-repair command reached the dead-letter queue.
       Namespace: AWS/SQS
       MetricName: ApproximateNumberOfMessagesVisible
       Dimensions:
@@ -1182,66 +1126,6 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  CrBridgeBacklogAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-cr-bridge-backlog
-      AlarmDescription: The fixed-IP bridge has not processed its oldest request within five minutes.
-      Namespace: AWS/SQS
-      MetricName: ApproximateAgeOfOldestMessage
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt CrRequestQueue.QueueName
-      Statistic: Maximum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 300
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  CrBridgeHeartbeatAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn:
-      - AlarmTopic
-      - CrBridgeHeartbeatPolicy
-    Properties:
-      AlarmName: elixir-drop-cr-bridge-heartbeat
-      AlarmDescription: The fixed-IP bridge has stopped reporting its heartbeat.
-      Namespace: ElixirDrop/CRBridge
-      MetricName: Heartbeat
-      Statistic: Maximum
-      Period: 300
-      EvaluationPeriods: 2
-      DatapointsToAlarm: 2
-      Threshold: 1
-      ComparisonOperator: LessThanThreshold
-      TreatMissingData: breaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  CrWarClockHeartbeatAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn:
-      - AlarmTopic
-      - CrBridgeHeartbeatPolicy
-    Properties:
-      AlarmName: elixir-drop-cr-war-clock-heartbeat
-      AlarmDescription: The fixed-IP bridge has not successfully relayed the Clan Wars clock for fifteen minutes.
-      Namespace: ElixirDrop/CRBridge
-      MetricName: WarClockHeartbeat
-      Statistic: Maximum
-      Period: 300
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 3
-      Threshold: 1
-      ComparisonOperator: LessThanThreshold
-      TreatMissingData: breaching
       AlarmActions:
         - !Ref AlarmTopic
 
@@ -2151,8 +2035,6 @@ Outputs:
     Value: !GetAtt WebDistribution.DomainName
   WebAccessLogGroupName:
     Value: !Ref WebAccessLogGroup
-  CrRequestQueueUrl:
-    Value: !Ref CrRequestQueue
   CrResultQueueUrl:
     Value: !Ref CrResultQueue
   AlarmTopicArn:
