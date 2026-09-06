@@ -238,14 +238,14 @@ export function runRecordResponse(
 
 export async function refreshedCrProfile(
   repository: Repository,
-  queueUrl: string,
+  config: Config,
   tag: string | undefined,
 ): Promise<CrProfileSnapshot | undefined> {
   if (!tag) return undefined;
   try {
-    return await requestCrProfileRefresh(repository, queueUrl, tag);
+    return await requestCrProfileRefresh(repository, config, tag);
   } catch (error) {
-    console.error("CR profile refresh could not be queued", {
+    console.error("CR profile refresh failed", {
       playerTag: tag,
       error: error instanceof Error ? error.name : "unknown",
     });

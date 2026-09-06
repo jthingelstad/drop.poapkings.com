@@ -363,7 +363,7 @@ export async function redeemMagicLink({
     void rememberPlayerInCollection(config, login.profile.playerTag);
     const crProfile = refreshedCrProfile(
       repository,
-      config.crRequestQueueUrl,
+      config,
       login.profile.playerTag,
     );
     await Promise.all([
@@ -429,7 +429,7 @@ export async function refreshSession({
   // linked profile keeps up without ever re-redeeming a magic link.
   const crProfile = await refreshedCrProfile(
     repository,
-    config.crRequestQueueUrl,
+    config,
     profile.playerTag,
   );
   await updateButtondownSubscriberMetadata(

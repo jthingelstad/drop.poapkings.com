@@ -723,11 +723,7 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   }
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? updates.playerTag
-      ? await refreshedCrProfile(
-          repository,
-          config.crRequestQueueUrl,
-          profile.playerTag,
-        )
+      ? await refreshedCrProfile(repository, config, profile.playerTag)
       : await repository.getCrProfile(profile.playerTag)
     : undefined;
   const completedProfile =

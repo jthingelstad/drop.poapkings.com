@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { callTool, addPlayerToCollection } from "../src/elixir-mcp.js";
 import { rememberPlayerInCollection } from "../src/elixir-collection.js";
+import {
+  fetchPlayerFromHub,
+  normalizeHubPlayer,
+} from "../src/elixir-player.js";
 import type { Config } from "../src/config.js";
 
 const config = {
@@ -137,5 +141,80 @@ describe("collection membership on the Drop side", () => {
     await expect(
       rememberPlayerInCollection(dropConfig, "#2YG98VVQ", fetcher),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("player enrichment from the hub", () => {
+  const raw = {
+    tag: "#UL2V9QRG0",
+    name: "raquaza",
+    role: "coLeader",
+    clan: { tag: "#J2RGCRVG", name: "POAP KINGS", badgeId: 16000107 },
+    badges: [
+      { name: "BattleWins", level: 5, progress: 2479 },
+      { name: "YearsPlayed", level: 4, progress: 1637, target: 1825 },
+    ],
+    cards: [
+      { id: 26000000, name: "Knight", iconUrls: { medium: "https://x/k.png" } },
+    ],
+  };
+
+  it("keeps exactly what Drop renders", () => {
+    const player = normalizeHubPlayer(raw);
+    expect(player.name).toBe("raquaza");
+    expect(player.clan).toEqual({
+      tag: "#J2RGCRVG",
+      name: "POAP KINGS",
+      badgeId: 16000107,
+      role: "coLeader",
+    });
+    // Account age is the YearsPlayed badge; progress is days played.
+    expect(player.accountAge).toEqual({ days: 1637, years: 4 });
+  });
+
+  it("does not keep the card collection", () => {
+    // Drop collected every card, shipped the array to the browser on
+    // every /me, and read it nowhere. The mode that dealt from it was
+    // removed in July 2026 and is prohibited in CLAUDE.md and SPEC.md.
+    expect(normalizeHubPlayer(raw)).not.toHaveProperty("cards");
+  });
+
+  it("tolerates a player with no clan and no badges", () => {
+    const player = normalizeHubPlayer({ name: "Solo" });
+    expect(player).toEqual({
+      name: "Solo",
+      clan: undefined,
+      accountAge: undefined,
+    });
+  });
+
+  it("drops a clan missing its badge rather than storing half of one", () => {
+    const player = normalizeHubPlayer({
+      name: "x",
+      clan: { tag: "#A", name: "A" },
+      role: "member",
+    });
+    expect(player.clan).toBeUndefined();
+  });
+
+  it("refuses a payload with no name", () => {
+    expect(() => normalizeHubPlayer({ tag: "#A" })).toThrow(/invalid player/);
+  });
+
+  it("asks the hub for the live player passthrough", async () => {
+    const fetcher = hubReply({ path: "/players/x", live: true, data: raw });
+    const player = await fetchPlayerFromHub(
+      {
+        elixirMcpBaseUrl: "https://elixir.example",
+        elixirMcpKey: "svt_test",
+      } as Config,
+      "#UL2V9QRG0",
+      fetcher,
+    );
+    expect(player.name).toBe("raquaza");
+    const sent: { params: { name: string; arguments: { path: string } } } =
+      JSON.parse(fetcher.mock.calls[0]![1].body as string);
+    expect(sent.params.name).toBe("live_fetch");
+    expect(sent.params.arguments.path).toBe("/players/%23UL2V9QRG0");
   });
 });

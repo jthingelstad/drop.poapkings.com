@@ -220,7 +220,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(200);
     expect(requestCrProfileRefresh).toHaveBeenCalledWith(
       expect.anything(),
-      "https://sqs.example/requests",
+      expect.objectContaining({ elixirMcpBaseUrl: expect.any(String) }),
       profile.playerTag,
     );
     expect(enrollButtondownSubscriber).toHaveBeenCalledWith(
@@ -689,7 +689,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(200);
     expect(requestCrProfileRefresh).toHaveBeenCalledWith(
       expect.anything(),
-      "https://sqs.example/requests",
+      expect.objectContaining({ elixirMcpBaseUrl: expect.any(String) }),
       profile.playerTag,
     );
     expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
