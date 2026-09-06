@@ -4,6 +4,7 @@ import { rememberPlayerInCollection } from "../src/elixir-collection.js";
 import {
   fetchPlayerFromHub,
   normalizeHubPlayer,
+  normalizeRecordedPlayer,
 } from "../src/elixir-player.js";
 import { fetchWarClockFromHub, toWarClock } from "../src/elixir-war-clock.js";
 import type { Config } from "../src/config.js";
@@ -202,8 +203,26 @@ describe("player enrichment from the hub", () => {
     expect(() => normalizeHubPlayer({ tag: "#A" })).toThrow(/invalid player/);
   });
 
-  it("asks the hub for the live player passthrough", async () => {
-    const fetcher = hubReply({ path: "/players/x", live: true, data: raw });
+  it("percent-encodes the tag on the live passthrough", async () => {
+    // Reached only when the record cannot answer; the hash in a Clash
+    // Royale tag has to survive into the path.
+    let call = 0;
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
+      call += 1;
+      const result =
+        call === 1
+          ? {
+              isError: true,
+              content: [{ text: JSON.stringify({ error: "not_recorded" }) }],
+            }
+          : { content: [{ text: JSON.stringify({ data: raw }) }] };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ jsonrpc: "2.0", id: call, result }),
+        text: async () => "",
+      };
+    });
     const player = await fetchPlayerFromHub(
       {
         elixirMcpBaseUrl: "https://elixir.example",
@@ -214,7 +233,7 @@ describe("player enrichment from the hub", () => {
     );
     expect(player.name).toBe("raquaza");
     const sent: { params: { name: string; arguments: { path: string } } } =
-      JSON.parse(fetcher.mock.calls[0]![1].body as string);
+      JSON.parse(fetcher.mock.calls[1]![1].body as string);
     expect(sent.params.name).toBe("live_fetch");
     expect(sent.params.arguments.path).toBe("/players/%23UL2V9QRG0");
   });
@@ -304,5 +323,101 @@ describe("the Clan Wars clock from the hub", () => {
       JSON.parse(fetcher.mock.calls[0]![1].body as string);
     expect(sent.params.name).toBe("war_current");
     expect(sent.params.arguments.clan_tag).toBe("#J2RGCRVG");
+  });
+});
+
+describe("enrichment prefers the record over a live read", () => {
+  const dropConfig = {
+    elixirMcpBaseUrl: "https://elixir.example",
+    elixirMcpKey: "svt_test",
+  } as Config;
+
+  const recorded = {
+    player_tag: "#UL2V9QRG0",
+    name: "raquaza",
+    clan: {
+      clan_tag: "#J2RGCRVG",
+      name: "POAP KINGS",
+      badge_id: 16000107,
+      role: "coLeader",
+    },
+    attributes: { years_played: 4, account_age_days: 1637 },
+  };
+
+  it("maps the recorded profile onto what Drop renders", () => {
+    const player = normalizeRecordedPlayer(recorded);
+    expect(player).toEqual({
+      name: "raquaza",
+      clan: {
+        tag: "#J2RGCRVG",
+        name: "POAP KINGS",
+        badgeId: 16000107,
+        role: "coLeader",
+      },
+      accountAge: { days: 1637, years: 4 },
+    });
+  });
+
+  it("drops a recorded clan whose badge was never observed", () => {
+    // Same rule as the live payload: half a clan is not stored.
+    const player = normalizeRecordedPlayer({
+      ...recorded,
+      clan: { ...recorded.clan, badge_id: null },
+    });
+    expect(player?.clan).toBeUndefined();
+  });
+
+  it("reads history and never touches the live passthrough", async () => {
+    const fetcher = hubReply(recorded);
+    const player = await fetchPlayerFromHub(dropConfig, "#UL2V9QRG0", fetcher);
+    expect(player.name).toBe("raquaza");
+    expect(fetcher).toHaveBeenCalledOnce();
+    const sent: { params: { name: string } } = JSON.parse(
+      fetcher.mock.calls[0]![1].body as string,
+    );
+    expect(sent.params.name).toBe("players_profile");
+  });
+
+  it("falls back to a live read for a tag the hub has never seen", async () => {
+    // The ordinary cold case: somebody just linked their tag.
+    let call = 0;
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
+      call += 1;
+      const body =
+        call === 1
+          ? {
+              isError: true,
+              content: [
+                {
+                  text: JSON.stringify({
+                    error: "not_recorded",
+                    message: "#X is not in the record yet.",
+                  }),
+                },
+              ],
+            }
+          : {
+              content: [
+                {
+                  text: JSON.stringify({
+                    data: { name: "Newcomer", badges: [] },
+                  }),
+                },
+              ],
+            };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ jsonrpc: "2.0", id: call, result: body }),
+        text: async () => "",
+      };
+    });
+    const player = await fetchPlayerFromHub(dropConfig, "#XYZ", fetcher);
+    expect(player.name).toBe("Newcomer");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const second: { params: { name: string } } = JSON.parse(
+      fetcher.mock.calls[1]![1].body as string,
+    );
+    expect(second.params.name).toBe("live_fetch");
   });
 });

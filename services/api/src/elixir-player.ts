@@ -93,20 +93,95 @@ export function normalizeHubPlayer(payload: unknown): HubPlayer {
   };
 }
 
+interface RecordedProfile {
+  name?: string;
+  clan?: {
+    clan_tag?: string;
+    name?: string;
+    badge_id?: number | null;
+    role?: string | null;
+  } | null;
+  attributes?: {
+    years_played?: number | null;
+    account_age_days?: number | null;
+  };
+}
+
 /**
- * One live read of a player through the hub.
+ * The same three facts, from the hub's RECORDED history.
  *
- * live_fetch is an allowlisted passthrough that spends the hub's own
- * recording budget, so it is rate limited and worth deduping — which
- * the 6-hour claim in cr-refresh.ts already does.
+ * Everything Drop renders is recorded now, so the ordinary path costs no
+ * Clash Royale budget and no seconds on a login. Returns undefined when
+ * the record cannot answer, which is the signal to fall back.
+ */
+export function normalizeRecordedPlayer(
+  profile: RecordedProfile,
+): HubPlayer | undefined {
+  if (typeof profile.name !== "string" || !profile.name) return undefined;
+  const clan = profile.clan;
+  const badgeId = nonnegativeInteger(clan?.badge_id ?? undefined);
+  const days = nonnegativeInteger(
+    profile.attributes?.account_age_days ?? undefined,
+  );
+  const years = nonnegativeInteger(
+    profile.attributes?.years_played ?? undefined,
+  );
+  return {
+    name: profile.name,
+    // Same rule as the live payload: a clan without its badge is half a
+    // clan, and half a clan is not stored.
+    clan:
+      clan?.clan_tag && clan.name && badgeId !== undefined
+        ? {
+            tag: clan.clan_tag,
+            name: clan.name,
+            badgeId,
+            ...(clan.role ? { role: clan.role } : {}),
+          }
+        : undefined,
+    accountAge:
+      days === undefined && years === undefined ? undefined : { days, years },
+  };
+}
+
+/**
+ * Read one player through the hub: the record first, live only if the
+ * record cannot answer.
+ *
+ * A tag Drop has just been given is usually one the hub has never seen,
+ * so the first read is live and the hub records that result
+ * opportunistically. Every read after it comes from history: no
+ * Supercell call, no seconds on the login path, for facts that change
+ * about as often as somebody changes clan.
  */
 export async function fetchPlayerFromHub(
   config: Config,
   tag: string,
   fetcher?: ElixirMcpFetch,
 ): Promise<HubPlayer> {
+  const hub = { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey };
+  try {
+    const recorded = await callTool<RecordedProfile>(
+      hub,
+      "players_profile",
+      { player_tag: tag },
+      fetcher,
+    );
+    const player = normalizeRecordedPlayer(recorded);
+    if (player) return player;
+  } catch (error) {
+    // not_recorded is the ordinary cold case, not a failure worth
+    // logging every time somebody links a new tag.
+    const code = (error as { code?: string }).code;
+    if (code !== "not_recorded" && code !== "not_found") {
+      console.warn("Elixir MCP recorded profile unavailable; reading live", {
+        playerTag: tag,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   const response = await callTool<{ data?: unknown }>(
-    { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey },
+    hub,
     "live_fetch",
     { path: `/players/${encodeURIComponent(tag)}` },
     fetcher,
