@@ -6,7 +6,6 @@ export {
 import type {
   AccountTag,
   ClashRoyaleAccountAge,
-  ClashRoyaleCard,
   ClashRoyaleClan,
   ClashRoyaleProfile,
   CrWarClock,
@@ -283,7 +282,6 @@ export interface CrProfileSnapshot {
   name?: string;
   clan?: ClashRoyaleClan;
   accountAge?: ClashRoyaleAccountAge;
-  cards?: ClashRoyaleCard[];
   fetchedAt?: string;
   refreshRequestedAt?: string;
   updatedAt: string;

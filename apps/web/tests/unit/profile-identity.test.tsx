@@ -100,13 +100,8 @@ describe('favorite-card identity', () => {
           role: 'coLeader'
         },
         accountAge: { days: 2_930, years: 8 },
-        cards: [
-          {
-            id: 26000000,
-            name: 'Knight',
-            iconUrl: 'https://api-assets.clashroyale.com/cards/300/knight.png'
-          }
-        ],
+        // The card collection is no longer collected, stored, or sent:
+        // the profile shape simply has nowhere to put one now.
         fetchedAt: '2026-07-18T12:00:00.000Z'
       }
     }

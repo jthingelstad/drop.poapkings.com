@@ -507,12 +507,6 @@ export const CLASH_ROYALE_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
 export type ClashRoyaleProfileStatus =
   "pending" | "ready" | "not_found" | "unavailable";
 
-export interface ClashRoyaleCard {
-  id: number;
-  name: string;
-  iconUrl?: string;
-}
-
 export interface ClashRoyaleClan {
   tag: string;
   name: string;
@@ -531,52 +525,9 @@ export interface ClashRoyaleProfile {
   name?: string;
   clan?: ClashRoyaleClan;
   accountAge?: ClashRoyaleAccountAge;
-  cards?: ClashRoyaleCard[];
   fetchedAt?: string;
   refreshRequestedAt?: string;
 }
-
-export interface CrPlayerRefreshRequest {
-  version: 1;
-  type: "refresh-player";
-  jobId: string;
-  playerTag: string;
-  requestedAt: string;
-}
-
-export interface CrPlayerSnapshot {
-  name: string;
-  clan?: ClashRoyaleClan;
-  accountAge?: ClashRoyaleAccountAge;
-  cards: ClashRoyaleCard[];
-}
-
-interface CrPlayerRefreshResultBase {
-  version: 1;
-  type: "player-result";
-  jobId: string;
-  playerTag: string;
-  requestedAt: string;
-  completedAt: string;
-}
-
-export interface CrPlayerRefreshSuccess extends CrPlayerRefreshResultBase {
-  outcome: "success";
-  player: CrPlayerSnapshot;
-}
-
-export interface CrPlayerRefreshNotFound extends CrPlayerRefreshResultBase {
-  outcome: "not_found";
-}
-
-// The Clash Royale API answered with a transient failure (429/5xx, timeout);
-// the profile is marked unavailable instead of poisoning the request queue.
-export interface CrPlayerRefreshUnavailable extends CrPlayerRefreshResultBase {
-  outcome: "unavailable";
-}
-
-export type CrPlayerRefreshResult =
-  CrPlayerRefreshSuccess | CrPlayerRefreshNotFound | CrPlayerRefreshUnavailable;
 
 export interface CrWarClock {
   crSeasonId: number;
@@ -588,16 +539,10 @@ export interface CrWarClock {
   sourceClanTag: string;
 }
 
-export interface CrWarClockResult {
-  version: 1;
-  type: "war-clock-result";
-  clock: CrWarClock;
-}
-
-// Internal result-queue command used by the API consumer to finalize one
-// historical Drop season. It shares the consumer with bridge results so the
-// same retry and dead-letter behavior protects both automatic rollovers and
-// explicit historical repairs.
+// The manual season-repair command, and the only thing left on the result
+// queue now that the bridge is retired. Automatic finalization rides the
+// war-clock refresh; this is how a missed season is closed by hand, with the
+// queue's retry and dead-letter behavior behind it.
 export interface PodiumFinalizeResult {
   version: 1;
   type: "podium-finalize";

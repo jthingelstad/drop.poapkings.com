@@ -51,12 +51,6 @@ export const seasonSchema = z.object({
   clockUpdatedAt: z.optional(isoDateTime)
 })
 
-const clashRoyaleCardSchema = z.object({
-  id: cardId,
-  name: nonEmptyString,
-  iconUrl: z.optional(z.string().url())
-})
-
 const clashRoyaleClanSchema = z.object({
   tag: nonEmptyString,
   name: nonEmptyString,
@@ -75,7 +69,6 @@ const clashRoyaleProfileSchema = z.object({
       years: z.optional(nonNegativeInteger)
     })
   ),
-  cards: z.optional(z.array(clashRoyaleCardSchema)),
   fetchedAt: z.optional(isoDateTime),
   refreshRequestedAt: z.optional(isoDateTime)
 })
