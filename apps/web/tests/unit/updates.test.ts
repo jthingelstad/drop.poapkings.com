@@ -10,6 +10,12 @@ describe('player updates', () => {
     expect(entries.length).toBeGreaterThan(0)
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(entries.some((entry) => entry.kind === 'season')).toBe(true)
+    expect(entries[0]).toMatchObject({
+      id: 'minion-giant-joins-drop',
+      kind: 'feature',
+      impact: 'learning',
+      title: 'Minion Giant drops into every game'
+    })
     expect(
       entries
         .filter((entry) => entry.kind === 'feature')

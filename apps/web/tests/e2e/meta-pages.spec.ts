@@ -53,6 +53,7 @@ test('the combined player-updates RSS feed is generated and discoverable', async
   expect(feed).toContain('<category>Feature</category>')
   expect(feed).toContain('<category>Season</category>')
   expect(feed).not.toContain('<category>Message</category>')
+  expect(feed).toContain('https://drop.poapkings.com/updates/#minion-giant-joins-drop')
   expect(feed).toContain('https://drop.poapkings.com/updates/#community-badges-enter-the-arena')
 })
 

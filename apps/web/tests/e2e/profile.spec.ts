@@ -200,8 +200,13 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
   await page.getByRole('tab', { name: 'Updates' }).click()
   await expect(page.locator('.ed-updates__referee-note')).toHaveText('Runs stay ranked while the referee checks them.')
 
+  const newCard = page.getByRole('button', { name: /Minion Giant drops into every game/ })
   const unread = page.getByRole('button', { name: /Three community badges enter the arena/ })
   const alreadyRead = page.getByRole('button', { name: /Desktop enters the arena/ })
+  await expect(newCard).toHaveAttribute('aria-expanded', 'true')
+  await expect(newCard.locator('xpath=following-sibling::*[1]')).toContainText(
+    'Minion Giant has joined Elixir Drop as a 4-elixir troop.'
+  )
   await expect(unread).toHaveAttribute('aria-expanded', 'true')
   await expect(alreadyRead).toHaveAttribute('aria-expanded', 'false')
   await expect.poll(() => markedRead).toBe(true)
@@ -219,6 +224,7 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
   await page.goto('/updates/')
   await expect(page).toHaveURL(/\/updates\/$/)
   await expect(page.getByRole('heading', { name: 'Elixir Drop Updates' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Minion Giant drops into every game' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Your battle name found more personality' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Follow via RSS' })).toHaveAttribute('href', '/feed.xml')
   await testInfo.attach('updates-archive.png', {

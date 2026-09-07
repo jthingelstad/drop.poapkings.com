@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "features": [
     {
+      "id": "minion-giant-joins-drop",
+      "impact": "learning",
+      "publishedAt": "2026-09-07T11:11:44Z",
+      "title": "Minion Giant drops into every game",
+      "body": "**Minion Giant** has joined Elixir Drop as a **4-elixir** troop. It can now appear across every game—from Practice recall to Rain—and its full card art is ready from the first deal. [Meet the complete catalog](/elixir-costs/)."
+    },
+    {
       "id": "playtested-badge-milestones",
       "impact": "progression",
       "publishedAt": "2026-09-06T22:51:18Z",
