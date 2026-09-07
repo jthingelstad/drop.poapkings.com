@@ -186,6 +186,8 @@ const AVATAR_CROP_OVERRIDES: Partial<Record<number, Partial<AvatarCrop>>> = {
   26000103: { x: 37, y: 51, scale: 1.37 },
   // Ronin
   26000106: { x: 39, y: 49, scale: 1.37 },
+  // Minion Giant
+  26000107: { x: 50, y: 48, scale: 1.21 },
   // Cannon
   27000000: { x: 56, y: 40, scale: 1.37 },
   // Goblin Hut

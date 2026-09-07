@@ -153,6 +153,7 @@ export const CARD_NAME_FLAVORS: Readonly<Record<number, CardNameFlavor>> = {
   26000102: { motifs: ["Twin Axes", "Wild Swing", "Fast Fury"] },
   26000103: { motifs: ["Boss Dash", "Double Dash", "Bandit Crown"] },
   26000106: { motifs: ["Swift Blade", "Wind Slash", "Wandering Sword"] },
+  26000107: { motifs: ["Giant Wings", "Toxic Glob", "Tower Dive"] },
   27000000: { motifs: ["Cannon Boom", "Iron Barrel", "Tower Shot"] },
   27000001: { motifs: ["Spear Shack", "Gob Hut", "Green Door"] },
   27000002: { motifs: ["Long Lob", "Stone Shot", "Mortar Arc"] },

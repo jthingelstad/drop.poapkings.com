@@ -1,4 +1,4 @@
-import { expect, isDesktopViewport, test } from './fixtures'
+import { cardsData, expect, isDesktopViewport, test } from './fixtures'
 
 const pages = [
   { slug: 'games', title: 'Elixir Drop Game Modes', primary: true },
@@ -112,7 +112,7 @@ test('generated guides expose the canonical public content without revealing hid
   await expect(page.getByRole('heading', { name: 'Learn Clash Royale Elixir Costs' })).toBeVisible()
 
   await page.goto('/elixir-costs/')
-  await expect(page.locator('.static-card-grid li')).toHaveCount(120)
+  await expect(page.locator('.static-card-grid li')).toHaveCount(cardsData.cards.length)
   await expect(page.getByText('Three Musketeers', { exact: true })).toBeVisible()
 
   await page.goto('/badges/')

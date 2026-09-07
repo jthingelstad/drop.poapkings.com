@@ -1,6 +1,6 @@
 {
-  "version": "2026-08-14",
-  "count": 120,
+  "version": "2026-09-07",
+  "count": 121,
   "cards": [
     {
       "id": 26000000,
@@ -907,6 +907,16 @@
       "evo": false,
       "hero": false,
       "icon": "/cards/26000106.png"
+    },
+    {
+      "id": 26000107,
+      "name": "Minion Giant",
+      "elixir": 4,
+      "rarity": "rare",
+      "type": "troop",
+      "evo": false,
+      "hero": false,
+      "icon": "/cards/26000107.png"
     },
     {
       "id": 27000000,

@@ -923,7 +923,7 @@ export const BADGES = [
 
   // ── Card knowledge (4). Scaled, except Catalog. ───────────────────────────
   {
-    // Bounded by the catalog itself (120 cards), so self-calibrating.
+    // Bounded by the catalog itself, so self-calibrating as cards are added.
     slug: "catalog",
     name: "Catalog",
     group: "card-knowledge",

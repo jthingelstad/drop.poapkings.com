@@ -25,14 +25,10 @@ const DATA_PATH = join(REPO_ROOT, 'packages/game-data/cards.json')
 const CR_API = 'https://api.clashroyale.com/v1'
 
 // Occasionally a new card is published by the API before its api-assets URL is
-// available. Keep official Supercell fallbacks narrowly scoped and only use
-// them while the API-provided image returns an error.
-const OFFICIAL_ICON_FALLBACKS = new Map([
-  [
-    26000106,
-    'https://clashroyale.inbox.supercell.com/9jtsgmsiuthj/2vhkjOKDPu5mgAFjM2uLJ0/b1c8a89dfc8bc5deeb290c6921efe77e/ronin.png'
-  ]
-])
+// available. Keep temporary published-art fallbacks narrowly scoped and only
+// use them while the API-provided image returns an error. The refresh still
+// vendors the image locally; the website never loads it from the fallback host.
+const ICON_FALLBACKS = new Map([[26000107, 'https://cdn.royaleapi.com/static/img/cards/minion-giant.png']])
 
 // ── Args ──────────────────────────────────────────────────────────────────────
 
@@ -154,10 +150,10 @@ for (const card of data.items ?? []) {
   let iconEvo = card.iconUrls?.evolutionMedium ?? ''
   let iconHero = card.iconUrls?.heroMedium ?? ''
 
-  const officialFallback = OFFICIAL_ICON_FALLBACKS.get(card.id)
-  if (officialFallback && !(await imageIsAvailable(icon))) {
-    console.warn(`Using official Supercell image fallback for ${card.name}; API asset is unavailable.`)
-    icon = officialFallback
+  const iconFallback = ICON_FALLBACKS.get(card.id)
+  if (iconFallback && !(await imageIsAvailable(icon))) {
+    console.warn(`Using published image fallback for ${card.name}; API asset is unavailable.`)
+    icon = iconFallback
   }
 
   if (MIRROR && icon) {
