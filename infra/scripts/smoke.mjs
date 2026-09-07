@@ -76,7 +76,7 @@ for (const origin of allowedOrigins) {
   }
 }
 
-await waitForFreshSeasonClock(async () => {
+const statsBody = await waitForFreshSeasonClock(async () => {
   const stats = await fetch(`${apiBaseUrl}/stats`, {
     signal: AbortSignal.timeout(5_000),
   });
