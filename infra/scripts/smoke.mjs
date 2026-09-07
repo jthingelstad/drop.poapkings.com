@@ -6,6 +6,7 @@ import {
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.mjs";
+import { waitForFreshSeasonClock } from "./refresh-readiness.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
@@ -75,36 +76,24 @@ for (const origin of allowedOrigins) {
   }
 }
 
-const stats = await fetch(`${apiBaseUrl}/stats`);
-if (!stats.ok) throw new Error("Stats check failed");
-const statsBody = await stats.json();
-if (
-  !Number.isSafeInteger(statsBody.trophyRoadGames) ||
-  statsBody.trophyRoadGames < 592 ||
-  !statsBody.currentSeason?.id ||
-  "totalGames" in statsBody ||
-  "completedGames" in statsBody ||
-  "authenticatedGames" in statsBody
-) {
-  throw new Error("Stats response does not match the Trophy Road contract");
-}
-if (
-  statsBody.currentSeason.source !== "clash-royale" ||
-  !Number.isSafeInteger(statsBody.currentSeason.id) ||
-  statsBody.currentSeason.id <= 0 ||
-  !statsBody.currentSeason.clockUpdatedAt
-) {
-  throw new Error("Stats are not using the live Clash Royale season clock");
-}
-const clockAgeMs =
-  Date.now() - Date.parse(statsBody.currentSeason.clockUpdatedAt);
-if (
-  !Number.isFinite(clockAgeMs) ||
-  clockAgeMs < 0 ||
-  clockAgeMs > 15 * 60_000
-) {
-  throw new Error("Clash Royale season clock is more than fifteen minutes old");
-}
+await waitForFreshSeasonClock(async () => {
+  const stats = await fetch(`${apiBaseUrl}/stats`, {
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!stats.ok) throw new Error("Stats check failed");
+  const statsBody = await stats.json();
+  if (
+    !Number.isSafeInteger(statsBody.trophyRoadGames) ||
+    statsBody.trophyRoadGames < 592 ||
+    !statsBody.currentSeason?.id ||
+    "totalGames" in statsBody ||
+    "completedGames" in statsBody ||
+    "authenticatedGames" in statsBody
+  ) {
+    throw new Error("Stats response does not match the Trophy Road contract");
+  }
+  return statsBody;
+});
 
 const leaderboard = await fetch(`${apiBaseUrl}/leaderboards?mode=surge`);
 if (!leaderboard.ok) throw new Error("Leaderboard check failed");
