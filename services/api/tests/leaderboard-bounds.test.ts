@@ -65,10 +65,120 @@ describe("leaderboard read bounds", () => {
 
     const entries = await seasonLeaderboard("test-table", "surge", 133, 50);
 
-    // 10 board pages, each with its own decision BatchGet, then one profile
-    // hydration — and nothing more.
-    expect(send).toHaveBeenCalledTimes(21);
+    // Ten pages remain the backstop for short DynamoDB pages, but the already
+    // ranked player's lower runs need no more decision reads.
+    expect(send).toHaveBeenCalledTimes(12);
     expect(entries).toHaveLength(1);
+  });
+
+  function serveSeasonHistory(
+    rows: Array<Record<string, unknown>>,
+    decisions: Record<string, Record<string, unknown>> = {},
+  ) {
+    const reviewed: string[] = [];
+    const limits: number[] = [];
+    send.mockImplementation(async (command) => {
+      const input = command.input;
+      if (input.IndexName === "GSI1") {
+        const offset = input.ExclusiveStartKey?.offset ?? 0;
+        limits.push(input.Limit);
+        const Items = rows.slice(offset, offset + input.Limit);
+        return {
+          Items,
+          ScannedCount: Items.length,
+          ...(offset + Items.length < rows.length
+            ? { LastEvaluatedKey: { offset: offset + Items.length } }
+            : {}),
+        };
+      }
+      const keys = input.RequestItems["test-table"].Keys as Array<{
+        pk: string;
+      }>;
+      const ids = keys
+        .filter(({ pk }) => pk.startsWith("REFEREE#"))
+        .map(({ pk }) => pk.slice(8));
+      reviewed.push(...ids);
+      return {
+        Responses: {
+          "test-table": ids.flatMap((runId) =>
+            decisions[runId] ? [{ runId, ...decisions[runId] }] : [],
+          ),
+        },
+      };
+    });
+    return { reviewed, limits };
+  }
+
+  it("reads dense history in two pages and reviews only each player's best", async () => {
+    const rows = Array.from({ length: 800 }, (_, index) =>
+      historyRow(index, {
+        playerSub: index < 780 ? "grinder" : `player-${index}`,
+      }),
+    );
+    const { reviewed, limits } = serveSeasonHistory(rows);
+    const entries = await seasonLeaderboard("test-table", "surge", 135);
+    expect(entries.map((entry) => entry.score)).toEqual([
+      50_000,
+      ...rows.slice(780).map((row) => row.score),
+    ]);
+    expect(limits).toEqual([200, 1_000]);
+    expect(reviewed).toEqual([
+      "run-0",
+      ...rows.slice(780).map((row) => row.runId),
+    ]);
+    expect(send).toHaveBeenCalledTimes(5); // two queries, two decision batches, profiles
+  });
+
+  it("preserves the 2,000-row budget when continuation pages grow", async () => {
+    const rows = Array.from({ length: 2_001 }, (_, index) =>
+      historyRow(index, {
+        ...(index === 2_000 ? { playerSub: "past-budget" } : {}),
+      }),
+    );
+    const { reviewed, limits } = serveSeasonHistory(rows);
+    const entries = await seasonLeaderboard("test-table", "surge", 135);
+    expect(entries).toHaveLength(1);
+    expect(limits).toEqual([200, 1_000, 800]);
+    expect(reviewed).toEqual(["run-0"]);
+  });
+
+  it("keeps excluded-run fallback and pending podium policy in rank order", async () => {
+    const rows = [
+      historyRow(1),
+      historyRow(2),
+      historyRow(3, { playerSub: "other" }),
+      historyRow(4),
+    ];
+    const decisions = {
+      "run-1": {
+        visibility: "hidden",
+        disposition: "review",
+        decidedBy: "fair-play-referee",
+      },
+      "run-2": {
+        visibility: "hidden",
+        disposition: "review",
+        decidedBy: "integrity-gate",
+      },
+      "run-4": {
+        visibility: "visible",
+        disposition: "clear",
+        decidedBy: "fair-play-referee",
+      },
+    };
+    serveSeasonHistory(rows, decisions);
+    const entries = await seasonLeaderboard("test-table", "surge", 135);
+    expect(
+      entries.map(({ score, reviewStatus }) => ({ score, reviewStatus })),
+    ).toEqual([
+      { score: 50_002, reviewStatus: "pending" },
+      { score: 50_003, reviewStatus: undefined },
+    ]);
+    serveSeasonHistory(rows, decisions);
+    expect(await seasonPodiumFinishers("test-table", "surge", 135)).toEqual([
+      "other",
+      "grinder",
+    ]);
   });
 
   it("bounds the legacy all-time run lookup and reports it as unavailable", async () => {

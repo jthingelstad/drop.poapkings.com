@@ -29,6 +29,10 @@ const BOARD_PAGE_SIZE = 200;
 // Ten 200-item pages of one player's dense run history is already an extreme
 // board.
 const MAX_BOARD_PAGES = 10;
+const MAX_SEASON_ITEMS = BOARD_PAGE_SIZE * MAX_BOARD_PAGES;
+// Start small for full boards/leader checks. If history is dense, fetch the
+// remaining candidates in larger pages without increasing the 2,000-row cap.
+const SEASON_CONTINUATION_SIZE = 1_000;
 const PLAYER_RUN_PAGE_SIZE = 500;
 // A player-history walk is the expensive one: the all-time path runs it per
 // board row (up to BOARD_PAGE_SIZE of them concurrently), per page, so its
@@ -142,6 +146,7 @@ async function seasonLeaderboardItems(
   const seenPlayers = new Set<string>();
   let lastKey: Record<string, unknown> | undefined;
   let pagesRead = 0;
+  let rowsRead = 0;
   do {
     const result = await client.send(
       new QueryCommand({
@@ -152,17 +157,28 @@ async function seasonLeaderboardItems(
           ":pk": leaderboardPartition(seasonId, mode),
         },
         ScanIndexForward: true,
-        Limit: BOARD_PAGE_SIZE,
+        Limit: Math.min(
+          pagesRead === 0 ? BOARD_PAGE_SIZE : SEASON_CONTINUATION_SIZE,
+          MAX_SEASON_ITEMS - rowsRead,
+        ),
         ExclusiveStartKey: lastKey,
       }),
     );
     pagesRead += 1;
+    rowsRead += result.ScannedCount ?? result.Items?.length ?? 0;
     const pageItems = ((result.Items ?? []) as BoardItem[]).filter((item) =>
       isLeaderboardEligibleScore(Number(item.score)),
     );
     if (pageItems.some((item) => typeof item.runId !== "string"))
       throw historyUnavailable();
-    const decisions = await refereeDecisions(tableName, runIdsOf(pageItems));
+    const candidates = pageItems.filter(
+      (item) => !seenPlayers.has(String(item.playerSub)),
+    );
+    const decisions = await seasonCandidateDecisions(
+      tableName,
+      candidates,
+      pending,
+    );
     for (const item of pageItems) {
       const decision = decisions.get(String(item.runId));
       if (isExcludedFromBoards(decision)) continue;
@@ -176,9 +192,55 @@ async function seasonLeaderboardItems(
       }
     }
     lastKey = result.LastEvaluatedKey;
-  } while (items.length < limit && lastKey && pagesRead < MAX_BOARD_PAGES);
+  } while (
+    items.length < limit &&
+    lastKey &&
+    pagesRead < MAX_BOARD_PAGES &&
+    rowsRead < MAX_SEASON_ITEMS
+  );
 
   return items;
+}
+
+// An ordered page only needs a player's leading run reviewed. Read their
+// lower runs only if that candidate is excluded (or held for final awards).
+// Resolve fallback candidates in batches, not one network round trip per run.
+async function seasonCandidateDecisions(
+  tableName: string,
+  items: BoardItem[],
+  pending: PendingPolicy,
+): Promise<Map<string, RefereeDecision>> {
+  const leading = new Map<string, BoardItem>();
+  for (const item of items) {
+    const sub = String(item.playerSub);
+    if (!leading.has(sub)) leading.set(sub, item);
+  }
+  const leaders = [...leading.values()];
+  const leadingIds = new Set(runIdsOf(leaders));
+  const decisions = await refereeDecisions(tableName, [...leadingIds]);
+  const needsFallback = new Set(
+    leaders
+      .filter((item) => {
+        const decision = decisions.get(String(item.runId));
+        return (
+          isExcludedFromBoards(decision) ||
+          (pending === "withhold" &&
+            refereeReviewStatus(decision) === "pending")
+        );
+      })
+      .map((item) => String(item.playerSub)),
+  );
+  const fallbacks = items.filter(
+    (item) =>
+      needsFallback.has(String(item.playerSub)) &&
+      !leadingIds.has(String(item.runId)),
+  );
+  for (const [runId, decision] of await refereeDecisions(
+    tableName,
+    runIdsOf(fallbacks),
+  ))
+    decisions.set(runId, decision);
+  return decisions;
 }
 
 // Best-ever board: one item per player per ranked mode already lives in the

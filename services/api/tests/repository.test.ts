@@ -706,6 +706,7 @@ describe("repository DynamoDB requests", () => {
           ],
         },
       })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
       .mockResolvedValueOnce({
         Responses: {
           "test-table": [
@@ -734,6 +735,10 @@ describe("repository DynamoDB requests", () => {
     expect(decisionRead.input.RequestItems["test-table"].ConsistentRead).toBe(
       true,
     );
+    expect(send.mock.calls[2]?.[0].input.RequestItems["test-table"]).toEqual({
+      ConsistentRead: true,
+      Keys: [{ pk: "REFEREE#run-a-visible", sk: "CURRENT" }],
+    });
 
     expect(entries).toMatchObject([
       { rank: 1, score: 12_000, player: { publicName: "Bolt" } },

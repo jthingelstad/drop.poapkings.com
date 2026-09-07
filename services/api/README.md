@@ -214,7 +214,12 @@ boundary.
 
 `GET /leaderboards?mode=…` takes an optional `scope`. `scope=season` (default)
 returns the current or requested season board from the `LEADERBOARD#{seasonId}#{mode}`
-GSI partition. `scope=all-time` returns the best-ever board: one item per player
+GSI partition. Seasonal reads start with 200 runs, then use up to 1,000 per
+continuation page within the existing 2,000-run/ten-page budget. Review reads
+check each unseen player's leading candidate first, and lower candidates only
+when needed for an excluded run or a pending final award. Decisions remain
+strongly consistent and are never cached between requests.
+`scope=all-time` returns the best-ever board: one item per player
 per ranked mode (`pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`) indexed under
 `LEADERBOARD#ALLTIME#{mode}` with the same sort-key encoding, so a player's rank
 reflects their single best score across every season. The all-time item is
