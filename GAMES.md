@@ -92,12 +92,12 @@ The `?` help sheet and on-key labels own discoverability.
 
 ## Seasonal competition — the Free Pass
 
-One ranked game is explicitly designated for the prize each season. The
-designation rotates: **Surge is the current game and Rain is next.** Later games
-must be named here before their season; do not infer a cycle or repeat the
-previous designation. For the current Surge competition, the player ranked first
-on its seasonal leaderboard at season end is the candidate for a Clash Royale
-season pass. Three standing consequences apply to whichever game is designated:
+One ranked game is explicitly designated for the prize each season. **Rain is
+the Season 136 game; Surge was the Season 135 game.** A later game must be named
+here before its season; do not infer a cycle or repeat the previous designation.
+For the current Rain competition, the player ranked first on its seasonal
+leaderboard at season end is the candidate for a Clash Royale season pass. Three
+standing consequences apply to whichever game is designated:
 
 - **The board does not certify itself.** An automatic integrity flag
   (`automaticReviewReason` / `underReview`) is a review _signal_, never a

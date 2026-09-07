@@ -24,34 +24,6 @@ export interface HomeData {
   standingsFor: (mode: GameMode) => LeaderboardEntry[]
 }
 
-export interface SurgeSeasonCallout {
-  title: string
-  detail: string
-  leading: boolean
-}
-
-function gapLabel(milliseconds: number): string {
-  const seconds = Math.max(0.1, milliseconds / 1_000)
-  return `${seconds.toFixed(1).replace(/\.0$/, '')}s`
-}
-
-export function surgeSeasonCallout(
-  standings: LeaderboardEntry[],
-  playerBest: number | undefined,
-  playerId: string | undefined
-): SurgeSeasonCallout {
-  const leader = standings[0]
-  const detail = '#1 in Surge wins next season’s free pass.'
-  if (!leader) return { title: 'Set the first Surge time of the season', detail, leading: false }
-  if (playerId && leader.player.id === playerId) {
-    return { title: 'You lead the race for the free pass', detail: 'Hold #1 through the season finish.', leading: true }
-  }
-  if (playerBest === undefined) return { title: 'Post a Surge time to join the pass race', detail, leading: false }
-  const gap = playerBest - leader.score
-  if (gap <= 0) return { title: 'Your best is fast enough for the lead', detail, leading: true }
-  return { title: `Get ${gapLabel(gap)} faster to take the lead`, detail, leading: false }
-}
-
 // "6d 04h" — the clock alone. One form, everywhere: hours matter on the last
 // day, so they are never dropped. Returns null when there is no clock to state.
 function seasonClock(season: Season | null): string | null {

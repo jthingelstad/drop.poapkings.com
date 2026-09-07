@@ -434,8 +434,8 @@ production run. A successful exact-head validation triggers
   Survival finds it in the same place every day. The first hero slide promotes
   one ranked game chosen by UTC day; two hard-coded slides promote the current
   designated Free Pass game and sharing Drop. The Free Pass rotates by explicit
-  season designation: Surge is current and Rain is next; later games must be
-  named in `GAMES.md`, never inferred. Changing the promotion requires a code
+  season designation: Rain is current for Season 136; later games must be named
+  in `GAMES.md`, never inferred. Changing the promotion requires a code
   release. The carousel must never be the only route to a mode. Each All
   Games card highlights the player's own all-time best, not the current board
   leader. Rankings stay on the dedicated Ranks surface rather than trailing

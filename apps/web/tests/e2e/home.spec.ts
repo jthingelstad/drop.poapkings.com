@@ -208,8 +208,9 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
   const pass = page.locator('.ed-hero--pass')
   await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  await expect(pass).toContainText('Finish #1 in Rain')
   await expect(pass.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible()
-  await expect(pass).not.toContainText('PLAY SURGE')
+  await expect(pass).not.toContainText('PLAY RAIN')
   await expect(pass.locator('.ed-hero-podium')).toHaveCount(0)
   await expect(pass).not.toContainText('Provisional until Fair Play review')
   expect(await pass.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
@@ -223,6 +224,12 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
     'href',
     'https://poapkings.com/elixir-drop/free-pass/'
   )
+
+  await pass.getByRole('button', { name: 'PLAY', exact: true }).click()
+  await expect(page).toHaveURL(/#\/rain$/)
+  await expect(page.locator('.ed-game__mode')).toHaveText('Rain')
+
+  await page.goto('/')
 
   await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
   await expect(slides.nth(2)).toHaveAttribute('aria-hidden', 'false')

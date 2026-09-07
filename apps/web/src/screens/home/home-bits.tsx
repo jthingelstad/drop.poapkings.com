@@ -11,7 +11,7 @@ import ShareAction from '../../components/ShareAction'
 import { player } from '../../lib/account'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
-import { scoreLabel } from '../../lib/game-metadata'
+import { GAME_BY_MODE, scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import { isReducedMotionEnabled } from '../../lib/motion'
 import { prepareProfileShare } from '../../lib/share-profile'
@@ -21,7 +21,8 @@ import { seasonEndsLabel, seasonPillLabel, type HomeData } from './home-data'
 
 const HERO_SLIDE_COUNT = 3
 const HERO_ROTATION_MS = 10_000
-const FREE_PASS_MODE = 'surge' as const
+const FREE_PASS_MODE = 'rain' as const
+const FREE_PASS_GAME = GAME_BY_MODE.get(FREE_PASS_MODE)!
 
 // The season pill names the season and its clock — "Season 135 · 6d 04h" — and
 // hours are never dropped, because they are what matters on the last day. The
@@ -94,7 +95,9 @@ function FreePassHero({ data }: { data: HomeData }) {
         <span class="ed-pill ed-pill--season">Free Pass · {seasonEndsLabel(data.season)}</span>
         <ModeIcon mode={FREE_PASS_MODE} size={72} className="ed-hero__art" />
         <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
-        <p class="ed-hero__desc">Finish #1 in Surge when the Clan Wars season ends and win a gifted Pass Royale.</p>
+        <p class="ed-hero__desc">
+          Finish #1 in {FREE_PASS_GAME.name} when the Clan Wars season ends and win a gifted Pass Royale.
+        </p>
         {/* Two controls share this row, so the primary keeps the standard large
             size rather than the featured hero's full-width one. */}
         <div class="ed-hero__cta ed-hero__cta--split">
@@ -103,7 +106,7 @@ function FreePassHero({ data }: { data: HomeData }) {
             onClick={(event) => {
               tapFxFrom(event)
               track('campaign.opened', FREE_PASS_MODE)
-              navigate('/surge')
+              navigate(FREE_PASS_GAME.path)
             }}
           >
             <span class="tap-face">
