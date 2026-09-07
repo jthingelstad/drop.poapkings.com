@@ -74,7 +74,13 @@ export async function processRefreshJob(
   if (!config.buttondownApiKey || !config.buttondownNewsletterId) return;
   const metadata = buttondownPlayerMetadata(profile, config.appUrl, snapshot);
   const hash = createHash("sha256")
-    .update(JSON.stringify(metadata))
+    .update(
+      JSON.stringify({
+        metadata,
+        profileUpdatedAt: profile.updatedAt,
+        crFetchedAt: snapshot?.fetchedAt,
+      }),
+    )
     .digest("hex");
   if ((await repository.getProfileRefreshHash(job.sub)) === hash) return;
   await measure("buttondown.metadata", () =>

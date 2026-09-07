@@ -141,6 +141,23 @@ describe("durable refresh worker", () => {
     );
   });
 
+  it("resynchronizes when an inline writer changed the profile revision even if metadata returns to an old value", async () => {
+    mocks.getProfile.mockResolvedValue({
+      ...player,
+      updatedAt: "2026-09-01T00:00:00Z",
+    });
+    await processRefreshJob(job, config, repo);
+    mocks.getProfileRefreshHash.mockResolvedValue(
+      mocks.saveProfileRefreshHash.mock.calls[0]![2],
+    );
+    mocks.getProfile.mockResolvedValue({
+      ...player,
+      updatedAt: "2026-09-02T00:00:00Z",
+    });
+    await processRefreshJob(job, config, repo);
+    expect(mocks.metadata).toHaveBeenCalledTimes(2);
+  });
+
   it("does not mark a failed newsletter write as synchronized", async () => {
     mocks.metadata.mockRejectedValueOnce(new Error("network"));
     await expect(processRefreshJob(job, config, repo)).rejects.toThrow(

@@ -36,7 +36,7 @@ FIFO refresh queue (750 ms enqueue deadline). A separate Lambda refreshes the
 six-hour player snapshot and synchronizes changed Buttondown metadata. The queue
 contains an internal subject and account generation, never an email or session.
 Deleted or recreated accounts are ignored. A metadata digest at
-`PLAYER#{sub}/REFRESH#METADATA` avoids repeated unchanged writes and is removed
+`PLAYER#{sub}/REFRESH#METADATA` includes profile/snapshot revisions, avoids repeated unchanged refreshes and is removed
 by account deletion. Failed external writes remain retryable rather than being
 marked synchronized.
 
