@@ -175,8 +175,7 @@ export async function fetchPlayerFromHub(
     const code = (error as { code?: string }).code;
     if (code !== "not_recorded" && code !== "not_found") {
       console.warn("Elixir MCP recorded profile unavailable; reading live", {
-        playerTag: tag,
-        message: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.name : "unknown",
       });
     }
   }

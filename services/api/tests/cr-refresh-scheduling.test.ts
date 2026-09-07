@@ -699,6 +699,29 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
+  it("keeps the saved player tag out of refresh failure logs", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    repository.updateProfile.mockResolvedValue(profile);
+    requestCrProfileRefresh.mockRejectedValue(
+      new Error(`provider detail for ${profile.playerTag}`),
+    );
+
+    const response = await invoke(
+      "PATCH",
+      "/me",
+      { playerTag: profile.playerTag },
+      true,
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(log).toHaveBeenCalledWith("CR profile refresh failed", {
+      error: "Error",
+    });
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).not.toContain(profile.playerTag);
+    expect(logged).not.toContain("provider detail");
+  });
+
   it("accepts a safe signed card-inspired name without the exact card title", async () => {
     const favoriteCardId = 26000018;
     const publicName = "Pancake Patrol";

@@ -445,6 +445,58 @@ describe("enrichment prefers the record over a live read", () => {
     );
     expect(second.params.name).toBe("live_fetch");
   });
+
+  it("keeps player tags and provider details out of fallback warnings", async () => {
+    const playerTag = "#PRIVATE";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let call = 0;
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
+      call += 1;
+      const result =
+        call === 1
+          ? {
+              isError: true,
+              content: [
+                {
+                  text: JSON.stringify({
+                    error: "upstream_failure",
+                    message: `provider detail for ${playerTag}`,
+                  }),
+                },
+              ],
+            }
+          : {
+              content: [
+                {
+                  text: JSON.stringify({
+                    data: { name: "Recovered", badges: [] },
+                  }),
+                },
+              ],
+            };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ jsonrpc: "2.0", id: call, result }),
+        text: async () => "",
+      };
+    });
+
+    try {
+      await expect(
+        fetchPlayerFromHub(dropConfig, playerTag, fetcher),
+      ).resolves.toMatchObject({ name: "Recovered" });
+      expect(warn).toHaveBeenCalledWith(
+        "Elixir MCP recorded profile unavailable; reading live",
+        { error: "ElixirMcpError" },
+      );
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain(playerTag);
+      expect(logged).not.toContain("provider detail");
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe("a season rollover still closes the previous season", () => {

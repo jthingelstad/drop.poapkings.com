@@ -900,8 +900,7 @@ async function completedGameCrProfile(
     return await repository.getCrProfile(profile.playerTag);
   } catch (error) {
     console.warn("Completed game CR profile lookup failed", {
-      playerTag: profile.playerTag,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.name : "unknown",
     });
     return undefined;
   }

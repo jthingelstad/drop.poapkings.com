@@ -247,7 +247,6 @@ export async function refreshedCrProfile(
     return await requestCrProfileRefresh(repository, config, tag);
   } catch (error) {
     console.error("CR profile refresh failed", {
-      playerTag: tag,
       error: error instanceof Error ? error.name : "unknown",
     });
     return repository.getCrProfile(tag);

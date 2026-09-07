@@ -392,13 +392,22 @@ describe("run completion side effects are best effort", () => {
   });
 
   it("still announces the game when the Clash Royale snapshot cannot be read", async () => {
-    repository.getCrProfile.mockRejectedValue(new Error("cr snapshot gone"));
+    repository.getCrProfile.mockRejectedValue(
+      new Error(`provider detail for ${profile.playerTag}`),
+    );
 
     const result = await complete();
 
     expect(result.statusCode).toBe(201);
     expect(publishDiscordEvent).toHaveBeenCalledOnce();
     expect(publishDiscordEvent.mock.calls[0]?.[1]).toBeDefined();
+    expect(console.warn).toHaveBeenCalledWith(
+      "Completed game CR profile lookup failed",
+      { error: "Error" },
+    );
+    const logged = JSON.stringify(vi.mocked(console.warn).mock.calls);
+    expect(logged).not.toContain(profile.playerTag);
+    expect(logged).not.toContain("provider detail");
   });
 
   it("attaches the cached Clash Royale identity to the announcement", async () => {

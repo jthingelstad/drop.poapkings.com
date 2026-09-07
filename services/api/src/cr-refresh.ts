@@ -81,8 +81,7 @@ export async function requestCrProfileRefresh(
     });
   } catch (error) {
     console.warn("Elixir MCP player enrichment failed", {
-      playerTag: tag,
-      message: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "unknown",
     });
     await repository.markCrRefreshUnavailable(
       tag,
