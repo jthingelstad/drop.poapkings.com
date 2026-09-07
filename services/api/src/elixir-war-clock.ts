@@ -87,7 +87,7 @@ export function toWarClock(
 }
 
 export async function fetchWarClockFromHub(
-  config: Config,
+  config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey" | "warClockClanTag">,
   observedAt = new Date(),
   fetcher?: ElixirMcpFetch,
 ): Promise<CrWarClock> {

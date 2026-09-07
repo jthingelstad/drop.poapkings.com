@@ -155,7 +155,7 @@ export function normalizeRecordedPlayer(
  * about as often as somebody changes clan.
  */
 export async function fetchPlayerFromHub(
-  config: Config,
+  config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey">,
   tag: string,
   fetcher?: ElixirMcpFetch,
 ): Promise<HubPlayer> {

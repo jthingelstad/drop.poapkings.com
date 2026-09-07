@@ -28,26 +28,32 @@ Responsibilities in this release:
 - best-effort Discord notifications for successful email-authenticated logins and every
   server-validated completed game.
 
-The API never calls the Clash Royale API. Saving a player tag queues its first
-fixed-IP bridge fetch. After that, a successful email-authenticated login queues a
-refresh when the cached snapshot is stale; routine session restoration,
-profile reads, polling, and games remain cache-only. The result consumer stores
-only CR name, clan, the gameplay-derived `YearsPlayed` badge day count, and
-card identity/art. Account age is calculated from the badge's `progress` days
-rather than trusting its display tier.
-Experience, arenas, trophies, wins, and card levels are excluded from the
-message contract and persistence model. Every game uses the complete canonical
-catalog. Attached collection data remains stored but not rendered; only the
-card count is shown, and it does not affect challenge generation.
+The API never calls the Clash Royale API. It reads recorded player data from
+Elixir MCP, with a hub-managed live fallback for a previously unseen tag. Saving
+a tag and verified login retain their enrichment behavior. Returning-session
+refresh validates the account and awaits only acceptance by a dedicated encrypted
+FIFO refresh queue (750 ms enqueue deadline). A separate Lambda refreshes the
+six-hour player snapshot and synchronizes changed Buttondown metadata. The queue
+contains an internal subject and account generation, never an email or session.
+Deleted or recreated accounts are ignored. A metadata digest at
+`PLAYER#{sub}/REFRESH#METADATA` avoids repeated unchanged writes and is removed
+by account deletion. Failed external writes remain retryable rather than being
+marked synchronized.
 
-The bridge also publishes a five-minute Clan Wars clock snapshot from
-`/currentriverrace` plus `/riverracelog`. The API stores the latest positive
-integer CR season ID, current section/week, period/day, and phase in a singleton
-DynamoDB item. That number is the season ID on runs, feeds, history, and
-leaderboard partitions; a CR season-ID change creates the next partition. The
-API derives week countdown copy from CR's period index and the agreed 10:00 UTC
-cutoff. If no usable clock remains after the bounded stale-clock window, the
-first-Monday fallback advances from Drop's verified Season 134 launch anchor.
+Public reads serve the stored Clan Wars clock, retaining the existing calendar
+fallback. When the clock is older than five minutes, reads enqueue refresh instead
+of waiting for MCP. FIFO deduplication coalesces requests for five minutes and
+serializes clock jobs. The worker finalizes the previous season before advancing
+the stored clock; idempotent award markers protect retries after interruption.
+MCP requests have a three-second deadline, including response-body consumption.
+The new queue is independent of the retired Supercell bridge.
+
+`api.timings` structured logs record the route template, cold-invocation flag,
+request elapsed time, and fixed operation labels for DynamoDB, MCP and queue work.
+The worker also times metadata writes and season finalization. Operation times
+may overlap and must not be summed as request latency. No request arguments,
+identities, tokens or payloads are included. Lambda REPORT initialization timing
+remains the source for cold-start initialization duration.
 
 ## Routes
 
@@ -285,7 +291,7 @@ metadata uses segment-friendly `player_tag`, `drop_player_tag`,
 never expose the underlying UUID. `last_season_played` is the Clash Royale
 season number as a string (for example `"135"`). It advances after the player's first recorded game in a
 new season; later games in that season make no Buttondown request. The full
-metadata projection also refreshes at verified login, each returning-session
+metadata projection also refreshes at verified login, asynchronously after returning-session
 renewal, and a profile/tag change. The current clan comes only from the latest
 bridge-owned CR snapshot. A known no-clan result clears a stale clan tag and
 name, while an unavailable/pending snapshot preserves the last known values.

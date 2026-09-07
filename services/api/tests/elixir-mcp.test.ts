@@ -29,6 +29,31 @@ function hubReply(payload: unknown, isError = false) {
 }
 
 describe("Elixir MCP client", () => {
+  it("aborts a stalled transport at its explicit deadline", async () => {
+    const controller = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(controller.signal);
+    try {
+      const fetcher = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<never>((_resolve, reject) => {
+            init.signal!.addEventListener(
+              "abort",
+              () => reject(new Error("aborted")),
+              { once: true },
+            );
+          }),
+      );
+      const request = callTool(config, "war_current", {}, fetcher);
+      controller.abort();
+      await expect(request).rejects.toThrow("aborted");
+      expect(timeout).toHaveBeenCalledWith(3_000);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it("calls one tool over JSON-RPC with the service token", async () => {
     const fetcher = hubReply({ slug: "elixir-drop", added: 1, members: 14 });
     const result = await callTool(

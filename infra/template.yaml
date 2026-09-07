@@ -277,6 +277,9 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt RefreshQueue.Arn
               # Both Lambdas are pinned to managed log groups via
               # LoggingConfig, so no CreateLogGroup and no wildcard resource.
               - Effect: Allow
@@ -704,6 +707,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
+          REFRESH_QUEUE_URL: !Ref RefreshQueue
           SESSION_SECRET: !Ref SessionSecret
           TELEMETRY_PEPPER: !Ref TelemetryPepper
           FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
@@ -721,6 +725,155 @@ Resources:
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
           WEB_VERSION: !Ref WebVersion
+
+  RefreshDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-refresh-dlq.fifo
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  RefreshQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-refresh.fifo
+      FifoQueue: true
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 720
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RefreshDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  RefreshLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/refresh
+      RetentionInDays: 30
+
+  RefreshRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-refresh-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: refresh-runtime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt RefreshLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt RefreshQueue.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:ConditionCheckItem
+                Resource:
+                  - !GetAtt DataTable.Arn
+                  - !Sub "${DataTable.Arn}/index/*"
+
+  RefreshFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-refresh
+      Description: Refresh cached hub data and newsletter metadata outside player requests
+      Architectures:
+        - arm64
+      Runtime: nodejs24.x
+      Handler: refresh-worker.refreshHandler
+      Role: !GetAtt RefreshRole.Arn
+      MemorySize: 512
+      Timeout: 120
+      ReservedConcurrentExecutions: 2
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RefreshLogGroup
+        SystemLogLevel: INFO
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+          APP_URL: !Ref AppUrl
+          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
+          ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
+          CR_WAR_CLOCK_CLAN_TAG: "#J2RGCRVG"
+          BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
+          BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
+
+  RefreshEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt RefreshQueue.Arn
+      FunctionName: !Ref RefreshFunction
+      BatchSize: 1
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+      ScalingConfig:
+        MaximumConcurrency: 2
+
+  RefreshDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-refresh-dlq
+      AlarmDescription: Background refresh exhausted its retries
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RefreshDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  RefreshAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-refresh-age
+      AlarmDescription: Background refresh is delayed for more than fifteen minutes
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RefreshQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 900
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
 
   CrResultFunction:
     Type: AWS::Lambda::Function

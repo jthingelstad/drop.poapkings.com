@@ -1,3 +1,4 @@
+import { measure } from "./timings.js";
 /**
  * Elixir MCP client — the hub seam.
  *
@@ -61,11 +62,23 @@ export async function callTool<T = unknown>(
   args: Record<string, unknown> = {},
   fetcher: ElixirMcpFetch = fetch as unknown as ElixirMcpFetch,
 ): Promise<T> {
+  return measure(`mcp.${name}`, () =>
+    callToolRequest<T>(config, name, args, fetcher),
+  );
+}
+
+async function callToolRequest<T = unknown>(
+  config: ElixirMcpConfig,
+  name: string,
+  args: Record<string, unknown> = {},
+  fetcher: ElixirMcpFetch = fetch as unknown as ElixirMcpFetch,
+): Promise<T> {
   const ready = configured(config);
   if (!ready) {
     throw new ElixirMcpError("Elixir MCP is not configured", 0, "unconfigured");
   }
   const response = await fetcher(`${ready.baseUrl}/mcp`, {
+    signal: AbortSignal.timeout(3_000),
     method: "POST",
     headers: {
       Authorization: `Bearer ${ready.token}`,

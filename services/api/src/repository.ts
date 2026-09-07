@@ -1381,6 +1381,50 @@ export class Repository {
     return { deletedGames: profile?.totalGames ?? 0 };
   }
 
+  async getProfileRefreshHash(sub: string): Promise<string | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: `PLAYER#${sub}`, sk: "REFRESH#METADATA" },
+        ConsistentRead: true,
+      }),
+    );
+    return typeof result.Item?.metadataHash === "string"
+      ? result.Item.metadataHash
+      : undefined;
+  }
+
+  async saveProfileRefreshHash(
+    sub: string,
+    playerId: string,
+    metadataHash: string,
+  ): Promise<void> {
+    await client.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            ConditionCheck: {
+              TableName: this.tableName,
+              Key: profileKey(sub),
+              ConditionExpression: "playerId = :playerId",
+              ExpressionAttributeValues: { ":playerId": playerId },
+            },
+          },
+          {
+            Put: {
+              TableName: this.tableName,
+              Item: {
+                pk: `PLAYER#${sub}`,
+                sk: "REFRESH#METADATA",
+                metadataHash,
+              },
+            },
+          },
+        ],
+      }),
+    );
+  }
+
   async getCrProfile(tag: string): Promise<CrProfileSnapshot | undefined> {
     const result = await client.send(
       new GetCommand({

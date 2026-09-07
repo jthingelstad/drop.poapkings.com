@@ -162,3 +162,21 @@ archive can load the same-origin app font while every static response receives
 HSTS, content-type, framing, and referrer protections; `/api/*`, `/share/*`, and
 `/share-assets/*` keep the API's own response and cache policy. The
 fixed-IP worker remains a local launchd service on the allowlisted Mac.
+
+## Background refresh
+
+The API deployment ZIP contains both `handler.cjs` and `refresh-worker.cjs`; the
+content key covers both bundles. The stack provisions a separate refresh FIFO
+queue, DLQ, worker role and Lambda. API requests may send work; only the worker
+consumes it. The worker has table access plus MCP/Buttondown credentials, with
+no sign-in, JMAP, Bedrock, S3 publication or referee-correlation credentials.
+
+The worker processes one message per invocation with concurrency capped at two.
+FIFO groups serialize the clock and each player; duplicate jobs within five
+minutes coalesce. The 720-second visibility timeout is six times its 120-second
+execution timeout. Failed jobs retry up to five receives before entering the
+14-day DLQ. Queue-age and DLQ alarms use the existing operator alarm topic.
+Inspect `/elixir-drop/refresh` for safe errors and `api.timings` operation data;
+replay failed refresh work only after correcting its cause. Public requests retain
+cached responses during worker outages. Queue enqueue failure is logged and the
+next ordinary request retries it.

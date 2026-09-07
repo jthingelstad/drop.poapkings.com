@@ -7,7 +7,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
   return {
     ...actual,
     DynamoDBDocumentClient: {
-      from: () => ({ send }),
+      from: () => ({ send, middlewareStack: { add: vi.fn() } }),
     },
   };
 });
@@ -16,6 +16,35 @@ import { leaderboardSortKey } from "../src/games.js";
 import { Repository, type RunItem } from "../src/repository.js";
 
 describe("repository DynamoDB requests", () => {
+  it("only saves refresh metadata while the same account generation exists", async () => {
+    send.mockResolvedValue({});
+    await new Repository("test").saveProfileRefreshHash(
+      "sub",
+      "generation",
+      "digest",
+    );
+    expect(send.mock.calls[0]![0].input.TransactItems).toEqual([
+      {
+        ConditionCheck: {
+          TableName: "test",
+          Key: { pk: "PLAYER#sub", sk: "PROFILE" },
+          ConditionExpression: "playerId = :playerId",
+          ExpressionAttributeValues: { ":playerId": "generation" },
+        },
+      },
+      {
+        Put: {
+          TableName: "test",
+          Item: {
+            pk: "PLAYER#sub",
+            sk: "REFRESH#METADATA",
+            metadataHash: "digest",
+          },
+        },
+      },
+    ]);
+  });
+
   beforeEach(() => {
     send.mockReset();
   });

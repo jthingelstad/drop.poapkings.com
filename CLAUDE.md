@@ -24,7 +24,10 @@ decisions.
    (`services/api/src/elixir-mcp.ts`). Player enrichment is `live_fetch`; the
    Clan Wars clock is `war_current` on the recorded source clan. Drop is a
    downstream reader of that seam and never reaches into another app; the hub
-   never pushes into Drop. The website still reads the committed
+   never pushes into Drop. Returning-session enrichment and stale clock reads use
+   a dedicated FIFO refresh worker so player requests do not wait for the hub.
+   Clock jobs finalize the old season before advancing the cache; keep those
+   retries durable. The website still reads the committed
    `packages/game-data/cards.json` snapshot.
    The fixed-IP `cr-api-bridge`, both of its SQS queues, its IAM user and its
    Mac host were **retired 2026-09-06**. Do not reintroduce a direct Supercell

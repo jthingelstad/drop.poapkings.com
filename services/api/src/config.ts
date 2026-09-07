@@ -1,5 +1,6 @@
 export interface Config {
   tableName: string;
+  refreshQueueUrl?: string;
   sessionSecret: string;
   // Server-only pepper for the referee correlation HMACs (see
   // referee-evidence.ts). Guarded exactly like SESSION_SECRET: Lambda env only,
@@ -74,6 +75,7 @@ export function getConfig(): Config {
   }
   return {
     tableName: required("TABLE_NAME"),
+    refreshQueueUrl: process.env.REFRESH_QUEUE_URL?.trim() || undefined,
     sessionSecret: required("SESSION_SECRET"),
     telemetryPepper: required("TELEMETRY_PEPPER"),
     appUrl: required("APP_URL").replace(/\/$/, ""),

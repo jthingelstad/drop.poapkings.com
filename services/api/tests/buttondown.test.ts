@@ -23,6 +23,39 @@ const metadata = {
 };
 
 describe("Buttondown subscriber lifecycle", () => {
+  it("lets durable workers retry failed metadata writes while direct callers remain best effort", async () => {
+    const unavailable = vi.fn(async () => ({ ok: false, status: 503 }));
+    await expect(
+      updateButtondownSubscriberMetadata(
+        config,
+        "player@example.com",
+        metadata,
+        unavailable,
+        true,
+      ),
+    ).rejects.toThrow("ButtondownMetadataRejected");
+    const broken = vi.fn(async () => {
+      throw new Error("network failure");
+    });
+    await expect(
+      updateButtondownSubscriberMetadata(
+        config,
+        "player@example.com",
+        metadata,
+        broken,
+        true,
+      ),
+    ).rejects.toThrow("network failure");
+    await expect(
+      updateButtondownSubscriberMetadata(
+        config,
+        "player@example.com",
+        metadata,
+        broken,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it("does nothing when the integration is not configured", async () => {
     const fetcher = vi.fn();
 

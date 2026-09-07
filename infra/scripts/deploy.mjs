@@ -39,10 +39,11 @@ execFileSync("npm", ["run", "build", "--workspace=@elixir-drop/api"], {
   stdio: "inherit",
 });
 const bundlePath = resolve(repoRoot, "services/api/dist/handler.cjs");
-const bundle = await readFile(bundlePath);
+const workerPath = resolve(repoRoot, "services/api/dist/refresh-worker.cjs");
+const bundles = await Promise.all([readFile(bundlePath), readFile(workerPath)]);
 const tempRoot = await mkdtemp(resolve(tmpdir(), "elixir-drop-deploy-"));
 const zipPath = resolve(tempRoot, "api.zip");
-execFileSync("zip", ["-q", "-j", zipPath, bundlePath]);
+execFileSync("zip", ["-q", "-j", zipPath, bundlePath, workerPath]);
 
 try {
   const region = process.env.AWS_REGION;
@@ -51,7 +52,7 @@ try {
   // Content-addressed objects make an unchanged API bundle a real no-op. The
   // previous timestamped key forced CloudFormation to publish a new Lambda
   // version even when only unrelated repository files had changed.
-  const codeKey = lambdaCodeKey(bundle);
+  const codeKey = lambdaCodeKey(bundles);
   const s3 = new S3Client({ region });
   const cloudformation = new CloudFormationClient({ region });
 

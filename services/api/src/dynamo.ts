@@ -1,3 +1,4 @@
+import { measure } from "./timings.js";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
@@ -11,3 +12,9 @@ export const client = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 export function profileKey(sub: string) {
   return { pk: `PLAYER#${sub}`, sk: "PROFILE" as const };
 }
+
+client.middlewareStack.add(
+  (next, context) => (args) =>
+    measure(`dynamodb.${context.commandName}`, () => next(args)),
+  { name: "operationTimings", step: "initialize" },
+);

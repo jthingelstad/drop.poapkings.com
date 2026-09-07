@@ -1,3 +1,5 @@
+const enqueueRefresh = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("../src/refresh-jobs.js", () => ({ enqueueRefresh }));
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyStructuredResultV2,
@@ -299,27 +301,18 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.tokenHashForMagicCode).not.toHaveBeenCalled();
   });
 
-  it("refreshes Buttondown metadata when an existing session returns", async () => {
+  it("queues enrichment without waiting for external services when a session returns", async () => {
     repository.getProfile.mockResolvedValue(profile);
-
     const response = await invoke("POST", "/auth/refresh", undefined, true);
-
     expect(response.statusCode).toBe(200);
-    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
-      {
-        apiKey: "buttondown-key",
-        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-      profile.email,
-      {
-        playerTag: "2PYQ0",
-        dropPlayerTag: "P7H47PSTT93",
-        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "J2RGCRVG",
-        clanName: "POAP KINGS",
-        lastSeasonPlayed: 133,
-      },
-    );
+    expect(enqueueRefresh).toHaveBeenCalledWith(expect.any(Object), {
+      version: 1,
+      type: "player-profile",
+      sub: profile.sub,
+      playerId: profile.playerId,
+    });
+    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
+    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 
   it("does not enroll an address when a magic link is only requested", async () => {

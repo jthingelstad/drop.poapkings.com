@@ -21,6 +21,17 @@ void describe("deployment code identity", () => {
     );
   });
 
+  void it("includes the worker in code identity without ambiguous boundaries", () => {
+    assert.notEqual(
+      lambdaCodeKey([Buffer.from("api"), Buffer.from("worker1")]),
+      lambdaCodeKey([Buffer.from("api"), Buffer.from("worker2")]),
+    );
+    assert.notEqual(
+      lambdaCodeKey([Buffer.from("ab"), Buffer.from("c")]),
+      lambdaCodeKey([Buffer.from("a"), Buffer.from("bc")]),
+    );
+  });
+
   void it("recognizes only CloudFormation's no-op update response", () => {
     assert.equal(
       isNoUpdatesError({

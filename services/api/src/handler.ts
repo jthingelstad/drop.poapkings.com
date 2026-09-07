@@ -1,3 +1,4 @@
+import { withTimings } from "./timings.js";
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyHandlerV2,
@@ -230,36 +231,37 @@ async function route(event: APIGatewayProxyEventV2) {
   throw new HttpError(404, "Route not found.", "not_found");
 }
 
-export const handler: APIGatewayProxyHandlerV2 = async (event) => {
-  try {
-    return await route(event);
-  } catch (error) {
-    const safeError =
-      error instanceof HttpError
-        ? error
-        : new HttpError(
-            500,
-            "The API could not complete the request.",
-            "internal_error",
-          );
-    const logContext = {
-      requestId: event.requestContext.requestId,
-      method: event.requestContext.http.method,
-      routeKey: event.requestContext.routeKey,
-      statusCode: safeError.statusCode,
-      code: safeError.code,
-      error: error instanceof Error ? error.name : "unknown",
-      reason: error instanceof HttpError ? error.message : undefined,
-    };
-    if (safeError.statusCode >= 500) {
-      console.error("API request failed", logContext);
-    } else {
-      console.warn("API request rejected", logContext);
+export const handler: APIGatewayProxyHandlerV2 = async (event) =>
+  withTimings(event.requestContext.routeKey, async () => {
+    try {
+      return await route(event);
+    } catch (error) {
+      const safeError =
+        error instanceof HttpError
+          ? error
+          : new HttpError(
+              500,
+              "The API could not complete the request.",
+              "internal_error",
+            );
+      const logContext = {
+        requestId: event.requestContext.requestId,
+        method: event.requestContext.http.method,
+        routeKey: event.requestContext.routeKey,
+        statusCode: safeError.statusCode,
+        code: safeError.code,
+        error: error instanceof Error ? error.name : "unknown",
+        reason: error instanceof HttpError ? error.message : undefined,
+      };
+      if (safeError.statusCode >= 500) {
+        console.error("API request failed", logContext);
+      } else {
+        console.warn("API request rejected", logContext);
+      }
+      return json(safeError.statusCode, {
+        error: { code: safeError.code, message: safeError.message },
+      });
     }
-    return json(safeError.statusCode, {
-      error: { code: safeError.code, message: safeError.message },
-    });
-  }
-};
+  });
 
 export { crResultHandler } from "./cr-results.js";

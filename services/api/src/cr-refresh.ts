@@ -40,7 +40,7 @@ export function publicCrProfile(
  */
 export async function requestCrProfileRefresh(
   repository: Repository,
-  config: Config,
+  config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey">,
   tag: string,
   now = new Date(),
   fetcher?: ElixirMcpFetch,
@@ -89,6 +89,7 @@ export async function requestCrProfileRefresh(
       jobId,
       new Date().toISOString(),
     );
+    throw error;
   }
   return repository.getCrProfile(tag);
 }

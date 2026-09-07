@@ -99,6 +99,7 @@ export async function updateButtondownSubscriberMetadata(
   email: string,
   metadata: ButtondownSubscriberMetadata,
   fetcher: ButtondownFetch = fetch,
+  failOnError = false,
 ): Promise<void> {
   const active = configured(config);
   if (!active) return;
@@ -114,11 +115,13 @@ export async function updateButtondownSubscriberMetadata(
         signal: AbortSignal.timeout(3_000),
       },
     );
-    if (response.ok) return;
+    if (response.ok || response.status === 404) return;
+    if (failOnError) throw new Error("ButtondownMetadataRejected");
     console.warn(
       `Buttondown subscriber metadata update failed with HTTP ${response.status}.`,
     );
   } catch (error) {
+    if (failOnError) throw error;
     const reason = error instanceof Error ? error.name : "UnknownError";
     console.warn(
       `Buttondown subscriber metadata update failed with ${reason}.`,

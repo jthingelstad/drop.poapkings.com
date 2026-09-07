@@ -97,6 +97,18 @@ addresses so crawlers can receive per-run metadata.
 
 ---
 
+### API refresh latency boundary
+
+Returning-session renewal and public season-clock reads do not await external
+refreshes. They enqueue deduplicated FIFO work; `refresh-worker.ts` reads current
+account state, refreshes the hub cache and writes changed newsletter metadata.
+The worker serializes season-clock changes and completes prior-season awards
+before saving an incoming clock. Enqueue failures preserve the cached response;
+accepted jobs have bounded retries, a DLQ and age alarms. No season/scoring rules
+change. Player metadata synchronization retains only a digest in
+`PLAYER#{sub}/REFRESH#METADATA`, covered by account deletion. Fixed-label
+`api.timings` logs expose elapsed operation time without request/player payloads.
+
 ## 3. Card Data
 
 All card facts originate from the official Clash Royale API `/cards` endpoint,

@@ -1,8 +1,8 @@
+import { enqueueRefresh } from "../refresh-jobs.js";
 import { createHmac, randomBytes, randomInt } from "node:crypto";
 import {
   buttondownPlayerMetadata,
   enrollButtondownSubscriber,
-  updateButtondownSubscriberMetadata,
 } from "../buttondown.js";
 import { rememberPlayerInCollection } from "../elixir-collection.js";
 import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
@@ -424,22 +424,12 @@ export async function refreshSession({
       "Your session has expired. Sign in again.",
       "invalid_session",
     );
-  // A renewed session is also the routine "player is back" signal: queue a
-  // (six-hour-deduplicated) Clash Royale refresh so an active player's
-  // linked profile keeps up without ever re-redeeming a magic link.
-  const crProfile = await refreshedCrProfile(
-    repository,
-    config,
-    profile.playerTag,
-  );
-  await updateButtondownSubscriberMetadata(
-    {
-      apiKey: config.buttondownApiKey,
-      newsletterId: config.buttondownNewsletterId,
-    },
-    profile.email,
-    buttondownPlayerMetadata(profile, config.appUrl, crProfile),
-  );
+  await enqueueRefresh(config, {
+    version: 1,
+    type: "player-profile",
+    sub: session.sub,
+    playerId: profile.playerId,
+  });
   return json(200, {
     session: issueSession(
       session.sub,

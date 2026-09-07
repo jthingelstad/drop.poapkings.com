@@ -7,7 +7,7 @@ vi.mock("@aws-sdk/lib-dynamodb", async (importOriginal) => {
   return {
     ...actual,
     DynamoDBDocumentClient: {
-      from: () => ({ send }),
+      from: () => ({ send, middlewareStack: { add: vi.fn() } }),
     },
   };
 });
