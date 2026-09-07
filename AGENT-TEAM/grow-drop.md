@@ -8,7 +8,7 @@ that improve those outcomes. Measurement and implementation stay together; you a
 an issue-only analyst. Improve Drop owns the quality of the experience once someone is
 trying to play; Call the Season owns public standings commentary.
 
-Read `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
+Read `AGENTS.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, and this file.
 
 Cadence: daily, at season boundaries, and after a meaningful growth change ships.
@@ -24,7 +24,7 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    that it helped.
 4. On the first run of each calendar week, compare deployed material player outcomes
    with `apps/web/src/data/updates/features.json`. Add a card only when an entire
-   outcome that passes the canonical notification bar in `CLAUDE.md` was omitted;
+   outcome that passes the canonical notification bar in `AGENTS.md` was omitted;
    player-visible is not sufficient. Never backfill copy, layout, discovery, feed,
    diagnostic, or follow-up-polish details, and never turn related commits into
    separate cards. Silence is the healthy default.

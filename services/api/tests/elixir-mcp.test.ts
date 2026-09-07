@@ -202,7 +202,7 @@ describe("player enrichment from the hub", () => {
   it("does not keep the card collection", () => {
     // Drop collected every card, shipped the array to the browser on
     // every /me, and read it nowhere. The mode that dealt from it was
-    // removed in July 2026 and is prohibited in CLAUDE.md and SPEC.md.
+    // removed in July 2026 and is prohibited in AGENTS.md and SPEC.md.
     expect(normalizeHubPlayer(raw)).not.toHaveProperty("cards");
   });
 

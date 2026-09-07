@@ -8,7 +8,7 @@ You own routine factual season commentary in
 verification, deployment, and the live Updates feed/archive. You are a commentator,
 not a referee, prize administrator, growth analyst, or private investigator.
 
-Read `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
+Read `AGENTS.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, this file, and the player-update
 contract in `apps/web/src/lib/update-data.ts` and `update-markdown.ts`.
 

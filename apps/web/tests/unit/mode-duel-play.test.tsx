@@ -199,7 +199,7 @@ describe('Higher / Lower — gameplay', () => {
     expect(c.querySelector('.ed-game__mode')?.textContent).toBe('Higher / Lower')
     expect(metricValue(c)).toBe('0')
     expect(livesLabel(c)).toBe('3 of 3 lives left')
-    // Lives are lucide glyphs (CLAUDE.md forbids hand-typed symbols), rendered
+    // Lives are lucide glyphs (AGENTS.md forbids hand-typed symbols), rendered
     // by the shared LivesRow that Rain uses too.
     expect(c.querySelectorAll('[data-testid="higher-lower-lives"] .icon')).toHaveLength(3)
     expect(c.textContent).toContain('HL-0a')
@@ -650,7 +650,7 @@ describe('Rain — gameplay', () => {
     expect(metricValue(c)).toBe('0')
     expect(c.querySelector('.sr-only')?.textContent).toBe('Lower')
     expect(c.querySelector('[data-testid="rain-hint"]')?.textContent).toContain('Lower')
-    // Lives are lucide glyphs (CLAUDE.md forbids hand-typed symbols), so the
+    // Lives are lucide glyphs (AGENTS.md forbids hand-typed symbols), so the
     // count lives on the row's accessible name, not in its text.
     expect(c.querySelector('[data-testid="rain-lives"]')?.getAttribute('aria-label')).toBe('3 of 3 lives left')
     expect(c.querySelectorAll('[data-testid="rain-lives"] .icon')).toHaveLength(3)

@@ -208,7 +208,7 @@ table below is kept as the record of what was wrong.
 `SPEC.md:386` and `services/api/README.md:155-157` already describe the
 hide-first behaviour correctly.
 
-Then, once the feature lands: `CLAUDE.md` golden rule 7 and its `AGENTS.md:39`
+Then, once the feature lands: `AGENTS.md` golden rule 7 and its doc-map row
 mirror both imply the overlay is invisible to players, and `SPEC.md` §11's
 "Referee surface" section needs a player-facing note.
 

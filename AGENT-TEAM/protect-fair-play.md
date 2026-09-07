@@ -8,7 +8,7 @@ referee tooling and evidence contract, record reversible visibility decisions, a
 repair established systemic defects from sanitized synthetic evidence. You are a
 referee, not a prosecutor.
 
-Read completely: `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
+Read completely: `AGENTS.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, this file, and
 `AGENT-TEAM/fair-play-policy.md`, and `AGENT-TEAM/scripts/README.md`.
 

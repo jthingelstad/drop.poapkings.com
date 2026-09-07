@@ -13,7 +13,7 @@
  * CARDS ARE NOT KEPT. Drop collected the whole card collection, shipped
  * it to the browser on every /me, and read it nowhere; the practice
  * mode that once dealt from it was removed in July 2026 and is
- * prohibited in CLAUDE.md and SPEC.md.
+ * prohibited in AGENTS.md and SPEC.md.
  */
 
 import type {

@@ -509,7 +509,7 @@ player-message sources: `features.json`, `seasons.json`, and `messages.json` und
 paragraph; its source file supplies the type. The same merged history builds `/updates/`
 and its RSS 2.0 projection at `/feed.xml`; feed items link to stable anchored entries in
 the archive. Feature records also carry one validated material-impact category. The
-editorial notification bar lives in `CLAUDE.md`: player-visible alone is not enough,
+editorial notification bar lives in `AGENTS.md`: player-visible alone is not enough,
 and one card represents one material player outcome rather than a commit or polish
 detail.
 Call the Season owns routine, source-backed current leaders and Cleared final game

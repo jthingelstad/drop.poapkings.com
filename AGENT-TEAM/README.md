@@ -43,7 +43,8 @@ decisions. Cross-cutting work keeps one originating owner.
 
 ## Project map
 
-- `AGENTS.md` and `CLAUDE.md` are the repository and architecture sources of truth.
+- `AGENTS.md` is the repository and architecture source of truth (`CLAUDE.md` is a
+  symlink to it).
 - `SPEC.md` owns the implemented product/data contract; `GAMES.md` owns mode and
   scoring decisions.
 - `CONTRIBUTING.md` owns the change-specific local and CI source gates.
@@ -59,7 +60,7 @@ decisions. Cross-cutting work keeps one originating owner.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
 - `apps/web/src/data/updates/` holds the three static player-message streams. An
   owner authors a concise `features.json` entry only when the material player outcome
-  passes the canonical notification bar in `CLAUDE.md`; player-visible is not
+  passes the canonical notification bar in `AGENTS.md`; player-visible is not
   sufficient. Grow Drop audits editorial quality weekly with silence as the default.
   Call the Season owns qualifying factual `seasons.json` commentary. Final Free Pass
   selection and award, other prize action, and broad messages remain subject to the

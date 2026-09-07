@@ -4,7 +4,7 @@ Drop is maintained by five objective owners. An owner is accountable for an outc
 not a job type or directory. It follows evidence through diagnosis, code, tests,
 deployment, and natural acceptance instead of handing each step to another role.
 
-Read `AGENTS.md` → `CLAUDE.md` → this file → `AGENT-TEAM/README.md` → the selected
+Read `AGENTS.md` → this file → `AGENT-TEAM/README.md` → the selected
 objective file before acting.
 
 ## Operating loop
@@ -24,7 +24,7 @@ objective file before acting.
 5. Fix the gap at the source in the same run. Add the business-rule regression; do
    not substitute a warning, guard, or ticket chain. Player-visible is not sufficient
    for an Update. Only when the outcome passes the canonical notification bar in
-   `CLAUDE.md`, add one impact category, one subject, and one Markdown paragraph to
+   `AGENTS.md`, add one impact category, one subject, and one Markdown paragraph to
    `apps/web/src/data/updates/features.json` in the same commit. Related work earns one
    card, and silence is the default.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then

@@ -245,7 +245,8 @@ elixir-drop/
 ├─ .github/workflows/        # main validation/deploy + exhaustive PR/daily verification
 ├─ AGENT-TEAM/               # scheduled and on-demand maintainer role prompts
 ├─ AGENTS.md                 # agent entry point + the canonical doc map
-├─ CLAUDE.md                 # agent working guide: golden rules and architecture
+├─ AGENTS.md                 # agent working guide: golden rules and architecture
+│                            #   (CLAUDE.md is a symlink to it)
 ├─ CONTRIBUTING.md           # local dev, the quality gate, conventions
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog

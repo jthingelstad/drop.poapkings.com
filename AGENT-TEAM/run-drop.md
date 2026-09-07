@@ -8,7 +8,7 @@ bridge, deployment pipeline, card catalog, source maintenance, ordinary gameplay
 defects, backups/recovery hooks, logs, metrics, cost, and supported dependencies.
 Follow a failure to its source regardless of workspace.
 
-Read `AGENTS.md`, `CLAUDE.md`, `AGENT-TEAM/WORKFLOW.md`,
+Read `AGENTS.md`, `AGENT-TEAM/WORKFLOW.md`,
 `AGENT-TEAM/README.md`, and this file. Read the task-specific canonical docs from the
 `AGENTS.md` map before changing their surface.
 

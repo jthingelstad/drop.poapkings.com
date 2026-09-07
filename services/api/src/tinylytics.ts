@@ -3,7 +3,7 @@ import { clientIp } from "./routes/context.js";
 import type { GameMode } from "./types.js";
 
 // Numeric API id for the same Elixir Drop property whose browser embed uid is
-// documented in CLAUDE.md. Keep the full-access key server-only; the browser
+// documented in AGENTS.md. Keep the full-access key server-only; the browser
 // continues to use the public embed uid.
 export const TINYLYTICS_SITE_ID = 3445;
 

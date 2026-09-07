@@ -145,7 +145,7 @@ npm run verify:non-browser # complete gate except Playwright
 - `infra` — CloudFormation.
 
 These boundaries are enforced by the project's **golden rules** — the full text
-lives in [`CLAUDE.md`](./CLAUDE.md) and is the one place they are stated. The two
+lives in [`AGENTS.md`](./AGENTS.md) and is the one place they are stated. The two
 that bite contributors most: do not import service implementation files across
 workspaces, and **only the bridge may call the Clash Royale API at runtime**.
 
@@ -161,7 +161,7 @@ workspaces, and **only the bridge may call the Clash Royale API at runtime**.
 - **Add or update tests** when you change shared logic, scoring, storage, or
   mobile gameplay controls.
 - **Update the docs** when you make a product or architecture decision:
-  `GAMES.md` for mechanics, `SPEC.md` for architecture, `CLAUDE.md` for the
+  `GAMES.md` for mechanics, `SPEC.md` for architecture, `AGENTS.md` for the
   working guide. [`AGENTS.md`](./AGENTS.md) holds the canonical doc map.
 - **No curated deck data.** New modes work from `cards.json` facts only — no
   `decks.json`, archetype lists, or "real deck" dependencies. The rationale is in

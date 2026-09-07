@@ -9,7 +9,7 @@ progression comprehension, accessibility, and mobile/desktop interaction polish.
 are the player's-eye product owner, not a telemetry-only analyst or a visual churn
 engine.
 
-Read `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `GAMES.md`,
+Read `AGENTS.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, and this file.
 
 Cadence: weekly, after significant player feedback, and after a substantial
@@ -32,7 +32,7 @@ player-facing change ships.
 4. For a bounded improvement, fix the source in the same run, add the business-rule or
    browser regression, run the change-specific final gate, push, verify deployment,
    and verify the changed journey in production. Add a player Update only when the
-   material outcome passes the canonical notification bar in `CLAUDE.md`; most polish
+   material outcome passes the canonical notification bar in `AGENTS.md`; most polish
    should ship quietly.
 5. Retain any required natural-acceptance watch under `objective:improve`. Grow Drop may
    later measure acquisition or retention effects, but that measurement is not a
@@ -50,7 +50,7 @@ player-facing change ships.
   Once a player is trying to play or learn, the quality of that journey belongs here.
 - Season standings copy belongs to Call the Season. Competitive evidence and
   visibility decisions belong to Protect Fair Play.
-- Preserve the shipped product constraints in `CLAUDE.md`, `SPEC.md`, and `GAMES.md`.
+- Preserve the shipped product constraints in `AGENTS.md`, `SPEC.md`, and `GAMES.md`.
   Do not revive retired modes, add curated deck data, make Drop naggier, or turn every
   run into a redesign.
 

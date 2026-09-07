@@ -487,7 +487,6 @@ void test("season brief contains all five public boards and strips identity fiel
 
 void test("player updates pass one material-impact notification bar", () => {
   const agents = readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
-  const claude = readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8");
   const workflow = readFileSync(
     path.join(ROOT, "AGENT-TEAM/WORKFLOW.md"),
     "utf8",
@@ -506,8 +505,8 @@ void test("player updates pass one material-impact notification bar", () => {
     assert.match(contract, /data\/updates\/features\.json/);
     assert.match(contract, /notification bar/);
   }
-  assert.match(claude, /An Update is a notification, not a changelog/);
-  assert.match(claude, /Player-visible is not\s+sufficient/);
+  assert.match(agents, /An Update is a notification, not a changelog/);
+  assert.match(agents, /Player-visible is not\s+sufficient/);
   assert.match(workflow, /Player-visible is not\s+sufficient/);
   assert.match(improve, /most polish\s+should ship quietly/);
   assert.match(grow, /first run of each calendar week/);
