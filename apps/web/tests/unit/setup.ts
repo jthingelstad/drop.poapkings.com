@@ -37,6 +37,11 @@ Object.defineProperty(window, 'scrollTo', {
   configurable: true
 })
 
+Object.defineProperty(Element.prototype, 'scrollIntoView', {
+  value: vi.fn(),
+  configurable: true
+})
+
 beforeEach(() => {
   localStorage.clear()
   window.location.hash = ''
