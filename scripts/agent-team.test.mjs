@@ -402,7 +402,7 @@ void test("objective contract requires the lease and contains no retired queue l
   );
   assert.match(
     season,
-    /Surge is the current designated game and\s+Rain is next/,
+    /Rain is the current designated game and\s+Higher \/ Lower is explicitly next for Season 137/,
   );
   assert.match(season, /winning run is Cleared/);
   assert.match(

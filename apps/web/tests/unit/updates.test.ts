@@ -11,9 +11,9 @@ describe('player updates', () => {
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(entries.some((entry) => entry.kind === 'season')).toBe(true)
     expect(entries[0]).toMatchObject({
-      id: 'season-135-results-season-136-opening',
+      id: 'season-135-free-pass-recipient',
       kind: 'season',
-      title: 'A royal sweep closes Season 135'
+      title: 'Log claims the Season 135 Free Pass'
     })
     expect(
       entries

@@ -23,12 +23,12 @@ publish no more than one routine standings report per calendar week.
 - Run `node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode <mode>` for one
   sanitized public snapshot. Select `<mode>` from the explicit current-season Free Pass
   designation in `GAMES.md`; never infer it from the previous season.
-- The Free Pass rotates among ranked games. Surge is the current designated game and
-  Rain is next. Later designations must be stated explicitly in `GAMES.md`; do not
-  invent the remaining order.
+- The Free Pass rotates among ranked games. Rain is the current designated game and
+  Higher / Lower is explicitly next for Season 137. Later designations must be stated
+  explicitly in `GAMES.md`; do not invent the remaining order.
 - At each rollover, promote the explicitly queued next game to current in `GAMES.md`
   and make the Home Free Pass hero name and open that same game before publishing the
-  opening bell. Rain's queued designation authorizes that bounded rollover change. If
+  opening bell. The queued designation authorizes that bounded rollover change. If
   no following game has been named, ask Jamie for only that next designation; do not
   guess or block the already designated current game.
 - Use only public names, scores, season timing, and public `Awaiting`/`Cleared` status.

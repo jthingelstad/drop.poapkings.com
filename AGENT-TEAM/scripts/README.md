@@ -72,7 +72,8 @@ status. It deliberately strips player ids, tags, profile fields, and any non-boa
 data; it has no AWS, referee, account, or write access.
 
 Choose the Free Pass mode from the explicit designation in `GAMES.md`. Rain is
-current for Season 136; never infer a later designation.
+current for Season 136, and Higher / Lower is explicitly next for Season 137;
+never infer a later designation.
 
 ```sh
 node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode rain
