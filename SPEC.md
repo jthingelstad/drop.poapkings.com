@@ -77,17 +77,17 @@ normalized player or clock results through a second queue.
 
 Current public website stack:
 
-| Layer       | Current choice                                              |
-| ----------- | ----------------------------------------------------------- |
-| UI          | Preact                                                      |
-| State       | `@preact/signals`                                           |
-| Build       | Vite + TypeScript                                           |
-| Routing     | Hash routing through `apps/web/src/lib/router.ts`           |
-| Styling     | Vendored tokens and components in `apps/web/src/styles.css` |
+| Layer       | Current choice                                                               |
+| ----------- | ---------------------------------------------------------------------------- |
+| UI          | Preact                                                                       |
+| State       | `@preact/signals`                                                            |
+| Build       | Vite + TypeScript                                                            |
+| Routing     | Hash routing through `apps/web/src/lib/router.ts`                            |
+| Styling     | Vendored tokens and components in `apps/web/src/styles.css`                  |
 | Persistence | `localStorage`; learning progress through `apps/web/src/lib/storage.ts` (§6) |
-| Analytics   | Tinylytics, Elixir Drop's own property                      |
-| Hosting     | CloudFront + private S3, custom domain `drop.poapkings.com`         |
-| Deployment  | Cancelable `Validate Main` → serialized, path-aware AWS promotion  |
+| Analytics   | Tinylytics, Elixir Drop's own property                                       |
+| Hosting     | CloudFront + private S3, custom domain `drop.poapkings.com`                  |
+| Deployment  | Cancelable `Validate Main` → serialized, path-aware AWS promotion            |
 
 The app builds to static files in `apps/web/dist/`. CloudFront serves the custom
 domain from root, so Vite `base` stays `/`. Hash routing remains the stable
@@ -120,7 +120,7 @@ packages/game-data/cards.json
 
 Current snapshot:
 
-- `version`: `2026-09-07`
+- `version`: `2026-09-08`
 - `count`: `121`
 
 The API is refreshed out-of-band because:
@@ -186,7 +186,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | -------------- | ---------------- | ------------------------------------------- |
 | Surge          | `#/surge`        | `surgeBest`, lowest 15-card sprint time     |
 | Practice       | `#/practice`     | section hub; drills are unranked/unscored   |
-| Higher / Lower | `#/higher-lower` | `higherLowerContinuousBest`, total correct |
+| Higher / Lower | `#/higher-lower` | `higherLowerContinuousBest`, total correct  |
 | Trade          | `#/trade`        | `tradeLadderBest`, lowest 10-exchange time  |
 | Survival       | `#/survival`     | `survivalBest`, longest sudden-death streak |
 | Rain           | `#/rain`         | `rainBest`, most cards cleared              |
@@ -539,7 +539,7 @@ guesses.
 Badge ladders are server-owned on the same contract. One `PLAYER#{sub}/BADGES`
 item holds the monotonic counters, per-rung `time` run counts, the distinct-mode
 and distinct-card sets, distinct played-day and same-day run bookkeeping, and an ISO stamp per cleared
-rung. It is written best-effort *after* `completeRun` succeeds — never inside its
+rung. It is written best-effort _after_ `completeRun` succeeds — never inside its
 transaction — so a badge failure leaves the run recorded, and account deletion
 sweeps it with the rest of the player partition. `GET /me` returns a `badges`
 summary (`{ badges: BadgeState[], backfilled?: true }`), rebuilding the counters
@@ -958,9 +958,9 @@ Event ownership is deliberately hybrid. The browser reports intent and device-
 local outcomes; the API reports durable outcomes only after the operation that
 makes them authoritative succeeds. A logical occurrence has exactly one owner:
 
-| Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                           |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, `profile.shared`, `home.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                                           |
+| Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, `profile.shared`, `home.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                  |
 | API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after code or link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
 
 Names are `category.action`, with at most one low-cardinality value (game mode,
@@ -1051,17 +1051,17 @@ all four projects.
 The e2e suite is split by concern under `apps/web/tests/e2e/`, with shared API
 stubs and helpers in `fixtures.ts`:
 
-| Spec | Covers |
-| --- | --- |
-| `a11y.spec.ts` | Axe checks on every public hash route (including every game and a shared run) and every standalone page |
-| `app-shell.spec.ts` | Stale-build reload, API-outage offline transition and automatic recovery |
-| `auth.spec.ts` | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, saved-login retention during an outage |
-| `offline.spec.ts` | Transport-offline and API-only outage behavior, all-mode local play, unsaved persistence boundaries, cached game chunks |
-| `run-lifecycle.spec.ts` | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection |
-| `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens |
-| `home.spec.ts` | The hero carousel, fixed-height desktop shell, fixed mobile-width center and shared game order, full-strength persistent wallpaper behind the shell, install suggestion timing, the Tinylytics hash-page/event bridge |
-| `leaderboards.spec.ts` · `profile.spec.ts` | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the merged Markdown Updates feed |
-| `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts` | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, mouse/keyboard ranked access and home-row input |
+| Spec                                                                                                                | Covers                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `a11y.spec.ts`                                                                                                      | Axe checks on every public hash route (including every game and a shared run) and every standalone page                                                                                                               |
+| `app-shell.spec.ts`                                                                                                 | Stale-build reload, API-outage offline transition and automatic recovery                                                                                                                                              |
+| `auth.spec.ts`                                                                                                      | Guest play and the save nudge, sign-in return path, favorite-card/name onboarding, saved-login retention during an outage                                                                                             |
+| `offline.spec.ts`                                                                                                   | Transport-offline and API-only outage behavior, all-mode local play, unsaved persistence boundaries, cached game chunks                                                                                               |
+| `run-lifecycle.spec.ts`                                                                                             | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection                                                                                                                    |
+| `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens                               |
+| `home.spec.ts`                                                                                                      | The hero carousel, fixed-height desktop shell, fixed mobile-width center and shared game order, full-strength persistent wallpaper behind the shell, install suggestion timing, the Tinylytics hash-page/event bridge |
+| `leaderboards.spec.ts` · `profile.spec.ts`                                                                          | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the merged Markdown Updates feed                                                                                     |
+| `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts`                                               | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, mouse/keyboard ranked access and home-row input                                                                                  |
 
 ---
 

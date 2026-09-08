@@ -13,7 +13,7 @@
 // NEVER call this from CI or the browser. The CR token is not in CI.
 
 import { access, readFile, writeFile, mkdir } from 'fs/promises'
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { parseEnv } from 'util'
@@ -46,6 +46,7 @@ for (const [key, val] of Object.entries(parseEnv(dotenv))) {
 // Accept either name; CR_API_KEY is the name many devs register with.
 const TOKEN = process.env.CR_API_TOKEN ?? process.env.CR_API_KEY
 const MIRROR = process.env.MIRROR_IMAGES === 'true'
+const writtenImagePaths = new Set()
 
 if (!TOKEN) {
   console.error('Error: set CR_API_TOKEN (or CR_API_KEY) in .env')
@@ -93,6 +94,14 @@ async function fileExists(path) {
   }
 }
 
+async function writeMirroredImage(fullPath, bytes) {
+  const next = Buffer.from(bytes)
+  const current = await readFile(fullPath).catch(() => undefined)
+  if (current?.equals(next)) return
+  await writeFile(fullPath, next)
+  writtenImagePaths.add(fullPath)
+}
+
 async function mirrorOptionalImage({ cardName, fullPath, kind, localPath, url }) {
   if (!url) return ''
 
@@ -103,7 +112,7 @@ async function mirrorOptionalImage({ cardName, fullPath, kind, localPath, url })
     try {
       const response = await fetch(url)
       if (response.ok) {
-        await writeFile(fullPath, Buffer.from(await response.arrayBuffer()))
+        await writeMirroredImage(fullPath, await response.arrayBuffer())
         return localPath
       }
     } catch {
@@ -164,7 +173,7 @@ for (const card of data.items ?? []) {
         const imgRes = await fetch(icon)
         if (imgRes.ok) {
           const buf = await imgRes.arrayBuffer()
-          await writeFile(fullPath, Buffer.from(buf))
+          await writeMirroredImage(fullPath, buf)
           process.stdout.write('.')
         }
       } catch (e) {
@@ -272,7 +281,7 @@ if (existing) {
 
 // ── Report ────────────────────────────────────────────────────────────────────
 
-if (existing && changelog.length === 0) {
+if (existing && changelog.length === 0 && writtenImagePaths.size === 0) {
   console.log(`\nNo changes — cards.json is current (${existing.version}, ${existing.count} cards).`)
   if (!DRY_RUN && !WRITE_ONLY) process.exit(0)
 }
@@ -304,12 +313,19 @@ if (WRITE_ONLY) {
 const summary =
   changelog.length > 0
     ? changelog.slice(0, 3).join('; ') + (changelog.length > 3 ? ` (+${changelog.length - 3} more)` : '')
-    : `initial snapshot: ${candidate.count} cards`
+    : existing
+      ? 'refresh mirrored card artwork'
+      : `initial snapshot: ${candidate.count} cards`
 
 const commitMsg = `data: refresh cards.json — ${summary}`
 
-execSync('git add packages/game-data/cards.json', { cwd: REPO_ROOT, stdio: 'inherit' })
-execSync(`git commit -m ${JSON.stringify(commitMsg)}`, { cwd: REPO_ROOT, stdio: 'inherit' })
-execSync('git push', { cwd: REPO_ROOT, stdio: 'inherit' })
+const stagedPaths = [
+  'packages/game-data/cards.json',
+  ...[...writtenImagePaths].map((path) => path.slice(REPO_ROOT.length + 1)).sort((a, b) => a.localeCompare(b))
+]
+
+execFileSync('git', ['add', '--', ...stagedPaths], { cwd: REPO_ROOT, stdio: 'inherit' })
+execFileSync('git', ['commit', '-m', commitMsg], { cwd: REPO_ROOT, stdio: 'inherit' })
+execFileSync('git', ['push'], { cwd: REPO_ROOT, stdio: 'inherit' })
 
 console.log('\nPushed to origin — GitHub Actions will deploy.')
