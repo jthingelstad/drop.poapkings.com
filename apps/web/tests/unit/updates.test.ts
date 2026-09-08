@@ -11,10 +11,9 @@ describe('player updates', () => {
     expect(entries.some((entry) => entry.kind === 'feature')).toBe(true)
     expect(entries.some((entry) => entry.kind === 'season')).toBe(true)
     expect(entries[0]).toMatchObject({
-      id: 'minion-giant-joins-drop',
-      kind: 'feature',
-      impact: 'learning',
-      title: 'Minion Giant drops into every game'
+      id: 'season-135-results-season-136-opening',
+      kind: 'season',
+      title: 'A royal sweep closes Season 135'
     })
     expect(
       entries
