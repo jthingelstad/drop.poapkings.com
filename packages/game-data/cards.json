@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-07",
+  "version": "2026-09-08",
   "count": 121,
   "cards": [
     {
@@ -260,8 +260,9 @@
       "rarity": "legendary",
       "type": "troop",
       "evo": false,
-      "hero": false,
-      "icon": "/cards/26000023.png"
+      "hero": true,
+      "icon": "/cards/26000023.png",
+      "iconHero": "/cards/26000023_hero.png"
     },
     {
       "id": 26000024,
@@ -470,9 +471,10 @@
       "elixir": 6,
       "rarity": "common",
       "type": "troop",
-      "evo": false,
+      "evo": true,
       "hero": false,
-      "icon": "/cards/26000043.png"
+      "icon": "/cards/26000043.png",
+      "iconEvo": "/cards/26000043_evo.png"
     },
     {
       "id": 26000044,
