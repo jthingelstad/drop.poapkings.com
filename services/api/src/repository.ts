@@ -55,6 +55,7 @@ import {
   placeholderPublicProfile,
   publicProfile,
 } from "./public-profile.js";
+import { isExcludedFromBoards } from "./referee-status.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
   Correlation,
@@ -3316,18 +3317,20 @@ export class Repository {
       });
     }
 
-    // Recent-activity feed: one ephemeral (TTL'd) row per accepted
+    // Recent-activity feed: one ephemeral (TTL'd) row per recorded
     // ranked run, keyed newest-first in the main table (pk = FEED#{season}, sk =
-    // ISO ts). Quarantined runs (automaticReviewReason set → hidden) never hit the
-    // public feed. The history Put's idempotency condition makes the whole
-    // transaction — feed row included — safe to replay. Name/card resolve on read.
-    if (ranked && !automaticReviewReason && !recovery) {
+    // ISO ts). Pending runs rank provisionally, so they belong here too; the
+    // read path applies the same final-exclusion rule as public boards. The
+    // history Put's idempotency condition makes the whole transaction — feed
+    // row included — safe to replay. Name/card resolve on read.
+    if (ranked && !recovery) {
       transactionItems.push({
         Put: {
           TableName: this.tableName,
           Item: {
             pk: `FEED#${seasonId}`,
             sk: `${completedAt}#${run.runId}`,
+            runId: run.runId,
             playerSub: run.owner,
             mode: run.mode,
             score,
@@ -3339,11 +3342,12 @@ export class Repository {
       });
     }
 
-    // A plausibility failure is a quarantine, not destruction of the run. The
-    // visibility decision is committed atomically with the score so a flagged
-    // result cannot briefly appear on a public leaderboard. The referee may
-    // later replace CURRENT with an audited visible decision; both events stay
-    // in immutable DECISION history.
+    // A plausibility signal opens a neutral review state, not a verdict or
+    // destruction of the run. The decision is committed atomically with the
+    // score; public reads classify this integrity-gate hold as pending, so the
+    // result ranks and reaches activity provisionally until a referee records
+    // an audited clear or final exclusion. Both events stay in immutable
+    // DECISION history.
     if (ranked && automaticReviewReason) {
       const evidenceDigest = createHash("sha256")
         .update(
@@ -3638,9 +3642,27 @@ export class Repository {
       cursor = result.LastEvaluatedKey as Record<string, unknown> | undefined;
     } while (cursor && items.length < ACTIVITY_SCAN_LIMIT);
 
+    const runIds = items.flatMap((item) => {
+      if (typeof item.runId === "string" && item.runId) return [item.runId];
+      if (typeof item.sk !== "string") return [];
+      const separator = item.sk.lastIndexOf("#");
+      return separator >= 0 && separator < item.sk.length - 1
+        ? [item.sk.slice(separator + 1)]
+        : [];
+    });
+    const decisions = await loadRefereeDecisions(this.tableName, runIds);
+
     const grouped = new Map<string, ActivityGroup>();
     for (const item of items) {
+      const runId =
+        typeof item.runId === "string" && item.runId
+          ? item.runId
+          : typeof item.sk === "string"
+            ? item.sk.slice(item.sk.lastIndexOf("#") + 1)
+            : "";
       if (
+        !runId ||
+        isExcludedFromBoards(decisions.get(runId)) ||
         typeof item.playerSub !== "string" ||
         !isGameMode(item.mode) ||
         typeof item.completedAt !== "string" ||

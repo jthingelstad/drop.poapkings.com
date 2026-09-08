@@ -466,30 +466,36 @@ describe("repository DynamoDB requests", () => {
       .mockResolvedValueOnce({
         Items: [
           {
+            // Feed rows written before runId was projected retain it in the key.
+            sk: "2026-07-22T14:55:00.000Z#run-a-surge-1",
             playerSub: "player-a",
             mode: "surge",
             score: 20_000,
             completedAt: "2026-07-22T14:55:00.000Z",
           },
           {
+            runId: "run-a-surge-2",
             playerSub: "player-a",
             mode: "surge",
             score: 18_000,
             completedAt: "2026-07-22T14:54:00.000Z",
           },
           {
+            runId: "run-a-rain-1",
             playerSub: "player-a",
             mode: "rain",
             score: 12,
             completedAt: "2026-07-22T14:53:00.000Z",
           },
           {
+            runId: "run-a-rain-2",
             playerSub: "player-a",
             mode: "rain",
             score: 15,
             completedAt: "2026-07-22T14:52:30.000Z",
           },
           {
+            runId: "run-a-survival-1",
             playerSub: "player-a",
             mode: "survival",
             score: 5,
@@ -501,12 +507,14 @@ describe("repository DynamoDB requests", () => {
       .mockResolvedValueOnce({
         Items: [
           {
+            runId: "run-b-trade-1",
             playerSub: "player-b",
             mode: "trade",
             score: 13_000,
             completedAt: "2026-07-22T14:51:00.000Z",
           },
           {
+            runId: "run-c-higher-lower-1",
             playerSub: "player-c",
             mode: "higher-lower",
             score: 7,
@@ -514,6 +522,7 @@ describe("repository DynamoDB requests", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ Responses: { "test-table": [] } })
       .mockResolvedValueOnce({
         Responses: {
           "test-table": [
@@ -551,6 +560,9 @@ describe("repository DynamoDB requests", () => {
       pk: "FEED#134",
       sk: "cursor",
     });
+    expect(
+      send.mock.calls[2]?.[0].input.RequestItems["test-table"].Keys,
+    ).toContainEqual({ pk: "REFEREE#run-a-surge-1", sk: "CURRENT" });
     expect(entries).toMatchObject([
       {
         mode: "surge",
@@ -580,6 +592,72 @@ describe("repository DynamoDB requests", () => {
     ]);
     expect(entries).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ mode: "survival" })]),
+    );
+  });
+
+  it("keeps provisional activity visible and filters final exclusions", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-09-08T18:00:00.000Z").getTime(),
+    );
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            runId: "pending-run",
+            playerSub: "player-a",
+            mode: "surge",
+            score: 13_250,
+            completedAt: "2026-09-08T17:55:00.000Z",
+          },
+          {
+            runId: "excluded-run",
+            playerSub: "player-b",
+            mode: "rain",
+            score: 12,
+            completedAt: "2026-09-08T17:54:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              runId: "pending-run",
+              visibility: "hidden",
+              decidedBy: "integrity-gate",
+            },
+            {
+              runId: "excluded-run",
+              visibility: "hidden",
+              decidedBy: "fair-play-referee",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "test-table": [
+            {
+              sub: "player-a",
+              playerId: "p-a",
+              publicName: "Ace",
+              totalGames: 20,
+            },
+          ],
+        },
+      });
+
+    const entries = await new Repository("test-table").recentActivity(136, 10);
+
+    expect(entries).toMatchObject([
+      {
+        mode: "surge",
+        score: 13_250,
+        player: { publicName: "Ace" },
+      },
+    ]);
+    expect(entries).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ mode: "rain" })]),
     );
   });
 
@@ -1247,7 +1325,7 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
-  it("atomically hides an integrity-flagged ranked run for referee review", async () => {
+  it("publishes and atomically holds an integrity-flagged ranked run", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {
         sub: "player-sub",
@@ -1280,9 +1358,16 @@ describe("repository DynamoDB requests", () => {
     );
 
     const items = send.mock.calls[0]?.[0].input.TransactItems;
-    expect(items).toHaveLength(6);
-    const history = items[4]?.Put;
-    const current = items[5]?.Put;
+    expect(items).toHaveLength(7);
+    expect(items[4]?.Put?.Item).toMatchObject({
+      pk: "FEED#134",
+      runId: "run-review",
+      playerSub: "player-sub",
+      mode: "surge",
+      score: 1_000,
+    });
+    const history = items[5]?.Put;
+    const current = items[6]?.Put;
     expect(history?.Item).toMatchObject({
       pk: "REFEREE#run-review",
       runId: "run-review",
