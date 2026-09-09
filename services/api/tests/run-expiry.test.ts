@@ -3,7 +3,7 @@ import type {
   APIGatewayProxyStructuredResultV2,
   Context,
 } from "aws-lambda";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken, verifyToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
@@ -31,7 +31,7 @@ import { handler } from "../src/handler.js";
 
 const CATALOG_SIZE = (rawCards as { cards: unknown[] }).cards.length;
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
+const nowSeconds = Date.parse("2026-07-18T12:05:00Z") / 1_000;
 
 function sessionToken(): string {
   return signToken(
@@ -83,6 +83,8 @@ function event(
 
 describe("run expiry", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(nowSeconds * 1_000);
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
     process.env.SESSION_SECRET = secret;
@@ -91,6 +93,10 @@ describe("run expiry", () => {
     process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.rankedAccess.mockReset().mockResolvedValue("allowed");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns 410 run_expired (not 401) for a run completed after its window", async () => {

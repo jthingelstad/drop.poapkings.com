@@ -397,23 +397,28 @@ void test("automation registry contains exactly the five active objective owners
         [...block.matchAll(/^(\w+) = "([^"]+)"$/gm)].map((m) => [m[1], m[2]]),
       ),
     );
-  assert.deepEqual(entries.map((entry) => entry.objective).sort(), [
-    "fair-play",
-    "grow",
-    "improve",
-    "run",
-    "season",
-  ]);
+  assert.deepEqual(
+    entries
+      .filter((entry) => !entry.schedule_of)
+      .map((entry) => entry.objective)
+      .sort(),
+    ["fair-play", "grow", "improve", "run", "season"],
+  );
   const expectedSchedules = {
-    "fair-play": "RRULE:FREQ=DAILY;BYHOUR=18;BYMINUTE=30",
-    grow: "RRULE:FREQ=DAILY;BYHOUR=12;BYMINUTE=30",
-    improve: "RRULE:FREQ=WEEKLY;BYDAY=WE;BYHOUR=14;BYMINUTE=30",
+    "fair-play": "RRULE:FREQ=DAILY;BYHOUR=5;BYMINUTE=45",
+    grow: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=17;BYMINUTE=30",
+    improve: "RRULE:FREQ=WEEKLY;BYDAY=FR;BYHOUR=17;BYMINUTE=30",
     run: "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30",
     season: "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30",
   };
   for (const entry of entries) {
     assert.equal(entry.status, "ACTIVE");
-    assert.equal(entry.rrule, expectedSchedules[entry.objective]);
+    assert.equal(
+      entry.rrule,
+      entry.schedule_of
+        ? "RRULE:FREQ=WEEKLY;BYDAY=SA,SU;BYHOUR=6;BYMINUTE=30"
+        : expectedSchedules[entry.objective],
+    );
     assert.doesNotThrow(() =>
       readFileSync(path.join(ROOT, entry.objective_file), "utf8"),
     );
@@ -943,4 +948,33 @@ void test("Fastmail bug intake excludes canaries and redacts contact addresses",
     ["Email/query", "Email/get"],
   );
   assert.doesNotMatch(requests[1].init.body, /Email\/set/);
+});
+
+void test("additional schedule slots preserve owner and explicit launch contract", () => {
+  const probe = `
+import importlib.util, tomllib, sys
+sys.dont_write_bytecode = True
+from pathlib import Path
+root = Path.cwd()
+spec = importlib.util.spec_from_file_location("audit", root / "AGENT-TEAM/scripts/automation_audit.py")
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+plan = tomllib.loads((root / "AGENT-TEAM/automations.toml").read_text())
+owner = plan["automation"][0]
+alias = dict(owner, id="extra-slot", schedule_of=owner["id"])
+plan["automation"].append(alias)
+assert m.validate(plan) == []
+alias["schedule_of"] = "missing-owner"
+assert any("same primary owner" in x for x in m.validate(plan))
+alias["schedule_of"] = owner["id"]
+alias["objective_file"] = "AGENT-TEAM/README.md"
+assert any("same primary owner" in x for x in m.validate(plan))
+alias["objective_file"] = owner["objective_file"]
+alias.pop("schedule_of")
+assert "objectives must have exactly one owner" in m.validate(plan)
+e = m.expected(dict(owner, prompt="Use the primary memory.", launch_cwd=".."))
+assert e["prompt"] == "Use the primary memory."
+assert e["cwds"] == [str(root.parent)]
+`;
+  execFileSync("python3", ["-c", probe], { cwd: ROOT });
 });

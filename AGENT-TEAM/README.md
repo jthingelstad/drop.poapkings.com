@@ -6,13 +6,13 @@ product acceptance. There is no Build Manager, Team Manager, or routing pipeline
 
 ## The team
 
-| Objective | File | Cadence | Primary question |
-|---|---|---|---|
-| **Run Drop** | `run-drop.md` | Daily and after incidents/deploys | Is the public game healthy, correct, current, observable, and inexpensive to run? |
-| **Grow Drop** | `grow-drop.md` | Daily and at season boundaries | Are more people reaching a first recorded run and returning? |
-| **Improve Drop** | `improve-drop.md` | Weekly and after meaningful player-facing changes | Is playing Drop becoming clearer, more satisfying, and more effective? |
-| **Call the Season** | `call-the-season.md` | Daily check; opening, weekly, and closing publication | Do players know who leads every ranked game and how the rotating Free Pass race stands? |
-| **Protect Fair Play** | `protect-fair-play.md` | Daily and before prize/result decisions | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
+| Objective             | File                   | Cadence                                               | Primary question                                                                                               |
+| --------------------- | ---------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Run Drop**          | `run-drop.md`          | Daily and after incidents/deploys                     | Is the public game healthy, correct, current, observable, and inexpensive to run?                              |
+| **Grow Drop**         | `grow-drop.md`         | Weekdays 17:30; Saturday and Sunday 06:30             | Are more people reaching a first recorded run and returning?                                                   |
+| **Improve Drop**      | `improve-drop.md`      | Friday 17:30                                          | Is playing Drop becoming clearer, more satisfying, and more effective?                                         |
+| **Call the Season**   | `call-the-season.md`   | Daily check; opening, weekly, and closing publication | Do players know who leads every ranked game and how the rotating Free Pass race stands?                        |
+| **Protect Fair Play** | `protect-fair-play.md` | Daily 05:45                                           | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
 
 Building and testing are capabilities of every objective owner. New modes, material
 scoring or season changes, privacy-affecting signals, public accusations, prize
@@ -119,12 +119,12 @@ Issues are an exception ledger for multi-run work, external blockers, and Jamie
 decisions. Same-run findings are fixed and verified without a routing ticket. Every
 open issue has exactly one ownership label:
 
-| Label | Owner |
-|---|---|
-| `objective:run` | Run Drop |
-| `objective:grow` | Grow Drop |
-| `objective:improve` | Improve Drop |
-| `objective:season` | Call the Season |
+| Label                 | Owner             |
+| --------------------- | ----------------- |
+| `objective:run`       | Run Drop          |
+| `objective:grow`      | Grow Drop         |
+| `objective:improve`   | Improve Drop      |
+| `objective:season`    | Call the Season   |
 | `objective:fair-play` | Protect Fair Play |
 
 Work-type labels such as `bug`, `operations`, `growth`, `integrity`, `eval`, and
@@ -146,3 +146,14 @@ must answer before the objective can continue.
 Drop should remain a fast, fair, replayable game that teaches one useful Clash Royale
 skill. Prefer measured outcomes over tickets, the smallest source fix over a guard,
 and a healthy no-op over invented work.
+
+## Calendar implementation
+
+All times above are America/Chicago. Scheduled starts can run a minute or two
+late because the app adds jitter. Autonomous checks can finish outside Jamie's
+project windows; nonurgent decisions wait for early morning or early evening.
+The manifest records the installed schedule and prompt, including the explicit
+repository directory when the app launches from Projects.
+
+Entries with `schedule_of` are extra time slots for the same owner. They must
+use the original automation's memory and checkout lease, not a separate history.

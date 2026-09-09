@@ -2,8 +2,12 @@ version = 2
 repo = "."
 timezone = "America/Chicago"
 
-# Stable ids preserve Codex task history. Daily cadences keep this hobby project
-# observed without introducing an hourly operations loop.
+# Approved September 9, 2026. Calendar starts use local Chicago time.
+# schedule_of entries share the original objective, lease, and automation memory.
+# Interval activities use an initial prompt date check because the installed app
+# miscalculates interval timezones. Preserve that check when reinstalling.
+# launch_cwd records the app launch directory relative to this checkout.
+# Event-driven follow-ups remain explicit starts; these are calendar schedules.
 
 [[automation]]
 id = "drop-operations-manager"
@@ -14,6 +18,9 @@ status = "ACTIVE"
 rrule = "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "high"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/run-drop.md` completely, then pursue the `run` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-growth-and-season-analyst"
@@ -21,9 +28,12 @@ name = "Grow Drop"
 objective = "grow"
 objective_file = "AGENT-TEAM/grow-drop.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=DAILY;BYHOUR=12;BYMINUTE=30"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=17;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "high"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/grow-drop.md` completely, then pursue the `grow` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-player-experience-owner"
@@ -31,9 +41,12 @@ name = "Improve Drop"
 objective = "improve"
 objective_file = "AGENT-TEAM/improve-drop.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=WEEKLY;BYDAY=WE;BYHOUR=14;BYMINUTE=30"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=FR;BYHOUR=17;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/improve-drop.md` completely, then pursue the `improve` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-fair-play-referee"
@@ -41,9 +54,12 @@ name = "Protect Fair Play"
 objective = "fair-play"
 objective_file = "AGENT-TEAM/protect-fair-play.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=DAILY;BYHOUR=18;BYMINUTE=30"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=5;BYMINUTE=45"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/protect-fair-play.md` completely, then pursue the `fair-play` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-season-commentator"
@@ -54,3 +70,20 @@ status = "ACTIVE"
 rrule = "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/call-the-season.md` completely, then pursue the `season` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+
+[[automation]]
+id = "drop-growth-and-season-analyst-weekend"
+name = "Grow Drop (weekend)"
+objective = "grow"
+objective_file = "AGENT-TEAM/grow-drop.md"
+schedule_of = "drop-growth-and-season-analyst"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=SA,SU;BYHOUR=6;BYMINUTE=30"
+model = "gpt-5.6-sol"
+reasoning_effort = "high"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "This is the weekend schedule for the same objective as drop-growth-and-season-analyst. Use its existing checkout lease and read/update its canonical automation memory at `/Users/otto/.codex/automations/drop-growth-and-season-analyst/memory.md`; do not create a separate objective or memory history. Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/grow-drop.md` completely, then pursue the `grow` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
