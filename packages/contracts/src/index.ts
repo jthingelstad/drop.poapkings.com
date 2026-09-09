@@ -536,7 +536,11 @@ export interface CrWarClock {
   periodType: ClanWarPeriodType;
   seasonStartsAt: string;
   observedAt: string;
-  sourceClanTag: string;
+  sourceClanTag?: string;
+  clockSource?: "policy";
+  seasonEndsAt?: string;
+  dayStartsAt?: string;
+  dayEndsAt?: string;
 }
 
 // The manual season-repair command, and the only thing left on the result

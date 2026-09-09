@@ -28,6 +28,11 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: Full-access API token used only by the API Lambda to publish authoritative Tinylytics events.
+  ElixirIntegrationKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: REST-audience platform credential. Stage before the API code cutover; the legacy MCP key is preserved for rollback.
   ElixirMcpKey:
     Type: String
     NoEcho: true
@@ -720,6 +725,7 @@ Resources:
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
           ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
+          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
@@ -820,9 +826,10 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           APP_URL: !Ref AppUrl
+          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
-          CR_WAR_CLOCK_CLAN_TAG: "#J2RGCRVG"
+          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
           BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
 
@@ -910,6 +917,7 @@ Resources:
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop
           NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_DROP_DISCORD_WEBHOOK_URL: !Ref DiscordWebhookUrl
+          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug

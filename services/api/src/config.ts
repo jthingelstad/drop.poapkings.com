@@ -95,7 +95,10 @@ export function getConfig(): Config {
     elixirMcpBaseUrl: (
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),
-    elixirMcpKey: process.env.ELIXIR_MCP_KEY?.trim() || undefined,
+    elixirMcpKey:
+      process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
+      process.env.ELIXIR_MCP_KEY?.trim() ||
+      undefined,
     elixirMcpCollectionSlug:
       process.env.ELIXIR_MCP_COLLECTION_SLUG?.trim() || "elixir-drop",
     warClockClanTag:

@@ -139,7 +139,7 @@ npm run verify:non-browser # complete gate except Playwright
 - `apps/admin` — the desktop-first private Control Room (managed host + tailnet).
 - `services/api` — the TypeScript Lambda backend (DynamoDB, API Gateway).
 - `services/admin` — the loopback-only adapter over sanctioned referee scripts.
-- `services/cr-api-bridge` — the fixed-IP Clash Royale API worker.
+- `services/api/src/elixir-mcp.ts` — the server-only Elixir Integration REST client.
 - `packages/contracts` — shared request/response types.
 - `packages/game-data` — the committed `cards.json` snapshot.
 - `infra` — CloudFormation.
@@ -147,7 +147,8 @@ npm run verify:non-browser # complete gate except Playwright
 These boundaries are enforced by the project's **golden rules** — the full text
 lives in [`AGENTS.md`](./AGENTS.md) and is the one place they are stated. The two
 that bite contributors most: do not import service implementation files across
-workspaces, and **only the bridge may call the Clash Royale API at runtime**.
+workspaces, and **runtime CR context comes through the Elixir Integration API**. Only the
+manual host card refresher calls Supercell directly.
 
 ## Conventions
 

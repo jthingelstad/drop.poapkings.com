@@ -1,501 +1,175 @@
 import { describe, expect, it, vi } from "vitest";
-import { callTool, addPlayerToCollection } from "../src/elixir-mcp.js";
+import { apiRequest, addPlayerToCollection } from "../src/elixir-mcp.js";
 import { rememberPlayerInCollection } from "../src/elixir-collection.js";
 import {
   fetchPlayerFromHub,
-  normalizeHubPlayer,
   normalizeRecordedPlayer,
 } from "../src/elixir-player.js";
-import { fetchWarClockFromHub, toWarClock } from "../src/elixir-war-clock.js";
-import type { Config } from "../src/config.js";
-
-const config = {
-  baseUrl: "https://elixir.example",
-  token: "svt_test",
+import { toWarClock, fetchWarClockFromHub } from "../src/elixir-war-clock.js";
+import { seasonForDate } from "../src/seasons.js";
+const config = { baseUrl: "https://elixir.example", token: "svt_test" };
+const dropConfig = {
+  elixirMcpBaseUrl: config.baseUrl,
+  elixirMcpKey: config.token,
+  elixirMcpCollectionSlug: "elixir-drop",
 };
-
-/** The hub answers JSON-RPC; tool results arrive as JSON in content[0].text. */
-function hubReply(payload: unknown, isError = false) {
-  return vi.fn(async (_url: string, _init: RequestInit) => ({
+function reply(value: unknown, status = 200) {
+  return {
+    ok: status < 400,
+    status,
+    json: async () => (status < 400 ? { data: value } : value),
+    text: async () => "",
+  };
+}
+const recorded = {
+  name: "Example",
+  observed_at: new Date().toISOString(),
+  clan: { clan_tag: "#2PYQ0", name: "Clan", badge_id: 123, role: "member" },
+  attributes: { years_played: 2, account_age_days: 800 },
+};
+it("uses bearer REST with encoded resources and idempotent membership", async () => {
+  const fetcher = vi.fn(async () => reply({ enrollment_established: true }));
+  await addPlayerToCollection(
+    config,
+    "elixir-drop",
+    ["#2PYQ0", "#2PYQ0"],
+    fetcher,
+  );
+  expect(fetcher.mock.calls).toHaveLength(1);
+  expect(fetcher).toHaveBeenCalledWith(
+    "https://elixir.example/api/v1/collections/elixir-drop/members/%232PYQ0",
+    expect.objectContaining({
+      method: "PUT",
+      headers: expect.objectContaining({ Authorization: "Bearer svt_test" }),
+    }),
+  );
+  await addPlayerToCollection(config, "elixir-drop", [], fetcher);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it("does not send absent tags, and leaves enrollment failures for the worker to retry", async () => {
+  const fetcher = vi.fn(async () =>
+    reply({ code: "temporarily_unavailable" }, 503),
+  );
+  await rememberPlayerInCollection(dropConfig, undefined, fetcher);
+  expect(fetcher).not.toHaveBeenCalled();
+  await expect(
+    rememberPlayerInCollection(dropConfig, "#2PYQ0", fetcher),
+  ).rejects.toMatchObject({ status: 503 });
+});
+it("retains recorded source time and never refreshes on an authentication failure", async () => {
+  const fetcher = vi.fn(async () => reply(recorded));
+  expect(await fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher)).toMatchObject(
+    {
+      name: "Example",
+      observedAt: recorded.observed_at,
+      clan: { badgeId: 123 },
+      accountAge: { days: 800 },
+    },
+  );
+  const denied = vi.fn(async () => reply({ code: "unauthenticated" }, 401));
+  await expect(
+    fetchPlayerFromHub(dropConfig, "#2PYQ0", denied),
+  ).rejects.toMatchObject({ status: 401 });
+  expect(denied).toHaveBeenCalledTimes(1);
+  expect(normalizeRecordedPlayer({})).toBeUndefined();
+});
+it("requests an asynchronous refresh for missing or stale data, and propagates pending", async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(reply({ code: "not_recorded" }, 404))
+    .mockResolvedValueOnce(reply({ status: "pending" }, 202));
+  await expect(
+    fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher),
+  ).rejects.toMatchObject({ code: "refresh_pending" });
+  expect(fetcher.mock.calls[1]![0]).toBe(
+    "https://elixir.example/api/v1/profile-refreshes",
+  );
+  expect(fetcher.mock.calls[1]![1].headers["Idempotency-Key"]).toContain(
+    "profile:#2PYQ0:",
+  );
+  const stale = vi
+    .fn()
+    .mockResolvedValueOnce(
+      reply({ ...recorded, observed_at: "2025-01-01T00:00:00Z" }),
+    )
+    .mockResolvedValueOnce(reply({ status: "complete", profile: recorded }));
+  expect(await fetchPlayerFromHub(dropConfig, "#2PYQ0", stale)).toMatchObject({
+    observedAt: recorded.observed_at,
+  });
+  expect(stale).toHaveBeenCalledTimes(2);
+});
+it("refuses absent config and malformed responses", async () => {
+  const fetcher = vi.fn(async () => ({
     ok: true,
     status: 200,
-    json: async () => ({
-      jsonrpc: "2.0",
-      id: 1,
-      result: { isError, content: [{ text: JSON.stringify(payload) }] },
-    }),
+    json: async () => ({}),
     text: async () => "",
   }));
-}
-
-describe("Elixir MCP client", () => {
-  it("aborts a stalled transport at its explicit deadline", async () => {
-    const controller = new AbortController();
-    const timeout = vi
-      .spyOn(AbortSignal, "timeout")
-      .mockReturnValue(controller.signal);
-    try {
-      const fetcher = vi.fn(
-        (_url: string, init: RequestInit) =>
-          new Promise<never>((_resolve, reject) => {
-            init.signal!.addEventListener(
-              "abort",
-              () => reject(new Error("aborted")),
-              { once: true },
-            );
-          }),
-      );
-      const request = callTool(config, "war_current", {}, fetcher);
-      controller.abort();
-      await expect(request).rejects.toThrow("aborted");
-      expect(timeout).toHaveBeenCalledWith(3_000);
-    } finally {
-      timeout.mockRestore();
-    }
-  });
-
-  it("calls one tool over JSON-RPC with the service token", async () => {
-    const fetcher = hubReply({ slug: "elixir-drop", added: 1, members: 14 });
-    const result = await callTool(
-      config,
-      "collections_edit",
-      { slug: "elixir-drop", action: "add", tags: ["#2YG98VVQ"] },
+  await expect(
+    apiRequest(
+      { baseUrl: config.baseUrl },
+      "GET",
+      "/game/clock",
+      undefined,
       fetcher,
-    );
-    expect(result).toMatchObject({ added: 1, members: 14 });
-    const call = fetcher.mock.calls[0]!;
-    expect(call[0]).toBe("https://elixir.example/mcp");
-    expect((call[1].headers as Record<string, string>).Authorization).toBe(
-      "Bearer svt_test",
-    );
-    const body: {
-      method: string;
-      params: { name: string; arguments: { tags: string[] } };
-    } = JSON.parse(call[1].body as string);
-    expect(body.method).toBe("tools/call");
-    expect(body.params.name).toBe("collections_edit");
-    expect(body.params.arguments.tags).toEqual(["#2YG98VVQ"]);
-  });
-
-  it("turns a tool refusal into a throw, not a silent success", async () => {
-    // The hub reports tool failures as a RESULT carrying isError, so a
-    // naive client would read a refusal as a successful call.
-    const fetcher = hubReply(
-      { error: "not_entitled", message: "'x' belongs to someone else." },
-      true,
-    );
-    await expect(
-      callTool(config, "collections_edit", {}, fetcher),
-    ).rejects.toThrow(/belongs to someone else/);
-  });
-
-  it("surfaces the shared rate limit distinctly", async () => {
-    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => ({
-      ok: false,
-      status: 429,
-      json: async () => ({}),
-      text: async () => "",
-    }));
-    await expect(
-      callTool(config, "collections_edit", {}, fetcher),
-    ).rejects.toMatchObject({ status: 429, code: "rate_limited" });
-  });
-
-  it("refuses to call at all when the hub is unconfigured", async () => {
-    const fetcher = hubReply({});
-    await expect(
-      callTool({ baseUrl: "https://elixir.example" }, "x", {}, fetcher),
-    ).rejects.toMatchObject({ code: "unconfigured" });
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it("dedupes tags and skips the call when there is nothing to add", async () => {
-    const fetcher = hubReply({ added: 1 });
-    await addPlayerToCollection(
-      config,
-      "elixir-drop",
-      ["#2YG98VVQ", "#2YG98VVQ"],
-      fetcher,
-    );
-    const sent: { params: { arguments: { tags: string[] } } } = JSON.parse(
-      fetcher.mock.calls[0]![1].body as string,
-    );
-    expect(sent.params.arguments.tags).toEqual(["#2YG98VVQ"]);
-
-    const idle = hubReply({});
-    expect(
-      await addPlayerToCollection(config, "elixir-drop", [], idle),
-    ).toBeUndefined();
-    expect(idle).not.toHaveBeenCalled();
-  });
+    ),
+  ).rejects.toMatchObject({ code: "unconfigured" });
+  expect(fetcher).not.toHaveBeenCalled();
+  await expect(
+    apiRequest(config, "GET", "/game/clock", undefined, fetcher),
+  ).rejects.toMatchObject({ code: "invalid_response" });
 });
-
-describe("collection membership on the Drop side", () => {
-  const dropConfig = {
-    elixirMcpBaseUrl: "https://elixir.example",
-    elixirMcpKey: "svt_test",
-    elixirMcpCollectionSlug: "elixir-drop",
-  } as Config;
-
-  it("adds a saved tag", async () => {
-    const fetcher = hubReply({ added: 1, members: 1 });
-    await rememberPlayerInCollection(dropConfig, "#2YG98VVQ", fetcher);
-    expect(fetcher).toHaveBeenCalledOnce();
+const calendar = {
+  source: "policy",
+  as_of: "2026-09-08T12:00:00Z",
+  season_id: 136,
+  section_index: 0,
+  period_index: 1,
+  day_kind: "training",
+  season_started_at: "2026-09-07T10:00:00Z",
+  season_ends_at: "2026-10-05T10:00:00Z",
+  day_started_at: "2026-09-08T10:00:00Z",
+  day_ends_at: "2026-09-09T10:00:00Z",
+};
+it("uses explicit policy boundaries and expires the old season at reset", async () => {
+  const clock = toWarClock(calendar);
+  expect(clock).toMatchObject({
+    clockSource: "policy",
+    seasonStartsAt: calendar.season_started_at,
+    seasonEndsAt: calendar.season_ends_at,
   });
-
-  it("does nothing for an account with no tag", async () => {
-    // Most Drop accounts have none: the tag is optional and stays out
-    // of setup, so this is the common path, not an edge case.
-    const fetcher = hubReply({});
-    await rememberPlayerInCollection(dropConfig, undefined, fetcher);
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when the hub is not wired", async () => {
-    const fetcher = hubReply({});
-    await rememberPlayerInCollection(
-      { ...dropConfig, elixirMcpKey: undefined } as Config,
-      "#2YG98VVQ",
-      fetcher,
-    );
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it("never lets a hub outage fail the login that triggered it", async () => {
-    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
-      throw new Error("connect ECONNREFUSED");
-    });
-    await expect(
-      rememberPlayerInCollection(dropConfig, "#2YG98VVQ", fetcher),
-    ).resolves.toBeUndefined();
-  });
+  expect(clock.sourceClanTag).toBeUndefined();
+  const fetcher = vi.fn(async () => reply(calendar));
+  await fetchWarClockFromHub(dropConfig, new Date(), fetcher);
+  expect(fetcher).toHaveBeenCalledWith(
+    "https://elixir.example/api/v1/game/clock",
+    expect.objectContaining({ method: "GET" }),
+  );
+  const stored = { ...clock, updatedAt: clock.observedAt };
+  expect(seasonForDate(new Date("2026-10-05T09:59:59Z"), stored).id).toBe(136);
+  expect(seasonForDate(new Date("2026-10-05T10:00:00Z"), stored).id).toBe(137);
+  expect(() =>
+    toWarClock({ ...calendar, day_ends_at: calendar.day_started_at }),
+  ).toThrow();
+  expect(() => toWarClock({ ...calendar, source: "observation" })).toThrow();
 });
-
-describe("player enrichment from the hub", () => {
-  const raw = {
-    tag: "#UL2V9QRG0",
-    name: "raquaza",
-    role: "coLeader",
-    clan: { tag: "#J2RGCRVG", name: "POAP KINGS", badgeId: 16000107 },
-    badges: [
-      { name: "BattleWins", level: 5, progress: 2479 },
-      { name: "YearsPlayed", level: 4, progress: 1637, target: 1825 },
-    ],
-    cards: [
-      { id: 26000000, name: "Knight", iconUrls: { medium: "https://x/k.png" } },
-    ],
-  };
-
-  it("keeps exactly what Drop renders", () => {
-    const player = normalizeHubPlayer(raw);
-    expect(player.name).toBe("raquaza");
-    expect(player.clan).toEqual({
-      tag: "#J2RGCRVG",
-      name: "POAP KINGS",
-      badgeId: 16000107,
-      role: "coLeader",
-    });
-    // Account age is the YearsPlayed badge; progress is days played.
-    expect(player.accountAge).toEqual({ days: 1637, years: 4 });
-  });
-
-  it("does not keep the card collection", () => {
-    // Drop collected every card, shipped the array to the browser on
-    // every /me, and read it nowhere. The mode that dealt from it was
-    // removed in July 2026 and is prohibited in AGENTS.md and SPEC.md.
-    expect(normalizeHubPlayer(raw)).not.toHaveProperty("cards");
-  });
-
-  it("tolerates a player with no clan and no badges", () => {
-    const player = normalizeHubPlayer({ name: "Solo" });
-    expect(player).toEqual({
-      name: "Solo",
-      clan: undefined,
-      accountAge: undefined,
-    });
-  });
-
-  it("drops a clan missing its badge rather than storing half of one", () => {
-    const player = normalizeHubPlayer({
-      name: "x",
-      clan: { tag: "#A", name: "A" },
-      role: "member",
-    });
-    expect(player.clan).toBeUndefined();
-  });
-
-  it("refuses a payload with no name", () => {
-    expect(() => normalizeHubPlayer({ tag: "#A" })).toThrow(/invalid player/);
-  });
-
-  it("percent-encodes the tag on the live passthrough", async () => {
-    // Reached only when the record cannot answer; the hash in a Clash
-    // Royale tag has to survive into the path.
-    let call = 0;
-    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
-      call += 1;
-      const result =
-        call === 1
-          ? {
-              isError: true,
-              content: [{ text: JSON.stringify({ error: "not_recorded" }) }],
-            }
-          : { content: [{ text: JSON.stringify({ data: raw }) }] };
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ jsonrpc: "2.0", id: call, result }),
-        text: async () => "",
-      };
-    });
-    const player = await fetchPlayerFromHub(
-      {
-        elixirMcpBaseUrl: "https://elixir.example",
-        elixirMcpKey: "svt_test",
-      } as Config,
-      "#UL2V9QRG0",
-      fetcher,
-    );
-    expect(player.name).toBe("raquaza");
-    const sent: { params: { name: string; arguments: { path: string } } } =
-      JSON.parse(fetcher.mock.calls[1]![1].body as string);
-    expect(sent.params.name).toBe("live_fetch");
-    expect(sent.params.arguments.path).toBe("/players/%23UL2V9QRG0");
-  });
-});
-
-describe("the Clan Wars clock from the hub", () => {
-  const warCurrent = {
-    clan_tag: "#J2RGCRVG",
-    season_id: 135,
-    section_index: 4,
-    is_colosseum: false,
-    period: {
-      period_index: 34,
-      kind: "war",
-      started_observed_at: "2026-09-06T09:57:37.000Z",
-    },
-  };
-
-  it("maps the hub's clock onto the shape Drop stores", () => {
-    const clock = toWarClock(
-      warCurrent,
-      "#J2RGCRVG",
-      new Date("2026-09-06T12:00:00.000Z"),
-    );
-    expect(clock.crSeasonId).toBe(135);
-    expect(clock.sectionIndex).toBe(4);
-    expect(clock.periodIndex).toBe(34);
-    expect(clock.periodType).toBe("warDay");
-    // The season opened periodIndex days before this period did. The
-    // anchor is the OBSERVED open, not an assumed 10:00 UTC reset.
-    expect(clock.seasonStartsAt).toBe("2026-08-03T09:57:37.000Z");
-    expect(clock.sourceClanTag).toBe("#J2RGCRVG");
-  });
-
-  it("calls colosseum weeks colosseum, whatever the period kind says", () => {
-    const clock = toWarClock(
-      { ...warCurrent, is_colosseum: true },
-      "#J2RGCRVG",
-    );
-    expect(clock.periodType).toBe("colosseum");
-  });
-
-  it("maps a training day", () => {
-    const clock = toWarClock(
-      {
-        ...warCurrent,
-        period: { ...warCurrent.period, kind: "training", period_index: 2 },
-      },
-      "#J2RGCRVG",
-    );
-    expect(clock.periodType).toBe("training");
-  });
-
-  it("refuses an out-of-range index rather than back-dating a season", () => {
-    // A five-week season has at most 5 sections of 7 periods; a glitched
-    // index would move the season start by months.
-    expect(() =>
-      toWarClock(
-        { ...warCurrent, period: { ...warCurrent.period, period_index: 99 } },
-        "#J2RGCRVG",
-      ),
-    ).toThrow(/out-of-range/);
-  });
-
-  it("refuses when the hub has not observed a period open", () => {
-    expect(() =>
-      toWarClock(
-        { ...warCurrent, period: { period_index: 1, kind: "war" } },
-        "#J2RGCRVG",
-      ),
-    ).toThrow(/observed period start/);
-  });
-
-  it("asks the hub for the configured clan", async () => {
-    const fetcher = hubReply(warCurrent);
-    const clock = await fetchWarClockFromHub(
-      {
-        elixirMcpBaseUrl: "https://elixir.example",
-        elixirMcpKey: "svt_test",
-        warClockClanTag: "#J2RGCRVG",
-      } as Config,
-      new Date("2026-09-06T12:00:00.000Z"),
-      fetcher,
-    );
-    expect(clock.crSeasonId).toBe(135);
-    const sent: { params: { name: string; arguments: { clan_tag: string } } } =
-      JSON.parse(fetcher.mock.calls[0]![1].body as string);
-    expect(sent.params.name).toBe("war_current");
-    expect(sent.params.arguments.clan_tag).toBe("#J2RGCRVG");
-  });
-});
-
-describe("enrichment prefers the record over a live read", () => {
-  const dropConfig = {
-    elixirMcpBaseUrl: "https://elixir.example",
-    elixirMcpKey: "svt_test",
-  } as Config;
-
-  const recorded = {
-    player_tag: "#UL2V9QRG0",
-    name: "raquaza",
-    clan: {
-      clan_tag: "#J2RGCRVG",
-      name: "POAP KINGS",
-      badge_id: 16000107,
-      role: "coLeader",
-    },
-    attributes: { years_played: 4, account_age_days: 1637 },
-  };
-
-  it("maps the recorded profile onto what Drop renders", () => {
-    const player = normalizeRecordedPlayer(recorded);
-    expect(player).toEqual({
-      name: "raquaza",
-      clan: {
-        tag: "#J2RGCRVG",
-        name: "POAP KINGS",
-        badgeId: 16000107,
-        role: "coLeader",
-      },
-      accountAge: { days: 1637, years: 4 },
-    });
-  });
-
-  it("drops a recorded clan whose badge was never observed", () => {
-    // Same rule as the live payload: half a clan is not stored.
-    const player = normalizeRecordedPlayer({
+it("keeps only rendered recorded facts and rejects incomplete clan data", () => {
+  expect(
+    normalizeRecordedPlayer({
       ...recorded,
-      clan: { ...recorded.clan, badge_id: null },
-    });
-    expect(player?.clan).toBeUndefined();
-  });
-
-  it("reads history and never touches the live passthrough", async () => {
-    const fetcher = hubReply(recorded);
-    const player = await fetchPlayerFromHub(dropConfig, "#UL2V9QRG0", fetcher);
-    expect(player.name).toBe("raquaza");
-    expect(fetcher).toHaveBeenCalledOnce();
-    const sent: { params: { name: string } } = JSON.parse(
-      fetcher.mock.calls[0]![1].body as string,
-    );
-    expect(sent.params.name).toBe("players_profile");
-  });
-
-  it("falls back to a live read for a tag the hub has never seen", async () => {
-    // The ordinary cold case: somebody just linked their tag.
-    let call = 0;
-    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
-      call += 1;
-      const body =
-        call === 1
-          ? {
-              isError: true,
-              content: [
-                {
-                  text: JSON.stringify({
-                    error: "not_recorded",
-                    message: "#X is not in the record yet.",
-                  }),
-                },
-              ],
-            }
-          : {
-              content: [
-                {
-                  text: JSON.stringify({
-                    data: { name: "Newcomer", badges: [] },
-                  }),
-                },
-              ],
-            };
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ jsonrpc: "2.0", id: call, result: body }),
-        text: async () => "",
-      };
-    });
-    const player = await fetchPlayerFromHub(dropConfig, "#XYZ", fetcher);
-    expect(player.name).toBe("Newcomer");
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    const second: { params: { name: string } } = JSON.parse(
-      fetcher.mock.calls[1]![1].body as string,
-    );
-    expect(second.params.name).toBe("live_fetch");
-  });
-
-  it("keeps player tags and provider details out of fallback warnings", async () => {
-    const playerTag = "#PRIVATE";
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    let call = 0;
-    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => {
-      call += 1;
-      const result =
-        call === 1
-          ? {
-              isError: true,
-              content: [
-                {
-                  text: JSON.stringify({
-                    error: "upstream_failure",
-                    message: `provider detail for ${playerTag}`,
-                  }),
-                },
-              ],
-            }
-          : {
-              content: [
-                {
-                  text: JSON.stringify({
-                    data: { name: "Recovered", badges: [] },
-                  }),
-                },
-              ],
-            };
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ jsonrpc: "2.0", id: call, result }),
-        text: async () => "",
-      };
-    });
-
-    try {
-      await expect(
-        fetchPlayerFromHub(dropConfig, playerTag, fetcher),
-      ).resolves.toMatchObject({ name: "Recovered" });
-      expect(warn).toHaveBeenCalledWith(
-        "Elixir MCP recorded profile unavailable; reading live",
-        { error: "ElixirMcpError" },
-      );
-      const logged = JSON.stringify(warn.mock.calls);
-      expect(logged).not.toContain(playerTag);
-      expect(logged).not.toContain("provider detail");
-    } finally {
-      warn.mockRestore();
-    }
+      clan: { clan_tag: "#2PYQ0", name: "Clan", badge_id: null },
+    })?.clan,
+  ).toBeUndefined();
+  expect(
+    normalizeRecordedPlayer({
+      name: "Example",
+      attributes: { years_played: null, account_age_days: null },
+    })?.accountAge,
+  ).toBeUndefined();
+  expect(normalizeRecordedPlayer(recorded)).toEqual({
+    name: "Example",
+    clan: { tag: "#2PYQ0", name: "Clan", badgeId: 123, role: "member" },
+    accountAge: { days: 800, years: 2 },
   });
 });
 

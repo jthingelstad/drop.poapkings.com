@@ -4,7 +4,6 @@ import {
   buttondownPlayerMetadata,
   enrollButtondownSubscriber,
 } from "../buttondown.js";
-import { rememberPlayerInCollection } from "../elixir-collection.js";
 import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
@@ -24,7 +23,6 @@ import {
   clientIpHash,
   issueSession,
   MAGIC_LINK_SECONDS,
-  refreshedCrProfile,
   type RouteContext,
   sessionFor,
   sha256,
@@ -353,19 +351,19 @@ export async function redeemMagicLink({
     playerId: login.profile.playerId,
     newPlayer: login.created,
   });
+  await enqueueRefresh(config, {
+    version: 1,
+    type: "player-profile",
+    sub: login.profile.sub,
+    playerId: login.profile.playerId,
+  });
   // Side channels are best-effort: a Discord or CR hiccup must not fail a
   // login whose link is already spent.
   try {
     await repository.putRecruiterInviteAlias(login.profile);
-    // Every login re-asserts collection membership rather than only new
-    // accounts: it is idempotent, and it is how the players who saved a
-    // tag before the hub existed get picked up.
-    void rememberPlayerInCollection(config, login.profile.playerTag);
-    const crProfile = refreshedCrProfile(
-      repository,
-      config,
-      login.profile.playerTag,
-    );
+    const crProfile = login.profile.playerTag
+      ? repository.getCrProfile(login.profile.playerTag)
+      : Promise.resolve(undefined);
     await Promise.all([
       publishDiscordEvent(
         config.discordWebhookUrl,

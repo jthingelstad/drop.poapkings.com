@@ -1237,3 +1237,29 @@ any run-level decision.
 
 _Unofficial fan project. Card data, names, and artwork © Supercell, used under
 Supercell's Fan Content Policy. Not endorsed by Supercell._
+
+
+## Elixir integration API
+
+Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
+REST `/api/v1`: game policy clock, recorded player profiles, asynchronous profile
+refreshes and add-only collection membership. The canonical contract and setup
+are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
+`../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
+
+`ELIXIR_INTEGRATION_KEY` holds the REST-audience integration key. Stage this
+new parameter before switching code; the legacy `ELIXIR_MCP_KEY` is preserved
+for rollback and only used if no new key is configured. `ELIXIR_MCP_BASE_URL` stays the hub
+origin. Admin grants additions to `elixir-drop` without transferring collection
+ownership or altering its depth. Login and tag save enqueue generation-bound
+refresh jobs. The worker asserts membership even when a profile is cached,
+then reads recorded data or requests a durable collector refresh. Source
+`observed_at` supplies profile freshness. Failures retry in SQS; stale values
+remain useful. `scripts/sync-elixir-collection.mjs` repairs missed additions
+without deleting manual or previous members.
+
+Saved CR tags remain optional and unverified. No Drop identities, scores, XP or
+badges are uploaded. The new clock is explicitly policy-based, with supplied
+season/day boundaries at 10:00 UTC; it is not a clan observation. Finalization
+still precedes caching a new season, and existing run assignments do not change.
+Manual host-only card refresh continues to use Supercell directly.

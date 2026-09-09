@@ -19,29 +19,22 @@ import { addPlayerToCollection, type ElixirMcpFetch } from "./elixir-mcp.js";
 import type { Config } from "./config.js";
 
 /**
- * Best effort by design. A login or a profile save must never fail
- * because the hub is unreachable; the next login re-adds the tag, and
- * the periodic sync catches anything that slipped.
+ * Called by the durable refresh worker. Errors propagate for queue retry;
+ * login and profile save only enqueue, and reconciliation repairs missed work.
  */
 export async function rememberPlayerInCollection(
-  config: Config,
+  config: Pick<
+    Config,
+    "elixirMcpBaseUrl" | "elixirMcpKey" | "elixirMcpCollectionSlug"
+  >,
   playerTag: string | undefined,
   fetcher?: ElixirMcpFetch,
 ): Promise<void> {
   if (!playerTag || !config.elixirMcpKey) return;
-  try {
-    await addPlayerToCollection(
-      { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey },
-      config.elixirMcpCollectionSlug,
-      [playerTag],
-      fetcher,
-    );
-  } catch (error) {
-    console.warn("Elixir MCP collection add failed", {
-      collection: config.elixirMcpCollectionSlug,
-      // The tag is public game data; the error text may carry hub detail.
-      playerTag,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
+  await addPlayerToCollection(
+    { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey },
+    config.elixirMcpCollectionSlug,
+    [playerTag],
+    fetcher,
+  );
 }

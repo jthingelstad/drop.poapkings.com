@@ -1,4 +1,4 @@
-import { rememberPlayerInCollection } from "../elixir-collection.js";
+import { enqueueRefresh } from "../refresh-jobs.js";
 import {
   arenaForXp,
   seasonNumber,
@@ -43,7 +43,6 @@ import {
   ownerRunReviewExplanation,
   ownerRunReviewStatus,
   profileResponse,
-  refreshedCrProfile,
   type RouteContext,
   runRecordResponse,
   sessionFor,
@@ -715,16 +714,15 @@ export async function patchMe({ event, config, repository }: RouteContext) {
     ? await repository.getProfile(session.sub)
     : undefined;
   const profile = await repository.updateProfile(session.sub, updates);
-  // Saving a tag is the moment a Drop account becomes a recordable
-  // player, so it is the primary place membership is asserted. Login
-  // re-asserts it for accounts that had a tag before the hub existed.
-  if (updates.playerTag) {
-    void rememberPlayerInCollection(config, profile.playerTag);
-  }
+  if (updates.playerTag)
+    await enqueueRefresh(config, {
+      version: 1,
+      type: "player-profile",
+      sub: session.sub,
+      playerId: profile.playerId,
+    });
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
-    ? updates.playerTag
-      ? await refreshedCrProfile(repository, config, profile.playerTag)
-      : await repository.getCrProfile(profile.playerTag)
+    ? await repository.getCrProfile(profile.playerTag)
     : undefined;
   const completedProfile =
     changesIdentity &&

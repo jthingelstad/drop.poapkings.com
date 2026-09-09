@@ -82,6 +82,23 @@ function seasonFromWarClock(
   )
     return undefined;
 
+  if (clock.clockSource === "policy" && clock.seasonEndsAt) {
+    const end = Date.parse(clock.seasonEndsAt);
+    if (!Number.isFinite(end) || input.getTime() >= end) return undefined;
+    const currentWeek =
+      Math.floor((input.getTime() - startsAt.getTime()) / WEEK_MS) + 1;
+    return {
+      id: clock.crSeasonId,
+      startsAt: clock.seasonStartsAt,
+      endsAt: clock.seasonEndsAt,
+      durationWeeks: Math.round((end - startsAt.getTime()) / WEEK_MS),
+      source: "clash-royale",
+      currentWeek,
+      daysRemainingInWeek: daysRemainingInWeek(input, startsAt, currentWeek),
+      periodType: clock.periodType,
+      clockUpdatedAt: clock.observedAt,
+    };
+  }
   const currentWeek = clock.sectionIndex + 1;
   const season = withObservedWeeks(seasonStartingAt(startsAt), currentWeek);
   return {
@@ -106,6 +123,12 @@ function seasonFromStaleClock(
   if (!Number.isFinite(startsAt.getTime())) return undefined;
   const elapsed = input.getTime() - startsAt.getTime();
   if (elapsed < 0 || elapsed >= MAX_SEASON_MS) return undefined;
+  // An explicit policy boundary remains valid even when the cached response is
+  // stale, and must never carry an old season through the next reset.
+  if (clock.clockSource === "policy" && clock.seasonEndsAt) {
+    const end = Date.parse(clock.seasonEndsAt);
+    if (!Number.isFinite(end) || input.getTime() >= end) return undefined;
+  }
   const currentWeek = Math.min(5, Math.floor(elapsed / WEEK_MS) + 1);
   const season = withObservedWeeks(
     seasonStartingAt(startsAt),

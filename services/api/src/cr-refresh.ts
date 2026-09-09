@@ -67,7 +67,7 @@ export async function requestCrProfileRefresh(
 
   try {
     const player = await fetchPlayerFromHub(config, tag, fetcher);
-    const fetchedAt = new Date().toISOString();
+    const fetchedAt = player.observedAt ?? new Date().toISOString();
     await repository.saveCrProfileResult({
       tag,
       status: "ready",

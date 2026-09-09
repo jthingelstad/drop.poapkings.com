@@ -4,7 +4,7 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { accountTagsForPlayerId } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { enqueueRefresh } from "../refresh-jobs.js";
-import { publicCrProfile, requestCrProfileRefresh } from "../cr-refresh.js";
+import { publicCrProfile } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
 import { levelForGames } from "../progression.js";
@@ -235,22 +235,6 @@ export function runRecordResponse(
     ...(reviewStatus ? { reviewStatus } : {}),
     ...(reviewExplanation ? { reviewExplanation } : {}),
   };
-}
-
-export async function refreshedCrProfile(
-  repository: Repository,
-  config: Config,
-  tag: string | undefined,
-): Promise<CrProfileSnapshot | undefined> {
-  if (!tag) return undefined;
-  try {
-    return await requestCrProfileRefresh(repository, config, tag);
-  } catch (error) {
-    console.error("CR profile refresh failed", {
-      error: error instanceof Error ? error.name : "unknown",
-    });
-    return repository.getCrProfile(tag);
-  }
 }
 
 // The bridge used to push this every five minutes forever. Reading it

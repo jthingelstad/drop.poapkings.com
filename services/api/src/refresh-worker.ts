@@ -1,3 +1,4 @@
+import { rememberPlayerInCollection } from "./elixir-collection.js";
 import { createHash } from "node:crypto";
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 import { required, type Config } from "./config.js";
@@ -18,7 +19,7 @@ type RefreshConfig = Pick<
   | "appUrl"
   | "elixirMcpBaseUrl"
   | "elixirMcpKey"
-  | "warClockClanTag"
+  | "elixirMcpCollectionSlug"
   | "buttondownApiKey"
   | "buttondownNewsletterId"
 >;
@@ -68,6 +69,7 @@ export async function processRefreshJob(
   const profile = await repository.getProfile(job.sub);
   // Jobs carry an account generation, so a deleted/recreated account is untouched.
   if (!profile || profile.playerId !== job.playerId) return;
+  await rememberPlayerInCollection(config, profile.playerTag);
   const snapshot = profile.playerTag
     ? await requestCrProfileRefresh(repository, config, profile.playerTag)
     : undefined;
@@ -105,8 +107,12 @@ export async function refreshHandler(
     tableName: required("TABLE_NAME"),
     appUrl: required("APP_URL").replace(/\/$/, ""),
     elixirMcpBaseUrl: required("ELIXIR_MCP_BASE_URL").replace(/\/$/, ""),
-    elixirMcpKey: process.env.ELIXIR_MCP_KEY?.trim() || undefined,
-    warClockClanTag: process.env.CR_WAR_CLOCK_CLAN_TAG?.trim() || "#J2RGCRVG",
+    elixirMcpKey:
+      process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
+      process.env.ELIXIR_MCP_KEY?.trim() ||
+      undefined,
+    elixirMcpCollectionSlug:
+      process.env.ELIXIR_MCP_COLLECTION_SLUG?.trim() || "elixir-drop",
     buttondownApiKey: process.env.BUTTONDOWN_API_KEY?.trim() || undefined,
     buttondownNewsletterId:
       process.env.BUTTONDOWN_NEWSLETTER_ID?.trim() || undefined,

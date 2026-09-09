@@ -34,6 +34,8 @@ const BATCH = 500; // the hub's per-call ceiling
 
 // Load the root .env only for the key, and never print it.
 function elixirKey() {
+  if (process.env.ELIXIR_INTEGRATION_KEY?.trim())
+    return process.env.ELIXIR_INTEGRATION_KEY.trim();
   if (process.env.ELIXIR_MCP_KEY?.trim())
     return process.env.ELIXIR_MCP_KEY.trim();
   try {
@@ -41,7 +43,7 @@ function elixirKey() {
       new URL("../.env", import.meta.url),
       "utf8",
     ).split("\n")) {
-      const m = /^\s*ELIXIR_MCP_KEY\s*=\s*(.+?)\s*$/.exec(line);
+      const m = /^\s*ELIXIR_INTEGRATION_KEY\s*=\s*(.+?)\s*$/.exec(line);
       if (m) return m[1].replace(/^["']|["']$/g, "");
     }
   } catch {
@@ -82,32 +84,27 @@ async function dropPlayerTags() {
 }
 
 async function addBatch(key, tags) {
-  const res = await fetch(`${BASE}/mcp`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: {
-        name: "collections_edit",
-        arguments: { slug: SLUG, action: "add", tags },
+  const res = await fetch(
+    `${BASE}/api/v1/collections/${encodeURIComponent(SLUG)}/members`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(30000),
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
-    }),
-  });
-  if (!res.ok) throw new Error(`hub HTTP ${res.status}`);
+      body: JSON.stringify({ tags }),
+    },
+  );
+  if (!res.ok)
+    throw new Error(
+      `Integration API HTTP ${res.status}; rerun to retry safely`,
+    );
   const body = await res.json();
-  if (body.error) throw new Error(body.error.message ?? "hub error");
-  const text = body.result?.content?.[0]?.text;
-  const parsed = text ? JSON.parse(text) : {};
-  if (body.result?.isError) {
-    throw new Error(parsed.message ?? parsed.error ?? "tool refused");
-  }
-  return parsed;
+  if (!body.data?.enrollment_established)
+    throw new Error("Enrollment not established");
+  return body.data;
 }
 
 const { tags, accounts } = await dropPlayerTags();
@@ -125,7 +122,9 @@ if (dryRun) {
 
 const key = elixirKey();
 if (!key) {
-  console.error("ELIXIR_MCP_KEY is not set (root .env or the environment).");
+  console.error(
+    "ELIXIR_INTEGRATION_KEY is not set (root .env or the environment).",
+  );
   process.exit(1);
 }
 
@@ -137,7 +136,7 @@ for (let i = 0; i < tags.length; i += BATCH) {
   const r = await addBatch(key, slice);
   added += r.added ?? 0;
   started += r.recordings_started ?? 0;
-  members = r.members ?? members;
+  members = r.total ?? members;
   console.error(
     `  batch ${i / BATCH + 1}: +${r.added} added, ${r.recordings_started} now recording`,
   );

@@ -1,38 +1,22 @@
-/**
- * Player enrichment from the hub.
- *
- * Drop shows a player's Clash Royale name, clan and account age. Those
- * used to arrive by writing a job to SQS, waiting for the fixed-IP
- * bridge to call Supercell, and consuming the result from a second
- * queue. Elixir MCP already holds a live passthrough behind the shared
- * recording budget, so the round trip is now one call.
- *
- * The normalization below deliberately mirrors what the bridge did, so
- * the stored snapshot shape does not move: same clan rules, same
- * account age from the YearsPlayed badge. The one difference is that
- * CARDS ARE NOT KEPT. Drop collected the whole card collection, shipped
- * it to the browser on every /me, and read it nowhere; the practice
- * mode that once dealt from it was removed in July 2026 and is
- * prohibited in AGENTS.md and SPEC.md.
- */
+/** Recorded player context from the Integration API. The source timestamp
+ * drives cache freshness; missing/stale profiles request collector work. */
 
 import type {
   ClashRoyaleAccountAge,
   ClashRoyaleClan,
 } from "@elixir-drop/contracts";
-import { callTool, type ElixirMcpFetch } from "./elixir-mcp.js";
+import {
+  apiRequest,
+  ElixirMcpError,
+  type ElixirMcpFetch,
+} from "./elixir-mcp.js";
 import type { Config } from "./config.js";
 
 export interface HubPlayer {
   name: string;
+  observedAt?: string;
   clan?: ClashRoyaleClan;
   accountAge?: ClashRoyaleAccountAge;
-}
-
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
 }
 
 function nonnegativeInteger(value: unknown): number | undefined {
@@ -41,59 +25,8 @@ function nonnegativeInteger(value: unknown): number | undefined {
     : undefined;
 }
 
-function normalizeClan(
-  value: unknown,
-  role: unknown,
-): ClashRoyaleClan | undefined {
-  const clan = record(value);
-  const badgeId = nonnegativeInteger(clan?.badgeId);
-  if (
-    !clan ||
-    typeof clan.tag !== "string" ||
-    !clan.tag ||
-    typeof clan.name !== "string" ||
-    !clan.name ||
-    badgeId === undefined
-  )
-    return undefined;
-  return {
-    tag: clan.tag,
-    name: clan.name,
-    badgeId,
-    ...(typeof role === "string" && role ? { role } : {}),
-  };
-}
-
-/** Account age is the YearsPlayed badge: progress is days played. */
-function normalizeAccountAge(
-  value: unknown,
-): ClashRoyaleAccountAge | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const badge = value
-    .map(record)
-    .find((candidate) => candidate?.name === "YearsPlayed");
-  if (!badge) return undefined;
-  const days = nonnegativeInteger(badge.progress);
-  const years =
-    days === undefined
-      ? nonnegativeInteger(badge.level)
-      : Math.floor(days / 365);
-  if (days === undefined && years === undefined) return undefined;
-  return { days, years };
-}
-
-export function normalizeHubPlayer(payload: unknown): HubPlayer {
-  const player = record(payload);
-  if (!player || typeof player.name !== "string" || !player.name)
-    throw new Error("Elixir MCP returned an invalid player payload");
-  return {
-    name: player.name,
-    clan: normalizeClan(player.clan, player.role),
-    accountAge: normalizeAccountAge(player.badges),
-  };
-}
-
 interface RecordedProfile {
+  observed_at?: string;
   name?: string;
   clan?: {
     clan_tag?: string;
@@ -144,46 +77,59 @@ export function normalizeRecordedPlayer(
   };
 }
 
-/**
- * Read one player through the hub: the record first, live only if the
- * record cannot answer.
- *
- * A tag Drop has just been given is usually one the hub has never seen,
- * so the first read is live and the hub records that result
- * opportunistically. Every read after it comes from history: no
- * Supercell call, no seconds on the login path, for facts that change
- * about as often as somebody changes clan.
- */
+/** Read the record first. Missing or stale data starts an asynchronous refresh;
+ * access refusals and outages never trigger extra upstream work. */
 export async function fetchPlayerFromHub(
   config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey">,
   tag: string,
   fetcher?: ElixirMcpFetch,
 ): Promise<HubPlayer> {
   const hub = { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey };
+  const normalize = (profile: RecordedProfile): HubPlayer => {
+    const player = normalizeRecordedPlayer(profile);
+    if (
+      !player ||
+      !profile.observed_at ||
+      !Number.isFinite(Date.parse(profile.observed_at))
+    )
+      throw new ElixirMcpError(
+        "Invalid recorded profile",
+        502,
+        "invalid_response",
+      );
+    return { ...player, observedAt: profile.observed_at };
+  };
   try {
-    const recorded = await callTool<RecordedProfile>(
-      hub,
-      "players_profile",
-      { player_tag: tag },
-      fetcher,
+    const recorded = normalize(
+      await apiRequest<RecordedProfile>(
+        hub,
+        "GET",
+        `/players/${encodeURIComponent(tag)}`,
+        undefined,
+        fetcher,
+      ),
     );
-    const player = normalizeRecordedPlayer(recorded);
-    if (player) return player;
+    if (Date.now() - Date.parse(recorded.observedAt!) < 6 * 60 * 60_000)
+      return recorded;
   } catch (error) {
-    // not_recorded is the ordinary cold case, not a failure worth
-    // logging every time somebody links a new tag.
-    const code = (error as { code?: string }).code;
-    if (code !== "not_recorded" && code !== "not_found") {
-      console.warn("Elixir MCP recorded profile unavailable; reading live", {
-        error: error instanceof Error ? error.name : "unknown",
-      });
-    }
+    // Authentication, quota and server failures are not missing player data.
+    if (!(error instanceof ElixirMcpError) || error.code !== "not_recorded")
+      throw error;
   }
-  const response = await callTool<{ data?: unknown }>(
+  const refresh = await apiRequest<{
+    status: string;
+    profile?: RecordedProfile;
+  }>(
     hub,
-    "live_fetch",
-    { path: `/players/${encodeURIComponent(tag)}` },
+    "POST",
+    "/profile-refreshes",
+    { player_tag: tag },
     fetcher,
+    `profile:${tag}:${Math.floor(Date.now() / (15 * 60_000))}`,
   );
-  return normalizeHubPlayer(response.data);
+  if (refresh.status === "complete" && refresh.profile)
+    return normalize(refresh.profile);
+  // The durable FIFO worker retries. Do not pretend enrollment or an accepted
+  // fetch means the recorder already holds an observation.
+  throw new ElixirMcpError("Profile refresh pending", 202, "refresh_pending");
 }

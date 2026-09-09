@@ -59,7 +59,7 @@ describe("CR profile refresh policy", () => {
           new Date("2026-09-07T00:00:00.000Z"),
           fetcher,
         ),
-      ).rejects.toThrow("provider detail");
+      ).rejects.toThrow("returned no data");
       expect(warn).toHaveBeenCalledWith("Elixir MCP player enrichment failed", {
         error: "ElixirMcpError",
       });

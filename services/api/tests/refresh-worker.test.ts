@@ -3,6 +3,7 @@ import type { SQSEvent } from "aws-lambda";
 import type { Repository } from "../src/repository.js";
 
 const mocks = vi.hoisted(() => ({
+  enrollment: vi.fn(),
   clock: vi.fn(),
   finalize: vi.fn(),
   profile: vi.fn(),
@@ -12,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   getProfile: vi.fn(),
   getProfileRefreshHash: vi.fn(),
   saveProfileRefreshHash: vi.fn(),
+}));
+vi.mock("../src/elixir-collection.js", () => ({
+  rememberPlayerInCollection: mocks.enrollment,
 }));
 vi.mock("../src/elixir-war-clock.js", () => ({
   fetchWarClockFromHub: mocks.clock,
@@ -49,7 +53,7 @@ const config = {
   appUrl: "https://drop.example",
   elixirMcpBaseUrl: "https://hub.example",
   elixirMcpKey: "test-key",
-  warClockClanTag: "#ABC",
+  elixirMcpCollectionSlug: "elixir-drop",
   buttondownApiKey: "test",
   buttondownNewsletterId: "test",
 };
@@ -186,5 +190,13 @@ describe("durable refresh worker", () => {
       "private@example.invalid",
     );
     log.mockRestore();
+  });
+});
+
+it("retries enrollment failures through SQS, even for an already cached profile", async () => {
+  mocks.getProfile.mockResolvedValue(player);
+  mocks.enrollment.mockRejectedValueOnce(new Error("offline"));
+  expect(await refreshHandler(event([job]))).toEqual({
+    batchItemFailures: [{ itemIdentifier: "0" }],
   });
 });

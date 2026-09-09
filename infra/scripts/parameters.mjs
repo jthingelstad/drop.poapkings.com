@@ -44,6 +44,7 @@ const PRESERVED_PARAMETERS = [
   // service token, so these preserve rather than reset. Blanking
   // ElixirMcpKey would silently stop new players reaching the Elixir
   // MCP collection, with every login still returning 200.
+  ["ElixirIntegrationKey", ["ELIXIR_INTEGRATION_KEY"]],
   ["ElixirMcpKey", ["ELIXIR_MCP_KEY"]],
   ["ElixirMcpBaseUrl", ["ELIXIR_MCP_BASE_URL"]],
   ["ElixirMcpCollectionSlug", ["ELIXIR_MCP_COLLECTION_SLUG"]],

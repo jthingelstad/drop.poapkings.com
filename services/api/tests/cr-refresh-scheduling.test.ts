@@ -210,7 +210,7 @@ describe("Clash Royale refresh scheduling", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  it("refreshes an attached tag after a successful magic-link login", async () => {
+  it("durably enqueues an attached tag after a successful magic-link login", async () => {
     repository.peekMagicLink.mockResolvedValue({ email: profile.email });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
@@ -220,11 +220,13 @@ describe("Clash Royale refresh scheduling", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(requestCrProfileRefresh).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ elixirMcpBaseUrl: expect.any(String) }),
-      profile.playerTag,
-    );
+    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
+    expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
+      version: 1,
+      type: "player-profile",
+      sub: profile.sub,
+      playerId: profile.playerId,
+    });
     expect(enrollButtondownSubscriber).toHaveBeenCalledWith(
       {
         apiKey: "buttondown-key",
@@ -669,7 +671,7 @@ describe("Clash Royale refresh scheduling", () => {
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
 
-  it("fetches a tag when the player explicitly saves it", async () => {
+  it("durably enqueues a tag when the player explicitly saves it", async () => {
     repository.updateProfile.mockResolvedValue(profile);
 
     const response = await invoke(
@@ -680,11 +682,13 @@ describe("Clash Royale refresh scheduling", () => {
     );
 
     expect(response.statusCode).toBe(200);
-    expect(requestCrProfileRefresh).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ elixirMcpBaseUrl: expect.any(String) }),
-      profile.playerTag,
-    );
+    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
+    expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
+      version: 1,
+      type: "player-profile",
+      sub: profile.sub,
+      playerId: profile.playerId,
+    });
     expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
       expect.anything(),
       profile.email,
@@ -714,9 +718,8 @@ describe("Clash Royale refresh scheduling", () => {
     );
 
     expect(response.statusCode).toBe(200);
-    expect(log).toHaveBeenCalledWith("CR profile refresh failed", {
-      error: "Error",
-    });
+    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
+    expect(enqueueRefresh).toHaveBeenCalled();
     const logged = JSON.stringify(log.mock.calls);
     expect(logged).not.toContain(profile.playerTag);
     expect(logged).not.toContain("provider detail");
