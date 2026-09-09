@@ -95,10 +95,7 @@ async function route(event: APIGatewayProxyEventV2) {
   };
 
   if (method === "GET" && path === "/updates") return getUpdates(context);
-  if (
-    (method === "GET" || method === "HEAD") &&
-    (path === "/updates/" || path === "/updates/index.html")
-  )
+  if ((method === "GET" || method === "HEAD") && path === "/updates/archive")
     return getUpdatesPage(context, method === "HEAD");
   if ((method === "GET" || method === "HEAD") && path === "/feed.xml")
     return getUpdatesFeed(context, method === "HEAD");

@@ -78,6 +78,21 @@ describe('API resilience', () => {
     expect(offline.value).toBe(false)
   })
 
+  it('keeps the game online when only the Updates feed is unavailable', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ apiBaseUrl: 'https://api.example' }))
+      .mockResolvedValueOnce(json({ error: { code: 'temporarily_unavailable', message: 'Try again.' } }, 503))
+      .mockResolvedValueOnce(json({ error: { code: 'temporarily_unavailable', message: 'Try again.' } }, 503))
+    vi.stubGlobal('fetch', fetchMock)
+    const { getUpdates } = await import('../../src/lib/api')
+    const { apiAvailability, offline } = await import('../../src/lib/api-availability')
+
+    await expect(getUpdates()).rejects.toMatchObject({ status: 503 })
+    expect(apiAvailability.value).toBe('available')
+    expect(offline.value).toBe(false)
+  })
+
   it('bounds a stalled request with a timeout', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {

@@ -44,7 +44,6 @@ import {
   isExpectedPublisherIdentity,
   listUpdates,
   publishUpdate,
-  staticEntries,
   updateId as playerUpdateId,
 } from "../AGENT-TEAM/scripts/player-updates.mjs";
 import {
@@ -121,14 +120,6 @@ void test("player Updates CLI lists publicly and signs immediate publications", 
   assert.equal(requests[0].input, "https://api.example/updates?limit=20");
   assert.equal(requests[1].input, "https://api.example/admin/updates");
   assert.equal(requests[1].init.headers.authorization, "signed");
-
-  const migrationEntries = await staticEntries();
-  assert.equal(migrationEntries.length, 58);
-  assert.ok(
-    migrationEntries.every(
-      (entry) => entry.kind !== "feature" || typeof entry.impact === "string",
-    ),
-  );
 });
 
 function git(cwd, ...args) {
@@ -584,7 +575,7 @@ void test("player updates pass one material-impact notification bar", () => {
   );
 
   for (const contract of [agents, workflow, grow]) {
-    assert.match(contract, /data\/updates\/features\.json/);
+    assert.match(contract, /player-updates\.mjs/);
     assert.match(contract, /notification bar/);
   }
   assert.match(agents, /An Update is a notification, not a changelog/);
@@ -595,8 +586,11 @@ void test("player updates pass one material-impact notification bar", () => {
   assert.match(grow, /Silence is the\s+healthy default/);
   assert.doesNotMatch(workflow, /visible behavior/);
   assert.doesNotMatch(season, /still holding/);
-  assert.match(grow, /seasons\.json/);
-  assert.match(grow, /messages\.json/);
+  assert.match(grow, /Updates API/);
+  assert.match(
+    season,
+    /Publishing does\s+not require a source commit or deployment/,
+  );
   assert.doesNotMatch(agents, /cut-release/);
 });
 

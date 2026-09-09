@@ -54,6 +54,8 @@ void describe("AWS web hosting", () => {
     assert.match(template, /SigningBehavior: always/);
     assert.match(template, /Principal:\s+Service: cloudfront\.amazonaws\.com/);
     assert.match(template, /PathPattern: \/api\/\*/);
+    assert.match(template, /PathPattern: \/updates\/\*/);
+    assert.match(template, /PathPattern: \/feed\.xml/);
     assert.match(
       template,
       /CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad/,
@@ -119,6 +121,10 @@ void describe("AWS web hosting", () => {
       request("/api/runs/private-run-id/share").uri,
       "/runs/private-run-id/share",
     );
+    const updates = request("/updates/");
+    assert.equal(updates.uri, "/updates/archive");
+    assert.equal(updates.headers["x-elixir-drop-viewer-ip"].value, "192.0.2.1");
+    assert.equal(request("/feed.xml").uri, "/feed.xml");
     assert.deepEqual(logged, [
       "web-home",
       "web-page-about",
@@ -127,6 +133,8 @@ void describe("AWS web hosting", () => {
       "web-asset",
       "web-card-art",
       "api",
+      "web-page-updates",
+      "web-discovery",
     ]);
     assert.doesNotMatch(
       logged.join(" "),

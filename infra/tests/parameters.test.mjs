@@ -526,6 +526,8 @@ void describe("deployment parameters", () => {
       "GET /activity",
       "GET /stats",
       "GET /updates",
+      "GET /updates/archive",
+      "HEAD /updates/archive",
       "GET /feed.xml",
       "HEAD /feed.xml",
       "POST /admin/updates",
@@ -695,16 +697,24 @@ void describe("deployment parameters", () => {
     assert.match(apiRole, /dynamodb:TransactWriteItems/);
   });
 
-  void it("keeps CORS and security headers on static assets without changing the API behavior", () => {
+  void it("keeps security headers on browser documents without changing JSON API behavior", () => {
     assert.match(
       template,
       /DefaultCacheBehavior:[\s\S]*?ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c/,
     );
     const apiBehavior = template.match(
-      /CacheBehaviors:[\s\S]*?\n        Comment:/,
+      /- PathPattern: \/api\/\*[\s\S]*?ViewerProtocolPolicy: redirect-to-https/,
     )?.[0];
     assert.ok(apiBehavior);
     assert.doesNotMatch(apiBehavior, /ResponseHeadersPolicyId/);
+    const updatesBehavior = template.match(
+      /- PathPattern: \/updates\/\*[\s\S]*?ViewerProtocolPolicy: redirect-to-https/,
+    )?.[0];
+    assert.ok(updatesBehavior);
+    assert.match(
+      updatesBehavior,
+      /ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c/,
+    );
   });
 
   void it("lets CloudFormation inspect policies only for Elixir Drop roles", () => {
@@ -865,7 +875,7 @@ void describe("deployment parameters", () => {
     assert.match(publisherRole, /RoleName: elixir-drop-updates-publisher/);
     assert.match(
       publisherRole,
-      /Principal:\s+AWS: !Sub arn:\$\{AWS::Partition\}:iam::\$\{AWS::AccountId\}:user\/elixir-drop/,
+      /Principal:\s+AWS:[\s\S]*?user\/elixir-drop[\s\S]*?user\/jamie/,
     );
     assert.match(publisherRole, /Action: execute-api:Invoke/);
     assert.match(

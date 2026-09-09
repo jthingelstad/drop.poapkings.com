@@ -29,6 +29,7 @@ import AppInfo from './screens/AppInfo'
 import GameStartScreen from './components/game/GameStart'
 import Icon from './components/Icon'
 import { GAMES } from './lib/game-metadata'
+import { refreshUpdates } from './lib/updates'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
 const loadPractice = () => import('./modes/practice/Practice')
@@ -201,6 +202,7 @@ function screenOwnsPageHeading(r: string): boolean {
 export default function App() {
   useEffect(() => {
     void initializeAccount()
+    void refreshUpdates()
     initInstallPrompt()
     // Ask the browser what is actually printed on the home row. Chromium
     // answers; everywhere else the caps keep their US letters.

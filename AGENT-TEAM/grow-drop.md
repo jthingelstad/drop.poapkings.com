@@ -22,8 +22,8 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    health. Do not turn guest/offline preparation into durable activation.
 3. Compare the natural result of recent changes. A feature existing is not evidence
    that it helped.
-4. On the first run of each calendar week, compare deployed material player outcomes
-   with `apps/web/src/data/updates/features.json`. Add a card only when an entire
+4. On the first run of each calendar week, use `player-updates.mjs list` to compare
+   deployed material player outcomes with published Updates. Publish a card only when an entire
    outcome that passes the canonical notification bar in `AGENTS.md` was omitted;
    player-visible is not sufficient. Never backfill copy, layout, discovery, feed,
    diagnostic, or follow-up-polish details, and never turn related commits into
@@ -36,8 +36,8 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    semantic acceptance watch until natural evidence resolves it. Route only a failed
    pipeline or continuing technical-health problem to Run Drop.
 
-Call the Season owns routine standings and Cleared final-board commentary in
-`apps/web/src/data/updates/seasons.json`; other player notes go in `messages.json`.
+Call the Season owns routine standings and Cleared final-board commentary as season
+entries in the Updates API; other player notes use the message kind.
 Do not invent either from telemetry or routine work. Jamie still authorizes the Free
 Pass recipient, prizes, and broad player communication outside the standing season
 commentary contract.

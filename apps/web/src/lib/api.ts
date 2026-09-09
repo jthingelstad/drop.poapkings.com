@@ -27,6 +27,7 @@ import {
   siteStatsSchema,
   startedRunSchema,
   runReportResponseSchema,
+  updatesResponseSchema,
   xpTimelineResponseSchema
 } from './api-contracts'
 import { reportApiAvailable, reportApiUnavailable } from './api-availability'
@@ -36,6 +37,7 @@ interface ResponseSchema<T> {
 }
 
 interface ApiRequestOptions extends RequestInit {
+  affectsAvailability?: boolean
   sessionToken?: string
   retry?: boolean
   timeoutMs?: number
@@ -185,7 +187,13 @@ async function retryDelay(signal?: AbortSignal): Promise<void> {
   })
 }
 
-async function requestPayload(url: string, init: RequestInit, canRetry: boolean, timeoutMs: number): Promise<unknown> {
+async function requestPayload(
+  url: string,
+  init: RequestInit,
+  canRetry: boolean,
+  timeoutMs: number,
+  affectsAvailability = true
+): Promise<unknown> {
   const attempts = canRetry ? 2 : 1
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -200,14 +208,14 @@ async function requestPayload(url: string, init: RequestInit, canRetry: boolean,
             ? parsedError.data.error?.message || 'The request could not be completed.'
             : 'The request could not be completed.'
         )
-        if (response.status < 500) reportApiAvailable()
+        if (affectsAvailability && response.status < 500) reportApiAvailable()
         throw apiError
       }
-      reportApiAvailable()
+      if (affectsAvailability) reportApiAvailable()
       return payload
     } catch (error) {
       if (attempt >= attempts || !retryable(error)) {
-        if (serviceUnavailable(error)) reportApiUnavailable()
+        if (affectsAvailability && serviceUnavailable(error)) reportApiUnavailable()
         throw error
       }
       await retryDelay(init.signal ?? undefined)
@@ -236,14 +244,20 @@ export async function apiRequest<T>(
   const { apiBaseUrl } = await config()
   if (!apiBaseUrl) throw new ApiError(503, 'api_unavailable', 'Online player services are not configured yet.')
 
-  const { sessionToken, retry, timeoutMs = REQUEST_TIMEOUT_MS, ...requestInit } = options
+  const { affectsAvailability = true, sessionToken, retry, timeoutMs = REQUEST_TIMEOUT_MS, ...requestInit } = options
   const headers = new Headers(requestInit.headers)
   headers.set('accept', 'application/json')
   if (requestInit.body) headers.set('content-type', 'application/json')
   if (sessionToken) headers.set('authorization', `Bearer ${sessionToken}`)
   const method = (requestInit.method || 'GET').toUpperCase()
   const canRetry = retry ?? (method === 'GET' || method === 'HEAD')
-  const payload = await requestPayload(`${apiBaseUrl}${path}`, { ...requestInit, headers }, canRetry, timeoutMs)
+  const payload = await requestPayload(
+    `${apiBaseUrl}${path}`,
+    { ...requestInit, headers },
+    canRetry,
+    timeoutMs,
+    affectsAvailability
+  )
   return validateResponse(schema, payload, path)
 }
 
@@ -515,6 +529,13 @@ export function getActivity(limit = 8, signal?: AbortSignal) {
   return apiRequest(`/activity?limit=${limit}`, activityResponseSchema, { signal })
 }
 
+export function getUpdates(signal?: AbortSignal) {
+  return apiRequest('/updates', updatesResponseSchema, {
+    affectsAvailability: false,
+    signal
+  })
+}
+
 export function getPublicPlayer(playerId: string, signal?: AbortSignal) {
   return apiRequest(`/players/${encodeURIComponent(playerId)}`, publicPlayerResponseSchema, { signal })
 }
@@ -602,3 +623,4 @@ export type { ActivityEntry, SharedInvite, SharedRun } from './api-contracts'
 export type { LeaderboardEntry, RecentRun, SeasonHistory, SeasonIndexEntry } from './api-contracts'
 export type { PublicPlayer, PublicPlayerSummary } from './api-contracts'
 export type { XpTimeline } from './api-contracts'
+export type { PlayerUpdate } from './api-contracts'

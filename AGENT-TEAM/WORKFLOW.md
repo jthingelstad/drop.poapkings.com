@@ -24,9 +24,10 @@ objective file before acting.
 5. Fix the gap at the source in the same run. Add the business-rule regression; do
    not substitute a warning, guard, or ticket chain. Player-visible is not sufficient
    for an Update. Only when the outcome passes the canonical notification bar in
-   `AGENTS.md`, add one impact category, one subject, and one Markdown paragraph to
-   `apps/web/src/data/updates/features.json` in the same commit. Related work earns one
-   card, and silence is the default.
+   `AGENTS.md`, publish one impact category, one subject, and one Markdown paragraph
+   through `AGENT-TEAM/scripts/player-updates.mjs` after the player outcome is live.
+   This API write is separate from the code deployment. Related work earns one card,
+   and silence is the default.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
    recheck the branch, upstream, and worktree immediately before the first edit and
    before push. Stop if the state changed.
@@ -70,8 +71,8 @@ condition is met.
 Jamie decides new modes, material scoring/season rules, privacy-affecting collection,
 Free Pass winner selection and prize action, public enforcement, broad member
 communication outside the standing Updates contract, irreversible state changes, and
-other significant product direction. Routine source-backed season commentary in
-`apps/web/src/data/updates/seasons.json` is pre-authorized: current public leaders,
+other significant product direction. Routine source-backed season commentary published
+through the Updates API is pre-authorized: current public leaders,
 scores, season timing, and the designated Free Pass race. A closed game's champion may
 be stated only from a Cleared winning run; naming the Free Pass recipient still requires
 Jamie's approval. Ask one concrete yes/no question with evidence and the smallest

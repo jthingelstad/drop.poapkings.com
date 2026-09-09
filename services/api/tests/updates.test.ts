@@ -1,5 +1,4 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
   renderUpdateMarkdownHtml,
@@ -92,36 +91,6 @@ function context(
 }
 
 describe("player Update validation", () => {
-  it("accepts every record in the one-time static migration snapshot", async () => {
-    const directory = new URL(
-      "../../../apps/web/src/data/updates/",
-      import.meta.url,
-    );
-    const sources = [
-      ["features.json", "features", "feature"],
-      ["seasons.json", "seasons", "season"],
-      ["messages.json", "messages", "message"],
-    ] as const;
-    const entries: UpdateEntry[] = [];
-    for (const [file, key, kind] of sources) {
-      const parsed = JSON.parse(
-        await readFile(new URL(file, directory), "utf8"),
-      ) as Record<string, unknown>;
-      const records = parsed[key];
-      expect(Array.isArray(records)).toBe(true);
-      if (!Array.isArray(records)) continue;
-      entries.push(
-        ...records.map((record) =>
-          validateUpdateEntry({
-            ...(record as Record<string, unknown>),
-            kind,
-          }),
-        ),
-      );
-    }
-    expect(entries).toHaveLength(58);
-  });
-
   it("accepts the bounded inline Markdown vocabulary", () => {
     expect(validateUpdateEntry(entry)).toEqual(entry);
     expect(renderUpdateMarkdownHtml(entry.body)).toContain(

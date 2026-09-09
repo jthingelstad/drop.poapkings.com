@@ -21,8 +21,6 @@ import {
 } from '@elixir-drop/contracts'
 import cardData from '../../../packages/game-data/cards.json' with { type: 'json' }
 import { GAME_CATALOG as GAMES } from '../src/lib/game-catalog.ts'
-import { editorialEntries, type UpdateKind } from '../src/lib/update-data.ts'
-import { renderUpdateMarkdownHtml } from '../src/lib/update-markdown.ts'
 import RANKS from '../src/data/starRanks.ts'
 
 export const STATIC_PAGE_SLUGS = [
@@ -120,64 +118,26 @@ function dateLabel(value: string): string {
   })
 }
 
-function updateKindLabel(kind: UpdateKind): string {
-  return kind === 'feature' ? 'Feature' : kind === 'season' ? 'Season' : 'Message'
-}
-
 function updatesBody(): string {
-  const updates = editorialEntries()
-  if (updates.length === 0) {
-    return pageSections([section('The arena is quiet', paragraph('The first player update will appear here.'), true)])
-  }
   return `<p class="static-intro">New features, season winners, and player messages—one clear update at a time. <a href="/feed.xml">Follow via RSS</a>.</p>
-  ${pageSections(
-    updates.map((entry) =>
-      section(
-        entry.title,
-        `<p class="static-update-stamp"><span>${updateKindLabel(entry.kind)}</span>${escapeHtml(
-          dateLabel(entry.publishedAt)
-        )}</p>${paragraph(renderUpdateMarkdownHtml(entry.body))}`,
-        false,
-        entry.id
-      )
+  ${pageSections([
+    section(
+      'Player services are reconnecting',
+      paragraph('The live Updates archive will return as soon as player services are available.'),
+      true
     )
-  )}`
-}
-
-function absoluteUpdateHtml(body: string): string {
-  return renderUpdateMarkdownHtml(body)
-    .replaceAll('href="/', `href="${SITE_URL}/`)
-    .replaceAll('href="#', `href="${SITE_URL}/updates/#`)
+  ])}`
 }
 
 export function renderUpdatesFeed(): string {
-  const updates = editorialEntries()
-  const lastBuildDate = updates[0]
-    ? `\n    <lastBuildDate>${new Date(updates[0].publishedAt).toUTCString()}</lastBuildDate>`
-    : ''
-  const items = updates
-    .map((entry) => {
-      const permalink = `${SITE_URL}/updates/#${encodeURIComponent(entry.id)}`
-      return `    <item>
-      <title>${escapeHtml(entry.title)}</title>
-      <link>${escapeHtml(permalink)}</link>
-      <guid isPermaLink="true">${escapeHtml(permalink)}</guid>
-      <pubDate>${new Date(entry.publishedAt).toUTCString()}</pubDate>
-      <category>${updateKindLabel(entry.kind)}</category>
-      <description>${escapeHtml(absoluteUpdateHtml(entry.body))}</description>
-    </item>`
-    })
-    .join('\n')
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Elixir Drop Updates</title>
     <link>${SITE_URL}/updates/</link>
     <description>New Elixir Drop player features, season results, and messages from POAP KINGS.</description>
-    <language>en-us</language>${lastBuildDate}
+    <language>en-us</language>
     <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml" />
-${items}
   </channel>
 </rss>
 `

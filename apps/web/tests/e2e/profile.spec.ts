@@ -224,8 +224,7 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
   await page.goto('/updates/')
   await expect(page).toHaveURL(/\/updates\/$/)
   await expect(page.getByRole('heading', { name: 'Elixir Drop Updates' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Minion Giant drops into every game' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Your battle name found more personality' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Player services are reconnecting' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Follow via RSS' })).toHaveAttribute('href', '/feed.xml')
   await testInfo.attach('updates-archive.png', {
     body: await page.screenshot({ fullPage: false }),

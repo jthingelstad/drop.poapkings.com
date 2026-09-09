@@ -56,7 +56,7 @@ region = us-east-1
 
 [profile updates-publisher]
 role_arn = arn:aws:iam::<account>:role/elixir-drop-updates-publisher
-source_profile = elixir-drop-source
+source_profile = jamie
 role_session_name = elixir-drop-updates-publisher
 region = us-east-1
 ```

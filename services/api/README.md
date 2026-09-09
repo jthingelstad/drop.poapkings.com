@@ -68,10 +68,11 @@ remains the source for cold-start initialization duration.
 - `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
 - `GET /share/{playerTag}/invite`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
-- `GET /updates`, `GET /updates/`, `GET /feed.xml`, `POST /admin/updates` (AWS IAM)
+- `GET /updates`, `GET /updates/archive`, `GET /feed.xml`, `POST /admin/updates` (AWS IAM)
 
 Player Updates are immutable `UPDATES/ENTRY#{id}` records. The public JSON,
 archive HTML, and RSS feed are rendered from the same validated records. The
+public CDN maps canonical `/updates/` requests to the internal archive route. The
 write route publishes immediately, accepts only one short paragraph with
 emphasis, strong text, inline code, and safe links, and is callable only through
 the bounded `elixir-drop-updates-publisher` role. Repeating identical copy under

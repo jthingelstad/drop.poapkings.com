@@ -220,27 +220,6 @@ export function entryFromFlags(flags, now = new Date()) {
   };
 }
 
-export async function staticEntries() {
-  const directory = resolve(repoRoot, "apps/web/src/data/updates");
-  const sources = [
-    ["features.json", "features", "feature"],
-    ["seasons.json", "seasons", "season"],
-    ["messages.json", "messages", "message"],
-  ];
-  const entries = [];
-  for (const [file, key, kind] of sources) {
-    const parsed = JSON.parse(await readFile(resolve(directory, file), "utf8"));
-    if (parsed.schemaVersion !== 1 || !Array.isArray(parsed[key]))
-      throw new Error(`Invalid static Updates source: ${file}`);
-    entries.push(...parsed[key].map((entry) => ({ ...entry, kind })));
-  }
-  return entries.sort(
-    (left, right) =>
-      Date.parse(left.publishedAt) - Date.parse(right.publishedAt) ||
-      left.id.localeCompare(right.id),
-  );
-}
-
 export async function main(args) {
   const { positional, flags } = parseFlags(args);
   const command = positional[0] ?? "list";
@@ -252,17 +231,7 @@ export async function main(args) {
   if (command === "publish") {
     return printJson(await publishUpdate(entryFromFlags(flags)));
   }
-  if (command === "import-static") {
-    const results = [];
-    for (const entry of await staticEntries())
-      results.push(await publishUpdate(entry));
-    return printJson({
-      status: "ok",
-      count: results.length,
-      created: results.filter((result) => result.created).length,
-    });
-  }
-  throw new Error("Choose list, publish, or import-static");
+  throw new Error("Choose list or publish");
 }
 
 function fail(error) {

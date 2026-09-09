@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = 'http://127.0.0.1:5173'
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|badges\/[^/?]+\/share(?:[/?]|$))/
+  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|updates(?:\?|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
   id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -147,6 +147,32 @@ export const testBadges = [
     value: 100,
     rungIndex: 0,
     earnedAt: ['2026-08-25T12:00:00.000Z']
+  }
+] as const
+export const testUpdates = [
+  {
+    id: 'minion-giant-joins-drop',
+    kind: 'feature',
+    impact: 'learning',
+    publishedAt: '2026-09-07T11:11:44Z',
+    title: 'Minion Giant drops into every game',
+    body: '**Minion Giant** has joined Elixir Drop as a **4-elixir** troop. It can now appear across every game—from Practice recall to Rain—and its full card art is ready from the first deal. [Meet the complete catalog](/elixir-costs/).'
+  },
+  {
+    id: 'community-badges-enter-the-arena',
+    kind: 'feature',
+    impact: 'progression',
+    publishedAt: '2026-08-21T17:45:00-05:00',
+    title: 'Three community badges enter the arena',
+    body: '**Battle Tag** pays 100 XP when you add your Clash Royale player tag. **Herald** climbs when players open your shared runs, and **Recruiter** advances when someone follows one of your shared links and creates a new account. Existing tags and run-share opens count retroactively.'
+  },
+  {
+    id: 'desktop-enters-the-arena',
+    kind: 'feature',
+    impact: 'access',
+    publishedAt: '2026-08-20T13:05:00-05:00',
+    title: 'Desktop enters the arena',
+    body: 'Wide screens can now play every Drop mode with Falling Cards behind the fight and a home-row speed setup: **ASDFG** for 1–5, **JKL;** for 6–9, and **Space** to run it back. [Deal into Surge](/#/surge).'
   }
 ] as const
 // The You page's single Your games panel reads this, so the reviewed runs live
@@ -300,6 +326,14 @@ export async function fulfillSupportData(route: Route): Promise<boolean> {
   const path = url.pathname
   if (path === '/stats') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
+    return true
+  }
+  if (path === '/updates') {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ entries: testUpdates })
+    })
     return true
   }
   if (path === '/leaderboards') {
@@ -761,6 +795,14 @@ export const test = base.extend({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify(testStats)
+        })
+        return
+      }
+      if (path === '/updates') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ entries: testUpdates })
         })
         return
       }

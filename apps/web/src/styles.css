@@ -7994,6 +7994,15 @@ html.reduce-motion .ed-profile-guest__halo::before {
   flex-direction: column;
   gap: 8px;
 }
+.ed-updates__status {
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.ed-updates__loading {
+  margin-top: 8px;
+}
 .ed-update {
   border: 1px solid rgba(215, 200, 255, 0.12);
   border-radius: 12px;

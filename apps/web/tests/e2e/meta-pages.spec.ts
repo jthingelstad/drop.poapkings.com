@@ -41,7 +41,7 @@ test('all text pages are standalone, canonical, and responsive', { tag: '@deploy
   }
 })
 
-test('the combined player-updates RSS feed is generated and discoverable', async ({ page, request }) => {
+test('the player-updates RSS fallback is valid and discoverable', async ({ page, request }) => {
   await page.goto('/')
   await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', '/feed.xml')
 
@@ -50,11 +50,8 @@ test('the combined player-updates RSS feed is generated and discoverable', async
   expect(response.headers()['content-type']).toContain('application/rss+xml')
   const feed = await response.text()
   expect(feed).toContain('<rss version="2.0"')
-  expect(feed).toContain('<category>Feature</category>')
-  expect(feed).toContain('<category>Season</category>')
-  expect(feed).not.toContain('<category>Message</category>')
-  expect(feed).toContain('https://drop.poapkings.com/updates/#minion-giant-joins-drop')
-  expect(feed).toContain('https://drop.poapkings.com/updates/#community-badges-enter-the-arena')
+  expect(feed).toContain('<title>Elixir Drop Updates</title>')
+  expect(feed).not.toContain('<item>')
 })
 
 test('legacy hash text routes redirect to their real pages', async ({ page }) => {

@@ -102,6 +102,35 @@ export const playerSchema = z.object({
   lastOpenedUpdates: z.optional(isoDateTime)
 })
 
+const updateBaseSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  publishedAt: isoDateTime,
+  title: nonEmptyString.max(55),
+  body: nonEmptyString
+})
+
+export const playerUpdateSchema = z.discriminatedUnion('kind', [
+  updateBaseSchema.extend({
+    kind: z.literal('feature'),
+    impact: z.enum([
+      'gameplay',
+      'learning',
+      'competition',
+      'progression',
+      'access',
+      'sharing',
+      'identity',
+      'account-privacy'
+    ])
+  }),
+  updateBaseSchema.extend({ kind: z.literal('season') }),
+  updateBaseSchema.extend({ kind: z.literal('message') })
+])
+
+export const updatesResponseSchema = z.object({
+  entries: z.array(playerUpdateSchema).max(500)
+})
+
 const sessionSchema = z.object({
   token: nonEmptyString,
   expiresAt: isoDateTime
@@ -568,3 +597,4 @@ export type XpTimeline = z.infer<typeof xpTimelineResponseSchema>
 export type PublishedRunPreview = z.infer<typeof publishedRunShareSchema.shape.preview>
 export type PublishedBadgePreview = z.infer<typeof publishedBadgeShareSchema.shape.preview>
 export type PublishedProfilePreview = z.infer<typeof publishedProfileShareSchema.shape.preview>
+export type PlayerUpdate = z.infer<typeof playerUpdateSchema>

@@ -454,7 +454,7 @@ Active-play layout:
 **This section is the canonical inventory of every browser-storage key.** Every
 key uses the `elixirdrop:` prefix. `apps/web/src/lib/storage.ts` is the boundary
 for **learning progress** — game code must never touch those keys directly — but
-it is not the only owner: four other modules own their own narrow state, and
+it is not the only owner: other narrow modules own their own state, and
 that is deliberate, not drift.
 
 Learning progress, owned by `lib/storage.ts` (`localStorage`):
@@ -496,6 +496,8 @@ elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last va
                                        + capture time; expires
                                        after 30 days and is consumed by a successful
                                        login-email request
+elixirdrop:updates:v1               -> lib/updates.ts     localStorage   last validated API Update
+                                       list for a read-only reconnect fallback
 ```
 
 (The `elixirdrop:playerTagNudge` key was retired with the PlayerTagNudge modal in
@@ -503,17 +505,17 @@ the 2026 refresh: the missing-tag prompt is now a card at the top of the Updates
 scope, derived from account state, so it needs no per-device timestamp.)
 
 The one-time release-notice overlay (and its `elixirdrop:releaseSeen` key) was retired
-in the 2026 refresh. The **Updates** scope on the You page now merges three committed
-player-message sources: `features.json`, `seasons.json`, and `messages.json` under
-`apps/web/src/data/updates/`. Every record is one timestamped subject and one Markdown
-paragraph; its source file supplies the type. The same merged history builds `/updates/`
-and its RSS 2.0 projection at `/feed.xml`; feed items link to stable anchored entries in
-the archive. Feature records also carry one validated material-impact category. The
+in the 2026 refresh. The **Updates** scope on the You page reads one API-owned stream
+of immutable feature, season, and message records. Every record is one timestamped
+subject and one limited-Markdown paragraph. The API projects the same history as the
+indexable archive at `/updates/` and RSS 2.0 at `/feed.xml`; feed items link to stable
+anchored entries in the archive. The browser retains the last validated list only as a
+reconnect fallback. Feature records also carry one validated material-impact category. The
 editorial notification bar lives in `AGENTS.md`: player-visible alone is not enough,
 and one card represents one material player outcome rather than a commit or polish
 detail.
 Call the Season owns routine, source-backed current leaders and Cleared final game
-results in `seasons.json`; the Free Pass recipient and award remain a manual Jamie
+results in the API stream; the Free Pass recipient and award remain a manual Jamie
 decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
 Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
 account-level and deliberately not per-device, so it never needs a browser key.
@@ -1060,7 +1062,7 @@ stubs and helpers in `fixtures.ts`:
 | `run-lifecycle.spec.ts`                                                                                             | Signed-run fallback, malformed-challenge rejection, official completion retry, permanent rejection                                                                                                                    |
 | `gameplay-surge.spec.ts` · `gameplay-practice.spec.ts` · `gameplay-higher-lower.spec.ts` · `gameplay-modes.spec.ts` | Per-mode mechanics, card-art fallback, Rain's every-10 flash, Trade hints, low-chrome active play, the one-frame summary and its chart, the share function and what a shared link opens                               |
 | `home.spec.ts`                                                                                                      | The hero carousel, fixed-height desktop shell, fixed mobile-width center and shared game order, full-strength persistent wallpaper behind the shell, install suggestion timing, the Tinylytics hash-page/event bridge |
-| `leaderboards.spec.ts` · `profile.spec.ts`                                                                          | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the merged Markdown Updates feed                                                                                     |
+| `leaderboards.spec.ts` · `profile.spec.ts`                                                                          | Board scoping including clans, public player pages, XP, settings persistence, CR tag states, and the API-backed Markdown Updates feed                                                                                 |
 | `meta-pages.spec.ts` · `screensaver.spec.ts` · `viewport-fit.spec.ts`                                               | Static pages, the screensaver doors, keypad/control fit with no horizontal overflow, mouse/keyboard ranked access and home-row input                                                                                  |
 
 ---

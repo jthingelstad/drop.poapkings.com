@@ -51,7 +51,14 @@ import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
 import ShareAction from '../components/ShareAction'
-import { editorialEntries, isUnread, hasUnreadUpdates, type UpdateEntry } from '../lib/updates'
+import {
+  editorialEntries,
+  isUnread,
+  hasUnreadUpdates,
+  updatesError,
+  updatesLoading,
+  type UpdateEntry
+} from '../lib/updates'
 import { prepareProfileShare } from '../lib/share-profile'
 import { track } from '../lib/analytics'
 
@@ -76,6 +83,7 @@ export default function Profile() {
   const profileRoute = route.value
   const returnTo = gameReturnPathFromRoute(profileRoute)
   const scope = youScopeFromRoute(profileRoute)
+  const unreadUpdates = hasUnreadUpdates.value
   const tag = useSignal(player.value?.playerTag || '')
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
@@ -134,8 +142,8 @@ export default function Profile() {
 
   // Opening Updates stamps the read time server-side, clearing the unread dot.
   useEffect(() => {
-    if (scope === 'updates' && hasUnreadUpdates.value) void markUpdatesOpened()
-  }, [scope])
+    if (scope === 'updates' && unreadUpdates) void markUpdatesOpened()
+  }, [scope, unreadUpdates])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
     return (
@@ -463,7 +471,7 @@ export default function Profile() {
         onSelect={(scope: YouScope) => replace(profileRouteForScope(scope))}
         options={[
           { key: 'log', label: 'Log' },
-          { key: 'updates', label: 'Updates', dot: hasUnreadUpdates.value },
+          { key: 'updates', label: 'Updates', dot: unreadUpdates },
           { key: 'settings', label: 'Settings' },
           { key: 'account', label: 'Account' }
         ]}
@@ -787,6 +795,13 @@ function UpdatesScope() {
           <UpdateRow key={entry.id} entry={entry} unread={isUnread(entry.publishedAt, lastOpened, index)} />
         ))}
       </ul>
+
+      {updatesLoading.value && entries.length === 0 && <SkeletonRows count={3} className="ed-updates__loading" />}
+      {updatesError.value && (
+        <p class="ed-updates__status" role="status">
+          {updatesError.value}
+        </p>
+      )}
 
       {earnedViews.length > 0 && (
         <div class="ed-updates__rungs">

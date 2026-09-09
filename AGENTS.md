@@ -34,7 +34,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                                            |
 | **`AGENT-TEAM/`**                                             | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
 | **`AGENT-TEAM/fair-play-policy.md`**                          | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
-| **`apps/web/src/data/updates/`**                              | Player-facing feature, season, and message history merged into the Updates tab and public archive.                              |
+| **`AGENT-TEAM/scripts/player-updates.mjs`**                   | Lists and immediately publishes API-backed player Updates through the bounded IAM role.                                        |
 
 ---
 
@@ -172,10 +172,13 @@ production run. A successful exact-head validation triggers
 - **Every browser-storage key uses the `elixirdrop:` prefix.** `SPEC.md` §6 holds
   the canonical inventory of every browser-storage key and which module owns each; add new
   keys there.
-- **Player updates are small static records, not releases or an API.** The three
-  hand-edited sources are `apps/web/src/data/updates/features.json`,
-  `seasons.json`, and `messages.json`; `apps/web/src/lib/update-data.ts` validates
-  and merges them newest-first for both the **Updates** scope and `/updates/`.
+- **Player updates are small API records, not releases.** The API owns one
+  immutable stream of feature, season, and message records; the app reads them
+  newest-first for the **Updates** scope, and the API projects the same records at
+  `/updates/` and `/feed.xml`. The AGENT-TEAM lists or immediately publishes them
+  with `AGENT-TEAM/scripts/player-updates.mjs`; the private Control Room is the
+  human editing surface. There is no public write route, draft, or approval flow.
+  `apps/web/src/lib/update-data.ts` validates the browser copy before displaying it.
   Each entry is one subject plus one Markdown paragraph. Markdown is rendered
   through a deliberately small, safe vocabulary: emphasis, code, and approved
   links; raw HTML, images, lists, and unsafe protocols fail validation. Feature
@@ -183,7 +186,7 @@ production run. A successful exact-head validation triggers
   55 title characters and 60 body words.
 
   **An Update is a notification, not a changelog.** Player-visible is not
-  sufficient. Add a `features.json` entry in the same change only when a returning
+  sufficient. Publish a feature entry only when a returning
   player needs to know about a material, durable change to playable modes,
   learning, rules or scoring, competition, progression or rewards, access,
   sharing, identity, or account/privacy behavior. The card must be worth an unread
@@ -196,7 +199,7 @@ production run. A successful exact-head validation triggers
   teaches. One card represents one player outcome, not one commit; related details
   fold into the strongest qualifying card instead of producing sequels. Grow Drop
   audits editorial quality weekly and treats silence as the default. Call the Season owns routine,
-  source-backed standings and Cleared final game results in `seasons.json` under its
+  source-backed standings and Cleared final game results in the Updates API under its
   standing publication contract. Naming the Free Pass recipient, awarding a prize,
   other player messages, and broad communication retain the normal Jamie authority.
   Buttondown may occasionally summarize these updates for people who do not log
@@ -210,9 +213,9 @@ production run. A successful exact-head validation triggers
 - **Public learning content is generated, not duplicated in the app shell.**
   `apps/web/scripts/static-pages.ts` emits the indexable `/games/`,
   `/learn-elixir-costs/`, `/elixir-costs/`, `/badges/`, `/discord/`, Game Setup,
-  Fair Play, About, FAQ, Privacy, and Updates pages. It also emits `/feed.xml`,
-  an RSS 2.0 projection of the same three player-update streams, with stable
-  links to anchored entries in `/updates/`. The card reference reads
+  Fair Play, About, FAQ, and Privacy pages, plus reconnect fallbacks for Updates
+  and RSS. Production routes `/updates/` and `/feed.xml` to the API, which renders
+  the live archive and RSS 2.0 feed with stable anchored links. The card reference reads
   `packages/game-data/cards.json`; the badge guide reads `BADGE_LIST` and must
   never publish hidden badge identities or requirements. Keep only canonical
   content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,
@@ -678,12 +681,12 @@ directly to `main`** — no feature branches or PR-based review. The full contra
 from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
 
 A player update is exceptional, not automatic. Only a material player outcome that
-passes the notification bar in `CLAUDE.md` ships with an impact category, one concise
-subject, and one Markdown paragraph in `apps/web/src/data/updates/features.json`.
+passes the notification bar in `CLAUDE.md` publishes through the Updates API with
+an impact category, one concise subject, and one Markdown paragraph.
 Player-visible is not sufficient, and related commits produce one card rather than a
-changelog sequence. Season results belong in `seasons.json`; other player messages
-belong in `messages.json`. Call the Season may publish source-backed current leaders
-and Cleared final game results in `seasons.json`; naming the Free Pass recipient,
+changelog sequence. Feature, season, and message kinds remain distinct in the one
+API stream. Call the Season may publish source-backed current leaders
+and Cleared final game results; naming the Free Pass recipient,
 awarding any prize, or sending broad communication still requires Jamie's authority.
 Grow Drop audits editorial quality weekly with silence as the default. There are no
 named releases.

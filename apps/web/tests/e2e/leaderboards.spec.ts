@@ -1,6 +1,7 @@
 import type { GameMode } from '@elixir-drop/contracts'
 import {
   expect,
+  fulfillSupportData,
   test,
   testApiRoute,
   testPlayer,
@@ -218,6 +219,7 @@ test('an empty leaderboard offers a play call-to-action', async ({ page }) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testStats) })
       return
     }
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 

@@ -698,7 +698,9 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+              AWS:
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/jamie
             Action: sts:AssumeRole
       Policies:
         - PolicyName: elixir-drop-updates-publish
@@ -1647,6 +1649,20 @@ Resources:
       RouteKey: GET /updates
       Target: !Sub integrations/${ApiIntegration}
 
+  UpdatesPageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /updates/archive
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesPageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: HEAD /updates/archive
+      Target: !Sub integrations/${ApiIntegration}
+
   UpdatesFeedRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -2024,14 +2040,18 @@ Resources:
               }
             };
           }
-          if (uri.indexOf('/api/') === 0 || uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0) {
+          if (uri.indexOf('/api/') === 0 || uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0 || uri.indexOf('/updates/') === 0 || uri === '/feed.xml') {
             request.headers['x-elixir-drop-viewer-ip'] = { value: event.viewer.ip };
           }
           if (uri.indexOf('/api/') === 0) {
             request.uri = uri.slice(4) || '/';
             return request;
           }
-          if (uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0) return request;
+          if (uri === '/updates/' || uri === '/updates/index.html') {
+            request.uri = '/updates/archive';
+            return request;
+          }
+          if (uri.indexOf('/share/') === 0 || uri.indexOf('/share-assets/') === 0 || uri.indexOf('/updates/') === 0 || uri === '/feed.xml') return request;
           if (uri === '/') {
             request.uri = '/index.html';
           } else if (uri.charAt(uri.length - 1) === '/') {
@@ -2068,6 +2088,40 @@ Resources:
         Aliases:
           - drop.poapkings.com
         CacheBehaviors:
+          - PathPattern: /updates/*
+            TargetOriginId: api
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: !Ref WebCachePolicy
+            Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c
+            ViewerProtocolPolicy: redirect-to-https
+          - PathPattern: /feed.xml
+            TargetOriginId: api
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: !Ref WebCachePolicy
+            Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt WebRequestFunction.FunctionARN
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            ResponseHeadersPolicyId: e61eb60c-9c35-4d20-a928-2b84e02af89c
+            ViewerProtocolPolicy: redirect-to-https
           - PathPattern: /share-assets/*
             TargetOriginId: api
             AllowedMethods:
