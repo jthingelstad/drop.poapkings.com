@@ -525,6 +525,12 @@ void describe("deployment parameters", () => {
       "GET /seasons",
       "GET /activity",
       "GET /stats",
+      "GET /updates",
+      "GET /updates/",
+      "HEAD /updates/",
+      "GET /feed.xml",
+      "HEAD /feed.xml",
+      "POST /admin/updates",
     ]);
   });
 
@@ -833,7 +839,7 @@ void describe("deployment parameters", () => {
 
   void it("bounds leaderboard maintenance to sparse index attributes", () => {
     const maintenanceRole = template.match(
-      /  LeaderboardMaintenanceRole:[\s\S]*?\n  ApiFunction:/,
+      /  LeaderboardMaintenanceRole:[\s\S]*?\n  UpdatesPublisherRole:/,
     )?.[0];
     assert.ok(maintenanceRole);
     assert.match(
@@ -851,6 +857,34 @@ void describe("deployment parameters", () => {
       maintenanceRole,
       /dynamodb:(?:DeleteItem|PutItem|BatchWriteItem|TransactWriteItems)/,
     );
+  });
+
+  void it("publishes Updates only through one IAM-authorized API route", () => {
+    const publisherRole = template.match(
+      /  UpdatesPublisherRole:[\s\S]*?\n  ApiFunction:/,
+    )?.[0];
+    assert.ok(publisherRole);
+    assert.match(publisherRole, /RoleName: elixir-drop-updates-publisher/);
+    assert.match(
+      publisherRole,
+      /Principal:\s+AWS: !Sub arn:\$\{AWS::Partition\}:iam::\$\{AWS::AccountId\}:user\/elixir-drop/,
+    );
+    assert.match(publisherRole, /Action: execute-api:Invoke/);
+    assert.match(
+      publisherRole,
+      /Resource: !Sub arn:\$\{AWS::Partition\}:execute-api:\$\{AWS::Region\}:\$\{AWS::AccountId\}:\$\{HttpApi\}\/\*\/POST\/admin\/updates/,
+    );
+    assert.doesNotMatch(
+      publisherRole,
+      /Action: (?:dynamodb|s3|cloudformation|iam|lambda):/,
+    );
+
+    const publishRoute = template.match(
+      /  UpdatesPublishRoute:[\s\S]*?\n  DefaultStage:/,
+    )?.[0];
+    assert.ok(publishRoute);
+    assert.match(publishRoute, /AuthorizationType: AWS_IAM/);
+    assert.match(publishRoute, /RouteKey: POST \/admin\/updates/);
   });
 });
 

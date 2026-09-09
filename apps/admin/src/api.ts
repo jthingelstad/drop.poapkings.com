@@ -2,7 +2,11 @@ import type {
   BulkDecisionResult,
   Overview,
   PlayerDetail,
+  PublishUpdateResponse,
   RunDetail,
+  UpdateImpact,
+  UpdateKind,
+  UpdatesResponse,
 } from "./types";
 
 let csrfToken = "";
@@ -99,4 +103,20 @@ export function updatePlayerProfile(
       body: JSON.stringify(body),
     },
   );
+}
+
+export function getUpdates(): Promise<UpdatesResponse> {
+  return request<UpdatesResponse>("/updates");
+}
+
+export function publishUpdate(body: {
+  kind: UpdateKind;
+  impact?: UpdateImpact;
+  title: string;
+  body: string;
+}): Promise<PublishUpdateResponse> {
+  return request<PublishUpdateResponse>("/updates", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

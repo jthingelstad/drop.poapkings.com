@@ -57,6 +57,12 @@ import {
   uploadPublishedProfileImage,
 } from "./routes/published-profiles.js";
 import { getRecruiterInvitePage } from "./routes/recruiter-invites.js";
+import {
+  getUpdates,
+  getUpdatesFeed,
+  getUpdatesPage,
+  publishUpdate,
+} from "./routes/updates.js";
 
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
@@ -87,6 +93,17 @@ async function route(event: APIGatewayProxyEventV2) {
     config,
     repository: new Repository(config.tableName),
   };
+
+  if (method === "GET" && path === "/updates") return getUpdates(context);
+  if (
+    (method === "GET" || method === "HEAD") &&
+    (path === "/updates/" || path === "/updates/index.html")
+  )
+    return getUpdatesPage(context, method === "HEAD");
+  if ((method === "GET" || method === "HEAD") && path === "/feed.xml")
+    return getUpdatesFeed(context, method === "HEAD");
+  if (method === "POST" && path === "/admin/updates")
+    return publishUpdate(context);
 
   if (method === "POST" && path === "/auth/request")
     return requestMagicLink(context);

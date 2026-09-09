@@ -137,3 +137,33 @@ export type BulkDecisionResult = {
   succeeded: Array<{ runId: string; runReference?: string }>;
   failed: Array<{ runId: string; detail: string }>;
 };
+
+export type UpdateKind = "feature" | "season" | "message";
+
+export type UpdateImpact =
+  | "gameplay"
+  | "learning"
+  | "competition"
+  | "progression"
+  | "access"
+  | "sharing"
+  | "identity"
+  | "account-privacy";
+
+export type PlayerUpdate = {
+  id: string;
+  kind: UpdateKind;
+  impact?: UpdateImpact;
+  publishedAt: string;
+  title: string;
+  body: string;
+};
+
+export type UpdatesResponse = {
+  entries: PlayerUpdate[];
+};
+
+export type PublishUpdateResponse = {
+  entry: PlayerUpdate;
+  created: boolean;
+};

@@ -39,6 +39,7 @@ export type AdminServerOptions = {
   devBypassIdentity?: boolean;
   runner?: ScriptRunner;
   accountRunner?: ScriptRunner;
+  updatesRunner?: ScriptRunner;
 };
 
 function json(response: ServerResponse, status: number, body: unknown): void {
@@ -189,6 +190,42 @@ export function defaultAccountScriptRunner(repoRoot: string): ScriptRunner {
   };
 }
 
+export function defaultUpdatesScriptRunner(repoRoot: string): ScriptRunner {
+  return async (script, args = []) => {
+    const path = join(repoRoot, "AGENT-TEAM", "scripts", script);
+    try {
+      const result = await execFileAsync(process.execPath, [path, ...args], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          AWS_PROFILE:
+            process.env.DROP_ADMIN_UPDATES_PROFILE ?? "updates-publisher",
+        },
+        timeout: 45_000,
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return JSON.parse(result.stdout) as Record<string, unknown>;
+    } catch (error) {
+      const failure = error as Error & { stdout?: string; stderr?: string };
+      if (failure.stdout) {
+        try {
+          const envelope = JSON.parse(failure.stdout) as {
+            detail?: string;
+          };
+          throw new Error(envelope.detail ?? "Updates command failed");
+        } catch (parseError) {
+          if (parseError instanceof SyntaxError)
+            throw new Error("Updates command returned invalid output");
+          throw parseError;
+        }
+      }
+      throw new Error(
+        failure.stderr?.trim() || failure.message || "Updates command failed",
+      );
+    }
+  };
+}
+
 function mergeOverviewAccounts(
   directory: Record<string, unknown>,
   accountDirectory: Record<string, unknown>,
@@ -331,6 +368,8 @@ export function createAdminServer(options: AdminServerOptions): Server {
   const run = options.runner ?? defaultScriptRunner(options.repoRoot);
   const runAccount =
     options.accountRunner ?? defaultAccountScriptRunner(options.repoRoot);
+  const runUpdates =
+    options.updatesRunner ?? defaultUpdatesScriptRunner(options.repoRoot);
 
   return createServer(async (request, response) => {
     try {
@@ -365,6 +404,42 @@ export function createAdminServer(options: AdminServerOptions): Server {
           operator,
           csrfToken,
         });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/updates") {
+        return json(
+          response,
+          200,
+          await runUpdates("player-updates.mjs", [
+            "list",
+            "--limit",
+            "100",
+            "--json",
+          ]),
+        );
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/updates") {
+        const input = await body(request);
+        const kind = stringField(input.kind, "kind", 3, 16);
+        if (!new Set(["feature", "season", "message"]).has(kind))
+          throw new Error("Invalid update kind");
+        const args = [
+          "publish",
+          "--kind",
+          kind,
+          "--title",
+          stringField(input.title, "title", 1, 55),
+          "--body",
+          stringField(input.body, "body", 1, 2_000),
+        ];
+        if (Object.hasOwn(input, "impact"))
+          args.push("--impact", stringField(input.impact, "impact", 3, 32));
+        return json(
+          response,
+          200,
+          await runUpdates("player-updates.mjs", args),
+        );
       }
 
       const playerMatch = url.pathname.match(/^\/api\/players\/([^/]+)$/);

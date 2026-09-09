@@ -14,7 +14,7 @@ import {
 // Public reads share one generous per-IP hourly budget.
 const READ_LIMIT_PER_HOUR = 1200;
 
-async function chargeRead({ event, config, repository }: RouteContext) {
+export async function chargeRead({ event, config, repository }: RouteContext) {
   await repository.useRateLimit(
     "reads",
     clientIpHash(event, config.webOriginToken),

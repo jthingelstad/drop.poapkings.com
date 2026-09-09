@@ -40,6 +40,14 @@ import {
   sanitizeBugReportEmail,
 } from "../AGENT-TEAM/scripts/mail-bug-reports.mjs";
 import {
+  entryFromFlags,
+  isExpectedPublisherIdentity,
+  listUpdates,
+  publishUpdate,
+  staticEntries,
+  updateId as playerUpdateId,
+} from "../AGENT-TEAM/scripts/player-updates.mjs";
+import {
   CLOUD_AUDITOR_ROLE_NAME,
   isExpectedCloudAuditorIdentity,
   summarizeWebActivity,
@@ -48,6 +56,80 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
+
+void test("player Updates CLI lists publicly and signs immediate publications", async () => {
+  assert.equal(
+    playerUpdateId("Season 137: Higher / Lower!", new Date("2026-10-05Z")),
+    "2026-10-05-season-137-higher-lower",
+  );
+  assert.equal(
+    isExpectedPublisherIdentity({
+      Arn: "arn:aws:sts::123456789012:assumed-role/elixir-drop-updates-publisher/agent-team",
+    }),
+    true,
+  );
+  assert.deepEqual(
+    entryFromFlags(
+      {
+        kind: "season",
+        title: "Season 137 opens",
+        body: "Higher / Lower carries the Free Pass.",
+      },
+      new Date("2026-10-05T12:00:00Z"),
+    ),
+    {
+      id: "2026-10-05-season-137-opens",
+      kind: "season",
+      publishedAt: "2026-10-05T12:00:00.000Z",
+      title: "Season 137 opens",
+      body: "Higher / Lower carries the Free Pass.",
+    },
+  );
+
+  const requests = [];
+  const fetchImpl = async (input, init) => {
+    requests.push({ input: String(input), init });
+    return new Response(
+      JSON.stringify(
+        init?.method === "POST"
+          ? { created: true, entry: { id: "update" } }
+          : { entries: [] },
+      ),
+      { status: init?.method === "POST" ? 201 : 200 },
+    );
+  };
+  await listUpdates({
+    limit: 20,
+    baseUrl: "https://api.example",
+    fetchImpl,
+  });
+  const signer = {
+    sign: async (request) => ({
+      ...request,
+      headers: { ...request.headers, authorization: "signed" },
+    }),
+  };
+  await publishUpdate(
+    { kind: "message", title: "Arena note", body: "A short note." },
+    {
+      baseUrl: "https://api.example",
+      fetchImpl,
+      signer,
+      region: "us-east-1",
+    },
+  );
+  assert.equal(requests[0].input, "https://api.example/updates?limit=20");
+  assert.equal(requests[1].input, "https://api.example/admin/updates");
+  assert.equal(requests[1].init.headers.authorization, "signed");
+
+  const migrationEntries = await staticEntries();
+  assert.equal(migrationEntries.length, 58);
+  assert.ok(
+    migrationEntries.every(
+      (entry) => entry.kind !== "feature" || typeof entry.impact === "string",
+    ),
+  );
+});
 
 function git(cwd, ...args) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });

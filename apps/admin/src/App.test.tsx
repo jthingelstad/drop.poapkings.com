@@ -14,6 +14,11 @@ function response(value: unknown): Response {
   });
 }
 
+function jsonRequestBody(body: BodyInit | null | undefined) {
+  if (typeof body !== "string") throw new Error("Expected a JSON request body");
+  return JSON.parse(body) as Record<string, unknown>;
+}
+
 function fixtureFetch() {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path =
@@ -53,6 +58,29 @@ function fixtureFetch() {
         recentRuns: [],
         reviewQueue: [],
       });
+    if (path === "/api/updates" && init?.method !== "POST")
+      return response({
+        entries: [
+          {
+            id: "season-136-opens",
+            kind: "season",
+            publishedAt: "2026-09-08T12:00:00.000Z",
+            title: "Season 136 opens",
+            body: "Rain carries the Free Pass.",
+          },
+        ],
+      });
+    if (path === "/api/updates" && init?.method === "POST") {
+      const body = jsonRequestBody(init.body);
+      return response({
+        created: true,
+        entry: {
+          id: "season-137-opens",
+          publishedAt: "2026-10-05T12:00:00.000Z",
+          ...body,
+        },
+      });
+    }
     if (path === "/api/players/player-1")
       return response({
         status: "ok",
@@ -257,6 +285,57 @@ it("selects runs and requires confirmation before a bulk status change", async (
     runIds: ["run-1"],
     action: "clear",
     reason: "Evidence supports normal human play.",
+  });
+  render(null, host);
+});
+
+it("lists and publishes an Update without a draft workflow", async () => {
+  const { host, fetchMock } = await renderApp();
+  await vi.waitFor(() => expect(host.textContent).toContain("#P1234567890"));
+  const updatesNav = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Updates"),
+  );
+  await act(async () => {
+    updatesNav?.click();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+  await vi.waitFor(() =>
+    expect(host.textContent).toContain("Season 136 opens"),
+  );
+  expect(host.textContent).toContain("Publish an Update");
+
+  const kind = host.querySelector<HTMLSelectElement>(".cr-update-form select");
+  const title = host.querySelector<HTMLInputElement>(
+    'input[placeholder="What players need to know"]',
+  );
+  const body = host.querySelector<HTMLTextAreaElement>(
+    'textarea[placeholder^="Use emphasis"]',
+  );
+  await act(async () => {
+    if (kind) kind.value = "season";
+    kind?.dispatchEvent(new Event("change", { bubbles: true }));
+    if (title) title.value = "Season 137 opens";
+    title?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    if (body) body.value = "Higher / Lower carries the Free Pass.";
+    body?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  });
+  const publish = [...host.querySelectorAll("button")].find(
+    (button) => button.textContent === "Publish now",
+  );
+  await act(async () => {
+    publish?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+  await vi.waitFor(() =>
+    expect(host.textContent).toContain("Published Season 137 opens."),
+  );
+  const call = fetchMock.mock.calls.find(
+    ([input, init]) => input === "/api/updates" && init?.method === "POST",
+  );
+  expect(jsonRequestBody(call?.[1]?.body)).toEqual({
+    kind: "season",
+    title: "Season 137 opens",
+    body: "Higher / Lower carries the Free Pass.",
   });
   render(null, host);
 });

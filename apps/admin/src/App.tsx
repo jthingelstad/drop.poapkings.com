@@ -8,6 +8,8 @@ import {
   getOverview,
   getPlayer,
   getRun,
+  getUpdates,
+  publishUpdate,
   setRankedAccess,
   updatePlayerProfile,
 } from "./api";
@@ -15,11 +17,15 @@ import type {
   BulkDecisionResult,
   Overview,
   PlayerDetail,
+  PlayerUpdate,
   PlayerSummary,
   RunDetail,
+  UpdateImpact,
+  UpdateKind,
 } from "./types";
 
 type Cohort = "all" | "pending" | "restricted";
+type ControlView = "players" | "updates";
 type WorkspaceTab = "runs" | "profile" | "badges";
 type PlayerRun = PlayerDetail["progression"][string][number] & {
   mode: string;
@@ -134,7 +140,9 @@ function statusLabel(status: ReturnType<typeof runStatus>): string {
 }
 
 export default function App() {
+  const [view, setView] = useState<ControlView>("players");
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [updates, setUpdates] = useState<PlayerUpdate[]>([]);
   const [cohort, setCohort] = useState<Cohort>("all");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>();
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null);
@@ -174,8 +182,23 @@ export default function App() {
     }
   };
 
+  const refreshUpdates = async () => {
+    try {
+      setError("");
+      const next = await getUpdates();
+      setUpdates(next.entries);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Player Updates could not load.",
+      );
+    }
+  };
+
   useEffect(() => {
     void refresh();
+    void refreshUpdates();
     const interval = window.setInterval(() => void refresh(), 120_000);
     return () => window.clearInterval(interval);
   }, []);
@@ -230,6 +253,7 @@ export default function App() {
   }, [overview, search, cohort]);
 
   const selectCohort = (next: Cohort) => {
+    setView("players");
     setCohort(next);
     setSearch("");
     const candidate = (overview?.players ?? []).find((player) =>
@@ -258,25 +282,32 @@ export default function App() {
         </div>
         <nav aria-label="Player cohorts">
           <NavButton
-            active={cohort === "all"}
+            active={view === "players" && cohort === "all"}
             icon="♟"
             label="All Players"
             count={overview?.totals.players}
             onClick={() => selectCohort("all")}
           />
           <NavButton
-            active={cohort === "pending"}
+            active={view === "players" && cohort === "pending"}
             icon="🔎"
             label="Review Queue"
             count={overview?.totals.pending}
             onClick={() => selectCohort("pending")}
           />
           <NavButton
-            active={cohort === "restricted"}
+            active={view === "players" && cohort === "restricted"}
             icon="🚫"
             label="Restricted"
             count={overview?.totals.restricted}
             onClick={() => selectCohort("restricted")}
+          />
+          <NavButton
+            active={view === "updates"}
+            icon="U"
+            label="Updates"
+            count={updates.length}
+            onClick={() => setView("updates")}
           />
         </nav>
         <div class="cr-sidebar__stats">
@@ -296,47 +327,69 @@ export default function App() {
         </div>
       </aside>
 
-      <main class="cr-directory">
-        <header class="cr-directory__header">
-          <div>
-            <span class="cr-eyebrow">Player directory</span>
-            <h1>
-              {cohort === "pending"
-                ? "Needs review"
-                : cohort === "restricted"
-                  ? "Restricted"
-                  : "Everyone"}
-            </h1>
-          </div>
-          <span class="cr-directory__count">{players.length}</span>
-        </header>
-        <label class="cr-search">
-          <span>⌕</span>
-          <input
-            value={search}
-            onInput={(event) => setSearch(event.currentTarget.value)}
-            placeholder="Name, email, #P, Clash tag, clan…"
+      {view === "players" ? (
+        <main class="cr-directory">
+          <header class="cr-directory__header">
+            <div>
+              <span class="cr-eyebrow">Player directory</span>
+              <h1>
+                {cohort === "pending"
+                  ? "Needs review"
+                  : cohort === "restricted"
+                    ? "Restricted"
+                    : "Everyone"}
+              </h1>
+            </div>
+            <span class="cr-directory__count">{players.length}</span>
+          </header>
+          <label class="cr-search">
+            <span>⌕</span>
+            <input
+              value={search}
+              onInput={(event) => setSearch(event.currentTarget.value)}
+              placeholder="Name, email, #P, Clash tag, clan…"
+            />
+          </label>
+          {error && (
+            <div class="cr-error" role="alert">
+              {error}
+              <button onClick={() => setError("")}>×</button>
+            </div>
+          )}
+          <PlayerDirectory
+            players={players}
+            selectedPlayerId={selectedPlayerId}
+            onSelect={setSelectedPlayerId}
           />
-        </label>
-        {error && (
-          <div class="cr-error" role="alert">
-            {error}
-            <button onClick={() => setError("")}>×</button>
-          </div>
-        )}
-        <PlayerDirectory
-          players={players}
-          selectedPlayerId={selectedPlayerId}
-          onSelect={setSelectedPlayerId}
+          <footer class="cr-directory__footer">
+            <span>{status}</span>
+            <button onClick={() => void refresh()}>Refresh</button>
+          </footer>
+        </main>
+      ) : (
+        <UpdatesDirectory
+          entries={updates}
+          error={error}
+          onDismissError={() => setError("")}
+          onRefresh={() => void refreshUpdates()}
         />
-        <footer class="cr-directory__footer">
-          <span>{status}</span>
-          <button onClick={() => void refresh()}>Refresh</button>
-        </footer>
-      </main>
+      )}
 
-      <section class="cr-workspace" aria-label="Player workspace">
-        {selectedPlayerId ? (
+      <section
+        class="cr-workspace"
+        aria-label={
+          view === "players" ? "Player workspace" : "Updates workspace"
+        }
+      >
+        {view === "updates" ? (
+          <UpdatesWorkspace
+            onPublish={async (input) => {
+              const result = await publishUpdate(input);
+              await refreshUpdates();
+              return result;
+            }}
+          />
+        ) : selectedPlayerId ? (
           <PlayerWorkspace
             key={selectedPlayerId}
             detail={playerDetail}
@@ -398,6 +451,203 @@ function NavButton({
       {label}
       {count !== undefined ? <b>{count}</b> : null}
     </button>
+  );
+}
+
+const UPDATE_IMPACTS: UpdateImpact[] = [
+  "gameplay",
+  "learning",
+  "competition",
+  "progression",
+  "access",
+  "sharing",
+  "identity",
+  "account-privacy",
+];
+
+function UpdatesDirectory({
+  entries,
+  error,
+  onDismissError,
+  onRefresh,
+}: {
+  entries: PlayerUpdate[];
+  error: string;
+  onDismissError: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <main class="cr-directory cr-updates-directory">
+      <header class="cr-directory__header">
+        <div>
+          <span class="cr-eyebrow">Player communication</span>
+          <h1>Published Updates</h1>
+        </div>
+        <span class="cr-directory__count">{entries.length}</span>
+      </header>
+      {error && (
+        <div class="cr-error" role="alert">
+          {error}
+          <button onClick={onDismissError}>Close</button>
+        </div>
+      )}
+      <div class="cr-update-list">
+        {entries.length ? (
+          entries.map((entry) => (
+            <article key={entry.id}>
+              <header>
+                <span>{entry.kind}</span>
+                <time dateTime={entry.publishedAt}>
+                  {formatDate(entry.publishedAt, true)}
+                </time>
+              </header>
+              <h2>{entry.title}</h2>
+              <p>{entry.body}</p>
+              <code>{entry.id}</code>
+            </article>
+          ))
+        ) : (
+          <Empty
+            icon="U"
+            title="No Updates found"
+            text="Publish the first player Update from the workspace."
+          />
+        )}
+      </div>
+      <footer class="cr-directory__footer">
+        <span>Newest first</span>
+        <button onClick={onRefresh}>Refresh</button>
+      </footer>
+    </main>
+  );
+}
+
+function UpdatesWorkspace({
+  onPublish,
+}: {
+  onPublish: (input: {
+    kind: UpdateKind;
+    impact?: UpdateImpact;
+    title: string;
+    body: string;
+  }) => Promise<{ created: boolean; entry: PlayerUpdate }>;
+}) {
+  const [kind, setKind] = useState<UpdateKind>("feature");
+  const [impact, setImpact] = useState<UpdateImpact>("gameplay");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
+
+  return (
+    <div class="cr-workspace__inner cr-update-workspace">
+      <header class="cr-player-hero">
+        <div>
+          <span class="cr-eyebrow">Immediate publication</span>
+          <h2>Publish an Update</h2>
+          <p>One subject and one limited-Markdown paragraph.</p>
+        </div>
+      </header>
+      <form
+        class="cr-action cr-update-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setBusy(true);
+          setMessage("");
+          void onPublish({
+            kind,
+            ...(kind === "feature" ? { impact } : {}),
+            title,
+            body,
+          })
+            .then(({ created, entry }) => {
+              setMessage(
+                created
+                  ? `Published ${entry.title}.`
+                  : `${entry.title} was already published.`,
+              );
+              setTitle("");
+              setBody("");
+            })
+            .catch((reason) =>
+              setMessage(
+                reason instanceof Error
+                  ? reason.message
+                  : "Update could not be published.",
+              ),
+            )
+            .finally(() => setBusy(false));
+        }}
+      >
+        <div class="cr-action__row">
+          <label>
+            Kind
+            <select
+              value={kind}
+              onChange={(event) =>
+                setKind(event.currentTarget.value as UpdateKind)
+              }
+            >
+              <option value="feature">Feature</option>
+              <option value="season">Season</option>
+              <option value="message">Message</option>
+            </select>
+          </label>
+          {kind === "feature" && (
+            <label>
+              Player impact
+              <select
+                value={impact}
+                onChange={(event) =>
+                  setImpact(event.currentTarget.value as UpdateImpact)
+                }
+              >
+                {UPDATE_IMPACTS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        <label>
+          Subject
+          <input
+            required
+            maxLength={55}
+            value={title}
+            onInput={(event) => setTitle(event.currentTarget.value)}
+            placeholder="What players need to know"
+          />
+          <small>{title.length}/55 characters</small>
+        </label>
+        <label>
+          Markdown paragraph
+          <textarea
+            required
+            value={body}
+            onInput={(event) => setBody(event.currentTarget.value)}
+            placeholder="Use emphasis, strong text, inline code, and safe links only."
+          />
+          <small>{wordCount}/60 words</small>
+        </label>
+        <button
+          class="cr-button"
+          disabled={
+            busy ||
+            !title.trim() ||
+            !body.trim() ||
+            title.trim().length > 55 ||
+            wordCount > 60
+          }
+        >
+          {busy ? "Publishing..." : "Publish now"}
+        </button>
+        {message && <p class="cr-form-message">{message}</p>}
+      </form>
+    </div>
   );
 }
 

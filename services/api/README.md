@@ -23,6 +23,8 @@ Responsibilities in this release:
   personal-best, featured, badge-rung, and season-final awards;
 - a site-wide completed-games counter (the legacy response field is
   `trophyRoadGames`) advanced by completed games from signed-in players;
+- API-backed player Updates with bounded inline Markdown, a public JSON feed,
+  archive, and RSS projection, plus one IAM-protected publication route;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
   plus an all-time board of each player's best-ever score per mode; and
 - best-effort Discord notifications for successful email-authenticated logins and every
@@ -66,6 +68,14 @@ remains the source for cold-start initialization duration.
 - `GET /share/{playerTag}/badge/{badgeSlug}/{rung}`, `GET /share-assets/{playerTag}/badge/{badgeSlug}/{rung}`
 - `GET /share/{playerTag}/invite`
 - `GET /leaderboards`, `GET /players/{playerId}`, `GET /seasons`, `GET /stats`, `GET /activity`, `GET /shares/{token}`, `GET /health`
+- `GET /updates`, `GET /updates/`, `GET /feed.xml`, `POST /admin/updates` (AWS IAM)
+
+Player Updates are immutable `UPDATES/ENTRY#{id}` records. The public JSON,
+archive HTML, and RSS feed are rendered from the same validated records. The
+write route publishes immediately, accepts only one short paragraph with
+emphasis, strong text, inline code, and safe links, and is callable only through
+the bounded `elixir-drop-updates-publisher` role. Repeating identical copy under
+the same id is idempotent; changed copy conflicts instead of rewriting history.
 
 `POST /auth/request` creates one 15-minute, single-use credential and emails it
 in two forms: a six-digit numeric code and a magic link. `POST /auth/redeem`

@@ -23,6 +23,11 @@ import type { BadgeCounters } from "./badges.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
+  MAX_UPDATE_ENTRIES,
+  validateUpdateEntry,
+  type UpdateEntry,
+} from "./player-updates.js";
+import {
   FIRST_DROP_LEGACY_COUNT,
   FIRST_DROP_LIMIT,
   hasFirstDropBadge,
@@ -462,6 +467,87 @@ export interface PublicPlayerLookup {
 
 export class Repository {
   constructor(private readonly tableName: string) {}
+
+  async updates(limit = 100): Promise<UpdateEntry[]> {
+    const entries: UpdateEntry[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :entry)",
+          ExpressionAttributeValues: {
+            ":pk": "UPDATES",
+            ":entry": "ENTRY#",
+          },
+          ProjectionExpression: "id, #kind, impact, publishedAt, title, #body",
+          ExpressionAttributeNames: { "#kind": "kind", "#body": "body" },
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+      entries.push(
+        ...(result.Items ?? []).map((item) => validateUpdateEntry(item)),
+      );
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey && entries.length < MAX_UPDATE_ENTRIES);
+
+    return entries
+      .sort(
+        (left, right) =>
+          Date.parse(right.publishedAt) - Date.parse(left.publishedAt) ||
+          left.id.localeCompare(right.id),
+      )
+      .slice(0, Math.min(limit, MAX_UPDATE_ENTRIES));
+  }
+
+  async publishUpdate(
+    entry: UpdateEntry,
+    publishedBy: string,
+  ): Promise<{ entry: UpdateEntry; created: boolean }> {
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: "UPDATES",
+            sk: `ENTRY#${entry.id}`,
+            ...entry,
+            publishedBy,
+            schemaVersion: 1,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        }),
+      );
+      return { entry, created: true };
+    } catch (error) {
+      if (
+        (error as { name?: string }).name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+    }
+
+    const existing = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { pk: "UPDATES", sk: `ENTRY#${entry.id}` },
+        ConsistentRead: true,
+      }),
+    );
+    const stored = validateUpdateEntry(existing.Item);
+    const sameContent =
+      stored.kind === entry.kind &&
+      stored.impact === entry.impact &&
+      stored.publishedAt === entry.publishedAt &&
+      stored.title === entry.title &&
+      stored.body === entry.body;
+    if (!sameContent)
+      throw new HttpError(
+        409,
+        "That update id already belongs to different copy.",
+        "update_conflict",
+      );
+    return { entry: stored, created: false };
+  }
 
   async useRateLimit(
     scope: string,

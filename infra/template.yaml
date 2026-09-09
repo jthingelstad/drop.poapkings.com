@@ -686,6 +686,29 @@ Resources:
                       - GSI1PK
                       - GSI1SK
 
+  # AGENT-TEAM and the private Control Room publish player Updates through one
+  # validated API route. This identity can invoke only that route; it cannot
+  # deploy code, read player data, or write DynamoDB directly.
+  UpdatesPublisherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-updates-publisher
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:user/elixir-drop
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-updates-publish
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: execute-api:Invoke
+                Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/admin/updates
+
   ApiFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -1617,6 +1640,49 @@ Resources:
       RouteKey: GET /stats
       Target: !Sub integrations/${ApiIntegration}
 
+  UpdatesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /updates
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesPageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /updates/
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesPageHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: HEAD /updates/
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesFeedRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /feed.xml
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesFeedHeadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: HEAD /feed.xml
+      Target: !Sub integrations/${ApiIntegration}
+
+  UpdatesPublishRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: AWS_IAM
+      RouteKey: POST /admin/updates
+      Target: !Sub integrations/${ApiIntegration}
+
   DefaultStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
@@ -2209,6 +2275,9 @@ Outputs:
   DropControlRoleArn:
     Value: !GetAtt DropControlRole.Arn
     Description: Tailnet-only account support role with audited public-profile corrections.
+  UpdatesPublisherRoleArn:
+    Value: !GetAtt UpdatesPublisherRole.Arn
+    Description: Bounded AGENT-TEAM and Control Room identity for publishing player Updates through the API.
   LeaderboardMaintenanceRoleArn:
     Value: !GetAtt LeaderboardMaintenanceRole.Arn
     Description: Bounded role for sparse leaderboard projection repair.

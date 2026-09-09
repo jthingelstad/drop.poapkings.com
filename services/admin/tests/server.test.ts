@@ -18,6 +18,7 @@ async function fixture(
     account: {},
     changes: [],
   })),
+  updatesRunner: ScriptRunner = vi.fn(async () => ({ entries: [] })),
 ) {
   const staticRoot = await mkdtemp(join(tmpdir(), "drop-admin-"));
   await writeFile(join(staticRoot, "index.html"), "<h1>Control Room</h1>");
@@ -28,6 +29,7 @@ async function fixture(
     devBypassIdentity: bypass,
     runner,
     accountRunner,
+    updatesRunner,
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -217,6 +219,62 @@ it("rejects writes without same-origin CSRF proof", async () => {
   expect(runner).not.toHaveBeenCalled();
 });
 
+it("lists and immediately publishes Updates through the dedicated CLI", async () => {
+  const runner = vi.fn(async () => ({ status: "ok", players: [] }));
+  const updatesRunner = vi.fn<ScriptRunner>(async (_script, args = []) =>
+    args[0] === "list"
+      ? { entries: [] }
+      : {
+          created: true,
+          entry: {
+            id: "season-137-higher-lower",
+            kind: "season",
+            publishedAt: "2026-10-05T10:00:00Z",
+            title: "Season 137 opens",
+            body: "Higher / Lower carries the Free Pass.",
+          },
+        },
+  );
+  const base = await fixture(runner, true, undefined, updatesRunner);
+
+  const listing = await fetch(`${base}/api/updates`);
+  expect(listing.status).toBe(200);
+  await expect(listing.json()).resolves.toEqual({ entries: [] });
+  expect(updatesRunner).toHaveBeenCalledWith("player-updates.mjs", [
+    "list",
+    "--limit",
+    "100",
+    "--json",
+  ]);
+
+  const overview = (await (await fetch(`${base}/api/overview`)).json()) as {
+    csrfToken: string;
+  };
+  const response = await fetch(`${base}/api/updates`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: base,
+      "X-Drop-Admin-CSRF": overview.csrfToken,
+    },
+    body: JSON.stringify({
+      kind: "season",
+      title: "Season 137 opens",
+      body: "Higher / Lower carries the Free Pass.",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(updatesRunner).toHaveBeenLastCalledWith("player-updates.mjs", [
+    "publish",
+    "--kind",
+    "season",
+    "--title",
+    "Season 137 opens",
+    "--body",
+    "Higher / Lower carries the Free Pass.",
+  ]);
+});
+
 it("maps a profile correction to the separate audited account command", async () => {
   const runner = vi.fn(async (script: string) =>
     script === "referee-players.mjs"
@@ -276,4 +334,5 @@ it("gives launchd the executable path required by the AWS credential process", a
   expect(installer).toContain("<key>PATH</key>");
   expect(installer).toContain("${dirname(node)}:/opt/homebrew/bin");
   expect(installer).toContain("DROP_ADMIN_ACCOUNT_PROFILE");
+  expect(installer).toContain("DROP_ADMIN_UPDATES_PROFILE");
 });

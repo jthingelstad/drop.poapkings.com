@@ -16,6 +16,98 @@ import { leaderboardSortKey } from "../src/games.js";
 import { Repository, type RunItem } from "../src/repository.js";
 
 describe("repository DynamoDB requests", () => {
+  it("lists validated player Updates newest first across DynamoDB pages", async () => {
+    const cursor = { pk: "UPDATES", sk: "ENTRY#older" };
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            id: "older",
+            kind: "message",
+            publishedAt: "2026-08-01T12:00:00Z",
+            title: "Older message",
+            body: "The older message.",
+          },
+        ],
+        LastEvaluatedKey: cursor,
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            id: "newer",
+            kind: "season",
+            publishedAt: "2026-09-01T12:00:00Z",
+            title: "Newer season",
+            body: "The newer season.",
+          },
+        ],
+      });
+
+    const entries = await new Repository("test-table").updates(2);
+
+    expect(entries.map(({ id }) => id)).toEqual(["newer", "older"]);
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :entry)",
+      ExpressionAttributeValues: { ":pk": "UPDATES", ":entry": "ENTRY#" },
+    });
+    expect(send.mock.calls[1]?.[0].input.ExclusiveStartKey).toEqual(cursor);
+  });
+
+  it("publishes a player Update with an immutable id", async () => {
+    send.mockResolvedValueOnce({});
+    const entry = {
+      id: "season-137-higher-lower",
+      kind: "season" as const,
+      publishedAt: "2026-10-05T10:00:00Z",
+      title: "Season 137 opens",
+      body: "Higher / Lower carries the Free Pass.",
+    };
+
+    await expect(
+      new Repository("test-table").publishUpdate(entry, "publisher-arn"),
+    ).resolves.toEqual({ entry, created: true });
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      TableName: "test-table",
+      Item: {
+        pk: "UPDATES",
+        sk: "ENTRY#season-137-higher-lower",
+        ...entry,
+        publishedBy: "publisher-arn",
+        schemaVersion: 1,
+      },
+      ConditionExpression: "attribute_not_exists(pk)",
+    });
+  });
+
+  it("makes identical Update retries idempotent and rejects changed copy", async () => {
+    const entry = {
+      id: "season-137-higher-lower",
+      kind: "season" as const,
+      publishedAt: "2026-10-05T10:00:00Z",
+      title: "Season 137 opens",
+      body: "Higher / Lower carries the Free Pass.",
+    };
+    send
+      .mockRejectedValueOnce({ name: "ConditionalCheckFailedException" })
+      .mockResolvedValueOnce({ Item: entry });
+    const repository = new Repository("test-table");
+
+    await expect(
+      repository.publishUpdate(entry, "publisher-arn"),
+    ).resolves.toEqual({ entry, created: false });
+
+    send
+      .mockRejectedValueOnce({ name: "ConditionalCheckFailedException" })
+      .mockResolvedValueOnce({ Item: entry });
+    await expect(
+      repository.publishUpdate(
+        { ...entry, body: "Different player-facing copy." },
+        "publisher-arn",
+      ),
+    ).rejects.toMatchObject({ statusCode: 409, code: "update_conflict" });
+  });
+
   it("only saves refresh metadata while the same account generation exists", async () => {
     send.mockResolvedValue({});
     await new Repository("test").saveProfileRefreshHash(
