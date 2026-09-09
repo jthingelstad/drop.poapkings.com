@@ -526,8 +526,6 @@ void describe("deployment parameters", () => {
       "GET /activity",
       "GET /stats",
       "GET /updates",
-      "GET /updates/",
-      "HEAD /updates/",
       "GET /feed.xml",
       "HEAD /feed.xml",
       "POST /admin/updates",

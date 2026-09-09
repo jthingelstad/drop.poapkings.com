@@ -1647,20 +1647,6 @@ Resources:
       RouteKey: GET /updates
       Target: !Sub integrations/${ApiIntegration}
 
-  UpdatesPageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /updates/
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesPageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: HEAD /updates/
-      Target: !Sub integrations/${ApiIntegration}
-
   UpdatesFeedRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
