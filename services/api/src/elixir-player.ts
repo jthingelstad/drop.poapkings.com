@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 /** Recorded player context from the Integration API. The source timestamp
  * drives cache freshness; missing/stale profiles request collector work. */
 
@@ -83,6 +84,7 @@ export async function fetchPlayerFromHub(
   config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey">,
   tag: string,
   fetcher?: ElixirMcpFetch,
+  sleep: (ms: number) => Promise<void> = (ms) => delay(ms),
 ): Promise<HubPlayer> {
   const hub = { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey };
   const normalize = (profile: RecordedProfile): HubPlayer => {
@@ -116,10 +118,8 @@ export async function fetchPlayerFromHub(
     if (!(error instanceof ElixirMcpError) || error.code !== "not_recorded")
       throw error;
   }
-  const refresh = await apiRequest<{
-    status: string;
-    profile?: RecordedProfile;
-  }>(
+  type Refresh = { id?: string; status: string; profile?: RecordedProfile };
+  let refresh = await apiRequest<Refresh>(
     hub,
     "POST",
     "/profile-refreshes",
@@ -127,6 +127,28 @@ export async function fetchPlayerFromHub(
     fetcher,
     `profile:${tag}:${Math.floor(Date.now() / (15 * 60_000))}`,
   );
+  // Only the background worker calls this adapter. Give ordinary collector
+  // work a short completion window before relying on the longer SQS retry.
+  for (
+    let attempt = 0;
+    refresh.status === "pending" && attempt < 3;
+    attempt += 1
+  ) {
+    if (!refresh.id || !/^[a-f0-9-]{36}$/.test(refresh.id))
+      throw new ElixirMcpError(
+        "Invalid refresh resource",
+        502,
+        "invalid_response",
+      );
+    await sleep(5000);
+    refresh = await apiRequest<Refresh>(
+      hub,
+      "GET",
+      `/profile-refreshes/${refresh.id}`,
+      undefined,
+      fetcher,
+    );
+  }
   if (refresh.status === "complete" && refresh.profile)
     return normalize(refresh.profile);
   // The durable FIFO worker retries. Do not pretend enrollment or an accepted

@@ -77,9 +77,14 @@ it("requests an asynchronous refresh for missing or stale data, and propagates p
   const fetcher = vi
     .fn()
     .mockResolvedValueOnce(reply({ code: "not_recorded" }, 404))
-    .mockResolvedValueOnce(reply({ status: "pending" }, 202));
+    .mockResolvedValue(
+      reply(
+        { id: "00000000-0000-4000-8000-000000000001", status: "pending" },
+        202,
+      ),
+    );
   await expect(
-    fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher),
+    fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher, async () => {}),
   ).rejects.toMatchObject({ code: "refresh_pending" });
   expect(fetcher.mock.calls[1]![0]).toBe(
     "https://elixir.example/api/v1/profile-refreshes",
@@ -207,4 +212,24 @@ describe("a season rollover still closes the previous season", () => {
     });
     expect(calls).toEqual([]);
   });
+});
+
+it("polls an accepted profile refresh in the background before falling back to queue retry", async () => {
+  const id = "00000000-0000-4000-8000-000000000002";
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(reply({ code: "not_recorded" }, 404))
+    .mockResolvedValueOnce(reply({ id, status: "pending" }, 202))
+    .mockResolvedValueOnce(
+      reply({ id, status: "complete", profile: recorded }),
+    );
+  const sleep = vi.fn(async () => {});
+  expect(
+    await fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher, sleep),
+  ).toMatchObject({ observedAt: recorded.observed_at });
+  expect(sleep).toHaveBeenCalledWith(5000);
+  expect(fetcher.mock.calls[2]![0]).toBe(
+    `https://elixir.example/api/v1/profile-refreshes/${id}`,
+  );
+  expect(fetcher.mock.calls[2]![1].method).toBe("GET");
 });
