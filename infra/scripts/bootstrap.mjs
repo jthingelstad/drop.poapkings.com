@@ -270,6 +270,7 @@ async function ensureRole(
               "iam:PutRolePolicy",
               "iam:TagRole",
               "iam:UntagRole",
+              "iam:UpdateAssumeRolePolicy",
             ],
             Resource: `arn:aws:iam::${accountId}:role/elixir-drop-*`,
           },
