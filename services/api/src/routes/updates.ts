@@ -1,9 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyStructuredResultV2,
 } from "aws-lambda";
 import { HttpError } from "../errors.js";
-import { json } from "../http.js";
+import { bearerToken, json } from "../http.js";
 import {
   MAX_UPDATE_ENTRIES,
   renderUpdateMarkdownHtml,
@@ -194,20 +195,23 @@ export async function getUpdatesFeed(context: RouteContext, head: boolean) {
   );
 }
 
-function publisherPrincipal(event: APIGatewayProxyEventV2): string {
-  const requestContext = event.requestContext as typeof event.requestContext & {
-    authorizer?: { iam?: unknown };
-  };
-  const iam = requestContext.authorizer?.iam as
-    { userArn?: string; callerId?: string } | undefined;
-  const principal = iam?.userArn ?? iam?.callerId;
-  if (!principal)
+function publisherPrincipal(context: RouteContext): string {
+  const expected = context.config.updatesPublishToken;
+  const provided = bearerToken(context.event.headers.authorization);
+  const expectedBytes = Buffer.from(expected ?? "");
+  const providedBytes = Buffer.from(provided ?? "");
+  if (
+    !expected ||
+    !provided ||
+    expectedBytes.length !== providedBytes.length ||
+    !timingSafeEqual(expectedBytes, providedBytes)
+  )
     throw new HttpError(
       403,
-      "An Updates publisher identity is required.",
+      "A valid Updates publish token is required.",
       "publisher_required",
     );
-  return principal;
+  return "updates-bearer";
 }
 
 export async function publishUpdate(context: RouteContext) {
@@ -228,7 +232,7 @@ export async function publishUpdate(context: RouteContext) {
   });
   const result = await context.repository.publishUpdate(
     entry,
-    publisherPrincipal(context.event),
+    publisherPrincipal(context),
   );
   return json(result.created ? 201 : 200, result);
 }

@@ -26,14 +26,14 @@ function event(
   method: string,
   path: string,
   body?: unknown,
-  authorized = false,
+  token?: string,
 ): APIGatewayProxyEventV2 {
   return {
     version: "2.0",
     routeKey: `${method} ${path}`,
     rawPath: path,
     rawQueryString: "",
-    headers: {},
+    headers: token ? { authorization: `Bearer ${token}` } : {},
     requestContext: {
       accountId: "123456789012",
       apiId: "api-id",
@@ -51,16 +51,6 @@ function event(
       stage: "$default",
       time: "05/Oct/2026:10:00:00 +0000",
       timeEpoch: Date.now(),
-      ...(authorized
-        ? {
-            authorizer: {
-              iam: {
-                userArn:
-                  "arn:aws:sts::123456789012:assumed-role/elixir-drop-updates-publisher/vitest",
-              },
-            },
-          }
-        : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     isBase64Encoded: false,
@@ -77,6 +67,7 @@ function context(
       tableName: "test-table",
       sessionSecret: "session",
       telemetryPepper: "pepper",
+      updatesPublishToken: "test-publish-token",
       appUrl: "https://drop.example",
       jmapToken: "jmap",
       emailFrom: "elixir@example.com",
@@ -144,28 +135,39 @@ describe("player Update routes", () => {
     );
   });
 
-  it("requires the IAM publisher context before writing", async () => {
+  it("requires the publisher bearer token before writing", async () => {
     const repository = { publishUpdate: vi.fn() };
     await expect(
       publishUpdate(
         context(event("POST", "/admin/updates", entry), repository),
       ),
     ).rejects.toMatchObject({ statusCode: 403, code: "publisher_required" });
+    await expect(
+      publishUpdate(
+        context(
+          event("POST", "/admin/updates", entry, "nope-publish-token"),
+          repository,
+        ),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: "publisher_required" });
     expect(repository.publishUpdate).not.toHaveBeenCalled();
   });
 
-  it("publishes immediately with the authenticated principal", async () => {
+  it("publishes immediately with the bearer token", async () => {
     const repository = {
       publishUpdate: vi.fn().mockResolvedValue({ entry, created: true }),
     };
     const response = await publishUpdate(
-      context(event("POST", "/admin/updates", entry, true), repository),
+      context(
+        event("POST", "/admin/updates", entry, "test-publish-token"),
+        repository,
+      ),
     );
 
     expect(response.statusCode).toBe(201);
     expect(repository.publishUpdate).toHaveBeenCalledWith(
       entry,
-      expect.stringContaining("elixir-drop-updates-publisher"),
+      "updates-bearer",
     );
   });
 

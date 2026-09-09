@@ -41,9 +41,9 @@ import {
 } from "../AGENT-TEAM/scripts/mail-bug-reports.mjs";
 import {
   entryFromFlags,
-  isExpectedPublisherIdentity,
   listUpdates,
   publishUpdate,
+  resolveUpdatesPublishToken,
   updateId as playerUpdateId,
 } from "../AGENT-TEAM/scripts/player-updates.mjs";
 import {
@@ -56,16 +56,34 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
 
-void test("player Updates CLI lists publicly and signs immediate publications", async () => {
+void test("player Updates CLI lists publicly and uses a bearer token to publish", async () => {
   assert.equal(
     playerUpdateId("Season 137: Higher / Lower!", new Date("2026-10-05Z")),
     "2026-10-05-season-137-higher-lower",
   );
   assert.equal(
-    isExpectedPublisherIdentity({
-      Arn: "arn:aws:sts::123456789012:assumed-role/elixir-drop-updates-publisher/agent-team",
+    await resolveUpdatesPublishToken({
+      environment: {
+        ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
+          "test-publisher-token-with-at-least-32-characters",
+      },
     }),
-    true,
+    "test-publisher-token-with-at-least-32-characters",
+  );
+  assert.equal(
+    await resolveUpdatesPublishToken({
+      environment: {},
+      readFileImpl: async () =>
+        'ELIXIR_DROP_UPDATES_PUBLISH_TOKEN="fixed-host-token-with-at-least-32-characters"\n',
+    }),
+    "fixed-host-token-with-at-least-32-characters",
+  );
+  await assert.rejects(
+    resolveUpdatesPublishToken({
+      environment: {},
+      readFileImpl: async () => "",
+    }),
+    /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN/,
   );
   assert.deepEqual(
     entryFromFlags(
@@ -102,24 +120,19 @@ void test("player Updates CLI lists publicly and signs immediate publications", 
     baseUrl: "https://api.example",
     fetchImpl,
   });
-  const signer = {
-    sign: async (request) => ({
-      ...request,
-      headers: { ...request.headers, authorization: "signed" },
-    }),
-  };
+  const token = "test-publisher-token-with-at-least-32-characters";
   await publishUpdate(
     { kind: "message", title: "Arena note", body: "A short note." },
     {
       baseUrl: "https://api.example",
       fetchImpl,
-      signer,
-      region: "us-east-1",
+      token,
     },
   );
   assert.equal(requests[0].input, "https://api.example/updates?limit=20");
   assert.equal(requests[1].input, "https://api.example/admin/updates");
-  assert.equal(requests[1].init.headers.authorization, "signed");
+  assert.equal(requests[1].init.headers.authorization, `Bearer ${token}`);
+  assert.equal(requests[1].init.headers.host, undefined);
 });
 
 function git(cwd, ...args) {

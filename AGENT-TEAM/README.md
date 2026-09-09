@@ -62,10 +62,12 @@ decisions. Cross-cutting work keeps one originating owner.
   API-backed player-message stream. Use `list` to inspect current copy and
   `publish --kind <feature|season|message> --title <subject> --body <markdown>`
   to add one concise entry; feature entries also require `--impact`. The command
-  assumes the bounded `updates-publisher` AWS profile and cannot deploy code or
-  write DynamoDB directly. The material notification bar in `AGENTS.md` still
-  applies, with silence as the default. Final Free Pass selection and award,
-  other prize action, and broad messages remain subject to the human boundary.
+  reads its dedicated bearer token from `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` or
+  the repository's mode-0600 `.env` and sends it directly to the API; publishing
+  needs no AWS profile or login and cannot deploy code or write DynamoDB
+  directly. The material notification bar in `AGENTS.md` still applies, with
+  silence as the default. Final Free Pass selection and award, other prize
+  action, and broad messages remain subject to the human boundary.
 
 ## Issue policy
 

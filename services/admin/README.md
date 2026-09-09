@@ -16,7 +16,7 @@ reported independently; failed items remain selected for correction or retry.
 Practice rows are intentionally not selectable because no referee evidence is
 retained for them.
 
-Three deliberately separate AWS capabilities feed it:
+Three deliberately separate capabilities feed it:
 
 - Referee evidence, run decisions, and ranked access always invoke the
   sanctioned `AGENT-TEAM` scripts under `referee-read`, preserving their
@@ -27,17 +27,18 @@ Three deliberately separate AWS capabilities feed it:
   email/profile/CR snapshot fields and atomically update `publicName` plus
   `favoriteCardId` and/or the unverified Clash tag with an immutable `CONTROL#`
   audit event. Email is visible but cannot be edited.
-- Player Updates invoke `AGENT-TEAM/scripts/player-updates.mjs` under
-  `updates-publisher`. The Control Room lists published copy and provides one
-  immediate-publication form for bounded inline Markdown; it has no draft or
-  approval workflow.
+- Player Updates invoke `AGENT-TEAM/scripts/player-updates.mjs`. The CLI reads a
+  dedicated bearer token from the repository's mode-0600 `.env` and calls the
+  API directly, so the Control Room needs no AWS session for this action. It
+  lists published copy and provides one immediate-publication form for bounded
+  inline Markdown; it has no draft or approval workflow.
 
 ## Local development
 
 Use Node 24 and two terminals:
 
 ```sh
-DROP_ADMIN_DEV_BYPASS_IDENTITY=1 AWS_PROFILE=referee-read DROP_ADMIN_ACCOUNT_PROFILE=drop-control DROP_ADMIN_UPDATES_PROFILE=updates-publisher AWS_REGION=us-east-1 npm run start:admin
+DROP_ADMIN_DEV_BYPASS_IDENTITY=1 AWS_PROFILE=referee-read DROP_ADMIN_ACCOUNT_PROFILE=drop-control AWS_REGION=us-east-1 npm run start:admin
 npm run dev:admin
 ```
 
@@ -45,7 +46,8 @@ Build both pieces with `npm run build:admin`. Install or refresh the fixed-host
 launch agent with `npm run install:admin`. The service defaults to port `8780`;
 the Vite dev server on `8781` proxies `/api` to it.
 
-The managed host's AWS config keeps the capabilities visibly separate:
+The managed host's AWS config keeps its remaining AWS capabilities visibly
+separate:
 
 ```ini
 [profile drop-control]
@@ -54,12 +56,11 @@ source_profile = elixir-drop-source
 role_session_name = elixir-drop-control-room
 region = us-east-1
 
-[profile updates-publisher]
-role_arn = arn:aws:iam::<account>:role/elixir-drop-updates-publisher
-source_profile = jamie
-role_session_name = elixir-drop-updates-publisher
-region = us-east-1
 ```
+
+Updates publishing does not use this AWS configuration. The AGENT-TEAM CLI and
+Control Room share `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` from the repository's
+mode-0600 `.env` and send it only to the HTTPS API publish route.
 
 ## Security boundary
 
@@ -71,10 +72,9 @@ region = us-east-1
 - CSP denies third-party connections, embedding, and remote assets.
 - The launch agent uses `AWS_PROFILE=referee-read` for referee actions and sets
   `DROP_ADMIN_ACCOUNT_PROFILE=drop-control` only for the account-support child
-  scripts and `DROP_ADMIN_UPDATES_PROFILE=updates-publisher` only for the
-  Updates CLI. The referee response still contains no email or raw subject.
-- The Updates role can invoke only `POST /admin/updates`; validation and the
-  DynamoDB write stay inside the API Lambda.
+  scripts. The referee response still contains no email or raw subject.
+- The Updates token authorizes only `POST /admin/updates`; the CLI never logs it,
+  and validation plus the DynamoDB write stay inside the API Lambda.
 - The account role is projection- and attribute-bounded. It cannot read magic
   links, poll sessions, referee evidence, runs, or secrets; cannot change email,
   XP, scores, or history; and has no delete action.

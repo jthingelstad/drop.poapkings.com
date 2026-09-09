@@ -11,6 +11,9 @@ export interface Config {
   buttondownApiKey?: string;
   buttondownNewsletterId?: string;
   tinylyticsApiToken?: string;
+  // Shared only by the fixed host and this Lambda. It authorizes the one
+  // immediate player-Updates publication route without an AWS login.
+  updatesPublishToken?: string;
   emailFrom: string;
   emailFromName: string;
   nameModelId: string;
@@ -83,6 +86,8 @@ export function getConfig(): Config {
     buttondownApiKey,
     buttondownNewsletterId,
     tinylyticsApiToken: process.env.TINYLYTICS_API_TOKEN?.trim() || undefined,
+    updatesPublishToken:
+      process.env.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN?.trim() || undefined,
     emailFrom: emailFrom(),
     emailFromName: emailFromName(),
     nameModelId:

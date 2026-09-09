@@ -30,7 +30,6 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <key>PATH</key><string>${escape(`${dirname(node)}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`)}</string>
 <key>AWS_PROFILE</key><string>referee-read</string>
 <key>DROP_ADMIN_ACCOUNT_PROFILE</key><string>drop-control</string>
-<key>DROP_ADMIN_UPDATES_PROFILE</key><string>updates-publisher</string>
 <key>AWS_REGION</key><string>us-east-1</string>
 <key>DROP_ADMIN_HOST</key><string>127.0.0.1</string>
 <key>DROP_ADMIN_PORT</key><string>8780</string>

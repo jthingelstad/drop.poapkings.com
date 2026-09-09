@@ -1,31 +1,14 @@
 #!/usr/bin/env node
 
-import { createHash, createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
-import { SignatureV4 } from "@smithy/signature-v4";
 
-export const UPDATES_PUBLISHER_ROLE_NAME = "elixir-drop-updates-publisher";
+export const UPDATES_PUBLISH_TOKEN_ENV = "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN";
 const MAX_UPDATES = 500;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDirectory, "../..");
-
-class Sha256 {
-  constructor(secret) {
-    this.hash = secret ? createHmac("sha256", secret) : createHash("sha256");
-  }
-
-  update(value) {
-    this.hash.update(value);
-  }
-
-  async digest() {
-    return this.hash.digest();
-  }
-}
 
 export function parseFlags(args) {
   const flags = {};
@@ -46,11 +29,40 @@ export function parseFlags(args) {
   return { flags, positional };
 }
 
-export function isExpectedPublisherIdentity(identity) {
-  const arn = typeof identity?.Arn === "string" ? identity.Arn : "";
-  return new RegExp(
-    `^arn:(?:aws|aws-cn|aws-us-gov):sts::\\d{12}:assumed-role/${UPDATES_PUBLISHER_ROLE_NAME}/[^/]+$`,
-  ).test(arn);
+function envValue(text, name) {
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const equals = trimmed.indexOf("=");
+    if (equals < 1 || trimmed.slice(0, equals).trim() !== name) continue;
+    const raw = trimmed.slice(equals + 1).trim();
+    try {
+      return raw.startsWith('"') ? JSON.parse(raw) : raw;
+    } catch {
+      return raw;
+    }
+  }
+  return undefined;
+}
+
+export async function resolveUpdatesPublishToken({
+  environment = process.env,
+  readFileImpl = readFile,
+} = {}) {
+  const configured = environment[UPDATES_PUBLISH_TOKEN_ENV]?.trim();
+  const token =
+    configured ||
+    String(
+      envValue(
+        await readFileImpl(resolve(repoRoot, ".env"), "utf8").catch(() => ""),
+        UPDATES_PUBLISH_TOKEN_ENV,
+      ) ?? "",
+    ).trim();
+  if (token.length < 32)
+    throw new Error(
+      `Set ${UPDATES_PUBLISH_TOKEN_ENV} in the environment or the repository's mode-0600 .env`,
+    );
+  return token;
 }
 
 export function updateId(title, date = new Date()) {
@@ -113,55 +125,26 @@ export async function listUpdates({
   return responsePayload(response);
 }
 
-async function verifiedSigner(region) {
-  const identityClient = new STSClient({ region });
-  const identity = await identityClient.send(new GetCallerIdentityCommand({}));
-  if (!isExpectedPublisherIdentity(identity))
-    throw new Error(
-      `AWS caller must be an assumed-role session for ${UPDATES_PUBLISHER_ROLE_NAME}`,
-    );
-  return new SignatureV4({
-    credentials: identityClient.config.credentials,
-    region,
-    service: "execute-api",
-    sha256: Sha256,
-  });
-}
-
 export async function publishUpdate(
   entry,
-  { fetchImpl = fetch, baseUrl, signer, region } = {},
+  { fetchImpl = fetch, baseUrl, token } = {},
 ) {
   const root = baseUrl ?? (await apiBaseUrl());
   const url = new URL(`${root}/admin/updates`);
   const body = JSON.stringify(entry);
-  const signingRegion =
-    region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION;
-  if (!signer && !signingRegion)
-    throw new Error("Set AWS_REGION for the Updates publisher");
-  const requestSigner = signer ?? (await verifiedSigner(signingRegion));
-
-  const signed = await requestSigner.sign({
-    protocol: url.protocol,
-    hostname: url.hostname,
-    port: url.port ? Number(url.port) : undefined,
-    method: "POST",
-    path: url.pathname,
-    query: {},
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      host: url.host,
-    },
-    body,
-  });
+  if (typeof token !== "string" || token.length < 32)
+    throw new Error("An Updates publish token is required");
 
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
       const response = await fetchImpl(url, {
         method: "POST",
-        headers: signed.headers,
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
         body,
       });
       return await responsePayload(response);
@@ -229,7 +212,11 @@ export async function main(args) {
     return flags.json ? printJson(result) : printList(result);
   }
   if (command === "publish") {
-    return printJson(await publishUpdate(entryFromFlags(flags)));
+    return printJson(
+      await publishUpdate(entryFromFlags(flags), {
+        token: await resolveUpdatesPublishToken(),
+      }),
+    );
   }
   throw new Error("Choose list or publish");
 }

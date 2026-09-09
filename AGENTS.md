@@ -177,7 +177,10 @@ production run. A successful exact-head validation triggers
   newest-first for the **Updates** scope, and the API projects the same records at
   `/updates/` and `/feed.xml`. The AGENT-TEAM lists or immediately publishes them
   with `AGENT-TEAM/scripts/player-updates.mjs`; the private Control Room is the
-  human editing surface. There is no public write route, draft, or approval flow.
+  human editing surface. There is no unauthenticated write route, draft, or
+  approval flow. Routine publication is unattended: the fixed host keeps one
+  dedicated bearer token in the repository's mode-0600 `.env`, and the CLI sends
+  it directly to the API over HTTPS. Publishing needs no AWS profile or login.
   `apps/web/src/lib/update-data.ts` validates the browser copy before displaying it.
   Each entry is one subject plus one Markdown paragraph. Markdown is rendered
   through a deliberately small, safe vocabulary: emphasis, code, and approved

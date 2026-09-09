@@ -20,7 +20,14 @@ import { deploymentTemplateSource } from "./template-source.mjs";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
 const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
+const staticCredentialNames = new Set([
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+  "AWS_SECURITY_TOKEN",
+]);
 for (const [key, value] of Object.entries(env)) {
+  if (process.env.AWS_PROFILE && staticCredentialNames.has(key)) continue;
   if (!process.env[key]) process.env[key] = value;
 }
 

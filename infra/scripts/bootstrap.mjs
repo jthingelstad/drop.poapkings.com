@@ -540,6 +540,9 @@ const values = {
   ELIXIR_DROP_WEB_ORIGIN_TOKEN:
     existingEnv.ELIXIR_DROP_WEB_ORIGIN_TOKEN ||
     randomBytes(32).toString("base64url"),
+  ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
+    existingEnv.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN ||
+    randomBytes(32).toString("base64url"),
   ELIXIR_DROP_WEB_CERTIFICATE_ARN:
     existingEnv.ELIXIR_DROP_WEB_CERTIFICATE_ARN ||
     process.env.ELIXIR_DROP_WEB_CERTIFICATE_ARN,

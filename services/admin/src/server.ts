@@ -196,11 +196,6 @@ export function defaultUpdatesScriptRunner(repoRoot: string): ScriptRunner {
     try {
       const result = await execFileAsync(process.execPath, [path, ...args], {
         cwd: repoRoot,
-        env: {
-          ...process.env,
-          AWS_PROFILE:
-            process.env.DROP_ADMIN_UPDATES_PROFILE ?? "updates-publisher",
-        },
         timeout: 45_000,
         maxBuffer: 4 * 1024 * 1024,
       });

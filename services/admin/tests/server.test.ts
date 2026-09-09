@@ -334,5 +334,5 @@ it("gives launchd the executable path required by the AWS credential process", a
   expect(installer).toContain("<key>PATH</key>");
   expect(installer).toContain("${dirname(node)}:/opt/homebrew/bin");
   expect(installer).toContain("DROP_ADMIN_ACCOUNT_PROFILE");
-  expect(installer).toContain("DROP_ADMIN_UPDATES_PROFILE");
+  expect(installer).not.toContain("DROP_ADMIN_UPDATES_PROFILE");
 });

@@ -517,6 +517,9 @@ detail.
 Call the Season owns routine, source-backed current leaders and Cleared final game
 results in the API stream; the Free Pass recipient and award remain a manual Jamie
 decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
+AGENT-TEAM and Control Room send a dedicated bearer token from the fixed host's
+mode-0600 `.env` directly to the API, so routine publication requires no AWS
+profile or interactive login.
 Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
 account-level and deliberately not per-device, so it never needs a browser key.
 Before that timestamp exists, only the newest three cards receive unread styling and

@@ -14,6 +14,8 @@ const requiredCreateEnvironment = {
   FASTMAIL_JMAP_TOKEN: "jmap-token",
   ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
   ELIXIR_DROP_WEB_ORIGIN_TOKEN: "private-origin-token",
+  ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
+    "updates-publish-token-with-at-least-32-characters",
   ELIXIR_DROP_WEB_CERTIFICATE_ARN:
     "arn:aws:acm:us-east-1:999153317627:certificate/example",
 };
@@ -23,6 +25,10 @@ const template = readFileSync(
 );
 const bootstrap = readFileSync(
   new URL("../scripts/bootstrap.mjs", import.meta.url),
+  "utf8",
+);
+const deploy = readFileSync(
+  new URL("../scripts/deploy.mjs", import.meta.url),
   "utf8",
 );
 
@@ -43,6 +49,13 @@ function parameterDefault(name) {
 }
 
 void describe("deployment parameters", () => {
+  void it("honors an explicit AWS profile over stored static credentials", () => {
+    assert.match(
+      deploy,
+      /process\.env\.AWS_PROFILE && staticCredentialNames\.has\(key\)/,
+    );
+  });
+
   // The guard for the parameter-wipe class. CloudFormation resets every
   // parameter that an UpdateStack request omits back to its template Default,
   // so a parameter declared here but never sent is a silent production-config
@@ -196,6 +209,7 @@ void describe("deployment parameters", () => {
       "TelemetryPepper",
       "FastmailJmapToken",
       "DiscordWebhookUrl",
+      "UpdatesPublishToken",
     ]) {
       assert.deepEqual(
         parameters.find((parameter) => parameter.ParameterKey === parameterKey),
@@ -267,6 +281,15 @@ void describe("deployment parameters", () => {
         (parameter) => parameter.ParameterKey === "TelemetryPepper",
       ),
       { ParameterKey: "TelemetryPepper", ParameterValue: "telemetry-pepper" },
+    );
+    assert.deepEqual(
+      parameters.find(
+        (parameter) => parameter.ParameterKey === "UpdatesPublishToken",
+      ),
+      {
+        ParameterKey: "UpdatesPublishToken",
+        ParameterValue: "updates-publish-token-with-at-least-32-characters",
+      },
     );
     assert.deepEqual(
       parameters.find(
@@ -848,7 +871,7 @@ void describe("deployment parameters", () => {
 
   void it("bounds leaderboard maintenance to sparse index attributes", () => {
     const maintenanceRole = template.match(
-      /  LeaderboardMaintenanceRole:[\s\S]*?\n  UpdatesPublisherRole:/,
+      /  LeaderboardMaintenanceRole:[\s\S]*?\n  ApiFunction:/,
     )?.[0];
     assert.ok(maintenanceRole);
     assert.match(
@@ -868,31 +891,26 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("publishes Updates only through one IAM-authorized API route", () => {
-    const publisherRole = template.match(
-      /  UpdatesPublisherRole:[\s\S]*?\n  ApiFunction:/,
-    )?.[0];
-    assert.ok(publisherRole);
-    assert.match(publisherRole, /RoleName: elixir-drop-updates-publisher/);
+  void it("publishes Updates only with the server-side bearer token", () => {
+    assert.doesNotMatch(template, /UpdatesPublisherRole/);
     assert.match(
-      publisherRole,
-      /Principal:\s+AWS:[\s\S]*?user\/elixir-drop[\s\S]*?user\/jamie/,
+      template,
+      /UpdatesPublishToken:\n {4}Type: String\n {4}NoEcho: true\n {4}MinLength: 32/,
     );
-    assert.match(publisherRole, /Action: execute-api:Invoke/);
     assert.match(
-      publisherRole,
-      /Resource: !Sub arn:\$\{AWS::Partition\}:execute-api:\$\{AWS::Region\}:\$\{AWS::AccountId\}:\$\{HttpApi\}\/\*\/POST\/admin\/updates/,
+      template,
+      /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN: !Ref UpdatesPublishToken/,
     );
-    assert.doesNotMatch(
-      publisherRole,
-      /Action: (?:dynamodb|s3|cloudformation|iam|lambda):/,
+    assert.match(
+      bootstrap,
+      /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:[\s\S]*?randomBytes\(32\)\.toString\("base64url"\)/,
     );
 
     const publishRoute = template.match(
       /  UpdatesPublishRoute:[\s\S]*?\n  DefaultStage:/,
     )?.[0];
     assert.ok(publishRoute);
-    assert.match(publishRoute, /AuthorizationType: AWS_IAM/);
+    assert.match(publishRoute, /AuthorizationType: NONE/);
     assert.match(publishRoute, /RouteKey: POST \/admin\/updates/);
   });
 });
