@@ -13,6 +13,8 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace=@elixir-drop/web",
+    "dev:api": "npm run dev --workspace=services/api",
+    "dev:local": "node scripts/dev-local.mjs",
     "dev:qa": "npm run dev:qa --workspace=@elixir-drop/web",
     "dev:admin": "npm run dev --workspace=@elixir-drop/admin",
     "build:admin": "npm run build --workspace=@elixir-drop/admin && npm run build --workspace=@elixir-drop/admin-service",

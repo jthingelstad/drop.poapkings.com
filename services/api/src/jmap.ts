@@ -375,6 +375,15 @@ async function sendEmail(input: SendEmailInput): Promise<void> {
 }
 
 export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {
+  // Local dev only: with no Fastmail token, print the link to the terminal
+  // instead of sending mail. Guarded by an explicit env var, so production
+  // (where it is never set) is unchanged. The local dev harness sets it.
+  if (process.env.ELIXIR_DROP_DEV_MAIL === "console") {
+    console.log(
+      `\n✉️  [dev] Magic link for ${input.to}:\n   ${input.magicLink}\n`,
+    );
+    return;
+  }
   await sendEmail({
     ...input,
     subject: magicLinkEmailSubject(input.code),
