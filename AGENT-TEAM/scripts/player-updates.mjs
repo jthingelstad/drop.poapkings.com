@@ -6,6 +6,16 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const UPDATES_PUBLISH_TOKEN_ENV = "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN";
+export const PLAYER_UPDATES_USAGE = `Player Updates CLI
+
+Usage:
+  node AGENT-TEAM/scripts/player-updates.mjs list [--limit 1-500] [--json]
+  node AGENT-TEAM/scripts/player-updates.mjs publish --kind <feature|season|message> --title <subject> --body <markdown> [--impact <category>] [--id <kebab-id>] [--published-at <ISO-date-time>]
+
+Feature impact categories:
+  gameplay, learning, competition, progression, access, sharing, identity, account-privacy
+
+Publishing reads ${UPDATES_PUBLISH_TOKEN_ENV} from the environment or the repository's mode-0600 .env. It does not use AWS credentials. Ordinary publications omit --id and --published-at; the CLI supplies both.`;
 const MAX_UPDATES = 500;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDirectory, "../..");
@@ -204,6 +214,10 @@ export function entryFromFlags(flags, now = new Date()) {
 }
 
 export async function main(args) {
+  if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
+    process.stdout.write(`${PLAYER_UPDATES_USAGE}\n`);
+    return;
+  }
   const { positional, flags } = parseFlags(args);
   const command = positional[0] ?? "list";
   if (command === "list") {

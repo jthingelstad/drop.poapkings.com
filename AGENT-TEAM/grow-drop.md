@@ -22,9 +22,11 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    health. Do not turn guest/offline preparation into durable activation.
 3. Compare the natural result of recent changes. A feature existing is not evidence
    that it helped.
-4. On the first run of each calendar week, use `player-updates.mjs list` to compare
-   deployed material player outcomes with published Updates. Publish a card only when an entire
-   outcome that passes the canonical notification bar in `AGENTS.md` was omitted;
+4. On the first run of each calendar week, use the canonical command in
+   `AGENT-TEAM/README.md`: `list --limit 100 --json`. Compare deployed material
+   player outcomes with published Updates. If a card is due, follow the exact
+   publish and verification contract there. Publish only when an entire outcome
+   that passes the canonical notification bar in `AGENTS.md` was omitted;
    player-visible is not sufficient. Never backfill copy, layout, discovery, feed,
    diagnostic, or follow-up-polish details, and never turn related commits into
    separate cards. Silence is the healthy default.

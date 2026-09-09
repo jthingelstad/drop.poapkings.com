@@ -59,15 +59,59 @@ decisions. Cross-cutting work keeps one originating owner.
 - `AGENT-TEAM/scripts/referee-*.mjs` are the sanctioned referee read/decision path.
 - `AGENT-TEAM/fair-play-policy.md` is the durable evidence and decision rubric.
 - `AGENT-TEAM/scripts/player-updates.mjs` lists and immediately publishes the
-  API-backed player-message stream. Use `list` to inspect current copy and
-  `publish --kind <feature|season|message> --title <subject> --body <markdown>`
-  to add one concise entry; feature entries also require `--impact`. The command
-  reads its dedicated bearer token from `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` or
-  the repository's mode-0600 `.env` and sends it directly to the API; publishing
-  needs no AWS profile or login and cannot deploy code or write DynamoDB
-  directly. The material notification bar in `AGENTS.md` still applies, with
-  silence as the default. Final Free Pass selection and award, other prize
-  action, and broad messages remain subject to the human boundary.
+  API-backed player-message stream. The complete operator contract and commands
+  are below.
+
+## Player Updates CLI
+
+Every objective automation reads this file. Run these commands from the repository
+root; `--help` prints the same command summary.
+
+Inspect the newest published cards before writing:
+
+```sh
+node AGENT-TEAM/scripts/player-updates.mjs --help
+node AGENT-TEAM/scripts/player-updates.mjs list --limit 25
+node AGENT-TEAM/scripts/player-updates.mjs list --limit 100 --json
+```
+
+Publish one card immediately:
+
+```sh
+node AGENT-TEAM/scripts/player-updates.mjs publish \
+  --kind season \
+  --title '<subject, at most 55 characters>' \
+  --body '<one Markdown paragraph, at most 60 words>'
+```
+
+Use `feature`, `season`, or `message`. A `feature` also requires exactly one
+`--impact`: `gameplay`, `learning`, `competition`, `progression`, `access`,
+`sharing`, `identity`, or `account-privacy`. Do not pass `--impact` for season or
+message cards. Supported Markdown is only `*emphasis*`, `**strong**`, inline
+code, and safe links. Headings, lists, images, raw HTML, and line breaks are
+rejected.
+
+For an ordinary publication, omit `--id` and `--published-at`; the CLI creates a
+date-and-title ID and uses the current timestamp. Records are immutable. A new
+publication returns `"created": true`; an exact retry returns `"created": false`;
+changed copy under the same ID is rejected. After publishing, run:
+
+```sh
+node AGENT-TEAM/scripts/player-updates.mjs list --limit 1 --json
+```
+
+Then verify `/updates/` contains the same card.
+
+Publishing reads the dedicated bearer token from
+`ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` or the repository's mode-0600 `.env` and sends
+it directly to the API over HTTPS. It needs no AWS profile or login, cannot deploy
+code or write DynamoDB directly, and never prints the token. If the CLI reports
+that the token is missing, stop and report the fixed-host setup problem; do not
+substitute AWS credentials or put the token on the command line.
+
+The material notification bar in `AGENTS.md` still applies, with silence as the
+default. Final Free Pass selection and award, other prize action, and broad
+messages remain subject to the human boundary.
 
 ## Issue policy
 

@@ -69,10 +69,12 @@ Do not add a matching feature entry, send email or Discord, draft a newsletter,
 contact a player, make a public enforcement statement, or announce a Free Pass award
 without separate Jamie authority.
 
-For a due entry, claim `season`, inspect existing messages with `player-updates.mjs list`,
-publish only that entry, then verify both the JSON list and `/updates/`. Publishing does
-not require a source commit or deployment. If no entry is due or facts are not final
-enough, a quiet no-op/watch is success.
+For a due entry, claim `season`, inspect existing messages with
+`node AGENT-TEAM/scripts/player-updates.mjs list --limit 100 --json`, then follow
+the publish command and constraints in `AGENT-TEAM/README.md`. Publish only that
+entry and verify it with `list --limit 1 --json` plus `/updates/`. Publishing does
+not require a source commit or deployment. It also needs no AWS profile or login.
+If no entry is due or facts are not final enough, a quiet no-op/watch is success.
 
 ## Success
 

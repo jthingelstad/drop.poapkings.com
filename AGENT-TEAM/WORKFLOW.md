@@ -27,7 +27,9 @@ objective file before acting.
    `AGENTS.md`, publish one impact category, one subject, and one Markdown paragraph
    through `AGENT-TEAM/scripts/player-updates.mjs` after the player outcome is live.
    This API write is separate from the code deployment. Related work earns one card,
-   and silence is the default.
+   and silence is the default. Follow the exact list/publish commands, Markdown
+   limits, success response, and post-publish check in `AGENT-TEAM/README.md`;
+   publishing never requires an AWS profile or login.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
    recheck the branch, upstream, and worktree immediately before the first edit and
    before push. Stop if the state changed.

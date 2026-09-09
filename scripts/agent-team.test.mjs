@@ -42,6 +42,7 @@ import {
 import {
   entryFromFlags,
   listUpdates,
+  PLAYER_UPDATES_USAGE,
   publishUpdate,
   resolveUpdatesPublishToken,
   updateId as playerUpdateId,
@@ -57,6 +58,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PREFLIGHT = path.join(ROOT, "AGENT-TEAM/scripts/preflight.sh");
 
 void test("player Updates CLI lists publicly and uses a bearer token to publish", async () => {
+  assert.match(PLAYER_UPDATES_USAGE, /list \[--limit 1-500\] \[--json\]/);
+  assert.match(
+    PLAYER_UPDATES_USAGE,
+    /publish --kind <feature\|season\|message>/,
+  );
+  assert.match(PLAYER_UPDATES_USAGE, /does not use AWS credentials/);
   assert.equal(
     playerUpdateId("Season 137: Higher / Lower!", new Date("2026-10-05Z")),
     "2026-10-05-season-137-higher-lower",

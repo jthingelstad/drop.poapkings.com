@@ -13,7 +13,7 @@ objective_file = "AGENT-TEAM/run-drop.md"
 status = "ACTIVE"
 rrule = "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30"
 model = "gpt-5.6-sol"
-reasoning_effort = "xhigh"
+reasoning_effort = "high"
 
 [[automation]]
 id = "drop-growth-and-season-analyst"
@@ -23,7 +23,7 @@ objective_file = "AGENT-TEAM/grow-drop.md"
 status = "ACTIVE"
 rrule = "RRULE:FREQ=DAILY;BYHOUR=12;BYMINUTE=30"
 model = "gpt-5.6-sol"
-reasoning_effort = "xhigh"
+reasoning_effort = "high"
 
 [[automation]]
 id = "drop-player-experience-owner"
