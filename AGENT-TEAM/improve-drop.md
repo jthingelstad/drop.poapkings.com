@@ -17,7 +17,12 @@ player-facing change ships.
 
 ## Every run
 
-1. Run preflight, then play one complete production and local journey like a player.
+1. Run preflight, then play one complete journey against the existing local
+   test fixtures and mocked API. A local Vite server alone is not isolation:
+   its normal API configuration points at production. Verify requests are
+   intercepted or offline before interactive play. Inspect production read-only
+   and use natural player evidence for acceptance; never create a guest run,
+   account, leaderboard entry or referee case merely to validate a change.
    Rotate among first visit -> first answer, a full ranked run -> summary -> replay,
    Practice's learning loop, Boards and seasonal motivation, Player XP/badges, and
    settings/accessibility. Cover the affected mobile and desktop surfaces.
@@ -31,7 +36,10 @@ player-facing change ships.
    already strong.
 4. For a bounded improvement, fix the source in the same run, add the business-rule or
    browser regression, run the change-specific final gate, push, verify deployment,
-   and verify the changed journey in production. Add a player Update only when the
+   and verify the changed journey locally plus read-only production checks and
+   later natural player evidence. Production test writes require explicit
+   authorization for a bounded isolated test path; the normal dev server is
+   not that path. Add a player Update only when the
    material outcome passes the canonical notification bar in `AGENTS.md`; most polish
    should ship quietly.
 5. Retain any required natural-acceptance watch under `objective:improve`. Grow Drop may

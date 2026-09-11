@@ -35,7 +35,7 @@ Cadence: daily, at season boundaries, and after a meaningful growth change ships
    need. Route a directly observed experience-quality gap to Improve Drop without
    waiting for a funnel movement.
 6. For a clear, bounded growth improvement, fix the source, add the product/e2e regression,
-   run `npm run verify`, push, verify the normal deployment yourself, and retain the
+   run the change-specific final gate in `CONTRIBUTING.md`, push, verify the normal deployment yourself, and retain the
    semantic acceptance watch until natural evidence resolves it. Route only a failed
    pipeline or continuing technical-health problem to Run Drop.
 

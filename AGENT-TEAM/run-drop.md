@@ -12,7 +12,8 @@ Read `AGENTS.md`, `AGENT-TEAM/WORKFLOW.md`,
 `AGENT-TEAM/README.md`, and this file. Read the task-specific canonical docs from the
 `AGENTS.md` map before changing their surface.
 
-Cadence: weekly, after every relevant deploy, and after a reported incident.
+Calendar cadence: `SCHEDULE.md` (generated from `automations.toml`). Also run
+after an explicitly requested relevant deploy or incident follow-up.
 
 ## Every run
 

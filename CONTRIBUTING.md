@@ -36,8 +36,11 @@ points the dev server at the **deployed production API**. That means:
 
 - Browsing and most UI work need no sign-in and touch nothing.
 - **Signing in (magic link) and recording games hit the live backend and create
-  real data.** If you need to test the signed-in flow, use a throwaway email
-  address, and delete the account afterward from the profile page.
+  real data.** Automated QA uses the existing mocked API/Playwright fixtures
+  or verified offline paths. Do not create throwaway accounts or production
+  games merely for acceptance. A production test write needs explicit
+  authorization and a bounded isolated test path; deleting a test account
+  afterward does not make its earlier production activity harmless.
 - Recorded gameplay always requires a signed server challenge. When the browser
   is offline, every mode can deal locally, but that run is never submitted,
   queued, ranked, or applied to account progress.

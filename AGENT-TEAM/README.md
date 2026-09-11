@@ -6,13 +6,15 @@ product acceptance. There is no Build Manager, Team Manager, or routing pipeline
 
 ## The team
 
-| Objective             | File                   | Cadence                                               | Primary question                                                                                               |
-| --------------------- | ---------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Run Drop**          | `run-drop.md`          | Daily and after incidents/deploys                     | Is the public game healthy, correct, current, observable, and inexpensive to run?                              |
-| **Grow Drop**         | `grow-drop.md`         | Weekdays 17:30; Saturday and Sunday 06:30             | Are more people reaching a first recorded run and returning?                                                   |
-| **Improve Drop**      | `improve-drop.md`      | Friday 17:30                                          | Is playing Drop becoming clearer, more satisfying, and more effective?                                         |
-| **Call the Season**   | `call-the-season.md`   | Daily check; opening, weekly, and closing publication | Do players know who leads every ranked game and how the rotating Free Pass race stands?                        |
-| **Protect Fair Play** | `protect-fair-play.md` | Daily 05:45                                           | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
+| Objective             | File                   | Primary question                                                                                               |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Run Drop**          | `run-drop.md`          | Is the public game healthy, correct, current, observable, and inexpensive to run?                              |
+| **Grow Drop**         | `grow-drop.md`         | Are more people reaching a first recorded run and returning?                                                   |
+| **Improve Drop**      | `improve-drop.md`      | Is playing Drop becoming clearer, more satisfying, and more effective?                                         |
+| **Call the Season**   | `call-the-season.md`   | Do players know who leads every ranked game and how the rotating Free Pass race stands?                        |
+| **Protect Fair Play** | `protect-fair-play.md` | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
+
+Calendar cadence: [generated schedule](SCHEDULE.md), sourced from `automations.toml`.
 
 Building and testing are capabilities of every objective owner. New modes, material
 scoring or season changes, privacy-affecting signals, public accusations, prize

@@ -48,7 +48,7 @@ used for the season's designated Free Pass game or another external decision.
    Advance the watermark only after full coverage.
 5. When exact evidence exposes a systemic tooling, retention, or scoring defect,
    reproduce it with sanitized synthetic data. After the case disposition is safely
-   recorded, fix the source and regression, run `npm run verify`, and verify naturally.
+   recorded, fix the source and regression, run the change-specific final gate in `CONTRIBUTING.md`, and verify naturally.
    Never change a threshold, canonical run, transcript, or score to influence a case.
 
 Never publish player identities or evidence, contact a player, make a public accusation,
