@@ -808,3 +808,80 @@ describe('account.ts state machine', () => {
     expect(account.recentRuns.value.filter((r) => r.runId === 'new')).toHaveLength(1)
   })
 })
+
+// ===========================================================================
+// Sign in with Elixir — the account helpers remember the pending flow per tab
+// and leave for Elixir; the API helpers hit the three new routes.
+// ===========================================================================
+
+describe('sign in with Elixir helpers', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    sessionStorage.clear()
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('beginElixirLogin asks the API, remembers the poll id, and navigates to Elixir', async () => {
+    const calls: { url: string; init?: RequestInit }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = requestUrl(input)
+        calls.push({ url, init })
+        if (url.endsWith('/api-config.json')) return json({ apiBaseUrl: API_BASE })
+        if (url.endsWith('/auth/elixir/start'))
+          return json({
+            url: 'https://elixir.test/oauth/authorize?state=s1',
+            pollId: 'poll-123456789012345678',
+            mode: 'sign-in'
+          })
+        return json({}, 404)
+      })
+    )
+    const assign = vi.fn()
+    vi.stubGlobal('location', { href: 'https://drop.test/#/login', assign })
+    const account = await import('../../src/lib/account')
+    await account.beginElixirLogin('/surge')
+    expect(assign).toHaveBeenCalledWith('https://elixir.test/oauth/authorize?state=s1')
+    const start = calls.find((c) => c.url.endsWith('/auth/elixir/start'))!
+    expect(JSON.parse(start.init?.body as string)).toEqual({ returnTo: '/surge' })
+    const pending = account.pendingElixirLogin()
+    expect(pending).toMatchObject({ pollId: 'poll-123456789012345678', returnTo: '/surge', mode: 'sign-in' })
+    account.clearPendingElixirLogin()
+    expect(account.pendingElixirLogin()).toBeUndefined()
+  })
+
+  it('a stale pending flow is ignored', async () => {
+    const account = await import('../../src/lib/account')
+    sessionStorage.setItem(
+      account.ELIXIR_LOGIN_KEY,
+      JSON.stringify({ pollId: 'p', returnTo: '', mode: 'sign-in', startedAt: Date.now() - 20 * 60_000 })
+    )
+    expect(account.pendingElixirLogin()).toBeUndefined()
+  })
+
+  it('selectElixirPlayer and disconnectElixir call their routes with the session', async () => {
+    const calls: { url: string; init?: RequestInit }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = requestUrl(input)
+        calls.push({ url, init })
+        if (url.endsWith('/api-config.json')) return json({ apiBaseUrl: API_BASE })
+        return json({ player: playerFixture })
+      })
+    )
+    const api = await import('../../src/lib/api')
+    await api.selectElixirPlayer('tok', '#20JJJ2CCRU')
+    await api.disconnectElixir('tok')
+    const select = calls.find((c) => c.url.endsWith('/me/elixir/select'))!
+    expect(select.init?.method).toBe('POST')
+    expect(JSON.parse(select.init?.body as string)).toEqual({ playerTag: '#20JJJ2CCRU' })
+    const disconnect = calls.find((c) => c.url.endsWith('/me/elixir'))!
+    expect(disconnect.init?.method).toBe('DELETE')
+  })
+})

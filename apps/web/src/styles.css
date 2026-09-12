@@ -5488,6 +5488,22 @@ html.reduce-motion .ed-duel__card {
   align-items: center;
   gap: 4px;
 }
+
+/* Elixir's verified mark: green check, no gold, no box. Gold is DEV's. */
+.ed-account-tags .ed-account-tag--verified {
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: #4ade80;
+  font-size: 0.9em;
+  line-height: 1;
+}
+.ed-account-tags .ed-account-tag--verified .icon {
+  width: 1em;
+  height: 1em;
+}
 .ed-account-tag {
   display: inline-flex;
   align-items: center;
@@ -9595,4 +9611,90 @@ html.reduce-motion .ed-skeleton__row {
 .ed-idsetup__msg {
   color: #fca5a5;
   font-size: 13px;
+}
+
+/* ---- Sign in with Elixir --------------------------------------------- */
+.account-elixir {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+.account-elixir__rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-dim, #bdb4e2);
+  font-size: 0.8rem;
+}
+.account-elixir__rule::before,
+.account-elixir__rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentcolor;
+  opacity: 0.35;
+}
+.account-elixir__btn {
+  width: 100%;
+  min-height: 48px;
+}
+.ed-elixir__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: #4ade80;
+  font-size: 0.85em;
+}
+.ed-elixir__verified .icon {
+  width: 1em;
+  height: 1em;
+}
+.ed-elixir__unverified {
+  margin-left: 8px;
+  color: var(--ink-dim, #bdb4e2);
+  font-size: 0.85em;
+}
+.ed-elixir__picker {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.ed-elixir__candidate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.08);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ed-elixir__candidate:disabled {
+  cursor: default;
+}
+.ed-elixir__candidate--current {
+  border-color: #f5c84c;
+  box-shadow: inset 2px 0 0 #f5c84c;
+}
+.ed-elixir__candidate-name {
+  font-weight: 700;
+}
+.ed-elixir__candidate-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--ink-dim, #bdb4e2);
+  font-size: 0.85em;
+}
+.ed-elixir__candidate-meta .icon {
+  width: 1em;
+  height: 1em;
+  color: #4ade80;
 }

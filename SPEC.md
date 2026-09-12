@@ -498,6 +498,9 @@ elixirdrop:recruiter:v1             -> lib/referral.ts    localStorage   last va
                                        login-email request
 elixirdrop:updates:v1               -> lib/updates.ts     localStorage   last validated API Update
                                        list for a read-only reconnect fallback
+elixirdrop:elixirLogin:v1           -> lib/account.ts     sessionStorage a sign-in with Elixir in
+                                       flight: { pollId, returnTo, mode, startedAt };
+                                       15-minute life; cleared by redemption
 ```
 
 (The `elixirdrop:playerTagNudge` key was retired with the PlayerTagNudge modal in
@@ -966,7 +969,7 @@ makes them authoritative succeeds. A logical occurrence has exactly one owner:
 | Owner                                     | Events                                                                                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Browser (`apps/web/src/lib/analytics.ts`) | `game.started`, `game.replayed`, `game.shared`, `badge.shared`, `profile.shared`, `home.shared`, every `install.*` event, and deliberate `easter_egg.screensaver_opened`. `game.completed` and `game.personal_best` remain browser-owned only for transient guest runs.                                                                                                                  |
-| API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after code or link redemption (value `new` or `returning`), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
+| API (`services/api/src/tinylytics.ts`)    | `account.login_requested` after mail delivery, `account.login_completed` after code or link redemption (value `new` or `returning`; `elixir-new` or `elixir-returning` when Elixir vouched for the address), `account.profile_completed` on the incomplete-to-complete transition, `game.completed` after a signed-in run transaction commits, and `game.personal_best` only when the conditional all-time projection improves. Completion retries emit nothing. |
 
 Names are `category.action`, with at most one low-cardinality value (game mode,
 login cohort, or browser/install family). Player ids, emails, public names,
@@ -1263,8 +1266,53 @@ then reads recorded data or requests a durable collector refresh. Source
 remain useful. `scripts/sync-elixir-collection.mjs` repairs missed additions
 without deleting manual or previous members.
 
-Saved CR tags remain optional and unverified. No Drop identities, scores, XP or
-badges are uploaded. The new clock is explicitly policy-based, with supplied
+Saved CR tags remain optional and unverified **unless Elixir has proven them**
+(below). No Drop identities, scores, XP or badges are uploaded.
+
+### Sign in with Elixir (2026-09-12)
+
+Email-code sign-in is the always-available path; Elixir sign-in is an
+addition. Drop is a public OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
+registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
+button). The grant is `cr:read recordings:write account:email`: the last is the
+one Elixir capability never offered unasked, and `GET /oauth/userinfo` answers
+the email Elixir already proved with its code. That email resolves to exactly
+the Drop account a magic link would (`sub = sha256(email)`): no merging, and a
+player who first signed in with Elixir can still sign in by email afterwards.
+
+Flow: `POST /auth/elixir/start` (optional session bearer) stores
+`ELIXIR_LOGIN#{state}` (PKCE verifier, return path, poll id, `linkSub`; ten
+minutes, single use) and answers the Elixir URL; the browser leaves for consent
+(a two-step form, the code typed on the page). `GET /auth/elixir/callback`
+exchanges the code, requires a **person** principal, reads userinfo and
+`elixir_my_players`, adds a Drop-saved tag that is not on the Elixir account as
+an alt (`elixir_track_player`; a refusal is recorded as `trackRefused`, never
+fatal), writes the connection, mints a **proven magic link** (`MAGIC#` with
+`source: "elixir"`, a random never-mailed code) and 303s to `/#/auth?token=…&via=elixir`,
+which redeems on arrival. The existing `/auth/poll` handoff covers an installed
+PWA whose chain finished in another browsing context. A browser that started
+the flow while signed in is **linking**: the outcome attaches to that account
+whatever email Elixir names, and the proven link is minted for that account's
+email. A brand-new account's connection waits in `ELIXIR_PENDING#{sub}` until
+redemption creates the profile. No Elixir token is stored; the pair is dropped
+when the callback ends.
+
+Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,
+verified, verifiedAt?, candidates[], trackRefused? }` plus a denormalized
+`elixirVerified` for the boards' sparse projection. Candidates are the
+account's primary and alts only (never friends or watched players). One
+candidate is chosen silently; more land the person on the Account scope's
+picker (`POST /me/elixir/select`, candidates only, becomes `playerTag` through
+the ordinary tag-save path). `DELETE /me/elixir` disconnects: the tag stays,
+the mark and the link go. A tag saved by hand keeps the mark only if it is the
+Elixir-proven one; clearing the tag clears the mark.
+
+The mark is the `verified` account tag (`accountTagsFor`), rendered as Elixir's
+green check on the owner profile, public profile, and every leaderboard scope,
+and like every account tag it authorizes nothing. Verification is Elixir's
+fact, re-read only at an Elixir sign-in ("Re-check with Elixir"); the profile
+shows `checkedAt`. Elixir's one-verified-claim-per-tag rule is what keeps the
+mark meaningful across Drop accounts. The new clock is explicitly policy-based, with supplied
 season/day boundaries at 10:00 UTC; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.
 Manual host-only card refresh continues to use Supercell directly.

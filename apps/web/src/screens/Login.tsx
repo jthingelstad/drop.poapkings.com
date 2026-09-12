@@ -2,10 +2,31 @@ import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
 import { emailValidationMessage } from '@elixir-drop/contracts'
 import { pollLogin, requestLogin } from '../lib/api'
-import { applyPolledSession, redeemCodeAccount } from '../lib/account'
+import {
+  applyPolledSession,
+  beginElixirLogin,
+  clearPendingElixirLogin,
+  pendingElixirLogin,
+  redeemCodeAccount
+} from '../lib/account'
 import { authReturnPathFromRoute, gamePathForRoute, profileRouteForGame } from '../lib/game-routes'
-import { navigate, route } from '../lib/router'
+import { navigate, route, routeQuery } from '../lib/router'
 import { clearRecruiter, recruiterAttribution } from '../lib/referral'
+
+// What Elixir's door said when it sent the person back without a session.
+// The codes are the API's (services/api/src/routes/elixir-auth.ts).
+const ELIXIR_ERRORS: Record<string, string> = {
+  not_a_person: 'That was an agent connection, not yours. Sign in to Elixir as yourself.',
+  login_expired: 'That Elixir sign-in took too long or was already used. Start again.',
+  missing_code: 'Elixir sent you back without a code. Start again.',
+  wrong_issuer: 'That code did not come from Elixir. Start again.',
+  invalid_grant: 'Elixir would not accept that sign-in. Start again.',
+  insufficient_scope: 'Elixir did not share your email, so Drop cannot tell who you are. Allow it on the consent page.',
+  email_unavailable:
+    'Your Elixir account has no email on file yet. Sign in to elixir.poapkings.com once, then try again.',
+  transport: 'Elixir did not answer. Try again in a minute.',
+  elixir_unavailable: 'Elixir did not answer. Try again in a minute.'
+}
 
 export default function Login() {
   const returnTo = authReturnPathFromRoute(route.value)
@@ -15,7 +36,57 @@ export default function Login() {
   const message = useSignal('')
   const codeError = useSignal('')
   const pollId = useSignal('')
+  const elixirStatus = useSignal<'idle' | 'starting' | 'waiting'>('idle')
+  const elixirError = useSignal(ELIXIR_ERRORS[new URLSearchParams(routeQuery(route.value)).get('elixir') ?? ''] ?? '')
   const codeInput = useRef<HTMLInputElement>(null)
+
+  // Back on this screen with an Elixir sign-in in flight: the consent may
+  // have finished in another browsing context (an installed PWA on iOS opens
+  // the chain in an in-app view), so poll for the session it handed off,
+  // exactly as for a mailed link.
+  useEffect(() => {
+    const pending = pendingElixirLogin()
+    if (!pending || elixirError.value) return
+    elixirStatus.value = 'waiting'
+    const controller = new AbortController()
+    const deadline = pending.startedAt + 15 * 60_000
+    let timer = 0
+    let stopped = false
+    const tick = async () => {
+      if (stopped || Date.now() > deadline) return
+      try {
+        const result = await pollLogin(pending.pollId, controller.signal)
+        if (result.ready) {
+          stopped = true
+          clearPendingElixirLogin()
+          await applyPolledSession(result.session)
+          navigate(pending.returnTo || '/profile?scope=account')
+          return
+        }
+      } catch {
+        // transient — keep polling
+      }
+      if (!stopped) timer = window.setTimeout(() => void tick(), 2500)
+    }
+    timer = window.setTimeout(() => void tick(), 1500)
+    return () => {
+      stopped = true
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only poll for a sign-in already in flight
+
+  async function signInWithElixir() {
+    if (elixirStatus.value === 'starting') return
+    elixirStatus.value = 'starting'
+    elixirError.value = ''
+    try {
+      await beginElixirLogin(returnTo)
+    } catch (error) {
+      elixirStatus.value = 'idle'
+      elixirError.value = error instanceof Error ? error.message : 'Sign in with Elixir is not available right now.'
+    }
+  }
 
   // Once the link is on its way, quietly poll for the session. This is what lets
   // an installed PWA finish signing in even though the emailed link opens in a
@@ -205,6 +276,38 @@ export default function Login() {
               {status.value === 'sending' ? 'Sending…' : 'Sign In'}
             </button>
           </form>
+        )}
+        {!awaitingCode && (
+          <div class="account-elixir">
+            <div class="account-elixir__rule" aria-hidden="true">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              class="btn btn--ghost account-elixir__btn"
+              disabled={elixirStatus.value !== 'idle'}
+              onClick={() => void signInWithElixir()}
+            >
+              {elixirStatus.value === 'waiting'
+                ? 'Waiting for Elixir…'
+                : elixirStatus.value === 'starting'
+                  ? 'Opening Elixir…'
+                  : 'Sign in with Elixir'}
+            </button>
+            <p class="account-privacy">
+              Already on{' '}
+              <a class="text-link" href="https://elixir.poapkings.com/" rel="noreferrer">
+                Elixir
+              </a>
+              ? Sign in there, choose which of your players Drop shows, and a player Elixir has verified gets the same
+              checkmark here.
+            </p>
+            {elixirError.value && (
+              <div class="account-message account-message--error" role="alert">
+                {elixirError.value}
+              </div>
+            )}
+          </div>
         )}
         {status.value === 'error' && (
           <div id="login-email-error" class="account-message account-message--error" role="alert">

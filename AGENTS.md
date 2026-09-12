@@ -232,7 +232,12 @@ production run. A successful exact-head validation triggers
   of the exact card title.
   Name-option tokens bind the player, card ID, and exact safe choices; the API
   saves favorite card and public name together. Keep player tags separate and
-  explicitly unverified.
+  explicitly unverified — except the one Elixir has proven: **Sign in with
+  Elixir** (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with
+  Elixir") lets a player pick one of their Elixir "you"/"alt" players as the
+  Drop tag and inherit Elixir's verification as the `verified` account tag.
+  Email-code sign-in stays the always-available path; Elixir sign-in resolves
+  to the same account by the proven email, never a second one.
 - **Every new run uses the full canonical catalog and ranks.** Linked Clash
   Royale collection data remains on the player profile for future features but
   never changes challenge selection. The optional `ranked` field remains only

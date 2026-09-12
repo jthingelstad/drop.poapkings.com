@@ -19,7 +19,8 @@ export type TinylyticsServerEvent =
   | "game.completed"
   | "game.personal_best";
 
-export type TinylyticsServerValue = GameMode | "new" | "returning";
+export type TinylyticsServerValue =
+  GameMode | "new" | "returning" | "elixir-new" | "elixir-returning";
 
 export interface TinylyticsEvent {
   event: TinylyticsServerEvent;

@@ -1,5 +1,5 @@
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb";
-import { accountTagsForPlayerId } from "./account-tags.js";
+import { accountTagsFor } from "./account-tags.js";
 import { client, profileKey } from "./dynamo.js";
 import { levelForGames } from "./progression.js";
 import type {
@@ -66,11 +66,12 @@ export type PublicProfileSource = Pick<
   | "playerTag"
   | "totalGames"
   | "xp"
+  | "elixirVerified"
 >;
 
 export function publicProfile(profile: PublicProfileSource): PublicProfile {
   const progress = levelForGames(profile.totalGames);
-  const accountTags = accountTagsForPlayerId(profile.playerId);
+  const accountTags = accountTagsFor(profile);
   return {
     id: profile.playerId,
     publicName: profile.publicName || "Elixir Player",
@@ -111,7 +112,7 @@ export async function hydratePublicProfiles(
     [...new Set(subs)].map((sub) => profileKey(sub)),
     {
       expression:
-        "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp",
+        "#sub, playerId, publicName, favoriteCardId, playerTag, totalGames, xp, elixirVerified",
       names: { "#sub": "sub" },
     },
   );

@@ -22,6 +22,7 @@ import {
   shareImageUploadResponseSchema,
   seasonHistoryResponseSchema,
   sessionResponseSchema,
+  elixirStartResponseSchema,
   sharedInviteSchema,
   sharedRunSchema,
   siteStatsSchema,
@@ -371,6 +372,30 @@ export function patchMe(
     sessionToken,
     body: JSON.stringify(updates)
   })
+}
+
+// Sign in with Elixir. Signed out, the answer is a sign-in (the account the
+// proven email names); signed in, it is a LINK to this account. The browser
+// then leaves for Elixir's consent page and comes back through the ordinary
+// magic-link redemption, so the poll id works exactly as for a mailed link.
+export function startElixirLogin(returnTo: string | undefined, sessionToken?: string) {
+  return apiRequest('/auth/elixir/start', elixirStartResponseSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify({ returnTo })
+  })
+}
+
+export function selectElixirPlayer(sessionToken: string, playerTag: string) {
+  return apiRequest('/me/elixir/select', playerResponseSchema, {
+    method: 'POST',
+    sessionToken,
+    body: JSON.stringify({ playerTag })
+  })
+}
+
+export function disconnectElixir(sessionToken: string) {
+  return apiRequest('/me/elixir', playerResponseSchema, { method: 'DELETE', sessionToken })
 }
 
 export function deleteMe(sessionToken: string, confirmation: string) {

@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
-import { redeemAccount } from '../lib/account'
+import { useEffect } from 'preact/hooks'
+import { clearPendingElixirLogin, redeemAccount } from '../lib/account'
 import {
   authReturnPathFromRoute,
   gamePathForRoute,
@@ -13,7 +14,11 @@ export default function AuthRedeem() {
   const error = useSignal('')
   const redeeming = useSignal(false)
 
-  const token = new URLSearchParams(routeQuery(route.value)).get('token')
+  const query = new URLSearchParams(routeQuery(route.value))
+  const token = query.get('token')
+  // A link minted by the Elixir callback was never mailed, so no scanner can
+  // have followed it: it redeems on arrival instead of waiting for a tap.
+  const viaElixir = query.get('via') === 'elixir'
   const returnTo = authReturnPathFromRoute(route.value)
   const returnToGame = returnTo ? gamePathForRoute(returnTo) : undefined
 
@@ -26,6 +31,7 @@ export default function AuthRedeem() {
     error.value = ''
     try {
       const authenticatedPlayer = await redeemAccount(token)
+      if (viaElixir) clearPendingElixirLogin()
       if (!authenticatedPlayer.favoriteCardId || !authenticatedPlayer.publicName) {
         navigate(returnToGame ? profileRouteForGame(returnToGame) : '/profile')
         return
@@ -38,15 +44,29 @@ export default function AuthRedeem() {
     }
   }
 
+  useEffect(() => {
+    if (viaElixir && token) void redeem()
+  }, [viaElixir, token]) // eslint-disable-line react-hooks/exhaustive-deps -- redeem reads the latest signals; arrival is the trigger
+
   return (
     <div class="main-content account-screen">
       <div class="account-card" aria-live="polite">
         <Icon name="loader-circle" className="route-loading__spinner" />
-        <h1>{error.value ? 'Login link failed' : token ? 'Almost signed in' : 'Login link failed'}</h1>
+        <h1>
+          {error.value
+            ? 'Login link failed'
+            : token
+              ? viaElixir
+                ? 'Signing you in with Elixir'
+                : 'Almost signed in'
+              : 'Login link failed'}
+        </h1>
         {!token && <p class="account-message account-message--error">This login link is missing its token.</p>}
         {token && !error.value && (
           <>
-            <p class="lede">One tap to finish signing in to Elixir Drop.</p>
+            <p class="lede">
+              {viaElixir ? 'Elixir vouched for you. One moment.' : 'One tap to finish signing in to Elixir Drop.'}
+            </p>
             <button class="btn btn--gold" disabled={redeeming.value} onClick={() => void redeem()}>
               {redeeming.value ? 'Signing you in…' : 'Continue to Drop'}
             </button>

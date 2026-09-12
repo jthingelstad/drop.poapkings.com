@@ -49,6 +49,9 @@ const PRESERVED_PARAMETERS = [
   ["ElixirMcpKey", ["ELIXIR_MCP_KEY"]],
   ["ElixirMcpBaseUrl", ["ELIXIR_MCP_BASE_URL"]],
   ["ElixirMcpCollectionSlug", ["ELIXIR_MCP_COLLECTION_SLUG"]],
+  // Sign in with Elixir. Operator-registered; blanking it would silently
+  // remove the button from every sign-in sheet.
+  ["ElixirOAuthClientId", ["ELIXIR_OAUTH_CLIENT_ID"]],
 ];
 
 function firstValue(environment, environmentKeys) {

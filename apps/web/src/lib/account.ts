@@ -1,7 +1,19 @@
 import { signal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
 import type { BadgeState } from './badges'
-import { ApiError, deleteMe, getMe, patchMe, redeemLogin, redeemLoginCode, refreshLogin, type RecentRun } from './api'
+import {
+  ApiError,
+  deleteMe,
+  disconnectElixir,
+  getMe,
+  patchMe,
+  redeemLogin,
+  redeemLoginCode,
+  refreshLogin,
+  selectElixirPlayer,
+  startElixirLogin,
+  type RecentRun
+} from './api'
 
 interface StoredSession {
   token: string
@@ -144,6 +156,60 @@ export async function updateAccount(updates: {
 // only the trigger), and the refreshed player carries the new lastOpenedUpdates
 // so the unread dot clears everywhere at once. Best-effort: a failed write just
 // leaves the dot for next time.
+// Sign in with Elixir, or (signed in) connect this account to Elixir. The
+// pending flow is remembered per tab so the return can pick up its poll id.
+export const ELIXIR_LOGIN_KEY = 'elixirdrop:elixirLogin:v1'
+
+export async function beginElixirLogin(returnTo: string | undefined): Promise<void> {
+  const response = await startElixirLogin(returnTo, session?.token)
+  try {
+    sessionStorage.setItem(
+      ELIXIR_LOGIN_KEY,
+      JSON.stringify({ pollId: response.pollId, returnTo: returnTo ?? '', mode: response.mode, startedAt: Date.now() })
+    )
+  } catch {
+    // Without storage the redemption route still signs this tab in.
+  }
+  window.location.assign(response.url)
+}
+
+export function pendingElixirLogin():
+  { pollId: string; returnTo: string; mode: 'sign-in' | 'link'; startedAt: number } | undefined {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(ELIXIR_LOGIN_KEY) || 'null') as {
+      pollId: string
+      returnTo: string
+      mode: 'sign-in' | 'link'
+      startedAt: number
+    } | null
+    if (!value?.pollId || Date.now() - value.startedAt > 15 * 60_000) return undefined
+    return value
+  } catch {
+    return undefined
+  }
+}
+
+export function clearPendingElixirLogin(): void {
+  try {
+    sessionStorage.removeItem(ELIXIR_LOGIN_KEY)
+  } catch {
+    // nothing to clear
+  }
+}
+
+export async function chooseElixirPlayer(playerTag: string): Promise<void> {
+  if (!session) throw new Error('Sign in to choose a player.')
+  const response = await selectElixirPlayer(session.token, playerTag)
+  player.value = response.player
+  if (response.badges) applyBadgeSummary(response.badges)
+}
+
+export async function disconnectElixirAccount(): Promise<void> {
+  if (!session) throw new Error('Sign in first.')
+  const response = await disconnectElixir(session.token)
+  player.value = response.player
+}
+
 export async function markUpdatesOpened(): Promise<void> {
   if (!session || !player.value) return
   try {

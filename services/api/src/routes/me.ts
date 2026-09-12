@@ -713,7 +713,17 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   const previousProfile = changesIdentity
     ? await repository.getProfile(session.sub)
     : undefined;
-  const profile = await repository.updateProfile(session.sub, updates);
+  let profile = await repository.updateProfile(session.sub, updates);
+  // The verified mark belongs to the one tag Elixir proved: a tag saved by
+  // hand keeps it only if it is that tag.
+  if (updates.playerTag && profile.elixir) {
+    const verified =
+      profile.elixir.verified && profile.elixir.playerTag === profile.playerTag;
+    if (Boolean(profile.elixirVerified) !== verified) {
+      await repository.setElixirVerifiedFlag(session.sub, verified);
+      profile = { ...profile, elixirVerified: verified };
+    }
+  }
   if (updates.playerTag)
     await enqueueRefresh(config, {
       version: 1,

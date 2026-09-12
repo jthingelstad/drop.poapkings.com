@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { accountTagsForPlayerId } from "../account-tags.js";
+import { accountTagsFor } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { enqueueRefresh } from "../refresh-jobs.js";
 import { publicCrProfile } from "../cr-refresh.js";
@@ -13,6 +13,7 @@ import type { Repository } from "../repository.js";
 import { signToken, verifyToken } from "../signing.js";
 import type {
   CrProfileSnapshot,
+  ElixirLink,
   RunRecord,
   RefereeDecision,
   RunReviewStatus,
@@ -139,6 +140,22 @@ export function sessionFor(
   }
 }
 
+// The owner's view of their Elixir connection: what was offered, what was
+// chosen, and how old the verification fact is. Elixir's account id stays
+// internal.
+export function ownerElixir(link: ElixirLink) {
+  return {
+    linkedAt: link.linkedAt,
+    checkedAt: link.checkedAt,
+    playerTag: link.playerTag,
+    playerName: link.playerName,
+    verified: link.verified,
+    verifiedAt: link.verifiedAt,
+    candidates: link.candidates,
+    ...(link.trackRefused ? { trackRefused: link.trackRefused } : {}),
+  };
+}
+
 export function profileResponse(
   profile: {
     sub: string;
@@ -147,6 +164,8 @@ export function profileResponse(
     publicName?: string;
     favoriteCardId?: number;
     playerTag?: string;
+    elixir?: ElixirLink;
+    elixirVerified?: boolean;
     totalGames: number;
     xp?: number;
     createdAt: string;
@@ -156,7 +175,7 @@ export function profileResponse(
   crProfile?: CrProfileSnapshot,
   rankedAccess: "allowed" | "restricted" = "allowed",
 ) {
-  const accountTags = accountTagsForPlayerId(profile.playerId);
+  const accountTags = accountTagsFor(profile);
   return {
     id: profile.playerId,
     email: profile.email,
@@ -164,6 +183,7 @@ export function profileResponse(
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
     ...(accountTags.length ? { accountTags } : {}),
+    ...(profile.elixir ? { elixir: ownerElixir(profile.elixir) } : {}),
     ...(profile.playerTag
       ? { clashRoyale: publicCrProfile(profile.playerTag, crProfile) }
       : {}),

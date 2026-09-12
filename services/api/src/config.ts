@@ -26,6 +26,9 @@ export interface Config {
   // and keeps its player collection current there. Optional so the app
   // runs unwired; every call site treats an absent hub as a no-op.
   elixirMcpBaseUrl: string;
+  // Sign in with Elixir: Drop's public OAuth client_id at Elixir's door.
+  // Empty until registered (infra/scripts/register-elixir-client.mjs).
+  elixirOAuthClientId: string;
   elixirMcpKey?: string;
   elixirMcpCollectionSlug: string;
   // The clan whose river race defines the Clan Wars calendar Drop's
@@ -100,6 +103,7 @@ export function getConfig(): Config {
     elixirMcpBaseUrl: (
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),
+    elixirOAuthClientId: process.env.ELIXIR_OAUTH_CLIENT_ID?.trim() || "",
     elixirMcpKey:
       process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
       process.env.ELIXIR_MCP_KEY?.trim() ||

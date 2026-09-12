@@ -50,6 +50,10 @@ Parameters:
     Type: String
     Default: elixir-drop
     Description: The hub collection holding every Drop player who has saved a Clash Royale tag.
+  ElixirOAuthClientId:
+    Type: String
+    Default: ""
+    Description: Sign in with Elixir. The public OAuth client_id Elixir issued to Drop (infra/scripts/register-elixir-client.mjs). Empty disables the button. A registration lives 365 days from last use.
   DiscordWebhookUrl:
     Type: String
     NoEcho: true
@@ -735,6 +739,7 @@ Resources:
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
+          ELIXIR_OAUTH_CLIENT_ID: !Ref ElixirOAuthClientId
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
           WEB_VERSION: !Ref WebVersion
 

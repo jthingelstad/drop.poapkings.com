@@ -142,6 +142,10 @@ export function profileRouteForScope(scope: YouScope): string {
 // the exact allowlist shared by the browser and API so a campaign deep link can
 // survive authentication without creating an open-redirect surface.
 export const PLAYER_TAG_RETURN_PATH = "/profile?edit=player-tag" as const;
+// Where an Elixir sign-in lands when the person has to choose which of their
+// Elixir players Drop shows (or should see what was connected): the Account
+// scope, which already carries the Elixir block.
+export const ELIXIR_RETURN_PATH = "/profile?scope=account" as const;
 
 export type AuthReturnPath =
   | `/${GameMode}`
@@ -558,8 +562,27 @@ export interface PodiumFinalizeResult {
 // server-owned identity metadata, never progression, authorization, or a Clash
 // Royale player tag. Keep this tuple as the shared allowlist as new tag kinds
 // are deliberately introduced.
-export const ACCOUNT_TAGS = ["developer"] as const;
+export const ACCOUNT_TAGS = ["developer", "verified"] as const;
 export type AccountTag = (typeof ACCOUNT_TAGS)[number];
+
+export interface ElixirCandidate {
+  playerTag: string;
+  name?: string;
+  relationship: "primary" | "alt";
+  verified: boolean;
+  clanTag?: string;
+}
+
+export interface ElixirConnection {
+  linkedAt: string;
+  checkedAt: string;
+  playerTag?: string;
+  playerName?: string;
+  verified: boolean;
+  verifiedAt?: string;
+  candidates: ElixirCandidate[];
+  trackRefused?: string;
+}
 
 export interface Player {
   id: string;
@@ -568,6 +591,9 @@ export interface Player {
   favoriteCardId?: number;
   playerTag?: string;
   accountTags?: AccountTag[];
+  // The owner's Elixir connection (sign in with Elixir). Absent until they
+  // connect; `verified` is Elixir's fact about `playerTag` as of `checkedAt`.
+  elixir?: ElixirConnection;
   clashRoyale?: ClashRoyaleProfile;
   totalGames: number;
   // Lifetime Player XP (event-awarded, only climbs); drives the arena.

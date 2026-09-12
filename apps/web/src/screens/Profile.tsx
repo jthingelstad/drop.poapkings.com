@@ -47,6 +47,7 @@ import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
 import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
+import ElixirConnection from '../components/ElixirConnection'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
@@ -1053,6 +1054,8 @@ function AccountScope({ current }: { current: NonNullable<(typeof player)['value
           )}
         </div>
       )}
+
+      <ElixirConnection player={current} />
 
       <div class="ed-account__block">
         <div class="ed-account__label">About Drop</div>

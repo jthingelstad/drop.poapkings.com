@@ -8,6 +8,7 @@
   },
   "scripts": {
     "bootstrap": "node scripts/bootstrap.mjs",
+    "register-elixir-client": "node scripts/register-elixir-client.mjs",
     "deploy": "node scripts/deploy.mjs",
     "deploy:web": "node scripts/deploy-web.mjs",
     "smoke": "node scripts/smoke.mjs",

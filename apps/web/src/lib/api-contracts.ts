@@ -80,6 +80,27 @@ const publicClashRoyaleProfileSchema = clashRoyaleProfileSchema.pick({
   clan: true
 })
 
+const elixirCandidateSchema = z.object({
+  playerTag: nonEmptyString,
+  name: z.optional(nonEmptyString),
+  relationship: z.enum(['primary', 'alt']),
+  verified: z.boolean(),
+  clanTag: z.optional(nonEmptyString)
+})
+
+// The owner's Elixir connection: what Elixir offered, what was chosen, and how
+// old the verification fact is (it is re-read only at an Elixir sign-in).
+export const elixirConnectionSchema = z.object({
+  linkedAt: isoDateTime,
+  checkedAt: isoDateTime,
+  playerTag: z.optional(nonEmptyString),
+  playerName: z.optional(nonEmptyString),
+  verified: z.boolean(),
+  verifiedAt: z.optional(isoDateTime),
+  candidates: z.array(elixirCandidateSchema),
+  trackRefused: z.optional(nonEmptyString)
+})
+
 export const playerSchema = z.object({
   id: nonEmptyString,
   email: z.string().email(),
@@ -87,6 +108,7 @@ export const playerSchema = z.object({
   favoriteCardId: z.optional(cardId),
   playerTag: z.optional(nonEmptyString),
   accountTags: z.optional(z.array(accountTagSchema)),
+  elixir: z.optional(elixirConnectionSchema),
   clashRoyale: z.optional(clashRoyaleProfileSchema),
   totalGames: nonNegativeInteger,
   // Absent on responses from before XP shipped — default to 0.
@@ -160,6 +182,11 @@ export const loginRequestResponseSchema = z.object({
   pollId: z.optional(nonEmptyString)
 })
 export const sessionResponseSchema = z.object({ session: sessionSchema })
+export const elixirStartResponseSchema = z.object({
+  url: z.string().url(),
+  pollId: nonEmptyString,
+  mode: z.enum(['sign-in', 'link'])
+})
 export const loginPollResponseSchema = z.union([
   z.object({ ready: z.literal(false) }),
   z.object({ ready: z.literal(true), session: sessionSchema })

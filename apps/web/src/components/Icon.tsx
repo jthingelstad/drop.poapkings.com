@@ -4,6 +4,7 @@ import arrowRight from 'lucide-static/icons/arrow-right.svg?raw'
 import arrowUp from 'lucide-static/icons/arrow-up.svg?raw'
 import award from 'lucide-static/icons/award.svg?raw'
 import check from 'lucide-static/icons/check.svg?raw'
+import circleCheck from 'lucide-static/icons/circle-check.svg?raw'
 import chevronDown from 'lucide-static/icons/chevron-down.svg?raw'
 import chevronLeft from 'lucide-static/icons/chevron-left.svg?raw'
 import chevronRight from 'lucide-static/icons/chevron-right.svg?raw'
@@ -53,6 +54,7 @@ const ICONS = {
   'arrow-up': arrowUp,
   award,
   check,
+  'circle-check': circleCheck,
   'chevron-down': chevronDown,
   'chevron-left': chevronLeft,
   'chevron-right': chevronRight,

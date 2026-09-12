@@ -79,6 +79,36 @@ export interface SurgeAnswer {
 
 export type RunTranscript = Record<string, unknown>;
 
+// The Elixir connection (2026-09-12): who this player is on Elixir, and
+// whether Elixir has PROVEN the Clash Royale tag Drop shows for them. Read at
+// every Elixir sign-in and never in the background; `checkedAt` says how old
+// the fact is. No Elixir token is stored.
+export interface ElixirLink {
+  // Elixir's stable account id (userinfo `sub`). Never shown.
+  accountId: string;
+  linkedAt: string;
+  checkedAt: string;
+  // The tag the player chose from their Elixir "you"/"alt" players, mirrored
+  // into playerTag. Absent until they choose when more than one is offered.
+  playerTag?: string;
+  playerName?: string;
+  verified: boolean;
+  verifiedAt?: string;
+  // What Elixir offered at the last sign-in, so the picker needs no token.
+  candidates: ElixirCandidate[];
+  // A tag Drop asked Elixir to add and Elixir refused (a full tier, ...),
+  // so the profile can say so.
+  trackRefused?: string;
+}
+
+export interface ElixirCandidate {
+  playerTag: string;
+  name?: string;
+  relationship: "primary" | "alt";
+  verified: boolean;
+  clanTag?: string;
+}
+
 export interface PlayerProfile {
   sub: string;
   playerId: string;
@@ -86,6 +116,10 @@ export interface PlayerProfile {
   publicName?: string;
   favoriteCardId?: number;
   playerTag?: string;
+  elixir?: ElixirLink;
+  // Denormalized from `elixir` for the board's sparse projection: true only
+  // while playerTag is the Elixir-verified tag. The public mark reads this.
+  elixirVerified?: boolean;
   totalGames: number;
   // Latest Clash Royale season number with a recorded signed-in run. This is
   // a monotonic internal projection for slow-moving campaign metadata; unlike

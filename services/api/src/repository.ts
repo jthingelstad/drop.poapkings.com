@@ -64,6 +64,7 @@ import { isExcludedFromBoards } from "./referee-status.js";
 import { TROPHY_ROAD_STARTING_GAMES } from "./trophy-road.js";
 import type {
   Correlation,
+  ElixirLink,
   EvidenceItem,
   GameMode,
   CrProfileSnapshot,
@@ -114,6 +115,23 @@ interface MagicItem {
   // Owner of the last valid attributed share this not-yet-registered email
   // arrived through. Internal subjects never leave the API boundary.
   recruiterSub?: string;
+  // How the address was proven. Absent means Drop mailed a code; "elixir"
+  // means Elixir vouched for it at /oauth/userinfo and nothing was mailed.
+  source?: "elixir";
+}
+
+// A sign-in with Elixir in flight: the PKCE verifier and where to land,
+// keyed by the OAuth state. Single use, ten minutes.
+interface ElixirLoginItem {
+  pk: string;
+  sk: "ELIXIR_LOGIN";
+  verifier: string;
+  returnTo?: string;
+  pollId?: string;
+  // Set when the browser that started the flow already held a Drop session:
+  // the outcome is a LINK to that account, whatever email Elixir names.
+  linkSub?: string;
+  expiresAt: number;
 }
 
 interface MagicCodeItem {
@@ -652,6 +670,173 @@ export class Repository {
     return item.session;
   }
 
+  // Sign in with Elixir: the pending flow, keyed by OAuth state.
+  async saveElixirLogin(
+    state: string,
+    login: {
+      verifier: string;
+      returnTo?: string;
+      pollId?: string;
+      linkSub?: string;
+      expiresAt: number;
+    },
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `ELIXIR_LOGIN#${state}`,
+          sk: "ELIXIR_LOGIN",
+          ...login,
+        } satisfies ElixirLoginItem,
+      }),
+    );
+  }
+
+  // Read-and-delete: a state is redeemable once.
+  async takeElixirLogin(
+    state: string,
+    nowSeconds: number,
+  ): Promise<Omit<ElixirLoginItem, "pk" | "sk"> | undefined> {
+    const result = await client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: { pk: `ELIXIR_LOGIN#${state}`, sk: "ELIXIR_LOGIN" },
+        ReturnValues: "ALL_OLD",
+      }),
+    );
+    const item = result.Attributes as ElixirLoginItem | undefined;
+    if (!item || item.expiresAt < nowSeconds) return undefined;
+    return {
+      verifier: item.verifier,
+      returnTo: item.returnTo,
+      pollId: item.pollId,
+      linkSub: item.linkSub,
+      expiresAt: item.expiresAt,
+    };
+  }
+
+  // A magic link Elixir already proved: redeemable like a mailed one, but
+  // its code is random and never sent, so only the token can burn it.
+  async saveProvenMagicLink(
+    tokenHash: string,
+    email: string,
+    expiresAt: number,
+    pollId?: string,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `MAGIC#${tokenHash}`,
+          sk: "MAGIC",
+          email,
+          expiresAt,
+          source: "elixir",
+          ...(pollId ? { pollId } : {}),
+        } satisfies MagicItem,
+      }),
+    );
+  }
+
+  // A connection for an account that does not exist yet: written by the
+  // Elixir callback, applied by the redemption that creates the profile.
+  async savePendingElixirLink(
+    sub: string,
+    link: ElixirLink,
+    expiresAt: number,
+  ): Promise<void> {
+    await client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          pk: `ELIXIR_PENDING#${sub}`,
+          sk: "ELIXIR_PENDING",
+          link,
+          expiresAt,
+        },
+      }),
+    );
+  }
+
+  async takePendingElixirLink(
+    sub: string,
+    nowSeconds: number,
+  ): Promise<ElixirLink | undefined> {
+    const result = await client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: { pk: `ELIXIR_PENDING#${sub}`, sk: "ELIXIR_PENDING" },
+        ReturnValues: "ALL_OLD",
+      }),
+    );
+    const item = result.Attributes as
+      { link?: ElixirLink; expiresAt?: number } | undefined;
+    if (!item?.link || (item.expiresAt ?? 0) < nowSeconds) return undefined;
+    return item.link;
+  }
+
+  // The Elixir connection on a profile. `elixirVerified` is denormalized so
+  // the boards' sparse projection can carry the mark without the block.
+  async setElixirLink(sub: string, link: ElixirLink): Promise<PlayerProfile> {
+    const result = await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression:
+          "SET #elixir = :elixir, #elixirVerified = :verified, #updatedAt = :updatedAt",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeNames: {
+          "#elixir": "elixir",
+          "#elixirVerified": "elixirVerified",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":elixir": link,
+          ":verified": Boolean(link.verified && link.playerTag),
+          ":updatedAt": new Date().toISOString(),
+        },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes as ProfileItem;
+  }
+
+  // The verified mark belongs to ONE tag, the one Elixir proved. After a
+  // tag is saved by hand, the mark stays only if that is the tag.
+  async setElixirVerifiedFlag(sub: string, value: boolean): Promise<void> {
+    await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression: "SET #elixirVerified = :value",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeNames: { "#elixirVerified": "elixirVerified" },
+        ExpressionAttributeValues: { ":value": value },
+      }),
+    );
+  }
+
+  async clearElixirLink(sub: string): Promise<PlayerProfile> {
+    const result = await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression:
+          "REMOVE #elixir, #elixirVerified SET #updatedAt = :updatedAt",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeNames: {
+          "#elixir": "elixir",
+          "#elixirVerified": "elixirVerified",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: { ":updatedAt": new Date().toISOString() },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes as ProfileItem;
+  }
+
   async deleteMagicLink(tokenHash: string, codeHash?: string): Promise<void> {
     await client.send(
       new DeleteCommand({
@@ -708,7 +893,12 @@ export class Repository {
   async peekMagicLink(
     tokenHash: string,
     nowSeconds: number,
-  ): Promise<{ email: string; pollId?: string; recruiterSub?: string }> {
+  ): Promise<{
+    email: string;
+    pollId?: string;
+    recruiterSub?: string;
+    source?: "elixir";
+  }> {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -728,6 +918,7 @@ export class Repository {
       email: item.email,
       pollId: item.pollId,
       recruiterSub: item.recruiterSub,
+      ...(item.source ? { source: item.source } : {}),
     };
   }
 
@@ -1231,8 +1422,10 @@ export class Repository {
       names["#playerTag"] = "playerTag";
       names["#gsi2pk"] = "GSI2PK";
       names["#gsi2sk"] = "GSI2SK";
-      // Clearing the tag removes the tag AND its cluster membership.
-      removes.push("#playerTag", "#gsi2pk", "#gsi2sk");
+      // Clearing the tag removes the tag AND its cluster membership, and
+      // with them the verified mark (a mark is about a tag).
+      names["#elixirVerified"] = "elixirVerified";
+      removes.push("#playerTag", "#gsi2pk", "#gsi2sk", "#elixirVerified");
     }
 
     const result = await client.send(

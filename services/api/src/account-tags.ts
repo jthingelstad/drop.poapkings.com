@@ -15,3 +15,17 @@ const ACCOUNT_TAGS_BY_PLAYER_ID: Readonly<
 export function accountTagsForPlayerId(playerId: string): AccountTag[] {
   return [...(ACCOUNT_TAGS_BY_PLAYER_ID[playerId] ?? [])];
 }
+
+// The verified mark is Elixir's fact, mirrored: it rides beside the name
+// wherever account tags render (owner and public profile, every board) and,
+// like every tag, authorizes nothing. It is present only while the tag Drop
+// shows is the one Elixir proved (services/api/src/routes/elixir-auth.ts).
+export function accountTagsFor(profile: {
+  playerId: string;
+  playerTag?: string;
+  elixirVerified?: boolean;
+}): AccountTag[] {
+  const tags = accountTagsForPlayerId(profile.playerId);
+  if (profile.elixirVerified && profile.playerTag) tags.push("verified");
+  return tags;
+}

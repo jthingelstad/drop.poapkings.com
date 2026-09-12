@@ -58,6 +58,12 @@ import {
 } from "./routes/published-profiles.js";
 import { getRecruiterInvitePage } from "./routes/recruiter-invites.js";
 import {
+  disconnectElixir,
+  elixirCallback,
+  selectElixirPlayer,
+  startElixirLogin,
+} from "./routes/elixir-auth.js";
+import {
   getUpdates,
   getUpdatesFeed,
   getUpdatesPage,
@@ -109,6 +115,14 @@ async function route(event: APIGatewayProxyEventV2) {
     return redeemMagicLink(context);
   if (method === "POST" && path === "/auth/refresh")
     return refreshSession(context);
+  if (method === "POST" && path === "/auth/elixir/start")
+    return startElixirLogin(context);
+  if (method === "GET" && path === "/auth/elixir/callback")
+    return elixirCallback(context);
+  if (method === "POST" && path === "/me/elixir/select")
+    return selectElixirPlayer(context);
+  if (method === "DELETE" && path === "/me/elixir")
+    return disconnectElixir(context);
 
   if (method === "GET" && path === "/me") return getMe(context);
   if (method === "GET" && path === "/me/seasons") return getMySeasons(context);

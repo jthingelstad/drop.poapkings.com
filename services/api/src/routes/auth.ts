@@ -298,9 +298,28 @@ export async function redeemMagicLink({
       throw invalidMagicCode();
     throw error;
   }
-  const { email, pollId, recruiterSub } = magicLink;
+  const { email, pollId, recruiterSub, source } = magicLink;
   const sub = emailSubject(email);
   const login = await repository.ensureProfile(sub, email);
+  // A sign-in with Elixir for an account that did not exist until this
+  // moment: the connection the callback learned is applied now.
+  if (source === "elixir") {
+    try {
+      const pending = await repository.takePendingElixirLink(sub, nowSeconds);
+      if (pending) {
+        await repository.setElixirLink(sub, pending);
+        if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
+          login.profile = await repository.updateProfile(sub, {
+            playerTag: pending.playerTag,
+          });
+      }
+    } catch (error) {
+      console.warn("Pending Elixir link could not be applied", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
   if (recruiterSub || login.profile.recruitedBy) {
     // Recruiter means creating a real account. The exact-once transaction may
@@ -390,7 +409,14 @@ export async function redeemMagicLink({
         event,
         {
           event: "account.login_completed",
-          value: login.created ? "new" : "returning",
+          value:
+            source === "elixir"
+              ? login.created
+                ? "elixir-new"
+                : "elixir-returning"
+              : login.created
+                ? "new"
+                : "returning",
           path: "/login",
         },
       ),
