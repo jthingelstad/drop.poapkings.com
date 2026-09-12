@@ -1301,6 +1301,21 @@ export class Repository {
       if (item) {
         const sub = item.pk?.slice("PLAYER#".length);
         if (!sub) return undefined;
+        // The verified mark is not projected on GSI3 (changing a projection
+        // rebuilds the index); one base read fetches the flag alone.
+        let elixirVerified = false;
+        try {
+          const base = await client.send(
+            new GetCommand({
+              TableName: this.tableName,
+              Key: profileKey(sub),
+              ProjectionExpression: "elixirVerified",
+            }),
+          );
+          elixirVerified = base.Item?.elixirVerified === true;
+        } catch {
+          elixirVerified = false;
+        }
         return {
           sub,
           player: publicProfile({
@@ -1310,6 +1325,7 @@ export class Repository {
             playerTag: item.playerTag,
             totalGames: item.totalGames as number,
             xp: item.xp,
+            elixirVerified,
           }),
         };
       }

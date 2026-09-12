@@ -211,19 +211,26 @@ describe("repository DynamoDB requests", () => {
             sk: "PROFILE",
             playerId: "player-public-id",
             publicName: "Log",
+            playerTag: "#2PP",
             totalGames: 1_027,
             xp: 15_198,
           },
         ],
-      });
+      })
+      // The verified-mark read on the base item (not projected on GSI3).
+      .mockResolvedValueOnce({ Item: { elixirVerified: true } });
 
     const result = await new Repository("test-table").getPublicPlayer(
       "player-public-id",
     );
 
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(3);
     expect(send.mock.calls[1]?.[0].input).toMatchObject({
       ExclusiveStartKey: cursor,
+    });
+    expect(send.mock.calls[2]?.[0].input).toMatchObject({
+      Key: { pk: "PLAYER#private-sub", sk: "PROFILE" },
+      ProjectionExpression: "elixirVerified",
     });
     expect(result).toMatchObject({
       sub: "private-sub",
@@ -232,6 +239,7 @@ describe("repository DynamoDB requests", () => {
         publicName: "Log",
         totalGames: 1_027,
         xp: 15_198,
+        accountTags: ["verified"],
       },
     });
   });
