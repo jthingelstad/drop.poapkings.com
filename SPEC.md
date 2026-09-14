@@ -1181,7 +1181,9 @@ The referee operates via purpose-built scripts in `AGENT-TEAM/scripts/`
 game table and write only `REFEREE#` decision partitions; it cannot edit runs,
 scores, evidence, players, XP, or leaderboard rows and has no secret access. A sparse
 `GSI2` (`GSI2PK="TAGGED"`, `GSI2SK="{normalizedPlayerTag}#{playerId}"` on tagged
-PROFILE items) backs player-tag clustering, and `runId` on the all-time item
+PROFILE items) indexes tags saved through the current API. Referee tag clustering
+reads current PLAYER profiles with only `playerId` and `playerTag` projected,
+so legacy profiles missing index membership remain covered. `runId` on the all-time item
 resolves an all-time board entry to its earning run. The scripts sanitize on the
 way out (pseudonymous `playerId`, opaque hashes, normalized tag — never `sub`,
 email, a raw IP, or the pepper) and **fail closed** on missing or incomplete

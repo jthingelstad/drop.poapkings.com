@@ -1,6 +1,6 @@
 // Types for the AGENT-TEAM referee helper, which is deliberately plain JS
 // outside every workspace (it imports nothing from services/api). Only the
-// surface the mirror test asserts against is declared here.
+// surface the referee regression tests assert against is declared here.
 declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
   export const TABLE_NAME: string;
   export const RANKED_MODES: string[];
@@ -24,6 +24,9 @@ declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
   }): boolean;
   export function runReference(runId: string): string;
   export function playerReference(playerId: string): string;
+  export function loadTagClusters(
+    doc: import("@aws-sdk/lib-dynamodb").DynamoDBDocumentClient,
+  ): Promise<Array<{ playerTag: string; accounts: string[] }>>;
   export function findEvidenceByRunId(
     doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
     runIdentifier: string,

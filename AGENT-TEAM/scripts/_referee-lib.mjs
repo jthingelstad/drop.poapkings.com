@@ -20,6 +20,7 @@ import {
   QueryCommand,
   ScanCommand,
   TransactWriteCommand,
+  paginateScan,
 } from "@aws-sdk/lib-dynamodb";
 
 export const TABLE_NAME =
@@ -386,6 +387,52 @@ export async function findEvidenceByRunId(doc, runIdentifier) {
   if (matches.length > 1)
     throw new Error(`Run reference ${normalizedReference} is ambiguous`);
   return matches[0];
+}
+
+// Current profile tags are authoritative. Older tagged profiles may never have
+// entered sparse GSI2, so an index-only read can miss a linked-account cluster.
+// Project only the two approved pseudonymous fields, including on empty pages.
+export async function loadTagClusters(doc) {
+  const byTag = new Map();
+  for await (const page of paginateScan(
+    { client: doc },
+    {
+      TableName: TABLE_NAME,
+      FilterExpression: "begins_with(pk, :player) AND sk = :profile",
+      ExpressionAttributeValues: {
+        ":player": "PLAYER#",
+        ":profile": "PROFILE",
+      },
+      ProjectionExpression: "playerId, playerTag",
+      ConsistentRead: true,
+      Limit: 500,
+    },
+  )) {
+    for (const profile of page.Items ?? []) {
+      if (profile.playerTag === undefined) continue;
+      if (
+        typeof profile.playerTag !== "string" ||
+        typeof profile.playerId !== "string" ||
+        !profile.playerId.trim()
+      )
+        throw new Error("Tagged profile lacks required pseudonymous fields");
+      const tag = profile.playerTag.trim().toUpperCase();
+      if (!tag) continue;
+      const normalizedTag = tag.startsWith("#") ? tag : `#${tag}`;
+      if (!byTag.has(normalizedTag)) byTag.set(normalizedTag, new Set());
+      byTag.get(normalizedTag).add(profile.playerId);
+    }
+  }
+  return [...byTag.entries()]
+    .map(([playerTag, accounts]) => ({
+      playerTag,
+      accounts: [...accounts].sort((a, b) => a.localeCompare(b)),
+    }))
+    .sort(
+      (a, b) =>
+        b.accounts.length - a.accounts.length ||
+        a.playerTag.localeCompare(b.playerTag),
+    );
 }
 
 export async function loadDecisions(doc, runIds) {

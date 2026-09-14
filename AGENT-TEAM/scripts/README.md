@@ -151,9 +151,11 @@ compatibility; it is defined in `infra/template.yaml` and exported as
 - Index `Query` only on **GSI1** (leaderboard partitions) and **GSI2** (sparse tag
   clusters). GSI3 and any index added later are not granted — `LeadingKeys` cannot
   bound an index read, so the resource itself is the bound.
-- `Scan` on the **base table only**, never an index. Four reads need it (runId →
-  evidence, playerId → owning profile, the unscored-attempt feed, the decision
-  list) and `Scan` cannot be partition-bounded.
+- `Scan` on the **base table only**, never an index. Evidence/player lookup,
+  unscored attempts, decisions, the directory and current-profile tag coverage
+  need it; `Scan` cannot be partition-bounded. Tag clustering filters PLAYER
+  profiles and projects only `playerId` and `playerTag`, including legacy
+  profiles missing sparse GSI2 membership.
 - An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`, or
   `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
   just in JS.
@@ -188,7 +190,7 @@ Configuration:
 | `referee-cohort.mjs`    | `--mode <m> --scope season\|all-time [--limit 25] [--season <number>]`   | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                              |
 | `referee-players.mjs`   | `[--limit 500]`                                                        | Sanitized Control Room directory with player tags, run/review counts, badge totals, ranked access, and recent run tags.                                                                            |
 | `referee-player.mjs`    | `<playerId>`                                                             | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                               |
-| `referee-tags.mjs`      | —                                                                        | Normalized player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first.                                                                                                   |
+| `referee-tags.mjs`      | —                                                                        | Normalized current-profile player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first; includes profiles missing sparse GSI2 membership.                                                                                                   |
 | `referee-feed.mjs`      | `--since <ISO>`                                                          | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                       |
 | `referee-decisions.mjs` | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]` | Current private judgments for unresolved and changed-case review.                                                                                                                        |
 | `referee-decide.mjs`    | `<runId-or-#Dreference> (--pending \| --reopen --approved-by jamie \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment. `--reopen` turns an existing judgment back into a neutral pending hold when the current task contains Jamie's approval. A referee exclusion requires a safe player-reason code; `visible` restores a scored run. |
