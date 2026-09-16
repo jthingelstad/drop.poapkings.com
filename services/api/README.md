@@ -48,7 +48,7 @@ of waiting for MCP. FIFO deduplication coalesces requests for five minutes and
 serializes clock jobs. The worker finalizes the previous season before advancing
 the stored clock; idempotent award markers protect retries after interruption.
 MCP requests have a three-second deadline, including response-body consumption.
-The new queue is independent of the retired Supercell bridge.
+The refresh queue replaces the retired Supercell bridge path.
 
 `api.timings` structured logs record the route template, cold-invocation flag,
 request elapsed time, and fixed operation labels for DynamoDB, MCP and queue work.
@@ -287,12 +287,6 @@ clients, and correlation IDs stay out of Discord; request/run IDs remain in
 CloudWatch logs. Delivery is best effort with a three-second timeout and never
 changes an otherwise successful API response.
 
-The fixed-IP bridge uses the same locally stored webhook to record successful
-and not-found CR player pulls as one-line text with the tag, CR name, clan,
-account age, collection size, and fetch duration. Job IDs remain in the local
-worker and Lambda logs. Discord never includes competitive rank data or card
-levels, and delivery failure never blocks queue completion.
-
 ## Release-news subscribers
 
 `BUTTONDOWN_API_KEY` and `BUTTONDOWN_NEWSLETTER_ID` are server-only deployment
@@ -309,7 +303,7 @@ season number as a string (for example `"135"`). It advances after the player's 
 new season; later games in that season make no Buttondown request. The full
 metadata projection also refreshes at verified login, asynchronously after returning-session
 renewal, and a profile/tag change. The current clan comes only from the latest
-bridge-owned CR snapshot. A known no-clan result clears a stale clan tag and
+Elixir-recorded CR snapshot. A known no-clan result clears a stale clan tag and
 name, while an unavailable/pending snapshot preserves the last known values.
 Account deletion removes the subscriber by email. These calls are best effort
 with a three-second timeout and never change an otherwise successful login,

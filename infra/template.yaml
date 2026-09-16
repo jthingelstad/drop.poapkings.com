@@ -214,7 +214,7 @@ Resources:
 
   # Existing production execution roles predate the share bucket. The role is
   # already allowed to manage bounded policies on elixir-drop-* roles, so this
-  # stack-owned bridge grants the exact new bucket before CloudFormation creates
+  # stack-owned policy grants the exact new bucket before CloudFormation creates
   # it. Bootstrap writes the same scope for fresh environments.
   CloudFormationShareAssetPolicy:
     Type: AWS::IAM::Policy
@@ -897,7 +897,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: elixir-drop-cr-results
-      Description: Stores normalized Clash Royale player and Clan Wars clock results from the fixed-IP bridge
+      Description: Applies retained manual season-repair commands
       Architectures:
         - arm64
       Runtime: nodejs24.x

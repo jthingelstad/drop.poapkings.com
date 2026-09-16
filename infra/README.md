@@ -18,8 +18,8 @@ as one CloudFormation stack:
   bearer-token auth) and the deploy smoke test asserts them;
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
   seasonal leaderboard index;
-- encrypted CR request/result queues with dead-letter queues and an SQS-triggered
-  result Lambda for both player snapshots and the Clan Wars clock; and
+- an encrypted FIFO refresh queue with a dead-letter queue and worker Lambda,
+  plus the retained season-repair queue, dead-letter queue, and consumer; and
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
@@ -61,11 +61,12 @@ parameters and exposes them only to the Lambda runtime. Buttondown enrollment
 runs only after a player redeems a valid magic link; account deletion removes
 the matching subscriber, while Buttondown preserves its own unsubscribe and
 suppression states.
-CloudWatch separately alarms on the bridge process heartbeat and on successful
-five-minute Clan Wars clock relays. The API and result consumer write JSON logs
-to dedicated 30-day log groups. Operational alarms target `drop@poapkings.com`
-by default. The alarm recipient is independent of `ELIXIR_DROP_EMAIL_FROM`, so
-rotating the magic-link sender cannot silently retarget administrative mail.
+CloudWatch separately alarms on refresh queue age, refresh dead letters,
+season-repair consumer errors, and season-repair dead letters. The API, refresh
+worker, and repair consumer write JSON logs to dedicated 30-day log groups.
+Operational alarms target `drop@poapkings.com` by default. The alarm recipient is
+independent of `ELIXIR_DROP_EMAIL_FROM`, so rotating the magic-link sender cannot
+silently retarget administrative mail.
 
 The HTTP API also writes privacy-conscious JSON access logs to the 30-day
 `/elixir-drop/api-access` log group. Each record includes the request ID, route
@@ -100,11 +101,11 @@ sustained 5xx-rate alarm fires only when more than 5% of requests fail in two of
 five-minute windows.
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
-administrator credentials to create the `elixir-drop` IAM deploy user, the
-queue-only `elixir-drop-cr-bridge` user, a CloudFormation execution role, a
-private versioned code bucket, and a mode-0600 gitignored root `.env`. It copies
-the existing CR token only into that local file; Lambda and CI never receive it.
-Secret values are never printed.
+administrator credentials to create the `elixir-drop` IAM deploy user, a
+CloudFormation execution role, a private versioned code bucket, and a mode-0600
+gitignored root `.env`. It copies the host-only card-refresh CR token only into
+that local file; Lambda and CI never receive it. Regenerating `.env` removes
+retired bridge credentials and queue names. Secret values are never printed.
 
 `npm run deploy:api` then uses AWS SDK clients—not the AWS CLI—to build and zip
 the TypeScript Lambda, upload it, create or update the stack, and write the
@@ -162,12 +163,12 @@ The first stack creation and any intentional secret rotation remain local
 `npm run deploy:api` operations using the mode-0600 root `.env`.
 
 CloudFormation owns the private web origin and CloudFront distribution as well
-as the API, bridge queues, and result consumer. The default static behavior uses
-AWS's managed combined CORS and security-headers policy so Buttondown's public
-archive can load the same-origin app font while every static response receives
-HSTS, content-type, framing, and referrer protections; `/api/*`, `/share/*`, and
-`/share-assets/*` keep the API's own response and cache policy. The
-fixed-IP worker remains a local launchd service on the allowlisted Mac.
+as the API, refresh queue and worker, and retained season-repair channel. The
+default static behavior uses AWS's managed combined CORS and security-headers
+policy so Buttondown's public archive can load the same-origin app font while
+every static response receives HSTS, content-type, framing, and referrer
+protections; `/api/*`, `/share/*`, and `/share-assets/*` keep the API's own
+response and cache policy.
 
 ## Background refresh
 

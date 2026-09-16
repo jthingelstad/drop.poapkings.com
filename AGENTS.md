@@ -127,8 +127,8 @@ Every other doc points back here instead of keeping its own copy of this list.
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 
-The player API, infrastructure, and bridge are implemented and documented in
-their workspace READMEs. Keep the request/result contracts in
+The player API, background refresh worker, and infrastructure are implemented and
+documented in their workspace READMEs. Keep the request/result contracts in
 `packages/contracts`; do not bypass the queues or widen the CR snapshot with
 rank-oriented fields as part of unrelated work.
 

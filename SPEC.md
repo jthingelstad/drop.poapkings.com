@@ -32,7 +32,8 @@ same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
 history, no Discord) — the summary nudges the visitor to sign in before the next
 game so future scores can be recorded. An email-authenticated player session
 unlocks recording and ranking. Dynamic Clash Royale player enrichment and the
-global Clan Wars clock run asynchronously through the fixed-IP bridge.
+global game-policy clock come from the Elixir Integration REST API through Drop's
+asynchronous refresh worker.
 
 The only outbound ties are ordinary links:
 
@@ -47,7 +48,8 @@ The only outbound ties are ordinary links:
 Hard product constraints:
 
 - Do not call the Clash Royale API from the browser, CI, or Lambda.
-- Only the fixed-IP bridge may call the Clash Royale API at runtime.
+- Runtime Clash Royale context comes only from the Elixir Integration REST API.
+  The managed-host card refresher is the sole direct Supercell exception.
 - Do not put the CR API token in client code, Lambda, CI, or committed files.
 - Do not add curated deck definitions, archetype lists, or game modes that depend
   on authentic deck construction; new game modes work from the committed facts in
@@ -65,15 +67,14 @@ The repository uses npm workspaces:
 | `apps/admin`             | Private tailnet-only Control Room UI         | Implemented |
 | `services/api`           | TypeScript Lambda player and game API        | Implemented |
 | `services/admin`         | Loopback Control Room and referee adapter    | Implemented |
-| `services/cr-api-bridge` | Fixed-IP Clash Royale API worker             | Implemented |
 | `packages/contracts`     | Shared browser/server TypeScript contracts   | Implemented |
 | `packages/game-data`     | Canonical card facts                         | Implemented |
 | `infra`                  | CloudFormation and SDK deployment automation | Implemented |
 
 The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Fastmail JMAP, Bedrock,
-and CloudFormation. The local bridge long-polls SQS with its own queue-only IAM
-credentials, refreshes the Clan Wars clock every five minutes, and returns
-normalized player or clock results through a second queue.
+the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
+queue carries player-profile and policy-clock refresh work to a separate Lambda;
+the public request path continues serving cached values while refreshes run.
 
 Current public website stack:
 
@@ -144,21 +145,17 @@ Refresh model:
   WebGL texture loads (the screensaver) and which reintroduces a CDN
   dependency for gameplay art.
 
-The static refresher and local bridge are the only implemented Clash Royale API
-consumers. Dynamic backend work must be queued for
-`services/cr-api-bridge`; Lambda and browsers never call CR directly.
+The static refresher is the only implemented direct Clash Royale API consumer.
+Dynamic backend work is queued to Drop's refresh worker, which reads recorded
+profiles and the policy clock from the Elixir Integration REST API; Lambda and
+browsers never call Supercell directly.
 
-The runtime clock combines POAP KINGS' `/currentriverrace` section, period, and
-phase with the sequential season ID in `/riverracelog`. Daily-reset math is
-anchored on the latest observed race close (the reset hour drifts per season),
-falling back to 10:00 UTC. The result Lambda stores one current clock in
-DynamoDB. Completed runs, history, feeds, and leaderboard partitions use that
-positive integer CR season ID directly; a changed ID is the authoritative reset
-signal. The UI shows the CR season, current week, phase, and days left in the
-war week. A clock older than two hours keeps naming the stored leaderboard
-season for as long as the season it observed can run (five weeks) — a bridge
-outage must not split the leaderboard mid-season — and only after that does the
-first-Monday calendar fallback take over.
+The runtime policy clock supplies the positive integer season ID plus fixed
+season/day boundaries at 10:00 UTC. The refresh worker finalizes the prior season
+before advancing the stored clock, and idempotent markers protect retries. The UI
+shows the season, current week, phase, and days left in the week. Cached values stay
+useful during integration outages; the verified Season 134 calendar anchor is the
+bounded fallback when no usable recorded clock remains.
 
 Normalization rules:
 
@@ -271,8 +268,8 @@ Each ranked mode has three boards, selected by the `scope` query param on
   by each Drop player's latest stored Clash Royale clan snapshot and reranked
   within the signed-in player's current clan. The bounded read may page beyond
   the global top results so a clanmate is not omitted merely for ranking lower
-  globally. Lambda never refreshes CR data on this route; only the bridge owns
-  live Clash Royale ingress.
+  globally. Lambda never refreshes CR data on this route; the background Elixir
+  integration refresh owns recorded Clash Royale ingress.
 
 Leaderboard eligibility is stricter than run acceptance: a ranked completion
 must score **above zero** to receive a seasonal or all-time index projection.
@@ -583,7 +580,7 @@ carry is `XP#PRACTICE`; PB day caps use `XP-DAY#{yyyy-mm-dd}`; featured,
 season-placement, Circuit, and per-run PB markers use their event identities.
 All stay in the player partition so account deletion removes progression state
 with the profile. Marker + profile increment transactions are the exact-once
-boundary; no control-room or CR bridge surface writes XP directly.
+boundary; no control-room or Elixir integration surface writes XP directly.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Its identity projection also
 includes the unverified Clash player tag plus CR name and clan when the shared
@@ -1075,16 +1072,15 @@ stubs and helpers in `fixtures.ts`:
 
 ## 10. Operations And Architecture
 
-This Mac owns the allowlisted CR API token and runs both CR consumers:
+This Mac owns the allowlisted CR API token for the manual card refresher:
 
-- Keep the root `.env` local and mode `0600`; it holds the CR token plus separate
-  deployment and queue-only bridge credentials.
-- Keep the launchd bridge loaded and review
-  `~/Library/Logs/elixir-drop-cr-bridge.log` when a refresh is delayed.
+- Keep the root `.env` local and mode `0600`; it holds the host-only CR token and
+  deployment/runtime secrets. Bootstrap strips retired bridge credentials and
+  queue names when it regenerates the file.
 - Run `apps/web/scripts/refresh-cards.mjs` manually after known Supercell updates
   or on a conservative cron.
-- Queue retries end in dedicated request/result dead-letter queues rather than
-  silently dropping work.
+- Runtime profile and clock refresh retries end in the refresh dead-letter queue.
+  The separately retained result queue exists only for manual season repair.
 - Run Drop queries failure reports only through the assumed
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
   identity-free `RUN_REPORTS` partition. Status changes are transactional and
@@ -1099,7 +1095,7 @@ This Mac owns the allowlisted CR API token and runs both CR consumers:
   volume, statuses, bytes, cache outcomes, timing, and grouped edge errors only. It is
   not visitor, player, acquisition, or retention evidence.
 
-The implemented API, bridge, and deployment model are documented in their
+The implemented API, refresh worker, and deployment model are documented in their
 workspace READMEs.
 
 ---

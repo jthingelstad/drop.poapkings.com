@@ -29,9 +29,14 @@ const envPath = resolve(repoRoot, ".env");
 const sourceEnvPath = resolve(repoRoot, "..", "elixir-bot", ".env");
 const region = process.env.AWS_REGION || "us-east-1";
 const userName = "elixir-drop";
-const bridgeUserName = "elixir-drop-cr-bridge";
 const executionRoleName = "elixir-drop-cloudformation-execution";
 const stackName = "elixir-drop-prod";
+const retiredBridgeEnvironmentNames = new Set([
+  "ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID",
+  "ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY",
+  "ELIXIR_DROP_CR_REQUEST_QUEUE_NAME",
+  "ELIXIR_DROP_CR_RESULT_QUEUE_NAME",
+]);
 
 const iam = new IAMClient({ region });
 const s3 = new S3Client({ region });
@@ -274,15 +279,6 @@ async function ensureRole(
             ],
             Resource: `arn:aws:iam::${accountId}:role/elixir-drop-*`,
           },
-          {
-            Effect: "Allow",
-            Action: [
-              "iam:DeleteUserPolicy",
-              "iam:GetUserPolicy",
-              "iam:PutUserPolicy",
-            ],
-            Resource: `arn:aws:iam::${accountId}:user/${bridgeUserName}`,
-          },
         ],
       }),
     }),
@@ -365,7 +361,7 @@ if (!jmapToken)
 const crApiKey = existingEnv.CR_API_KEY || sourceEnv.CR_API_KEY;
 if (!crApiKey) throw new Error(`CR_API_KEY was not found in ${sourceEnvPath}`);
 
-await Promise.all([ensureUser(userName), ensureUser(bridgeUserName)]);
+await ensureUser(userName);
 const role = await ensureRole(
   accountId,
   bucketName,
@@ -464,73 +460,25 @@ await iam.send(
   }),
 );
 
-const queueArnPrefix = `arn:aws:sqs:${region}:${accountId}`;
-await iam.send(
-  new PutUserPolicyCommand({
-    UserName: bridgeUserName,
-    PolicyName: "elixir-drop-cr-queue-bridge",
-    PolicyDocument: JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "sqs:ChangeMessageVisibility",
-            "sqs:DeleteMessage",
-            "sqs:GetQueueAttributes",
-            "sqs:GetQueueUrl",
-            "sqs:ReceiveMessage",
-          ],
-          Resource: `${queueArnPrefix}:elixir-drop-cr-requests`,
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "sqs:GetQueueAttributes",
-            "sqs:GetQueueUrl",
-            "sqs:SendMessage",
-          ],
-          Resource: `${queueArnPrefix}:elixir-drop-cr-results`,
-        },
-        {
-          Effect: "Allow",
-          Action: "cloudwatch:PutMetricData",
-          Resource: "*",
-          Condition: {
-            StringEquals: {
-              "cloudwatch:namespace": "ElixirDrop/CRBridge",
-            },
-          },
-        },
-      ],
-    }),
-  }),
-);
-
 const key = await accessKey(
   existingEnv,
   userName,
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
 );
-const bridgeKey = await accessKey(
-  existingEnv,
-  bridgeUserName,
-  "ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID",
-  "ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY",
+const retainedEnv = Object.fromEntries(
+  Object.entries(existingEnv).filter(
+    ([name]) => !retiredBridgeEnvironmentNames.has(name),
+  ),
 );
 const values = {
-  ...existingEnv,
+  ...retainedEnv,
   APP_URL: existingEnv.APP_URL || "https://drop.poapkings.com",
   AWS_ACCESS_KEY_ID: key.AccessKeyId,
   AWS_REGION: region,
   AWS_SECRET_ACCESS_KEY: key.SecretAccessKey,
   CR_API_KEY: crApiKey,
   CR_WAR_CLOCK_CLAN_TAG: existingEnv.CR_WAR_CLOCK_CLAN_TAG || "#J2RGCRVG",
-  ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID: bridgeKey.AccessKeyId,
-  ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY: bridgeKey.SecretAccessKey,
-  ELIXIR_DROP_CR_REQUEST_QUEUE_NAME: "elixir-drop-cr-requests",
-  ELIXIR_DROP_CR_RESULT_QUEUE_NAME: "elixir-drop-cr-results",
   ELIXIR_DROP_ALARM_EMAIL:
     existingEnv.ELIXIR_DROP_ALARM_EMAIL || "drop@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
@@ -557,7 +505,6 @@ await writeFile(envPath, serializeEnv(values), { mode: 0o600 });
 await chmod(envPath, 0o600);
 
 console.log(`AWS bootstrap is ready for IAM user ${userName}.`);
-console.log(`The fixed-IP bridge is ready for IAM user ${bridgeUserName}.`);
 console.log(
   `Deployment configuration was written to ${envPath} with mode 0600; no secret values were printed.`,
 );

@@ -750,6 +750,14 @@ void describe("deployment parameters", () => {
     assert.match(roleManagementPolicy, /"iam:UpdateAssumeRolePolicy"/);
   });
 
+  void it("does not recreate the retired Clash Royale bridge identity", () => {
+    assert.doesNotMatch(bootstrap, /bridgeUserName/);
+    assert.doesNotMatch(bootstrap, /elixir-drop-cr-bridge/);
+    assert.doesNotMatch(bootstrap, /elixir-drop-cr-queue-bridge/);
+    assert.match(bootstrap, /retiredBridgeEnvironmentNames/);
+    assert.match(bootstrap, /!retiredBridgeEnvironmentNames\.has\(name\)/);
+  });
+
   void it("bounds referee writes to its independent decision partitions", () => {
     const refereeRole = template.match(
       /  RefereeReadRole:[\s\S]*?\n  DropControlRole:/,
