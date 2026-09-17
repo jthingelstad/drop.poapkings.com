@@ -80,7 +80,6 @@ describe("account deletion", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.SHARE_ASSET_BUCKET = "share-assets";
-    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";

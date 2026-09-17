@@ -149,19 +149,9 @@ if (
   throw new Error("Run completion with an invalid token was not rejected");
 }
 
-let fastmailJmap = "not checked";
-if (process.env.FASTMAIL_JMAP_TOKEN) {
-  const jmap = await fetch("https://api.fastmail.com/jmap/session", {
-    headers: { authorization: `Bearer ${process.env.FASTMAIL_JMAP_TOKEN}` },
-  });
-  if (!jmap.ok)
-    throw new Error(`Fastmail JMAP token check failed with ${jmap.status}`);
-  const jmapSession = await jmap.json();
-  if (!jmapSession.primaryAccounts?.["urn:ietf:params:jmap:mail"]) {
-    throw new Error("Fastmail JMAP session has no mail account");
-  }
-  fastmailJmap = "verified";
-}
+// Mail goes out over SES as EmailFrom (2026-09-17); the poapkings.com
+// identity and its DKIM are the elixir-mcp stack's and are verified there.
+// Nothing to probe from here without SES read permissions CI does not hold.
 
 const appUrl = process.env.APP_URL || "https://drop.poapkings.com";
 const [website, deployedConfig] = await Promise.all([
@@ -181,7 +171,6 @@ console.log(
     stack: stack.StackStatus,
     cors: "verified",
     deploymentIdentity: identity.Arn,
-    fastmailJmap,
     guestPlay: "verified",
     invalidRunToken: "rejected",
     maskedEmail: "rejected",

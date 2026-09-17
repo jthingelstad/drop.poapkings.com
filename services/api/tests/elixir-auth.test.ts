@@ -22,7 +22,7 @@ const config = {
   sessionSecret: "secret",
   telemetryPepper: "pepper",
   appUrl: "https://drop.test",
-  jmapToken: "x",
+  sesConfigurationSet: "elixir-drop",
   emailFrom: "elixir@poapkings.com",
   emailFromName: "Elixir",
   nameModelId: "m",

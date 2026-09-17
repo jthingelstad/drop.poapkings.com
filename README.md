@@ -215,7 +215,8 @@ Before inviting a new beta group, follow
 [`docs/beta-readiness.md`](docs/beta-readiness.md). It separates automated
 release gates from the few real-user checks that should not be faked in CI.
 
-Bootstrap copies the existing Fastmail JMAP token into the gitignored root
+Bootstrap copies the existing Fastmail JMAP token (read-only, for the
+bug-report intake script; player mail is SES) into the gitignored root
 `.env`, generates a Drop-specific signing secret, and creates access
 credentials for the limited `elixir-drop` deploy user. Routine deployment uses
 the AWS SDK and does not invoke the AWS CLI. The Clash Royale token that

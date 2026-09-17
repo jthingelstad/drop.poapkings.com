@@ -7,7 +7,7 @@ import {
 import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
-import { sendMagicLink } from "../jmap.js";
+import { sendMagicLink } from "../email.js";
 import { isRecruiterInviteReference } from "../recruiter.js";
 import { isShareToken } from "../shares.js";
 import { refereeReviewStatus } from "../referee-status.js";
@@ -188,7 +188,7 @@ export async function requestMagicLink({
   );
   try {
     await sendMagicLink({
-      token: config.jmapToken,
+      configurationSet: config.sesConfigurationSet,
       fromEmail: config.emailFrom,
       fromName: config.emailFromName,
       to: email,

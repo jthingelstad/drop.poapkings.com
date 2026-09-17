@@ -126,8 +126,8 @@ jobs:
           # releases preserve the deployed value through UsePreviousValue.
           WEB_VERSION: ${{ needs.scope.outputs.deploy_web == 'true' && needs.scope.outputs.head_sha || '' }}
 
-      # Fastmail stays fixed-host-only. CI's smoke reports its JMAP probe as
-      # not checked; `npm run check:beta` owns live mail verification.
+      # Mail is SES (2026-09-17); `npm run check:beta` owns live mail
+      # verification.
       - name: Verify deployed API
         if: needs.scope.outputs.deploy_api == 'true'
         run: npm run smoke:api

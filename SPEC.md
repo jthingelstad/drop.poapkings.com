@@ -71,7 +71,7 @@ The repository uses npm workspaces:
 | `packages/game-data`     | Canonical card facts                         | Implemented |
 | `infra`                  | CloudFormation and SDK deployment automation | Implemented |
 
-The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Fastmail JMAP, Bedrock,
+The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, SES, Bedrock,
 the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
 queue carries player-profile and policy-clock refresh work to a separate Lambda;
 the public request path continues serving cached values while refreshes run.

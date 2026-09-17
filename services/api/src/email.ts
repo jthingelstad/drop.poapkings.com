@@ -1,45 +1,37 @@
-import { emailSentFolder } from "./config.js";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 
-const SESSION_URL = "https://api.fastmail.com/jmap/session";
-const CORE = "urn:ietf:params:jmap:core";
-const MAIL = "urn:ietf:params:jmap:mail";
-const SUBMISSION = "urn:ietf:params:jmap:submission";
-
-type JsonObject = Record<string, unknown>;
-type MethodResponse = [string, JsonObject, string];
-
-interface JmapSession extends JsonObject {
-  apiUrl?: string;
-  primaryAccounts?: Record<string, string>;
-}
-
-interface SendContext {
-  apiUrl: string;
-  mailAccountId: string;
-  submissionAccountId: string;
-  identityId: string;
-  draftsId: string;
-  sentId: string;
-}
+/**
+ * Drop's outbound mail: the magic-link sign-in email, sent as
+ * elixir@poapkings.com over SES (2026-09-17). Fastmail JMAP was the sender
+ * before; Fastmail is a mailbox, not a sender, and the poapkings.com identity
+ * (DKIM, MAIL FROM bounce.poapkings.com) is owned by the elixir-mcp stack.
+ * Drop sends through its own configuration set (infra/template.yaml,
+ * SenderConfigurationSet) so bounces and complaints reach Drop's alarm topic.
+ * No open or click tracking: nothing is added to the body, no link is
+ * rewritten.
+ *
+ * multipart/alternative, never HTML alone: a client that will not render
+ * HTML must still be able to read a sign-in code.
+ */
 
 interface SendMagicLinkInput {
-  token: string;
   fromEmail: string;
   fromName: string;
   to: string;
   magicLink: string;
   code: string;
   expiresMinutes: number;
+  configurationSet: string;
 }
 
 interface SendEmailInput {
-  token: string;
   fromEmail: string;
   fromName: string;
   to: string;
   subject: string;
   text: string;
   html: string;
+  configurationSet: string;
 }
 
 interface MagicLinkEmailInput {
@@ -49,144 +41,15 @@ interface MagicLinkEmailInput {
   imageUrl?: string;
 }
 
-async function jmapFetch<T>(
-  url: string,
-  token: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      accept: "application/json",
-      authorization: `Bearer ${token}`,
-      ...(options.body ? { "content-type": "application/json" } : {}),
-    },
-  });
-  if (!response.ok) throw new Error(`JMAP HTTP ${response.status}`);
-  return (await response.json()) as T;
+let client: SESv2Client | undefined;
+function ses(): SESv2Client {
+  client ??= new SESv2Client({});
+  return client;
 }
 
-async function call(
-  apiUrl: string,
-  token: string,
-  methodCalls: unknown[],
-): Promise<MethodResponse[]> {
-  const response = await jmapFetch<{ methodResponses?: MethodResponse[] }>(
-    apiUrl,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({ using: [CORE, MAIL, SUBMISSION], methodCalls }),
-    },
-  );
-  return response.methodResponses ?? [];
-}
-
-function responseFor(
-  responses: MethodResponse[],
-  name: string,
-  id: string,
-): JsonObject {
-  const response = responses.find(
-    (item) => item[2] === id && (item[0] === name || item[0] === "error"),
-  );
-  if (!response) throw new Error(`JMAP ${name} response missing`);
-  if (response[0] === "error") {
-    const errorType = response[1].type;
-    throw new Error(
-      `JMAP ${name} failed: ${typeof errorType === "string" ? errorType : "error"}`,
-    );
-  }
-  return response[1];
-}
-
-export interface JmapMailbox {
-  id?: string;
-  name?: string;
-  parentId?: string | null;
-  role?: string;
-}
-
-/**
- * Pick the mailbox Drop files sent mail into.
- *
- * Only the account's top-level Sent carries the JMAP `sent` role; the per-agent
- * folders (Elixir-Sent, Thingy-Sent, ...) are plain named children of it. So a
- * role-only lookup silently files Drop's magic links into the folder shared with
- * every other agent. Prefer our named child; fall back to the role parent so a
- * renamed folder degrades to "misfiled" rather than "magic link never sent".
- */
-export function pickSentMailbox(
-  mailboxes: JmapMailbox[],
-  sentRootId: string,
-  folderName: string,
-): JmapMailbox | undefined {
-  const child = mailboxes.find(
-    (item) => item.parentId === sentRootId && item.name === folderName,
-  );
-  if (child?.id) return child;
-  return mailboxes.find((item) => item.id === sentRootId);
-}
-
-async function context(token: string, fromEmail: string): Promise<SendContext> {
-  const session = await jmapFetch<JmapSession>(SESSION_URL, token);
-  const mailAccountId = session.primaryAccounts?.[MAIL];
-  const submissionAccountId =
-    session.primaryAccounts?.[SUBMISSION] ?? mailAccountId;
-  if (!session.apiUrl || !mailAccountId || !submissionAccountId)
-    throw new Error("JMAP session is missing an account");
-
-  const responses = await call(session.apiUrl, token, [
-    ["Identity/get", { accountId: submissionAccountId, ids: null }, "identity"],
-    [
-      "Mailbox/get",
-      {
-        accountId: mailAccountId,
-        ids: null,
-        // name + parentId are required to find our own child of Sent; without
-        // them only role matching is possible, which lands mail in shared Sent.
-        properties: ["id", "name", "parentId", "role"],
-      },
-      "mailboxes",
-    ],
-  ]);
-  const identities = (responseFor(responses, "Identity/get", "identity").list ??
-    []) as Array<{
-    id?: string;
-    email?: string;
-  }>;
-  const mailboxes = (responseFor(responses, "Mailbox/get", "mailboxes").list ??
-    []) as Array<{
-    id?: string;
-    name?: string;
-    parentId?: string | null;
-    role?: string;
-  }>;
-  const identity =
-    identities.find(
-      (item) => item.email?.toLowerCase() === fromEmail.toLowerCase(),
-    ) ?? identities[0];
-  const drafts = mailboxes.find((item) => item.role === "drafts");
-  const sentRoot = mailboxes.find((item) => item.role === "sent");
-  if (!identity?.id)
-    throw new Error(`No JMAP identity is available for ${fromEmail}`);
-  if (!drafts?.id || !sentRoot?.id)
-    throw new Error("JMAP Drafts or Sent mailbox is missing");
-  const sentFolderName = emailSentFolder();
-  const sent = pickSentMailbox(mailboxes, sentRoot.id, sentFolderName);
-  if (!sent?.id) throw new Error("JMAP Sent mailbox is missing");
-  if (sent.id === sentRoot.id)
-    console.warn(
-      `JMAP: no "${sentFolderName}" under Sent; filing into the shared Sent folder`,
-    );
-  return {
-    apiUrl: session.apiUrl,
-    mailAccountId,
-    submissionAccountId,
-    identityId: identity.id,
-    draftsId: drafts.id,
-    sentId: sent.id,
-  };
+/** Test seam: swap the SES client (and reset with undefined). */
+export function setSesClient(next: SESv2Client | undefined): void {
+  client = next;
 }
 
 function escapeHtml(value: string): string {
@@ -311,67 +174,22 @@ export function magicLinkEmailHtml({
 }
 
 async function sendEmail(input: SendEmailInput): Promise<void> {
-  const sendContext = await context(input.token, input.fromEmail);
-
-  const responses = await call(sendContext.apiUrl, input.token, [
-    [
-      "Email/set",
-      {
-        accountId: sendContext.mailAccountId,
-        create: {
-          draft: {
-            mailboxIds: { [sendContext.draftsId]: true },
-            keywords: { $draft: true },
-            from: [{ name: input.fromName, email: input.fromEmail }],
-            to: [{ email: input.to }],
-            subject: input.subject,
-            bodyStructure: {
-              type: "multipart/alternative",
-              subParts: [
-                { partId: "text", type: "text/plain" },
-                { partId: "html", type: "text/html" },
-              ],
-            },
-            bodyValues: {
-              text: { value: input.text, charset: "utf-8" },
-              html: { value: input.html, charset: "utf-8" },
-            },
+  await ses().send(
+    new SendEmailCommand({
+      FromEmailAddress: `${input.fromName} <${input.fromEmail}>`,
+      Destination: { ToAddresses: [input.to] },
+      ConfigurationSetName: input.configurationSet,
+      Content: {
+        Simple: {
+          Subject: { Data: input.subject, Charset: "UTF-8" },
+          Body: {
+            Text: { Data: input.text, Charset: "UTF-8" },
+            Html: { Data: input.html, Charset: "UTF-8" },
           },
         },
       },
-      "email",
-    ],
-    [
-      "EmailSubmission/set",
-      {
-        accountId: sendContext.submissionAccountId,
-        onSuccessUpdateEmail: {
-          "#send": {
-            [`mailboxIds/${sendContext.sentId}`]: true,
-            [`mailboxIds/${sendContext.draftsId}`]: null,
-            "keywords/$draft": null,
-          },
-        },
-        create: {
-          send: {
-            emailId: "#draft",
-            identityId: sendContext.identityId,
-            envelope: {
-              mailFrom: { email: input.fromEmail },
-              rcptTo: [{ email: input.to }],
-            },
-          },
-        },
-      },
-      "submit",
-    ],
-  ]);
-  const emailResult = responseFor(responses, "Email/set", "email");
-  const submitResult = responseFor(responses, "EmailSubmission/set", "submit");
-  if ((emailResult.notCreated as Record<string, unknown> | undefined)?.draft)
-    throw new Error("JMAP email creation failed");
-  if ((submitResult.notCreated as Record<string, unknown> | undefined)?.send)
-    throw new Error("JMAP email submission failed");
+    }),
+  );
 }
 
 export async function sendMagicLink(input: SendMagicLinkInput): Promise<void> {

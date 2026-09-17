@@ -13,9 +13,6 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Server-only pepper for referee connection-correlation HMACs. Lambda env only; never exposed to the referee scripts, referee role, CI, or the browser.
-  FastmailJmapToken:
-    Type: String
-    NoEcho: true
   ButtondownApiKey:
     Type: String
     NoEcho: true
@@ -191,6 +188,69 @@ Resources:
         - Protocol: email
           Endpoint: !Ref AlarmEmail
 
+  # A topic policy REPLACES the default one, so the account-owner statement
+  # SNS would have written is restated first; the second lets SES publish
+  # sending events from this stack's configuration set.
+  AlarmTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref AlarmTopic]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: owner
+            Effect: Allow
+            Principal: { AWS: "*" }
+            Action:
+              [
+                SNS:Publish,
+                SNS:Subscribe,
+                SNS:Receive,
+                SNS:GetTopicAttributes,
+                SNS:SetTopicAttributes,
+                SNS:ListSubscriptionsByTopic,
+                SNS:AddPermission,
+                SNS:RemovePermission,
+                SNS:DeleteTopic,
+              ]
+            Resource: !Ref AlarmTopic
+            Condition:
+              StringEquals: { AWS:SourceOwner: !Ref AWS::AccountId }
+          - Sid: ses-events
+            Effect: Allow
+            Principal: { Service: ses.amazonaws.com }
+            Action: SNS:Publish
+            Resource: !Ref AlarmTopic
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+              ArnLike:
+                aws:SourceArn: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/elixir-drop
+
+  # Outbound mail (2026-09-17): magic links as EmailFrom over SES. The
+  # poapkings.com identity (DKIM, MAIL FROM bounce.poapkings.com) belongs to
+  # the elixir-mcp stack; Drop only needs its own configuration set so that
+  # its bounces and complaints reach ITS alarm topic. OPEN and CLICK are
+  # deliberately absent from the event list: that is what keeps the mail
+  # pixel-free and the magic link unwrapped.
+  SenderConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: elixir-drop
+      SendingOptions: { SendingEnabled: true }
+      ReputationOptions: { ReputationMetricsEnabled: true }
+      SuppressionOptions: { SuppressedReasons: [BOUNCE, COMPLAINT] }
+
+  SenderEvents:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SenderConfigurationSet
+      EventDestination:
+        Name: alarms
+        Enabled: true
+        MatchingEventTypes:
+          [BOUNCE, COMPLAINT, REJECT, RENDERING_FAILURE, DELIVERY_DELAY]
+        SnsDestination: { TopicARN: !Ref AlarmTopic }
+
   # The execution role is bootstrap-owned rather than stack-owned. Its current
   # policy already permits bounded iam:PutRolePolicy calls on elixir-drop-*
   # roles, so an existing production stack can grant this new dashboard-only
@@ -294,6 +354,21 @@ Resources:
               - Effect: Allow
                 Action: sqs:SendMessage
                 Resource: !GetAtt RefreshQueue.Arn
+              # Magic links go out as EmailFrom over SES (2026-09-17). The
+              # poapkings.com identity is the elixir-mcp stack's; this role
+              # may send through it only as that one address (pinned by
+              # condition) and only via Drop's own configuration set. SES
+              # authorizes against the ADDRESS identity ARN as well as the
+              # domain's, so both spellings are named.
+              - Effect: Allow
+                Action: [ses:SendEmail, ses:SendRawEmail]
+                Resource:
+                  - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/poapkings.com
+                  - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${EmailFrom}
+                  - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SenderConfigurationSet}
+                Condition:
+                  StringEquals:
+                    ses:FromAddress: !Ref EmailFrom
               # Both Lambdas are pinned to managed log groups via
               # LoggingConfig, so no CreateLogGroup and no wildcard resource.
               - Effect: Allow
@@ -724,7 +799,7 @@ Resources:
           REFRESH_QUEUE_URL: !Ref RefreshQueue
           SESSION_SECRET: !Ref SessionSecret
           TELEMETRY_PEPPER: !Ref TelemetryPepper
-          FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
+          ELIXIR_DROP_SES_CONFIGURATION_SET: !Ref SenderConfigurationSet
           BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
           BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
           TINYLYTICS_API_TOKEN: !Ref TinylyticsApiToken
@@ -922,7 +997,7 @@ Resources:
           # shared getConfig(), which requires TELEMETRY_PEPPER. Present here only
           # to satisfy that shared config; still Lambda-only, never exported.
           TELEMETRY_PEPPER: !Ref TelemetryPepper
-          FASTMAIL_JMAP_TOKEN: !Ref FastmailJmapToken
+          ELIXIR_DROP_SES_CONFIGURATION_SET: !Ref SenderConfigurationSet
           APP_URL: !Ref AppUrl
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom
           ELIXIR_DROP_EMAIL_FROM_NAME: Elixir Drop

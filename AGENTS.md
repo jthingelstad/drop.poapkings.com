@@ -118,12 +118,17 @@ Every other doc points back here instead of keeping its own copy of this list.
   `scripts/classify-ci-scope.mjs`; `workflow_dispatch` takes the full path.
 - Deployment mechanics and surface boundaries are stated once, above in
   "Deploy model (canonical)".
-- Transactional player email sends from `elixir@poapkings.com` through **Fastmail
-  JMAP** in `services/api/src/jmap.ts`; sign-in codes and magic links keep that
-  recognizable sender. `drop@poapkings.com` is the monitored administrative and
-  general-contact address for alarms, the delivery-canary recipient, privacy
-  questions, and Fair Play disputes. Occasional player-update digests publish
-  through the dedicated **Buttondown** newsletter; none of these paths uses SES.
+- Transactional player email sends from `elixir@poapkings.com` over **SES**
+  (`services/api/src/email.ts`, since 2026-09-17); sign-in codes and magic
+  links keep that recognizable sender. The `poapkings.com` identity (DKIM,
+  MAIL FROM `bounce.poapkings.com`) belongs to the elixir-mcp stack; Drop owns
+  only its `elixir-drop` configuration set, whose bounce and complaint events
+  reach Drop's alarm topic. No open or click tracking. `drop@poapkings.com` is
+  the monitored administrative and general-contact address for alarms, the
+  delivery-canary recipient, privacy questions, and Fair Play disputes; it is
+  read (never sent) over Fastmail JMAP by `AGENT-TEAM/scripts/mail-bug-reports.mjs`.
+  Occasional player-update digests publish through the dedicated **Buttondown**
+  newsletter.
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 

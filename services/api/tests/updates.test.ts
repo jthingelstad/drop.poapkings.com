@@ -69,7 +69,7 @@ function context(
       telemetryPepper: "pepper",
       updatesPublishToken: "test-publish-token",
       appUrl: "https://drop.example",
-      jmapToken: "jmap",
+      sesConfigurationSet: "elixir-drop",
       emailFrom: "elixir@example.com",
       emailFromName: "Elixir Drop",
       nameModelId: "model",

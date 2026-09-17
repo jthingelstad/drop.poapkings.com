@@ -90,8 +90,8 @@ vi.mock("../src/buttondown.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../src/jmap.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/jmap.js")>();
+vi.mock("../src/email.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/email.js")>();
   return { ...actual, sendMagicLink };
 });
 
@@ -197,7 +197,6 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
-    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";

@@ -53,7 +53,6 @@ describe("run authentication", () => {
     process.env.SESSION_SECRET = "test-session-secret";
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
-    process.env.FASTMAIL_JMAP_TOKEN = "test-jmap-token";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });

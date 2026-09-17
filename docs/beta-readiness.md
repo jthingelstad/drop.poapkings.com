@@ -18,8 +18,8 @@ npm run check:beta
 lint errors, TypeScript errors, dead files or dependencies, coverage regressions,
 a Chromium / Firefox / WebKit / iPhone-14 browser failure, build failures, a
 mismatched or unsettled AWS stack, invalid production CORS, anonymous gameplay,
-masked-email acceptance, a stale Clash Royale season clock, a broken Fastmail JMAP
-credential, or a website that points at the wrong API. (`CONTRIBUTING.md` →
+masked-email acceptance, a stale Clash Royale season clock, a broken SES
+sender, or a website that points at the wrong API. (`CONTRIBUTING.md` →
 "The quality gate" is the canonical description of the `verify` half.)
 
 Do not deploy around a failed gate. Fix the failure or make a deliberate,
