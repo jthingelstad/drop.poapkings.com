@@ -20,21 +20,21 @@ player API; **Elixir MCP** is the only sanctioned source of Clash Royale data
 
 Every other doc points back here instead of keeping its own copy of this list.
 
-| Doc                                                           | What it owns                                                                                                                    |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **`SPEC.md`**                                                 | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.                 |
-| **`GAMES.md`**                                                | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                                       |
-| **`CONTRIBUTING.md`**                                         | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                                     |
-| **`README.md`**                                               | Public overview + local-development entry point.                                                                                |
-| **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                                           |
-| **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                              |
-| **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped.               |
-| **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                                          |
-| **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                        |
-| **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                                            |
-| **`AGENT-TEAM/`**                                             | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.                  |
-| **`AGENT-TEAM/fair-play-policy.md`**                          | Durable Fair Play evidence, disposition, and visibility rubric.                                                                 |
-| **`AGENT-TEAM/scripts/player-updates.mjs`**                   | Lists and immediately publishes API-backed player Updates through the bounded IAM role.                                        |
+| Doc                                                           | What it owns                                                                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **`SPEC.md`**                                                 | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.   |
+| **`GAMES.md`**                                                | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                         |
+| **`CONTRIBUTING.md`**                                         | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                       |
+| **`README.md`**                                               | Public overview + local-development entry point.                                                                  |
+| **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                             |
+| **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                |
+| **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped. |
+| **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                            |
+| **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                          |
+| **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                              |
+| **`AGENT-TEAM/`**                                             | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.    |
+| **`AGENT-TEAM/fair-play-policy.md`**                          | Durable Fair Play evidence, disposition, and visibility rubric.                                                   |
+| **`AGENT-TEAM/scripts/player-updates.mjs`**                   | Lists and immediately publishes API-backed player Updates through the bounded IAM role.                           |
 
 ---
 
@@ -123,7 +123,13 @@ Every other doc points back here instead of keeping its own copy of this list.
   links keep that recognizable sender. The `poapkings.com` identity (DKIM,
   MAIL FROM `bounce.poapkings.com`) belongs to the elixir-mcp stack; Drop owns
   only its `elixir-drop` configuration set, whose bounce and complaint events
-  reach Drop's alarm topic. No open or click tracking. `drop@poapkings.com` is
+  reach Drop's alarm topic. No open or click tracking. The magic link is
+  transactional mail and carries no `List-Unsubscribe` by design (a code
+  someone just requested cannot be opted out of; Gmail/Yahoo bulk rules
+  exempt it). Drop sends nothing bulk from the API: digests go through
+  Buttondown, which owns unsubscribe. A future bulk send from the API would
+  need the one-click headers, as elixir-mcp's relay enforces for its kinds
+  (`docs/ENGINEERING.md` there). `drop@poapkings.com` is
   the monitored administrative and general-contact address for alarms, the
   delivery-canary recipient, privacy questions, and Fair Play disputes; it is
   read (never sent) over Fastmail JMAP by `AGENT-TEAM/scripts/mail-bug-reports.mjs`.
@@ -703,7 +709,6 @@ and Cleared final game results; naming the Free Pass recipient,
 awarding any prize, or sending broad communication still requires Jamie's authority.
 Grow Drop audits editorial quality weekly with silence as the default. There are no
 named releases.
-
 
 ## Elixir integration API
 
