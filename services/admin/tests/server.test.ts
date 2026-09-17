@@ -327,10 +327,37 @@ it("maps a profile correction to the separate audited account command", async ()
 });
 
 it("gives launchd the executable path required by the AWS credential process", async () => {
+  // The installer is an ESM operator script rather than part of the TS bundle.
+  // @ts-expect-error -- the JavaScript module carries its own runtime contract.
+  const installerModule = await import("../scripts/install-launchd.mjs");
+  const { renderPlist, stableNodeExecutable } = installerModule as {
+    renderPlist: (node: string) => string;
+    stableNodeExecutable: (executable: string, version: string) => string;
+  };
+  const stableNode = stableNodeExecutable(
+    "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+    "26.8.1",
+  );
+  expect(stableNode).toBe("/opt/homebrew/opt/node@24/bin/node");
+  expect(
+    stableNodeExecutable(
+      "/opt/homebrew/Cellar/node@24/24.20.0/bin/node",
+      "24.20.0",
+    ),
+  ).toBe("/opt/homebrew/opt/node@24/bin/node");
+  expect(() => stableNodeExecutable("/usr/local/bin/node", "26.8.1")).toThrow(
+    "requires Node 24",
+  );
+
   const installer = await readFile(
     new URL("../scripts/install-launchd.mjs", import.meta.url),
     "utf8",
   );
+  const plist = renderPlist(stableNode);
+  expect(plist).toContain(
+    "<string>/opt/homebrew/opt/node@24/bin/node</string>",
+  );
+  expect(plist).not.toContain("/Cellar/");
   expect(installer).toContain("<key>PATH</key>");
   expect(installer).toContain("${dirname(node)}:/opt/homebrew/bin");
   expect(installer).toContain("DROP_ADMIN_ACCOUNT_PROFILE");

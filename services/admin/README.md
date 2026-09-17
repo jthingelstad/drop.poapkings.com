@@ -43,8 +43,11 @@ npm run dev:admin
 ```
 
 Build both pieces with `npm run build:admin`. Install or refresh the fixed-host
-launch agent with `npm run install:admin`. The service defaults to port `8780`;
-the Vite dev server on `8781` proxies `/api` to it.
+launch agent with `npm run install:admin` under Node 24. On Homebrew hosts the
+installer records the stable `opt/node@24` executable instead of a versioned
+`Cellar` path, so a patch upgrade cannot strand the next launch. It fails closed
+if that stable executable is missing or is not Node 24. The service defaults to
+port `8780`; the Vite dev server on `8781` proxies `/api` to it.
 
 The managed host's AWS config keeps its remaining AWS capabilities visibly
 separate:
@@ -81,7 +84,7 @@ mode-0600 `.env` and send it only to the HTTPS API publish route.
 - Run evidence includes the exact retained transcript. Signed run tokens,
   authorization, raw account subjects, IP addresses, raw user agents, and the
   telemetry pepper never enter the browser response.
-- Its explicit `PATH` includes the installed Node 24 directory so the AWS
+- Its explicit `PATH` includes the stable installed Node 24 directory so the AWS
   profile's credential process works in launchd's otherwise minimal environment.
 - Private rationales remain in referee partitions and never become public
   player copy. Player-visible exclusion language continues to come from the
