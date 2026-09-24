@@ -622,6 +622,7 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /logs:CreateDelivery/);
     assert.match(bootstrap, /logs:PutDeliverySource/);
     assert.match(bootstrap, /logs:PutResourcePolicy/);
+    assert.match(bootstrap, /logs:CreateLogDelivery/);
     assert.match(bootstrap, /delivery-source:elixir-drop-\*/);
     assert.match(bootstrap, /cloudfront:AllowVendedLogDeliveryForResource/);
   });

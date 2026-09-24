@@ -246,6 +246,19 @@ async function ensureRole(
             Resource: "*",
           },
           {
+            // Vended logs: what API Gateway needs to write an HTTP API's
+            // access log to a log group. Resource-less by AWS's design.
+            Effect: "Allow",
+            Action: [
+              "logs:CreateLogDelivery",
+              "logs:GetLogDelivery",
+              "logs:UpdateLogDelivery",
+              "logs:DeleteLogDelivery",
+              "logs:ListLogDeliveries",
+            ],
+            Resource: "*",
+          },
+          {
             Effect: "Allow",
             Action: ["sns:*"],
             Resource: [`arn:aws:sns:${region}:${accountId}:elixir-drop-*`],
