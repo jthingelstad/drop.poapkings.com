@@ -1006,30 +1006,6 @@ Resources:
       FunctionResponseTypes:
         - ReportBatchItemFailures
 
-  EstimatedChargesAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-estimated-charges
-      AlarmDescription: >-
-        Account-wide estimated AWS charges passed the monthly comfort ceiling.
-        Requires billing alerts to be enabled once in the account (Billing
-        preferences → Receive CloudWatch billing alerts); the metric only
-        exists in us-east-1.
-      Namespace: AWS/Billing
-      MetricName: EstimatedCharges
-      Dimensions:
-        - Name: Currency
-          Value: USD
-      Statistic: Maximum
-      Period: 21600
-      EvaluationPeriods: 1
-      Threshold: 50
-      ComparisonOperator: GreaterThanThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
   ApiFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     DependsOn: AlarmTopic

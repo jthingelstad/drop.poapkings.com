@@ -61,7 +61,7 @@ prior API/web state. A DNS rollback to GitHub Pages is no longer maintained.
 The distribution uses CloudFront pay-as-you-go, S3 Standard, the existing HTTP
 API, and ACM. It adds no Route 53 hosted zone, load balancer, NAT gateway, WAF,
 Lambda@Edge, or CodePipeline. Existing API Gateway throttles, Lambda reserved
-concurrency, application rate limits, the billing alarm, and AWS Shield Standard
+concurrency, application rate limits, and AWS Shield Standard
 bound the initial risk.
 
 AWS WAF is the first optional upgrade if measured abuse justifies its standing
