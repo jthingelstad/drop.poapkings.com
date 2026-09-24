@@ -428,7 +428,7 @@ void describe("deployment parameters", () => {
     assert.match(template, /Service: delivery\.logs\.amazonaws\.com/);
 
     const recordFields = template.match(
-      /WebAccessLogDelivery:[\s\S]*?RecordFields:\s+([\s\S]*?)\n      Tags:/,
+      /WebAccessLogDelivery:[\s\S]*?RecordFields:\s+([\s\S]*?)\n\n/,
     )?.[1];
     assert.ok(recordFields);
     for (const field of [

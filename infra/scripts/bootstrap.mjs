@@ -31,6 +31,15 @@ const region = process.env.AWS_REGION || "us-east-1";
 const userName = "elixir-drop";
 const executionRoleName = "elixir-drop-cloudformation-execution";
 const stackName = "elixir-drop-prod";
+// Resources this script creates outside the stack carry the account tag
+// standard (projects-sysadmin docs/AWS-TAGS.md) with ManagedBy=repository.
+const repositoryTags = [
+  { Key: "Application", Value: "Elixir" },
+  { Key: "Project", Value: "elixir-drop" },
+  { Key: "Environment", Value: "production" },
+  { Key: "Repository", Value: "jthingelstad/drop.poapkings.com" },
+  { Key: "ManagedBy", Value: "repository" },
+];
 const retiredBridgeEnvironmentNames = new Set([
   "ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID",
   "ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY",
@@ -51,7 +60,7 @@ async function ensureUser(name) {
       await iam.send(
         new CreateUserCommand({
           UserName: name,
-          Tags: [{ Key: "application", Value: "elixir-drop" }],
+          Tags: repositoryTags,
         }),
       )
     ).User;
@@ -85,7 +94,7 @@ async function ensureRole(
               },
             ],
           }),
-          Tags: [{ Key: "application", Value: "elixir-drop" }],
+          Tags: repositoryTags,
         }),
       )
     ).Role;

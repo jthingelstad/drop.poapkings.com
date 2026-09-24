@@ -323,9 +323,6 @@ Resources:
                 aws:SourceAccount: !Ref AWS::AccountId
               ArnLike:
                 aws:SourceArn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*
-      Tags:
-        - Key: application
-          Value: elixir-drop
 
   ApiRole:
     Type: AWS::IAM::Role
@@ -2246,9 +2243,6 @@ Resources:
           AcmCertificateArn: !Ref WebCertificateArn
           MinimumProtocolVersion: TLSv1.2_2021
           SslSupportMethod: sni-only
-      Tags:
-        - Key: application
-          Value: elixir-drop
 
   WebAccessLogDeliverySource:
     Type: AWS::Logs::DeliverySource
@@ -2256,9 +2250,6 @@ Resources:
       Name: elixir-drop-web-access
       LogType: ACCESS_LOGS
       ResourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
-      Tags:
-        - Key: application
-          Value: elixir-drop
 
   WebAccessLogDeliveryDestination:
     Type: AWS::Logs::DeliveryDestination
@@ -2266,9 +2257,6 @@ Resources:
       Name: elixir-drop-web-access
       DestinationResourceArn: !GetAtt WebAccessLogGroup.Arn
       OutputFormat: json
-      Tags:
-        - Key: application
-          Value: elixir-drop
 
   WebAccessLogDelivery:
     Type: AWS::Logs::Delivery
@@ -2290,9 +2278,6 @@ Resources:
         - sc-content-type
         - cache-behavior-path-pattern
         - viewer-request-log-data
-      Tags:
-        - Key: application
-          Value: elixir-drop
 
   WebBucketPolicy:
     Type: AWS::S3::BucketPolicy

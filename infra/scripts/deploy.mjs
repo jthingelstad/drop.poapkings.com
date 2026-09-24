@@ -112,7 +112,13 @@ try {
     Parameters: parameters,
     Capabilities: ["CAPABILITY_NAMED_IAM"],
     RoleARN: process.env.ELIXIR_DROP_CFN_ROLE_ARN,
-    Tags: [{ Key: "application", Value: "elixir-drop" }],
+    Tags: [
+      { Key: "Application", Value: "Elixir" },
+      { Key: "Project", Value: "elixir-drop" },
+      { Key: "Environment", Value: "production" },
+      { Key: "Repository", Value: "jthingelstad/drop.poapkings.com" },
+      { Key: "ManagedBy", Value: "cloudformation" },
+    ],
   };
 
   if (exists) {
