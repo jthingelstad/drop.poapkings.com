@@ -20,11 +20,6 @@ Parameters:
   ButtondownNewsletterId:
     Type: String
     Default: ""
-  TinylyticsApiToken:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: Full-access API token used only by the API Lambda to publish authoritative Tinylytics events.
   UpdatesPublishToken:
     Type: String
     NoEcho: true
@@ -802,7 +797,6 @@ Resources:
           ELIXIR_DROP_SES_CONFIGURATION_SET: !Ref SenderConfigurationSet
           BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
           BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
-          TINYLYTICS_API_TOKEN: !Ref TinylyticsApiToken
           ELIXIR_DROP_UPDATES_PUBLISH_TOKEN: !Ref UpdatesPublishToken
           APP_URL: !Ref AppUrl
           ELIXIR_DROP_EMAIL_FROM: !Ref EmailFrom

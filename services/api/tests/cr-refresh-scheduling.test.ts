@@ -44,7 +44,6 @@ const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 const sendMagicLink = vi.hoisted(() => vi.fn());
-const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -98,11 +97,6 @@ vi.mock("../src/email.js", async (importOriginal) => {
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
   return { ...actual, requestCrProfileRefresh };
-});
-
-vi.mock("../src/tinylytics.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
-  return { ...actual, publishTinylyticsEvent };
 });
 
 import { handler } from "../src/handler.js";
@@ -199,7 +193,6 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.APP_URL = "https://drop.example";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
-    process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
@@ -239,15 +232,6 @@ describe("Clash Royale refresh scheduling", () => {
         clanTag: "J2RGCRVG",
         clanName: "POAP KINGS",
         lastSeasonPlayed: 133,
-      },
-    );
-    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
-      { apiToken: "tinylytics-key" },
-      expect.objectContaining({ rawPath: "/auth/redeem" }),
-      {
-        event: "account.login_completed",
-        value: "returning",
-        path: "/login",
       },
     );
   });
@@ -337,11 +321,6 @@ describe("Clash Royale refresh scheduling", () => {
       undefined,
     );
     expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
-    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
-      { apiToken: "tinylytics-key" },
-      expect.objectContaining({ rawPath: "/auth/request" }),
-      { event: "account.login_requested", path: "/login" },
-    );
   });
 
   it("removes both credential lookups when email delivery fails", async () => {
@@ -359,7 +338,6 @@ describe("Clash Royale refresh scheduling", () => {
       expect.any(String),
       expect.any(String),
     );
-    expect(publishTinylyticsEvent).not.toHaveBeenCalled();
   });
 
   it("carries the exact player-tag editor into the magic link", async () => {
@@ -758,7 +736,10 @@ describe("Clash Royale refresh scheduling", () => {
     });
   });
 
-  it("reads cached CR identity after a game without requesting a refresh", async () => {
+  it("reads cached CR identity for a new-season game without requesting a refresh", async () => {
+    // The first game of a season updates Buttondown, the one consumer of the
+    // cached snapshot on completion.
+    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
     repository.getCrWarClock.mockResolvedValue({
       crSeasonId: 134,
       sectionIndex: 1,

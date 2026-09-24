@@ -11,7 +11,6 @@ const repository = vi.hoisted(() => ({
   getProfile: vi.fn(),
   useRateLimit: vi.fn(),
 }));
-const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -20,11 +19,6 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-vi.mock("../src/tinylytics.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
-  return { ...actual, publishTinylyticsEvent };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -138,6 +132,5 @@ describe("idempotent run completion", () => {
       totalGames: 8,
       season: { id: 134 },
     });
-    expect(publishTinylyticsEvent).not.toHaveBeenCalled();
   });
 });

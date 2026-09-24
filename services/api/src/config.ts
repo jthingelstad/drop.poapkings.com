@@ -12,7 +12,6 @@ export interface Config {
   sesConfigurationSet: string;
   buttondownApiKey?: string;
   buttondownNewsletterId?: string;
-  tinylyticsApiToken?: string;
   // Shared only by the fixed host and this Lambda. It authorizes the one
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
@@ -78,7 +77,6 @@ export function getConfig(): Config {
       process.env.ELIXIR_DROP_SES_CONFIGURATION_SET?.trim() || "elixir-drop",
     buttondownApiKey,
     buttondownNewsletterId,
-    tinylyticsApiToken: process.env.TINYLYTICS_API_TOKEN?.trim() || undefined,
     updatesPublishToken:
       process.env.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN?.trim() || undefined,
     emailFrom: emailFrom(),

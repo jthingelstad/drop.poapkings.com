@@ -39,7 +39,6 @@ const PRESERVED_PARAMETERS = [
   ["AllowedOrigins", ["ELIXIR_DROP_ALLOWED_ORIGINS"]],
   ["ButtondownApiKey", ["BUTTONDOWN_API_KEY"]],
   ["ButtondownNewsletterId", ["BUTTONDOWN_NEWSLETTER_ID"]],
-  ["TinylyticsApiToken", ["TINYLYTICS_API_TOKEN"]],
   // The hub seam. Operator-owned like the rest: CI never carries the
   // service token, so these preserve rather than reset. Blanking
   // ElixirMcpKey would silently stop new players reaching the Elixir

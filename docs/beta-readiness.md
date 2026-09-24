@@ -53,8 +53,7 @@ state. Do not delete the DynamoDB table or CloudFormation stack as a rollback.
   `~/Library/Logs/elixir-drop-cr-bridge.log`; a war-clock relay should appear at
   least every five minutes and there should be no repeating error loop.
 - Confirm the private Discord `#drop-log` received the latest bridge start or
-  restart message and is receiving compact player-login and completed-game
-  events.
+  restart message and is receiving compact player-login events.
 - Confirm DynamoDB point-in-time recovery remains enabled. This protects the
   service data; it is not a reason to skip account-deletion testing.
 
@@ -76,8 +75,8 @@ Use a normal browser session and an email address that is not already signed in:
    appear without trophies, arena, experience level, or card levels.
 7. Sign out and back in. Confirm that login queues one player refresh and that
    ordinary page loads do not keep refreshing the tag.
-8. Confirm the private Discord log has compact login, CR-load, and completed-game
-   lines with the public player name but no email address.
+8. Confirm the private Discord log has a compact login line with the public
+   player name but no email address.
 9. Share that Surge run. Confirm the sheet carries a rendered card **and** a
    `#/r/<token>` link, that the link opens the run itself with the score as the
    button, and that sharing the same run again produces a different token.

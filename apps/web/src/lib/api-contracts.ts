@@ -389,6 +389,9 @@ const runCompletionFields = {
   // sent this; the browser dropped it, which left a held player watching a
   // recorded score never reach the leaderboard with nothing to explain why.
   underReview: z.optional(z.boolean()),
+  // Present only when the score beat the player's all-time best; the server
+  // owns that comparison and the browser reports it to Tinylytics.
+  personalBest: z.optional(z.literal(true)),
   totalGames: nonNegativeInteger,
   xp: nonNegativeInteger.default(0),
   // The per-run XP award (activity), so the summary can say "XP earned +N".

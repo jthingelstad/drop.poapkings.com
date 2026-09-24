@@ -279,13 +279,13 @@ name. `playerTag` remains an independent, unverified profile field.
 ## Discord events
 
 `ELIXIR_DROP_DISCORD_WEBHOOK_URL` is a server-only deployment secret. Successful
-magic-link redemption and completed games each post one compact text line with
-the useful player, progress, mode, score, and season context. Completed-game
-events also include the cached CR name, tag, and clan when attached; they never
-request a CR refresh. Session tokens, sign-in codes, magic links, IP addresses, verbose
-clients, and correlation IDs stay out of Discord; request/run IDs remain in
-CloudWatch logs. Delivery is best effort with a three-second timeout and never
-changes an otherwise successful API response.
+magic-link redemption posts one compact text line with the player's public
+name, new/returning status, game count, and CR tag. Completed games post
+nothing; usage is measured by the web app's Tinylytics. Session tokens, sign-in
+codes, magic links, IP addresses, verbose clients, and correlation IDs stay out
+of Discord; request/run IDs remain in CloudWatch logs. Delivery is best effort
+with a three-second timeout and never changes an otherwise successful API
+response.
 
 ## Release-news subscribers
 
@@ -343,22 +343,12 @@ npm run migrate:season-numbers --workspace=@elixir-drop/api
 npm run migrate:season-numbers --workspace=@elixir-drop/api -- --apply
 ```
 
-## Tinylytics product events
+## Tinylytics
 
-`TINYLYTICS_API_TOKEN` is an optional server-only full-access key for the active
-Elixir Drop Tinylytics property (numeric site ID `3445`). The browser continues
-to own page views and interaction intent. The API owns successful magic-link
-requests and redemptions, the first completed profile transition, recorded
-signed-in game completions, and conditional all-time personal bests. A recorded
-run retry replays its response without sending another event; guest outcomes
-remain browser-owned because guest runs are intentionally transient.
-
-API events contain only the event name, a low-cardinality value when useful,
-the credential-free product path, API Gateway's trusted client source IP, and
-the browser user-agent. They never include player/account identifiers, email,
-tags, scores, run/season IDs, tokens, transcripts, or referee data. Tinylytics
-delivery is best effort, has a one-second timeout and no retry, and never changes
-the API response.
+The API publishes no Tinylytics events and holds no Tinylytics credential; the
+browser owns all analytics (`SPEC.md` §7). A recorded completion returns
+`personalBest: true` when the conditional all-time projection improved, so the
+browser can report `game.personal_best` for signed-in players.
 
 ## Referee evidence
 

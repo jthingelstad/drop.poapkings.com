@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  completedGameWebhookPayload,
-  loginWebhookPayload,
-  publishDiscordEvent,
-} from "../src/discord.js";
+import { loginWebhookPayload, publishDiscordEvent } from "../src/discord.js";
 import type { PlayerProfile } from "../src/types.js";
 
 const profile: PlayerProfile = {
@@ -38,53 +34,12 @@ describe("Discord event notifications", () => {
   it("never derives Discord labels from a private email address", () => {
     const anonymousProfile = { ...profile, publicName: undefined };
 
-    expect(
-      loginWebhookPayload({ profile: anonymousProfile, newPlayer: true })
-        .content,
-    ).toContain("unnamed player");
-    expect(
-      completedGameWebhookPayload({
-        runId: "run-124",
-        mode: "practice",
-        score: 80,
-        seasonId: 134,
-        completedAt: "2026-07-18T12:01:00.000Z",
-        profile: anonymousProfile,
-      }).content,
-    ).not.toContain(anonymousProfile.email);
-  });
-
-  it("formats a completed game with player progress", () => {
-    const firstGameProfile = {
-      ...profile,
-      publicName: "Inferno Dragon Ace",
-      playerTag: "#20JJJ2CCRU",
-      totalGames: 1,
-    };
-    const completed = completedGameWebhookPayload({
-      runId: "run-123",
-      mode: "surge",
-      score: 67_299,
-      seasonId: 134,
-      completedAt: "2026-07-18T12:01:00.000Z",
-      profile: firstGameProfile,
-      crProfile: {
-        tag: "#20JJJ2CCRU",
-        status: "ready",
-        name: "King Thing",
-        clan: {
-          tag: "#P0QY",
-          name: "POAP KINGS",
-          badgeId: 16000000,
-        },
-        updatedAt: "2026-07-18T12:00:00.000Z",
-      },
-    });
-    expect(completed.content).toBe(
-      "🎮 Surge · 67.299s · Inferno Dragon Ace · King Thing (#20JJJ2CCRU) · POAP KINGS · 1 game · Season 134",
-    );
-    expect(completed.content).not.toContain("run-123");
-    expect(completed.content).not.toContain("troph");
+    const content = loginWebhookPayload({
+      profile: anonymousProfile,
+      newPlayer: true,
+    }).content;
+    expect(content).toContain("unnamed player");
+    expect(content).not.toContain(anonymousProfile.email);
   });
 
   it("posts JSON without allowing notification failures to escape", async () => {
@@ -128,14 +83,7 @@ describe("Discord event notifications", () => {
     const fetcher = vi.fn(async () => ({ ok: true, status: 204 }));
     await publishDiscordEvent(
       undefined,
-      completedGameWebhookPayload({
-        runId: "run-123",
-        mode: "survival",
-        score: 4,
-        seasonId: 134,
-        completedAt: "2026-07-18T12:02:00.000Z",
-        profile,
-      }),
+      loginWebhookPayload({ profile, newPlayer: false }),
       fetcher,
     );
     expect(fetcher).not.toHaveBeenCalled();

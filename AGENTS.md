@@ -646,9 +646,9 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon` and explicitly
   bridges credential-free hash routes into virtual page paths because Drop
   retains hash routing.
-  Browser events own interaction intent; `services/api/src/tinylytics.ts` sends authoritative
-  login/profile and recorded-game outcomes through the numeric property API. The two surfaces
-  must never emit the same logical occurrence.
+  The browser sends every event, including signed-in game completions and personal bests
+  (from the completion response's `personalBest` flag). The API holds no Tinylytics token
+  and publishes nothing.
   (kudos removed — the like button was only on game summaries and is gone)
 - Clan Ladder invitations are copy-only. Clan Chat gets personalized plain text
   with `DROP . POAPKINGS . COM` because its chat rejects URLs; Discord gets

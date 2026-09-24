@@ -583,8 +583,22 @@ describe('useGameRun', () => {
     expect(recordRecentRun).toHaveBeenCalledTimes(1)
     expect(onRecorded).toHaveBeenCalledTimes(1)
     expect(recordingNotice.value.state).toBe('saved')
-    expect(track).not.toHaveBeenCalledWith('game.completed', 'surge')
+    // The browser owns usage analytics: a signed-in game counts once it is
+    // recorded, and a personal best comes only from the server's verdict.
+    expect(track).toHaveBeenCalledWith('game.completed', 'surge')
     expect(track).not.toHaveBeenCalledWith('game.personal_best', 'surge')
+  })
+
+  it('complete() reports a signed-in personal best only when the server confirms it', async () => {
+    vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    vi.mocked(completeRun).mockResolvedValue({ ...acceptedResult('surge', 3_100), personalBest: true } as never)
+    const { api } = mountRun()
+    await flush()
+    await act(async () => {
+      await api().complete({ answers: [1] })
+    })
+    expect(track).toHaveBeenCalledWith('game.completed', 'surge')
+    expect(track).toHaveBeenCalledWith('game.personal_best', 'surge')
   })
 
   it('keeps a server-accepted run saved when applying local progress fails', async () => {

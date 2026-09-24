@@ -26,7 +26,6 @@ import {
 } from "../learning.js";
 import { generateNameOptions, isSafeGeneratedName } from "../names.js";
 import { signToken, verifyToken } from "../signing.js";
-import { publishTinylyticsEvent } from "../tinylytics.js";
 import { deletePlayerShareImages } from "../share-assets.js";
 import type {
   CrProfileSnapshot,
@@ -710,9 +709,6 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   }
   if (!Object.keys(updates).length)
     throw new HttpError(400, "No profile changes were provided.");
-  const previousProfile = changesIdentity
-    ? await repository.getProfile(session.sub)
-    : undefined;
   let profile = await repository.updateProfile(session.sub, updates);
   // The verified mark belongs to the one tag Elixir proved: a tag saved by
   // hand keeps it only if it is that tag.
@@ -734,38 +730,19 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? await repository.getCrProfile(profile.playerTag)
     : undefined;
-  const completedProfile =
-    changesIdentity &&
-    (!previousProfile?.favoriteCardId || !previousProfile.publicName) &&
-    Boolean(profile.favoriteCardId && profile.publicName);
-  await Promise.all([
-    updateButtondownSubscriberMetadata(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      profile.email,
-      buttondownPlayerMetadata(
-        profile,
-        config.appUrl,
-        crProfile,
-        updates.playerTag !== undefined || updates.clearPlayerTag === true,
-      ),
+  await updateButtondownSubscriberMetadata(
+    {
+      apiKey: config.buttondownApiKey,
+      newsletterId: config.buttondownNewsletterId,
+    },
+    profile.email,
+    buttondownPlayerMetadata(
+      profile,
+      config.appUrl,
+      crProfile,
+      updates.playerTag !== undefined || updates.clearPlayerTag === true,
     ),
-    completedProfile
-      ? publishTinylyticsEvent(
-          {
-            apiToken: config.tinylyticsApiToken,
-            webOriginToken: config.webOriginToken,
-          },
-          event,
-          {
-            event: "account.profile_completed",
-            path: "/profile",
-          },
-        )
-      : Promise.resolve(),
-  ]);
+  );
   const rankedAccess = await repository.rankedAccess(profile.playerId);
   const badgeResult = updates.playerTag
     ? await badgeSummary(

@@ -11,10 +11,6 @@ import {
   migrateBadgeCounters,
 } from "../badges.js";
 import {
-  completedGameWebhookPayload,
-  publishDiscordEvent,
-} from "../discord.js";
-import {
   buttondownPlayerMetadata,
   updateButtondownSubscriberMetadata,
 } from "../buttondown.js";
@@ -37,7 +33,6 @@ import {
 import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
 import { analyzeTimingEvidence } from "../timing-evidence.js";
-import { publishTinylyticsEvent } from "../tinylytics.js";
 import { deriveRunShareVisual } from "../share-visual.js";
 import type {
   Correlation,
@@ -521,11 +516,6 @@ async function recordSignedInRun(
   } catch {
     // Badge/bonus refresh is best-effort; retain the last confirmed profile.
   }
-  const crProfile = await completedGameCrProfile(
-    repository,
-    finalProfile,
-    automaticReviewReason,
-  );
   console.info(
     automaticReviewReason
       ? "Game completed under referee review"
@@ -538,68 +528,28 @@ async function recordSignedInRun(
       ...(automaticReviewReason ? { reviewReason: automaticReviewReason } : {}),
     },
   );
-  // Practice never reaches the clan feed. It is a private drill — no board, no
-  // XP, no record — and an endless session has no comparable number to post:
-  // one correct answer then quitting would broadcast "Practice · 100%".
   // Buttondown changes only on a player's first recorded game in a new Clash
   // Royale season. Later games produce no external metadata request; routine
   // profile/session sync and the weekly reconciliation repair a failed write.
-  await Promise.all([
-    buttondownSeasonChanged
-      ? updateButtondownSubscriberMetadata(
-          {
-            apiKey: config.buttondownApiKey,
-            newsletterId: config.buttondownNewsletterId,
-          },
-          finalProfile.email,
-          buttondownPlayerMetadata(
-            { ...finalProfile, lastSeasonPlayed: season.id },
-            config.appUrl,
-            crProfile,
-          ),
-        )
-      : Promise.resolve(),
-    !automaticReviewReason && run.mode !== "practice"
-      ? publishDiscordEvent(
-          config.discordWebhookUrl,
-          completedGameWebhookPayload({
-            runId: run.runId,
-            mode: run.mode,
-            score,
-            seasonId: season.id,
-            completedAt: result.completedAt,
-            profile: finalProfile,
-            crProfile,
-          }),
-        )
-      : Promise.resolve(),
-    publishTinylyticsEvent(
+  if (buttondownSeasonChanged) {
+    const crProfile = await completedGameCrProfile(
+      repository,
+      finalProfile,
+      automaticReviewReason,
+    );
+    await updateButtondownSubscriberMetadata(
       {
-        apiToken: config.tinylyticsApiToken,
-        webOriginToken: config.webOriginToken,
+        apiKey: config.buttondownApiKey,
+        newsletterId: config.buttondownNewsletterId,
       },
-      event,
-      {
-        event: "game.completed",
-        value: run.mode,
-        path: `/${run.mode}`,
-      },
-    ),
-    personalBest.improved
-      ? publishTinylyticsEvent(
-          {
-            apiToken: config.tinylyticsApiToken,
-            webOriginToken: config.webOriginToken,
-          },
-          event,
-          {
-            event: "game.personal_best",
-            value: run.mode,
-            path: `/${run.mode}`,
-          },
-        )
-      : Promise.resolve(),
-  ]);
+      finalProfile.email,
+      buttondownPlayerMetadata(
+        { ...finalProfile, lastSeasonPlayed: season.id },
+        config.appUrl,
+        crProfile,
+      ),
+    );
+  }
   return json(201, {
     accepted: true,
     runId: run.runId,
@@ -609,6 +559,9 @@ async function recordSignedInRun(
     ranked: run.ranked !== false,
     completedAt: result.completedAt,
     ...(automaticReviewReason ? { underReview: true } : {}),
+    // The browser reports usage to Tinylytics; only the server knows whether
+    // this recorded score beat the player's all-time best.
+    ...(personalBest.improved ? { personalBest: true } : {}),
     totalGames: result.totalGames,
     xp: finalProfile.xp ?? 0,
     xpEarned: xpAwards.reduce((total, award) => total + award.amount, 0),

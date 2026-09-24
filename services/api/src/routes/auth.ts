@@ -11,7 +11,6 @@ import { sendMagicLink } from "../email.js";
 import { isRecruiterInviteReference } from "../recruiter.js";
 import { isShareToken } from "../shares.js";
 import { refereeReviewStatus } from "../referee-status.js";
-import { publishTinylyticsEvent } from "../tinylytics.js";
 import {
   emailSubject,
   normalizeAuthReturnPath,
@@ -200,17 +199,6 @@ export async function requestMagicLink({
     await repository.deleteMagicLink(tokenHash, codeHash);
     throw error;
   }
-  await publishTinylyticsEvent(
-    {
-      apiToken: config.tinylyticsApiToken,
-      webOriginToken: config.webOriginToken,
-    },
-    event,
-    {
-      event: "account.login_requested",
-      path: "/login",
-    },
-  );
   return json(202, {
     ok: true,
     message:
@@ -400,25 +388,6 @@ export async function redeemMagicLink({
           login.profile.email,
           buttondownPlayerMetadata(login.profile, config.appUrl, snapshot),
         ),
-      ),
-      publishTinylyticsEvent(
-        {
-          apiToken: config.tinylyticsApiToken,
-          webOriginToken: config.webOriginToken,
-        },
-        event,
-        {
-          event: "account.login_completed",
-          value:
-            source === "elixir"
-              ? login.created
-                ? "elixir-new"
-                : "elixir-returning"
-              : login.created
-                ? "new"
-                : "returning",
-          path: "/login",
-        },
       ),
     ]);
   } catch (error) {

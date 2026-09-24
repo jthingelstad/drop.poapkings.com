@@ -28,7 +28,6 @@ const repository = vi.hoisted(() => ({
 }));
 const publishDiscordEvent = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
-const publishTinylyticsEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -60,11 +59,6 @@ vi.mock("../src/discord.js", async (importOriginal) => {
 vi.mock("../src/buttondown.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/buttondown.js")>();
   return { ...actual, updateButtondownSubscriberMetadata };
-});
-
-vi.mock("../src/tinylytics.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/tinylytics.js")>();
-  return { ...actual, publishTinylyticsEvent };
 });
 
 import { handler } from "../src/handler.js";
@@ -162,7 +156,7 @@ async function complete() {
 
 // A recorded run is the player's game. Everything after the completeRun
 // transaction — learning stats, the all-time projection, referee evidence, the
-// Discord card — is decoration, and none of it may take the game away.
+// Buttondown update — is decoration, and none of it may take the game away.
 describe("run completion side effects are best effort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -173,7 +167,6 @@ describe("run completion side effects are best effort", () => {
     process.env.APP_URL = "https://drop.example";
     process.env.BUTTONDOWN_API_KEY = "buttondown-key";
     process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
-    process.env.TINYLYTICS_API_TOKEN = "tinylytics-key";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
     repository.advanceLastSeasonPlayed.mockResolvedValue(false);
@@ -217,19 +210,13 @@ describe("run completion side effects are best effort", () => {
       totalGames: 5,
       xpEarned: expect.any(Number),
     });
-    expect(publishDiscordEvent).toHaveBeenCalledOnce();
-    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
-      { apiToken: "tinylytics-key" },
-      expect.objectContaining({ rawPath: "/runs/complete" }),
-      {
-        event: "game.completed",
-        value: "surge",
-        path: "/surge",
-      },
-    );
+    expect(result.body.personalBest).toBeUndefined();
+    // Games are counted by the browser's Tinylytics collector; the API posts
+    // nothing about a completed game to Discord.
+    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
-  it("publishes a personal best only when the all-time projection improves", async () => {
+  it("reports a personal best only when the all-time projection improves", async () => {
     repository.updateAllTimeBest.mockResolvedValue({
       improved: true,
       previousScore: 30_000,
@@ -238,15 +225,7 @@ describe("run completion side effects are best effort", () => {
     const result = await complete();
 
     expect(result.statusCode).toBe(201);
-    expect(publishTinylyticsEvent).toHaveBeenCalledWith(
-      { apiToken: "tinylytics-key" },
-      expect.objectContaining({ rawPath: "/runs/complete" }),
-      {
-        event: "game.personal_best",
-        value: "surge",
-        path: "/surge",
-      },
-    );
+    expect(result.body).toMatchObject({ accepted: true, personalBest: true });
   });
 
   it("records the run when the badge write fails", async () => {
@@ -258,7 +237,6 @@ describe("run completion side effects are best effort", () => {
     expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
     // No rungs come back, but the game itself is untouched.
     expect(result.body.earnedBadges).toBeUndefined();
-    expect(publishDiscordEvent).toHaveBeenCalledOnce();
   });
 
   it("records the run when the badge read fails", async () => {
@@ -387,10 +365,21 @@ describe("run completion side effects are best effort", () => {
     const result = await complete();
 
     expect(result.statusCode).toBe(201);
-    expect(publishDiscordEvent).toHaveBeenCalledOnce();
+    expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
   });
 
-  it("still announces the game when the Clash Royale snapshot cannot be read", async () => {
+  it("still updates Buttondown when the Clash Royale snapshot cannot be read", async () => {
+    repository.getCrWarClock.mockResolvedValue({
+      crSeasonId: 135,
+      sectionIndex: 3,
+      periodIndex: 25,
+      periodType: "warDay",
+      seasonStartsAt: "2026-08-03T10:00:00.000Z",
+      observedAt: new Date().toISOString(),
+      sourceClanTag: "#J2RGCRVG",
+      updatedAt: new Date().toISOString(),
+    });
+    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
     repository.getCrProfile.mockRejectedValue(
       new Error(`provider detail for ${profile.playerTag}`),
     );
@@ -398,8 +387,7 @@ describe("run completion side effects are best effort", () => {
     const result = await complete();
 
     expect(result.statusCode).toBe(201);
-    expect(publishDiscordEvent).toHaveBeenCalledOnce();
-    expect(publishDiscordEvent.mock.calls[0]?.[1]).toBeDefined();
+    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledOnce();
     expect(console.warn).toHaveBeenCalledWith(
       "Completed game CR profile lookup failed",
       { error: "Error" },
@@ -409,7 +397,7 @@ describe("run completion side effects are best effort", () => {
     expect(logged).not.toContain("provider detail");
   });
 
-  it("attaches the cached Clash Royale identity to the announcement", async () => {
+  it("attaches the cached Clash Royale identity to the Buttondown update", async () => {
     repository.getCrWarClock.mockResolvedValue({
       crSeasonId: 135,
       sectionIndex: 3,
@@ -475,6 +463,8 @@ describe("run completion side effects are best effort", () => {
       135,
     );
     expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
+    // The snapshot only feeds that Buttondown update, so it is not read.
+    expect(repository.getCrProfile).not.toHaveBeenCalled();
   });
 
   it("propagates a failed completeRun instead of pretending the game counted", async () => {
@@ -487,9 +477,9 @@ describe("run completion side effects are best effort", () => {
     const result = await complete();
 
     // Not an HttpError instance, so the handler reports a safe 500 — the point
-    // is that nothing downstream ran and nothing was announced.
+    // is that nothing downstream ran.
     expect(result.statusCode).toBeGreaterThanOrEqual(400);
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
+    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 });

@@ -35,9 +35,9 @@ const pendingEvents: PendingEvent[] = []
 let collectorReady = false
 
 // Tinylytics' browser collector records clicks on data-tinylytics-event nodes.
-// Programmatic browser-owned outcomes (a guest game completion or an accepted
-// install prompt) have no natural click node, so use a short-lived button as the
-// documented event bridge. The SPA collector's delegated listener sees the click.
+// Programmatic outcomes (a completed game or an accepted install prompt) have
+// no natural click node, so use a short-lived button as the documented event
+// bridge. The SPA collector's delegated listener sees the click.
 function fireTinylytics(event: TinyEvent, value?: TinyEventValue): void {
   try {
     const el = document.createElement('button')

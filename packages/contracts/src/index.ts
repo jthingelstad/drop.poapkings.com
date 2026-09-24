@@ -677,6 +677,9 @@ export interface CompletedRun {
   // The score was recorded but is excluded from public leaderboards pending a
   // Fair Play Referee decision. Automatic scorer flags are not final verdicts.
   underReview?: boolean;
+  // Present only when this recorded score beat the player's all-time best. The
+  // server owns that comparison; the browser reports it to Tinylytics.
+  personalBest?: true;
   totalGames: number;
   xp: number;
   // The exact sources that stacked on this completion. `xpEarned` remains in

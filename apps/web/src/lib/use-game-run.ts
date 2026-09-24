@@ -450,6 +450,8 @@ export function useGameRun<T extends GameMode>(mode: T, options?: GameRunOptions
     })
 
     try {
+      track('game.completed', result.mode)
+      if (result.personalBest) track('game.personal_best', result.mode)
       const seasonBest = recordSeasonBest(result)
       recordAllTimeBest(result)
       applyRunProgress(result)

@@ -325,48 +325,23 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("supplies and then preserves the server-only Tinylytics token", () => {
-    const supplied = deploymentParameters({
-      ...base,
-      environment: { TINYLYTICS_API_TOKEN: "tinylytics-key" },
-      stackExists: true,
-    });
-    assert.deepEqual(
-      supplied.find(
-        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
-      ),
-      {
-        ParameterKey: "TinylyticsApiToken",
-        ParameterValue: "tinylytics-key",
-      },
-    );
-
-    const preserved = deploymentParameters({ ...base, stackExists: true });
-    assert.deepEqual(
-      preserved.find(
-        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
-      ),
-      { ParameterKey: "TinylyticsApiToken", UsePreviousValue: true },
-    );
-    assert.match(
-      template,
-      /TinylyticsApiToken:\n {4}Type: String\n {4}NoEcho: true/,
-    );
-    assert.match(template, /TINYLYTICS_API_TOKEN: !Ref TinylyticsApiToken/);
-  });
-
-  void it("keeps Tinylytics disabled on stack creation without a token", () => {
-    const parameters = deploymentParameters({
-      ...base,
-      environment: requiredCreateEnvironment,
-      stackExists: false,
-    });
-    assert.equal(
-      parameters.some(
-        (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
-      ),
-      false,
-    );
+  void it("carries no Tinylytics token: usage analytics live in the browser", () => {
+    // The API stopped publishing server-side Tinylytics events. The parameter
+    // is gone from the template, so a deploy must not try to preserve it.
+    for (const stackExists of [true, false]) {
+      const parameters = deploymentParameters({
+        ...base,
+        environment: stackExists ? {} : requiredCreateEnvironment,
+        stackExists,
+      });
+      assert.equal(
+        parameters.some(
+          (parameter) => parameter.ParameterKey === "TinylyticsApiToken",
+        ),
+        false,
+      );
+    }
+    assert.doesNotMatch(template, /Tinylytics|TINYLYTICS/);
   });
 
   void it("omits Buttondown parameters on stack creation without credentials", () => {
