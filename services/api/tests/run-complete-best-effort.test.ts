@@ -26,7 +26,6 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-const publishDiscordEvent = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
@@ -50,11 +49,6 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-vi.mock("../src/discord.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/discord.js")>();
-  return { ...actual, publishDiscordEvent };
-});
 
 vi.mock("../src/buttondown.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/buttondown.js")>();
@@ -211,9 +205,6 @@ describe("run completion side effects are best effort", () => {
       xpEarned: expect.any(Number),
     });
     expect(result.body.personalBest).toBeUndefined();
-    // Games are counted by the browser's Tinylytics collector; the API posts
-    // nothing about a completed game to Discord.
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("reports a personal best only when the all-time projection improves", async () => {

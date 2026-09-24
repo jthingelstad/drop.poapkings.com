@@ -20,7 +20,6 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -37,11 +36,6 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-vi.mock("../src/discord.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/discord.js")>();
-  return { ...actual, publishDiscordEvent };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -186,7 +180,6 @@ describe("run integrity rejection", () => {
         integrityOutcome: "score_below_ui_floor",
       }),
     );
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("records a Rain run under the spawn-curve floor, scored and quarantined", async () => {
@@ -254,6 +247,5 @@ describe("run integrity rejection", () => {
       { wrongGuesses: 2, avgLatencyMs: 0 },
       "rain_answers_outrun_spawn_curve,completion_rate_above_ui_limit",
     );
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 });

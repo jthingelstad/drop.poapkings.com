@@ -59,7 +59,7 @@ type Season = ReturnType<typeof seasonForDate>;
 // The flow, in order: rate limit → identify the run → guest short-circuit →
 // ownership + replay + expiry → score (evidence on rejection) → integrity
 // verdict → record → best-effort follow-ups (learning stats, all-time best,
-// referee evidence, Discord).
+// referee evidence, Buttondown).
 export async function completeRun({ event, config, repository }: RouteContext) {
   const body = bodyOf(event);
   // Rate-limit per IP FIRST so a signed-out (guest) completion is covered
@@ -94,7 +94,7 @@ export async function completeRun({ event, config, repository }: RouteContext) {
   }
   // A guest run is scored (validated + computed) but never recorded: no
   // owner/session check, no integrity gate, no completeRun, XP, leaderboard,
-  // all-time, Discord, or learning stats. The run row simply TTL-expires.
+  // all-time, or learning stats. The run row simply TTL-expires.
   if (run.guest === true || claims.guest === true)
     return completeGuestRun(event, repository, config, run, body);
   // From here the run is a recorded, signed-in run: it requires a valid
@@ -841,8 +841,8 @@ async function updateLearningStats(
   }
 }
 
-// The Discord card shows linked Clash Royale identity — but never for a run
-// held for review, which is not announced at all.
+// Buttondown's season metadata carries the linked Clash Royale identity, but a
+// run held for review contributes none.
 async function completedGameCrProfile(
   repository: Repository,
   profile: PlayerProfile,

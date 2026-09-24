@@ -25,7 +25,6 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -45,11 +44,6 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-vi.mock("../src/discord.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/discord.js")>();
-  return { ...actual, publishDiscordEvent };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -323,16 +317,6 @@ describe("Practice completion", () => {
     // Both are gated on `ranked !== false`, which Practice never is.
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
-  });
-
-  // Practice is a private drill. An endless session has no comparable number to
-  // broadcast — one correct answer then quitting scores 100% — so it must never
-  // reach the clan feed.
-  it("never posts to the clan Discord feed", async () => {
-    const card = allCards[7]!;
-    await completePractice([{ cardId: card.id, guess: card.elixir }]);
-
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("rejects an answer for a card outside the signed deck", async () => {

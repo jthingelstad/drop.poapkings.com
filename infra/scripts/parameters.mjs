@@ -1,7 +1,6 @@
 const SECRET_PARAMETERS = [
   ["SessionSecret", "SESSION_SECRET"],
   ["TelemetryPepper", "TELEMETRY_PEPPER"],
-  ["DiscordWebhookUrl", "ELIXIR_DROP_DISCORD_WEBHOOK_URL"],
   ["WebOriginToken", "ELIXIR_DROP_WEB_ORIGIN_TOKEN"],
   ["UpdatesPublishToken", "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN"],
 ];

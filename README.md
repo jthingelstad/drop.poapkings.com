@@ -74,8 +74,7 @@ there is no server record for a link to point at.
   Room**, its loopback referee adapter, and a separate audited account-support
   adapter. It is never included in the public web deployment.
 - `services/api` — the TypeScript Lambda backend for email authentication,
-  player profiles, signed game runs, progression, seasonal leaderboards, and
-  notable Discord events.
+  player profiles, signed game runs, progression, and seasonal leaderboards.
 - `packages/contracts` and `packages/game-data` — shared TypeScript API contracts
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.

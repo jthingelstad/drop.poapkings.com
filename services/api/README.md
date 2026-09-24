@@ -26,9 +26,7 @@ Responsibilities in this release:
 - API-backed player Updates with bounded inline Markdown, a public JSON feed,
   archive, and RSS projection, plus one bearer-protected publication route;
 - per-mode best-score leaderboards driven by the live Clan Wars season clock,
-  plus an all-time board of each player's best-ever score per mode; and
-- best-effort Discord notifications for successful email-authenticated logins and every
-  server-validated completed game.
+  plus an all-time board of each player's best-ever score per mode.
 
 The API never calls the Clash Royale API. It reads recorded player data from
 Elixir MCP, with a hub-managed live fallback for a previously unseen tag. Saving
@@ -275,17 +273,6 @@ the web app.
 
 Changing a favorite card uses the same complete flow and replaces both card and
 name. `playerTag` remains an independent, unverified profile field.
-
-## Discord events
-
-`ELIXIR_DROP_DISCORD_WEBHOOK_URL` is a server-only deployment secret. Successful
-magic-link redemption posts one compact text line with the player's public
-name, new/returning status, game count, and CR tag. Completed games post
-nothing; usage is measured by the web app's Tinylytics. Session tokens, sign-in
-codes, magic links, IP addresses, verbose clients, and correlation IDs stay out
-of Discord; request/run IDs remain in CloudWatch logs. Delivery is best effort
-with a three-second timeout and never changes an otherwise successful API
-response.
 
 ## Release-news subscribers
 

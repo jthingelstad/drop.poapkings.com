@@ -20,7 +20,6 @@ const repository = vi.hoisted(() => ({
   saveCardStats: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
 }));
-const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -37,11 +36,6 @@ vi.mock("../src/repository.js", () => ({
     getCardStats = repository.getCardStats;
   },
 }));
-
-vi.mock("../src/discord.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/discord.js")>();
-  return { ...actual, publishDiscordEvent };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -220,12 +214,11 @@ describe("guest play", () => {
     expect(body.xp).toBeUndefined();
 
     // Nothing is recorded: no completion, no XP/history, no all-time best, no
-    // learning stats, no Discord, no profile read/write.
+    // learning stats, no profile read/write.
     expect(repository.completeRun).not.toHaveBeenCalled();
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
     expect(repository.saveCardStats).not.toHaveBeenCalled();
     expect(repository.getProfile).not.toHaveBeenCalled();
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("completes a guest Rain run, floor and all, and records NOTHING", async () => {

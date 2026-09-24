@@ -11,7 +11,6 @@ const base = {
 const requiredCreateEnvironment = {
   SESSION_SECRET: "session-secret",
   TELEMETRY_PEPPER: "telemetry-pepper",
-  ELIXIR_DROP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
   ELIXIR_DROP_WEB_ORIGIN_TOKEN: "private-origin-token",
   ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
     "updates-publish-token-with-at-least-32-characters",
@@ -206,7 +205,6 @@ void describe("deployment parameters", () => {
     for (const parameterKey of [
       "SessionSecret",
       "TelemetryPepper",
-      "DiscordWebhookUrl",
       "UpdatesPublishToken",
     ]) {
       assert.deepEqual(

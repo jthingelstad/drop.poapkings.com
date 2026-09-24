@@ -52,8 +52,6 @@ state. Do not delete the DynamoDB table or CloudFormation stack as a rollback.
 - Inspect the latest bridge log entries in
   `~/Library/Logs/elixir-drop-cr-bridge.log`; a war-clock relay should appear at
   least every five minutes and there should be no repeating error loop.
-- Confirm the private Discord `#drop-log` received the latest bridge start or
-  restart message and is receiving compact player-login events.
 - Confirm DynamoDB point-in-time recovery remains enabled. This protects the
   service data; it is not a reason to skip account-deletion testing.
 
@@ -75,14 +73,12 @@ Use a normal browser session and an email address that is not already signed in:
    appear without trophies, arena, experience level, or card levels.
 7. Sign out and back in. Confirm that login queues one player refresh and that
    ordinary page loads do not keep refreshing the tag.
-8. Confirm the private Discord log has a compact login line with the public
-   player name but no email address.
-9. Share that Surge run. Confirm the sheet carries a rendered card **and** a
+8. Share that Surge run. Confirm the sheet carries a rendered card **and** a
    `#/r/<token>` link, that the link opens the run itself with the score as the
    button, and that sharing the same run again produces a different token.
-10. Open your own link and confirm it credits nothing, then open it from a second
+9. Open your own link and confirm it credits nothing, then open it from a second
     device or network and confirm it counts once and only once on a refresh.
-11. Play one offline or guest run and confirm the summary offers **no** share
+10. Play one offline or guest run and confirm the summary offers **no** share
     control at all — absent, not disabled.
 
 Use a disposable account once per release candidate to verify account deletion:
@@ -106,8 +102,8 @@ browser:
 
 ## 6. Rollout and observation
 
-Invite a few clan members first. Watch `#drop-log`, CloudWatch alarms, the bridge
-log, mail delivery, and player feedback during the first session. Expand only
+Invite a few clan members first. Watch CloudWatch alarms, the bridge log, mail
+delivery, Tinylytics, and player feedback during the first session. Expand only
 after at least one fresh login, CR profile load, completed run, leaderboard
 entry, and season-clock update have all succeeded in production.
 

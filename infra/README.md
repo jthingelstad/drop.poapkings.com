@@ -53,8 +53,7 @@ campaign projection. Email is not in either write allowlist, and magic links,
 sessions, run/evidence bodies, scores, XP, deletes, and secrets are outside the
 role.
 
-The gitignored root `.env` also supplies
-`ELIXIR_DROP_DISCORD_WEBHOOK_URL`, `BUTTONDOWN_API_KEY`, and the explicit
+The gitignored root `.env` also supplies `BUTTONDOWN_API_KEY` and the explicit
 `BUTTONDOWN_NEWSLETTER_ID`. CloudFormation treats the credentials as `NoEcho`
 parameters and exposes them only to the Lambda runtime. Buttondown enrollment
 runs only after a player redeems a valid magic link; account deletion removes
@@ -148,7 +147,7 @@ the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
 repository secrets. Region, CloudFormation role, code bucket, and stack name are
 repository variables. The non-secret ACM ARN is another variable. The private
 CloudFront origin marker is a repository secret and Lambda-only configuration.
-Fastmail, session-signing, and Discord secrets stay in
+Fastmail and session-signing secrets stay in
 CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
 copying those application secrets into GitHub. The CI smoke step therefore
 reports its Fastmail JMAP probe as "not checked" — live mail verification runs

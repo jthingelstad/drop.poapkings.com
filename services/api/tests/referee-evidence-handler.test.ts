@@ -21,7 +21,6 @@ const repository = vi.hoisted(() => ({
   getCardStats: vi.fn(async () => ({})),
   putRefereeEvidence: vi.fn(),
 }));
-const publishDiscordEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -39,11 +38,6 @@ vi.mock("../src/repository.js", () => ({
     putRefereeEvidence = repository.putRefereeEvidence;
   },
 }));
-
-vi.mock("../src/discord.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/discord.js")>();
-  return { ...actual, publishDiscordEvent };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -256,7 +250,6 @@ describe("referee evidence write path", () => {
         reviewSignals: ["new_all_time_leader_pending_review"],
       }),
     );
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("holds a new season leader until the referee reviews it", async () => {
@@ -311,7 +304,6 @@ describe("referee evidence write path", () => {
         reviewSignals: ["new_season_leader_pending_review"],
       }),
     );
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("writes NO evidence for a guest completion", async () => {
@@ -404,7 +396,6 @@ describe("referee evidence write path", () => {
       runType: "ranked",
       integrityOutcome: "score_below_ui_floor",
     });
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("quarantines a scoreable scorer assumption for referee authority", async () => {
@@ -464,7 +455,6 @@ describe("referee evidence write path", () => {
         reviewSignals: ["end_time_outside_wall_clock"],
       }),
     );
-    expect(publishDiscordEvent).not.toHaveBeenCalled();
   });
 
   it("writes unscored evidence when no candidate score can be derived", async () => {

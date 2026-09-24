@@ -4,7 +4,6 @@ import {
   buttondownPlayerMetadata,
   enrollButtondownSubscriber,
 } from "../buttondown.js";
-import { loginWebhookPayload, publishDiscordEvent } from "../discord.js";
 import { badRequest, HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { sendMagicLink } from "../email.js";
@@ -364,32 +363,21 @@ export async function redeemMagicLink({
     sub: login.profile.sub,
     playerId: login.profile.playerId,
   });
-  // Side channels are best-effort: a Discord or CR hiccup must not fail a
+  // Side channels are best-effort: a Buttondown or CR hiccup must not fail a
   // login whose link is already spent.
   try {
     await repository.putRecruiterInviteAlias(login.profile);
     const crProfile = login.profile.playerTag
-      ? repository.getCrProfile(login.profile.playerTag)
-      : Promise.resolve(undefined);
-    await Promise.all([
-      publishDiscordEvent(
-        config.discordWebhookUrl,
-        loginWebhookPayload({
-          profile: login.profile,
-          newPlayer: login.created,
-        }),
-      ),
-      crProfile.then((snapshot) =>
-        enrollButtondownSubscriber(
-          {
-            apiKey: config.buttondownApiKey,
-            newsletterId: config.buttondownNewsletterId,
-          },
-          login.profile.email,
-          buttondownPlayerMetadata(login.profile, config.appUrl, snapshot),
-        ),
-      ),
-    ]);
+      ? await repository.getCrProfile(login.profile.playerTag)
+      : undefined;
+    await enrollButtondownSubscriber(
+      {
+        apiKey: config.buttondownApiKey,
+        newsletterId: config.buttondownNewsletterId,
+      },
+      login.profile.email,
+      buttondownPlayerMetadata(login.profile, config.appUrl, crProfile),
+    );
   } catch (error) {
     console.warn("Post-login side effects failed", {
       requestId: event.requestContext.requestId,

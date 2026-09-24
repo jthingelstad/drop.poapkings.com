@@ -18,7 +18,6 @@ export interface Config {
   emailFrom: string;
   emailFromName: string;
   nameModelId: string;
-  discordWebhookUrl?: string;
   // Private marker CloudFront overwrites onto origin requests. It lets the API
   // trust the viewer IP overwritten by the request function without trusting a
   // public forwarding header on direct execute-api requests.
@@ -84,8 +83,6 @@ export function getConfig(): Config {
     nameModelId:
       process.env.NAME_MODEL_ID?.trim() ||
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    discordWebhookUrl:
-      process.env.ELIXIR_DROP_DISCORD_WEBHOOK_URL?.trim() || undefined,
     webOriginToken:
       process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
     elixirMcpBaseUrl: (
