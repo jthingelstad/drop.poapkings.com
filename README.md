@@ -168,18 +168,21 @@ on the managed host (kept in its `.env`); a bare refresh would revert the
 snapshot to hotlinked CDN URLs, which the page CSP blocks for WebGL texture
 use and which reintroduces a CDN dependency for gameplay art.
 
-Drop reads Clash Royale data from Elixir MCP, the hub that records it, using
-Drop's own service token. Player enrichment is a `live_fetch`; the Clan Wars
-clock is `war_current` on the recorded source clan. The fixed-IP bridge and
-both SQS queues were retired 2026-09-06 — Drop no longer calls Supercell at
-runtime at all.
+Drop reads Clash Royale data from Elixir, the hub that records it, through
+Elixir's Integration REST API (`/api/v1`) with Drop's own integration key. The
+season clock is `GET /api/v1/game/clock`, Elixir's policy clock: season, week
+and day boundaries at 10:00 UTC, not an observation of any one clan's race. A
+player's profile is the recorded one at `GET /api/v1/players/{tag}`; when it is
+missing or more than six hours old, Drop asks for a fresh read with
+`POST /api/v1/profile-refreshes` and polls `/profile-refreshes/{id}`. A
+dedicated FIFO refresh worker makes these calls, so player requests never wait
+for the hub. The fixed-IP bridge and both SQS queues were retired 2026-09-06 —
+Drop no longer calls Supercell at runtime at all.
 
-The bridge also reads POAP KINGS' `/currentriverrace` and `/riverracelog` every
-five minutes. It sends CR's sequential season ID, section/week, period/day, and
-phase through the existing result queue. The API stores one current clock and
-uses it to partition completed runs, reset leaderboards, and show the current
-war week. The existing first-Monday 10:00 UTC calculation remains only as a
-fallback when the bridge clock is stale.
+The API stores one current clock and uses it to partition completed runs, reset
+leaderboards, and show the current war week; a clock job finalizes the old
+season before it caches the new one. The first-Monday 10:00 UTC calculation
+remains only as a fallback when no usable clock remains.
 
 ---
 

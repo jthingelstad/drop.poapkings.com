@@ -46,15 +46,21 @@ Every other doc points back here instead of keeping its own copy of this list.
    and `infra` owns cloud definitions. Do
    not import service implementation files directly across those boundaries.
 2. **Drop never calls the Clash Royale API.** Not the browser, not Lambda, not
-   any script. It reads Clash Royale data from **Elixir MCP**, the hub that
-   records that history, using Drop's own service token
-   (`services/api/src/elixir-mcp.ts`). Player enrichment is `live_fetch`; the
-   Clan Wars clock is `war_current` on the recorded source clan. Drop is a
-   downstream reader of that seam and never reaches into another app; the hub
-   never pushes into Drop. Returning-session enrichment and stale clock reads use
-   a dedicated FIFO refresh worker so player requests do not wait for the hub.
-   Clock jobs finalize the old season before advancing the cache; keep those
-   retries durable. The website still reads the committed
+   any script. It reads Clash Royale data from **Elixir**, the hub that records
+   that history, through Elixir's Integration REST API (`/api/v1`) with Drop's
+   own integration key (`services/api/src/elixir-mcp.ts`). The season clock is
+   `GET /api/v1/game/clock`, accepted only as `source: "policy"`
+   (`elixir-war-clock.ts`): 10:00 UTC boundaries, never one clan's observed
+   race. Player enrichment reads the recorded profile at
+   `GET /api/v1/players/{tag}` and, when it is missing or older than six hours,
+   requests `POST /api/v1/profile-refreshes` and polls
+   `/profile-refreshes/{id}` (`elixir-player.ts`). The contract is Elixir's;
+   "Elixir integration API" below points at it. Drop is a downstream reader of
+   that seam and never reaches into another app; the hub never pushes into
+   Drop. Returning-session enrichment and stale clock reads use a dedicated
+   FIFO refresh worker so player requests do not wait for the hub. Clock jobs
+   finalize the old season before advancing the cache; keep those retries
+   durable. The website still reads the committed
    `packages/game-data/cards.json` snapshot.
    The fixed-IP `cr-api-bridge`, both of its SQS queues, its IAM user and its
    Mac host were **retired 2026-09-06**. Do not reintroduce a direct Supercell
@@ -63,8 +69,9 @@ Every other doc points back here instead of keeping its own copy of this list.
    credential is for `apps/web/scripts/refresh-cards.mjs`, a manual, host-only
    script that regenerates the committed card snapshot. It is gitignored: never
    commit it, expose it to the browser, place it in CI, or put it in Lambda
-   configuration. The runtime credential Drop does hold is `ELIXIR_MCP_KEY`,
-   which reaches only the API Lambda.
+   configuration. The runtime credential Drop does hold is the Elixir
+   integration key `ELIXIR_INTEGRATION_KEY` (legacy `ELIXIR_MCP_KEY` kept for
+   rollback), which reaches only the API stack's Lambda functions.
 4. **The public website remains private S3 + CloudFront with hash routing.**
    Vite uses `base: '/'`; CloudFront routes `/api/*` to API Gateway and all other
    requests to the private bucket. The deploy build needs no secrets.
