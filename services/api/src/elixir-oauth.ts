@@ -3,22 +3,24 @@
 // This is a different seam from services/api/src/elixir-mcp.ts, which is
 // Drop the INTEGRATION reading the record with its own key. Here the person
 // signs in to Elixir and Drop holds their token for the length of one
-// callback: long enough to learn who they are (`/oauth/userinfo`, scope
-// account:email), which players are theirs (`elixir_my_players`) and, when
-// their Drop tag is not on their Elixir account yet, to add it
-// (`elixir_track_player`). Nothing here is stored; the token pair is
-// dropped when the callback ends (Jamie, 2026-09-12: re-check at sign-in,
-// never in the background).
+// callback: long enough to learn which players are theirs (`GET
+// /api/v1/me`), who they are (`/oauth/userinfo`, scope account:email) and,
+// when their Drop tag is not on their Elixir account yet, to add it (`POST
+// /api/v1/me/players`). Nothing here is stored; the token pair is dropped
+// when the callback ends (Jamie, 2026-09-12: re-check at sign-in, never in
+// the background).
 //
-// The contract is Elixir's public one: elixir.poapkings.com/docs/protocol.
-// `resource` is required at both steps (RFC 8707); PKCE is the proof, there
-// is no client secret.
+// Drop is a program, not an agent, so it reads Elixir's JSON API, not MCP
+// (Jamie, 2026-09-25; Elixir Clan did the same on 2026-09-23). The grant's
+// audience is `/api/v1`, and an MCP token would be refused there. The
+// contract is Elixir's public one: elixir.poapkings.com/docs/protocol and
+// /docs/integrations. `resource` is required at both steps (RFC 8707);
+// PKCE is the proof, there is no client secret.
 
 import { createHash, randomBytes } from "node:crypto";
 
 export const ELIXIR_SIGN_IN_SCOPE = "cr:read recordings:write account:email";
 const TIMEOUT_MS = 20_000;
-export const PRINCIPAL_META_KEY = "elixir.poapkings.com/principal";
 
 export interface ElixirTokens {
   accessToken: string;
@@ -82,7 +84,7 @@ export class ElixirOAuthClient {
   }
 
   get resource(): string {
-    return `${this.issuer}/mcp`;
+    return `${this.issuer}/api/v1`;
   }
 
   // The endpoints are the documented ones; discovery is not consulted at
@@ -197,110 +199,72 @@ export class ElixirOAuthClient {
     };
   }
 
-  private async rpc(
+  private async api(
     accessToken: string,
-    method: string,
-    params: unknown,
-  ): Promise<{ ok: true; result: unknown } | ElixirFailure> {
+    method: "GET" | "POST",
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<
+    | { ok: true; data: Record<string, unknown> }
+    | (ElixirFailure & { toolCode?: string })
+  > {
     let response: Response;
     try {
-      response = await this.fetchImpl(this.resource, {
-        method: "POST",
+      response = await this.fetchImpl(`${this.resource}${path}`, {
+        method,
         headers: {
           authorization: `Bearer ${accessToken}`,
-          "content-type": "application/json",
           accept: "application/json",
-          "mcp-protocol-version": "2025-06-18",
+          ...(body ? { "content-type": "application/json" } : {}),
         },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        ...(body ? { body: JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (error) {
       return { ok: false, code: "transport", detail: nameOf(error) };
     }
-    if (!response.ok)
+    const parsed = (await response.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
+    if (!response.ok) {
+      // A problem+json body: `code` is the closed error code, a person
+      // operation's being the tool's own (docs/integrations).
+      const toolCode =
+        typeof parsed?.code === "string" ? parsed.code : undefined;
       return {
         ok: false,
-        code: "elixir_unavailable",
-        detail: String(response.status),
-      };
-    const envelope = (await response.json().catch(() => null)) as {
-      result?: unknown;
-      error?: { code?: number; message?: string };
-    } | null;
-    if (!envelope || envelope.error)
-      return {
-        ok: false,
-        code: "elixir_unavailable",
-        detail: envelope?.error?.message,
-      };
-    return { ok: true, result: envelope.result };
-  }
-
-  // The gate's first fact: this is a PERSON's grant, not an agent's.
-  async initialize(accessToken: string): Promise<{ ok: true } | ElixirFailure> {
-    const answer = await this.rpc(accessToken, "initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "elixir-drop", version: "1" },
-    });
-    if (!answer.ok) return answer;
-    const meta = (answer.result as { _meta?: Record<string, unknown> })?._meta;
-    const principal = meta?.[PRINCIPAL_META_KEY] as
-      { kind?: string } | undefined;
-    if (principal?.kind !== "person")
-      return { ok: false, code: "not_a_person" };
-    return { ok: true };
-  }
-
-  private async callTool(
-    accessToken: string,
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<
-    | { ok: true; body: Record<string, unknown> }
-    | (ElixirFailure & { toolCode?: string })
-  > {
-    const answer = await this.rpc(accessToken, "tools/call", {
-      name,
-      arguments: args,
-    });
-    if (!answer.ok) return answer;
-    const result = answer.result as {
-      isError?: boolean;
-      content?: { text?: string }[];
-    };
-    const text = result?.content?.[0]?.text;
-    if (typeof text !== "string")
-      return { ok: false, code: "elixir_unavailable", detail: "no_content" };
-    let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      return { ok: false, code: "elixir_unavailable", detail: "non_json" };
-    }
-    if (result.isError) {
-      const err = body.error as { code?: string; message?: string } | undefined;
-      return {
-        ok: false,
-        code: "elixir_unavailable",
-        toolCode: err?.code,
-        detail: err?.message,
+        code:
+          response.status === 403 && toolCode === "insufficient_scope"
+            ? "insufficient_scope"
+            : "elixir_unavailable",
+        toolCode,
+        detail:
+          typeof parsed?.detail === "string"
+            ? parsed.detail
+            : String(response.status),
       };
     }
-    return { ok: true, body };
+    const data = parsed?.data;
+    if (!data || typeof data !== "object")
+      return { ok: false, code: "elixir_unavailable", detail: "no_data" };
+    return { ok: true, data: data as Record<string, unknown> };
   }
 
-  // The players that are the person: primary and alts, with whether Elixir
-  // has proven each. Friends and watched players are not "you" and are
-  // never offered.
+  // The gate's first fact and the players in one read: this is a PERSON's
+  // grant, and the players that are the person, primary and alts, with
+  // whether Elixir has proven each. Friends and watched players are not
+  // "you" and are never offered.
   async selfPlayers(
     accessToken: string,
   ): Promise<{ ok: true; players: ElixirSelfPlayer[] } | ElixirFailure> {
-    const answer = await this.callTool(accessToken, "elixir_my_players", {});
+    const answer = await this.api(accessToken, "GET", "/me");
     if (!answer.ok) return answer;
-    const rows = Array.isArray(answer.body.players)
-      ? (answer.body.players as Record<string, unknown>[])
+    const principal = answer.data.principal as { kind?: string } | undefined;
+    if (principal?.kind !== "person")
+      return { ok: false, code: "not_a_person" };
+    const rows = Array.isArray(answer.data.players)
+      ? (answer.data.players as Record<string, unknown>[])
       : [];
     const players: ElixirSelfPlayer[] = [];
     for (const row of rows) {
@@ -329,9 +293,8 @@ export class ElixirOAuthClient {
     accessToken: string,
     playerTag: string,
   ): Promise<{ ok: true } | (ElixirFailure & { toolCode?: string })> {
-    const answer = await this.callTool(accessToken, "elixir_track_player", {
+    const answer = await this.api(accessToken, "POST", "/me/players", {
       player_tag: playerTag,
-      action: "add",
       relationship: "alt",
     });
     return answer.ok ? { ok: true } : answer;

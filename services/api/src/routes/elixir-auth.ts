@@ -141,9 +141,10 @@ export async function elixirCallback(
   if (!exchanged.ok) return failTo(config.appUrl, exchanged.code);
   const token = exchanged.tokens.accessToken;
 
-  // Who, in order: a person (not an agent's grant), then the address.
-  const person = await client.initialize(token);
-  if (!person.ok) return failTo(config.appUrl, person.code);
+  // Who, in order: a person with their players (not an agent's grant),
+  // then the address.
+  let players = await client.selfPlayers(token);
+  if (!players.ok) return failTo(config.appUrl, players.code);
   const who = await client.userinfo(token);
   if (!who.ok) return failTo(config.appUrl, who.code);
 
@@ -159,11 +160,9 @@ export async function elixirCallback(
   const existing = await repository.getProfile(sub);
   const targetEmail = existing?.email ?? email;
 
-  // Which players are theirs, and: if Drop already shows a tag that is not
-  // on their Elixir account, add it there as an alt so it can be chosen
-  // (Jamie, 2026-09-12). A refusal is recorded, never fatal.
-  let players = await client.selfPlayers(token);
-  if (!players.ok) return failTo(config.appUrl, players.code);
+  // If Drop already shows a tag that is not on their Elixir account, add it
+  // there as an alt so it can be chosen (Jamie, 2026-09-12). A refusal is
+  // recorded, never fatal.
   let trackRefused: string | undefined;
   const dropTag = existing?.playerTag;
   if (dropTag && !players.players.some((p) => p.playerTag === dropTag)) {

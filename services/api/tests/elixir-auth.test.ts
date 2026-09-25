@@ -99,7 +99,7 @@ function fakeElixir(script: {
     if (url.endsWith("/oauth/token")) {
       calls.push("token");
       const form = new URLSearchParams(sent);
-      expect(form.get("resource")).toBe("https://elixir.test/mcp");
+      expect(form.get("resource")).toBe("https://elixir.test/api/v1");
       expect(form.get("code_verifier")).toBeTruthy();
       return answer(200, {
         access_token: "eat_1",
@@ -119,86 +119,53 @@ function fakeElixir(script: {
         kind: "person",
       });
     }
-    if (url.endsWith("/mcp")) {
-      const rpc = JSON.parse(sent) as {
-        method: string;
-        params: { name?: string; arguments?: Record<string, unknown> };
-      };
-      if (rpc.method === "initialize") {
-        calls.push("initialize");
-        return answer(200, {
-          jsonrpc: "2.0",
-          id: 1,
-          result: {
-            _meta: {
-              "elixir.poapkings.com/principal": {
-                kind: script.kind ?? "person",
-              },
-            },
-          },
-        });
-      }
-      calls.push(rpc.params.name ?? "?");
-      if (rpc.params.name === "elixir_my_players")
-        return answer(200, {
-          jsonrpc: "2.0",
-          id: 1,
-          result: {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ players: script.players ?? [] }),
-              },
-            ],
-          },
-        });
-      if (rpc.params.name === "elixir_track_player") {
-        if (script.trackOk === false)
-          return answer(200, {
-            jsonrpc: "2.0",
-            id: 1,
-            result: {
-              isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    error: { code: "quota_exceeded", message: "full" },
-                  }),
-                },
-              ],
-            },
-          });
-        script.players = [
-          ...(script.players ?? []),
-          {
-            player_tag: rpc.params.arguments?.player_tag,
-            name: "Added",
-            relationship: "alt",
-            is_primary: false,
-            claim_status: "unverified",
-          },
-        ];
-        return answer(200, {
-          jsonrpc: "2.0",
-          id: 1,
-          result: { content: [{ type: "text", text: "{}" }] },
-        });
-      }
+    const problem = (status: number, code: string) =>
+      new Response(
+        JSON.stringify({
+          type: "about:blank",
+          title: code,
+          status,
+          code,
+          detail: code,
+          request_id: "00000000-0000-4000-8000-000000000000",
+        }),
+        {
+          status,
+          headers: { "content-type": "application/problem+json" },
+        },
+      );
+    if (url.endsWith("/api/v1/me") && (init?.method ?? "GET") === "GET") {
+      calls.push("me");
       return answer(200, {
-        jsonrpc: "2.0",
-        id: 1,
-        result: {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: { code: "not_found" } }),
-            },
-          ],
+        request_id: "r",
+        data: {
+          principal: { kind: script.kind ?? "person" },
+          players: script.players ?? [],
         },
       });
     }
+    if (url.endsWith("/api/v1/me/players") && init?.method === "POST") {
+      calls.push("track");
+      const request = JSON.parse(sent) as Record<string, unknown>;
+      expect(request).toEqual({
+        player_tag: request.player_tag,
+        relationship: "alt",
+      });
+      if (script.trackOk === false) return problem(429, "daily_quota_exceeded");
+      script.players = [
+        ...(script.players ?? []),
+        {
+          player_tag: request.player_tag,
+          name: "Added",
+          relationship: "alt",
+          is_primary: false,
+          claim_status: "unverified",
+          recording: "active",
+        },
+      ];
+      return answer(200, { request_id: "r", data: { added: true } });
+    }
+    if (url.includes("/api/v1/")) return problem(404, "not_found");
     throw new Error(`unexpected ${url}`);
   }) as typeof fetch;
   return {
@@ -392,12 +359,7 @@ describe("sign in with Elixir", () => {
     expect(link?.playerTag).toBe("#20JJJ2CCRU");
     expect(link?.verified).toBe(true);
     expect(link?.candidates.map((c) => c.playerTag)).toEqual(["#20JJJ2CCRU"]);
-    expect(fake.calls).toEqual([
-      "token",
-      "initialize",
-      "userinfo",
-      "elixir_my_players",
-    ]);
+    expect(fake.calls).toEqual(["token", "me", "userinfo"]);
   });
 
   it("callback for an existing account with the same email: linked in place, verified mark on", async () => {
@@ -439,14 +401,7 @@ describe("sign in with Elixir", () => {
       },
       fake.client,
     );
-    expect(fake.calls).toEqual([
-      "token",
-      "initialize",
-      "userinfo",
-      "elixir_my_players",
-      "elixir_track_player",
-      "elixir_my_players",
-    ]);
+    expect(fake.calls).toEqual(["token", "me", "userinfo", "track", "me"]);
     const link = repo.must(sub).elixir!;
     // The Drop tag is now among the candidates, so it stays the choice.
     expect(link.candidates.map((c) => c.playerTag)).toEqual([

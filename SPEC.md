@@ -1271,9 +1271,12 @@ Saved CR tags remain optional and unverified **unless Elixir has proven them**
 Email-code sign-in is the always-available path; Elixir sign-in is an
 addition. Drop is a public OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
-button). The grant is `cr:read recordings:write account:email`: the last is the
-one Elixir capability never offered unasked, and `GET /oauth/userinfo` answers
-the email Elixir already proved with its code. That email resolves to exactly
+button). The grant is `cr:read recordings:write account:email` for Elixir's
+JSON API (`resource` `/api/v1`, 2026-09-25: Drop is a program, not an agent,
+so it reads the JSON API, never MCP). `account:email` is offered only to the
+Elixir family's own apps (every redirect on a family origin), and `GET
+/oauth/userinfo` answers the email Elixir already proved with its code, with
+the account id as `sub`. That email resolves to exactly
 the Drop account a magic link would (`sub = sha256(email)`): no merging, and a
 player who first signed in with Elixir can still sign in by email afterwards.
 
@@ -1281,10 +1284,10 @@ Flow: `POST /auth/elixir/start` (optional session bearer) stores
 `ELIXIR_LOGIN#{state}` (PKCE verifier, return path, poll id, `linkSub`; ten
 minutes, single use) and answers the Elixir URL; the browser leaves for consent
 (a two-step form, the code typed on the page). `GET /auth/elixir/callback`
-exchanges the code, requires a **person** principal, reads userinfo and
-`elixir_my_players`, adds a Drop-saved tag that is not on the Elixir account as
-an alt (`elixir_track_player`; a refusal is recorded as `trackRefused`, never
-fatal), writes the connection, mints a **proven magic link** (`MAGIC#` with
+exchanges the code, reads `GET /api/v1/me` (which must name a **person**
+principal, and lists the account's players), reads userinfo, adds a Drop-saved
+tag that is not on the Elixir account as an alt (`POST /api/v1/me/players`; a
+refusal is recorded as `trackRefused`, never fatal), writes the connection, mints a **proven magic link** (`MAGIC#` with
 `source: "elixir"`, a random never-mailed code) and 303s to `/#/auth?token=…&via=elixir`,
 which redeems on arrival. The existing `/auth/poll` handoff covers an installed
 PWA whose chain finished in another browsing context. A browser that started
