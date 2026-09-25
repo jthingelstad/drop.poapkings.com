@@ -83,6 +83,7 @@ Resources:
     Properties:
       TableName: elixir-drop
       BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
