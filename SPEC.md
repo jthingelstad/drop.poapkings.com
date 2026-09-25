@@ -169,8 +169,11 @@ Normalization rules:
   survives in the snapshot if someone runs the refresh without that flag, which
   is exactly the mistake the refresh model above guards against.
 
-The API reference under `docs/cr-agent-api-docs/` is the source material for
-these assumptions.
+The standalone Clash Royale API reference,
+[cr-agent-api-docs](https://github.com/jthingelstad/cr-agent-api-docs) (its
+[`cards.md`](https://github.com/jthingelstad/cr-agent-api-docs/blob/main/cards.md)
+in particular), is the source material for these assumptions. Drop keeps no
+copy of it.
 
 ---
 

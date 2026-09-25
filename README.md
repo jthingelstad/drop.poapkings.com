@@ -256,8 +256,10 @@ elixir-drop/
    └─ referee-visibility.md  # what each surface shows about a reviewed run
 ```
 
-The Clash Royale API reference under `docs/cr-agent-api-docs/` is source material
-for the static card refresher and bridge normalization; it is not an API design.
+The Clash Royale API reference is the standalone
+[cr-agent-api-docs](https://github.com/jthingelstad/cr-agent-api-docs) repository,
+not a copy kept here; it is source material for the static card refresher, not
+an API design.
 The Clash Royale screenshots under `docs/clash-royale-screenshots/` are visual
 reference for the shared card chrome, not runtime assets.
 
