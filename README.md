@@ -194,8 +194,9 @@ serialized `.github/workflows/deploy.yml`: API-only work deploys and smokes only
 the Lambda, while web/shared work updates the API's referee version, smokes it,
 rebuilds against the stack endpoint, and then publishes to private S3 behind
 CloudFront. Test-only and
-fixed-host changes do not republish unrelated public surfaces. The exhaustive
-four-browser matrix runs on pull requests, manually, and daily in `verify.yml`.
+fixed-host changes do not republish unrelated public surfaces. Pull requests
+get the same gate in `verify.yml`; the exhaustive four-browser matrix runs
+there manually and daily.
 
 The website uses the custom domain `drop.poapkings.com` on CloudFront:
 
@@ -245,7 +246,7 @@ elixir-drop/
 │  └─ game-data/             # canonical cards.json snapshot
 ├─ infra/                    # CloudFormation and SDK deployment scripts
 ├─ package.json              # npm workspace commands
-├─ .github/workflows/        # main validation/deploy + exhaustive PR/daily verification
+├─ .github/workflows/        # main validation/deploy + PR gate and daily exhaustive verification
 ├─ AGENT-TEAM/               # scheduled and on-demand maintainer role prompts
 ├─ AGENTS.md                 # agent entry point + the canonical doc map
 ├─ AGENTS.md                 # agent working guide: golden rules and architecture

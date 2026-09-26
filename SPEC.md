@@ -1037,7 +1037,7 @@ project and is not endorsed by Supercell.
 each change-specific local command runs and where CI runs it. In short:
 `validate-main.yml` provides the cancelable per-push gate,
 `deploy.yml` promotes only a successful exact head, and `verify.yml` supplies
-the exhaustive pull-request/manual/daily matrix. The static build is uploaded
+the pull-request gate and the exhaustive manual/daily matrix. The static build is uploaded
 from `apps/web/dist/` to private S3 only after its required gate and API boundary
 pass, then CloudFront is invalidated and smoked.
 

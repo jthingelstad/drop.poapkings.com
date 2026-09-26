@@ -724,7 +724,8 @@ named releases.
 
 Since 2026-09-26, `main` takes only pull requests, merged on a green
 `validate` check (`.github/workflows/verify.yml`: non-browser verification, the
-workflow lint and the four-engine Playwright matrix). There is no bypass,
+workflow lint, two Chromium shards and the cross-browser deploy smoke; the
+exhaustive four-engine matrix runs daily). There is no bypass,
 Jamie's account included; the agents push as it.
 
 - `git switch -c <objective>/<slug>` before the first edit (`session/<slug>`

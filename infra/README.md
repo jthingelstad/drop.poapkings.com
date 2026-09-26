@@ -158,8 +158,8 @@ copying those application secrets into GitHub. The CI smoke step therefore
 reports its Fastmail JMAP probe as "not checked" — live mail verification runs
 from the fixed host via `npm run check:beta`. (If a
 `ELIXIR_DROP_FASTMAIL_JMAP_TOKEN` repository secret still exists from an earlier
-setup, delete it.) Pull requests and the daily exhaustive browser regression run
-through `.github/workflows/verify.yml` with no secrets at all — fork-safe by
+setup, delete it.) The pull-request gate and the daily exhaustive browser regression
+run through `.github/workflows/verify.yml` with no secrets at all — fork-safe by
 construction.
 
 The first stack creation and any intentional secret rotation remain local
