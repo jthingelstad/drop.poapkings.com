@@ -117,7 +117,7 @@ the direct endpoint used by local development.
 
 ## Continuous deployment
 
-Every push to `main` first runs `.github/workflows/validate-main.yml`: a
+Every merge to `main` first runs `.github/workflows/validate-main.yml`: a
 high-severity `npm audit`, non-browser verification, and—when browser code can
 change—the sharded Chromium suite plus the tagged cross-browser deployment
 smoke. Validation is safe to cancel when a newer push arrives; the replacement
@@ -142,9 +142,14 @@ not invent a new S3 key or force a Lambda publication, and CloudFormation's
 `version.json`; stale tabs poll the web-host-owned manifest rather than treating
 player API reachability as a web-version signal.
 
-GitHub Actions receives only the limited `elixir-drop` IAM deploy-user key through
-the `ELIXIR_DROP_AWS_ACCESS_KEY_ID` and `ELIXIR_DROP_AWS_SECRET_ACCESS_KEY`
-repository secrets. Region, CloudFormation role, code bucket, and stack name are
+GitHub Actions holds no AWS key (2026-09-26). The promotion job runs in the
+`production` environment, which admits only `main` with no admin bypass, and
+assumes the `elixir-drop-github-deploy` role with GitHub's OIDC token
+(`ELIXIR_DROP_DEPLOY_ROLE_ARN` variable). The role trusts only this repository's
+`production` environment (`infra/scripts/deploy-identity.mjs`, created by
+`bootstrap.mjs`) and carries the `elixir-drop-deployment` grant. The
+`elixir-drop` user and its `.env` key remain for the Control Room's referee
+role only. Region, CloudFormation role, code bucket, and stack name are
 repository variables. The non-secret ACM ARN is another variable. The private
 CloudFront origin marker is a repository secret and Lambda-only configuration.
 Fastmail and session-signing secrets stay in
@@ -158,7 +163,10 @@ through `.github/workflows/verify.yml` with no secrets at all — fork-safe by
 construction.
 
 The first stack creation and any intentional secret rotation remain local
-`npm run deploy:api` operations using the mode-0600 root `.env`.
+`npm run deploy:api` operations, run as `AWS_PROFILE=cloud-engineer` with the
+mode-0600 root `.env` supplying settings (never its AWS key). A local deploy
+refuses unless the checkout equals `origin/main` and its tree passed
+`validate`; `--break-glass` skips that check for an outage.
 
 CloudFormation owns the private web origin and CloudFront distribution as well
 as the API, refresh queue and worker, and retained season-repair channel. The

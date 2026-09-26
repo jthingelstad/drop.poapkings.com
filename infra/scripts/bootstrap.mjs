@@ -8,6 +8,7 @@ import {
   ListAccessKeysCommand,
   PutRolePolicyCommand,
   PutUserPolicyCommand,
+  UpdateAssumeRolePolicyCommand,
 } from "@aws-sdk/client-iam";
 import {
   CreateBucketCommand,
@@ -21,12 +22,17 @@ import { chmod, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEPLOYMENT_POLICY,
+  DEPLOY_ROLE,
+  deploymentPolicyFor,
+  githubDeployTrustFor,
+} from "./deploy-identity.mjs";
 import { loadEnv, serializeEnv } from "./env.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
 const envPath = resolve(repoRoot, ".env");
-const sourceEnvPath = resolve(repoRoot, "..", "elixir-bot", ".env");
 const region = process.env.AWS_REGION || "us-east-1";
 const userName = "elixir-drop";
 const executionRoleName = "elixir-drop-cloudformation-execution";
@@ -398,16 +404,14 @@ const accountId = identity.Account;
 const bucketName = `elixir-drop-deploy-${accountId}-${region}`;
 const webBucketName = `elixir-drop-web-${accountId}-${region}`;
 const shareBucketName = `elixir-drop-share-${accountId}-${region}`;
-const [existingEnv, sourceEnv] = await Promise.all([
-  loadEnv(envPath).catch(() => ({})),
-  loadEnv(sourceEnvPath).catch(() => ({})),
-]);
-const jmapToken =
-  existingEnv.FASTMAIL_JMAP_TOKEN || sourceEnv.FASTMAIL_JMAP_TOKEN;
+// elixir-bot's .env was the fallback source for these until it retired
+// (2026-09-26); Drop's own .env holds them.
+const existingEnv = await loadEnv(envPath).catch(() => ({}));
+const jmapToken = existingEnv.FASTMAIL_JMAP_TOKEN;
 if (!jmapToken)
-  throw new Error(`FASTMAIL_JMAP_TOKEN was not found in ${sourceEnvPath}`);
-const crApiKey = existingEnv.CR_API_KEY || sourceEnv.CR_API_KEY;
-if (!crApiKey) throw new Error(`CR_API_KEY was not found in ${sourceEnvPath}`);
+  throw new Error(`FASTMAIL_JMAP_TOKEN was not found in ${envPath}`);
+const crApiKey = existingEnv.CR_API_KEY;
+if (!crApiKey) throw new Error(`CR_API_KEY was not found in ${envPath}`);
 
 await ensureUser(userName);
 const role = await ensureRole(
@@ -419,69 +423,43 @@ const role = await ensureRole(
 if (!role?.Arn) throw new Error("CloudFormation execution role has no ARN");
 await ensureBucket(bucketName);
 
-await iam.send(
-  new PutUserPolicyCommand({
-    UserName: userName,
-    PolicyName: "elixir-drop-deployment",
-    PolicyDocument: JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "cloudformation:CreateStack",
-            "cloudformation:DescribeStackEvents",
-            "cloudformation:DescribeStacks",
-            "cloudformation:UpdateStack",
-          ],
-          Resource: `arn:aws:cloudformation:${region}:${accountId}:stack/${stackName}/*`,
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "s3:GetObject",
-            "s3:GetObjectVersion",
-            "s3:ListBucket",
-            "s3:PutObject",
-          ],
-          Resource: [
-            `arn:aws:s3:::${bucketName}`,
-            `arn:aws:s3:::${bucketName}/*`,
-          ],
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "s3:DeleteObject",
-            "s3:GetObject",
-            "s3:ListBucket",
-            "s3:PutObject",
-          ],
-          Resource: [
-            `arn:aws:s3:::${webBucketName}`,
-            `arn:aws:s3:::${webBucketName}/*`,
-          ],
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "cloudfront:CreateInvalidation",
-            "cloudfront:GetInvalidation",
-          ],
-          Resource: `arn:aws:cloudfront::${accountId}:distribution/*`,
-        },
-        {
-          Effect: "Allow",
-          Action: "iam:PassRole",
-          Resource: role.Arn,
-          Condition: {
-            StringEquals: {
-              "iam:PassedToService": "cloudformation.amazonaws.com",
-            },
-          },
-        },
-      ],
+// CI deploys as elixir-drop-github-deploy through GitHub's OIDC token
+// (2026-09-26); the elixir-drop user keeps only the referee grant below.
+const deploymentPolicy = JSON.stringify(
+  deploymentPolicyFor({
+    region,
+    accountId,
+    stackName,
+    bucketName,
+    webBucketName,
+    executionRoleArn: role.Arn,
+  }),
+);
+try {
+  await iam.send(new GetRoleCommand({ RoleName: DEPLOY_ROLE }));
+  await iam.send(
+    new UpdateAssumeRolePolicyCommand({
+      RoleName: DEPLOY_ROLE,
+      PolicyDocument: JSON.stringify(githubDeployTrustFor(accountId)),
     }),
+  );
+} catch (error) {
+  if (error?.name !== "NoSuchEntityException") throw error;
+  await iam.send(
+    new CreateRoleCommand({
+      RoleName: DEPLOY_ROLE,
+      Description: "GitHub Actions deploys of jthingelstad/drop.poapkings.com",
+      AssumeRolePolicyDocument: JSON.stringify(githubDeployTrustFor(accountId)),
+      MaxSessionDuration: 3600,
+      Tags: repositoryTags,
+    }),
+  );
+}
+await iam.send(
+  new PutRolePolicyCommand({
+    RoleName: DEPLOY_ROLE,
+    PolicyName: DEPLOYMENT_POLICY,
+    PolicyDocument: deploymentPolicy,
   }),
 );
 
@@ -552,7 +530,9 @@ const values = {
 await writeFile(envPath, serializeEnv(values), { mode: 0o600 });
 await chmod(envPath, 0o600);
 
-console.log(`AWS bootstrap is ready for IAM user ${userName}.`);
+console.log(
+  `AWS bootstrap is ready: CI role ${DEPLOY_ROLE} (GitHub variable ELIXIR_DROP_DEPLOY_ROLE_ARN), Control Room user ${userName}.`,
+);
 console.log(
   `Deployment configuration was written to ${envPath} with mode 0600; no secret values were printed.`,
 );

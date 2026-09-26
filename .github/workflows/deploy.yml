@@ -1,5 +1,11 @@
 name: Build and Deploy
 
+# CI holds no AWS key (2026-09-26): the promotion job runs in the
+# `production` environment (main only, no admin bypass) and assumes
+# elixir-drop-github-deploy with GitHub's OIDC token; the role trusts this
+# repository's production environment and nothing else. The elixir-drop
+# user keeps only the Control Room's referee grant.
+
 on:
   workflow_run:
     workflows: ["Validate Main"]
@@ -7,9 +13,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
+permissions: {}
 
 # A deployment already updating CloudFormation or CloudFront is allowed to finish.
 # A newer successful validation waits, then rechecks that its SHA is still main
@@ -21,9 +25,15 @@ concurrency:
 jobs:
   scope:
     name: Confirm validated release
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
     outputs:
       browser: ${{ steps.classify.outputs.browser }}
       deploy_api: ${{ steps.classify.outputs.deploy_api }}
@@ -32,24 +42,37 @@ jobs:
       latest: ${{ steps.latest.outputs.latest }}
       ships: ${{ steps.classify.outputs.ships }}
     steps:
+      # A manual run deploys only main, and only a SHA Validate Main passed.
       - id: head
         env:
           VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+              echo "::error::only main deploys; ${GITHUB_REF} was dispatched"
+              exit 1
+            fi
+            passed=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/validate-main.yml/runs" -f head_sha="${GITHUB_SHA}" -f status=success --jq .total_count)
+            if [ "$passed" -eq 0 ]; then
+              echo "::error::Validate Main has not passed on ${GITHUB_SHA}; nothing deployed"
+              exit 1
+            fi
             echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           else
             echo "sha=${VALIDATED_SHA}" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ steps.head.outputs.sha }}
           fetch-depth: 2
 
       - name: Download validated scope
         if: github.event_name == 'workflow_run'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: ci-scope
           path: ${{ runner.temp }}/ci-scope
@@ -67,10 +90,12 @@ jobs:
             test -f "$scope_file"
             echo "Validated scope:"
             jq . "$scope_file"
-            echo "browser=$(jq -r .browser "$scope_file")" >> "$GITHUB_OUTPUT"
-            echo "deploy_api=$(jq -r .deployApi "$scope_file")" >> "$GITHUB_OUTPUT"
-            echo "deploy_web=$(jq -r .deployWeb "$scope_file")" >> "$GITHUB_OUTPUT"
-            echo "ships=$(jq -r .ships "$scope_file")" >> "$GITHUB_OUTPUT"
+            {
+              echo "browser=$(jq -r .browser "$scope_file")"
+              echo "deploy_api=$(jq -r .deployApi "$scope_file")"
+              echo "deploy_web=$(jq -r .deployWeb "$scope_file")"
+              echo "ships=$(jq -r .ships "$scope_file")"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - id: latest
@@ -95,24 +120,33 @@ jobs:
     if: needs.scope.outputs.latest == 'true' && needs.scope.outputs.ships == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.scope.outputs.head_sha }}
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: "npm"
 
       - run: npm ci
 
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.ELIXIR_DROP_DEPLOY_ROLE_ARN }}
+          role-session-name: elixir-drop-deploy-${{ github.run_id }}
+          aws-region: ${{ vars.ELIXIR_DROP_AWS_REGION }}
+
       - name: Deploy API
         if: needs.scope.outputs.deploy_api == 'true'
         run: npm run deploy:api
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
           ELIXIR_DROP_CFN_ROLE_ARN: ${{ vars.ELIXIR_DROP_CFN_ROLE_ARN }}
           ELIXIR_DROP_CODE_BUCKET: ${{ vars.ELIXIR_DROP_CODE_BUCKET }}
@@ -132,8 +166,6 @@ jobs:
         if: needs.scope.outputs.deploy_api == 'true'
         run: npm run smoke:api
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
 
@@ -151,8 +183,6 @@ jobs:
         if: needs.scope.outputs.deploy_web == 'true'
         run: npm run deploy:web
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_DROP_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_DROP_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.ELIXIR_DROP_AWS_REGION }}
           ELIXIR_DROP_STACK_NAME: ${{ vars.ELIXIR_DROP_STACK_NAME }}
 
@@ -169,6 +199,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions: {}
     steps:
       - name: Write production marker
         env:
@@ -178,7 +209,7 @@ jobs:
       # Validation reads the SHA from the artifact name. Only this final job can
       # create one, so a failed, skipped, or superseded promotion never advances
       # the cumulative production baseline.
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: production-head-${{ needs.scope.outputs.head_sha }}
           path: ${{ runner.temp }}/production-head

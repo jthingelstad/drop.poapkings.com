@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { deploymentPolicyFor } from "../scripts/deploy-identity.mjs";
 import { deploymentParameters } from "../scripts/parameters.mjs";
 
 const base = {
@@ -47,11 +48,8 @@ function parameterDefault(name) {
 }
 
 void describe("deployment parameters", () => {
-  void it("honors an explicit AWS profile over stored static credentials", () => {
-    assert.match(
-      deploy,
-      /process\.env\.AWS_PROFILE && staticCredentialNames\.has\(key\)/,
-    );
+  void it("never lifts the stored static AWS key into a deploy", () => {
+    assert.match(deploy, /applyEnv\(/);
   });
 
   // The guard for the parameter-wipe class. CloudFormation resets every
@@ -634,8 +632,18 @@ void describe("deployment parameters", () => {
     assert.doesNotMatch(bootstrap, /Action: \["cloudfront:\*"\]/);
     assert.match(bootstrap, /elixir-drop-web-\$\{accountId\}-\$\{region\}/);
     assert.match(bootstrap, /elixir-drop-share-\$\{accountId\}-\$\{region\}/);
-    assert.match(bootstrap, /cloudfront:CreateInvalidation/);
-    assert.match(bootstrap, /s3:DeleteObject/);
+    // The deploy role's own grant lives in deploy-identity.mjs.
+    const web = deploymentPolicyFor({
+      region: "us-east-1",
+      accountId: "123456789012",
+      stackName: "elixir-drop-prod",
+      bucketName: "code",
+      webBucketName: "web",
+      executionRoleArn: "arn:aws:iam::123456789012:role/exec",
+    }).Statement.flatMap((statement) => [statement.Action].flat());
+    assert.ok(web.includes("cloudfront:CreateInvalidation"));
+    assert.ok(web.includes("s3:DeleteObject"));
+    assert.ok(!web.some((action) => action.endsWith(":*")));
   });
 
   void it("keeps permanent share previews private and grants only their object prefixes", () => {

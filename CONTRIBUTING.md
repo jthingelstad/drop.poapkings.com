@@ -66,14 +66,14 @@ matrix locally on every change spent minutes without improving the deployment
 decision. The push gate remains authoritative; local work should prove the
 changed surface and finish with the smallest final gate below.
 
-| What the commit touches | Run |
-| --- | --- |
-| Routine web/gameplay/layout work | `npm run verify:quick` |
-| API, infrastructure, bridge, or Control Room only | `npm run verify:non-browser` |
-| E2E test only | the changed Playwright spec/project, then `npm run verify:non-browser` |
-| Root `scripts/`, `.claude/`, `AGENT-TEAM/`, `docs/`, root `*.md` | `npm run verify:non-browser` |
-| Offline/service-worker behavior, browser test infrastructure, cross-engine fixes, broad release QA | `npm run verify` |
-| Unsure | `npm run verify` |
+| What the commit touches                                                                            | Run                                                                    |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Routine web/gameplay/layout work                                                                   | `npm run verify:quick`                                                 |
+| API, infrastructure, bridge, or Control Room only                                                  | `npm run verify:non-browser`                                           |
+| E2E test only                                                                                      | the changed Playwright spec/project, then `npm run verify:non-browser` |
+| Root `scripts/`, `.claude/`, `AGENT-TEAM/`, `docs/`, root `*.md`                                   | `npm run verify:non-browser`                                           |
+| Offline/service-worker behavior, browser test infrastructure, cross-engine fixes, broad release QA | `npm run verify`                                                       |
+| Unsure                                                                                             | `npm run verify`                                                       |
 
 `npm run verify:quick` is the routine web pre-push gate: full non-browser
 verification, the complete Chromium suite, and the tagged deployment smoke in
@@ -100,7 +100,8 @@ interrupting a CloudFormation or CloudFront deployment:
   exact scope, requires the validated SHA still to be `main`, serializes
   production mutation, and deploys only the affected surface.
 - **`verify.yml`** runs the exhaustive four-project suite on every pull request,
-  every manual dispatch, and once daily. It is fork-safe and is the regression
+  every manual dispatch, and once daily. Its aggregate job `validate` is the
+  check the `main` ruleset requires. It is fork-safe and is the regression
   backstop for combinations intentionally removed from the per-push gate.
 
 The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
@@ -173,12 +174,12 @@ manual host card refresher calls Supercell directly.
 
 ## How changes land
 
-This repository **commits directly to `main`** — no feature branches and no
-PR-based review. That is the stated convention for maintainers and for the
-scheduled `AGENT-TEAM/` roles (`AGENTS.md` → "Work tracking"), and it is what the
-history shows. `main` is protected by the gate, not by review: `Validate Main`
-must succeed before the exact validated head can enter the serialized
-deployment workflow.
+Since 2026-09-26 `main` takes only pull requests, rebase-merged once the
+`validate` check (`verify.yml`) is green; no approval is required and nobody
+bypasses it. Maintainers and the scheduled `AGENT-TEAM/` roles branch, push and
+auto-merge (`AGENTS.md` → "Landing changes"). After the merge, `Validate Main`
+must succeed before the exact merged head can enter the serialized deployment
+workflow.
 
 If you do not have push access, the fork-and-pull-request path is the way in:
 

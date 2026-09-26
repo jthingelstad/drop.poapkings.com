@@ -12,6 +12,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ciGate } from "./ci-gate.mjs";
+import { GITHUB_REPO, applyEnv } from "./deploy-identity.mjs";
 import { loadEnv } from "./env.mjs";
 import { isNoUpdatesError, lambdaCodeKey } from "./deployment-code.mjs";
 import { deploymentParameters } from "./parameters.mjs";
@@ -19,16 +21,41 @@ import { deploymentTemplateSource } from "./template-source.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
-const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
-const staticCredentialNames = new Set([
-  "AWS_ACCESS_KEY_ID",
-  "AWS_SECRET_ACCESS_KEY",
-  "AWS_SESSION_TOKEN",
-  "AWS_SECURITY_TOKEN",
-]);
-for (const [key, value] of Object.entries(env)) {
-  if (process.env.AWS_PROFILE && staticCredentialNames.has(key)) continue;
-  if (!process.env[key]) process.env[key] = value;
+applyEnv(await loadEnv(resolve(repoRoot, ".env")).catch(() => ({})));
+
+// Production runs only what main holds and CI passed (the PR workflow,
+// 2026-09-26). CI's deploy already follows a green validation of main.
+// --break-glass is for GitHub being unreachable, never for a red check.
+if (process.env.GITHUB_ACTIONS !== "true") {
+  if (process.argv.includes("--break-glass")) {
+    console.warn(
+      "deploy: WARNING --break-glass: the CI gate is skipped; record why in the run report.",
+    );
+  } else {
+    const git = (args) =>
+      execFileSync("git", args, { cwd: repoRoot, encoding: "utf8" }).trim();
+    const dirty = git(["status", "--porcelain"]);
+    if (dirty) {
+      console.error(
+        `deploy: the worktree has uncommitted changes; nothing was deployed.\n${dirty}`,
+      );
+      process.exit(2);
+    }
+    const gate = await ciGate({
+      git,
+      ghApi: async (path) =>
+        JSON.parse(execFileSync("gh", ["api", path], { encoding: "utf8" })),
+      repo: GITHUB_REPO,
+      log: (line) => console.error(line),
+    });
+    if (!gate.ok) {
+      console.error(`deploy: ${gate.reason}`);
+      process.exit(2);
+    }
+    console.error(
+      `deploy: CI gate passed for ${gate.sha.slice(0, 8)} (validate green on ${gate.via}).`,
+    );
+  }
 }
 
 const requiredNames = [

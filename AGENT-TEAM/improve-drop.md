@@ -35,7 +35,7 @@ player-facing change ships.
    feedback over ornamental novelty. Do not manufacture polish work when the journey is
    already strong.
 4. For a bounded improvement, fix the source in the same run, add the business-rule or
-   browser regression, run the change-specific final gate, push, verify deployment,
+   browser regression, run the change-specific final gate, land it as a pull request, verify deployment,
    and verify the changed journey locally plus read-only production checks and
    later natural player evidence. Production test writes require explicit
    authorization for a bounded isolated test path; the normal dev server is

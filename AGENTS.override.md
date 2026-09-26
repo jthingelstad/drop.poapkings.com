@@ -21,9 +21,10 @@ This entry point does not grant new product or production-write authority.
 Measure current evidence; a healthy no-op is success. Run preflight before work.
 Dirty, ahead, behind, detached or leased checkouts allow safe reads only. Claim
 the objective lease before mutation; recheck it before editing and pushing.
-Never stash, reset, overwrite, or publish another worker's changes. Commit only
-current-run work to `main`, run the canonical final gate, verify the exact CI
-result and affected deployment, then release from a clean checkout.
+Never stash, reset, overwrite, or publish another worker's changes. Land only
+current-run work as a pull request (`AGENTS.md` → "Landing changes"), run the
+canonical final gate, verify the merge SHA's CI and affected deployment, then
+release from a clean `main`.
 
 Jamie decides new modes, material scoring/season rules, privacy-affecting
 collection, Free Pass recipient/prize action, public enforcement, broad

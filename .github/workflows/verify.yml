@@ -1,5 +1,8 @@
 name: Verify
 
+# The job named `validate` is the check the `main` ruleset requires. Rename
+# both together or merges stop.
+
 # Pull requests and the scheduled regression run get the exhaustive four-engine
 # matrix. Main's deployment gate is intentionally faster: full Chromium split
 # across two shards plus tagged cross-browser smoke, with this workflow serving
@@ -10,18 +13,25 @@ on:
   schedule:
     - cron: "17 9 * * *"
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
     name: Non-browser verification
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: "npm"
@@ -32,6 +42,9 @@ jobs:
 
       - run: npm run verify:non-browser
 
+      - name: Workflow lint
+        run: sh scripts/test-workflows.sh
+
   browser:
     name: Playwright (${{ matrix.project }})
     runs-on: ubuntu-latest
@@ -41,6 +54,8 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
       options: --user 1001
     timeout-minutes: 25
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -55,9 +70,11 @@ jobs:
             secondary_project: iphone-14
             browser: webkit
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: "npm"
@@ -72,7 +89,7 @@ jobs:
 
       - name: Upload Playwright report (${{ matrix.project }})
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report-${{ matrix.project }}
           path: |
@@ -80,3 +97,13 @@ jobs:
             apps/web/test-results
           retention-days: 7
           if-no-files-found: ignore
+
+  validate:
+    name: validate
+    if: always()
+    needs: [verify, browser]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: every job passed
+        run: test "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped') }}" = true

@@ -168,11 +168,16 @@ production run. A successful exact-head validation triggers
   unrelated public surface. Unknown paths and manual deploys take the full path.
 - Content-addressed Lambda bundles make unchanged code a CloudFormation no-op.
 
-- There is **no manual handoff for an ordinary backend change** — the same push that
-  commits it deploys it.
+- There is **no manual handoff for an ordinary backend change** — the merge that
+  lands it deploys it.
+- CI holds no AWS key: the promotion job runs in the `production` environment
+  (main only) and assumes `elixir-drop-github-deploy` through GitHub OIDC.
 - `npm run deploy:api` stays **Run Drop's** out-of-band tool: first stack
   creation, secret rotation, and re-running a deploy that CI could not complete. It is
-  run from the fixed host with the mode-0600 root `.env`.
+  run from the fixed host as `AWS_PROFILE=cloud-engineer`, only on a checkout
+  equal to `origin/main` whose tree passed `validate` (`--break-glass` skips
+  that check, for an outage only); the mode-0600 root `.env` supplies settings,
+  never its AWS key.
 - A pipeline that did not run or finish is a Run Drop finding, not a routine manual
   handoff. See `infra/README.md` for the CD mechanics.
 
@@ -701,10 +706,8 @@ When a decision is genuinely ambiguous and not covered above, in `SPEC.md`, or i
 ## Work tracking
 
 GitHub Issues are the durable exception ledger for multi-run work, external blockers,
-and Jamie decisions. Objective owners fix clear same-run gaps directly. **Work commits
-directly to `main`** — no feature branches or PR-based review. The full contract is
-`AGENT-TEAM/WORKFLOW.md`. (Outside contributors without push access open a PR
-from a fork; `.github/workflows/verify.yml` gates it. See `CONTRIBUTING.md`.)
+and Jamie decisions. Objective owners fix clear same-run gaps directly and land
+them as pull requests (below). The full contract is `AGENT-TEAM/WORKFLOW.md`.
 
 A player update is exceptional, not automatic. Only a material player outcome that
 passes the notification bar in `CLAUDE.md` publishes through the Updates API with
@@ -716,6 +719,27 @@ and Cleared final game results; naming the Free Pass recipient,
 awarding any prize, or sending broad communication still requires Jamie's authority.
 Grow Drop audits editorial quality weekly with silence as the default. There are no
 named releases.
+
+## Landing changes
+
+Since 2026-09-26, `main` takes only pull requests, merged on a green
+`validate` check (`.github/workflows/verify.yml`: non-browser verification, the
+workflow lint and the four-engine Playwright matrix). There is no bypass,
+Jamie's account included; the agents push as it.
+
+- `git switch -c <objective>/<slug>` before the first edit (`session/<slug>`
+  for an interactive session), commit, `git push -u origin HEAD`,
+  `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`,
+  `gh pr checks --watch --fail-fast`; once merged, `git switch main && git
+pull --ff-only`. If `main` moves under an open PR: `gh pr update-branch
+--rebase`.
+- A rebase merge gives the commit a new SHA on `main`. `Validate Main` and
+  `Build and Deploy` run for the merge SHA from `gh pr view <n> --json
+mergeCommit`, never the branch's SHA.
+- A check that fails and then passes on a re-run is a flake, and a flake is a
+  defect: fix it in the PR or record it the same day.
+- Unfinished work stays an open PR; the checkout goes back to `main`. Outside
+  contributors fork, then open a PR; the same check applies.
 
 ## Elixir integration API
 
