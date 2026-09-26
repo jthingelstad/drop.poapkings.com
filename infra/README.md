@@ -168,6 +168,14 @@ mode-0600 root `.env` supplying settings (never its AWS key). A local deploy
 refuses unless the checkout equals `origin/main` and its tree passed
 `validate`; `--break-glass` skips that check for an outage.
 
+A stack-level tag change is not a no-op: CloudFormation updates every
+taggable resource, and some handlers re-put their whole configuration. On
+2026-09-24 a tag-only update reached the API stage's access log, which needs
+`logs:CreateLogDelivery` and its siblings on `*`; the execution role lacked
+them, so the update and its rollback both failed (UPDATE_ROLLBACK_FAILED)
+until 25f0f86. Before a tag or other stack-wide change, compare the execution
+role's grant with every resource type in the template.
+
 CloudFormation owns the private web origin and CloudFront distribution as well
 as the API, refresh queue and worker, and retained season-repair channel. The
 default static behavior uses AWS's managed combined CORS and security-headers
