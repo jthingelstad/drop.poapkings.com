@@ -33,12 +33,15 @@ reference documents for the affected surface; the entry point does not replace t
    limits, success response, and post-publish check in `AGENT-TEAM/README.md`;
    publishing never requires an AWS profile or login.
 6. Recheck the lease with `objective-lease.mjs check <objective> <leaseId>`, then
-   recheck the branch, upstream, and worktree immediately before the first edit and
-   before push. Stop if the state changed.
+   `git switch -c <objective>/<slug>` before the first edit. Recheck the lease and
+   worktree before push. Stop if the state changed.
 7. Run focused checks while iterating and the change-specific final gate from
-   `CONTRIBUTING.md` before commit. Commit and push only current-run work directly
-   to `main`.
-8. Verify `Validate Main`, the triggered `Build and Deploy` workflow, and each live
+   `CONTRIBUTING.md` before commit. Commit only current-run work, push the branch,
+   `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`, and
+   `gh pr checks --watch --fail-fast` (`AGENTS.md` → "Landing changes").
+   Unfinished work stays an open PR.
+8. Once merged, `git switch main && git pull --ff-only`. Verify `Validate Main`,
+   the triggered `Build and Deploy` workflow for the merge SHA, and each live
    surface the classifier ships. Use `npm run deploy:api` only for the documented
    out-of-band exception.
 9. Verify semantic success from natural product evidence. Do not create guest runs,

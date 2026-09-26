@@ -18,6 +18,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fileURLToPath } from "node:url";
+import { applyEnv } from "./deploy-identity.mjs";
 import { loadEnv } from "./env.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -136,10 +137,7 @@ async function expectResponse(url, check) {
 }
 
 export async function main() {
-  const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
-  for (const [key, value] of Object.entries(env)) {
-    if (!process.env[key]) process.env[key] = value;
-  }
+  applyEnv(await loadEnv(resolve(repoRoot, ".env")).catch(() => ({})));
 
   const region = process.env.AWS_REGION;
   const stackName = process.env.ELIXIR_DROP_STACK_NAME;

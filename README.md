@@ -188,7 +188,7 @@ remains only as a fallback when no usable clock remains.
 
 ## Deploy
 
-A push to `main` first runs cancelable, cumulative validation in
+A merge to `main` first runs cancelable, cumulative validation in
 `.github/workflows/validate-main.yml`. A successful exact head enters the
 serialized `.github/workflows/deploy.yml`: API-only work deploys and smokes only
 the Lambda, while web/shared work updates the API's referee version, smokes it,

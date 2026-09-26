@@ -22,7 +22,7 @@ after an explicitly requested relevant deploy or incident follow-up.
 2. Check Lambda errors/throttles/p95/cold starts, DynamoDB throttling/TTL/capacity,
    bridge delivery, CloudFront health, and recent JMAP outcomes using the least-privilege
    read path. Run `AWS_PROFILE=cloud-auditor AWS_REGION=us-east-1 node
-   scripts/web-activity.mjs --hours 24` and inspect request volume, status codes,
+scripts/web-activity.mjs --hours 24` and inspect request volume, status codes,
    safe request classes, cache outcomes, TTFB, and grouped edge errors. Compare a
    seven-day window only when diagnosing a trend. The report is operational
    traffic evidence, not unique visitors, players, acquisition, or retention;
@@ -43,7 +43,7 @@ after an explicitly requested relevant deploy or incident follow-up.
    final dry run to converge to zero planned updates. This maintenance changes
    subscriber metadata only and never sends an email.
 6. If a concrete defect exists, fix it with the smallest regression, run the final
-   gate required by `CONTRIBUTING.md`, push, and verify validation plus every surface
+   gate required by `CONTRIBUTING.md`, land it as a pull request, and verify validation plus every surface
    the path-aware deploy ships.
 7. Use `npm run deploy:api` only when the normal pipeline failed, never as the routine
    path. Never expose or relocate the CR token, `TELEMETRY_PEPPER`, or JMAP token.

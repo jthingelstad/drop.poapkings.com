@@ -5,22 +5,20 @@ import {
 } from "@aws-sdk/client-cloudformation";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyEnv, isDeployIdentity } from "./deploy-identity.mjs";
 import { loadEnv } from "./env.mjs";
 import { waitForFreshSeasonClock } from "./refresh-readiness.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
-const env = await loadEnv(resolve(repoRoot, ".env")).catch(() => ({}));
-for (const [key, value] of Object.entries(env)) {
-  if (!process.env[key]) process.env[key] = value;
-}
+applyEnv(await loadEnv(resolve(repoRoot, ".env")).catch(() => ({})));
 
 const identity = await new STSClient({ region: process.env.AWS_REGION }).send(
   new GetCallerIdentityCommand({}),
 );
-if (!identity.Arn?.endsWith(":user/elixir-drop")) {
+if (!isDeployIdentity(identity.Arn)) {
   throw new Error(
-    `Routine AWS identity is not the elixir-drop user: ${identity.Arn}`,
+    `AWS identity is neither CI's deploy role nor cloud-engineer: ${identity.Arn}`,
   );
 }
 
