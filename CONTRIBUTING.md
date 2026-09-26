@@ -99,10 +99,13 @@ interrupting a CloudFormation or CloudFront deployment:
 - **`deploy.yml`** starts only after `Validate Main` succeeds. It downloads that
   exact scope, requires the validated SHA still to be `main`, serializes
   production mutation, and deploys only the affected surface.
-- **`verify.yml`** runs the exhaustive four-project suite on every pull request,
-  every manual dispatch, and once daily. Its aggregate job `validate` is the
-  check the `main` ruleset requires. It is fork-safe and is the regression
-  backstop for combinations intentionally removed from the per-push gate.
+- **`verify.yml`** checks every pull request with the same gate as
+  `validate-main.yml` (non-browser verification, two Chromium shards, and the
+  `@deploy` smoke in Firefox, WebKit and iPhone 14), about four minutes. Its
+  aggregate job `validate` is the check the `main` ruleset requires. Once daily
+  and on a manual dispatch it runs the exhaustive four-project suite instead,
+  one project per runner: the regression backstop for combinations
+  intentionally left out of the per-change gate. It is fork-safe.
 
 The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
 infrastructure changes deploy and smoke the Lambda without rebuilding or

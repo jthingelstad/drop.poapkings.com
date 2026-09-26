@@ -3,10 +3,11 @@ name: Verify
 # The job named `validate` is the check the `main` ruleset requires. Rename
 # both together or merges stop.
 
-# Pull requests and the scheduled regression run get the exhaustive four-engine
-# matrix. Main's deployment gate is intentionally faster: full Chromium split
-# across two shards plus tagged cross-browser smoke, with this workflow serving
-# as the daily backstop for the combinations that do not need to block a push.
+# A pull request gets main's deployment gate: full Chromium split across two
+# shards plus the tagged cross-browser smoke (about four minutes). The daily
+# run and a manual dispatch get the exhaustive matrix, every test in all four
+# projects, with WebKit and iPhone 14 on separate runners: the backstop for
+# the combinations the per-change gate deliberately leaves out.
 on:
   pull_request:
   workflow_dispatch:
@@ -45,11 +46,12 @@ jobs:
       - name: Workflow lint
         run: sh scripts/test-workflows.sh
 
-  browser:
-    name: Playwright (${{ matrix.project }})
+  gate:
+    name: Playwright (${{ matrix.label }})
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # The version-matched image carries Playwright's browsers and Linux
-    # dependencies, so the daily backstop never waits on the runner's apt mirror.
+    # dependencies, so a check never waits on the runner's apt mirror.
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
       options: --user 1001
@@ -60,15 +62,70 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - project: chromium
-            secondary_project: ""
-            browser: chromium
-          - project: firefox
-            secondary_project: ""
-            browser: firefox
-          - project: webkit
-            secondary_project: iphone-14
-            browser: webkit
+          - label: chromium 1/2
+            project: chromium
+            shard: 1/2
+            smoke: false
+          - label: chromium 2/2
+            project: chromium
+            shard: 2/2
+            smoke: false
+          - label: firefox smoke
+            project: firefox
+            smoke: true
+          - label: webkit smoke
+            project: webkit
+            smoke: true
+          - label: iphone-14 smoke
+            project: iphone-14
+            smoke: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run full Chromium shard
+        if: matrix.smoke == false
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+
+      - name: Run cross-browser deployment smoke
+        if: matrix.smoke == true
+        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
+        env:
+          PLAYWRIGHT_DEPLOY_GATE: "1"
+
+      - name: Upload Playwright report (${{ matrix.label }})
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-gate-${{ strategy.job-index }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+  exhaustive:
+    name: Playwright (${{ matrix.project }})
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --user 1001
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, iphone-14]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,10 +139,6 @@ jobs:
       - run: npm ci
 
       - run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.project }}
-
-      - name: Run secondary browser project
-        if: matrix.secondary_project != ''
-        run: npm run test:e2e --workspace=@elixir-drop/web -- --project=${{ matrix.secondary_project }}
 
       - name: Upload Playwright report (${{ matrix.project }})
         if: failure()
@@ -101,9 +154,10 @@ jobs:
   validate:
     name: validate
     if: always()
-    needs: [verify, browser]
+    needs: [verify, gate, exhaustive]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
+      # Exactly one browser lane runs per event; the other is skipped by design.
       - name: every job passed
-        run: test "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped') }}" = true
+        run: test "${{ needs.verify.result == 'success' && (needs.gate.result == 'success' || needs.exhaustive.result == 'success') && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}" = true
