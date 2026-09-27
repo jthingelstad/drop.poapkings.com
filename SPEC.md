@@ -61,15 +61,15 @@ Hard product constraints:
 
 The repository uses npm workspaces:
 
-| Workspace / directory    | Responsibility                               | Status      |
-| ------------------------ | -------------------------------------------- | ----------- |
-| `apps/web`               | Public Preact game                           | Implemented |
-| `apps/admin`             | Private tailnet-only Control Room UI         | Implemented |
-| `services/api`           | TypeScript Lambda player and game API        | Implemented |
-| `services/admin`         | Loopback Control Room and referee adapter    | Implemented |
-| `packages/contracts`     | Shared browser/server TypeScript contracts   | Implemented |
-| `packages/game-data`     | Canonical card facts                         | Implemented |
-| `infra`                  | CloudFormation and SDK deployment automation | Implemented |
+| Workspace / directory | Responsibility                               | Status      |
+| --------------------- | -------------------------------------------- | ----------- |
+| `apps/web`            | Public Preact game                           | Implemented |
+| `apps/admin`          | Private tailnet-only Control Room UI         | Implemented |
+| `services/api`        | TypeScript Lambda player and game API        | Implemented |
+| `services/admin`      | Loopback Control Room and referee adapter    | Implemented |
+| `packages/contracts`  | Shared browser/server TypeScript contracts   | Implemented |
+| `packages/game-data`  | Canonical card facts                         | Implemented |
+| `infra`               | CloudFormation and SDK deployment automation | Implemented |
 
 The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, SES, Bedrock,
 the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
@@ -1243,7 +1243,6 @@ any run-level decision.
 _Unofficial fan project. Card data, names, and artwork © Supercell, used under
 Supercell's Fan Content Policy. Not endorsed by Supercell._
 
-
 ## Elixir integration API
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
@@ -1269,9 +1268,11 @@ Saved CR tags remain optional and unverified **unless Elixir has proven them**
 ### Sign in with Elixir (2026-09-12)
 
 Email-code sign-in is the always-available path; Elixir sign-in is an
-addition. Drop is a public OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
+addition. Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
-button). The grant is `cr:read recordings:write account:email` for Elixir's
+button). A configured `ELIXIR_OAUTH_CLIENT_SECRET` (the NoEcho, preserved
+stack parameter `ElixirOAuthClientSecret`) is sent as `client_secret` on the
+token request. The grant is `cr:read recordings:write account:email` for Elixir's
 JSON API (`resource` `/api/v1`, 2026-09-25: Drop is a program, not an agent,
 so it reads the JSON API, never MCP). `account:email` is offered only to the
 Elixir family's own apps (every redirect on a family origin), and `GET

@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ElixirOAuthClient,
   ELIXIR_SIGN_IN_SCOPE,
@@ -7,6 +7,7 @@ import {
 import {
   buildLink,
   elixirCallback,
+  elixirClientFor,
   selectElixirPlayer,
   startElixirLogin,
 } from "../src/routes/elixir-auth.js";
@@ -637,5 +638,95 @@ describe("sign in with Elixir", () => {
     });
     expect(gone.playerTag).toBeUndefined();
     expect(gone.verified).toBe(false);
+  });
+});
+
+describe("the token request's client secret", () => {
+  const SECRET = "ecs_test-secret-never-logged";
+
+  function tokenDoor(status = 200) {
+    const forms: URLSearchParams[] = [];
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = input instanceof Request ? input.url : String(input);
+      expect(url).toBe("https://elixir.test/oauth/token");
+      forms.push(
+        new URLSearchParams(typeof init?.body === "string" ? init.body : ""),
+      );
+      return new Response(
+        JSON.stringify(
+          status === 200
+            ? { access_token: "eat_1", scope: ELIXIR_SIGN_IN_SCOPE }
+            : { error: "invalid_grant", error_description: "no" },
+        ),
+        { status, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+    return { forms, fetchImpl };
+  }
+
+  const exchange = (client: ElixirOAuthClient) =>
+    client.exchange({
+      code: "code-1",
+      codeVerifier: "verifier-1",
+      redirectUri: "https://drop.test/api/auth/elixir/callback",
+    });
+
+  it("the exchange carries client_secret beside client_id when one is configured", async () => {
+    const door = tokenDoor();
+    const client = elixirClientFor(
+      { ...config, elixirOAuthClientSecret: SECRET },
+      door.fetchImpl,
+    );
+    expect((await exchange(client)).ok).toBe(true);
+    expect(door.forms).toHaveLength(1);
+    expect(door.forms[0]?.get("grant_type")).toBe("authorization_code");
+    expect(door.forms[0]?.get("client_id")).toBe("client123");
+    expect(door.forms[0]?.get("client_secret")).toBe(SECRET);
+  });
+
+  it("the exchange omits client_secret when none is configured", async () => {
+    for (const elixirOAuthClientSecret of [undefined, ""]) {
+      const door = tokenDoor();
+      const client = elixirClientFor(
+        { ...config, elixirOAuthClientSecret } as RouteContext["config"],
+        door.fetchImpl,
+      );
+      expect((await exchange(client)).ok).toBe(true);
+      expect(door.forms[0]?.get("client_id")).toBe("client123");
+      expect(door.forms[0]?.has("client_secret")).toBe(false);
+    }
+  });
+
+  it("no log line and no failure carries the form", async () => {
+    const printed: string[] = [];
+    const spies = (["log", "info", "warn", "error"] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        printed.push(args.map((arg) => JSON.stringify(arg)).join(" "));
+      }),
+    );
+    try {
+      const outcomes = [];
+      for (const status of [200, 400, 503]) {
+        const door = tokenDoor(status);
+        outcomes.push(
+          await exchange(
+            new ElixirOAuthClient({
+              issuer: "https://elixir.test",
+              clientId: "client123",
+              clientSecret: SECRET,
+              fetch: door.fetchImpl,
+            }),
+          ),
+        );
+      }
+      const everything = [...printed, JSON.stringify(outcomes)].join("\n");
+      for (const needle of [SECRET, "verifier-1", "code-1"])
+        expect(everything).not.toContain(needle);
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
   });
 });

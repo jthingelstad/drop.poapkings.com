@@ -321,6 +321,56 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("preserves the Elixir OAuth client secret, which CI never carries", () => {
+    const updated = deploymentParameters({ ...base, stackExists: true });
+    assert.deepEqual(
+      updated.find(
+        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
+      ),
+      { ParameterKey: "ElixirOAuthClientSecret", UsePreviousValue: true },
+    );
+
+    // The first deploy carrying it takes the empty Default...
+    const first = deploymentParameters({
+      ...base,
+      stackExists: true,
+      existingParameterKeys: ["AppUrl", "ElixirOAuthClientId"],
+    });
+    assert.equal(
+      first.find(
+        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
+      ),
+      undefined,
+    );
+
+    // ...and the fixed host's .env stages the value.
+    const staged = deploymentParameters({
+      ...base,
+      environment: { ELIXIR_OAUTH_CLIENT_SECRET: "ecs_example" },
+      stackExists: true,
+    });
+    assert.deepEqual(
+      staged.find(
+        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
+      ),
+      {
+        ParameterKey: "ElixirOAuthClientSecret",
+        ParameterValue: "ecs_example",
+      },
+    );
+
+    const declaration = template.match(
+      /^ {2}ElixirOAuthClientSecret:\n(?: {4}.*\n)*/m,
+    )?.[0];
+    assert.ok(declaration);
+    assert.match(declaration, /^ {4}NoEcho: true$/m);
+    assert.equal(parameterDefault("ElixirOAuthClientSecret"), '""');
+    assert.match(
+      template,
+      /ELIXIR_OAUTH_CLIENT_SECRET: !Ref ElixirOAuthClientSecret/,
+    );
+  });
+
   void it("carries no Tinylytics token: usage analytics live in the browser", () => {
     // The API stopped publishing server-side Tinylytics events. The parameter
     // is gone from the template, so a deploy must not try to preserve it.
