@@ -65,6 +65,7 @@ export function elixirClientFor(
   return new ElixirOAuthClient({
     issuer: config.elixirMcpBaseUrl,
     clientId: config.elixirOAuthClientId,
+    clientSecret: config.elixirOAuthClientSecret,
     fetch: fetchImpl,
   });
 }

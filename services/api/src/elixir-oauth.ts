@@ -1,4 +1,4 @@
-// Sign in WITH Elixir: Drop as a public OAuth client at Elixir's door.
+// Sign in WITH Elixir: Drop as an OAuth client at Elixir's door.
 //
 // This is a different seam from services/api/src/elixir-mcp.ts, which is
 // Drop the INTEGRATION reading the record with its own key. Here the person
@@ -15,7 +15,9 @@
 // audience is `/api/v1`, and an MCP token would be refused there. The
 // contract is Elixir's public one: elixir.poapkings.com/docs/protocol and
 // /docs/integrations. `resource` is required at both steps (RFC 8707);
-// PKCE is the proof, there is no client secret.
+// PKCE proves the browser that started the sign-in, and a configured client
+// secret rides the token request as `client_secret` in the form
+// (client_secret_post). The form is never logged.
 
 import { createHash, randomBytes } from "node:crypto";
 
@@ -71,11 +73,18 @@ type Fetch = typeof fetch;
 export class ElixirOAuthClient {
   private readonly issuer: string;
   private readonly clientId: string;
+  private readonly clientSecret: string;
   private readonly fetchImpl: Fetch;
 
-  constructor(options: { issuer: string; clientId: string; fetch?: Fetch }) {
+  constructor(options: {
+    issuer: string;
+    clientId: string;
+    clientSecret?: string;
+    fetch?: Fetch;
+  }) {
     this.issuer = options.issuer.replace(/\/$/, "");
     this.clientId = options.clientId;
+    this.clientSecret = options.clientSecret ?? "";
     this.fetchImpl = options.fetch ?? fetch;
   }
 
@@ -126,6 +135,7 @@ export class ElixirOAuthClient {
           code_verifier: input.codeVerifier,
           redirect_uri: input.redirectUri,
           resource: this.resource,
+          ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
         }).toString(),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });

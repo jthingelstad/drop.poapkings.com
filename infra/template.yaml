@@ -45,7 +45,12 @@ Parameters:
   ElixirOAuthClientId:
     Type: String
     Default: ""
-    Description: Sign in with Elixir. The public OAuth client_id Elixir issued to Drop (infra/scripts/register-elixir-client.mjs). Empty disables the button. A registration lives 365 days from last use.
+    Description: Sign in with Elixir. The OAuth client_id Elixir issued to Drop (infra/scripts/register-elixir-client.mjs). Empty disables the button. A registration lives 365 days from last use.
+  ElixirOAuthClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: The client secret for ElixirOAuthClientId, sent as client_secret on the token request (client_secret_post). Staged from the fixed host's .env; never printed. Empty sends none.
   WebOriginToken:
     Type: String
     NoEcho: true
@@ -803,6 +808,7 @@ Resources:
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           ELIXIR_OAUTH_CLIENT_ID: !Ref ElixirOAuthClientId
+          ELIXIR_OAUTH_CLIENT_SECRET: !Ref ElixirOAuthClientSecret
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
           WEB_VERSION: !Ref WebVersion
 

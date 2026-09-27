@@ -29,6 +29,7 @@ export interface Config {
   // Sign in with Elixir: Drop's public OAuth client_id at Elixir's door.
   // Empty until registered (infra/scripts/register-elixir-client.mjs).
   elixirOAuthClientId: string;
+  elixirOAuthClientSecret: string;
   elixirMcpKey?: string;
   elixirMcpCollectionSlug: string;
   // The clan whose river race defines the Clan Wars calendar Drop's
@@ -89,6 +90,8 @@ export function getConfig(): Config {
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),
     elixirOAuthClientId: process.env.ELIXIR_OAUTH_CLIENT_ID?.trim() || "",
+    elixirOAuthClientSecret:
+      process.env.ELIXIR_OAUTH_CLIENT_SECRET?.trim() || "",
     elixirMcpKey:
       process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
       process.env.ELIXIR_MCP_KEY?.trim() ||

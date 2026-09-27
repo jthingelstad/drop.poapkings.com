@@ -49,6 +49,9 @@ const PRESERVED_PARAMETERS = [
   // Sign in with Elixir. Operator-registered; blanking it would silently
   // remove the button from every sign-in sheet.
   ["ElixirOAuthClientId", ["ELIXIR_OAUTH_CLIENT_ID"]],
+  // Its client secret. NoEcho, and CI never carries it: blanking it would
+  // send the token request without one.
+  ["ElixirOAuthClientSecret", ["ELIXIR_OAUTH_CLIENT_SECRET"]],
 ];
 
 function firstValue(environment, environmentKeys) {
