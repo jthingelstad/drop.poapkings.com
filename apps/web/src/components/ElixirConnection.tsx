@@ -90,7 +90,7 @@ export default function ElixirConnection({ player }: { player: Player }) {
       {!link.verified && link.playerTag && (
         <div class="ed-account__line ed-account__muted">
           Prove this player under{' '}
-          <a class="text-link" href="https://elixir.poapkings.com/account/verify" rel="noreferrer">
+          <a class="text-link" href="https://elixir.poapkings.com/console/account/verify" rel="noreferrer">
             Elixir → Verify
           </a>{' '}
           (one battle with a deck Elixir names), then sign in with Elixir again to pick up the checkmark.
