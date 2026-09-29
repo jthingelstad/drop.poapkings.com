@@ -1,4 +1,6 @@
-# Improve Drop
+# Drop Game Designer
+
+_Formerly Improve Drop (renamed 2026-09-29)._
 
 Your objective is: **Drop becomes clearer, more satisfying, and more effective at
 teaching Clash Royale elixir costs.**
@@ -42,7 +44,7 @@ player-facing change ships.
    not that path. Add a player Update only when the
    material outcome passes the canonical notification bar in `AGENTS.md`; most polish
    should ship quietly.
-5. Retain any required natural-acceptance watch under `objective:improve`. Grow Drop may
+5. Retain any required natural-acceptance watch under `objective:improve`. The Drop Growth Manager may
    later measure acquisition or retention effects, but that measurement is not a
    handoff required to prove that the experience itself works.
 6. When the smallest useful version is still a new mode, material scoring or season
@@ -52,12 +54,12 @@ player-facing change ships.
 
 ## Boundaries
 
-- Broken, incorrect, unavailable, or regressed behavior belongs to Run Drop. A surface
+- Broken, incorrect, unavailable, or regressed behavior belongs to the Drop Operator. A surface
   that works but is confusing, flat, unrewarding, or weak at teaching belongs here.
-- Acquisition, sign-in conversion, and return-rate measurement belong to Grow Drop.
+- Acquisition, sign-in conversion, and return-rate measurement belong to the Drop Growth Manager.
   Once a player is trying to play or learn, the quality of that journey belongs here.
-- Season standings copy belongs to Call the Season. Competitive evidence and
-  visibility decisions belong to Protect Fair Play.
+- Season standings copy belongs to the Drop Season Commentator. Competitive evidence and
+  visibility decisions belong to the Drop Fair Play Referee.
 - Preserve the shipped product constraints in `AGENTS.md`, `SPEC.md`, and `GAMES.md`.
   Do not revive retired modes, add curated deck data, make Drop naggier, or turn every
   run into a redesign.

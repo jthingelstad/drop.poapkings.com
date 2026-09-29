@@ -517,7 +517,7 @@ reconnect fallback. Feature records also carry one validated material-impact cat
 editorial notification bar lives in `AGENTS.md`: player-visible alone is not enough,
 and one card represents one material player outcome rather than a commit or polish
 detail.
-Call the Season owns routine, source-backed current leaders and Cleared final game
+The Drop Season Commentator owns routine, source-backed current leaders and Cleared final game
 results in the API stream; the Free Pass recipient and award remain a manual Jamie
 decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
 AGENT-TEAM and Control Room send a dedicated bearer token from the fixed host's
@@ -1080,14 +1080,14 @@ This Mac owns the allowlisted CR API token for the manual card refresher:
   or on a conservative cron.
 - Runtime profile and clock refresh retries end in the refresh dead-letter queue.
   The separately retained result queue exists only for manual season repair.
-- Run Drop queries failure reports only through the assumed
+- The Drop Operator queries failure reports only through the assumed
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
   identity-free `RUN_REPORTS` partition. Status changes are transactional and
   append an immutable audit row. The same objective reviews
   `drop@poapkings.com` through the read-only JMAP intake script; it excludes
   historical delivery-canary messages and cannot send, move, delete, or mark
   mail read.
-- Run Drop reads CloudFront request health through `scripts/web-activity.mjs` under
+- The Drop Operator reads CloudFront request health through `scripts/web-activity.mjs` under
   the read-only `cloud-auditor` role. The 14-day JSON log excludes IP, forwarded
   address, user-agent, referrer, cookie, query string, raw path, and request ID; its
   viewer-request field is one bounded operational class. The script returns aggregate
@@ -1101,8 +1101,8 @@ workspace READMEs.
 
 ## 11. Referee Evidence And Retention
 
-Drop durably persists **referee-grade evidence** so Protect Fair Play
-(`AGENT-TEAM/protect-fair-play.md`) can review leaderboard integrity
+Drop durably persists **referee-grade evidence** so the Drop Fair Play Referee
+(`AGENT-TEAM/drop-fair-play-referee.md`) can review leaderboard integrity
 against exact server-side facts and make reversible run-visibility decisions.
 The agent owns its judgment; Drop stores the audited decision overlay and
 reconciles it into public leaderboards.

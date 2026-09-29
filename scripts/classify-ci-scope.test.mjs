@@ -7,7 +7,9 @@ void test("documentation and local operator changes do not ship", () => {
     classifyPaths([
       "README.md",
       "docs/offline.md",
-      "AGENT-TEAM/run-drop.md",
+      "AGENT-TEAM/drop-operator.md",
+      "AGENT-TEAM/scripts/worktree-setup.sh",
+      ".codex/environments/environment.toml",
       "scripts/report.mjs",
     ]),
     {

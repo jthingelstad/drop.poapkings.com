@@ -12,11 +12,11 @@ remove() {
   fi
 }
 
-upsert "objective:run" "1D76DB" "Owned end-to-end by Run Drop"
-upsert "objective:grow" "0E8A16" "Owned end-to-end by Grow Drop"
-upsert "objective:improve" "7057FF" "Owned end-to-end by Improve Drop"
-upsert "objective:season" "D4A72C" "Owned end-to-end by Call the Season"
-upsert "objective:fair-play" "B60205" "Owned end-to-end by Protect Fair Play"
+upsert "objective:run" "1D76DB" "Owned end-to-end by the Drop Operator"
+upsert "objective:grow" "0E8A16" "Owned end-to-end by the Drop Growth Manager"
+upsert "objective:improve" "7057FF" "Owned end-to-end by the Drop Game Designer"
+upsert "objective:season" "D4A72C" "Owned end-to-end by the Drop Season Commentator"
+upsert "objective:fair-play" "B60205" "Owned end-to-end by the Drop Fair Play Referee"
 upsert "decision" "FBCA04" "Jamie must answer before the objective can continue"
 upsert "blocked" "000000" "Waiting on an external dependency"
 upsert "generated" "FEF2C0" "Filed by an automated agent"

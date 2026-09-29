@@ -210,7 +210,8 @@ export async function triageRunReport(
 
 async function main(argv) {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
-  if (!region) return fail("no_aws_region", "Set AWS_REGION for Run Drop");
+  if (!region)
+    return fail("no_aws_region", "Set AWS_REGION for the Drop Operator");
   const { positional, flags } = parseFlags(argv);
   const command = positional[0] ?? "list";
   const doc = await createVerifiedDocumentClient({ region });

@@ -220,7 +220,7 @@ export async function collectWebActivity({
   now = new Date(),
 } = {}) {
   if (process.env.AWS_REGION !== "us-east-1")
-    throw new Error("Set AWS_REGION=us-east-1 for Run Drop");
+    throw new Error("Set AWS_REGION=us-east-1 for the Drop Operator");
   if (!Number.isInteger(hours) || hours < 1 || hours > MAX_HOURS)
     throw new Error(`hours must be an integer from 1 to ${MAX_HOURS}`);
 

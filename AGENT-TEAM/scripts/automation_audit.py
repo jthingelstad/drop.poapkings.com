@@ -5,12 +5,25 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 PLAN_PATH = REPO / "AGENT-TEAM" / "automations.toml"
+
+
+def main_checkout(repo: Path = REPO) -> Path:
+    """The clone's main checkout, which Codex launches from, even when this runs in a worktree."""
+    common = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=repo, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return Path(common).parent
+
+
+ENVIRONMENTS = {"local", "worktree"}
 CODEX_HOME = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
 REQUIRED_KEYS = {
     "id", "name", "objective", "objective_file", "status", "rrule", "model",
@@ -68,16 +81,28 @@ def validate(plan: dict, repo: Path = REPO) -> list[str]:
             failures.append(f"{entry['id']}: status must be ACTIVE or PAUSED")
         if not (repo / entry["objective_file"]).is_file():
             failures.append(f"{entry['id']}: missing {entry['objective_file']}")
+        environment = entry.get("execution_environment", "local")
+        if environment not in ENVIRONMENTS:
+            failures.append(f"{entry['id']}: execution_environment must be local or worktree")
+        config = entry.get("local_environment_config_path")
+        if environment == "worktree" and not (config and (repo / config).is_file()):
+            failures.append(f"{entry['id']}: a worktree run needs a committed local_environment_config_path")
     return failures
 
 
-def expected(entry: dict, repo: Path = REPO) -> dict:
-    return {
+def expected(entry: dict, repo: Path | None = None) -> dict:
+    repo = repo or main_checkout()
+    environment = entry.get("execution_environment", "local")
+    wanted = {
         "id": entry["id"], "kind": "cron", "name": entry["name"],
         "prompt": prompt(entry, repo), "status": entry["status"], "rrule": entry["rrule"],
         "model": entry["model"], "reasoning_effort": entry["reasoning_effort"],
-        "execution_environment": "local", "cwds": [str((repo / entry.get("launch_cwd", ".")).resolve())],
+        "execution_environment": environment,
+        "cwds": [str((repo / entry.get("launch_cwd", ".")).resolve())],
     }
+    if environment == "worktree":
+        wanted["local_environment_config_path"] = str(repo / entry["local_environment_config_path"])
+    return wanted
 
 
 def audit(plan: dict, *, codex_home: Path = CODEX_HOME, repo: Path = REPO) -> tuple[list[str], list[str]]:
@@ -95,7 +120,7 @@ def audit(plan: dict, *, codex_home: Path = CODEX_HOME, repo: Path = REPO) -> tu
         except Exception as exc:
             failures.append(f"{entry['id']}: invalid live TOML: {exc}")
             continue
-        wanted = expected(entry, repo)
+        wanted = expected(entry, main_checkout(repo))
         drift = [key for key, value in wanted.items() if actual.get(key) != value]
         if drift:
             failures.append(f"{entry['id']}: live drift in {', '.join(drift)}")

@@ -28,7 +28,7 @@ The stack also exports a narrowly scoped leaderboard-maintenance role. The
 the game table and update only `GSI1PK`/`GSI1SK` on `PLAYER#` items, so it cannot
 change canonical runs, scores, profiles, XP, or referee evidence.
 
-Run Drop failure triage uses another exported role,
+The Drop Operator's failure triage uses another exported role,
 `elixir-drop-run-reports`. It can query and transact only the `RUN_REPORTS`
 partition: list identity-free reports, change their triage status, and append an
 immutable audit row. It cannot scan the table, read player/account partitions,

@@ -1,4 +1,6 @@
-# Run Drop
+# Drop Operator
+
+_Formerly Run Drop (renamed 2026-09-29)._
 
 Your objective is: **Drop is healthy, correct, current, observable, and inexpensive to
 operate.**
