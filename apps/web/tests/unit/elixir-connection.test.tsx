@@ -135,7 +135,7 @@ describe('ElixirConnection', () => {
         }}
       />
     )
-    expect(host.querySelector('a[href="https://elixir.poapkings.com/account/verify"]')).not.toBeNull()
+    expect(host.querySelector('a[href="https://elixir.poapkings.com/console/account/verify"]')).not.toBeNull()
     expect(host.textContent).toContain('#2PP')
     const current = host.querySelector<HTMLButtonElement>('.ed-elixir__candidate--current')!
     expect(current.disabled).toBe(true)
