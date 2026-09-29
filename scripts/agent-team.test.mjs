@@ -202,6 +202,7 @@ void test("objective lease is atomic, private, and owner-scoped", (t) => {
     holderPid: 4242,
     hostname: "test-host",
     startingHead,
+    worktree: git(repo, "rev-parse", "--show-toplevel").trim(),
   });
   assert.equal(statSync(leasePath).mode & 0o777, 0o600);
   assert.throws(() => claimLease("grow", { leasePath }), /already held/);
@@ -255,7 +256,7 @@ void test("stale clearing requires age plus proof that the holder is inactive", 
         hostname: "test-host",
         processExists: () => false,
       }),
-    /worktree is dirty/,
+    /holder's worktree .* is dirty/,
   );
   rmSync(path.join(repo, "dirty.txt"));
   assert.throws(
@@ -383,6 +384,117 @@ void test("preflight fails for every unsafe publication state", async (t) => {
   });
 });
 
+// A run's worktree, as Codex makes one: detached at origin/main in a
+// directory of its own.
+function linkedWorktree(t, repo, root) {
+  const worktree = path.join(root, "runs", "one", "repo");
+  git(repo, "worktree", "add", "--quiet", "--detach", worktree, "origin/main");
+  git(worktree, "config", "user.email", "agent-team@example.test");
+  git(worktree, "config", "user.name", "Agent Team Test");
+  return worktree;
+}
+
+void test("a run's own worktree is eligible, detached or on a fresh branch, and sees the shared lease", (t) => {
+  const { repo, root } = repositoryFixture(t);
+  const worktree = linkedWorktree(t, repo, root);
+  let result = preflight(worktree);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /this run's worktree: detached/);
+  assert.match(result.stdout, /clean and in sync/);
+
+  // The lease lives in the common directory: a claim from the main
+  // checkout is the lease the worktree reports, and it does not stop the run.
+  const leasePath = path.join(
+    git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").trim(),
+    "agent-team-objective-lease.json",
+  );
+  claimLease("season", { leasePath, repoRoot: repo, leaseId: "held" });
+  result = preflight(worktree);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /production-write lease held: .*"season"/);
+  assert.throws(() => claimLease("run", { leasePath }), /already held/);
+
+  git(worktree, "switch", "-c", "run/fix");
+  result = preflight(worktree);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+void test("a run's worktree that is dirty, ahead, behind, or on main is read-only", async (t) => {
+  await t.test("dirty", (t) => {
+    const { repo, root } = repositoryFixture(t);
+    const worktree = linkedWorktree(t, repo, root);
+    writeFileSync(path.join(worktree, "dirty.txt"), "dirty\n");
+    const result = preflight(worktree);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /DIRTY/);
+  });
+  await t.test("ahead", (t) => {
+    const { repo, root } = repositoryFixture(t);
+    const worktree = linkedWorktree(t, repo, root);
+    writeFileSync(path.join(worktree, "ahead.txt"), "ahead\n");
+    git(worktree, "add", "ahead.txt");
+    git(worktree, "commit", "-m", "Ahead");
+    const result = preflight(worktree);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /AHEAD of origin\/main/);
+  });
+  await t.test("behind", (t) => {
+    const { remote, repo, root } = repositoryFixture(t);
+    const worktree = linkedWorktree(t, repo, root);
+    pushRemoteCommit(root, remote, "behind");
+    const result = preflight(worktree);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /BEHIND origin\/main/);
+  });
+  await t.test("on main", (t) => {
+    const { repo, root } = repositoryFixture(t);
+    const worktree = linkedWorktree(t, repo, root);
+    git(repo, "switch", "--detach");
+    git(worktree, "switch", "main");
+    const result = preflight(worktree);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /main checkout's branch/);
+  });
+});
+
+void test("clearing a lease judges the holder's worktree, not the caller's", (t) => {
+  const { repo, root } = repositoryFixture(t);
+  const worktree = linkedWorktree(t, repo, root);
+  const leasePath = path.join(root, "lease.json");
+  claimLease("grow", {
+    leasePath,
+    repoRoot: worktree,
+    leaseId: "lease-grow-2",
+    now: new Date("2026-08-12T00:00:00.000Z"),
+    holderId: "thread-4",
+    holderPid: 4242,
+    hostname: "test-host",
+  });
+  writeFileSync(path.join(worktree, "work.txt"), "unpushed\n");
+  const stale = {
+    leasePath,
+    repoRoot: repo,
+    hours: 8,
+    now: new Date("2026-08-12T09:00:00.000Z"),
+    hostname: "test-host",
+    processExists: () => false,
+  };
+  assert.throws(() => clearStaleLease(stale), /holder's worktree .* is dirty/);
+  assert.throws(
+    () =>
+      clearManualLease({
+        leasePath,
+        repoRoot: repo,
+        holderId: "thread-4",
+        confirmInactive: true,
+      }),
+    /holder's worktree .* is dirty/,
+  );
+  // A discarded worktree holds nothing to protect.
+  git(repo, "worktree", "remove", "--force", worktree);
+  assert.equal(clearStaleLease(stale).leaseId, "lease-grow-2");
+});
+
 void test("automation registry contains exactly the five active objective owners", () => {
   const source = readFileSync(
     path.join(ROOT, "AGENT-TEAM/automations.toml"),
@@ -405,14 +517,20 @@ void test("automation registry contains exactly the five active objective owners
     ["fair-play", "grow", "improve", "run", "season"],
   );
   const expectedSchedules = {
-    "fair-play": "RRULE:FREQ=DAILY;BYHOUR=5;BYMINUTE=45",
-    grow: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=17;BYMINUTE=30",
-    improve: "RRULE:FREQ=WEEKLY;BYDAY=FR;BYHOUR=17;BYMINUTE=30",
-    run: "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30",
-    season: "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30",
+    "fair-play": "RRULE:FREQ=WEEKLY;BYDAY=TU;BYHOUR=18;BYMINUTE=45",
+    grow: "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=17;BYMINUTE=0",
+    improve: "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=15;BYMINUTE=0",
+    run: "RRULE:FREQ=WEEKLY;BYDAY=WE,SA;BYHOUR=4;BYMINUTE=30",
+    season: "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=19;BYMINUTE=0",
   };
   for (const entry of entries) {
-    assert.equal(entry.status, "ACTIVE");
+    // The weekend Growth slot has been paused since 2026-09-17.
+    assert.equal(entry.status, entry.schedule_of ? "PAUSED" : "ACTIVE");
+    assert.equal(entry.execution_environment, "worktree");
+    assert.equal(
+      entry.local_environment_config_path,
+      ".codex/environments/environment.toml",
+    );
     assert.equal(
       entry.rrule,
       entry.schedule_of
@@ -434,12 +552,26 @@ void test("automation registry contains exactly the five active objective owners
     0,
   );
   assert.deepEqual([...OBJECTIVES].sort(), [
+    "clock",
     "fair-play",
+    "game",
     "grow",
     "improve",
     "run",
     "season",
   ]);
+  assert.notEqual(
+    statSync(path.join(ROOT, "AGENT-TEAM/scripts/worktree-setup.sh")).mode &
+      0o111,
+    0,
+  );
+  assert.match(
+    readFileSync(
+      path.join(ROOT, ".codex/environments/environment.toml"),
+      "utf8",
+    ),
+    /script = "bash AGENT-TEAM\/scripts\/worktree-setup\.sh"/,
+  );
 });
 
 void test("objective contract requires the lease and contains no retired queue labels", () => {
@@ -453,7 +585,9 @@ void test("objective contract requires the lease and contains no retired queue l
     "utf8",
   );
   assert.match(workflow, /objective-lease\.mjs claim/);
-  assert.match(workflow, /Only when a safe authorized gap requires mutation/);
+  assert.match(workflow, /## One worktree per run/);
+  assert.match(workflow, /Only immediately before a production write/);
+  assert.doesNotMatch(workflow, /git switch main &&/);
   assert.match(workflow, /release <objective> <leaseId>/);
   assert.match(
     workflow,
@@ -472,7 +606,7 @@ void test("objective contract requires the lease and contains no retired queue l
     /upsert "(?:approved|needs-deploy|needs-design|proposal|ready|release|wip)"/,
   );
   const fairPlay = readFileSync(
-    path.join(ROOT, "AGENT-TEAM/protect-fair-play.md"),
+    path.join(ROOT, "AGENT-TEAM/drop-fair-play-referee.md"),
     "utf8",
   );
   assert.match(fairPlay, /fair-play-policy\.md/);
@@ -489,13 +623,13 @@ void test("objective contract requires the lease and contains no retired queue l
   );
   assert.doesNotMatch(fairPlayPolicy, /🔎|✅|🚫|`Pending`|`Reviewed`/);
   const improve = readFileSync(
-    path.join(ROOT, "AGENT-TEAM/improve-drop.md"),
+    path.join(ROOT, "AGENT-TEAM/drop-game-designer.md"),
     "utf8",
   );
   assert.match(improve, /quality of the experience once a player reaches Drop/);
   assert.match(improve, /directly reproducible.*is evidence/s);
   const season = readFileSync(
-    path.join(ROOT, "AGENT-TEAM/call-the-season.md"),
+    path.join(ROOT, "AGENT-TEAM/drop-season-commentator.md"),
     "utf8",
   );
   assert.match(
@@ -590,12 +724,15 @@ void test("player updates pass one material-impact notification bar", () => {
     "utf8",
   );
   const improve = readFileSync(
-    path.join(ROOT, "AGENT-TEAM/improve-drop.md"),
+    path.join(ROOT, "AGENT-TEAM/drop-game-designer.md"),
     "utf8",
   );
-  const grow = readFileSync(path.join(ROOT, "AGENT-TEAM/grow-drop.md"), "utf8");
+  const grow = readFileSync(
+    path.join(ROOT, "AGENT-TEAM/drop-growth-manager.md"),
+    "utf8",
+  );
   const season = readFileSync(
-    path.join(ROOT, "AGENT-TEAM/call-the-season.md"),
+    path.join(ROOT, "AGENT-TEAM/drop-season-commentator.md"),
     "utf8",
   );
 
@@ -972,9 +1109,18 @@ assert any("same primary owner" in x for x in m.validate(plan))
 alias["objective_file"] = owner["objective_file"]
 alias.pop("schedule_of")
 assert "objectives must have exactly one owner" in m.validate(plan)
+main = m.main_checkout()
 e = m.expected(dict(owner, prompt="Use the primary memory.", launch_cwd=".."))
 assert e["prompt"] == "Use the primary memory."
-assert e["cwds"] == [str(root.parent)]
+assert e["cwds"] == [str(main.parent)]
+assert e["execution_environment"] == "worktree"
+assert e["local_environment_config_path"] == str(main / ".codex/environments/environment.toml")
+local = dict(owner, execution_environment="local")
+local.pop("local_environment_config_path")
+assert "local_environment_config_path" not in m.expected(local)
+bare = dict(owner)
+bare.pop("local_environment_config_path")
+assert any("local_environment_config_path" in x for x in m.validate(dict(plan, automation=[bare])))
 `;
   execFileSync("python3", ["-c", probe], { cwd: ROOT });
 });

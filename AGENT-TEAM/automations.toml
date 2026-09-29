@@ -2,88 +2,100 @@ version = 2
 repo = "."
 timezone = "America/Chicago"
 
-# Approved September 9, 2026. Calendar starts use local Chicago time.
-# schedule_of entries share the original objective, lease, and automation memory.
+# Approved September 9, 2026; renamed, moved to one worktree per run and
+# resumed September 29, 2026 at the cadences already installed in Codex (the
+# weekend Drop Growth Manager slot has been paused since September 17 and
+# stays so). Calendar starts use local Chicago time.
+# schedule_of entries share the original objective, lease key, and automation memory.
 # Interval activities use an initial prompt date check because the installed app
 # miscalculates interval timezones. Preserve that check when reinstalling.
-# launch_cwd records the app launch directory relative to this checkout.
+# Each run gets its own git worktree (execution_environment = "worktree"),
+# prepared by local_environment_config_path; the installed automation takes
+# that path absolute, from the main checkout. launch_cwd records the app
+# launch directory relative to the main checkout.
 # Event-driven follow-ups remain explicit starts; these are calendar schedules.
 
 [[automation]]
 id = "drop-operations-manager"
-name = "Run Drop"
+name = "Drop Operator"
 objective = "run"
-objective_file = "AGENT-TEAM/run-drop.md"
+objective_file = "AGENT-TEAM/drop-operator.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=30"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=WE,SA;BYHOUR=4;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "high"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/run-drop.md` completely, then pursue the `run` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-operator.md` completely, then pursue the `run` objective (Drop Operator) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `run/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `run` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-growth-and-season-analyst"
-name = "Grow Drop"
+name = "Drop Growth Manager"
 objective = "grow"
-objective_file = "AGENT-TEAM/grow-drop.md"
+objective_file = "AGENT-TEAM/drop-growth-manager.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=17;BYMINUTE=30"
+rrule = "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=17;BYMINUTE=0"
 model = "gpt-5.6-sol"
 reasoning_effort = "high"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/grow-drop.md` completely, then pursue the `grow` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-growth-manager.md` completely, then pursue the `grow` objective (Drop Growth Manager) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `grow/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `grow` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-player-experience-owner"
-name = "Improve Drop"
+name = "Drop Game Designer"
 objective = "improve"
-objective_file = "AGENT-TEAM/improve-drop.md"
+objective_file = "AGENT-TEAM/drop-game-designer.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=WEEKLY;BYDAY=FR;BYHOUR=17;BYMINUTE=30"
+rrule = "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=15;BYMINUTE=0"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/improve-drop.md` completely, then pursue the `improve` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-game-designer.md` completely, then pursue the `improve` objective (Drop Game Designer) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `improve/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `improve` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-fair-play-referee"
-name = "Protect Fair Play"
+name = "Drop Fair Play Referee"
 objective = "fair-play"
-objective_file = "AGENT-TEAM/protect-fair-play.md"
+objective_file = "AGENT-TEAM/drop-fair-play-referee.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=DAILY;BYHOUR=5;BYMINUTE=45"
+rrule = "RRULE:FREQ=WEEKLY;BYDAY=TU;BYHOUR=18;BYMINUTE=45"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/protect-fair-play.md` completely, then pursue the `fair-play` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-fair-play-referee.md` completely, then pursue the `fair-play` objective (Drop Fair Play Referee) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `fair-play/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `fair-play` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-season-commentator"
-name = "Call the Season"
+name = "Drop Season Commentator"
 objective = "season"
-objective_file = "AGENT-TEAM/call-the-season.md"
+objective_file = "AGENT-TEAM/drop-season-commentator.md"
 status = "ACTIVE"
-rrule = "RRULE:FREQ=DAILY;BYHOUR=19;BYMINUTE=30"
+rrule = "RRULE:FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2;BYHOUR=19;BYMINUTE=0"
 model = "gpt-5.6-sol"
 reasoning_effort = "xhigh"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/call-the-season.md` completely, then pursue the `season` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-season-commentator.md` completely, then pursue the `season` objective (Drop Season Commentator) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `season/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `season` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
 
 [[automation]]
 id = "drop-growth-and-season-analyst-weekend"
-name = "Grow Drop (weekend)"
+name = "Drop Growth Manager (weekend)"
 objective = "grow"
-objective_file = "AGENT-TEAM/grow-drop.md"
+objective_file = "AGENT-TEAM/drop-growth-manager.md"
 schedule_of = "drop-growth-and-season-analyst"
-status = "ACTIVE"
+status = "PAUSED"
 rrule = "RRULE:FREQ=WEEKLY;BYDAY=SA,SU;BYHOUR=6;BYMINUTE=30"
 model = "gpt-5.6-sol"
 reasoning_effort = "high"
-execution_environment = "local"
+execution_environment = "worktree"
+local_environment_config_path = ".codex/environments/environment.toml"
 launch_cwd = "."
-prompt = "This is the weekend schedule for the same objective as drop-growth-and-season-analyst. Use its existing checkout lease and read/update its canonical automation memory at `/Users/otto/.codex/automations/drop-growth-and-season-analyst/memory.md`; do not create a separate objective or memory history. Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/README.md`, `/Users/otto/Projects/clash-royale/drop.poapkings.com/AGENT-TEAM/grow-drop.md` completely, then pursue the `grow` objective exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run preflight first; acquire the objective lease only before mutation; never publish pre-existing work; preserve human and privacy boundaries; and end with a clean repository. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."
+prompt = "This is the weekend schedule for the same objective as drop-growth-and-season-analyst. Use its lease key and read/update its canonical automation memory at `/Users/otto/.codex/automations/drop-growth-and-season-analyst/memory.md`; do not create a separate objective or memory history. Follow the project instructions already loaded by Codex. This run has its own git worktree of drop.poapkings.com, prepared at a fresh origin/main by the repository's Codex environment; every path is relative to it. Read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, `AGENT-TEAM/drop-growth-manager.md` completely, then pursue the `grow` objective (Drop Growth Manager) exactly as written. Measure current evidence before changing anything. Own a clear gap through source fix, regression coverage, verification, deployment or restart when required, and natural acceptance. Use issues only for multi-run work, external blockers, durable audits, or Jamie decisions. Run `AGENT-TEAM/scripts/preflight.sh` first. Edit only in this worktree, on a `grow/<slug>` branch, and land every change as a pull request that merges on a green `validate`; main takes nothing else, and the merge deploys. Claim the `grow` lease (`node AGENT-TEAM/scripts/objective-lease.mjs`) only immediately before a production write outside that pipeline (an out-of-band deploy, a referee decision, a run-report triage, or an Updates publication), release it once the write is verified, and never clear or break another holder's lease. This worktree is discarded after the run: before ending, everything worth keeping is merged or in an open pull request. Never publish pre-existing work; preserve human and privacy boundaries. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run."

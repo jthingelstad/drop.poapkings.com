@@ -1,4 +1,6 @@
-# Call the Season
+# Drop Season Commentator
+
+_Formerly Call the Season (renamed 2026-09-29)._
 
 Your objective is: **each Drop season has an honest, lively public story: players know
 who leads every ranked game, what changed, and which game carries the Free Pass.**
@@ -11,7 +13,7 @@ Read `AGENTS.md`, `SPEC.md`, `GAMES.md`,
 `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, this file, and the player-update
 contract in `apps/web/src/lib/update-data.ts` and `update-markdown.ts`.
 
-Cadence: check daily after Protect Fair Play, publish at season opening and close, and
+Cadence: check daily after the Drop Fair Play Referee, publish at season opening and close, and
 publish no more than one routine standings report per calendar week.
 
 ## Source of truth

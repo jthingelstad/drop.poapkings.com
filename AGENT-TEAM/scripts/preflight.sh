@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 #
-# Git preflight for AGENT-TEAM objective owners. Run from the repo root at the start
-# of every run. Prints the working-tree state and a verdict; exits non-zero when
-# the tree is in a state an automated run should NOT act on (dirty / behind /
-# diverged). An automated agent should stop and report on a
-# non-zero exit rather than pull/merge/rebase/stash.
+# Git preflight for AGENT-TEAM objective owners. Run from the repository root at
+# the start of every run. Prints the working-tree state and a verdict; exits
+# non-zero when the tree is in a state an automated run should NOT act on. An
+# automated agent should stop and report on a non-zero exit rather than
+# pull/merge/rebase/stash.
+#
+# A scheduled run works in its own linked worktree (WORKFLOW.md, "One worktree
+# per run"): detached at origin/main, or on a fresh branch from it. The main
+# checkout belongs to Jamie and interactive sessions; there the old rule holds,
+# main tracking origin/main. Either way a dirty, ahead, behind or diverged tree
+# is read-only. The production-write lease is reported, never a reason to stop:
+# edits and pull requests need no lease.
 #
 set -euo pipefail
 
@@ -16,18 +23,39 @@ if ! git fetch origin --prune >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! branch="$(git symbolic-ref --quiet --short HEAD)"; then
-  echo "  ✗ checkout is DETACHED — stop mutation."
-  exit 1
-fi
-echo "==> Preflight on branch: $branch"
-git status --short --branch | sed 's/^/  /'
-
+git_dir="$(git rev-parse --path-format=absolute --git-dir)"
+common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
 verdict=0
 
-if [ "$branch" != "main" ]; then
-  echo "  ✗ objective runs publish only from main, not $branch — stop mutation."
-  verdict=1
+if [ "$git_dir" != "$common_dir" ]; then
+  echo "==> Preflight in this run's worktree: ${branch:-detached} at $(git rev-parse --short HEAD)"
+  git status --short --branch | sed 's/^/  /'
+  if [ "$branch" = "main" ]; then
+    echo "  ✗ main is the main checkout's branch — work detached or on <objective>/<slug>."
+    verdict=1
+  fi
+  base="origin/main"
+else
+  if [ -z "$branch" ]; then
+    echo "  ✗ checkout is DETACHED — stop mutation."
+    exit 1
+  fi
+  echo "==> Preflight on branch: $branch"
+  git status --short --branch | sed 's/^/  /'
+  if [ "$branch" != "main" ]; then
+    echo "  ✗ objective runs publish only from main, not $branch — stop mutation."
+    verdict=1
+  fi
+  if base="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)"; then
+    if [ "$base" != "origin/main" ]; then
+      echo "  ✗ main must track origin/main, not $base — stop mutation."
+      verdict=1
+    fi
+  else
+    echo "  ✗ no upstream configured for $branch — stop mutation."
+    exit 1
+  fi
 fi
 
 # Dirty worktree?
@@ -36,27 +64,23 @@ if [ -n "$(git status --porcelain)" ]; then
   verdict=1
 fi
 
-# Compare to upstream. An objective checkout without one is not safe to publish.
-if upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)"; then
-  if [ "$upstream" != "origin/main" ]; then
-    echo "  ✗ main must track origin/main, not $upstream — stop mutation."
-    verdict=1
-  fi
-  ahead="$(git rev-list --count '@{u}..HEAD')"
-  behind="$(git rev-list --count 'HEAD..@{u}')"
-  if [ "$behind" -gt 0 ] && [ "$ahead" -gt 0 ]; then
-    echo "  ✗ DIVERGED from $upstream ($ahead ahead, $behind behind) — stop and report."
-    verdict=1
-  elif [ "$behind" -gt 0 ]; then
-    echo "  ✗ BEHIND $upstream by $behind — stop and report (do not pull from an automated run)."
-    verdict=1
-  elif [ "$ahead" -gt 0 ]; then
-    echo "  ✗ AHEAD of $upstream by $ahead — never publish a pre-existing commit."
-    verdict=1
-  fi
-else
-  echo "  ✗ no upstream configured for $branch — stop mutation."
+ahead="$(git rev-list --count "$base..HEAD")"
+behind="$(git rev-list --count "HEAD..$base")"
+if [ "$behind" -gt 0 ] && [ "$ahead" -gt 0 ]; then
+  echo "  ✗ DIVERGED from $base ($ahead ahead, $behind behind) — stop and report."
   verdict=1
+elif [ "$behind" -gt 0 ]; then
+  echo "  ✗ BEHIND $base by $behind — stop and report (do not pull from an automated run)."
+  verdict=1
+elif [ "$ahead" -gt 0 ]; then
+  echo "  ✗ AHEAD of $base by $ahead — never publish a pre-existing commit."
+  verdict=1
+fi
+
+lease="$common_dir/agent-team-objective-lease.json"
+if [ -f "$lease" ]; then
+  echo "  • production-write lease held: $(tr -d '\n' < "$lease")"
+  echo "    Edits and pull requests need no lease; wait for it only before a production write."
 fi
 
 if [ "$verdict" -eq 0 ]; then

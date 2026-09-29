@@ -172,13 +172,13 @@ production run. A successful exact-head validation triggers
   lands it deploys it.
 - CI holds no AWS key: the promotion job runs in the `production` environment
   (main only) and assumes `elixir-drop-github-deploy` through GitHub OIDC.
-- `npm run deploy:api` stays **Run Drop's** out-of-band tool: first stack
+- `npm run deploy:api` stays **Drop Operator's** out-of-band tool: first stack
   creation, secret rotation, and re-running a deploy that CI could not complete. It is
   run from the fixed host as `AWS_PROFILE=cloud-engineer`, only on a checkout
   equal to `origin/main` whose tree passed `validate` (`--break-glass` skips
   that check, for an outage only); the mode-0600 root `.env` supplies settings,
   never its AWS key.
-- A pipeline that did not run or finish is a Run Drop finding, not a routine manual
+- A pipeline that did not run or finish is a Drop Operator finding, not a routine manual
   handoff. See `infra/README.md` for the CD mechanics.
 
 ---
@@ -223,8 +223,8 @@ production run. A successful exact-head validation triggers
   visual restyles, or follow-up polish. A correctness fix qualifies only when it
   changes fairness, saved progress, eligibility, player data, or a fact the game
   teaches. One card represents one player outcome, not one commit; related details
-  fold into the strongest qualifying card instead of producing sequels. Grow Drop
-  audits editorial quality weekly and treats silence as the default. Call the Season owns routine,
+  fold into the strongest qualifying card instead of producing sequels. The Drop Growth Manager
+  audits editorial quality weekly and treats silence as the default. The Drop Season Commentator owns routine,
   source-backed standings and Cleared final game results in the Updates API under its
   standing publication contract. Naming the Free Pass recipient, awarding a prize,
   other player messages, and broad communication retain the normal Jamie authority.
@@ -714,10 +714,10 @@ passes the notification bar in `CLAUDE.md` publishes through the Updates API wit
 an impact category, one concise subject, and one Markdown paragraph.
 Player-visible is not sufficient, and related commits produce one card rather than a
 changelog sequence. Feature, season, and message kinds remain distinct in the one
-API stream. Call the Season may publish source-backed current leaders
+API stream. The Drop Season Commentator may publish source-backed current leaders
 and Cleared final game results; naming the Free Pass recipient,
 awarding any prize, or sending broad communication still requires Jamie's authority.
-Grow Drop audits editorial quality weekly with silence as the default. There are no
+The Drop Growth Manager audits editorial quality weekly with silence as the default. There are no
 named releases.
 
 ## Landing changes
@@ -728,18 +728,23 @@ workflow lint, two Chromium shards and the cross-browser deploy smoke; the
 exhaustive four-engine matrix runs daily). There is no bypass,
 Jamie's account included; the agents push as it.
 
+- A scheduled run works in its own git worktree, never in the main checkout
+  (`AGENT-TEAM/WORKFLOW.md`, "One worktree per run"); an interactive session
+  works in the main checkout.
 - `git switch -c <objective>/<slug>` before the first edit (`session/<slug>`
   for an interactive session), commit, `git push -u origin HEAD`,
   `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`,
-  `gh pr checks --watch --fail-fast`; once merged, `git switch main && git
-pull --ff-only`. If `main` moves under an open PR: `gh pr update-branch
---rebase`.
+  `gh pr checks --watch --fail-fast`; once merged, a run's worktree goes to
+  `git fetch origin && git checkout --detach origin/main` and the main
+  checkout to `git switch main && git pull --ff-only`. If `main` moves under
+  an open PR: `gh pr update-branch --rebase`.
 - A rebase merge gives the commit a new SHA on `main`. `Validate Main` and
   `Build and Deploy` run for the merge SHA from `gh pr view <n> --json
 mergeCommit`, never the branch's SHA.
 - A check that fails and then passes on a re-run is a flake, and a flake is a
   defect: fix it in the PR or record it the same day.
-- Unfinished work stays an open PR; the checkout goes back to `main`. Outside
+- Unfinished work stays an open PR; the checkout goes back to `main`, and a
+  run's worktree is discarded. Outside
   contributors fork, then open a PR; the same check applies.
 
 ## Elixir integration API

@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+// The production-write lease (AGENT-TEAM/WORKFLOW.md, "One worktree per
+// run"). Every run edits in its own worktree and lands through a pull
+// request, which needs no lease; the lease serializes only the writes to
+// production a run makes outside the merge pipeline: an out-of-band
+// `npm run deploy:api`, a referee decision, a run-report triage, or an
+// Updates publication. It lives in the git common directory, so every
+// worktree of this clone sees the same one. `clock` and `game` are the
+// Clash Royale domain team's keys for its runs into this repository.
 
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -6,6 +14,7 @@ import { hostname } from "node:os";
 import {
   closeSync,
   constants,
+  existsSync,
   openSync,
   readFileSync,
   unlinkSync,
@@ -20,6 +29,8 @@ export const OBJECTIVES = new Set([
   "improve",
   "season",
   "fair-play",
+  "clock",
+  "game",
 ]);
 export const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -27,17 +38,32 @@ export const REPO_ROOT = path.resolve(
 );
 export const DEFAULT_LEASE_PATH = path.resolve(
   REPO_ROOT,
-  execFileSync("git", ["rev-parse", "--git-dir"], {
+  execFileSync("git", ["rev-parse", "--git-common-dir"], {
     cwd: REPO_ROOT,
     encoding: "utf8",
   }).trim(),
   "agent-team-objective-lease.json",
 );
 
+function isDirty(cwd) {
+  return (
+    execFileSync("git", ["status", "--porcelain"], {
+      cwd,
+      encoding: "utf8",
+    }) !== ""
+  );
+}
+
+// The worktree a lease was claimed from; a lease from before worktrees
+// recorded none and was always the main checkout.
+function holderWorktree(current, repoRoot) {
+  return current.worktree ?? repoRoot;
+}
+
 function assertObjective(objective) {
   if (!OBJECTIVES.has(objective)) {
     throw new Error(
-      `unknown objective ${JSON.stringify(objective)}; choose run, grow, improve, season, or fair-play`,
+      `unknown objective ${JSON.stringify(objective)}; choose run, grow, improve, season, fair-play, clock, or game`,
     );
   }
 }
@@ -75,6 +101,12 @@ export function claimLease(objective, options = {}) {
         cwd: options.repoRoot ?? REPO_ROOT,
         encoding: "utf8",
       }).trim(),
+    worktree:
+      options.worktree ??
+      execFileSync("git", ["rev-parse", "--show-toplevel"], {
+        cwd: options.repoRoot ?? REPO_ROOT,
+        encoding: "utf8",
+      }).trim(),
   };
   let descriptor;
   try {
@@ -86,7 +118,7 @@ export function claimLease(objective, options = {}) {
   } catch (error) {
     if (error?.code === "EEXIST") {
       throw new Error(
-        `checkout lease is already held: ${JSON.stringify(readLease(leasePath))}`,
+        `production-write lease is already held: ${JSON.stringify(readLease(leasePath))}`,
       );
     }
     throw error;
@@ -107,10 +139,10 @@ export function assertLeaseOwner(
   assertObjective(objective);
   if (!leaseId) throw new Error("leaseId is required");
   const current = readLease(leasePath);
-  if (!current) throw new Error("checkout lease is not held");
+  if (!current) throw new Error("production-write lease is not held");
   if (current.objective !== objective || current.leaseId !== leaseId) {
     throw new Error(
-      `checkout lease belongs to another run: ${JSON.stringify({ objective: current.objective, claimedAt: current.claimedAt })}`,
+      `production-write lease belongs to another run: ${JSON.stringify({ objective: current.objective, claimedAt: current.claimedAt, worktree: current.worktree })}`,
     );
   }
   return current;
@@ -127,11 +159,7 @@ export function releaseLease(
   const current = readLease(leasePath);
   if (!current) return null;
   assertLeaseOwner(objective, leaseId, leasePath);
-  const dirty = execFileSync("git", ["status", "--porcelain"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  if (dirty)
+  if (isDirty(repoRoot))
     throw new Error("refusing to release a lease while the worktree is dirty");
   unlinkSync(leasePath);
   return current;
@@ -145,7 +173,7 @@ export function clearStaleLease(options = {}) {
   if (!Number.isFinite(hours) || hours <= 0)
     throw new Error("--hours must be positive");
   const current = readLease(leasePath);
-  if (!current) throw new Error("no checkout lease exists");
+  if (!current) throw new Error("no production-write lease exists");
   const claimedAt = new Date(current.claimedAt);
   if (Number.isNaN(claimedAt.valueOf()))
     throw new Error("objective lease has no valid claimedAt");
@@ -153,18 +181,20 @@ export function clearStaleLease(options = {}) {
   if (ageMs < hours * 60 * 60 * 1000) {
     throw new Error(`objective lease is not yet ${hours} hours old`);
   }
-  const dirty = execFileSync("git", ["status", "--porcelain"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  if (dirty)
+  // Judge the holder's worktree, not the caller's. One already discarded
+  // holds no work to protect.
+  const holder = holderWorktree(current, repoRoot);
+  const holderExists = existsSync(holder);
+  if (holderExists && isDirty(holder))
     throw new Error(
-      "refusing to clear a stale lease while the worktree is dirty",
+      `refusing to clear a stale lease while the holder's worktree ${holder} is dirty`,
     );
-  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).trim();
+  const currentHead = holderExists
+    ? execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: holder,
+        encoding: "utf8",
+      }).trim()
+    : current.startingHead;
   if (current.startingHead !== currentHead)
     throw new Error(
       "refusing automatic stale clear because HEAD changed; inspect and clear manually",
@@ -200,18 +230,17 @@ export function clearManualLease(options = {}) {
   const leasePath = options.leasePath ?? DEFAULT_LEASE_PATH;
   const repoRoot = options.repoRoot ?? REPO_ROOT;
   const current = readLease(leasePath);
-  if (!current) throw new Error("no checkout lease exists");
+  if (!current) throw new Error("no production-write lease exists");
   if (!options.confirmInactive)
     throw new Error("manual clear requires --confirm-inactive");
   const recorded = current.holderId ?? "legacy-unidentified";
   if (recorded !== options.holderId)
     throw new Error(`lease holder is ${JSON.stringify(recorded)}`);
-  const dirty = execFileSync("git", ["status", "--porcelain"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  if (dirty)
-    throw new Error("refusing to clear a lease while the worktree is dirty");
+  const holder = holderWorktree(current, repoRoot);
+  if (existsSync(holder) && isDirty(holder))
+    throw new Error(
+      `refusing to clear a lease while the holder's worktree ${holder} is dirty`,
+    );
   unlinkSync(leasePath);
   return current;
 }

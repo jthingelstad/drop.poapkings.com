@@ -12,6 +12,7 @@ function isDocumentation(path) {
   return (
     path.endsWith(".md") ||
     path.startsWith(".claude/") ||
+    path.startsWith(".codex/") ||
     path.startsWith("AGENT-TEAM/") ||
     path.startsWith("docs/")
   );

@@ -109,7 +109,7 @@ standing consequences apply to whichever game is designated:
   provisionally and only `excluded` removes a row. The run scores, records,
   earns XP, keeps its place, and wears the Awaiting seal while it waits. The
   standing must be referee-reviewed before the pass is awarded; that obligation
-  lives in `AGENT-TEAM/protect-fair-play.md`.
+  lives in `AGENT-TEAM/drop-fair-play-referee.md`.
 - **A strict new season or all-time leader goes to the referee, and ranks while
   it waits.** The completion is recorded, retains XP and history, and takes its
   real placement provisionally under the Awaiting seal. The one read that still
@@ -125,7 +125,7 @@ standing consequences apply to whichever game is designated:
 
 The recipient is picked manually at season end from the designated game's
 Cleared winning run. There is no automated snapshot or award pipeline, and one
-should not be built without a fresh product decision. Call the Season may report
+should not be built without a fresh product decision. The Drop Season Commentator may report
 the public race and prepare the result, but Jamie approves the recipient and
 prize communication. The announced mode, eligibility, tie-break, seven-day
 response window, and gift-only prize terms live on the stable POAP KINGS Free
@@ -317,6 +317,7 @@ and advancing must never wait on another tap.
   with no run of simple boards to learn on; Trade was the least-played ranked
   mode, at a median 77.6s over 8 exchanges (~9.7s each, against Surge's ~1.3s
   per card).
+
 - Cards are dealt by rejection: the value has to land inside the keypad's
   -4..+4, so a board is redealt until it does (bounded, and a shape that cannot
   land fails the run start rather than spinning).
@@ -457,8 +458,8 @@ Every ranked summary draws the same chart from
 per-bar reference tick in seconds, and a red bar where that bar cost you.** The
 first version gave each mode whatever series seemed most interesting about it
 and only Surge was readable, because Surge was the only chart whose bars and
-reference shared a unit — Rain plotted clears against fall *speed*, Trade
-printed retry *counts* under time bars, Higher / Lower hung right-or-wrong dots
+reference shared a unit — Rain plotted clears against fall _speed_, Trade
+printed retry _counts_ under time bars, Higher / Lower hung right-or-wrong dots
 below them. Each asked the player to hold two scales at once.
 
 Four parts are mandatory and live in the component, so no mode can ship without
@@ -468,13 +469,13 @@ beside the words** (top right), a **scale** (max and zero on the axis), and
 fifth rule is `badLabel`: red never means one thing inferred from colour, so
 each mode names its own cost.
 
-| Mode | Bars | Reference tick | Red bar means |
-| --- | --- | --- | --- |
-| Surge | Seconds per card | The same card in your best run | slower than your best there |
-| Rain | Seconds to answer | How long that card had left to fall | a life lost |
-| Survival | Seconds to answer | Your window at that streak | the card that ended it |
-| Trade | Seconds per exchange | Your average round this run | it took a retry |
-| Higher / Lower | Seconds per read | Your average read this run | a wrong read |
+| Mode           | Bars                 | Reference tick                      | Red bar means               |
+| -------------- | -------------------- | ----------------------------------- | --------------------------- |
+| Surge          | Seconds per card     | The same card in your best run      | slower than your best there |
+| Rain           | Seconds to answer    | How long that card had left to fall | a life lost                 |
+| Survival       | Seconds to answer    | Your window at that streak          | the card that ended it      |
+| Trade          | Seconds per exchange | Your average round this run         | it took a retry             |
+| Higher / Lower | Seconds per read     | Your average read this run          | a wrong read                |
 
 Rain and Survival deliberately share a shape because they share a truth: a
 shrinking allowance against a steady hand. They differ only in what is marked —
@@ -495,7 +496,7 @@ unit — do not force it into this grammar.
 
 A summary shows what happened, not what is pending. There is no "Awaiting a
 referee" line and no awaiting seal on a summary head: at the moment a run ends
-*every* recorded run is awaiting, so a mark every run carries tells a player
+_every_ recorded run is awaiting, so a mark every run carries tells a player
 nothing. A cleared seal is never drawn there either — a referee reads input
 evidence and takes minutes. The verdict is met later, on the boards, in the run
 log, and in Updates. The one seal a summary still draws is **not recorded**,
@@ -565,7 +566,6 @@ unless it is re-approved.
 - **Standalone Focus** — fold into Practice if the need returns.
 - **Deck Budget / Average 3.4** — removed with no planned rework.
 
-
 ---
 
 ## Badges
@@ -578,7 +578,7 @@ badge outside that standard collection.
 **Why ladders, not tiers.** Three tiers means a player who clears tier III is done
 with that badge forever — it stops motivating exactly the player who cared most.
 A long ladder always has a next rung visible, so rung one can land in a first
-session *and* the top rung remains a genuine long-haul target.
+session _and_ the top rung remains a genuine long-haul target.
 
 **Rungs are calibrated against real data, not feel.** Measured on 2026-08-02:
 Surge n=16 (best 12.9s, median 25.4s, worst 67.3s), Higher/Lower n=5, Survival

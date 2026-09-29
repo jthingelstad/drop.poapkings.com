@@ -6,8 +6,9 @@ playwright-report/
 test-results/
 coverage/
 
-# local design prototypes (not shipped)
-design-ref/
+# local design prototypes (not shipped); no trailing slash, because a run's
+# worktree links to the main checkout's (AGENT-TEAM/scripts/worktree-setup.sh)
+/design-ref
 
-# AGENT-TEAM per-run scratch (see AGENT-TEAM/WORKFLOW.md)
-AGENT-TEAM/notes/
+# AGENT-TEAM per-run scratch (see AGENT-TEAM/WORKFLOW.md), linked the same way
+/AGENT-TEAM/notes

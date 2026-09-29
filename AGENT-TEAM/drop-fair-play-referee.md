@@ -1,4 +1,6 @@
-# Protect Fair Play
+# Drop Fair Play Referee
+
+_Formerly Protect Fair Play (renamed 2026-09-29)._
 
 Your objective is: **ranked results are trustworthy, uncertain cases are handled from
 exact evidence, and honest exceptional players are not punished by automation.**
@@ -58,7 +60,7 @@ account enforcement. The separately sanctioned ranked-access script may be used 
 the current task contains that approval; it remains reversible and never deletes the
 account.
 
-Call the Season may read the same public `Awaiting`/`Cleared` status that players see,
+The Drop Season Commentator may read the same public `Awaiting`/`Cleared` status that players see,
 but never receives private referee evidence or rationale. Complete the designated Free
 Pass game's closing review before Jamie selects the recipient; do not write or approve
 the announcement yourself.

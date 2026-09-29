@@ -24,7 +24,7 @@ proposal underneath it:
   doubt.
 - **Section A moved off the summary.** The own-run hold notice shipped and was
   then deliberately removed from the summary head: at the moment a run ends
-  *every* recorded run is awaiting, so a mark every run carries told a player
+  _every_ recorded run is awaiting, so a mark every run carries told a player
   nothing. The hold is named in the recording toast (which also carries the run
   reference) and met later on the boards, in the run log, and in Updates.
 - **Section C partly shipped.** The Fair Play page names the three states and
@@ -40,8 +40,8 @@ The Fair Play Referee is one of Drop's best features and no player has ever seen
 it. This proposal makes it visible without turning it into an accusation
 machine.
 
-Read `SPEC.md` §11 and `AGENT-TEAM/protect-fair-play.md` first — they own the
-evidence model and the referee's authority. This doc only covers what a *player*
+Read `SPEC.md` §11 and `AGENT-TEAM/drop-fair-play-referee.md` first — they own the
+evidence model and the referee's authority. This doc only covers what a _player_
 sees.
 
 ---
@@ -74,13 +74,13 @@ looks good.
 
 1. **Only ever mark the positive.** Show that a run was reviewed and stands.
    Never show `watch`, never show `hidden`, never show a `reason`.
-   `AGENT-TEAM/protect-fair-play.md` forbids public accusation and forbids the
+   `AGENT-TEAM/drop-fair-play-referee.md` forbids public accusation and forbids the
    referee contacting a player; `reason` is private by construction.
 2. **Expose a boolean, never a disposition.** The API sends `reviewed: true`.
    It never sends `clear`, `watch`, `review`, or `insufficient_evidence`.
 3. **`clear` and `watch` both map to `reviewed: true`.** This is the
    non-obvious one. If only `clear` earned the badge, a watched player would be
-   the single row *missing* a mark their neighbours have — accusation by
+   the single row _missing_ a mark their neighbours have — accusation by
    omission, legible to everyone and impossible to appeal. Both dispositions
    truthfully mean "a referee examined this and it is on the board", so both
    get the same mark and the hole disappears.
@@ -88,7 +88,7 @@ looks good.
    never will be (see "Sparsity" below), so a missing badge says nothing. This
    only holds while badges are rare. **If coverage ever approaches universal,
    omission becomes an accusation again and this design must be revisited.**
-5. **A player may always know about their own run.** Telling you that *your*
+5. **A player may always know about their own run.** Telling you that _your_
    score is held is not an accusation and not "contacting a player" — it is the
    product being honest with you about your own result.
 
@@ -102,7 +102,7 @@ looks good.
 (`recordedRunSchema`, ~:192) and surfaced on the run's own surfaces —
 `components/Summary.tsx` and/or `components/RunRecordingNotice.tsx`.
 
-*Shipped, then narrowed:* the notice lives in `RunRecordingNotice` only. The
+_Shipped, then narrowed:_ the notice lives in `RunRecordingNotice` only. The
 summary deliberately keys no referee state, because a mark that every fresh run
 carries is not information.
 
@@ -200,10 +200,10 @@ approved 2026-07-25; the copy should get a second look before it ships.
 Two docs described behaviour the code does not have. Both are now corrected; the
 table below is kept as the record of what was wrong.
 
-| File | Says | Reality |
-|---|---|---|
-| `GAMES.md:80-83` | "a flagged run stays on the board until a referee decides otherwise" | (True as of 2026-07-25: the completion transaction wrote `review`/`hidden` and the board filtered it out immediately. **Reversed since** — a held run ranks provisionally and only an excluded run leaves the board, which makes the original GAMES.md sentence right again.) |
-| Retired referee role contract (Git history, 2026-07-25) | "an automatic integrity flag never removes a run from the board by itself" | same — and the retired file contradicted itself later |
+| File                                                    | Says                                                                       | Reality                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GAMES.md:80-83`                                        | "a flagged run stays on the board until a referee decides otherwise"       | (True as of 2026-07-25: the completion transaction wrote `review`/`hidden` and the board filtered it out immediately. **Reversed since** — a held run ranks provisionally and only an excluded run leaves the board, which makes the original GAMES.md sentence right again.) |
+| Retired referee role contract (Git history, 2026-07-25) | "an automatic integrity flag never removes a run from the board by itself" | same — and the retired file contradicted itself later                                                                                                                                                                                                                         |
 
 `SPEC.md:386` and `services/api/README.md:155-157` already describe the
 hide-first behaviour correctly.

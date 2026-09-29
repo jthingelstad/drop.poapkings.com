@@ -6,15 +6,20 @@ product acceptance. There is no Build Manager, Team Manager, or routing pipeline
 
 ## The team
 
-| Objective             | File                   | Primary question                                                                                               |
-| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Run Drop**          | `run-drop.md`          | Is the public game healthy, correct, current, observable, and inexpensive to run?                              |
-| **Grow Drop**         | `grow-drop.md`         | Are more people reaching a first recorded run and returning?                                                   |
-| **Improve Drop**      | `improve-drop.md`      | Is playing Drop becoming clearer, more satisfying, and more effective?                                         |
-| **Call the Season**   | `call-the-season.md`   | Do players know who leads every ranked game and how the rotating Free Pass race stands?                        |
-| **Protect Fair Play** | `protect-fair-play.md` | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
+| Objective                   | File                         | Primary question                                                                                               |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Drop Operator**           | `drop-operator.md`           | Is the public game healthy, correct, current, observable, and inexpensive to run?                              |
+| **Drop Growth Manager**     | `drop-growth-manager.md`     | Are more people reaching a first recorded run and returning?                                                   |
+| **Drop Game Designer**      | `drop-game-designer.md`      | Is playing Drop becoming clearer, more satisfying, and more effective?                                         |
+| **Drop Season Commentator** | `drop-season-commentator.md` | Do players know who leads every ranked game and how the rotating Free Pass race stands?                        |
+| **Drop Fair Play Referee**  | `drop-fair-play-referee.md`  | Are ranked results trustworthy and are uncertain cases handled privately, reversibly, and from exact evidence? |
 
 Calendar cadence: [generated schedule](SCHEDULE.md), sourced from `automations.toml`.
+
+Renamed 2026-09-29, for names that say what each does: Run Drop, Grow Drop,
+Improve Drop, Call the Season and Protect Fair Play. Automation ids, lease keys and
+`objective:*` labels are unchanged; notes and summaries written before then use the
+old names.
 
 Building and testing are capabilities of every objective owner. New modes, material
 scoring or season changes, privacy-affecting signals, public accusations, prize
@@ -36,11 +41,11 @@ Jamie can start with the outcome instead of choosing a role or preparing a ticke
 - `What across this team needs Jamie?`
 - `Resume the active watch for <objective or issue>.`
 
-Choose **Run Drop** for availability, execution, deploys, persistence, ordinary defects,
-recovery, or cost; **Grow Drop** for acquisition, first-run conversion, and retention;
-**Improve Drop** for a working experience that is confusing, flat, awkward, or weak at
-teaching; **Call the Season** for factual standings and Free Pass commentary; and
-**Protect Fair Play** for evidence integrity, referee coverage, and reversible visibility
+Choose **Drop Operator** for availability, execution, deploys, persistence, ordinary defects,
+recovery, or cost; **Drop Growth Manager** for acquisition, first-run conversion, and retention;
+**Drop Game Designer** for a working experience that is confusing, flat, awkward, or weak at
+teaching; **Drop Season Commentator** for factual standings and Free Pass commentary; and
+**Drop Fair Play Referee** for evidence integrity, referee coverage, and reversible visibility
 decisions. Cross-cutting work keeps one originating owner.
 
 ## Project map
@@ -50,9 +55,13 @@ decisions. Cross-cutting work keeps one originating owner.
 - `SPEC.md` owns the implemented product/data contract; `GAMES.md` owns mode and
   scoring decisions.
 - `CONTRIBUTING.md` owns the change-specific local and CI source gates.
-- `AGENT-TEAM/scripts/objective-lease.mjs` serializes mutating objective runs in the
-  shared checkout.
-- `AGENT-TEAM/scripts/season-brief.mjs` builds Call the Season's public, sanitized
+- Each scheduled run works in its own git worktree, prepared by
+  `.codex/environments/environment.toml` and `AGENT-TEAM/scripts/worktree-setup.sh`
+  (`WORKFLOW.md`, "One worktree per run"); the main checkout is Jamie's.
+- `AGENT-TEAM/scripts/objective-lease.mjs` serializes only production writes made
+  outside the merge pipeline (an out-of-band deploy, a referee decision, a run-report
+  triage, an Updates publication); edits and pull requests need no lease.
+- `AGENT-TEAM/scripts/season-brief.mjs` builds the Drop Season Commentator's public, sanitized
   five-board snapshot without referee or AWS access.
 - `python3 AGENT-TEAM/scripts/automation_audit.py` verifies the registry against installed
   Codex tasks; use `--registry-only` in source-only checks.
@@ -121,13 +130,13 @@ Issues are an exception ledger for multi-run work, external blockers, and Jamie
 decisions. Same-run findings are fixed and verified without a routing ticket. Every
 open issue has exactly one ownership label:
 
-| Label                 | Owner             |
-| --------------------- | ----------------- |
-| `objective:run`       | Run Drop          |
-| `objective:grow`      | Grow Drop         |
-| `objective:improve`   | Improve Drop      |
-| `objective:season`    | Call the Season   |
-| `objective:fair-play` | Protect Fair Play |
+| Label                 | Owner                   |
+| --------------------- | ----------------------- |
+| `objective:run`       | Drop Operator           |
+| `objective:grow`      | Drop Growth Manager     |
+| `objective:improve`   | Drop Game Designer      |
+| `objective:season`    | Drop Season Commentator |
+| `objective:fair-play` | Drop Fair Play Referee  |
 
 Work-type labels such as `bug`, `operations`, `growth`, `integrity`, `eval`, and
 `enhancement` remain descriptive. They do not choose a worker. `decision` means Jamie
@@ -158,4 +167,4 @@ The manifest records the installed schedule and prompt, including the explicit
 repository directory when the app launches from Projects.
 
 Entries with `schedule_of` are extra time slots for the same owner. They must
-use the original automation's memory and checkout lease, not a separate history.
+use the original automation's memory and lease key, not a separate history.
