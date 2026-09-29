@@ -1,8 +1,9 @@
 # Elixir Drop
 
 A fast little game for learning **Clash Royale cards and elixir costs**, run by
-the **POAP KINGS** clan. See a card, name it or price it, get quicker. Built as
-a static single-page app in the Elixir Drop monorepo.
+the **POAP KINGS** clan. See a card, name it or price it, get quicker. A Preact
+browser app served from private S3 behind CloudFront, with a Lambda API and
+DynamoDB (on AWS since 2026-08-22), in the Elixir Drop monorepo.
 
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
