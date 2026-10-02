@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { apiRequest, addPlayerToCollection } from "../src/elixir-mcp.js";
-import { rememberPlayerInCollection } from "../src/elixir-collection.js";
+import { apiRequest } from "../src/elixir-mcp.js";
 import {
   fetchPlayerFromHub,
   normalizeRecordedPlayer,
@@ -11,7 +10,6 @@ const config = { baseUrl: "https://elixir.example", token: "svt_test" };
 const dropConfig = {
   elixirMcpBaseUrl: config.baseUrl,
   elixirMcpKey: config.token,
-  elixirMcpCollectionSlug: "elixir-drop",
 };
 function reply(value: unknown, status = 200) {
   return {
@@ -27,34 +25,16 @@ const recorded = {
   clan: { clan_tag: "#2PYQ0", name: "Clan", badge_id: 123, role: "member" },
   attributes: { years_played: 2, account_age_days: 800 },
 };
-it("uses bearer REST with encoded resources and idempotent membership", async () => {
-  const fetcher = vi.fn(async () => reply({ enrollment_established: true }));
-  await addPlayerToCollection(
-    config,
-    "elixir-drop",
-    ["#2PYQ0", "#2PYQ0"],
-    fetcher,
-  );
-  expect(fetcher.mock.calls).toHaveLength(1);
+it("uses bearer REST for an encoded player resource", async () => {
+  const fetcher = vi.fn(async () => reply(recorded));
+  await apiRequest(config, "GET", "/players/%232PYQ0", undefined, fetcher);
   expect(fetcher).toHaveBeenCalledWith(
-    "https://elixir.example/api/v1/collections/elixir-drop/members/%232PYQ0",
+    "https://elixir.example/api/v1/players/%232PYQ0",
     expect.objectContaining({
-      method: "PUT",
+      method: "GET",
       headers: expect.objectContaining({ Authorization: "Bearer svt_test" }),
     }),
   );
-  await addPlayerToCollection(config, "elixir-drop", [], fetcher);
-  expect(fetcher).toHaveBeenCalledTimes(1);
-});
-it("does not send absent tags, and leaves enrollment failures for the worker to retry", async () => {
-  const fetcher = vi.fn(async () =>
-    reply({ code: "temporarily_unavailable" }, 503),
-  );
-  await rememberPlayerInCollection(dropConfig, undefined, fetcher);
-  expect(fetcher).not.toHaveBeenCalled();
-  await expect(
-    rememberPlayerInCollection(dropConfig, "#2PYQ0", fetcher),
-  ).rejects.toMatchObject({ status: 503 });
 });
 it("retains recorded source time and never refreshes on an authentication failure", async () => {
   const fetcher = vi.fn(async () => reply(recorded));

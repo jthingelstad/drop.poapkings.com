@@ -70,35 +70,3 @@ export async function apiRequest<T>(
     return payload.data;
   });
 }
-export interface CollectionEditResult {
-  collection_id: string;
-  added: number;
-  already_present: number;
-  total: number;
-  recordings_started: number;
-  enrollment_established: boolean;
-}
-export async function addPlayerToCollection(
-  config: ElixirMcpConfig,
-  slug: string,
-  tags: string[],
-  fetcher?: ElixirMcpFetch,
-): Promise<CollectionEditResult | undefined> {
-  const wanted = [...new Set(tags.filter(Boolean))];
-  if (!wanted.length) return undefined;
-  return wanted.length === 1
-    ? apiRequest(
-        config,
-        "PUT",
-        `/collections/${encodeURIComponent(slug)}/members/${encodeURIComponent(wanted[0]!)}`,
-        {},
-        fetcher,
-      )
-    : apiRequest(
-        config,
-        "POST",
-        `/collections/${encodeURIComponent(slug)}/members`,
-        { tags: wanted },
-        fetcher,
-      );
-}

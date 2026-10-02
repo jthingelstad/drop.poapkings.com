@@ -3,7 +3,6 @@ import type { SQSEvent } from "aws-lambda";
 import type { Repository } from "../src/repository.js";
 
 const mocks = vi.hoisted(() => ({
-  enrollment: vi.fn(),
   clock: vi.fn(),
   finalize: vi.fn(),
   profile: vi.fn(),
@@ -13,9 +12,6 @@ const mocks = vi.hoisted(() => ({
   getProfile: vi.fn(),
   getProfileRefreshHash: vi.fn(),
   saveProfileRefreshHash: vi.fn(),
-}));
-vi.mock("../src/elixir-collection.js", () => ({
-  rememberPlayerInCollection: mocks.enrollment,
 }));
 vi.mock("../src/elixir-war-clock.js", () => ({
   fetchWarClockFromHub: mocks.clock,
@@ -53,7 +49,6 @@ const config = {
   appUrl: "https://drop.example",
   elixirMcpBaseUrl: "https://hub.example",
   elixirMcpKey: "test-key",
-  elixirMcpCollectionSlug: "elixir-drop",
   buttondownApiKey: "test",
   buttondownNewsletterId: "test",
 };
@@ -193,10 +188,22 @@ describe("durable refresh worker", () => {
   });
 });
 
-it("retries enrollment failures through SQS, even for an already cached profile", async () => {
+it("processes an existing queued profile job without collection enrollment", async () => {
   mocks.getProfile.mockResolvedValue(player);
-  mocks.enrollment.mockRejectedValueOnce(new Error("offline"));
-  expect(await refreshHandler(event([job]))).toEqual({
-    batchItemFailures: [{ itemIdentifier: "0" }],
-  });
+  const fetcher = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("collection enrollment is retired"));
+  try {
+    expect(await refreshHandler(event([job]))).toEqual({
+      batchItemFailures: [],
+    });
+    expect(mocks.profile).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      player.playerTag,
+    );
+    expect(fetcher).not.toHaveBeenCalled();
+  } finally {
+    fetcher.mockRestore();
+  }
 });

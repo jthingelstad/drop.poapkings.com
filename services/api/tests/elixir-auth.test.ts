@@ -28,7 +28,6 @@ const config = {
   emailFromName: "Elixir",
   nameModelId: "m",
   elixirMcpBaseUrl: "https://elixir.test",
-  elixirMcpCollectionSlug: "elixir-drop",
   warClockClanTag: "#J2RGCRVG",
   elixirOAuthClientId: "client123",
 } as RouteContext["config"];

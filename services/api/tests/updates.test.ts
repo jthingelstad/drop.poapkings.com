@@ -76,7 +76,6 @@ function context(
       elixirMcpBaseUrl: "https://elixir.example",
       elixirOAuthClientId: "",
       elixirOAuthClientSecret: "",
-      elixirMcpCollectionSlug: "drop",
       warClockClanTag: "#CLAN",
     },
     repository: repository as never,
