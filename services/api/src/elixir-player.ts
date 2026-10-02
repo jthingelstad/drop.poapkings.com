@@ -151,7 +151,7 @@ export async function fetchPlayerFromHub(
   }
   if (refresh.status === "complete" && refresh.profile)
     return normalize(refresh.profile);
-  // The durable FIFO worker retries. Do not pretend enrollment or an accepted
+  // The durable FIFO worker retries. Do not pretend an accepted
   // fetch means the recorder already holds an observation.
   throw new ElixirMcpError("Profile refresh pending", 202, "refresh_pending");
 }

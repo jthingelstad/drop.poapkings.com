@@ -22,8 +22,8 @@ export interface Config {
   // trust the viewer IP overwritten by the request function without trusting a
   // public forwarding header on direct execute-api requests.
   webOriginToken?: string;
-  // The Elixir MCP hub: Drop reads recorded Clash Royale history from it
-  // and keeps its player collection current there. Optional so the app
+  // The Elixir hub: Drop reads recorded Clash Royale history from it.
+  // Optional so the app
   // runs unwired; every call site treats an absent hub as a no-op.
   elixirMcpBaseUrl: string;
   // Sign in with Elixir: Drop's public OAuth client_id at Elixir's door.
@@ -31,7 +31,6 @@ export interface Config {
   elixirOAuthClientId: string;
   elixirOAuthClientSecret: string;
   elixirMcpKey?: string;
-  elixirMcpCollectionSlug: string;
   // The clan whose river race defines the Clan Wars calendar Drop's
   // seasons follow. Read from the hub now, not polled from Supercell.
   warClockClanTag: string;
@@ -96,8 +95,6 @@ export function getConfig(): Config {
       process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
       process.env.ELIXIR_MCP_KEY?.trim() ||
       undefined,
-    elixirMcpCollectionSlug:
-      process.env.ELIXIR_MCP_COLLECTION_SLUG?.trim() || "elixir-drop",
     warClockClanTag:
       process.env.CR_WAR_CLOCK_CLAN_TAG?.trim().toUpperCase() || "#J2RGCRVG",
     shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,

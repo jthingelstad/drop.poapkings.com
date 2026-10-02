@@ -751,20 +751,20 @@ mergeCommit`, never the branch's SHA.
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
 REST `/api/v1`: game policy clock, recorded player profiles, asynchronous profile
-refreshes and add-only collection membership. The canonical contract and setup
+refreshes. Automatic collection enrollment was retired on 2026-10-02;
+saved tags do not start an ongoing Elixir recording. The canonical contract and setup
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
 
 `ELIXIR_INTEGRATION_KEY` holds the REST-audience integration key. Stage this
 new parameter before switching code; the legacy `ELIXIR_MCP_KEY` is preserved
 for rollback and only used if no new key is configured. `ELIXIR_MCP_BASE_URL` stays the hub
-origin. Admin grants additions to `elixir-drop` without transferring collection
-ownership or altering its depth. Login and tag save enqueue generation-bound
-refresh jobs. The worker asserts membership even when a profile is cached,
-then reads recorded data or requests a durable collector refresh. Source
-`observed_at` supplies profile freshness. Failures retry in SQS; stale values
-remain useful. `scripts/sync-elixir-collection.mjs` repairs missed additions
-without deleting manual or previous members.
+origin. Login and tag save enqueue generation-bound refresh jobs. The worker
+reads recorded data or requests a durable collector refresh without collection
+membership or enrollment. Source `observed_at` supplies profile freshness.
+Failures retry in SQS; stale values remain useful. The collection sync script
+and collection configuration are retired. Sign in with Elixir, consent,
+verified identity selection and the person's authorized account access remain.
 
 Saved CR tags remain optional and unverified. No Drop identities, scores, XP or
 badges are uploaded. The new clock is explicitly policy-based, with supplied

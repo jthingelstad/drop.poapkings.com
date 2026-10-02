@@ -34,14 +34,10 @@ Parameters:
     Type: String
     NoEcho: true
     Default: ""
-    Description: Service token for the Elixir MCP hub. Drop reads recorded Clash Royale history from the hub and keeps its player collection current there. Not the Clash Royale token, which never leaves the allowlisted host.
+    Description: Service token for the Elixir MCP hub. Drop reads recorded Clash Royale history from the hub. Not the Clash Royale token, which never leaves the allowlisted host.
   ElixirMcpBaseUrl:
     Type: String
     Default: https://elixir.poapkings.com
-  ElixirMcpCollectionSlug:
-    Type: String
-    Default: elixir-drop
-    Description: The hub collection holding every Drop player who has saved a Clash Royale tag.
   ElixirOAuthClientId:
     Type: String
     Default: ""
@@ -806,7 +802,6 @@ Resources:
           ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
-          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           ELIXIR_OAUTH_CLIENT_ID: !Ref ElixirOAuthClientId
           ELIXIR_OAUTH_CLIENT_SECRET: !Ref ElixirOAuthClientSecret
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
@@ -909,7 +904,6 @@ Resources:
           ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
-          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
           BUTTONDOWN_API_KEY: !Ref ButtondownApiKey
           BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId
 
@@ -999,7 +993,6 @@ Resources:
           ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
-          ELIXIR_MCP_COLLECTION_SLUG: !Ref ElixirMcpCollectionSlug
 
   CrResultEventSource:
     Type: AWS::Lambda::EventSourceMapping

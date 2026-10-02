@@ -40,12 +40,10 @@ const PRESERVED_PARAMETERS = [
   ["ButtondownNewsletterId", ["BUTTONDOWN_NEWSLETTER_ID"]],
   // The hub seam. Operator-owned like the rest: CI never carries the
   // service token, so these preserve rather than reset. Blanking
-  // ElixirMcpKey would silently stop new players reaching the Elixir
-  // MCP collection, with every login still returning 200.
+  // the key would silently disable recorded profile and clock reads.
   ["ElixirIntegrationKey", ["ELIXIR_INTEGRATION_KEY"]],
   ["ElixirMcpKey", ["ELIXIR_MCP_KEY"]],
   ["ElixirMcpBaseUrl", ["ELIXIR_MCP_BASE_URL"]],
-  ["ElixirMcpCollectionSlug", ["ELIXIR_MCP_COLLECTION_SLUG"]],
   // Sign in with Elixir. Operator-registered; blanking it would silently
   // remove the button from every sign-in sheet.
   ["ElixirOAuthClientId", ["ELIXIR_OAUTH_CLIENT_ID"]],
