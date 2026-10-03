@@ -35,7 +35,7 @@
     "marked": "^18.0.14",
     "motion": "^13.4.4",
     "pixi.js": "^8.21.0",
-    "preact": "^10.29.8",
+    "preact": "^11.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
