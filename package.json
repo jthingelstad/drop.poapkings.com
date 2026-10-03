@@ -52,7 +52,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.1",
     "knip": "^6.38.0",
-    "oxlint": "^1.85.0",
+    "oxlint": "^1.86.0",
     "oxlint-tsgolint": "^7.0.2003",
     "prettier": "^3.9.9"
   }
