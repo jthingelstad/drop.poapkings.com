@@ -1,8 +1,8 @@
-# Codex local environment for scheduled runs (AGENT-TEAM/WORKFLOW.md,
-# "One worktree per run"). Each automation in AGENT-TEAM/automations.toml
-# runs in its own worktree; this prepares it.
+# Codex local environment for this repository: each session or scheduled
+# run works in a worktree of its own, and this prepares it
+# (scripts/worktree-setup.sh).
 version = 1
 name = "drop.poapkings.com"
 
 [setup]
-script = "bash AGENT-TEAM/scripts/worktree-setup.sh"
+script = "bash scripts/worktree-setup.sh"
