@@ -119,7 +119,7 @@ function stringField(
 
 export function defaultScriptRunner(repoRoot: string): ScriptRunner {
   return async (script, args = []) => {
-    const path = join(repoRoot, "AGENT-TEAM", "scripts", script);
+    const path = join(repoRoot, "scripts", script);
     try {
       const result = await execFileAsync(process.execPath, [path, ...args], {
         cwd: repoRoot,
@@ -192,7 +192,7 @@ export function defaultAccountScriptRunner(repoRoot: string): ScriptRunner {
 
 export function defaultUpdatesScriptRunner(repoRoot: string): ScriptRunner {
   return async (script, args = []) => {
-    const path = join(repoRoot, "AGENT-TEAM", "scripts", script);
+    const path = join(repoRoot, "scripts", script);
     try {
       const result = await execFileAsync(process.execPath, [path, ...args], {
         cwd: repoRoot,

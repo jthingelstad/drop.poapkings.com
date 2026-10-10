@@ -1,6 +1,7 @@
 # Fair Play evidence and decision policy
 
-This is the durable adjudication rubric for the Drop Fair Play Referee. Apply it to the exact
+This is the durable adjudication rubric for Drop's Fair Play review (the tools and how to
+run them are in `docs/OPERATIONS.md` and `scripts/README.md`). Apply it to the exact
 run that earned a leaderboard position, with enough bounded player history to
 interpret that run. Do not repeatedly evaluate unchanged evidence: use the stable
 evidence digest and durable watermark. If the required cohort is incomplete, report

@@ -4,13 +4,14 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { withProductionLock } from "./production-lock.mjs";
 
 export const UPDATES_PUBLISH_TOKEN_ENV = "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN";
 export const PLAYER_UPDATES_USAGE = `Player Updates CLI
 
 Usage:
-  node AGENT-TEAM/scripts/player-updates.mjs list [--limit 1-500] [--json]
-  node AGENT-TEAM/scripts/player-updates.mjs publish --kind <feature|season|message> --title <subject> --body <markdown> [--impact <category>] [--id <kebab-id>] [--published-at <ISO-date-time>]
+  node scripts/player-updates.mjs list [--limit 1-500] [--json]
+  node scripts/player-updates.mjs publish --kind <feature|season|message> --title <subject> --body <markdown> [--impact <category>] [--id <kebab-id>] [--published-at <ISO-date-time>]
 
 Feature impact categories:
   gameplay, learning, competition, progression, access, sharing, identity, account-privacy
@@ -18,7 +19,7 @@ Feature impact categories:
 Publishing reads ${UPDATES_PUBLISH_TOKEN_ENV} from the environment or the repository's mode-0600 .env. It does not use AWS credentials. Ordinary publications omit --id and --published-at; the CLI supplies both.`;
 const MAX_UPDATES = 500;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDirectory, "../..");
+const repoRoot = resolve(scriptDirectory, "..");
 
 export function parseFlags(args) {
   const flags = {};
@@ -226,10 +227,12 @@ export async function main(args) {
     return flags.json ? printJson(result) : printList(result);
   }
   if (command === "publish") {
-    return printJson(
-      await publishUpdate(entryFromFlags(flags), {
-        token: await resolveUpdatesPublishToken(),
-      }),
+    const entry = entryFromFlags(flags);
+    const token = await resolveUpdatesPublishToken();
+    // The publication runs holding the production lock (docs/OPERATIONS.md);
+    // a held lock throws before anything is sent.
+    return withProductionLock(`Updates publication ${entry.id}`, async () =>
+      printJson(await publishUpdate(entry, { token })),
     );
   }
   throw new Error("Choose list or publish");

@@ -1,4 +1,4 @@
-// Shared conventions + helpers for the bounded Fair Play Referee scripts.
+// Shared conventions + helpers for the bounded Fair Play referee scripts.
 //
 // These scripts are a documented, sanitized evidence and decision surface over
 // the Drop game table. They import NOTHING from services/api
@@ -22,6 +22,10 @@ import {
   TransactWriteCommand,
   paginateScan,
 } from "@aws-sdk/lib-dynamodb";
+import {
+  acquireProductionLock,
+  ProductionLockHeldError,
+} from "./production-lock.mjs";
 
 export const TABLE_NAME =
   process.env.DROP_TABLE_NAME || process.env.TABLE_NAME || "elixir-drop";
@@ -254,6 +258,29 @@ export function failClosed(reason, detail) {
     ...(detail ? { detail } : {}),
   });
   process.exit(1);
+}
+
+// The write scripts run their reads and write holding Drop's production lock
+// (production-lock.mjs, docs/OPERATIONS.md). A held lock fails closed with
+// who holds it since when; the lock is released in `finally`, and on the
+// process exit a failClosed() inside `fn` takes.
+export async function withProductionLockOrFail(purpose, fn) {
+  let lock;
+  try {
+    lock = acquireProductionLock(purpose);
+  } catch (error) {
+    failClosed(
+      error instanceof ProductionLockHeldError
+        ? "production_lock_held"
+        : "production_lock_unavailable",
+      error instanceof Error ? error.message : "unknown",
+    );
+  }
+  try {
+    return await fn();
+  } finally {
+    lock.release();
+  }
 }
 
 const playerIdCache = new Map();
@@ -682,7 +709,10 @@ export async function currentSeasonId(doc) {
       ProjectionExpression: "crSeasonId",
     }),
   );
-  if (Number.isSafeInteger(result.Item?.crSeasonId) && result.Item.crSeasonId > 0)
+  if (
+    Number.isSafeInteger(result.Item?.crSeasonId) &&
+    result.Item.crSeasonId > 0
+  )
     return result.Item.crSeasonId;
   throw new Error("CR war clock has no current season number");
 }
