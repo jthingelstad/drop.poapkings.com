@@ -184,6 +184,42 @@ it("applies a bounded bulk decision through one audited command per run", async 
   ]);
 });
 
+it("applies a bulk decision one run at a time, as the production lock requires", async () => {
+  let inFlight = 0;
+  let most = 0;
+  const runner = vi.fn(async (script: string) => {
+    if (script !== "referee-decide.mjs")
+      return { status: "ok", totals: {}, players: [] };
+    inFlight += 1;
+    most = Math.max(most, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    inFlight -= 1;
+    return { status: "ok", runReference: "#DONE" };
+  });
+  const base = await fixture(runner);
+  const overview = (await (await fetch(`${base}/api/overview`)).json()) as {
+    csrfToken: string;
+  };
+  const response = await fetch(`${base}/api/runs/decisions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: base,
+      "X-Drop-Admin-CSRF": overview.csrfToken,
+    },
+    body: JSON.stringify({
+      runIds: ["run-1", "run-2", "run-3", "run-4", "run-5"],
+      action: "clear",
+      reason: "Evidence supports normal human play.",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(
+    ((await response.json()) as { succeeded: unknown[] }).succeeded,
+  ).toHaveLength(5);
+  expect(most).toBe(1);
+});
+
 it("rejects an oversized bulk decision before any referee write", async () => {
   const runner = vi.fn(async () => ({ status: "ok" }));
   const base = await fixture(runner);

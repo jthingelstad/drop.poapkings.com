@@ -322,21 +322,12 @@ function bulkIdentifiers(value: unknown): string[] {
   return [...new Set(value.map((runId) => identifier(String(runId))))];
 }
 
-async function mapConcurrent<T, U>(
+async function mapSequential<T, U>(
   values: T[],
-  limit: number,
   worker: (value: T) => Promise<U>,
 ): Promise<U[]> {
-  const results = new Array<U>(values.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(limit, values.length) }, async () => {
-      while (next < values.length) {
-        const index = next++;
-        results[index] = await worker(values[index]!);
-      }
-    }),
-  );
+  const results: U[] = [];
+  for (const value of values) results.push(await worker(value));
   return results;
 }
 
@@ -494,7 +485,10 @@ export function createAdminServer(options: AdminServerOptions): Server {
         // Validate the shared decision before the first write. Each run still
         // goes through the sanctioned, independently audited referee command.
         decisionArguments(runIds[0]!, input);
-        const outcomes = await mapConcurrent(runIds, 4, async (runId) => {
+        // One run at a time: each referee-decide takes Drop's production
+        // lock for its write and refuses at once when it is held, so runs
+        // in parallel would fail each other (docs/OPERATIONS.md).
+        const outcomes = await mapSequential(runIds, async (runId) => {
           try {
             const result = await run(
               "referee-decide.mjs",
