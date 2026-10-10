@@ -7,8 +7,9 @@ This entry point does not grant new product or production-write authority.
 
 ## Start here
 
-- Scheduled owners read `AGENT-TEAM/WORKFLOW.md`, `AGENT-TEAM/README.md`, their
-  objective, and the generated `AGENT-TEAM/SCHEDULE.md` completely.
+- Maintainer sessions on Jamie's machine follow `../AGENTS.md` for sessions,
+  worktrees and the agent team. Operating the live game is
+  `docs/OPERATIONS.md`; the Fair Play rubric is `docs/FAIR-PLAY.md`.
 - `CONTRIBUTING.md` owns local setup, fixtures and change-specific final gates.
   Use `npm run verify:non-browser` for agent definitions, tooling and prose;
   follow its matrix for browser/runtime changes. Node 24 is authoritative.
@@ -18,19 +19,21 @@ This entry point does not grant new product or production-write authority.
 
 ## Working agreement and authority
 
-Measure current evidence; a healthy no-op is success. Run preflight before work.
-Dirty, ahead, behind, detached or leased checkouts allow safe reads only. Claim
-the objective lease before mutation; recheck it before editing and pushing.
-Never stash, reset, overwrite, or publish another worker's changes. Land only
-current-run work as a pull request (`AGENTS.md` → "Landing changes"), run the
-canonical final gate, verify the merge SHA's CI and affected deployment, then
-release from a clean `main`.
+Measure current evidence; a healthy no-op is success. Work on a branch in a
+worktree of your own (`scripts/worktree-setup.sh`), never in the main checkout.
+Never stash, reset, overwrite, or publish another session's changes. Land only
+this session's work as a pull request (`AGENTS.md` → "Landing changes"), run the
+canonical final gate, and verify the merge SHA's CI and affected deployment.
+A production write from a checkout takes the production lock
+(`docs/OPERATIONS.md`); the write scripts take it themselves, and a held lock
+means wait, never break it.
 
 Jamie decides new modes, material scoring/season rules, privacy-affecting
 collection, Free Pass recipient/prize action, public enforcement, broad
 communication outside the standing Updates contract, irreversible changes and
 significant product direction. Preserve the existing source-backed season
-publication and material player-Update rules in `AGENTS.md` and WORKFLOW.
+publication and material player-Update rules in `AGENTS.md` and
+`docs/OPERATIONS.md`.
 These agent-definition changes do not warrant a player Update.
 
 ## Invariants that apply before reading deeper

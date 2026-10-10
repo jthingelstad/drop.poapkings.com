@@ -71,7 +71,7 @@ changed surface and finish with the smallest final gate below.
 | Routine web/gameplay/layout work                                                                   | `npm run verify:quick`                                                 |
 | API, infrastructure, bridge, or Control Room only                                                  | `npm run verify:non-browser`                                           |
 | E2E test only                                                                                      | the changed Playwright spec/project, then `npm run verify:non-browser` |
-| Root `scripts/`, `.claude/`, `AGENT-TEAM/`, `docs/`, root `*.md`                                   | `npm run verify:non-browser`                                           |
+| Root `scripts/`, `.claude/`, `.codex/`, `docs/`, root `*.md`                                       | `npm run verify:non-browser`                                           |
 | Offline/service-worker behavior, browser test infrastructure, cross-engine fixes, broad release QA | `npm run verify`                                                       |
 | Unsure                                                                                             | `npm run verify`                                                       |
 
@@ -83,8 +83,8 @@ high-risk cases in the table. `npm run test:e2e:deploy` reproduces just the
 browser portion of the main deployment gate.
 
 It runs, across every implemented workspace: Prettier format check, oxlint
-(warnings fail), the objective-team
-contract test (`test:agent-team`), the CI-scope contract tests, Stylelint,
+(warnings fail), the operator-tooling and production-lock tests
+(`test:tooling`), the CI-scope contract tests, Stylelint,
 TypeScript typecheck, Knip (unused code/deps), Vitest unit tests with coverage
 thresholds, Playwright e2e, and a production build.
 
@@ -179,7 +179,7 @@ manual host card refresher calls Supercell directly.
 
 Since 2026-09-26 `main` takes only pull requests, rebase-merged once the
 `validate` check (`verify.yml`) is green; no approval is required and nobody
-bypasses it. Maintainers and the scheduled `AGENT-TEAM/` roles branch, push and
+bypasses it. Maintainers and scheduled runs branch, push and
 auto-merge (`AGENTS.md` → "Landing changes"). After the merge, `Validate Main`
 must succeed before the exact merged head can enter the serialized deployment
 workflow.

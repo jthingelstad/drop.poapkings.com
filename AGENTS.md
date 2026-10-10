@@ -2,8 +2,11 @@
 
 Canonical entry point for any agent working this repository, and the working guide
 itself: golden rules, architecture, and product decisions. Read this, then the doc
-it points you to for your task. The **AGENT-TEAM** maintainer roles continue on from
-here (`AGENTS.md → AGENT-TEAM/WORKFLOW.md → AGENT-TEAM/README.md → your role`).
+it points you to for your task. Operating the live game (health, cards, seasons,
+Fair Play, player Updates, player reports) is `docs/OPERATIONS.md`.
+
+Maintainer sessions on Jamie's machine follow `../AGENTS.md` for sessions,
+worktrees and the agent team.
 
 `CLAUDE.md` is a symlink to this file — Claude Code and Codex read the same
 instructions. Do not fork them.
@@ -32,9 +35,9 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                            |
 | **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                          |
 | **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                              |
-| **`AGENT-TEAM/`**                                             | Objective owners: `WORKFLOW.md` (operating contract) → `README.md` (objectives) → the selected objective file.    |
-| **`AGENT-TEAM/fair-play-policy.md`**                          | Durable Fair Play evidence, disposition, and visibility rubric.                                                   |
-| **`AGENT-TEAM/scripts/player-updates.mjs`**                   | Lists and immediately publishes API-backed player Updates through the bounded IAM role.                           |
+| **`docs/OPERATIONS.md`**                                      | Operating Drop: health, cards, seasons, Fair Play, player Updates, player reports, and the production lock.       |
+| **`docs/FAIR-PLAY.md`**                                       | Durable Fair Play evidence, disposition, and visibility rubric.                                                   |
+| **`scripts/README.md`**                                       | The operator scripts: referee tools, season brief, Updates CLI, run reports, mail intake, production lock.        |
 
 ---
 
@@ -82,15 +85,15 @@ Every other doc points back here instead of keeping its own copy of this list.
 6. **Fan-content & copyright.** Card art is used under Supercell's Fan Content
    Policy: non-commercial, attributed, keep the footer disclaimer. Don't reproduce
    other copyrighted text.
-7. **Referee evidence is sanitized; decisions are a bounded overlay.** Fair Play Referee
+7. **Referee evidence is sanitized; decisions are a bounded overlay.** Fair Play
    evidence lives under `PLAYER#{sub}/EVIDENCE#` (written best-effort at
    `/runs/complete` for recorded ranked (accepted or quarantined) + unscored
    signed-in attempts; automatic scorer/integrity labels are review signals,
    never referee verdicts; never practice
    or guest) and holds the challenge, transcript, timing, versions, and
    **peppered** correlation hashes — **never a raw IP or user-agent**.
-   `TELEMETRY_PEPPER` is Lambda-only: never put it in the `AGENT-TEAM/scripts`,
-   the referee role, CI, or the browser. The `AGENT-TEAM/scripts` are the
+   `TELEMETRY_PEPPER` is Lambda-only: never put it in the referee scripts,
+   the referee role, CI, or the browser. The `scripts/referee-*.mjs` are the
    **only** sanctioned referee data and decision path; they emit the
    pseudonymous `playerId`, never `sub` or email, and fail closed. The role may
    write only `REFEREE#` decision partitions. Leaderboards honor a reversible
@@ -139,7 +142,7 @@ Every other doc points back here instead of keeping its own copy of this list.
   (`docs/ENGINEERING.md` there). `drop@poapkings.com` is
   the monitored administrative and general-contact address for alarms, the
   delivery-canary recipient, privacy questions, and Fair Play disputes; it is
-  read (never sent) over Fastmail JMAP by `AGENT-TEAM/scripts/mail-bug-reports.mjs`.
+  read (never sent) over Fastmail JMAP by `scripts/mail-bug-reports.mjs`.
   Occasional player-update digests publish through the dedicated **Buttondown**
   newsletter.
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
@@ -172,13 +175,13 @@ production run. A successful exact-head validation triggers
   lands it deploys it.
 - CI holds no AWS key: the promotion job runs in the `production` environment
   (main only) and assumes `elixir-drop-github-deploy` through GitHub OIDC.
-- `npm run deploy:api` stays **Drop Operator's** out-of-band tool: first stack
-  creation, secret rotation, and re-running a deploy that CI could not complete. It is
-  run from the fixed host as `AWS_PROFILE=cloud-engineer`, only on a checkout
-  equal to `origin/main` whose tree passed `validate` (`--break-glass` skips
-  that check, for an outage only); the mode-0600 root `.env` supplies settings,
-  never its AWS key.
-- A pipeline that did not run or finish is a Drop Operator finding, not a routine manual
+- `npm run deploy:api` stays the out-of-band tool: first stack creation, secret
+  rotation, and re-running a deploy that CI could not complete. It is run from
+  the fixed host as `AWS_PROFILE=cloud-engineer`, only on a checkout equal to
+  `origin/main` whose tree passed `validate` (`--break-glass` skips that check,
+  for an outage only), under the production lock (`docs/OPERATIONS.md`,
+  "Health"); the mode-0600 root `.env` supplies settings, never its AWS key.
+- A pipeline that did not run or finish is a health finding, not a routine manual
   handoff. See `infra/README.md` for the CD mechanics.
 
 ---
@@ -198,8 +201,8 @@ production run. A successful exact-head validation triggers
 - **Player updates are small API records, not releases.** The API owns one
   immutable stream of feature, season, and message records; the app reads them
   newest-first for the **Updates** scope, and the API projects the same records at
-  `/updates/` and `/feed.xml`. The AGENT-TEAM lists or immediately publishes them
-  with `AGENT-TEAM/scripts/player-updates.mjs`; the private Control Room is the
+  `/updates/` and `/feed.xml`. Maintainers list or immediately publish them
+  with `scripts/player-updates.mjs` (`docs/OPERATIONS.md`); the private Control Room is the
   human editing surface. There is no unauthenticated write route, draft, or
   approval flow. Routine publication is unattended: the fixed host keeps one
   dedicated bearer token in the repository's mode-0600 `.env`, and the CLI sends
@@ -223,10 +226,10 @@ production run. A successful exact-head validation triggers
   visual restyles, or follow-up polish. A correctness fix qualifies only when it
   changes fairness, saved progress, eligibility, player data, or a fact the game
   teaches. One card represents one player outcome, not one commit; related details
-  fold into the strongest qualifying card instead of producing sequels. The Drop Growth Manager
-  audits editorial quality weekly and treats silence as the default. The Drop Season Commentator owns routine,
-  source-backed standings and Cleared final game results in the Updates API under its
-  standing publication contract. Naming the Free Pass recipient, awarding a prize,
+  fold into the strongest qualifying card instead of producing sequels. Silence is
+  the default. Routine, source-backed standings and Cleared final game results
+  publish in the Updates API as season commentary (`docs/OPERATIONS.md`,
+  "Seasons"). Naming the Free Pass recipient, awarding a prize,
   other player messages, and broad communication retain the normal Jamie authority.
   Buttondown may occasionally summarize these updates for people who do not log
   in, but it is not the source of truth.
@@ -556,7 +559,7 @@ production run. A successful exact-head validation triggers
   identity, or key codes. Active response time excludes forced reveal and
   card-transition waits. Preload timed card art before the clock starts.
 - **Leading results rank while they wait.** A strict new season or all-time
-  leader still goes to the Fair Play Referee, and automatic timing/scoring
+  leader still goes to Fair Play review, and automatic timing/scoring
   signals use the same neutral hold — but a held run now **ranks provisionally**
   on the public board instead of disappearing from it. Only an `excluded` run
   leaves a board. The one read that still withholds a pending run is
@@ -706,19 +709,18 @@ When a decision is genuinely ambiguous and not covered above, in `SPEC.md`, or i
 ## Work tracking
 
 GitHub Issues are the durable exception ledger for multi-run work, external blockers,
-and Jamie decisions. Objective owners fix clear same-run gaps directly and land
-them as pull requests (below). The full contract is `AGENT-TEAM/WORKFLOW.md`.
+and Jamie decisions. Clear gaps are fixed directly and land as pull requests
+(below).
 
 A player update is exceptional, not automatic. Only a material player outcome that
 passes the notification bar in `CLAUDE.md` publishes through the Updates API with
 an impact category, one concise subject, and one Markdown paragraph.
 Player-visible is not sufficient, and related commits produce one card rather than a
 changelog sequence. Feature, season, and message kinds remain distinct in the one
-API stream. The Drop Season Commentator may publish source-backed current leaders
+API stream. Season commentary may publish source-backed current leaders
 and Cleared final game results; naming the Free Pass recipient,
 awarding any prize, or sending broad communication still requires Jamie's authority.
-The Drop Growth Manager audits editorial quality weekly with silence as the default. There are no
-named releases.
+Silence is the default. There are no named releases.
 
 ## Landing changes
 
@@ -728,23 +730,19 @@ workflow lint, two Chromium shards and the cross-browser deploy smoke; the
 exhaustive four-engine matrix runs daily). There is no bypass,
 Jamie's account included; the agents push as it.
 
-- A scheduled run works in its own git worktree, never in the main checkout
-  (`AGENT-TEAM/WORKFLOW.md`, "One worktree per run"); an interactive session
-  works in the main checkout.
-- `git switch -c <objective>/<slug>` before the first edit (`session/<slug>`
-  for an interactive session), commit, `git push -u origin HEAD`,
-  `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`,
-  `gh pr checks --watch --fail-fast`; once merged, a run's worktree goes to
-  `git fetch origin && git checkout --detach origin/main` and the main
-  checkout to `git switch main && git pull --ff-only`. If `main` moves under
-  an open PR: `gh pr update-branch --rebase`.
+- Work on a branch, in a worktree of your own where you can
+  (`scripts/worktree-setup.sh` prepares one and refuses the main checkout).
+  Commit, `git push -u origin HEAD`, `gh pr create --fill`,
+  `gh pr merge --auto --rebase --delete-branch`,
+  `gh pr checks --watch --fail-fast`. If `main` moves under an open PR:
+  `gh pr update-branch --rebase`.
 - A rebase merge gives the commit a new SHA on `main`. `Validate Main` and
   `Build and Deploy` run for the merge SHA from `gh pr view <n> --json
 mergeCommit`, never the branch's SHA.
 - A check that fails and then passes on a re-run is a flake, and a flake is a
   defect: fix it in the PR or record it the same day.
-- Unfinished work stays an open PR; the checkout goes back to `main`, and a
-  run's worktree is discarded. Outside
+- Unfinished work stays an open PR, and the worktree is removed once its
+  work is on one. Outside
   contributors fork, then open a PR; the same check applies.
 
 ## Elixir integration API

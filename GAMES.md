@@ -109,7 +109,7 @@ standing consequences apply to whichever game is designated:
   provisionally and only `excluded` removes a row. The run scores, records,
   earns XP, keeps its place, and wears the Awaiting seal while it waits. The
   standing must be referee-reviewed before the pass is awarded; that obligation
-  lives in `AGENT-TEAM/drop-fair-play-referee.md`.
+  is in `docs/OPERATIONS.md` ("Seasons" and "Fair Play").
 - **A strict new season or all-time leader goes to the referee, and ranks while
   it waits.** The completion is recorded, retains XP and history, and takes its
   real placement provisionally under the Awaiting seal. The one read that still
@@ -125,7 +125,7 @@ standing consequences apply to whichever game is designated:
 
 The recipient is picked manually at season end from the designated game's
 Cleared winning run. There is no automated snapshot or award pipeline, and one
-should not be built without a fresh product decision. The Drop Season Commentator may report
+should not be built without a fresh product decision. Season commentary may report
 the public race and prepare the result, but Jamie approves the recipient and
 prize communication. The announced mode, eligibility, tie-break, seven-day
 response window, and gift-only prize terms live on the stable POAP KINGS Free

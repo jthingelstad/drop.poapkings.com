@@ -246,9 +246,9 @@ elixir-drop/
 │  ├─ contracts/             # browser/server TypeScript contracts
 │  └─ game-data/             # canonical cards.json snapshot
 ├─ infra/                    # CloudFormation and SDK deployment scripts
+├─ scripts/                  # CI tooling and host-run operator tools (see its README)
 ├─ package.json              # npm workspace commands
 ├─ .github/workflows/        # main validation/deploy + PR gate and daily exhaustive verification
-├─ AGENT-TEAM/               # scheduled and on-demand maintainer role prompts
 ├─ AGENTS.md                 # agent entry point + the canonical doc map
 ├─ AGENTS.md                 # agent working guide: golden rules and architecture
 │                            #   (CLAUDE.md is a symlink to it)
@@ -256,6 +256,8 @@ elixir-drop/
 ├─ SPEC.md                   # current implementation spec and constraints
 ├─ GAMES.md                  # canonical games catalog + idea backlog
 └─ docs/
+   ├─ OPERATIONS.md          # operating the live game
+   ├─ FAIR-PLAY.md           # Fair Play evidence and decision rubric
    ├─ card-rendering.md      # shared card rendering reference
    ├─ beta-readiness.md      # pre-invite rollout checklist
    └─ referee-visibility.md  # what each surface shows about a reviewed run

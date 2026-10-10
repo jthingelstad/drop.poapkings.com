@@ -392,7 +392,7 @@ HMAC hashes of the request IP and user-agent (`deriveCorrelation`) and discards
 the raw values — no raw IP or user-agent is ever stored. `TELEMETRY_PEPPER` is a
 required server secret (Lambda env only, guarded like `SESSION_SECRET`; never in
 the referee scripts, the referee role, CI, or the browser). The bounded surface
-is in `AGENT-TEAM/scripts/` (see that README), run under `RefereeReadRole`; the
+is in `scripts/referee-*.mjs` (see `scripts/README.md`), run under `RefereeReadRole`; the
 physical name is retained for compatibility. Scripts never see the pepper,
 `sub`, email, or a raw IP. The role may write only independent `REFEREE#`
 decision records. Repository leaderboard reads apply those decisions, falling

@@ -40,7 +40,7 @@ The Fair Play Referee is one of Drop's best features and no player has ever seen
 it. This proposal makes it visible without turning it into an accusation
 machine.
 
-Read `SPEC.md` §11 and `AGENT-TEAM/drop-fair-play-referee.md` first — they own the
+Read `SPEC.md` §11 and `docs/FAIR-PLAY.md` first — they own the
 evidence model and the referee's authority. This doc only covers what a _player_
 sees.
 
@@ -74,7 +74,7 @@ looks good.
 
 1. **Only ever mark the positive.** Show that a run was reviewed and stands.
    Never show `watch`, never show `hidden`, never show a `reason`.
-   `AGENT-TEAM/drop-fair-play-referee.md` forbids public accusation and forbids the
+   `docs/OPERATIONS.md` ("Fair Play") forbids public accusation and forbids the
    referee contacting a player; `reason` is private by construction.
 2. **Expose a boolean, never a disposition.** The API sends `reviewed: true`.
    It never sends `clear`, `watch`, `review`, or `insufficient_evidence`.
