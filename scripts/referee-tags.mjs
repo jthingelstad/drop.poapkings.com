@@ -5,12 +5,7 @@
 // missing sparse GSI2 membership. Projects only playerId and playerTag, never
 // sub or email. Tag reuse is a signal, not proof of shared ownership.
 
-import {
-  client,
-  failClosed,
-  loadTagClusters,
-  print,
-} from "./_referee-lib.mjs";
+import { client, failClosed, loadTagClusters, print } from "./_referee-lib.mjs";
 
 const doc = await client();
 

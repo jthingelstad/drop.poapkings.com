@@ -9,6 +9,10 @@ import {
   QueryCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import {
+  acquireProductionLock,
+  ProductionLockHeldError,
+} from "./production-lock.mjs";
 
 export const RUN_REPORTS_ROLE_NAME = "elixir-drop-run-reports";
 export const RUN_REPORT_STATUSES = new Set([
@@ -211,7 +215,7 @@ export async function triageRunReport(
 async function main(argv) {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
   if (!region)
-    return fail("no_aws_region", "Set AWS_REGION for the Drop Operator");
+    return fail("no_aws_region", "Set AWS_REGION for the run-reports role");
   const { positional, flags } = parseFlags(argv);
   const command = positional[0] ?? "list";
   const doc = await createVerifiedDocumentClient({ region });
@@ -256,17 +260,36 @@ async function main(argv) {
         "invalid_note",
         `--note must be ${MAX_NOTE_LENGTH} characters or fewer`,
       );
-    const reports = await loadRunReports(doc, {
-      since: undefined,
-      status: undefined,
-      limit: MAX_REPORTS,
-    });
-    const report = resolveReport(reports, identifier);
-    const updated = await triageRunReport(doc, report, {
-      nextStatus,
-      note,
-    });
-    return print({ status: "ok", report: sanitizeRunReport(updated) });
+    // The read and the write run holding the production lock
+    // (docs/OPERATIONS.md); a held lock writes nothing.
+    let lock;
+    try {
+      lock = acquireProductionLock(
+        `run-report triage of ${identifier} to ${nextStatus}`,
+      );
+    } catch (error) {
+      return fail(
+        error instanceof ProductionLockHeldError
+          ? "production_lock_held"
+          : "production_lock_unavailable",
+        error instanceof Error ? error.message : "unknown",
+      );
+    }
+    try {
+      const reports = await loadRunReports(doc, {
+        since: undefined,
+        status: undefined,
+        limit: MAX_REPORTS,
+      });
+      const report = resolveReport(reports, identifier);
+      const updated = await triageRunReport(doc, report, {
+        nextStatus,
+        note,
+      });
+      return print({ status: "ok", report: sanitizeRunReport(updated) });
+    } finally {
+      lock.release();
+    }
   }
 
   return fail("unknown_command", "Choose list or triage");

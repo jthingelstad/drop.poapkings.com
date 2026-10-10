@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(SCRIPT_DIR, "../..");
+const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 const API_CONFIG_PATH = path.join(REPO_ROOT, "apps/web/public/api-config.json");
 const SEASON_NUMBER_PATTERN = /^[1-9]\d*$/;
 

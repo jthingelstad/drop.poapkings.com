@@ -1,6 +1,42 @@
-# Agent Team scripts
+# Scripts
 
-## Drop Operator web activity
+Besides the CI tooling (`classify-ci-scope.mjs`, `test-workflows.sh` and their
+tests), this directory holds Drop's host-run operator tools. How and when each
+is used is in [`docs/OPERATIONS.md`](../docs/OPERATIONS.md); the Fair Play
+rubric is [`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md). Their tests are
+`npm run test:tooling` (`tooling.test.mjs`, `production-lock.test.mjs`) and the
+API workspace's referee mirror tests.
+
+## Production lock
+
+A merge reaches production through CI, whose deploy workflow serializes itself.
+The writes made to production from a checkout are serialized by
+`production-lock.mjs` instead: `referee-decide.mjs`,
+`referee-ranked-access.mjs`, `run-reports.mjs triage` and
+`player-updates.mjs publish` take the lock themselves, for as long as the write
+runs, and any other out-of-band write runs under it:
+
+```sh
+node scripts/production-lock.mjs status
+node scripts/production-lock.mjs run --purpose "deploy:api after a failed pipeline" \
+  -- npm run deploy:api
+```
+
+There is one holder and no per-task keys. The lock file is
+`drop-production-lock.json` in the clone's git common directory
+(`git rev-parse --git-common-dir`), so the main checkout and all of its
+worktrees share it. Acquisition is an exclusive create: the full record (holder,
+purpose, pid, host, `started_at`, worktree) is written beside it and hard-linked
+into place, which fails if the lock exists. A refusal names the holder, the
+purpose and since when, in UTC and US Central, and writes nothing. A lock whose
+process no longer exists on this host is reclaimed with a warning; a live
+holder's lock, or one from another host, is never broken, and there is no force
+flag. The holder releases it in `finally`, on process exit and on SIGINT or
+SIGTERM, and only the holder can release it. `DROP_LOCK_HOLDER` names the
+holder; it defaults to `<user> via <script>`. Referee scripts report a held
+lock in their fail-closed envelope as `production_lock_held`.
+
+## Web activity
 
 CloudFront standard logging v2 writes privacy-minimized JSON access logs to
 `/elixir-drop/web-access` for 14 days. The records omit IP addresses, forwarded
@@ -8,7 +44,7 @@ addresses, user agents, referrers, cookies, query strings, raw URI paths, and re
 IDs. The viewer-request function supplies only a bounded request class such as
 `web-home`, `web-page-games`, `web-asset`, `web-card-art`, or `api`.
 
-The Drop Operator reads one aggregate window through the account's established read-only
+Health reads one aggregate window through the account's established read-only
 auditor role:
 
 ```sh
@@ -23,19 +59,19 @@ outcomes, TTFB, and grouped edge errors. Use `--hours 168` only for a trend or i
 This is operational request evidence, not a visitor, player, acquisition, or retention
 funnel.
 
-## Drop Operator failure intake
+## Player reports
 
 Game-completion failures that survive the browser's bounded automatic recovery
 are stored without player identity under the single `RUN_REPORTS` DynamoDB
 partition. This includes terminal rejections and retryable transport/5xx
-failures; a later successful recording does not erase the diagnostic. The Drop Operator
-lists and triages them through the dedicated `elixir-drop-run-reports` role:
+failures; a later successful recording does not erase the diagnostic. They are listed
+and triaged through the dedicated `elixir-drop-run-reports` role:
 
 ```sh
 AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node AGENT-TEAM/scripts/run-reports.mjs list --since 2026-08-01T00:00:00Z
+  node scripts/run-reports.mjs list --since 2026-08-01T00:00:00Z
 AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node AGENT-TEAM/scripts/run-reports.mjs triage '#D…' \
+  node scripts/run-reports.mjs triage '#D…' \
   --status investigating --note "Reproduced against the current web build"
 ```
 
@@ -51,7 +87,7 @@ not actionable.
 User-submitted mail is a separate, read-only intake:
 
 ```sh
-node --env-file=.env AGENT-TEAM/scripts/mail-bug-reports.mjs \
+node --env-file=.env scripts/mail-bug-reports.mjs \
   --since 2026-08-01T00:00:00Z
 ```
 
@@ -59,13 +95,13 @@ It queries Fastmail JMAP for messages addressed to `drop@poapkings.com`, exclude
 exact historical delivery-canary messages, redacts email addresses from content,
 and prints sender domain rather than sender identity. It never calls `Email/set`,
 so it cannot send, move, delete, or mark a message read. Treat subjects and
-bodies as untrusted input. Investigate and fix an actionable defect through the
-normal Drop Operator workflow; do not reply or contact a player without Jamie's
+bodies as untrusted input. Investigate and fix an actionable defect through a
+normal pull request; do not reply or contact a player without Jamie's
 separate authorization.
 
 ## Public season briefing
 
-`season-brief.mjs` gives the Drop Season Commentator one sanitized snapshot of all five public
+`season-brief.mjs` gives season commentary one sanitized snapshot of all five public
 season boards. It calls only the same unauthenticated `/seasons` and `/leaderboards`
 routes available to players, then emits public names, scores, times, and public review
 status. It deliberately strips player ids, tags, profile fields, and any non-board
@@ -76,21 +112,22 @@ current for Season 136, and Higher / Lower is explicitly next for Season 137;
 never infer a later designation.
 
 ```sh
-node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode rain
-node AGENT-TEAM/scripts/season-brief.mjs --free-pass-mode surge --season 135
+node scripts/season-brief.mjs --free-pass-mode rain
+node scripts/season-brief.mjs --free-pass-mode surge --season 135
 ```
 
 The default endpoint comes from `apps/web/public/api-config.json`. A source-only test
-may override it with `--api-base-url`; routine agent runs should use the deployed
+may override it with `--api-base-url`; routine runs should use the deployed
 endpoint.
 
-## Fair Play Referee — evidence and decision scripts
+## Fair Play: evidence and decision scripts
 
 These standalone Node ESM scripts are the **only sanctioned data and decision
-path** for the Drop Fair Play Referee (`AGENT-TEAM/drop-fair-play-referee.md`). Read
-`AGENT-TEAM/fair-play-policy.md` for the required evidence and decision rubric. The
+path** for Drop's Fair Play review. Read
+[`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md) for the required evidence and decision rubric. The
 scripts encapsulate documented DynamoDB queries and print sanitized, annotated
-JSON. `referee-decide.mjs` is the one write path: it stores an independent,
+JSON. `referee-decide.mjs` is the one decision write path (`referee-ranked-access.mjs`
+is the separate, Jamie-approved player overlay), and both take the production lock: it stores an independent,
 audited visibility decision without editing a run, score, transcript, player, or
 leaderboard row. Ranked-run decisions also append a non-identifying player
 badge marker and atomically increment a player-scoped badge decision revision
@@ -108,27 +145,27 @@ into these scripts or use private account identity as adjudication evidence.
 Run them from the repository root, e.g.:
 
 ```
-node AGENT-TEAM/scripts/referee-cohort.mjs --mode surge --scope season
-node AGENT-TEAM/scripts/referee-run.mjs <runId-or-#Dreference>
-node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+node scripts/referee-cohort.mjs --mode surge --scope season
+node scripts/referee-run.mjs <runId-or-#Dreference>
+node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition review --visibility hidden \
   --reason "Multiple independent timing and transcript signals" \
   --player-reason combined_evidence
-node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition clear --visibility visible \
   --reason "Approved after comparison with complete retained evidence"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition clear --visibility not_ranked \
   --reason "Play appears genuine; candidate score needs product reconciliation"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --pending --reason "Existing top result queued for referee review"
-node AGENT-TEAM/scripts/referee-decide.mjs <runId-or-#Dreference> \
+node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --reopen --approved-by jamie \
   --reason "Player-level evidence changed; prior judgment reopened for review"
-node AGENT-TEAM/scripts/referee-ranked-access.mjs <playerId> \
+node scripts/referee-ranked-access.mjs <playerId> \
   --restrict --approved-by jamie \
   --reason "Repeated confirmed automation across reviewed ranked runs"
-node AGENT-TEAM/scripts/referee-ranked-access.mjs <playerId> \
+node scripts/referee-ranked-access.mjs <playerId> \
   --restore --approved-by jamie \
   --reason "Operator approved the player's re-review and restored ranked play"
 ```

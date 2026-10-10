@@ -5,10 +5,7 @@ import {
   type ScanCommandOutput,
 } from "@aws-sdk/lib-dynamodb";
 import { describe, expect, it, vi } from "vitest";
-import {
-  loadTagClusters,
-  TABLE_NAME,
-} from "../../../AGENT-TEAM/scripts/_referee-lib.mjs";
+import { loadTagClusters, TABLE_NAME } from "../../../scripts/_referee-lib.mjs";
 
 function reader() {
   const doc = DynamoDBDocumentClient.from(

@@ -43,7 +43,7 @@ import {
 import { allTimeLeaderboard, seasonLeaderboard } from "../src/leaderboards.js";
 import { buildEvidenceItem } from "../src/referee-evidence.js";
 import { Repository } from "../src/repository.js";
-// The AGENT-TEAM referee scripts deliberately import nothing from services/api
+// The root scripts/ referee tools deliberately import nothing from services/api
 // (workspace-boundary rule, Golden rule 7: the referee path must fail closed and
 // must never see `sub`/email), so they carry their own copy of the leaderboard
 // conventions. A copy is only safe if something fails when it drifts, and the
@@ -74,7 +74,7 @@ import {
   sanitize,
   sanitizeRecord,
   visibleLeaderboardRows,
-} from "../../../AGENT-TEAM/scripts/_referee-lib.mjs";
+} from "../../../scripts/_referee-lib.mjs";
 
 // Practice is unranked by design and never writes a leaderboard row.
 const UNRANKED_MODES = new Set(["practice"]);

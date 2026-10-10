@@ -1,7 +1,7 @@
-// Types for the AGENT-TEAM referee helper, which is deliberately plain JS
+// Types for the root scripts/ referee helper, which is deliberately plain JS
 // outside every workspace (it imports nothing from services/api). Only the
 // surface the referee regression tests assert against is declared here.
-declare module "*/AGENT-TEAM/scripts/_referee-lib.mjs" {
+declare module "*/scripts/_referee-lib.mjs" {
   export const TABLE_NAME: string;
   export const RANKED_MODES: string[];
   export const FORBIDDEN_KEYS: readonly string[];
