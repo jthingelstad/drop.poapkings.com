@@ -1,10 +1,11 @@
 # Scripts
 
-Besides the CI tooling (`classify-ci-scope.mjs`, `test-workflows.sh` and their
-tests), this directory holds Drop's host-run operator tools. How and when each
+Besides the CI tooling (`classify-ci-scope.mjs`, `test-workflows.sh`,
+`audit.mjs` and their tests), this directory holds Drop's host-run operator tools. How and when each
 is used is in [`docs/OPERATIONS.md`](../docs/OPERATIONS.md); the Fair Play
 rubric is [`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md). Their tests are
-`npm run test:tooling` (`tooling.test.mjs`, `production-lock.test.mjs`) and the
+`npm run test:tooling` (`tooling.test.mjs`, `production-lock.test.mjs`,
+`audit.test.mjs`) and the
 API workspace's referee mirror tests.
 
 ## Production lock
