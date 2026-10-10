@@ -123,9 +123,11 @@ only to increase the count: full Chromium and the daily matrix already own
 those. A deployment-tag change must be exercised locally with
 `npm run test:e2e:deploy`.
 
-Both validation workflows also run `npm audit --audit-level=high` ahead of the
-gate; that audit is not part of `npm run verify` itself (`npm run check:beta`
-bundles the two locally). Root `npm run verify` remains the complete sequential
+Both validation workflows also run `npm run audit` ahead of the gate:
+`npm audit` at high severity, less the dated exceptions in
+`scripts/audit.mjs` (only for an advisory with no fixed release; an expired one
+fails again). That audit is not part of `npm run verify` itself
+(`npm run check:beta` bundles the two locally). Root `npm run verify` remains the complete sequential
 pre-push command; `verify:quick` is the normal web command, and
 `verify:non-browser` is the complete gate for changes with no browser runtime.
 

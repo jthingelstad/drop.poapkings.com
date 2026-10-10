@@ -13,7 +13,8 @@ npm ci
 npm run check:beta
 ```
 
-`check:beta` is `npm audit --audit-level=high` + `npm run verify` +
+`check:beta` is `npm run audit` (`npm audit` at high, less the dated
+exceptions in `scripts/audit.mjs`) + `npm run verify` +
 `npm run smoke:api`. It fails on high-severity dependency findings, formatting or
 lint errors, TypeScript errors, dead files or dependencies, coverage regressions,
 a Chromium / Firefox / WebKit / iPhone-14 browser failure, build failures, a
