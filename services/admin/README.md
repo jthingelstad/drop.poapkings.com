@@ -19,7 +19,7 @@ retained for them.
 Three deliberately separate capabilities feed it:
 
 - Referee evidence, run decisions, and ranked access always invoke the
-  sanctioned `AGENT-TEAM` scripts under `referee-read`, preserving their
+  sanctioned `scripts/referee-*.mjs` under `referee-read`, preserving their
   pseudonymous output, validation, immutable decision history, and reversible
   overlays.
 - Account details and audited public-profile corrections invoke only
@@ -27,7 +27,7 @@ Three deliberately separate capabilities feed it:
   email/profile/CR snapshot fields and atomically update `publicName` plus
   `favoriteCardId` and/or the unverified Clash tag with an immutable `CONTROL#`
   audit event. Email is visible but cannot be edited.
-- Player Updates invoke `AGENT-TEAM/scripts/player-updates.mjs`. The CLI reads a
+- Player Updates invoke `scripts/player-updates.mjs`. The CLI reads a
   dedicated bearer token from the repository's mode-0600 `.env` and calls the
   API directly, so the Control Room needs no AWS session for this action. It
   lists published copy and provides one immediate-publication form for bounded
@@ -61,7 +61,7 @@ region = us-east-1
 
 ```
 
-Updates publishing does not use this AWS configuration. The AGENT-TEAM CLI and
+Updates publishing does not use this AWS configuration. The Updates CLI and
 Control Room share `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` from the repository's
 mode-0600 `.env` and send it only to the HTTPS API publish route.
 

@@ -193,7 +193,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 
 Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
 (`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
-`AGENT-TEAM/scripts/_referee-lib.mjs`): a material rules change restarts the
+`scripts/_referee-lib.mjs`): a material rules change restarts the
 board rather than deleting data, and old rows are orphaned. Rain is on `r4`
 (fresh competition for the accepted kill-line, slowdown, and late-difficulty
 structure), Higher / Lower is on `r3` (its clock now tightens continuously
@@ -517,10 +517,10 @@ reconnect fallback. Feature records also carry one validated material-impact cat
 editorial notification bar lives in `AGENTS.md`: player-visible alone is not enough,
 and one card represents one material player outcome rather than a commit or polish
 detail.
-The Drop Season Commentator owns routine, source-backed current leaders and Cleared final game
-results in the API stream; the Free Pass recipient and award remain a manual Jamie
+Routine, source-backed current leaders and Cleared final game results publish
+in the API stream as season commentary (`docs/OPERATIONS.md`); the Free Pass recipient and award remain a manual Jamie
 decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
-AGENT-TEAM and Control Room send a dedicated bearer token from the fixed host's
+The Updates CLI and Control Room send a dedicated bearer token from the fixed host's
 mode-0600 `.env` directly to the API, so routine publication requires no AWS
 profile or interactive login.
 Unread state is a single server-owned `lastOpenedUpdates` timestamp on the account—
@@ -1080,14 +1080,13 @@ This Mac owns the allowlisted CR API token for the manual card refresher:
   or on a conservative cron.
 - Runtime profile and clock refresh retries end in the refresh dead-letter queue.
   The separately retained result queue exists only for manual season repair.
-- The Drop Operator queries failure reports only through the assumed
+- Failure reports are queried only through the assumed
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
   identity-free `RUN_REPORTS` partition. Status changes are transactional and
-  append an immutable audit row. The same objective reviews
-  `drop@poapkings.com` through the read-only JMAP intake script; it excludes
+  append an immutable audit row. `drop@poapkings.com` is reviewed through the read-only JMAP intake script; it excludes
   historical delivery-canary messages and cannot send, move, delete, or mark
   mail read.
-- The Drop Operator reads CloudFront request health through `scripts/web-activity.mjs` under
+- CloudFront request health is read through `scripts/web-activity.mjs` under
   the read-only `cloud-auditor` role. The 14-day JSON log excludes IP, forwarded
   address, user-agent, referrer, cookie, query string, raw path, and request ID; its
   viewer-request field is one bounded operational class. The script returns aggregate
@@ -1101,8 +1100,8 @@ workspace READMEs.
 
 ## 11. Referee Evidence And Retention
 
-Drop durably persists **referee-grade evidence** so the Drop Fair Play Referee
-(`AGENT-TEAM/drop-fair-play-referee.md`) can review leaderboard integrity
+Drop durably persists **referee-grade evidence** so Fair Play review
+(`docs/OPERATIONS.md`, `docs/FAIR-PLAY.md`) can review leaderboard integrity
 against exact server-side facts and make reversible run-visibility decisions.
 The agent owns its judgment; Drop stores the audited decision overlay and
 reconciles it into public leaderboards.
@@ -1170,8 +1169,8 @@ source"_ **without Drop storing the actual IP or user-agent**.
 
 ### Referee surface
 
-The referee operates via purpose-built scripts in `AGENT-TEAM/scripts/`
-(documented in that directory's README), run under the bounded
+The referee operates via purpose-built `scripts/referee-*.mjs`
+(documented in `scripts/README.md`), run under the bounded
 `RefereeReadRole` (physical name retained for compatibility). It can read the
 game table and write only `REFEREE#` decision partitions; it cannot edit runs,
 scores, evidence, players, XP, or leaderboard rows and has no secret access. A sparse
@@ -1212,7 +1211,7 @@ envelope. The verified run token, authorization, raw IP, and raw user-agent are
 intentionally never retained.
 
 Referee reads and decisions remain adapters over the sanctioned
-`AGENT-TEAM/scripts` and the pseudonymous `RefereeReadRole`. Account support is
+`scripts/referee-*.mjs` and the pseudonymous `RefereeReadRole`. Account support is
 a distinct child-process path in `services/admin/scripts/control-*.mjs`, run
 under `DropControlRole`: it can project only account/profile and CR snapshot
 fields, and can atomically correct `publicName` + `favoriteCardId` and/or the

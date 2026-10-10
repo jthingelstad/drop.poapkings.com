@@ -426,7 +426,7 @@ Resources:
 
   # Referee identity for evidence review and reversible run judgments. It reads
   # the canonical evidence surface — bounded to the partitions and indexes the
-  # AGENT-TEAM referee scripts address — and may write only REFEREE# decision
+  # scripts/referee-*.mjs address — and may write only REFEREE# decision
   # partitions; it cannot alter players, runs, scores, evidence, or leaderboard
   # index rows, and has NO access to any secret (the pepper is Lambda-only).
   # The physical name is retained for compatibility with the managed host's
