@@ -125,7 +125,6 @@ void describe("deployment parameters", () => {
 
     for (const parameterKey of [
       "AppUrl",
-      "EmailFrom",
       "AlarmEmail",
       "NameModelId",
       "AllowedOrigins",
@@ -253,14 +252,9 @@ void describe("deployment parameters", () => {
   });
 
   void it("passes supplied runtime secrets during local creation or rotation", () => {
-    const environment = {
-      ...requiredCreateEnvironment,
-      BUTTONDOWN_API_KEY: "buttondown-key",
-      BUTTONDOWN_NEWSLETTER_ID: "news_2d3heqk1789vyatbxaeg4b2c91",
-    };
     const parameters = deploymentParameters({
       ...base,
-      environment,
+      environment: requiredCreateEnvironment,
       stackExists: false,
     });
 
@@ -285,40 +279,35 @@ void describe("deployment parameters", () => {
         ParameterValue: "updates-publish-token-with-at-least-32-characters",
       },
     );
-    assert.deepEqual(
-      parameters.find(
-        (parameter) => parameter.ParameterKey === "ButtondownApiKey",
-      ),
-      { ParameterKey: "ButtondownApiKey", ParameterValue: "buttondown-key" },
-    );
-    assert.deepEqual(
-      parameters.find(
-        (parameter) => parameter.ParameterKey === "ButtondownNewsletterId",
-      ),
-      {
-        ParameterKey: "ButtondownNewsletterId",
-        ParameterValue: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-    );
   });
 
-  void it("preserves the deployed Buttondown credentials on env-less updates", () => {
-    // CI deploys pass no Buttondown secrets. The parameters must reuse the
-    // previously-deployed value; omitting them lets CloudFormation reset the
-    // parameter to its "" Default and silently disable enrollment.
-    const parameters = deploymentParameters({ ...base, stackExists: true });
-
-    for (const parameterKey of ["ButtondownApiKey", "ButtondownNewsletterId"]) {
-      assert.deepEqual(
-        parameters.find((parameter) => parameter.ParameterKey === parameterKey),
-        { ParameterKey: parameterKey, UsePreviousValue: true },
+  void it("carries no Buttondown list and no mail sender (retired 2026-10-12)", () => {
+    // Elixir's one list replaced Drop's Buttondown newsletter, and Drop's
+    // email-code sign-in (its only mail) retired the same day. The parameters
+    // are gone from the template, so a deploy must never send them, even from
+    // an operator .env that still holds the old values.
+    const leftover = {
+      BUTTONDOWN_API_KEY: "buttondown-key",
+      BUTTONDOWN_NEWSLETTER_ID: "news_2d3heqk1789vyatbxaeg4b2c91",
+      ELIXIR_DROP_EMAIL_FROM: "elixir@example.com",
+    };
+    for (const stackExists of [true, false]) {
+      const parameters = deploymentParameters({
+        ...base,
+        environment: stackExists
+          ? leftover
+          : { ...requiredCreateEnvironment, ...leftover },
+        stackExists,
+      });
+      assert.equal(
+        parameters.some((parameter) =>
+          /^(?:Buttondown|EmailFrom$)/.test(parameter.ParameterKey),
+        ),
+        false,
       );
     }
-    assert.match(template, /BUTTONDOWN_API_KEY: !Ref ButtondownApiKey/);
-    assert.match(
-      template,
-      /BUTTONDOWN_NEWSLETTER_ID: !Ref ButtondownNewsletterId/,
-    );
+    assert.doesNotMatch(template, /Buttondown|BUTTONDOWN|EmailFrom|EMAIL_FROM/);
+    assert.doesNotMatch(template, /AWS::SES::|\bses:|ses\.amazonaws\.com/);
   });
 
   void it("preserves the Elixir OAuth client secret, which CI never carries", () => {
@@ -390,23 +379,6 @@ void describe("deployment parameters", () => {
     assert.doesNotMatch(template, /Tinylytics|TINYLYTICS/);
   });
 
-  void it("omits Buttondown parameters on stack creation without credentials", () => {
-    // No previous value exists yet on create; omitting lets the "" Default
-    // apply so a fresh stack comes up with Buttondown cleanly disabled.
-    const parameters = deploymentParameters({
-      ...base,
-      environment: requiredCreateEnvironment,
-      stackExists: false,
-    });
-
-    assert.equal(
-      parameters.some((parameter) =>
-        parameter.ParameterKey.startsWith("Buttondown"),
-      ),
-      false,
-    );
-  });
-
   void it("routes operational alarms to the configured address", () => {
     const parameters = deploymentParameters({
       ...base,
@@ -420,27 +392,10 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("separates the alarm recipient from the Elixir magic-link sender", () => {
+  void it("defaults operational alarms to the monitored drop@ mailbox", () => {
     // The default lives in the template (it applies on create); an env-less
     // update preserves whatever address is deployed, asserted above.
     assert.equal(parameterDefault("AlarmEmail"), "drop@poapkings.com");
-    assert.equal(parameterDefault("EmailFrom"), "elixir@poapkings.com");
-
-    // The sender is independent: changing it must not retarget alarms, so only
-    // EmailFrom is present in this update.
-    const fromOnly = deploymentParameters({
-      ...base,
-      environment: { ELIXIR_DROP_EMAIL_FROM: "drop@example.com" },
-      stackExists: true,
-    });
-    assert.deepEqual(
-      fromOnly.find((parameter) => parameter.ParameterKey === "EmailFrom"),
-      { ParameterKey: "EmailFrom", ParameterValue: "drop@example.com" },
-    );
-    assert.deepEqual(
-      fromOnly.find((parameter) => parameter.ParameterKey === "AlarmEmail"),
-      { ParameterKey: "AlarmEmail", UsePreviousValue: true },
-    );
   });
 
   void it("alarms on observable API 5xx responses and retains structured logs", () => {
@@ -882,23 +837,16 @@ void describe("deployment parameters", () => {
     assert.match(controlRole, /- email/);
     assert.match(controlRole, /Action: dynamodb:TransactWriteItems/);
     assert.match(controlRole, /- CONTROL#PLAYER#\*/);
-    assert.match(
+    // The newsletter backfill's grants retired with it (2026-10-12): the
+    // only write left is the audited public-profile correction.
+    assert.doesNotMatch(
       controlRole,
-      /Action: dynamodb:UpdateItem[\s\S]*?- PLAYER#\*[\s\S]*?- lastSeasonPlayed/,
+      /dynamodb:(?:DeleteItem|BatchWriteItem|UpdateItem|PutItem)\b/,
     );
-    assert.match(
+    assert.doesNotMatch(
       controlRole,
-      /Action: dynamodb:Query[\s\S]*?- PLAYER#\*[\s\S]*?- seasonId/,
+      /lastSeasonPlayed|CR_WAR_CLOCK|RECRUITER#|- seasonId/,
     );
-    assert.match(
-      controlRole,
-      /Action: dynamodb:GetItem[\s\S]*?- CR_WAR_CLOCK[\s\S]*?- crSeasonId/,
-    );
-    assert.match(
-      controlRole,
-      /Action: dynamodb:PutItem[\s\S]*?- RECRUITER#\*[\s\S]*?- playerId/,
-    );
-    assert.doesNotMatch(controlRole, /dynamodb:(?:DeleteItem|BatchWriteItem)/);
     assert.doesNotMatch(
       controlRole.match(/dynamodb:TransactWriteItems[\s\S]*$/)?.[0] ?? "",
       /- email/,

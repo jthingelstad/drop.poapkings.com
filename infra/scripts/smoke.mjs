@@ -150,10 +150,6 @@ if (
   throw new Error("Run completion with an invalid token was not rejected");
 }
 
-// Mail goes out over SES as EmailFrom (2026-09-17); the poapkings.com
-// identity and its DKIM are the elixir-mcp stack's and are verified there.
-// Nothing to probe from here without SES read permissions CI does not hold.
-
 const appUrl = process.env.APP_URL || "https://drop.poapkings.com";
 const [website, deployedConfig] = await Promise.all([
   fetch(`${appUrl}/`),

@@ -20,10 +20,7 @@ const REQUIRED_PARAMETERS = [
 // preserve-by-default and only moves when an operator passes a value.
 const PRESERVED_PARAMETERS = [
   ["AppUrl", ["APP_URL"]],
-  ["EmailFrom", ["ELIXIR_DROP_EMAIL_FROM"]],
-  // Operational alarms are deliberately independent of the player-mail
-  // sender. Changing elixir@ (magic links) must never retarget alarms away
-  // from the monitored drop@ mailbox.
+  // Operational alarms go to the monitored drop@ mailbox.
   ["AlarmEmail", ["ELIXIR_DROP_ALARM_EMAIL"]],
   ["NameModelId", ["NAME_MODEL_ID"]],
   // The front-end build sha. CI always supplies it (deploy.yml sets
@@ -36,8 +33,6 @@ const PRESERVED_PARAMETERS = [
   // HTTP API CORS AllowOrigins, so resetting it to the Default would revoke any
   // origin an operator added.
   ["AllowedOrigins", ["ELIXIR_DROP_ALLOWED_ORIGINS"]],
-  ["ButtondownApiKey", ["BUTTONDOWN_API_KEY"]],
-  ["ButtondownNewsletterId", ["BUTTONDOWN_NEWSLETTER_ID"]],
   // The hub seam. Operator-owned like the rest: CI never carries the
   // service token, so these preserve rather than reset. Blanking
   // the key would silently disable recorded profile and clock reads.
