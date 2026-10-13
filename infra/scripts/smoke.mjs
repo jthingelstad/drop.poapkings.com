@@ -103,17 +103,20 @@ if (
   throw new Error("Leaderboard response is incomplete");
 }
 
-const maskedLogin = await fetch(`${apiBaseUrl}/auth/request`, {
+// Drop signs in only with Elixir (2026-10-12): the emailed-code route is
+// gone and answers like any unknown route. The body is deliberately not an
+// address, so even a regression could not mail anyone.
+const removedEmailLogin = await fetch(`${apiBaseUrl}/auth/request`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ email: "e***@p***.com" }),
+  body: JSON.stringify({ email: "not-an-address" }),
 });
-const maskedLoginBody = await maskedLogin.json();
+const removedEmailLoginBody = await removedEmailLogin.json().catch(() => ({}));
 if (
-  maskedLogin.status !== 400 ||
-  maskedLoginBody.error?.code !== "invalid_request"
+  removedEmailLogin.status !== 404 ||
+  removedEmailLoginBody.error?.code !== "not_found"
 ) {
-  throw new Error("Masked email address was not rejected");
+  throw new Error("The retired email sign-in route still answers");
 }
 
 // Guest play: an unauthenticated run start returns a scored-but-unrecorded
@@ -171,7 +174,7 @@ console.log(
     deploymentIdentity: identity.Arn,
     guestPlay: "verified",
     invalidRunToken: "rejected",
-    maskedEmail: "rejected",
+    emailSignIn: "removed",
     leaderboard: "verified",
     clashRoyaleClock: "fresh",
     website: "healthy",

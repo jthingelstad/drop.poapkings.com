@@ -1,23 +1,36 @@
-// Sign in with Elixir (2026-09-12). Drop keeps email-code sign-in as the
-// always-available path; this is an addition, never a replacement.
+// Sign in with Elixir (2026-09-12); since 2026-10-12 the only way to sign in
+// to Drop (Jamie: "You can still play Drop without an account, but if you
+// play it with an account it will be an Elixir account. We will drop the
+// basic email only route."). Guests still play without one. Elixir's page
+// signs a person in or creates their Elixir account, so a new Drop player
+// starts there too.
 //
-// The identity problem, solved the one clean way: a Drop account IS an
-// email (sub = sha256(email)), and Elixir proves the person's email with a
-// code before any grant exists. With the account:email scope Elixir hands
-// that address to Drop at /oauth/userinfo, so an Elixir sign-in resolves to
-// exactly the Drop account a magic link would have. No merging, ever.
+// Which Drop account a sign-in opens, in order:
+//   1. the pointer `ELIXIR#<Elixir account id>` written when a profile was
+//      linked (or by the 2026-10-12 backfill), so a person whose Elixir
+//      address differs from their Drop one lands on their own profile;
+//   2. else the profile at sha256(the address Elixir proved), which is the
+//      account Drop's old email codes opened (Elixir's email_hash is the
+//      same sha256), and the pointer is written then;
+//   3. else a new profile keyed the same way, with its pointer written at
+//      redemption, when the profile exists.
+// A pointer whose profile is gone is removed, never followed: no deleted
+// account comes back and no other account is reached through it. A profile
+// already bound to a different Elixir account still opens to the address it
+// was made with (that address is the account), but its Elixir connection is
+// left as it is.
 //
-// The callback never issues a session itself. It mints a magic link that
-// Elixir already proved and sends the browser to the existing redemption
-// route, so the two paths Drop has already tested on phones do the rest:
-// AuthRedeem (one tap, mail-scanner safe) and the /auth/poll handoff (the
+// The callback never issues a session itself. It mints a single-use
+// credential for the resolved account and sends the browser to the
+// redemption route, so AuthRedeem (one tap) and the /auth/poll handoff (the
 // tab that started the flow gets the session even if iOS finished it in
-// another browsing context).
+// another browsing context) do the rest.
 //
-// One exception to "the email decides": a browser that STARTED the flow
+// One exception to the resolution above: a browser that STARTED the flow
 // while holding a Drop session is linking, not signing in. The outcome is
-// attached to that account whatever email Elixir names, and the proven
-// link is minted for that account's email. Jamie's decision, 2026-09-12.
+// attached to that account whatever email Elixir names (Jamie, 2026-09-12),
+// unless the Elixir account already opens another Drop account or this one
+// already belongs to another Elixir account; those are refused, never moved.
 
 import { randomBytes } from "node:crypto";
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
@@ -27,6 +40,9 @@ import type { ElixirFailure, ElixirSelfPlayer } from "../elixir-oauth.js";
 import { enqueueRefresh } from "../refresh-jobs.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
+import { isRecruiterInviteReference } from "../recruiter.js";
+import { refereeReviewStatus } from "../referee-status.js";
+import { isShareToken } from "../shares.js";
 import type { ElixirCandidate, ElixirLink, PlayerProfile } from "../types.js";
 import {
   emailSubject,
@@ -43,6 +59,9 @@ import {
   sessionFor,
   sha256,
 } from "./context.js";
+import { isPublishedRunReference } from "./published-shares.js";
+import { isPublishedBadgeReference } from "./published-badges.js";
+import { isPublishedProfileReference } from "./published-profiles.js";
 
 const LOGIN_SECONDS = 10 * 60;
 
@@ -70,9 +89,65 @@ export function elixirClientFor(
   });
 }
 
+// The owner of the attributed share a signed-out browser arrived through
+// (Recruiter, AGENTS.md "Herald is result reach; Recruiter is account
+// creation"). Resolved when the flow starts, while the browser still holds
+// the reference; the callback credits it only to an account the sign-in
+// creates, and never to the recruiter themselves. Optional: a failed read
+// never stops a sign-in.
+async function recruiterFor(
+  body: Record<string, unknown>,
+  repository: RouteContext["repository"],
+): Promise<string | undefined> {
+  const recruiterToken =
+    typeof body.recruiterToken === "string"
+      ? body.recruiterToken.toUpperCase()
+      : undefined;
+  const share =
+    typeof body.recruiterShare === "object" && body.recruiterShare !== null
+      ? (body.recruiterShare as Record<string, unknown>)
+      : undefined;
+  if (isShareToken(recruiterToken))
+    return (await repository.getShare(recruiterToken))?.owner;
+  if (isPublishedRunReference(share?.playerId, share?.runId)) {
+    const published = await repository.getPublishedRunShare(
+      share.playerId,
+      share.runId as string,
+    );
+    if (!published) return undefined;
+    const decision = (await repository.refereeDecisions([published.runId])).get(
+      published.runId,
+    );
+    return refereeReviewStatus(decision) === "excluded"
+      ? undefined
+      : published.owner;
+  }
+  if (
+    isPublishedBadgeReference(
+      share?.playerId,
+      share?.badgeSlug,
+      share?.rungIndex,
+    )
+  )
+    return (
+      await repository.getPublishedBadgeShare(
+        share.playerId,
+        share.badgeSlug as string,
+        share.rungIndex as number,
+      )
+    )?.owner;
+  if (share?.profile === true && isPublishedProfileReference(share.playerId))
+    return (await repository.getPublishedProfileShare(share.playerId))?.owner;
+  if (share?.invite === true && isRecruiterInviteReference(share.dropPlayerTag))
+    return (
+      await repository.getRecruiterInvite(share.dropPlayerTag.toUpperCase())
+    )?.sub;
+  return undefined;
+}
+
 // POST /auth/elixir/start — mint the state and PKCE pair, remember where to
-// land and whether this is a link, and hand the browser the URL to visit.
-// The poll id works exactly as it does for a mailed link.
+// land, whether this is a link, and any Recruiter attribution, and hand the
+// browser the URL to visit.
 export async function startElixirLogin(
   { event, config, repository }: RouteContext,
   client = elixirClientFor(config),
@@ -92,6 +167,17 @@ export async function startElixirLogin(
     30,
     60 * 60,
   );
+  let recruiterSub: string | undefined;
+  if (!session) {
+    try {
+      recruiterSub = await recruiterFor(body, repository);
+    } catch (error) {
+      console.warn("Recruiter attribution lookup failed", {
+        requestId: event.requestContext.requestId,
+        error: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
   const state = randomState();
   const { verifier, challenge } = pkcePair();
   const pollId = randomBytes(24).toString("base64url");
@@ -101,6 +187,7 @@ export async function startElixirLogin(
     returnTo,
     pollId,
     linkSub: session?.sub,
+    ...(recruiterSub ? { recruiterSub } : {}),
     expiresAt: nowSeconds + LOGIN_SECONDS,
   });
   return json(200, {
@@ -155,17 +242,38 @@ export async function elixirCallback(
   } catch {
     return failTo(config.appUrl, "email_unavailable");
   }
-  // The account this sign-in belongs to: the browser's own when it was
-  // already signed in (a link), else the one this email names.
-  const sub = login.linkSub ?? emailSubject(email);
-  const existing = await repository.getProfile(sub);
-  const targetEmail = existing?.email ?? email;
+  const accountId = who.user.sub;
+
+  // Which Drop account this is (see the header). Pointer first; a pointer
+  // whose profile is gone is removed and never followed.
+  let target: PlayerProfile | undefined;
+  const pointed = await repository.getElixirIdentity(accountId);
+  if (pointed) {
+    target = await repository.getProfile(pointed);
+    if (!target) await repository.releaseElixirIdentity(accountId, pointed);
+  }
+  if (login.linkSub) {
+    const own = await repository.getProfile(login.linkSub);
+    if (!own) return failTo(config.appUrl, "login_expired");
+    if (target && target.sub !== own.sub)
+      return failTo(config.appUrl, "elixir_account_in_use");
+    if (own.elixirAccountId && own.elixirAccountId !== accountId)
+      return failTo(config.appUrl, "elixir_account_mismatch");
+    target = own;
+  } else if (!target) {
+    target = await repository.getProfile(emailSubject(email));
+  }
+  const sub = target?.sub ?? emailSubject(email);
+  // A profile that already belongs to another Elixir account opens to its
+  // own address, but this sign-in does not touch its connection.
+  const bindable =
+    !target?.elixirAccountId || target.elixirAccountId === accountId;
 
   // If Drop already shows a tag that is not on their Elixir account, add it
   // there as an alt so it can be chosen (Jamie, 2026-09-12). A refusal is
   // recorded, never fatal.
   let trackRefused: string | undefined;
-  const dropTag = existing?.playerTag;
+  const dropTag = bindable ? target?.playerTag : undefined;
   if (dropTag && !players.players.some((p) => p.playerTag === dropTag)) {
     const tracked = await client.trackAlt(token, dropTag);
     if (tracked.ok) {
@@ -180,29 +288,32 @@ export async function elixirCallback(
     }
   }
 
-  // The link, written now for an existing account; a brand-new account gets
-  // it at redemption (the profile does not exist yet), from the pending
-  // login item the proven magic link points back at.
+  // The link and the pointer, written now for an existing account; a
+  // brand-new account gets both at redemption (the profile does not exist
+  // yet), from the pending item the redemption reads back.
   const link = buildLink({
-    accountId: who.user.sub,
+    accountId,
     players: players.players,
-    currentTag: existing?.playerTag,
-    previous: existing?.elixir,
+    currentTag: target?.playerTag,
+    previous: target?.elixir,
     trackRefused,
     now: new Date().toISOString(),
   });
-  if (existing) {
-    await repository.setElixirLink(sub, link);
-    if (link.playerTag && link.playerTag !== existing.playerTag) {
+  if (target && bindable) {
+    const bound = await repository.bindElixirAccount(sub, accountId, link);
+    if (bound === "missing_profile")
+      return failTo(config.appUrl, "login_expired");
+    if (bound !== "bound") return failTo(config.appUrl, bound);
+    if (link.playerTag && link.playerTag !== target.playerTag) {
       await repository.updateProfile(sub, { playerTag: link.playerTag });
       await enqueueRefresh(config, {
         version: 1,
         type: "player-profile",
         sub,
-        playerId: existing.playerId,
+        playerId: target.playerId,
       });
     }
-  } else {
+  } else if (!target) {
     await repository.savePendingElixirLink(
       sub,
       link,
@@ -210,18 +321,25 @@ export async function elixirCallback(
     );
   }
 
-  // Hand off to the redemption route with a link Elixir already proved.
+  // Hand off to the redemption route with a credential Elixir already
+  // proved. Recruiter credit rides only on an account this creates.
+  const recruiterSub =
+    !target && login.recruiterSub && login.recruiterSub !== sub
+      ? login.recruiterSub
+      : undefined;
   const magicToken = randomBytes(32).toString("base64url");
-  await repository.saveProvenMagicLink(
-    sha256(magicToken),
-    targetEmail,
-    nowSeconds + MAGIC_LINK_SECONDS,
-    login.pollId,
-  );
+  await repository.saveProvenMagicLink(sha256(magicToken), {
+    sub,
+    email: target?.email ?? email,
+    expiresAt: nowSeconds + MAGIC_LINK_SECONDS,
+    pollId: login.pollId,
+    ...(recruiterSub ? { recruiterSub } : {}),
+  });
   // Land on the picker when there is a choice to make or something to say;
   // otherwise where the person was going.
   const needsAttention =
-    !link.playerTag || link.candidates.length > 1 || Boolean(trackRefused);
+    bindable &&
+    (!link.playerTag || link.candidates.length > 1 || Boolean(trackRefused));
   const returnTo = needsAttention ? ELIXIR_RETURN_PATH : login.returnTo;
   return redirect(
     `${config.appUrl}/#/auth?token=${encodeURIComponent(magicToken)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}&via=elixir`,
@@ -352,7 +470,10 @@ export async function selectElixirPlayer({
   });
 }
 
-// DELETE /me/elixir — disconnect. The tag stays; the mark and the link go.
+// DELETE /me/elixir — clear the connection's display: the tag stays; the
+// mark and the player list go. The account's Elixir identity (the pointer
+// and `elixirAccountId`) stays, because a Drop account is an Elixir account
+// (2026-10-12); the next sign-in with Elixir writes the connection again.
 export async function disconnectElixir({
   event,
   config,

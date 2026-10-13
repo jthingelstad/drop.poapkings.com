@@ -103,21 +103,54 @@ interface ActivityGroup {
   timeMs?: number;
 }
 
+// A single-use sign-in credential. Since 2026-10-12 Drop signs in only with
+// Elixir: the callback mints one of these after Elixir proved who the person
+// is, and the browser redeems it at /auth/redeem. Drop mails nothing.
 interface MagicItem {
   pk: string;
   sk: "MAGIC";
   email: string;
+  // The Drop account the sign-in resolved to (by the Elixir pointer, else by
+  // email). Absent on links minted before 2026-10-12: those resolve by email.
+  sub?: string;
   expiresAt: number;
   usedAt?: string;
-  // The secret poll id (known only to the requesting client) so a PWA that can't
-  // receive the emailed link's browser context can still pick up its session.
+  // The secret poll id (known only to the starting client) so a PWA whose
+  // storage is isolated from the browser that finished the sign-in can
+  // still pick up its session.
   pollId?: string;
-  // Owner of the last valid attributed share this not-yet-registered email
-  // arrived through. Internal subjects never leave the API boundary.
+  // Owner of the last valid attributed share a brand-new account arrived
+  // through. Internal subjects never leave the API boundary.
   recruiterSub?: string;
-  // How the address was proven. Absent means Drop mailed a code; "elixir"
-  // means Elixir vouched for it at /oauth/userinfo and nothing was mailed.
+  // How the person was proven. Only "elixir" is redeemable: a record without
+  // it is a retired mailed link (Drop's own email codes, removed 2026-10-12).
   source?: "elixir";
+}
+
+// Elixir account id -> Drop account (2026-10-12). Written whenever a profile
+// is linked to an Elixir account, so a sign-in resolves by Elixir identity
+// first and a person whose Elixir address differs from their Drop one still
+// lands on their own profile. Never a re-key: the profile keeps its sub.
+interface ElixirIdentityItem {
+  pk: string;
+  sk: "DROP";
+  dropSub: string;
+  linkedAt: string;
+}
+
+export type ElixirBindOutcome =
+  | "bound"
+  // The pointer names a different Drop account.
+  | "elixir_account_in_use"
+  // The profile already belongs to a different Elixir account.
+  | "elixir_account_mismatch"
+  | "missing_profile";
+
+export function elixirIdentityKey(accountId: string): {
+  pk: string;
+  sk: "DROP";
+} {
+  return { pk: `ELIXIR#${accountId}`, sk: "DROP" };
 }
 
 // A sign-in with Elixir in flight: the PKCE verifier and where to land,
@@ -131,13 +164,9 @@ interface ElixirLoginItem {
   // Set when the browser that started the flow already held a Drop session:
   // the outcome is a LINK to that account, whatever email Elixir names.
   linkSub?: string;
-  expiresAt: number;
-}
-
-interface MagicCodeItem {
-  pk: string;
-  sk: "MAGIC_CODE";
-  tokenHash: string;
+  // The owner of the attributed share the browser arrived through, resolved
+  // when the flow started; credited only if the sign-in creates an account.
+  recruiterSub?: string;
   expiresAt: number;
 }
 
@@ -595,51 +624,11 @@ export class Repository {
     }
   }
 
-  async saveMagicLink(
-    tokenHash: string,
-    codeHash: string,
-    email: string,
-    expiresAt: number,
-    pollId?: string,
-    recruiterSub?: string,
-  ): Promise<void> {
-    await client.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            Put: {
-              TableName: this.tableName,
-              Item: {
-                pk: `MAGIC#${tokenHash}`,
-                sk: "MAGIC",
-                email,
-                expiresAt,
-                ...(pollId ? { pollId } : {}),
-                ...(recruiterSub ? { recruiterSub } : {}),
-              } satisfies MagicItem,
-            },
-          },
-          {
-            Put: {
-              TableName: this.tableName,
-              Item: {
-                pk: `MAGIC_CODE#${codeHash}`,
-                sk: "MAGIC_CODE",
-                tokenHash,
-                expiresAt,
-              } satisfies MagicCodeItem,
-            },
-          },
-        ],
-      }),
-    );
-  }
-
-  // Cross-context login handoff. When a magic link is redeemed (possibly in a
-  // different browser than the one that requested it — e.g. Safari opening the
-  // link while the player waits in the installed PWA), the redeem writes the new
-  // session here keyed by the request's secret poll id; the waiting client polls
-  // for it. TTL'd like the link itself.
+  // Cross-context login handoff. When a sign-in is redeemed (possibly in a
+  // different browser than the one that started it — e.g. an installed PWA
+  // whose Elixir sign-in finished in Safari), the redeem writes the new
+  // session here keyed by the flow's secret poll id; the waiting client polls
+  // for it. TTL'd like the credential itself.
   async savePollSession(
     pollId: string,
     session: SessionEnvelope,
@@ -678,6 +667,7 @@ export class Repository {
       returnTo?: string;
       pollId?: string;
       linkSub?: string;
+      recruiterSub?: string;
       expiresAt: number;
     },
   ): Promise<void> {
@@ -712,17 +702,22 @@ export class Repository {
       returnTo: item.returnTo,
       pollId: item.pollId,
       linkSub: item.linkSub,
+      recruiterSub: item.recruiterSub,
       expiresAt: item.expiresAt,
     };
   }
 
-  // A magic link Elixir already proved: redeemable like a mailed one, but
-  // its code is random and never sent, so only the token can burn it.
+  // A sign-in Elixir already proved, for the Drop account it resolved to.
+  // Nothing is mailed: only the token handed to the browser can burn it.
   async saveProvenMagicLink(
     tokenHash: string,
-    email: string,
-    expiresAt: number,
-    pollId?: string,
+    link: {
+      sub: string;
+      email: string;
+      expiresAt: number;
+      pollId?: string;
+      recruiterSub?: string;
+    },
   ): Promise<void> {
     await client.send(
       new PutCommand({
@@ -730,13 +725,132 @@ export class Repository {
         Item: {
           pk: `MAGIC#${tokenHash}`,
           sk: "MAGIC",
-          email,
-          expiresAt,
+          email: link.email,
+          sub: link.sub,
+          expiresAt: link.expiresAt,
           source: "elixir",
-          ...(pollId ? { pollId } : {}),
+          ...(link.pollId ? { pollId: link.pollId } : {}),
+          ...(link.recruiterSub ? { recruiterSub: link.recruiterSub } : {}),
         } satisfies MagicItem,
       }),
     );
+  }
+
+  // The Drop account an Elixir account signs in to, if one is recorded.
+  async getElixirIdentity(accountId: string): Promise<string | undefined> {
+    const result = await client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: elixirIdentityKey(accountId),
+        ConsistentRead: true,
+      }),
+    );
+    const item = result.Item as ElixirIdentityItem | undefined;
+    return typeof item?.dropSub === "string" ? item.dropSub : undefined;
+  }
+
+  // Bind a profile to its Elixir account: the pointer and the profile's own
+  // `elixirAccountId` in one transaction, plus (at a sign-in) the fresh
+  // connection Elixir described. One Elixir account names one Drop account
+  // and a profile belongs to one Elixir account; a write that would break
+  // either is refused, never overwritten. Re-binding the same pair is a
+  // no-op that keeps the first linkedAt.
+  async bindElixirAccount(
+    sub: string,
+    accountId: string,
+    link?: ElixirLink,
+  ): Promise<ElixirBindOutcome> {
+    const now = new Date().toISOString();
+    const linkSet = link
+      ? ", #elixir = :elixir, #elixirVerified = :verified"
+      : "";
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: elixirIdentityKey(accountId),
+                UpdateExpression:
+                  "SET dropSub = :sub, linkedAt = if_not_exists(linkedAt, :now)",
+                ConditionExpression:
+                  "attribute_not_exists(pk) OR dropSub = :sub",
+                ExpressionAttributeValues: { ":sub": sub, ":now": now },
+              },
+            },
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: profileKey(sub),
+                UpdateExpression: `SET #account = :account, #updatedAt = :now${linkSet}`,
+                ConditionExpression:
+                  "attribute_exists(pk) AND (attribute_not_exists(#account) OR #account = :account)",
+                ExpressionAttributeNames: {
+                  "#account": "elixirAccountId",
+                  "#updatedAt": "updatedAt",
+                  ...(link
+                    ? {
+                        "#elixir": "elixir",
+                        "#elixirVerified": "elixirVerified",
+                      }
+                    : {}),
+                },
+                ExpressionAttributeValues: {
+                  ":account": accountId,
+                  ":now": now,
+                  ...(link
+                    ? {
+                        ":elixir": link,
+                        ":verified": Boolean(link.verified && link.playerTag),
+                      }
+                    : {}),
+                },
+              },
+            },
+          ],
+        }),
+      );
+      return "bound";
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "TransactionCanceledException"
+      )
+        throw error;
+      const reasons =
+        (error as { CancellationReasons?: { Code?: string }[] })
+          .CancellationReasons ?? [];
+      if (reasons[0]?.Code === "ConditionalCheckFailed")
+        return "elixir_account_in_use";
+      if (reasons[1]?.Code === "ConditionalCheckFailed") {
+        const profile = await this.getProfile(sub);
+        return profile ? "elixir_account_mismatch" : "missing_profile";
+      }
+      throw error;
+    }
+  }
+
+  // Drop a pointer, but only while it still names this Drop account: a stale
+  // pointer (its profile is gone) and account deletion both use this, and
+  // neither may remove a pointer someone else's sign-in just wrote.
+  async releaseElixirIdentity(accountId: string, sub: string): Promise<void> {
+    try {
+      await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: elixirIdentityKey(accountId),
+          ConditionExpression: "dropSub = :sub",
+          ExpressionAttributeValues: { ":sub": sub },
+        }),
+      );
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+    }
   }
 
   // A connection for an account that does not exist yet: written by the
@@ -837,56 +951,6 @@ export class Repository {
     return result.Attributes as ProfileItem;
   }
 
-  async deleteMagicLink(tokenHash: string, codeHash?: string): Promise<void> {
-    await client.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: { pk: `MAGIC#${tokenHash}`, sk: "MAGIC" },
-      }),
-    );
-    if (!codeHash) return;
-    try {
-      await client.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { pk: `MAGIC_CODE#${codeHash}`, sk: "MAGIC_CODE" },
-          ConditionExpression: "tokenHash = :tokenHash",
-          ExpressionAttributeValues: { ":tokenHash": tokenHash },
-        }),
-      );
-    } catch (error) {
-      // A same-code request can replace this lookup before an older mail send
-      // fails. Never delete the newer request's alias during cleanup.
-      if (
-        !(error instanceof Error) ||
-        error.name !== "ConditionalCheckFailedException"
-      )
-        throw error;
-    }
-  }
-
-  async tokenHashForMagicCode(
-    codeHash: string,
-    nowSeconds: number,
-  ): Promise<string> {
-    const result = await client.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: { pk: `MAGIC_CODE#${codeHash}`, sk: "MAGIC_CODE" },
-        ConsistentRead: true,
-      }),
-    );
-    const item = result.Item as MagicCodeItem | undefined;
-    if (!item?.tokenHash || item.expiresAt < nowSeconds) {
-      throw new HttpError(
-        401,
-        "This sign-in code is invalid, expired, or already used.",
-        "invalid_magic_code",
-      );
-    }
-    return item.tokenHash;
-  }
-
   // Read-only validity check so redemption can do its durable work (profile
   // creation) before burning the single-use link; a transient failure then
   // leaves the link redeemable instead of eaten by a 500.
@@ -895,6 +959,7 @@ export class Repository {
     nowSeconds: number,
   ): Promise<{
     email: string;
+    sub?: string;
     pollId?: string;
     recruiterSub?: string;
     source?: "elixir";
@@ -916,6 +981,7 @@ export class Repository {
     }
     return {
       email: item.email,
+      ...(item.sub ? { sub: item.sub } : {}),
       pollId: item.pollId,
       recruiterSub: item.recruiterSub,
       ...(item.source ? { source: item.source } : {}),
@@ -1663,6 +1729,17 @@ export class Repository {
         }),
       );
     }
+
+    // The Elixir pointer goes too, so a later sign-in with that Elixir account
+    // starts a new Drop account instead of naming a deleted one. Only a
+    // pointer that still names this account is removed.
+    const elixirAccounts = new Set(
+      [profile?.elixirAccountId, profile?.elixir?.accountId].filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ),
+    );
+    for (const accountId of elixirAccounts)
+      await this.releaseElixirIdentity(accountId, sub);
 
     // The profile is deleted last so a mid-sweep failure leaves the account
     // intact and the DELETE retryable, rather than orphaning leaderboard rows

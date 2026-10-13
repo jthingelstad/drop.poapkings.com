@@ -29,6 +29,8 @@ function awsError(name: string, extra: Record<string, unknown> = {}): Error {
 
 const conditionFailed = () => awsError("ConditionalCheckFailedException");
 const transactionCanceled = () => awsError("TransactionCanceledException");
+const transactionCanceledWith = (CancellationReasons: { Code: string }[]) =>
+  awsError("TransactionCanceledException", { CancellationReasons });
 
 const startedRun: RunItem = {
   pk: "RUN#run-1",
@@ -43,7 +45,7 @@ const startedRun: RunItem = {
 };
 
 // Every conditional write in the repository is load-bearing: it is what makes a
-// replayed run a no-op, a spent magic link unusable, and a concurrent write
+// replayed run a no-op, a spent sign-in credential unusable, and a concurrent write
 // safe. These cover the failure side of each condition, where the wrong mapping
 // is expensive — a retryable contention answered as "already recorded" loses a
 // player's game, and the reverse invites a double-record.
@@ -142,83 +144,146 @@ describe("repository conditional writes", () => {
     });
   });
 
-  it("stores the email link and code alias atomically with the same expiry", async () => {
+  it("stores an Elixir-proven sign-in for the account it resolved to", async () => {
     send.mockResolvedValueOnce({});
 
-    await new Repository("test-table").saveMagicLink(
-      "token-hash",
-      "code-hash",
-      "player@example.com",
-      1_900_000,
-      "poll-id",
-      "recruiter-sub",
-    );
+    await new Repository("test-table").saveProvenMagicLink("token-hash", {
+      sub: "drop-sub",
+      email: "player@example.com",
+      expiresAt: 1_900_000,
+      pollId: "poll-id",
+      recruiterSub: "recruiter-sub",
+    });
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command.input.Item).toEqual({
+      pk: "MAGIC#token-hash",
+      sk: "MAGIC",
+      email: "player@example.com",
+      sub: "drop-sub",
+      expiresAt: 1_900_000,
+      source: "elixir",
+      pollId: "poll-id",
+      recruiterSub: "recruiter-sub",
+    });
+  });
+
+  it("binds an Elixir account: the pointer and the profile's identity in one transaction", async () => {
+    send.mockResolvedValueOnce({});
+
+    await expect(
+      new Repository("test-table").bindElixirAccount("drop-sub", "acct-1"),
+    ).resolves.toBe("bound");
 
     const command = send.mock.calls[0]?.[0];
     expect(command).toBeInstanceOf(TransactWriteCommand);
-    expect(command.input.TransactItems).toEqual([
-      {
-        Put: {
-          TableName: "test-table",
-          Item: {
-            pk: "MAGIC#token-hash",
-            sk: "MAGIC",
-            email: "player@example.com",
-            expiresAt: 1_900_000,
-            pollId: "poll-id",
-            recruiterSub: "recruiter-sub",
-          },
-        },
-      },
-      {
-        Put: {
-          TableName: "test-table",
-          Item: {
-            pk: "MAGIC_CODE#code-hash",
-            sk: "MAGIC_CODE",
-            tokenHash: "token-hash",
-            expiresAt: 1_900_000,
-          },
-        },
-      },
-    ]);
+    const [pointer, profile] = command.input.TransactItems;
+    expect(pointer.Update).toMatchObject({
+      Key: { pk: "ELIXIR#acct-1", sk: "DROP" },
+      ConditionExpression: "attribute_not_exists(pk) OR dropSub = :sub",
+      ExpressionAttributeValues: { ":sub": "drop-sub" },
+    });
+    // Re-binding the same pair keeps the first linkedAt.
+    expect(pointer.Update.UpdateExpression).toContain("if_not_exists(linkedAt");
+    expect(profile.Update).toMatchObject({
+      Key: { pk: "PLAYER#drop-sub", sk: "PROFILE" },
+      ExpressionAttributeValues: { ":account": "acct-1" },
+    });
+    expect(profile.Update.ConditionExpression).toBe(
+      "attribute_exists(pk) AND (attribute_not_exists(#account) OR #account = :account)",
+    );
+    // No connection was supplied, so none is written.
+    expect(profile.Update.UpdateExpression).not.toContain("#elixir");
   });
 
-  it("resolves a live email code alias to its single-use token record", async () => {
-    send.mockResolvedValueOnce({
-      Item: {
-        pk: "MAGIC_CODE#code-hash",
-        sk: "MAGIC_CODE",
-        tokenHash: "token-hash",
-        expiresAt: 1_900_000,
-      },
-    });
+  it("writes the connection with the binding when a sign-in supplies one", async () => {
+    send.mockResolvedValueOnce({});
+    const link = {
+      accountId: "acct-1",
+      linkedAt: "2026-10-12T00:00:00.000Z",
+      checkedAt: "2026-10-12T00:00:00.000Z",
+      playerTag: "#20JJJ2CCRU",
+      verified: true,
+      candidates: [],
+    };
 
-    await expect(
-      new Repository("test-table").tokenHashForMagicCode(
-        "code-hash",
-        1_800_000,
-      ),
-    ).resolves.toBe("token-hash");
+    await new Repository("test-table").bindElixirAccount(
+      "drop-sub",
+      "acct-1",
+      link,
+    );
+
+    const profile = send.mock.calls[0]?.[0].input.TransactItems[1].Update;
+    expect(profile.UpdateExpression).toContain("#elixir = :elixir");
+    expect(profile.ExpressionAttributeValues).toMatchObject({
+      ":elixir": link,
+      ":verified": true,
+    });
   });
 
-  it("rejects a missing or expired email code alias", async () => {
-    send.mockResolvedValueOnce({
-      Item: {
-        tokenHash: "token-hash",
-        expiresAt: 1_700_000,
-      },
+  it("refuses, never overwrites, a pointer or profile bound elsewhere", async () => {
+    const repository = new Repository("test-table");
+    send.mockRejectedValueOnce(
+      transactionCanceledWith([
+        { Code: "ConditionalCheckFailed" },
+        { Code: "None" },
+      ]),
+    );
+    await expect(
+      repository.bindElixirAccount("drop-sub", "acct-1"),
+    ).resolves.toBe("elixir_account_in_use");
+
+    send
+      .mockRejectedValueOnce(
+        transactionCanceledWith([
+          { Code: "None" },
+          { Code: "ConditionalCheckFailed" },
+        ]),
+      )
+      .mockResolvedValueOnce({
+        Item: { sub: "drop-sub", elixirAccountId: "acct-2" },
+      });
+    await expect(
+      repository.bindElixirAccount("drop-sub", "acct-1"),
+    ).resolves.toBe("elixir_account_mismatch");
+
+    send
+      .mockRejectedValueOnce(
+        transactionCanceledWith([
+          { Code: "None" },
+          { Code: "ConditionalCheckFailed" },
+        ]),
+      )
+      .mockResolvedValueOnce({});
+    await expect(
+      repository.bindElixirAccount("drop-sub", "acct-1"),
+    ).resolves.toBe("missing_profile");
+
+    send.mockRejectedValueOnce(
+      transactionCanceledWith([
+        { Code: "TransactionConflict" },
+        { Code: "None" },
+      ]),
+    );
+    await expect(
+      repository.bindElixirAccount("drop-sub", "acct-1"),
+    ).rejects.toMatchObject({ name: "TransactionCanceledException" });
+  });
+
+  it("releases a pointer only while it still names the account", async () => {
+    const repository = new Repository("test-table");
+    send.mockResolvedValueOnce({});
+    await repository.releaseElixirIdentity("acct-1", "drop-sub");
+    expect(send.mock.calls[0]?.[0].input).toMatchObject({
+      Key: { pk: "ELIXIR#acct-1", sk: "DROP" },
+      ConditionExpression: "dropSub = :sub",
+      ExpressionAttributeValues: { ":sub": "drop-sub" },
     });
 
+    send.mockRejectedValueOnce(conditionFailed());
     await expect(
-      new Repository("test-table").tokenHashForMagicCode(
-        "code-hash",
-        1_800_000,
-      ),
-    ).rejects.toMatchObject({
-      statusCode: 401,
-      code: "invalid_magic_code",
-    });
+      repository.releaseElixirIdentity("acct-1", "drop-sub"),
+    ).resolves.toBeUndefined();
   });
 
   it("refuses to redeem a link that was already used", async () => {
@@ -252,15 +317,17 @@ describe("repository conditional writes", () => {
     ).rejects.toMatchObject({ statusCode: 401, code: "invalid_magic_link" });
   });
 
-  it("returns a valid link's email, poll id, and recruiter attribution", async () => {
+  it("returns a valid link's account, email, poll id, recruiter attribution and source", async () => {
     send.mockResolvedValueOnce({
       Item: {
         pk: "MAGIC#hash",
         sk: "MAGIC",
         email: "player@example.com",
         expiresAt: 1_900_000,
+        sub: "drop-sub",
         pollId: "poll-id",
         recruiterSub: "recruiter-sub",
+        source: "elixir",
       },
     });
 
@@ -268,8 +335,10 @@ describe("repository conditional writes", () => {
       new Repository("test-table").peekMagicLink("hash", 1_800_000),
     ).resolves.toEqual({
       email: "player@example.com",
+      sub: "drop-sub",
       pollId: "poll-id",
       recruiterSub: "recruiter-sub",
+      source: "elixir",
     });
   });
 

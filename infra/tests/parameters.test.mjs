@@ -527,7 +527,6 @@ void describe("deployment parameters", () => {
     assert.deepEqual(routeKeys, [
       "$default",
       "GET /health",
-      "POST /auth/request",
       "POST /auth/poll",
       "POST /auth/redeem",
       "POST /auth/refresh",
