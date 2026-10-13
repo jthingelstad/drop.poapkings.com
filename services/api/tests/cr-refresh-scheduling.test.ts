@@ -12,10 +12,10 @@ import { emailSubject } from "../src/validation.js";
 const repository = vi.hoisted(() => ({
   advanceLastSeasonPlayed: vi.fn(),
   attachRecruiter: vi.fn(),
+  bindElixirAccount: vi.fn(),
   creditRecruiter: vi.fn(),
   completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
-  deleteMagicLink: vi.fn(),
   ensureProfile: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
   getCrProfile: vi.fn(),
@@ -29,9 +29,8 @@ const repository = vi.hoisted(() => ({
   getShare: vi.fn(),
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
-  saveMagicLink: vi.fn(),
   savePollSession: vi.fn(),
-  tokenHashForMagicCode: vi.fn(),
+  takePendingElixirLink: vi.fn(),
   putRecruiterInviteAlias: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
@@ -43,16 +42,15 @@ const repository = vi.hoisted(() => ({
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
 const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
-const sendMagicLink = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     advanceLastSeasonPlayed = repository.advanceLastSeasonPlayed;
     attachRecruiter = repository.attachRecruiter;
+    bindElixirAccount = repository.bindElixirAccount;
     creditRecruiter = repository.creditRecruiter;
     completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
-    deleteMagicLink = repository.deleteMagicLink;
     ensureProfile = repository.ensureProfile;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
@@ -66,9 +64,8 @@ vi.mock("../src/repository.js", () => ({
     getShare = repository.getShare;
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
-    saveMagicLink = repository.saveMagicLink;
     savePollSession = repository.savePollSession;
-    tokenHashForMagicCode = repository.tokenHashForMagicCode;
+    takePendingElixirLink = repository.takePendingElixirLink;
     putRecruiterInviteAlias = repository.putRecruiterInviteAlias;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
@@ -87,11 +84,6 @@ vi.mock("../src/buttondown.js", async (importOriginal) => {
     enrollButtondownSubscriber,
     updateButtondownSubscriberMetadata,
   };
-});
-
-vi.mock("../src/email.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/email.js")>();
-  return { ...actual, sendMagicLink };
 });
 
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
@@ -198,12 +190,14 @@ describe("Clash Royale refresh scheduling", () => {
     repository.getCrWarClock.mockResolvedValue(undefined);
     repository.advanceLastSeasonPlayed.mockResolvedValue(false);
     requestCrProfileRefresh.mockResolvedValue(snapshot);
-    sendMagicLink.mockResolvedValue(undefined);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  it("durably enqueues an attached tag after a successful magic-link login", async () => {
-    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
+  it("durably enqueues an attached tag after a successful sign-in", async () => {
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      source: "elixir",
+    });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
 
@@ -236,56 +230,6 @@ describe("Clash Royale refresh scheduling", () => {
     );
   });
 
-  it("redeems a six-digit email code through the same single-use record", async () => {
-    repository.tokenHashForMagicCode.mockResolvedValue("resolved-token-hash");
-    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
-    repository.consumeMagicLink.mockResolvedValue(profile.email);
-    repository.ensureProfile.mockResolvedValue({ profile, created: false });
-
-    const response = await invoke("POST", "/auth/redeem", {
-      email: " Player@Example.com ",
-      code: "042761",
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(repository.tokenHashForMagicCode).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Number),
-    );
-    expect(repository.peekMagicLink).toHaveBeenCalledWith(
-      "resolved-token-hash",
-      expect.any(Number),
-    );
-    expect(repository.useRateLimit).toHaveBeenCalledWith(
-      "magic-code-email",
-      emailSubject(profile.email),
-      10,
-      30 * 60,
-    );
-    expect(repository.useRateLimit).toHaveBeenCalledWith(
-      "magic-code-ip",
-      expect.any(String),
-      30,
-      30 * 60,
-    );
-    expect(repository.useRateLimit).toHaveBeenCalledWith(
-      "magic-code-global",
-      "all",
-      1_000,
-      30 * 60,
-    );
-  });
-
-  it("rejects a malformed sign-in code before any credential lookup", async () => {
-    const response = await invoke("POST", "/auth/redeem", {
-      email: profile.email,
-      code: "12345",
-    });
-
-    expect(response.statusCode).toBe(400);
-    expect(repository.tokenHashForMagicCode).not.toHaveBeenCalled();
-  });
-
   it("queues enrichment without waiting for external services when a session returns", async () => {
     repository.getProfile.mockResolvedValue(profile);
     const response = await invoke("POST", "/auth/refresh", undefined, true);
@@ -300,239 +244,116 @@ describe("Clash Royale refresh scheduling", () => {
     expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 
-  it("does not enroll an address when a magic link is only requested", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
+  it("the retired email sign-in route answers 404 and mails nothing", async () => {
     const response = await invoke("POST", "/auth/request", {
       email: profile.email,
     });
 
-    expect(response.statusCode).toBe(202);
-    expect(sendMagicLink).toHaveBeenCalledWith(
-      expect.objectContaining({ code: expect.stringMatching(/^\d{6}$/) }),
-    );
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      profile.email,
-      expect.any(Number),
-      expect.any(String),
-      undefined,
-    );
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body ?? "{}").error.code).toBe("not_found");
+    expect(repository.useRateLimit).not.toHaveBeenCalled();
+    expect(repository.getProfile).not.toHaveBeenCalled();
     expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
   });
 
-  it("removes both credential lookups when email delivery fails", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.saveMagicLink.mockResolvedValue(undefined);
-    sendMagicLink.mockRejectedValueOnce(new Error("Fastmail unavailable"));
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const response = await invoke("POST", "/auth/request", {
+  it("refuses an email code at redemption before any credential lookup", async () => {
+    const response = await invoke("POST", "/auth/redeem", {
       email: profile.email,
+      code: "042761",
     });
 
-    expect(response.statusCode).toBe(500);
-    expect(repository.deleteMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-    );
+    expect(response.statusCode).toBe(400);
+    expect(repository.peekMagicLink).not.toHaveBeenCalled();
+    expect(repository.ensureProfile).not.toHaveBeenCalled();
   });
 
-  it("carries the exact player-tag editor into the magic link", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.saveMagicLink.mockResolvedValue(undefined);
+  it("refuses a mailed link minted before email sign-in was removed", async () => {
+    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
 
-    const response = await invoke("POST", "/auth/request", {
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(JSON.parse(response.body ?? "{}").error.code).toBe(
+      "invalid_magic_link",
+    );
+    expect(repository.ensureProfile).not.toHaveBeenCalled();
+    expect(repository.consumeMagicLink).not.toHaveBeenCalled();
+  });
+
+  it("signs in to the account the Elixir sign-in resolved to, not the address's", async () => {
+    const resolved = { ...profile, sub: "resolved-sub" };
+    repository.peekMagicLink.mockResolvedValue({
+      email: "other-address@example.com",
+      sub: "resolved-sub",
+      source: "elixir",
+    });
+    repository.consumeMagicLink.mockResolvedValue("other-address@example.com");
+    repository.ensureProfile.mockResolvedValue({
+      profile: resolved,
+      created: false,
+    });
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.ensureProfile).toHaveBeenCalledWith(
+      "resolved-sub",
+      "other-address@example.com",
+    );
+    expect(repository.bindElixirAccount).not.toHaveBeenCalled();
+  });
+
+  it("binds a brand-new account to its Elixir account once the profile exists", async () => {
+    const link = {
+      accountId: "acct-new",
+      linkedAt: "2026-10-12T00:00:00.000Z",
+      checkedAt: "2026-10-12T00:00:00.000Z",
+      playerTag: "#2PYQ0",
+      verified: true,
+      candidates: [],
+    };
+    const created = { ...profile, playerTag: undefined };
+    repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
-      returnTo: "/profile?edit=player-tag",
+      sub: profile.sub,
+      source: "elixir",
+    });
+    repository.consumeMagicLink.mockResolvedValue(profile.email);
+    repository.ensureProfile.mockResolvedValue({
+      profile: created,
+      created: true,
+    });
+    repository.takePendingElixirLink.mockResolvedValue(link);
+    repository.bindElixirAccount.mockResolvedValue("bound");
+    repository.updateProfile.mockResolvedValue(profile);
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
     });
 
-    expect(response.statusCode).toBe(202);
-    expect(sendMagicLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        magicLink: expect.stringMatching(
-          /^https:\/\/drop\.example\/#\/auth\?token=[^&]+&returnTo=%2Fprofile%3Fedit%3Dplayer-tag$/,
-        ),
-      }),
+    expect(response.statusCode).toBe(200);
+    expect(repository.bindElixirAccount).toHaveBeenCalledWith(
+      profile.sub,
+      "acct-new",
+      link,
     );
-  });
-
-  it("carries a valid attributed share into a new account's magic link", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(undefined);
-    repository.getShare.mockResolvedValue({
-      token: "AB2CD3",
-      owner: "recruiter-sub",
-    });
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: "new-player@example.com",
-      recruiterToken: "ab2cd3",
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.getShare).toHaveBeenCalledWith("AB2CD3");
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "new-player@example.com",
-      expect.any(Number),
-      expect.any(String),
-      "recruiter-sub",
+    expect(repository.ensureProfile.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.bindElixirAccount.mock.invocationCallOrder[0]!,
     );
-  });
-
-  it("carries a deterministic run share into a new account's magic link", async () => {
-    const playerId = "11111111-1111-4111-8111-111111111111";
-    const runId = "22222222-2222-4222-8222-222222222222";
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(undefined);
-    repository.getPublishedRunShare.mockResolvedValue({
-      playerId,
-      runId,
-      owner: "recruiter-sub",
+    expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
+      playerTag: "#2PYQ0",
     });
-    repository.refereeDecisions.mockResolvedValue(new Map());
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: "new-player@example.com",
-      recruiterShare: { playerId, runId },
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.getPublishedRunShare).toHaveBeenCalledWith(
-      playerId,
-      runId,
-    );
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "new-player@example.com",
-      expect.any(Number),
-      expect.any(String),
-      "recruiter-sub",
-    );
-  });
-
-  it("carries a deterministic badge share into a new account's magic link", async () => {
-    const playerId = "11111111-1111-4111-8111-111111111111";
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(undefined);
-    repository.getPublishedBadgeShare.mockResolvedValue({
-      playerId,
-      slug: "clockbreaker",
-      rungIndex: 3,
-      owner: "recruiter-sub",
-    });
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: "new-player@example.com",
-      recruiterShare: { playerId, badgeSlug: "clockbreaker", rungIndex: 3 },
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.getPublishedBadgeShare).toHaveBeenCalledWith(
-      playerId,
-      "clockbreaker",
-      3,
-    );
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "new-player@example.com",
-      expect.any(Number),
-      expect.any(String),
-      "recruiter-sub",
-    );
-  });
-
-  it("carries a published profile share into a new account's magic link", async () => {
-    const playerId = "11111111-1111-4111-8111-111111111111";
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(undefined);
-    repository.getPublishedProfileShare.mockResolvedValue({
-      playerId,
-      owner: "recruiter-sub",
-    });
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: "new-player@example.com",
-      recruiterShare: { playerId, profile: true },
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.getPublishedProfileShare).toHaveBeenCalledWith(playerId);
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "new-player@example.com",
-      expect.any(Number),
-      expect.any(String),
-      "recruiter-sub",
-    );
-  });
-
-  it("carries a stable Drop player invitation into a new account's magic link", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(undefined);
-    repository.getRecruiterInvite.mockResolvedValue({
-      sub: "recruiter-sub",
-      player: { id: profile.playerId },
-    });
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: "new-player@example.com",
-      recruiterShare: { dropPlayerTag: "P7H47PSTT93", invite: true },
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.getRecruiterInvite).toHaveBeenCalledWith("P7H47PSTT93");
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      "new-player@example.com",
-      expect.any(Number),
-      expect.any(String),
-      "recruiter-sub",
-    );
-  });
-
-  it("does not attach share recruitment to an existing account", async () => {
-    repository.useRateLimit.mockResolvedValue(undefined);
-    repository.getProfile.mockResolvedValue(profile);
-    repository.getShare.mockResolvedValue({
-      token: "AB2CD3",
-      owner: "recruiter-sub",
-    });
-    repository.saveMagicLink.mockResolvedValue(undefined);
-
-    const response = await invoke("POST", "/auth/request", {
-      email: profile.email,
-      recruiterToken: "AB2CD3",
-    });
-
-    expect(response.statusCode).toBe(202);
-    expect(repository.saveMagicLink).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      profile.email,
-      expect.any(Number),
-      expect.any(String),
-      undefined,
-    );
   });
 
   it("credits Recruiter when the attributed account is created", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: "new-player@example.com",
       recruiterSub: "recruiter-sub",
+      source: "elixir",
     });
     repository.ensureProfile.mockResolvedValue({
       profile: { ...profile, email: "new-player@example.com" },
@@ -567,6 +388,7 @@ describe("Clash Royale refresh scheduling", () => {
     repository.peekMagicLink.mockResolvedValue({
       email: "new-player@example.com",
       recruiterSub: "recruiter-sub",
+      source: "elixir",
     });
     repository.ensureProfile.mockResolvedValue({
       profile: { ...profile, email: "new-player@example.com" },
@@ -596,6 +418,7 @@ describe("Clash Royale refresh scheduling", () => {
     repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
       pollId: "poll-abc",
+      source: "elixir",
     });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
@@ -614,7 +437,10 @@ describe("Clash Royale refresh scheduling", () => {
   });
 
   it("does not write a poll session when the link carries no poll id", async () => {
-    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      source: "elixir",
+    });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
 
@@ -624,7 +450,10 @@ describe("Clash Royale refresh scheduling", () => {
 
   it("does not burn the magic link when the durable login work fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    repository.peekMagicLink.mockResolvedValue({ email: profile.email });
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      source: "elixir",
+    });
     repository.ensureProfile.mockRejectedValue(new Error("dynamo down"));
 
     const response = await invoke("POST", "/auth/redeem", {

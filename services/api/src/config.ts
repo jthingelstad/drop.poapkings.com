@@ -7,16 +7,11 @@ export interface Config {
   // never in the referee scripts, the read-only role, CI, or the browser.
   telemetryPepper: string;
   appUrl: string;
-  // The SES configuration set Drop sends through (SenderConfigurationSet in
-  // infra/template.yaml): bounces and complaints reach Drop's alarm topic.
-  sesConfigurationSet: string;
   buttondownApiKey?: string;
   buttondownNewsletterId?: string;
   // Shared only by the fixed host and this Lambda. It authorizes the one
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
-  emailFrom: string;
-  emailFromName: string;
   nameModelId: string;
   // Private marker CloudFront overwrites onto origin requests. It lets the API
   // trust the viewer IP overwritten by the request function without trusting a
@@ -49,14 +44,6 @@ export function required(name: string): string {
   return value;
 }
 
-export function emailFrom(): string {
-  return process.env.ELIXIR_DROP_EMAIL_FROM?.trim() || "elixir@poapkings.com";
-}
-
-export function emailFromName(): string {
-  return process.env.ELIXIR_DROP_EMAIL_FROM_NAME?.trim() || "Elixir Drop";
-}
-
 export function getConfig(): Config {
   const buttondownApiKey = process.env.BUTTONDOWN_API_KEY?.trim() || undefined;
   const buttondownNewsletterId =
@@ -72,14 +59,10 @@ export function getConfig(): Config {
     sessionSecret: required("SESSION_SECRET"),
     telemetryPepper: required("TELEMETRY_PEPPER"),
     appUrl: required("APP_URL").replace(/\/$/, ""),
-    sesConfigurationSet:
-      process.env.ELIXIR_DROP_SES_CONFIGURATION_SET?.trim() || "elixir-drop",
     buttondownApiKey,
     buttondownNewsletterId,
     updatesPublishToken:
       process.env.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN?.trim() || undefined,
-    emailFrom: emailFrom(),
-    emailFromName: emailFromName(),
     nameModelId:
       process.env.NAME_MODEL_ID?.trim() ||
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",

@@ -1,23 +1,19 @@
+// Sign-in redemption, the cross-context poll and session refresh. Since
+// 2026-10-12 Drop signs in only with Elixir (routes/elixir-auth.ts): the
+// callback mints the single-use credential redeemed here. Drop's own email
+// codes and mailed links (POST /auth/request) are gone; guests still play
+// without an account.
+
 import { enqueueRefresh } from "../refresh-jobs.js";
-import { createHmac, randomBytes, randomInt } from "node:crypto";
 import {
   buttondownPlayerMetadata,
   enrollButtondownSubscriber,
 } from "../buttondown.js";
-import { badRequest, HttpError } from "../errors.js";
+import { HttpError } from "../errors.js";
 import { json } from "../http.js";
-import { sendMagicLink } from "../email.js";
-import { isRecruiterInviteReference } from "../recruiter.js";
-import { isShareToken } from "../shares.js";
-import { refereeReviewStatus } from "../referee-status.js";
-import {
-  emailSubject,
-  normalizeAuthReturnPath,
-  normalizeEmail,
-} from "../validation.js";
+import { emailSubject } from "../validation.js";
 import {
   bodyOf,
-  clientIp,
   clientIpHash,
   issueSession,
   MAGIC_LINK_SECONDS,
@@ -25,189 +21,10 @@ import {
   sessionFor,
   sha256,
 } from "./context.js";
-import { isPublishedRunReference } from "./published-shares.js";
-import { isPublishedBadgeReference } from "./published-badges.js";
-import { isPublishedProfileReference } from "./published-profiles.js";
-
-const LOGIN_CODE_DIGITS = 6;
-const LOGIN_CODE_LIMIT = 10 ** LOGIN_CODE_DIGITS;
-
-function createLoginCode(): string {
-  return String(randomInt(LOGIN_CODE_LIMIT)).padStart(LOGIN_CODE_DIGITS, "0");
-}
-
-function loginCodeHash(secret: string, sub: string, code: string): string {
-  return createHmac("sha256", secret)
-    .update(`elixir-drop-login-code:${sub}:${code}`)
-    .digest("base64url");
-}
-
-function invalidMagicCode(): HttpError {
-  return new HttpError(
-    401,
-    "This sign-in code is invalid, expired, or already used.",
-    "invalid_magic_code",
-  );
-}
-
-// POST /auth/request — mail one single-use credential as a code and link.
-export async function requestMagicLink({
-  event,
-  config,
-  repository,
-}: RouteContext) {
-  const body = bodyOf(event);
-  let email: string;
-  try {
-    email = normalizeEmail(body.email);
-  } catch (error) {
-    throw badRequest(error);
-  }
-  const returnTo = normalizeAuthReturnPath(body.returnTo);
-  const sub = emailSubject(email);
-  const ip = clientIp(event, config.webOriginToken);
-  await Promise.all([
-    repository.useRateLimit("magic-email", sub, 5, 60 * 60),
-    repository.useRateLimit("magic-ip", sha256(ip), 20, 60 * 60),
-    // A global hourly ceiling: distributed abuse across many IPs must not
-    // turn the login mailer into a spam cannon that burns the domain's
-    // sender reputation. Far above any honest beta hour.
-    repository.useRateLimit("magic-global", "all", 200, 60 * 60),
-  ]);
-
-  const token = randomBytes(32).toString("base64url");
-  const tokenHash = sha256(token);
-  const code = createLoginCode();
-  const codeHash = loginCodeHash(config.sessionSecret, sub, code);
-  // Secret handoff id, returned only to this client (never emailed). Lets a
-  // waiting client — e.g. an installed PWA whose storage is isolated from the
-  // browser that opens the emailed link — poll for its session.
-  const pollId = randomBytes(24).toString("base64url");
-  const expiresAt = Math.floor(Date.now() / 1_000) + MAGIC_LINK_SECONDS;
-  let recruiterSub: string | undefined;
-  const recruiterToken =
-    typeof body.recruiterToken === "string"
-      ? body.recruiterToken.toUpperCase()
-      : undefined;
-  const recruiterShare =
-    typeof body.recruiterShare === "object" && body.recruiterShare !== null
-      ? (body.recruiterShare as Record<string, unknown>)
-      : undefined;
-  const publishedRunRecruiter = isPublishedRunReference(
-    recruiterShare?.playerId,
-    recruiterShare?.runId,
-  )
-    ? {
-        playerId: recruiterShare.playerId,
-        runId: recruiterShare.runId as string,
-      }
-    : undefined;
-  const publishedBadgeRecruiter = isPublishedBadgeReference(
-    recruiterShare?.playerId,
-    recruiterShare?.badgeSlug,
-    recruiterShare?.rungIndex,
-  )
-    ? {
-        playerId: recruiterShare.playerId,
-        slug: recruiterShare.badgeSlug as string,
-        rungIndex: recruiterShare.rungIndex as number,
-      }
-    : undefined;
-  const publishedProfileRecruiter =
-    recruiterShare?.profile === true &&
-    isPublishedProfileReference(recruiterShare.playerId)
-      ? { playerId: recruiterShare.playerId }
-      : undefined;
-  const directInviteRecruiter =
-    recruiterShare?.invite === true &&
-    isRecruiterInviteReference(recruiterShare.dropPlayerTag)
-      ? { dropPlayerTag: recruiterShare.dropPlayerTag.toUpperCase() }
-      : undefined;
-  if (
-    isShareToken(recruiterToken) ||
-    publishedRunRecruiter ||
-    publishedBadgeRecruiter ||
-    publishedProfileRecruiter ||
-    directInviteRecruiter
-  ) {
-    try {
-      const existingProfile = await repository.getProfile(sub);
-      if (!existingProfile && isShareToken(recruiterToken)) {
-        const share = await repository.getShare(recruiterToken);
-        if (share && share.owner !== sub) recruiterSub = share.owner;
-      } else if (!existingProfile && publishedRunRecruiter) {
-        const share = await repository.getPublishedRunShare(
-          publishedRunRecruiter.playerId,
-          publishedRunRecruiter.runId,
-        );
-        const decision = share
-          ? (await repository.refereeDecisions([share.runId])).get(share.runId)
-          : undefined;
-        if (
-          share &&
-          share.owner !== sub &&
-          refereeReviewStatus(decision) !== "excluded"
-        )
-          recruiterSub = share.owner;
-      } else if (!existingProfile && publishedBadgeRecruiter) {
-        const share = await repository.getPublishedBadgeShare(
-          publishedBadgeRecruiter.playerId,
-          publishedBadgeRecruiter.slug,
-          publishedBadgeRecruiter.rungIndex,
-        );
-        if (share && share.owner !== sub) recruiterSub = share.owner;
-      } else if (!existingProfile && publishedProfileRecruiter) {
-        const share = await repository.getPublishedProfileShare(
-          publishedProfileRecruiter.playerId,
-        );
-        if (share && share.owner !== sub) recruiterSub = share.owner;
-      } else if (!existingProfile && directInviteRecruiter) {
-        const player = await repository.getRecruiterInvite(
-          directInviteRecruiter.dropPlayerTag,
-        );
-        if (player && player.sub !== sub) recruiterSub = player.sub;
-      }
-    } catch (error) {
-      // Attribution is optional. A share read must never keep a player from
-      // receiving the login email they asked for.
-      console.warn("Recruiter attribution lookup failed", {
-        requestId: event.requestContext.requestId,
-        error: error instanceof Error ? error.name : "unknown",
-      });
-    }
-  }
-  await repository.saveMagicLink(
-    tokenHash,
-    codeHash,
-    email,
-    expiresAt,
-    pollId,
-    recruiterSub,
-  );
-  try {
-    await sendMagicLink({
-      configurationSet: config.sesConfigurationSet,
-      fromEmail: config.emailFrom,
-      fromName: config.emailFromName,
-      to: email,
-      magicLink: `${config.appUrl}/#/auth?token=${encodeURIComponent(token)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`,
-      code,
-      expiresMinutes: MAGIC_LINK_SECONDS / 60,
-    });
-  } catch (error) {
-    await repository.deleteMagicLink(tokenHash, codeHash);
-    throw error;
-  }
-  return json(202, {
-    ok: true,
-    message:
-      "If that address can receive mail, a sign-in code and link are on the way.",
-    pollId,
-  });
-}
 
 // POST /auth/poll — pick up a session handed over by a redeem in another
-// browser context.
+// browser context (an Elixir sign-in that finished outside the tab that
+// started it).
 export async function pollSession({ event, config, repository }: RouteContext) {
   const body = bodyOf(event);
   if (typeof body.pollId !== "string" || body.pollId.length < 16)
@@ -228,8 +45,8 @@ export async function pollSession({ event, config, repository }: RouteContext) {
   return json(200, session ? { ready: true, session } : { ready: false });
 }
 
-// POST /auth/redeem — burn the code/link credential, ensure the profile, and
-// issue the session. Both inputs resolve to the same single-use record.
+// POST /auth/redeem — burn the credential the Elixir callback minted, ensure
+// the profile, and issue the session.
 export async function redeemMagicLink({
   event,
   config,
@@ -237,75 +54,53 @@ export async function redeemMagicLink({
 }: RouteContext) {
   const body = bodyOf(event);
   const nowSeconds = Math.floor(Date.now() / 1_000);
-  let tokenHash: string;
-  let redeemedWithCode = false;
-  if (typeof body.token === "string") {
-    if (body.token.length < 32)
-      throw new HttpError(400, "A login token is required.");
-    tokenHash = sha256(body.token);
-  } else {
-    let email: string;
-    try {
-      email = normalizeEmail(body.email);
-    } catch (error) {
-      throw badRequest(error);
-    }
-    const code = typeof body.code === "string" ? body.code.trim() : "";
-    if (!new RegExp(`^\\d{${LOGIN_CODE_DIGITS}}$`).test(code))
-      throw new HttpError(400, "A six-digit sign-in code is required.");
-    const sub = emailSubject(email);
-    await Promise.all([
-      repository.useRateLimit("magic-code-email", sub, 10, 30 * 60),
-      repository.useRateLimit(
-        "magic-code-ip",
-        clientIpHash(event, config.webOriginToken),
-        30,
-        30 * 60,
-      ),
-      repository.useRateLimit("magic-code-global", "all", 1_000, 30 * 60),
-    ]);
-    tokenHash = await repository.tokenHashForMagicCode(
-      loginCodeHash(config.sessionSecret, sub, code),
-      nowSeconds,
-    );
-    redeemedWithCode = true;
-  }
+  if (typeof body.token !== "string" || body.token.length < 32)
+    throw new HttpError(400, "A sign-in token is required.");
+  const tokenHash = sha256(body.token);
   // Validate and complete the durable work before burning the single-use
   // credential: a transient failure mid-login used to consume it and strand
   // the player on "already used" with no way to retry.
-  let magicLink;
-  try {
-    magicLink = await repository.peekMagicLink(tokenHash, nowSeconds);
-  } catch (error) {
-    if (
-      redeemedWithCode &&
-      error instanceof HttpError &&
-      error.code === "invalid_magic_link"
-    )
-      throw invalidMagicCode();
-    throw error;
-  }
-  const { email, pollId, recruiterSub, source } = magicLink;
-  const sub = emailSubject(email);
+  const magicLink = await repository.peekMagicLink(tokenHash, nowSeconds);
+  // Only an Elixir-proven credential signs in. A mailed link minted before
+  // email sign-in was removed is refused like a spent one.
+  if (magicLink.source !== "elixir")
+    throw new HttpError(
+      401,
+      "This login link is invalid, expired, or already used.",
+      "invalid_magic_link",
+    );
+  const { email, pollId, recruiterSub } = magicLink;
+  const sub = magicLink.sub ?? emailSubject(email);
   const login = await repository.ensureProfile(sub, email);
   // A sign-in with Elixir for an account that did not exist until this
-  // moment: the connection the callback learned is applied now.
-  if (source === "elixir") {
-    try {
-      const pending = await repository.takePendingElixirLink(sub, nowSeconds);
-      if (pending) {
-        await repository.setElixirLink(sub, pending);
-        if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
-          login.profile = await repository.updateProfile(sub, {
-            playerTag: pending.playerTag,
-          });
-      }
-    } catch (error) {
-      console.warn("Pending Elixir link could not be applied", {
-        requestId: event.requestContext.requestId,
-        error: error instanceof Error ? error.name : "unknown",
-      });
+  // moment: the connection and the Elixir pointer the callback learned are
+  // applied now that the profile exists.
+  try {
+    const pending = await repository.takePendingElixirLink(sub, nowSeconds);
+    if (pending) {
+      const bound = await repository.bindElixirAccount(
+        sub,
+        pending.accountId,
+        pending,
+      );
+      if (bound !== "bound")
+        console.warn("Pending Elixir link was not applied", {
+          requestId: event.requestContext.requestId,
+          outcome: bound,
+        });
+      else if (
+        pending.playerTag &&
+        login.profile.playerTag !== pending.playerTag
+      )
+        login.profile = await repository.updateProfile(sub, {
+          playerTag: pending.playerTag,
+        });
     }
+  } catch (error) {
+    console.warn("Pending Elixir link could not be applied", {
+      requestId: event.requestContext.requestId,
+      error: error instanceof Error ? error.name : "unknown",
+    });
   }
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
   if (recruiterSub || login.profile.recruitedBy) {
@@ -323,17 +118,7 @@ export async function redeemMagicLink({
       });
     }
   }
-  try {
-    await repository.consumeMagicLink(tokenHash, nowSeconds);
-  } catch (error) {
-    if (
-      redeemedWithCode &&
-      error instanceof HttpError &&
-      error.code === "invalid_magic_link"
-    )
-      throw invalidMagicCode();
-    throw error;
-  }
+  await repository.consumeMagicLink(tokenHash, nowSeconds);
   const session = issueSession(sub, config.sessionSecret, nowSeconds);
   // Hand the session to a client waiting on this request's poll id (e.g. the
   // installed PWA, when the link opened in a different browser). Best-effort:

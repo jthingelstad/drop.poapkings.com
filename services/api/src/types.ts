@@ -120,6 +120,12 @@ export interface PlayerProfile {
   // Denormalized from `elixir` for the board's sparse projection: true only
   // while playerTag is the Elixir-verified tag. The public mark reads this.
   elixirVerified?: boolean;
+  // The Elixir account this Drop account belongs to (userinfo `sub`), set
+  // once, by the first Elixir sign-in or link (or the 2026-10-12 backfill),
+  // and mirrored by the `ELIXIR#<id>` pointer item that resolves a sign-in.
+  // Unlike `elixir`, a disconnect never clears it: it is the account's
+  // identity, not its display. Internal only; never returned by an API.
+  elixirAccountId?: string;
   totalGames: number;
   // Latest Clash Royale season number with a recorded signed-in run. This is
   // a monotonic internal projection for slow-moving campaign metadata; unlike
@@ -143,7 +149,7 @@ export interface PlayerProfile {
   recruiterCreditedAt?: string;
   createdAt: string;
   updatedAt: string;
-  // Successful magic-link redemption, kept separate from profile mutation and
+  // Successful sign-in redemption, kept separate from profile mutation and
   // gameplay activity so private account administration can distinguish them.
   lastLoginAt?: string;
   // When the player last opened the Updates view. Account-level and server-owned

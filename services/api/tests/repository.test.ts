@@ -1715,6 +1715,40 @@ describe("repository DynamoDB requests", () => {
     );
   });
 
+  it("removes the account's Elixir pointers, conditionally, before the profile", async () => {
+    send
+      .mockResolvedValueOnce({
+        Item: {
+          totalGames: 0,
+          elixirAccountId: "acct-1",
+          elixir: { accountId: "acct-old" },
+        },
+      })
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(
+        Object.assign(new Error("ConditionalCheckFailedException"), {
+          name: "ConditionalCheckFailedException",
+        }),
+      )
+      .mockResolvedValueOnce({});
+
+    await new Repository("test-table").deleteAccount("player-sub");
+
+    const inputs = send.mock.calls.map((call) => call[0].input);
+    expect(inputs[2]).toMatchObject({
+      Key: { pk: "ELIXIR#acct-1", sk: "DROP" },
+      ConditionExpression: "dropSub = :sub",
+      ExpressionAttributeValues: { ":sub": "player-sub" },
+    });
+    // A pointer that now names someone else is left alone.
+    expect(inputs[3]).toMatchObject({
+      Key: { pk: "ELIXIR#acct-old", sk: "DROP" },
+    });
+    expect(inputs[4]?.Key).toEqual({ pk: "PLAYER#player-sub", sk: "PROFILE" });
+    expect(inputs).toHaveLength(5);
+  });
+
   // A link a player already sent to somebody lives outside PLAYER# so a stranger
   // can resolve it by token alone. Deletion still promises a complete sweep, so
   // the pointer in the player's partition is what lets it be found.

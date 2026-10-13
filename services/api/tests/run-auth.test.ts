@@ -67,17 +67,14 @@ describe("run authentication", () => {
   // session is still refused, but that path rate-limits first (real DynamoDB),
   // so it is exercised with a mocked Repository in guest-play.test.ts instead.
 
-  it("returns a useful client error for masked email addresses", async () => {
+  it("the retired email sign-in route is gone", async () => {
     const response = await invoke("/auth/request", {
-      email: "e***@p***.com",
+      email: "player@example.com",
     });
 
-    expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body || "{}")).toEqual({
-      error: {
-        code: "invalid_request",
-        message: "Enter your complete email address, not a masked address.",
-      },
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body || "{}")).toMatchObject({
+      error: { code: "not_found" },
     });
   });
 });

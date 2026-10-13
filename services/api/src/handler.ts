@@ -7,12 +7,7 @@ import { loadConfig } from "./config.js";
 import { HttpError } from "./errors.js";
 import { json } from "./http.js";
 import { Repository } from "./repository.js";
-import {
-  pollSession,
-  redeemMagicLink,
-  refreshSession,
-  requestMagicLink,
-} from "./routes/auth.js";
+import { pollSession, redeemMagicLink, refreshSession } from "./routes/auth.js";
 import type { RouteContext } from "./routes/context.js";
 import {
   createNameOptions,
@@ -108,8 +103,8 @@ async function route(event: APIGatewayProxyEventV2) {
   if (method === "POST" && path === "/admin/updates")
     return publishUpdate(context);
 
-  if (method === "POST" && path === "/auth/request")
-    return requestMagicLink(context);
+  // Drop signs in only with Elixir since 2026-10-12: POST /auth/request (the
+  // emailed code and link) is gone and answers 404 like any unknown route.
   if (method === "POST" && path === "/auth/poll") return pollSession(context);
   if (method === "POST" && path === "/auth/redeem")
     return redeemMagicLink(context);

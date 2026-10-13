@@ -11,6 +11,7 @@ import {
   selectElixirPlayer,
   startElixirLogin,
 } from "../src/routes/elixir-auth.js";
+import type { ElixirBindOutcome } from "../src/repository.js";
 import type { ElixirLink, PlayerProfile } from "../src/types.js";
 import type { RouteContext } from "../src/routes/context.js";
 import { issueSession } from "../src/routes/context.js";
@@ -23,9 +24,6 @@ const config = {
   sessionSecret: "secret",
   telemetryPepper: "pepper",
   appUrl: "https://drop.test",
-  sesConfigurationSet: "elixir-drop",
-  emailFrom: "elixir@poapkings.com",
-  emailFromName: "Elixir",
   nameModelId: "m",
   elixirMcpBaseUrl: "https://elixir.test",
   warClockClanTag: "#J2RGCRVG",
@@ -189,11 +187,18 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   const magic: Record<string, unknown>[] = [];
   const pending = new Map<string, ElixirLink>();
   const refreshes: string[] = [];
+  // ELIXIR#<accountId> -> Drop sub
+  const pointers = new Map<string, string>();
+  const released: string[] = [];
+  const shares = new Map<string, string>();
   const repo = {
     profiles,
     magic,
     pending,
     refreshes,
+    pointers,
+    released,
+    shares,
     async useRateLimit() {},
     async saveElixirLogin(state: string, login: Record<string, unknown>) {
       logins.set(state, login);
@@ -233,11 +238,52 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
     },
     async saveProvenMagicLink(
       tokenHash: string,
-      email: string,
-      expiresAt: number,
-      pollId?: string,
+      link: {
+        sub: string;
+        email: string;
+        expiresAt: number;
+        pollId?: string;
+        recruiterSub?: string;
+      },
     ) {
-      magic.push({ tokenHash, email, expiresAt, pollId });
+      magic.push({ tokenHash, ...link });
+    },
+    async getElixirIdentity(accountId: string) {
+      return pointers.get(accountId);
+    },
+    // The same outcomes as the repository's one transaction.
+    async bindElixirAccount(
+      sub: string,
+      accountId: string,
+      link?: ElixirLink,
+    ): Promise<ElixirBindOutcome> {
+      const pointed = pointers.get(accountId);
+      if (pointed !== undefined && pointed !== sub)
+        return "elixir_account_in_use";
+      const found = profiles[sub];
+      if (!found) return "missing_profile";
+      if (found.elixirAccountId && found.elixirAccountId !== accountId)
+        return "elixir_account_mismatch";
+      pointers.set(accountId, sub);
+      profiles[sub] = {
+        ...found,
+        elixirAccountId: accountId,
+        ...(link
+          ? {
+              elixir: link,
+              elixirVerified: Boolean(link.verified && link.playerTag),
+            }
+          : {}),
+      };
+      return "bound";
+    },
+    async releaseElixirIdentity(accountId: string, sub: string) {
+      released.push(accountId);
+      if (pointers.get(accountId) === sub) pointers.delete(accountId);
+    },
+    async getShare(token: string) {
+      const owner = shares.get(token);
+      return owner ? { owner } : undefined;
     },
     async getCrProfile() {
       return undefined;
@@ -295,12 +341,13 @@ async function start(
   fake: ReturnType<typeof fakeElixir>,
   bearer?: string,
   returnTo?: string,
+  extraBody: Record<string, unknown> = {},
 ) {
   const res = await startElixirLogin(
     {
       event: event("POST", "/auth/elixir/start", {
         bearer,
-        body: { returnTo },
+        body: { returnTo, ...extraBody },
       }),
       config,
       repository: repo as never,
@@ -360,6 +407,11 @@ describe("sign in with Elixir", () => {
     expect(link?.verified).toBe(true);
     expect(link?.candidates.map((c) => c.playerTag)).toEqual(["#20JJJ2CCRU"]);
     expect(fake.calls).toEqual(["token", "me", "userinfo"]);
+    // The account and its pointer are written at redemption, once the
+    // profile exists; the proven link names the account it will create.
+    expect(repo.magic[0]).toMatchObject({ sub });
+    expect(repo.pointers.size).toBe(0);
+    expect(Object.keys(repo.profiles)).toEqual([]);
   });
 
   it("callback for an existing account with the same email: linked in place, verified mark on", async () => {
@@ -384,6 +436,11 @@ describe("sign in with Elixir", () => {
     expect(accountTagsFor(repo.must(sub))).toEqual(["verified"]);
     expect(publicProfile(repo.must(sub)).accountTags).toEqual(["verified"]);
     expect(repo.pending.size).toBe(0);
+    // The email fallback writes the pointer, so the next sign-in finds the
+    // account by its Elixir identity, whatever address it carries then.
+    expect(repo.pointers.get("elixir-acct-1")).toBe(sub);
+    expect(repo.must(sub).elixirAccountId).toBe("elixir-acct-1");
+    expect(repo.magic[0]).toMatchObject({ sub, email: "jamie@example.com" });
   });
 
   it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir is added there first", async () => {
@@ -469,8 +526,12 @@ describe("sign in with Elixir", () => {
     expect(repo.must(dropSub).playerTag).toBe("#20JJJ2CCRU");
     // The proven magic link is for the DROP account's email, so redemption
     // signs in to the linked account, not a new one.
-    expect(repo.magic[0]).toMatchObject({ email: "other@example.com" });
+    expect(repo.magic[0]).toMatchObject({
+      sub: dropSub,
+      email: "other@example.com",
+    });
     expect(Object.keys(repo.profiles)).toEqual([dropSub]);
+    expect(repo.pointers.get("elixir-acct-1")).toBe(dropSub);
   });
 
   it("callback refuses an agent's grant, a replayed state, and a missing address", async () => {
@@ -519,6 +580,216 @@ describe("sign in with Elixir", () => {
       "https://drop.test/#/login?elixir=email_unavailable",
     );
     expect(repo.magic.length).toBe(0);
+  });
+
+  async function callback(
+    repo: ReturnType<typeof fakeRepository>,
+    fake: ReturnType<typeof fakeElixir>,
+    bearer?: string,
+    extraBody?: Record<string, unknown>,
+  ) {
+    const { state } = await start(repo, fake, bearer, undefined, extraBody);
+    return elixirCallback(
+      {
+        event: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+  }
+
+  function bearerFor(sub: string) {
+    return issueSession(
+      sub,
+      config.sessionSecret,
+      Math.floor(Date.now() / 1000),
+    ).token;
+  }
+
+  it("the pointer wins over the address: an Elixir account opens the Drop account it is bound to", async () => {
+    const bound = emailSubject("drop-address@example.com");
+    const byEmail = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [bound]: profile(bound, {
+        email: "drop-address@example.com",
+        elixirAccountId: "elixir-acct-1",
+      }),
+      [byEmail]: profile(byEmail),
+    });
+    repo.pointers.set("elixir-acct-1", bound);
+    const res = await callback(repo, fakeElixir({ players: [KING] }));
+    expect(res.statusCode).toBe(303);
+    expect(repo.magic[0]).toMatchObject({
+      sub: bound,
+      email: "drop-address@example.com",
+    });
+    expect(repo.must(bound).elixir?.accountId).toBe("elixir-acct-1");
+    expect(repo.must(byEmail).elixir).toBeUndefined();
+    expect(repo.pending.size).toBe(0);
+  });
+
+  it("an Elixir account with a different address resolves through a backfilled pointer, never a second account", async () => {
+    // The backfill wrote the pointer and elixirAccountId only, no link.
+    const dropSub = emailSubject("old-address@example.com");
+    const repo = fakeRepository({
+      [dropSub]: profile(dropSub, {
+        email: "old-address@example.com",
+        elixirAccountId: "elixir-acct-1",
+      }),
+    });
+    repo.pointers.set("elixir-acct-1", dropSub);
+    await callback(
+      repo,
+      fakeElixir({ players: [KING], email: "new-address@example.com" }),
+    );
+    expect(Object.keys(repo.profiles)).toEqual([dropSub]);
+    expect(repo.pending.size).toBe(0);
+    expect(repo.magic[0]).toMatchObject({
+      sub: dropSub,
+      email: "old-address@example.com",
+    });
+    // The verified mark is read again at this sign-in.
+    expect(repo.must(dropSub).elixir?.verified).toBe(true);
+    expect(repo.must(dropSub).elixirVerified).toBe(true);
+  });
+
+  it("a pointer to a missing profile is removed and never followed or revived", async () => {
+    const gone = emailSubject("deleted@example.com");
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub) });
+    repo.pointers.set("elixir-acct-1", gone);
+    await callback(repo, fakeElixir({ players: [KING] }));
+    expect(repo.released).toEqual(["elixir-acct-1"]);
+    expect(repo.profiles[gone]).toBeUndefined();
+    expect(repo.pointers.get("elixir-acct-1")).toBe(sub);
+    expect(repo.magic[0]).toMatchObject({ sub });
+  });
+
+  it("a stale pointer and no account for the address: a new account, not the deleted one", async () => {
+    const gone = emailSubject("deleted@example.com");
+    const repo = fakeRepository();
+    repo.pointers.set("elixir-acct-1", gone);
+    await callback(repo, fakeElixir({ players: [KING] }));
+    const sub = emailSubject("jamie@example.com");
+    expect(repo.pointers.has("elixir-acct-1")).toBe(false);
+    expect(repo.pending.has(sub)).toBe(true);
+    expect(repo.magic[0]).toMatchObject({ sub });
+  });
+
+  it("an address whose account belongs to another Elixir account opens without moving that connection", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [sub]: profile(sub, {
+        playerTag: "#2PP",
+        elixirAccountId: "elixir-acct-other",
+      }),
+    });
+    repo.pointers.set("elixir-acct-other", sub);
+    const fake = fakeElixir({ players: [KING] });
+    const res = await callback(repo, fake);
+    expect(res.statusCode).toBe(303);
+    expect(repo.magic[0]).toMatchObject({ sub });
+    expect(repo.must(sub).elixirAccountId).toBe("elixir-acct-other");
+    expect(repo.must(sub).elixir).toBeUndefined();
+    expect(repo.must(sub).playerTag).toBe("#2PP");
+    expect(repo.pointers.has("elixir-acct-1")).toBe(false);
+    // Nothing was tracked on an Elixir account this Drop account is not bound to.
+    expect(fake.calls).toEqual(["token", "me", "userinfo"]);
+  });
+
+  it("link mode refuses an Elixir account already bound to another Drop account", async () => {
+    const mine = emailSubject("other@example.com");
+    const theirs = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [mine]: profile(mine, { email: "other@example.com" }),
+      [theirs]: profile(theirs, { elixirAccountId: "elixir-acct-1" }),
+    });
+    repo.pointers.set("elixir-acct-1", theirs);
+    const res = await callback(
+      repo,
+      fakeElixir({ players: [KING] }),
+      bearerFor(mine),
+    );
+    expect(String(res.headers?.location)).toBe(
+      "https://drop.test/#/login?elixir=elixir_account_in_use",
+    );
+    expect(repo.must(mine).elixirAccountId).toBeUndefined();
+    expect(repo.pointers.get("elixir-acct-1")).toBe(theirs);
+    expect(repo.magic).toHaveLength(0);
+  });
+
+  it("link mode refuses a second Elixir account for a Drop account already bound", async () => {
+    const mine = emailSubject("other@example.com");
+    const repo = fakeRepository({
+      [mine]: profile(mine, {
+        email: "other@example.com",
+        elixirAccountId: "elixir-acct-other",
+      }),
+    });
+    repo.pointers.set("elixir-acct-other", mine);
+    const res = await callback(
+      repo,
+      fakeElixir({ players: [KING] }),
+      bearerFor(mine),
+    );
+    expect(String(res.headers?.location)).toBe(
+      "https://drop.test/#/login?elixir=elixir_account_mismatch",
+    );
+    expect(repo.pointers.has("elixir-acct-1")).toBe(false);
+    expect(repo.magic).toHaveLength(0);
+  });
+
+  it("link mode for a session whose account is gone fails closed", async () => {
+    const repo = fakeRepository();
+    const res = await callback(
+      repo,
+      fakeElixir({ players: [KING] }),
+      bearerFor(emailSubject("gone@example.com")),
+    );
+    expect(String(res.headers?.location)).toBe(
+      "https://drop.test/#/login?elixir=login_expired",
+    );
+    expect(repo.magic).toHaveLength(0);
+    expect(repo.pending.size).toBe(0);
+  });
+
+  it("Recruiter attribution rides from start to an account the sign-in creates, and only to one", async () => {
+    const recruiter = emailSubject("recruiter@example.com");
+    const repo = fakeRepository();
+    repo.shares.set("ABC234", recruiter);
+    await callback(repo, fakeElixir({ players: [KING] }), undefined, {
+      recruiterToken: "abc234",
+    });
+    expect(repo.magic[0]).toMatchObject({ recruiterSub: recruiter });
+
+    const sub = emailSubject("jamie@example.com");
+    const existing = fakeRepository({ [sub]: profile(sub) });
+    existing.shares.set("ABC234", recruiter);
+    await callback(existing, fakeElixir({ players: [KING] }), undefined, {
+      recruiterToken: "ABC234",
+    });
+    expect(existing.magic[0]).not.toHaveProperty("recruiterSub");
+
+    // A recruiter never credits themselves.
+    const self = fakeRepository();
+    self.shares.set("ABC234", sub);
+    await callback(self, fakeElixir({ players: [KING] }), undefined, {
+      recruiterToken: "ABC234",
+    });
+    expect(self.magic[0]).not.toHaveProperty("recruiterSub");
+  });
+
+  it("a signed-in browser carries no Recruiter attribution", async () => {
+    const mine = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [mine]: profile(mine) });
+    repo.shares.set("ABC234", emailSubject("recruiter@example.com"));
+    await callback(repo, fakeElixir({ players: [KING] }), bearerFor(mine), {
+      recruiterToken: "ABC234",
+    });
+    expect(repo.magic[0]).not.toHaveProperty("recruiterSub");
   });
 
   it("select: only a candidate can be chosen; the choice becomes the Drop tag and the mark follows verification", async () => {
