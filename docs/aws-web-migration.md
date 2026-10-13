@@ -22,8 +22,8 @@ revalidate HTML while CloudFront may keep it for five minutes between the full
 invalidation performed by each deploy; hashed bundles remain immutable for one
 year. The web manifest and service worker revalidate on every use.
 The static behavior also attaches AWS's managed combined CORS and security-
-headers policy so Buttondown's public archive can load Drop's font while static
-responses receive the standard transport, content-type, framing, and referrer
+headers policy (chosen when Drop's since-retired Buttondown archive loaded its
+font), so static responses receive the standard transport, content-type, framing, and referrer
 protections. `/api/*` keeps the API's own CORS behavior.
 
 CloudFront standard logging v2 sends a privacy-minimized field set to CloudWatch Logs

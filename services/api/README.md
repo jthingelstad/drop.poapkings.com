@@ -8,9 +8,6 @@ Responsibilities in this release:
 - Sign in with Elixir, the only sign-in since 2026-10-12 (a Drop account is an
   Elixir account; guests play without one), resolved through the
   `ELIXIR#{accountId}` identity pointer;
-- Buttondown enrollment only after successful sign-in credential redemption, with
-  current player/clan/activity metadata and matching removal on account
-  deletion;
 - renewable 28-day sliding HMAC bearer sessions;
 - player profiles with favorite-card avatars, safe compiler-generated and
   Claude Haiku-ranked public names, unverified CR player tags, and cached CR
@@ -34,12 +31,11 @@ Elixir MCP, with a hub-managed live fallback for a previously unseen tag. Saving
 a tag and verified login retain their enrichment behavior. Returning-session
 refresh validates the account and awaits only acceptance by a dedicated encrypted
 FIFO refresh queue (750 ms enqueue deadline). A separate Lambda refreshes the
-six-hour player snapshot and synchronizes changed Buttondown metadata. The queue
-contains an internal subject and account generation, never an email or session.
-Deleted or recreated accounts are ignored. A metadata digest at
-`PLAYER#{sub}/REFRESH#METADATA` includes profile/snapshot revisions, avoids repeated unchanged refreshes and is removed
-by account deletion. Failed external writes remain retryable rather than being
-marked synchronized.
+six-hour player snapshot. The queue contains an internal subject and account
+generation, never an email or session. Deleted or recreated accounts are
+ignored. (Until 2026-10-12 it also synchronized Drop's newsletter metadata; the
+inert `PLAYER#{sub}/REFRESH#METADATA` digests it left go with account
+deletion.)
 
 Public reads serve the stored Clan Wars clock, retaining the existing calendar
 fallback. When the clock is older than five minutes, reads enqueue refresh instead
@@ -275,46 +271,14 @@ the web app.
 Changing a favorite card uses the same complete flow and replaces both card and
 name. `playerTag` remains an independent, unverified profile field.
 
-## Release-news subscribers
+## No mailing list
 
-`BUTTONDOWN_API_KEY` and `BUTTONDOWN_NEWSLETTER_ID` are server-only deployment
-settings. A successful sign-in redemption adds the Elixir-verified address as a
-regular subscriber, so Buttondown does not send a redundant confirmation
-message. Repeat login collisions never overwrite Buttondown's unsubscribe or
-suppression state: collisions and later syncs PATCH metadata only. Subscriber
-metadata uses segment-friendly `player_tag`, `drop_player_tag`,
-`recruiter_url`, optional `clan_tag` and `clan_name`, and optional
-`last_season_played`. The three tag values omit their display-only `#`.
-`drop_player_tag` and the Recruiter URL use the public `P…` Drop player tag and
-never expose the underlying UUID. `last_season_played` is the Clash Royale
-season number as a string (for example `"135"`). It advances after the player's first recorded game in a
-new season; later games in that season make no Buttondown request. The full
-metadata projection also refreshes at verified login, asynchronously after returning-session
-renewal, and a profile/tag change. The current clan comes only from the latest
-Elixir-recorded CR snapshot. A known no-clan result clears a stale clan tag and
-name, while an unavailable/pending snapshot preserves the last known values.
-Account deletion removes the subscriber by email. These calls are best effort
-with a three-second timeout and never change an otherwise successful login,
-profile update, run completion, or deletion response.
-
-## Buttondown metadata backfill
-
-`scripts/backfill-buttondown-metadata.mjs` synchronizes the metadata projection
-above, removes retired `total_games`, and strips the display-only `#` from all
-three tag fields. For a legacy player, it derives `last_season_played` from only
-their newest run and stores that monotonic projection on the profile. On apply
-it also ensures the pseudonymous public-tag alias required to resolve each
-Recruiter URL; the alias contains no email or account subject. It
-reads only the bounded account-directory projection through `drop-control`,
-never prints email addresses or credentials, preserves unrelated subscriber
-metadata and lifecycle state, and refuses an apply if any current player has no
-matching subscriber or a played season cannot be resolved safely. It is dry-run
-by default and idempotent:
-
-```sh
-AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env"
-AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env" --apply
-```
+Drop sends no mail and keeps no mailing list (2026-10-12). Elixir's one list
+is the channel out to players; a player joins or leaves it in their Elixir
+account, and the API never writes to it. Sign-in, profile changes and run
+completion make no list call, and account deletion unsubscribes nobody. Drop's
+Buttondown newsletter, its subscriber-metadata sync and its backfill script
+are retired, as is the email-code sign-in's SES sender.
 
 ## Elixir identity backfill
 

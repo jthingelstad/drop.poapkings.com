@@ -35,8 +35,10 @@ pipeline that did not run or finish is a finding, not a routine manual handoff.
 - DynamoDB throttling, TTL, and capacity.
 - The refresh dead-letter queue.
 - CloudFront health.
-- SES bounce and complaint events on Drop's alarm topic (none expected: Drop
-  sends no sign-in mail since 2026-10-12).
+
+Drop sends no mail and keeps no mailing list since 2026-10-12 (its SES sender
+and Buttondown newsletter are retired; Elixir's one list is Elixir's), so
+there is no mail signal to watch here.
 
 Missing observability is itself a gap.
 
@@ -56,15 +58,6 @@ access-log output.
 **Cost and drift.** Watch AWS cost, dependency and security advisories,
 supported-runtime drift, and card-catalog freshness (see Cards).
 
-**Buttondown metadata.** Reconcile it weekly with the dry-run, apply, dry-run
-sequence in [`services/api/README.md`](../services/api/README.md), "Buttondown
-metadata backfill":
-
-- Apply only when the preview is complete and reports mismatches.
-- The final dry run must converge to zero planned updates.
-- Run the `--apply` step under the production lock.
-- It changes subscriber metadata only and never sends an email.
-
 **Out-of-band API deploy.** `npm run deploy:api` exists for three cases:
 first stack creation, secret rotation, and re-running a deploy that CI could
 not complete. It is never the routine path.
@@ -79,16 +72,16 @@ not complete. It is never the routine path.
 **Identities.** Each job has its own identity. Never borrow a broader one to
 get past a refusal.
 
-| Purpose                                              | Identity                                                                                                      |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| CI deploy                                            | `elixir-drop-github-deploy`, assumed through GitHub OIDC in the `production` environment; CI holds no AWS key |
-| Read-only health and web activity                    | `cloud-auditor`                                                                                               |
-| Out-of-band `deploy:api`                             | `cloud-engineer`                                                                                              |
-| Fair Play                                            | `referee-read` profile, role `elixir-drop-referee-read`                                                       |
-| Player run reports                                   | `run-reports` profile, role `elixir-drop-run-reports`                                                         |
-| Control Room account support and Buttondown metadata | `drop-control` profile, role `elixir-drop-control`                                                            |
-| Updates publication                                  | a bearer token in the mode-0600 `.env`; no AWS                                                                |
-| Mailbox reads                                        | the Fastmail JMAP token in `.env`                                                                             |
+| Purpose                           | Identity                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| CI deploy                         | `elixir-drop-github-deploy`, assumed through GitHub OIDC in the `production` environment; CI holds no AWS key |
+| Read-only health and web activity | `cloud-auditor`                                                                                               |
+| Out-of-band `deploy:api`          | `cloud-engineer`                                                                                              |
+| Fair Play                         | `referee-read` profile, role `elixir-drop-referee-read`                                                       |
+| Player run reports                | `run-reports` profile, role `elixir-drop-run-reports`                                                         |
+| Control Room account support      | `drop-control` profile, role `elixir-drop-control`                                                            |
+| Updates publication               | a bearer token in the mode-0600 `.env`; no AWS                                                                |
+| Mailbox reads                     | the Fastmail JMAP token in `.env`                                                                             |
 
 **Never** expose or relocate the CR token, `TELEMETRY_PEPPER`, or the JMAP
 token. Do not turn release mail, player communication, new game design, a
@@ -325,7 +318,8 @@ default.
 - Never backfill copy, layout, discovery, feed, diagnostic, or polish details.
 - Routine, source-backed season commentary follows Seasons above.
 - Naming the Free Pass recipient, any prize, other player messages, and broad
-  communication need Jamie. So do email, Discord, and newsletter sends.
+  communication need Jamie. So do email and Discord sends; Drop has no
+  newsletter of its own (Elixir's one list is Elixir's).
 
 ## Player reports
 
