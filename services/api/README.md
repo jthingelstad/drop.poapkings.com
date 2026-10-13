@@ -5,8 +5,9 @@ Lambda artifact and uses one DynamoDB table.
 
 Responsibilities in this release:
 
-- 15-minute, single-use email sign-in codes with magic-link fallback sent from
-  `elixir@poapkings.com` through Fastmail JMAP;
+- Sign in with Elixir, the only sign-in since 2026-10-12 (a Drop account is an
+  Elixir account; guests play without one), resolved through the
+  `ELIXIR#{accountId}` identity pointer;
 - Buttondown enrollment only after successful sign-in credential redemption, with
   current player/clan/activity metadata and matching removal on account
   deletion;
@@ -57,7 +58,8 @@ remains the source for cold-start initialization duration.
 
 ## Routes
 
-- `POST /auth/request`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
+- `POST /auth/elixir/start`, `GET /auth/elixir/callback`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
+- `POST /me/elixir/select`, `DELETE /me/elixir`
 - `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
 - `GET /practice/resume`, `POST /practice/checkpoint`
@@ -76,13 +78,12 @@ emphasis, strong text, inline code, and safe links, and is callable only through
 the dedicated fixed-host bearer token. Repeating identical copy under the same
 id is idempotent; changed copy conflicts instead of rewriting history.
 
-`POST /auth/request` creates one 15-minute, single-use credential and emails it
-in two forms: a six-digit numeric code and a magic link. `POST /auth/redeem`
-accepts either `{ email, code }` or `{ token }`; both resolve to and consume the
-same hashed DynamoDB record, so using one invalidates the other. Code lookups are
-HMAC-keyed by normalized email and independently rate-limited by email, source,
-and global budget. The web input uses `autocomplete="one-time-code"` so platform
-email-code autofill can offer the visible code.
+Sign in with Elixir is the only way into an account (SPEC.md "Sign in with
+Elixir" owns the flow and the identity pointer). The Elixir callback mints a
+15-minute, single-use, never-mailed sign-in link (`MAGIC#`, `source: "elixir"`,
+carrying the resolved `sub`); `POST /auth/redeem` accepts only `{ token }` for
+such a link and refuses anything else. The email-code route `POST
+/auth/request` was removed on 2026-10-12 and answers 404.
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow
@@ -277,7 +278,7 @@ name. `playerTag` remains an independent, unverified profile field.
 ## Release-news subscribers
 
 `BUTTONDOWN_API_KEY` and `BUTTONDOWN_NEWSLETTER_ID` are server-only deployment
-settings. A successful magic-link redemption adds the verified address as a
+settings. A successful sign-in redemption adds the Elixir-verified address as a
 regular subscriber, so Buttondown does not send a redundant confirmation
 message. Repeat login collisions never overwrite Buttondown's unsubscribe or
 suppression state: collisions and later syncs PATCH metadata only. Subscriber
@@ -313,6 +314,31 @@ by default and idempotent:
 ```sh
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env"
 AWS_PROFILE=drop-control AWS_REGION=us-east-1 npm run backfill:buttondown-metadata --workspace=@elixir-drop/api -- --env-file "$PWD/.env" --apply
+```
+
+## Elixir identity backfill
+
+`src/maintenance/backfill-elixir-identity.ts` wrote the `ELIXIR#{accountId}`
+pointer (and the profile's internal `elixirAccountId`) for the accounts that
+predate Elixir-only sign-in. It uses the sign-in's own conditional transaction
+(`Repository.bindElixirAccount`, without a connection), so a rerun is a no-op,
+a pointer naming another account is reported and never overwritten, and a
+profile bound to another Elixir account is left alone. It does not write the
+Elixir connection or the verified mark: those need the person's Elixir
+players, which their next sign-in reads.
+
+Its inputs stay outside the repository, which is public. `--accounts` is
+Elixir's account list (`account_role` list op in elixir-mcp: account id, kind,
+status and a ten-hex email hash prefix); only an approved person is a target,
+matched when the prefix begins `hex(sub)`. The optional `--map` is a JSON array
+of `{ "playerIdPrefix", "accountId" }` pairings for a person whose Elixir
+address differs from their Drop address. Output is counts only. It is a dry run
+by default, requires `ProjectsCloudEngineer`, and an apply runs under the
+production lock:
+
+```sh
+AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run backfill:elixir-identity --workspace=@elixir-drop/api -- --accounts /tmp/accounts.json --map /tmp/pairings.json
+node scripts/production-lock.mjs run --purpose "Elixir identity backfill" -- env AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run backfill:elixir-identity --workspace=@elixir-drop/api -- --accounts /tmp/accounts.json --map /tmp/pairings.json --apply
 ```
 
 ## Season-number storage migration

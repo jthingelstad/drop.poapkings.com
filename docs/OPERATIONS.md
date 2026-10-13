@@ -35,7 +35,8 @@ pipeline that did not run or finish is a finding, not a routine manual handoff.
 - DynamoDB throttling, TTL, and capacity.
 - The refresh dead-letter queue.
 - CloudFront health.
-- SES bounce and complaint events on Drop's alarm topic.
+- SES bounce and complaint events on Drop's alarm topic (none expected: Drop
+  sends no sign-in mail since 2026-10-12).
 
 Missing observability is itself a gap.
 

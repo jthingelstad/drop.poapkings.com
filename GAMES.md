@@ -631,11 +631,11 @@ and preview-image fetches do not count. Home and badge invitation opens do not
 count toward Herald. Recruiter uses 30-day last-touch attribution from a
 published run, badge, or owner-published profile link, or a valid legacy
 invitation token, and counts when a genuinely new account is created; merely
-opening a link or requesting a login email is not a recruit.
+opening a link or starting a sign-in is not a recruit.
 Herald and Recruiter use the normal rung-tier XP schedule. Their play-tested
 ladders are `1·2·3·4·5·6·8·10` and `1·2·3·4·5` respectively. Recruiter's
 five rungs award `5·10·10·25·50` XP. First Drop recognizes the first 100 accounts at successful
-magic-link redemption, awards no XP, and is shown on every eligible player's
+sign-in redemption, awards no XP, and is shown on every eligible player's
 owner and public profiles. Non-earners see no locked tile, and the public badge
 guide omits it. Its allocation never decrements after account deletion.
 

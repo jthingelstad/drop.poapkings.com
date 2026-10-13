@@ -185,7 +185,7 @@ compatibility; it is defined in `infra/template.yaml` and exported as
 - Keyed reads (`GetItem`, `BatchGetItem`, `Query`) only inside the three partition
   families the scripts address — `PLAYER#*` (profile, `RUN#` history, `EVIDENCE#`
   items), `REFEREE#*`, and the `CR_WAR_CLOCK` singleton. `MAGIC#` (raw email),
-  `POLL#`, `RATE#`, `CR_PLAYER#`, and `FEED#` are out of reach.
+  `ELIXIR#` (identity pointers), `POLL#`, `RATE#`, `CR_PLAYER#`, and `FEED#` are out of reach.
 - Index `Query` only on **GSI1** (leaderboard partitions) and **GSI2** (sparse tag
   clusters). GSI3 and any index added later are not granted — `LeadingKeys` cannot
   bound an index read, so the resource itself is the bound.
@@ -194,8 +194,8 @@ compatibility; it is defined in `infra/template.yaml` and exported as
   need it; `Scan` cannot be partition-bounded. Tag clustering filters PLAYER
   profiles and projects only `playerId` and `playerTag`, including legacy
   profiles missing sparse GSI2 membership.
-- An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`, or
-  `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
+- An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`,
+  `dropSub`, or `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
   just in JS.
 
 Writes are `PutItem`/`UpdateItem`/`TransactWriteItems` **only when every target
