@@ -271,7 +271,7 @@ ${pageSections([
   section(
     'Your email address',
     paragraph(
-      'Drop sends no email of its own and keeps no mailing list. News about Drop and the rest of Elixir comes from Elixir&rsquo;s one mailing list, which you join or leave in your Elixir account settings. Drop never sells or rents your email address and never uses it for third-party marketing or advertising.'
+      'Drop sends no email of its own and keeps no mailing list. News about Drop and the rest of Elixir comes from Elixir&rsquo;s one mailing list, which you choose when you create your Elixir account and leave with the unsubscribe link in any issue. Drop never sells or rents your email address and never uses it for third-party marketing or advertising.'
     )
   ),
   section(
