@@ -873,21 +873,32 @@ export class Repository {
     );
   }
 
-  async takePendingElixirLink(
+  // Read, not taken: the redemption removes it only once the binding it
+  // carries has been decided, so a transient failure leaves it for the retry.
+  async peekPendingElixirLink(
     sub: string,
     nowSeconds: number,
   ): Promise<ElixirLink | undefined> {
     const result = await client.send(
-      new DeleteCommand({
+      new GetCommand({
         TableName: this.tableName,
         Key: { pk: `ELIXIR_PENDING#${sub}`, sk: "ELIXIR_PENDING" },
-        ReturnValues: "ALL_OLD",
+        ConsistentRead: true,
       }),
     );
-    const item = result.Attributes as
+    const item = result.Item as
       { link?: ElixirLink; expiresAt?: number } | undefined;
     if (!item?.link || (item.expiresAt ?? 0) < nowSeconds) return undefined;
     return item.link;
+  }
+
+  async clearPendingElixirLink(sub: string): Promise<void> {
+    await client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: { pk: `ELIXIR_PENDING#${sub}`, sk: "ELIXIR_PENDING" },
+      }),
+    );
   }
 
   // The Elixir connection on a profile. `elixirVerified` is denormalized so

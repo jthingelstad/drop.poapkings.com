@@ -186,6 +186,7 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   const logins = new Map<string, Record<string, unknown>>();
   const magic: Record<string, unknown>[] = [];
   const pending = new Map<string, ElixirLink>();
+  const pendingExpiry = new Map<string, number>();
   const refreshes: string[] = [];
   // ELIXIR#<accountId> -> Drop sub
   const pointers = new Map<string, string>();
@@ -195,6 +196,7 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
     profiles,
     magic,
     pending,
+    pendingExpiry,
     refreshes,
     pointers,
     released,
@@ -233,8 +235,13 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       };
       return must(sub);
     },
-    async savePendingElixirLink(sub: string, link: ElixirLink) {
+    async savePendingElixirLink(
+      sub: string,
+      link: ElixirLink,
+      expiresAt: number,
+    ) {
       pending.set(sub, link);
+      pendingExpiry.set(sub, expiresAt);
     },
     async saveProvenMagicLink(
       tokenHash: string,
@@ -410,6 +417,9 @@ describe("sign in with Elixir", () => {
     // The account and its pointer are written at redemption, once the
     // profile exists; the proven link names the account it will create.
     expect(repo.magic[0]).toMatchObject({ sub });
+    // The pending link lives exactly as long as the credential that applies
+    // it, so a late redemption never creates the account without its pointer.
+    expect(repo.pendingExpiry.get(sub)).toBe(repo.magic[0]?.expiresAt);
     expect(repo.pointers.size).toBe(0);
     expect(Object.keys(repo.profiles)).toEqual([]);
   });

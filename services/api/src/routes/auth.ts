@@ -74,33 +74,26 @@ export async function redeemMagicLink({
   const login = await repository.ensureProfile(sub, email);
   // A sign-in with Elixir for an account that did not exist until this
   // moment: the connection and the Elixir pointer the callback learned are
-  // applied now that the profile exists.
-  try {
-    const pending = await repository.takePendingElixirLink(sub, nowSeconds);
-    if (pending) {
-      const bound = await repository.bindElixirAccount(
-        sub,
-        pending.accountId,
-        pending,
-      );
-      if (bound !== "bound")
-        console.warn("Pending Elixir link was not applied", {
-          requestId: event.requestContext.requestId,
-          outcome: bound,
-        });
-      else if (
-        pending.playerTag &&
-        login.profile.playerTag !== pending.playerTag
-      )
-        login.profile = await repository.updateProfile(sub, {
-          playerTag: pending.playerTag,
-        });
-    }
-  } catch (error) {
-    console.warn("Pending Elixir link could not be applied", {
-      requestId: event.requestContext.requestId,
-      error: error instanceof Error ? error.name : "unknown",
-    });
+  // applied now that the profile exists. A failure here fails the redemption
+  // before the credential is spent, and the pending item stays for the
+  // retry; it is removed only once the binding is decided.
+  const pending = await repository.peekPendingElixirLink(sub, nowSeconds);
+  if (pending) {
+    const bound = await repository.bindElixirAccount(
+      sub,
+      pending.accountId,
+      pending,
+    );
+    if (bound !== "bound")
+      console.warn("Pending Elixir link was not applied", {
+        requestId: event.requestContext.requestId,
+        outcome: bound,
+      });
+    else if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
+      login.profile = await repository.updateProfile(sub, {
+        playerTag: pending.playerTag,
+      });
+    await repository.clearPendingElixirLink(sub);
   }
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
   if (recruiterSub || login.profile.recruitedBy) {
