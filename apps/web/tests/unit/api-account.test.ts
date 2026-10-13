@@ -686,9 +686,14 @@ describe('account.ts state machine', () => {
     vi.mocked(api.redeemLogin).mockResolvedValue({ session: { token: 'redeemed', expiresAt: FUTURE() } })
     vi.mocked(api.getMe).mockResolvedValue(meResponse)
 
+    const referral = await import('../../src/lib/referral')
+    referral.rememberRecruiter('AB2CD3')
+
     const player = await account.redeemAccount('magic')
 
     expect(player.id).toBe('p1')
+    // A completed sign-in is what forgets the Recruiter attribution.
+    expect(referral.recruiterAttribution()).toBeUndefined()
     expect(account.accountStatus.value).toBe('authenticated')
     expect(account.sessionToken()).toBe('redeemed')
     expect(JSON.parse(localStorage.getItem(SESSION_KEY) || 'null').token).toBe('redeemed')
@@ -844,7 +849,7 @@ describe('sign in with Elixir helpers', () => {
     expect(account.pendingElixirLogin()).toBeUndefined()
   })
 
-  it('a signed-out start carries Recruiter attribution once, then forgets it', async () => {
+  it('a signed-out start carries Recruiter attribution, and a retry carries it again', async () => {
     const bodies: unknown[] = []
     vi.stubGlobal(
       'fetch',
@@ -861,9 +866,10 @@ describe('sign in with Elixir helpers', () => {
     const account = await import('../../src/lib/account')
     await account.beginElixirLogin(undefined)
     expect(bodies[0]).toEqual({ recruiterToken: 'AB2CD3' })
-    expect(referral.recruiterAttribution()).toBeUndefined()
+    // Cancelled at Elixir, or a callback error: the attribution survives.
+    expect(referral.recruiterAttribution()).toEqual({ token: 'AB2CD3' })
     await account.beginElixirLogin(undefined)
-    expect(bodies[1]).toEqual({})
+    expect(bodies[1]).toEqual({ recruiterToken: 'AB2CD3' })
   })
 
   it('a stale pending flow is ignored', async () => {
