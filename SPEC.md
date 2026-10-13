@@ -24,14 +24,14 @@ remains the canonical source for shipped modes and game ideas.
   over the text-safe `assets/share/og-default.png` backdrop).
 
 The public website remains a static app, served by CloudFront from private S3,
-and uses a separate Lambda API for email code/magic-link accounts, profiles, signed
+and uses a separate Lambda API for accounts (a Drop account is an Elixir account), profiles, signed
 runs, progression, global game totals, and seasonal leaderboards. The site and
 leaderboards remain public. Anyone can play every mode **without an account as a
 guest**: a guest run is dealt the same server-signed challenge and scored the
 same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
 history, no Discord) — the summary nudges the visitor to sign in before the next
-game so future scores can be recorded. An email-authenticated player session
-unlocks recording and ranking. Dynamic Clash Royale player enrichment and the
+game so future scores can be recorded. A player session, opened only by Sign
+in with Elixir, unlocks recording and ranking. Dynamic Clash Royale player enrichment and the
 global game-policy clock come from the Elixir Integration REST API through Drop's
 asynchronous refresh worker.
 
@@ -41,8 +41,7 @@ The only outbound ties are ordinary links:
 - Discord: `https://discord.gg/SdvKfJW5kA`
 - General contact, privacy requests, and Fair Play disputes:
   `drop@poapkings.com`
-- Transactional player-mail sender (including sign-in codes and magic links):
-  `elixir@poapkings.com`
+- Elixir, which signs players in: `https://elixir.poapkings.com`
 - Supercell / fan-policy attribution links
 
 Hard product constraints:
@@ -71,7 +70,7 @@ The repository uses npm workspaces:
 | `packages/game-data`  | Canonical card facts                         | Implemented |
 | `infra`               | CloudFormation and SDK deployment automation | Implemented |
 
-The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, SES, Bedrock,
+The API uses API Gateway HTTP API, Lambda, DynamoDB, SQS, Bedrock,
 the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
 queue carries player-profile and policy-clock refresh work to a separate Lambda;
 the public request path continues serving cached values while refreshes run.
@@ -641,8 +640,8 @@ season per press of its paging control. Its three status count tiles double as
 the status filter, so counts are computed in the browser over the loaded,
 status-unfiltered rows; season and mode scope them.
 
-The private profile also records `lastLoginAt` when an email sign-in code or magic
-link is successfully redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
+The private profile also records `lastLoginAt` when a sign-in is successfully
+redeemed. It is separate from `updatedAt` (profile/game mutation) and from run
 activity, so Drop Control never presents a guess as a login time. Profiles that
 predate the field show no recorded login until their next redemption.
 
@@ -654,7 +653,7 @@ in one DynamoDB transaction. Allocation stops at 100 and never decrements on
 account deletion, so a vacated place is not reissued. The marker and legacy
 timestamp remain internal; only the earned badge is public.
 
-Magic-link return destinations are an exact shared allowlist, never an arbitrary
+Sign-in return destinations are an exact shared allowlist, never an arbitrary
 internal or external URL. The browser and API accept each shipped game route,
 `/profile?edit=player-tag`, canonical non-default You scopes, and canonical
 account-owned Ladder scopes. The tag route lets a signed-out player reach the Clash
@@ -709,7 +708,7 @@ personalization is the internal tag-to-owner attribution. A small alias record
 containing only the pseudonymous internal player UUID lets the API resolve that
 tag without scanning profiles; it stores neither email nor account subject. The landing stores the
 public tag for 30-day Recruiter attribution, and a genuinely new account still
-advances Recruiter exactly once at magic-link redemption.
+advances Recruiter exactly once at sign-in redemption.
 
 **What gets shared.** `components/ShareLine.tsx`, `lib/share-badge.ts`, and
 `lib/share-profile.ts` render their frozen preview data with the unified
@@ -1217,8 +1216,8 @@ under `DropControlRole`: it can project only account/profile and CR snapshot
 fields, and can atomically correct `publicName` + `favoriteCardId` and/or the
 unverified `playerTag` while writing an immutable
 `CONTROL#PLAYER#{playerId}/CHANGE#...` audit item. Email is visible but is the
-authentication key and therefore read-only; the role cannot read sign-in codes, magic links,
-poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
+authentication key and therefore read-only; the role cannot read sign-in links, Elixir identity
+pointers, poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
 scores, evidence, XP, or delete data. Production requires the exact
 `Tailscale-User-Login`; every write additionally requires same-origin and CSRF
 proof. The public web deployment contains none of this admin bundle.
@@ -1264,10 +1263,15 @@ verified identity selection and the person's authorized account access remain.
 Saved CR tags remain optional and unverified **unless Elixir has proven them**
 (below). No Drop identities, scores, XP or badges are uploaded.
 
-### Sign in with Elixir (2026-09-12)
+### Sign in with Elixir (2026-09-12; the only sign-in since 2026-10-12)
 
-Email-code sign-in is the always-available path; Elixir sign-in is an
-addition. Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
+A Drop account is an Elixir account (Jamie, 2026-10-12): Sign in with Elixir
+is the only way into one, and guests still play every game without one. The
+email-code route (`POST /auth/request`) and the code branch of
+`/auth/redeem` were removed; `/auth/request` now answers 404, and
+`/auth/redeem` accepts only a link the Elixir callback minted
+(`source: "elixir"`). Sessions issued before stay valid. Drop's scores, XP,
+badges and rules stay Drop's; only identity moved. Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
 button). A configured `ELIXIR_OAUTH_CLIENT_SECRET` (the NoEcho, preserved
 stack parameter `ElixirOAuthClientSecret`) is sent as `client_secret` on the
@@ -1276,9 +1280,24 @@ JSON API (`resource` `/api/v1`, 2026-09-25: Drop is a program, not an agent,
 so it reads the JSON API, never MCP). `account:email` is offered only to the
 Elixir family's own apps (every redirect on a family origin), and `GET
 /oauth/userinfo` answers the email Elixir already proved with its code, with
-the account id as `sub`. That email resolves to exactly
-the Drop account a magic link would (`sub = sha256(email)`): no merging, and a
-player who first signed in with Elixir can still sign in by email afterwards.
+the account id as `sub`.
+
+Which Drop account an Elixir account opens: the item `ELIXIR#{accountId}` /
+`DROP` (`dropSub`, `linkedAt`) names it, mirrored by the profile's internal
+`elixirAccountId`. Resolution is that pointer first; else the profile at
+`sub = sha256(email)` of the proven email, and the pointer is written; else a
+new profile at that `sub`, whose pointer is written at redemption, once the
+profile exists. Pointer and `elixirAccountId` are written together in one
+conditional transaction (`bindElixirAccount`): the pointer only if absent or
+already naming this account, the profile only if it exists and is unbound or
+bound to the same Elixir account. A profile is never re-keyed or merged, and
+one Elixir account opens one Drop account. A pointer whose profile is gone is
+conditionally deleted and never followed, so it cannot revive or hijack an
+account. A profile bound to another Elixir account still opens to its own
+proven address, but that sign-in does not touch its connection. Account
+deletion removes the pointer. The pointers for the 25 accounts that predate
+this were written by `npm run backfill:elixir-identity -w @elixir-drop/api`
+(`services/api/README.md`).
 
 Flow: `POST /auth/elixir/start` (optional session bearer) stores
 `ELIXIR_LOGIN#{state}` (PKCE verifier, return path, poll id, `linkSub`; ten
@@ -1287,13 +1306,17 @@ minutes, single use) and answers the Elixir URL; the browser leaves for consent
 exchanges the code, reads `GET /api/v1/me` (which must name a **person**
 principal, and lists the account's players), reads userinfo, adds a Drop-saved
 tag that is not on the Elixir account as an alt (`POST /api/v1/me/players`; a
-refusal is recorded as `trackRefused`, never fatal), writes the connection, mints a **proven magic link** (`MAGIC#` with
-`source: "elixir"`, a random never-mailed code) and 303s to `/#/auth?token=…&via=elixir`,
+refusal is recorded as `trackRefused`, never fatal), writes the connection and pointer, mints a **proven sign-in link** (`MAGIC#` with
+`source: "elixir"` and the resolved `sub`) and 303s to `/#/auth?token=…&via=elixir`,
 which redeems on arrival. The existing `/auth/poll` handoff covers an installed
 PWA whose chain finished in another browsing context. A browser that started
 the flow while signed in is **linking**: the outcome attaches to that account
-whatever email Elixir names, and the proven link is minted for that account's
-email. A brand-new account's connection waits in `ELIXIR_PENDING#{sub}` until
+whatever email Elixir names, and the proven link is minted for that account.
+Linking refuses an Elixir account already bound to another Drop account
+(`elixir_account_in_use`) and a Drop account already bound to another Elixir
+account (`elixir_account_mismatch`). A signed-out start carries the browser's
+Recruiter attribution in `ELIXIR_LOGIN#`; it rides on the proven link only
+when the sign-in creates the account. A brand-new account's connection waits in `ELIXIR_PENDING#{sub}` until
 redemption creates the profile. No Elixir token is stored; the pair is dropped
 when the callback ends.
 
@@ -1303,8 +1326,10 @@ verified, verifiedAt?, candidates[], trackRefused? }` plus a denormalized
 account's primary and alts only (never friends or watched players). One
 candidate is chosen silently; more land the person on the Account scope's
 picker (`POST /me/elixir/select`, candidates only, becomes `playerTag` through
-the ordinary tag-save path). `DELETE /me/elixir` disconnects: the tag stays,
-the mark and the link go. A tag saved by hand keeps the mark only if it is the
+the ordinary tag-save path). The app has no disconnect since 2026-10-12; the
+`DELETE /me/elixir` route remains and clears only the displayed connection
+(the tag stays, the mark and the link go), never the pointer or
+`elixirAccountId`. A tag saved by hand keeps the mark only if it is the
 Elixir-proven one; clearing the tag clears the mark.
 
 The mark is the `verified` account tag (`accountTagsFor`), rendered as Elixir's

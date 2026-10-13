@@ -35,7 +35,7 @@ There is currently **no local API stack**. `apps/web/public/api-config.json`
 points the dev server at the **deployed production API**. That means:
 
 - Browsing and most UI work need no sign-in and touch nothing.
-- **Signing in (magic link) and recording games hit the live backend and create
+- **Signing in (with Elixir) and recording games hit the live backend and create
   real data.** Automated QA uses the existing mocked API/Playwright fixtures
   or verified offline paths. Do not create throwaway accounts or production
   games merely for acceptance. A production test write needs explicit

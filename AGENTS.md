@@ -106,7 +106,8 @@ Every other doc points back here instead of keeping its own copy of this list.
    `elixir-drop-control`, may project email/profile/CR snapshot fields, and may
    atomically correct only public profile identity fields with a `CONTROL#`
    audit event. They are never an input to the referee scripts, cannot edit
-   email, runs, scores, evidence, XP, sessions, or magic links, and do not weaken
+   email, runs, scores, evidence, XP, sessions, sign-in links, or Elixir
+   identity pointers, and do not weaken
    the pseudonymous referee role.
 
 ---
@@ -128,18 +129,15 @@ Every other doc points back here instead of keeping its own copy of this list.
   `scripts/classify-ci-scope.mjs`; `workflow_dispatch` takes the full path.
 - Deployment mechanics and surface boundaries are stated once, above in
   "Deploy model (canonical)".
-- Transactional player email sends from `elixir@poapkings.com` over **SES**
-  (`services/api/src/email.ts`, since 2026-09-17); sign-in codes and magic
-  links keep that recognizable sender. The `poapkings.com` identity (DKIM,
-  MAIL FROM `bounce.poapkings.com`) belongs to the elixir-mcp stack; Drop owns
-  only its `elixir-drop` configuration set, whose bounce and complaint events
-  reach Drop's alarm topic. No open or click tracking. The magic link is
-  transactional mail and carries no `List-Unsubscribe` by design (a code
-  someone just requested cannot be opted out of; Gmail/Yahoo bulk rules
-  exempt it). Drop sends nothing bulk from the API: digests go through
-  Buttondown, which owns unsubscribe. A future bulk send from the API would
-  need the one-click headers, as elixir-mcp's relay enforces for its kinds
-  (`docs/ENGINEERING.md` there). `drop@poapkings.com` is
+- **A Drop account is an Elixir account** (Jamie, 2026-10-12). Drop signs in
+  only with Elixir (SPEC.md "Sign in with Elixir"); guests still play every
+  game. Drop sends no sign-in mail: the email-code route and its SES sender
+  code were removed on 2026-10-12. The `elixir-drop` SES configuration set,
+  its IAM permission and the `ELIXIR_DROP_EMAIL_FROM` parameter are still in
+  the template, unused, until they are retired. Drop sends nothing bulk from
+  the API: digests go through Buttondown, which owns unsubscribe. A future
+  send from the API would need the one-click headers, as elixir-mcp's relay
+  enforces for its kinds (`docs/ENGINEERING.md` there). `drop@poapkings.com` is
   the monitored administrative and general-contact address for alarms, the
   delivery-canary recipient, privacy questions, and Fair Play disputes; it is
   read (never sent) over Fastmail JMAP by `scripts/mail-bug-reports.mjs`.
@@ -262,8 +260,11 @@ production run. A successful exact-head validation triggers
   Elixir** (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with
   Elixir") lets a player pick one of their Elixir "you"/"alt" players as the
   Drop tag and inherit Elixir's verification as the `verified` account tag.
-  Email-code sign-in stays the always-available path; Elixir sign-in resolves
-  to the same account by the proven email, never a second one.
+  It is the only sign-in. An `ELIXIR#<accountId>` pointer names the Drop
+  account an Elixir account opens; without one, the proven email finds the
+  account (`sub = sha256(email)`) and the pointer is written. A Drop account
+  is never re-keyed and never merged, and one Elixir account opens one Drop
+  account.
 - **Every new run uses the full canonical catalog and ranks.** Linked Clash
   Royale collection data remains on the player profile for future features but
   never changes challenge selection. The optional `ranked` field remains only
@@ -324,9 +325,9 @@ production run. A successful exact-head validation triggers
   invitation and badge invitation links remain readable. Buttondown uses the
   generic `/share/{playerTag}/invite` landing: its immutable public `P…` Drop
   tag replaces the raw UUID, the page exposes no player or clan identity, and
-  its 30-day attribution never advances Herald. Requesting a login email does not
-  count, while successful magic-link redemption that creates a genuinely new
-  profile advances Recruiter exactly once. Anonymous players are asked to sign
+  its 30-day attribution never advances Herald. Starting a sign-in does not
+  count, while a Sign in with Elixir that creates a genuinely new profile
+  advances Recruiter exactly once at redemption. Anonymous players are asked to sign
   in before sharing because no account exists to receive either badge.
 - **Desktop is a viewport shell over the same routes and data.** On initial load
   at or above 1024px, `MobileShell` composes a fixed 936 × 720 navigation / stage
@@ -673,9 +674,8 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).
 - Drop contact: `drop@poapkings.com` for administration, general questions,
-  privacy requests, and Fair Play re-review. Transactional player mail and
-  sign-in codes and magic links continue to send from `elixir@poapkings.com`; do not collapse the
-  contact and sender roles back into one deployment parameter.
+  privacy requests, and Fair Play re-review. Drop sends no sign-in mail since
+  2026-10-12; sign-in is Elixir's.
 - Clan presence is **chrome, not moments**: a quiet, always-present "Run by POAP
   KINGS" footer link and the Discord link. The triggered Recruit CTA (fire on a
   new PB / strong session) was an early Elixir concept and was **removed in

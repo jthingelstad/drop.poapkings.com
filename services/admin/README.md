@@ -78,8 +78,8 @@ mode-0600 `.env` and send it only to the HTTPS API publish route.
   scripts. The referee response still contains no email or raw subject.
 - The Updates token authorizes only `POST /admin/updates`; the CLI never logs it,
   and validation plus the DynamoDB write stay inside the API Lambda.
-- The account role is projection- and attribute-bounded. It cannot read magic
-  links, poll sessions, referee evidence, runs, or secrets; cannot change email,
+- The account role is projection- and attribute-bounded. It cannot read sign-in
+  links, Elixir identity pointers, poll sessions, referee evidence, runs, or secrets; cannot change email,
   XP, scores, or history; and has no delete action.
 - Run evidence includes the exact retained transcript. Signed run tokens,
   authorization, raw account subjects, IP addresses, raw user agents, and the

@@ -8,8 +8,9 @@ DynamoDB (on AWS since 2026-08-22), in the Elixir Drop monorepo.
 **Play:** [drop.poapkings.com](https://drop.poapkings.com)
 
 **Contact:** [drop@poapkings.com](mailto:drop@poapkings.com) for questions,
-privacy requests, and Fair Play re-review. Player sign-in codes and magic links are sent from
-`elixir@poapkings.com`.
+privacy requests, and Fair Play re-review. A Drop account is an
+[Elixir](https://elixir.poapkings.com) account: players sign in with Elixir,
+and Drop sends no sign-in mail.
 
 ---
 
@@ -80,8 +81,8 @@ there is no server record for a link to point at.
   and the canonical Clash Royale card snapshot.
 - `infra` — CloudFormation plus AWS SDK bootstrap/deployment automation.
 
-Players can sign in with a six-digit email code or magic link when they want recorded progress;
-guest play needs no account. Online games start from a signed server challenge;
+Players sign in with Elixir when they want recorded progress (a Drop account is
+an Elixir account); guest play needs no account. Online games start from a signed server challenge;
 when the browser is offline, all six modes deal locally and say plainly that the
 run will not be saved. Local runs are never queued or promoted after
 reconnecting. Local display, input preferences, and adaptive card-learning
@@ -220,7 +221,7 @@ Before inviting a new beta group, follow
 release gates from the few real-user checks that should not be faked in CI.
 
 Bootstrap copies the existing Fastmail JMAP token (read-only, for the
-bug-report intake script; player mail is SES) into the gitignored root
+bug-report intake script) into the gitignored root
 `.env`, generates a Drop-specific signing secret, and creates access
 credentials for the limited `elixir-drop` deploy user. Routine deployment uses
 the AWS SDK and does not invoke the AWS CLI. The Clash Royale token that

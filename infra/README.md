@@ -49,22 +49,23 @@ profile and Clash snapshot fields (including email), query only a player's
 newest run season for Buttondown reconciliation, and can only transact an
 audited public-profile correction with a `CONTROL#PLAYER#` event. Its one
 standalone profile write can advance only the monotonic `lastSeasonPlayed`
-campaign projection. Email is not in either write allowlist, and magic links,
-sessions, run/evidence bodies, scores, XP, deletes, and secrets are outside the
+campaign projection. Email is not in either write allowlist, and sign-in links,
+Elixir identity pointers, sessions, run/evidence bodies, scores, XP, deletes, and secrets are outside the
 role.
 
 The gitignored root `.env` also supplies `BUTTONDOWN_API_KEY` and the explicit
 `BUTTONDOWN_NEWSLETTER_ID`. CloudFormation treats the credentials as `NoEcho`
 parameters and exposes them only to the Lambda runtime. Buttondown enrollment
-runs only after a player redeems a valid magic link; account deletion removes
+runs only after a player redeems a valid Sign in with Elixir; account deletion removes
 the matching subscriber, while Buttondown preserves its own unsubscribe and
 suppression states.
 CloudWatch separately alarms on refresh queue age, refresh dead letters,
 season-repair consumer errors, and season-repair dead letters. The API, refresh
 worker, and repair consumer write JSON logs to dedicated 30-day log groups.
 Operational alarms target `drop@poapkings.com` by default. The alarm recipient is
-independent of `ELIXIR_DROP_EMAIL_FROM`, so rotating the magic-link sender cannot
-silently retarget administrative mail.
+independent of `ELIXIR_DROP_EMAIL_FROM`, the sender of the email sign-in Drop
+retired on 2026-10-12 (the parameter, the `elixir-drop` SES configuration set and
+its permission remain until they are removed).
 
 The HTTP API also writes privacy-conscious JSON access logs to the 30-day
 `/elixir-drop/api-access` log group. Each record includes the request ID, route
