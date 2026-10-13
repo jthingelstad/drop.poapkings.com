@@ -1321,8 +1321,10 @@ sign-in completes, so a cancelled trip to Elixir keeps it for the retry. A
 brand-new account's connection waits in `ELIXIR_PENDING#{sub}`, for as long as
 the proven link that will apply it, until redemption creates the profile.
 Redemption binds it before spending the link and removes it only once the
-binding is decided; a failed write fails the redemption, and the retry finds
-both the link and the pending connection. No Elixir token is stored; the pair
+binding is decided, and only the item it read (each write carries a
+`pendingId`, so a newer callback's replacement survives for its own
+redemption); a failed write fails the redemption, and the retry finds both the
+link and the pending connection. No Elixir token is stored; the pair
 is dropped when the callback ends.
 
 Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,

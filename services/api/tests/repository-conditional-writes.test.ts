@@ -286,6 +286,56 @@ describe("repository conditional writes", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("removes only the pending Elixir link a redemption read, never a newer callback's", async () => {
+    const repository = new Repository("test-table");
+    const link = {
+      accountId: "acct-1",
+      linkedAt: "2026-10-12T00:00:00.000Z",
+      checkedAt: "2026-10-12T00:00:00.000Z",
+      verified: false,
+      candidates: [],
+    };
+    send.mockResolvedValueOnce({});
+    await repository.savePendingElixirLink("drop-sub", link, 2_000);
+    const written = send.mock.calls[0]?.[0].input.Item;
+    expect(written).toMatchObject({ pk: "ELIXIR_PENDING#drop-sub", link });
+    expect(typeof written.pendingId).toBe("string");
+
+    send.mockResolvedValueOnce({ Item: written });
+    await expect(
+      repository.peekPendingElixirLink("drop-sub", 1_000),
+    ).resolves.toEqual({ link, pendingId: written.pendingId });
+    send.mockResolvedValueOnce({ Item: written });
+    await expect(
+      repository.peekPendingElixirLink("drop-sub", 3_000),
+    ).resolves.toBeUndefined();
+
+    send.mockResolvedValueOnce({});
+    await repository.clearPendingElixirLink("drop-sub", written.pendingId);
+    expect(send.mock.calls[3]?.[0].input).toMatchObject({
+      Key: { pk: "ELIXIR_PENDING#drop-sub", sk: "ELIXIR_PENDING" },
+      ConditionExpression: "pendingId = :pendingId",
+      ExpressionAttributeValues: { ":pendingId": written.pendingId },
+    });
+    // Replaced by a later callback: the delete is refused, quietly.
+    send.mockRejectedValueOnce(conditionFailed());
+    await expect(
+      repository.clearPendingElixirLink("drop-sub", written.pendingId),
+    ).resolves.toBeUndefined();
+    // An item written before ids existed is removed only while it has none.
+    send.mockResolvedValueOnce({});
+    await repository.clearPendingElixirLink("drop-sub");
+    expect(send.mock.calls[5]?.[0].input.ConditionExpression).toBe(
+      "attribute_not_exists(pendingId)",
+    );
+    send.mockRejectedValueOnce(
+      awsError("ProvisionedThroughputExceededException"),
+    );
+    await expect(
+      repository.clearPendingElixirLink("drop-sub", written.pendingId),
+    ).rejects.toThrow("ProvisionedThroughputExceededException");
+  });
+
   it("refuses to redeem a link that was already used", async () => {
     send.mockResolvedValueOnce({
       Item: {

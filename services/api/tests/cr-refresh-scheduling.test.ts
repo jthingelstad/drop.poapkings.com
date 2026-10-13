@@ -329,7 +329,10 @@ describe("Clash Royale refresh scheduling", () => {
       profile: created,
       created: true,
     });
-    repository.peekPendingElixirLink.mockResolvedValueOnce(link);
+    repository.peekPendingElixirLink.mockResolvedValueOnce({
+      link,
+      pendingId: "pending-1",
+    });
     repository.bindElixirAccount.mockResolvedValueOnce("bound");
     repository.updateProfile.mockResolvedValue(profile);
 
@@ -347,7 +350,11 @@ describe("Clash Royale refresh scheduling", () => {
       repository.bindElixirAccount.mock.invocationCallOrder[0]!,
     );
     // Removed only once the binding is decided.
-    expect(repository.clearPendingElixirLink).toHaveBeenCalledWith(profile.sub);
+    // Only the item it read, never a newer callback's replacement.
+    expect(repository.clearPendingElixirLink).toHaveBeenCalledWith(
+      profile.sub,
+      "pending-1",
+    );
     expect(
       repository.bindElixirAccount.mock.invocationCallOrder[0],
     ).toBeLessThan(
@@ -372,7 +379,10 @@ describe("Clash Royale refresh scheduling", () => {
       source: "elixir",
     });
     repository.ensureProfile.mockResolvedValue({ profile, created: true });
-    repository.peekPendingElixirLink.mockResolvedValueOnce(link);
+    repository.peekPendingElixirLink.mockResolvedValueOnce({
+      link,
+      pendingId: "pending-1",
+    });
     repository.bindElixirAccount.mockRejectedValueOnce(
       Object.assign(new Error("throttled"), {
         name: "ProvisionedThroughputExceededException",
