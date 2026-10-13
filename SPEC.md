@@ -101,12 +101,13 @@ addresses so crawlers can receive per-run metadata.
 
 Returning-session renewal and public season-clock reads do not await external
 refreshes. They enqueue deduplicated FIFO work; `refresh-worker.ts` reads current
-account state, refreshes the hub cache and writes changed newsletter metadata.
+account state and refreshes the hub cache.
 The worker serializes season-clock changes and completes prior-season awards
 before saving an incoming clock. Enqueue failures preserve the cached response;
 accepted jobs have bounded retries, a DLQ and age alarms. No season/scoring rules
-change. Player metadata synchronization retains only a digest in
-`PLAYER#{sub}/REFRESH#METADATA`, covered by account deletion. Fixed-label
+change. (Until 2026-10-12 the worker also synchronized Drop's newsletter
+metadata and kept a digest in `PLAYER#{sub}/REFRESH#METADATA`; leftover digests
+are inert and go with account deletion.) Fixed-label
 `api.timings` logs expose elapsed operation time without request/player payloads.
 
 ## 3. Card Data
@@ -700,8 +701,8 @@ uses Markdown plus the same permanent owner profile URL above, prepared through
 profile-publish failure never falls back to an unattributed generic URL. The
 selected board drives the message independently of the current Free Pass mode.
 
-Buttondown campaigns use the separate generic
-`/share/{playerTag}/invite` address. `{playerTag}` is the same immutable public
+Drop's retired Buttondown newsletter (to 2026-10-12) used the separate generic
+`/share/{playerTag}/invite` address, and those links remain readable. `{playerTag}` is the same immutable public
 `P…` Drop player tag (without its display-only `#`), never a raw UUID. The page
 contains no player or clan identity and does not publish a profile; its only
 personalization is the internal tag-to-owner attribution. A small alias record
@@ -1271,7 +1272,11 @@ email-code route (`POST /auth/request`) and the code branch of
 `/auth/redeem` were removed; `/auth/request` now answers 404, and
 `/auth/redeem` accepts only a link the Elixir callback minted
 (`source: "elixir"`). Sessions issued before stay valid. Drop's scores, XP,
-badges and rules stay Drop's; only identity moved. Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
+badges and rules stay Drop's; only identity moved. Drop sends no mail and
+keeps no mailing list: Elixir's one list is the channel out to players, a
+player joins or leaves it in their Elixir account, and deleting a Drop account
+touches no list (Drop's Buttondown newsletter and SES sender retired the same
+day). Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
 button). A configured `ELIXIR_OAUTH_CLIENT_SECRET` (the NoEcho, preserved
 stack parameter `ElixirOAuthClientSecret`) is sent as `client_secret` on the

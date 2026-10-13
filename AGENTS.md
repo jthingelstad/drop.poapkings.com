@@ -131,18 +131,18 @@ Every other doc points back here instead of keeping its own copy of this list.
   "Deploy model (canonical)".
 - **A Drop account is an Elixir account** (Jamie, 2026-10-12). Drop signs in
   only with Elixir (SPEC.md "Sign in with Elixir"); guests still play every
-  game. Drop sends no sign-in mail: the email-code route and its SES sender
-  code were removed on 2026-10-12. The `elixir-drop` SES configuration set,
-  its IAM permission and the `ELIXIR_DROP_EMAIL_FROM` parameter are still in
-  the template, unused, until they are retired. Drop sends nothing bulk from
-  the API: digests go through Buttondown, which owns unsubscribe. A future
-  send from the API would need the one-click headers, as elixir-mcp's relay
-  enforces for its kinds (`docs/ENGINEERING.md` there). `drop@poapkings.com` is
-  the monitored administrative and general-contact address for alarms, the
-  delivery-canary recipient, privacy questions, and Fair Play disputes; it is
-  read (never sent) over Fastmail JMAP by `scripts/mail-bug-reports.mjs`.
-  Occasional player-update digests publish through the dedicated **Buttondown**
-  newsletter.
+  game. **Drop sends no mail and keeps no mailing list** (2026-10-12): the
+  email-code sign-in, its SES sender and configuration set, and Drop's own
+  Buttondown newsletter are retired. There is ONE list, Elixir's, the channel
+  out to players about improvements across the Elixir ecosystem (Drop
+  included); a player joins or leaves it in their Elixir account, and Drop
+  never writes to it. Deleting a Drop account unsubscribes nobody. A future
+  send from the API would need Jamie, and the one-click headers elixir-mcp's
+  relay enforces for its kinds (`docs/ENGINEERING.md` there).
+  `drop@poapkings.com` is the monitored administrative and general-contact
+  address for alarms, the delivery-canary recipient, privacy questions, and
+  Fair Play disputes; it is read (never sent) over Fastmail JMAP by
+  `scripts/mail-bug-reports.mjs`.
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 
@@ -229,8 +229,8 @@ production run. A successful exact-head validation triggers
   publish in the Updates API as season commentary (`docs/OPERATIONS.md`,
   "Seasons"). Naming the Free Pass recipient, awarding a prize,
   other player messages, and broad communication retain the normal Jamie authority.
-  Buttondown may occasionally summarize these updates for people who do not log
-  in, but it is not the source of truth.
+  Elixir's mailing list may occasionally summarize them for people who do not
+  log in, but it is not the source of truth.
   Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
   and deliberately not per-device, so it needs no browser key. On a first open only
   the newest three cards receive the unread/expanded treatment; the full history
@@ -322,10 +322,10 @@ production run. A successful exact-head validation triggers
   also supplies 30-day last-touch Recruiter attribution. Badge links supply the
   same Recruiter attribution but never advance Herald; signed-in Home shares the
   player's permanent profile link. Already-issued six-character `#/s/<token>`
-  invitation and badge invitation links remain readable. Buttondown uses the
-  generic `/share/{playerTag}/invite` landing: its immutable public `P…` Drop
-  tag replaces the raw UUID, the page exposes no player or clan identity, and
-  its 30-day attribution never advances Herald. Starting a sign-in does not
+  invitation and badge invitation links remain readable, and so do the generic
+  `/share/{playerTag}/invite` links Drop's retired newsletter carried: its
+  immutable public `P…` Drop tag replaces the raw UUID, the page exposes no
+  player or clan identity, and its 30-day attribution never advances Herald. Starting a sign-in does not
   count, while a Sign in with Elixir that creates a genuinely new profile
   advances Recruiter exactly once at redemption. Anonymous players are asked to sign
   in before sharing because no account exists to receive either badge.
