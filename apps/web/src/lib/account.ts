@@ -112,6 +112,9 @@ async function initializeAccountOnce(): Promise<void> {
 
 async function hydrateSession(newSession: StoredSession): Promise<Player> {
   saveSession(newSession)
+  // Signed in: the server has settled any Recruiter credit (new accounts
+  // only), so the attribution has done its work either way.
+  clearRecruiter()
   const me = await getMe(newSession.token)
   player.value = me.player
   recentRuns.value = me.recentRuns
@@ -155,9 +158,10 @@ export async function updateAccount(updates: {
 export const ELIXIR_LOGIN_KEY = 'elixirdrop:elixirLogin:v1'
 
 export async function beginElixirLogin(returnTo: string | undefined): Promise<void> {
+  // The attribution rides with every signed-out start and is forgotten only
+  // once a sign-in completes (hydrateSession): a cancelled or failed trip to
+  // Elixir must not lose it for the retry.
   const response = await startElixirLogin(returnTo, session?.token, session ? undefined : recruiterAttribution())
-  // The server holds the attribution with this sign-in now.
-  if (!session) clearRecruiter()
   try {
     sessionStorage.setItem(
       ELIXIR_LOGIN_KEY,
