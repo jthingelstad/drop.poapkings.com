@@ -5,10 +5,6 @@
 // without an account.
 
 import { enqueueRefresh } from "../refresh-jobs.js";
-import {
-  buttondownPlayerMetadata,
-  enrollButtondownSubscriber,
-} from "../buttondown.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { emailSubject } from "../validation.js";
@@ -142,21 +138,11 @@ export async function redeemMagicLink({
     sub: login.profile.sub,
     playerId: login.profile.playerId,
   });
-  // Side channels are best-effort: a Buttondown or CR hiccup must not fail a
-  // login whose link is already spent.
+  // Side channels are best-effort: a hiccup must not fail a login whose
+  // credential is already spent. Drop keeps no mailing list of its own
+  // (2026-10-12): Elixir's one list is Elixir's.
   try {
     await repository.putRecruiterInviteAlias(login.profile);
-    const crProfile = login.profile.playerTag
-      ? await repository.getCrProfile(login.profile.playerTag)
-      : undefined;
-    await enrollButtondownSubscriber(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      login.profile.email,
-      buttondownPlayerMetadata(login.profile, config.appUrl, crProfile),
-    );
   } catch (error) {
     console.warn("Post-login side effects failed", {
       requestId: event.requestContext.requestId,

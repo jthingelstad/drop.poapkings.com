@@ -14,7 +14,6 @@ const repository = vi.hoisted(() => ({
   rankedAccess: vi.fn(async () => "allowed" as const),
 }));
 const generateNameOptions = vi.hoisted(() => vi.fn());
-const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
@@ -36,11 +35,6 @@ vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   return { ...actual, requestCrProfileRefresh: vi.fn() };
 });
 
-vi.mock("../src/buttondown.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
-  return { ...actual, updateButtondownSubscriberMetadata };
-});
-
 import { handler } from "../src/handler.js";
 
 const secret = "test-session-secret";
@@ -53,7 +47,6 @@ const profile = {
   publicName: "Knight Main",
   favoriteCardId: FAVORITE_CARD_ID,
   totalGames: 4,
-  lastSeasonPlayed: 134,
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
@@ -139,8 +132,6 @@ describe("player identity binding", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
-    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
-    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue(profile);
@@ -233,21 +224,6 @@ describe("player identity binding", () => {
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
       clearPlayerTag: true,
     });
-    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
-      {
-        apiKey: "buttondown-key",
-        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-      profile.email,
-      {
-        playerTag: undefined,
-        dropPlayerTag: "P7H47PSTT93",
-        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: null,
-        clanName: null,
-        lastSeasonPlayed: 134,
-      },
-    );
   });
 
   it("rejects a PATCH that changes nothing", async () => {

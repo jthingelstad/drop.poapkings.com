@@ -8,7 +8,6 @@ import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
 
 const repository = vi.hoisted(() => ({
-  advanceLastSeasonPlayed: vi.fn(),
   completeRun: vi.fn(),
   getCardStats: vi.fn(),
   getCrProfile: vi.fn(),
@@ -26,11 +25,9 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
-    advanceLastSeasonPlayed = repository.advanceLastSeasonPlayed;
     completeRun = repository.completeRun;
     getCardStats = repository.getCardStats;
     getCrProfile = repository.getCrProfile;
@@ -49,11 +46,6 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-vi.mock("../src/buttondown.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
-  return { ...actual, updateButtondownSubscriberMetadata };
-});
 
 import { handler } from "../src/handler.js";
 
@@ -149,8 +141,8 @@ async function complete() {
 }
 
 // A recorded run is the player's game. Everything after the completeRun
-// transaction — learning stats, the all-time projection, referee evidence, the
-// Buttondown update — is decoration, and none of it may take the game away.
+// transaction — learning stats, the all-time projection, referee evidence — is
+// decoration, and none of it may take the game away.
 describe("run completion side effects are best effort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -159,11 +151,8 @@ describe("run completion side effects are best effort", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
-    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
-    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrWarClock.mockResolvedValue(undefined);
-    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
     repository.getCardStats.mockResolvedValue({});
     repository.saveCardStats.mockResolvedValue(undefined);
     repository.getCrProfile.mockResolvedValue(undefined);
@@ -359,7 +348,10 @@ describe("run completion side effects are best effort", () => {
     expect(result.body).toMatchObject({ accepted: true, totalGames: 5 });
   });
 
-  it("still updates Buttondown when the Clash Royale snapshot cannot be read", async () => {
+  it("tells no mailing list about a game in a new season", async () => {
+    // Drop keeps no list of its own since 2026-10-12; Elixir's one list is
+    // Elixir's, so a recorded game makes no outside call and reads no
+    // Clash Royale snapshot for one.
     repository.getCrWarClock.mockResolvedValue({
       crSeasonId: 135,
       sectionIndex: 3,
@@ -370,92 +362,18 @@ describe("run completion side effects are best effort", () => {
       sourceClanTag: "#J2RGCRVG",
       updatedAt: new Date().toISOString(),
     });
-    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
-    repository.getCrProfile.mockRejectedValue(
-      new Error(`provider detail for ${profile.playerTag}`),
-    );
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("no outside call expected"));
+    try {
+      const result = await complete();
 
-    const result = await complete();
-
-    expect(result.statusCode).toBe(201);
-    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledOnce();
-    expect(console.warn).toHaveBeenCalledWith(
-      "Completed game CR profile lookup failed",
-      { error: "Error" },
-    );
-    const logged = JSON.stringify(vi.mocked(console.warn).mock.calls);
-    expect(logged).not.toContain(profile.playerTag);
-    expect(logged).not.toContain("provider detail");
-  });
-
-  it("attaches the cached Clash Royale identity to the Buttondown update", async () => {
-    repository.getCrWarClock.mockResolvedValue({
-      crSeasonId: 135,
-      sectionIndex: 3,
-      periodIndex: 25,
-      periodType: "warDay",
-      seasonStartsAt: "2026-08-03T10:00:00.000Z",
-      observedAt: new Date().toISOString(),
-      sourceClanTag: "#J2RGCRVG",
-      updatedAt: new Date().toISOString(),
-    });
-    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
-    repository.getCrProfile.mockResolvedValue({
-      tag: profile.playerTag,
-      status: "ready",
-      name: "KingThing",
-      clan: {
-        tag: "#J2RGCRVG",
-        name: "POAP KINGS",
-        badgeId: 16000000,
-      },
-      updatedAt: "2026-07-18T00:00:00.000Z",
-    });
-
-    const result = await complete();
-
-    expect(result.statusCode).toBe(201);
-    expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
-    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
-      {
-        apiKey: "buttondown-key",
-        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-      profile.email,
-      {
-        playerTag: "2PYQ0",
-        dropPlayerTag: "P7H47PSTT93",
-        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "J2RGCRVG",
-        clanName: "POAP KINGS",
-        lastSeasonPlayed: 135,
-      },
-    );
-  });
-
-  it("does not update Buttondown again after the player's season is current", async () => {
-    repository.getCrWarClock.mockResolvedValue({
-      crSeasonId: 135,
-      sectionIndex: 3,
-      periodIndex: 25,
-      periodType: "warDay",
-      seasonStartsAt: "2026-08-03T10:00:00.000Z",
-      observedAt: new Date().toISOString(),
-      sourceClanTag: "#J2RGCRVG",
-      updatedAt: new Date().toISOString(),
-    });
-    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
-
-    const result = await complete();
-
-    expect(result.statusCode).toBe(201);
-    expect(repository.advanceLastSeasonPlayed).toHaveBeenCalledWith(
-      profile.sub,
-      135,
-    );
-    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
-    // The snapshot only feeds that Buttondown update, so it is not read.
-    expect(repository.getCrProfile).not.toHaveBeenCalled();
+      expect(result.statusCode).toBe(201);
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(repository.getCrProfile).not.toHaveBeenCalled();
+    } finally {
+      fetcher.mockRestore();
+    }
   });
 
   it("propagates a failed completeRun instead of pretending the game counted", async () => {
@@ -471,6 +389,5 @@ describe("run completion side effects are best effort", () => {
     // is that nothing downstream ran.
     expect(result.statusCode).toBeGreaterThanOrEqual(400);
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
-    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 });

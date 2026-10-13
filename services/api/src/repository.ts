@@ -1245,38 +1245,6 @@ export class Repository {
     return result.Item as ProfileItem | undefined;
   }
 
-  // Advance the slow-moving campaign projection exactly once per player's CR
-  // season. The monotonic condition prevents a delayed historical recovery
-  // from moving the value backwards and lets the caller decide whether an
-  // external Buttondown write is actually necessary.
-  async advanceLastSeasonPlayed(
-    sub: string,
-    crSeasonId: number,
-  ): Promise<boolean> {
-    if (!Number.isSafeInteger(crSeasonId) || crSeasonId <= 0)
-      throw new Error("CR season number must be a positive integer");
-    try {
-      await client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: profileKey(sub),
-          UpdateExpression: "SET lastSeasonPlayed = :season",
-          ConditionExpression:
-            "attribute_exists(pk) AND (attribute_not_exists(lastSeasonPlayed) OR lastSeasonPlayed < :season)",
-          ExpressionAttributeValues: { ":season": crSeasonId },
-        }),
-      );
-      return true;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      )
-        return false;
-      throw error;
-    }
-  }
-
   // Bind a newly requested account to the attributed share owner who brought it in.
   // First valid attribution wins; retries by the same magic link are a no-op.
   async attachRecruiter(
@@ -1784,50 +1752,6 @@ export class Repository {
     );
 
     return { deletedGames: profile?.totalGames ?? 0 };
-  }
-
-  async getProfileRefreshHash(sub: string): Promise<string | undefined> {
-    const result = await client.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: { pk: `PLAYER#${sub}`, sk: "REFRESH#METADATA" },
-        ConsistentRead: true,
-      }),
-    );
-    return typeof result.Item?.metadataHash === "string"
-      ? result.Item.metadataHash
-      : undefined;
-  }
-
-  async saveProfileRefreshHash(
-    sub: string,
-    playerId: string,
-    metadataHash: string,
-  ): Promise<void> {
-    await client.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            ConditionCheck: {
-              TableName: this.tableName,
-              Key: profileKey(sub),
-              ConditionExpression: "playerId = :playerId",
-              ExpressionAttributeValues: { ":playerId": playerId },
-            },
-          },
-          {
-            Put: {
-              TableName: this.tableName,
-              Item: {
-                pk: `PLAYER#${sub}`,
-                sk: "REFRESH#METADATA",
-                metadataHash,
-              },
-            },
-          },
-        ],
-      }),
-    );
   }
 
   async getCrProfile(tag: string): Promise<CrProfileSnapshot | undefined> {

@@ -7,8 +7,6 @@ export interface Config {
   // never in the referee scripts, the read-only role, CI, or the browser.
   telemetryPepper: string;
   appUrl: string;
-  buttondownApiKey?: string;
-  buttondownNewsletterId?: string;
   // Shared only by the fixed host and this Lambda. It authorizes the one
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
@@ -45,22 +43,12 @@ export function required(name: string): string {
 }
 
 export function getConfig(): Config {
-  const buttondownApiKey = process.env.BUTTONDOWN_API_KEY?.trim() || undefined;
-  const buttondownNewsletterId =
-    process.env.BUTTONDOWN_NEWSLETTER_ID?.trim() || undefined;
-  if (Boolean(buttondownApiKey) !== Boolean(buttondownNewsletterId)) {
-    throw new Error(
-      "BUTTONDOWN_API_KEY and BUTTONDOWN_NEWSLETTER_ID must be configured together",
-    );
-  }
   return {
     tableName: required("TABLE_NAME"),
     refreshQueueUrl: process.env.REFRESH_QUEUE_URL?.trim() || undefined,
     sessionSecret: required("SESSION_SECRET"),
     telemetryPepper: required("TELEMETRY_PEPPER"),
     appUrl: required("APP_URL").replace(/\/$/, ""),
-    buttondownApiKey,
-    buttondownNewsletterId,
     updatesPublishToken:
       process.env.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN?.trim() || undefined,
     nameModelId:

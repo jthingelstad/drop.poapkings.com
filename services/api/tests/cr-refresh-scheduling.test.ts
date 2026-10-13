@@ -10,7 +10,6 @@ import { signToken } from "../src/signing.js";
 import { emailSubject } from "../src/validation.js";
 
 const repository = vi.hoisted(() => ({
-  advanceLastSeasonPlayed: vi.fn(),
   attachRecruiter: vi.fn(),
   bindElixirAccount: vi.fn(),
   creditRecruiter: vi.fn(),
@@ -41,12 +40,9 @@ const repository = vi.hoisted(() => ({
   refereeDecisions: vi.fn(async () => new Map()),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
-const enrollButtondownSubscriber = vi.hoisted(() => vi.fn());
-const updateButtondownSubscriberMetadata = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
-    advanceLastSeasonPlayed = repository.advanceLastSeasonPlayed;
     attachRecruiter = repository.attachRecruiter;
     bindElixirAccount = repository.bindElixirAccount;
     creditRecruiter = repository.creditRecruiter;
@@ -78,16 +74,6 @@ vi.mock("../src/repository.js", () => ({
   },
 }));
 
-vi.mock("../src/buttondown.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
-  return {
-    ...actual,
-    deleteButtondownSubscriber: vi.fn(),
-    enrollButtondownSubscriber,
-    updateButtondownSubscriberMetadata,
-  };
-});
-
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
   return { ...actual, requestCrProfileRefresh };
@@ -105,7 +91,6 @@ const profile = {
   favoriteCardId: 26000000,
   playerTag: "#2PYQ0",
   totalGames: 4,
-  lastSeasonPlayed: 133,
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
@@ -185,12 +170,9 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.SESSION_SECRET = secret;
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
-    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
-    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
-    repository.advanceLastSeasonPlayed.mockResolvedValue(false);
     requestCrProfileRefresh.mockResolvedValue(snapshot);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
@@ -215,21 +197,6 @@ describe("Clash Royale refresh scheduling", () => {
       sub: profile.sub,
       playerId: profile.playerId,
     });
-    expect(enrollButtondownSubscriber).toHaveBeenCalledWith(
-      {
-        apiKey: "buttondown-key",
-        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-      profile.email,
-      {
-        playerTag: "2PYQ0",
-        dropPlayerTag: "P7H47PSTT93",
-        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "J2RGCRVG",
-        clanName: "POAP KINGS",
-        lastSeasonPlayed: 133,
-      },
-    );
   });
 
   it("queues enrichment without waiting for external services when a session returns", async () => {
@@ -243,7 +210,6 @@ describe("Clash Royale refresh scheduling", () => {
       playerId: profile.playerId,
     });
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
-    expect(updateButtondownSubscriberMetadata).not.toHaveBeenCalled();
   });
 
   it("the retired email sign-in route answers 404 and mails nothing", async () => {
@@ -255,7 +221,6 @@ describe("Clash Royale refresh scheduling", () => {
     expect(JSON.parse(response.body ?? "{}").error.code).toBe("not_found");
     expect(repository.useRateLimit).not.toHaveBeenCalled();
     expect(repository.getProfile).not.toHaveBeenCalled();
-    expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
   });
 
   it("refuses an email code at redemption before any credential lookup", async () => {
@@ -512,7 +477,6 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(500);
     // The single-use link must stay redeemable for the retry click.
     expect(repository.consumeMagicLink).not.toHaveBeenCalled();
-    expect(enrollButtondownSubscriber).not.toHaveBeenCalled();
   });
 
   it("serves cached CR data without refreshing on a profile read", async () => {
@@ -544,18 +508,6 @@ describe("Clash Royale refresh scheduling", () => {
       sub: profile.sub,
       playerId: profile.playerId,
     });
-    expect(updateButtondownSubscriberMetadata).toHaveBeenCalledWith(
-      expect.anything(),
-      profile.email,
-      {
-        playerTag: "2PYQ0",
-        dropPlayerTag: "P7H47PSTT93",
-        recruiterUrl: "https://drop.example/share/P7H47PSTT93/invite",
-        clanTag: "J2RGCRVG",
-        clanName: "POAP KINGS",
-        lastSeasonPlayed: 133,
-      },
-    );
   });
 
   it("keeps the saved player tag out of refresh failure logs", async () => {
@@ -614,10 +566,9 @@ describe("Clash Royale refresh scheduling", () => {
     });
   });
 
-  it("reads cached CR identity for a new-season game without requesting a refresh", async () => {
-    // The first game of a season updates Buttondown, the one consumer of the
-    // cached snapshot on completion.
-    repository.advanceLastSeasonPlayed.mockResolvedValue(true);
+  it("records a new-season game without reading or refreshing CR identity", async () => {
+    // Drop's own newsletter was the one consumer of the cached snapshot on
+    // completion; it retired on 2026-10-12.
     repository.getCrWarClock.mockResolvedValue({
       crSeasonId: 134,
       sectionIndex: 1,
@@ -682,11 +633,7 @@ describe("Clash Royale refresh scheduling", () => {
       id: 134,
       currentWeek: 2,
     });
-    expect(repository.advanceLastSeasonPlayed).toHaveBeenCalledWith(
-      profile.sub,
-      134,
-    );
-    expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
+    expect(repository.getCrProfile).not.toHaveBeenCalled();
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
 });

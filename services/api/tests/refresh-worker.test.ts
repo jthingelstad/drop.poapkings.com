@@ -6,12 +6,9 @@ const mocks = vi.hoisted(() => ({
   clock: vi.fn(),
   finalize: vi.fn(),
   profile: vi.fn(),
-  metadata: vi.fn(),
   getCrWarClock: vi.fn(),
   saveCrWarClock: vi.fn(),
   getProfile: vi.fn(),
-  getProfileRefreshHash: vi.fn(),
-  saveProfileRefreshHash: vi.fn(),
 }));
 vi.mock("../src/elixir-war-clock.js", () => ({
   fetchWarClockFromHub: mocks.clock,
@@ -22,17 +19,11 @@ vi.mock("../src/podium.js", () => ({
 vi.mock("../src/cr-refresh.js", () => ({
   requestCrProfileRefresh: mocks.profile,
 }));
-vi.mock("../src/buttondown.js", async (original) => ({
-  ...(await original<typeof import("../src/buttondown.js")>()),
-  updateButtondownSubscriberMetadata: mocks.metadata,
-}));
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getCrWarClock = mocks.getCrWarClock;
     saveCrWarClock = mocks.saveCrWarClock;
     getProfile = mocks.getProfile;
-    getProfileRefreshHash = mocks.getProfileRefreshHash;
-    saveProfileRefreshHash = mocks.saveProfileRefreshHash;
   },
 }));
 import { processRefreshJob, refreshHandler } from "../src/refresh-worker.js";
@@ -46,11 +37,8 @@ const job = {
 } as const;
 const config = {
   tableName: "test",
-  appUrl: "https://drop.example",
   elixirMcpBaseUrl: "https://hub.example",
   elixirMcpKey: "test-key",
-  buttondownApiKey: "test",
-  buttondownNewsletterId: "test",
 };
 const repo = mocks as unknown as Repository;
 const player = {
@@ -76,7 +64,6 @@ describe("durable refresh worker", () => {
       clan: { tag: "#ABC", name: "Clan" },
     });
     process.env.TABLE_NAME = "test";
-    process.env.APP_URL = config.appUrl;
     process.env.ELIXIR_MCP_BASE_URL = config.elixirMcpBaseUrl;
     process.env.ELIXIR_MCP_KEY = config.elixirMcpKey;
   });
@@ -121,59 +108,26 @@ describe("durable refresh worker", () => {
       mocks.getProfile.mockResolvedValue(profile);
       await processRefreshJob(job, config, repo);
       expect(mocks.profile).not.toHaveBeenCalled();
-      expect(mocks.metadata).not.toHaveBeenCalled();
     },
   );
 
-  it("does not resend unchanged newsletter metadata", async () => {
+  it("refreshes a tagged player's Clash Royale snapshot", async () => {
     await processRefreshJob(job, config, repo);
-    const hash = mocks.saveProfileRefreshHash.mock.calls[0]![2];
-    mocks.getProfileRefreshHash.mockResolvedValue(hash);
-    await processRefreshJob(job, config, repo);
-    expect(mocks.metadata).toHaveBeenCalledTimes(1);
-    expect(mocks.metadata).toHaveBeenCalledWith(
-      expect.any(Object),
-      player.email,
-      expect.any(Object),
-      undefined,
-      true,
-    );
+    expect(mocks.profile).toHaveBeenCalledTimes(1);
+    expect(mocks.profile).toHaveBeenCalledWith(repo, config, player.playerTag);
   });
 
-  it("resynchronizes when an inline writer changed the profile revision even if metadata returns to an old value", async () => {
-    mocks.getProfile.mockResolvedValue({
-      ...player,
-      updatedAt: "2026-09-01T00:00:00Z",
-    });
+  it("has nothing to refresh for a player without a tag", async () => {
+    mocks.getProfile.mockResolvedValue({ ...player, playerTag: undefined });
     await processRefreshJob(job, config, repo);
-    mocks.getProfileRefreshHash.mockResolvedValue(
-      mocks.saveProfileRefreshHash.mock.calls[0]![2],
-    );
-    mocks.getProfile.mockResolvedValue({
-      ...player,
-      updatedAt: "2026-09-02T00:00:00Z",
-    });
-    await processRefreshJob(job, config, repo);
-    expect(mocks.metadata).toHaveBeenCalledTimes(2);
+    expect(mocks.profile).not.toHaveBeenCalled();
   });
 
-  it("does not mark a failed newsletter write as synchronized", async () => {
-    mocks.metadata.mockRejectedValueOnce(new Error("network"));
-    await expect(processRefreshJob(job, config, repo)).rejects.toThrow(
-      "network",
-    );
-    expect(mocks.saveProfileRefreshHash).not.toHaveBeenCalled();
-    await processRefreshJob(job, config, repo);
-    expect(mocks.metadata).toHaveBeenCalledTimes(2);
-    expect(mocks.saveProfileRefreshHash).toHaveBeenCalledTimes(1);
-  });
-
-  it("retries failed enrichment before updating newsletter metadata", async () => {
+  it("surfaces failed enrichment so the queue retries it", async () => {
     mocks.profile.mockRejectedValueOnce(new Error("hub unavailable"));
     await expect(processRefreshJob(job, config, repo)).rejects.toThrow(
       "hub unavailable",
     );
-    expect(mocks.metadata).not.toHaveBeenCalled();
   });
 
   it("rejects malformed work without logging the payload", async () => {

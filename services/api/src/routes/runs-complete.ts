@@ -10,10 +10,6 @@ import {
   localStamp,
   migrateBadgeCounters,
 } from "../badges.js";
-import {
-  buttondownPlayerMetadata,
-  updateButtondownSubscriberMetadata,
-} from "../buttondown.js";
 import { badRequest, HttpError } from "../errors.js";
 import { hasFirstDropBadge } from "../first-drop.js";
 import { isGameMode } from "../games.js";
@@ -34,12 +30,7 @@ import { seasonForDate } from "../seasons.js";
 import { verifyToken } from "../signing.js";
 import { analyzeTimingEvidence } from "../timing-evidence.js";
 import { deriveRunShareVisual } from "../share-visual.js";
-import type {
-  Correlation,
-  PlayerProfile,
-  RunTiebreaks,
-  RunTranscript,
-} from "../types.js";
+import type { Correlation, RunTiebreaks, RunTranscript } from "../types.js";
 import { requireObject } from "../validation.js";
 import { awardRunBonuses, settleBadgeXp } from "../xp-awards.js";
 import { runXp, runXpAward } from "../xp.js";
@@ -59,7 +50,7 @@ type Season = ReturnType<typeof seasonForDate>;
 // The flow, in order: rate limit → identify the run → guest short-circuit →
 // ownership + replay + expiry → score (evidence on rejection) → integrity
 // verdict → record → best-effort follow-ups (learning stats, all-time best,
-// referee evidence, Buttondown).
+// referee evidence).
 export async function completeRun({ event, config, repository }: RouteContext) {
   const body = bodyOf(event);
   // Rate-limit per IP FIRST so a signed-out (guest) completion is covered
@@ -321,22 +312,6 @@ async function recordSignedInRun(
       });
     }
   }
-  let buttondownSeasonChanged = false;
-  if (season.id) {
-    try {
-      buttondownSeasonChanged = await repository.advanceLastSeasonPlayed(
-        run.owner,
-        season.id,
-      );
-    } catch (error) {
-      // The recorded run is authoritative. Weekly reconciliation repairs this
-      // optional campaign projection if its best-effort advance fails.
-      console.warn("Last season played update failed", {
-        runId: run.runId,
-        error: error instanceof Error ? error.name : "unknown",
-      });
-    }
-  }
   const baseXp =
     result.xpAward ?? (typeof completionXp === "number" ? completionXp : 0);
   const xpAwards: XpAward[] = baseXp ? [runXpAward(run.mode, baseXp)] : [];
@@ -528,28 +503,6 @@ async function recordSignedInRun(
       ...(automaticReviewReason ? { reviewReason: automaticReviewReason } : {}),
     },
   );
-  // Buttondown changes only on a player's first recorded game in a new Clash
-  // Royale season. Later games produce no external metadata request; routine
-  // profile/session sync and the weekly reconciliation repair a failed write.
-  if (buttondownSeasonChanged) {
-    const crProfile = await completedGameCrProfile(
-      repository,
-      finalProfile,
-      automaticReviewReason,
-    );
-    await updateButtondownSubscriberMetadata(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      finalProfile.email,
-      buttondownPlayerMetadata(
-        { ...finalProfile, lastSeasonPlayed: season.id },
-        config.appUrl,
-        crProfile,
-      ),
-    );
-  }
   return json(201, {
     accepted: true,
     runId: run.runId,
@@ -838,23 +791,5 @@ async function updateLearningStats(
       runId: run.runId,
       error: error instanceof Error ? error.name : "unknown",
     });
-  }
-}
-
-// Buttondown's season metadata carries the linked Clash Royale identity, but a
-// run held for review contributes none.
-async function completedGameCrProfile(
-  repository: Repository,
-  profile: PlayerProfile,
-  automaticReviewReason: string | undefined,
-) {
-  if (automaticReviewReason || !profile.playerTag) return undefined;
-  try {
-    return await repository.getCrProfile(profile.playerTag);
-  } catch (error) {
-    console.warn("Completed game CR profile lookup failed", {
-      error: error instanceof Error ? error.name : "unknown",
-    });
-    return undefined;
   }
 }
