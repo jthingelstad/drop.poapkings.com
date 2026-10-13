@@ -260,18 +260,18 @@ ${pageSections([
   )
 ])}`
 
-const PRIVACY_BODY = `<p class="static-intro">Elixir Drop keeps only the information needed to sign you in, send player updates, build your profile, record games, and operate seasonal leaderboards.</p>
+const PRIVACY_BODY = `<p class="static-intro">Elixir Drop keeps only the information needed to sign you in, build your profile, record games, and operate seasonal leaderboards.</p>
 ${pageSections([
   section(
     'Your account',
     `${paragraph(
-      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address to recognize your account and for occasional player updates, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
+      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address only to recognize your account, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
     )}`
   ),
   section(
     'Your email address',
     paragraph(
-      'Drop never sells or rents your email address and never uses it for third-party marketing or advertising. Player update emails include an unsubscribe link.'
+      'Drop sends no email of its own and keeps no mailing list. News about Drop and the rest of Elixir comes from Elixir&rsquo;s one mailing list, which you join or leave in your Elixir account settings. Drop never sells or rents your email address and never uses it for third-party marketing or advertising.'
     )
   ),
   section(
@@ -282,7 +282,7 @@ ${pageSections([
   ),
   section(
     'Services Drop uses',
-    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop.</li><li>Buttondown sends occasional player updates and manages unsubscribes and delivery suppression.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Supercell&rsquo;s Clash Royale API supplies public data for an optional player tag.</li></ul>'
+    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Supercell&rsquo;s Clash Royale API supplies public data for an optional player tag.</li></ul>'
   ),
   section(
     'Fair Play',
@@ -309,7 +309,7 @@ ${pageSections([
     `${paragraph(
       'Sign-in handoffs and signed run challenges expire quickly. Practice recovery chunks expire with their 24-hour signed run. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
     )}${paragraph(
-      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, any links you shared, and the link from your Elixir account from the active database, and removes the matching Buttondown player-update subscription. Your Elixir account is Elixir&rsquo;s and is not deleted with it. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
+      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, any links you shared, and the link from your Elixir account from the active database. Your Elixir account is Elixir&rsquo;s and is not deleted with it, and deleting your Drop account does not change whether you receive Elixir&rsquo;s mailing list. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
