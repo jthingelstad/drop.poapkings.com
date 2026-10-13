@@ -77,8 +77,9 @@ export async function redeemMagicLink({
   // applied now that the profile exists. A failure here fails the redemption
   // before the credential is spent, and the pending item stays for the
   // retry; it is removed only once the binding is decided.
-  const pending = await repository.peekPendingElixirLink(sub, nowSeconds);
-  if (pending) {
+  const pendingItem = await repository.peekPendingElixirLink(sub, nowSeconds);
+  if (pendingItem) {
+    const pending = pendingItem.link;
     const bound = await repository.bindElixirAccount(
       sub,
       pending.accountId,
@@ -93,7 +94,7 @@ export async function redeemMagicLink({
       login.profile = await repository.updateProfile(sub, {
         playerTag: pending.playerTag,
       });
-    await repository.clearPendingElixirLink(sub);
+    await repository.clearPendingElixirLink(sub, pendingItem.pendingId);
   }
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);
   if (recruiterSub || login.profile.recruitedBy) {

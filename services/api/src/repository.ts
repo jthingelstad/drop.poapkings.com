@@ -868,6 +868,8 @@ export class Repository {
           sk: "ELIXIR_PENDING",
           link,
           expiresAt,
+          // Names this write, so a redemption removes only the item it read.
+          pendingId: randomUUID(),
         },
       }),
     );
@@ -878,7 +880,7 @@ export class Repository {
   async peekPendingElixirLink(
     sub: string,
     nowSeconds: number,
-  ): Promise<ElixirLink | undefined> {
+  ): Promise<{ link: ElixirLink; pendingId?: string } | undefined> {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -887,18 +889,37 @@ export class Repository {
       }),
     );
     const item = result.Item as
-      { link?: ElixirLink; expiresAt?: number } | undefined;
+      { link?: ElixirLink; expiresAt?: number; pendingId?: string } | undefined;
     if (!item?.link || (item.expiresAt ?? 0) < nowSeconds) return undefined;
-    return item.link;
+    return {
+      link: item.link,
+      ...(item.pendingId ? { pendingId: item.pendingId } : {}),
+    };
   }
 
-  async clearPendingElixirLink(sub: string): Promise<void> {
-    await client.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: { pk: `ELIXIR_PENDING#${sub}`, sk: "ELIXIR_PENDING" },
-      }),
-    );
+  // Removes the item the redemption read and nothing newer: a later callback
+  // for the same account may have replaced it, and its own redemption needs it.
+  async clearPendingElixirLink(sub: string, pendingId?: string): Promise<void> {
+    try {
+      await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: { pk: `ELIXIR_PENDING#${sub}`, sk: "ELIXIR_PENDING" },
+          ...(pendingId
+            ? {
+                ConditionExpression: "pendingId = :pendingId",
+                ExpressionAttributeValues: { ":pendingId": pendingId },
+              }
+            : { ConditionExpression: "attribute_not_exists(pendingId)" }),
+        }),
+      );
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+    }
   }
 
   // The Elixir connection on a profile. `elixirVerified` is denormalized so
