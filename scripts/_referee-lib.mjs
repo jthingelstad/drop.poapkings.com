@@ -181,11 +181,13 @@ export function leaderboardSortKey(mode, score, completedAt, sub, tiebreaks) {
 
 // Sensitive attributes that must never leave these scripts. `owner` is the sub
 // on the ephemeral RUN#{runId} item; `GSI1SK` is the leaderboard sort key, which
-// ends in the raw sub. Both are internal identifiers wearing an innocent name.
+// ends in the raw sub; `dropSub` is the sub on an ELIXIR#{accountId} identity
+// pointer. All are internal identifiers wearing an innocent name.
 export const FORBIDDEN_KEYS = Object.freeze([
   "sub",
   "playerSub",
   "owner",
+  "dropSub",
   "email",
   "pk",
   "GSI1SK",

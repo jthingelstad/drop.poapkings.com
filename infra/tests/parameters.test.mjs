@@ -835,7 +835,7 @@ void describe("deployment parameters", () => {
     );
     assert.match(
       refereeRole,
-      /Effect: Deny[\s\S]*?ForAnyValue:StringEquals:\s+dynamodb:Attributes:\s+- sub\s+- playerSub\s+- owner\s+- email/,
+      /Effect: Deny[\s\S]*?ForAnyValue:StringEquals:\s+dynamodb:Attributes:\s+- sub\s+- playerSub\s+- owner\s+- dropSub\s+- email/,
     );
 
     // The only direct mutation is the badge-revision update inside a bounded
