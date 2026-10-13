@@ -7,7 +7,6 @@ import {
   completedRunSchema,
   leaderboardResponseSchema,
   loginPollResponseSchema,
-  loginRequestResponseSchema,
   meResponseSchema,
   nameOptionsResponseSchema,
   playerResponseSchema,
@@ -262,42 +261,8 @@ export async function apiRequest<T>(
   return validateResponse(schema, payload, path)
 }
 
-export function requestLogin(
-  email: string,
-  returnTo?: string,
-  recruiter?:
-    | string
-    | { token: string }
-    | { playerId: string; runId: string }
-    | { playerId: string; badgeSlug: string; rungIndex: number }
-    | { playerId: string; profile: true }
-    | { dropPlayerTag: string; invite: true }
-) {
-  return apiRequest('/auth/request', loginRequestResponseSchema, {
-    method: 'POST',
-    body: JSON.stringify({
-      email,
-      returnTo,
-      ...(!recruiter
-        ? {}
-        : typeof recruiter === 'string'
-          ? { recruiterToken: recruiter }
-          : 'token' in recruiter
-            ? { recruiterToken: recruiter.token }
-            : { recruiterShare: recruiter })
-    })
-  })
-}
-
 export function redeemLogin(token: string) {
   return apiRequest('/auth/redeem', sessionResponseSchema, { method: 'POST', body: JSON.stringify({ token }) })
-}
-
-export function redeemLoginCode(email: string, code: string) {
-  return apiRequest('/auth/redeem', sessionResponseSchema, {
-    method: 'POST',
-    body: JSON.stringify({ email, code })
-  })
 }
 
 // Poll for a session handed off by a magic link redeemed in another browser
@@ -374,15 +339,30 @@ export function patchMe(
   })
 }
 
-// Sign in with Elixir. Signed out, the answer is a sign-in (the account the
-// proven email names); signed in, it is a LINK to this account. The browser
-// then leaves for Elixir's consent page and comes back through the ordinary
-// magic-link redemption, so the poll id works exactly as for a mailed link.
-export function startElixirLogin(returnTo: string | undefined, sessionToken?: string) {
+// Sign in with Elixir, the only way into a Drop account. Signed out, the
+// answer is a sign-in (the account bound to that Elixir account, else the one
+// its proven email names, else a new one); signed in, it is a LINK to this
+// account. The browser then leaves for Elixir's consent page and comes back
+// through the redemption route with a link only the callback can mint. A
+// signed-out start carries any Recruiter attribution; the API credits it only
+// to an account the sign-in creates.
+export function startElixirLogin(
+  returnTo: string | undefined,
+  sessionToken?: string,
+  recruiter?:
+    | { token: string }
+    | { playerId: string; runId: string }
+    | { playerId: string; badgeSlug: string; rungIndex: number }
+    | { playerId: string; profile: true }
+    | { dropPlayerTag: string; invite: true }
+) {
   return apiRequest('/auth/elixir/start', elixirStartResponseSchema, {
     method: 'POST',
     sessionToken,
-    body: JSON.stringify({ returnTo })
+    body: JSON.stringify({
+      returnTo,
+      ...(!recruiter ? {} : 'token' in recruiter ? { recruiterToken: recruiter.token } : { recruiterShare: recruiter })
+    })
   })
 }
 
@@ -392,10 +372,6 @@ export function selectElixirPlayer(sessionToken: string, playerTag: string) {
     sessionToken,
     body: JSON.stringify({ playerTag })
   })
-}
-
-export function disconnectElixir(sessionToken: string) {
-  return apiRequest('/me/elixir', playerResponseSchema, { method: 'DELETE', sessionToken })
 }
 
 export function deleteMe(sessionToken: string, confirmation: string) {

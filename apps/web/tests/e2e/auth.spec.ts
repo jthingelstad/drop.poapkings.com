@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import {
   allowExpectedApiErrors,
   cardsData,
@@ -63,18 +64,26 @@ test(
   }
 )
 
-test('signing in from the login screen returns the player to the requested game', async ({ page }) => {
-  let loginBody: Record<string, unknown> | undefined
+// Elixir's consent page is out of reach here, so the start answer sends the
+// browser straight to where Elixir's callback would: the redemption route
+// with a proven token and the original return path.
+function elixirReturn(page: Page, returnTo: string): string {
+  const origin = new URL(page.url()).origin
+  return `${origin}/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=${encodeURIComponent(returnTo)}&via=elixir`
+}
+
+test('signing in with Elixir from the login screen returns the player to the requested game', async ({ page }) => {
+  let startBody: Record<string, unknown> | undefined
   let redeemBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === '/auth/request') {
-      loginBody = route.request().postDataJSON() as Record<string, unknown>
+    if (path === '/auth/elixir/start') {
+      startBody = route.request().postDataJSON() as Record<string, unknown>
       await route.fulfill({
-        status: 202,
+        status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
+        body: JSON.stringify({ url: elixirReturn(page, '/surge'), pollId: 'poll-123456789012345678', mode: 'sign-in' })
       })
       return
     }
@@ -105,29 +114,11 @@ test('signing in from the login screen returns the player to the requested game'
   await useSignedOutState(page, '/login?returnTo=%2Fsurge')
 
   await expect(page.getByRole('heading', { name: 'Sign In', exact: true })).toBeVisible()
-  const emailInput = page.getByLabel('Email address')
-  await emailInput.fill('e***@p***.com')
-  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
-  await expect(page.getByRole('alert')).toHaveText('Enter your complete email address, not a masked address.')
-  await expect(emailInput).toHaveAttribute('aria-invalid', 'true')
-  expect(loginBody).toBeUndefined()
-
-  await emailInput.fill('player@example.com')
-  await expect(page.getByRole('alert')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
-  // Scoped to the login card: the UpdateBanner is also role="status", and it
-  // can mount mid-test whenever the built version differs from the one /stats
-  // reports, which made a bare getByRole('status') a strict-mode violation.
-  await expect(page.locator('.account-card > .account-message--success')).toContainText('Check your email')
-  expect(loginBody).toEqual({ email: 'player@example.com', returnTo: '/surge' })
-
-  const codeInput = page.getByLabel('Six-digit sign-in code')
-  await expect(codeInput).toHaveAttribute('autocomplete', 'one-time-code')
-  await expect(codeInput).toHaveAttribute('inputmode', 'numeric')
-  await expect(codeInput).toBeFocused()
-  await codeInput.fill('042761')
-  await page.getByRole('button', { name: 'Verify code' }).click()
-  await expect.poll(() => redeemBody).toEqual({ email: 'player@example.com', code: '042761' })
+  // One way in: no email field, no code field.
+  await expect(page.locator('.account-card input')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sign in with Elixir', exact: true }).click()
+  await expect.poll(() => startBody).toEqual({ returnTo: '/surge' })
+  await expect.poll(() => redeemBody).toEqual({ token: 'abcdefghijklmnopqrstuvwxyz123456' })
   await expect(page).toHaveURL(/#\/surge$/)
   // The requested game opens and auto-starts.
   await waitForKeypad(page)
@@ -135,16 +126,20 @@ test('signing in from the login screen returns the player to the requested game'
 
 test('the player-tag deep link survives sign-in and focuses the tag field', { tag: '@deploy' }, async ({ page }) => {
   const noTagPlayer = { ...testPlayer, playerTag: undefined, clashRoyale: undefined }
-  let loginBody: Record<string, unknown> | undefined
+  let startBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === '/auth/request') {
-      loginBody = route.request().postDataJSON() as Record<string, unknown>
+    if (path === '/auth/elixir/start') {
+      startBody = route.request().postDataJSON() as Record<string, unknown>
       await route.fulfill({
-        status: 202,
+        status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
+        body: JSON.stringify({
+          url: elixirReturn(page, '/profile?edit=player-tag'),
+          pollId: 'poll-123456789012345678',
+          mode: 'sign-in'
+        })
       })
       return
     }
@@ -172,15 +167,11 @@ test('the player-tag deep link survives sign-in and focuses the tag field', { ta
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
   await expect(page).toHaveURL(/#\/login\?returnTo=%2Fprofile%3Fedit%3Dplayer-tag$/)
 
-  await page.getByLabel('Email address').fill('player@example.com')
-  await page.getByRole('button', { name: 'Sign In', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in with Elixir', exact: true }).click()
   // Under the full mobile matrix the tap can settle before the routed request
   // handler records its body. Assert the request outcome, not that scheduling
   // happens synchronously with Playwright's click promise.
-  await expect.poll(() => loginBody).toEqual({ email: 'player@example.com', returnTo: '/profile?edit=player-tag' })
-
-  await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
-  await page.getByRole('button', { name: 'Continue to Drop' }).click()
+  await expect.poll(() => startBody).toEqual({ returnTo: '/profile?edit=player-tag' })
 
   await expect(page).toHaveURL(/#\/profile\?edit=player-tag$/)
   const tagInput = page.getByRole('textbox', { name: 'Clash Royale player tag' })

@@ -75,39 +75,28 @@ describe('api.ts request helpers', () => {
     return { url, init, headers: init.headers }
   }
 
-  it('requestLogin POSTs the email to /auth/request and returns the parsed body', async () => {
-    const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.', pollId: 'poll-1' }))
-    const { requestLogin } = await import('../../src/lib/api')
+  it('startElixirLogin passes an attributed-share recruiter token', async () => {
+    const fetchMock = stubFetch(json({ url: 'https://elixir.test/oauth/authorize', pollId: 'poll-1', mode: 'sign-in' }))
+    const { startElixirLogin } = await import('../../src/lib/api')
 
-    const result = await requestLogin('ace@example.com', '/surge')
+    await startElixirLogin(undefined, undefined, { token: 'AB2CD3' })
 
-    expect(result).toEqual({ ok: true, message: 'Check your email.', pollId: 'poll-1' })
     const { url, init } = endpointCall(fetchMock)
-    expect(url).toBe(`${API_BASE}/auth/request`)
+    expect(url).toBe(`${API_BASE}/auth/elixir/start`)
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body as string)).toEqual({ email: 'ace@example.com', returnTo: '/surge' })
+    expect(JSON.parse(init.body as string)).toEqual({ recruiterToken: 'AB2CD3' })
   })
 
-  it('passes an attributed-share recruiter token with the login request', async () => {
-    const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.' }))
-    const { requestLogin } = await import('../../src/lib/api')
-
-    await requestLogin('new@example.com', undefined, 'AB2CD3')
-
-    const { init } = endpointCall(fetchMock)
-    expect(JSON.parse(init.body as string)).toEqual({ email: 'new@example.com', recruiterToken: 'AB2CD3' })
-  })
-
-  it('passes a deterministic badge-share recruiter with the login request', async () => {
-    const fetchMock = stubFetch(json({ ok: true, message: 'Check your email.' }))
-    const { requestLogin } = await import('../../src/lib/api')
+  it('startElixirLogin passes a deterministic badge-share recruiter', async () => {
+    const fetchMock = stubFetch(json({ url: 'https://elixir.test/oauth/authorize', pollId: 'poll-1', mode: 'sign-in' }))
+    const { startElixirLogin } = await import('../../src/lib/api')
     const playerId = '11111111-1111-4111-8111-111111111111'
 
-    await requestLogin('new@example.com', undefined, { playerId, badgeSlug: 'clockbreaker', rungIndex: 3 })
+    await startElixirLogin('/surge', undefined, { playerId, badgeSlug: 'clockbreaker', rungIndex: 3 })
 
     const { init } = endpointCall(fetchMock)
     expect(JSON.parse(init.body as string)).toEqual({
-      email: 'new@example.com',
+      returnTo: '/surge',
       recruiterShare: { playerId, badgeSlug: 'clockbreaker', rungIndex: 3 }
     })
   })
@@ -194,10 +183,10 @@ describe('api.ts request helpers', () => {
   })
 
   it('sets accept and content-type headers on a body request', async () => {
-    const fetchMock = stubFetch(json({ ok: true, message: 'ok' }))
-    const { requestLogin } = await import('../../src/lib/api')
+    const fetchMock = stubFetch(json({ session: { token: 's1', expiresAt: FUTURE() } }))
+    const { redeemLogin } = await import('../../src/lib/api')
 
-    await requestLogin('ace@example.com')
+    await redeemLogin('magic-token')
     const { headers } = endpointCall(fetchMock)
     expect(headers.get('accept')).toBe('application/json')
     expect(headers.get('content-type')).toBe('application/json')
@@ -855,6 +844,28 @@ describe('sign in with Elixir helpers', () => {
     expect(account.pendingElixirLogin()).toBeUndefined()
   })
 
+  it('a signed-out start carries Recruiter attribution once, then forgets it', async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = requestUrl(input)
+        if (url.endsWith('/api-config.json')) return json({ apiBaseUrl: API_BASE })
+        bodies.push(JSON.parse(init?.body as string))
+        return json({ url: 'https://elixir.test/oauth/authorize?state=s1', pollId: 'poll-1', mode: 'sign-in' })
+      })
+    )
+    vi.stubGlobal('location', { href: 'https://drop.test/#/login', assign: vi.fn() })
+    const referral = await import('../../src/lib/referral')
+    referral.rememberRecruiter('AB2CD3')
+    const account = await import('../../src/lib/account')
+    await account.beginElixirLogin(undefined)
+    expect(bodies[0]).toEqual({ recruiterToken: 'AB2CD3' })
+    expect(referral.recruiterAttribution()).toBeUndefined()
+    await account.beginElixirLogin(undefined)
+    expect(bodies[1]).toEqual({})
+  })
+
   it('a stale pending flow is ignored', async () => {
     const account = await import('../../src/lib/account')
     sessionStorage.setItem(
@@ -864,7 +875,7 @@ describe('sign in with Elixir helpers', () => {
     expect(account.pendingElixirLogin()).toBeUndefined()
   })
 
-  it('selectElixirPlayer and disconnectElixir call their routes with the session', async () => {
+  it('selectElixirPlayer calls its route with the session', async () => {
     const calls: { url: string; init?: RequestInit }[] = []
     vi.stubGlobal(
       'fetch',
@@ -877,11 +888,8 @@ describe('sign in with Elixir helpers', () => {
     )
     const api = await import('../../src/lib/api')
     await api.selectElixirPlayer('tok', '#20JJJ2CCRU')
-    await api.disconnectElixir('tok')
     const select = calls.find((c) => c.url.endsWith('/me/elixir/select'))!
     expect(select.init?.method).toBe('POST')
     expect(JSON.parse(select.init?.body as string)).toEqual({ playerTag: '#20JJJ2CCRU' })
-    const disconnect = calls.find((c) => c.url.endsWith('/me/elixir'))!
-    expect(disconnect.init?.method).toBe('DELETE')
   })
 })

@@ -154,7 +154,7 @@ function ScreenContent({ r }: { r: string }) {
   if (gamePath && !gameWithoutServices && accountStatus.value === 'loading') return <RouteFallback r={r} />
   if ((gamePath || pathname === '/profile') && !gameWithoutServices && accountStatus.value === 'unavailable')
     return <AccountUnavailable />
-  // Identity never blocks a run: profile setup fires when the magic link lands
+  // Identity never blocks a run: profile setup fires when the sign-in lands
   // (screens/Profile identity steps), not when a game starts, so a signed-in
   // player who has not finished setup still plays — the run records under their
   // account and identity is filled in on the You page.

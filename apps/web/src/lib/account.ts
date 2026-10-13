@@ -4,16 +4,15 @@ import type { BadgeState } from './badges'
 import {
   ApiError,
   deleteMe,
-  disconnectElixir,
   getMe,
   patchMe,
   redeemLogin,
-  redeemLoginCode,
   refreshLogin,
   selectElixirPlayer,
   startElixirLogin,
   type RecentRun
 } from './api'
+import { clearRecruiter, recruiterAttribution } from './referral'
 
 interface StoredSession {
   token: string
@@ -127,14 +126,9 @@ export async function redeemAccount(token: string): Promise<Player> {
   return hydrateSession(response.session)
 }
 
-export async function redeemCodeAccount(email: string, code: string): Promise<Player> {
-  const response = await redeemLoginCode(email, code)
-  return hydrateSession(response.session)
-}
-
 // Adopt a session handed back by the cross-context login poll (see
-// lib/api.pollLogin): the emailed link was redeemed in another browser and the
-// server relayed the session to this waiting client.
+// lib/api.pollLogin): the Elixir sign-in finished in another browsing context
+// and the server relayed the session to this waiting client.
 export async function applyPolledSession(newSession: StoredSession): Promise<Player> {
   return hydrateSession(newSession)
 }
@@ -161,7 +155,9 @@ export async function updateAccount(updates: {
 export const ELIXIR_LOGIN_KEY = 'elixirdrop:elixirLogin:v1'
 
 export async function beginElixirLogin(returnTo: string | undefined): Promise<void> {
-  const response = await startElixirLogin(returnTo, session?.token)
+  const response = await startElixirLogin(returnTo, session?.token, session ? undefined : recruiterAttribution())
+  // The server holds the attribution with this sign-in now.
+  if (!session) clearRecruiter()
   try {
     sessionStorage.setItem(
       ELIXIR_LOGIN_KEY,
@@ -202,12 +198,6 @@ export async function chooseElixirPlayer(playerTag: string): Promise<void> {
   const response = await selectElixirPlayer(session.token, playerTag)
   player.value = response.player
   if (response.badges) applyBadgeSummary(response.badges)
-}
-
-export async function disconnectElixirAccount(): Promise<void> {
-  if (!session) throw new Error('Sign in first.')
-  const response = await disconnectElixir(session.token)
-  player.value = response.player
 }
 
 export async function markUpdatesOpened(): Promise<void> {

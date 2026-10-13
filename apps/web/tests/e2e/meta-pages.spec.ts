@@ -91,7 +91,7 @@ test('contact and Fair Play review mail go to the Drop mailbox', async ({ page }
     'href',
     'mailto:drop@poapkings.com'
   )
-  await expect(page.getByText(/Sign-in codes and magic links come from elixir@poapkings.com/)).toBeVisible()
+  await expect(page.getByText(/Drop sends no sign-in mail: you sign in with Elixir\./)).toBeVisible()
 
   await page.goto('/fair-play/')
   await expect(page.getByRole('link', { name: 'drop@poapkings.com' }).first()).toHaveAttribute(

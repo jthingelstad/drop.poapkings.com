@@ -451,37 +451,6 @@ a {
   text-underline-offset: 2px;
 }
 
-.account-form {
-  display: grid;
-  gap: 10px;
-  margin: 24px 0;
-  text-align: left;
-}
-
-.account-form input {
-  width: 100%;
-  border: 1px solid rgba(215, 200, 255, 0.35);
-  border-radius: var(--r-md);
-  background: rgba(7, 6, 16, 0.8);
-  color: var(--ink);
-  padding: 13px 14px;
-  font: inherit;
-}
-
-.account-form--code input {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  letter-spacing: 0.32em;
-  text-align: center;
-}
-
-.account-form--code .account-privacy {
-  margin: 0 0 6px;
-  text-align: center;
-}
-
 .account-message {
   margin: 18px 0;
   padding: 12px 14px;
@@ -9481,7 +9450,7 @@ html.reduce-motion .ed-skeleton__row {
 
 /* ── Identity setup (three steps) ─────────────────────────────
    Card → name → tag, one thing per screen. A fresh player runs the whole flow on
-   the magic link; Edit and Account reuse the individual steps. */
+   first sign-in; Edit and Account reuse the individual steps. */
 .ed-idsetup {
   display: flex;
   flex-direction: column;
@@ -9618,21 +9587,6 @@ html.reduce-motion .ed-skeleton__row {
   margin-top: 18px;
   display: grid;
   gap: 10px;
-}
-.account-elixir__rule {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink-dim, #bdb4e2);
-  font-size: 0.8rem;
-}
-.account-elixir__rule::before,
-.account-elixir__rule::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: currentcolor;
-  opacity: 0.35;
 }
 .account-elixir__btn {
   width: 100%;
