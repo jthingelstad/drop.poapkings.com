@@ -511,6 +511,7 @@ Resources:
                       - sub
                       - playerSub
                       - owner
+                      - dropSub
                       - email
               - Effect: Allow
                 Action:
