@@ -45,27 +45,24 @@ routine publication has no AWS profile, STS session, or interactive login.
 The private fixed-host Control Room assumes two other roles. The referee role
 remains pseudonymous and writes only `REFEREE#` overlays. The separate
 `elixir-drop-control` account-support role can project an explicit allowlist of
-profile and Clash snapshot fields (including email), query only a player's
-newest run season for Buttondown reconciliation, and can only transact an
-audited public-profile correction with a `CONTROL#PLAYER#` event. Its one
-standalone profile write can advance only the monotonic `lastSeasonPlayed`
-campaign projection. Email is not in either write allowlist, and sign-in links,
-Elixir identity pointers, sessions, run/evidence bodies, scores, XP, deletes, and secrets are outside the
-role.
+profile and Clash snapshot fields (including email) and can only transact an
+audited public-profile correction with a `CONTROL#PLAYER#` event. Email is not
+in its write allowlist, and sign-in links, Elixir identity pointers, sessions,
+run/evidence bodies, scores, XP, deletes, and secrets are outside the role. (The
+grants Drop's retired Buttondown backfill used went with it on 2026-10-12.)
 
-The gitignored root `.env` also supplies `BUTTONDOWN_API_KEY` and the explicit
-`BUTTONDOWN_NEWSLETTER_ID`. CloudFormation treats the credentials as `NoEcho`
-parameters and exposes them only to the Lambda runtime. Buttondown enrollment
-runs only after a player redeems a valid Sign in with Elixir; account deletion removes
-the matching subscriber, while Buttondown preserves its own unsubscribe and
-suppression states.
+Drop sends no mail and keeps no mailing list (2026-10-12). Its email-code
+sign-in, the `elixir-drop` SES configuration set, the `EmailFrom` parameter,
+the Lambda's SES permission, and the Buttondown newsletter with its
+`ButtondownApiKey`/`ButtondownNewsletterId` parameters are retired: a Drop
+account is an Elixir account, and Elixir's one list is Elixir's. Deleting a
+Drop account unsubscribes nobody from it. The bootstrap-owned execution role
+keeps its now-unused grant on the deleted `elixir-drop` configuration set until
+`npm run bootstrap:aws` next rewrites it.
 CloudWatch separately alarms on refresh queue age, refresh dead letters,
 season-repair consumer errors, and season-repair dead letters. The API, refresh
 worker, and repair consumer write JSON logs to dedicated 30-day log groups.
-Operational alarms target `drop@poapkings.com` by default. The alarm recipient is
-independent of `ELIXIR_DROP_EMAIL_FROM`, the sender of the email sign-in Drop
-retired on 2026-10-12 (the parameter, the `elixir-drop` SES configuration set and
-its permission remain until they are removed).
+Operational alarms target `drop@poapkings.com` by default.
 
 The HTTP API also writes privacy-conscious JSON access logs to the 30-day
 `/elixir-drop/api-access` log group. Each record includes the request ID, route
@@ -153,13 +150,12 @@ assumes the `elixir-drop-github-deploy` role with GitHub's OIDC token
 role only. Region, CloudFormation role, code bucket, and stack name are
 repository variables. The non-secret ACM ARN is another variable. The private
 CloudFront origin marker is a repository secret and Lambda-only configuration.
-Fastmail and session-signing secrets stay in
+Session-signing and other application secrets stay in
 CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
-copying those application secrets into GitHub. The CI smoke step therefore
-reports its Fastmail JMAP probe as "not checked" — live mail verification runs
-from the fixed host via `npm run check:beta`. (If a
-`ELIXIR_DROP_FASTMAIL_JMAP_TOKEN` repository secret still exists from an earlier
-setup, delete it.) The pull-request gate and the daily exhaustive browser regression
+copying those application secrets into GitHub. (If a
+`ELIXIR_DROP_FASTMAIL_JMAP_TOKEN`, `ELIXIR_DROP_BUTTONDOWN_API_KEY` or
+`ELIXIR_DROP_BUTTONDOWN_NEWSLETTER_ID` repository secret still exists from an
+earlier setup, delete it.) The pull-request gate and the daily exhaustive browser regression
 run through `.github/workflows/verify.yml` with no secrets at all — fork-safe by
 construction.
 
@@ -180,7 +176,7 @@ role's grant with every resource type in the template.
 CloudFormation owns the private web origin and CloudFront distribution as well
 as the API, refresh queue and worker, and retained season-repair channel. The
 default static behavior uses AWS's managed combined CORS and security-headers
-policy so Buttondown's public archive can load the same-origin app font while
+policy (chosen when Drop's retired Buttondown archive loaded the app font), so
 every static response receives HSTS, content-type, framing, and referrer
 protections; `/api/*`, `/share/*`, and `/share-assets/*` keep the API's own
 response and cache policy.
@@ -190,8 +186,8 @@ response and cache policy.
 The API deployment ZIP contains both `handler.cjs` and `refresh-worker.cjs`; the
 content key covers both bundles. The stack provisions a separate refresh FIFO
 queue, DLQ, worker role and Lambda. API requests may send work; only the worker
-consumes it. The worker has table access plus MCP/Buttondown credentials, with
-no sign-in, JMAP, Bedrock, S3 publication or referee-correlation credentials.
+consumes it. The worker has table access plus MCP credentials, with no
+sign-in, mail, Bedrock, S3 publication or referee-correlation credentials.
 
 The worker processes one message per invocation with concurrency capped at two.
 FIFO groups serialize the clock and each player; duplicate jobs within five

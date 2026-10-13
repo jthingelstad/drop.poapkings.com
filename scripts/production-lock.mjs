@@ -315,7 +315,7 @@ const USAGE = `usage:
   node scripts/production-lock.mjs run --purpose <text> -- <command> [args...]
 
 status prints who holds the lock, or "free". run holds it while one command
-runs (an out-of-band deploy:api, a Buttondown metadata --apply) and exits
+runs (an out-of-band deploy:api, a data-repair --apply) and exits
 with that command's status. There is no command to break a live lock.`;
 
 function main(argv) {

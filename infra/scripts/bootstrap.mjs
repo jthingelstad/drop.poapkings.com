@@ -269,32 +269,6 @@ async function ensureRole(
             Action: ["sns:*"],
             Resource: [`arn:aws:sns:${region}:${accountId}:elixir-drop-*`],
           },
-          // The stack's own SES configuration set and its event destination
-          // (2026-09-17: magic links over SES). The poapkings.com identity is
-          // the elixir-mcp stack's and is not touched from here.
-          {
-            Effect: "Allow",
-            Action: [
-              "ses:CreateConfigurationSet",
-              "ses:DeleteConfigurationSet",
-              "ses:GetConfigurationSet",
-              "ses:PutConfigurationSetSendingOptions",
-              "ses:PutConfigurationSetReputationOptions",
-              "ses:PutConfigurationSetSuppressionOptions",
-              "ses:PutConfigurationSetTrackingOptions",
-              "ses:PutConfigurationSetDeliveryOptions",
-              "ses:PutConfigurationSetVdmOptions",
-              "ses:CreateConfigurationSetEventDestination",
-              "ses:UpdateConfigurationSetEventDestination",
-              "ses:DeleteConfigurationSetEventDestination",
-              "ses:GetConfigurationSetEventDestinations",
-              "ses:TagResource",
-              "ses:UntagResource",
-            ],
-            Resource: [
-              `arn:aws:ses:${region}:${accountId}:configuration-set/elixir-drop`,
-            ],
-          },
           {
             Effect: "Allow",
             Action: ["sqs:*"],
@@ -509,8 +483,6 @@ const values = {
     existingEnv.ELIXIR_DROP_ALARM_EMAIL || "drop@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
   ELIXIR_DROP_CODE_BUCKET: bucketName,
-  ELIXIR_DROP_EMAIL_FROM:
-    existingEnv.ELIXIR_DROP_EMAIL_FROM || "elixir@poapkings.com",
   ELIXIR_DROP_WEB_ORIGIN_TOKEN:
     existingEnv.ELIXIR_DROP_WEB_ORIGIN_TOKEN ||
     randomBytes(32).toString("base64url"),
