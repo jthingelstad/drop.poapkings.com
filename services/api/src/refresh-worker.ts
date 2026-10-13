@@ -1,25 +1,15 @@
-import { createHash } from "node:crypto";
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 import { required, type Config } from "./config.js";
 import { requestCrProfileRefresh } from "./cr-refresh.js";
 import { fetchWarClockFromHub } from "./elixir-war-clock.js";
 import { finalizePreviousSeasonIfNeeded } from "./podium.js";
 import { Repository } from "./repository.js";
-import {
-  buttondownPlayerMetadata,
-  updateButtondownSubscriberMetadata,
-} from "./buttondown.js";
 import type { RefreshJob } from "./refresh-jobs.js";
 import { measure, withTimings } from "./timings.js";
 
 type RefreshConfig = Pick<
   Config,
-  | "tableName"
-  | "appUrl"
-  | "elixirMcpBaseUrl"
-  | "elixirMcpKey"
-  | "buttondownApiKey"
-  | "buttondownNewsletterId"
+  "tableName" | "elixirMcpBaseUrl" | "elixirMcpKey"
 >;
 
 function parseJob(body: string): RefreshJob {
@@ -66,35 +56,9 @@ export async function processRefreshJob(
 
   const profile = await repository.getProfile(job.sub);
   // Jobs carry an account generation, so a deleted/recreated account is untouched.
-  if (!profile || profile.playerId !== job.playerId) return;
-  const snapshot = profile.playerTag
-    ? await requestCrProfileRefresh(repository, config, profile.playerTag)
-    : undefined;
-  if (!config.buttondownApiKey || !config.buttondownNewsletterId) return;
-  const metadata = buttondownPlayerMetadata(profile, config.appUrl, snapshot);
-  const hash = createHash("sha256")
-    .update(
-      JSON.stringify({
-        metadata,
-        profileUpdatedAt: profile.updatedAt,
-        crFetchedAt: snapshot?.fetchedAt,
-      }),
-    )
-    .digest("hex");
-  if ((await repository.getProfileRefreshHash(job.sub)) === hash) return;
-  await measure("buttondown.metadata", () =>
-    updateButtondownSubscriberMetadata(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      profile.email,
-      metadata,
-      undefined,
-      true,
-    ),
-  );
-  await repository.saveProfileRefreshHash(job.sub, profile.playerId, hash);
+  if (!profile || profile.playerId !== job.playerId || !profile.playerTag)
+    return;
+  await requestCrProfileRefresh(repository, config, profile.playerTag);
 }
 
 export async function refreshHandler(
@@ -102,15 +66,11 @@ export async function refreshHandler(
 ): Promise<SQSBatchResponse> {
   const config: RefreshConfig = {
     tableName: required("TABLE_NAME"),
-    appUrl: required("APP_URL").replace(/\/$/, ""),
     elixirMcpBaseUrl: required("ELIXIR_MCP_BASE_URL").replace(/\/$/, ""),
     elixirMcpKey:
       process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
       process.env.ELIXIR_MCP_KEY?.trim() ||
       undefined,
-    buttondownApiKey: process.env.BUTTONDOWN_API_KEY?.trim() || undefined,
-    buttondownNewsletterId:
-      process.env.BUTTONDOWN_NEWSLETTER_ID?.trim() || undefined,
   };
   const repository = new Repository(config.tableName);
   for (let index = 0; index < event.Records.length; index += 1) {

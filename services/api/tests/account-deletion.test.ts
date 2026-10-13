@@ -8,7 +8,6 @@ import { signToken } from "../src/signing.js";
 
 const deleteAccount = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
-const deleteButtondownSubscriber = vi.hoisted(() => vi.fn());
 const deletePlayerShareImages = vi.hoisted(() => vi.fn());
 
 vi.mock("../src/repository.js", () => ({
@@ -17,11 +16,6 @@ vi.mock("../src/repository.js", () => ({
     getProfile = getProfile;
   },
 }));
-
-vi.mock("../src/buttondown.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/buttondown.js")>();
-  return { ...actual, deleteButtondownSubscriber };
-});
 
 vi.mock("../src/share-assets.js", () => ({ deletePlayerShareImages }));
 
@@ -80,8 +74,6 @@ describe("account deletion", () => {
     process.env.TELEMETRY_PEPPER = "test-telemetry-pepper";
     process.env.APP_URL = "https://drop.example";
     process.env.SHARE_ASSET_BUCKET = "share-assets";
-    process.env.BUTTONDOWN_API_KEY = "buttondown-key";
-    process.env.BUTTONDOWN_NEWSLETTER_ID = "news_2d3heqk1789vyatbxaeg4b2c91";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     getProfile.mockResolvedValue({
@@ -108,6 +100,11 @@ describe("account deletion", () => {
 
   it("deletes the authenticated player and returns no replacement session", async () => {
     deleteAccount.mockResolvedValue({ deletedGames: 42 });
+    // The mailing list is Elixir's (2026-10-12): deleting a Drop profile makes
+    // no outside call, so it unsubscribes nobody.
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("no outside call expected"));
 
     const response = (await handler(
       event("DELETE"),
@@ -122,13 +119,8 @@ describe("account deletion", () => {
       "share-assets",
       "player-1",
     );
-    expect(deleteButtondownSubscriber).toHaveBeenCalledWith(
-      {
-        apiKey: "buttondown-key",
-        newsletterId: "news_2d3heqk1789vyatbxaeg4b2c91",
-      },
-      "player@example.com",
-    );
+    expect(fetcher).not.toHaveBeenCalled();
+    fetcher.mockRestore();
   });
 
   it("stops a deleted account's session from renewing", async () => {

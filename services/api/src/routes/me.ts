@@ -9,11 +9,6 @@ import {
   badgeStates,
   reconcileBadgeCounters,
 } from "../badges.js";
-import {
-  buttondownPlayerMetadata,
-  deleteButtondownSubscriber,
-  updateButtondownSubscriberMetadata,
-} from "../buttondown.js";
 import { favoriteCard } from "../cards.js";
 import { badRequest, HttpError } from "../errors.js";
 import { hasFirstDropBadge } from "../first-drop.js";
@@ -621,16 +616,9 @@ export async function deleteMe({ event, config, repository }: RouteContext) {
   const profile = await repository.getProfile(session.sub);
   if (profile && config.shareAssetBucket)
     await deletePlayerShareImages(config.shareAssetBucket, profile.playerId);
+  // The mailing list is Elixir's one list (2026-10-12): deleting a Drop
+  // profile unsubscribes nobody from it.
   const deleted = await repository.deleteAccount(session.sub);
-  if (profile) {
-    await deleteButtondownSubscriber(
-      {
-        apiKey: config.buttondownApiKey,
-        newsletterId: config.buttondownNewsletterId,
-      },
-      profile.email,
-    );
-  }
   console.info("Player account deleted", {
     requestId: event.requestContext.requestId,
     deletedGames: deleted.deletedGames,
@@ -730,19 +718,6 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? await repository.getCrProfile(profile.playerTag)
     : undefined;
-  await updateButtondownSubscriberMetadata(
-    {
-      apiKey: config.buttondownApiKey,
-      newsletterId: config.buttondownNewsletterId,
-    },
-    profile.email,
-    buttondownPlayerMetadata(
-      profile,
-      config.appUrl,
-      crProfile,
-      updates.playerTag !== undefined || updates.clearPlayerTag === true,
-    ),
-  );
   const rankedAccess = await repository.rankedAccess(profile.playerId);
   const badgeResult = updates.playerTag
     ? await badgeSummary(

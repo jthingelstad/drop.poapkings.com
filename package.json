@@ -20,7 +20,6 @@
     "install:admin": "npm run build:admin && npm run install:launchd --workspace=@elixir-drop/admin-service",
     "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace=@elixir-drop/web",
-    "theme:buttondown": "node --env-file-if-exists=.env scripts/apply-buttondown-theme.mjs",
     "test": "npm run test --workspaces --if-present",
     "test:tooling": "node --test scripts/tooling.test.mjs scripts/production-lock.test.mjs scripts/audit.test.mjs",
     "test:ci-scope": "node --test scripts/classify-ci-scope.test.mjs",
