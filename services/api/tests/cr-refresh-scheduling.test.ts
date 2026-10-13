@@ -30,7 +30,8 @@ const repository = vi.hoisted(() => ({
   listRecentRuns: vi.fn(),
   peekMagicLink: vi.fn(),
   savePollSession: vi.fn(),
-  takePendingElixirLink: vi.fn(),
+  peekPendingElixirLink: vi.fn(),
+  clearPendingElixirLink: vi.fn(),
   putRecruiterInviteAlias: vi.fn(),
   updateProfile: vi.fn(),
   useRateLimit: vi.fn(),
@@ -65,7 +66,8 @@ vi.mock("../src/repository.js", () => ({
     listRecentRuns = repository.listRecentRuns;
     peekMagicLink = repository.peekMagicLink;
     savePollSession = repository.savePollSession;
-    takePendingElixirLink = repository.takePendingElixirLink;
+    peekPendingElixirLink = repository.peekPendingElixirLink;
+    clearPendingElixirLink = repository.clearPendingElixirLink;
     putRecruiterInviteAlias = repository.putRecruiterInviteAlias;
     updateProfile = repository.updateProfile;
     useRateLimit = repository.useRateLimit;
@@ -327,8 +329,8 @@ describe("Clash Royale refresh scheduling", () => {
       profile: created,
       created: true,
     });
-    repository.takePendingElixirLink.mockResolvedValue(link);
-    repository.bindElixirAccount.mockResolvedValue("bound");
+    repository.peekPendingElixirLink.mockResolvedValueOnce(link);
+    repository.bindElixirAccount.mockResolvedValueOnce("bound");
     repository.updateProfile.mockResolvedValue(profile);
 
     const response = await invoke("POST", "/auth/redeem", {
@@ -344,9 +346,46 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.ensureProfile.mock.invocationCallOrder[0]).toBeLessThan(
       repository.bindElixirAccount.mock.invocationCallOrder[0]!,
     );
+    // Removed only once the binding is decided.
+    expect(repository.clearPendingElixirLink).toHaveBeenCalledWith(profile.sub);
+    expect(
+      repository.bindElixirAccount.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      repository.clearPendingElixirLink.mock.invocationCallOrder[0]!,
+    );
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
       playerTag: "#2PYQ0",
     });
+  });
+
+  it("a failed binding fails the redemption and keeps the credential and pending link for the retry", async () => {
+    const link = {
+      accountId: "acct-new",
+      linkedAt: "2026-10-12T00:00:00.000Z",
+      checkedAt: "2026-10-12T00:00:00.000Z",
+      verified: false,
+      candidates: [],
+    };
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      sub: profile.sub,
+      source: "elixir",
+    });
+    repository.ensureProfile.mockResolvedValue({ profile, created: true });
+    repository.peekPendingElixirLink.mockResolvedValueOnce(link);
+    repository.bindElixirAccount.mockRejectedValueOnce(
+      Object.assign(new Error("throttled"), {
+        name: "ProvisionedThroughputExceededException",
+      }),
+    );
+
+    const response = await invoke("POST", "/auth/redeem", {
+      token: "a".repeat(32),
+    });
+
+    expect(response.statusCode).toBeGreaterThanOrEqual(500);
+    expect(repository.clearPendingElixirLink).not.toHaveBeenCalled();
+    expect(repository.consumeMagicLink).not.toHaveBeenCalled();
   });
 
   it("credits Recruiter when the attributed account is created", async () => {

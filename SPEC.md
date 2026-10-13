@@ -1316,9 +1316,14 @@ Linking refuses an Elixir account already bound to another Drop account
 (`elixir_account_in_use`) and a Drop account already bound to another Elixir
 account (`elixir_account_mismatch`). A signed-out start carries the browser's
 Recruiter attribution in `ELIXIR_LOGIN#`; it rides on the proven link only
-when the sign-in creates the account. A brand-new account's connection waits in `ELIXIR_PENDING#{sub}` until
-redemption creates the profile. No Elixir token is stored; the pair is dropped
-when the callback ends.
+when the sign-in creates the account, and the browser forgets it only once a
+sign-in completes, so a cancelled trip to Elixir keeps it for the retry. A
+brand-new account's connection waits in `ELIXIR_PENDING#{sub}`, for as long as
+the proven link that will apply it, until redemption creates the profile.
+Redemption binds it before spending the link and removes it only once the
+binding is decided; a failed write fails the redemption, and the retry finds
+both the link and the pending connection. No Elixir token is stored; the pair
+is dropped when the callback ends.
 
 Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,
 verified, verifiedAt?, candidates[], trackRefused? }` plus a denormalized

@@ -291,6 +291,7 @@ export async function elixirCallback(
   // The link and the pointer, written now for an existing account; a
   // brand-new account gets both at redemption (the profile does not exist
   // yet), from the pending item the redemption reads back.
+  const credentialExpiresAt = nowSeconds + MAGIC_LINK_SECONDS;
   const link = buildLink({
     accountId,
     players: players.players,
@@ -314,11 +315,8 @@ export async function elixirCallback(
       });
     }
   } else if (!target) {
-    await repository.savePendingElixirLink(
-      sub,
-      link,
-      nowSeconds + LOGIN_SECONDS,
-    );
+    // It lives as long as the credential that will apply it.
+    await repository.savePendingElixirLink(sub, link, credentialExpiresAt);
   }
 
   // Hand off to the redemption route with a credential Elixir already
@@ -331,7 +329,7 @@ export async function elixirCallback(
   await repository.saveProvenMagicLink(sha256(magicToken), {
     sub,
     email: target?.email ?? email,
-    expiresAt: nowSeconds + MAGIC_LINK_SECONDS,
+    expiresAt: credentialExpiresAt,
     pollId: login.pollId,
     ...(recruiterSub ? { recruiterSub } : {}),
   });
