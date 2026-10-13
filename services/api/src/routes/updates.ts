@@ -1,8 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../http.js";
 import { HttpError } from "../errors.js";
 import { bearerToken, json } from "../http.js";
 import {
@@ -15,9 +12,7 @@ import {
 } from "../player-updates.js";
 import { chargeRead } from "./public-reads.js";
 import { bodyOf, type RouteContext } from "./context.js";
-
 const SITE_URL = "https://drop.poapkings.com";
-
 function escapeHtml(value: string): string {
   return value.replace(
     /[&<>"']/g,
@@ -31,9 +26,8 @@ function escapeHtml(value: string): string {
       })[character] ?? character,
   );
 }
-
-function limitFor(event: APIGatewayProxyEventV2, fallback: number): number {
-  const raw = event.queryStringParameters?.limit;
+function limitFor(request: HttpRequest, fallback: number): number {
+  const raw = request.query?.limit;
   if (raw === undefined) return fallback;
   const limit = Number(raw);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_UPDATE_ENTRIES)
@@ -44,7 +38,6 @@ function limitFor(event: APIGatewayProxyEventV2, fallback: number): number {
     );
   return limit;
 }
-
 function updateKindLabel(kind: UpdateKind): string {
   return kind === "feature"
     ? "Feature"
@@ -52,7 +45,6 @@ function updateKindLabel(kind: UpdateKind): string {
       ? "Season"
       : "Message";
 }
-
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -61,12 +53,11 @@ function dateLabel(value: string): string {
     day: "numeric",
   }).format(new Date(value));
 }
-
 function pageResponse(
   contentType: string,
   body: string,
   head: boolean,
-): APIGatewayProxyStructuredResultV2 {
+): HttpResponse {
   return {
     statusCode: 200,
     headers: {
@@ -77,7 +68,6 @@ function pageResponse(
     body: head ? "" : body,
   };
 }
-
 export function renderUpdatesPage(entries: UpdateEntry[]): string {
   const sections = entries.length
     ? entries
@@ -93,7 +83,6 @@ export function renderUpdatesPage(entries: UpdateEntry[]): string {
     : '<section class="static-section static-section--muted"><h2>The arena is quiet</h2><div class="static-section__body"><p>The first player update will appear here.</p></div></section>';
   const description =
     "New Elixir Drop player features, season winners, and messages, newest first.";
-
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -131,13 +120,11 @@ export function renderUpdatesPage(entries: UpdateEntry[]): string {
 </body>
 </html>\n`;
 }
-
 function absoluteUpdateHtml(body: string): string {
   return renderUpdateMarkdownHtml(body)
     .replaceAll('href="/', `href="${SITE_URL}/`)
     .replaceAll('href="#', `href="${SITE_URL}/updates/#`);
 }
-
 export function renderUpdatesFeed(entries: UpdateEntry[]): string {
   const lastBuildDate = entries[0]
     ? `\n    <lastBuildDate>${new Date(entries[0].publishedAt).toUTCString()}</lastBuildDate>`
@@ -167,14 +154,12 @@ ${items}
   </channel>
 </rss>\n`;
 }
-
 export async function getUpdates(context: RouteContext) {
   await chargeRead(context);
   return json(200, {
-    entries: await context.repository.updates(limitFor(context.event, 100)),
+    entries: await context.repository.updates(limitFor(context.request, 100)),
   });
 }
-
 export async function getUpdatesPage(context: RouteContext, head: boolean) {
   await chargeRead(context);
   const entries = await context.repository.updates(MAX_UPDATE_ENTRIES);
@@ -184,7 +169,6 @@ export async function getUpdatesPage(context: RouteContext, head: boolean) {
     head,
   );
 }
-
 export async function getUpdatesFeed(context: RouteContext, head: boolean) {
   await chargeRead(context);
   const entries = await context.repository.updates(MAX_UPDATE_ENTRIES);
@@ -194,10 +178,9 @@ export async function getUpdatesFeed(context: RouteContext, head: boolean) {
     head,
   );
 }
-
 function publisherPrincipal(context: RouteContext): string {
   const expected = context.config.updatesPublishToken;
-  const provided = bearerToken(context.event.headers.authorization);
+  const provided = bearerToken(context.request.headers.authorization);
   const expectedBytes = Buffer.from(expected ?? "");
   const providedBytes = Buffer.from(provided ?? "");
   if (
@@ -213,9 +196,8 @@ function publisherPrincipal(context: RouteContext): string {
     );
   return "updates-bearer";
 }
-
 export async function publishUpdate(context: RouteContext) {
-  const input = bodyOf(context.event);
+  const input = bodyOf(context.request);
   const now = new Date();
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const entry = validateUpdateEntry({

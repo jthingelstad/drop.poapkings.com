@@ -72,12 +72,33 @@ execFileSync("npm", ["run", "build", "--workspace=@elixir-drop/api"], {
   cwd: repoRoot,
   stdio: "inherit",
 });
-const bundlePath = resolve(repoRoot, "services/api/dist/handler.cjs");
-const workerPath = resolve(repoRoot, "services/api/dist/refresh-worker.cjs");
-const bundles = await Promise.all([readFile(bundlePath), readFile(workerPath)]);
+execFileSync(
+  resolve(repoRoot, "node_modules/.bin/esbuild"),
+  [
+    resolve(scriptDir, "web-policy.mjs"),
+    "--bundle",
+    "--platform=node",
+    "--target=node24",
+    "--format=cjs",
+    `--outfile=${resolve(repoRoot, "services/api/dist/web-policy.cjs")}`,
+  ],
+  { cwd: repoRoot, stdio: "inherit" },
+);
+const bundlePaths = [
+  "refresh-worker.cjs",
+  "cr-results.cjs",
+  "web-policy.cjs",
+].map((name) => resolve(repoRoot, "services/api/dist", name));
+const bundles = await Promise.all(bundlePaths.map((path) => readFile(path)));
+const webPath = resolve(repoRoot, "services/api/dist/index.js");
+const webBytes = await readFile(webPath);
 const tempRoot = await mkdtemp(resolve(tmpdir(), "elixir-drop-deploy-"));
-const zipPath = resolve(tempRoot, "api.zip");
-execFileSync("zip", ["-q", "-j", zipPath, bundlePath, workerPath]);
+const zipPath = resolve(tempRoot, "events.zip");
+const webZipPath = resolve(tempRoot, "web.zip");
+const packagePath = resolve(tempRoot, "package.json");
+await writeFile(packagePath, JSON.stringify({ type: "commonjs" }));
+execFileSync("zip", ["-q", "-j", zipPath, ...bundlePaths]);
+execFileSync("zip", ["-q", "-j", webZipPath, webPath, packagePath]);
 
 try {
   const region = process.env.AWS_REGION;
@@ -87,6 +108,10 @@ try {
   // previous timestamped key forced CloudFormation to publish a new Lambda
   // version even when only unrelated repository files had changed.
   const codeKey = lambdaCodeKey(bundles);
+  const webCodeKey = lambdaCodeKey([
+    webBytes,
+    await readFile(packagePath),
+  ]).replace("lambda/", "web/");
   const s3 = new S3Client({ region });
   const cloudformation = new CloudFormationClient({ region });
 
@@ -111,19 +136,31 @@ try {
   const parameters = deploymentParameters({
     bucket,
     codeKey,
-    environment: process.env,
+    webCodeKey,
+    environment: {
+      ...process.env,
+      API_VERSION: execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      }).trim(),
+    },
     stackExists: exists,
     existingParameterKeys,
   });
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: codeKey,
-      Body: await readFile(zipPath),
-      ContentType: "application/zip",
-      ServerSideEncryption: "AES256",
-    }),
-  );
+  for (const [key, path] of [
+    [codeKey, zipPath],
+    [webCodeKey, webZipPath],
+  ]) {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: await readFile(path),
+        ContentType: "application/zip",
+        ServerSideEncryption: "AES256",
+      }),
+    );
+  }
   const template = deploymentTemplateSource({
     body: await readFile(resolve(repoRoot, "infra/template.yaml"), "utf8"),
     bucket,

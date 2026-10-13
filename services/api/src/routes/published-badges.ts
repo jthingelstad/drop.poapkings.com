@@ -1,4 +1,4 @@
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import type { HttpResponse } from "../http.js";
 import {
   BADGE_BY_SLUG,
   badgeTier,
@@ -21,12 +21,10 @@ import {
   sessionFor,
   type RouteContext,
 } from "./context.js";
-
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
 const BADGE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
 export function isPublishedBadgeReference(
   playerId: unknown,
   slug: unknown,
@@ -42,12 +40,17 @@ export function isPublishedBadgeReference(
     rungIndex >= 0
   );
 }
-
 function publicBadgeReference(
   playerTag: string,
   slug: string,
   rung: string,
-): { playerTag: string; slug: string; rungNumber: number } | undefined {
+):
+  | {
+      playerTag: string;
+      slug: string;
+      rungNumber: number;
+    }
+  | undefined {
   const normalizedTag = playerTag.toUpperCase();
   const normalizedSlug = slug.toLowerCase();
   const rungNumber = Number(rung);
@@ -62,19 +65,15 @@ function publicBadgeReference(
     return undefined;
   return { playerTag: normalizedTag, slug: normalizedSlug, rungNumber };
 }
-
 function publicPlayerTag(share: PublishedBadgeShareItem): string {
   return share.playerTag ?? playerReference(share.playerId).slice(1);
 }
-
 function shareUrl(appUrl: string, share: PublishedBadgeShareItem): string {
   return `${appUrl}/share/${publicPlayerTag(share)}/badge/${share.slug}/${share.rungIndex + 1}`;
 }
-
 function imageUrl(appUrl: string, share: PublishedBadgeShareItem): string {
   return `${appUrl}/share-assets/${publicPlayerTag(share)}/badge/${share.slug}/${share.rungIndex + 1}`;
 }
-
 function previewOf(share: PublishedBadgeShareItem) {
   return {
     playerName: share.player.publicName,
@@ -93,7 +92,6 @@ function previewOf(share: PublishedBadgeShareItem) {
       : {}),
   };
 }
-
 function publishedResponse(share: PublishedBadgeShareItem, appUrl: string) {
   return {
     playerId: share.playerId,
@@ -103,7 +101,6 @@ function publishedResponse(share: PublishedBadgeShareItem, appUrl: string) {
     preview: previewOf(share),
   };
 }
-
 export function badgeShareImageAlt(share: PublishedBadgeShareItem): string {
   const rung = share.rungIndex + 1;
   const requirement = share.badge.requirement
@@ -111,7 +108,6 @@ export function badgeShareImageAlt(share: PublishedBadgeShareItem): string {
     : "";
   return `${share.player.publicName} earned the ${share.badge.name} badge at the ${share.badge.chip} milestone, rung ${rung} of ${share.badge.rungCount}.${requirement}`;
 }
-
 async function publishedBadge(
   context: RouteContext,
   playerTag: string,
@@ -138,7 +134,6 @@ async function publishedBadge(
     );
   return share;
 }
-
 export function renderPublishedBadgePage(
   share: PublishedBadgeShareItem,
   appUrl: string,
@@ -170,21 +165,20 @@ export function renderPublishedBadgePage(
     },
   });
 }
-
 export async function createPublishedBadgeShare(
   context: RouteContext,
   slug: string,
 ) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
   await repository.useRateLimit(
     "share-mint",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
   const definition = BADGE_BY_SLUG.get(slug);
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   const rungIndex = body.rungIndex;
   if (
     !definition ||
@@ -219,14 +213,12 @@ export async function createPublishedBadgeShare(
       "That earned badge could not be found.",
       "not_found",
     );
-
   const existing = await repository.getPublishedBadgeShare(
     profile.playerId,
     definition.slug,
     rungIndex,
   );
   if (existing) return json(200, publishedResponse(existing, config.appUrl));
-
   const milestone = definition.rungs[rungIndex];
   if (milestone === undefined)
     throw new HttpError(
@@ -282,14 +274,13 @@ export async function createPublishedBadgeShare(
     );
   return json(created ? 201 : 200, publishedResponse(published, config.appUrl));
 }
-
 export async function uploadPublishedBadgeImage(
   context: RouteContext,
   slug: string,
 ) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   const rungIndex = body.rungIndex;
   const profile = await repository.getProfile(session.sub);
   if (
@@ -317,7 +308,7 @@ export async function uploadPublishedBadgeImage(
     );
   await repository.useRateLimit(
     "share-image",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
@@ -330,7 +321,6 @@ export async function uploadPublishedBadgeImage(
   );
   return json(200, { ok: true });
 }
-
 export async function getPublishedBadgePage(
   context: RouteContext,
   playerTag: string,
@@ -344,14 +334,13 @@ export async function getPublishedBadgePage(
     head,
   );
 }
-
 export async function getPublishedBadgeImage(
   context: RouteContext,
   playerTag: string,
   slug: string,
   rung: string,
   head = false,
-): Promise<APIGatewayProxyStructuredResultV2> {
+): Promise<HttpResponse> {
   const share = await publishedBadge(context, playerTag, slug, rung);
   const bucket = context.config.shareAssetBucket;
   if (!bucket)
@@ -386,7 +375,6 @@ export async function getPublishedBadgeImage(
       "x-content-type-options": "nosniff",
       "x-robots-tag": "noindex, nofollow",
     },
-    body: head ? "" : image.toString("base64"),
-    isBase64Encoded: !head,
+    bytes: head ? undefined : image,
   };
 }

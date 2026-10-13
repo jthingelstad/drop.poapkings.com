@@ -7,12 +7,12 @@ import { deploymentParameters } from "../scripts/parameters.mjs";
 const base = {
   bucket: "code-bucket",
   codeKey: "lambda/api.zip",
+  webCodeKey: "web/api.zip",
   environment: {},
 };
 const requiredCreateEnvironment = {
   SESSION_SECRET: "session-secret",
   TELEMETRY_PEPPER: "telemetry-pepper",
-  ELIXIR_DROP_WEB_ORIGIN_TOKEN: "private-origin-token",
   ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
     "updates-publish-token-with-at-least-32-characters",
   ELIXIR_DROP_WEB_CERTIFICATE_ARN:
@@ -141,7 +141,7 @@ void describe("deployment parameters", () => {
       parameterDefault("AllowedOrigins"),
       "https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
     );
-    assert.match(template, /AllowOrigins: !Ref AllowedOrigins/);
+    assert.match(template, /ALLOWED_ORIGINS: !Join/);
     assert.equal(
       deploymentParameters({
         ...base,
@@ -218,37 +218,26 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("supplies the CDN certificate and private origin marker", () => {
+  void it("supplies the CDN certificate without a shared origin marker", () => {
     const supplied = deploymentParameters({
       ...base,
       environment: requiredCreateEnvironment,
       stackExists: false,
     });
-    assert.deepEqual(
-      supplied.find(
-        (parameter) => parameter.ParameterKey === "WebCertificateArn",
-      ),
-      {
-        ParameterKey: "WebCertificateArn",
-        ParameterValue:
-          requiredCreateEnvironment.ELIXIR_DROP_WEB_CERTIFICATE_ARN,
-      },
+    assert.equal(
+      supplied.find((p) => p.ParameterKey === "WebCertificateArn")
+        .ParameterValue,
+      requiredCreateEnvironment.ELIXIR_DROP_WEB_CERTIFICATE_ARN,
     );
-    assert.deepEqual(
-      supplied.find((parameter) => parameter.ParameterKey === "WebOriginToken"),
-      {
-        ParameterKey: "WebOriginToken",
-        ParameterValue: requiredCreateEnvironment.ELIXIR_DROP_WEB_ORIGIN_TOKEN,
-      },
+    assert.equal(
+      supplied.some((p) => p.ParameterKey === "WebOriginToken"),
+      false,
     );
-
     const preserved = deploymentParameters({ ...base, stackExists: true });
-    for (const parameterKey of ["WebCertificateArn", "WebOriginToken"]) {
-      assert.deepEqual(
-        preserved.find((parameter) => parameter.ParameterKey === parameterKey),
-        { ParameterKey: parameterKey, UsePreviousValue: true },
-      );
-    }
+    assert.deepEqual(
+      preserved.find((p) => p.ParameterKey === "WebCertificateArn"),
+      { ParameterKey: "WebCertificateArn", UsePreviousValue: true },
+    );
   });
 
   void it("passes supplied runtime secrets during local creation or rotation", () => {
@@ -356,7 +345,7 @@ void describe("deployment parameters", () => {
     assert.equal(parameterDefault("ElixirOAuthClientSecret"), '""');
     assert.match(
       template,
-      /ELIXIR_OAUTH_CLIENT_SECRET: !Ref ElixirOAuthClientSecret/,
+      /ELIXIR_OAUTH_CLIENT_SECRET:\s+!If[\s\S]*?HasElixirOAuthClientSecret[\s\S]*?!Ref ElixirOAuthClientSecret[\s\S]*?!Ref AWS::NoValue/,
     );
   });
 
@@ -399,7 +388,10 @@ void describe("deployment parameters", () => {
   });
 
   void it("alarms on observable API 5xx responses and retains structured logs", () => {
-    assert.match(template, /Namespace: AWS\/ApiGateway\s+MetricName: 5xx/);
+    assert.match(
+      template,
+      /Namespace: AWS\/Lambda\/Web\s+MetricName: HTTPResponseStatusClass5XX/,
+    );
     assert.match(
       template,
       /LogGroupName: \/elixir-drop\/api\s+RetentionInDays: 30/,
@@ -450,84 +442,16 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("records privacy-conscious route timing and detailed HTTP API metrics", () => {
+  void it("records native HTTP timing without a duplicate Gateway routing table", () => {
     assert.match(
       template,
-      /LogGroupName: \/elixir-drop\/api-access\s+RetentionInDays: 30/,
+      /ApiLatencyMetric:[\s\S]*?MetricNamespace: ElixirDrop\/HTTP/,
     );
-    const accessLogFormat = template.match(
-      /AccessLogSettings:[\s\S]*?Format: >-\s+([^\n]+)/,
-    )?.[1];
-    assert.ok(accessLogFormat);
-    for (const field of [
-      "$context.requestId",
-      "$context.routeKey",
-      "$context.status",
-      "$context.responseLatency",
-      "$context.integrationLatency",
-      "$context.integration.status",
-      "$context.responseLength",
-    ]) {
-      assert.match(accessLogFormat, new RegExp(field.replaceAll("$", "\\$")));
-    }
+    assert.match(template, /LogGroupName: \/elixir-drop\/api.local/);
     assert.doesNotMatch(
-      accessLogFormat,
-      /identity|authorizer|sourceIp|userAgent|queryString|path/,
+      template,
+      /AWS::ApiGateway|AccessLogSettings|RouteKey:/,
     );
-    assert.match(template, /DetailedMetricsEnabled: true/);
-
-    const routeKeys = [...template.matchAll(/^ {6}RouteKey: (.+)$/gm)].map(
-      (match) => match[1],
-    );
-    assert.deepEqual(routeKeys, [
-      "$default",
-      "GET /health",
-      "POST /auth/poll",
-      "POST /auth/redeem",
-      "POST /auth/refresh",
-      "GET /me",
-      "GET /me/seasons",
-      "GET /me/xp",
-      "POST /me/share",
-      "PUT /me/share",
-      "GET /players/{playerId}",
-      "POST /me/name-options",
-      "DELETE /me",
-      "PATCH /me",
-      "POST /runs/start",
-      "POST /runs/complete",
-      "GET /practice/resume",
-      "POST /practice/checkpoint",
-      "POST /run-reports",
-      "POST /runs/{runId}/share",
-      "PUT /runs/{runId}/share",
-      "POST /badges/{slug}/share",
-      "PUT /badges/{slug}/share",
-      "GET /share/{playerTag}/{runTag}",
-      "HEAD /share/{playerTag}/{runTag}",
-      "GET /share-assets/{playerTag}/{runTag}",
-      "HEAD /share-assets/{playerTag}/{runTag}",
-      "POST /share/{playerTag}/{runTag}/open",
-      "GET /share/{playerTag}/badge/{slug}/{rung}",
-      "HEAD /share/{playerTag}/badge/{slug}/{rung}",
-      "GET /share-assets/{playerTag}/badge/{slug}/{rung}",
-      "HEAD /share-assets/{playerTag}/badge/{slug}/{rung}",
-      "GET /share/{playerTag}",
-      "HEAD /share/{playerTag}",
-      "GET /share-assets/{playerTag}",
-      "HEAD /share-assets/{playerTag}",
-      "GET /shares/{token}",
-      "GET /leaderboards",
-      "GET /seasons",
-      "GET /activity",
-      "GET /stats",
-      "GET /updates",
-      "GET /updates/archive",
-      "HEAD /updates/archive",
-      "GET /feed.xml",
-      "HEAD /feed.xml",
-      "POST /admin/updates",
-    ]);
   });
 
   void it("defines a valid operations dashboard and baseline-backed alarms", () => {
@@ -542,32 +466,26 @@ void describe("deployment parameters", () => {
     assert.equal(dashboard.widgets[0].type, "alarm");
     assert.equal(dashboard.widgets.length, 11);
 
-    const routeRequests = dashboard.widgets.find(
-      (widget) => widget.properties?.title === "Requests by API route",
+    assert.ok(
+      dashboard.widgets.find(
+        (w) =>
+          w.type === "log" &&
+          w.properties.title === "Requests and p95 by HTTP route",
+      ),
     );
-    const routeLatency = dashboard.widgets.find(
-      (widget) => widget.properties?.title === "p95 latency by API route",
+    const apiRequests = dashboard.widgets.find(
+      (w) => w.properties.title === "API requests and responses",
     );
-    const webRequests = dashboard.widgets.find(
-      (widget) => widget.properties?.title === "Web requests and bytes",
+    assert.equal(apiRequests.properties.metrics[0][0], "AWS/Lambda/Web");
+    assert.ok(
+      dashboard.widgets.find(
+        (w) => w.properties.title === "Web requests and bytes",
+      ),
     );
-    const webErrors = dashboard.widgets.find(
-      (widget) => widget.properties?.title === "Web error rate",
+    assert.ok(
+      dashboard.widgets.find((w) => w.properties.title === "Web error rate"),
     );
-    assert.ok(routeRequests);
-    assert.ok(routeLatency);
-    assert.ok(webRequests);
-    assert.ok(webErrors);
-    assert.equal(webRequests.properties.metrics[0][0], "AWS/CloudFront");
-    assert.equal(webErrors.properties.metrics[0][1], "TotalErrorRate");
-    assert.match(
-      routeRequests.properties.metrics[0][0].expression,
-      /AWS\/ApiGateway,ApiId,Stage,Method,Resource.*MetricName="Count".*'Sum'/,
-    );
-    assert.match(
-      routeLatency.properties.metrics[0][0].expression,
-      /AWS\/ApiGateway,ApiId,Stage,Method,Resource.*MetricName="Latency".*'p95'/,
-    );
+    assert.doesNotMatch(dashboardBody, /AWS\/ApiGateway|HttpApi|ApiFunction/);
 
     assert.match(template, /PolicyName: elixir-drop-dashboard-management/);
     assert.match(template, /- cloudwatch:PutDashboard/);
@@ -589,7 +507,7 @@ void describe("deployment parameters", () => {
     assert.match(template, /AlarmName: elixir-drop-api-concurrency/);
     assert.match(
       template,
-      /MetricName: ConcurrentExecutions[\s\S]*?Threshold: 20/,
+      /MetricName: EndpointActiveEnvironments[\s\S]*?Threshold: 3/,
     );
     assert.match(template, /AlarmName: elixir-drop-dynamodb-throttles/);
     assert.match(template, /MetricName: ReadThrottleEvents/);
@@ -624,7 +542,7 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /logs:CreateDelivery/);
     assert.match(bootstrap, /logs:PutDeliverySource/);
     assert.match(bootstrap, /logs:PutResourcePolicy/);
-    assert.match(bootstrap, /logs:CreateLogDelivery/);
+    assert.doesNotMatch(bootstrap, /logs:CreateLogDelivery|apigateway:\*/);
     assert.match(bootstrap, /delivery-source:elixir-drop-\*/);
     assert.match(bootstrap, /cloudfront:AllowVendedLogDeliveryForResource/);
   });
@@ -856,7 +774,7 @@ void describe("deployment parameters", () => {
 
   void it("bounds leaderboard maintenance to sparse index attributes", () => {
     const maintenanceRole = template.match(
-      /  LeaderboardMaintenanceRole:[\s\S]*?\n  ApiFunction:/,
+      /  LeaderboardMaintenanceRole:[\s\S]*?\n  ApiWebFunction:/,
     )?.[0];
     assert.ok(maintenanceRole);
     assert.match(
@@ -891,12 +809,12 @@ void describe("deployment parameters", () => {
       /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:[\s\S]*?randomBytes\(32\)\.toString\("base64url"\)/,
     );
 
-    const publishRoute = template.match(
-      /  UpdatesPublishRoute:[\s\S]*?\n  DefaultStage:/,
-    )?.[0];
-    assert.ok(publishRoute);
-    assert.match(publishRoute, /AuthorizationType: NONE/);
-    assert.match(publishRoute, /RouteKey: POST \/admin\/updates/);
+    const app = readFileSync(
+      new URL("../../services/api/src/app.ts", import.meta.url),
+      "utf8",
+    );
+    assert.match(app, /path === "\/admin\/updates"/);
+    assert.match(template, /AuthType: IamAuth/);
   });
 });
 

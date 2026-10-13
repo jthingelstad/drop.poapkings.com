@@ -11,10 +11,6 @@ export interface Config {
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
   nameModelId: string;
-  // Private marker CloudFront overwrites onto origin requests. It lets the API
-  // trust the viewer IP overwritten by the request function without trusting a
-  // public forwarding header on direct execute-api requests.
-  webOriginToken?: string;
   // The Elixir hub: Drop reads recorded Clash Royale history from it.
   // Optional so the app
   // runs unwired; every call site treats an absent hub as a no-op.
@@ -54,8 +50,6 @@ export function getConfig(): Config {
     nameModelId:
       process.env.NAME_MODEL_ID?.trim() ||
       "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    webOriginToken:
-      process.env.ELIXIR_DROP_WEB_ORIGIN_TOKEN?.trim() || undefined,
     elixirMcpBaseUrl: (
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),

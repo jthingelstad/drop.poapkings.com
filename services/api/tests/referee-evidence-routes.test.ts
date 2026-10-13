@@ -1,12 +1,7 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   getProfile: vi.fn(),
@@ -21,7 +16,6 @@ const repository = vi.hoisted(() => ({
   getCardStats: vi.fn(async () => ({})),
   putRefereeEvidence: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     useRateLimit = repository.useRateLimit;
@@ -38,13 +32,16 @@ vi.mock("../src/repository.js", () => ({
     putRefereeEvidence = repository.putRefereeEvidence;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
+const nowSeconds = Math.floor(Date.now() / 1000);
 const cards = (
-  rawCards as { cards: Array<{ id: number; elixir: number }> }
+  rawCards as {
+    cards: Array<{
+      id: number;
+      elixir: number;
+    }>;
+  }
 ).cards.slice(0, 15);
 const profile = {
   sub: "player-sub",
@@ -57,67 +54,44 @@ const profile = {
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
-
-function signedInEvent(body: Record<string, unknown>): APIGatewayProxyEventV2 {
+function signedInEvent(body: Record<string, unknown>): HttpRequest {
   const session = signToken(
     {
       type: "session",
       sub: profile.sub,
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/runs/complete",
-    rawQueryString: "",
+    path: "/runs/complete",
     headers: {
       authorization: `Bearer ${session}`,
       "content-type": "application/json",
       "user-agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120 Safari/537.36",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path: "/runs/complete",
-        protocol: "HTTP/1.1",
-        sourceIp: "203.0.113.7",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:05:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "203.0.113.7",
+    requestId: "request-1",
     body: JSON.stringify(body),
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+  } as HttpRequest;
 }
-
-function guestEvent(body: Record<string, unknown>): APIGatewayProxyEventV2 {
+function guestEvent(body: Record<string, unknown>): HttpRequest {
   const event = signedInEvent(body);
   delete event.headers.authorization;
   return event;
 }
-
 function surgeTranscript(stepMs: number) {
   return {
     answers: cards.map((card, index) => ({
       cardId: card.id,
       guesses: [card.elixir],
-      atMs: 1_000 + index * stepMs,
+      atMs: 1000 + index * stepMs,
     })),
   };
 }
-
 describe("referee evidence write path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -134,7 +108,6 @@ describe("referee evidence write path", () => {
     repository.wouldLeadAllTime.mockResolvedValue(false);
     repository.wouldLeadSeason.mockResolvedValue(false);
   });
-
   it("writes ranked evidence for an accepted ranked completion", async () => {
     const runToken = signToken(
       {
@@ -143,7 +116,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -155,8 +128,8 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
       startCorrelation: { ipHash: "starthash", uaFamily: "Chrome/macOS" },
     });
     repository.completeRun.mockResolvedValue({
@@ -164,14 +137,10 @@ describe("referee evidence write path", () => {
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: { ...profile, totalGames: 5 },
     });
-
     // atMs step of 350 => last atMs ~5900, comfortably above the surge floor.
-    const response = (await handler(
+    const response = (await dispatch(
       signedInEvent({ runToken, transcript: surgeTranscript(350) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(201);
     expect(repository.putRefereeEvidence).toHaveBeenCalledTimes(1);
     const item = repository.putRefereeEvidence.mock.calls[0]?.[0];
@@ -197,7 +166,6 @@ describe("referee evidence write path", () => {
     expect(serialized).not.toContain("Mozilla");
     expect(serialized).not.toContain("player@example.com");
   });
-
   it("holds a new all-time leader until the referee reviews it", async () => {
     const runToken = signToken(
       {
@@ -206,7 +174,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -218,8 +186,8 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
@@ -227,14 +195,10 @@ describe("referee evidence write path", () => {
       profile: { ...profile, totalGames: 5 },
     });
     repository.wouldLeadAllTime.mockResolvedValueOnce(true);
-
-    const response = (await handler(
+    const response = (await dispatch(
       signedInEvent({ runToken, transcript: surgeTranscript(350) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(body).toMatchObject({ accepted: true, underReview: true });
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-leader" }),
@@ -251,7 +215,6 @@ describe("referee evidence write path", () => {
       }),
     );
   });
-
   it("holds a new season leader until the referee reviews it", async () => {
     const runToken = signToken(
       {
@@ -260,7 +223,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -272,8 +235,8 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
@@ -281,14 +244,10 @@ describe("referee evidence write path", () => {
       profile: { ...profile, totalGames: 5 },
     });
     repository.wouldLeadSeason.mockResolvedValueOnce(true);
-
-    const response = (await handler(
+    const response = (await dispatch(
       signedInEvent({ runToken, transcript: surgeTranscript(350) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(body).toMatchObject({ accepted: true, underReview: true });
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-season-leader" }),
@@ -305,7 +264,6 @@ describe("referee evidence write path", () => {
       }),
     );
   });
-
   it("writes NO evidence for a guest completion", async () => {
     const runToken = signToken(
       {
@@ -315,7 +273,7 @@ describe("referee evidence write path", () => {
         mode: "surge",
         guest: true,
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -327,21 +285,16 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
       guest: true,
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       guestEvent({ runToken, transcript: surgeTranscript(350) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(200);
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
   });
-
   it("writes ranked evidence for an automatically quarantined completion", async () => {
     const runToken = signToken(
       {
@@ -350,7 +303,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -362,23 +315,19 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: { ...profile, totalGames: 5 },
     });
-
     // A low atMs step keeps the score under the surge UI floor -> hidden review.
-    const response = (await handler(
+    const response = (await dispatch(
       signedInEvent({ runToken, transcript: surgeTranscript(100) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(201);
     expect(body).toMatchObject({ accepted: true, underReview: true });
     expect(repository.completeRun).toHaveBeenCalledWith(
@@ -397,7 +346,6 @@ describe("referee evidence write path", () => {
       integrityOutcome: "score_below_ui_floor",
     });
   });
-
   it("quarantines a scoreable scorer assumption for referee authority", async () => {
     const runToken = signToken(
       {
@@ -406,7 +354,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -418,29 +366,25 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: { ...profile, totalGames: 5 },
     });
-
     // The transcript is internally scoreable, but its client clock runs beyond
     // the observed wall clock. That assumption is review evidence, not a veto.
-    const response = (await handler(
-      signedInEvent({ runToken, transcript: surgeTranscript(2_500) }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const response = (await dispatch(
+      signedInEvent({ runToken, transcript: surgeTranscript(2500) }),
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(201);
     expect(body).toMatchObject({ accepted: true, underReview: true });
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-scorer-flag" }),
-      36_000,
+      36000,
       expect.any(Number),
       expect.any(Number),
       undefined,
@@ -450,13 +394,12 @@ describe("referee evidence write path", () => {
       expect.objectContaining({
         runId: "run-scorer-flag",
         runType: "ranked",
-        score: 36_000,
+        score: 36000,
         integrityOutcome: "end_time_outside_wall_clock",
         reviewSignals: ["end_time_outside_wall_clock"],
       }),
     );
   });
-
   it("writes unscored evidence when no candidate score can be derived", async () => {
     const runToken = signToken(
       {
@@ -465,7 +408,7 @@ describe("referee evidence write path", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -477,17 +420,13 @@ describe("referee evidence write path", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((c) => c.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 30_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
-
     // An incomplete transcript (no answers) trips the scorer before a score exists.
-    const response = (await handler(
+    const response = (await dispatch(
       signedInEvent({ runToken, transcript: { answers: [] } }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(400);
     expect(repository.putRefereeEvidence).toHaveBeenCalledTimes(1);
     const item = repository.putRefereeEvidence.mock.calls[0]?.[0];

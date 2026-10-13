@@ -1,7 +1,10 @@
 # Elixir Drop API
 
-Strict TypeScript Lambda backend for Elixir Drop. It bundles to a Node.js 24
-Lambda artifact and uses one DynamoDB table.
+Strict TypeScript HTTP backend for Elixir Drop. A native Node.js 24 server runs
+on a Lambda Web Function behind CloudFront OAC and uses one DynamoDB table.
+`src/app.ts` owns dispatch; `src/server.ts` owns body limits, proxy trust, CORS,
+and writing text/binary responses; `src/index.ts` binds the runtime-provided
+`AWS_LAMBDA_HTTP_ENDPOINT`. Queue consumers remain separate Event Functions.
 
 Responsibilities in this release:
 
@@ -45,12 +48,12 @@ the stored clock; idempotent award markers protect retries after interruption.
 MCP requests have a three-second deadline, including response-body consumption.
 The refresh queue replaces the retired Supercell bridge path.
 
-`api.timings` structured logs record the route template, cold-invocation flag,
+`api.timings` structured logs record the route template, first-request flag,
 request elapsed time, and fixed operation labels for DynamoDB, MCP and queue work.
 The worker also times metadata writes and season finalization. Operation times
 may overlap and must not be summed as request latency. No request arguments,
-identities, tokens or payloads are included. Lambda REPORT initialization timing
-remains the source for cold-start initialization duration.
+identities, tokens or payloads are included. Web Function `platform.initReport` events provide initialization timing;
+CPU and active environment time are environment-level measurements.
 
 ## Routes
 

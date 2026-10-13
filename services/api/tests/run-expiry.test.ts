@@ -1,11 +1,6 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken, verifyToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   getProfile: vi.fn(),
@@ -14,7 +9,6 @@ const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   rankedAccess: vi.fn(async (): Promise<"allowed" | "restricted"> => "allowed"),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getRun = repository.getRun;
@@ -25,66 +19,43 @@ vi.mock("../src/repository.js", () => ({
     rankedAccess = repository.rankedAccess;
   },
 }));
-
 import rawCards from "@elixir-drop/game-data/cards.json";
-import { handler } from "../src/handler.js";
-
-const CATALOG_SIZE = (rawCards as { cards: unknown[] }).cards.length;
+import { dispatch } from "../src/app.js";
+const CATALOG_SIZE = (
+  rawCards as {
+    cards: unknown[];
+  }
+).cards.length;
 const secret = "test-session-secret";
-const nowSeconds = Date.parse("2026-07-18T12:05:00Z") / 1_000;
-
+const nowSeconds = Date.parse("2026-07-18T12:05:00Z") / 1000;
 function sessionToken(): string {
   return signToken(
     {
       type: "session",
       sub: "player-sub",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
 }
-
-function event(
-  path: string,
-  body: Record<string, unknown>,
-): APIGatewayProxyEventV2 {
+function event(path: string, body: Record<string, unknown>): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: "",
+    path,
     headers: {
       authorization: `Bearer ${sessionToken()}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:05:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify(body),
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+  } as HttpRequest;
 }
-
 describe("run expiry", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(nowSeconds * 1_000);
+    vi.setSystemTime(nowSeconds * 1000);
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
     process.env.SESSION_SECRET = secret;
@@ -93,13 +64,11 @@ describe("run expiry", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.rankedAccess.mockReset().mockResolvedValue("allowed");
   });
-
   afterEach(() => {
     vi.useRealTimers();
   });
-
   it("returns 410 run_expired (not 401) for a run completed after its window", async () => {
-    // The token carries the grace window the handler now mints, so token
+    // The token carries the grace window the dispatch now mints, so token
     // verification succeeds and the run-level expiry check is what answers.
     const runToken = signToken(
       {
@@ -107,7 +76,7 @@ describe("run expiry", () => {
         runId: "run-late",
         owner: "player-sub",
         mode: "surge",
-        iat: nowSeconds - 7_200,
+        iat: nowSeconds - 7200,
         exp: nowSeconds + 22 * 60 * 60,
       },
       secret,
@@ -120,21 +89,16 @@ describe("run expiry", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: [] },
       state: "started",
-      startedAt: new Date((nowSeconds - 7_200) * 1_000).toISOString(),
-      expiresAt: nowSeconds - 3_600,
+      startedAt: new Date((nowSeconds - 7200) * 1000).toISOString(),
+      expiresAt: nowSeconds - 3600,
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("/runs/complete", { runToken, transcript: {} }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(410);
     expect(body.error.code).toBe("run_expired");
   });
-
   it("mints run tokens that outlive the run window so 410 stays reachable", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
@@ -155,21 +119,17 @@ describe("run expiry", () => {
           mode,
           challenge,
           state: "started",
-          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          startedAt: new Date(nowSeconds * 1000).toISOString(),
           expiresAt,
         }),
     );
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("/runs/start", { mode: "trade" }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(201);
     const runExpirySeconds = Math.floor(
-      new Date(body.expiresAt as string).getTime() / 1_000,
+      new Date(body.expiresAt as string).getTime() / 1000,
     );
     // Verify the token well after the run window: the claims must still parse
     // so completion reaches the explicit run-level 410 branch.
@@ -182,7 +142,6 @@ describe("run expiry", () => {
     expect(claims.runId).toBe("run-new");
     expect(claims.exp).toBeGreaterThan(runExpirySeconds + 12 * 60 * 60);
   });
-
   it("starts Practice from the full catalog without consulting personalized data", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
@@ -211,7 +170,9 @@ describe("run expiry", () => {
       (
         owner: string,
         mode: string,
-        challenge: { cardIds: number[] },
+        challenge: {
+          cardIds: number[];
+        },
         expiresAt: number,
       ) =>
         Promise.resolve({
@@ -220,19 +181,15 @@ describe("run expiry", () => {
           mode,
           challenge,
           state: "started",
-          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          startedAt: new Date(nowSeconds * 1000).toISOString(),
           expiresAt,
           ranked: false,
         }),
     );
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("/runs/start", { mode: "practice" }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(201);
     // Practice is true practice: runs are born unranked and never write a
     // leaderboard entry (completeRun skips the GSI for ranked:false).
@@ -241,9 +198,7 @@ describe("run expiry", () => {
     // for the client to weight across — not a fixed 15-card round.
     expect(body.challenge.cardIds).toHaveLength(CATALOG_SIZE);
     expect(new Set(body.challenge.cardIds).size).toBe(CATALOG_SIZE);
-    expect(Date.parse(body.expiresAt)).toBe(
-      (nowSeconds + 24 * 60 * 60) * 1_000,
-    );
+    expect(Date.parse(body.expiresAt)).toBe((nowSeconds + 24 * 60 * 60) * 1000);
     expect(repository.getCardStats).not.toHaveBeenCalled();
     expect(repository.rankedAccess).not.toHaveBeenCalled();
     expect(repository.createRun).toHaveBeenCalledWith(
@@ -257,7 +212,6 @@ describe("run expiry", () => {
       expect.any(Object),
     );
   });
-
   it("blocks a restricted player from starting a ranked run", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
@@ -271,19 +225,14 @@ describe("run expiry", () => {
       updatedAt: "2026-07-18T12:01:00.000Z",
     });
     repository.rankedAccess.mockResolvedValue("restricted");
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("/runs/start", { mode: "surge" }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(403);
     expect(body.error.code).toBe("ranked_access_restricted");
     expect(repository.createRun).not.toHaveBeenCalled();
   });
-
   it("starts every non-practice mode ranked", async () => {
     repository.useRateLimit.mockResolvedValue(undefined);
     repository.getProfile.mockResolvedValue({
@@ -310,19 +259,15 @@ describe("run expiry", () => {
           mode,
           challenge,
           state: "started",
-          startedAt: new Date(nowSeconds * 1_000).toISOString(),
+          startedAt: new Date(nowSeconds * 1000).toISOString(),
           expiresAt,
           ranked,
         }),
     );
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("/runs/start", { mode: "survival" }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(201);
     expect(body.ranked).toBe(true);
     expect(repository.createRun).toHaveBeenCalledWith(

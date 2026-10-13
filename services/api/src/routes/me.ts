@@ -45,8 +45,8 @@ import {
 const NAME_OPTIONS_SECONDS = 15 * 60;
 
 // GET /me — the signed-in player's profile, learning summary, and history.
-export async function getMe({ event, config, repository }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+export async function getMe({ request, config, repository }: RouteContext) {
+  const session = sessionFor(request, config.sessionSecret, true);
   const profile = await repository.getProfile(session.sub);
   if (!profile)
     throw new HttpError(
@@ -63,7 +63,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
       await repository.creditRecruiter(session.sub, new Date().toISOString());
     } catch (error) {
       console.warn("Recruiter account-creation reconciliation failed", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         error: error instanceof Error ? error.name : "unknown",
       });
     }
@@ -76,7 +76,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
     // flattening every player's learning summary.
     repository.getCardStats(session.sub).catch((error) => {
       console.warn("Learning stats lookup failed", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         error: error instanceof Error ? error.name : "unknown",
       });
       return {};
@@ -84,7 +84,7 @@ export async function getMe({ event, config, repository }: RouteContext) {
     repository.rankedAccess(profile.playerId),
   ]);
   const badges = await badgeSummary(
-    { event, config, repository },
+    { request, config, repository },
     session.sub,
     profile.playerId,
     profile,
@@ -154,22 +154,22 @@ function isReviewStatus(
 // status at all, so it answers `status=reviewed` only in the sense that it is
 // eligible; it is matched by the dedicated `unreviewed` value instead.
 export async function getMySeasons({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
-  const seasonFilter = event.queryStringParameters?.season;
+  const session = sessionFor(request, config.sessionSecret, true);
+  const seasonFilter = request.query?.season;
   if (
     seasonFilter !== undefined &&
     seasonFilter !== "all" &&
     seasonNumber(seasonFilter) === undefined
   )
     throw new HttpError(400, "Season ID is invalid.");
-  const modeFilter = event.queryStringParameters?.mode;
+  const modeFilter = request.query?.mode;
   if (modeFilter !== undefined && !isGameMode(modeFilter))
     throw new HttpError(400, "Choose a valid game mode.");
-  const statusFilter = event.queryStringParameters?.status;
+  const statusFilter = request.query?.status;
   if (statusFilter !== undefined && !isReviewStatus(statusFilter))
     throw new HttpError(400, "Choose a valid review status.");
 
@@ -227,14 +227,14 @@ export async function getMySeasons({
   // a real leaderboard read. Only the run that actually holds the player's
   // position on a board gets a number — that is what the placement describes.
   const placements =
-    event.queryStringParameters?.placements === "1" &&
+    request.query?.placements === "1" &&
     requestedSeason !== undefined &&
     requestedSeason !== "all"
       ? await seasonPlacements(repository, session.sub, requestedSeason, runs)
       : new Map<string, number>();
 
   console.info("Player season history read", {
-    requestId: event.requestContext.requestId,
+    requestId: request.requestId,
     indexedSeasons: index.length,
     seasons: grouped.size,
     runs: runs.length,
@@ -256,8 +256,8 @@ export async function getMySeasons({
 // GET /me/xp — the owner's complete, daily XP ledger. The browser receives
 // compact UTC buckets rather than raw DynamoDB marker keys, and the retained
 // pre-v2 lifetime total remains an explicit opening balance.
-export async function getMyXp({ event, config, repository }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+export async function getMyXp({ request, config, repository }: RouteContext) {
+  const session = sessionFor(request, config.sessionSecret, true);
   const [runs, markers] = await Promise.all([
     repository.listRunHistory(session.sub),
     repository.listXpAwardMarkers(session.sub),
@@ -348,7 +348,7 @@ async function settleBadgeXpOnRead(
 }
 
 export async function badgeSummary(
-  { event, repository }: RouteContext,
+  { request, repository }: RouteContext,
   sub: string,
   playerId: string,
   profile: {
@@ -477,7 +477,7 @@ export async function badgeSummary(
       }
     }
     console.info("Badges reconciled from eligible history", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       runs: runs.length,
       excludedRuns: excluded.length,
     });
@@ -488,7 +488,7 @@ export async function badgeSummary(
     return { badges: badgeStates(settled.counters), backfilled: true };
   } catch (error) {
     console.warn("Badge lookup failed", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       error: error instanceof Error ? error.name : "unknown",
     });
     return { badges: [] };
@@ -505,7 +505,7 @@ function isFinalBadgeExclusion(decision: RefereeDecision | undefined): boolean {
 
 // GET /players/{playerId} — the public, pseudonymous view of a player.
 export async function getPublicPlayer(
-  { event, config, repository }: RouteContext,
+  { request, config, repository }: RouteContext,
   rawPlayerId: string,
 ) {
   let playerId: string;
@@ -516,12 +516,7 @@ export async function getPublicPlayer(
   }
   if (!playerId || playerId.length > 100)
     throw new HttpError(400, "Player ID is invalid.", "invalid_player_id");
-  await repository.useRateLimit(
-    "reads",
-    clientIpHash(event, config.webOriginToken),
-    1200,
-    60 * 60,
-  );
+  await repository.useRateLimit("reads", clientIpHash(request), 1200, 60 * 60);
   const lookup = await repository.getPublicPlayer(playerId);
   if (!lookup)
     throw new HttpError(
@@ -547,7 +542,7 @@ export async function getPublicPlayer(
   const badgeProfile =
     (await repository.getProfile(lookup.sub)) ?? lookup.player;
   const badges = await badgeSummary(
-    { event, config, repository },
+    { request, config, repository },
     lookup.sub,
     playerId,
     badgeProfile,
@@ -572,12 +567,12 @@ export async function getPublicPlayer(
 
 // POST /me/name-options — signed, card-bound player-name choices.
 export async function createNameOptions({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   const card = favoriteCard(body.favoriteCardId);
   if (!card)
     throw new HttpError(
@@ -604,9 +599,9 @@ export async function createNameOptions({
 }
 
 // DELETE /me — erase the account and everything derived from it.
-export async function deleteMe({ event, config, repository }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+export async function deleteMe({ request, config, repository }: RouteContext) {
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   if (body.confirmation !== "DELETE")
     throw new HttpError(
       400,
@@ -620,16 +615,16 @@ export async function deleteMe({ event, config, repository }: RouteContext) {
   // profile unsubscribes nobody from it.
   const deleted = await repository.deleteAccount(session.sub);
   console.info("Player account deleted", {
-    requestId: event.requestContext.requestId,
+    requestId: request.requestId,
     deletedGames: deleted.deletedGames,
   });
   return json(200, { ok: true });
 }
 
 // PATCH /me — save the card-bound identity and/or the unverified player tag.
-export async function patchMe({ event, config, repository }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+export async function patchMe({ request, config, repository }: RouteContext) {
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   const updates: {
     publicName?: string;
     favoriteCardId?: number;
@@ -721,7 +716,7 @@ export async function patchMe({ event, config, repository }: RouteContext) {
   const rankedAccess = await repository.rankedAccess(profile.playerId);
   const badgeResult = updates.playerTag
     ? await badgeSummary(
-        { event, config, repository },
+        { request, config, repository },
         session.sub,
         profile.playerId,
         profile,

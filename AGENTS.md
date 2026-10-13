@@ -15,7 +15,7 @@ instructions. Do not fork them.
 
 Elixir Drop is a public web **game** for learning Clash Royale elixir costs, run by
 the POAP KINGS. A Preact SPA deploys through **CloudFront** from private S3 at
-`drop.poapkings.com`; a **TypeScript Lambda** + one **DynamoDB** table back the
+`drop.poapkings.com`; a **TypeScript Lambda Web Function** + one **DynamoDB** table back the
 player API; **Elixir MCP** is the only sanctioned source of Clash Royale data
 (the fixed-IP CR API bridge was retired 2026-09-06 — see golden rule 2).
 
@@ -76,8 +76,9 @@ Every other doc points back here instead of keeping its own copy of this list.
    integration key `ELIXIR_INTEGRATION_KEY` (legacy `ELIXIR_MCP_KEY` kept for
    rollback), which reaches only the API stack's Lambda functions.
 4. **The public website remains private S3 + CloudFront with hash routing.**
-   Vite uses `base: '/'`; CloudFront routes `/api/*` to API Gateway and all other
-   requests to the private bucket. The deploy build needs no secrets.
+   Vite uses `base: '/'`; CloudFront routes `/api/*`, `/share/*`, `/share-assets/*`, `/updates/*`,
+   and `/feed.xml` to a Node 24 Lambda Web Function through OAC; other requests
+   go to the private bucket. The deploy build needs no secrets.
 5. **Vendor the look; don't link it.** Copy POAP KINGS design tokens, fonts, and
    reused component CSS into `apps/web/src/styles.css` and its assets. No runtime
    asset link to the clan site. (The Elixir mascot emote set that this rule used

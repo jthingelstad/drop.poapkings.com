@@ -14,10 +14,10 @@ import {
 // Public reads share one generous per-IP hourly budget.
 const READ_LIMIT_PER_HOUR = 1200;
 
-export async function chargeRead({ event, config, repository }: RouteContext) {
+export async function chargeRead({ request, repository }: RouteContext) {
   await repository.useRateLimit(
     "reads",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     READ_LIMIT_PER_HOUR,
     60 * 60,
   );
@@ -26,9 +26,9 @@ export async function chargeRead({ event, config, repository }: RouteContext) {
 // GET /leaderboards — the season board by default, best-ever with
 // ?scope=all-time, or the signed-in player's current clan with ?scope=clan.
 export async function getLeaderboards(context: RouteContext) {
-  const { event, repository, config } = context;
+  const { request, repository, config } = context;
   await chargeRead(context);
-  const mode = event.queryStringParameters?.mode;
+  const mode = request.query?.mode;
   if (!isGameMode(mode)) throw new HttpError(400, "Choose a valid game mode.");
   const now = new Date();
   const clock = await currentWarClock(repository, config);
@@ -39,7 +39,7 @@ export async function getLeaderboards(context: RouteContext) {
   const seasons = recentSeasons(now, 12, clock);
   // All-time ranks a player's best-ever score per mode across every season;
   // season (default) keeps the existing per-season board untouched.
-  if (event.queryStringParameters?.scope === "all-time") {
+  if (request.query?.scope === "all-time") {
     const entries = await repository.allTimeLeaderboard(mode);
     return json(200, {
       mode,
@@ -49,8 +49,8 @@ export async function getLeaderboards(context: RouteContext) {
       entries,
     });
   }
-  if (event.queryStringParameters?.scope === "clan") {
-    const session = sessionFor(event, config.sessionSecret, true);
+  if (request.query?.scope === "clan") {
+    const session = sessionFor(request, config.sessionSecret, true);
     const profile = await repository.getProfile(session.sub);
     if (!profile)
       throw new HttpError(404, "Player profile not found.", "not_found");
@@ -98,7 +98,7 @@ export async function getLeaderboards(context: RouteContext) {
       entries,
     });
   }
-  const requestedSeason = event.queryStringParameters?.season;
+  const requestedSeason = request.query?.season;
   let seasonId = currentSeason.id;
   if (requestedSeason) {
     const resolved = seasonNumber(requestedSeason);
@@ -132,13 +132,13 @@ export async function getSeasons(context: RouteContext) {
 
 // GET /activity — the recent-runs rail.
 export async function getActivity(context: RouteContext) {
-  const { event, repository, config } = context;
+  const { request, repository, config } = context;
   await chargeRead(context);
   const currentSeason = seasonForDate(
     new Date(),
     await currentWarClock(repository, config),
   );
-  const rawLimit = Number(event.queryStringParameters?.limit);
+  const rawLimit = Number(request.query?.limit);
   const limit = Number.isFinite(rawLimit)
     ? Math.max(1, Math.min(Math.floor(rawLimit), 25))
     : 8;

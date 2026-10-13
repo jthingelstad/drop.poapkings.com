@@ -99,7 +99,10 @@ async function apiBaseUrl() {
   );
   if (typeof config.apiBaseUrl !== "string" || !config.apiBaseUrl.trim())
     throw new Error("apps/web/public/api-config.json has no API URL");
-  return config.apiBaseUrl.replace(/\/$/, "");
+  return new URL(config.apiBaseUrl, "https://drop.poapkings.com").href.replace(
+    /\/$/,
+    "",
+  );
 }
 
 async function responsePayload(response) {

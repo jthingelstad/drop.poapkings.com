@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { isIP } from "node:net";
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../http.js";
 import { accountTagsFor } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { enqueueRefresh } from "../refresh-jobs.js";
@@ -21,77 +20,46 @@ import type {
   StoredCrWarClock,
 } from "../types.js";
 import { requireObject } from "../validation.js";
-
-// Everything a route handler needs: the raw event, the cold-start config, and
+// Everything a route dispatch needs: the raw request, the cold-start config, and
 // the repository bound to it. Routes take this instead of reaching for module
-// globals so the routing table in handler.ts stays the only wiring.
+// globals so the routing table in app.ts stays the only wiring.
 export interface RouteContext {
-  event: APIGatewayProxyEventV2;
+  request: HttpRequest;
   config: Config;
   repository: Repository;
 }
-
 export const MAGIC_LINK_SECONDS = 15 * 60;
 // A login lasts 28 days. Sessions slide: /auth/refresh re-issues a fresh 28-day
 // token whenever an active player returns, so a stored credential keeps working
 // until it sits unused for 28 days.
 const SESSION_SECONDS = 28 * 24 * 60 * 60;
-
 export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
-
-function header(
-  event: APIGatewayProxyEventV2,
-  name: string,
-): string | undefined {
-  const target = name.toLowerCase();
-  for (const [key, value] of Object.entries(event.headers)) {
-    if (key.toLowerCase() === target) return value?.trim() || undefined;
-  }
-  return undefined;
+// The HTTP server resolves proxy trust once. Domain routes never parse public
+// forwarding headers or share request identity through module state.
+export function clientIp(request: HttpRequest): string {
+  return request.sourceIp;
 }
-
-// API Gateway's sourceIp is authoritative for direct requests. Behind the
-// project's CloudFront distribution it is the edge server, so only a request
-// carrying CloudFront's private origin marker may use the viewer IP overwritten
-// by the distribution's viewer-request function.
-export function clientIp(
-  event: APIGatewayProxyEventV2,
-  webOriginToken?: string,
-): string {
-  if (
-    webOriginToken &&
-    header(event, "x-elixir-drop-origin") === webOriginToken
-  ) {
-    const forwarded = header(event, "x-elixir-drop-viewer-ip");
-    if (forwarded && isIP(forwarded)) return forwarded;
-  }
-  return event.requestContext.http.sourceIp || "unknown";
+export function clientIpHash(request: HttpRequest): string {
+  return sha256(clientIp(request));
 }
-
-// The peppered per-IP identity used by every read/write rate limit.
-export function clientIpHash(
-  event: APIGatewayProxyEventV2,
-  webOriginToken?: string,
-): string {
-  return sha256(clientIp(event, webOriginToken));
-}
-
-export function bodyOf(event: APIGatewayProxyEventV2): Record<string, unknown> {
-  if (!event.body) return {};
+export function bodyOf(request: HttpRequest): Record<string, unknown> {
+  if (!request.body) return {};
   try {
-    return requireObject(JSON.parse(event.body) as unknown);
+    return requireObject(JSON.parse(request.body) as unknown);
   } catch (error) {
     throw badRequest(error);
   }
 }
-
 export function issueSession(
   sub: string,
   secret: string,
   nowSeconds: number,
-): { token: string; expiresAt: string } {
+): {
+  token: string;
+  expiresAt: string;
+} {
   const claims: SessionClaims = {
     type: "session",
     sub,
@@ -100,26 +68,25 @@ export function issueSession(
   };
   return {
     token: signToken(claims, secret),
-    expiresAt: new Date(claims.exp * 1_000).toISOString(),
+    expiresAt: new Date(claims.exp * 1000).toISOString(),
   };
 }
-
 export function sessionFor(
-  event: APIGatewayProxyEventV2,
+  request: HttpRequest,
   secret: string,
   required: true,
 ): SessionClaims;
 export function sessionFor(
-  event: APIGatewayProxyEventV2,
+  request: HttpRequest,
   secret: string,
   required?: false,
 ): SessionClaims | undefined;
 export function sessionFor(
-  event: APIGatewayProxyEventV2,
+  request: HttpRequest,
   secret: string,
   required = false,
 ): SessionClaims | undefined {
-  const token = bearerToken(event.headers.authorization);
+  const token = bearerToken(request.headers.authorization);
   if (!token) {
     if (required)
       throw new HttpError(
@@ -139,7 +106,6 @@ export function sessionFor(
     );
   }
 }
-
 // The owner's view of their Elixir connection: what was offered, what was
 // chosen, and how old the verification fact is. Elixir's account id stays
 // internal.
@@ -155,7 +121,6 @@ export function ownerElixir(link: ElixirLink) {
     ...(link.trackRefused ? { trackRefused: link.trackRefused } : {}),
   };
 }
-
 export function profileResponse(
   profile: {
     sub: string;
@@ -198,7 +163,6 @@ export function profileResponse(
     ...levelForGames(profile.totalGames),
   };
 }
-
 // Map storage run rows onto the RunRecord contract: raw history rows carry
 // table keys, GSI keys, and the email-hash sub, none of which belong on the
 // wire.
@@ -210,7 +174,6 @@ export function ownerRunReviewStatus(
   // undefined rather than defaulting to reviewed the way the boards do.
   return refereeReviewStatus(decision);
 }
-
 const PLAYER_REVIEW_EXPLANATIONS = {
   automated_input:
     "This run was excluded because its answer pattern was consistent with automated input rather than a person choosing each answer.",
@@ -223,7 +186,6 @@ const PLAYER_REVIEW_EXPLANATIONS = {
   combined_evidence:
     "This run was excluded because multiple parts of its timing and answer record were not consistent with human play.",
 } as const;
-
 export function ownerRunReviewExplanation(
   decision: RefereeDecision | undefined,
 ): string | undefined {
@@ -237,7 +199,6 @@ export function ownerRunReviewExplanation(
     ? PLAYER_REVIEW_EXPLANATIONS[decision.playerExplanationCode]
     : "This run was excluded after Fair Play review because it did not meet the requirements for human ranked play.";
 }
-
 export function runRecordResponse(
   run: RunRecord,
   reviewStatus?: RunReviewStatus,
@@ -256,12 +217,10 @@ export function runRecordResponse(
     ...(reviewExplanation ? { reviewExplanation } : {}),
   };
 }
-
 // The bridge used to push this every five minutes forever. Reading it
 // on demand behind the same interval costs a call only when somebody is
 // actually using Drop, and the stored clock is the cache.
-const WAR_CLOCK_TTL_MS = 5 * 60 * 1_000;
-
+const WAR_CLOCK_TTL_MS = 5 * 60 * 1000;
 export async function currentWarClock(
   repository: Repository,
   config?: Config,
@@ -276,11 +235,9 @@ export async function currentWarClock(
     return undefined;
   }
   if (!config?.elixirMcpKey) return stored;
-
   const observedAt = stored?.observedAt ? Date.parse(stored.observedAt) : 0;
   if (Number.isFinite(observedAt) && Date.now() - observedAt < WAR_CLOCK_TTL_MS)
     return stored;
-
   // Reads serve cached/calendar data while a durable, serialized worker refreshes.
   await enqueueRefresh(config, { version: 1, type: "war-clock" });
   return stored;

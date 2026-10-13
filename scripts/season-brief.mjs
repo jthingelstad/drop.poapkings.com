@@ -60,7 +60,10 @@ function defaultApiBaseUrl() {
   if (typeof config.apiBaseUrl !== "string" || !config.apiBaseUrl) {
     throw new Error("api-config.json has no apiBaseUrl");
   }
-  return config.apiBaseUrl;
+  return new URL(config.apiBaseUrl, "https://drop.poapkings.com").href.replace(
+    /\/$/,
+    "",
+  );
 }
 
 function normalizedApiBaseUrl(value) {

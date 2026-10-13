@@ -31,9 +31,8 @@
 // attached to that account whatever email Elixir names (Jamie, 2026-09-12),
 // unless the Elixir account already opens another Drop account or this one
 // already belongs to another Elixir account; those are refused, never moved.
-
 import { randomBytes } from "node:crypto";
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import type { HttpResponse } from "../http.js";
 import { ELIXIR_RETURN_PATH } from "@elixir-drop/contracts";
 import { ElixirOAuthClient, pkcePair, randomState } from "../elixir-oauth.js";
 import type { ElixirFailure, ElixirSelfPlayer } from "../elixir-oauth.js";
@@ -62,21 +61,17 @@ import {
 import { isPublishedRunReference } from "./published-shares.js";
 import { isPublishedBadgeReference } from "./published-badges.js";
 import { isPublishedProfileReference } from "./published-profiles.js";
-
 const LOGIN_SECONDS = 10 * 60;
-
-function redirect(location: string): APIGatewayProxyStructuredResultV2 {
+function redirect(location: string): HttpResponse {
   return {
     statusCode: 303,
     headers: { location, "cache-control": "no-store" },
     body: "",
   };
 }
-
 function callbackUri(appUrl: string): string {
   return `${appUrl}/api/auth/elixir/callback`;
 }
-
 export function elixirClientFor(
   config: RouteContext["config"],
   fetchImpl?: typeof fetch,
@@ -88,7 +83,6 @@ export function elixirClientFor(
     fetch: fetchImpl,
   });
 }
-
 // The owner of the attributed share a signed-out browser arrived through
 // (Recruiter, AGENTS.md "Herald is result reach; Recruiter is account
 // creation"). Resolved when the flow starts, while the browser still holds
@@ -144,12 +138,11 @@ async function recruiterFor(
     )?.sub;
   return undefined;
 }
-
 // POST /auth/elixir/start — mint the state and PKCE pair, remember where to
 // land, whether this is a link, and any Recruiter attribution, and hand the
 // browser the URL to visit.
 export async function startElixirLogin(
-  { event, config, repository }: RouteContext,
+  { request, config, repository }: RouteContext,
   client = elixirClientFor(config),
 ) {
   if (!client.configured)
@@ -158,12 +151,12 @@ export async function startElixirLogin(
       "Sign in with Elixir is not set up on this deployment yet.",
       "elixir_not_configured",
     );
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   const returnTo = normalizeAuthReturnPath(body.returnTo);
-  const session = sessionFor(event, config.sessionSecret);
+  const session = sessionFor(request, config.sessionSecret);
   await repository.useRateLimit(
     "elixir-start-ip",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     30,
     60 * 60,
   );
@@ -173,7 +166,7 @@ export async function startElixirLogin(
       recruiterSub = await recruiterFor(body, repository);
     } catch (error) {
       console.warn("Recruiter attribution lookup failed", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         error: error instanceof Error ? error.name : "unknown",
       });
     }
@@ -181,7 +174,7 @@ export async function startElixirLogin(
   const state = randomState();
   const { verifier, challenge } = pkcePair();
   const pollId = randomBytes(24).toString("base64url");
-  const nowSeconds = Math.floor(Date.now() / 1_000);
+  const nowSeconds = Math.floor(Date.now() / 1000);
   await repository.saveElixirLogin(state, {
     verifier,
     returnTo,
@@ -200,27 +193,21 @@ export async function startElixirLogin(
     mode: session ? "link" : "sign-in",
   });
 }
-
-function failTo(
-  appUrl: string,
-  code: string,
-): APIGatewayProxyStructuredResultV2 {
+function failTo(appUrl: string, code: string): HttpResponse {
   return redirect(`${appUrl}/#/login?elixir=${encodeURIComponent(code)}`);
 }
-
 // GET /auth/elixir/callback — the browser is back from Elixir's consent.
 export async function elixirCallback(
-  { event, config, repository }: RouteContext,
+  { request, config, repository }: RouteContext,
   client = elixirClientFor(config),
 ) {
-  const q = event.queryStringParameters ?? {};
-  const nowSeconds = Math.floor(Date.now() / 1_000);
+  const q = request.query ?? {};
+  const nowSeconds = Math.floor(Date.now() / 1000);
   if (!q.state || !q.code) return failTo(config.appUrl, "missing_code");
   if (q.iss && q.iss.replace(/\/$/, "") !== config.elixirMcpBaseUrl)
     return failTo(config.appUrl, "wrong_issuer");
   const login = await repository.takeElixirLogin(q.state, nowSeconds);
   if (!login) return failTo(config.appUrl, "login_expired");
-
   const exchanged = await client.exchange({
     code: q.code,
     codeVerifier: login.verifier,
@@ -228,14 +215,12 @@ export async function elixirCallback(
   });
   if (!exchanged.ok) return failTo(config.appUrl, exchanged.code);
   const token = exchanged.tokens.accessToken;
-
   // Who, in order: a person with their players (not an agent's grant),
   // then the address.
   let players = await client.selfPlayers(token);
   if (!players.ok) return failTo(config.appUrl, players.code);
   const who = await client.userinfo(token);
   if (!who.ok) return failTo(config.appUrl, who.code);
-
   let email: string;
   try {
     email = normalizeEmail(who.user.email);
@@ -243,7 +228,6 @@ export async function elixirCallback(
     return failTo(config.appUrl, "email_unavailable");
   }
   const accountId = who.user.sub;
-
   // Which Drop account this is (see the header). Pointer first; a pointer
   // whose profile is gone is removed and never followed.
   let target: PlayerProfile | undefined;
@@ -268,7 +252,6 @@ export async function elixirCallback(
   // own address, but this sign-in does not touch its connection.
   const bindable =
     !target?.elixirAccountId || target.elixirAccountId === accountId;
-
   // If Drop already shows a tag that is not on their Elixir account, add it
   // there as an alt so it can be chosen (Jamie, 2026-09-12). A refusal is
   // recorded, never fatal.
@@ -282,12 +265,11 @@ export async function elixirCallback(
     } else {
       trackRefused = dropTag;
       console.warn("Elixir would not track the Drop tag", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         toolCode: "toolCode" in tracked ? tracked.toolCode : undefined,
       });
     }
   }
-
   // The link and the pointer, written now for an existing account; a
   // brand-new account gets both at redemption (the profile does not exist
   // yet), from the pending item the redemption reads back.
@@ -318,7 +300,6 @@ export async function elixirCallback(
     // It lives as long as the credential that will apply it.
     await repository.savePendingElixirLink(sub, link, credentialExpiresAt);
   }
-
   // Hand off to the redemption route with a credential Elixir already
   // proved. Recruiter credit rides only on an account this creates.
   const recruiterSub =
@@ -343,7 +324,6 @@ export async function elixirCallback(
     `${config.appUrl}/#/auth?token=${encodeURIComponent(magicToken)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}&via=elixir`,
   );
 }
-
 // The Elixir connection from what Elixir said. Exported for the tests.
 export function buildLink(input: {
   accountId: string;
@@ -394,17 +374,16 @@ export function buildLink(input: {
     ...(input.trackRefused ? { trackRefused: input.trackRefused } : {}),
   };
 }
-
 // POST /me/elixir/select — choose which of your Elixir players Drop shows.
 // Only a candidate from the last Elixir sign-in can be chosen; the choice
 // becomes Drop's playerTag through the ordinary tag-save path.
 export async function selectElixirPlayer({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   let tag: string | undefined;
   try {
     tag = normalizePlayerTag(body.playerTag);
@@ -467,17 +446,16 @@ export async function selectElixirPlayer({
     ),
   });
 }
-
 // DELETE /me/elixir — clear the connection's display: the tag stays; the
 // mark and the player list go. The account's Elixir identity (the pointer
 // and `elixirAccountId`) stays, because a Drop account is an Elixir account
 // (2026-10-12); the next sign-in with Elixir writes the connection again.
 export async function disconnectElixir({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+  const session = sessionFor(request, config.sessionSecret, true);
   const profile = await repository.clearElixirLink(session.sub);
   const crProfile = profile.playerTag
     ? await repository.getCrProfile(profile.playerTag)
@@ -487,5 +465,4 @@ export async function disconnectElixir({
     player: profileResponse(profile, crProfile, rankedAccess),
   });
 }
-
 export type { ElixirFailure };

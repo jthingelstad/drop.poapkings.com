@@ -31,7 +31,11 @@ pipeline that did not run or finish is a finding, not a routine manual handoff.
 
 **Runtime signals.** Read these through the least-privilege read path:
 
-- Lambda errors, throttles, p95 duration, and cold starts.
+- Web Function HTTP errors and endpoint throttles (`AWS/Lambda/Web` and
+  `AWS/Lambda/Web/Usage`), application latency (`ElixirDrop/HTTP`), CPU, memory,
+  initialization and request-local timings. Central HTTP logs are `/elixir-drop/api`;
+  the immediate regional companion is `/elixir-drop/api.local`.
+- Event Function worker/repair errors, throttles, and duration.
 - DynamoDB throttling, TTL, and capacity.
 - The refresh dead-letter queue.
 - CloudFront health.

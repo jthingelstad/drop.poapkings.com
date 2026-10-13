@@ -1,8 +1,5 @@
 import { withTimings } from "./timings.js";
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyHandlerV2,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "./http.js";
 import { loadConfig } from "./config.js";
 import { HttpError } from "./errors.js";
 import { json } from "./http.js";
@@ -64,7 +61,6 @@ import {
   getUpdatesPage,
   publishUpdate,
 } from "./routes/updates.js";
-
 const PUBLIC_PLAYER_PATH = /^\/players\/([^/]+)$/;
 const RUN_SHARE_PATH = /^\/runs\/([^/]+)\/share$/;
 const SHARE_PATH = /^\/shares\/([^/]+)$/;
@@ -78,23 +74,69 @@ const PUBLISHED_BADGE_IMAGE_PATH =
   /^\/share-assets\/([^/]+)\/badge\/([^/]+)\/([^/]+)$/;
 const PUBLISHED_PROFILE_PATH = /^\/share\/([^/]+)$/;
 const PUBLISHED_PROFILE_IMAGE_PATH = /^\/share-assets\/([^/]+)$/;
-
+const ROUTE_PATHS = [
+  "/health",
+  "/updates",
+  "/updates/archive",
+  "/feed.xml",
+  "/admin/updates",
+  "/auth/poll",
+  "/auth/redeem",
+  "/auth/refresh",
+  "/auth/elixir/start",
+  "/auth/elixir/callback",
+  "/me/elixir/select",
+  "/me/elixir",
+  "/me",
+  "/me/seasons",
+  "/me/xp",
+  "/me/share",
+  "/me/name-options",
+  "/runs/start",
+  "/runs/complete",
+  "/practice/resume",
+  "/practice/checkpoint",
+  "/run-reports",
+  "/shares",
+  "/leaderboards",
+  "/seasons",
+  "/activity",
+  "/stats",
+];
+export function routeTemplate(request: HttpRequest): string {
+  const replacements: [RegExp, string][] = [
+    [RECRUITER_INVITE_PATH, "/share/{player}/invite"],
+    [PUBLISHED_BADGE_PATH, "/share/{player}/badge/{badge}/{rung}"],
+    [PUBLISHED_BADGE_IMAGE_PATH, "/share-assets/{player}/badge/{badge}/{rung}"],
+    [PUBLISHED_SHARE_OPEN_PATH, "/share/{player}/{run}/open"],
+    [PUBLISHED_SHARE_PATH, "/share/{player}/{run}"],
+    [PUBLISHED_SHARE_IMAGE_PATH, "/share-assets/{player}/{run}"],
+    [PUBLISHED_PROFILE_PATH, "/share/{player}"],
+    [PUBLISHED_PROFILE_IMAGE_PATH, "/share-assets/{player}"],
+    [RUN_SHARE_PATH, "/runs/{run}/share"],
+    [BADGE_SHARE_PATH, "/badges/{badge}/share"],
+    [PUBLIC_PLAYER_PATH, "/players/{player}"],
+    [SHARE_PATH, "/shares/{token}"],
+  ];
+  for (const [pattern, template] of replacements)
+    if (pattern.test(request.path)) return `${request.method} ${template}`;
+  const known = new Set(ROUTE_PATHS);
+  return `${request.method} ${known.has(request.path) ? request.path : "not-found"}`;
+}
 // The routing table. Every branch is one line: the handling lives in
 // ./routes/*, one module per group of related endpoints.
-async function route(event: APIGatewayProxyEventV2) {
-  const method = event.requestContext.http.method;
-  const path = event.rawPath;
+async function route(request: HttpRequest) {
+  const method = request.method;
+  const path = request.path;
   if (method === "OPTIONS") return { statusCode: 204 };
   if (method === "GET" && path === "/health")
     return json(200, { ok: true, service: "elixir-drop-api" });
-
   const config = loadConfig();
   const context: RouteContext = {
-    event,
+    request,
     config,
     repository: new Repository(config.tableName),
   };
-
   if (method === "GET" && path === "/updates") return getUpdates(context);
   if ((method === "GET" || method === "HEAD") && path === "/updates/archive")
     return getUpdatesPage(context, method === "HEAD");
@@ -102,7 +144,6 @@ async function route(event: APIGatewayProxyEventV2) {
     return getUpdatesFeed(context, method === "HEAD");
   if (method === "POST" && path === "/admin/updates")
     return publishUpdate(context);
-
   // Drop signs in only with Elixir since 2026-10-12: POST /auth/request (the
   // emailed code and link) is gone and answers 404 like any unknown route.
   if (method === "POST" && path === "/auth/poll") return pollSession(context);
@@ -118,7 +159,6 @@ async function route(event: APIGatewayProxyEventV2) {
     return selectElixirPlayer(context);
   if (method === "DELETE" && path === "/me/elixir")
     return disconnectElixir(context);
-
   if (method === "GET" && path === "/me") return getMe(context);
   if (method === "GET" && path === "/me/seasons") return getMySeasons(context);
   if (method === "GET" && path === "/me/xp") return getMyXp(context);
@@ -134,7 +174,6 @@ async function route(event: APIGatewayProxyEventV2) {
     return createNameOptions(context);
   if (method === "DELETE" && path === "/me") return deleteMe(context);
   if (method === "PATCH" && path === "/me") return patchMe(context);
-
   if (method === "POST" && path === "/runs/start") return startRun(context);
   if (method === "POST" && path === "/runs/complete")
     return completeRun(context);
@@ -244,20 +283,17 @@ async function route(event: APIGatewayProxyEventV2) {
       publishedShareOpenMatch[1] ?? "",
       publishedShareOpenMatch[2] ?? "",
     );
-
   if (method === "GET" && path === "/leaderboards")
     return getLeaderboards(context);
   if (method === "GET" && path === "/seasons") return getSeasons(context);
   if (method === "GET" && path === "/activity") return getActivity(context);
   if (method === "GET" && path === "/stats") return getStats(context);
-
   throw new HttpError(404, "Route not found.", "not_found");
 }
-
-export const handler: APIGatewayProxyHandlerV2 = async (event) =>
-  withTimings(event.requestContext.routeKey, async () => {
+export const dispatch = async (request: HttpRequest): Promise<HttpResponse> =>
+  withTimings(routeTemplate(request), async () => {
     try {
-      return await route(event);
+      return await route(request);
     } catch (error) {
       const safeError =
         error instanceof HttpError
@@ -268,9 +304,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) =>
               "internal_error",
             );
       const logContext = {
-        requestId: event.requestContext.requestId,
-        method: event.requestContext.http.method,
-        routeKey: event.requestContext.routeKey,
+        requestId: request.requestId,
+        method: request.method,
+        routeKey: routeTemplate(request),
         statusCode: safeError.statusCode,
         code: safeError.code,
         error: error instanceof Error ? error.name : "unknown",
@@ -286,5 +322,3 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) =>
       });
     }
   });
-
-export { crResultHandler } from "./cr-results.js";

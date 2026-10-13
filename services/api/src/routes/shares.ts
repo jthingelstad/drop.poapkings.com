@@ -29,16 +29,16 @@ const OPEN_LIMIT_PER_HOUR = 600;
 // POST /shares — legacy invitations carry Recruiter attribution, but never
 // Herald credit. Herald remains specifically about reach from shared results.
 export async function createInviteShare(context: RouteContext) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
   await repository.useRateLimit(
     "share-mint",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     MINT_LIMIT_PER_HOUR,
     60 * 60,
   );
 
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   const destination = body.destination;
   if (destination !== "home" && destination !== "player")
     throw new HttpError(400, "A valid share destination is required.");
@@ -73,12 +73,12 @@ export async function createInviteShare(context: RouteContext) {
 
 // GET /shares/{token} — what a shared link opens.
 export async function getShare(context: RouteContext, token: string) {
-  const { event, config, repository } = context;
+  const { request, config, repository } = context;
   if (!isShareToken(token))
     throw new HttpError(404, "That link is not valid.", "not_found");
   await repository.useRateLimit(
     "share-open",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     OPEN_LIMIT_PER_HOUR,
     60 * 60,
   );
@@ -104,7 +104,7 @@ export async function getShare(context: RouteContext, token: string) {
 
   // Drop opens from the sharer's own device. A player refreshing their own link
   // is not reach, and a badge that pays for it is a badge that pays for nothing.
-  const viewer = sessionFor(event, config.sessionSecret);
+  const viewer = sessionFor(request, config.sessionSecret);
   const isOwner = viewer?.sub === share.owner;
   if (!isOwner) {
     // Peppered, one-way, and scoped to this token — the same rule the referee
@@ -112,8 +112,8 @@ export async function getShare(context: RouteContext, token: string) {
     // opened. Best-effort: the link opens whether or not the count lands.
     const visitorHash = hmac(
       config.telemetryPepper,
-      `share:${token}:${clientIp(event, config.webOriginToken)}:${
-        event.headers["user-agent"] ?? "unknown"
+      `share:${token}:${clientIp(request)}:${
+        request.headers["user-agent"] ?? "unknown"
       }`,
     );
     try {

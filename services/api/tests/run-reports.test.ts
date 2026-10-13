@@ -1,18 +1,12 @@
 import { runReference } from "@elixir-drop/contracts";
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   upsertRunReport: vi.fn(),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getRun = repository.getRun;
@@ -20,20 +14,21 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
-
+const nowSeconds = Math.floor(Date.now() / 1000);
 function sessionToken(sub = "player-sub"): string {
   return signToken(
-    { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3_600 },
+    { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3600 },
     secret,
   );
 }
-
-function runToken(options: { guest?: boolean; owner?: string } = {}): string {
+function runToken(
+  options: {
+    guest?: boolean;
+    owner?: string;
+  } = {},
+): string {
   const owner = options.owner ?? (options.guest ? "guest" : "player-sub");
   return signToken(
     {
@@ -43,48 +38,27 @@ function runToken(options: { guest?: boolean; owner?: string } = {}): string {
       mode: "surge",
       ...(options.guest ? { guest: true } : {}),
       iat: nowSeconds - 300,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
 }
-
 function event(
   body: Record<string, unknown>,
   authorization?: string,
-): APIGatewayProxyEventV2 {
+): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/run-reports",
-    rawQueryString: "",
+    path: "/run-reports",
     headers: {
       "content-type": "application/json",
       ...(authorization ? { authorization: `Bearer ${authorization}` } : {}),
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path: "/run-reports",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "21/Aug/2026:20:00:00 -0500",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify(body),
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+  } as HttpRequest;
 }
-
 function reportBody(overrides: Record<string, unknown> = {}) {
   return {
     runId: "run-report-1",
@@ -99,18 +73,12 @@ function reportBody(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
 async function invoke(
   body: Record<string, unknown>,
   authorization?: string,
-): Promise<APIGatewayProxyStructuredResultV2> {
-  return (await handler(
-    event(body, authorization),
-    {} as Context,
-    vi.fn(),
-  )) as APIGatewayProxyStructuredResultV2;
+): Promise<HttpResponse> {
+  return (await dispatch(event(body, authorization))) as HttpResponse;
 }
-
 describe("run failure reports", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,7 +95,7 @@ describe("run failure reports", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: [] },
       state: "started",
-      startedAt: new Date((nowSeconds - 300) * 1_000).toISOString(),
+      startedAt: new Date((nowSeconds - 300) * 1000).toISOString(),
       expiresAt: nowSeconds - 1,
     });
     repository.upsertRunReport.mockImplementation((input) =>
@@ -138,14 +106,12 @@ describe("run failure reports", () => {
       }),
     );
   });
-
   it("stores a run-bound, identity-free report and optional player context", async () => {
     const response = await invoke(
       reportBody({ context: "The final answer button stopped responding." }),
       sessionToken(),
     );
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(202);
     expect(body).toEqual({
       accepted: true,
@@ -173,23 +139,19 @@ describe("run failure reports", () => {
     expect(JSON.stringify(stored)).not.toContain("127.0.0.1");
     expect(JSON.stringify(stored)).not.toContain("vitest");
   });
-
   it("uses the signed-in owner when the failed run token is invalid", async () => {
     const response = await invoke(
       reportBody({ runToken: "invalid-token" }),
       sessionToken(),
     );
-
     expect(response.statusCode).toBe(202);
     expect(repository.upsertRunReport).toHaveBeenCalledOnce();
   });
-
   it("accepts a valid guest run token even after its run row is gone", async () => {
     repository.getRun.mockResolvedValue(undefined);
     const response = await invoke(
       reportBody({ runToken: runToken({ guest: true }) }),
     );
-
     expect(response.statusCode).toBe(202);
     expect(repository.upsertRunReport).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,25 +161,20 @@ describe("run failure reports", () => {
       }),
     );
   });
-
   it("rejects an arbitrary run id without a valid run token or owner session", async () => {
     repository.getRun.mockResolvedValue(undefined);
     const response = await invoke(reportBody({ runToken: "invalid-token" }));
-
     expect(response.statusCode).toBe(403);
     expect(repository.upsertRunReport).not.toHaveBeenCalled();
   });
-
   it("rejects overlong player context", async () => {
     const response = await invoke(
-      reportBody({ context: "x".repeat(1_001) }),
+      reportBody({ context: "x".repeat(1001) }),
       sessionToken(),
     );
-
     expect(response.statusCode).toBe(400);
     expect(repository.upsertRunReport).not.toHaveBeenCalled();
   });
-
   it.each([
     ["network_unavailable", 0],
     ["service_unavailable", 503],
@@ -230,7 +187,6 @@ describe("run failure reports", () => {
         }),
         sessionToken(),
       );
-
       expect(response.statusCode).toBe(202);
       expect(repository.upsertRunReport).toHaveBeenCalledWith(
         expect.objectContaining({ failureCode: code, failureStatus: status }),

@@ -1,71 +1,41 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
-
 const deleteAccount = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
 const deletePlayerShareImages = vi.hoisted(() => vi.fn());
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     deleteAccount = deleteAccount;
     getProfile = getProfile;
   },
 }));
-
 vi.mock("../src/share-assets.js", () => ({ deletePlayerShareImages }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-
-function event(confirmation: string): APIGatewayProxyEventV2 {
-  const nowSeconds = Math.floor(Date.now() / 1_000);
+function event(confirmation: string): HttpRequest {
+  const nowSeconds = Math.floor(Date.now() / 1000);
   const session = signToken(
     {
       type: "session",
       sub: "player-sub",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/me",
-    rawQueryString: "",
+    path: "/me",
     headers: {
       authorization: `Bearer ${session}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "DELETE",
-        path: "/me",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:00:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "DELETE",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify({ confirmation }),
-    isBase64Encoded: false,
   };
 }
-
 describe("account deletion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -86,18 +56,11 @@ describe("account deletion", () => {
     });
     deletePlayerShareImages.mockResolvedValue(undefined);
   });
-
   it("requires an exact destructive-action confirmation", async () => {
-    const response = (await handler(
-      event("delete"),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    const response = (await dispatch(event("delete"))) as HttpResponse;
     expect(response.statusCode).toBe(400);
     expect(deleteAccount).not.toHaveBeenCalled();
   });
-
   it("deletes the authenticated player and returns no replacement session", async () => {
     deleteAccount.mockResolvedValue({ deletedGames: 42 });
     // The mailing list is Elixir's (2026-10-12): deleting a Drop profile makes
@@ -105,13 +68,7 @@ describe("account deletion", () => {
     const fetcher = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("no outside call expected"));
-
-    const response = (await handler(
-      event("DELETE"),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    const response = (await dispatch(event("DELETE"))) as HttpResponse;
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body || "{}")).toEqual({ ok: true });
     expect(deleteAccount).toHaveBeenCalledWith("player-sub");
@@ -122,23 +79,15 @@ describe("account deletion", () => {
     expect(fetcher).not.toHaveBeenCalled();
     fetcher.mockRestore();
   });
-
   it("stops a deleted account's session from renewing", async () => {
     getProfile.mockResolvedValue(undefined);
-
     const refresh = event("DELETE");
-    refresh.rawPath = "/auth/refresh";
-    refresh.requestContext.http.method = "POST";
-    refresh.requestContext.http.path = "/auth/refresh";
+    refresh.path = "/auth/refresh";
+    refresh.method = "POST";
+    refresh.path = "/auth/refresh";
     refresh.body = "{}";
-
-    const response = (await handler(
-      refresh,
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const response = (await dispatch(refresh)) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(401);
     expect(body.error.code).toBe("invalid_session");
   });

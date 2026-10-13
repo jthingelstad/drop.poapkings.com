@@ -1,7 +1,6 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   creditRecruiter: vi.fn(),
   getProfile: vi.fn(),
@@ -15,7 +14,6 @@ const repository = vi.hoisted(() => ({
   leaderboard: vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
   rankedAccess: vi.fn(async () => "allowed" as const),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     creditRecruiter = repository.creditRecruiter;
@@ -31,50 +29,24 @@ vi.mock("../src/repository.js", () => ({
     rankedAccess = repository.rankedAccess;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
+const nowSeconds = Math.floor(Date.now() / 1000);
 const sub = "player-sub";
-
-function meEvent(
-  path = "/me",
-  queryStringParameters?: Record<string, string>,
-): APIGatewayProxyEventV2 {
+function meEvent(path = "/me", query?: Record<string, string>): HttpRequest {
   const session = signToken(
-    { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3_600 },
+    { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3600 },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: new URLSearchParams(queryStringParameters ?? {}).toString(),
-    ...(queryStringParameters ? { queryStringParameters } : {}),
+    path,
+    ...(query ? { query } : {}),
     headers: { authorization: `Bearer ${session}` },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "GET",
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-me",
-      routeKey: "$default",
-      stage: "$default",
-      time: "20/Jul/2026:01:00:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+    method: "GET",
+    sourceIp: "127.0.0.1",
+    requestId: "request-me",
+  } as HttpRequest;
 }
-
 describe("GET /me recent runs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,7 +70,6 @@ describe("GET /me recent runs", () => {
       updatedAt: "2026-07-19T12:00:00.000Z",
     });
   });
-
   it("reconciles an attributed account created under the former first-game rule", async () => {
     repository.getProfile.mockResolvedValue({
       sub,
@@ -110,9 +81,7 @@ describe("GET /me recent runs", () => {
       updatedAt: "2026-08-21T12:00:00.000Z",
     });
     repository.listRecentRuns.mockResolvedValue([]);
-
-    const result = await handler(meEvent(), {} as never, () => {});
-
+    const result = await dispatch(meEvent());
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(200);
     expect(repository.creditRecruiter).toHaveBeenCalledWith(
@@ -120,21 +89,20 @@ describe("GET /me recent runs", () => {
       expect.any(String),
     );
   });
-
   it("drops retired-mode runs so the response never carries a mode the client rejects", async () => {
     // A real player's history can still contain the deleted "vaulted" modes.
     repository.listRecentRuns.mockResolvedValue([
       {
         runId: "r1",
         mode: "surge",
-        score: 15_000,
+        score: 15000,
         seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
       {
         runId: "r2",
         mode: "identify",
-        score: 20_000,
+        score: 20000,
         seasonId: 134,
         completedAt: "2026-07-19T17:00:00.000Z",
       },
@@ -153,8 +121,7 @@ describe("GET /me recent runs", () => {
         completedAt: "2026-07-19T15:00:00.000Z",
       },
     ]);
-
-    const result = await handler(meEvent(), {} as never, () => {});
+    const result = await dispatch(meEvent());
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body ?? "{}");
@@ -163,27 +130,26 @@ describe("GET /me recent runs", () => {
       "survival",
     ]);
   });
-
   it("shows review state only to the run owner", async () => {
     repository.listRecentRuns.mockResolvedValue([
       {
         runId: "pending-run",
         mode: "surge",
-        score: 9_000,
+        score: 9000,
         seasonId: 135,
         completedAt: "2026-08-12T17:00:00.000Z",
       },
       {
         runId: "reviewed-run",
         mode: "trade",
-        score: 50_000,
+        score: 50000,
         seasonId: 135,
         completedAt: "2026-08-12T16:00:00.000Z",
       },
       {
         runId: "reopened-run",
         mode: "surge",
-        score: 10_230,
+        score: 10230,
         seasonId: 135,
         completedAt: "2026-08-12T15:30:00.000Z",
       },
@@ -240,11 +206,9 @@ describe("GET /me recent runs", () => {
         ],
       ]),
     );
-
-    const result = await handler(meEvent(), {} as never, () => {});
+    const result = await dispatch(meEvent());
     if (!result || typeof result === "string") throw new Error("no result");
     const body = JSON.parse(result.body ?? "{}");
-
     expect(body.recentRuns).toMatchObject([
       { runId: "pending-run", reviewStatus: "pending" },
       { runId: "reviewed-run", reviewStatus: "reviewed" },
@@ -259,7 +223,6 @@ describe("GET /me recent runs", () => {
     expect(JSON.stringify(body.recentRuns)).not.toContain("private");
   });
 });
-
 describe("GET /me/xp", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -278,13 +241,12 @@ describe("GET /me/xp", () => {
       updatedAt: "2026-08-23T12:00:00.000Z",
     });
   });
-
   it("returns owner-only UTC day buckets and an explicit opening balance", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "run-1",
         mode: "surge",
-        score: 12_000,
+        score: 12000,
         seasonId: 135,
         completedAt: "2026-08-23T12:00:00.000Z",
         xp: 20,
@@ -308,10 +270,8 @@ describe("GET /me/xp", () => {
         },
       },
     ]);
-
-    const result = await handler(meEvent("/me/xp"), {} as never, () => {});
+    const result = await dispatch(meEvent("/me/xp"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(200);
     expect(repository.listRunHistory).toHaveBeenCalledWith(sub);
     expect(repository.listXpAwardMarkers).toHaveBeenCalledWith(sub);
@@ -334,7 +294,6 @@ describe("GET /me/xp", () => {
     });
   });
 });
-
 describe("GET /me/seasons", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -344,20 +303,19 @@ describe("GET /me/seasons", () => {
     process.env.APP_URL = "https://drop.example";
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
   });
-
   it("indexes every season but ships only the most recent one by default", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "new-1",
         mode: "trade",
-        score: 91_000,
+        score: 91000,
         seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
-        score: 22_000,
+        score: 22000,
         seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
@@ -376,10 +334,8 @@ describe("GET /me/seasons", () => {
         completedAt: "2025-10-01T00:00:00.000Z",
       },
     ]);
-
-    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    const result = await dispatch(meEvent("/me/seasons"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(200);
     expect(repository.listRunHistory).toHaveBeenCalledWith(sub);
     const body = JSON.parse(result.body ?? "{}");
@@ -397,7 +353,6 @@ describe("GET /me/seasons", () => {
       },
     ]);
   });
-
   it("numbers each indexed season the way players read it", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
@@ -422,7 +377,7 @@ describe("GET /me/seasons", () => {
         completedAt: "2026-05-20T18:00:00.000Z",
       },
     ]);
-    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    const result = await dispatch(meEvent("/me/seasons"));
     if (!result || typeof result === "string") throw new Error("no result");
     // Season IDs are already the Clash numbers players recognize.
     expect(JSON.parse(result.body ?? "{}").index).toEqual([
@@ -431,7 +386,6 @@ describe("GET /me/seasons", () => {
       { id: 131, games: 1 },
     ]);
   });
-
   it("keeps the season number when no clock is available", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
@@ -443,27 +397,25 @@ describe("GET /me/seasons", () => {
       },
     ]);
     repository.getCrWarClock.mockResolvedValue(undefined);
-
-    const result = await handler(meEvent("/me/seasons"), {} as never, () => {});
+    const result = await dispatch(meEvent("/me/seasons"));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(JSON.parse(result.body ?? "{}").index).toEqual([
       { id: 135, games: 1 },
     ]);
   });
-
   it("places only the run holding the player's board position, on request", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "best",
         mode: "surge",
-        score: 12_000,
+        score: 12000,
         seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "worse",
         mode: "surge",
-        score: 19_000,
+        score: 19000,
         seasonId: 135,
         completedAt: "2026-08-01T18:00:00.000Z",
       },
@@ -475,12 +427,7 @@ describe("GET /me/seasons", () => {
         player: { id: "player-1" },
       },
     ]);
-
-    const result = await handler(
-      meEvent("/me/seasons", { placements: "1" }),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(meEvent("/me/seasons", { placements: "1" }));
     if (!result || typeof result === "string") throw new Error("no result");
     const runs = JSON.parse(result.body ?? "{}").seasons[0].runs;
     expect(runs).toEqual([
@@ -489,54 +436,42 @@ describe("GET /me/seasons", () => {
     ]);
     expect(runs[1].placement).toBeUndefined();
   });
-
   it("keeps the history readable when a board read fails", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "best",
         mode: "surge",
-        score: 12_000,
+        score: 12000,
         seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
     ]);
     repository.leaderboard.mockRejectedValue(new Error("board unavailable"));
-
-    const result = await handler(
-      meEvent("/me/seasons", { placements: "1" }),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(meEvent("/me/seasons", { placements: "1" }));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(200);
     expect(
       JSON.parse(result.body ?? "{}").seasons[0].runs[0].placement,
     ).toBeUndefined();
   });
-
   it("ships every season only when the caller asks for all of them", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "new-1",
         mode: "trade",
-        score: 91_000,
+        score: 91000,
         seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
-        score: 22_000,
+        score: 22000,
         seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
     ]);
-
-    const result = await handler(
-      meEvent("/me/seasons", { season: "all" }),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(meEvent("/me/seasons", { season: "all" }));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(
       JSON.parse(result.body ?? "{}").seasons.map(
@@ -544,20 +479,19 @@ describe("GET /me/seasons", () => {
       ),
     ).toEqual([135, 134]);
   });
-
   it("narrows the history by season and mode", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "new-1",
         mode: "trade",
-        score: 91_000,
+        score: 91000,
         seasonId: 135,
         completedAt: "2026-08-02T18:00:00.000Z",
       },
       {
         runId: "old-1",
         mode: "surge",
-        score: 22_000,
+        score: 22000,
         seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
@@ -569,14 +503,10 @@ describe("GET /me/seasons", () => {
         completedAt: "2026-07-19T18:00:00.000Z",
       },
     ]);
-
-    const result = await handler(
+    const result = await dispatch(
       meEvent("/me/seasons", { season: "134", mode: "surge" }),
-      {} as never,
-      () => {},
     );
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(200);
     const narrowed = JSON.parse(result.body ?? "{}");
     expect(narrowed.index).toEqual([
@@ -591,20 +521,19 @@ describe("GET /me/seasons", () => {
       },
     ]);
   });
-
   it("narrows by review status, counting an untouched run as reviewed", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "held",
         mode: "surge",
-        score: 20_000,
+        score: 20000,
         seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
       },
       {
         runId: "untouched",
         mode: "surge",
-        score: 22_000,
+        score: 22000,
         seasonId: 134,
         completedAt: "2026-07-19T18:00:00.000Z",
       },
@@ -621,31 +550,20 @@ describe("GET /me/seasons", () => {
         ],
       ]) as never,
     );
-
-    const held = await handler(
-      meEvent("/me/seasons", { status: "pending" }),
-      {} as never,
-      () => {},
-    );
+    const held = await dispatch(meEvent("/me/seasons", { status: "pending" }));
     if (!held || typeof held === "string") throw new Error("no result");
     expect(JSON.parse(held.body ?? "{}").seasons[0].runs).toEqual([
       expect.objectContaining({ runId: "held", reviewStatus: "pending" }),
     ]);
-
     // A run no referee touched is NOT cleared — it has no status at all, and
     // only the dedicated `unreviewed` filter matches it.
-    const cleared = await handler(
+    const cleared = await dispatch(
       meEvent("/me/seasons", { status: "reviewed" }),
-      {} as never,
-      () => {},
     );
     if (!cleared || typeof cleared === "string") throw new Error("no result");
     expect(JSON.parse(cleared.body ?? "{}").seasons).toEqual([]);
-
-    const unreviewed = await handler(
+    const unreviewed = await dispatch(
       meEvent("/me/seasons", { status: "unreviewed" }),
-      {} as never,
-      () => {},
     );
     if (!unreviewed || typeof unreviewed === "string")
       throw new Error("no result");
@@ -655,7 +573,6 @@ describe("GET /me/seasons", () => {
     ]);
     expect(unreviewedRuns[0].reviewStatus).toBeUndefined();
   });
-
   it("rejects an invalid season, mode, or status", async () => {
     repository.listRunHistory.mockResolvedValue([]);
     const queries: Array<Record<string, string>> = [
@@ -665,11 +582,7 @@ describe("GET /me/seasons", () => {
       { season: "2026-13-nope" },
     ];
     for (const query of queries) {
-      const result = await handler(
-        meEvent("/me/seasons", query),
-        {} as never,
-        () => {},
-      );
+      const result = await dispatch(meEvent("/me/seasons", query));
       if (!result || typeof result === "string") throw new Error("no result");
       expect(result.statusCode).toBe(400);
     }

@@ -1,12 +1,7 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
-
 // Practice completions end to end: endless and unranked, with one XP per two
 // validated cards. The repository owns the odd-card carry between sessions.
 const repository = vi.hoisted(() => ({
@@ -25,7 +20,6 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     clearPracticeCheckpoint = repository.clearPracticeCheckpoint;
@@ -44,13 +38,17 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
-const allCards = (rawCards as { cards: Array<{ id: number; elixir: number }> })
-  .cards;
+const nowSeconds = Math.floor(Date.now() / 1000);
+const allCards = (
+  rawCards as {
+    cards: Array<{
+      id: number;
+      elixir: number;
+    }>;
+  }
+).cards;
 // The signed Practice deck is the whole shuffled catalog (a pool, not a round).
 const deck = allCards.map((card) => card.id);
 const profile = {
@@ -63,52 +61,31 @@ const profile = {
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-24T12:00:00.000Z",
 };
-
 function completionEvent(
   runToken: string,
   answers: Array<Record<string, unknown>>,
-): APIGatewayProxyEventV2 {
+): HttpRequest {
   const session = signToken(
     {
       type: "session",
       sub: profile.sub,
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/runs/complete",
-    rawQueryString: "",
+    path: "/runs/complete",
     headers: {
       authorization: `Bearer ${session}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path: "/runs/complete",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "24/Jul/2026:12:05:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify({ runToken, transcript: { answers } }),
-    isBase64Encoded: false,
   };
 }
-
 function practiceRunToken(): string {
   return signToken(
     {
@@ -117,12 +94,11 @@ function practiceRunToken(): string {
       owner: profile.sub,
       mode: "practice",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 1_800,
+      exp: nowSeconds + 1800,
     },
     secret,
   );
 }
-
 async function completePractice(
   answers: Array<{
     cardId: number;
@@ -139,8 +115,8 @@ async function completePractice(
     mode: "practice",
     challenge: { mode: "practice", cardIds: deck },
     state: "started",
-    startedAt: new Date(Date.now() - 60_000).toISOString(),
-    expiresAt: nowSeconds + 1_800,
+    startedAt: new Date(Date.now() - 60000).toISOString(),
+    expiresAt: nowSeconds + 1800,
     ranked: false,
   });
   repository.completeRun.mockResolvedValue({
@@ -153,14 +129,11 @@ async function completePractice(
     },
     xpAward: Math.floor(answers.length / 2),
   });
-  const response = (await handler(
+  const response = (await dispatch(
     completionEvent(practiceRunToken(), answers),
-    {} as Context,
-    vi.fn(),
-  )) as APIGatewayProxyStructuredResultV2;
+  )) as HttpResponse;
   return { response, body: JSON.parse(response.body || "{}") };
 }
-
 describe("Practice completion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -180,14 +153,12 @@ describe("Practice completion", () => {
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
-
   it("earns one Player XP per two resolved cards", async () => {
     const answers = Array.from({ length: 40 }, (_, index) => {
       const card = allCards[index % allCards.length]!;
       return { cardId: card.id, guess: card.elixir };
     });
     const { response } = await completePractice(answers);
-
     expect(response.statusCode).toBe(201);
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-practice" }),
@@ -206,7 +177,6 @@ describe("Practice completion", () => {
       xpAwards: [{ source: "practice", label: "Practice cards", amount: 20 }],
     });
   });
-
   it("accepts a transcript of any length, in any order, and still records the run", async () => {
     const first = allCards[0]!;
     const later = allCards[70]!;
@@ -215,7 +185,6 @@ describe("Practice completion", () => {
       { cardId: first.id, guess: first.elixir === 1 ? 2 : 1 },
       { cardId: later.id, guess: later.elixir },
     ]);
-
     expect(response.statusCode).toBe(201);
     // Accuracy is a session stat, not a score. Three cards pay one XP and the
     // repository carries the odd card forward.
@@ -229,7 +198,6 @@ describe("Practice completion", () => {
     // learning stats.
     expect(repository.saveCardStats).toHaveBeenCalled();
   });
-
   it("stores recall speed separately from assisted recognition", async () => {
     const recalled = allCards[0]!;
     const assisted = allCards[1]!;
@@ -243,11 +211,10 @@ describe("Practice completion", () => {
       {
         cardId: assisted.id,
         guess: assisted.elixir,
-        responseMs: 8_000,
+        responseMs: 8000,
         assisted: true,
       },
     ]);
-
     expect(response.statusCode).toBe(201);
     const saved = repository.saveCardStats.mock.calls.at(-1)?.[1];
     expect(saved[String(recalled.id)]).toMatchObject({
@@ -264,26 +231,22 @@ describe("Practice completion", () => {
     });
     expect(saved[String(assisted.id)].avgMs).toBeUndefined();
   });
-
   it("accumulates Reps across sessions and returns the current ladder", async () => {
     const answers = (count: number) =>
       Array.from({ length: count }, (_, index) => {
         const card = allCards[index % allCards.length]!;
         return { cardId: card.id, guess: card.elixir };
       });
-
     const first = await completePractice(answers(40));
     const second = await completePractice(answers(75));
     const reps = (result: typeof first) =>
       result.body.badges.badges.find(
         (badge: { slug: string }) => badge.slug === "reps",
       );
-
     expect(reps(first)).toMatchObject({ value: 40, rungIndex: -1 });
     expect(reps(second)).toMatchObject({ value: 115, rungIndex: 0 });
     expect(repository.saveBadges).toHaveBeenCalledTimes(2);
   });
-
   it("requires exact first-read accuracy for Clean Sweep, not a rounded 100% score", async () => {
     const answers = Array.from({ length: 200 }, (_, index) => {
       const card = allCards[index % allCards.length]!;
@@ -301,24 +264,19 @@ describe("Practice completion", () => {
       result.body.badges.badges.find(
         (badge: { slug: string }) => badge.slug === "clean-sweep",
       );
-
     // 199 / 200 rounds to 100 for the session display, but it is not perfect.
     expect(rounded.body.score).toBe(100);
     expect(cleanSweep(rounded)).toMatchObject({ rungIndex: -1 });
-
     const perfect = await completePractice(answers.slice(0, 20));
     expect(cleanSweep(perfect)).toMatchObject({ value: 1, rungIndex: 0 });
   });
-
   it("never writes a leaderboard best or referee evidence", async () => {
     const card = allCards[3]!;
     await completePractice([{ cardId: card.id, guess: card.elixir }]);
-
     // Both are gated on `ranked !== false`, which Practice never is.
     expect(repository.updateAllTimeBest).not.toHaveBeenCalled();
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
   });
-
   it("rejects an answer for a card outside the signed deck", async () => {
     const outsider = allCards[5]!;
     repository.getRun.mockResolvedValue({
@@ -333,30 +291,24 @@ describe("Practice completion", () => {
         cardIds: deck.filter((id) => id !== outsider.id).slice(0, 20),
       },
       state: "started",
-      startedAt: new Date(Date.now() - 60_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 60000).toISOString(),
+      expiresAt: nowSeconds + 1800,
       ranked: false,
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       completionEvent(practiceRunToken(), [
         { cardId: outsider.id, guess: outsider.elixir },
       ]),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(400);
     expect(repository.completeRun).not.toHaveBeenCalled();
   });
-
   it("rejects invalid response timing and assistance metadata", async () => {
     const card = allCards[0]!;
     const badTime = await completePractice([
-      { cardId: card.id, guess: card.elixir, responseMs: 60_001 },
+      { cardId: card.id, guess: card.elixir, responseMs: 60001 },
     ]);
     expect(badTime.response.statusCode).toBe(400);
-
     const badAssistance = await completePractice([
       {
         cardId: card.id,

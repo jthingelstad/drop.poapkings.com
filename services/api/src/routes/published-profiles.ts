@@ -1,4 +1,4 @@
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import type { HttpResponse } from "../http.js";
 import {
   BADGE_BY_SLUG,
   BADGE_LIST,
@@ -23,29 +23,23 @@ import {
   type RouteContext,
 } from "./context.js";
 import { badgeSummary } from "./me.js";
-
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
-
 export function isPublishedProfileReference(
   playerId: unknown,
 ): playerId is string {
   return typeof playerId === "string" && UUID_PATTERN.test(playerId);
 }
-
 function publicPlayerTag(share: PublishedProfileShareItem): string {
   return share.playerTag ?? playerReference(share.playerId).slice(1);
 }
-
 function shareUrl(appUrl: string, share: PublishedProfileShareItem): string {
   return `${appUrl}/share/${publicPlayerTag(share)}`;
 }
-
 function imageUrl(appUrl: string, share: PublishedProfileShareItem): string {
   return `${appUrl}/share-assets/${publicPlayerTag(share)}`;
 }
-
 function previewOf(share: PublishedProfileShareItem) {
   return {
     playerName: share.player.publicName,
@@ -58,7 +52,6 @@ function previewOf(share: PublishedProfileShareItem) {
     badges: share.badges,
   };
 }
-
 function publishedResponse(share: PublishedProfileShareItem, appUrl: string) {
   return {
     playerId: share.playerId,
@@ -66,13 +59,11 @@ function publishedResponse(share: PublishedProfileShareItem, appUrl: string) {
     preview: previewOf(share),
   };
 }
-
 export function profileShareImageAlt(share: PublishedProfileShareItem): string {
   const badgeNames = share.badges.map((badge) => badge.name).join(", ");
   const highlights = badgeNames ? ` Highlights include ${badgeNames}.` : "";
   return `Elixir Drop profile for ${share.player.publicName}: Arena ${share.arena}, ${share.player.xp.toLocaleString("en-US")} Player XP, and ${share.badgeCount} earned ${share.badgeCount === 1 ? "badge" : "badges"}.${highlights}`;
 }
-
 async function publishedProfile(
   context: RouteContext,
   playerTag: string,
@@ -94,7 +85,6 @@ async function publishedProfile(
     );
   return share;
 }
-
 export function renderPublishedProfilePage(
   share: PublishedProfileShareItem,
   appUrl: string,
@@ -118,9 +108,11 @@ export function renderPublishedProfilePage(
     bodyData: { "share-player-id": share.playerId },
   });
 }
-
 function profileBadgeHighlights(
-  states: Array<{ slug: string; rungIndex: number }>,
+  states: Array<{
+    slug: string;
+    rungIndex: number;
+  }>,
 ): PublishedProfileShareItem["badges"] {
   const tierRank = {
     prismatic: 0,
@@ -152,13 +144,12 @@ function profileBadgeHighlights(
     .slice(0, 3)
     .map(({ order: _order, ...badge }) => badge);
 }
-
 export async function createPublishedProfileShare(context: RouteContext) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
   await repository.useRateLimit(
     "share-mint",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
@@ -201,10 +192,9 @@ export async function createPublishedProfileShare(context: RouteContext) {
   await repository.putPublishedProfileShare(item);
   return json(200, publishedResponse(item, config.appUrl));
 }
-
 export async function uploadPublishedProfileImage(context: RouteContext) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
   const profile = await repository.getProfile(session.sub);
   if (!profile || !config.shareAssetBucket)
     throw new HttpError(
@@ -221,11 +211,11 @@ export async function uploadPublishedProfileImage(context: RouteContext) {
     );
   await repository.useRateLimit(
     "share-image",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   await putProfileShareImage(
     config.shareAssetBucket,
     share.playerId,
@@ -233,7 +223,6 @@ export async function uploadPublishedProfileImage(context: RouteContext) {
   );
   return json(200, { ok: true });
 }
-
 export async function getPublishedProfilePage(
   context: RouteContext,
   playerTag: string,
@@ -245,12 +234,11 @@ export async function getPublishedProfilePage(
     head,
   );
 }
-
 export async function getPublishedProfileImage(
   context: RouteContext,
   playerTag: string,
   head = false,
-): Promise<APIGatewayProxyStructuredResultV2> {
+): Promise<HttpResponse> {
   const share = await publishedProfile(context, playerTag);
   const bucket = context.config.shareAssetBucket;
   if (!bucket)
@@ -280,7 +268,6 @@ export async function getPublishedProfileImage(
       "x-content-type-options": "nosniff",
       "x-robots-tag": "noindex, nofollow",
     },
-    body: head ? "" : image.toString("base64"),
-    isBase64Encoded: !head,
+    bytes: head ? undefined : image,
   };
 }

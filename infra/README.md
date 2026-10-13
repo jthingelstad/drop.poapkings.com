@@ -6,16 +6,17 @@ as one CloudFormation stack:
 - a private S3 web bucket behind a CloudFront origin access control;
 - a retained private S3 bucket for permanent run, badge, and profile preview PNGs;
 - one CloudFront distribution that serves static assets and sends `/api/*`,
-  `/share/*`, and `/share-assets/*` to the existing HTTP API, plus a small
+  `/share/*`, `/share-assets/*`, `/updates/*`, and `/feed.xml` to the Lambda Web Function, plus a small
   request function for classification, viewer-IP forwarding, prefix, and
   directory-index rewriting;
 - an ACM certificate supplied from `us-east-1`;
 
-- arm64 Node.js 24 Lambda with reserved concurrency caps;
-- API Gateway HTTP API with default-route throttling and Drop plus the standard
-  Vite dev and preview localhost CORS origins — the localhost origins are
-  intentional (local development runs against the deployed API with
-  bearer-token auth) and the deploy smoke test asserts them;
+- one Arm64 Node 24 Lambda Web Function, with three environments, eight requests
+  per environment, a 20-second timeout, and the minimum supported 100 RPS guard;
+- an IAM-authenticated endpoint accessible only through CloudFront OAC
+  (`always-amz-auth`), preserving bearer authorization through a zero-default-TTL cache
+  policy. The edge overwrites viewer IPs; the origin resource policy explicitly
+  denies requests from outside the distribution. The HTTP server owns CORS;
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
   seasonal leaderboard index;
 - an encrypted FIFO refresh queue with a dead-letter queue and worker Lambda,
@@ -64,24 +65,14 @@ season-repair consumer errors, and season-repair dead letters. The API, refresh
 worker, and repair consumer write JSON logs to dedicated 30-day log groups.
 Operational alarms target `drop@poapkings.com` by default.
 
-The HTTP API also writes privacy-conscious JSON access logs to the 30-day
-`/elixir-drop/api-access` log group. Each record includes the request ID, route
-template, response and integration status, response and integration latency,
-and response size; it deliberately omits IP addresses, user agents, query
-strings, concrete paths, and authorization data. The gateway declares each
-application endpoint with a parameterized route template (plus a `$default`
-404 fallback), so the access logs and detailed metrics remain route-aware
-without recording player IDs. The `elixir-drop-operations` CloudWatch dashboard
-puts alarm state, aggregate and per-route request volume and p95 latency, Lambda
-health and concurrency, and DynamoDB capacity and failures in one view. The
-route charts discover the detailed API Gateway metrics dynamically, so newly
-declared routes appear without another dashboard edit. Alarms cover API p95/p99
-latency, 80% of the API Lambda's reserved concurrency, DynamoDB throttle events,
-and DynamoDB service errors.
-
-The Lambda's JSON rejection and failure records use the same bounded API Gateway
-route key rather than the concrete request path, so application diagnostics do
-not retain player/share identifiers or arbitrary path input either.
+HTTP logging uses the managed `/elixir-drop/api` and `/elixir-drop/api.local`
+groups with 30-day retention. App timings include a bounded route template and
+API build identity, never viewer IPs, raw paths, identities, tokens, or OAuth
+queries. The dashboard retains CloudFront and DynamoDB panels and shows Web
+Function requests/errors, CPU, active time, memory and concurrency; route counts
+and p95 are queried from application logs. A log metric filter provides existing
+p95/p99 latency alarms through `ElixirDrop/HTTP`; native Web metrics drive HTTP
+error and capacity alarms. Workers retain their Event Function alarms.
 
 CloudFront standard logging v2 writes JSON access records to the 14-day
 `/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
@@ -148,9 +139,7 @@ assumes the `elixir-drop-github-deploy` role with GitHub's OIDC token
 `bootstrap.mjs`) and carries the `elixir-drop-deployment` grant. The
 `elixir-drop` user and its `.env` key remain for the Control Room's referee
 role only. Region, CloudFormation role, code bucket, and stack name are
-repository variables. The non-secret ACM ARN is another variable. The private
-CloudFront origin marker is a repository secret and Lambda-only configuration.
-Session-signing and other application secrets stay in
+repository variables. The non-secret ACM ARN is another variable. Session-signing and other application secrets stay in
 CloudFormation: CI updates use the existing `NoEcho` parameter values rather than
 copying those application secrets into GitHub. (If a
 `ELIXIR_DROP_FASTMAIL_JMAP_TOKEN`, `ELIXIR_DROP_BUTTONDOWN_API_KEY` or
@@ -183,8 +172,11 @@ response and cache policy.
 
 ## Background refresh
 
-The API deployment ZIP contains both `handler.cjs` and `refresh-worker.cjs`; the
-content key covers both bundles. The stack provisions a separate refresh FIFO
+The HTTP deployment ZIP contains bundled `index.js` and its package metadata.
+A separate content-addressed event ZIP contains `refresh-worker.cjs`,
+`cr-results.cjs`, and the CloudFormation origin-policy provider. The provider
+owns policy create/update/delete because the native policy resource schema does
+not yet admit Web Function ARNs; it has no application secrets or data access. The stack provisions a separate refresh FIFO
 queue, DLQ, worker role and Lambda. API requests may send work; only the worker
 consumes it. The worker has table access plus MCP credentials, with no
 sign-in, mail, Bedrock, S3 publication or referee-correlation credentials.
@@ -198,3 +190,23 @@ Inspect `/elixir-drop/refresh` for safe errors and `api.timings` operation data;
 replay failed refresh work only after correcting its cause. Public requests retain
 cached responses during worker outages. Queue enqueue failure is logged and the
 next ordinary request retries it.
+
+## HTTP deployment and removal of the old transport
+
+CloudFormation owns the function, immutable revision, weighted endpoint, OAC,
+origin policy, logging, and code-bucket read policy. The endpoint references the
+revision explicitly; a deployment replaces the revision, moves routing, then
+removes the old revision. Configuration changes are revision changes. Identical
+artifacts/config remain a no-op. Worker and HTTP artifacts are separate.
+
+`ApiUrl` is the canonical CloudFront `/api` URL, `ApiOriginDomain` is the private
+origin, and `ApiRevisionId` identifies the served revision. Local dev config and
+operator tools use the canonical URL. Production smoke checks CORS, bearer
+refusals, origin denial, and public reads; successful guest runs are tested in
+fixtures or isolated resources, never synthesized on production.
+
+The HTTP API Gateway, routes, integration, stage, invoke permission, former
+HTTP Event Function and access-log group are removed. There is no origin marker
+parameter or CI secret dependency and no Gateway event adapter in the source.
+Rollback is a reviewed revert through the normal validated deployment path;
+stateful table and share data are retained.
