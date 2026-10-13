@@ -271,7 +271,7 @@ export default function Profile() {
   }
 
   // ── Identity setup: three steps (card → name → tag) ──────────────────────
-  // A fresh player runs the whole flow on the magic link; Edit opens step 2 and
+  // A fresh player runs the whole flow on first sign-in; Edit opens step 2 and
   // Account opens step 3, reusing the same screens. Nothing here ever blocks a
   // run — setup fires on arrival, not when a game starts.
   if (editingIdentity.value) {

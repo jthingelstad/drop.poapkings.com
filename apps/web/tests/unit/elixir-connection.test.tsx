@@ -7,8 +7,7 @@ import ElixirConnection from '../../src/components/ElixirConnection'
 
 const accountMock = vi.hoisted(() => ({
   beginElixirLogin: vi.fn(async () => undefined),
-  chooseElixirPlayer: vi.fn(async () => undefined),
-  disconnectElixirAccount: vi.fn(async () => undefined)
+  chooseElixirPlayer: vi.fn(async () => undefined)
 }))
 
 vi.mock('../../src/lib/account', () => accountMock)
@@ -50,7 +49,6 @@ beforeEach(() => {
   document.body.append(host)
   accountMock.beginElixirLogin.mockClear()
   accountMock.chooseElixirPlayer.mockClear()
-  accountMock.disconnectElixirAccount.mockClear()
 })
 
 afterEach(() => {
@@ -59,11 +57,12 @@ afterEach(() => {
 })
 
 describe('ElixirConnection', () => {
-  it('offers Connect when nothing is linked, and starts the flow toward Account', async () => {
+  it('offers a check with Elixir before any player is read, and starts the flow toward Account', async () => {
     draw(<ElixirConnection player={base} />)
-    expect(host.textContent).toContain('Not connected')
+    expect(host.textContent).toContain('No player chosen yet')
+    expect(host.textContent).toContain('Your Drop account is your Elixir account')
     const button = host.querySelector('button')!
-    expect(button.textContent).toContain('Connect Elixir')
+    expect(button.textContent).toContain('Check with Elixir')
     await click(button)
     expect(accountMock.beginElixirLogin).toHaveBeenCalledWith('/profile?scope=account')
   })
@@ -118,7 +117,7 @@ describe('ElixirConnection', () => {
     expect(accountMock.chooseElixirPlayer).toHaveBeenCalledWith('#VJQV8G8RL')
   })
 
-  it('an unverified choice points at Elixir → Verify; a refused track is explained; Disconnect disconnects', async () => {
+  it('an unverified choice points at Elixir → Verify; a refused track is explained; there is no disconnect', async () => {
     draw(
       <ElixirConnection
         player={{
@@ -139,9 +138,7 @@ describe('ElixirConnection', () => {
     expect(host.textContent).toContain('#2PP')
     const current = host.querySelector<HTMLButtonElement>('.ed-elixir__candidate--current')!
     expect(current.disabled).toBe(true)
-    const disconnect = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Disconnect')!
-    await click(disconnect)
-    expect(accountMock.disconnectElixirAccount).toHaveBeenCalled()
+    expect([...host.querySelectorAll('button')].some((b) => /disconnect/i.test(b.textContent ?? ''))).toBe(false)
   })
 
   it('surfaces a failure from the account layer', async () => {

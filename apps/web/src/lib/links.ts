@@ -1,8 +1,6 @@
-// Player contact and transactional delivery deliberately use different
-// mailboxes. drop@ is monitored for questions and Fair Play review requests;
-// elixir@ is the recognizable sender for one-time sign-in links.
+// drop@ is monitored for questions, privacy requests and Fair Play review
+// requests. Drop sends no sign-in mail: a Drop account is an Elixir account.
 export const ELIXIR_DROP_CONTACT_EMAIL = 'drop@poapkings.com'
-export const ELIXIR_DROP_MAGIC_LINK_FROM_EMAIL = 'elixir@poapkings.com'
 
 export function contactEmailHref(subject?: string): string {
   const query = subject ? `?subject=${encodeURIComponent(subject)}` : ''

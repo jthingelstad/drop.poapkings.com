@@ -1,6 +1,6 @@
 import { useSignal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
-import { beginElixirLogin, chooseElixirPlayer, disconnectElixirAccount } from '../lib/account'
+import { beginElixirLogin, chooseElixirPlayer } from '../lib/account'
 import { ELIXIR_RETURN_PATH } from '@elixir-drop/contracts'
 import Icon from './Icon'
 
@@ -9,9 +9,11 @@ function when(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-// The Elixir block on Account: not connected → connect; connected → which of
-// your Elixir players Drop shows, whether Elixir has verified it, and the
-// picker when there is more than one to choose from. Verification is
+// The Elixir block on Account. A Drop account is an Elixir account, so there
+// is no disconnect: before the first sign-in that reads the person's players
+// (an account from the email-sign-in days), it offers that check; after it,
+// which of your Elixir players Drop shows, whether Elixir has verified it, and
+// the picker when there is more than one to choose from. Verification is
 // Elixir's fact, re-read only when you sign in with Elixir again.
 export default function ElixirConnection({ player }: { player: Player }) {
   const busy = useSignal(false)
@@ -35,13 +37,14 @@ export default function ElixirConnection({ player }: { player: Player }) {
     return (
       <div class="ed-account__block ed-elixir">
         <div class="ed-account__label">Elixir</div>
-        <div class="ed-account__line">Not connected</div>
+        <div class="ed-account__line">No player chosen yet</div>
         <div class="ed-account__line ed-account__muted">
-          Connect your{' '}
+          Your Drop account is your{' '}
           <a class="text-link" href="https://elixir.poapkings.com/" rel="noreferrer">
             Elixir
           </a>{' '}
-          account to choose which of your players Drop shows. A player Elixir has verified gets the checkmark here too.
+          account. Check with Elixir to choose which of your players Drop shows. A player Elixir has verified gets the
+          checkmark here too.
         </div>
         <div class="ed-account__actions">
           <button
@@ -49,7 +52,7 @@ export default function ElixirConnection({ player }: { player: Player }) {
             disabled={busy.value}
             onClick={() => void run(() => beginElixirLogin(ELIXIR_RETURN_PATH))}
           >
-            {busy.value ? 'Opening Elixir…' : 'Connect Elixir'}
+            {busy.value ? 'Opening Elixir…' : 'Check with Elixir'}
           </button>
         </div>
         {error.value && (
@@ -141,9 +144,6 @@ export default function ElixirConnection({ player }: { player: Player }) {
           onClick={() => void run(() => beginElixirLogin(ELIXIR_RETURN_PATH))}
         >
           Re-check with Elixir
-        </button>
-        <button class="ed-danger__open" disabled={busy.value} onClick={() => void run(disconnectElixirAccount)}>
-          Disconnect
         </button>
       </div>
       {error.value && (

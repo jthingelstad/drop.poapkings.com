@@ -174,13 +174,6 @@ export const runChallengeSchema = z.discriminatedUnion('mode', [
   })
 ])
 
-export const loginRequestResponseSchema = z.object({
-  ok: z.literal(true),
-  message: nonEmptyString,
-  // Secret poll id for the cross-context login handoff (PWA polls for its
-  // session after the emailed link is redeemed in another browser).
-  pollId: z.optional(nonEmptyString)
-})
 export const sessionResponseSchema = z.object({ session: sessionSchema })
 export const elixirStartResponseSchema = z.object({
   url: z.string().url(),

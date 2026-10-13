@@ -1,7 +1,8 @@
 // Last-touch recruitment attribution from a valid shared link. The browser
 // stores either a legacy invitation token or a deterministic public share
-// reference. It expires after 30 days and is consumed when a login email is
-// successfully requested; the API decides whether the email is truly new.
+// reference. It expires after 30 days and is consumed when a signed-out Sign
+// in with Elixir starts; the API credits it only to an account that sign-in
+// creates.
 
 const RECRUITER_KEY = 'elixirdrop:recruiter:v1'
 const RECRUITER_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1_000

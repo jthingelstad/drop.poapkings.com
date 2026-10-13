@@ -163,7 +163,7 @@ const ABOUT_BODY = pageSections([
   section(
     'Help shape Drop',
     paragraph(
-      `Share feedback and strategies in the <a href="/discord/">Elixir Drop Discord</a>. For private questions, privacy requests, or help with a result, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Sign-in codes and magic links come from elixir@poapkings.com.`
+      `Share feedback and strategies in the <a href="/discord/">Elixir Drop Discord</a>. For private questions, privacy requests, or help with a result, email <a href="mailto:${CONTACT}">${CONTACT}</a>. Drop sends no sign-in mail: you sign in with Elixir.`
     )
   ),
   section(
@@ -178,11 +178,11 @@ const ABOUT_BODY = pageSections([
 const FAQ_ITEMS = [
   [
     'Do I need an account?',
-    'No. You can play every mode as a guest. Signing in with your email saves scores, levels, badge progress, and leaderboard placement across devices.'
+    'No. You can play every mode as a guest. A Drop account is an Elixir account: signing in with Elixir saves scores, levels, badge progress, and leaderboard placement across devices.'
   ],
   [
     'How does sign-in work?',
-    'There is no password. Enter your email and Drop sends a six-digit sign-in code with a magic-link fallback from elixir@poapkings.com.'
+    'Choose Sign in with Elixir. Elixir, the POAP KINGS Clash Royale hub at elixir.poapkings.com, confirms who you are and sends you back signed in. Your Elixir account is your Drop account. There is no Drop password, and Drop never gets access to your Clash Royale account.'
   ],
   [
     'Are the elixir costs official?',
@@ -265,8 +265,8 @@ ${pageSections([
   section(
     'Your account',
     `${paragraph(
-      'Your email address is used for one-time magic-link sign-in and occasional player updates. It is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
-    )}${paragraph('Magic-link messages come from elixir@poapkings.com.')}`
+      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address to recognize your account and for occasional player updates, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
+    )}`
   ),
   section(
     'Your email address',
@@ -282,7 +282,7 @@ ${pageSections([
   ),
   section(
     'Services Drop uses',
-    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Fastmail sends sign-in emails.</li><li>Buttondown sends occasional player updates and manages unsubscribes and delivery suppression.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Supercell&rsquo;s Clash Royale API supplies public data for an optional player tag.</li></ul>'
+    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop.</li><li>Buttondown sends occasional player updates and manages unsubscribes and delivery suppression.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Supercell&rsquo;s Clash Royale API supplies public data for an optional player tag.</li></ul>'
   ),
   section(
     'Fair Play',
@@ -301,19 +301,19 @@ ${pageSections([
     )}${paragraph(
       'A shared run shows your public Drop name, favorite card, arena, mode, score, completion date, and a bounded chart derived from the validated game record. Drop counts only the landing page&rsquo;s browser callback toward Herald—not link-preview HTML or image requests. The callback is deduplicated through a one-way, salted request fingerprint; Drop does not store the raw IP address or full browser user-agent, your own device is not counted, and credit per run stops at a fixed cap. Home and badge invitations do not count toward Herald.'
     )}${paragraph(
-      'Opening a valid shared run or invitation stores either its public player-and-run IDs or its six-character invitation token in that browser for up to 30 days. If that attribution leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, and the attribution is consumed when the login email is requested.'
+      'Opening a valid shared run or invitation stores either its public player-and-run IDs or its six-character invitation token in that browser for up to 30 days. If that attribution leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, and the attribution is consumed when you start signing in with Elixir.'
     )}`
   ),
   section(
     'Retention and deletion',
     `${paragraph(
-      'Magic links and signed run challenges expire quickly. Practice recovery chunks expire with their 24-hour signed run. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
+      'Sign-in handoffs and signed run challenges expire quickly. Practice recovery chunks expire with their 24-hour signed run. Application logs are retained for 30 days. Your active profile and scores remain until you delete the account from your player profile.'
     )}${paragraph(
-      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, and any links you shared from the active database, and removes the matching Buttondown player-update subscription. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
+      'Account deletion removes your email, Drop identity, saved tag association, game history, leaderboard entries, published share snapshots and images, any links you shared, and the link from your Elixir account from the active database, and removes the matching Buttondown player-update subscription. Your Elixir account is Elixir&rsquo;s and is not deleted with it. Anonymous aggregate Trophy Road totals remain. Encrypted recovery backups and private operator event history may take longer to age out.'
     )}`
   ),
   section('Questions', paragraph(`Email <a href="mailto:${CONTACT}?subject=Elixir%20Drop%20question">${CONTACT}</a>.`))
-])}<p class="static-updated">Last updated August 25, 2026.</p>`
+])}<p class="static-updated">Last updated October 12, 2026.</p>`
 
 const INSTALL_BODY = `<p class="static-intro">Set up Elixir Drop for a cleaner, full-screen experience, one-tap launching, and offline play when your connection is unavailable.</p>
 ${pageSections([

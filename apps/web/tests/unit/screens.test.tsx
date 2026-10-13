@@ -9,7 +9,6 @@ vi.mock('../../src/lib/api', async (importActual) => {
   const actual = await importActual<typeof import('../../src/lib/api')>()
   return {
     ...actual,
-    requestLogin: vi.fn(),
     pollLogin: vi.fn(),
     getLeaderboard: vi.fn(),
     getXpTimeline: vi.fn(),
@@ -23,7 +22,7 @@ vi.mock('../../src/lib/account', async (importActual) => {
     ...actual,
     applyPolledSession: vi.fn(),
     redeemAccount: vi.fn(),
-    redeemCodeAccount: vi.fn()
+    beginElixirLogin: vi.fn()
   }
 })
 
@@ -48,18 +47,12 @@ vi.mock('../../src/components/ScreensaverScene', () => ({
   createElixirRain: vi.fn(async () => ({ destroy: vi.fn() }))
 }))
 
-import {
-  requestLogin,
-  pollLogin,
-  getLeaderboard,
-  getXpTimeline,
-  getPublicPlayer,
-  type LeaderboardScope
-} from '../../src/lib/api'
+import { pollLogin, getLeaderboard, getXpTimeline, getPublicPlayer, type LeaderboardScope } from '../../src/lib/api'
 import {
   applyPolledSession,
   redeemAccount,
-  redeemCodeAccount,
+  beginElixirLogin,
+  ELIXIR_LOGIN_KEY,
   player,
   accountStatus,
   recentRuns
@@ -108,13 +101,6 @@ async function click(el: Element): Promise<void> {
   })
 }
 
-async function typeInto(input: HTMLInputElement, value: string): Promise<void> {
-  input.value = value
-  await act(async () => {
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-  })
-}
-
 function buttonWithText(host: HTMLElement, selector: string, text: string): HTMLButtonElement {
   const match = [...host.querySelectorAll<HTMLButtonElement>(selector)].find((b) =>
     (b.textContent ?? '').includes(text)
@@ -153,136 +139,65 @@ afterEach(() => {
 describe('Login', () => {
   const laterExpiry = () => new Date(Date.now() + 3_600_000).toISOString()
 
-  it('sends the login code and link, then exposes an autofill-ready code field', async () => {
+  it('offers one way in, Sign in with Elixir, and no email form', async () => {
     route.value = '/login?returnTo=%2Fsurge'
-    vi.mocked(requestLogin).mockResolvedValue({ message: 'Check your email for the link.', pollId: 'poll-1' } as never)
+    vi.mocked(beginElixirLogin).mockResolvedValue(undefined)
 
     const host = await mount(<Login />)
-    const input = host.querySelector<HTMLInputElement>('#login-email')!
-    await typeInto(input, '  Player@Example.com  ')
+    expect(host.querySelector('input')).toBeNull()
+    expect(host.querySelector('form')).toBeNull()
+    expect(host.textContent).toContain('A Drop account is an Elixir account')
+    expect(host.textContent).toContain('without an account, as a guest')
+    const button = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Sign in with Elixir')!
     await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      button.click()
     })
     await flush()
 
-    // Trimmed email + the returnTo captured from the route were forwarded.
-    expect(requestLogin).toHaveBeenCalledWith('Player@Example.com', '/surge', undefined)
-    expect(host.textContent).toContain('Check your email for the link.')
-    expect(host.textContent).toContain('Keep this page open')
-    // The email field is replaced by a numeric one-time-code field so Mail and
-    // the OS can offer the code without the player switching contexts again.
-    expect(host.querySelector('#login-email')).toBeNull()
-    const codeInput = host.querySelector<HTMLInputElement>('#login-code')!
-    expect(codeInput.autocomplete).toBe('one-time-code')
-    expect(codeInput.inputMode).toBe('numeric')
-    expect(codeInput.pattern).toBe('[0-9]{6}')
-    expect(codeInput.maxLength).toBe(6)
-    expect(document.activeElement).toBe(codeInput)
+    expect(beginElixirLogin).toHaveBeenCalledWith('/surge')
   })
 
-  it('redeems the retained email and six-digit code, then returns to the requested game', async () => {
-    route.value = '/login?returnTo=%2Fsurge'
-    vi.mocked(requestLogin).mockResolvedValue({ message: 'Code sent.' } as never)
-    vi.mocked(redeemCodeAccount).mockResolvedValue({
-      id: 'p1',
-      publicName: 'Knight Main',
-      favoriteCardId: 26000000
-    } as never)
+  it('shows why a start failed and lets the person try again', async () => {
+    route.value = '/login'
+    vi.mocked(beginElixirLogin).mockRejectedValue(new Error('Elixir did not answer.'))
 
     const host = await mount(<Login />)
-    await typeInto(host.querySelector<HTMLInputElement>('#login-email')!, 'player@example.com')
+    const button = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Sign in with Elixir')!
     await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      button.click()
     })
     await flush()
 
-    const codeInput = host.querySelector<HTMLInputElement>('#login-code')!
-    await typeInto(codeInput, '04 2761')
-    expect(codeInput.value).toBe('042761')
-    await act(async () => {
-      codeInput.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    await flush()
-
-    expect(redeemCodeAccount).toHaveBeenCalledWith('player@example.com', '042761')
-    expect(navigate).toHaveBeenCalledWith('/surge')
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('Elixir did not answer.')
+    expect(button.disabled).toBe(false)
   })
 
-  it('polls after sending and applies the session + navigates when ready', async () => {
+  it('names the reason Elixir sent the person back', async () => {
+    route.value = '/login?elixir=elixir_account_in_use'
+    const host = await mount(<Login />)
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('already signs in to a different Drop account')
+  })
+
+  it('picks up a sign-in finished in another browsing context and lands where it was going', async () => {
     vi.useFakeTimers()
-    route.value = '/login?returnTo=%2Fsurge'
+    route.value = '/login'
     const session = { token: 'sess-1', expiresAt: laterExpiry() }
-    vi.mocked(requestLogin).mockResolvedValue({ message: 'Sent.', pollId: 'poll-9' } as never)
+    sessionStorage.setItem(
+      ELIXIR_LOGIN_KEY,
+      JSON.stringify({ pollId: 'poll-9', returnTo: '/surge', mode: 'sign-in', startedAt: Date.now() })
+    )
     vi.mocked(pollLogin).mockResolvedValue({ ready: true, session } as never)
 
     const host = await mount(<Login />)
-    const input = host.querySelector<HTMLInputElement>('#login-email')!
-    await typeInto(input, 'me@example.com')
+    expect(host.textContent).toContain('Waiting for Elixir')
     await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    await flush()
-    expect(pollLogin).not.toHaveBeenCalled()
-
-    // The poll effect scheduled a 2.5s tick; run it.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_600)
+      await vi.advanceTimersByTimeAsync(1_600)
     })
 
     expect(pollLogin).toHaveBeenCalledWith('poll-9', expect.any(AbortSignal))
     expect(applyPolledSession).toHaveBeenCalledWith(session)
     expect(navigate).toHaveBeenCalledWith('/surge')
-  })
-
-  it('sends and polls with the approved player-tag editor return path', async () => {
-    vi.useFakeTimers()
-    route.value = '/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag'
-    const session = { token: 'sess-tag', expiresAt: laterExpiry() }
-    vi.mocked(requestLogin).mockResolvedValue({ message: 'Sent.', pollId: 'poll-tag' } as never)
-    vi.mocked(pollLogin).mockResolvedValue({ ready: true, session } as never)
-
-    const host = await mount(<Login />)
-    await typeInto(host.querySelector<HTMLInputElement>('#login-email')!, 'me@example.com')
-    await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    await flush()
-
-    expect(requestLogin).toHaveBeenCalledWith('me@example.com', '/profile?edit=player-tag', undefined)
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_600)
-    })
-    expect(navigate).toHaveBeenCalledWith('/profile?edit=player-tag')
-  })
-
-  it('surfaces the error branch when the request rejects', async () => {
-    route.value = '/login'
-    vi.mocked(requestLogin).mockRejectedValue(new Error('The mailer is down.'))
-
-    const host = await mount(<Login />)
-    await typeInto(host.querySelector<HTMLInputElement>('#login-email')!, 'me@example.com')
-    await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    await flush()
-
-    const alert = host.querySelector('[role="alert"]')
-    expect(alert?.textContent).toContain('The mailer is down.')
-    // Still on the form (not the "sent" state).
-    expect(host.querySelector('form.account-form')).not.toBeNull()
-  })
-
-  it('rejects an invalid email locally without calling the API', async () => {
-    route.value = '/login'
-    const host = await mount(<Login />)
-    await typeInto(host.querySelector<HTMLInputElement>('#login-email')!, 'not-an-email')
-    await act(async () => {
-      host.querySelector('form.account-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    await flush()
-
-    expect(requestLogin).not.toHaveBeenCalled()
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain('Enter a valid email address.')
+    expect(sessionStorage.getItem(ELIXIR_LOGIN_KEY)).toBeNull()
   })
 })
 

@@ -758,14 +758,6 @@ export const test = base.extend({
         })
         return
       }
-      if (path === '/auth/request') {
-        await route.fulfill({
-          status: 202,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, message: 'Check your email for a private login link.' })
-        })
-        return
-      }
       if (path === '/me') {
         await route.fulfill({
           status: 200,
