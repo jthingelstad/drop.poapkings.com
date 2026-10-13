@@ -1,17 +1,11 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   getRun: vi.fn(),
   getProfile: vi.fn(),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getRun = repository.getRun;
@@ -19,54 +13,31 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
-
-function event(runToken: string): APIGatewayProxyEventV2 {
+const nowSeconds = Math.floor(Date.now() / 1000);
+function event(runToken: string): HttpRequest {
   const session = signToken(
     {
       type: "session",
       sub: "player-sub",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/runs/complete",
-    rawQueryString: "",
+    path: "/runs/complete",
     headers: {
       authorization: `Bearer ${session}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path: "/runs/complete",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:05:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify({ runToken, transcript: {} }),
-    isBase64Encoded: false,
   };
 }
-
 describe("idempotent run completion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,7 +48,6 @@ describe("idempotent run completion", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.useRateLimit.mockResolvedValue(undefined);
   });
-
   it("returns the stored result when a recorded run is retried", async () => {
     const runToken = signToken(
       {
@@ -86,7 +56,7 @@ describe("idempotent run completion", () => {
         owner: "player-sub",
         mode: "surge",
         iat: nowSeconds - 120,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -99,9 +69,9 @@ describe("idempotent run completion", () => {
       challenge: { mode: "surge", cardIds: [] },
       state: "completed",
       startedAt: "2026-07-18T12:00:00.000Z",
-      expiresAt: nowSeconds + 1_800,
+      expiresAt: nowSeconds + 1800,
       completedAt: "2026-07-18T12:01:00.000Z",
-      score: 12_345,
+      score: 12345,
       seasonId: 134,
     });
     repository.getProfile.mockResolvedValue({
@@ -114,20 +84,14 @@ describe("idempotent run completion", () => {
       createdAt: "2026-07-01T00:00:00.000Z",
       updatedAt: "2026-07-18T12:01:00.000Z",
     });
-
-    const response = (await handler(
-      event(runToken),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const response = (await dispatch(event(runToken))) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(200);
     expect(body).toMatchObject({
       accepted: true,
       runId: "run-1",
       mode: "surge",
-      score: 12_345,
+      score: 12345,
       completedAt: "2026-07-18T12:01:00.000Z",
       totalGames: 8,
       season: { id: 134 },

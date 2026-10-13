@@ -87,14 +87,14 @@ function clientFrom(value: unknown): {
 // optional player context; retryable network/5xx reports remain operational
 // diagnostics and do not change the run's completion/retry behavior.
 export async function reportRunFailure({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   await repository.useRateLimit(
     "run-report",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     120,
     60 * 60,
   );
@@ -113,7 +113,7 @@ export async function reportRunFailure({
           );
     const claims = optionalRunClaims(body.runToken, config.sessionSecret);
     const run = await repository.getRun(runId);
-    const session = sessionFor(event, config.sessionSecret, false);
+    const session = sessionFor(request, config.sessionSecret, false);
 
     if (claims) {
       if (claims.runId !== runId)

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 5173)
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid Playwright port')
+const baseURL = `http://127.0.0.1:${port}`
+
 const deploymentGate = process.env.PLAYWRIGHT_DEPLOY_GATE === '1'
 const deploymentSmoke = deploymentGate ? { grep: /@deploy/ } : {}
 
@@ -19,14 +23,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   forbidOnly: !!process.env.CI,
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure'
   },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI
+    command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
+    url: baseURL,
+    reuseExistingServer: false
   },
   // Only the projects a script actually runs live here: `npm test` uses
   // chromium + iphone-14, `npm run verify` adds firefox + webkit. The former

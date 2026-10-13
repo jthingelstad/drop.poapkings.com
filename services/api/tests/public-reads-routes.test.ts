@@ -1,6 +1,5 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../src/http.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   getCrWarClock: vi.fn(),
@@ -9,7 +8,6 @@ const repository = vi.hoisted(() => ({
   leaderboard: vi.fn(),
   allTimeLeaderboard: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/repository.js")>();
   return {
@@ -24,55 +22,26 @@ vi.mock("../src/repository.js", async (importOriginal) => {
     },
   };
 });
-
 import { HttpError } from "../src/errors.js";
-import { handler } from "../src/handler.js";
-
-function request(
-  method: string,
-  path: string,
-  query = "",
-): APIGatewayProxyEventV2 {
+import { dispatch } from "../src/app.js";
+function request(method: string, path: string, query = ""): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: query,
+    path,
     headers: {},
-    queryStringParameters: query
-      ? Object.fromEntries(new URLSearchParams(query))
-      : undefined,
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method,
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-public",
-      routeKey: "$default",
-      stage: "$default",
-      time: "19/Jul/2026:01:00:00 +0000",
-      timeEpoch: Date.now(),
-    },
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+    query: query ? Object.fromEntries(new URLSearchParams(query)) : undefined,
+    method,
+    sourceIp: "127.0.0.1",
+    requestId: "request-public",
+  } as HttpRequest;
 }
-
-async function call(event: APIGatewayProxyEventV2) {
-  const result = await handler(event, {} as never, () => {});
+async function call(event: HttpRequest) {
+  const result = await dispatch(event);
   if (!result || typeof result === "string") throw new Error("no result");
   return {
     statusCode: result.statusCode,
     body: JSON.parse(result.body ?? "{}") as Record<string, unknown>,
   };
 }
-
 // The unauthenticated surface. Every one of these is reachable by anyone with
 // the URL, so each must charge the read budget and answer a hostile query
 // string with a 4xx rather than a stack trace.
@@ -90,43 +59,32 @@ describe("public read routes", () => {
     repository.recentActivity.mockResolvedValue([]);
     repository.globalStats.mockResolvedValue({ trophyRoadGames: 640 });
   });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
-
   it("answers the health check without touching config or storage", async () => {
     const result = await call(request("GET", "/health"));
-
     expect(result.statusCode).toBe(200);
     expect(result.body).toMatchObject({ ok: true, service: "elixir-drop-api" });
     expect(repository.useRateLimit).not.toHaveBeenCalled();
   });
-
   it("short-circuits a CORS preflight", async () => {
-    const result = await handler(
-      request("OPTIONS", "/runs/start"),
-      {} as never,
-      () => {},
-    );
-
+    const result = await dispatch(request("OPTIONS", "/runs/start"));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(204);
   });
-
   it("answers an unknown path with a 404 code, not a 500", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const error = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
     const result = await call(request("GET", "/nope"));
-
     expect(result.statusCode).toBe(404);
     expect(result.body).toMatchObject({ error: { code: "not_found" } });
     expect(warn).toHaveBeenCalledWith(
       "API request rejected",
       expect.objectContaining({
-        routeKey: "$default",
+        routeKey: "GET not-found",
         statusCode: 404,
         code: "not_found",
       }),
@@ -134,16 +92,13 @@ describe("public read routes", () => {
     expect(warn.mock.calls[0]?.[1]).not.toHaveProperty("path");
     expect(error).not.toHaveBeenCalled();
   });
-
   it("keeps unexpected server failures at error severity", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const error = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
     repository.globalStats.mockRejectedValue(new Error("storage failed"));
-
     const result = await call(request("GET", "/stats"));
-
     expect(result.statusCode).toBe(500);
     expect(error).toHaveBeenCalledWith(
       "API request failed",
@@ -151,10 +106,8 @@ describe("public read routes", () => {
     );
     expect(warn).not.toHaveBeenCalled();
   });
-
   it("serves the site stats with the deployed web build id", async () => {
     const result = await call(request("GET", "/stats"));
-
     expect(result.statusCode).toBe(200);
     expect(result.body).toMatchObject({
       trophyRoadGames: 640,
@@ -168,79 +121,61 @@ describe("public read routes", () => {
       60 * 60,
     );
   });
-
   it("serves the current season and the next three", async () => {
     const result = await call(request("GET", "/seasons"));
-
     expect(result.statusCode).toBe(200);
     expect(result.body.current).toBeDefined();
     expect(result.body.upcoming).toHaveLength(3);
   });
-
   it("uses the default activity limit when none is given", async () => {
     await call(request("GET", "/activity"));
-
     expect(repository.recentActivity).toHaveBeenCalledWith(
       expect.any(Number),
       8,
     );
   });
-
   it("clamps an oversized activity limit to the visible maximum", async () => {
     const result = await call(request("GET", "/activity", "limit=9999"));
-
     expect(repository.recentActivity).toHaveBeenCalledWith(
       expect.any(Number),
       25,
     );
     expect(result.body.windowHours).toBe(24);
   });
-
   it("clamps a zero or negative activity limit to one", async () => {
     await call(request("GET", "/activity", "limit=-5"));
-
     expect(repository.recentActivity).toHaveBeenCalledWith(
       expect.any(Number),
       1,
     );
   });
-
   it("falls back to the default when the activity limit is not a number", async () => {
     await call(request("GET", "/activity", "limit=all"));
-
     expect(repository.recentActivity).toHaveBeenCalledWith(
       expect.any(Number),
       8,
     );
   });
-
   it("rejects a leaderboard request for a mode that does not exist", async () => {
     const result = await call(request("GET", "/leaderboards", "mode=chess"));
-
     expect(result.statusCode).toBe(400);
     expect(repository.leaderboard).not.toHaveBeenCalled();
   });
-
   it("rejects a malformed season id before it reaches storage", async () => {
     const result = await call(
       request("GET", "/leaderboards", "mode=surge&season=../../etc"),
     );
-
     expect(result.statusCode).toBe(400);
     expect(repository.leaderboard).not.toHaveBeenCalled();
   });
-
   it("accepts a mid-month season id with an explicit CR suffix", async () => {
     repository.leaderboard.mockResolvedValue([]);
-
     const result = await call(
       request("GET", "/leaderboards", "mode=surge&season=2026-07-134"),
     );
-
     expect(result.statusCode).toBe(200);
     expect(repository.leaderboard).toHaveBeenCalledWith("surge", 134);
   });
-
   it("resolves a player-facing Clash season number to its storage partition", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-25T12:00:00.000Z"));
@@ -256,11 +191,9 @@ describe("public read routes", () => {
         updatedAt: "2026-08-25T11:55:00.000Z",
       });
       repository.leaderboard.mockResolvedValue([]);
-
       const result = await call(
         request("GET", "/leaderboards", "mode=rain&season=134"),
       );
-
       expect(result.statusCode).toBe(200);
       expect(result.body.seasonId).toBe(134);
       expect(repository.leaderboard).toHaveBeenCalledWith("rain", 134);
@@ -268,7 +201,6 @@ describe("public read routes", () => {
       vi.useRealTimers();
     }
   });
-
   it("rejects a Clash season number outside the available Drop boards", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-25T12:00:00.000Z"));
@@ -283,34 +215,26 @@ describe("public read routes", () => {
         sourceClanTag: "#J2RGCRVG",
         updatedAt: "2026-08-25T11:55:00.000Z",
       });
-
       const result = await call(
         request("GET", "/leaderboards", "mode=surge&season=133"),
       );
-
       expect(result.statusCode).toBe(400);
       expect(repository.leaderboard).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
-
   it("keeps serving seasons when the war clock read fails", async () => {
     repository.getCrWarClock.mockRejectedValue(new Error("dynamo down"));
-
     const result = await call(request("GET", "/seasons"));
-
     expect(result.statusCode).toBe(200);
     expect(result.body.current).toBeDefined();
   });
-
   it("charges the read budget before doing the work, and stops when it is spent", async () => {
     repository.useRateLimit.mockRejectedValue(
       new HttpError(429, "Too many requests. Try again later.", "rate_limited"),
     );
-
     const result = await call(request("GET", "/stats"));
-
     expect(result.statusCode).toBe(429);
     expect(result.body).toMatchObject({ error: { code: "rate_limited" } });
     expect(repository.globalStats).not.toHaveBeenCalled();

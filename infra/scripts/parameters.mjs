@@ -1,7 +1,6 @@
 const SECRET_PARAMETERS = [
   ["SessionSecret", "SESSION_SECRET"],
   ["TelemetryPepper", "TELEMETRY_PEPPER"],
-  ["WebOriginToken", "ELIXIR_DROP_WEB_ORIGIN_TOKEN"],
   ["UpdatesPublishToken", "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN"],
 ];
 
@@ -29,8 +28,9 @@ const PRESERVED_PARAMETERS = [
   // drop the `web` provenance field from every subsequent referee evidence item
   // (referee-evidence.ts) and silence the stale-tab update banner.
   ["WebVersion", ["WEB_VERSION"]],
+  ["ApiVersion", ["API_VERSION"]],
   // CommaDelimitedList: a comma-separated string is the wire form. It feeds the
-  // HTTP API CORS AllowOrigins, so resetting it to the Default would revoke any
+  // HTTP server CORS allowlist, so resetting it to the Default would revoke any
   // origin an operator added.
   ["AllowedOrigins", ["ELIXIR_DROP_ALLOWED_ORIGINS"]],
   // The hub seam. Operator-owned like the rest: CI never carries the
@@ -89,6 +89,7 @@ function requiredParameter(
 export function deploymentParameters({
   bucket,
   codeKey,
+  webCodeKey,
   environment,
   stackExists,
   // Parameter keys the deployed stack actually carries. Omitted by
@@ -99,6 +100,7 @@ export function deploymentParameters({
   const parameters = [
     { ParameterKey: "CodeBucket", ParameterValue: bucket },
     { ParameterKey: "CodeKey", ParameterValue: codeKey },
+    { ParameterKey: "WebCodeKey", ParameterValue: webCodeKey },
   ];
 
   for (const [parameterKey, environmentKeys] of PRESERVED_PARAMETERS) {

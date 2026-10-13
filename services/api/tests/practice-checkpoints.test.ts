@@ -1,12 +1,7 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken, verifyToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   getPracticeCheckpoint: vi.fn(),
   getRun: vi.fn(),
@@ -14,7 +9,6 @@ const repository = vi.hoisted(() => ({
   savePracticeCheckpoint: vi.fn(),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getPracticeCheckpoint = repository.getPracticeCheckpoint;
@@ -24,13 +18,17 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
-const catalog = (rawCards as { cards: Array<{ id: number; elixir: number }> })
-  .cards;
+const nowSeconds = Math.floor(Date.now() / 1000);
+const catalog = (
+  rawCards as {
+    cards: Array<{
+      id: number;
+      elixir: number;
+    }>;
+  }
+).cards;
 const run = {
   pk: "RUN#practice-run",
   sk: "RUN" as const,
@@ -42,23 +40,21 @@ const run = {
     cardIds: catalog.map((card) => card.id),
   },
   state: "started" as const,
-  startedAt: new Date((nowSeconds - 60) * 1_000).toISOString(),
-  expiresAt: nowSeconds + 3_600,
+  startedAt: new Date((nowSeconds - 60) * 1000).toISOString(),
+  expiresAt: nowSeconds + 3600,
   ranked: false,
 };
-
 function sessionToken() {
   return signToken(
     {
       type: "session",
       sub: "player-sub",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
 }
-
 function runToken() {
   return signToken(
     {
@@ -67,53 +63,30 @@ function runToken() {
       owner: run.owner,
       mode: "practice",
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
 }
-
 function event(
   method: "GET" | "POST",
   path: string,
   body?: Record<string, unknown>,
-  queryStringParameters?: Record<string, string>,
-): APIGatewayProxyEventV2 {
+  query?: Record<string, string>,
+): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: queryStringParameters
-      ? new URLSearchParams(queryStringParameters).toString()
-      : "",
-    queryStringParameters,
+    path,
+    query,
     headers: {
       authorization: `Bearer ${sessionToken()}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method,
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "25/Aug/2026:19:00:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method,
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     ...(body ? { body: JSON.stringify(body) } : {}),
-    isBase64Encoded: false,
   };
 }
-
 describe("Practice checkpoints", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,7 +98,6 @@ describe("Practice checkpoints", () => {
     repository.getRun.mockResolvedValue(run);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
-
   it("stores one verified 20-answer chunk without awarding any progress", async () => {
     const card = catalog[0]!;
     const answers = Array.from({ length: 20 }, () => ({
@@ -147,8 +119,7 @@ describe("Practice checkpoints", () => {
       updatedAt: input.updatedAt,
       expiresAt: input.expiresAt,
     }));
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("POST", "/practice/checkpoint", {
         runToken: runToken(),
         startIndex: 0,
@@ -156,10 +127,7 @@ describe("Practice checkpoints", () => {
         reviewQueue: [],
         recovered: 0,
       }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body || "{}")).toMatchObject({
       accepted: true,
@@ -177,7 +145,6 @@ describe("Practice checkpoints", () => {
       }),
     );
   });
-
   it("reports checkpoint storage failures as server errors", async () => {
     const error = vi
       .spyOn(console, "error")
@@ -192,8 +159,7 @@ describe("Practice checkpoints", () => {
     repository.savePracticeCheckpoint.mockRejectedValue(
       new Error("storage unavailable"),
     );
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("POST", "/practice/checkpoint", {
         runToken: runToken(),
         startIndex: 0,
@@ -201,10 +167,7 @@ describe("Practice checkpoints", () => {
         reviewQueue: [],
         recovered: 0,
       }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body || "{}")).toMatchObject({
       error: {
@@ -215,14 +178,13 @@ describe("Practice checkpoints", () => {
     expect(error).toHaveBeenCalledWith(
       "API request failed",
       expect.objectContaining({
-        routeKey: "$default",
+        routeKey: "POST /practice/checkpoint",
         statusCode: 500,
         code: "internal_error",
       }),
     );
     expect(error.mock.calls[0]?.[1]).not.toHaveProperty("path");
   });
-
   it("returns only a lightweight summary for Home", async () => {
     repository.getPracticeCheckpoint.mockResolvedValue({
       pk: "PLAYER#player-sub",
@@ -235,20 +197,15 @@ describe("Practice checkpoints", () => {
       updatedAt: "2026-08-25T18:57:05.729Z",
       expiresAt: run.expiresAt,
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("GET", "/practice/resume", undefined, { summary: "1" }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(200);
     expect(body.draft).toMatchObject({ runId: run.runId, answerCount: 2600 });
     expect(body.draft).not.toHaveProperty("answers");
     expect(repository.listPracticeCheckpointAnswers).not.toHaveBeenCalled();
   });
-
   it("reissues the signed run and exact checkpoint transcript for resume", async () => {
     const card = catalog[1]!;
     const answers = Array.from({ length: 20 }, () => ({
@@ -270,14 +227,10 @@ describe("Practice checkpoints", () => {
       expiresAt: run.expiresAt,
     });
     repository.listPracticeCheckpointAnswers.mockResolvedValue(answers);
-
-    const response = (await handler(
+    const response = (await dispatch(
       event("GET", "/practice/resume"),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     expect(response.statusCode).toBe(200);
     expect(body.draft.answers).toHaveLength(20);
     expect(body.draft.run).toMatchObject({
@@ -289,10 +242,9 @@ describe("Practice checkpoints", () => {
       run.runId,
     );
   });
-
   it("requires a complete checkpoint and a signed-in owner", async () => {
     const card = catalog[0]!;
-    const response = (await handler(
+    const response = (await dispatch(
       event("POST", "/practice/checkpoint", {
         runToken: runToken(),
         startIndex: 0,
@@ -307,10 +259,7 @@ describe("Practice checkpoints", () => {
         reviewQueue: [],
         recovered: 0,
       }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
-
+    )) as HttpResponse;
     expect(response.statusCode).toBe(400);
     expect(repository.savePracticeCheckpoint).not.toHaveBeenCalled();
   });

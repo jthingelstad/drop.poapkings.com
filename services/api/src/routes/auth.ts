@@ -21,18 +21,13 @@ import {
 // POST /auth/poll — pick up a session handed over by a redeem in another
 // browser context (an Elixir sign-in that finished outside the tab that
 // started it).
-export async function pollSession({ event, config, repository }: RouteContext) {
-  const body = bodyOf(event);
+export async function pollSession({ request, repository }: RouteContext) {
+  const body = bodyOf(request);
   if (typeof body.pollId !== "string" || body.pollId.length < 16)
     throw new HttpError(400, "A poll id is required.");
   await Promise.all([
     repository.useRateLimit("poll-id", sha256(body.pollId), 120, 60 * 30),
-    repository.useRateLimit(
-      "poll-ip",
-      clientIpHash(event, config.webOriginToken),
-      600,
-      60 * 30,
-    ),
+    repository.useRateLimit("poll-ip", clientIpHash(request), 600, 60 * 30),
   ]);
   const session = await repository.takePollSession(
     body.pollId,
@@ -44,11 +39,11 @@ export async function pollSession({ event, config, repository }: RouteContext) {
 // POST /auth/redeem — burn the credential the Elixir callback minted, ensure
 // the profile, and issue the session.
 export async function redeemMagicLink({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   const nowSeconds = Math.floor(Date.now() / 1_000);
   if (typeof body.token !== "string" || body.token.length < 32)
     throw new HttpError(400, "A sign-in token is required.");
@@ -83,7 +78,7 @@ export async function redeemMagicLink({
     );
     if (bound !== "bound")
       console.warn("Pending Elixir link was not applied", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         outcome: bound,
       });
     else if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
@@ -103,7 +98,7 @@ export async function redeemMagicLink({
       await repository.creditRecruiter(sub, new Date().toISOString());
     } catch (error) {
       console.warn("Recruiter account-creation credit failed", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         error: error instanceof Error ? error.name : "unknown",
       });
     }
@@ -122,13 +117,13 @@ export async function redeemMagicLink({
       );
     } catch (error) {
       console.warn("Poll-session handoff write failed", {
-        requestId: event.requestContext.requestId,
+        requestId: request.requestId,
         error: error instanceof Error ? error.name : "unknown",
       });
     }
   }
   console.info("Player login completed", {
-    requestId: event.requestContext.requestId,
+    requestId: request.requestId,
     playerId: login.profile.playerId,
     newPlayer: login.created,
   });
@@ -145,7 +140,7 @@ export async function redeemMagicLink({
     await repository.putRecruiterInviteAlias(login.profile);
   } catch (error) {
     console.warn("Post-login side effects failed", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       error: error instanceof Error ? error.name : "unknown",
     });
   }
@@ -156,11 +151,11 @@ export async function redeemMagicLink({
 
 // POST /auth/refresh — slide an active player's session forward.
 export async function refreshSession({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+  const session = sessionFor(request, config.sessionSecret, true);
   // Sessions are stateless signed claims, so renewal is the one moment to
   // stop a deleted account from sliding forever on self-refreshing tokens.
   const profile = await repository.getProfile(session.sub);

@@ -13,6 +13,8 @@ Policy and are not yours (or ours) to relicense.
 
 - **Node 24** (the authoritative version) and npm.
 - For end-to-end tests: `npx playwright install` (Chromium, Firefox, WebKit).
+  Playwright owns its server and refuses to reuse another process. Set
+  `PLAYWRIGHT_PORT=5183` when the default 5173 is already occupied.
 
 ## Quick start
 
@@ -31,7 +33,9 @@ screensaver without signing in.
 
 ### How the local app talks to the backend
 
-There is currently **no local API stack**. `apps/web/public/api-config.json`
+The HTTP server can run locally after `npm run build --workspace=@elixir-drop/api`
+and `npm run start --workspace=@elixir-drop/api`; it requires explicit isolated
+DynamoDB/configuration and never silently creates a local database. By default, `apps/web/public/api-config.json`
 points the dev server at the **deployed production API**. That means:
 
 - Browsing and most UI work need no sign-in and touch nothing.
@@ -45,9 +49,8 @@ points the dev server at the **deployed production API**. That means:
   is offline, every mode can deal locally, but that run is never submitted,
   queued, ranked, or applied to account progress.
 
-Running the API (a TypeScript Lambda + DynamoDB) fully locally is not wired up
-yet; a local emulation path (e.g. SAM + dynamodb-local) is a welcome future
-contribution. Until then, the real inner loop for game logic, scoring, and
+The HTTP server starts without an event adapter. A complete local database
+emulation remains separate work. Until then, the real inner loop for game logic, scoring, and
 storage is the **test suite**, which mocks the API end to end.
 
 For visual QA against that deployed API, use `npm run dev:qa`. It sets
@@ -146,7 +149,7 @@ npm run verify:non-browser # complete gate except Playwright
 
 - `apps/web` — the Preact + Vite browser game (CloudFront, private S3, hash routing).
 - `apps/admin` — the desktop-first private Control Room (managed host + tailnet).
-- `services/api` — the TypeScript Lambda backend (DynamoDB, API Gateway).
+- `services/api` — the TypeScript HTTP backend (DynamoDB, Lambda Web Functions).
 - `services/admin` — the loopback-only adapter over sanctioned referee scripts.
 - `services/api/src/elixir-mcp.ts` — the server-only Elixir Integration REST client.
 - `packages/contracts` — shared request/response types.

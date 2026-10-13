@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../src/http.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   ElixirOAuthClient,
@@ -18,7 +18,6 @@ import { issueSession } from "../src/routes/context.js";
 import { accountTagsFor } from "../src/account-tags.js";
 import { publicProfile } from "../src/public-profile.js";
 import { emailSubject } from "../src/validation.js";
-
 const config = {
   tableName: "t",
   sessionSecret: "secret",
@@ -29,7 +28,6 @@ const config = {
   warClockClanTag: "#J2RGCRVG",
   elixirOAuthClientId: "client123",
 } as RouteContext["config"];
-
 function event(
   method: string,
   path: string,
@@ -38,42 +36,22 @@ function event(
     body?: unknown;
     bearer?: string;
   } = {},
-): APIGatewayProxyEventV2 {
+): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: "",
+    path,
     headers: {
       ...(extra.bearer ? { authorization: `Bearer ${extra.bearer}` } : {}),
       ...(extra.body !== undefined
         ? { "content-type": "application/json" }
         : {}),
     },
-    queryStringParameters: extra.query,
-    requestContext: {
-      accountId: "a",
-      apiId: "a",
-      domainName: "d",
-      domainPrefix: "d",
-      http: {
-        method,
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "1.2.3.4",
-        userAgent: "t",
-      },
-      requestId: "r",
-      routeKey: "$default",
-      stage: "$default",
-      time: "",
-      timeEpoch: 0,
-    },
+    query: extra.query,
+    method,
+    sourceIp: "1.2.3.4",
+    requestId: "r",
     body: extra.body !== undefined ? JSON.stringify(extra.body) : undefined,
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+  } as HttpRequest;
 }
-
 // A scripted Elixir: what the door answers at each step.
 function fakeElixir(script: {
   kind?: string;
@@ -175,7 +153,6 @@ function fakeElixir(script: {
     }),
   };
 }
-
 // An in-memory repository with only what these routes touch.
 function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   const must = (sub: string): PlayerProfile => {
@@ -228,7 +205,12 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       profiles[sub] = rest;
       return must(sub);
     },
-    async updateProfile(sub: string, updates: { playerTag?: string }) {
+    async updateProfile(
+      sub: string,
+      updates: {
+        playerTag?: string;
+      },
+    ) {
       profiles[sub] = {
         ...must(sub),
         ...(updates.playerTag ? { playerTag: updates.playerTag } : {}),
@@ -301,7 +283,6 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   };
   return { ...repo, must };
 }
-
 function profile(
   sub: string,
   extra: Partial<PlayerProfile> = {},
@@ -318,7 +299,6 @@ function profile(
     ...extra,
   };
 }
-
 const KING = {
   player_tag: "#20JJJ2CCRU",
   name: "King Thing",
@@ -342,7 +322,6 @@ const FRIEND = {
   is_primary: false,
   claim_status: "verified",
 };
-
 async function start(
   repo: ReturnType<typeof fakeRepository>,
   fake: ReturnType<typeof fakeElixir>,
@@ -352,7 +331,7 @@ async function start(
 ) {
   const res = await startElixirLogin(
     {
-      event: event("POST", "/auth/elixir/start", {
+      request: event("POST", "/auth/elixir/start", {
         bearer,
         body: { returnTo, ...extraBody },
       }),
@@ -369,7 +348,6 @@ async function start(
   const state = new URL(body.url).searchParams.get("state") ?? "";
   return { ...body, state };
 }
-
 describe("sign in with Elixir", () => {
   it("start: asks Elixir for cr:read + recordings:write + account:email with PKCE, and hands back a poll id", async () => {
     const repo = fakeRepository();
@@ -387,14 +365,13 @@ describe("sign in with Elixir", () => {
     expect(pollId.length).toBeGreaterThan(20);
     expect(mode).toBe("sign-in");
   });
-
   it("callback for a new person: the proven address becomes the account, one player is chosen silently, and the browser lands on the redemption route", async () => {
     const repo = fakeRepository();
     const fake = fakeElixir({ players: [KING, FRIEND] });
     const { state, pollId } = await start(repo, fake, undefined, "/surge");
     const res = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "eac_1", state, iss: "https://elixir.test" },
         }),
         config,
@@ -423,7 +400,6 @@ describe("sign in with Elixir", () => {
     expect(repo.pointers.size).toBe(0);
     expect(Object.keys(repo.profiles)).toEqual([]);
   });
-
   it("callback for an existing account with the same email: linked in place, verified mark on", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({
@@ -433,7 +409,7 @@ describe("sign in with Elixir", () => {
     const { state } = await start(repo, fake);
     await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state },
         }),
         config,
@@ -452,7 +428,6 @@ describe("sign in with Elixir", () => {
     expect(repo.must(sub).elixirAccountId).toBe("elixir-acct-1");
     expect(repo.magic[0]).toMatchObject({ sub, email: "jamie@example.com" });
   });
-
   it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir is added there first", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
@@ -460,7 +435,7 @@ describe("sign in with Elixir", () => {
     const { state } = await start(repo, fake);
     const res = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state },
         }),
         config,
@@ -484,7 +459,6 @@ describe("sign in with Elixir", () => {
       encodeURIComponent("/profile?scope=account"),
     );
   });
-
   it("callback: a refused track is recorded, not fatal", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
@@ -492,7 +466,7 @@ describe("sign in with Elixir", () => {
     const { state } = await start(repo, fake);
     const res = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state },
         }),
         config,
@@ -508,7 +482,6 @@ describe("sign in with Elixir", () => {
     expect(link.playerTag).toBe("#20JJJ2CCRU");
     expect(repo.must(sub).playerTag).toBe("#20JJJ2CCRU");
   });
-
   it("callback from a signed-in browser is a LINK to that account, whatever email Elixir names", async () => {
     const dropSub = emailSubject("other@example.com");
     const repo = fakeRepository({
@@ -524,7 +497,7 @@ describe("sign in with Elixir", () => {
     expect(mode).toBe("link");
     await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state },
         }),
         config,
@@ -543,14 +516,13 @@ describe("sign in with Elixir", () => {
     expect(Object.keys(repo.profiles)).toEqual([dropSub]);
     expect(repo.pointers.get("elixir-acct-1")).toBe(dropSub);
   });
-
   it("callback refuses an agent's grant, a replayed state, and a missing address", async () => {
     const repo = fakeRepository();
     const agent = fakeElixir({ kind: "agent" });
     const one = await start(repo, agent);
     const r1 = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state: one.state },
         }),
         config,
@@ -563,7 +535,7 @@ describe("sign in with Elixir", () => {
     );
     const r2 = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state: one.state },
         }),
         config,
@@ -578,7 +550,7 @@ describe("sign in with Elixir", () => {
     const two = await start(repo, noEmail);
     const r3 = await elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state: two.state },
         }),
         config,
@@ -591,7 +563,6 @@ describe("sign in with Elixir", () => {
     );
     expect(repo.magic.length).toBe(0);
   });
-
   async function callback(
     repo: ReturnType<typeof fakeRepository>,
     fake: ReturnType<typeof fakeElixir>,
@@ -601,7 +572,7 @@ describe("sign in with Elixir", () => {
     const { state } = await start(repo, fake, bearer, undefined, extraBody);
     return elixirCallback(
       {
-        event: event("GET", "/auth/elixir/callback", {
+        request: event("GET", "/auth/elixir/callback", {
           query: { code: "c", state },
         }),
         config,
@@ -610,7 +581,6 @@ describe("sign in with Elixir", () => {
       fake.client,
     );
   }
-
   function bearerFor(sub: string) {
     return issueSession(
       sub,
@@ -618,7 +588,6 @@ describe("sign in with Elixir", () => {
       Math.floor(Date.now() / 1000),
     ).token;
   }
-
   it("the pointer wins over the address: an Elixir account opens the Drop account it is bound to", async () => {
     const bound = emailSubject("drop-address@example.com");
     const byEmail = emailSubject("jamie@example.com");
@@ -640,7 +609,6 @@ describe("sign in with Elixir", () => {
     expect(repo.must(byEmail).elixir).toBeUndefined();
     expect(repo.pending.size).toBe(0);
   });
-
   it("an Elixir account with a different address resolves through a backfilled pointer, never a second account", async () => {
     // The backfill wrote the pointer and elixirAccountId only, no link.
     const dropSub = emailSubject("old-address@example.com");
@@ -665,7 +633,6 @@ describe("sign in with Elixir", () => {
     expect(repo.must(dropSub).elixir?.verified).toBe(true);
     expect(repo.must(dropSub).elixirVerified).toBe(true);
   });
-
   it("a pointer to a missing profile is removed and never followed or revived", async () => {
     const gone = emailSubject("deleted@example.com");
     const sub = emailSubject("jamie@example.com");
@@ -677,7 +644,6 @@ describe("sign in with Elixir", () => {
     expect(repo.pointers.get("elixir-acct-1")).toBe(sub);
     expect(repo.magic[0]).toMatchObject({ sub });
   });
-
   it("a stale pointer and no account for the address: a new account, not the deleted one", async () => {
     const gone = emailSubject("deleted@example.com");
     const repo = fakeRepository();
@@ -688,7 +654,6 @@ describe("sign in with Elixir", () => {
     expect(repo.pending.has(sub)).toBe(true);
     expect(repo.magic[0]).toMatchObject({ sub });
   });
-
   it("an address whose account belongs to another Elixir account opens without moving that connection", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({
@@ -709,7 +674,6 @@ describe("sign in with Elixir", () => {
     // Nothing was tracked on an Elixir account this Drop account is not bound to.
     expect(fake.calls).toEqual(["token", "me", "userinfo"]);
   });
-
   it("link mode refuses an Elixir account already bound to another Drop account", async () => {
     const mine = emailSubject("other@example.com");
     const theirs = emailSubject("jamie@example.com");
@@ -730,7 +694,6 @@ describe("sign in with Elixir", () => {
     expect(repo.pointers.get("elixir-acct-1")).toBe(theirs);
     expect(repo.magic).toHaveLength(0);
   });
-
   it("link mode refuses a second Elixir account for a Drop account already bound", async () => {
     const mine = emailSubject("other@example.com");
     const repo = fakeRepository({
@@ -751,7 +714,6 @@ describe("sign in with Elixir", () => {
     expect(repo.pointers.has("elixir-acct-1")).toBe(false);
     expect(repo.magic).toHaveLength(0);
   });
-
   it("link mode for a session whose account is gone fails closed", async () => {
     const repo = fakeRepository();
     const res = await callback(
@@ -765,7 +727,6 @@ describe("sign in with Elixir", () => {
     expect(repo.magic).toHaveLength(0);
     expect(repo.pending.size).toBe(0);
   });
-
   it("Recruiter attribution rides from start to an account the sign-in creates, and only to one", async () => {
     const recruiter = emailSubject("recruiter@example.com");
     const repo = fakeRepository();
@@ -774,7 +735,6 @@ describe("sign in with Elixir", () => {
       recruiterToken: "abc234",
     });
     expect(repo.magic[0]).toMatchObject({ recruiterSub: recruiter });
-
     const sub = emailSubject("jamie@example.com");
     const existing = fakeRepository({ [sub]: profile(sub) });
     existing.shares.set("ABC234", recruiter);
@@ -782,7 +742,6 @@ describe("sign in with Elixir", () => {
       recruiterToken: "ABC234",
     });
     expect(existing.magic[0]).not.toHaveProperty("recruiterSub");
-
     // A recruiter never credits themselves.
     const self = fakeRepository();
     self.shares.set("ABC234", sub);
@@ -791,7 +750,6 @@ describe("sign in with Elixir", () => {
     });
     expect(self.magic[0]).not.toHaveProperty("recruiterSub");
   });
-
   it("a signed-in browser carries no Recruiter attribution", async () => {
     const mine = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [mine]: profile(mine) });
@@ -801,7 +759,6 @@ describe("sign in with Elixir", () => {
     });
     expect(repo.magic[0]).not.toHaveProperty("recruiterSub");
   });
-
   it("select: only a candidate can be chosen; the choice becomes the Drop tag and the mark follows verification", async () => {
     const sub = emailSubject("jamie@example.com");
     const link = buildLink({
@@ -833,7 +790,7 @@ describe("sign in with Elixir", () => {
     ).token;
     await expect(
       selectElixirPlayer({
-        event: event("POST", "/me/elixir/select", {
+        request: event("POST", "/me/elixir/select", {
           bearer,
           body: { playerTag: "#U8RYG9Y2U" },
         }),
@@ -842,7 +799,7 @@ describe("sign in with Elixir", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 403 });
     const res = await selectElixirPlayer({
-      event: event("POST", "/me/elixir/select", {
+      request: event("POST", "/me/elixir/select", {
         bearer,
         body: { playerTag: "20jjj2ccru" },
       }),
@@ -853,14 +810,16 @@ describe("sign in with Elixir", () => {
       player: {
         playerTag: string;
         accountTags?: string[];
-        elixir: { verified: boolean };
+        elixir: {
+          verified: boolean;
+        };
       };
     };
     expect(body.player.playerTag).toBe("#20JJJ2CCRU");
     expect(body.player.elixir.verified).toBe(true);
     expect(body.player.accountTags).toEqual(["verified"]);
     const alt = await selectElixirPlayer({
-      event: event("POST", "/me/elixir/select", {
+      request: event("POST", "/me/elixir/select", {
         bearer,
         body: { playerTag: "#VJQV8G8RL" },
       }),
@@ -868,12 +827,16 @@ describe("sign in with Elixir", () => {
       repository: repo as never,
     });
     const altBody = JSON.parse(String(alt.body)) as {
-      player: { accountTags?: string[]; elixir: { verified: boolean } };
+      player: {
+        accountTags?: string[];
+        elixir: {
+          verified: boolean;
+        };
+      };
     };
     expect(altBody.player.elixir.verified).toBe(false);
     expect(altBody.player.accountTags).toBeUndefined();
   });
-
   it("buildLink keeps a previous choice and its verifiedAt while it is still theirs", () => {
     const previous = buildLink({
       accountId: "e",
@@ -920,10 +883,8 @@ describe("sign in with Elixir", () => {
     expect(gone.verified).toBe(false);
   });
 });
-
 describe("the token request's client secret", () => {
   const SECRET = "ecs_test-secret-never-logged";
-
   function tokenDoor(status = 200) {
     const forms: URLSearchParams[] = [];
     const fetchImpl = (async (
@@ -946,14 +907,12 @@ describe("the token request's client secret", () => {
     }) as typeof fetch;
     return { forms, fetchImpl };
   }
-
   const exchange = (client: ElixirOAuthClient) =>
     client.exchange({
       code: "code-1",
       codeVerifier: "verifier-1",
       redirectUri: "https://drop.test/api/auth/elixir/callback",
     });
-
   it("the exchange carries client_secret beside client_id when one is configured", async () => {
     const door = tokenDoor();
     const client = elixirClientFor(
@@ -966,7 +925,6 @@ describe("the token request's client secret", () => {
     expect(door.forms[0]?.get("client_id")).toBe("client123");
     expect(door.forms[0]?.get("client_secret")).toBe(SECRET);
   });
-
   it("the exchange omits client_secret when none is configured", async () => {
     for (const elixirOAuthClientSecret of [undefined, ""]) {
       const door = tokenDoor();
@@ -979,7 +937,6 @@ describe("the token request's client secret", () => {
       expect(door.forms[0]?.has("client_secret")).toBe(false);
     }
   });
-
   it("no log line and no failure carries the form", async () => {
     const printed: string[] = [];
     const spies = (["log", "info", "warn", "error"] as const).map((level) =>

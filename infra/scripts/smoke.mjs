@@ -119,36 +119,26 @@ if (
   throw new Error("The retired email sign-in route still answers");
 }
 
-// Guest play: an unauthenticated run start returns a scored-but-unrecorded
-// guest run (a real challenge + a guest-flagged token), not a 401.
-const started = await fetch(`${apiBaseUrl}/runs/start`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ mode: "practice" }),
-});
-const guestStart = await started.json();
-if (
-  started.status !== 201 ||
-  guestStart.guest !== true ||
-  !guestStart.runToken
-) {
-  throw new Error("Unauthenticated run start did not return a guest run");
+// Refusal happens before repository access. Bearer forwarding through OAC
+// must distinguish a missing session from an invalid supplied session.
+for (const [authorization, expected] of [
+  [undefined, "authentication_required"],
+  ["Bearer invalid", "invalid_session"],
+]) {
+  const refused = await fetch(`${apiBaseUrl}/me`, {
+    headers: authorization ? { authorization } : {},
+  });
+  const body = await refused.json();
+  if (refused.status !== 401 || body.error?.code !== expected)
+    throw new Error("OAC bearer forwarding or session refusal failed");
 }
-
-// A completion with an unsigned/invalid run token is still rejected (the session
-// is optional now, so the request reaches — and fails — token verification).
-const rejectedCompletion = await fetch(`${apiBaseUrl}/runs/complete`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ runToken: "unsigned", transcript: {} }),
-});
-const invalidCompletion = await rejectedCompletion.json();
-if (
-  rejectedCompletion.status !== 401 ||
-  invalidCompletion.error?.code !== "invalid_run_token"
-) {
-  throw new Error("Run completion with an invalid token was not rejected");
-}
+const origin = stack.Outputs?.find(
+  (output) => output.OutputKey === "ApiOriginDomain",
+)?.OutputValue;
+if (!origin) throw new Error("Missing private API origin");
+const direct = await fetch(`https://${origin}/health`);
+if (direct.status !== 403)
+  throw new Error("Unsigned direct origin access was not denied");
 
 const appUrl = process.env.APP_URL || "https://drop.poapkings.com";
 const [website, deployedConfig] = await Promise.all([
@@ -168,8 +158,8 @@ console.log(
     stack: stack.StackStatus,
     cors: "verified",
     deploymentIdentity: identity.Arn,
-    guestPlay: "verified",
-    invalidRunToken: "rejected",
+    bearerForwarding: "verified",
+    directOrigin: "denied",
     emailSignIn: "removed",
     leaderboard: "verified",
     clashRoyaleClock: "fresh",

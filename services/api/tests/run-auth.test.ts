@@ -1,52 +1,23 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handler } from "../src/handler.js";
-
-function event(
-  path: string,
-  body: Record<string, unknown>,
-): APIGatewayProxyEventV2 {
+import { dispatch } from "../src/app.js";
+function event(path: string, body: Record<string, unknown>): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: "",
+    path,
     headers: { "content-type": "application/json" },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:00:00:00 +0000",
-      timeEpoch: 1_768_000_000_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify(body),
-    isBase64Encoded: false,
   };
 }
-
 async function invoke(
   path: string,
   body: Record<string, unknown>,
-): Promise<APIGatewayProxyStructuredResultV2> {
-  const response = await handler(event(path, body), {} as Context, vi.fn());
-  return response as APIGatewayProxyStructuredResultV2;
+): Promise<HttpResponse> {
+  const response = await dispatch(event(path, body));
+  return response as HttpResponse;
 }
-
 describe("run authentication", () => {
   beforeEach(() => {
     process.env.TABLE_NAME = "test-table";
@@ -56,22 +27,18 @@ describe("run authentication", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
-
   // Signed-out callers are no longer rejected at /runs/start or /runs/complete:
   // they play as guests (scored but never recorded). Guest coverage lives in
   // guest-play.test.ts. A /runs/complete carrying a NON-guest run token but no
   // session is still refused, but that path rate-limits first (real DynamoDB),
   // so it is exercised with a mocked Repository in guest-play.test.ts instead.
-
   it("the retired email sign-in route is gone", async () => {
     const response = await invoke("/auth/request", {
       email: "player@example.com",
     });
-
     expect(response.statusCode).toBe(404);
     expect(JSON.parse(response.body || "{}")).toMatchObject({
       error: { code: "not_found" },

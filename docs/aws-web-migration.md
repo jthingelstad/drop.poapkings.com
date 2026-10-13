@@ -7,11 +7,11 @@ deliberately a small hobby-project design:
 ```text
 drop.poapkings.com -> CloudFront
   /*       -> private S3 web bucket through origin access control
-  /api/*   -> existing API Gateway HTTP API -> Lambda -> DynamoDB
+  /api/*   -> Lambda Web Function (OAC) -> DynamoDB
 ```
 
 CloudFront runs one viewer-request function. It removes the `/api` prefix
-before API Gateway sees the request and maps `/`, `/games/`, and the other
+before the HTTP server sees the request and maps `/`, `/games/`, and the other
 directory URLs to their generated `index.html` objects. If a client strips
 the fragment from a sign-in link, the function redirects the resulting `/auth`
 request back to the app's `/#/auth` route with its query intact; the token is
@@ -35,11 +35,11 @@ only through the aggregate `scripts/web-activity.mjs` report.
 
 The API behavior forwards viewer headers, cookies, and query strings except
 `Host`. The viewer-request function overwrites `X-Elixir-Drop-Viewer-Ip` from
-CloudFront's trusted `event.viewer.ip`, and CloudFront also overwrites a private
-origin marker. Lambda trusts that address only when the marker matches. Direct
-execute-api requests continue to use API Gateway's connection address. This
-preserves per-player rate limits, analytics, and pseudonymous referee
-correlation through the CDN.
+CloudFront's trusted `event.viewer.ip`. The Web Function's IAM-authenticated
+endpoint and resource policy require this distribution, and its OAC preserves
+bearer authorization. The HTTP server resolves viewer IP once; domain handlers
+never parse public forwarding headers. The old origin marker and direct Gateway
+path were retired with the October 2026 HTTP migration.
 
 ## Cutover record
 
@@ -58,10 +58,8 @@ prior API/web state. A DNS rollback to GitHub Pages is no longer maintained.
 
 ## Cost and protection
 
-The distribution uses CloudFront pay-as-you-go, S3 Standard, the existing HTTP
-API, and ACM. It adds no Route 53 hosted zone, load balancer, NAT gateway, WAF,
-Lambda@Edge, or CodePipeline. Existing API Gateway throttles, Lambda reserved
-concurrency, application rate limits, and AWS Shield Standard
+The distribution uses CloudFront pay-as-you-go, S3 Standard, Lambda Web Functions, and ACM. It adds no Route 53 hosted zone, load balancer, NAT gateway, WAF,
+Lambda@Edge, or CodePipeline. Web endpoint rate/environment limits, application rate limits, and AWS Shield Standard
 bound the initial risk.
 
 AWS WAF is the first optional upgrade if measured abuse justifies its standing

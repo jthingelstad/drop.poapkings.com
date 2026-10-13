@@ -1,4 +1,4 @@
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import type { HttpResponse } from "../http.js";
 import { playerReference, runReference } from "@elixir-drop/contracts";
 import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
@@ -24,25 +24,22 @@ import {
   sessionFor,
   type RouteContext,
 } from "./context.js";
-
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPEN_CREDIT_CAP = 25;
 const OPEN_LIMIT_PER_HOUR = 600;
 const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
 const RUN_TAG_PATTERN = /^D[0-9A-HJKMNP-TV-Z]{10}$/;
-
 function shareScore(
   mode: PublishedRunShareItem["mode"],
   score: number,
 ): string {
   if (mode === "surge" || mode === "trade")
-    return `${(score / 1_000).toFixed(3)}s`;
+    return `${(score / 1000).toFixed(3)}s`;
   if (mode === "rain") return `${score} CLEARED`;
   if (mode === "survival") return `${score} STREAK`;
   return `${score} CORRECT`;
 }
-
 export function isPublishedRunReference(
   playerId: unknown,
   runId: unknown,
@@ -54,7 +51,6 @@ export function isPublishedRunReference(
     UUID_PATTERN.test(runId)
   );
 }
-
 export function isPublishedRunTagReference(
   playerTag: unknown,
   runTag: unknown,
@@ -66,7 +62,6 @@ export function isPublishedRunTagReference(
     RUN_TAG_PATTERN.test(runTag)
   );
 }
-
 function modeDetails(mode: PublishedRunShareItem["mode"]): {
   name: string;
   path: string;
@@ -104,7 +99,6 @@ function modeDetails(mode: PublishedRunShareItem["mode"]): {
     },
   }[mode];
 }
-
 function publicTags(share: PublishedRunShareItem): {
   playerTag: string;
   runTag: string;
@@ -114,17 +108,14 @@ function publicTags(share: PublishedRunShareItem): {
     runTag: share.runTag ?? runReference(share.runId).slice(1),
   };
 }
-
 function shareUrl(appUrl: string, share: PublishedRunShareItem): string {
   const { playerTag, runTag } = publicTags(share);
   return `${appUrl}/share/${playerTag}/${runTag}`;
 }
-
 function imageUrl(appUrl: string, share: PublishedRunShareItem): string {
   const { playerTag, runTag } = publicTags(share);
   return `${appUrl}/share-assets/${playerTag}/${runTag}`;
 }
-
 function previewOf(share: PublishedRunShareItem) {
   return {
     mode: share.mode,
@@ -136,7 +127,6 @@ function previewOf(share: PublishedRunShareItem) {
     ...(share.visual ? { visual: share.visual } : {}),
   };
 }
-
 function publishedResponse(share: PublishedRunShareItem, appUrl: string) {
   return {
     playerId: share.playerId,
@@ -145,7 +135,6 @@ function publishedResponse(share: PublishedRunShareItem, appUrl: string) {
     preview: previewOf(share),
   };
 }
-
 export function runShareImageAlt(share: PublishedRunShareItem): string {
   const game = modeDetails(share.mode);
   const score = shareScore(share.mode, share.score);
@@ -159,7 +148,6 @@ export function runShareImageAlt(share: PublishedRunShareItem): string {
     : "";
   return `${share.player.publicName} scored ${score} in ${game.name}. The run chart shows ${bars} in ${visual.unit.toLowerCase()}.${mistakes}`;
 }
-
 async function publishedShare(
   context: RouteContext,
   playerId: string,
@@ -208,7 +196,6 @@ async function publishedShare(
   }
   return share;
 }
-
 export function renderPublishedRunPage(
   share: PublishedRunShareItem,
   appUrl: string,
@@ -240,23 +227,22 @@ export function renderPublishedRunPage(
     },
   });
 }
-
 export async function createPublishedRunShare(
   context: RouteContext,
   runId: string,
 ) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
   await repository.useRateLimit(
     "share-mint",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
   const profile = await repository.getProfile(session.sub);
   if (!profile)
     throw new HttpError(404, "Player profile not found.", "not_found");
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   const completedAt =
     typeof body.completedAt === "string" ? body.completedAt : undefined;
   const history = await repository.listRunHistory(session.sub);
@@ -278,7 +264,6 @@ export async function createPublishedRunShare(
       "That run is not publicly shareable.",
       "run_not_shareable",
     );
-
   const existing = await repository.getPublishedRunShare(
     profile.playerId,
     run.runId,
@@ -287,7 +272,6 @@ export async function createPublishedRunShare(
     await repository.putPublishedRunShareAlias(existing);
     return json(200, publishedResponse(existing, config.appUrl));
   }
-
   let visual = run.shareVisual;
   if (!visual) {
     const previousBest = history
@@ -327,7 +311,6 @@ export async function createPublishedRunShare(
       }
     }
   }
-
   if (!profile.publicName || !config.shareAssetBucket)
     throw new HttpError(
       503,
@@ -371,14 +354,13 @@ export async function createPublishedRunShare(
     );
   return json(created ? 201 : 200, publishedResponse(published, config.appUrl));
 }
-
 export async function uploadPublishedRunImage(
   context: RouteContext,
   runId: string,
 ) {
-  const { event, config, repository } = context;
-  const session = sessionFor(event, config.sessionSecret, true);
-  const body = bodyOf(event);
+  const { request, config, repository } = context;
+  const session = sessionFor(request, config.sessionSecret, true);
+  const body = bodyOf(request);
   const completedAt =
     typeof body.completedAt === "string" ? body.completedAt : undefined;
   const profile = await repository.getProfile(session.sub);
@@ -408,7 +390,7 @@ export async function uploadPublishedRunImage(
     );
   await repository.useRateLimit(
     "share-image",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     60,
     60 * 60,
   );
@@ -420,7 +402,6 @@ export async function uploadPublishedRunImage(
   );
   return json(200, { ok: true });
 }
-
 export async function getPublishedRunPage(
   context: RouteContext,
   playerId: string,
@@ -433,13 +414,12 @@ export async function getPublishedRunPage(
     head,
   );
 }
-
 export async function getPublishedRunImage(
   context: RouteContext,
   playerId: string,
   runId: string,
   head = false,
-): Promise<APIGatewayProxyStructuredResultV2> {
+): Promise<HttpResponse> {
   const share = await publishedShare(context, playerId, runId);
   const bucket = context.config.shareAssetBucket;
   if (!bucket)
@@ -469,29 +449,27 @@ export async function getPublishedRunImage(
       "x-content-type-options": "nosniff",
       "x-robots-tag": "noindex, nofollow",
     },
-    body: head ? "" : image.toString("base64"),
-    isBase64Encoded: !head,
+    bytes: head ? undefined : image,
   };
 }
-
 export async function openPublishedRunShare(
   context: RouteContext,
   playerId: string,
   runId: string,
-): Promise<APIGatewayProxyStructuredResultV2> {
-  const { event, config, repository } = context;
+): Promise<HttpResponse> {
+  const { request, config, repository } = context;
   await repository.useRateLimit(
     "share-open",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     OPEN_LIMIT_PER_HOUR,
     60 * 60,
   );
   const share = await publishedShare(context, playerId, runId);
-  const viewer = sessionFor(event, config.sessionSecret);
+  const viewer = sessionFor(request, config.sessionSecret);
   if (viewer?.sub !== share.owner) {
     const visitorHash = hmac(
       config.telemetryPepper,
-      `share-run:${share.playerId}:${share.runId}:${clientIp(event, config.webOriginToken)}:${event.headers["user-agent"] ?? "unknown"}`,
+      `share-run:${share.playerId}:${share.runId}:${clientIp(request)}:${request.headers["user-agent"] ?? "unknown"}`,
     );
     try {
       const credited = await repository.creditPublishedRunOpen(

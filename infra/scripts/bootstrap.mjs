@@ -47,6 +47,7 @@ const repositoryTags = [
   { Key: "ManagedBy", Value: "repository" },
 ];
 const retiredBridgeEnvironmentNames = new Set([
+  "ELIXIR_DROP_WEB_ORIGIN_TOKEN",
   "ELIXIR_DROP_CR_BRIDGE_AWS_ACCESS_KEY_ID",
   "ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY",
   "ELIXIR_DROP_CR_REQUEST_QUEUE_NAME",
@@ -112,16 +113,8 @@ async function ensureRole(
       PolicyDocument: JSON.stringify({
         Version: "2012-10-17",
         Statement: [
-          // API Gateway control-plane ARNs are not stack-name-scoped, so that
-          // service keeps a wildcard resource. CloudFront create/list APIs are
-          // account-global, but its action list is limited to the four resource
-          // types this stack owns. Regional services stay pinned to
-          // elixir-drop-* resources.
-          {
-            Effect: "Allow",
-            Action: ["apigateway:*"],
-            Resource: "*",
-          },
+          // CloudFront management is account-global; regional runtime
+          // permissions stay scoped to Drop. Web permissions are stack-owned.
           {
             Effect: "Allow",
             Action: [
@@ -248,19 +241,6 @@ async function ensureRole(
               "logs:DescribeResourcePolicies",
               "logs:DeleteResourcePolicy",
               "logs:PutResourcePolicy",
-            ],
-            Resource: "*",
-          },
-          {
-            // Vended logs: what API Gateway needs to write an HTTP API's
-            // access log to a log group. Resource-less by AWS's design.
-            Effect: "Allow",
-            Action: [
-              "logs:CreateLogDelivery",
-              "logs:GetLogDelivery",
-              "logs:UpdateLogDelivery",
-              "logs:DeleteLogDelivery",
-              "logs:ListLogDeliveries",
             ],
             Resource: "*",
           },
@@ -483,9 +463,6 @@ const values = {
     existingEnv.ELIXIR_DROP_ALARM_EMAIL || "drop@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
   ELIXIR_DROP_CODE_BUCKET: bucketName,
-  ELIXIR_DROP_WEB_ORIGIN_TOKEN:
-    existingEnv.ELIXIR_DROP_WEB_ORIGIN_TOKEN ||
-    randomBytes(32).toString("base64url"),
   ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
     existingEnv.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN ||
     randomBytes(32).toString("base64url"),

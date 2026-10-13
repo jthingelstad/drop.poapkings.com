@@ -1,12 +1,7 @@
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import rawCards from "@elixir-drop/game-data/cards.json";
 import { signToken } from "../src/signing.js";
-
 const repository = vi.hoisted(() => ({
   completeRun: vi.fn(),
   getCardStats: vi.fn(async () => ({})),
@@ -20,7 +15,6 @@ const repository = vi.hoisted(() => ({
   wouldLeadSeason: vi.fn(async () => false),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     completeRun = repository.completeRun;
@@ -36,13 +30,16 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
+const nowSeconds = Math.floor(Date.now() / 1000);
 const cards = (
-  rawCards as { cards: Array<{ id: number; elixir: number }> }
+  rawCards as {
+    cards: Array<{
+      id: number;
+      elixir: number;
+    }>;
+  }
 ).cards.slice(0, 15);
 const profile = {
   sub: "player-sub",
@@ -54,60 +51,38 @@ const profile = {
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-18T12:00:00.000Z",
 };
-
 const surgeTranscript = {
   answers: cards.map((card, index) => ({
     cardId: card.id,
     guesses: [card.elixir],
-    atMs: 1_000 + index * 100,
+    atMs: 1000 + index * 100,
   })),
 };
-
 function completionEvent(
   runToken: string,
   transcript: Record<string, unknown> = surgeTranscript,
-): APIGatewayProxyEventV2 {
+): HttpRequest {
   const session = signToken(
     {
       type: "session",
       sub: profile.sub,
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/runs/complete",
-    rawQueryString: "",
+    path: "/runs/complete",
     headers: {
       authorization: `Bearer ${session}`,
       "content-type": "application/json",
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "POST",
-        path: "/runs/complete",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:05:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method: "POST",
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: JSON.stringify({ runToken, transcript }),
-    isBase64Encoded: false,
   };
 }
-
 describe("run integrity rejection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,7 +96,6 @@ describe("run integrity rejection", () => {
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
-
   it("records an implausible run under hidden referee review", async () => {
     const runToken = signToken(
       {
@@ -130,7 +104,7 @@ describe("run integrity rejection", () => {
         owner: profile.sub,
         mode: "surge",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -142,22 +116,18 @@ describe("run integrity rejection", () => {
       mode: "surge",
       challenge: { mode: "surge", cardIds: cards.map((card) => card.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 10_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 10000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: { ...profile, totalGames: 5, xp: 45 },
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       completionEvent(runToken),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     // The deterministically scored run is retained but hidden atomically so the
     // referee can either confirm the quarantine or restore a false positive.
     expect(response.statusCode).toBe(201);
@@ -181,7 +151,6 @@ describe("run integrity rejection", () => {
       }),
     );
   });
-
   it("records a Rain run under the spawn-curve floor, scored and quarantined", async () => {
     const runToken = signToken(
       {
@@ -190,7 +159,7 @@ describe("run integrity rejection", () => {
         owner: profile.sub,
         mode: "rain",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -202,8 +171,8 @@ describe("run integrity rejection", () => {
       mode: "rain",
       challenge: { mode: "rain", cardIds: cards.map((card) => card.id) },
       state: "started",
-      startedAt: new Date(Date.now() - 10_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(Date.now() - 10000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
@@ -222,14 +191,10 @@ describe("run integrity rejection", () => {
         wrongGuesses: index === 3 ? 2 : 0,
       };
     });
-
-    const response = (await handler(
+    const response = (await dispatch(
       completionEvent(runToken, { answers }),
-      {} as Context,
-      vi.fn(),
-    )) as APIGatewayProxyStructuredResultV2;
+    )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-
     // Scored, recorded, and held for a referee — never rejected. The score is
     // real; what is in doubt is whether a human produced it.
     expect(response.statusCode).toBe(201);

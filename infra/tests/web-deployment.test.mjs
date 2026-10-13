@@ -56,16 +56,27 @@ void describe("AWS web hosting", () => {
     assert.match(template, /PathPattern: \/api\/\*/);
     assert.match(template, /PathPattern: \/updates\/\*/);
     assert.match(template, /PathPattern: \/feed\.xml/);
-    assert.match(
-      template,
-      /CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad/,
-    );
+    assert.match(template, /CachePolicyId: !Ref ApiCachePolicy/);
     assert.match(
       template,
       /OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac/,
     );
-    assert.match(template, /HeaderName: X-Elixir-Drop-Origin/);
-    assert.match(template, /HeaderValue: !Ref WebOriginToken/);
+    assert.match(template, /SigningBehavior: always-amz-auth/);
+    // A fully-disabled policy rejects header whitelisting in CloudFront.
+    // Min/default zero plus a nonzero ceiling honors private/no-store while
+    // admitting the Authorization key needed by Web Function OAC.
+    const apiPolicy = template.match(
+      /  ApiCachePolicy:[\s\S]*?(?=\n  PublicApiCachePolicy:)/,
+    )?.[0];
+    assert.ok(apiPolicy);
+    assert.match(apiPolicy, /MinTTL: 0/);
+    assert.match(apiPolicy, /DefaultTTL: 0/);
+    assert.match(apiPolicy, /MaxTTL: 1/);
+    assert.match(template, /Headers: \[Authorization\]/);
+    assert.doesNotMatch(
+      template,
+      /AWS::ApiGateway|WebOriginToken|X-Elixir-Drop-Origin/,
+    );
     assert.match(
       template,
       /request\.headers\['x-elixir-drop-viewer-ip'\] = \{ value: event\.viewer\.ip \}/,

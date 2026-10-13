@@ -1,5 +1,4 @@
-import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-
+import type { HttpResponse } from "./http.js";
 function escaped(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -8,7 +7,6 @@ function escaped(value: string): string {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
 export interface PublishedSharePageInput {
   title: string;
   description: string;
@@ -23,7 +21,6 @@ export interface PublishedSharePageInput {
   scriptSrc: string;
   bodyData: Record<string, string>;
 }
-
 export function renderPublishedSharePage(
   input: PublishedSharePageInput,
 ): string {
@@ -81,11 +78,10 @@ export function renderPublishedSharePage(
 </body>
 </html>`;
 }
-
 export function publishedPageResponse(
   body: string,
   head = false,
-): APIGatewayProxyStructuredResultV2 {
+): HttpResponse {
   return {
     statusCode: 200,
     headers: {

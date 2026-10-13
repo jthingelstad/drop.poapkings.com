@@ -12,9 +12,9 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // Keep browser tests fully local. A production-shaped cross-origin base makes
 // WebKit apply CORS to fulfilled Playwright routes under parallel load even
 // though no request reaches AWS.
-export const testApiBaseUrl = 'http://127.0.0.1:5173'
+export const testApiBaseUrl = `http://127.0.0.1:${Number(process.env.PLAYWRIGHT_PORT ?? 5173)}`
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:5173\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|updates(?:\?|$)|badges\/[^/?]+\/share(?:[/?]|$))/
+  /^http:\/\/127\.0\.0\.1:[0-9]+\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|updates(?:\?|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
   id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -690,7 +690,7 @@ export const test = base.extend({
     const isWebkitMockNavigationCancellation = (text: string) =>
       browserName === 'webkit' &&
       text.endsWith(' due to access control checks.') &&
-      /127\.0\.0\.1:5173\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text)
+      /127\.0\.0\.1:[0-9]+\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text)
     page.on('console', (msg) => {
       const text = msg.text()
       // Firefox 153 reports its own in-flight document cancellation as a

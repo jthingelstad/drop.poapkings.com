@@ -1,14 +1,9 @@
 const enqueueRefresh = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock("../src/refresh-jobs.js", () => ({ enqueueRefresh }));
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { HttpRequest, HttpResponse } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signToken } from "../src/signing.js";
 import { emailSubject } from "../src/validation.js";
-
 const repository = vi.hoisted(() => ({
   attachRecruiter: vi.fn(),
   bindElixirAccount: vi.fn(),
@@ -40,7 +35,6 @@ const repository = vi.hoisted(() => ({
   refereeDecisions: vi.fn(async () => new Map()),
 }));
 const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     attachRecruiter = repository.attachRecruiter;
@@ -73,16 +67,13 @@ vi.mock("../src/repository.js", () => ({
     refereeDecisions = repository.refereeDecisions;
   },
 }));
-
 vi.mock("../src/cr-refresh.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
   return { ...actual, requestCrProfileRefresh };
 });
-
-import { handler } from "../src/handler.js";
-
+import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
-const nowSeconds = Math.floor(Date.now() / 1_000);
+const nowSeconds = Math.floor(Date.now() / 1000);
 const profile = {
   sub: "player-sub",
   playerId: "11111111-1111-4111-8111-111111111111",
@@ -102,67 +93,43 @@ const snapshot = {
   cards: [],
   fetchedAt: "2026-07-18T12:00:00.000Z",
 };
-
 function event(
   method: "GET" | "POST" | "PATCH",
   path: string,
   body?: Record<string, unknown>,
   authenticated = false,
-): APIGatewayProxyEventV2 {
+): HttpRequest {
   const session = signToken(
     {
       type: "session",
       sub: profile.sub,
       iat: nowSeconds - 60,
-      exp: nowSeconds + 3_600,
+      exp: nowSeconds + 3600,
     },
     secret,
   );
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: "",
+    path,
     headers: {
       "content-type": "application/json",
       ...(authenticated ? { authorization: `Bearer ${session}` } : {}),
     },
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method,
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-1",
-      routeKey: "$default",
-      stage: "$default",
-      time: "18/Jul/2026:12:00:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
+    method,
+    sourceIp: "127.0.0.1",
+    requestId: "request-1",
     body: body ? JSON.stringify(body) : undefined,
-    isBase64Encoded: false,
   };
 }
-
 async function invoke(
   method: "GET" | "POST" | "PATCH",
   path: string,
   body?: Record<string, unknown>,
   authenticated = false,
-): Promise<APIGatewayProxyStructuredResultV2> {
-  return (await handler(
+): Promise<HttpResponse> {
+  return (await dispatch(
     event(method, path, body, authenticated),
-    {} as Context,
-    vi.fn(),
-  )) as APIGatewayProxyStructuredResultV2;
+  )) as HttpResponse;
 }
-
 describe("Clash Royale refresh scheduling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -176,7 +143,6 @@ describe("Clash Royale refresh scheduling", () => {
     requestCrProfileRefresh.mockResolvedValue(snapshot);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
-
   it("durably enqueues an attached tag after a successful sign-in", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
@@ -184,11 +150,9 @@ describe("Clash Royale refresh scheduling", () => {
     });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
     expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
@@ -198,7 +162,6 @@ describe("Clash Royale refresh scheduling", () => {
       playerId: profile.playerId,
     });
   });
-
   it("queues enrichment without waiting for external services when a session returns", async () => {
     repository.getProfile.mockResolvedValue(profile);
     const response = await invoke("POST", "/auth/refresh", undefined, true);
@@ -211,36 +174,29 @@ describe("Clash Royale refresh scheduling", () => {
     });
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
-
   it("the retired email sign-in route answers 404 and mails nothing", async () => {
     const response = await invoke("POST", "/auth/request", {
       email: profile.email,
     });
-
     expect(response.statusCode).toBe(404);
     expect(JSON.parse(response.body ?? "{}").error.code).toBe("not_found");
     expect(repository.useRateLimit).not.toHaveBeenCalled();
     expect(repository.getProfile).not.toHaveBeenCalled();
   });
-
   it("refuses an email code at redemption before any credential lookup", async () => {
     const response = await invoke("POST", "/auth/redeem", {
       email: profile.email,
       code: "042761",
     });
-
     expect(response.statusCode).toBe(400);
     expect(repository.peekMagicLink).not.toHaveBeenCalled();
     expect(repository.ensureProfile).not.toHaveBeenCalled();
   });
-
   it("refuses a mailed link minted before email sign-in was removed", async () => {
     repository.peekMagicLink.mockResolvedValue({ email: profile.email });
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(401);
     expect(JSON.parse(response.body ?? "{}").error.code).toBe(
       "invalid_magic_link",
@@ -248,7 +204,6 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.ensureProfile).not.toHaveBeenCalled();
     expect(repository.consumeMagicLink).not.toHaveBeenCalled();
   });
-
   it("signs in to the account the Elixir sign-in resolved to, not the address's", async () => {
     const resolved = { ...profile, sub: "resolved-sub" };
     repository.peekMagicLink.mockResolvedValue({
@@ -261,11 +216,9 @@ describe("Clash Royale refresh scheduling", () => {
       profile: resolved,
       created: false,
     });
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     expect(repository.ensureProfile).toHaveBeenCalledWith(
       "resolved-sub",
@@ -273,7 +226,6 @@ describe("Clash Royale refresh scheduling", () => {
     );
     expect(repository.bindElixirAccount).not.toHaveBeenCalled();
   });
-
   it("binds a brand-new account to its Elixir account once the profile exists", async () => {
     const link = {
       accountId: "acct-new",
@@ -300,11 +252,9 @@ describe("Clash Royale refresh scheduling", () => {
     });
     repository.bindElixirAccount.mockResolvedValueOnce("bound");
     repository.updateProfile.mockResolvedValue(profile);
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     expect(repository.bindElixirAccount).toHaveBeenCalledWith(
       profile.sub,
@@ -329,7 +279,6 @@ describe("Clash Royale refresh scheduling", () => {
       playerTag: "#2PYQ0",
     });
   });
-
   it("a failed binding fails the redemption and keeps the credential and pending link for the retry", async () => {
     const link = {
       accountId: "acct-new",
@@ -353,16 +302,13 @@ describe("Clash Royale refresh scheduling", () => {
         name: "ProvisionedThroughputExceededException",
       }),
     );
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBeGreaterThanOrEqual(500);
     expect(repository.clearPendingElixirLink).not.toHaveBeenCalled();
     expect(repository.consumeMagicLink).not.toHaveBeenCalled();
   });
-
   it("credits Recruiter when the attributed account is created", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: "new-player@example.com",
@@ -376,11 +322,9 @@ describe("Clash Royale refresh scheduling", () => {
     repository.attachRecruiter.mockResolvedValue(true);
     repository.creditRecruiter.mockResolvedValue(true);
     repository.consumeMagicLink.mockResolvedValue("new-player@example.com");
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     expect(repository.attachRecruiter).toHaveBeenCalledWith(
       emailSubject("new-player@example.com"),
@@ -397,7 +341,6 @@ describe("Clash Royale refresh scheduling", () => {
       repository.consumeMagicLink.mock.invocationCallOrder[0]!,
     );
   });
-
   it("does not strand account creation when Recruiter credit needs reconciliation", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: "new-player@example.com",
@@ -414,11 +357,9 @@ describe("Clash Royale refresh scheduling", () => {
     );
     repository.consumeMagicLink.mockResolvedValue("new-player@example.com");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     expect(repository.consumeMagicLink).toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
@@ -427,7 +368,6 @@ describe("Clash Royale refresh scheduling", () => {
     );
     warn.mockRestore();
   });
-
   it("hands the new session to a waiting poll id (cross-context/PWA login)", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
@@ -436,11 +376,9 @@ describe("Clash Royale refresh scheduling", () => {
     });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(200);
     const session = JSON.parse(response.body ?? "{}").session;
     expect(repository.savePollSession).toHaveBeenCalledWith(
@@ -449,7 +387,6 @@ describe("Clash Royale refresh scheduling", () => {
       expect.any(Number),
     );
   });
-
   it("does not write a poll session when the link carries no poll id", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
@@ -457,11 +394,9 @@ describe("Clash Royale refresh scheduling", () => {
     });
     repository.consumeMagicLink.mockResolvedValue(profile.email);
     repository.ensureProfile.mockResolvedValue({ profile, created: false });
-
     await invoke("POST", "/auth/redeem", { token: "a".repeat(32) });
     expect(repository.savePollSession).not.toHaveBeenCalled();
   });
-
   it("does not burn the magic link when the durable login work fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     repository.peekMagicLink.mockResolvedValue({
@@ -469,37 +404,29 @@ describe("Clash Royale refresh scheduling", () => {
       source: "elixir",
     });
     repository.ensureProfile.mockRejectedValue(new Error("dynamo down"));
-
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
-
     expect(response.statusCode).toBe(500);
     // The single-use link must stay redeemable for the retry click.
     expect(repository.consumeMagicLink).not.toHaveBeenCalled();
   });
-
   it("serves cached CR data without refreshing on a profile read", async () => {
     repository.getProfile.mockResolvedValue(profile);
     repository.listRecentRuns.mockResolvedValue([]);
-
     const response = await invoke("GET", "/me", undefined, true);
-
     expect(response.statusCode).toBe(200);
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
-
   it("durably enqueues a tag when the player explicitly saves it", async () => {
     repository.updateProfile.mockResolvedValue(profile);
-
     const response = await invoke(
       "PATCH",
       "/me",
       { playerTag: profile.playerTag },
       true,
     );
-
     expect(response.statusCode).toBe(200);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
     expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
@@ -509,21 +436,18 @@ describe("Clash Royale refresh scheduling", () => {
       playerId: profile.playerId,
     });
   });
-
   it("keeps the saved player tag out of refresh failure logs", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     repository.updateProfile.mockResolvedValue(profile);
     requestCrProfileRefresh.mockRejectedValue(
       new Error(`provider detail for ${profile.playerTag}`),
     );
-
     const response = await invoke(
       "PATCH",
       "/me",
       { playerTag: profile.playerTag },
       true,
     );
-
     expect(response.statusCode).toBe(200);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
     expect(enqueueRefresh).toHaveBeenCalled();
@@ -531,7 +455,6 @@ describe("Clash Royale refresh scheduling", () => {
     expect(logged).not.toContain(profile.playerTag);
     expect(logged).not.toContain("provider detail");
   });
-
   it("accepts a safe signed card-inspired name without the exact card title", async () => {
     const favoriteCardId = 26000018;
     const publicName = "Pancake Patrol";
@@ -551,21 +474,18 @@ describe("Clash Royale refresh scheduling", () => {
       favoriteCardId,
       publicName,
     });
-
     const response = await invoke(
       "PATCH",
       "/me",
       { favoriteCardId, publicName, nameToken },
       true,
     );
-
     expect(response.statusCode).toBe(200);
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
       favoriteCardId,
       publicName,
     });
   });
-
   it("records a new-season game without reading or refreshing CR identity", async () => {
     // Drop's own newsletter was the one consumer of the cached snapshot on
     // completion; it retired on 2026-10-12.
@@ -586,7 +506,7 @@ describe("Clash Royale refresh scheduling", () => {
         owner: profile.sub,
         mode: "practice",
         iat: nowSeconds - 60,
-        exp: nowSeconds + 1_800,
+        exp: nowSeconds + 1800,
       },
       secret,
     );
@@ -598,15 +518,14 @@ describe("Clash Royale refresh scheduling", () => {
       mode: "practice",
       challenge: { mode: "practice", cardIds: [26000000] },
       state: "started",
-      startedAt: new Date(nowSeconds * 1_000 - 60_000).toISOString(),
-      expiresAt: nowSeconds + 1_800,
+      startedAt: new Date(nowSeconds * 1000 - 60000).toISOString(),
+      expiresAt: nowSeconds + 1800,
     });
     repository.completeRun.mockResolvedValue({
       totalGames: 5,
       completedAt: "2026-07-18T12:01:00.000Z",
       profile: { ...profile, totalGames: 5 },
     });
-
     const response = await invoke(
       "POST",
       "/runs/complete",
@@ -618,7 +537,6 @@ describe("Clash Royale refresh scheduling", () => {
       },
       true,
     );
-
     expect(response.statusCode).toBe(201);
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.anything(),
@@ -626,7 +544,7 @@ describe("Clash Royale refresh scheduling", () => {
       134,
       { practiceCards: 1 },
       undefined, // no Survival time tiebreak for a Practice run
-      undefined, // no automatic referee quarantine for a valid Practice run
+      undefined,
     );
     expect(JSON.parse(response.body || "{}").season).toMatchObject({
       source: "clash-royale",

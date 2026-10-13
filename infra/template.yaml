@@ -6,6 +6,11 @@ Parameters:
     Type: String
   CodeKey:
     Type: String
+  WebCodeKey:
+    Type: String
+  ApiVersion:
+    Type: String
+    Default: ""
   SessionSecret:
     Type: String
     NoEcho: true
@@ -40,11 +45,6 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: The client secret for ElixirOAuthClientId, sent as client_secret on the token request (client_secret_post). Staged from the fixed host's .env; never printed. Empty sends none.
-  WebOriginToken:
-    Type: String
-    NoEcho: true
-    MinLength: 32
-    Description: Private CloudFront origin marker used to trust the viewer IP forwarded to the API.
   WebCertificateArn:
     Type: String
     AllowedPattern: ^arn:[^:]+:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$
@@ -66,7 +66,235 @@ Parameters:
     Type: CommaDelimitedList
     Default: https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173
 
+Conditions:
+  HasElixirIntegrationKey: !Not [!Equals [!Ref ElixirIntegrationKey, ""]]
+  HasElixirMcpKey: !Not [!Equals [!Ref ElixirMcpKey, ""]]
+  HasElixirOAuthClientId: !Not [!Equals [!Ref ElixirOAuthClientId, ""]]
+  HasElixirOAuthClientSecret: !Not [!Equals [!Ref ElixirOAuthClientSecret, ""]]
+  HasWebVersion: !Not [!Equals [!Ref WebVersion, ""]]
+  HasApiVersion: !Not [!Equals [!Ref ApiVersion, ""]]
+
 Resources:
+  CloudFormationWebFunctionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: elixir-drop-web-function-management
+      Roles: [elixir-drop-cloudformation-execution]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              [
+                lambda:CreateWebFunction,
+                lambda:DeleteWebFunction,
+                lambda:GetWebFunction,
+                lambda:ListWebFunctions,
+                lambda:CreateWebFunctionRevision,
+                lambda:DeleteWebFunctionRevision,
+                lambda:GetWebFunctionRevision,
+                lambda:ListWebFunctionRevisions,
+                lambda:CreateWebFunctionEndpoint,
+                lambda:UpdateWebFunctionEndpoint,
+                lambda:DeleteWebFunctionEndpoint,
+                lambda:GetWebFunctionEndpoint,
+                lambda:ListWebFunctionEndpoints,
+                lambda:TagResource,
+                lambda:UntagResource,
+                lambda:ListTagsForResource,
+              ]
+            Resource:
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:web-function/elixir-drop-web-api
+              - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:web-function/elixir-drop-web-api/*
+          - Effect: Allow
+            Action:
+              [s3:GetBucketPolicy, s3:PutBucketPolicy, s3:DeleteBucketPolicy]
+            Resource: !Sub arn:${AWS::Partition}:s3:::${CodeBucket}
+
+  WebCodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: CloudFormationWebFunctionPolicy
+    Properties:
+      Bucket: !Ref CodeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: [s3:GetObject, s3:GetObjectVersion]
+            Resource: !Sub arn:${AWS::Partition}:s3:::${CodeBucket}/web/*
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:web-function/elixir-drop-web-api/*
+          - Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              [
+                !Sub "arn:${AWS::Partition}:s3:::${CodeBucket}",
+                !Sub "arn:${AWS::Partition}:s3:::${CodeBucket}/*",
+              ]
+            Condition: { Bool: { aws:SecureTransport: "false" } }
+
+  WebPolicyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/web-policy
+      RetentionInDays: 30
+
+  WebPolicyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-web-policy-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-web-origin-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  [
+                    lambda:GetResourcePolicy,
+                    lambda:PutResourcePolicy,
+                    lambda:DeleteResourcePolicy,
+                  ]
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:web-function/elixir-drop-web-api
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt WebPolicyLogGroup.Arn
+
+  WebPolicyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: elixir-drop-web-policy
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      Handler: web-policy.handler
+      Role: !GetAtt WebPolicyRole.Arn
+      Timeout: 60
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      LoggingConfig:
+        LogGroup: !Ref WebPolicyLogGroup
+        LogFormat: JSON
+
+  ApiOriginPolicy:
+    Type: Custom::WebFunctionOriginPolicy
+    Properties:
+      ServiceToken: !GetAtt WebPolicyFunction.Arn
+      ResourceArn: !GetAtt ApiWebFunction.FunctionArn
+      EndpointArn: !GetAtt ApiWebEndpoint.EndpointArn
+      DistributionArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
+
+  ApiOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: elixir-drop-web-api
+        OriginAccessControlOriginType: lambda
+        SigningBehavior: always-amz-auth
+        SigningProtocol: sigv4
+
+  ApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: elixir-drop-api-authorization
+        MinTTL: 0
+        DefaultTTL: 0
+        MaxTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers: [Authorization]
+          CookiesConfig: { CookieBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: all }
+          EnableAcceptEncodingGzip: false
+          EnableAcceptEncodingBrotli: false
+
+  PublicApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: elixir-drop-public-api-authorization
+        MinTTL: 0
+        DefaultTTL: 0
+        MaxTTL: 60
+        ParametersInCacheKeyAndForwardedToOrigin:
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers: [Authorization]
+          CookiesConfig: { CookieBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: all }
+          EnableAcceptEncodingGzip: false
+          EnableAcceptEncodingBrotli: false
+
+  ApiLatencyMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ApiLogGroup
+      FilterPattern: '{ $.message.event = "api.timings" }'
+      MetricTransformations:
+        - MetricNamespace: ElixirDrop/HTTP
+          MetricName: RequestLatency
+          MetricValue: $.message.elapsedMs
+          Unit: Milliseconds
+
+  CrResultRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-drop-cr-results-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-drop-season-repair
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt CrResultLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  [
+                    sqs:ReceiveMessage,
+                    sqs:DeleteMessage,
+                    sqs:GetQueueAttributes,
+                  ]
+                Resource: !GetAtt CrResultQueue.Arn
+              - Effect: Allow
+                Action:
+                  [
+                    dynamodb:ConditionCheckItem,
+                    dynamodb:BatchGetItem,
+                    dynamodb:GetItem,
+                    dynamodb:Query,
+                    dynamodb:PutItem,
+                    dynamodb:UpdateItem,
+                    dynamodb:TransactWriteItems,
+                  ]
+                Resource:
+                  [!GetAtt DataTable.Arn, !Sub "${DataTable.Arn}/index/*"]
+
+  ApiLocalLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/api.local
+      RetentionInDays: 30
+
   DataTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -247,12 +475,6 @@ Resources:
       LogGroupName: /elixir-drop/api
       RetentionInDays: 30
 
-  ApiAccessLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /elixir-drop/api-access
-      RetentionInDays: 30
-
   CrResultLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -301,15 +523,14 @@ Resources:
               - Effect: Allow
                 Action: sqs:SendMessage
                 Resource: !GetAtt RefreshQueue.Arn
-              # Both Lambdas are pinned to managed log groups via
-              # LoggingConfig, so no CreateLogGroup and no wildcard resource.
+              # Web logging needs both managed regional and central groups.
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource:
                   - !GetAtt ApiLogGroup.Arn
-                  - !GetAtt CrResultLogGroup.Arn
+                  - !GetAtt ApiLocalLogGroup.Arn
               - Effect: Allow
                 Action:
                   - dynamodb:BatchGetItem
@@ -331,12 +552,6 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${NameModelId}
                   - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*
-              - Effect: Allow
-                Action:
-                  - sqs:ReceiveMessage
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                Resource: !GetAtt CrResultQueue.Arn
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -372,6 +587,7 @@ Resources:
   # index rows, and has NO access to any secret (the pepper is Lambda-only).
   # The physical name is retained for compatibility with the managed host's
   # existing AWS profile even though the role is no longer strictly read-only.
+
   RefereeReadRole:
     Type: AWS::IAM::Role
     Properties:
@@ -656,31 +872,39 @@ Resources:
                       - GSI1PK
                       - GSI1SK
 
-  ApiFunction:
-    Type: AWS::Lambda::Function
+  ApiWebFunction:
+    Type: AWS::Lambda::WebFunction
+    DependsOn: CloudFormationWebFunctionPolicy
     Properties:
-      FunctionName: elixir-drop-api
-      Description: Elixir Drop authentication, profiles, runs, and leaderboards
-      Architectures:
-        - arm64
-      Runtime: nodejs24.x
-      Handler: handler.handler
-      Role: !GetAtt ApiRole.Arn
-      MemorySize: 512
-      Timeout: 20
-      # Caps concurrent spend if something hammers the API past the stage
-      # throttle; generous for beta-scale traffic.
-      ReservedConcurrentExecutions: 25
-      LoggingConfig:
-        ApplicationLogLevel: INFO
-        LogFormat: JSON
-        LogGroup: !Ref ApiLogGroup
-        SystemLogLevel: INFO
-      Code:
-        S3Bucket: !Ref CodeBucket
-        S3Key: !Ref CodeKey
-      Environment:
-        Variables:
+      FunctionName: elixir-drop-web-api
+      Tags:
+        - Key: Project
+          Value: elixir-drop
+        - Key: Environment
+          Value: production
+
+  ApiWebRevision:
+    Type: AWS::Lambda::WebFunctionRevision
+    DependsOn: [ApiWebFunction, WebCodeBucketPolicy, ApiLocalLogGroup]
+    Properties:
+      FunctionName: elixir-drop-web-api
+      BuildConfig:
+        CodeConfig:
+          S3Object:
+            Bucket: !Ref CodeBucket
+            Key: !Ref WebCodeKey
+        RuntimeConfig:
+          Runtime: nodejs24.x
+      ServiceConfig:
+        ExecutionRoleArn: !GetAtt ApiRole.Arn
+        TimeoutSeconds: 20
+        MaxConcurrencyPerEnvironment: 8
+        TelemetryConfig:
+          LoggingConfig:
+            LogGroup: !Ref ApiLogGroup
+            ApplicationLogLevel: INFO
+            SystemLogLevel: INFO
+        EnvironmentVariables:
           TABLE_NAME: !Ref DataTable
           REFRESH_QUEUE_URL: !Ref RefreshQueue
           SESSION_SECRET: !Ref SessionSecret
@@ -688,14 +912,47 @@ Resources:
           ELIXIR_DROP_UPDATES_PUBLISH_TOKEN: !Ref UpdatesPublishToken
           APP_URL: !Ref AppUrl
           NAME_MODEL_ID: !Ref NameModelId
-          ELIXIR_DROP_WEB_ORIGIN_TOKEN: !Ref WebOriginToken
-          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
-          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
+          ELIXIR_INTEGRATION_KEY:
+            !If [
+              HasElixirIntegrationKey,
+              !Ref ElixirIntegrationKey,
+              !Ref AWS::NoValue,
+            ]
+          ELIXIR_MCP_KEY:
+            !If [HasElixirMcpKey, !Ref ElixirMcpKey, !Ref AWS::NoValue]
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
-          ELIXIR_OAUTH_CLIENT_ID: !Ref ElixirOAuthClientId
-          ELIXIR_OAUTH_CLIENT_SECRET: !Ref ElixirOAuthClientSecret
+          ELIXIR_OAUTH_CLIENT_ID:
+            !If [
+              HasElixirOAuthClientId,
+              !Ref ElixirOAuthClientId,
+              !Ref AWS::NoValue,
+            ]
+          ELIXIR_OAUTH_CLIENT_SECRET:
+            !If [
+              HasElixirOAuthClientSecret,
+              !Ref ElixirOAuthClientSecret,
+              !Ref AWS::NoValue,
+            ]
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
-          WEB_VERSION: !Ref WebVersion
+          WEB_VERSION: !If [HasWebVersion, !Ref WebVersion, !Ref AWS::NoValue]
+          API_VERSION: !If [HasApiVersion, !Ref ApiVersion, !Ref AWS::NoValue]
+          ALLOWED_ORIGINS: !Join [",", !Ref AllowedOrigins]
+          TRUST_CLOUDFRONT: "true"
+
+  ApiWebEndpoint:
+    Type: AWS::Lambda::WebFunctionEndpoint
+    Properties:
+      FunctionName: elixir-drop-web-api
+      EndpointName: production
+      EndpointType: HomeRegion
+      AuthType: IamAuth
+      RevisionWeights:
+        - RevisionId: !GetAtt ApiWebRevision.RevisionId
+          Weight: 100
+      ScalingConfig:
+        MaxEnvironments: 3
+      ThrottleConfig:
+        RateLimit: 100
 
   RefreshDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -851,8 +1108,8 @@ Resources:
       Architectures:
         - arm64
       Runtime: nodejs24.x
-      Handler: handler.crResultHandler
-      Role: !GetAtt ApiRole.Arn
+      Handler: cr-results.crResultHandler
+      Role: !GetAtt CrResultRole.Arn
       MemorySize: 256
       Timeout: 20
       ReservedConcurrentExecutions: 5
@@ -893,13 +1150,13 @@ Resources:
     Properties:
       AlarmName: elixir-drop-api-errors
       AlarmDescription: Elixir Drop API returned one or more HTTP 5xx responses.
-      Namespace: AWS/ApiGateway
-      MetricName: 5xx
+      Namespace: AWS/Lambda/Web
+      MetricName: HTTPResponseStatusClass5XX
       Dimensions:
-        - Name: ApiId
-          Value: !Ref HttpApi
-        - Name: Stage
-          Value: $default
+        - Name: FunctionName
+          Value: elixir-drop-web-api
+        - Name: EndpointName
+          Value: production
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1
@@ -937,13 +1194,8 @@ Resources:
     Properties:
       AlarmName: elixir-drop-api-latency-p95
       AlarmDescription: Elixir Drop API p95 response latency exceeded 1.2 seconds in five of fifteen one-minute windows.
-      Namespace: AWS/ApiGateway
-      MetricName: Latency
-      Dimensions:
-        - Name: ApiId
-          Value: !Ref HttpApi
-        - Name: Stage
-          Value: $default
+      Namespace: ElixirDrop/HTTP
+      MetricName: RequestLatency
       ExtendedStatistic: p95
       Period: 60
       EvaluationPeriods: 15
@@ -960,13 +1212,8 @@ Resources:
     Properties:
       AlarmName: elixir-drop-api-latency-p99
       AlarmDescription: Elixir Drop API p99 response latency exceeded 2 seconds in two of three five-minute windows.
-      Namespace: AWS/ApiGateway
-      MetricName: Latency
-      Dimensions:
-        - Name: ApiId
-          Value: !Ref HttpApi
-        - Name: Stage
-          Value: $default
+      Namespace: ElixirDrop/HTTP
+      MetricName: RequestLatency
       ExtendedStatistic: p99
       Period: 300
       EvaluationPeriods: 3
@@ -982,17 +1229,21 @@ Resources:
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-api-concurrency
-      AlarmDescription: Elixir Drop API used at least 20 of its 25 reserved concurrent executions in two of three minutes.
-      Namespace: AWS/Lambda
-      MetricName: ConcurrentExecutions
+      AlarmDescription: Elixir Drop HTTP EndpointActiveEnvironments.
+      Namespace: AWS/Lambda/Web/Usage
+      MetricName: EndpointActiveEnvironments
       Dimensions:
         - Name: FunctionName
-          Value: !Ref ApiFunction
+          Value: elixir-drop-web-api
+        - Name: EndpointName
+          Value: production
+        - Name: ExecutionRegion
+          Value: !Ref AWS::Region
       Statistic: Maximum
       Period: 60
       EvaluationPeriods: 3
       DatapointsToAlarm: 2
-      Threshold: 20
+      Threshold: 3
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions:
@@ -1167,14 +1418,71 @@ Resources:
     DependsOn: AlarmTopic
     Properties:
       AlarmName: elixir-drop-api-throttles
-      AlarmDescription: Elixir Drop API Lambda was throttled.
-      Namespace: AWS/Lambda
-      MetricName: Throttles
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref ApiFunction
-      Statistic: Sum
-      Period: 60
+      AlarmDescription: Elixir Drop HTTP endpoint or account capacity was throttled.
+      Metrics:
+        - Id: throttles
+          Expression: SUM(METRICS())
+          ReturnData: true
+        - Id: throttle0
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda/Web/Usage
+              MetricName: EndpointRequestThrottles
+              Dimensions:
+                - Name: FunctionName
+                  Value: elixir-drop-web-api
+                - Name: EndpointName
+                  Value: production
+                - Name: ExecutionRegion
+                  Value: !Ref AWS::Region
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: throttle1
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda/Web/Usage
+              MetricName: EndpointActiveEnvironmentThrottles
+              Dimensions:
+                - Name: FunctionName
+                  Value: elixir-drop-web-api
+                - Name: EndpointName
+                  Value: production
+                - Name: ExecutionRegion
+                  Value: !Ref AWS::Region
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: throttle2
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda/Web/Usage
+              MetricName: AccountRequestThrottles
+              Dimensions:
+                - Name: FunctionName
+                  Value: elixir-drop-web-api
+                - Name: EndpointName
+                  Value: production
+                - Name: ExecutionRegion
+                  Value: !Ref AWS::Region
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: throttle3
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda/Web/Usage
+              MetricName: AccountActiveVCPUArm64Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: elixir-drop-web-api
+                - Name: EndpointName
+                  Value: production
+                - Name: ExecutionRegion
+                  Value: !Ref AWS::Region
+            Period: 60
+            Stat: Sum
+          ReturnData: false
       EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
@@ -1222,608 +1530,13 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
-  HttpApi:
-    Type: AWS::ApiGatewayV2::Api
-    Properties:
-      Name: elixir-drop-api
-      ProtocolType: HTTP
-      CorsConfiguration:
-        AllowOrigins: !Ref AllowedOrigins
-        AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - PATCH
-          - DELETE
-          - OPTIONS
-        AllowHeaders:
-          - authorization
-          - content-type
-        MaxAge: 86400
-
-  ApiIntegration:
-    Type: AWS::ApiGatewayV2::Integration
-    Properties:
-      ApiId: !Ref HttpApi
-      IntegrationType: AWS_PROXY
-      IntegrationUri: !GetAtt ApiFunction.Arn
-      PayloadFormatVersion: "2.0"
-
-  DefaultRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: $default
-      Target: !Sub integrations/${ApiIntegration}
-
-  HealthRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /health
-      Target: !Sub integrations/${ApiIntegration}
-
-  AuthPollRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /auth/poll
-      Target: !Sub integrations/${ApiIntegration}
-
-  AuthRedeemRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /auth/redeem
-      Target: !Sub integrations/${ApiIntegration}
-
-  AuthRefreshRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /auth/refresh
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeGetRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /me
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeSeasonsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /me/seasons
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeXpRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /me/xp
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeShareRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /me/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeShareUploadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: PUT /me/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublicPlayerRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /players/{playerId}
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeNameOptionsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /me/name-options
-      Target: !Sub integrations/${ApiIntegration}
-
-  MeDeleteRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: DELETE /me
-      Target: !Sub integrations/${ApiIntegration}
-
-  MePatchRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: PATCH /me
-      Target: !Sub integrations/${ApiIntegration}
-
-  RunStartRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /runs/start
-      Target: !Sub integrations/${ApiIntegration}
-
-  RunCompleteRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /runs/complete
-      Target: !Sub integrations/${ApiIntegration}
-
-  PracticeResumeRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /practice/resume
-      Target: !Sub integrations/${ApiIntegration}
-
-  PracticeCheckpointRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /practice/checkpoint
-      Target: !Sub integrations/${ApiIntegration}
-
-  RunReportsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /run-reports
-      Target: !Sub integrations/${ApiIntegration}
-
-  RunShareRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /runs/{runId}/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  RunShareUploadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: PUT /runs/{runId}/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  BadgeShareRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /badges/{slug}/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  BadgeShareUploadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: PUT /badges/{slug}/share
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedRunSharePageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share/{playerTag}/{runTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedRunSharePageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share/{playerTag}/{runTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedRunShareImageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share-assets/{playerTag}/{runTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedRunShareImageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share-assets/{playerTag}/{runTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedRunShareOpenRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: POST /share/{playerTag}/{runTag}/open
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedBadgeSharePageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share/{playerTag}/badge/{slug}/{rung}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedBadgeSharePageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share/{playerTag}/badge/{slug}/{rung}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedBadgeShareImageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share-assets/{playerTag}/badge/{slug}/{rung}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedBadgeShareImageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share-assets/{playerTag}/badge/{slug}/{rung}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedProfileSharePageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share/{playerTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedProfileSharePageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share/{playerTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedProfileShareImageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /share-assets/{playerTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  PublishedProfileShareImageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: HEAD /share-assets/{playerTag}
-      Target: !Sub integrations/${ApiIntegration}
-
-  ShareRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /shares/{token}
-      Target: !Sub integrations/${ApiIntegration}
-
-  LeaderboardsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /leaderboards
-      Target: !Sub integrations/${ApiIntegration}
-
-  SeasonsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /seasons
-      Target: !Sub integrations/${ApiIntegration}
-
-  ActivityRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /activity
-      Target: !Sub integrations/${ApiIntegration}
-
-  StatsRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /stats
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /updates
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesPageRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /updates/archive
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesPageHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: HEAD /updates/archive
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesFeedRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: GET /feed.xml
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesFeedHeadRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: HEAD /feed.xml
-      Target: !Sub integrations/${ApiIntegration}
-
-  UpdatesPublishRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      AuthorizationType: NONE
-      RouteKey: POST /admin/updates
-      Target: !Sub integrations/${ApiIntegration}
-
-  DefaultStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      ApiId: !Ref HttpApi
-      StageName: $default
-      AutoDeploy: true
-      AccessLogSettings:
-        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
-        Format: >-
-          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLatency":"$context.responseLatency","integrationLatency":"$context.integrationLatency","integrationStatus":"$context.integration.status","responseLength":"$context.responseLength"}
-      # A hard ceiling on request volume: beta-scale traffic sits far below
-      # this, and a script hammering the unauthenticated routes hits the
-      # throttle instead of an unbounded Lambda + DynamoDB bill.
-      DefaultRouteSettings:
-        DetailedMetricsEnabled: true
-        ThrottlingRateLimit: 50
-        ThrottlingBurstLimit: 100
-
   OperationsDashboard:
     Type: AWS::CloudWatch::Dashboard
     DependsOn: CloudFormationDashboardPolicy
     Properties:
       DashboardName: elixir-drop-operations
       DashboardBody: !Sub |
-        {
-          "start": "-PT8H",
-          "periodOverride": "inherit",
-          "widgets": [
-            {
-              "type": "alarm",
-              "x": 0,
-              "y": 0,
-              "width": 24,
-              "height": 5,
-              "properties": {
-                "title": "Elixir Drop service alarms",
-                "sortBy": "stateUpdatedTimestamp",
-                "alarms": [
-                  "${WebDistributionErrorAlarm.Arn}",
-                  "${ApiFunctionErrorAlarm.Arn}",
-                  "${ApiFunctionThrottleAlarm.Arn}",
-                  "${ApiLatencyP95Alarm.Arn}",
-                  "${ApiLatencyP99Alarm.Arn}",
-                  "${ApiFunctionConcurrencyAlarm.Arn}",
-                  "${DataTableThrottleAlarm.Arn}",
-                  "${DataTableSystemErrorAlarm.Arn}"
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 5,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "API requests and responses",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "stat": "Sum",
-                "metrics": [
-                  ["AWS/ApiGateway", "Count", "ApiId", "${HttpApi}", "Stage", "$default", {"label": "Requests"}],
-                  [".", "4xx", ".", ".", ".", ".", {"label": "4xx"}],
-                  [".", "5xx", ".", ".", ".", ".", {"label": "5xx"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12,
-              "y": 5,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "API response latency",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "metrics": [
-                  ["AWS/ApiGateway", "Latency", "ApiId", "${HttpApi}", "Stage", "$default", {"stat": "p50", "label": "p50"}],
-                  [".", ".", ".", ".", ".", ".", {"stat": "p95", "label": "p95"}],
-                  [".", ".", ".", ".", ".", ".", {"stat": "p99", "label": "p99"}],
-                  [".", "IntegrationLatency", ".", ".", ".", ".", {"stat": "p95", "label": "Integration p95"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 11,
-              "width": 24,
-              "height": 7,
-              "properties": {
-                "title": "Requests by API route",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "view": "timeSeries",
-                "stacked": false,
-                "metrics": [
-                  [{"expression": "SEARCH('{AWS/ApiGateway,ApiId,Stage,Method,Resource} MetricName=\"Count\" ApiId=\"${HttpApi}\" Stage=\"$default\"', 'Sum', 300)", "id": "route_requests"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 18,
-              "width": 24,
-              "height": 7,
-              "properties": {
-                "title": "p95 latency by API route",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "view": "timeSeries",
-                "stacked": false,
-                "metrics": [
-                  [{"expression": "SEARCH('{AWS/ApiGateway,ApiId,Stage,Method,Resource} MetricName=\"Latency\" ApiId=\"${HttpApi}\" Stage=\"$default\"', 'p95', 300)", "id": "route_latency"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 25,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "Lambda request health",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "stat": "Sum",
-                "metrics": [
-                  ["AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}", {"label": "Invocations"}],
-                  [".", "Errors", ".", ".", {"label": "Errors"}],
-                  [".", "Throttles", ".", ".", {"label": "Throttles"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12,
-              "y": 25,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "Lambda duration and concurrency",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "metrics": [
-                  ["AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}", {"stat": "p50", "label": "Duration p50"}],
-                  [".", ".", ".", ".", {"stat": "p95", "label": "Duration p95"}],
-                  [".", ".", ".", ".", {"stat": "p99", "label": "Duration p99"}],
-                  [".", "ConcurrentExecutions", ".", ".", {"stat": "Maximum", "label": "Concurrency", "yAxis": "right"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 31,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "DynamoDB consumed capacity",
-                "region": "${AWS::Region}",
-                "period": 300,
-                "stat": "Sum",
-                "metrics": [
-                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", {"label": "Read units"}],
-                  [".", "ConsumedWriteCapacityUnits", ".", ".", {"label": "Write units"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12,
-              "y": 31,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "DynamoDB failures",
-                "region": "${AWS::Region}",
-                "period": 60,
-                "stat": "Sum",
-                "metrics": [
-                  ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${DataTable}", {"label": "Read throttles"}],
-                  [".", "WriteThrottleEvents", ".", ".", {"label": "Write throttles"}],
-                  [".", "SystemErrors", ".", ".", "Operation", "GetItem", {"label": "Get errors"}],
-                  [".", ".", ".", ".", ".", "Query", {"label": "Query errors"}],
-                  [".", ".", ".", ".", ".", "UpdateItem", {"label": "Update errors"}],
-                  [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 37,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "Web requests and bytes",
-                "region": "us-east-1",
-                "period": 300,
-                "stat": "Sum",
-                "metrics": [
-                  ["AWS/CloudFront", "Requests", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Requests"}],
-                  [".", "BytesDownloaded", ".", ".", ".", ".", {"label": "Bytes", "yAxis": "right"}]
-                ]
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12,
-              "y": 37,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "title": "Web error rate",
-                "region": "us-east-1",
-                "period": 300,
-                "stat": "Average",
-                "yAxis": {"left": {"label": "Percent", "showUnits": false}},
-                "metrics": [
-                  ["AWS/CloudFront", "TotalErrorRate", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Total"}],
-                  [".", "4xxErrorRate", ".", ".", ".", ".", {"label": "4xx"}],
-                  [".", "5xxErrorRate", ".", ".", ".", ".", {"label": "5xx"}]
-                ]
-              }
-            }
-          ]
-        }
-
-  ApiInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref ApiFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+        {"start": "-PT8H", "periodOverride": "inherit", "widgets": [{"type": "alarm", "x": 0, "y": 0, "width": 24, "height": 5, "properties": {"title": "Elixir Drop service alarms", "sortBy": "stateUpdatedTimestamp", "alarms": ["${WebDistributionErrorAlarm.Arn}", "${ApiFunctionErrorAlarm.Arn}", "${ApiFunctionThrottleAlarm.Arn}", "${ApiLatencyP95Alarm.Arn}", "${ApiLatencyP99Alarm.Arn}", "${ApiFunctionConcurrencyAlarm.Arn}", "${DataTableThrottleAlarm.Arn}", "${DataTableSystemErrorAlarm.Arn}"]}}, {"type": "metric", "x": 0, "y": 5, "width": 12, "height": 6, "properties": {"title": "API requests and responses", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web", "ExecutedRequests", "FunctionName", "elixir-drop-web-api", "EndpointName", "production"], [".", "HTTPResponseStatusClass4XX", ".", ".", ".", "."], [".", "HTTPResponseStatusClass5XX", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 5, "width": 12, "height": 6, "properties": {"title": "API response latency", "region": "${AWS::Region}", "period": 300, "metrics": [["ElixirDrop/HTTP", "RequestLatency", {"stat": "p50"}], [".", ".", {"stat": "p95"}], [".", ".", {"stat": "p99"}]]}}, {"type": "log", "x": 0, "y": 11, "width": 24, "height": 7, "properties": {"title": "Requests and p95 by HTTP route", "region": "${AWS::Region}", "view": "table", "query": "SOURCE '/elixir-drop/api' | fields message.route, message.elapsedMs | filter message.event = 'api.timings' | stats count(*) as requests, pct(message.elapsedMs, 95) as p95 by message.route"}}, {"type": "metric", "x": 0, "y": 18, "width": 24, "height": 7, "properties": {"title": "HTTP environment CPU and active time", "region": "${AWS::Region}", "period": 300, "view": "timeSeries", "stacked": false, "metrics": [["AWS/Lambda/Web", "EnvironmentCPUTime", "FunctionName", "elixir-drop-web-api"], [".", "EnvironmentActiveTime", ".", "."]]}}, {"type": "metric", "x": 0, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP endpoint limits", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web/Usage", "EndpointRequestThrottles", "FunctionName", "elixir-drop-web-api", "EndpointName", "production", "ExecutionRegion", "${AWS::Region}"], [".", "EndpointActiveEnvironmentThrottles", ".", ".", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP memory and concurrency", "region": "${AWS::Region}", "period": 300, "metrics": [["AWS/Lambda/Web", "EnvironmentMaxMemoryUsage", "FunctionName", "elixir-drop-web-api", {"stat": "Maximum"}], [".", "EnvironmentConcurrentRequests", ".", ".", {"stat": "Maximum", "yAxis": "right"}]]}}, {"type": "metric", "x": 0, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB consumed capacity", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", {"label": "Read units"}], [".", "ConsumedWriteCapacityUnits", ".", ".", {"label": "Write units"}]]}}, {"type": "metric", "x": 12, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB failures", "region": "${AWS::Region}", "period": 60, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${DataTable}", {"label": "Read throttles"}], [".", "WriteThrottleEvents", ".", ".", {"label": "Write throttles"}], [".", "SystemErrors", ".", ".", "Operation", "GetItem", {"label": "Get errors"}], [".", ".", ".", ".", ".", "Query", {"label": "Query errors"}], [".", ".", ".", ".", ".", "UpdateItem", {"label": "Update errors"}], [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]]}}, {"type": "metric", "x": 0, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web requests and bytes", "region": "us-east-1", "period": 300, "stat": "Sum", "metrics": [["AWS/CloudFront", "Requests", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Requests"}], [".", "BytesDownloaded", ".", ".", ".", ".", {"label": "Bytes", "yAxis": "right"}]]}}, {"type": "metric", "x": 12, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web error rate", "region": "us-east-1", "period": 300, "stat": "Average", "yAxis": {"left": {"label": "Percent", "showUnits": false}}, "metrics": [["AWS/CloudFront", "TotalErrorRate", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Total"}], [".", "4xxErrorRate", ".", ".", ".", ".", {"label": "4xx"}], [".", "5xxErrorRate", ".", ".", ".", ".", {"label": "5xx"}]]}}]}
 
   WebBucket:
     Type: AWS::S3::Bucket
@@ -1997,7 +1710,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: !Ref WebCachePolicy
+            CachePolicyId: !Ref PublicApiCachePolicy
             Compress: true
             FunctionAssociations:
               - EventType: viewer-request
@@ -2014,7 +1727,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: !Ref WebCachePolicy
+            CachePolicyId: !Ref PublicApiCachePolicy
             Compress: true
             FunctionAssociations:
               - EventType: viewer-request
@@ -2031,7 +1744,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            CachePolicyId: !Ref ApiCachePolicy
             Compress: false
             FunctionAssociations:
               - EventType: viewer-request
@@ -2051,7 +1764,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            CachePolicyId: !Ref ApiCachePolicy
             Compress: true
             FunctionAssociations:
               - EventType: viewer-request
@@ -2071,7 +1784,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            CachePolicyId: !Ref ApiCachePolicy
             Compress: true
             FunctionAssociations:
               - EventType: viewer-request
@@ -2106,15 +1819,13 @@ Resources:
             S3OriginConfig:
               OriginAccessIdentity: ""
           - Id: api
-            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+            DomainName: !GetAtt ApiWebEndpoint.DomainName
+            OriginAccessControlId: !Ref ApiOriginAccessControl
             CustomOriginConfig:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
               OriginSSLProtocols:
                 - TLSv1.2
-            OriginCustomHeaders:
-              - HeaderName: X-Elixir-Drop-Origin
-                HeaderValue: !Ref WebOriginToken
         PriceClass: PriceClass_100
         ViewerCertificate:
           AcmCertificateArn: !Ref WebCertificateArn
@@ -2175,11 +1886,15 @@ Resources:
 
 Outputs:
   ApiUrl:
-    Value: !GetAtt HttpApi.ApiEndpoint
+    Value: !Sub "${AppUrl}/api"
+  ApiOriginDomain:
+    Value: !GetAtt ApiWebEndpoint.DomainName
+  ApiRevisionId:
+    Value: !GetAtt ApiWebRevision.RevisionId
   TableName:
     Value: !Ref DataTable
   FunctionName:
-    Value: !Ref ApiFunction
+    Value: elixir-drop-web-api
   WebBucketName:
     Value: !Ref WebBucket
   ShareAssetBucketName:

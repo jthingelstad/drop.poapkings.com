@@ -38,6 +38,7 @@ export async function withTimings<T>(
     } finally {
       console.info({
         event: "api.timings",
+        build: process.env.API_VERSION,
         route,
         coldStart: cold,
         elapsedMs: Math.round(performance.now() - started),

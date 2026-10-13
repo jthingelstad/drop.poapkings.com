@@ -1,6 +1,6 @@
 import { arenaForXp, type XpAward } from "@elixir-drop/contracts";
 import type { Config } from "../config.js";
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../http.js";
 import {
   advanceBadges,
   BADGE_COUNTERS_VERSION,
@@ -42,27 +42,29 @@ import {
   type RouteContext,
   sessionFor,
 } from "./context.js";
-
 type Season = ReturnType<typeof seasonForDate>;
-
 // POST /runs/complete — validate, score, record, and publish one finished run.
 //
 // The flow, in order: rate limit → identify the run → guest short-circuit →
 // ownership + replay + expiry → score (evidence on rejection) → integrity
 // verdict → record → best-effort follow-ups (learning stats, all-time best,
 // referee evidence).
-export async function completeRun({ event, config, repository }: RouteContext) {
-  const body = bodyOf(event);
+export async function completeRun({
+  request,
+  config,
+  repository,
+}: RouteContext) {
+  const body = bodyOf(request);
   // Rate-limit per IP FIRST so a signed-out (guest) completion is covered
   // exactly like a signed-in one.
   await repository.useRateLimit(
     "run-complete",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     300,
     60 * 60,
   );
   // Optional session: a guest completion carries no bearer token.
-  const session = sessionFor(event, config.sessionSecret, false);
+  const session = sessionFor(request, config.sessionSecret, false);
   if (typeof body.runToken !== "string")
     throw new HttpError(400, "A signed run token is required.");
   let claims;
@@ -87,7 +89,7 @@ export async function completeRun({ event, config, repository }: RouteContext) {
   // owner/session check, no integrity gate, no completeRun, XP, leaderboard,
   // all-time, or learning stats. The run row simply TTL-expires.
   if (run.guest === true || claims.guest === true)
-    return completeGuestRun(event, repository, config, run, body);
+    return completeGuestRun(request, repository, config, run, body);
   // From here the run is a recorded, signed-in run: it requires a valid
   // session that owns the run.
   if (!session)
@@ -100,25 +102,24 @@ export async function completeRun({ event, config, repository }: RouteContext) {
     );
   if (run.state === "completed")
     return replayCompletedRun(repository, config, run);
-  const nowSeconds = Math.floor(Date.now() / 1_000);
+  const nowSeconds = Math.floor(Date.now() / 1000);
   if (run.expiresAt <= nowSeconds)
     throw new HttpError(
       410,
       "This run expired before it was completed.",
       "run_expired",
     );
-  return recordSignedInRun({ event, config, repository }, run, body);
+  return recordSignedInRun({ request, config, repository }, run, body);
 }
-
 // A guest completion: scored and returned, never written down.
 async function completeGuestRun(
-  event: APIGatewayProxyEventV2,
+  request: HttpRequest,
   repository: Repository,
   config: Config,
   run: RunItem,
   body: Record<string, unknown>,
 ) {
-  const nowSeconds = Math.floor(Date.now() / 1_000);
+  const nowSeconds = Math.floor(Date.now() / 1000);
   if (run.expiresAt <= nowSeconds)
     throw new HttpError(
       410,
@@ -132,7 +133,7 @@ async function completeGuestRun(
     score = scoreRun(run.challenge, transcript, wallElapsedMs);
   } catch (error) {
     console.warn("Guest run completion rejected by scorer", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       runId: run.runId,
       mode: run.mode,
       wallElapsedMs,
@@ -152,7 +153,6 @@ async function completeGuestRun(
     season,
   });
 }
-
 // A retry of an already-recorded run replays the stored result rather than
 // scoring (and charging) the same game twice.
 async function replayCompletedRun(
@@ -191,9 +191,8 @@ async function replayCompletedRun(
     ...progress,
   });
 }
-
 async function recordSignedInRun(
-  { event, config, repository }: RouteContext,
+  { request, config, repository }: RouteContext,
   run: RunItem,
   body: Record<string, unknown>,
 ) {
@@ -201,8 +200,8 @@ async function recordSignedInRun(
   // discarded. A start/complete mismatch is itself a referee signal.
   const completeCorrelation = deriveCorrelation(
     config.telemetryPepper,
-    clientIp(event, config.webOriginToken),
-    event.headers["user-agent"],
+    clientIp(request),
+    request.headers["user-agent"],
   );
   const wallElapsedMs = Date.now() - new Date(run.startedAt).getTime();
   // The season is resolved before scoring so a rejected run's evidence can be
@@ -212,7 +211,7 @@ async function recordSignedInRun(
     await currentWarClock(repository, config),
   );
   const scored = await scoreOrFileRejection(
-    { event, config, repository },
+    { request, config, repository },
     run,
     body,
     season,
@@ -220,7 +219,6 @@ async function recordSignedInRun(
     completeCorrelation,
   );
   const { score, transcript, scoringReviewSignals } = scored;
-
   const timing = analyzeTimingEvidence(run.mode, transcript);
   const tiebreaks = modeTiebreaks(run, transcript, score);
   const leaderReviewSignals: string[] = [];
@@ -241,7 +239,6 @@ async function recordSignedInRun(
       leaderReviewSignals.push("leader_review_check_unavailable");
     }
   }
-
   const integrity = assessRunIntegrity(
     run.mode,
     score,
@@ -268,10 +265,10 @@ async function recordSignedInRun(
   if (automaticReviewReason) {
     // The signed evidence produced a deterministic candidate score, so
     // preserve the exact run and quarantine it from public rankings. This
-    // makes a false positive reversible while preventing a suspicious score
+    // makes a false positive reversible while prrequesting a suspicious score
     // from appearing before referee review.
     console.warn("Run completion quarantined by integrity check", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       runId: run.runId,
       mode: run.mode,
       score,
@@ -319,7 +316,10 @@ async function recordSignedInRun(
   // Best-effort all-time best per mode, outside the completeRun transaction so
   // a "not a new best" no-op can never roll back the recorded run. Ranked
   // only; Practice keeps no board.
-  let personalBest: { improved: boolean; previousScore?: number } = {
+  let personalBest: {
+    improved: boolean;
+    previousScore?: number;
+  } = {
     improved: false,
   };
   if (run.ranked !== false) {
@@ -390,7 +390,6 @@ async function recordSignedInRun(
       });
     }
   }
-
   // Improvement and featured-game XP are exact-once marker transactions. A
   // recorded run must not become a 500 if a follow-up service call is briefly
   // unavailable, so retain the established best-effort completion contract.
@@ -524,7 +523,6 @@ async function recordSignedInRun(
     ...(finalBadgeStates ? { badges: { badges: finalBadgeStates } } : {}),
   });
 }
-
 // Fold the completed run into the player's badge counters. Best-effort, exactly
 // like updateLearningStats below: a badge write that fails leaves the run
 // recorded and simply means the rung is picked up on the next completion, since
@@ -543,17 +541,26 @@ export async function updateBadges(
     recruiterCount?: number;
     firstDrop?: boolean;
     tzOffsetMinutes: unknown;
-    personalBest: { improved: boolean; previousScore?: number };
+    personalBest: {
+      improved: boolean;
+      previousScore?: number;
+    };
     // Aggregate-only Practice recovery knows how many answers were correct but
     // not which cards produced them. Preserve Reps/Clean Sweep without
     // fabricating card-specific badge evidence.
-    aggregatePractice?: { answered: number; correct: number };
+    aggregatePractice?: {
+      answered: number;
+      correct: number;
+    };
   },
   save: (
     sub: string,
     counters: ReturnType<typeof advanceBadges>["counters"],
     updatedAt: string,
-    expected?: { version: number; updatedAt?: string },
+    expected?: {
+      version: number;
+      updatedAt?: string;
+    },
   ) => Promise<boolean> = (sub, counters, updatedAt, expected) =>
     repository.saveBadges(sub, counters, updatedAt, expected),
 ): Promise<{
@@ -585,8 +592,9 @@ export async function updateBadges(
         const priorRuns = (await repository.listAllRuns(run.owner)).filter(
           (
             historical,
-          ): historical is typeof historical & { mode: typeof run.mode } =>
-            historical.runId !== run.runId && isGameMode(historical.mode),
+          ): historical is typeof historical & {
+            mode: typeof run.mode;
+          } => historical.runId !== run.runId && isGameMode(historical.mode),
         );
         counters = migrateBadgeCounters(stored, priorRuns, context.completedAt);
       } else {
@@ -675,7 +683,6 @@ export async function updateBadges(
     return { newlyEarned: [], applied: false };
   }
 }
-
 // The mode's ordered leaderboard tiebreaks, read off the same validated
 // transcript the score came from: Survival ranks equal streaks by fastest
 // cumulative time; Higher/Lower ranks equal scores by fewest lives lost, then by
@@ -697,11 +704,10 @@ function modeTiebreaks(
       return undefined;
   }
 }
-
 // Score the submitted transcript. A scorer rejection is itself referee
 // evidence, so it is filed (best-effort) before the 400 goes back.
 async function scoreOrFileRejection(
-  { event, config, repository }: RouteContext,
+  { request, config, repository }: RouteContext,
   run: RunItem,
   body: Record<string, unknown>,
   season: Season,
@@ -730,7 +736,7 @@ async function scoreOrFileRejection(
     // matches the one shown to the player.
     const reason = error instanceof Error ? error.message : "scorer_rejected";
     console.warn("Run completion rejected by scorer", {
-      requestId: event.requestContext.requestId,
+      requestId: request.requestId,
       runId: run.runId,
       mode: run.mode,
       wallElapsedMs,
@@ -767,7 +773,6 @@ async function scoreOrFileRejection(
     throw badRequest(error);
   }
 }
-
 // Fold the validated transcript into the player's server-side learning stats.
 // Best-effort: a stats failure must never fail a recorded game.
 async function updateLearningStats(

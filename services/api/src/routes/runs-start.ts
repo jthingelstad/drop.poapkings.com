@@ -21,21 +21,21 @@ export const PRACTICE_RUN_SECONDS = 24 * 60 * 60;
 export const RUN_TOKEN_GRACE_SECONDS = 24 * 60 * 60;
 
 // POST /runs/start — deal a signed challenge for a signed-in or guest player.
-export async function startRun({ event, config, repository }: RouteContext) {
-  const body = bodyOf(event);
+export async function startRun({ request, config, repository }: RouteContext) {
+  const body = bodyOf(request);
   if (!isGameMode(body.mode))
     throw new HttpError(400, "Choose a valid game mode.");
   // Rate-limit per IP FIRST, before any auth branch, so a signed-out (guest)
   // caller is covered exactly like a signed-in one.
   await repository.useRateLimit(
     "run-start",
-    clientIpHash(event, config.webOriginToken),
+    clientIpHash(request),
     300,
     60 * 60,
   );
   // The session is optional: a signed-in player gets the ranked flow; a
   // signed-out visitor gets a scored-but-never-recorded guest run.
-  const session = sessionFor(event, config.sessionSecret, false);
+  const session = sessionFor(request, config.sessionSecret, false);
   // Every game uses the complete canonical catalog. Linked Clash Royale card
   // data and learning history stay on the profile for future features but do
   // not influence challenge selection. Guests are dealt the same challenge.
@@ -75,8 +75,8 @@ export async function startRun({ event, config, repository }: RouteContext) {
   // never stored.
   const startCorrelation = deriveCorrelation(
     config.telemetryPepper,
-    clientIp(event, config.webOriginToken),
-    event.headers["user-agent"],
+    clientIp(request),
+    request.headers["user-agent"],
   );
   const run = await repository.createRun(
     owner,

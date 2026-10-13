@@ -111,18 +111,18 @@ function activePracticeRun(
 }
 
 export async function savePracticeCheckpoint({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+  const session = sessionFor(request, config.sessionSecret, true);
   await repository.useRateLimit(
     "practice-checkpoint",
     session.sub,
     600,
     60 * 60,
   );
-  const body = bodyOf(event);
+  const body = bodyOf(request);
   if (typeof body.runToken !== "string")
     throw new HttpError(400, "A signed Practice run token is required.");
   let claims;
@@ -212,11 +212,11 @@ export async function savePracticeCheckpoint({
 }
 
 export async function getPracticeResume({
-  event,
+  request,
   config,
   repository,
 }: RouteContext) {
-  const session = sessionFor(event, config.sessionSecret, true);
+  const session = sessionFor(request, config.sessionSecret, true);
   const meta = await repository.getPracticeCheckpoint(session.sub);
   const nowSeconds = Math.floor(Date.now() / 1_000);
   if (!meta || meta.expiresAt <= nowSeconds) return json(200, { draft: null });
@@ -229,8 +229,7 @@ export async function getPracticeResume({
     updatedAt: meta.updatedAt,
     expiresAt: new Date(run.expiresAt * 1_000).toISOString(),
   };
-  if (event.queryStringParameters?.summary === "1")
-    return json(200, { draft: summary });
+  if (request.query?.summary === "1") return json(200, { draft: summary });
 
   const answers = await repository.listPracticeCheckpointAnswers(
     session.sub,

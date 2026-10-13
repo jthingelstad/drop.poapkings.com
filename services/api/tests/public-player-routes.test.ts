@@ -1,6 +1,5 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 const repository = vi.hoisted(() => ({
   getCrProfile: vi.fn(),
   getProfile: vi.fn(),
@@ -15,7 +14,6 @@ const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   refereeDecisions: vi.fn(async (_runIds?: string[]) => new Map()),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getCrProfile = repository.getCrProfile;
@@ -32,39 +30,17 @@ vi.mock("../src/repository.js", () => ({
     refereeDecisions = repository.refereeDecisions;
   },
 }));
-
-import { handler } from "../src/handler.js";
-
-function playerEvent(id: string): APIGatewayProxyEventV2 {
+import { dispatch } from "../src/app.js";
+function playerEvent(id: string): HttpRequest {
   const path = `/players/${encodeURIComponent(id)}`;
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: path,
-    rawQueryString: "",
+    path,
     headers: {},
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "GET",
-        path,
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-player",
-      routeKey: "$default",
-      stage: "$default",
-      time: "22/Jul/2026:18:00:00 +0000",
-      timeEpoch: Date.now(),
-    },
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+    method: "GET",
+    sourceIp: "127.0.0.1",
+    requestId: "request-player",
+  } as HttpRequest;
 }
-
 describe("GET /players/:id", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,7 +71,7 @@ describe("GET /players/:id", () => {
       {
         runId: "run-1",
         mode: "surge",
-        score: 52_000,
+        score: 52000,
         seasonId: 134,
         completedAt: "2026-07-22T17:00:00.000Z",
         pk: "PLAYER#private-sub",
@@ -130,15 +106,9 @@ describe("GET /players/:id", () => {
       },
     });
   });
-
   it("returns only public identity and sanitized recent runs", async () => {
-    const result = await handler(
-      playerEvent("player-2"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(playerEvent("player-2"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body ?? "{}");
     expect(repository.getPublicPlayer).toHaveBeenCalledWith("player-2");
@@ -158,13 +128,12 @@ describe("GET /players/:id", () => {
       {
         runId: "run-1",
         mode: "surge",
-        score: 52_000,
+        score: 52000,
         seasonId: 134,
         completedAt: "2026-07-22T17:00:00.000Z",
       },
     ]);
   });
-
   it("returns Clash player and clan identity without owner-only snapshot data", async () => {
     repository.getPublicPlayer.mockResolvedValue({
       sub: "private-sub",
@@ -189,19 +158,13 @@ describe("GET /players/:id", () => {
         badgeId: 16000000,
         role: "leader",
       },
-      accountAge: { days: 2_000, years: 5 },
+      accountAge: { days: 2000, years: 5 },
       cards: [{ id: 26000000, name: "Knight" }],
       fetchedAt: "2026-08-07T12:00:00.000Z",
       updatedAt: "2026-08-07T12:00:00.000Z",
     });
-
-    const result = await handler(
-      playerEvent("player-2"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(playerEvent("player-2"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(repository.getCrProfile).toHaveBeenCalledWith("#UL2V9QRGO");
     const body = JSON.parse(result.body ?? "{}");
     expect(body.player.clashRoyale).toEqual({
@@ -221,7 +184,6 @@ describe("GET /players/:id", () => {
       expect.objectContaining({ slug: "battle-tag", rungIndex: 0 }),
     );
   });
-
   it("does not expose another player's pending or excluded runs", async () => {
     repository.refereeDecisions.mockResolvedValueOnce(
       new Map([
@@ -236,33 +198,23 @@ describe("GET /players/:id", () => {
         ],
       ]),
     );
-
-    const result = await handler(
-      playerEvent("player-2"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(playerEvent("player-2"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body ?? "{}");
     expect(body.recentRuns).toEqual([]);
     expect(JSON.stringify(body)).not.toContain("private review evidence");
   });
-
   it("returns 404 when the public player id is unknown", async () => {
     repository.getPublicPlayer.mockResolvedValue(undefined);
-
-    const result = await handler(playerEvent("missing"), {} as never, () => {});
+    const result = await dispatch(playerEvent("missing"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     expect(result.statusCode).toBe(404);
     expect(JSON.parse(result.body ?? "{}")).toMatchObject({
       error: { code: "player_not_found" },
     });
     expect(repository.listRecentRuns).not.toHaveBeenCalled();
   });
-
   it("migrates retired Trade times without losing unrelated badges", async () => {
     repository.getBadges.mockResolvedValue({
       version: 1,
@@ -284,24 +236,18 @@ describe("GET /players/:id", () => {
       {
         runId: "old-trade",
         mode: "trade",
-        score: 55_639,
+        score: 55639,
         completedAt: "2026-07-23T02:10:32.373Z",
       },
       {
         runId: "current-trade",
         mode: "trade",
-        score: 67_126,
+        score: 67126,
         completedAt: "2026-07-25T16:02:56.616Z",
       },
     ]);
-
-    const result = await handler(
-      playerEvent("player-2"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(playerEvent("player-2"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     const body = JSON.parse(result.body ?? "{}");
     expect(body.badges.backfilled).toBe(true);
     expect(body.badges.badges).toContainEqual(
@@ -324,7 +270,6 @@ describe("GET /players/:id", () => {
       },
     );
   });
-
   it("reconciles badge counters when a referee excludes an earning run", async () => {
     const excludedAt = "2026-08-12T18:00:00.000Z";
     repository.badgeDecisionRevision.mockResolvedValue(2);
@@ -358,14 +303,14 @@ describe("GET /players/:id", () => {
       {
         runId: "visible-run",
         mode: "surge",
-        score: 20_000,
+        score: 20000,
         completedAt: "2026-08-11T18:00:00.000Z",
         answerCount: 15,
       },
       {
         runId: "excluded-run",
         mode: "surge",
-        score: 7_000,
+        score: 7000,
         completedAt: excludedAt,
         answerCount: 15,
       },
@@ -398,14 +343,8 @@ describe("GET /players/:id", () => {
         },
       },
     ]);
-
-    const result = await handler(
-      playerEvent("player-2"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(playerEvent("player-2"));
     if (!result || typeof result === "string") throw new Error("no result");
-
     const body = JSON.parse(result.body ?? "{}");
     expect(body.badges.backfilled).toBe(true);
     expect(body.badges.badges).toContainEqual(

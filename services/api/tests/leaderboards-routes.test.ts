@@ -1,6 +1,5 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { HttpRequest } from "../src/http.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 const repository = vi.hoisted(() => ({
   leaderboard: vi.fn(),
   allTimeLeaderboard: vi.fn(),
@@ -10,7 +9,6 @@ const repository = vi.hoisted(() => ({
   getCrWarClock: vi.fn(),
   useRateLimit: vi.fn(),
 }));
-
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     leaderboard = repository.leaderboard;
@@ -22,21 +20,12 @@ vi.mock("../src/repository.js", () => ({
     useRateLimit = repository.useRateLimit;
   },
 }));
-
-import { handler } from "../src/handler.js";
+import { dispatch } from "../src/app.js";
 import { signToken } from "../src/signing.js";
-
-const nowSeconds = Math.floor(Date.now() / 1_000);
-
-function leaderboardEvent(
-  query: string,
-  authenticated = false,
-): APIGatewayProxyEventV2 {
+const nowSeconds = Math.floor(Date.now() / 1000);
+function leaderboardEvent(query: string, authenticated = false): HttpRequest {
   return {
-    version: "2.0",
-    routeKey: "$default",
-    rawPath: "/leaderboards",
-    rawQueryString: query,
+    path: "/leaderboards",
     headers: authenticated
       ? {
           authorization: `Bearer ${signToken(
@@ -44,39 +33,22 @@ function leaderboardEvent(
               type: "session",
               sub: "clan-player-sub",
               iat: nowSeconds,
-              exp: nowSeconds + 3_600,
+              exp: nowSeconds + 3600,
             },
             "test-session-secret",
           )}`,
         }
       : {},
-    queryStringParameters: Object.fromEntries(new URLSearchParams(query)),
-    requestContext: {
-      accountId: "test",
-      apiId: "test",
-      domainName: "test.example",
-      domainPrefix: "test",
-      http: {
-        method: "GET",
-        path: "/leaderboards",
-        protocol: "HTTP/1.1",
-        sourceIp: "127.0.0.1",
-        userAgent: "vitest",
-      },
-      requestId: "request-lb",
-      routeKey: "$default",
-      stage: "$default",
-      time: "19/Jul/2026:01:00:00 +0000",
-      timeEpoch: nowSeconds * 1_000,
-    },
-    isBase64Encoded: false,
-  } as APIGatewayProxyEventV2;
+    query: Object.fromEntries(new URLSearchParams(query)),
+    method: "GET",
+    sourceIp: "127.0.0.1",
+    requestId: "request-lb",
+  } as HttpRequest;
 }
-
 const sampleRows = [
   {
     rank: 1,
-    score: 11_000,
+    score: 11000,
     achievedAt: "2026-06-01T12:00:00.000Z",
     player: {
       id: "p-a",
@@ -87,7 +59,6 @@ const sampleRows = [
     },
   },
 ];
-
 describe("GET /leaderboards scope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -117,12 +88,9 @@ describe("GET /leaderboards scope", () => {
       updatedAt: "2026-07-01T00:00:00.000Z",
     });
   });
-
   it("returns the all-time board when scope=all-time", async () => {
-    const result = await handler(
+    const result = await dispatch(
       leaderboardEvent("mode=surge&scope=all-time"),
-      {} as never,
-      () => {},
     );
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(200);
@@ -134,13 +102,8 @@ describe("GET /leaderboards scope", () => {
     expect(body.currentSeason).toBeDefined();
     expect(body.entries).toEqual(sampleRows);
   });
-
   it("returns the season board by default and labels its scope", async () => {
-    const result = await handler(
-      leaderboardEvent("mode=surge"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(leaderboardEvent("mode=surge"));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body ?? "{}");
@@ -149,23 +112,15 @@ describe("GET /leaderboards scope", () => {
     expect(body.scope).toBe("season");
     expect(typeof body.seasonId).toBe("number");
   });
-
   it("requires authentication for the clan board", async () => {
-    const result = await handler(
-      leaderboardEvent("mode=surge&scope=clan"),
-      {} as never,
-      () => {},
-    );
+    const result = await dispatch(leaderboardEvent("mode=surge&scope=clan"));
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(401);
     expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
   });
-
   it("returns current-clan all-time rows to the linked player", async () => {
-    const result = await handler(
+    const result = await dispatch(
       leaderboardEvent("mode=surge&scope=clan", true),
-      {} as never,
-      () => {},
     );
     if (!result || typeof result === "string") throw new Error("no result");
     const body = JSON.parse(result.body ?? "{}");
@@ -183,7 +138,6 @@ describe("GET /leaderboards scope", () => {
     });
     expect(body.seasonId).toBeUndefined();
   });
-
   it("guides a player without a tag instead of querying a clan", async () => {
     repository.getProfile.mockResolvedValue({
       sub: "clan-player-sub",
@@ -193,10 +147,8 @@ describe("GET /leaderboards scope", () => {
       createdAt: "2026-07-01T00:00:00.000Z",
       updatedAt: "2026-07-01T00:00:00.000Z",
     });
-    const result = await handler(
+    const result = await dispatch(
       leaderboardEvent("mode=surge&scope=clan", true),
-      {} as never,
-      () => {},
     );
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(409);
@@ -206,17 +158,14 @@ describe("GET /leaderboards scope", () => {
     expect(repository.getCrProfile).not.toHaveBeenCalled();
     expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
   });
-
   it("guides a linked player who is not currently in a clan", async () => {
     repository.getCrProfile.mockResolvedValue({
       tag: "#PLAYER",
       status: "ready",
       updatedAt: "2026-07-01T00:00:00.000Z",
     });
-    const result = await handler(
+    const result = await dispatch(
       leaderboardEvent("mode=surge&scope=clan", true),
-      {} as never,
-      () => {},
     );
     if (!result || typeof result === "string") throw new Error("no result");
     expect(result.statusCode).toBe(409);
