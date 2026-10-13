@@ -14,6 +14,18 @@ const webRequestFunctionCode = template
   .replaceAll(/^ {8}/gm, "");
 
 void describe("AWS web hosting", () => {
+  void it("grants the native CloudFormation handler's tag read on the Web Function", () => {
+    const policy = template.match(
+      /  CloudFormationWebFunctionPolicy:[\s\S]*?(?=\n  WebCodeBucketPolicy:)/,
+    )?.[0];
+    assert.ok(policy);
+    // AWS::Lambda::WebFunction's read/delete handlers require ListTags,
+    // even though the Lambda Web SDK operation is ListTagsForResource.
+    assert.match(policy, /lambda:ListTags,/);
+    assert.doesNotMatch(policy, /lambda:ListTagsForResource/);
+    assert.match(policy, /web-function\/elixir-drop-web-api/);
+  });
+
   void it("keeps mutable entry points fresh and fingerprints immutable bundles", () => {
     assert.equal(
       cacheControlFor("index.html"),
