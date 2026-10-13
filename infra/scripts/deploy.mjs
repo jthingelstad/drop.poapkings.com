@@ -95,8 +95,7 @@ const webBytes = await readFile(webPath);
 const tempRoot = await mkdtemp(resolve(tmpdir(), "elixir-drop-deploy-"));
 const zipPath = resolve(tempRoot, "events.zip");
 const webZipPath = resolve(tempRoot, "web.zip");
-const packagePath = resolve(tempRoot, "package.json");
-await writeFile(packagePath, JSON.stringify({ type: "commonjs" }));
+const packagePath = resolve(repoRoot, "services/api/dist/package.json");
 execFileSync("zip", ["-q", "-j", zipPath, ...bundlePaths]);
 execFileSync("zip", ["-q", "-j", webZipPath, webPath, packagePath]);
 
