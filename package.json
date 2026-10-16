@@ -50,7 +50,7 @@
     "fsevents@2.3.3": true
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.4",
     "knip": "^6.38.0",
     "oxlint": "^1.85.0",
     "oxlint-tsgolint": "^7.0.2003",
