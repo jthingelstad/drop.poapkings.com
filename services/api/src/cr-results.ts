@@ -4,6 +4,7 @@ import {
 } from "@elixir-drop/contracts";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { loadConfig } from "./config.js";
+import { loadRuntimeSecrets } from "./runtime-secrets.js";
 import { Repository } from "./repository.js";
 import { finalizePodiumBadges } from "./podium.js";
 import { requireObject as object, requireText as text } from "./validation.js";
@@ -34,6 +35,7 @@ export function parsePodiumFinalizeResult(
 export async function crResultHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
+  await loadRuntimeSecrets();
   const repository = new Repository(loadConfig().tableName);
   const batchItemFailures: SQSBatchResponse["batchItemFailures"] = [];
   for (const record of event.Records) {

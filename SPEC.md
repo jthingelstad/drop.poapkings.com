@@ -1161,7 +1161,8 @@ source"_ **without Drop storing the actual IP or user-agent**.
   `uaFamily` (e.g. `Chrome/macOS`). Same source ⇒ same hash; the hash is **not
   reversible** to an IP without the pepper.
 - **`TELEMETRY_PEPPER`** is a required server secret, guarded like
-  `SESSION_SECRET`: Lambda env only, **never** in the read scripts, the
+  `SESSION_SECRET`: the functions only (the `elixir-drop-runtime` secret or
+  the function environment, `infra/README.md` "Runtime secret"), **never** in the read scripts, the
   referee role, CI, or the browser. A stable pepper enables long-window
   correlation (default); rotating it strengthens privacy but shortens the
   correlation window. Anyone holding the pepper _and_ table read could brute the

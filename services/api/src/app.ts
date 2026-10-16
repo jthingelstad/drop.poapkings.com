@@ -1,6 +1,7 @@
 import { withTimings } from "./timings.js";
 import type { HttpRequest, HttpResponse } from "./http.js";
 import { loadConfig } from "./config.js";
+import { loadRuntimeSecrets } from "./runtime-secrets.js";
 import { HttpError } from "./errors.js";
 import { json } from "./http.js";
 import { Repository } from "./repository.js";
@@ -131,6 +132,7 @@ async function route(request: HttpRequest) {
   if (method === "OPTIONS") return { statusCode: 204 };
   if (method === "GET" && path === "/health")
     return json(200, { ok: true, service: "elixir-drop-api" });
+  await loadRuntimeSecrets();
   const config = loadConfig();
   const context: RouteContext = {
     request,

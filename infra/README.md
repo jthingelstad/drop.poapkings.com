@@ -154,6 +154,34 @@ mode-0600 root `.env` supplying settings (never its AWS key). A local deploy
 refuses unless the checkout equals `origin/main` and its tree passed
 `validate`; `--break-glass` skips that check for an outage.
 
+### Runtime secret
+
+CloudFormation writes the `NoEcho` parameters into each function's
+configuration as plaintext, readable by anyone who can read the function and
+kept in every retained Web Function revision. The credentials are moving into
+one Secrets Manager secret, `elixir-drop-runtime`: a JSON object whose keys are
+the env names `SESSION_SECRET`, `TELEMETRY_PEPPER`,
+`ELIXIR_DROP_UPDATES_PUBLISH_TOKEN`, `ELIXIR_INTEGRATION_KEY`, `ELIXIR_MCP_KEY`
+and `ELIXIR_OAUTH_CLIENT_SECRET`. Jamie keeps it by hand in the console; the
+stack does not own it and no deploy writes it. Only the API, refresh and
+result-consumer roles may read it (never the referee role, CI, or the
+browser). The functions get only `RUNTIME_SECRET_ID`;
+`services/api/src/runtime-secrets.ts` reads it once per container before the
+first config read and logs `runtime_secrets.loaded` with key names only
+(`fromSecret`, `fromEnvironment`, `absent`).
+
+Transition, from 2026-10-16: a name the secret holds wins over the
+environment; a name it lacks, or a failed read (`runtime_secrets.load_failed`),
+keeps the parameter's value, so production is unchanged while the secret is
+empty. To move a key, copy the deployed value into the secret under the same
+name; new containers pick it up (force it with any function update). To back
+one out, delete the key from the secret. Once every function logs all six
+names in `fromSecret`, a later change removes the parameters from the template
+and the function environments, makes the load fail closed, and prunes the
+older Web Function revisions that still hold copies. Until then rotation is
+unchanged: the parameters stay the fallback. The fixed host's `.env` keeps its
+own copy of `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` for publishing.
+
 A stack-level tag change is not a no-op: CloudFormation updates every
 taggable resource, and some handlers re-put their whole configuration. On
 2026-09-24 a tag-only update reached the API stage's access log, which needs
