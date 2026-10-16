@@ -288,6 +288,10 @@ Resources:
                   ]
                 Resource:
                   [!GetAtt DataTable.Arn, !Sub "${DataTable.Arn}/index/*"]
+              # The hand-kept runtime secret (services/api/src/runtime-secrets.ts).
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:elixir-drop-runtime-??????
 
   ApiLocalLogGroup:
     Type: AWS::Logs::LogGroup
@@ -523,6 +527,10 @@ Resources:
               - Effect: Allow
                 Action: sqs:SendMessage
                 Resource: !GetAtt RefreshQueue.Arn
+              # The hand-kept runtime secret (services/api/src/runtime-secrets.ts).
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:elixir-drop-runtime-??????
               # Web logging needs both managed regional and central groups.
               - Effect: Allow
                 Action:
@@ -906,6 +914,7 @@ Resources:
             SystemLogLevel: INFO
         EnvironmentVariables:
           TABLE_NAME: !Ref DataTable
+          RUNTIME_SECRET_ID: elixir-drop-runtime
           REFRESH_QUEUE_URL: !Ref RefreshQueue
           SESSION_SECRET: !Ref SessionSecret
           TELEMETRY_PEPPER: !Ref TelemetryPepper
@@ -1000,6 +1009,10 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # The hand-kept runtime secret (services/api/src/runtime-secrets.ts).
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:elixir-drop-runtime-??????
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
@@ -1047,6 +1060,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
+          RUNTIME_SECRET_ID: elixir-drop-runtime
           ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
           ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
@@ -1124,6 +1138,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
+          RUNTIME_SECRET_ID: elixir-drop-runtime
           SESSION_SECRET: !Ref SessionSecret
           # The result consumer does not write referee evidence, but it calls the
           # shared getConfig(), which requires TELEMETRY_PEPPER. Present here only
