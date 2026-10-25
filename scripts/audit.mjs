@@ -14,17 +14,7 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 /** Accepted advisories; the gate fails again on the day after `expires`. */
-export const EXCEPTIONS = [
-  {
-    advisory: "GHSA-vfj7-8cjw-p6xm",
-    package: "braces",
-    expires: "2026-11-10",
-    reason:
-      "No fixed release: the advisory covers every braces <=3.0.3 and 3.0.3 " +
-      "is the newest. It reaches Drop only through stylelint (micromatch), a " +
-      "development-only CSS lint of our own stylesheets that never ships.",
-  },
-];
+export const EXCEPTIONS = [];
 
 const FAILING = new Set(["high", "critical"]);
 
