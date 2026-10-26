@@ -192,7 +192,7 @@ it("keeps the searchable player directory open beside filterable run history", a
     host.querySelector('input[placeholder="Run tag, UUID, or season"]'),
   ).not.toBeNull();
   expect(host.textContent).toContain("Max time (s)");
-  render(null, host);
+  void act(() => render(null, host));
 });
 
 it("shows private account context and drills through to retained submission JSON", async () => {
@@ -232,7 +232,7 @@ it("shows private account context and drills through to retained submission JSON
   expect(host.textContent).toContain("POAP KINGS");
   expect(host.textContent).toContain("Edit profile");
   expect(host.textContent).toContain("authentication key");
-  render(null, host);
+  void act(() => render(null, host));
 });
 
 it("selects runs and requires confirmation before a bulk status change", async () => {
@@ -286,7 +286,7 @@ it("selects runs and requires confirmation before a bulk status change", async (
     action: "clear",
     reason: "Evidence supports normal human play.",
   });
-  render(null, host);
+  void act(() => render(null, host));
 });
 
 it("lists and publishes an Update without a draft workflow", async () => {
@@ -337,5 +337,5 @@ it("lists and publishes an Update without a draft workflow", async () => {
     title: "Season 137 opens",
     body: "Higher / Lower carries the Free Pass.",
   });
-  render(null, host);
+  void act(() => render(null, host));
 });

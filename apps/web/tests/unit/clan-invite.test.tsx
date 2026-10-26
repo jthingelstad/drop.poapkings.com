@@ -49,7 +49,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  render(null, host)
+  void act(() => render(null, host))
   host.remove()
   document.body.classList.remove('modal-open')
   Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })

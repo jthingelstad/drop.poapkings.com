@@ -185,7 +185,7 @@ describe('MultipleChoice keyboard input', () => {
 })
 
 afterEach(() => {
-  render(null, host)
+  void act(() => render(null, host))
   host.remove()
   document.documentElement.classList.remove('reduce-motion')
 })
@@ -267,7 +267,7 @@ describe('PipKeypad', () => {
   it('removes its window keydown listener on unmount', () => {
     const onPick = vi.fn()
     draw(<PipKeypad onPick={onPick} />)
-    render(null, host)
+    void act(() => render(null, host))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '6' }))
     expect(onPick).not.toHaveBeenCalled()
   })

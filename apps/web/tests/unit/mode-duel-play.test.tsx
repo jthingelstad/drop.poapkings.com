@@ -164,7 +164,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   for (const c of mounted.splice(0)) {
-    render(null as never, c)
+    void act(() => render(null as never, c))
     c.remove()
   }
   vi.useRealTimers()

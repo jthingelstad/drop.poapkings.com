@@ -83,7 +83,7 @@ describe('sharing a run', () => {
   })
 
   afterEach(() => {
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
     setNavigator('share', undefined)
     setNavigator('clipboard', undefined)
@@ -192,7 +192,7 @@ describe('the shared-run permalink', () => {
   })
 
   afterEach(() => {
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
   })
 
@@ -266,7 +266,7 @@ describe('the Recruiter invitation permalink', () => {
   })
 
   afterEach(() => {
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
     localStorage.clear()
   })
