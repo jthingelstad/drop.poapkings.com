@@ -209,7 +209,7 @@ describe('useHomeData derivations', () => {
   })
 
   afterEach(() => {
-    render(null, container)
+    void act(() => render(null, container))
     container.remove()
     account.player.value = null
     account.recentRuns.value = []
@@ -359,7 +359,7 @@ describe('Profile interactive flows', () => {
   })
 
   afterEach(() => {
-    render(null, container)
+    void act(() => render(null, container))
     container.remove()
     account.player.value = null
     account.accountStatus.value = 'anonymous'

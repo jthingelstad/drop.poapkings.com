@@ -52,7 +52,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  render(null, host)
+  void act(() => render(null, host))
   host.remove()
 })
 

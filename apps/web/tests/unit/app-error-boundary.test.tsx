@@ -1,4 +1,5 @@
 import { render } from 'preact'
+import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AppErrorBoundary from '../../src/components/AppErrorBoundary'
 
@@ -10,7 +11,7 @@ describe('AppErrorBoundary', () => {
   const root = document.createElement('div')
 
   afterEach(() => {
-    render(null, root)
+    void act(() => render(null, root))
     root.remove()
   })
 

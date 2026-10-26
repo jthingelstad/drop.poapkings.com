@@ -35,7 +35,7 @@ describe('ShareAction', () => {
     expect(button.textContent?.trim()).toBe('SHARE')
     expect(host.querySelector('.ed-link-action__status')?.textContent).toBe('Shared.')
 
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
   })
 
@@ -56,7 +56,7 @@ describe('ShareAction', () => {
       expect(host.textContent).toContain('Copy this link:')
       expect(fallback?.value).toBe(url)
     })
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
   })
 
@@ -77,7 +77,7 @@ describe('ShareAction', () => {
       expect(writeText).toHaveBeenCalledWith(url)
       expect(host.textContent).toContain('Link copied.')
     })
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
   })
 })

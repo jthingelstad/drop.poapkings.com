@@ -117,7 +117,7 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const host of hosts.splice(0)) {
-    render(null, host)
+    void act(() => render(null, host))
     host.remove()
   }
   player.value = null
