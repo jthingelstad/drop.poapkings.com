@@ -8600,6 +8600,12 @@ html.reduce-motion .ed-profile-guest__halo::before {
   display: none;
 }
 
+/* Generated, not text: the pip cap's visible label stays the number alone, so
+   axe's label-content-name-mismatch reads it inside the "N elixir" name. */
+.pip-keypad__shortcut::before {
+  content: attr(data-key);
+}
+
 @media (hover: hover) and (pointer: fine) {
   /* Load-bearing, not decorative: with the home row bound, `A` on the `1` cap is
      the only place the mapping is stated while a player's hands are on it. 9px

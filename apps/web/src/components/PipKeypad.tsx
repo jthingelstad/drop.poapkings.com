@@ -110,9 +110,9 @@ function PipKey({
     >
       <span class="pip-keypad__face">
         <span class="pip-keypad__num">{value}</span>
-        <kbd class="pip-keypad__shortcut" aria-hidden="true">
-          {keyLegendForCost(value)}
-        </kbd>
+        {/* The key is drawn from data-key by CSS so it stays out of the cap's text:
+            the visible label is the number, and the name "N elixir" contains it. */}
+        <kbd class="pip-keypad__shortcut" aria-hidden="true" data-key={keyLegendForCost(value)} />
       </span>
     </button>
   )

@@ -378,13 +378,13 @@ test('the Ladder Badges scope shows the full collection without unrelated helper
   await expect(page.locator('.ed-badges__grid--featured')).toHaveCount(0)
   await expect(page.locator('.ed-profile__badges-toggle')).toHaveCount(0)
   await expect(page.locator('.ed-badges__cell')).toHaveCount(STANDARD_BADGE_LIST.length + 1)
-  await expect(page.getByRole('button', { name: 'First Drop, 100' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '100, First Drop' })).toBeVisible()
 })
 
 test('a one-time badge keeps sharing but omits progress and rung meters', async ({ page }, testInfo) => {
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()
-  await page.getByRole('button', { name: 'First Drop, 100' }).click()
+  await page.getByRole('button', { name: '100, First Drop' }).click()
 
   const sheet = page.getByRole('dialog', { name: 'First Drop' })
   await expect(sheet).toContainText('first 100 registered Elixir Drop players')
@@ -432,7 +432,7 @@ test('the play-tested badge ladders show the new ceilings and five Recruiter ste
     ['Bridge Read', '4K', 9],
     ['Recruiter', '5', 5]
   ] as const) {
-    await page.getByRole('button', { name: new RegExp(`^${name}(,|$)`) }).click()
+    await page.getByRole('button', { name: new RegExp(`(^|, )${name}$`) }).click()
     const dialog = page.getByRole('dialog', { name, exact: true })
     await expect(dialog).toBeVisible()
     await expect(dialog.locator('.ed-badges__rung')).toHaveCount(count)
@@ -455,7 +455,7 @@ test('opening a badge on the Ladder uses a focused modal with the rung ladder', 
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()
 
-  await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+  await page.getByRole('button', { name: '35s, Clockbreaker' }).click()
   const sheet = page.getByRole('dialog', { name: 'Clockbreaker' })
   await expect(sheet).toBeFocused()
   await expect(sheet).toContainText('Fastest Surge run')
@@ -470,16 +470,16 @@ test('opening a badge on the Ladder uses a focused modal with the rung ladder', 
 
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeFocused()
+  await expect(page.getByRole('button', { name: '35s, Clockbreaker' })).toBeFocused()
 
-  await page.getByRole('button', { name: 'Reps, 100' }).click()
+  await page.getByRole('button', { name: '100, Reps' }).click()
   const reps = page.getByRole('dialog', { name: 'Reps' })
   await expect(reps).toBeVisible()
   await expect(reps).toContainText('Current: 175 · 75 to go')
   await expect(reps.getByRole('progressbar', { name: 'Reps progress' })).toHaveAttribute('aria-valuenow', '70')
 
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Marathon, 5' }).click()
+  await page.getByRole('button', { name: '5, Marathon' }).click()
   const marathon = page.getByRole('dialog', { name: 'Marathon' })
   await expect(marathon).toContainText('Next milestone')
   await expect(marathon).toContainText('10')
@@ -498,7 +498,7 @@ test('opening a badge on the Ladder uses a focused modal with the rung ladder', 
   })
 
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Night Shift, 1' }).click()
+  await page.getByRole('button', { name: '1, Night Shift' }).click()
   const earnedSecret = page.getByRole('dialog', { name: 'Night Shift' })
   await expect(earnedSecret).toContainText('Earned by completing a game between midnight and 5:00 a.m. local time.')
 
@@ -525,7 +525,7 @@ test('earned badge sharing publishes its unfurl and shares only the permanent UR
   })
   await page.goto('/#/leaderboards')
   await page.getByRole('tab', { name: 'Badges' }).click()
-  await page.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+  await page.getByRole('button', { name: '35s, Clockbreaker' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Clockbreaker' })
   const axe = await new AxeBuilder({ page }).analyze()
@@ -625,11 +625,11 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
   const recentGames = page.locator('.ed-profile__recent').filter({ hasText: 'Recent games' })
   const tabs = page.getByRole('tablist', { name: 'Choose a player profile scope' })
   await expect(page.locator('.ed-profile__clash')).toContainText('King Thing')
-  await expect(page.getByRole('link', { name: 'View King Thing on RoyaleAPI' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /^Clash Royale .*, King Thing on RoyaleAPI$/ })).toHaveAttribute(
     'href',
     'https://royaleapi.com/player/UL2V9QRGO'
   )
-  await expect(page.getByRole('link', { name: 'View clan POAP KINGS on RoyaleAPI' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /^Clan POAP KINGS .*, on RoyaleAPI$/ })).toHaveAttribute(
     'href',
     'https://royaleapi.com/clan/J2RGCRVG'
   )
@@ -639,9 +639,9 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
   await expect(stats).toHaveCount(0)
   await expect(recentGames).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'SHARE', exact: true })).toHaveCount(0)
-  await expect(badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' })).toBeVisible()
-  await expect(badgeWall.getByRole('button', { name: 'Night Shift, 1' })).toBeVisible()
-  const firstDrop = badgeWall.getByRole('button', { name: 'First Drop, 100' })
+  await expect(badgeWall.getByRole('button', { name: '35s, Clockbreaker' })).toBeVisible()
+  await expect(badgeWall.getByRole('button', { name: '1, Night Shift' })).toBeVisible()
+  const firstDrop = badgeWall.getByRole('button', { name: '100, First Drop' })
   await expect(firstDrop).toBeVisible()
   await firstDrop.click()
   const firstDropSheet = page.getByRole('dialog', { name: 'First Drop' })
@@ -661,7 +661,7 @@ test('public profiles organize badges, XP, and recent games into scopes', async 
     contentType: 'image/png'
   })
   await page.getByRole('button', { name: 'Close' }).click()
-  await badgeWall.getByRole('button', { name: 'Clockbreaker, 35s' }).click()
+  await badgeWall.getByRole('button', { name: '35s, Clockbreaker' }).click()
   await expect(
     page.getByRole('dialog', { name: 'Clockbreaker' }).getByRole('button', { name: 'SHARE', exact: true })
   ).toHaveCount(0)

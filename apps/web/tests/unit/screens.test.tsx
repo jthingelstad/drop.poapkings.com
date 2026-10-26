@@ -304,11 +304,17 @@ describe('Leaderboards', () => {
     const host = await mount(<Leaderboards />)
     await flush()
 
-    await click(host.querySelector('[aria-label="View Bob\'s profile"]')!)
+    const rowButton = (text: string) =>
+      [...host.querySelectorAll<HTMLButtonElement>('.ed-lbrow__button')].find((button) =>
+        button.textContent?.includes(text)
+      )!
+    expect(rowButton('Bob').textContent).toMatch(/, view profile$/)
+    await click(rowButton('Bob'))
     expect(navigate).toHaveBeenLastCalledWith('/players/p2')
     expect(publicPlayerPreview.value?.publicName).toBe('Bob')
 
-    await click(host.querySelector('[aria-label="View your profile"]')!)
+    expect(rowButton(', view your profile').textContent).toContain('Alice')
+    await click(rowButton(', view your profile'))
     expect(navigate).toHaveBeenLastCalledWith('/profile')
   })
 
