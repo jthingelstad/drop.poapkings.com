@@ -1,4 +1,4 @@
-import type { JSX } from 'preact'
+import type { CSSProperties } from 'preact'
 
 // The charge ring: the loading shape for a wait where no screen exists yet — a
 // route chunk, a game preparing, a reconnect. Nothing is on screen, so the ring
@@ -24,10 +24,10 @@ export default function ChargeRing({
 }) {
   const reconnecting = variant === 'reconnecting'
   const arcStyle = {
-    strokeDasharray: CIRCUMFERENCE,
+    strokeDasharray: `${CIRCUMFERENCE}px`,
     // Reconnecting holds a quarter turn shown; fill lets the animation drive it.
-    ...(reconnecting ? { strokeDashoffset: CIRCUMFERENCE * 0.75 } : {})
-  } as JSX.CSSProperties
+    ...(reconnecting ? { strokeDashoffset: `${CIRCUMFERENCE * 0.75}px` } : {})
+  } as CSSProperties
   return (
     <div
       class={`charge-ring${reconnecting ? ' charge-ring--reconnecting' : ''}`}

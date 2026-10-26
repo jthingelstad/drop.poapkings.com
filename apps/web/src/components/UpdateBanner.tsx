@@ -11,7 +11,7 @@ import Icon from './Icon'
 export default function UpdateBanner() {
   if (currentInterrupt.value !== 4) return null
   return (
-    <aside class="update-strip" role="status" aria-live="polite">
+    <div class="update-strip" role="status" aria-live="polite">
       <Icon name="sparkles" className="update-strip__icon" />
       <div class="update-strip__copy">
         <strong>A new version of Elixir Drop is ready.</strong>
@@ -27,6 +27,6 @@ export default function UpdateBanner() {
       >
         <Icon name="x" />
       </button>
-    </aside>
+    </div>
   )
 }

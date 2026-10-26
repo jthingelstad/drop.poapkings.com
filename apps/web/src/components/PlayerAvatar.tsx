@@ -1,4 +1,4 @@
-import type { JSX } from 'preact'
+import type { CSSProperties } from 'preact'
 import { useState } from 'preact/hooks'
 import { avatarCrop } from '../data/avatar-crops'
 import { challengeCard } from '../lib/challenge-cards'
@@ -23,7 +23,7 @@ export default function PlayerAvatar({ favoriteCardId, size = 'medium', class: c
         '--avatar-x': `${crop.x}%`,
         '--avatar-y': `${crop.y}%`,
         '--avatar-scale': crop.scale
-      } as JSX.CSSProperties)
+      } as CSSProperties)
     : undefined
   return (
     <span
