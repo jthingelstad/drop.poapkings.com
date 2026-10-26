@@ -1,4 +1,4 @@
-import type { JSX } from 'preact'
+import type { CSSProperties } from 'preact'
 
 export type ReviewStatus = 'pending' | 'reviewed' | 'excluded'
 
@@ -54,7 +54,7 @@ export default function ReviewStatusMark({
           {
             '--seal-size': `${size}px`,
             '--seal-rotation': `${rotation}deg`
-          } as JSX.CSSProperties
+          } as CSSProperties
         }
       />
       {label && (

@@ -22,7 +22,7 @@
   "dependencies": {
     "@elixir-drop/contracts": "*",
     "@elixir-drop/game-data": "*",
-    "preact": "^11.0.1"
+    "preact": "^11.0.2"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",

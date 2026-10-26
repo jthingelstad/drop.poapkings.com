@@ -154,11 +154,14 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const handoffGeneration = useRef(0)
   const pendingExit = useRef<PendingExit | null>(null)
   const currentHand = useRef<Hand | null>(null)
-  const openingCache = useRef<{
-    deck: readonly Card[] | null | undefined
-    generation: number
-    hand: Hand | null
-  }>()
+  const openingCache = useRef<
+    | {
+        deck: readonly Card[] | null | undefined
+        generation: number
+        hand: Hand | null
+      }
+    | undefined
+  >(undefined)
   const deck = gameRun.content
 
   useEffect(() => {
