@@ -164,7 +164,7 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
 test('leaderboard and recent-run entries open the selected public player', async ({ page }) => {
   await page.goto('/#/leaderboards')
 
-  await page.getByRole('button', { name: "View Royal Ghosted's profile" }).click()
+  await page.getByRole('button', { name: /Royal Ghosted.*, view profile$/ }).click()
   await expect(page).toHaveURL(/#\/players\/player-2$/)
   await expect(page.getByRole('heading', { name: 'Royal Ghosted' })).toBeVisible()
   await expect(page.getByLabel('Elixir Drop developer')).toHaveText('DEV')

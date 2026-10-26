@@ -60,9 +60,11 @@ export default function BadgeGrid({
               triggerRef.current = event.currentTarget
               setOpenSlug(view.slug)
             }}
-            aria-label={`${view.name}${view.chip ? `, ${view.chip}` : ''}`}
+            aria-label={view.chip ? `${view.chip}, ${view.name}` : view.name}
           >
-            <BadgeMedallion badge={view} size={featured ? 44 : 74} />
+            {/* The space keeps the chip and the name separate words, so the visible
+                text reads "100 First Drop" inside the "100, First Drop" name. */}
+            <BadgeMedallion badge={view} size={featured ? 44 : 74} />{' '}
             {!featured && <span class="ed-badges__cell-name">{view.name}</span>}
           </button>
         ))}

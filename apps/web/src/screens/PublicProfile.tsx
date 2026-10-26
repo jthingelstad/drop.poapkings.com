@@ -116,9 +116,9 @@ export default function PublicProfile() {
                   href={royaleApiPlayerUrl(current.playerTag)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`View ${clashRoyale?.name ?? current.playerTag} on RoyaleAPI`}
                 >
                   Clash Royale {current.playerTag} <Icon name="external-link" />
+                  <span class="sr-only">, {clashRoyale?.name ? `${clashRoyale.name} ` : ''}on RoyaleAPI</span>
                 </a>
                 {clashRoyale?.clan && (
                   <a
@@ -126,9 +126,9 @@ export default function PublicProfile() {
                     href={royaleApiClanUrl(clashRoyale.clan.tag)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`View clan ${clashRoyale.clan.name} on RoyaleAPI`}
                   >
                     Clan {clashRoyale.clan.name} · {clashRoyale.clan.tag} <Icon name="external-link" />
+                    <span class="sr-only">, on RoyaleAPI</span>
                   </a>
                 )}
               </div>

@@ -200,7 +200,7 @@ describe('BadgeGrid', () => {
 
   it('filters a public wall to earned badges and restores focus after the modal closes', async () => {
     draw(<BadgeGrid states={[badgeState('reps', 175, 0)]} earnedOnly />)
-    const trigger = buttonNamed('Reps, 100')
+    const trigger = buttonNamed('100, Reps')
     expect(host.querySelectorAll('.ed-badges__cell')).toHaveLength(1)
 
     await click(trigger)
@@ -233,7 +233,7 @@ describe('BadgeGrid', () => {
   it('explains exactly how an earned secret badge was triggered', async () => {
     draw(<BadgeGrid states={[badgeState('night-shift', 1, 0)]} />)
 
-    await click(buttonNamed('Night Shift, 1'))
+    await click(buttonNamed('1, Night Shift'))
     expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Night Shift')
     expect(host.textContent).toContain('Earned by completing a game between midnight and 5:00 a.m. local time.')
     expect(host.textContent).not.toContain('Secret badge — earn it to reveal how.')
@@ -252,7 +252,7 @@ describe('BadgeGrid', () => {
       />
     )
 
-    await click(buttonNamed('First Drop, 100'))
+    await click(buttonNamed('100, First Drop'))
     expect(host.textContent).toContain('Be one of the first 100 registered Elixir Drop players')
     expect(buttonNamed('SHARE')).not.toBeNull()
     expect(host.querySelector('.ed-badges__milestone')).toBeNull()
@@ -265,12 +265,12 @@ describe('BadgeGrid', () => {
   it('describes descending time progress and a completed milestone ladder', async () => {
     draw(<BadgeGrid states={[badgeState('clockbreaker', 34.2, 3, [12, 9, 5, 2]), badgeState('reps', 10_000, 8)]} />)
 
-    await click(buttonNamed('Clockbreaker, 35s'))
+    await click(buttonNamed('35s, Clockbreaker'))
     expect(host.textContent).toContain('Best: 34.2s · 4.2s faster to go')
     expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('16')
     await click(buttonNamed('Close'))
 
-    await click(buttonNamed('Reps, 10K'))
+    await click(buttonNamed('10K, Reps'))
     expect(host.textContent).toContain('Milestones complete')
     expect(host.textContent).toContain('Current: 10K · all milestones achieved')
     expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100')
@@ -304,7 +304,7 @@ describe('BadgeGrid', () => {
         playerName="Knight Main"
       />
     )
-    await click(buttonNamed('Clockbreaker, 35s'))
+    await click(buttonNamed('35s, Clockbreaker'))
 
     await click(buttonNamed('SHARE'))
     await vi.waitFor(() => {
@@ -340,7 +340,7 @@ describe('BadgeGrid', () => {
         playerName="Knight Main"
       />
     )
-    await click(buttonNamed('Reps, 100'))
+    await click(buttonNamed('100, Reps'))
 
     const share = buttonNamed('SHARE')
     void act(() => {
@@ -359,14 +359,14 @@ describe('BadgeGrid', () => {
 
   it('does not offer sharing without a complete public identity', async () => {
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" />)
-    await click(buttonNamed('Reps, 100'))
+    await click(buttonNamed('100, Reps'))
     expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 
   it('does not offer an uncredited badge share to a signed-out visitor', async () => {
     player.value = null
     draw(<BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-one" playerName="Knight Main" />)
-    await click(buttonNamed('Reps, 100'))
+    await click(buttonNamed('100, Reps'))
     expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 
@@ -374,7 +374,7 @@ describe('BadgeGrid', () => {
     draw(
       <BadgeGrid states={[badgeState('reps', 100, 0)]} earnedOnly playerId="player-two" playerName="Royal Ghosted" />
     )
-    await click(buttonNamed('Reps, 100'))
+    await click(buttonNamed('100, Reps'))
     expect([...host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SHARE')).toBe(false)
   })
 })

@@ -231,8 +231,8 @@ describe('PipKeypad', () => {
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ' }))
     expect(onPick).toHaveBeenCalledWith(6, expect.objectContaining({ inputKind: 'keyboard', trusted: false }))
-    expect(host.querySelector('[data-pip-value="6"] .pip-keypad__shortcut')?.textContent).toBe('J')
-    expect(host.querySelector('[data-pip-value="9"] .pip-keypad__shortcut')?.textContent).toBe(';')
+    expect(host.querySelector('[data-pip-value="6"] .pip-keypad__shortcut')?.getAttribute('data-key')).toBe('J')
+    expect(host.querySelector('[data-pip-value="9"] .pip-keypad__shortcut')?.getAttribute('data-key')).toBe(';')
   })
 
   it('ignores modifier chords, repeats, out-of-range and typing in inputs', () => {
@@ -749,7 +749,7 @@ describe('DesktopNav', () => {
     screensaverMock.desktopFallingCardsMode.value = 'off'
     draw(<DesktopNav />)
 
-    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — subtle"]')!
+    const saver = host.querySelector<HTMLButtonElement>('.ed-rail-btn--saver')!
     expect(saver.textContent).toContain('Subtle →')
     saver.click()
     expect(screensaverMock.cycleDesktopFallingCards).toHaveBeenCalledTimes(1)
@@ -759,7 +759,7 @@ describe('DesktopNav', () => {
     screensaverMock.desktopFallingCardsMode.value = 'subtle'
     draw(<DesktopNav />)
 
-    const saver = host.querySelector<HTMLButtonElement>('[aria-label="Falling Cards — background"]')!
+    const saver = host.querySelector<HTMLButtonElement>('.ed-rail-btn--saver')!
     expect(saver.textContent).toContain('Background →')
   })
 

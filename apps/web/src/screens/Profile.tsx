@@ -685,7 +685,6 @@ function LogScope({ playerId }: { playerId: string }) {
                       <li key={run.runId}>
                         <button
                           class="ed-games__row"
-                          aria-label={`${gameDisplay(run.mode).name}, ${scoreLabel(run.mode, run.score)} at ${localTime(run.completedAt)}`}
                           onClick={(event) => {
                             rowTriggerRef.current = event.currentTarget
                             openRun.value = run
@@ -693,6 +692,7 @@ function LogScope({ playerId }: { playerId: string }) {
                         >
                           <span class="ed-games__time">{localTime(run.completedAt)}</span>
                           <ModeIcon mode={run.mode} size={22} />
+                          <span class="sr-only">{gameDisplay(run.mode).name}</span>
                           <span class="ed-games__score">{scoreLabel(run.mode, run.score)}</span>
                           <span class={`ed-games__note ed-games__note--${run.reviewStatus ?? 'none'}`}>{note}</span>
                           {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={18} index={index} />}

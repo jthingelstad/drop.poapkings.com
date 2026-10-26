@@ -68,7 +68,6 @@ export default function DesktopNav() {
       <div class="ed-rail-foot">
         <button
           class="ed-rail-btn ed-rail-btn--saver tap-fx"
-          aria-label={`Falling Cards — ${fallingCardsNext.toLowerCase()}`}
           onClick={(e) => {
             tapFxFrom(e)
             cycleDesktopFallingCards()
@@ -77,7 +76,11 @@ export default function DesktopNav() {
           <span class="tap-face">
             <Icon name="sparkles" />
             Falling Cards
-            <span class="ed-rail-btn__hint">{fallingCardsNext} →</span>
+            <span class="ed-rail-btn__hint">
+              {fallingCardsNext}
+              <span aria-hidden="true"> →</span>
+            </span>
+            <span class="sr-only">, next setting</span>
           </span>
         </button>
         <div class="ed-rail-meta">

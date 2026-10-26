@@ -94,11 +94,7 @@ function LeaderboardRow({
     <li
       class={`ed-lbrow${rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}${rank === 1 ? ' ed-lbrow--crown' : ''}`}
     >
-      <button
-        class="ed-lbrow__button"
-        aria-label={`View ${isPlayer ? 'your' : `${entry.player.publicName}'s`} profile`}
-        onClick={() => navigate(playerProfilePath(entry.player, player.value?.id))}
-      >
+      <button class="ed-lbrow__button" onClick={() => navigate(playerProfilePath(entry.player, player.value?.id))}>
         <span class={`ed-lbrow__rank ed-lbrow__rank--${rankColor}`}>{rank}</span>
         <PlayerAvatar favoriteCardId={entry.player.favoriteCardId} size="medium" />
         <span class="ed-lbrow__player">
@@ -136,6 +132,7 @@ function LeaderboardRow({
             )}
           </span>
         </span>
+        <span class="sr-only">{isPlayer ? ', view your profile' : ', view profile'}</span>
       </button>
     </li>
   )
