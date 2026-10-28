@@ -74,7 +74,7 @@ and p95 are queried from application logs. A log metric filter provides existing
 p95/p99 latency alarms through `ElixirDrop/HTTP`; native Web metrics drive HTTP
 error and capacity alarms. Workers retain their Event Function alarms.
 
-CloudFront standard logging v2 writes JSON access records to the 14-day
+CloudFront standard logging v2 writes JSON access records to the 24-month (731-day)
 `/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
 forwarded address, user-agent, referrer, cookie, query string, raw URI path, and
 request ID. Instead, the viewer-request function contributes a bounded class for the

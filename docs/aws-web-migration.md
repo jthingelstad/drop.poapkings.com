@@ -27,7 +27,7 @@ font), so static responses receive the standard transport, content-type, framing
 protections. `/api/*` keeps the API's own CORS behavior.
 
 CloudFront standard logging v2 sends a privacy-minimized field set to CloudWatch Logs
-for 14 days. It records status, bytes, cache/edge outcome, timing, content type, and a
+for 24 months (731 days). It records status, bytes, cache/edge outcome, timing, content type, and a
 bounded request class supplied by the routing function. It does not retain viewer IP,
 user-agent, referrer, cookies, query strings, raw paths, or request IDs. API and Lambda
 logs retain their existing 30-day incident window. Health checks consume the web records
