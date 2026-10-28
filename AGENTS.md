@@ -245,9 +245,14 @@ production run. A successful exact-head validation triggers
   and RSS. Production routes `/updates/` and `/feed.xml` to the API, which renders
   the live archive and RSS 2.0 feed with stable anchored links. The card reference reads
   `packages/game-data/cards.json`; the badge guide reads `BADGE_LIST` and must
-  never publish hidden badge identities or requirements. Keep only canonical
-  content URLs in `apps/web/public/sitemap.xml`; hash routes are gameplay links,
-  not sitemap entries.
+  never publish hidden badge identities or requirements. The build writes
+  `/sitemap.xml` (`apps/web/scripts/sitemap.ts`): canonical content URLs only,
+  hash routes are gameplay links, not sitemap entries. Each `<lastmod>` comes
+  from `apps/web/sitemap-dates.json`, which records every page's content hash
+  and when it last changed; a unit test fails when a page's content moves
+  without its date, and `npm run sitemap:dates` (in `apps/web`) re-dates exactly
+  the changed pages, and `/updates/` from the live feed. `refresh-cards.mjs`
+  re-dates the card reference itself. Never stamp the build time.
 - **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
   canonical card snapshot. The API composes a fresh candidate slate from
   reviewed card-specific flavor tiles and safe humor patterns; Claude Haiku

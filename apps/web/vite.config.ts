@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import preact from '@preact/preset-vite'
 import { execSync } from 'node:child_process'
 import { renderStaticPage, renderUpdatesFeed, STATIC_PAGE_SLUGS } from './scripts/static-pages.ts'
+import { renderSitemap } from './scripts/sitemap.ts'
 
 function runGit(command: string): string | undefined {
   try {
@@ -51,6 +52,13 @@ function staticPagesPlugin(): Plugin {
       server.middlewares.use((request, response, next) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') return next()
         const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+        if (pathname === '/sitemap.xml') {
+          const source = renderSitemap()
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'application/xml; charset=utf-8')
+          response.end(request.method === 'HEAD' ? undefined : source)
+          return
+        }
         if (pathname === '/feed.xml') {
           const source = renderUpdatesFeed()
           response.statusCode = 200
@@ -71,6 +79,7 @@ function staticPagesPlugin(): Plugin {
         this.emitFile({ type: 'asset', fileName: `${slug}/index.html`, source: renderStaticPage(slug) })
       }
       this.emitFile({ type: 'asset', fileName: 'feed.xml', source: renderUpdatesFeed() })
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: renderSitemap() })
     }
   }
 }

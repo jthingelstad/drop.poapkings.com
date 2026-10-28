@@ -319,8 +319,19 @@ const summary =
 
 const commitMsg = `data: refresh cards.json — ${summary}`
 
+// The card reference page changed with the catalog: re-date it in the sitemap (scripts/sitemap.ts).
+const sitemapDates = join(WEB_ROOT, 'scripts/sitemap-dates.mjs')
+const sitemapStaged = await access(sitemapDates).then(
+  () => {
+    execFileSync(process.execPath, [sitemapDates, '--pages'], { cwd: WEB_ROOT, stdio: 'inherit' })
+    return ['apps/web/sitemap-dates.json']
+  },
+  () => []
+)
+
 const stagedPaths = [
   'packages/game-data/cards.json',
+  ...sitemapStaged,
   ...[...writtenImagePaths].map((path) => path.slice(REPO_ROOT.length + 1)).sort((a, b) => a.localeCompare(b))
 ]
 
