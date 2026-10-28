@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile);
 
 export const CLOUD_AUDITOR_ROLE_NAME = "ProjectsMaintenanceReadOnly";
 export const WEB_ACCESS_LOG_GROUP = "/elixir-drop/web-access";
-export const WEB_ACCESS_LOG_RETENTION_DAYS = 14;
+export const WEB_ACCESS_LOG_RETENTION_DAYS = 731;
 export const WEB_ACCESS_DELIVERY_NAME = "elixir-drop-web-access";
 
 const MAX_HOURS = WEB_ACCESS_LOG_RETENTION_DAYS * 24;

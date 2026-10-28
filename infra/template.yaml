@@ -490,7 +490,7 @@ Resources:
     Properties:
       LogGroupName: /elixir-drop/web-access
       LogGroupClass: STANDARD
-      RetentionInDays: 14
+      RetentionInDays: 731
       ResourcePolicyDocument:
         Version: "2012-10-17"
         Statement:

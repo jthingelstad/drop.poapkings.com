@@ -1088,7 +1088,7 @@ This Mac owns the allowlisted CR API token for the manual card refresher:
   historical delivery-canary messages and cannot send, move, delete, or mark
   mail read.
 - CloudFront request health is read through `scripts/web-activity.mjs` under
-  the read-only `cloud-auditor` role. The 14-day JSON log excludes IP, forwarded
+  the read-only `cloud-auditor` role. The 24-month (731-day) JSON log excludes IP, forwarded
   address, user-agent, referrer, cookie, query string, raw path, and request ID; its
   viewer-request field is one bounded operational class. The script returns aggregate
   volume, statuses, bytes, cache outcomes, timing, and grouped edge errors only. It is

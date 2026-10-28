@@ -410,10 +410,10 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("retains privacy-minimized CloudFront access logs for two weeks", () => {
+  void it("retains privacy-minimized CloudFront access logs for 24 months", () => {
     assert.match(
       template,
-      /LogGroupName: \/elixir-drop\/web-access[\s\S]*?RetentionInDays: 14/,
+      /LogGroupName: \/elixir-drop\/web-access[\s\S]*?RetentionInDays: 731/,
     );
     assert.match(template, /Type: AWS::Logs::DeliverySource/);
     assert.match(template, /LogType: ACCESS_LOGS/);

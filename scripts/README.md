@@ -40,7 +40,7 @@ lock in their fail-closed envelope as `production_lock_held`.
 ## Web activity
 
 CloudFront standard logging v2 writes privacy-minimized JSON access logs to
-`/elixir-drop/web-access` for 14 days. The records omit IP addresses, forwarded
+`/elixir-drop/web-access` for 24 months (731 days). The records omit IP addresses, forwarded
 addresses, user agents, referrers, cookies, query strings, raw URI paths, and request
 IDs. The viewer-request function supplies only a bounded request class such as
 `web-home`, `web-page-games`, `web-asset`, `web-card-art`, or `api`.
@@ -54,7 +54,7 @@ AWS_PROFILE=cloud-auditor AWS_REGION=us-east-1 \
 ```
 
 The script verifies the exact assumed role, delivery source/destination, JSON format,
-and 14-day retention before running bounded Logs Insights queries. It emits only
+and 731-day retention before running bounded Logs Insights queries. It emits only
 aggregate request counts, response bytes, status codes, safe request classes, cache
 outcomes, TTFB, and grouped edge errors. Use `--hours 168` only for a trend or incident.
 This is operational request evidence, not a visitor, player, acquisition, or retention
