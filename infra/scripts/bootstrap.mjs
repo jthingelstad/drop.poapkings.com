@@ -268,6 +268,14 @@ async function ensureRole(
               `arn:aws:s3:::${shareBucketName}/*`,
             ],
           },
+          // The distribution uses the account's shared web ACL (the
+          // projects-sysadmin edge-waf stack); CloudFront reads it as the
+          // caller whenever the distribution is updated.
+          {
+            Effect: "Allow",
+            Action: ["wafv2:GetWebACL"],
+            Resource: `arn:aws:wafv2:us-east-1:${accountId}:global/webacl/edge/*`,
+          },
           {
             Effect: "Allow",
             Action: [
