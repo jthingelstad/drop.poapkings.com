@@ -108,8 +108,14 @@ Supercell card update. It runs only on the managed host.
 Modes:
 
 - `--dry-run` prints the changelog and writes nothing.
-- `--write` writes the snapshot and art and skips git.
-- With no flag it commits and pushes the branch it is on.
+- `--write` writes the snapshot, art, `SPEC.md` snapshot lines and sitemap
+  dates, and skips git.
+- With no flag it does the same, then commits and pushes the branch it is on.
+- `--dotenv <path>` reads the token from that file instead of the checkout's
+  `.env`, so a throwaway worktree needs no copy of it. (`--env-file` is Node's
+  own flag.)
+- `--exit-code` exits 2 when files changed and 0 when the snapshot is current,
+  which it then leaves untouched. Every write prints one `changed_files=` line.
 
 `main` takes only pull requests. Run `--write` in a session worktree and land
 the result as a pull request; its merge deploys the web.
