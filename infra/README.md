@@ -26,7 +26,12 @@ as one CloudFormation stack:
   queues the season clock job through its own send-only role, so a season
   finalizes without a visitor, a `WarClockSaved` metric from the worker's
   `war-clock.saved` log line, and the `elixir-drop-prod-war-clock-stale` alarm
-  on it; and
+  on it;
+- a daily EventBridge Scheduler run (`elixir-drop-prod-run-analysis`, 11:15 UTC)
+  that invokes the run-analysis Lambda directly. Its role may only Scan the
+  table, projected to an attribute allowlist, and write the
+  `/elixir-drop/run-analysis` log group (`docs/FAIR-PLAY.md`, "Run analysis");
+  and
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
@@ -222,7 +227,8 @@ environment) grants the execution role `wafv2:GetWebACL` on that one web ACL.
 
 The HTTP deployment ZIP contains bundled `index.js` and its package metadata.
 A separate content-addressed event ZIP contains `refresh-worker.cjs`,
-`cr-results.cjs`, and the CloudFormation origin-policy provider. The provider
+`cr-results.cjs`, `run-analysis-job.cjs`, and the CloudFormation origin-policy
+provider. The provider
 owns policy create/update/delete because the native policy resource schema does
 not yet admit Web Function ARNs; it has no application secrets or data access. The stack provisions a separate refresh FIFO
 queue, DLQ, worker role and Lambda. API requests may send work; only the worker

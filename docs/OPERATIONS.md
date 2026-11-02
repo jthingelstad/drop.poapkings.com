@@ -233,6 +233,12 @@ and visibility rubric. Apply it exactly.
 - Both writers take the production lock.
 - The Control Room's referee view runs these same scripts.
 
+**Run analysis.** A daily job (`elixir-drop-prod-run-analysis`, 11:15 UTC)
+logs distributions and statistically unusual runs to `/elixir-drop/run-analysis`
+for the Drop dashboard. It decides nothing. Its rules, its line shapes and how
+to investigate a flag are in [`docs/FAIR-PLAY.md`](FAIR-PLAY.md), "Run analysis":
+look up the logged `#D…` tag with `referee-run`.
+
 **Identity.** Run them as `AWS_PROFILE=referee-read AWS_REGION=us-east-1`.
 
 - Every entrypoint verifies with `sts:GetCallerIdentity` that the caller is an

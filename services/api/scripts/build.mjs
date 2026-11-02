@@ -23,7 +23,11 @@ export async function buildApi(outdir = resolve(serviceRoot, "dist")) {
   });
   await build({
     ...shared,
-    entryPoints: ["src/refresh-worker.ts", "src/cr-results.ts"],
+    entryPoints: [
+      "src/refresh-worker.ts",
+      "src/cr-results.ts",
+      "src/run-analysis-job.ts",
+    ],
     outdir,
     outExtension: { ".js": ".cjs" },
   });

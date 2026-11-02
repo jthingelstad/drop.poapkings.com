@@ -1142,6 +1142,19 @@ the normalized unverified `playerTag`, a `schemaVersion`, and an `expiresAt` TTL
 all-time entries (the referee rubric handles this); lengthen the TTL
 (`EVIDENCE_TTL_SECONDS`) for deeper all-time review.
 
+**Daily run analysis.** The `elixir-drop-prod-run-analysis` Lambda
+(`services/api/src/run-analysis-job.ts`, rules in the pure `run-analysis.ts`)
+runs once a day at 11:15 UTC from EventBridge Scheduler. Its role may only Scan
+the base table, projected to an IAM attribute allowlist (`pk`, `sk`, `runId`,
+`mode`, `seasonId`, `runType`, `reviewSignals`, `timing`, `score`,
+`completedAt`, `boardEpoch`, `correlation`, `transcript`). That allowlist leaves
+out email, names, CR tags and the owning `sub`. The Lambda holds no secret,
+queue or hub credential. It joins `EVIDENCE#` items to their `RUN#` history rows
+for the board epoch. It logs per-mode, per-epoch distributions and the
+current-board runs far outside them to `/elixir-drop/run-analysis`, by `#D…`
+tag only. It writes nothing. Rules and line shapes: `docs/FAIR-PLAY.md`, "Run
+analysis".
+
 **What a player sees.** The overlay is not invisible. `referee-status.ts` is the
 single classifier the public board and the owner's run log both read, so the two
 cannot disagree about one run, and its hidden branch fails closed. The vocabulary

@@ -87,6 +87,7 @@ execFileSync(
 const bundlePaths = [
   "refresh-worker.cjs",
   "cr-results.cjs",
+  "run-analysis-job.cjs",
   "web-policy.cjs",
 ].map((name) => resolve(repoRoot, "services/api/dist", name));
 const bundles = await Promise.all(bundlePaths.map((path) => readFile(path)));
