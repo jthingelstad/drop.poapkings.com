@@ -1,0 +1,58 @@
+name: Dependabot auto-merge
+
+# Arms auto-merge on a Dependabot pull request whose update is a minor or a
+# patch (Jamie, 2026-11-02: "Drop dependency updates auto-merge on green
+# except majors"). The `validate` check and the main ruleset still decide
+# the merge; this only queues it. A major, or anything fetch-metadata cannot
+# classify, is left for a person.
+#
+# `pull_request`, never `pull_request_target`: a Dependabot-triggered run
+# gets a read-only token, which the job's `permissions` raises to the two
+# write scopes auto-merge needs. Nothing here checks out or runs the pull
+# request's code; the job runs a pinned action and the gh CLI only
+# (scripts/test-workflows.sh enforces both). For a grouped update,
+# fetch-metadata reports the highest semver change in the group, so one
+# major member keeps the whole group out.
+#
+# A merge made through auto-merge armed with GITHUB_TOKEN raises no push
+# event, so Validate Main and Build and Deploy do not run for that merge
+# commit; the next merge to main validates and deploys the cumulative
+# change (CONTRIBUTING.md, "Dependency updates").
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  arm:
+    name: Arm auto-merge for minor and patch updates
+    if: >-
+      github.repository == 'jthingelstad/drop.poapkings.com' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Read the update type
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Arm auto-merge
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --rebase --delete-branch "$PR_URL"
+
+      - name: Leave it for a person
+        if: >-
+          steps.metadata.outputs.update-type != 'version-update:semver-minor' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-patch'
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: echo "::notice::Not armed. Update type '${UPDATE_TYPE:-unknown}' needs a person."
