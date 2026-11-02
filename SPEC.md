@@ -520,9 +520,13 @@ reconnect fallback. Feature records also carry one validated material-impact cat
 editorial notification bar lives in `AGENTS.md`: player-visible alone is not enough,
 and one card represents one material player outcome rather than a commit or polish
 detail.
-Routine, source-backed current leaders and Cleared final game results publish
-in the API stream as season commentary (`docs/OPERATIONS.md`); awarding any prize or
-broad communication remains a manual Jamie decision.
+Season posts are automatic, two a season: when the war-clock job finalizes a
+season it freezes each ranked game's public #1 into a `SEASON_POSTS/SEASON#{n}`
+record, then publishes the closed season's final results and the new season's
+opening bell in-process, from fixed templates, under deterministic ids
+(`season-{n}-final-results`, `season-{n}-opening-bell`), retrying hourly until
+each lands (`docs/OPERATIONS.md`, "Seasons"). There is no weekly standings post.
+Awarding any prize or broad communication remains a manual Jamie decision.
 The Updates CLI and Control Room send a dedicated bearer token from the fixed host's
 mode-0600 `.env` directly to the API, so routine publication requires no AWS
 profile or interactive login.

@@ -15,6 +15,7 @@ import {
 } from "./badges.js";
 import { isGameMode } from "./games.js";
 import type { Repository, StoredBadgeCounters } from "./repository.js";
+import { recordSeasonPosts } from "./season-posts.js";
 import type { GameMode } from "./types.js";
 import { settleBadgeXp } from "./xp-awards.js";
 
@@ -244,7 +245,7 @@ export async function finalizePodiumBadges(
 
 export async function finalizePreviousSeasonIfNeeded(
   repository: Repository,
-  incoming: { crSeasonId: number; observedAt: string },
+  incoming: { crSeasonId: number; observedAt: string; seasonEndsAt?: string },
 ): Promise<PodiumFinalizationSummary | undefined> {
   const current = await repository.getCrWarClock();
   if (
@@ -253,6 +254,17 @@ export async function finalizePreviousSeasonIfNeeded(
     Date.parse(incoming.observedAt) <= Date.parse(current.observedAt)
   )
     return undefined;
+  // Freeze the closing boards for the two season posts before anything else,
+  // so the record (created once) shows the boards as they stood at the close.
+  // Publishing happens later and never blocks the clock.
+  await recordSeasonPosts(repository, {
+    closedSeasonId: current.crSeasonId,
+    openingSeasonId: incoming.crSeasonId,
+    closedAt: new Date(incoming.observedAt).toISOString(),
+    ...(incoming.seasonEndsAt
+      ? { openingSeasonEndsAt: incoming.seasonEndsAt }
+      : {}),
+  });
   return finalizePodiumBadges(repository, {
     seasonId: current.crSeasonId,
     finalizedAt: incoming.observedAt,

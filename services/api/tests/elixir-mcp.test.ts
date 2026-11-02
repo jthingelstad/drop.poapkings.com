@@ -175,6 +175,8 @@ describe("a season rollover still closes the previous season", () => {
         calls.push({ seasonId: 134 });
         return [];
       },
+      leaderboard: async () => [],
+      createSeasonPosts: async () => true,
     } as never;
 
     // A newer clock carrying a NEW season closes the old one.

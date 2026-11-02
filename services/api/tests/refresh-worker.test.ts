@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   getCrWarClock: vi.fn(),
   saveCrWarClock: vi.fn(),
   getProfile: vi.fn(),
+  seasonPosts: vi.fn(),
+}));
+vi.mock("../src/season-posts.js", () => ({
+  publishPendingSeasonPosts: mocks.seasonPosts,
 }));
 vi.mock("../src/elixir-war-clock.js", () => ({
   fetchWarClockFromHub: mocks.clock,
@@ -85,6 +89,34 @@ describe("durable refresh worker", () => {
     expect(mocks.finalize.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.saveCrWarClock.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("publishes owed season posts after the clock is saved", async () => {
+    mocks.clock.mockResolvedValue({ crSeasonId: 139 });
+    await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
+    expect(mocks.seasonPosts).toHaveBeenCalledWith(repo);
+    expect(mocks.saveCrWarClock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.seasonPosts.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("retries owed season posts on every clock job, even a coalesced one", async () => {
+    mocks.getCrWarClock.mockResolvedValue({
+      observedAt: new Date().toISOString(),
+    });
+    await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
+    expect(mocks.clock).not.toHaveBeenCalled();
+    expect(mocks.seasonPosts).toHaveBeenCalledTimes(1);
+  });
+
+  it("still tries owed season posts when finalization fails, and keeps the failure", async () => {
+    mocks.clock.mockResolvedValue({ crSeasonId: 139 });
+    mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(
+      processRefreshJob({ version: 1, type: "war-clock" }, config, repo),
+    ).rejects.toThrow("database unavailable");
+    expect(mocks.seasonPosts).toHaveBeenCalledTimes(1);
+    expect(mocks.saveCrWarClock).not.toHaveBeenCalled();
   });
 
   it("logs one saved-clock line for the staleness metric", async () => {

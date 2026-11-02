@@ -226,10 +226,11 @@ production run. A successful exact-head validation triggers
   changes fairness, saved progress, eligibility, player data, or a fact the game
   teaches. One card represents one player outcome, not one commit; related details
   fold into the strongest qualifying card instead of producing sequels. Silence is
-  the default. Routine, source-backed standings and Cleared final game results
-  publish in the Updates API as season commentary (`docs/OPERATIONS.md`,
-  "Seasons"). Awarding a prize, other player messages, and broad
-  communication retain the normal Jamie authority.
+  the default. Season posts are automatic, two a season: the API publishes an
+  opening bell and a final-results post naming each game's #1 at the close,
+  from fixed templates, when it finalizes the season (`docs/OPERATIONS.md`,
+  "Seasons"). There is no weekly standings post. Awarding a prize, other
+  player messages, and broad communication retain the normal Jamie authority.
   Elixir's mailing list may occasionally summarize them for people who do not
   log in, but it is not the source of truth.
   Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
@@ -720,9 +721,10 @@ passes the notification bar in `CLAUDE.md` publishes through the Updates API wit
 an impact category, one concise subject, and one Markdown paragraph.
 Player-visible is not sufficient, and related commits produce one card rather than a
 changelog sequence. Feature, season, and message kinds remain distinct in the one
-API stream. Season commentary may publish source-backed current leaders
-and Cleared final game results; awarding any prize or sending broad
-communication still requires Jamie's authority.
+API stream. Season posts are automatic, two a season (an opening bell and
+final results, from templates, at finalization); nobody posts season
+standings by hand, and there is no weekly standings post. Awarding any prize
+or sending broad communication still requires Jamie's authority.
 Silence is the default. There are no named releases.
 
 ## Landing changes

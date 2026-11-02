@@ -81,6 +81,13 @@ emphasis, strong text, inline code, and safe links, and is callable only through
 the dedicated fixed-host bearer token. Repeating identical copy under the same
 id is idempotent; changed copy conflicts instead of rewriting history.
 
+Season posts are the one automatic writer (`src/season-posts.ts`). Season
+finalization creates one `SEASON_POSTS/SEASON#{n}` record holding each ranked
+game's public #1 at the close (first write wins), and every war-clock job then
+publishes what it still owes through the same `publishUpdate` path: final
+results, then the next season's opening bell, under deterministic ids. A failed
+post stays owed and retries on the next hourly job; it never touches the clock.
+
 Sign in with Elixir is the only way into an account (SPEC.md "Sign in with
 Elixir" owns the flow and the identity pointer). The Elixir callback mints a
 15-minute, single-use, never-mailed sign-in link (`MAGIC#`, `source: "elixir"`,

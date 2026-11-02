@@ -5,6 +5,7 @@ import { loadRuntimeSecrets } from "./runtime-secrets.js";
 import { fetchWarClockFromHub } from "./elixir-war-clock.js";
 import { finalizePreviousSeasonIfNeeded } from "./podium.js";
 import { Repository } from "./repository.js";
+import { publishPendingSeasonPosts } from "./season-posts.js";
 import type { RefreshJob } from "./refresh-jobs.js";
 import { measure, withTimings } from "./timings.js";
 
@@ -35,6 +36,28 @@ function parseJob(body: string): RefreshJob {
   throw new Error("Invalid refresh job");
 }
 
+async function advanceWarClock(
+  config: RefreshConfig,
+  repository: Repository,
+): Promise<void> {
+  const stored = await repository.getCrWarClock();
+  if (stored && Date.now() - Date.parse(stored.observedAt) < 5 * 60_000) return;
+  const incoming = await fetchWarClockFromHub(config);
+  // The queue serializes clock jobs. On timeout/failure, the old clock remains
+  // until the idempotent awards finish on retry. Never lose the transition.
+  const finalized = await measure("season.finalize", () =>
+    finalizePreviousSeasonIfNeeded(repository, incoming),
+  );
+  await repository.saveCrWarClock(incoming);
+  // One line per saved clock. The hourly schedule (infra WarClockSchedule)
+  // makes these steady, so a metric filter can tell a stalled clock apart.
+  console.info({
+    event: "war-clock.saved",
+    crSeasonId: incoming.crSeasonId,
+    ...(finalized ? { finalizedSeasonId: finalized.seasonId } : {}),
+  });
+}
+
 export async function processRefreshJob(
   job: RefreshJob,
   config: RefreshConfig,
@@ -42,23 +65,16 @@ export async function processRefreshJob(
 ): Promise<void> {
   if (job.type === "war-clock") {
     if (!config.elixirMcpKey) return;
-    const stored = await repository.getCrWarClock();
-    if (stored && Date.now() - Date.parse(stored.observedAt) < 5 * 60_000)
-      return;
-    const incoming = await fetchWarClockFromHub(config);
-    // The queue serializes clock jobs. On timeout/failure, the old clock remains
-    // until the idempotent awards finish on retry. Never lose the transition.
-    const finalized = await measure("season.finalize", () =>
-      finalizePreviousSeasonIfNeeded(repository, incoming),
-    );
-    await repository.saveCrWarClock(incoming);
-    // One line per saved clock. The hourly schedule (infra WarClockSchedule)
-    // makes these steady, so a metric filter can tell a stalled clock apart.
-    console.info({
-      event: "war-clock.saved",
-      crSeasonId: incoming.crSeasonId,
-      ...(finalized ? { finalizedSeasonId: finalized.seasonId } : {}),
-    });
+    try {
+      await advanceWarClock(config, repository);
+    } finally {
+      // Owed season posts publish after every clock job, whatever the clock
+      // did, so a failed post retries on the next hourly run. This never
+      // throws, and nothing it does can undo finalization or the saved clock.
+      await measure("season.posts", () =>
+        publishPendingSeasonPosts(repository),
+      );
+    }
     return;
   }
 
