@@ -337,10 +337,11 @@ Resources:
           Projection:
             ProjectionType: ALL
         # Sparse tag-cluster index: only tagged PROFILE items carry GSI2 keys
-        # (GSI2PK = "TAGGED", GSI2SK = "{normalizedPlayerTag}#{playerId}"), so
-        # referee-tags can group accounts by tag without a table scan. A single
-        # "TAGGED" partition is fine at beta scale. Projects only the
-        # pseudonymous playerId — never sub or email.
+        # (GSI2PK = "TAGGED", GSI2SK = "{normalizedPlayerTag}#{playerId}").
+        # A single "TAGGED" partition is fine at beta scale. Projects only the
+        # pseudonymous playerId — never sub or email. Its referee reader
+        # (referee-tags) retired 2026-11-02 and the referee role no longer
+        # queries it; the API still maintains the keys.
         - IndexName: GSI2
           KeySchema:
             - AttributeName: GSI2PK
@@ -626,17 +627,16 @@ Resources:
                       - PLAYER#*
                       - REFEREE#*
                       - CR_WAR_CLOCK
-              # Index reads: the GSI1 leaderboard partitions and the sparse GSI2
-              # tag clusters (playerId-only projection). dynamodb:LeadingKeys
-              # cannot bound these — an index query keys on the index's own
-              # partition key, not the table's — so the bound is the resource
-              # itself: GSI3 (the public profile lookup) and any index added
-              # later are not granted.
+              # Index reads: the GSI1 leaderboard partitions only.
+              # dynamodb:LeadingKeys cannot bound these — an index query keys on
+              # the index's own partition key, not the table's — so the bound is
+              # the resource itself: GSI2 (the sparse tag index, whose one referee
+              # reader, referee-tags, retired 2026-11-02), GSI3 (the public
+              # profile lookup) and any index added later are not granted.
               - Effect: Allow
                 Action: dynamodb:Query
                 Resource:
                   - !Sub "${DataTable.Arn}/index/GSI1"
-                  - !Sub "${DataTable.Arn}/index/GSI2"
               # Scan cannot be partition-bounded: it returns items regardless of
               # the leading key, so DynamoDB does not evaluate
               # dynamodb:LeadingKeys for it. Four referee reads need it (runId ->

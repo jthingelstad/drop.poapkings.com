@@ -5,11 +5,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  buildSeasonBrief,
-  parseArgs as parseSeasonBriefArgs,
-  RANKED_MODES as RANKED_MODE_FIXTURES,
-} from "./season-brief.mjs";
-import {
   createVerifiedDocumentClient,
   REFEREE_ROLE_NAME,
 } from "./_referee-lib.mjs";
@@ -127,11 +122,7 @@ void test("player Updates CLI lists publicly and uses a bearer token to publish"
 });
 
 void test("operator tooling lives in scripts/ and the Fair Play policy keeps its contract", () => {
-  for (const script of [
-    "season-brief.mjs",
-    "production-lock.mjs",
-    "worktree-setup.sh",
-  ]) {
+  for (const script of ["production-lock.mjs", "worktree-setup.sh"]) {
     assert.notEqual(
       statSync(path.join(ROOT, "scripts", script)).mode & 0o111,
       0,
@@ -183,93 +174,17 @@ void test("operator tooling lives in scripts/ and the Fair Play policy keeps its
   assert.match(fairPlayPolicy, /one player-visible\s+status is `Excluded`/);
   assert.doesNotMatch(fairPlayPolicy, /`Awaiting`|`Cleared`|provisionally/);
   assert.doesNotMatch(fairPlayPolicy, /🔎|✅|🚫|`Pending`|`Reviewed`/);
-});
-
-void test("season brief contains all five public boards and strips identity fields", async () => {
-  assert.deepEqual(RANKED_MODE_FIXTURES, [
-    "surge",
-    "higher-lower",
-    "trade",
-    "survival",
-    "rain",
-  ]);
-  const season = {
-    id: 136,
-    startsAt: "2026-09-07T09:00:00.000Z",
-    endsAt: "2026-10-05T09:00:00.000Z",
-    durationWeeks: 4,
-  };
-  const fetchImpl = async (input) => {
-    const url = new URL(input);
-    if (url.pathname === "/seasons") {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ current: season, upcoming: [] }),
-      };
-    }
-    const mode = url.searchParams.get("mode");
-    assert.ok(RANKED_MODE_FIXTURES.includes(mode));
-    assert.equal(url.searchParams.get("season"), String(season.id));
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        mode,
-        scope: "season",
-        seasonId: season.id,
-        entries: [
-          {
-            rank: 1,
-            score: mode === "surge" ? 12.345 : 21,
-            achievedAt: "2026-09-10T12:00:00.000Z",
-            // A field an older API sent; the brief carries no review status.
-            reviewStatus: mode === "rain" ? "pending" : "reviewed",
-            player: {
-              id: `private-${mode}`,
-              publicName: `${mode} leader`,
-              playerTag: "#PRIVATE",
-              email: "private@example.test",
-            },
-          },
-        ],
-      }),
-    };
-  };
-
-  const brief = await buildSeasonBrief({
-    apiBaseUrl: "https://drop.example.test",
-    fetchImpl,
-    now: new Date("2026-09-10T13:00:00.000Z"),
-  });
-  assert.equal(brief.status, "ok");
-  assert.equal("freePassMode" in brief, false);
-  assert.equal(brief.season.phase, "active");
-  assert.deepEqual(
-    brief.boards.map((board) => board.mode),
-    RANKED_MODE_FIXTURES,
-  );
-  for (const board of brief.boards) {
-    assert.equal("reviewStatus" in board.leader, false);
-    assert.equal("provisional" in board.leader, false);
-    assert.equal("finalEligible" in board.leader, false);
-  }
-  const serialized = JSON.stringify(brief);
-  assert.doesNotMatch(
-    serialized,
-    /private-|#PRIVATE|private@example|playerTag/,
-  );
-});
-
-void test("season brief needs no Free Pass mode and refuses the retired flag", () => {
-  assert.deepEqual(parseSeasonBriefArgs([]), {});
-  assert.deepEqual(parseSeasonBriefArgs(["--season", "137"]), {
-    seasonId: 137,
-  });
-  assert.throws(
-    () => parseSeasonBriefArgs(["--free-pass-mode", "rain"]),
-    /unknown argument "--free-pass-mode"/,
-  );
+  // Routine review retired 2026-11-02: a flag is investigated by hand with the
+  // run, player and decide scripts, with no coverage cohort or watermark.
+  assert.doesNotMatch(fairPlayPolicy, /watermark|cohort|top 25/i);
+  assert.match(fairPlayPolicy, /## Investigating a flag by hand/);
+  assert.match(fairPlayPolicy, /drop@poapkings\.com/);
+  for (const retired of ["season-brief.mjs", "referee-tags.mjs"])
+    assert.equal(
+      existsSync(path.join(ROOT, "scripts", retired)),
+      false,
+      retired,
+    );
 });
 
 void test("player updates pass one material-impact notification bar", () => {

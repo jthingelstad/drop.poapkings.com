@@ -697,10 +697,11 @@ void describe("deployment parameters", () => {
       /- dynamodb:GetItem\s+- dynamodb:BatchGetItem\s+- dynamodb:Query\s+Resource: !GetAtt DataTable\.Arn\s+Condition:\s+ForAllValues:StringLike:\s+dynamodb:LeadingKeys:\s+- PLAYER#\*\s+- REFEREE#\*\s+- CR_WAR_CLOCK/,
     );
 
-    // Index reads name the two indexes the scripts query. The public-profile
-    // GSI3 and any future index are not granted.
+    // Index reads name the one index the scripts query. The tag index GSI2
+    // (its reader retired 2026-11-02), the public-profile GSI3 and any future
+    // index are not granted.
     assert.match(refereeRole, /index\/GSI1/);
-    assert.match(refereeRole, /index\/GSI2/);
+    assert.doesNotMatch(refereeRole, /index\/GSI2/);
     assert.doesNotMatch(refereeRole, /index\/GSI3/);
     // The one remaining wildcard is the Deny below, never an Allow.
     assert.doesNotMatch(

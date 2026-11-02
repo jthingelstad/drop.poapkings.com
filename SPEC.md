@@ -1099,11 +1099,11 @@ workspace READMEs.
 
 ## 11. Referee Evidence And Retention
 
-Drop durably persists **referee-grade evidence** so Fair Play review
-(`docs/OPERATIONS.md`, `docs/FAIR-PLAY.md`) can review leaderboard integrity
-against exact server-side facts and make reversible run-visibility decisions.
-The agent owns its judgment; Drop stores the audited decision overlay and
-reconciles it into public leaderboards.
+Drop durably persists **referee-grade evidence** so the daily run analysis can
+check runs statistically and a person can investigate a flagged run by hand
+(`docs/FAIR-PLAY.md`, `docs/OPERATIONS.md`) against exact server-side facts and
+make a reversible run-visibility decision. The person owns the judgment; Drop
+stores the audited decision overlay and reconciles it into public leaderboards.
 
 **What is captured.** On `/runs/complete`, best-effort (never failing or rolling
 back a recorded run), one evidence item is written for:
@@ -1179,15 +1179,20 @@ source"_ **without Drop storing the actual IP or user-agent**.
 
 ### Referee surface
 
-The referee operates via purpose-built `scripts/referee-*.mjs`
-(documented in `scripts/README.md`), run under the bounded
+A hand investigation reads a flagged run with `scripts/referee-run.mjs` and the
+player's pseudonymous history with `referee-player.mjs`, and records a removal
+or restore with `referee-decide.mjs`; `referee-ranked-access.mjs` is the
+separate Jamie-approved player overlay, and `referee-players.mjs` feeds the
+Control Room directory. These, over `_referee-lib.mjs`, are the only sanctioned
+referee read and decision path (`scripts/README.md`, which also names the three
+routine-review reads kept until the Otto Ops job that uses them retires). They
+run under the bounded
 `RefereeReadRole` (physical name retained for compatibility). It can read the
 game table and write only `REFEREE#` decision partitions; it cannot edit runs,
 scores, evidence, players, XP, or leaderboard rows and has no secret access. A sparse
 `GSI2` (`GSI2PK="TAGGED"`, `GSI2SK="{normalizedPlayerTag}#{playerId}"` on tagged
-PROFILE items) indexes tags saved through the current API. Referee tag clustering
-reads current PLAYER profiles with only `playerId` and `playerTag` projected,
-so legacy profiles missing index membership remain covered. `runId` on the all-time item
+PROFILE items) indexes tags saved through the current API; since `referee-tags`
+retired on 2026-11-02 the referee role is not granted it. `runId` on the all-time item
 resolves an all-time board entry to its earning run. The scripts sanitize on the
 way out (pseudonymous `playerId`, opaque hashes, normalized tag — never `sub`,
 email, a raw IP, or the pepper) and **fail closed** on missing or incomplete

@@ -181,17 +181,6 @@ winner. Every finished run ranks and wears no seal. Only a run a person removed
 after a hand investigation (Excluded) leaves a board, and no read withholds a
 run, `seasonPodiumFinishers` included.
 
-**Season brief.** Build one sanitized public snapshot of all five boards:
-
-```sh
-node scripts/season-brief.mjs
-node scripts/season-brief.mjs --season 135
-```
-
-It calls only the public `/seasons` and `/leaderboards` routes and strips
-player ids, tags, and profile fields. It has no AWS, referee, account, or write
-access. Its default endpoint comes from `apps/web/public/api-config.json`.
-
 **Season posts are automatic, two a season** (Jamie, 2026-11-02). No agent or
 operator writes them, and there is no weekly standings post.
 
@@ -214,30 +203,34 @@ operator writes them, and there is no weekly standings post.
 - The first automatic posts are the Season 138 close on 2026-12-07. Seasons
   that closed before this shipped have no record and get no backfill.
 
-`season-brief.mjs` is still the sanitized way to read all five boards; it no
-longer feeds a post.
-
 ## Fair Play
 
 **Policy.** [`docs/FAIR-PLAY.md`](FAIR-PLAY.md) is the evidence, disposition,
 and visibility rubric. Apply it exactly.
 
-**Tooling.** The `scripts/referee-*.mjs` scripts and `_referee-lib.mjs` are the
-**only** sanctioned referee data and decision path. Their reference is
+**How a problem surfaces.** Drop checks runs statistically; there is no
+routine review. A daily job (`elixir-drop-prod-run-analysis`, 11:15 UTC) logs
+distributions and statistically unusual runs, by `#D…` tag, to
+`/elixir-drop/run-analysis` for the Drop product dashboard. It decides nothing.
+A person investigates a flag by hand. The rules, the line shapes and the
+investigation steps are in [`docs/FAIR-PLAY.md`](FAIR-PLAY.md), "Run analysis"
+and "Investigating a flag by hand".
+
+**Tooling.** These scripts, over `_referee-lib.mjs`, are the **only** sanctioned
+referee read and decision path. Their reference is
 [`scripts/README.md`](../scripts/README.md).
 
-- `referee-cohort`, `referee-run`, `referee-player`, `referee-players`,
-  `referee-tags`, `referee-feed`, and `referee-decisions` read.
-- `referee-decide` writes a run decision.
-- `referee-ranked-access` writes the player-level overlay.
+- `referee-run` reads a flagged run's evidence.
+- `referee-player` reads that player's history and progression, pseudonymously.
+- `referee-decide` records a removal (`hidden`) or a restore (`visible`).
+- `referee-ranked-access` writes the player-level overlay, only with Jamie's
+  explicit approval.
 - Both writers take the production lock.
-- The Control Room's referee view runs these same scripts.
-
-**Run analysis.** A daily job (`elixir-drop-prod-run-analysis`, 11:15 UTC)
-logs distributions and statistically unusual runs to `/elixir-drop/run-analysis`
-for the Drop dashboard. It decides nothing. Its rules, its line shapes and how
-to investigate a flag are in [`docs/FAIR-PLAY.md`](FAIR-PLAY.md), "Run analysis":
-look up the logged `#D…` tag with `referee-run`.
+- The Control Room runs these same scripts, plus `referee-players` for its
+  player directory.
+- `referee-cohort`, `referee-feed` and `referee-decisions` remain only until the
+  Otto Ops `flag-new-drop-entrants` job and its monthly decision check retire
+  (about 2026-11-10). They are not part of a hand investigation; retire them then.
 
 **Identity.** Run them as `AWS_PROFILE=referee-read AWS_REGION=us-east-1`.
 
@@ -261,20 +254,6 @@ look up the logged `#D…` tag with `referee-run`.
 - Output carries only the pseudonymous `playerId`, opaque correlation hashes, a
   coarse `uaFamily`, and the unverified `playerTag`. Player-tag reuse is a
   signal, not proof.
-
-**Coverage.**
-
-1. Look first at runs whose evidence carries automatic review signals
-   (`reviewSignals`). A signal is a reason to look, not a hold. Older automatic
-   holds (`decidedBy: "integrity-gate"`) need no decision: the boards ignore
-   them.
-2. Enumerate the current-season and all-time top 25 for every ranked mode.
-3. Deduplicate earning run IDs across scopes and resolve each entry to its
-   exact earning run.
-4. Give every previously unreviewed top result a decision, even the quiet
-   `clear`/`visible` one.
-5. Advance the watermark only after full coverage, and use evidence digests so
-   unchanged evidence is not re-judged.
 
 **Rules.**
 
