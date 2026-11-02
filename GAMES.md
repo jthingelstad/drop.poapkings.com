@@ -90,15 +90,14 @@ aliases. Space repeats from a summary or activates a safe retry; it is inert
 during a live question. Escape focuses quit, and only a second press abandons.
 The `?` help sheet and on-key labels own discoverability.
 
-## Seasonal competition — the Free Pass
+## Seasonal competition
 
-One ranked game is explicitly designated for the prize each season. **Rain is
-the Season 136 game; Higher / Lower is explicitly next for Season 137; Surge was
-the Season 135 game.** A later game must be named here before its season; do not
-infer a cycle or repeat the previous designation.
-For the current Rain competition, the player ranked first on its seasonal
-leaderboard at season end is the candidate for a Clash Royale season pass. Three
-standing consequences apply to whichever game is designated:
+Every ranked game has a seasonal board, and Drop names no prize game. The Free
+Pass Challenge (a gifted Pass Royale for one designated game's season leader,
+Surge in Season 135 and Rain in Season 136) was a marketing promotion, retired
+2026-11-02 (Jamie). Season standings, Player XP and top-20 placement XP were
+never part of it and stay. Three standing consequences apply to every ranked
+board:
 
 - **The board does not certify itself.** An automatic integrity flag
   (`automaticReviewReason` / `underReview`) is a review _signal_, never a
@@ -107,9 +106,9 @@ standing consequences apply to whichever game is designated:
   (`services/api/src/repository.ts`), but the run **still ranks**: the board
   reads `services/api/src/referee-status.ts`, where a pending decision ranks
   provisionally and only `excluded` removes a row. The run scores, records,
-  earns XP, keeps its place, and wears the Awaiting seal while it waits. The
-  standing must be referee-reviewed before the pass is awarded; that obligation
-  is in `docs/OPERATIONS.md` ("Seasons" and "Fair Play").
+  earns XP, keeps its place, and wears the Awaiting seal while it waits. How
+  commentary and review treat a held run is in `docs/OPERATIONS.md` ("Seasons"
+  and "Fair Play").
 - **A strict new season or all-time leader goes to the referee, and ranks while
   it waits.** The completion is recorded, retains XP and history, and takes its
   real placement provisionally under the Awaiting seal. The one read that still
@@ -119,18 +118,13 @@ standing consequences apply to whichever game is designated:
   does not make an honest run look mechanically fast.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
   means more attempts yield a better best. That is accepted on purpose:
-  grinding the designated game _is_ drilling elixir costs, which is the whole
+  grinding a ranked game _is_ drilling elixir costs, which is the whole
   product. Do not cap ranked attempts or move the board to recent-form ranking
   to "fix" it.
 
-The recipient is picked manually at season end from the designated game's
-Cleared winning run. There is no automated snapshot or award pipeline, and one
-should not be built without a fresh product decision. Season commentary may report
-the public race and prepare the result, but Jamie approves the recipient and
-prize communication. The announced mode, eligibility, tie-break, seven-day
-response window, and gift-only prize terms live on the stable POAP KINGS Free
-Pass rules page; the in-game hero links there rather than duplicating the full
-rules.
+Season commentary may report the public race. Awarding any prize or broad
+communication needs Jamie; there is no automated award pipeline, and one should
+not be built without a fresh product decision.
 
 ---
 

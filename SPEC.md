@@ -521,8 +521,8 @@ editorial notification bar lives in `AGENTS.md`: player-visible alone is not eno
 and one card represents one material player outcome rather than a commit or polish
 detail.
 Routine, source-backed current leaders and Cleared final game results publish
-in the API stream as season commentary (`docs/OPERATIONS.md`); the Free Pass recipient and award remain a manual Jamie
-decision. The Free Pass game rotates by explicit season designation in `GAMES.md`.
+in the API stream as season commentary (`docs/OPERATIONS.md`); awarding any prize or
+broad communication remains a manual Jamie decision.
 The Updates CLI and Control Room send a dedicated bearer token from the fixed host's
 mode-0600 `.env` directly to the API, so routine publication requires no AWS
 profile or interactive login.
@@ -702,7 +702,7 @@ the player's current clan placement, but uses the URL-free text
 uses Markdown plus the same permanent owner profile URL above, prepared through
 `POST /me/share`, so its landing can retain 30-day Recruiter attribution. A
 profile-publish failure never falls back to an unattributed generic URL. The
-selected board drives the message independently of the current Free Pass mode.
+selected board drives the message.
 
 Drop's retired Buttondown newsletter (to 2026-10-12) used the separate generic
 `/share/{playerTag}/invite` address, and those links remain readable. `{playerTag}` is the same immutable public

@@ -132,7 +132,6 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(inviteDialog.getByLabel('Clan Chat message preview')).toHaveText(
     "I'm #4 in Survival (best: 24 streak). Beat me on our Drop ladder: DROP . POAPKINGS . COM"
   )
-  await expect(inviteDialog).not.toContainText('Free Pass')
   await inviteDialog.getByRole('button', { name: 'Copy for Clan Chat' }).click()
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __clanInviteMessage?: string }).__clanInviteMessage))

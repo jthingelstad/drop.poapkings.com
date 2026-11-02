@@ -267,7 +267,7 @@ it("lists and immediately publishes Updates through the dedicated CLI", async ()
             kind: "season",
             publishedAt: "2026-10-05T10:00:00Z",
             title: "Season 137 opens",
-            body: "Higher / Lower carries the Free Pass.",
+            body: "Higher / Lower leads the season.",
           },
         },
   );
@@ -296,7 +296,7 @@ it("lists and immediately publishes Updates through the dedicated CLI", async ()
     body: JSON.stringify({
       kind: "season",
       title: "Season 137 opens",
-      body: "Higher / Lower carries the Free Pass.",
+      body: "Higher / Lower leads the season.",
     }),
   });
   expect(response.status).toBe(200);
@@ -307,7 +307,7 @@ it("lists and immediately publishes Updates through the dedicated CLI", async ()
     "--title",
     "Season 137 opens",
     "--body",
-    "Higher / Lower carries the Free Pass.",
+    "Higher / Lower leads the season.",
   ]);
 });
 

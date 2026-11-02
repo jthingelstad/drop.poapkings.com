@@ -11,23 +11,20 @@ import ShareAction from '../../components/ShareAction'
 import { player } from '../../lib/account'
 import { navigate } from '../../lib/router'
 import { tapFxFrom } from '../../lib/tap-fx'
-import { GAME_BY_MODE, scoreLabel } from '../../lib/game-metadata'
+import { scoreLabel } from '../../lib/game-metadata'
 import { canPlayOffline, offline } from '../../lib/api-availability'
 import { isReducedMotionEnabled } from '../../lib/motion'
 import { prepareProfileShare } from '../../lib/share-profile'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
-import { seasonEndsLabel, seasonPillLabel, type HomeData } from './home-data'
+import { seasonPillLabel, type HomeData } from './home-data'
 
-const HERO_SLIDE_COUNT = 3
+const HERO_SLIDES = ['Featured game', 'Share Elixir Drop'] as const
+const HERO_SLIDE_COUNT = HERO_SLIDES.length
 const HERO_ROTATION_MS = 10_000
-const FREE_PASS_MODE = 'rain' as const
-const FREE_PASS_GAME = GAME_BY_MODE.get(FREE_PASS_MODE)!
 
 // The season pill names the season and its clock — "Season 135 · 6d 04h" — and
-// hours are never dropped, because they are what matters on the last day. The
-// Free Pass slide keeps the sentence form: its pill already leads with "Free
-// Pass", so the season cannot also lead there.
+// hours are never dropped, because they are what matters on the last day.
 export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame }) {
   const offlinePlay = offline.value && canPlayOffline(game.mode)
   const offlineDescriptionId = `featured-${game.mode}-offline-description`
@@ -82,44 +79,6 @@ export function FeaturedHero({ data, game }: { data: HomeData; game: HomeGame })
           <span class="ed-hero__result-item">
             Rank <strong>{rankText}</strong>
           </span>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function FreePassHero({ data }: { data: HomeData }) {
-  return (
-    <section class="ed-hero ed-hero--pass">
-      <div class="ed-hero__body">
-        <span class="ed-pill ed-pill--season">Free Pass · {seasonEndsLabel(data.season)}</span>
-        <ModeIcon mode={FREE_PASS_MODE} size={72} className="ed-hero__art" />
-        <div class="ed-hero__wordmark ed-hero__wordmark--pass">WIN A PASS</div>
-        <p class="ed-hero__desc">
-          Finish #1 in {FREE_PASS_GAME.name} when the Clan Wars season ends and win a gifted Pass Royale.
-        </p>
-        {/* Two controls share this row, so the primary keeps the standard large
-            size rather than the featured hero's full-width one. */}
-        <div class="ed-hero__cta ed-hero__cta--split">
-          <button
-            class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-            onClick={(event) => {
-              tapFxFrom(event)
-              track('campaign.opened', FREE_PASS_MODE)
-              navigate(FREE_PASS_GAME.path)
-            }}
-          >
-            <span class="tap-face">
-              <Icon name="play" /> PLAY
-            </span>
-          </button>
-          <a
-            class="ed-btn ed-btn--ghost ed-btn--lg"
-            href="https://poapkings.com/elixir-drop/free-pass/"
-            data-tinylytics-event="campaign.rules_opened"
-          >
-            RULES
-          </a>
         </div>
       </div>
     </section>
@@ -238,7 +197,7 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
           class="ed-hero-carousel__slide"
           role="group"
           aria-roledescription="slide"
-          aria-label="1 of 3"
+          aria-label={`1 of ${HERO_SLIDE_COUNT}`}
           aria-hidden={active !== 0}
           inert={active !== 0}
         >
@@ -248,19 +207,9 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
           class="ed-hero-carousel__slide"
           role="group"
           aria-roledescription="slide"
-          aria-label="2 of 3"
+          aria-label={`2 of ${HERO_SLIDE_COUNT}`}
           aria-hidden={active !== 1}
           inert={active !== 1}
-        >
-          <FreePassHero data={data} />
-        </div>
-        <div
-          class="ed-hero-carousel__slide"
-          role="group"
-          aria-roledescription="slide"
-          aria-label="3 of 3"
-          aria-hidden={active !== 2}
-          inert={active !== 2}
         >
           <ShareHero signedIn={Boolean(me)} />
         </div>
@@ -268,7 +217,7 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
       {/* Dots only. The chevrons existed to frame a bordered card; the panel is
           full-bleed now, and the track already swipes. */}
       <div class="ed-hero-carousel__dots" aria-label="Choose a hero slide">
-        {['Featured game', 'Free Pass challenge', 'Share Elixir Drop'].map((label, index) => (
+        {HERO_SLIDES.map((label, index) => (
           <button
             type="button"
             class={index === active ? 'is-active' : undefined}

@@ -180,7 +180,7 @@ test('Practice has one direct entry on desktop and mobile', async ({ page }) => 
   await expect(page.locator('.ed-game__mode')).toHaveText('Practice', { timeout: 12_000 })
 })
 
-test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@deploy' }, async ({ page }) => {
+test('the hero carousel features a game and sharing Drop, and no Free Pass', { tag: '@deploy' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
@@ -195,7 +195,16 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
   await expect(page.locator('.ed-home')).toBeVisible()
   const track = page.locator('.ed-hero-carousel__track')
   const slides = track.locator('.ed-hero-carousel__slide')
-  await expect(slides).toHaveCount(3)
+  // The Free Pass challenge was retired 2026-11-02: two slides, no pass slide,
+  // no dot for it, and no prize copy anywhere in the carousel.
+  await expect(slides).toHaveCount(2)
+  await expect(page.locator('.ed-hero--pass')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Free Pass challenge' })).toHaveCount(0)
+  await expect(page.locator('.ed-hero-carousel__dots button')).toHaveCount(2)
+  const carousel = page.locator('.ed-hero-carousel')
+  await expect(carousel).not.toContainText('Free Pass')
+  await expect(carousel).not.toContainText('WIN A PASS')
+  await expect(carousel).not.toContainText('Pass Royale')
   const featuredHeight = await slides
     .first()
     .locator('.ed-hero')
@@ -204,35 +213,9 @@ test('the hero carousel promotes the pass challenge and sharing Drop', { tag: '@
     .locator('.ed-more__head')
     .first()
     .evaluate((element) => element.getBoundingClientRect().top)
-  await page.getByRole('button', { name: 'Free Pass challenge' }).click()
-  await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
-  const pass = page.locator('.ed-hero--pass')
-  await expect(pass.locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
-  await expect(pass).toContainText('Finish #1 in Rain')
-  await expect(pass.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible()
-  await expect(pass).not.toContainText('PLAY RAIN')
-  await expect(pass.locator('.ed-hero-podium')).toHaveCount(0)
-  await expect(pass).not.toContainText('Provisional until Fair Play review')
-  expect(await pass.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
-  expect(
-    await page
-      .locator('.ed-more__head')
-      .first()
-      .evaluate((element) => element.getBoundingClientRect().top)
-  ).toBe(gamesTop)
-  await expect(pass.getByRole('link', { name: 'RULES' })).toHaveAttribute(
-    'href',
-    'https://poapkings.com/elixir-drop/free-pass/'
-  )
-
-  await pass.getByRole('button', { name: 'PLAY', exact: true }).click()
-  await expect(page).toHaveURL(/#\/rain$/)
-  await expect(page.locator('.ed-game__mode')).toHaveText('Rain')
-
-  await page.goto('/')
 
   await page.getByRole('button', { name: 'Share Elixir Drop' }).click()
-  await expect(slides.nth(2)).toHaveAttribute('aria-hidden', 'false')
+  await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
   const share = page.locator('.ed-hero--share')
   expect(await share.evaluate((element) => element.getBoundingClientRect().height)).toBe(featuredHeight)
   expect(
@@ -285,7 +268,7 @@ test('the hero carousel is a finger-tracking horizontal scroll surface', async (
       scrollSnapType: styles.scrollSnapType
     }
   })
-  expect(geometry.scrollWidth).toBe(geometry.clientWidth * 3)
+  expect(geometry.scrollWidth).toBe(geometry.clientWidth * 2)
   expect(geometry.overflowX).toBe('auto')
   expect(geometry.scrollSnapType).toBe('x mandatory')
 
@@ -304,7 +287,7 @@ test('the hero carousel is a finger-tracking horizontal scroll surface', async (
 
   await track.evaluate((element) => element.scrollTo({ left: element.clientWidth, behavior: 'auto' }))
   await expect(slides.nth(1)).toHaveAttribute('aria-hidden', 'false')
-  await expect(slides.nth(1).locator('.ed-hero__wordmark')).toHaveText('WIN A PASS')
+  await expect(slides.nth(1).locator('.ed-hero__wordmark')).toHaveText('BRING A FRIEND')
   expect(
     await page
       .locator('.ed-more__head')

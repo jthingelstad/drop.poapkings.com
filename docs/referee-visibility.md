@@ -60,6 +60,7 @@ actually unfair, and the bit is already on the wire.
 **2. The Free Pass promise is invisible.** `GAMES.md` requires the standing to be
 referee-reviewed before the pass is awarded. Today you are asked to take that on
 trust. Nothing on the board shows it happened.
+(The Free Pass was retired 2026-11-02.)
 
 **3. Nobody knows the boards are policed at all.** The only player-facing
 integrity copy in the whole app is one paragraph in `Privacy.tsx:61`, framed as a

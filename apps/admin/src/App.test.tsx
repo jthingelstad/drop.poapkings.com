@@ -66,7 +66,7 @@ function fixtureFetch() {
             kind: "season",
             publishedAt: "2026-09-08T12:00:00.000Z",
             title: "Season 136 opens",
-            body: "Rain carries the Free Pass.",
+            body: "Rain leads the season.",
           },
         ],
       });
@@ -316,7 +316,7 @@ it("lists and publishes an Update without a draft workflow", async () => {
     kind?.dispatchEvent(new Event("change", { bubbles: true }));
     if (title) title.value = "Season 137 opens";
     title?.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    if (body) body.value = "Higher / Lower carries the Free Pass.";
+    if (body) body.value = "Higher / Lower leads the season.";
     body?.dispatchEvent(new InputEvent("input", { bubbles: true }));
   });
   const publish = [...host.querySelectorAll("button")].find(
@@ -335,7 +335,7 @@ it("lists and publishes an Update without a draft workflow", async () => {
   expect(jsonRequestBody(call?.[1]?.body)).toEqual({
     kind: "season",
     title: "Season 137 opens",
-    body: "Higher / Lower carries the Free Pass.",
+    body: "Higher / Lower leads the season.",
   });
   void act(() => render(null, host));
 });
