@@ -495,24 +495,22 @@ void describe("deployment parameters", () => {
     );
 
     const p95Alarm = template.match(
-      /ApiLatencyP95Alarm:[\s\S]*?(?=\n  ApiLatencyP99Alarm:)/,
+      /ApiLatencyP95Alarm:[\s\S]*?(?=\n  DataTableThrottleAlarm:)/,
     )?.[0];
     assert.ok(p95Alarm);
     assert.match(
       p95Alarm,
       /five of fifteen one-minute windows[\s\S]*?ExtendedStatistic: p95[\s\S]*?Period: 60[\s\S]*?EvaluationPeriods: 15[\s\S]*?DatapointsToAlarm: 5[\s\S]*?Threshold: 1200/,
     );
-    assert.match(template, /AlarmName: elixir-drop-api-latency-p99/);
-    assert.match(template, /ExtendedStatistic: p99[\s\S]*?Threshold: 2000/);
-    assert.match(template, /AlarmName: elixir-drop-api-concurrency/);
-    assert.match(
-      template,
-      /MetricName: EndpointActiveEnvironments[\s\S]*?Threshold: 3/,
-    );
+    for (const retired of [
+      "elixir-drop-api-latency-p99",
+      "elixir-drop-api-concurrency",
+      "elixir-drop-dynamodb-system-errors",
+    ])
+      assert.ok(!template.includes(`AlarmName: ${retired}`));
     assert.match(template, /AlarmName: elixir-drop-dynamodb-throttles/);
     assert.match(template, /MetricName: ReadThrottleEvents/);
     assert.match(template, /MetricName: WriteThrottleEvents/);
-    assert.match(template, /AlarmName: elixir-drop-dynamodb-system-errors/);
     assert.match(template, /Expression: SUM\(METRICS\(\)\)/);
     assert.match(template, /AlarmName: elixir-drop-web-5xx-rate/);
     assert.match(
