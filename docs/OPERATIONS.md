@@ -152,6 +152,10 @@ identity), or verification fails.
 - The clock is Elixir's policy clock, `GET /api/v1/game/clock`, accepted only
   as `source: "policy"`, with season and day boundaries at 10:00 UTC.
 - Clock jobs finalize the old season before advancing the cache.
+- An EventBridge Scheduler run (`elixir-drop-war-clock`, hourly at :05 UTC)
+  queues a clock job, so a season closes at 10:05 UTC on the first Monday
+  without waiting for a visitor. Each saved clock logs `war-clock.saved`
+  (`ElixirDrop/Refresh` `WarClockSaved`).
 - The calendar fallback is outage behavior, not a second source.
 
 **Boards.** There are five ranked seasonal boards: Surge, Higher / Lower,

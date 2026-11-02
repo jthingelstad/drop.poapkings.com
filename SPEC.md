@@ -153,7 +153,8 @@ browsers never call Supercell directly.
 
 The runtime policy clock supplies the positive integer season ID plus fixed
 season/day boundaries at 10:00 UTC. The refresh worker finalizes the prior season
-before advancing the stored clock, and idempotent markers protect retries. The UI
+before advancing the stored clock, and idempotent markers protect retries. An
+hourly scheduled clock job (:05 UTC) means the finalize never waits for a visitor. The UI
 shows the season, current week, phase, and days left in the week. Cached values stay
 useful during integration outages; the verified Season 134 calendar anchor is the
 bounded fallback when no usable recorded clock remains.

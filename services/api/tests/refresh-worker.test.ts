@@ -87,6 +87,31 @@ describe("durable refresh worker", () => {
     );
   });
 
+  it("logs one saved-clock line for the staleness metric", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const incoming = { crSeasonId: 138, observedAt: new Date().toISOString() };
+    mocks.clock.mockResolvedValue(incoming);
+    mocks.finalize.mockResolvedValue({ seasonId: 137 });
+    await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
+    expect(info).toHaveBeenCalledWith({
+      event: "war-clock.saved",
+      crSeasonId: 138,
+      finalizedSeasonId: 137,
+    });
+    info.mockRestore();
+  });
+
+  it("logs no saved-clock line when the clock is not saved", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    mocks.clock.mockResolvedValue({ crSeasonId: 138 });
+    mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(
+      processRefreshJob({ version: 1, type: "war-clock" }, config, repo),
+    ).rejects.toThrow("database unavailable");
+    expect(info).not.toHaveBeenCalled();
+    info.mockRestore();
+  });
+
   it("retains the old clock and retries failed finalization without consuming later FIFO work", async () => {
     mocks.clock.mockResolvedValue({ crSeasonId: 136 });
     mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));

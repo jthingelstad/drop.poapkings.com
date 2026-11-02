@@ -42,8 +42,12 @@ deletion.)
 
 Public reads serve the stored Clan Wars clock, retaining the existing calendar
 fallback. When the clock is older than five minutes, reads enqueue refresh instead
-of waiting for MCP. FIFO deduplication coalesces requests for five minutes and
-serializes clock jobs. The worker finalizes the previous season before advancing
+of waiting for MCP. An hourly EventBridge Scheduler run (:05 UTC) queues the same
+clock job, so a season boundary is finalized without a visitor. FIFO
+deduplication (content-based; the API's explicit ids are the same body hash)
+coalesces requests for five minutes and serializes clock jobs. Each saved clock
+logs one `war-clock.saved` line with the season id (and the finalized season id
+on a rollover) for the `WarClockSaved` metric. The worker finalizes the previous season before advancing
 the stored clock; idempotent award markers protect retries after interruption.
 MCP requests have a three-second deadline, including response-body consumption.
 The refresh queue replaces the retired Supercell bridge path.

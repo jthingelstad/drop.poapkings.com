@@ -48,10 +48,17 @@ export async function processRefreshJob(
     const incoming = await fetchWarClockFromHub(config);
     // The queue serializes clock jobs. On timeout/failure, the old clock remains
     // until the idempotent awards finish on retry. Never lose the transition.
-    await measure("season.finalize", () =>
+    const finalized = await measure("season.finalize", () =>
       finalizePreviousSeasonIfNeeded(repository, incoming),
     );
     await repository.saveCrWarClock(incoming);
+    // One line per saved clock. The hourly schedule (infra WarClockSchedule)
+    // makes these steady, so a metric filter can tell a stalled clock apart.
+    console.info({
+      event: "war-clock.saved",
+      crSeasonId: incoming.crSeasonId,
+      ...(finalized ? { finalizedSeasonId: finalized.seasonId } : {}),
+    });
     return;
   }
 
