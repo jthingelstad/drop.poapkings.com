@@ -361,8 +361,11 @@ queue: nobody triages them (retired 2026-11-02).
   `investigating`, `resolved` or `dismissed` value they had, which nothing
   reads.
 
-**Mailed bug reports.** Reports mailed to `drop@poapkings.com` are a separate,
-read-only intake:
+**Mailed bug reports.** Jamie reads `drop@poapkings.com` himself, as ordinary
+mail, and nothing triages it on a schedule. Jamie, 2026-11-02: "Approved:
+Jamie reads drop@poapkings.com as ordinary mail with no scheduled triage;
+sessions use the read-only mail script only when Jamie hands them a message".
+A session runs the script only when Jamie hands it a message:
 
 ```sh
 node --env-file=.env scripts/mail-bug-reports.mjs --since 2026-08-01T00:00:00Z

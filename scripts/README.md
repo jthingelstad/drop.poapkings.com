@@ -83,7 +83,10 @@ diagnostics and labels player context as untrusted. It contains no
 player/account identity, email, token, raw request header, IP, user-agent, or
 transcript.
 
-User-submitted mail is a separate, read-only intake:
+User-submitted mail is a separate, read-only intake. Jamie reads
+`drop@poapkings.com` himself and nothing runs this on a schedule; a session
+runs it only when Jamie hands it a message (`docs/OPERATIONS.md`, "Player
+reports"):
 
 ```sh
 node --env-file=.env scripts/mail-bug-reports.mjs \
