@@ -11,6 +11,7 @@ import {
   parseModelCandidateIds,
   selectCandidateNames,
 } from "../src/names.js";
+import { withTimings } from "../src/timings.js";
 
 const send = vi.hoisted(() => vi.fn());
 
@@ -166,6 +167,29 @@ describe("safe player-name recipes", () => {
       input: { inferenceConfig: { maxTokens: number } };
     };
     expect(command.input.inferenceConfig.maxTokens).toBe(160);
+  });
+
+  it("names the model call in the request timing record", async () => {
+    send.mockResolvedValue({
+      output: { message: { content: [{ text: '{"ids":["c1"]}' }] } },
+    });
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const card = cards.find((candidate) => candidate.name === "Knight")!;
+      await withTimings("POST /me/name-options", () =>
+        generateNameOptions("test-model", card),
+      );
+      const entry = log.mock.calls.map((call) => call[0])[0];
+      expect(entry.operations).toEqual([
+        {
+          operation: "bedrock.converse",
+          calls: 1,
+          elapsedMs: expect.any(Number),
+        },
+      ]);
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("returns a complete safe set when model selection fails", async () => {

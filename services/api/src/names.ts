@@ -4,6 +4,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import type { FavoriteCard } from "./cards.js";
 import { CARD_NAME_FLAVORS } from "./name-flavors.js";
+import { measure } from "./timings.js";
 
 const DISALLOWED_WORDS = new Set([
   "admin",
@@ -309,22 +310,26 @@ export async function generateNameOptions(
   const candidates = candidateSlateForCard(card);
   let requestedIds: string[] = [];
   try {
-    const response = await client.send(
-      new ConverseCommand({
-        modelId,
-        inferenceConfig: { maxTokens: 160, temperature: 0.9 },
-        system: [
-          {
-            text: "You are the comedy editor for a cheerful Clash Royale practice game. Select only supplied candidate IDs. Never create or repeat visible name text.",
-          },
-        ],
-        messages: [
-          {
-            role: "user",
-            content: [{ text: nameSelectionPrompt(card, candidates, count) }],
-          },
-        ],
-      }),
+    // The model call is nearly all of this route's time (issue #95), so the
+    // request's timing record names it beside the rate-limit write.
+    const response = await measure("bedrock.converse", () =>
+      client.send(
+        new ConverseCommand({
+          modelId,
+          inferenceConfig: { maxTokens: 160, temperature: 0.9 },
+          system: [
+            {
+              text: "You are the comedy editor for a cheerful Clash Royale practice game. Select only supplied candidate IDs. Never create or repeat visible name text.",
+            },
+          ],
+          messages: [
+            {
+              role: "user",
+              content: [{ text: nameSelectionPrompt(card, candidates, count) }],
+            },
+          ],
+        }),
+      ),
     );
     const text =
       response.output?.message?.content

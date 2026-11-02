@@ -53,7 +53,8 @@ MCP requests have a three-second deadline, including response-body consumption.
 The refresh queue replaces the retired Supercell bridge path.
 
 `api.timings` structured logs record the route template, first-request flag,
-request elapsed time, and fixed operation labels for DynamoDB, MCP and queue work.
+request elapsed time, and fixed operation labels for DynamoDB, MCP, queue work and
+the name-selection model call (`bedrock.converse`).
 The worker also times metadata writes and season finalization. Operation times
 may overlap and must not be summed as request latency. No request arguments,
 identities, tokens or payloads are included. Web Function `platform.initReport` events provide initialization timing;
