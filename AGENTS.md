@@ -148,10 +148,12 @@ Every other doc points back here instead of keeping its own copy of this list.
   never writes to it. Deleting a Drop account unsubscribes nobody. A future
   send from the API would need Jamie, and the one-click headers elixir-mcp's
   relay enforces for its kinds (`docs/ENGINEERING.md` there).
-  `drop@poapkings.com` is the monitored administrative and general-contact
-  address for alarms, the delivery-canary recipient, privacy questions, and
-  Fair Play disputes; it is read (never sent) over Fastmail JMAP by
-  `scripts/mail-bug-reports.mjs`.
+  `drop@poapkings.com` is the administrative and general-contact address for
+  alarms, the delivery-canary recipient, privacy questions, and Fair Play
+  disputes. Jamie reads it himself as ordinary mail and nothing triages it on
+  a schedule; a session reads it (never sends) over Fastmail JMAP with the
+  read-only `scripts/mail-bug-reports.mjs` only when Jamie hands it a message
+  (`docs/OPERATIONS.md`, "Player reports").
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
   the managed host**. For local development, use the committed snapshot.
 

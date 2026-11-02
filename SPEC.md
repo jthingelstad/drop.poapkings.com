@@ -1091,9 +1091,11 @@ This Mac owns the allowlisted CR API token for the manual card refresher:
 - Failure reports are queried only through the assumed
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
   identity-free `RUN_REPORTS` partition. It can only `Query`; run-report
-  triage and its status writes were retired on 2026-11-02. `drop@poapkings.com` is reviewed through the read-only JMAP intake script; it excludes
-  historical delivery-canary messages and cannot send, move, delete, or mark
-  mail read.
+  triage and its status writes were retired on 2026-11-02.
+- `drop@poapkings.com` is Jamie's ordinary mail, with no scheduled triage; a
+  session reads it through the read-only JMAP intake script only when Jamie
+  hands it a message. The script excludes historical
+  delivery-canary messages and cannot send, move, delete, or mark mail read.
 - CloudFront request health is read through `scripts/web-activity.mjs` under
   the read-only `cloud-auditor` role. The 24-month (731-day) JSON log excludes IP, forwarded
   address, user-agent, referrer, cookie, query string, raw path, and request ID; its
