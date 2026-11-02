@@ -105,7 +105,8 @@ refreshes. They enqueue deduplicated FIFO work; `refresh-worker.ts` reads curren
 account state and refreshes the hub cache.
 The worker serializes season-clock changes and completes prior-season awards
 before saving an incoming clock. Enqueue failures preserve the cached response;
-accepted jobs have bounded retries, a DLQ and age alarms. No season/scoring rules
+accepted jobs have bounded retries, a DLQ and age alarms, and a stale-clock
+alarm fires when two whole UTC hours pass without a saved clock. No season/scoring rules
 change. (Until 2026-10-12 the worker also synchronized Drop's newsletter
 metadata and kept a digest in `PLAYER#{sub}/REFRESH#METADATA`; leftover digests
 are inert and go with account deletion.) Fixed-label

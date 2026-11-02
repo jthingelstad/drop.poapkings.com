@@ -38,6 +38,7 @@ pipeline that did not run or finish is a finding, not a routine manual handoff.
 - Event Function worker/repair errors, throttles, and duration.
 - DynamoDB throttling, TTL, and capacity.
 - The refresh dead-letter queue.
+- The season clock: `elixir-drop-prod-war-clock-stale` (see Seasons).
 - CloudFront health.
 
 Drop sends no mail and keeps no mailing list since 2026-10-12 (its SES sender
@@ -152,10 +153,26 @@ identity), or verification fails.
 - The clock is Elixir's policy clock, `GET /api/v1/game/clock`, accepted only
   as `source: "policy"`, with season and day boundaries at 10:00 UTC.
 - Clock jobs finalize the old season before advancing the cache.
-- An EventBridge Scheduler run (`elixir-drop-war-clock`, hourly at :05 UTC)
+- An EventBridge Scheduler run (`elixir-drop-prod-war-clock`, hourly at :05 UTC)
   queues a clock job, so a season closes at 10:05 UTC on the first Monday
   without waiting for a visitor. Each saved clock logs `war-clock.saved`
   (`ElixirDrop/Refresh` `WarClockSaved`).
+- The `elixir-drop-prod-war-clock-stale` alarm fires when two whole UTC clock
+  hours pass with no saved clock, so it mails `drop@poapkings.com` two to
+  three hours after the last save. It means the season clock has stopped
+  updating, and a season boundary would not close on time. Check, in order:
+  1. The schedule: `elixir-drop-prod-war-clock` is `ENABLED` and its role can
+     still send to the refresh queue.
+  2. The queue's dead letters: `elixir-drop-prod-refresh-dlq.fifo` holds
+     clock jobs that exhausted their retries (its alarm is
+     `elixir-drop-prod-refresh-dlq`).
+  3. The worker's errors: `/elixir-drop/refresh` for a thrown clock job or a
+     failing hub read (`GET /api/v1/game/clock`), and the worker's Lambda
+     errors.
+
+  It returns to OK on its own after a whole clock hour with a save. Never set
+  its state by hand to test it.
+
 - The calendar fallback is outage behavior, not a second source.
 
 **Boards.** There are five ranked seasonal boards: Surge, Higher / Lower,

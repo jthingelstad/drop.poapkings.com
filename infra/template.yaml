@@ -1132,6 +1132,30 @@ Resources:
           MetricValue: "1"
           Unit: Count
 
+  # The filter has no default value, so an hour without a save publishes
+  # nothing; missing hours count as breaching. A wall clock window evaluates
+  # exactly the last two whole UTC hours. A sliding window would reach further
+  # back for older real saves and delay the alarm by a few hours.
+  WarClockStaleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-war-clock-stale
+      AlarmDescription: No season clock saved in two whole clock hours - the hourly war-clock schedule or the refresh worker is not running.
+      Namespace: ElixirDrop/Refresh
+      MetricName: WarClockSaved
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      EvaluationWindow:
+        WallClockWindow:
+          Timezone: UTC
+      AlarmActions:
+        - !Ref AlarmTopic
+
   RefreshDeadLetterAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
