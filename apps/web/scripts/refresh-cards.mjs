@@ -10,6 +10,14 @@
 //   node scripts/refresh-cards.mjs --write   — fetch + write JSON, skip git operations
 //   node scripts/refresh-cards.mjs --dry-run — fetch + print changelog, no writes
 //
+// For an unattended caller (otto-ops refresh-drop-cards):
+//   --dotenv <path>   — read the token from that file instead of this checkout's .env
+//                       (not --env-file: Node takes that flag for itself),
+//                       so a throwaway worktree needs no copy of the secret file
+//   --exit-code       — exit 2 when files changed and 0 when the snapshot is current;
+//                       a current snapshot is then left untouched (no version-only rewrite)
+// Every write prints one `changed_files=` line naming each file it changed.
+//
 // NEVER call this from CI or the browser. The CR token is not in CI.
 
 import { access, readFile, writeFile, mkdir } from 'fs/promises'
@@ -35,10 +43,22 @@ const ICON_FALLBACKS = new Map([[26000107, 'https://cdn.royaleapi.com/static/img
 const args = process.argv.slice(2)
 const WRITE_ONLY = args.includes('--write')
 const DRY_RUN = args.includes('--dry-run')
+const EXIT_CODE = args.includes('--exit-code')
+const envFileAt = args.indexOf('--dotenv')
+const ENV_FILE = envFileAt === -1 ? undefined : args[envFileAt + 1]
+if (envFileAt !== -1 && (!ENV_FILE || ENV_FILE.startsWith('--'))) {
+  console.error('Error: --dotenv needs a path')
+  process.exit(1)
+}
 
 // ── Load .env ─────────────────────────────────────────────────────────────────
 
-const dotenv = await readFile(join(REPO_ROOT, '.env'), 'utf8').catch(() => '')
+const dotenv = ENV_FILE
+  ? await readFile(ENV_FILE, 'utf8').catch(() => {
+      console.error('Error: the --dotenv path cannot be read')
+      process.exit(1)
+    })
+  : await readFile(join(REPO_ROOT, '.env'), 'utf8').catch(() => '')
 for (const [key, val] of Object.entries(parseEnv(dotenv))) {
   if (!process.env[key]) process.env[key] = val
 }
@@ -283,6 +303,10 @@ if (existing) {
 
 if (existing && changelog.length === 0 && writtenImagePaths.size === 0) {
   console.log(`\nNo changes — cards.json is current (${existing.version}, ${existing.count} cards).`)
+  if (EXIT_CODE && !DRY_RUN) {
+    console.log('changed_files=')
+    process.exit(0)
+  }
   if (!DRY_RUN && !WRITE_ONLY) process.exit(0)
 }
 
@@ -303,21 +327,19 @@ if (DRY_RUN) {
 await writeFile(DATA_PATH, JSON.stringify(candidate, null, 2) + '\n')
 console.log(`\nWrote packages/game-data/cards.json (${candidate.count} cards, ${today})`)
 
-if (WRITE_ONLY) {
-  console.log('[--write] Skipping git operations.')
-  process.exit(0)
-}
-
-// ── Commit + push ─────────────────────────────────────────────────────────────
-
-const summary =
-  changelog.length > 0
-    ? changelog.slice(0, 3).join('; ') + (changelog.length > 3 ? ` (+${changelog.length - 3} more)` : '')
-    : existing
-      ? 'refresh mirrored card artwork'
-      : `initial snapshot: ${candidate.count} cards`
-
-const commitMsg = `data: refresh cards.json — ${summary}`
+// SPEC.md names the committed snapshot, and a tooling test holds the two together.
+const SPEC_PATH = join(REPO_ROOT, 'SPEC.md')
+const specStaged = await readFile(SPEC_PATH, 'utf8').then(
+  async (spec) => {
+    const next = spec
+      .replace(/^- `version`: `[^`]+`$/m, `- \`version\`: \`${candidate.version}\``)
+      .replace(/^- `count`: `[0-9]+`$/m, `- \`count\`: \`${candidate.count}\``)
+    if (next === spec) return []
+    await writeFile(SPEC_PATH, next)
+    return ['SPEC.md']
+  },
+  () => []
+)
 
 // The card reference page changed with the catalog: re-date it in the sitemap (scripts/sitemap.ts).
 const sitemapDates = join(WEB_ROOT, 'scripts/sitemap-dates.mjs')
@@ -331,9 +353,27 @@ const sitemapStaged = await access(sitemapDates).then(
 
 const stagedPaths = [
   'packages/game-data/cards.json',
+  ...specStaged,
   ...sitemapStaged,
   ...[...writtenImagePaths].map((path) => path.slice(REPO_ROOT.length + 1)).sort((a, b) => a.localeCompare(b))
 ]
+console.log(`changed_files=${stagedPaths.join(',')}`)
+
+if (WRITE_ONLY) {
+  console.log('[--write] Skipping git operations.')
+  process.exit(EXIT_CODE ? 2 : 0)
+}
+
+// ── Commit + push ─────────────────────────────────────────────────────────────
+
+const summary =
+  changelog.length > 0
+    ? changelog.slice(0, 3).join('; ') + (changelog.length > 3 ? ` (+${changelog.length - 3} more)` : '')
+    : existing
+      ? 'refresh mirrored card artwork'
+      : `initial snapshot: ${candidate.count} cards`
+
+const commitMsg = `data: refresh cards.json — ${summary}`
 
 execFileSync('git', ['add', '--', ...stagedPaths], { cwd: REPO_ROOT, stdio: 'inherit' })
 execFileSync('git', ['commit', '-m', commitMsg], { cwd: REPO_ROOT, stdio: 'inherit' })

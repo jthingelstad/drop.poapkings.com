@@ -287,6 +287,118 @@ describe('refresh cards', () => {
     expect(existsSync(join(root, 'apps/web/public/cards/26000043_evo.png'))).toBe(false)
   })
 
+  describe('an unattended run (--dotenv, --exit-code)', () => {
+    const knight = {
+      id: 26000000,
+      name: 'Knight',
+      elixir: 3,
+      rarity: 'common',
+      type: 'troop',
+      evo: false,
+      hero: false,
+      icon: '/cards/26000000.png'
+    }
+    const setUp = (elixirCost: number) => {
+      const root = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-'))
+      const secrets = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-env-'))
+      tempDirectories.push(root, secrets)
+      const scriptPath = join(root, 'apps/web/scripts/refresh-cards.mjs')
+      const cardsPath = join(root, 'packages/game-data/cards.json')
+      const specPath = join(root, 'SPEC.md')
+      const artPath = join(root, 'apps/web/public/cards/26000000.png')
+      mkdirSync(dirname(scriptPath), { recursive: true })
+      mkdirSync(dirname(cardsPath), { recursive: true })
+      mkdirSync(dirname(artPath), { recursive: true })
+      copyFileSync(join(process.cwd(), 'scripts/refresh-cards.mjs'), scriptPath)
+      // No .env in the checkout: the token comes only from the named file.
+      const envFile = join(secrets, '.env')
+      writeFileSync(envFile, 'CR_API_TOKEN="test-token"\nMIRROR_IMAGES="true"\n')
+      writeFileSync(cardsPath, JSON.stringify({ version: '2026-08-01', count: 1, cards: [knight] }))
+      writeFileSync(specPath, 'Current snapshot:\n\n- `version`: `2026-08-01`\n- `count`: `1`\n')
+      writeFileSync(artPath, new Uint8Array([1, 2, 3]))
+      const preload = `
+        const payload = ${JSON.stringify({
+          items: [
+            {
+              id: 26000000,
+              name: 'Knight',
+              elixirCost,
+              rarity: 'Common',
+              maxEvolutionLevel: 0,
+              iconUrls: { medium: 'https://example.test/knight.png' }
+            }
+          ],
+          supportItems: []
+        })};
+        globalThis.fetch = async (input) => {
+          const url = String(input);
+          if (url.endsWith('/cards')) {
+            return new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            });
+          }
+          if (url === 'https://example.test/knight.png') {
+            return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+          }
+          return new Response(null, { status: 404 });
+        };
+      `
+      const env = { ...process.env }
+      delete env.CR_API_TOKEN
+      delete env.CR_API_KEY
+      delete env.MIRROR_IMAGES
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          `data:text/javascript,${encodeURIComponent(preload)}`,
+          scriptPath,
+          '--write',
+          '--exit-code',
+          '--dotenv',
+          envFile
+        ],
+        { encoding: 'utf8', env }
+      )
+      return { result, cardsPath, specPath }
+    }
+
+    it('leaves a current snapshot untouched and exits 0', () => {
+      const { result, cardsPath, specPath } = setUp(3)
+      expect(result.status, result.stderr).toBe(0)
+      expect(result.stdout).toContain('No changes')
+      expect(result.stdout).toMatch(/^changed_files=$/m)
+      expect(JSON.parse(readFileSync(cardsPath, 'utf8')).version).toBe('2026-08-01')
+      expect(readFileSync(specPath, 'utf8')).toContain('- `version`: `2026-08-01`')
+    })
+
+    it('writes the snapshot and its SPEC lines, names them, and exits 2', () => {
+      const { result, cardsPath, specPath } = setUp(4)
+      expect(result.status, result.stderr).toBe(2)
+      expect(result.stdout).toContain('~ Changed: Knight elixir 3 → 4')
+      expect(result.stdout).toMatch(/^changed_files=packages\/game-data\/cards\.json,SPEC\.md$/m)
+      const written = JSON.parse(readFileSync(cardsPath, 'utf8'))
+      expect(written.cards[0].elixir).toBe(4)
+      expect(readFileSync(specPath, 'utf8')).toContain(`- \`version\`: \`${written.version}\``)
+    })
+
+    it('refuses an env file it cannot read', () => {
+      const root = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-'))
+      tempDirectories.push(root)
+      const scriptPath = join(root, 'apps/web/scripts/refresh-cards.mjs')
+      mkdirSync(dirname(scriptPath), { recursive: true })
+      copyFileSync(join(process.cwd(), 'scripts/refresh-cards.mjs'), scriptPath)
+      const env = { ...process.env, CR_API_TOKEN: 'from-the-environment' }
+      const result = spawnSync(process.execPath, [scriptPath, '--dry-run', '--dotenv', join(root, 'missing.env')], {
+        encoding: 'utf8',
+        env
+      })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('the --dotenv path cannot be read')
+    })
+  })
+
   it('vendors the published Minion Giant art while its API asset is unavailable', () => {
     const root = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-'))
     tempDirectories.push(root)
