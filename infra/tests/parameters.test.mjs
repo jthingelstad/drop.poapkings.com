@@ -485,6 +485,27 @@ void describe("deployment parameters", () => {
     );
   });
 
+  void it("alarms when two whole clock hours pass without a saved season clock", () => {
+    const staleAlarm = template.match(
+      /WarClockStaleAlarm:[\s\S]*?(?=\n  RefreshDeadLetterAlarm:)/,
+    )?.[0];
+    assert.ok(staleAlarm);
+    // The metric filter has no default value, so an hour without a save is
+    // missing data; it must breach. The wall clock window keeps CloudWatch from
+    // reaching back past the two hours for older real saves.
+    assert.match(
+      staleAlarm,
+      /AlarmName: !Sub \$\{AWS::StackName\}-war-clock-stale[\s\S]*?Namespace: ElixirDrop\/Refresh[\s\S]*?MetricName: WarClockSaved[\s\S]*?Statistic: Sum[\s\S]*?Period: 3600[\s\S]*?EvaluationPeriods: 2[\s\S]*?DatapointsToAlarm: 2[\s\S]*?Threshold: 1[\s\S]*?ComparisonOperator: LessThanThreshold[\s\S]*?TreatMissingData: breaching[\s\S]*?WallClockWindow:[\s\S]*?Timezone: UTC[\s\S]*?AlarmActions:\s*- !Ref AlarmTopic/,
+    );
+    assert.doesNotMatch(staleAlarm, /\u2014/);
+    assert.doesNotMatch(
+      template.match(
+        /WarClockSavedMetric:[\s\S]*?(?=\n  WarClockStaleAlarm:)/,
+      )?.[0] ?? "",
+      /DefaultValue/,
+    );
+  });
+
   void it("indexes public profile UUIDs without projecting email", () => {
     const publicProfileIndex = template.match(
       /- IndexName: GSI3[\s\S]*?(?=\n      PointInTimeRecoverySpecification:)/,

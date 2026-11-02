@@ -22,10 +22,11 @@ as one CloudFormation stack:
 - an encrypted FIFO refresh queue (content-based deduplication) with a
   dead-letter queue and worker Lambda, plus the retained season-repair queue,
   dead-letter queue, and consumer;
-- an hourly EventBridge Scheduler run (`elixir-drop-war-clock`, :05 UTC) that
+- an hourly EventBridge Scheduler run (`elixir-drop-prod-war-clock`, :05 UTC) that
   queues the season clock job through its own send-only role, so a season
-  finalizes without a visitor, and a `WarClockSaved` metric from the worker's
-  `war-clock.saved` log line; and
+  finalizes without a visitor, a `WarClockSaved` metric from the worker's
+  `war-clock.saved` log line, and the `elixir-drop-prod-war-clock-stale` alarm
+  on it; and
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
@@ -66,7 +67,13 @@ Drop account unsubscribes nobody from it. The bootstrap-owned execution role
 keeps its now-unused grant on the deleted `elixir-drop` configuration set until
 `npm run bootstrap:aws` next rewrites it.
 CloudWatch separately alarms on refresh queue age, refresh dead letters,
-season-repair consumer errors, and season-repair dead letters. The API, refresh
+season-repair consumer errors, season-repair dead letters, and a stale season
+clock. The clock alarm (`elixir-drop-prod-war-clock-stale`) fires when two
+whole UTC clock hours pass with no `WarClockSaved`: the hourly schedule or the
+refresh worker has stopped. It uses a wall clock window, so it reads exactly
+those two hours, and it treats an hour with no data as breaching, because the
+metric filter publishes nothing in an hour without a save. It reaches ALARM
+two to three hours after the last save. The API, refresh
 worker, and repair consumer write JSON logs to dedicated 30-day log groups.
 Operational alarms target `drop@poapkings.com` by default.
 
