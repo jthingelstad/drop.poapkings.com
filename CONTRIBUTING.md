@@ -111,6 +111,8 @@ interrupting a CloudFormation or CloudFront deployment:
   intentionally left out of the per-change gate. It is fork-safe.
 - **`dependabot-automerge.yml`** arms auto-merge on Dependabot's minor and
   patch pull requests ("Dependency updates" below).
+- **`main-catch-up.yml`** dispatches `Validate Main` hourly for a `main` head
+  that no push validated (a Dependabot auto-merge; "Dependency updates").
 
 The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
 infrastructure changes deploy and smoke the Lambda without rebuilding or
@@ -215,14 +217,17 @@ Two consequences:
   `gh pr update-branch`: Dependabot stops maintaining a branch that someone
   else has pushed to, and the workflow ignores pushes that are not
   Dependabot's.
-- **The merge does not deploy by itself.** GitHub attributes an auto-merge armed
-  with the workflow's `GITHUB_TOKEN` to that token, and events from that token
-  start no workflows. `Validate Main` and `Build and Deploy` therefore do not
-  run for a Dependabot merge commit. The next merge to `main` validates and
-  deploys the cumulative change since the last production head, or
-  `gh workflow run validate-main.yml --ref main` takes the full path now. A
-  GitHub App token stored as a Dependabot secret would close this gap; that is
-  a credential change for Jamie.
+- **The merge does not start a deploy, so a catch-up does.** GitHub attributes
+  an auto-merge armed with the workflow's `GITHUB_TOKEN` to that token, and
+  events from that token start no workflows, so no push event starts
+  `Validate Main` for a Dependabot merge commit. Once an hour
+  `.github/workflows/main-catch-up.yml` checks the head of `main`. If no
+  `Validate Main` run exists for it and it landed more than ten minutes ago,
+  it dispatches one; `workflow_dispatch` is the one event that token can
+  still start. That validation takes the full path and deploys on success
+  like any other. A merge to `main` in the meantime carries the change
+  sooner. A GitHub App token stored as a Dependabot secret would restore
+  the push trigger itself; that is a credential change for Jamie.
 
 If you do not have push access, the fork-and-pull-request path is the way in:
 

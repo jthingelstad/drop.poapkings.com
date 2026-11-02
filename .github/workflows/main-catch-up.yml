@@ -1,0 +1,47 @@
+name: Main catch-up
+
+# A merge made by an auto-merge that dependabot-automerge.yml armed with
+# GITHUB_TOKEN raises no push event, so Validate Main (and the deploy that
+# follows it) never starts for that commit. Once an hour this looks at the
+# head of main: if no Validate Main run exists for it and it landed more than
+# ten minutes ago, it dispatches one. A dispatch takes the full path and
+# deploys on success like any validation (workflow_dispatch is the one
+# GITHUB_TOKEN event that still starts a workflow). It reads and dispatches
+# only; it checks out nothing.
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: main-catch-up
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Validate an unvalidated main head
+    if: github.repository == 'jthingelstad/drop.poapkings.com'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch Validate Main when the head has no run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+          landed=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${head}" --jq .commit.committer.date)
+          runs=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/validate-main.yml/runs" -f head_sha="${head}" --jq .total_count)
+          age=$(( $(date -u +%s) - $(date -u -d "${landed}" +%s) ))
+          echo "main ${head} landed ${landed} (${age}s ago); Validate Main runs: ${runs}"
+          if [ "${runs}" -gt 0 ] || [ "${age}" -lt 600 ]; then
+            echo "Nothing to catch up."
+            exit 0
+          fi
+          gh workflow run validate-main.yml --repo "${GITHUB_REPOSITORY}" --ref main
+          echo "::notice::Dispatched Validate Main for ${head}, which had no run."
