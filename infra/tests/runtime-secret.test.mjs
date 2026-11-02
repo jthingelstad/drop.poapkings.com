@@ -40,6 +40,8 @@ void describe("runtime secret (infra/README.md, Runtime secret)", () => {
       "RunReportsRole",
       "DropControlRole",
       "LeaderboardMaintenanceRole",
+      "RunAnalysisRole",
+      "RunAnalysisScheduleRole",
     ]) {
       const text = resource(role);
       assert.ok(text, `${role} exists`);

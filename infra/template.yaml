@@ -1156,6 +1156,129 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
+  # The daily run analysis (docs/FAIR-PLAY.md, "Run analysis"). It reads the
+  # retained Fair Play evidence and run history, logs distributions and the
+  # runs far outside them for the Grafana Drop dashboard, and decides nothing.
+  # Its role can only Scan the base table, projected to the attributes the
+  # rules read: no email, name, CR tag, owning sub, write, queue, or secret.
+  RunAnalysisLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /elixir-drop/run-analysis
+      RetentionInDays: 30
+
+  RunAnalysisRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-run-analysis-lambda
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: run-analysis-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt RunAnalysisLogGroup.Arn
+              # Mirrors ANALYSIS_ATTRIBUTES in services/api/src/run-analysis-job.ts.
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - runId
+                      - mode
+                      - seasonId
+                      - runType
+                      - reviewSignals
+                      - timing
+                      - score
+                      - completedAt
+                      - boardEpoch
+                      - correlation
+                      - transcript
+
+  RunAnalysisFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-run-analysis
+      Description: Daily statistical analysis of ranked run evidence for the Drop dashboard
+      Architectures:
+        - arm64
+      Runtime: nodejs24.x
+      Handler: run-analysis-job.runAnalysisHandler
+      Role: !GetAtt RunAnalysisRole.Arn
+      MemorySize: 512
+      Timeout: 300
+      ReservedConcurrentExecutions: 1
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RunAnalysisLogGroup
+        SystemLogLevel: INFO
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+
+  RunAnalysisScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-run-analysis-schedule
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-run-analysis
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt RunAnalysisFunction.Arn
+
+  # 11:15 UTC (05:15 US Central standard time): quiet, and after the 10:00 UTC
+  # season boundary. It only reads and logs, so a retry or rerun is harmless.
+  RunAnalysisSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-run-analysis
+      Description: Daily run analysis of retained Fair Play evidence for the Drop dashboard
+      ScheduleExpression: cron(15 11 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      State: ENABLED
+      Target:
+        Arn: !GetAtt RunAnalysisFunction.Arn
+        RoleArn: !GetAtt RunAnalysisScheduleRole.Arn
+        Input: '{"version":1,"type":"run-analysis"}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+
   RefreshDeadLetterAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:

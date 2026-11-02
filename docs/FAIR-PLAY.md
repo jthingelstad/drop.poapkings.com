@@ -180,3 +180,53 @@ stored case, canonical evidence, or a threshold to obtain a preferred result.
 Use probabilistic, technical language in private rationale: “behavior consistent with
 automation,” not “bot”; “linked-account pattern,” not “fake players.” Never turn an
 inference into a public accusation.
+
+## Run analysis
+
+A daily statistical pass over the retained evidence replaces scheduled referee
+review as the way a problem surfaces. The `elixir-drop-prod-run-analysis` Lambda
+runs at 11:15 UTC. It reads every scored ranked run's sanitized evidence and the
+run history, and builds score and first-read distributions for each mode and
+board epoch. It then logs the current-board runs that fall far outside them.
+It decides nothing: it writes no `REFEREE#` decision and changes no run, score,
+board or player. A flag is a prompt for a hand investigation, never a verdict.
+Retired boards inform their own distributions but are never flagged.
+
+The rules live in `services/api/src/run-analysis.ts`, a pure, unit-tested
+module. Every threshold there is a named constant, and `ANALYSIS_VERSION`
+changes whenever a rule changes meaning. "Robust z" is (value - median) / (MAD x
+1.4826) over the run's mode and epoch. It needs at least 20 comparable runs.
+Read times and timed scores are compared on a log scale. A first read is the
+time from a round's prompt to its first input, taken only from `observed-v2`
+timing, and a timing rule needs at least 8 of them.
+
+- `subhuman_reads`: at least a quarter of the run's first reads came in under
+  150 ms, faster than a person can choose.
+- `mechanical_cadence`: the run's read spread (median absolute deviation) is
+  under 10 ms, or 4 robust z below the population's spread.
+- `elite_speed_and_score`: the score is 3 robust z better than the board while
+  the median read is 3 robust z faster, both at once.
+- `abrupt_jump`: the run beats the same account's best of at least 3 earlier
+  runs on that board by 2.5 population score scales.
+- `automatic_signal`: the scorer or integrity check attached a review signal
+  (leader-position signals are left out: they say where a run placed, not how
+  it was played).
+- `untrusted_input`: at least one input event was not a trusted browser event.
+- `shared_device`: the run's peppered connection-and-device pair also appears
+  on another account's ranked runs (one flag per account, mode and board, on
+  its best such run).
+
+**Output.** JSON lines in the `/elixir-drop/run-analysis` log group (30 days),
+read with Logs Insights for the Drop product dashboard. Each run writes one
+`run-analysis.distribution` line per mode and epoch and one `run-analysis.flag`
+line per flagged run. The `run-analysis.summary` line comes last. A flag line
+carries only the run's `#D…` tag, mode, board epoch, season, score, and the
+rules that fired with their measures. It never carries a name, CR tag, player
+id, `sub`, email, hash or IP. Every run re-emits every current flag, so the
+newest `analysisRunAt` is the whole picture.
+
+**Investigating a flag.** Look up the logged tag with the read-only referee
+tools, quoting it because of the `#`:
+`AWS_PROFILE=referee-read AWS_REGION=us-east-1 node scripts/referee-run.mjs '#D…'`.
+Apply this rubric to what the evidence shows. Only a hand investigation can
+remove a run from the boards.
