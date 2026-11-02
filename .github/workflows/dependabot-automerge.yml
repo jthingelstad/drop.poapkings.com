@@ -15,9 +15,9 @@ name: Dependabot auto-merge
 # major member keeps the whole group out.
 #
 # A merge made through auto-merge armed with GITHUB_TOKEN raises no push
-# event, so Validate Main and Build and Deploy do not run for that merge
-# commit; the next merge to main validates and deploys the cumulative
-# change (CONTRIBUTING.md, "Dependency updates").
+# event, so Validate Main and Build and Deploy do not start for that merge
+# commit. main-catch-up.yml dispatches Validate Main for such a head within
+# the hour (CONTRIBUTING.md, "Dependency updates").
 on:
   pull_request:
 
